@@ -1,11 +1,9 @@
-from typing import cast
-
 import pandas as pd
 import yfinance as yf  # type: ignore[reportMissingTypeStubs]
 
 
 def fetch_ohlcv(symbol: str, *, interval: str, lookback: str) -> pd.DataFrame:
-    raw_data = yf.download(
+    raw_data = yf.download(  # type: ignore[reportUnknownMemberType]
         tickers=symbol,
         period=lookback,
         interval=interval,
@@ -15,7 +13,7 @@ def fetch_ohlcv(symbol: str, *, interval: str, lookback: str) -> pd.DataFrame:
     if raw_data is None:
         raise ValueError(f"No market data returned for {symbol}")
 
-    data = cast(pd.DataFrame, raw_data)
+    data: pd.DataFrame = raw_data
     if data.empty:
         raise ValueError(f"No market data returned for {symbol}")
 

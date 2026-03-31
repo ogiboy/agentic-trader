@@ -1,5 +1,5 @@
 import json
-from typing import Sequence
+from typing import Sequence, cast
 
 from rich.console import Console
 from rich.panel import Panel
@@ -8,7 +8,7 @@ from rich.table import Table
 
 from agentic_trader.config import Settings, get_settings
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import InvestmentPreferences
+from agentic_trader.schemas import InvestmentPreferences, RiskProfile, TradeStyle
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, run_service
@@ -109,8 +109,8 @@ def _configure_preferences(db: TradingDatabase) -> None:
         exchanges=_split_csv(exchanges) or current.exchanges,
         currencies=_split_csv(currencies) or current.currencies,
         sectors=_split_csv(sectors),
-        risk_profile=risk_profile,
-        trade_style=trade_style,
+        risk_profile=cast(RiskProfile, risk_profile),
+        trade_style=cast(TradeStyle, trade_style),
         notes=notes,
     )
     db.save_preferences(updated)

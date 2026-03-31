@@ -111,3 +111,10 @@ python main.py portfolio
 - Deterministic fallbacks are kept for diagnostics, not for silent trade generation in the main launcher.
 - The main menu is intended to become the long-running operator surface for preferences, logs, start/stop controls, and runtime visibility.
 - Live broker adapters can be added once the planning and portfolio pipeline behaves consistently.
+
+## Near-Term Direction
+
+- upgrade the control room into a richer terminal UI with live status, logs, and a built-in operator chat screen
+- let the operator choose curated investment presets, agent behavior profiles, and later model/provider options from the menu
+- deepen the agent graph with clearer specialist roles and manager agents that orchestrate the full cycle
+- keep the runtime daemon-capable so the TUI can attach to a long-running service instead of owning it directly

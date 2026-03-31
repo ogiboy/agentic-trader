@@ -1,6 +1,9 @@
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
+
+RiskProfile: TypeAlias = Literal["conservative", "balanced", "aggressive"]
+TradeStyle: TypeAlias = Literal["swing", "position", "intraday"]
 
 
 class LLMHealthStatus(BaseModel):
@@ -17,8 +20,8 @@ class InvestmentPreferences(BaseModel):
     exchanges: list[str] = Field(default_factory=lambda: ["NASDAQ", "NYSE"])
     currencies: list[str] = Field(default_factory=lambda: ["USD"])
     sectors: list[str] = Field(default_factory=list)
-    risk_profile: Literal["conservative", "balanced", "aggressive"] = "balanced"
-    trade_style: Literal["swing", "position", "intraday"] = "swing"
+    risk_profile: RiskProfile = "balanced"
+    trade_style: TradeStyle = "swing"
     notes: str = ""
 
 

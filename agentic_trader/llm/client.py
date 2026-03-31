@@ -1,6 +1,6 @@
 import json
 from textwrap import dedent
-from typing import TypeVar
+from typing import Any, TypeVar, cast
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -23,13 +23,18 @@ class LocalLLM:
         try:
             response = self.client.get(f"{self.base_url}/api/tags")
             response.raise_for_status()
-            payload = response.json()
-            models = payload.get("models", [])
-            available = {
-                item.get("name")
-                for item in models
-                if isinstance(item, dict) and isinstance(item.get("name"), str)
-            }
+            payload = cast(dict[str, Any], response.json())
+            models_obj: Any = payload.get("models", [])
+            models: list[dict[str, Any]] = []
+            if isinstance(models_obj, list):
+                for raw_item in cast(list[Any], models_obj):
+                    if isinstance(raw_item, dict):
+                        models.append(cast(dict[str, Any], raw_item))
+            available: set[str] = set()
+            for item in models:
+                name: Any = item.get("name")
+                if isinstance(name, str):
+                    available.add(name)
             model_available = self.settings.model_name in available
             message = (
                 "Ollama is reachable and the configured model is available."

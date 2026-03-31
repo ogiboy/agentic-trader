@@ -9,6 +9,7 @@ from rich.text import Text
 
 from agentic_trader.config import get_settings
 from agentic_trader.llm.client import LocalLLM
+from agentic_trader.schemas import RunArtifacts
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.tui import run_main_menu
 from agentic_trader.workflows.run_once import persist_run, run_once
@@ -22,8 +23,8 @@ def _render_health_panel(status: str, body: str, *, border_style: str) -> Panel:
     return Panel(body, title=status, border_style=border_style)
 
 
-def _render_execution_panels(order_id: str, artifacts) -> None:
-    fallback_components = artifacts.fallback_components()
+def _render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
+    fallback_components: list[str] = artifacts.fallback_components()
     summary = Table(title="Execution Summary")
     summary.add_column("Field")
     summary.add_column("Value")
