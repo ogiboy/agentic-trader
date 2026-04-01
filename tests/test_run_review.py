@@ -1,3 +1,7 @@
+from pathlib import Path
+
+from agentic_trader.cli import app
+from agentic_trader.config import Settings
 from agentic_trader.schemas import (
     ExecutionDecision,
     ManagerDecision,
@@ -9,43 +13,37 @@ from agentic_trader.schemas import (
     RunArtifacts,
     StrategyPlan,
 )
+from agentic_trader.workflows.run_once import persist_run
+from typer.testing import CliRunner
 
 
-def _snapshot() -> MarketSnapshot:
-    return MarketSnapshot(
-        symbol="TEST",
-        interval="1d",
-        last_close=100.0,
-        ema_20=101.0,
-        ema_50=99.0,
-        atr_14=2.0,
-        rsi_14=58.0,
-        volatility_20=0.2,
-        return_5=0.03,
-        return_20=0.09,
-        volume_ratio_20=1.2,
-        bars_analyzed=120,
-    )
-
-
-def test_run_artifacts_reports_fallback_components() -> None:
-    artifacts = RunArtifacts(
-        snapshot=_snapshot(),
+def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
+    return RunArtifacts(
+        snapshot=MarketSnapshot(
+            symbol=symbol,
+            interval="1d",
+            last_close=100.0,
+            ema_20=101.0,
+            ema_50=99.0,
+            atr_14=2.0,
+            rsi_14=55.0,
+            volatility_20=0.12,
+            return_5=0.02,
+            return_20=0.08,
+            volume_ratio_20=1.1,
+            bars_analyzed=120,
+        ),
         coordinator=ResearchCoordinatorBrief(
             market_focus="trend_following",
             priority_signals=["trend_alignment"],
             caution_flags=[],
             summary="Coordinator summary",
-            source="fallback",
-            fallback_reason="Test fallback",
         ),
         regime=RegimeAssessment(
             regime="trend_up",
             direction_bias="long",
             confidence=0.7,
             reasoning="Test regime",
-            source="fallback",
-            fallback_reason="Test fallback",
         ),
         strategy=StrategyPlan(
             strategy_family="trend_following",
@@ -54,7 +52,6 @@ def test_run_artifacts_reports_fallback_components() -> None:
             entry_logic="Test entry",
             invalidation_logic="Test invalidation",
             confidence=0.7,
-            source="llm",
         ),
         risk=RiskPlan(
             position_size_pct=0.05,
@@ -63,8 +60,6 @@ def test_run_artifacts_reports_fallback_components() -> None:
             risk_reward_ratio=2.0,
             max_holding_bars=20,
             notes="Test risk",
-            source="fallback",
-            fallback_reason="Test fallback",
         ),
         manager=ManagerDecision(
             approved=True,
@@ -72,20 +67,17 @@ def test_run_artifacts_reports_fallback_components() -> None:
             confidence_cap=0.7,
             size_multiplier=1.0,
             rationale="Manager approved",
-            escalation_flags=[],
-            source="fallback",
-            fallback_reason="Test fallback",
         ),
         execution=ExecutionDecision(
             approved=True,
             side="buy",
-            symbol="TEST",
+            symbol=symbol,
             entry_price=100.0,
             stop_loss=95.0,
             take_profit=110.0,
             position_size_pct=0.05,
             confidence=0.7,
-            rationale="Test",
+            rationale="Test execution",
         ),
         review=ReviewNote(
             summary="Review summary",
@@ -95,5 +87,27 @@ def test_run_artifacts_reports_fallback_components() -> None:
         ),
     )
 
-    assert artifacts.used_fallback() is True
-    assert artifacts.fallback_components() == ["coordinator", "regime", "risk", "manager"]
+
+def test_review_run_and_export_report_commands(tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    persist_run(settings=settings, artifacts=_artifacts())
+
+    runner = CliRunner()
+    env = {
+        "AGENTIC_TRADER_RUNTIME_DIR": str(tmp_path),
+        "AGENTIC_TRADER_DATABASE_PATH": str(tmp_path / "agentic_trader.duckdb"),
+    }
+
+    review_result = runner.invoke(app, ["review-run"], env=env)
+    export_path = tmp_path / "run-review.md"
+    export_result = runner.invoke(app, ["export-report", "--output", str(export_path)], env=env)
+
+    assert review_result.exit_code == 0
+    assert "Run Review" in review_result.output
+    assert export_result.exit_code == 0
+    assert export_path.exists()
+    assert "## Manager" in export_path.read_text(encoding="utf-8")

@@ -17,10 +17,12 @@ class Settings(BaseSettings):
     temperature: float = 0.0
     max_retries: int = 2
     request_timeout_seconds: float = 180.0
-    max_output_tokens: int = 256
+    max_output_tokens: int = 8192
 
     runtime_dir: Path = Field(default_factory=lambda: Path("runtime"))
-    database_path: Path = Field(default_factory=lambda: Path("runtime") / "agentic_trader.duckdb")
+    database_path: Path = Field(
+        default_factory=lambda: Path("runtime") / "agentic_trader.duckdb"
+    )
 
     strict_llm: bool = True
     allow_short: bool = True

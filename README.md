@@ -1,4 +1,15 @@
+```text
+ █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗    ████████╗██████╗  █████╗ ██████╗ ███████╗██████╗
+██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║██╔════╝    ╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ██║██║            ██║   ██████╔╝███████║██║  ██║█████╗  ██████╔╝
+██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██║██║            ██║   ██╔══██╗██╔══██║██║  ██║██╔══╝  ██╔══██╗
+██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ██║╚██████╗       ██║   ██║  ██║██║  ██║██████╔╝███████╗██║  ██║
+╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═════╝       ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+```
+
 # Agentic Trader
+
+> Strict, local-first, multi-agent paper trading for Ollama-class models.
 
 Agentic Trader is a strict, local-first, multi-agent paper trading system designed for Ollama-class models such as Qwen.
 
@@ -86,6 +97,12 @@ Open the root launcher and control room:
 python main.py
 ```
 
+Attach to the live monitor:
+
+```bash
+python main.py monitor --refresh-seconds 1.0
+```
+
 Start the runtime directly from the root launcher:
 
 ```bash
@@ -98,10 +115,68 @@ Run continuously:
 python main.py launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous --poll-seconds 300
 ```
 
+Run continuously in the background:
+
+```bash
+python main.py launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous --background
+python main.py status
+python main.py logs --limit 20
+python main.py stop-service
+```
+
+Talk to the built-in operator chat:
+
+```bash
+python main.py chat --persona operator_liaison --message "What is the runtime doing right now?"
+```
+
+Parse a safe operator instruction and optionally apply it:
+
+```bash
+python main.py instruct --message "Switch the system to a more conservative, explanatory posture" --apply
+```
+
 Inspect the paper portfolio:
 
 ```bash
 python main.py portfolio
+```
+
+Inspect the trade journal:
+
+```bash
+python main.py journal --limit 20
+```
+
+Inspect the daily paper risk report:
+
+```bash
+python main.py risk-report
+```
+
+Inspect the latest persisted run in detail:
+
+```bash
+python main.py review-run
+```
+
+Export the latest run review as Markdown:
+
+```bash
+python main.py export-report --output runtime/latest-run-review.md
+```
+
+Run a walk-forward backtest with the current agent pipeline:
+
+```bash
+python main.py backtest --symbol AAPL --interval 1d --lookback 2y --warmup-bars 120
+```
+
+Inspect orchestrator runtime state and recent events:
+
+```bash
+python main.py status
+python main.py logs --limit 20
 ```
 
 ## Notes
@@ -114,7 +189,7 @@ python main.py portfolio
 
 ## Near-Term Direction
 
-- upgrade the control room into a richer terminal UI with live status, logs, and a built-in operator chat screen
-- let the operator choose curated investment presets, agent behavior profiles, and later model/provider options from the menu
-- deepen the agent graph with clearer specialist roles and manager agents that orchestrate the full cycle
+- deepen the control room with a denser live dashboard and richer operator workflows
+- keep growing the specialist + manager orchestration layer with more portfolio-aware reasoning
+- add backtesting and replay so journaled decisions can be scored against deterministic baselines
 - keep the runtime daemon-capable so the TUI can attach to a long-running service instead of owning it directly

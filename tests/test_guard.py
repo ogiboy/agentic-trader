@@ -1,6 +1,6 @@
 from agentic_trader.config import Settings
 from agentic_trader.engine.guard import evaluate_execution
-from agentic_trader.schemas import MarketSnapshot, RiskPlan, StrategyPlan
+from agentic_trader.schemas import ManagerDecision, MarketSnapshot, RiskPlan, StrategyPlan
 
 
 def _snapshot() -> MarketSnapshot:
@@ -40,7 +40,14 @@ def test_guard_rejects_low_confidence_trade() -> None:
         notes="Tight risk.",
     )
 
-    decision = evaluate_execution(settings, _snapshot(), strategy, risk)
+    manager = ManagerDecision(
+        approved=True,
+        action_bias="buy",
+        confidence_cap=0.4,
+        size_multiplier=1.0,
+        rationale="Manager allowed test trade.",
+    )
+    decision = evaluate_execution(settings, _snapshot(), strategy, risk, manager)
     assert decision.approved is False
 
 
@@ -64,5 +71,12 @@ def test_guard_approves_consistent_trade() -> None:
         notes="Tight risk.",
     )
 
-    decision = evaluate_execution(settings, _snapshot(), strategy, risk)
+    manager = ManagerDecision(
+        approved=True,
+        action_bias="buy",
+        confidence_cap=0.75,
+        size_multiplier=1.0,
+        rationale="Manager allowed test trade.",
+    )
+    decision = evaluate_execution(settings, _snapshot(), strategy, risk, manager)
     assert decision.approved is True

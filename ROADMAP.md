@@ -14,7 +14,7 @@ Status: completed in the initial scaffold.
 
 ## Phase 2: Strict Runtime And Orchestration
 
-Status: in progress.
+Status: completed.
 
 - add a single root launcher for the whole system
 - block trading runtime when Ollama or the configured model is unavailable
@@ -39,6 +39,8 @@ Status: in progress.
 
 ## Phase 4: Operator Experience
 
+Status: in progress.
+
 - build a more impressive ANSI/Rich/Textual-style control room
 - add start, stop, status, logs, and portfolio views from the same UI
 - show which symbols, agents, and model stages are active in real time
@@ -52,10 +54,16 @@ Status: in progress.
 
 ## Phase 5: Backtesting
 
+Status: in progress.
+
 - implement walk-forward replay
 - compare agent-assisted plans against deterministic baselines
 - track win rate, expectancy, drawdown, and exposure
 - export run reports for review
+Notes:
+- run review and Markdown export are now available for live/paper runs
+- a first walk-forward replay is now available
+- deterministic baseline comparison and richer scoring still need to be added
 
 ## Phase 6: Paper Portfolio Engine
 
@@ -69,8 +77,13 @@ Status: in progress.
 - mark portfolio state after each orchestrator cycle
 - store fills, open positions, and account state as if the broker were real
 - maintain trade journals so the system can review what it planned, what it executed, and what actually happened
+Notes:
+- open positions, fills, account state, account marks, daily risk reports, and trade journals are now in place
+- portfolio-level limits and richer multi-position capital controls still need to be expanded
 
 ## Phase 7: Background Runtime / Daemon
+
+Status: in progress.
 
 - support running the orchestrator as a background service
 - add a local status command for daemon health and current cycle state
@@ -88,6 +101,8 @@ Status: in progress.
 
 ## Phase 9: Smarter Agent Layer
 
+Status: in progress.
+
 - let the regime agent select strategy families dynamically
 - let the risk agent adapt size by volatility and portfolio state
 - add memory from past trades and post-trade review
@@ -100,8 +115,14 @@ Status: in progress.
 
 ## Phase 10: Agent Governance And Conversation Layer
 
+Status: in progress.
+
 - define a structured operator-to-agent messaging protocol so user instructions change preferences and runtime behavior safely
 - separate conversational memory from trading memory so chat history does not silently mutate execution policy
 - store agent decisions, disagreements, and manager overrides for later review
 - allow the operator to inspect why a manager agent accepted or rejected a specialist recommendation
 - add guardrails so conversational interactions can influence policy only through approved schemas and not free-form hidden side effects
+Notes:
+- safe operator instruction parsing and preference application are implemented
+- persisted run review now exposes coordinator, specialist, manager, execution, and review outputs
+- richer disagreement storage and explicit override tracking still need deeper agent-state plumbing

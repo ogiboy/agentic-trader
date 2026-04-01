@@ -1,5 +1,5 @@
 from agentic_trader.config import Settings
-from agentic_trader.schemas import ExecutionDecision, MarketSnapshot, RiskPlan, StrategyPlan
+from agentic_trader.schemas import ExecutionDecision, ManagerDecision, MarketSnapshot, RiskPlan, StrategyPlan
 
 
 def evaluate_execution(
@@ -7,17 +7,24 @@ def evaluate_execution(
     snapshot: MarketSnapshot,
     strategy: StrategyPlan,
     risk: RiskPlan,
+    manager: ManagerDecision,
 ) -> ExecutionDecision:
     approved = True
     reasons: list[str] = []
 
     side = "hold"
-    if strategy.action == "buy":
+    effective_action = strategy.action
+    if manager.action_bias == "hold":
+        effective_action = "hold"
+    elif manager.action_bias in {"buy", "sell"}:
+        effective_action = manager.action_bias
+
+    if effective_action == "buy":
         side = "buy"
-    elif strategy.action == "sell":
+    elif effective_action == "sell":
         side = "sell"
 
-    if strategy.action == "hold" or strategy.strategy_family == "no_trade":
+    if effective_action == "hold" or strategy.strategy_family == "no_trade":
         approved = False
         reasons.append("Strategy selected no-trade path.")
 
@@ -39,6 +46,10 @@ def evaluate_execution(
             f"Risk/reward {risk.risk_reward_ratio:.2f} is below minimum {settings.min_risk_reward:.2f}."
         )
 
+    if not manager.approved:
+        approved = False
+        reasons.append(f"Manager rejected the trade: {manager.rationale}")
+
     if side == "buy" and not (risk.stop_loss < snapshot.last_close < risk.take_profit):
         approved = False
         reasons.append("Buy setup has inconsistent stop or take-profit levels.")
@@ -54,7 +65,7 @@ def evaluate_execution(
         entry_price=snapshot.last_close,
         stop_loss=risk.stop_loss,
         take_profit=risk.take_profit,
-        position_size_pct=min(risk.position_size_pct, settings.max_position_pct),
-        confidence=strategy.confidence,
+        position_size_pct=min(risk.position_size_pct * manager.size_multiplier, settings.max_position_pct),
+        confidence=min(strategy.confidence, manager.confidence_cap),
         rationale=" ".join(reasons) if reasons else "Execution guard approved the trade.",
     )

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from agentic_trader.config import Settings
-from agentic_trader.schemas import ExecutionDecision
+from agentic_trader.schemas import ExecutionDecision, PositionExitDecision, StrategyPlan
 from agentic_trader.storage.db import TradingDatabase
 
 
@@ -91,6 +91,8 @@ class PaperBroker:
         position = self.db.get_position(decision.symbol)
         current_qty = position.quantity if position else 0.0
         current_avg = position.average_price if position else 0.0
+        if (decision.side == "buy" and current_qty > 0) or (decision.side == "sell" and current_qty < 0):
+            return order_id
 
         if decision.side == "buy":
             cash_delta, realized_pnl_delta, new_qty, new_avg = self._apply_buy(
@@ -120,5 +122,84 @@ class PaperBroker:
             realized_pnl_delta=realized_pnl_delta,
             new_quantity=new_qty,
             new_average_price=new_avg,
+        )
+        return order_id
+
+    def record_position_plan(self, *, symbol: str, decision: ExecutionDecision, strategy: StrategyPlan, max_holding_bars: int) -> None:
+        if not decision.approved or decision.side not in {"buy", "sell"}:
+            return
+        self.db.save_position_plan(
+            symbol=symbol,
+            side=decision.side,
+            entry_price=decision.entry_price,
+            stop_loss=decision.stop_loss,
+            take_profit=decision.take_profit,
+            max_holding_bars=max_holding_bars,
+            holding_bars=0,
+            invalidation_logic=strategy.invalidation_logic,
+        )
+
+    def close_position(self, decision: PositionExitDecision) -> str:
+        position = self.db.get_position(decision.symbol)
+        if position is None or position.quantity == 0:
+            return f"paper-{uuid4().hex[:12]}"
+
+        order_id = f"paper-{uuid4().hex[:12]}"
+        quantity = abs(position.quantity)
+        if decision.side == "buy":
+            cash_delta, realized_pnl_delta, new_qty, new_avg = self._apply_buy(
+                quantity=quantity,
+                price=decision.exit_price,
+                current_qty=position.quantity,
+                current_avg=position.average_price,
+            )
+        else:
+            cash_delta, realized_pnl_delta, new_qty, new_avg = self._apply_sell(
+                quantity=quantity,
+                price=decision.exit_price,
+                current_qty=position.quantity,
+                current_avg=position.average_price,
+            )
+
+        self.db.insert_order(
+            {
+                "order_id": order_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "symbol": decision.symbol,
+                "side": decision.side,
+                "approved": True,
+                "entry_price": decision.exit_price,
+                "stop_loss": decision.exit_price,
+                "take_profit": decision.exit_price,
+                "position_size_pct": 0.0,
+                "confidence": 1.0,
+                "rationale": f"Exit triggered: {decision.reason}. {decision.rationale}",
+            }
+        )
+        self.db.apply_fill(
+            fill_id=f"fill-{uuid4().hex[:12]}",
+            order_id=order_id,
+            symbol=decision.symbol,
+            side=decision.side,
+            quantity=quantity,
+            price=decision.exit_price,
+            cash_delta=cash_delta,
+            realized_pnl_delta=realized_pnl_delta,
+            new_quantity=new_qty,
+            new_average_price=new_avg,
+        )
+        self.db.delete_position_plan(decision.symbol)
+        self.db.close_trade_journal(
+            symbol=decision.symbol,
+            exit_order_id=order_id,
+            exit_reason=decision.reason,
+            exit_price=decision.exit_price,
+            realized_pnl=realized_pnl_delta,
+            notes=decision.rationale,
+        )
+        self.db.record_account_mark(
+            source="position_closed",
+            note=f"{decision.symbol} exited via {decision.reason}.",
+            symbol=decision.symbol,
         )
         return order_id
