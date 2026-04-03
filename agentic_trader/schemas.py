@@ -123,6 +123,7 @@ class AgentContext(BaseModel):
     service_state: "ServiceStateSnapshot | None" = None
     recent_runs: list[str] = Field(default_factory=list)
     memory_notes: list[str] = Field(default_factory=list)
+    retrieved_memories: list[str] = Field(default_factory=list)
     tool_outputs: list[str] = Field(default_factory=list)
     upstream_context: dict[str, str] = Field(default_factory=dict)
 
@@ -357,3 +358,15 @@ class RunRecord(BaseModel):
     interval: str
     approved: bool
     artifacts: RunArtifacts
+
+
+class HistoricalMemoryMatch(BaseModel):
+    run_id: str
+    created_at: str
+    symbol: str
+    similarity_score: float = Field(ge=0.0)
+    regime: str
+    strategy_family: str
+    manager_bias: str
+    approved: bool
+    summary: str

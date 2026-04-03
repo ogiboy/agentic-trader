@@ -14,6 +14,9 @@ from rich.align import Align
 from agentic_trader.agents.operator_chat import apply_preference_update, chat_with_persona, interpret_operator_instruction
 from agentic_trader.config import Settings, get_settings
 from agentic_trader.llm.client import LocalLLM
+from agentic_trader.market.data import fetch_ohlcv
+from agentic_trader.market.features import build_snapshot
+from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.schemas import AgentProfile, BehaviorPreset, ChatPersona, InvestmentPreferences, RiskProfile, ServiceEvent, ServiceStateSnapshot, TradeStyle
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run, run_once
@@ -436,6 +439,37 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
     )
 
 
+def _show_memory_explorer(settings: Settings, db: TradingDatabase) -> None:
+    symbol = Prompt.ask("Symbol", default="AAPL").strip().upper()
+    interval = Prompt.ask("Interval", default="1d")
+    lookback = Prompt.ask("Lookback", default="180d")
+    limit = IntPrompt.ask("Matches", default=5)
+    frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    snapshot = build_snapshot(frame, symbol=symbol, interval=interval)
+    matches = retrieve_similar_memories(db, snapshot, limit=limit)
+
+    table = Table(title="Memory Explorer")
+    table.add_column("Created")
+    table.add_column("Symbol")
+    table.add_column("Score")
+    table.add_column("Regime")
+    table.add_column("Strategy")
+    table.add_column("Bias")
+    if not matches:
+        table.add_row("-", "-", "-", "-", "-", "-")
+    else:
+        for match in matches:
+            table.add_row(
+                match.created_at,
+                match.symbol,
+                f"{match.similarity_score:.2f}",
+                match.regime,
+                match.strategy_family,
+                match.manager_bias,
+            )
+    console.print(table)
+
+
 def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
     ensure_llm_ready(settings)
     llm = LocalLLM(settings)
@@ -607,11 +641,12 @@ def run_main_menu() -> None:
         menu.add_row("10", "Show trade journal")
         menu.add_row("11", "Show daily risk report")
         menu.add_row("12", "Inspect latest run review")
-        menu.add_row("13", "Show recent runs / logs")
-        menu.add_row("14", "Exit")
+        menu.add_row("13", "Open memory explorer")
+        menu.add_row("14", "Show recent runs / logs")
+        menu.add_row("15", "Exit")
         console.print(menu)
 
-        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"], default="2")
+        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"], default="2")
         try:
             if choice == "1":
                 _configure_preferences(db)
@@ -659,6 +694,8 @@ def run_main_menu() -> None:
             elif choice == "12":
                 _show_latest_run_review(db)
             elif choice == "13":
+                _show_memory_explorer(settings, db)
+            elif choice == "14":
                 _render_recent_runs(db)
             else:
                 console.print(Panel("Leaving control room.", title="Exit", border_style="blue"))

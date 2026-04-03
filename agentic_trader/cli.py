@@ -15,6 +15,9 @@ from agentic_trader.config import get_settings
 from agentic_trader.agents.operator_chat import apply_preference_update, chat_with_persona, interpret_operator_instruction
 from agentic_trader.backtest.walk_forward import run_walk_forward_backtest
 from agentic_trader.llm.client import LocalLLM
+from agentic_trader.market.data import fetch_ohlcv
+from agentic_trader.market.features import build_snapshot
+from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.schemas import (
     ChatPersona,
     DailyRiskReport,
@@ -340,6 +343,31 @@ def _render_backtest_report(report: BacktestReport) -> None:
     console.print(trades)
 
 
+def _render_memory_matches(matches) -> None:
+    if not matches:
+        console.print(Panel("No historical memories are available yet.", title="Memory Explorer", border_style="yellow"))
+        return
+    table = Table(title="Memory Explorer")
+    table.add_column("Created")
+    table.add_column("Symbol")
+    table.add_column("Score")
+    table.add_column("Regime")
+    table.add_column("Strategy")
+    table.add_column("Bias")
+    table.add_column("Approved")
+    for match in matches:
+        table.add_row(
+            match.created_at,
+            match.symbol,
+            f"{match.similarity_score:.2f}",
+            match.regime,
+            match.strategy_family,
+            match.manager_bias,
+            str(match.approved),
+        )
+    console.print(table)
+
+
 @app.command()
 def doctor() -> None:
     """Validate local configuration and print runtime settings."""
@@ -652,6 +680,22 @@ def backtest(
         )
         Path(output).write_text(rendered, encoding="utf-8")
         console.print(Panel(f"Backtest summary written to {output}.", title="Exported", border_style="green"))
+
+
+@app.command("memory-explorer")
+def memory_explorer(
+    symbol: str = typer.Option(..., help="Ticker symbol, for example AAPL or BTC-USD"),
+    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
+    lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
+    limit: int = typer.Option(5, min=1, max=20, help="Maximum number of retrieved historical memories."),
+) -> None:
+    """Inspect historically similar recorded runs for the current market snapshot."""
+    settings = get_settings()
+    db = TradingDatabase(settings)
+    frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    snapshot = build_snapshot(frame, symbol=symbol, interval=interval)
+    matches = retrieve_similar_memories(db, snapshot, limit=limit)
+    _render_memory_matches(matches)
 
 
 @app.command()

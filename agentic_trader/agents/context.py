@@ -3,6 +3,7 @@ from typing import Mapping
 from pydantic import BaseModel
 
 from agentic_trader.config import Settings
+from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.schemas import AgentContext, AgentRole, MarketSnapshot
 from agentic_trader.storage.db import TradingDatabase
 
@@ -38,6 +39,14 @@ def _serialize_upstream(upstream_context: Mapping[str, BaseModel | str] | None) 
     return rendered
 
 
+def _summarize_retrieved_memories(db: TradingDatabase, snapshot: MarketSnapshot, *, limit: int = 3) -> list[str]:
+    matches = retrieve_similar_memories(db, snapshot, limit=limit)
+    return [
+        f"{match.created_at} | {match.symbol} | score={match.similarity_score:.2f} | regime={match.regime} | strategy={match.strategy_family} | bias={match.manager_bias}"
+        for match in matches
+    ]
+
+
 def build_agent_context(
     *,
     role: AgentRole,
@@ -56,6 +65,7 @@ def build_agent_context(
         service_state=db.get_service_state(),
         recent_runs=_summarize_recent_runs(db),
         memory_notes=_summarize_trade_memory(db),
+        retrieved_memories=_summarize_retrieved_memories(db, snapshot),
         tool_outputs=list(tool_outputs or []),
         upstream_context=_serialize_upstream(upstream_context),
     )
@@ -90,6 +100,8 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         sections.extend(["", "Recent Runs:", "\n".join(f"- {line}" for line in context.recent_runs)])
     if context.memory_notes:
         sections.extend(["", "Trade Memory:", "\n".join(f"- {line}" for line in context.memory_notes)])
+    if context.retrieved_memories:
+        sections.extend(["", "Retrieved Similar Memories:", "\n".join(f"- {line}" for line in context.retrieved_memories)])
     if context.tool_outputs:
         sections.extend(["", "Tool Outputs:", "\n".join(f"- {line}" for line in context.tool_outputs)])
     if context.upstream_context:

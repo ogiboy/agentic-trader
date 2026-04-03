@@ -52,6 +52,8 @@ Every agent cycle now receives a unified context bundle that can include:
 
 The LLM layer also supports role-based model routing, so different local models can be assigned to coordinator, regime, strategy, risk, manager, explainer, and instruction parsing roles.
 
+The current memory layer is still lightweight, but it can already retrieve historically similar recorded runs and inject those summaries into agent context before a cycle.
+
 ## Stack
 
 - Python `3.13+`
@@ -186,6 +188,12 @@ Export the latest run review as Markdown:
 python main.py export-report --output runtime/latest-run-review.md
 ```
 
+Inspect historically similar recorded runs for the current snapshot:
+
+```bash
+python main.py memory-explorer --symbol AAPL --interval 1d --lookback 180d --limit 5
+```
+
 Run a walk-forward backtest with the current agent pipeline:
 
 ```bash
@@ -211,5 +219,6 @@ python main.py logs --limit 20
 
 - deepen the control room with a denser live dashboard and richer operator workflows
 - keep growing the specialist + manager orchestration layer with more portfolio-aware reasoning
+- turn the lightweight similarity memory into a richer retrieval and inspection layer
 - add backtesting and replay so journaled decisions can be scored against deterministic baselines
 - keep the runtime daemon-capable so the TUI can attach to a long-running service instead of owning it directly

@@ -377,6 +377,23 @@ class TradingDatabase:
             return None
         return self.get_run(str(row[0]))
 
+    def list_run_records(self, limit: int = 200) -> list[RunRecord]:
+        rows = self.conn.execute(
+            """
+            select run_id
+            from runs
+            order by created_at desc
+            limit ?
+            """,
+            [limit],
+        ).fetchall()
+        records: list[RunRecord] = []
+        for row in rows:
+            record = self.get_run(str(row[0]))
+            if record is not None:
+                records.append(record)
+        return records
+
     def record_account_mark(
         self,
         *,

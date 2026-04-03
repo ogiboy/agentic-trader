@@ -49,6 +49,7 @@ Status: in progress.
 - ensure all external knowledge such as news, events, and macro signals is accessed only via tools rather than being assumed by the model
 Notes:
 - operator preferences and curated behavior presets already exist
+- lightweight retrieval from historically similar runs is now injected into agent context
 - multi-timeframe features, calendar awareness, repeatable cached snapshots, and tool-driven external context are still open
 
 ## Phase 4: Operator Experience
@@ -70,7 +71,8 @@ Status: in progress.
 - add retrieval inspection view to show why specific memories were used in a decision
 Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
-- memory explorer, richer trace inspection, and denser live agent stage visualization are still open
+- a first memory explorer surface is now available from the CLI and TUI
+- richer trace inspection, retrieval explanation, and denser live agent stage visualization are still open
 
 ## Phase 5: Backtesting
 
@@ -145,6 +147,7 @@ Status: in progress.
 - ensure each agent can independently retrieve relevant historical market regimes from vector memory
 Notes:
 - coordinator, manager, review, specialist roles, and persona-aware operator chat are already present
+- lightweight similarity-based retrieval is now present
 - shared memory bus, calibrated confidence, explicit consensus resolution, and vector retrieval are still open
 
 ## Phase 10: Agent Governance And Conversation Layer
