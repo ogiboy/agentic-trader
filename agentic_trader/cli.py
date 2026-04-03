@@ -18,6 +18,7 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.memory.retrieval import retrieve_similar_memories
+from agentic_trader.runtime_status import build_runtime_status_view
 from agentic_trader.schemas import (
     ChatPersona,
     DailyRiskReport,
@@ -114,26 +115,32 @@ def _render_instruction(instruction: OperatorInstruction) -> None:
 
 
 def _render_service_state(state: ServiceStateSnapshot | None) -> None:
-    if state is None:
+    view = build_runtime_status_view(state)
+    if view.state is None:
         console.print(Panel("No runtime state recorded yet.", title="Service Status", border_style="yellow"))
         return
+    snapshot = view.state
 
     table = Table(title="Service Status")
     table.add_column("Key")
     table.add_column("Value")
-    table.add_row("Service", state.service_name)
-    table.add_row("State", state.state)
-    table.add_row("Updated", state.updated_at)
-    table.add_row("Started", state.started_at or "-")
-    table.add_row("Heartbeat", state.last_heartbeat_at or "-")
-    table.add_row("Continuous", str(state.continuous))
-    table.add_row("Poll Seconds", str(state.poll_seconds) if state.poll_seconds is not None else "-")
-    table.add_row("Cycle Count", str(state.cycle_count))
-    table.add_row("Current Symbol", state.current_symbol or "-")
-    table.add_row("PID", str(state.pid) if state.pid is not None else "-")
-    table.add_row("Stop Requested", str(state.stop_requested))
-    table.add_row("Message", state.message or "-")
-    table.add_row("Last Error", state.last_error or "-")
+    table.add_row("Service", snapshot.service_name)
+    table.add_row("Runtime", view.runtime_state)
+    table.add_row("Live Process", "yes" if view.live_process else "no")
+    table.add_row("Last Recorded State", view.last_recorded_state or "-")
+    table.add_row("Updated", snapshot.updated_at)
+    table.add_row("Started", snapshot.started_at or "-")
+    table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
+    table.add_row("Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-")
+    table.add_row("Continuous", str(snapshot.continuous))
+    table.add_row("Poll Seconds", str(snapshot.poll_seconds) if snapshot.poll_seconds is not None else "-")
+    table.add_row("Cycle Count", str(snapshot.cycle_count))
+    table.add_row("Current Symbol", snapshot.current_symbol or "-")
+    table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
+    table.add_row("Stop Requested", str(snapshot.stop_requested))
+    table.add_row("Status Note", view.status_message)
+    table.add_row("Last Recorded Message", snapshot.message or "-")
+    table.add_row("Last Recorded Error", snapshot.last_error or "-")
     console.print(table)
 
 

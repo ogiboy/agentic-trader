@@ -17,6 +17,7 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.memory.retrieval import retrieve_similar_memories
+from agentic_trader.runtime_status import build_runtime_status_view
 from agentic_trader.schemas import AgentProfile, BehaviorPreset, ChatPersona, InvestmentPreferences, RiskProfile, ServiceEvent, ServiceStateSnapshot, TradeStyle
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run, run_once
@@ -130,23 +131,29 @@ def _risk_report_table(db: TradingDatabase) -> Table:
 
 
 def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
-    if state is None:
+    view = build_runtime_status_view(state)
+    if view.state is None:
         console.print(Panel("No runtime state recorded yet.", title="Runtime Status", border_style="yellow"))
         return
+    snapshot = view.state
 
     table = Table(title="Runtime Status")
     table.add_column("Key")
     table.add_column("Value")
-    table.add_row("State", state.state)
-    table.add_row("Updated", state.updated_at)
-    table.add_row("Heartbeat", state.last_heartbeat_at or "-")
-    table.add_row("Cycle Count", str(state.cycle_count))
-    table.add_row("Current Symbol", state.current_symbol or "-")
-    table.add_row("PID", str(state.pid) if state.pid is not None else "-")
-    table.add_row("Stop Requested", str(state.stop_requested))
-    table.add_row("Continuous", str(state.continuous))
-    table.add_row("Message", state.message or "-")
-    table.add_row("Last Error", state.last_error or "-")
+    table.add_row("Runtime", view.runtime_state)
+    table.add_row("Live Process", "yes" if view.live_process else "no")
+    table.add_row("Last Recorded State", view.last_recorded_state or "-")
+    table.add_row("Updated", snapshot.updated_at)
+    table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
+    table.add_row("Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-")
+    table.add_row("Cycle Count", str(snapshot.cycle_count))
+    table.add_row("Current Symbol", snapshot.current_symbol or "-")
+    table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
+    table.add_row("Stop Requested", str(snapshot.stop_requested))
+    table.add_row("Continuous", str(snapshot.continuous))
+    table.add_row("Status Note", view.status_message)
+    table.add_row("Last Recorded Message", snapshot.message or "-")
+    table.add_row("Last Recorded Error", snapshot.last_error or "-")
     console.print(table)
 
 
@@ -196,19 +203,25 @@ def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     table = Table(title="Runtime Status")
     table.add_column("Key")
     table.add_column("Value")
-    if state is None:
+    view = build_runtime_status_view(state)
+    if view.state is None:
         table.add_row("State", "no runtime state recorded yet")
         return table
-    table.add_row("State", state.state)
-    table.add_row("Updated", state.updated_at)
-    table.add_row("Heartbeat", state.last_heartbeat_at or "-")
-    table.add_row("Cycle Count", str(state.cycle_count))
-    table.add_row("Current Symbol", state.current_symbol or "-")
-    table.add_row("PID", str(state.pid) if state.pid is not None else "-")
-    table.add_row("Stop Requested", str(state.stop_requested))
-    table.add_row("Continuous", str(state.continuous))
-    table.add_row("Message", state.message or "-")
-    table.add_row("Last Error", state.last_error or "-")
+    snapshot = view.state
+    table.add_row("Runtime", view.runtime_state)
+    table.add_row("Live Process", "yes" if view.live_process else "no")
+    table.add_row("Last Recorded State", view.last_recorded_state or "-")
+    table.add_row("Updated", snapshot.updated_at)
+    table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
+    table.add_row("Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-")
+    table.add_row("Cycle Count", str(snapshot.cycle_count))
+    table.add_row("Current Symbol", snapshot.current_symbol or "-")
+    table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
+    table.add_row("Stop Requested", str(snapshot.stop_requested))
+    table.add_row("Continuous", str(snapshot.continuous))
+    table.add_row("Status Note", view.status_message)
+    table.add_row("Last Recorded Message", snapshot.message or "-")
+    table.add_row("Last Recorded Error", snapshot.last_error or "-")
     return table
 
 
