@@ -775,31 +775,124 @@ def preferences_command(json_output: bool = typer.Option(False, "--json", help="
 
 
 @app.command("journal")
-def journal(limit: int = typer.Option(20, min=1, max=200, help="Maximum number of journal entries to show.")) -> None:
+def journal(
+    limit: int = typer.Option(20, min=1, max=200, help="Maximum number of journal entries to show."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
     """Show the latest trade journal entries."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    _render_trade_journal(db.list_trade_journal(limit=limit))
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            entries = db.list_trade_journal(limit=limit)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        entries = []
+        available = False
+        error = str(exc)
+
+    if json_output:
+        _emit_json(
+            {
+                "available": available,
+                "error": error,
+                "entries": [entry.model_dump(mode="json") for entry in entries],
+            }
+        )
+        return
+    if not available:
+        console.print(
+            Panel(
+                f"Trade journal is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    _render_trade_journal(entries)
 
 
 @app.command("risk-report")
 def risk_report(
     report_date: str | None = typer.Option(None, help="UTC date in YYYY-MM-DD format. Defaults to today."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     """Show a compact daily risk report for the paper portfolio."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    _render_risk_report(db.build_daily_risk_report(report_date=report_date))
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            report = db.build_daily_risk_report(report_date=report_date)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        report = None
+        available = False
+        error = str(exc)
+
+    if json_output:
+        _emit_json(
+            {
+                "available": available,
+                "error": error,
+                "report": report.model_dump(mode="json") if report is not None else None,
+            }
+        )
+        return
+    if not available or report is None:
+        console.print(
+            Panel(
+                f"Risk report is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    _render_risk_report(report)
 
 
 @app.command("review-run")
 def review_run(
     run_id: str | None = typer.Option(None, help="Run id to inspect. Defaults to the latest recorded run."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     """Inspect the latest or a specific persisted run in detail."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    record = db.get_run(run_id) if run_id is not None else db.latest_run()
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            record = db.get_run(run_id) if run_id is not None else db.latest_run()
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        record = None
+        available = False
+        error = str(exc)
+    if json_output:
+        _emit_json(
+            {
+                "available": available,
+                "error": error,
+                "record": record.model_dump(mode="json") if record is not None else None,
+            }
+        )
+        return
+    if not available:
+        console.print(
+            Panel(
+                f"Run review is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
     if record is None:
         console.print(Panel("No persisted runs are available to review.", title="Run Review", border_style="yellow"))
         raise typer.Exit(code=0)
@@ -809,11 +902,40 @@ def review_run(
 @app.command("trace-run")
 def trace_run(
     run_id: str | None = typer.Option(None, help="Run id to inspect. Defaults to the latest recorded run."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     """Show the persisted per-stage agent trace for a run."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    record = db.get_run(run_id) if run_id is not None else db.latest_run()
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            record = db.get_run(run_id) if run_id is not None else db.latest_run()
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        record = None
+        available = False
+        error = str(exc)
+    if json_output:
+        _emit_json(
+            {
+                "available": available,
+                "error": error,
+                "record": record.model_dump(mode="json") if record is not None else None,
+            }
+        )
+        return
+    if not available:
+        console.print(
+            Panel(
+                f"Run trace is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
     if record is None:
         console.print(Panel("No persisted runs are available to trace.", title="Trace Viewer", border_style="yellow"))
         raise typer.Exit(code=0)

@@ -107,3 +107,38 @@ def test_preferences_and_portfolio_json_survive_db_lock(monkeypatch, tmp_path: P
     portfolio_payload = json.loads(portfolio_result.stdout)
     assert portfolio_payload["available"] is False
     assert portfolio_payload["positions"] == []
+
+
+def test_journal_risk_review_and_trace_json(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+
+    journal_result = runner.invoke(app, ["journal", "--json", "--limit", "5"])
+    assert journal_result.exit_code == 0
+    journal_payload = json.loads(journal_result.stdout)
+    assert journal_payload["available"] is True
+    assert journal_payload["entries"] == []
+
+    risk_result = runner.invoke(app, ["risk-report", "--json"])
+    assert risk_result.exit_code == 0
+    risk_payload = json.loads(risk_result.stdout)
+    assert risk_payload["available"] is True
+    assert risk_payload["report"]["equity"] == settings.default_cash
+
+    review_result = runner.invoke(app, ["review-run", "--json"])
+    assert review_result.exit_code == 0
+    review_payload = json.loads(review_result.stdout)
+    assert review_payload["available"] is True
+    assert review_payload["record"] is None
+
+    trace_result = runner.invoke(app, ["trace-run", "--json"])
+    assert trace_result.exit_code == 0
+    trace_payload = json.loads(trace_result.stdout)
+    assert trace_payload["available"] is True
+    assert trace_payload["record"] is None

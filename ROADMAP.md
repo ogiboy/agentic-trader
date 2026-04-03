@@ -76,7 +76,8 @@ Notes:
 - a first memory explorer surface is now available from the CLI and TUI
 - persisted per-stage trace viewing is now available from the CLI and TUI
 - a first Ink-based control room now exists under `tui/` and consumes JSON status, log, preference, and portfolio surfaces from the Python runtime
-- richer trace inspection, retrieval explanation, denser live agent stage visualization, and deeper Ink migration are still open
+- the Ink control room now ships with overview, runtime, portfolio, and review pages plus start/stop hotkeys
+- richer trace inspection, retrieval explanation, chat migration, and deeper Ink feature parity are still open
 
 ## Phase 5: Backtesting
 

@@ -137,6 +137,13 @@ Open the Ink-based next-generation control room:
 agentic-trader tui
 ```
 
+Ink control room hotkeys:
+
+```text
+1 overview   2 runtime   3 portfolio   4 review
+r refresh    s start background runtime    x stop runtime    q quit
+```
+
 Start the runtime directly from the root launcher:
 
 ```bash
