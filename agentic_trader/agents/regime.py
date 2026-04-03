@@ -1,7 +1,6 @@
-from textwrap import dedent
-
+from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import MarketSnapshot, RegimeAssessment
+from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessment
 
 
 def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
@@ -67,30 +66,21 @@ def assess_regime(
     snapshot: MarketSnapshot,
     *,
     allow_fallback: bool,
+    context: AgentContext | None = None,
 ) -> RegimeAssessment:
     system_prompt = (
         "You are a market regime classifier for a systematic trading engine. "
         "Be conservative. Prefer no_trade over low-conviction guesses."
     )
-    user_prompt = dedent(
-        f"""
-        Classify the market for {snapshot.symbol} on interval {snapshot.interval}.
-
-        Snapshot:
-        - last_close: {snapshot.last_close}
-        - ema_20: {snapshot.ema_20}
-        - ema_50: {snapshot.ema_50}
-        - atr_14: {snapshot.atr_14}
-        - rsi_14: {snapshot.rsi_14}
-        - volatility_20: {snapshot.volatility_20}
-        - return_5: {snapshot.return_5}
-        - return_20: {snapshot.return_20}
-        - volume_ratio_20: {snapshot.volume_ratio_20}
-        - bars_analyzed: {snapshot.bars_analyzed}
-        """
-    ).strip()
+    routed_llm = llm.for_role("regime")
+    user_prompt = render_agent_context(
+        context,
+        task="Classify the current market regime with a conservative bias and prefer no_trade when conviction is weak.",
+    ) if context is not None else (
+        f"Classify the market for {snapshot.symbol} on interval {snapshot.interval}.\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}"
+    )
     try:
-        return llm.complete_structured(
+        return routed_llm.complete_structured(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=RegimeAssessment,

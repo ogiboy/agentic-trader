@@ -8,6 +8,7 @@ BehaviorPreset: TypeAlias = Literal["balanced_core", "trend_biased", "contrarian
 AgentProfile: TypeAlias = Literal["neutral", "disciplined", "aggressive", "explanatory"]
 ChatPersona: TypeAlias = Literal["operator_liaison", "regime_analyst", "strategy_selector", "risk_steward", "portfolio_manager"]
 CoordinatorFocus: TypeAlias = Literal["trend_following", "breakout", "mean_reversion", "capital_preservation", "no_trade"]
+AgentRole: TypeAlias = Literal["coordinator", "regime", "strategy", "risk", "manager", "explainer", "instruction"]
 
 
 class LLMHealthStatus(BaseModel):
@@ -111,6 +112,19 @@ class PortfolioSnapshot(BaseModel):
     realized_pnl: float
     unrealized_pnl: float
     open_positions: int
+
+
+class AgentContext(BaseModel):
+    role: AgentRole
+    model_name: str
+    snapshot: MarketSnapshot
+    preferences: InvestmentPreferences
+    portfolio: PortfolioSnapshot
+    service_state: "ServiceStateSnapshot | None" = None
+    recent_runs: list[str] = Field(default_factory=list)
+    memory_notes: list[str] = Field(default_factory=list)
+    tool_outputs: list[str] = Field(default_factory=list)
+    upstream_context: dict[str, str] = Field(default_factory=dict)
 
 
 class AccountMark(BaseModel):

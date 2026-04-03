@@ -1,3 +1,4 @@
+from agentic_trader.agents.context import build_agent_context
 from uuid import uuid4
 
 from agentic_trader.agents.coordinator import coordinate_research
@@ -67,15 +68,64 @@ def run_from_snapshot(
     allow_fallback: bool,
 ) -> RunArtifacts:
     llm = LocalLLM(settings)
-    coordinator = coordinate_research(llm, snapshot, allow_fallback=allow_fallback)
-    regime = assess_regime(llm, snapshot, allow_fallback=allow_fallback)
-    strategy = plan_trade(llm, snapshot, regime, allow_fallback=allow_fallback)
+    db = TradingDatabase(settings)
+    coordinator_context = build_agent_context(
+        role="coordinator",
+        settings=settings,
+        db=db,
+        snapshot=snapshot,
+    )
+    coordinator = coordinate_research(
+        llm,
+        snapshot,
+        allow_fallback=allow_fallback,
+        context=coordinator_context,
+    )
+    regime = assess_regime(
+        llm,
+        snapshot,
+        allow_fallback=allow_fallback,
+        context=build_agent_context(
+            role="regime",
+            settings=settings,
+            db=db,
+            snapshot=snapshot,
+            upstream_context={"coordinator": coordinator},
+        ),
+    )
+    strategy = plan_trade(
+        llm,
+        snapshot,
+        regime,
+        allow_fallback=allow_fallback,
+        context=build_agent_context(
+            role="strategy",
+            settings=settings,
+            db=db,
+            snapshot=snapshot,
+            upstream_context={
+                "coordinator": coordinator,
+                "regime": regime,
+            },
+        ),
+    )
     risk = build_risk_plan(
         llm,
         snapshot,
         regime,
         strategy,
         allow_fallback=allow_fallback,
+        context=build_agent_context(
+            role="risk",
+            settings=settings,
+            db=db,
+            snapshot=snapshot,
+            upstream_context={
+                "coordinator": coordinator,
+                "regime": regime,
+                "strategy": strategy,
+            },
+        ),
     )
     manager = manage_trade_decision(
         llm,
@@ -85,6 +135,18 @@ def run_from_snapshot(
         strategy,
         risk,
         allow_fallback=allow_fallback,
+        context=build_agent_context(
+            role="manager",
+            settings=settings,
+            db=db,
+            snapshot=snapshot,
+            upstream_context={
+                "coordinator": coordinator,
+                "regime": regime,
+                "strategy": strategy,
+                "risk": risk,
+            },
+        ),
     )
     execution = evaluate_execution(settings, snapshot, strategy, risk, manager)
     review = build_review_note(regime, strategy, risk, manager, execution)

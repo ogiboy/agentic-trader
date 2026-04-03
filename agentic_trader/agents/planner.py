@@ -1,7 +1,6 @@
-from textwrap import dedent
-
+from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import MarketSnapshot, RegimeAssessment, StrategyPlan
+from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessment, StrategyPlan
 
 
 def _fallback_plan(snapshot: MarketSnapshot, regime: RegimeAssessment) -> StrategyPlan:
@@ -64,26 +63,22 @@ def plan_trade(
     regime: RegimeAssessment,
     *,
     allow_fallback: bool,
+    context: AgentContext | None = None,
 ) -> StrategyPlan:
     system_prompt = (
         "You are a strategy selection agent for a systematic trading engine. "
         "Select the strategy family that best fits the regime. "
         "If conviction is weak, choose no_trade and action hold."
     )
-    user_prompt = dedent(
-        f"""
-        Symbol: {snapshot.symbol}
-        Interval: {snapshot.interval}
-
-        Market snapshot:
-        {snapshot.model_dump_json(indent=2)}
-
-        Regime assessment:
-        {regime.model_dump_json(indent=2)}
-        """
-    ).strip()
+    routed_llm = llm.for_role("strategy")
+    user_prompt = render_agent_context(
+        context,
+        task="Choose the best strategy family and directional action for this cycle. If conviction is weak, choose no_trade and hold.",
+    ) if context is not None else (
+        f"Symbol: {snapshot.symbol}\nInterval: {snapshot.interval}\n\nMarket snapshot:\n{snapshot.model_dump_json(indent=2)}\n\nRegime assessment:\n{regime.model_dump_json(indent=2)}"
+    )
     try:
-        return llm.complete_structured(
+        return routed_llm.complete_structured(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=StrategyPlan,

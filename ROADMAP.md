@@ -2,6 +2,8 @@
 
 Product name: `Agentic Trader`
 
+This roadmap is both a build plan and a progress ledger. Status values reflect the current codebase, not only the intended destination.
+
 ## Phase 1: Guardrailed Core
 
 Status: completed in the initial scaffold.
@@ -14,7 +16,7 @@ Status: completed in the initial scaffold.
 
 ## Phase 2: Strict Runtime And Orchestration
 
-Status: completed.
+Status: in progress.
 
 - add a single root launcher for the whole system
 - block trading runtime when Ollama or the configured model is unavailable
@@ -23,6 +25,13 @@ Status: completed.
 - expose system health and runtime gating from the CLI
 - keep the control room open in the terminal until the user exits it
 - show agent/runtime status and recent activity from one menu surface
+- introduce a unified agent context builder that merges market snapshot, memory, and tool outputs before every cycle
+- add model routing layer to select different models per agent role such as regime, strategy, risk, manager, and explainer
+- ensure deterministic safe-mode diagnostics when no LLM is available without allowing silent trade generation in the strict runtime
+- add runtime guardrails for missing data, tool failures, and low-confidence outputs
+Notes:
+- root launcher, strict runtime gate, one-shot mode, continuous mode, background mode, status, logs, and control-room loop are already live
+- unified agent context and role-based model routing are the next major orchestration upgrades
 
 ## Phase 3: Better Inputs
 
@@ -36,21 +45,32 @@ Status: in progress.
 - let the user define portfolio preferences from the TUI instead of editing files
 - let the user choose high-level investment behavior presets from curated options rather than raw free-form config only
 - prepare a future model/provider menu so Ollama, remote APIs, and agent profiles can be switched from the operator surface
+- introduce memory injection into market context so agents can retrieve historically similar regimes and conditions
+- ensure all external knowledge such as news, events, and macro signals is accessed only via tools rather than being assumed by the model
+Notes:
+- operator preferences and curated behavior presets already exist
+- multi-timeframe features, calendar awareness, repeatable cached snapshots, and tool-driven external context are still open
 
 ## Phase 4: Operator Experience
 
 Status: in progress.
 
-- build a more impressive ANSI/Rich/Textual-style control room
+- build a more impressive ANSI, Rich, or Textual-style control room
 - add start, stop, status, logs, and portfolio views from the same UI
 - show which symbols, agents, and model stages are active in real time
 - display model usage, last decision, and last trade outcome in a dedicated status area
 - let the operator configure investment preferences and default strategy posture from the menu before starting runtime
-- keep the terminal app open until the operator explicitly exits
+- keep the terminal app open until the operator explicitly exits it
 - add a dedicated chat screen inside the TUI so the operator can talk to the system without leaving the control room
 - support chatting with either a general operator assistant or a selected agent persona from the menu
 - show structured agent activity, recent tool usage, and the current reasoning stage beside the chat transcript
 - add a clearer retro-terminal visual language so the control room feels like a serious operator console rather than a plain CLI
+- add memory explorer UI to inspect long-term and vector memory state
+- add agent decision trace viewer to inspect reasoning, tool calls, and outputs per cycle
+- add retrieval inspection view to show why specific memories were used in a decision
+Notes:
+- control room, live monitor, operator chat, journal view, risk report view, and run review are already available
+- memory explorer, richer trace inspection, and denser live agent stage visualization are still open
 
 ## Phase 5: Backtesting
 
@@ -60,10 +80,11 @@ Status: in progress.
 - compare agent-assisted plans against deterministic baselines
 - track win rate, expectancy, drawdown, and exposure
 - export run reports for review
+- introduce memory-aware replay mode to reconstruct what the system knew at the time of each decision
+- run ablation tests comparing performance with and without vector memory or a RAG layer
 Notes:
-- run review and Markdown export are now available for live/paper runs
-- a first walk-forward replay is now available
-- deterministic baseline comparison and richer scoring still need to be added
+- a first walk-forward replay and report export path are now available
+- baseline comparison, memory-aware replay, and ablation harnesses are still missing
 
 ## Phase 6: Paper Portfolio Engine
 
@@ -71,15 +92,16 @@ Status: in progress.
 
 - track positions over time instead of single-shot orders
 - manage open trades bar by bar
-- trigger stop loss / take profit / invalidation exits as new bars arrive
+- trigger stop loss, take profit, and invalidation exits as new bars arrive
 - support portfolio-level limits and cash usage
 - add daily risk reports
 - mark portfolio state after each orchestrator cycle
 - store fills, open positions, and account state as if the broker were real
 - maintain trade journals so the system can review what it planned, what it executed, and what actually happened
+- persist full agent decision context for each trade including market snapshot, memory inputs, and tool outputs
 Notes:
-- open positions, fills, account state, account marks, daily risk reports, and trade journals are now in place
-- portfolio-level limits and richer multi-position capital controls still need to be expanded
+- open positions, fills, account marks, daily risk reports, run reviews, and trade journals are in place
+- portfolio-level exposure caps, multi-position capital rules, and richer per-trade context persistence still need expansion
 
 ## Phase 7: Background Runtime / Daemon
 
@@ -88,11 +110,16 @@ Status: in progress.
 - support running the orchestrator as a background service
 - add a local status command for daemon health and current cycle state
 - persist service heartbeats and runtime logs
-- support clean start/stop/restart from the CLI/TUI
-- make the daemon compatible with launchd/systemd-style supervision later
+- support clean start, stop, and restart from the CLI and TUI
+- make the daemon compatible with `launchd` or `systemd`-style supervision later
 - allow the operator TUI to attach to a running background service instead of owning the process directly
+Notes:
+- background launch, status, logs, stop requests, and live monitor attach surfaces are already implemented
+- restart controls and deeper supervisor compatibility remain open
 
 ## Phase 8: Live Execution Adapters
+
+Status: not started.
 
 - define a broker adapter interface
 - start with a safe paper/live switch
@@ -112,6 +139,13 @@ Status: in progress.
 - split the agent graph into clearer specialist roles such as research coordinator, regime analyst, strategy selector, risk steward, execution guard, portfolio manager, and review agent
 - add a dedicated operator-facing liaison agent that explains what the system is doing and answers portfolio questions in plain language
 - introduce manager agents that orchestrate specialist agents, resolve conflicts, and decide whether a cycle should advance or pause
+- define each agent as a three-layer system composed of reasoning layer, tool layer, and memory layer
+- introduce a shared memory bus between agents for cross-agent context consistency
+- add a consensus mechanism for conflicting agent outputs before execution
+- ensure each agent can independently retrieve relevant historical market regimes from vector memory
+Notes:
+- coordinator, manager, review, specialist roles, and persona-aware operator chat are already present
+- shared memory bus, calibrated confidence, explicit consensus resolution, and vector retrieval are still open
 
 ## Phase 10: Agent Governance And Conversation Layer
 
@@ -122,7 +156,18 @@ Status: in progress.
 - store agent decisions, disagreements, and manager overrides for later review
 - allow the operator to inspect why a manager agent accepted or rejected a specialist recommendation
 - add guardrails so conversational interactions can influence policy only through approved schemas and not free-form hidden side effects
+- introduce memory write permissions and policy-controlled memory mutation rules per agent role
 Notes:
-- safe operator instruction parsing and preference application are implemented
-- persisted run review now exposes coordinator, specialist, manager, execution, and review outputs
-- richer disagreement storage and explicit override tracking still need deeper agent-state plumbing
+- safe operator instruction parsing and curated preference application already exist
+- persisted run review already exposes coordinator, specialist, manager, execution, and review outputs
+- explicit disagreement storage, conversational-memory isolation, and memory write policy controls remain open
+
+## Cross-Cutting Engineering Track
+
+Status: in progress.
+
+- keep type checking and tests green before moving to the next slice
+- prefer schema-first agent contracts over free-form text coupling
+- add reproducible fixtures for data-heavy tests
+- keep CLI, TUI, and service behavior aligned so operator surfaces do not drift
+- preserve strict paper-trading discipline until evaluation quality justifies live adapter work

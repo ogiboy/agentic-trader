@@ -363,6 +363,7 @@ def doctor() -> None:
     table.add_row("Runtime Dir", str(settings.runtime_dir))
     table.add_row("Database", str(settings.database_path))
     table.add_row("DB Status", db_status)
+    table.add_row("Model Routing", json.dumps(settings.model_routing(), indent=2))
     table.add_row(
         "Ollama Reachable",
         "[green]yes[/green]" if health.service_reachable else "[red]no[/red]",

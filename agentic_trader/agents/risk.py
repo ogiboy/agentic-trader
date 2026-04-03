@@ -1,7 +1,6 @@
-from textwrap import dedent
-
+from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import MarketSnapshot, RegimeAssessment, RiskPlan, StrategyPlan
+from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessment, RiskPlan, StrategyPlan
 
 
 def _fallback_risk(snapshot: MarketSnapshot, strategy: StrategyPlan) -> RiskPlan:
@@ -54,28 +53,22 @@ def build_risk_plan(
     strategy: StrategyPlan,
     *,
     allow_fallback: bool,
+    context: AgentContext | None = None,
 ) -> RiskPlan:
     system_prompt = (
         "You are a risk agent for a paper trading system. "
         "Use smaller sizing when volatility or uncertainty is elevated. "
         "The stop loss and take profit must be concrete numeric price levels."
     )
-    user_prompt = dedent(
-        f"""
-        Symbol: {snapshot.symbol}
-
-        Snapshot:
-        {snapshot.model_dump_json(indent=2)}
-
-        Regime:
-        {regime.model_dump_json(indent=2)}
-
-        Strategy:
-        {strategy.model_dump_json(indent=2)}
-        """
-    ).strip()
+    routed_llm = llm.for_role("risk")
+    user_prompt = render_agent_context(
+        context,
+        task="Set position sizing, stop loss, take profit, and holding horizon with smaller sizing when volatility or uncertainty is elevated.",
+    ) if context is not None else (
+        f"Symbol: {snapshot.symbol}\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}\n\nRegime:\n{regime.model_dump_json(indent=2)}\n\nStrategy:\n{strategy.model_dump_json(indent=2)}"
+    )
     try:
-        return llm.complete_structured(
+        return routed_llm.complete_structured(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=RiskPlan,

@@ -6,6 +6,17 @@ from agentic_trader.schemas import ChatPersona, InvestmentPreferences, OperatorI
 from agentic_trader.storage.db import TradingDatabase
 
 
+def _persona_to_role(persona: ChatPersona) -> str:
+    mapping = {
+        "operator_liaison": "explainer",
+        "regime_analyst": "regime",
+        "strategy_selector": "strategy",
+        "risk_steward": "risk",
+        "portfolio_manager": "manager",
+    }
+    return mapping[persona]
+
+
 def build_chat_context(db: TradingDatabase, settings: Settings) -> str:
     preferences = db.load_preferences()
     service_state = db.get_service_state()
@@ -95,7 +106,10 @@ def chat_with_persona(
         {user_message}
         """
     ).strip()
-    return llm.complete_text(system_prompt=system_prompt, user_prompt=user_prompt)
+    return llm.for_role(_persona_to_role(persona)).complete_text(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+    )
 
 
 def _fallback_instruction(message: str) -> OperatorInstruction:
@@ -178,7 +192,7 @@ def interpret_operator_instruction(
         """
     ).strip()
     try:
-        return llm.complete_structured(
+        return llm.for_role("instruction").complete_structured(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=OperatorInstruction,

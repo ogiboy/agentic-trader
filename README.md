@@ -24,21 +24,33 @@ This is intentionally not a "chatty report generator." The system is built aroun
 
 ## Architecture
 
-The first strict runtime uses three LLM agents:
+The current strict runtime uses a staged specialist graph:
 
-1. `Regime Agent`
-   Classifies the market state from recent price/volume features.
-2. `Trade Planner Agent`
-   Chooses a strategy family and proposes a directional trade plan.
-3. `Risk Agent`
+1. `Research Coordinator`
+   Sets cycle focus, priority signals, and caution flags.
+2. `Regime Agent`
+   Classifies the market state from recent price and volume features.
+3. `Strategy Selector`
+   Chooses a strategy family and directional action.
+4. `Risk Agent`
    Sets position sizing, stop loss, take profit, and invalidation logic.
-
-Those outputs are then passed to:
-
-4. `Execution Guard`
+5. `Manager Agent`
+   Combines specialist outputs into a final execution posture.
+6. `Execution Guard`
    Rejects low-confidence or poor-risk proposals.
-5. `Paper Broker`
-   Records simulated orders, fills, account state, and open positions into DuckDB.
+7. `Paper Broker`
+   Records simulated orders, fills, account state, position plans, and journals into DuckDB.
+
+Every agent cycle now receives a unified context bundle that can include:
+
+- the current market snapshot
+- operator preferences
+- portfolio state
+- recent run summaries
+- trade-journal memory hints
+- upstream agent outputs
+
+The LLM layer also supports role-based model routing, so different local models can be assigned to coordinator, regime, strategy, risk, manager, explainer, and instruction parsing roles.
 
 ## Stack
 
@@ -77,6 +89,14 @@ Set Ollama settings if you want to override defaults:
 ```bash
 export AGENTIC_TRADER_MODEL=qwen3:8b
 export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
+```
+
+Optional per-role model routing overrides:
+
+```bash
+export AGENTIC_TRADER_REGIME_MODEL_NAME=qwen3:8b
+export AGENTIC_TRADER_RISK_MODEL_NAME=qwen3:14b
+export AGENTIC_TRADER_EXPLAINER_MODEL_NAME=llama3.1:8b
 ```
 
 Smoke check the environment:

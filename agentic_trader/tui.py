@@ -218,6 +218,7 @@ def _system_status_table(settings: Settings, db: TradingDatabase) -> Table:
     table.add_row("Runtime Dir", str(settings.runtime_dir))
     table.add_row("Database", str(settings.database_path))
     table.add_row("Model", settings.model_name)
+    table.add_row("Routing", json.dumps(settings.model_routing(), indent=2))
     table.add_row("Base URL", settings.base_url)
     table.add_row("Ollama Reachable", "yes" if health.service_reachable else "no")
     table.add_row("Model Available", "yes" if health.model_available else "no")

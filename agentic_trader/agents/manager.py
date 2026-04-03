@@ -1,7 +1,6 @@
-from textwrap import dedent
-
+from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import ManagerDecision, MarketSnapshot, RegimeAssessment, ResearchCoordinatorBrief, RiskPlan, StrategyPlan
+from agentic_trader.schemas import AgentContext, ManagerDecision, MarketSnapshot, RegimeAssessment, ResearchCoordinatorBrief, RiskPlan, StrategyPlan
 
 
 def _fallback_manager(
@@ -46,34 +45,22 @@ def manage_trade_decision(
     risk: RiskPlan,
     *,
     allow_fallback: bool,
+    context: AgentContext | None = None,
 ) -> ManagerDecision:
     system_prompt = (
         "You are the manager agent for a systematic trading engine. "
         "Combine coordinator, regime, strategy, and risk outputs into a final execution posture. "
         "You may approve, force hold, cap confidence, or reduce size."
     )
-    user_prompt = dedent(
-        f"""
-        Symbol: {snapshot.symbol}
-
-        Snapshot:
-        {snapshot.model_dump_json(indent=2)}
-
-        Coordinator:
-        {coordinator.model_dump_json(indent=2)}
-
-        Regime:
-        {regime.model_dump_json(indent=2)}
-
-        Strategy:
-        {strategy.model_dump_json(indent=2)}
-
-        Risk:
-        {risk.model_dump_json(indent=2)}
-        """
-    ).strip()
+    routed_llm = llm.for_role("manager")
+    user_prompt = render_agent_context(
+        context,
+        task="Combine coordinator, regime, strategy, and risk outputs into a final execution posture. You may approve, force hold, cap confidence, or reduce size.",
+    ) if context is not None else (
+        f"Symbol: {snapshot.symbol}\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}\n\nCoordinator:\n{coordinator.model_dump_json(indent=2)}\n\nRegime:\n{regime.model_dump_json(indent=2)}\n\nStrategy:\n{strategy.model_dump_json(indent=2)}\n\nRisk:\n{risk.model_dump_json(indent=2)}"
+    )
     try:
-        return llm.complete_structured(
+        return routed_llm.complete_structured(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=ManagerDecision,

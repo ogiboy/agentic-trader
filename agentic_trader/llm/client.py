@@ -7,7 +7,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from agentic_trader.config import Settings
-from agentic_trader.schemas import LLMHealthStatus
+from agentic_trader.schemas import AgentRole, LLMHealthStatus
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -15,12 +15,19 @@ logger = logging.getLogger(__name__)
 
 
 class LocalLLM:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, *, model_name: str | None = None):
         self.settings = settings
         self.base_url = settings.base_url.removesuffix("/v1").rstrip("/")
+        self.model_name = model_name or settings.model_name
         self.client = httpx.Client(
             timeout=settings.request_timeout_seconds,
         )
+
+    def for_role(self, role: AgentRole) -> "LocalLLM":
+        routed_model = self.settings.model_for_role(role)
+        if routed_model == self.model_name:
+            return self
+        return LocalLLM(self.settings, model_name=routed_model)
 
     def health_check(self) -> LLMHealthStatus:
         try:
@@ -38,7 +45,7 @@ class LocalLLM:
                 name: Any = item.get("name")
                 if isinstance(name, str):
                     available.add(name)
-            model_available = self.settings.model_name in available
+            model_available = self.model_name in available
             message = (
                 "Ollama is reachable and the configured model is available."
                 if model_available
@@ -47,7 +54,7 @@ class LocalLLM:
             return LLMHealthStatus(
                 provider="ollama",
                 base_url=self.settings.base_url,
-                model_name=self.settings.model_name,
+                model_name=self.model_name,
                 service_reachable=True,
                 model_available=model_available,
                 message=message,
@@ -56,7 +63,7 @@ class LocalLLM:
             return LLMHealthStatus(
                 provider="ollama",
                 base_url=self.settings.base_url,
-                model_name=self.settings.model_name,
+                model_name=self.model_name,
                 service_reachable=False,
                 model_available=False,
                 message=f"Unable to reach Ollama: {exc}",
@@ -92,7 +99,7 @@ class LocalLLM:
             response = self.client.post(
                 f"{self.base_url}/api/generate",
                 json={
-                    "model": self.settings.model_name,
+                    "model": self.model_name,
                     "prompt": prompt,
                     "stream": False,
                     "options": {
@@ -172,7 +179,7 @@ class LocalLLM:
             response = self.client.post(
                 f"{self.base_url}/api/generate",
                 json={
-                    "model": self.settings.model_name,
+                    "model": self.model_name,
                     "prompt": prompt,
                     "stream": False,
                     "options": {

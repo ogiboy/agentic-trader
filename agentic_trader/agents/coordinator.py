@@ -1,7 +1,6 @@
-from textwrap import dedent
-
+from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import MarketSnapshot, ResearchCoordinatorBrief
+from agentic_trader.schemas import AgentContext, MarketSnapshot, ResearchCoordinatorBrief
 
 
 def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
@@ -47,22 +46,21 @@ def coordinate_research(
     snapshot: MarketSnapshot,
     *,
     allow_fallback: bool,
+    context: AgentContext | None = None,
 ) -> ResearchCoordinatorBrief:
     system_prompt = (
         "You are the research coordinator for a systematic trading engine. "
         "Set the focus for downstream specialists and highlight caution flags."
     )
-    user_prompt = dedent(
-        f"""
-        Symbol: {snapshot.symbol}
-        Interval: {snapshot.interval}
-
-        Market snapshot:
-        {snapshot.model_dump_json(indent=2)}
-        """
-    ).strip()
+    routed_llm = llm.for_role("coordinator")
+    user_prompt = render_agent_context(
+        context,
+        task="Set the downstream research focus, priority signals, and caution flags for this cycle.",
+    ) if context is not None else (
+        f"Symbol: {snapshot.symbol}\nInterval: {snapshot.interval}\n\nMarket snapshot:\n{snapshot.model_dump_json(indent=2)}"
+    )
     try:
-        return llm.complete_structured(
+        return routed_llm.complete_structured(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=ResearchCoordinatorBrief,
