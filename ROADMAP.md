@@ -75,7 +75,8 @@ Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
 - a first memory explorer surface is now available from the CLI and TUI
 - persisted per-stage trace viewing is now available from the CLI and TUI
-- richer trace inspection, retrieval explanation, denser live agent stage visualization, and the Ink migration are still open
+- a first Ink-based control room now exists under `tui/` and consumes JSON status, log, preference, and portfolio surfaces from the Python runtime
+- richer trace inspection, retrieval explanation, denser live agent stage visualization, and deeper Ink migration are still open
 
 ## Phase 5: Backtesting
 
@@ -122,6 +123,7 @@ Status: in progress.
 - allow a future WebUI to connect to the same daemon runtime over a local port without duplicating orchestration logic
 Notes:
 - background launch, status, logs, stop requests, and live monitor attach surfaces are already implemented
+- read-only observer surfaces now attach safely through shared status/log contracts without competing for write locks
 - restart controls, deeper supervisor compatibility, and daemon-backed multi-surface UI support remain open
 
 ## Phase 8: Live Execution Adapters

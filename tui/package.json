@@ -1,0 +1,14 @@
+{
+  "name": "agentic-trader-tui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Ink-based operator console for Agentic Trader",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "ink": "^5.1.0",
+    "react": "^18.3.1"
+  }
+}

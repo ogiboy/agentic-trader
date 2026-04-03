@@ -24,11 +24,15 @@ type OrderRow = tuple[str, str, str, str, bool, float, float, float, float, floa
 
 
 class TradingDatabase:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, *, read_only: bool = False):
         self.settings = settings
         self.path = settings.database_path
-        self.conn = duckdb.connect(str(self.path))
-        self._init_schema()
+        self.read_only = read_only
+        if read_only and self.path.exists():
+            self.conn = duckdb.connect(str(self.path), read_only=True)
+        else:
+            self.conn = duckdb.connect(str(self.path))
+            self._init_schema()
 
     def _init_schema(self) -> None:
         self.conn.execute(

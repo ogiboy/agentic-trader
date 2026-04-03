@@ -1,5 +1,8 @@
 import os
 import signal
+import shutil
+import subprocess
+import sys
 
 import json
 from pathlib import Path
@@ -413,14 +416,22 @@ def _render_memory_matches(matches) -> None:
     console.print(table)
 
 
+def _emit_json(payload: object) -> None:
+    typer.echo(json.dumps(payload, indent=2))
+
+
+def _open_db(settings, *, read_only: bool = False) -> TradingDatabase:
+    return TradingDatabase(settings, read_only=read_only)
+
+
 @app.command()
-def doctor() -> None:
+def doctor(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
     """Validate local configuration and print runtime settings."""
     settings = get_settings()
     latest: str
     db_status = "ok"
     try:
-        db = TradingDatabase(settings)
+        db = _open_db(settings, read_only=True)
         latest = str(db.latest_order())
     except Exception as exc:
         latest = "unavailable"
@@ -428,6 +439,22 @@ def doctor() -> None:
 
     llm = LocalLLM(settings)
     health = llm.health_check()
+    payload = {
+        "model": settings.model_name,
+        "base_url": settings.base_url,
+        "runtime_dir": str(settings.runtime_dir),
+        "database": str(settings.database_path),
+        "db_status": db_status,
+        "model_routing": settings.model_routing(),
+        "ollama_reachable": health.service_reachable,
+        "model_available": health.model_available,
+        "llm_status": health.message,
+        "latest_order": latest,
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+
     table = Table(title="Environment Check")
     table.add_column("Key")
     table.add_column("Value")
@@ -579,12 +606,20 @@ def launch(
 
 
 @app.command()
-def portfolio() -> None:
+def portfolio(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
     """Show the current paper portfolio and open positions."""
     settings = get_settings()
-    db = TradingDatabase(settings)
+    db = _open_db(settings, read_only=True)
     snapshot = db.get_account_snapshot()
     positions = db.list_positions()
+    if json_output:
+        _emit_json(
+            {
+                "snapshot": snapshot.model_dump(mode="json"),
+                "positions": [position.model_dump(mode="json") for position in positions],
+            }
+        )
+        return
 
     summary = Table(title="Portfolio")
     summary.add_column("Metric")
@@ -620,26 +655,71 @@ def portfolio() -> None:
 
 
 @app.command()
-def status() -> None:
+def status(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
     """Show the current orchestrator runtime state."""
     settings = get_settings()
-    db = TradingDatabase(settings)
-    _render_service_state(db.get_service_state())
+    db = _open_db(settings, read_only=True)
+    state = db.get_service_state()
+    if json_output:
+        view = build_runtime_status_view(state)
+        _emit_json(
+            {
+                "runtime_state": view.runtime_state,
+                "live_process": view.live_process,
+                "is_stale": view.is_stale,
+                "age_seconds": view.age_seconds,
+                "status_message": view.status_message,
+                "state": view.state.model_dump(mode="json") if view.state is not None else None,
+            }
+        )
+        return
+    _render_service_state(state)
 
 
 @app.command()
-def logs(limit: int = typer.Option(20, min=1, max=200, help="Maximum number of runtime events to show.")) -> None:
+def logs(
+    limit: int = typer.Option(20, min=1, max=200, help="Maximum number of runtime events to show."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
     """Show recent orchestrator runtime events."""
     settings = get_settings()
-    db = TradingDatabase(settings)
-    _render_service_events(db.list_service_events(limit=limit))
+    db = _open_db(settings, read_only=True)
+    events = db.list_service_events(limit=limit)
+    if json_output:
+        _emit_json([event.model_dump(mode="json") for event in events])
+        return
+    _render_service_events(events)
+
+
+@app.command("preferences")
+def preferences_command(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
+    """Show the saved investment preferences."""
+    settings = get_settings()
+    db = _open_db(settings, read_only=True)
+    preferences = db.load_preferences()
+    if json_output:
+        _emit_json(preferences.model_dump(mode="json"))
+        return
+    table = Table(title="Investment Preferences")
+    table.add_column("Setting")
+    table.add_column("Value")
+    table.add_row("Regions", ", ".join(preferences.regions) or "-")
+    table.add_row("Exchanges", ", ".join(preferences.exchanges) or "-")
+    table.add_row("Currencies", ", ".join(preferences.currencies) or "-")
+    table.add_row("Sectors", ", ".join(preferences.sectors) or "-")
+    table.add_row("Risk Profile", preferences.risk_profile)
+    table.add_row("Trade Style", preferences.trade_style)
+    table.add_row("Behavior Preset", preferences.behavior_preset)
+    table.add_row("Agent Profile", preferences.agent_profile)
+    table.add_row("Notes", preferences.notes or "-")
+    console.print(table)
 
 
 @app.command("journal")
 def journal(limit: int = typer.Option(20, min=1, max=200, help="Maximum number of journal entries to show.")) -> None:
     """Show the latest trade journal entries."""
     settings = get_settings()
-    db = TradingDatabase(settings)
+    db = _open_db(settings, read_only=True)
     _render_trade_journal(db.list_trade_journal(limit=limit))
 
 
@@ -649,7 +729,7 @@ def risk_report(
 ) -> None:
     """Show a compact daily risk report for the paper portfolio."""
     settings = get_settings()
-    db = TradingDatabase(settings)
+    db = _open_db(settings, read_only=True)
     _render_risk_report(db.build_daily_risk_report(report_date=report_date))
 
 
@@ -659,7 +739,7 @@ def review_run(
 ) -> None:
     """Inspect the latest or a specific persisted run in detail."""
     settings = get_settings()
-    db = TradingDatabase(settings)
+    db = _open_db(settings, read_only=True)
     record = db.get_run(run_id) if run_id is not None else db.latest_run()
     if record is None:
         console.print(Panel("No persisted runs are available to review.", title="Run Review", border_style="yellow"))
@@ -673,7 +753,7 @@ def trace_run(
 ) -> None:
     """Show the persisted per-stage agent trace for a run."""
     settings = get_settings()
-    db = TradingDatabase(settings)
+    db = _open_db(settings, read_only=True)
     record = db.get_run(run_id) if run_id is not None else db.latest_run()
     if record is None:
         console.print(Panel("No persisted runs are available to trace.", title="Trace Viewer", border_style="yellow"))
@@ -688,7 +768,7 @@ def export_report(
 ) -> None:
     """Export a run review as Markdown."""
     settings = get_settings()
-    db = TradingDatabase(settings)
+    db = _open_db(settings, read_only=True)
     record = db.get_run(run_id) if run_id is not None else db.latest_run()
     if record is None:
         console.print(Panel("No persisted runs are available to export.", title="Export Blocked", border_style="yellow"))
@@ -778,7 +858,7 @@ def memory_explorer(
 ) -> None:
     """Inspect historically similar recorded runs for the current market snapshot."""
     settings = get_settings()
-    db = TradingDatabase(settings)
+    db = _open_db(settings, read_only=True)
     frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback)
     snapshot = build_snapshot(frame, symbol=symbol, interval=interval)
     matches = retrieve_similar_memories(db, snapshot, limit=limit)
@@ -793,7 +873,7 @@ def chat(
     """Talk to the read-only operator chat surface."""
     settings = get_settings()
     ensure_llm_ready(settings)
-    db = TradingDatabase(settings)
+    db = _open_db(settings, read_only=True)
     prompt = message or typer.prompt("Message")
     response = chat_with_persona(
         llm=LocalLLM(settings),
@@ -838,9 +918,44 @@ def instruct(
 def monitor(refresh_seconds: float = typer.Option(1.0, min=0.2, help="Dashboard refresh interval in seconds.")) -> None:
     """Attach to the live runtime monitor."""
     settings = get_settings()
-    db = TradingDatabase(settings)
+    db = _open_db(settings, read_only=True)
     console.print(build_monitor_renderable(settings, db))
     run_live_monitor(settings, db, refresh_seconds=refresh_seconds)
+
+
+@app.command("tui")
+def ink_tui() -> None:
+    """Launch the Ink-based control room."""
+    tui_dir = Path(__file__).resolve().parent.parent / "tui"
+    if not tui_dir.exists():
+        console.print(_render_health_panel("TUI Missing", "The Ink UI directory was not found.", border_style="red"))
+        raise typer.Exit(code=1)
+
+    npm = shutil.which("npm")
+    if npm is None:
+        console.print(
+            _render_health_panel(
+                "Node Missing",
+                "npm is required to run the Ink control room.",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1)
+
+    node_modules = tui_dir / "node_modules"
+    if not node_modules.exists():
+        console.print(
+            _render_health_panel(
+                "Installing TUI Dependencies",
+                "First launch detected. Installing Ink dependencies with npm.",
+                border_style="yellow",
+            )
+        )
+        subprocess.run([npm, "install"], cwd=tui_dir, check=True)
+
+    cli_exec = shutil.which("agentic-trader") or "agentic-trader"
+    env = {**os.environ, "AGENTIC_TRADER_CLI": cli_exec, "AGENTIC_TRADER_PYTHON": sys.executable}
+    subprocess.run([npm, "run", "start"], cwd=tui_dir, check=True, env=env)
 
 
 @app.command("stop-service")

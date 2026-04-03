@@ -119,10 +119,22 @@ Open the root launcher and control room:
 python main.py
 ```
 
+Or use the installed console entrypoint directly:
+
+```bash
+agentic-trader menu
+```
+
 Attach to the live monitor:
 
 ```bash
 python main.py monitor --refresh-seconds 1.0
+```
+
+Open the Ink-based next-generation control room:
+
+```bash
+agentic-trader tui
 ```
 
 Start the runtime directly from the root launcher:
@@ -219,12 +231,23 @@ python main.py status
 python main.py logs --limit 20
 ```
 
+Machine-readable status surfaces for future UI shells:
+
+```bash
+agentic-trader doctor --json
+agentic-trader status --json
+agentic-trader logs --json --limit 8
+agentic-trader preferences --json
+agentic-trader portfolio --json
+```
+
 ## Notes
 
 - This project starts with paper trading only.
 - The trading runtime is strict by default: if Ollama or the configured model is unavailable, the core runtime should not start.
 - Deterministic fallbacks are kept for diagnostics, not for silent trade generation in the main launcher.
 - The main menu is intended to become the long-running operator surface for preferences, logs, start/stop controls, and runtime visibility.
+- A first Ink control room now exists under `tui/` and attaches to the same CLI and daemon contract as the Python surfaces.
 - Live broker adapters can be added once the planning and portfolio pipeline behaves consistently.
 
 ## Near-Term Direction
