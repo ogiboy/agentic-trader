@@ -28,7 +28,7 @@ def _parse_timestamp(value: str | None) -> datetime | None:
     return parsed
 
 
-def _is_process_alive(pid: int | None) -> bool:
+def is_process_alive(pid: int | None) -> bool:
     if pid is None:
         return False
     try:
@@ -58,7 +58,7 @@ def build_runtime_status_view(
             state=None,
         )
 
-    live_process = _is_process_alive(state.pid)
+    live_process = is_process_alive(state.pid)
     heartbeat = _parse_timestamp(state.last_heartbeat_at or state.updated_at)
     age_seconds: int | None = None
     if heartbeat is not None:

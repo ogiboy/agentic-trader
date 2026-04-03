@@ -26,6 +26,10 @@ from agentic_trader.workflows.service import ensure_llm_ready, start_background_
 console = Console()
 
 
+def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
+    return TradingDatabase(settings, read_only=read_only)
+
+
 def _banner() -> Panel:
     art = r"""
  █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗    ████████╗██████╗  █████╗ ██████╗ ███████╗██████╗
@@ -199,6 +203,22 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
     return table
 
 
+def _agent_activity_table(events: list[ServiceEvent]) -> Table:
+    table = Table(title="Live Agent Activity")
+    table.add_column("Created")
+    table.add_column("Stage")
+    table.add_column("Event")
+    table.add_column("Message")
+    activity_events = [event for event in events if event.event_type.startswith("agent_")]
+    if not activity_events:
+        table.add_row("-", "-", "-", "No live agent stage events yet.")
+        return table
+    for event in activity_events[:10]:
+        _, stage, status = event.event_type.split("_", 2)
+        table.add_row(event.created_at, stage, status, event.message)
+    return table
+
+
 def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     table = Table(title="Runtime Status")
     table.add_column("Key")
@@ -279,6 +299,7 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
 
 
 def build_monitor_renderable(settings: Settings, db: TradingDatabase) -> Group:
+    events = db.list_service_events(limit=20)
     header = Panel(
         Text("Agentic Trader Live Monitor", style="bold cyan"),
         subtitle="Ctrl+C to return",
@@ -302,7 +323,7 @@ def build_monitor_renderable(settings: Settings, db: TradingDatabase) -> Group:
     )
     bottom = Columns(
         [
-            Panel(_runtime_events_table(db.list_service_events(limit=10)), border_style="bright_blue"),
+            Panel(_agent_activity_table(events), border_style="bright_magenta"),
             Panel(Group(_recent_runs_table(db), _trade_journal_table(db, limit=5)), border_style="white"),
         ],
         equal=True,
@@ -311,7 +332,7 @@ def build_monitor_renderable(settings: Settings, db: TradingDatabase) -> Group:
     footer = Columns(
         [
             Panel(_risk_report_table(db), border_style="red"),
-            Panel(Align.center(Text("Live service attach surface for runtime, portfolio, journal, and recent activity.", style="dim")), border_style="bright_black"),
+            Panel(_runtime_events_table(events), border_style="bright_blue"),
         ],
         equal=True,
         expand=True,
@@ -562,17 +583,25 @@ def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
 def _strict_one_shot(settings: Settings, symbols: Sequence[str], interval: str, lookback: str) -> None:
     ensure_llm_ready(settings)
     for symbol in symbols:
-        artifacts = run_once(
-            settings=settings,
-            symbol=symbol,
-            interval=interval,
-            lookback=lookback,
-            allow_fallback=False,
-        )
+        latest_message = f"Preparing {symbol}."
+        with console.status(f"[bold cyan]{latest_message}[/bold cyan]", spinner="dots") as status:
+            def _progress(stage: str, event: str, message: str) -> None:
+                nonlocal latest_message
+                latest_message = f"[{stage}] {message}"
+                status.update(f"[bold cyan]{latest_message}[/bold cyan]")
+
+            artifacts = run_once(
+                settings=settings,
+                symbol=symbol,
+                interval=interval,
+                lookback=lookback,
+                allow_fallback=False,
+                progress_callback=_progress,
+            )
         order_id = persist_run(settings=settings, artifacts=artifacts)
         console.print(
             Panel(
-                json.dumps(artifacts.model_dump(mode="json"), indent=2),
+                f"Final stage update: {latest_message}\n\n{json.dumps(artifacts.model_dump(mode='json'), indent=2)}",
                 title=f"Run Completed: {symbol} / {order_id}",
                 border_style="green",
             )
@@ -611,7 +640,7 @@ def _launch_service(settings: Settings, symbols: Sequence[str], interval: str, l
         run_live_monitor(settings, observer_db, refresh_seconds=1.0)
 
 
-def _runtime_menu(settings: Settings, db: TradingDatabase) -> None:
+def _runtime_menu(settings: Settings) -> None:
     while True:
         console.clear()
         console.print(_banner())
@@ -627,9 +656,17 @@ def _runtime_menu(settings: Settings, db: TradingDatabase) -> None:
         console.print(table)
         choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6"], default="1")
         if choice == "1":
-            _render_status(settings, db)
+            db = _open_db(settings, read_only=True)
+            try:
+                _render_status(settings, db)
+            finally:
+                db.close()
         elif choice == "2":
-            prefs = db.load_preferences()
+            db = _open_db(settings, read_only=True)
+            try:
+                prefs = db.load_preferences()
+            finally:
+                db.close()
             default_symbols = "AAPL,MSFT" if "US" in prefs.regions else "BTC-USD"
             symbols = _split_csv(Prompt.ask("Symbols", default=default_symbols))
             interval = Prompt.ask("Interval", default="1d")
@@ -641,19 +678,23 @@ def _runtime_menu(settings: Settings, db: TradingDatabase) -> None:
             lookback = Prompt.ask("Lookback", default="180d")
             _launch_service(settings, symbols, interval, lookback)
         elif choice == "4":
-            state = db.get_service_state()
-            if state is None or state.pid is None:
-                console.print(Panel("No managed service is currently active.", title="Not Running", border_style="yellow"))
-            else:
-                db.request_stop_service()
-                db.insert_service_event(
-                    level="warning",
-                    event_type="stop_requested",
-                    message="Stop requested by operator from the TUI.",
-                    cycle_count=state.cycle_count,
-                    symbol=state.current_symbol,
-                )
-                console.print(Panel(f"Stop requested for PID {state.pid}.", title="Stop Requested", border_style="yellow"))
+            db = _open_db(settings, read_only=False)
+            try:
+                state = db.get_service_state()
+                if state is None or state.pid is None:
+                    console.print(Panel("No managed service is currently active.", title="Not Running", border_style="yellow"))
+                else:
+                    db.request_stop_service()
+                    db.insert_service_event(
+                        level="warning",
+                        event_type="stop_requested",
+                        message="Stop requested by operator from the TUI.",
+                        cycle_count=state.cycle_count,
+                        symbol=state.current_symbol,
+                    )
+                    console.print(Panel(f"Stop requested for PID {state.pid}.", title="Stop Requested", border_style="yellow"))
+            finally:
+                db.close()
         elif choice == "5":
             refresh_seconds = float(Prompt.ask("Refresh seconds", default="1.0"))
             observer_db = TradingDatabase(settings, read_only=True)
@@ -663,7 +704,7 @@ def _runtime_menu(settings: Settings, db: TradingDatabase) -> None:
         Prompt.ask("Press Enter to continue", default="")
 
 
-def _operator_menu(settings: Settings, db: TradingDatabase) -> None:
+def _operator_menu(settings: Settings) -> None:
     while True:
         console.clear()
         console.print(_banner())
@@ -676,14 +717,22 @@ def _operator_menu(settings: Settings, db: TradingDatabase) -> None:
         console.print(table)
         choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
         if choice == "1":
-            _chat_screen(settings, db)
+            db = _open_db(settings, read_only=True)
+            try:
+                _chat_screen(settings, db)
+            finally:
+                db.close()
         elif choice == "2":
-            _instruction_screen(settings, db)
+            db = _open_db(settings, read_only=False)
+            try:
+                _instruction_screen(settings, db)
+            finally:
+                db.close()
         else:
             return
 
 
-def _portfolio_menu(db: TradingDatabase) -> None:
+def _portfolio_menu(settings: Settings) -> None:
     while True:
         console.clear()
         table = Table(title="Portfolio And Risk")
@@ -696,17 +745,29 @@ def _portfolio_menu(db: TradingDatabase) -> None:
         console.print(table)
         choice = Prompt.ask("Select action", choices=["1", "2", "3", "4"], default="1")
         if choice == "1":
-            _show_portfolio(db)
+            db = _open_db(settings, read_only=True)
+            try:
+                _show_portfolio(db)
+            finally:
+                db.close()
         elif choice == "2":
-            _show_trade_journal(db)
+            db = _open_db(settings, read_only=True)
+            try:
+                _show_trade_journal(db)
+            finally:
+                db.close()
         elif choice == "3":
-            _show_risk_report(db)
+            db = _open_db(settings, read_only=True)
+            try:
+                _show_risk_report(db)
+            finally:
+                db.close()
         else:
             return
         Prompt.ask("Press Enter to continue", default="")
 
 
-def _research_menu(settings: Settings, db: TradingDatabase) -> None:
+def _research_menu(settings: Settings) -> None:
     while True:
         console.clear()
         table = Table(title="Research And Memory")
@@ -718,16 +779,24 @@ def _research_menu(settings: Settings, db: TradingDatabase) -> None:
         console.print(table)
         choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
         if choice == "1":
-            _show_memory_explorer(settings, db)
+            db = _open_db(settings, read_only=True)
+            try:
+                _show_memory_explorer(settings, db)
+            finally:
+                db.close()
         elif choice == "2":
-            _render_recent_runs(db)
-            _render_runtime_events(db.list_service_events(limit=6))
+            db = _open_db(settings, read_only=True)
+            try:
+                _render_recent_runs(db)
+                _render_runtime_events(db.list_service_events(limit=6))
+            finally:
+                db.close()
         else:
             return
         Prompt.ask("Press Enter to continue", default="")
 
 
-def _review_menu(db: TradingDatabase) -> None:
+def _review_menu(settings: Settings) -> None:
     while True:
         console.clear()
         table = Table(title="Review And Trace")
@@ -739,9 +808,17 @@ def _review_menu(db: TradingDatabase) -> None:
         console.print(table)
         choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
         if choice == "1":
-            _show_latest_run_review(db)
+            db = _open_db(settings, read_only=True)
+            try:
+                _show_latest_run_review(db)
+            finally:
+                db.close()
         elif choice == "2":
-            _show_latest_run_trace(db)
+            db = _open_db(settings, read_only=True)
+            try:
+                _show_latest_run_trace(db)
+            finally:
+                db.close()
         else:
             return
         Prompt.ask("Press Enter to continue", default="")
@@ -750,7 +827,8 @@ def _review_menu(db: TradingDatabase) -> None:
 def run_main_menu() -> None:
     settings = get_settings()
     try:
-        db = TradingDatabase(settings)
+        db = _open_db(settings, read_only=True)
+        db.close()
     except Exception as exc:
         console.print(
             Panel(
@@ -764,7 +842,11 @@ def run_main_menu() -> None:
     while True:
         console.clear()
         console.print(_banner())
-        _render_status(settings, db)
+        db = _open_db(settings, read_only=True)
+        try:
+            _render_status(settings, db)
+        finally:
+            db.close()
         menu = Table(title="Main Menu")
         menu.add_column("Key", style="bold cyan")
         menu.add_column("Action")
@@ -780,17 +862,21 @@ def run_main_menu() -> None:
         choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6", "7"], default="2")
         try:
             if choice == "1":
-                _configure_preferences(db)
+                db = _open_db(settings, read_only=False)
+                try:
+                    _configure_preferences(db)
+                finally:
+                    db.close()
             elif choice == "2":
-                _runtime_menu(settings, db)
+                _runtime_menu(settings)
             elif choice == "3":
-                _operator_menu(settings, db)
+                _operator_menu(settings)
             elif choice == "4":
-                _portfolio_menu(db)
+                _portfolio_menu(settings)
             elif choice == "5":
-                _research_menu(settings, db)
+                _research_menu(settings)
             elif choice == "6":
-                _review_menu(db)
+                _review_menu(settings)
             else:
                 console.print(Panel("Leaving control room.", title="Exit", border_style="blue"))
                 return

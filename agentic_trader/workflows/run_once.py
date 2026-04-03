@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from agentic_trader.agents.context import build_agent_context
 from uuid import uuid4
 
@@ -15,6 +16,8 @@ from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.schemas import AgentStageTrace, MarketSnapshot, RunArtifacts
 from agentic_trader.storage.db import TradingDatabase
+
+type ProgressCallback = Callable[[str, str, str], None]
 
 
 def persist_position_plan(*, settings: Settings, artifacts: RunArtifacts) -> None:
@@ -66,9 +69,15 @@ def run_from_snapshot(
     settings: Settings,
     snapshot: MarketSnapshot,
     allow_fallback: bool,
+    progress_callback: ProgressCallback | None = None,
 ) -> RunArtifacts:
+    def emit(stage: str, status: str, message: str) -> None:
+        if progress_callback is not None:
+            progress_callback(stage, status, message)
+
     llm = LocalLLM(settings)
     db = TradingDatabase(settings)
+    emit("coordinator", "started", f"Coordinator is setting research focus for {snapshot.symbol}.")
     coordinator_context = build_agent_context(
         role="coordinator",
         settings=settings,
@@ -81,6 +90,8 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=coordinator_context,
     )
+    emit("coordinator", "completed", f"Coordinator completed with focus {coordinator.market_focus}.")
+    emit("regime", "started", f"Regime analyst is classifying the market for {snapshot.symbol}.")
     regime_context = build_agent_context(
         role="regime",
         settings=settings,
@@ -94,6 +105,8 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=regime_context,
     )
+    emit("regime", "completed", f"Regime analyst classified the market as {regime.regime}.")
+    emit("strategy", "started", f"Strategy selector is planning the trade for {snapshot.symbol}.")
     strategy_context = build_agent_context(
         role="strategy",
         settings=settings,
@@ -111,6 +124,8 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=strategy_context,
     )
+    emit("strategy", "completed", f"Strategy selector chose {strategy.strategy_family} with action {strategy.action}.")
+    emit("risk", "started", f"Risk steward is sizing the trade for {snapshot.symbol}.")
     risk_context = build_agent_context(
         role="risk",
         settings=settings,
@@ -130,6 +145,8 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=risk_context,
     )
+    emit("risk", "completed", f"Risk steward set size {risk.position_size_pct:.2%} and RR {risk.risk_reward_ratio:.2f}.")
+    emit("manager", "started", f"Manager agent is combining specialist outputs for {snapshot.symbol}.")
     manager_context = build_agent_context(
         role="manager",
         settings=settings,
@@ -152,8 +169,13 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=manager_context,
     )
+    emit("manager", "completed", f"Manager agent returned bias {manager.action_bias} with approval {manager.approved}.")
+    emit("execution", "started", f"Execution guard is validating the plan for {snapshot.symbol}.")
     execution = evaluate_execution(settings, snapshot, strategy, risk, manager)
+    emit("execution", "completed", f"Execution guard {'approved' if execution.approved else 'rejected'} {execution.side}.")
+    emit("review", "started", f"Review agent is writing the post-trade note for {snapshot.symbol}.")
     review = build_review_note(regime, strategy, risk, manager, execution)
+    emit("review", "completed", "Review note completed.")
     traces = [
         AgentStageTrace(
             role="coordinator",
@@ -216,6 +238,7 @@ def run_once(
     interval: str,
     lookback: str,
     allow_fallback: bool,
+    progress_callback: ProgressCallback | None = None,
 ) -> RunArtifacts:
     frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback, settings=settings)
     snapshot = build_snapshot(frame, symbol=symbol, interval=interval)
@@ -223,4 +246,5 @@ def run_once(
         settings=settings,
         snapshot=snapshot,
         allow_fallback=allow_fallback,
+        progress_callback=progress_callback,
     )

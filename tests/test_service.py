@@ -145,6 +145,58 @@ def test_run_service_records_runtime_state_and_events(monkeypatch, tmp_path: Pat
     }
 
 
+def test_run_service_records_agent_stage_events(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.ensure_llm_ready",
+        lambda current_settings: LLMHealthStatus(
+            provider="ollama",
+            base_url=current_settings.base_url,
+            model_name=current_settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ok",
+        ),
+    )
+
+    def _run_once_with_progress(**kwargs):
+        progress = kwargs["progress_callback"]
+        progress("coordinator", "started", "Coordinator started.")
+        progress("coordinator", "completed", "Coordinator finished.")
+        progress("manager", "started", "Manager started.")
+        progress("manager", "completed", "Manager finished.")
+        return _artifacts(kwargs["symbol"])
+
+    monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once_with_progress)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.persist_run",
+        lambda **kwargs: "paper-test-order",
+    )
+
+    run_service(
+        settings=settings,
+        symbols=["AAPL"],
+        interval="1d",
+        lookback="180d",
+        poll_seconds=1,
+        continuous=False,
+        max_cycles=None,
+    )
+
+    db = TradingDatabase(settings)
+    events = db.list_service_events(limit=10)
+    event_types = {event.event_type for event in events}
+    assert "agent_coordinator_started" in event_types
+    assert "agent_coordinator_completed" in event_types
+    assert "agent_manager_started" in event_types
+    assert "agent_manager_completed" in event_types
+
+
 def test_run_service_respects_stop_request(monkeypatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -226,7 +278,50 @@ def test_start_background_service_records_spawn(monkeypatch, tmp_path: Path) -> 
     assert state.state == "starting"
 
 
-def test_stop_service_command_marks_stop_requested(tmp_path: Path) -> None:
+def test_start_background_service_recovers_stale_pid(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    db.upsert_service_state(
+        state="running",
+        continuous=True,
+        poll_seconds=300,
+        cycle_count=4,
+        current_symbol="AAPL",
+        message="Processing AAPL",
+        pid=99999,
+    )
+
+    class _FakeProcess:
+        pid = 4343
+
+    monkeypatch.setattr("agentic_trader.workflows.service.is_process_alive", lambda pid: False)
+    monkeypatch.setattr("agentic_trader.workflows.service.subprocess.Popen", lambda *args, **kwargs: _FakeProcess())
+
+    pid = start_background_service(
+        settings=settings,
+        symbols=["AAPL"],
+        interval="1d",
+        lookback="180d",
+        poll_seconds=300,
+        continuous=True,
+        max_cycles=None,
+        workdir=tmp_path,
+    )
+
+    updated = db.get_service_state()
+    events = db.list_service_events(limit=5)
+    assert pid == 4343
+    assert updated is not None
+    assert updated.pid == 4343
+    assert updated.state == "starting"
+    assert any(event.event_type == "stale_service_recovered" for event in events)
+
+
+def test_stop_service_command_marks_stop_requested(monkeypatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -245,6 +340,7 @@ def test_stop_service_command_marks_stop_requested(tmp_path: Path) -> None:
     )
 
     runner = CliRunner()
+    monkeypatch.setattr("agentic_trader.cli.is_process_alive", lambda pid: True)
     result = runner.invoke(
         app,
         ["stop-service"],

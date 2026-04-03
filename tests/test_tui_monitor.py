@@ -29,6 +29,13 @@ def test_build_monitor_renderable_contains_core_sections(tmp_path: Path) -> None
         cycle_count=3,
         symbol="AAPL",
     )
+    db.insert_service_event(
+        level="info",
+        event_type="agent_regime_started",
+        message="Regime analyst started.",
+        cycle_count=3,
+        symbol="AAPL",
+    )
 
     renderable = build_monitor_renderable(settings, db)
     console = Console(record=True, width=140)
@@ -40,3 +47,4 @@ def test_build_monitor_renderable_contains_core_sections(tmp_path: Path) -> None
     assert "Runtime Status" in output
     assert "Portfolio" in output
     assert "Runtime Events" in output
+    assert "Live Agent Activity" in output

@@ -21,7 +21,7 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.memory.retrieval import retrieve_similar_memories
-from agentic_trader.runtime_status import build_runtime_status_view
+from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
 from agentic_trader.schemas import (
     ChatPersona,
     DailyRiskReport,
@@ -39,7 +39,7 @@ from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_m
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, run_service, start_background_service
 
-app = typer.Typer(help="Agentic Trader CLI")
+app = typer.Typer(help="Agentic Trader CLI", invoke_without_command=True)
 console = Console()
 
 
@@ -422,6 +422,12 @@ def _emit_json(payload: object) -> None:
 
 def _open_db(settings, *, read_only: bool = False) -> TradingDatabase:
     return TradingDatabase(settings, read_only=read_only)
+
+
+@app.callback()
+def app_entry(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        ink_tui()
 
 
 @app.command()
@@ -967,6 +973,33 @@ def stop_service(force: bool = typer.Option(False, help="Send SIGTERM after mark
     state = db.get_service_state()
     if state is None or state.pid is None:
         console.print(_render_health_panel("Not Running", "No managed service is currently active.", border_style="yellow"))
+        raise typer.Exit(code=0)
+    if not is_process_alive(state.pid):
+        db.upsert_service_state(
+            state="stopped",
+            continuous=state.continuous,
+            poll_seconds=state.poll_seconds,
+            cycle_count=state.cycle_count,
+            current_symbol=None,
+            message=f"Cleared stale runtime state from dead PID {state.pid}.",
+            last_error=state.last_error,
+            pid=None,
+            stop_requested=False,
+        )
+        db.insert_service_event(
+            level="warning",
+            event_type="stale_service_cleared",
+            message=f"Cleared stale runtime state from dead PID {state.pid}.",
+            cycle_count=state.cycle_count if state.cycle_count > 0 else None,
+            symbol=state.current_symbol,
+        )
+        console.print(
+            _render_health_panel(
+                "Stale State Cleared",
+                f"Dead PID {state.pid} was removed from the runtime state.",
+                border_style="yellow",
+            )
+        )
         raise typer.Exit(code=0)
 
     db.request_stop_service()

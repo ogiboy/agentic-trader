@@ -232,6 +232,9 @@ class TradingDatabase:
         if pref_existing and int(pref_existing[0]) == 0:
             self.save_preferences(InvestmentPreferences())
 
+    def close(self) -> None:
+        self.conn.close()
+
     def insert_run(self, run_id: str, artifacts: RunArtifacts) -> None:
         self.conn.execute(
             """

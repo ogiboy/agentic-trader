@@ -9,6 +9,7 @@ from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.engine.position_manager import evaluate_position_exit
 from agentic_trader.llm.client import LocalLLM
+from agentic_trader.runtime_status import is_process_alive
 from agentic_trader.schemas import LLMHealthStatus, RunArtifacts
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run, run_once
@@ -136,6 +137,25 @@ def run_service(
                 cycle_count=cycle_count,
             )
             for symbol in symbols:
+                def _progress(stage: str, status: str, message: str) -> None:
+                    event_level = "info" if status == "completed" else "info"
+                    db.upsert_service_state(
+                        state="running",
+                        continuous=continuous,
+                        poll_seconds=poll_seconds,
+                        cycle_count=cycle_count,
+                        current_symbol=symbol,
+                        message=message,
+                        pid=os.getpid(),
+                    )
+                    db.insert_service_event(
+                        level=event_level,
+                        event_type=f"agent_{stage}_{status}",
+                        message=message,
+                        cycle_count=cycle_count,
+                        symbol=symbol,
+                    )
+
                 db.upsert_service_state(
                     state="running",
                     continuous=continuous,
@@ -151,6 +171,7 @@ def run_service(
                     interval=interval,
                     lookback=lookback,
                     allow_fallback=False,
+                    progress_callback=_progress,
                 )
                 exit_order_id = _manage_open_position(
                     db=db,
@@ -294,7 +315,26 @@ def start_background_service(
     db = TradingDatabase(settings)
     state = db.get_service_state()
     if state is not None and state.state in {"starting", "running", "stopping"} and state.pid is not None:
-        raise RuntimeError(f"Service is already active with PID {state.pid}.")
+        if is_process_alive(state.pid):
+            raise RuntimeError(f"Service is already active with PID {state.pid}.")
+        db.upsert_service_state(
+            state="stopped",
+            continuous=state.continuous,
+            poll_seconds=state.poll_seconds,
+            cycle_count=state.cycle_count,
+            current_symbol=None,
+            message=f"Recovered stale runtime state from dead PID {state.pid}.",
+            last_error=state.last_error,
+            pid=None,
+            stop_requested=False,
+        )
+        db.insert_service_event(
+            level="warning",
+            event_type="stale_service_recovered",
+            message=f"Recovered stale runtime state from dead PID {state.pid}.",
+            cycle_count=state.cycle_count if state.cycle_count > 0 else None,
+            symbol=state.current_symbol,
+        )
 
     stdout_path = settings.runtime_dir / "service.out.log"
     stderr_path = settings.runtime_dir / "service.err.log"
@@ -311,7 +351,6 @@ def start_background_service(
         lookback,
         "--poll-seconds",
         str(poll_seconds),
-        "--continuous",
     ]
     command.append("--continuous" if continuous else "--no-continuous")
     if max_cycles is not None:
@@ -341,4 +380,5 @@ def start_background_service(
         event_type="service_spawned",
         message=f"Background service spawned with PID {process.pid}.",
     )
+    db.close()
     return process.pid
