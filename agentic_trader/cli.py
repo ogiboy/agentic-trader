@@ -13,7 +13,7 @@ from rich.text import Text
 
 from agentic_trader.config import get_settings
 from agentic_trader.agents.operator_chat import apply_preference_update, chat_with_persona, interpret_operator_instruction
-from agentic_trader.backtest.walk_forward import run_walk_forward_backtest
+from agentic_trader.backtest.walk_forward import run_backtest_comparison, run_walk_forward_backtest
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
@@ -23,6 +23,7 @@ from agentic_trader.schemas import (
     DailyRiskReport,
     OperatorInstruction,
     BacktestReport,
+    BacktestComparisonReport,
     RunRecord,
     RunArtifacts,
     ServiceEvent,
@@ -343,6 +344,23 @@ def _render_backtest_report(report: BacktestReport) -> None:
     console.print(trades)
 
 
+def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
+    table = Table(title=f"Backtest Comparison / {report.symbol}")
+    table.add_column("Metric")
+    table.add_column("Agent")
+    table.add_column("Baseline")
+    table.add_column("Delta")
+    table.add_row("Trades", str(report.agent.total_trades), str(report.baseline.total_trades), str(report.agent.total_trades - report.baseline.total_trades))
+    table.add_row("Closed Trades", str(report.agent.closed_trades), str(report.baseline.closed_trades), str(report.agent.closed_trades - report.baseline.closed_trades))
+    table.add_row("Win Rate", f"{report.agent.win_rate:.2%}", f"{report.baseline.win_rate:.2%}", f"{report.agent.win_rate - report.baseline.win_rate:.2%}")
+    table.add_row("Expectancy", f"{report.agent.expectancy:.2f}", f"{report.baseline.expectancy:.2f}", f"{report.agent.expectancy - report.baseline.expectancy:.2f}")
+    table.add_row("Return", f"{report.agent.total_return_pct:.2%}", f"{report.baseline.total_return_pct:.2%}", f"{report.total_return_delta_pct:.2%}")
+    table.add_row("Max Drawdown", f"{report.agent.max_drawdown_pct:.2%}", f"{report.baseline.max_drawdown_pct:.2%}", f"{report.agent.max_drawdown_pct - report.baseline.max_drawdown_pct:.2%}")
+    table.add_row("Exposure", f"{report.agent.exposure_pct:.2%}", f"{report.baseline.exposure_pct:.2%}", f"{report.agent.exposure_pct - report.baseline.exposure_pct:.2%}")
+    table.add_row("Ending Equity", f"{report.agent.ending_equity:.2f}", f"{report.baseline.ending_equity:.2f}", f"{report.ending_equity_delta:.2f}")
+    console.print(table)
+
+
 def _render_memory_matches(matches) -> None:
     if not matches:
         console.print(Panel("No historical memories are available yet.", title="Memory Explorer", border_style="yellow"))
@@ -646,11 +664,39 @@ def backtest(
     interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
     lookback: str = typer.Option("2y", help="Lookback window accepted by yfinance"),
     warmup_bars: int = typer.Option(120, min=60, help="Warmup bars before replay begins."),
+    compare_baseline: bool = typer.Option(False, help="Also compare the agent replay against a deterministic baseline."),
     output: str | None = typer.Option(None, help="Optional Markdown output path for a compact backtest summary."),
 ) -> None:
     """Run a walk-forward replay using the current agent pipeline."""
     settings = get_settings()
     ensure_llm_ready(settings)
+    if compare_baseline:
+        comparison = run_backtest_comparison(
+            settings=settings,
+            symbol=symbol,
+            interval=interval,
+            lookback=lookback,
+            warmup_bars=warmup_bars,
+            allow_fallback=False,
+        )
+        _render_backtest_comparison(comparison)
+        if output is not None:
+            rendered = "\n".join(
+                [
+                    f"# Backtest Comparison: {comparison.symbol}",
+                    "",
+                    f"- Agent Return: {comparison.agent.total_return_pct:.2%}",
+                    f"- Baseline Return: {comparison.baseline.total_return_pct:.2%}",
+                    f"- Return Delta: {comparison.total_return_delta_pct:.2%}",
+                    f"- Agent Ending Equity: {comparison.agent.ending_equity:.2f}",
+                    f"- Baseline Ending Equity: {comparison.baseline.ending_equity:.2f}",
+                    f"- Ending Equity Delta: {comparison.ending_equity_delta:.2f}",
+                ]
+            )
+            Path(output).write_text(rendered, encoding="utf-8")
+            console.print(Panel(f"Backtest comparison written to {output}.", title="Exported", border_style="green"))
+        return
+
     report = run_walk_forward_backtest(
         settings=settings,
         symbol=symbol,

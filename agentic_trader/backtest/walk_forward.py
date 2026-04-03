@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import pandas as pd
@@ -6,7 +7,23 @@ from agentic_trader.config import Settings
 from agentic_trader.engine.position_manager import evaluate_position_exit
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
-from agentic_trader.schemas import BacktestReport, BacktestTrade, PositionPlanSnapshot, PositionSnapshot
+from agentic_trader.schemas import (
+    BacktestComparisonReport,
+    BacktestReport,
+    BacktestSummary,
+    BacktestTrade,
+    ExecutionDecision,
+    ManagerDecision,
+    MarketSnapshot,
+    PositionPlanSnapshot,
+    PositionSnapshot,
+    RegimeAssessment,
+    ResearchCoordinatorBrief,
+    ReviewNote,
+    RiskPlan,
+    RunArtifacts,
+    StrategyPlan,
+)
 from agentic_trader.workflows.run_once import run_from_snapshot
 
 
@@ -46,17 +63,171 @@ def _compute_drawdown(equity_curve: list[float]) -> float:
     return max_drawdown
 
 
-def run_walk_forward_backtest(
+def _summarize_report(label: str, report: BacktestReport) -> BacktestSummary:
+    return BacktestSummary(
+        label=label,
+        total_trades=report.total_trades,
+        closed_trades=report.closed_trades,
+        win_rate=report.win_rate,
+        expectancy=report.expectancy,
+        total_return_pct=report.total_return_pct,
+        max_drawdown_pct=report.max_drawdown_pct,
+        exposure_pct=report.exposure_pct,
+        starting_equity=report.starting_equity,
+        ending_equity=report.ending_equity,
+    )
+
+
+def _baseline_artifacts(snapshot: MarketSnapshot) -> RunArtifacts:
+    trend_up = snapshot.last_close > snapshot.ema_20 > snapshot.ema_50 and snapshot.rsi_14 >= 52
+    trend_down = snapshot.last_close < snapshot.ema_20 < snapshot.ema_50 and snapshot.rsi_14 <= 48
+    normalized_atr = max(snapshot.atr_14, snapshot.last_close * 0.01)
+
+    if trend_up:
+        strategy = StrategyPlan(
+            strategy_family="trend_following",
+            action="buy",
+            timeframe="swing",
+            entry_logic="Baseline enters long when price is above EMA20 and EMA50 with supportive RSI.",
+            invalidation_logic="Exit below EMA20 with weakening momentum.",
+            confidence=0.68,
+        )
+        risk = RiskPlan(
+            position_size_pct=0.08,
+            stop_loss=round(snapshot.last_close - (1.5 * normalized_atr), 4),
+            take_profit=round(snapshot.last_close + (3.0 * normalized_atr), 4),
+            risk_reward_ratio=2.0,
+            max_holding_bars=20,
+            notes="Deterministic baseline risk plan for long trend setup.",
+        )
+        execution = ExecutionDecision(
+            approved=True,
+            side="buy",
+            symbol=snapshot.symbol,
+            entry_price=snapshot.last_close,
+            stop_loss=risk.stop_loss,
+            take_profit=risk.take_profit,
+            position_size_pct=risk.position_size_pct,
+            confidence=0.68,
+            rationale="Deterministic baseline approved long trend setup.",
+        )
+        regime = RegimeAssessment(
+            regime="trend_up",
+            direction_bias="long",
+            confidence=0.68,
+            reasoning="Deterministic baseline classified an uptrend.",
+        )
+    elif trend_down:
+        strategy = StrategyPlan(
+            strategy_family="trend_following",
+            action="sell",
+            timeframe="swing",
+            entry_logic="Baseline enters short when price is below EMA20 and EMA50 with weak RSI.",
+            invalidation_logic="Exit above EMA20 with strengthening momentum.",
+            confidence=0.68,
+        )
+        risk = RiskPlan(
+            position_size_pct=0.08,
+            stop_loss=round(snapshot.last_close + (1.5 * normalized_atr), 4),
+            take_profit=round(snapshot.last_close - (3.0 * normalized_atr), 4),
+            risk_reward_ratio=2.0,
+            max_holding_bars=20,
+            notes="Deterministic baseline risk plan for short trend setup.",
+        )
+        execution = ExecutionDecision(
+            approved=True,
+            side="sell",
+            symbol=snapshot.symbol,
+            entry_price=snapshot.last_close,
+            stop_loss=risk.stop_loss,
+            take_profit=risk.take_profit,
+            position_size_pct=risk.position_size_pct,
+            confidence=0.68,
+            rationale="Deterministic baseline approved short trend setup.",
+        )
+        regime = RegimeAssessment(
+            regime="trend_down",
+            direction_bias="short",
+            confidence=0.68,
+            reasoning="Deterministic baseline classified a downtrend.",
+        )
+    else:
+        strategy = StrategyPlan(
+            strategy_family="no_trade",
+            action="hold",
+            timeframe="flat",
+            entry_logic="Baseline found no aligned setup.",
+            invalidation_logic="Wait for trend alignment.",
+            confidence=0.55,
+        )
+        risk = RiskPlan(
+            position_size_pct=0.01,
+            stop_loss=round(snapshot.last_close - normalized_atr, 4),
+            take_profit=round(snapshot.last_close + normalized_atr, 4),
+            risk_reward_ratio=1.0,
+            max_holding_bars=5,
+            notes="Deterministic baseline no-trade placeholder.",
+        )
+        execution = ExecutionDecision(
+            approved=False,
+            side="hold",
+            symbol=snapshot.symbol,
+            entry_price=snapshot.last_close,
+            stop_loss=risk.stop_loss,
+            take_profit=risk.take_profit,
+            position_size_pct=risk.position_size_pct,
+            confidence=0.55,
+            rationale="Deterministic baseline did not find a valid setup.",
+        )
+        regime = RegimeAssessment(
+            regime="range",
+            direction_bias="flat",
+            confidence=0.55,
+            reasoning="Deterministic baseline found mixed conditions.",
+        )
+
+    coordinator = ResearchCoordinatorBrief(
+        market_focus="trend_following" if execution.side in {"buy", "sell"} else "no_trade",
+        priority_signals=["trend_alignment"] if execution.side in {"buy", "sell"} else ["wait_for_clarity"],
+        caution_flags=[] if execution.side in {"buy", "sell"} else ["mixed_signals"],
+        summary="Deterministic baseline coordinator summary.",
+    )
+    manager = ManagerDecision(
+        approved=execution.approved,
+        action_bias=execution.side,
+        confidence_cap=execution.confidence,
+        size_multiplier=1.0,
+        rationale="Deterministic baseline manager summary.",
+    )
+    review = ReviewNote(
+        summary="Deterministic baseline review summary.",
+        strengths=["Deterministic baseline produced a reproducible decision."],
+        warnings=[] if execution.approved else ["No baseline trade was approved."],
+        next_checks=["Compare against the agent-driven replay."],
+    )
+    return RunArtifacts(
+        snapshot=snapshot,
+        coordinator=coordinator,
+        regime=regime,
+        strategy=strategy,
+        risk=risk,
+        manager=manager,
+        execution=execution,
+        review=review,
+    )
+
+
+def _run_backtest_with_provider(
     *,
     settings: Settings,
     symbol: str,
     interval: str,
     lookback: str,
-    warmup_bars: int = 120,
-    allow_fallback: bool = False,
-    frame: pd.DataFrame | None = None,
+    warmup_bars: int,
+    frame: pd.DataFrame,
+    artifact_provider: Callable[[MarketSnapshot], RunArtifacts],
 ) -> BacktestReport:
-    history = frame.copy() if frame is not None else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    history = frame.copy()
     if len(history) <= warmup_bars:
         raise ValueError("Not enough bars for walk-forward backtest")
 
@@ -121,11 +292,7 @@ def run_walk_forward_backtest(
                 closed_this_bar = True
 
         if open_trade is None and not closed_this_bar:
-            artifacts = run_from_snapshot(
-                settings=settings,
-                snapshot=snapshot,
-                allow_fallback=allow_fallback,
-            )
+            artifacts = artifact_provider(snapshot)
             if artifacts.used_fallback():
                 fallback_cycles += 1
             decision = artifacts.execution
@@ -184,12 +351,11 @@ def run_walk_forward_backtest(
                 "pnl": pnl,
             }
         )
-        open_trade = None
         equity_curve.append(cash)
 
     closed_trades = [trade for trade in trades if trade.status == "closed" and trade.pnl is not None]
     wins = [trade for trade in closed_trades if trade.pnl is not None and trade.pnl > 0]
-    ending_equity = cash if open_trade is None else equity_curve[-1]
+    ending_equity = cash
 
     return BacktestReport(
         symbol=symbol,
@@ -208,4 +374,91 @@ def run_walk_forward_backtest(
         starting_equity=starting_equity,
         ending_equity=ending_equity,
         trades=trades,
+    )
+
+
+def run_walk_forward_backtest(
+    *,
+    settings: Settings,
+    symbol: str,
+    interval: str,
+    lookback: str,
+    warmup_bars: int = 120,
+    allow_fallback: bool = False,
+    frame: pd.DataFrame | None = None,
+) -> BacktestReport:
+    history = frame.copy() if frame is not None else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    return _run_backtest_with_provider(
+        settings=settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        frame=history,
+        artifact_provider=lambda snapshot: run_from_snapshot(
+            settings=settings,
+            snapshot=snapshot,
+            allow_fallback=allow_fallback,
+        ),
+    )
+
+
+def run_deterministic_baseline_backtest(
+    *,
+    settings: Settings,
+    symbol: str,
+    interval: str,
+    lookback: str,
+    warmup_bars: int = 120,
+    frame: pd.DataFrame | None = None,
+) -> BacktestReport:
+    history = frame.copy() if frame is not None else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    return _run_backtest_with_provider(
+        settings=settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        frame=history,
+        artifact_provider=_baseline_artifacts,
+    )
+
+
+def run_backtest_comparison(
+    *,
+    settings: Settings,
+    symbol: str,
+    interval: str,
+    lookback: str,
+    warmup_bars: int = 120,
+    allow_fallback: bool = False,
+    frame: pd.DataFrame | None = None,
+) -> BacktestComparisonReport:
+    history = frame.copy() if frame is not None else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    agent_report = run_walk_forward_backtest(
+        settings=settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        allow_fallback=allow_fallback,
+        frame=history,
+    )
+    baseline_report = run_deterministic_baseline_backtest(
+        settings=settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        frame=history,
+    )
+    return BacktestComparisonReport(
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        agent=_summarize_report("agent", agent_report),
+        baseline=_summarize_report("baseline", baseline_report),
+        ending_equity_delta=round(agent_report.ending_equity - baseline_report.ending_equity, 6),
+        total_return_delta_pct=round(agent_report.total_return_pct - baseline_report.total_return_pct, 6),
     )

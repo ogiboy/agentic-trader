@@ -200,6 +200,12 @@ Run a walk-forward backtest with the current agent pipeline:
 python main.py backtest --symbol AAPL --interval 1d --lookback 2y --warmup-bars 120
 ```
 
+Compare the agent replay against a deterministic baseline:
+
+```bash
+python main.py backtest --symbol AAPL --interval 1d --lookback 2y --warmup-bars 120 --compare-baseline
+```
+
 Inspect orchestrator runtime state and recent events:
 
 ```bash

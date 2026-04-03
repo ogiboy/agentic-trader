@@ -323,6 +323,30 @@ class BacktestReport(BaseModel):
     trades: list[BacktestTrade] = Field(default_factory=list)
 
 
+class BacktestSummary(BaseModel):
+    label: str
+    total_trades: int
+    closed_trades: int
+    win_rate: float
+    expectancy: float
+    total_return_pct: float
+    max_drawdown_pct: float
+    exposure_pct: float
+    starting_equity: float
+    ending_equity: float
+
+
+class BacktestComparisonReport(BaseModel):
+    symbol: str
+    interval: str
+    lookback: str
+    warmup_bars: int
+    agent: BacktestSummary
+    baseline: BacktestSummary
+    ending_equity_delta: float
+    total_return_delta_pct: float
+
+
 class RunArtifacts(BaseModel):
     snapshot: MarketSnapshot
     coordinator: ResearchCoordinatorBrief

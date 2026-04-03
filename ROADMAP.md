@@ -86,7 +86,8 @@ Status: in progress.
 - run ablation tests comparing performance with and without vector memory or a RAG layer
 Notes:
 - a first walk-forward replay and report export path are now available
-- baseline comparison, memory-aware replay, and ablation harnesses are still missing
+- agent-versus-deterministic baseline comparison is now available
+- memory-aware replay and ablation harnesses are still missing
 
 ## Phase 6: Paper Portfolio Engine
 
