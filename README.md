@@ -140,8 +140,9 @@ agentic-trader tui
 Ink control room hotkeys:
 
 ```text
-1 overview   2 runtime   3 portfolio   4 review
+1 overview   2 runtime   3 portfolio   4 review   5 chat
 r refresh    s start background runtime    x stop runtime    q quit
+[ and ] switch chat persona on the chat page
 ```
 
 Start the runtime directly from the root launcher:

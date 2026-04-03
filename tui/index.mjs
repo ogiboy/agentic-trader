@@ -10,7 +10,8 @@ const cliExecutable = process.env.AGENTIC_TRADER_CLI || 'agentic-trader';
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 const once = process.argv.includes('--once');
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
-const pages = ['overview', 'runtime', 'portfolio', 'review'];
+const pages = ['overview', 'runtime', 'portfolio', 'review', 'chat'];
+const personas = ['operator_liaison', 'regime_analyst', 'strategy_selector', 'risk_steward', 'portfolio_manager'];
 
 async function execCli(args, {expectJson = false} = {}) {
   const attempts = [];
@@ -364,7 +365,44 @@ function ReviewPage({data}) {
   );
 }
 
-function DashboardView({data, error, loadingText, page, actionMessage, busy}) {
+function ChatPage({persona, history, draft, chatBusy}) {
+  return e(
+    Box,
+    {flexDirection: 'column', width: '100%'},
+    e(
+      Box,
+      {width: '100%'},
+      e(
+        Box,
+        {width: '100%'},
+        panel(
+          'OPERATOR CHAT',
+          [
+            `Persona: ${persona}`,
+            'Type directly to write. Enter sends. Backspace deletes. [ and ] switch persona.',
+            chatBusy ? 'Sending message to the operator surface...' : 'Ready.',
+            '',
+            ...(history.length
+              ? history.slice(-8).flatMap((entry) => [`you: ${entry.user}`, `${entry.persona}: ${entry.response}`, ''])
+              : ['No chat messages yet.']),
+          ],
+          'green',
+        ),
+      ),
+    ),
+    e(
+      Box,
+      {width: '100%', marginTop: 1},
+      e(
+        Box,
+        {width: '100%'},
+        panel('COMPOSER', [draft || ''], 'yellow'),
+      ),
+    ),
+  );
+}
+
+function DashboardView({data, error, loadingText, page, actionMessage, busy, chatPersona, chatHistory, chatDraft, chatBusy}) {
   if (error) {
     return e(
       Box,
@@ -392,7 +430,9 @@ function DashboardView({data, error, loadingText, page, actionMessage, busy}) {
         ? 'Runtime'
         : page === 'portfolio'
           ? 'Portfolio'
-          : 'Review';
+          : page === 'review'
+            ? 'Review'
+            : 'Chat';
 
   const view =
     page === 'overview'
@@ -401,7 +441,9 @@ function DashboardView({data, error, loadingText, page, actionMessage, busy}) {
         ? e(RuntimePage, {data})
         : page === 'portfolio'
           ? e(PortfolioPage, {data})
-          : e(ReviewPage, {data});
+          : page === 'review'
+            ? e(ReviewPage, {data})
+            : e(ChatPage, {persona: chatPersona, history: chatHistory, draft: chatDraft, chatBusy});
 
   return e(
     Box,
@@ -410,7 +452,7 @@ function DashboardView({data, error, loadingText, page, actionMessage, busy}) {
     e(
       Text,
       {color: 'gray'},
-      `page ${pageIndex}/4: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  |  r refresh  s start  x stop  q quit${busy ? '  |  working...' : ''}`,
+      `page ${pageIndex}/5: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 chat  |  r refresh  s start  x stop  q quit${busy ? '  |  working...' : ''}`,
     ),
     actionMessage ? e(Text, {color: actionMessage.kind === 'error' ? 'red' : 'yellow'}, actionMessage.text) : null,
     view,
@@ -426,6 +468,10 @@ function useDashboardState({interactive}) {
   const [page, setPage] = useState('overview');
   const [busy, setBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
+  const [chatPersona, setChatPersona] = useState('operator_liaison');
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
   const loadingText = useMemo(() => `Connecting to ${cliExecutable}...`, []);
 
   const refresh = useCallback(async () => {
@@ -530,14 +576,101 @@ function useDashboardState({interactive}) {
     runAction,
     busy,
     actionMessage,
+    chatPersona,
+    setChatPersona,
+    chatHistory,
+    setChatHistory,
+    chatDraft,
+    setChatDraft,
+    chatBusy,
+    setChatBusy,
   };
 }
 
 function InteractiveDashboardApp() {
-  const {data, error, loadingText, refreshNow, exit, page, setPage, nextPage, prevPage, runAction, busy, actionMessage} =
-    useDashboardState({interactive: true});
+  const {
+    data,
+    error,
+    loadingText,
+    refreshNow,
+    exit,
+    page,
+    setPage,
+    nextPage,
+    prevPage,
+    runAction,
+    busy,
+    actionMessage,
+    chatPersona,
+    setChatPersona,
+    chatHistory,
+    setChatHistory,
+    chatDraft,
+    setChatDraft,
+    chatBusy,
+    setChatBusy,
+  } = useDashboardState({interactive: true});
+
+  const sendChat = useCallback(async () => {
+    const message = chatDraft.trim();
+    if (!message || chatBusy) {
+      return;
+    }
+    setChatBusy(true);
+    try {
+      const payload = await runJsonCommand(['chat', '--json', '--persona', chatPersona, '--message', message]);
+      setChatHistory((current) => [...current, {user: payload.message, persona: payload.persona, response: payload.response}]);
+      setChatDraft('');
+    } catch (err) {
+      setChatHistory((current) => [
+        ...current,
+        {
+          user: message,
+          persona: chatPersona,
+          response: `Error: ${err instanceof Error ? err.message : String(err)}`,
+        },
+      ]);
+      setChatDraft('');
+    } finally {
+      setChatBusy(false);
+    }
+  }, [chatBusy, chatDraft, chatPersona, setChatBusy, setChatDraft, setChatHistory]);
 
   useInput((input, key) => {
+    if (key.rightArrow || input === '\t') {
+      nextPage();
+      return;
+    }
+    if (key.leftArrow) {
+      prevPage();
+      return;
+    }
+    if (['1', '2', '3', '4', '5'].includes(input) && page !== 'chat') {
+      setPage(pages[Number(input) - 1]);
+      return;
+    }
+    if (page === 'chat') {
+      if (key.return) {
+        void sendChat();
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setChatDraft((current) => current.slice(0, -1));
+        return;
+      }
+      if (input === '[') {
+        setChatPersona((current) => personas[(personas.indexOf(current) - 1 + personas.length) % personas.length]);
+        return;
+      }
+      if (input === ']') {
+        setChatPersona((current) => personas[(personas.indexOf(current) + 1) % personas.length]);
+        return;
+      }
+      if (!key.ctrl && !key.meta && input) {
+        setChatDraft((current) => current + input);
+        return;
+      }
+    }
     if (input.toLowerCase() === 'q') {
       exit();
       return;
@@ -554,25 +687,28 @@ function InteractiveDashboardApp() {
       void runAction('stop');
       return;
     }
-    if (key.rightArrow || input === '\t') {
-      nextPage();
-      return;
-    }
-    if (key.leftArrow) {
-      prevPage();
-      return;
-    }
-    if (['1', '2', '3', '4'].includes(input)) {
+    if (['1', '2', '3', '4', '5'].includes(input)) {
       setPage(pages[Number(input) - 1]);
     }
   });
 
-  return e(DashboardView, {data, error, loadingText, page, actionMessage, busy});
+  return e(DashboardView, {
+    data,
+    error,
+    loadingText,
+    page,
+    actionMessage,
+    busy,
+    chatPersona,
+    chatHistory,
+    chatDraft,
+    chatBusy,
+  });
 }
 
 function StaticDashboardApp() {
-  const {data, error, loadingText, page, actionMessage, busy} = useDashboardState({interactive: false});
-  return e(DashboardView, {data, error, loadingText, page, actionMessage, busy});
+  const {data, error, loadingText, page, actionMessage, busy, chatPersona, chatHistory, chatDraft, chatBusy} = useDashboardState({interactive: false});
+  return e(DashboardView, {data, error, loadingText, page, actionMessage, busy, chatPersona, chatHistory, chatDraft, chatBusy});
 }
 
 await import('ink').then(({render}) => {

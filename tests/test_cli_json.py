@@ -142,3 +142,25 @@ def test_journal_risk_review_and_trace_json(monkeypatch, tmp_path: Path) -> None
     trace_payload = json.loads(trace_result.stdout)
     assert trace_payload["available"] is True
     assert trace_payload["record"] is None
+
+
+def test_chat_json(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", lambda settings: None)
+    monkeypatch.setattr("agentic_trader.cli.chat_with_persona", lambda **kwargs: "runtime is healthy")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["chat", "--json", "--persona", "operator_liaison", "--message", "status?"],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["persona"] == "operator_liaison"
+    assert payload["message"] == "status?"
+    assert payload["response"] == "runtime is healthy"

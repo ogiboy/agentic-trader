@@ -1050,6 +1050,7 @@ def memory_explorer(
 def chat(
     persona: ChatPersona = typer.Option("operator_liaison", help="Which agent persona should answer."),
     message: str | None = typer.Option(None, help="Optional message. If omitted, an interactive prompt is shown."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     """Talk to the read-only operator chat surface."""
     settings = get_settings()
@@ -1063,6 +1064,15 @@ def chat(
         persona=persona,
         user_message=prompt,
     )
+    if json_output:
+        _emit_json(
+            {
+                "persona": persona,
+                "message": prompt,
+                "response": response,
+            }
+        )
+        return
     console.print(Panel(response, title=f"Chat / {persona}", border_style="cyan"))
 
 
