@@ -72,6 +72,7 @@ Status: in progress.
 Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
 - a first memory explorer surface is now available from the CLI and TUI
+- persisted per-stage trace viewing is now available from the CLI and TUI
 - richer trace inspection, retrieval explanation, and denser live agent stage visualization are still open
 
 ## Phase 5: Backtesting
@@ -164,6 +165,7 @@ Status: in progress.
 Notes:
 - safe operator instruction parsing and curated preference application already exist
 - persisted run review already exposes coordinator, specialist, manager, execution, and review outputs
+- persisted run traces now capture routed model, full context payload, and per-stage outputs
 - explicit disagreement storage, conversational-memory isolation, and memory write policy controls remain open
 
 ## Cross-Cutting Engineering Track

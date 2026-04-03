@@ -246,6 +246,14 @@ class OperatorInstruction(BaseModel):
     rationale: str
 
 
+class AgentStageTrace(BaseModel):
+    role: AgentRole
+    model_name: str
+    context_json: str
+    output_json: str
+    used_fallback: bool = False
+
+
 class TradeJournalEntry(BaseModel):
     trade_id: str
     opened_at: str
@@ -356,6 +364,7 @@ class RunArtifacts(BaseModel):
     manager: ManagerDecision
     execution: ExecutionDecision
     review: ReviewNote
+    agent_traces: list[AgentStageTrace] = Field(default_factory=list)
 
     def fallback_components(self) -> list[str]:
         components: list[str] = []

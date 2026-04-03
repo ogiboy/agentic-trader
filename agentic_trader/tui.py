@@ -470,6 +470,20 @@ def _show_memory_explorer(settings: Settings, db: TradingDatabase) -> None:
     console.print(table)
 
 
+def _show_latest_run_trace(db: TradingDatabase) -> None:
+    record = db.latest_run()
+    if record is None:
+        console.print(Panel("No persisted runs are available to trace.", title="Trace Viewer", border_style="yellow"))
+        return
+    table = Table(title=f"Agent Trace / {record.run_id}")
+    table.add_column("Role")
+    table.add_column("Model")
+    table.add_column("Fallback")
+    for trace in record.artifacts.agent_traces:
+        table.add_row(trace.role, trace.model_name, str(trace.used_fallback))
+    console.print(table)
+
+
 def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
     ensure_llm_ready(settings)
     llm = LocalLLM(settings)
@@ -642,11 +656,12 @@ def run_main_menu() -> None:
         menu.add_row("11", "Show daily risk report")
         menu.add_row("12", "Inspect latest run review")
         menu.add_row("13", "Open memory explorer")
-        menu.add_row("14", "Show recent runs / logs")
-        menu.add_row("15", "Exit")
+        menu.add_row("14", "Inspect latest run trace")
+        menu.add_row("15", "Show recent runs / logs")
+        menu.add_row("16", "Exit")
         console.print(menu)
 
-        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"], default="2")
+        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"], default="2")
         try:
             if choice == "1":
                 _configure_preferences(db)
@@ -696,6 +711,8 @@ def run_main_menu() -> None:
             elif choice == "13":
                 _show_memory_explorer(settings, db)
             elif choice == "14":
+                _show_latest_run_trace(db)
+            elif choice == "15":
                 _render_recent_runs(db)
             else:
                 console.print(Panel("Leaving control room.", title="Exit", border_style="blue"))

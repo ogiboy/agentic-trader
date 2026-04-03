@@ -13,7 +13,7 @@ from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
-from agentic_trader.schemas import MarketSnapshot, RunArtifacts
+from agentic_trader.schemas import AgentStageTrace, MarketSnapshot, RunArtifacts
 from agentic_trader.storage.db import TradingDatabase
 
 
@@ -81,33 +81,46 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=coordinator_context,
     )
+    regime_context = build_agent_context(
+        role="regime",
+        settings=settings,
+        db=db,
+        snapshot=snapshot,
+        upstream_context={"coordinator": coordinator},
+    )
     regime = assess_regime(
         llm,
         snapshot,
         allow_fallback=allow_fallback,
-        context=build_agent_context(
-            role="regime",
-            settings=settings,
-            db=db,
-            snapshot=snapshot,
-            upstream_context={"coordinator": coordinator},
-        ),
+        context=regime_context,
+    )
+    strategy_context = build_agent_context(
+        role="strategy",
+        settings=settings,
+        db=db,
+        snapshot=snapshot,
+        upstream_context={
+            "coordinator": coordinator,
+            "regime": regime,
+        },
     )
     strategy = plan_trade(
         llm,
         snapshot,
         regime,
         allow_fallback=allow_fallback,
-        context=build_agent_context(
-            role="strategy",
-            settings=settings,
-            db=db,
-            snapshot=snapshot,
-            upstream_context={
-                "coordinator": coordinator,
-                "regime": regime,
-            },
-        ),
+        context=strategy_context,
+    )
+    risk_context = build_agent_context(
+        role="risk",
+        settings=settings,
+        db=db,
+        snapshot=snapshot,
+        upstream_context={
+            "coordinator": coordinator,
+            "regime": regime,
+            "strategy": strategy,
+        },
     )
     risk = build_risk_plan(
         llm,
@@ -115,17 +128,19 @@ def run_from_snapshot(
         regime,
         strategy,
         allow_fallback=allow_fallback,
-        context=build_agent_context(
-            role="risk",
-            settings=settings,
-            db=db,
-            snapshot=snapshot,
-            upstream_context={
-                "coordinator": coordinator,
-                "regime": regime,
-                "strategy": strategy,
-            },
-        ),
+        context=risk_context,
+    )
+    manager_context = build_agent_context(
+        role="manager",
+        settings=settings,
+        db=db,
+        snapshot=snapshot,
+        upstream_context={
+            "coordinator": coordinator,
+            "regime": regime,
+            "strategy": strategy,
+            "risk": risk,
+        },
     )
     manager = manage_trade_decision(
         llm,
@@ -135,21 +150,51 @@ def run_from_snapshot(
         strategy,
         risk,
         allow_fallback=allow_fallback,
-        context=build_agent_context(
-            role="manager",
-            settings=settings,
-            db=db,
-            snapshot=snapshot,
-            upstream_context={
-                "coordinator": coordinator,
-                "regime": regime,
-                "strategy": strategy,
-                "risk": risk,
-            },
-        ),
+        context=manager_context,
     )
     execution = evaluate_execution(settings, snapshot, strategy, risk, manager)
     review = build_review_note(regime, strategy, risk, manager, execution)
+    traces = [
+        AgentStageTrace(
+            role="coordinator",
+            model_name=coordinator_context.model_name,
+            context_json=coordinator_context.model_dump_json(indent=2),
+            output_json=coordinator.model_dump_json(indent=2),
+            used_fallback=coordinator.source == "fallback",
+        ),
+    ]
+    traces.extend(
+        [
+            AgentStageTrace(
+                role="regime",
+                model_name=regime_context.model_name,
+                context_json=regime_context.model_dump_json(indent=2),
+                output_json=regime.model_dump_json(indent=2),
+                used_fallback=regime.source == "fallback",
+            ),
+            AgentStageTrace(
+                role="strategy",
+                model_name=strategy_context.model_name,
+                context_json=strategy_context.model_dump_json(indent=2),
+                output_json=strategy.model_dump_json(indent=2),
+                used_fallback=strategy.source == "fallback",
+            ),
+            AgentStageTrace(
+                role="risk",
+                model_name=risk_context.model_name,
+                context_json=risk_context.model_dump_json(indent=2),
+                output_json=risk.model_dump_json(indent=2),
+                used_fallback=risk.source == "fallback",
+            ),
+            AgentStageTrace(
+                role="manager",
+                model_name=manager_context.model_name,
+                context_json=manager_context.model_dump_json(indent=2),
+                output_json=manager.model_dump_json(indent=2),
+                used_fallback=manager.source == "fallback",
+            ),
+        ]
+    )
 
     return RunArtifacts(
         snapshot=snapshot,
@@ -160,6 +205,7 @@ def run_from_snapshot(
         manager=manager,
         execution=execution,
         review=review,
+        agent_traces=traces,
     )
 
 

@@ -182,6 +182,12 @@ Inspect the latest persisted run in detail:
 python main.py review-run
 ```
 
+Inspect the per-stage agent trace for the latest run:
+
+```bash
+python main.py trace-run
+```
+
 Export the latest run review as Markdown:
 
 ```bash

@@ -302,6 +302,26 @@ def _render_run_markdown(record: RunRecord) -> str:
     return "\n".join(lines)
 
 
+def _render_run_trace(record: RunRecord) -> None:
+    table = Table(title=f"Agent Trace / {record.run_id}")
+    table.add_column("Role")
+    table.add_column("Model")
+    table.add_column("Fallback")
+    table.add_column("Output Preview")
+    for trace in record.artifacts.agent_traces:
+        preview = trace.output_json.replace("\n", " ")[:120]
+        table.add_row(trace.role, trace.model_name, str(trace.used_fallback), preview)
+    console.print(table)
+    for trace in record.artifacts.agent_traces:
+        console.print(
+            Panel(
+                f"[bold]Context[/bold]\n{trace.context_json}\n\n[bold]Output[/bold]\n{trace.output_json}",
+                title=f"Trace / {trace.role}",
+                border_style="cyan" if not trace.used_fallback else "yellow",
+            )
+        )
+
+
 def _render_backtest_report(report: BacktestReport) -> None:
     summary = Table(title=f"Walk-Forward Backtest / {report.symbol}")
     summary.add_column("Field")
@@ -638,6 +658,20 @@ def review_run(
         console.print(Panel("No persisted runs are available to review.", title="Run Review", border_style="yellow"))
         raise typer.Exit(code=0)
     _render_run_review(record)
+
+
+@app.command("trace-run")
+def trace_run(
+    run_id: str | None = typer.Option(None, help="Run id to inspect. Defaults to the latest recorded run."),
+) -> None:
+    """Show the persisted per-stage agent trace for a run."""
+    settings = get_settings()
+    db = TradingDatabase(settings)
+    record = db.get_run(run_id) if run_id is not None else db.latest_run()
+    if record is None:
+        console.print(Panel("No persisted runs are available to trace.", title="Trace Viewer", border_style="yellow"))
+        raise typer.Exit(code=0)
+    _render_run_trace(record)
 
 
 @app.command("export-report")
