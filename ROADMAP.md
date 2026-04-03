@@ -66,6 +66,8 @@ Status: in progress.
 - support chatting with either a general operator assistant or a selected agent persona from the menu
 - show structured agent activity, recent tool usage, and the current reasoning stage beside the chat transcript
 - add a clearer retro-terminal visual language so the control room feels like a serious operator console rather than a plain CLI
+- introduce an Ink-based next-generation control room under a dedicated `tui/` application so the operator surface can evolve beyond the current Rich menu
+- keep `agentic-trader` as the primary launcher and expose subcommands such as `agentic-trader tui`, `agentic-trader monitor`, and future UI entrypoints
 - add memory explorer UI to inspect long-term and vector memory state
 - add agent decision trace viewer to inspect reasoning, tool calls, and outputs per cycle
 - add retrieval inspection view to show why specific memories were used in a decision
@@ -73,7 +75,7 @@ Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
 - a first memory explorer surface is now available from the CLI and TUI
 - persisted per-stage trace viewing is now available from the CLI and TUI
-- richer trace inspection, retrieval explanation, and denser live agent stage visualization are still open
+- richer trace inspection, retrieval explanation, denser live agent stage visualization, and the Ink migration are still open
 
 ## Phase 5: Backtesting
 
@@ -117,9 +119,10 @@ Status: in progress.
 - support clean start, stop, and restart from the CLI and TUI
 - make the daemon compatible with `launchd` or `systemd`-style supervision later
 - allow the operator TUI to attach to a running background service instead of owning the process directly
+- allow a future WebUI to connect to the same daemon runtime over a local port without duplicating orchestration logic
 Notes:
 - background launch, status, logs, stop requests, and live monitor attach surfaces are already implemented
-- restart controls and deeper supervisor compatibility remain open
+- restart controls, deeper supervisor compatibility, and daemon-backed multi-surface UI support remain open
 
 ## Phase 8: Live Execution Adapters
 
@@ -177,3 +180,4 @@ Status: in progress.
 - add reproducible fixtures for data-heavy tests
 - keep CLI, TUI, and service behavior aligned so operator surfaces do not drift
 - preserve strict paper-trading discipline until evaluation quality justifies live adapter work
+- keep Python console entrypoints and any future Ink or WebUI shells pointed at the same daemon and command contracts

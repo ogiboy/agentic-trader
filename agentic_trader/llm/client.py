@@ -29,6 +29,53 @@ class LocalLLM:
             return self
         return LocalLLM(self.settings, model_name=routed_model)
 
+    @staticmethod
+    def _payload_preview(payload: Any) -> str:
+        try:
+            rendered = json.dumps(payload, ensure_ascii=True)
+        except Exception:
+            rendered = str(payload)
+        return rendered[:400]
+
+    def _parse_generate_payload(self, payload: Any) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"LLM returned a non-object payload: {self._payload_preview(payload)}")
+        return cast(dict[str, Any], payload)
+
+    def _extract_response_text(self, payload: dict[str, Any]) -> str:
+        error_obj = payload.get("error")
+        if isinstance(error_obj, str) and error_obj.strip():
+            raise RuntimeError(f"LLM service returned an error payload: {error_obj.strip()}")
+        if isinstance(error_obj, dict):
+            message = error_obj.get("message")
+            if isinstance(message, str) and message.strip():
+                raise RuntimeError(f"LLM service returned an error payload: {message.strip()}")
+
+        response_obj = payload.get("response", "")
+        if isinstance(response_obj, str):
+            return response_obj.strip()
+        if response_obj is None:
+            return ""
+        if isinstance(response_obj, (dict, list)):
+            return json.dumps(response_obj, ensure_ascii=False).strip()
+        return str(response_obj).strip()
+
+    def _generate_once(self, prompt: str) -> dict[str, Any]:
+        response = self.client.post(
+            f"{self.base_url}/api/generate",
+            json={
+                "model": self.model_name,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": self.settings.temperature,
+                    "num_predict": self.settings.max_output_tokens,
+                },
+            },
+        )
+        response.raise_for_status()
+        return self._parse_generate_payload(response.json())
+
     def health_check(self) -> LLMHealthStatus:
         try:
             response = self.client.get(f"{self.base_url}/api/tags")
@@ -94,36 +141,21 @@ class LocalLLM:
             """
         ).strip()
 
-        last_error = None
+        last_error: Exception | None = None
         for attempt in range(self.settings.max_retries + 1):
-            response = self.client.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": self.model_name,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": self.settings.temperature,
-                        "num_predict": self.settings.max_output_tokens,
-                    },
-                },
-            )
-            response.raise_for_status()
-            payload = response.json()
-            content = payload.get("response", "")
-
-            logger.debug(
-                f"LLM response (attempt {attempt + 1}): "
-                f"status={response.status_code}, "
-                f"content_length={len(content)}, "
-                f"content_preview={content[:100] if content else '(empty)'}"
-            )
-
-            # Check for empty response
-            if not content or not content.strip():
-                raise RuntimeError(f"LLM returned empty response. Payload: {payload}")
-
             try:
+                payload = self._generate_once(prompt)
+                content = self._extract_response_text(payload)
+                logger.debug(
+                    "LLM structured response attempt %s: content_length=%s content_preview=%s",
+                    attempt + 1,
+                    len(content),
+                    content[:100] if content else "(empty)",
+                )
+                if not content:
+                    raise RuntimeError(
+                        f"LLM returned an empty response body. Payload preview: {self._payload_preview(payload)}"
+                    )
                 parsed = schema.model_validate_json(content)
                 if hasattr(parsed, "source"):
                     parsed = parsed.model_copy(
@@ -133,7 +165,9 @@ class LocalLLM:
             except ValidationError as exc:
                 last_error = exc
                 logger.warning(
-                    f"LLM response validation failed (attempt {attempt + 1}): {exc}"
+                    "LLM structured validation failed on attempt %s: %s",
+                    attempt + 1,
+                    exc,
                 )
                 prompt = dedent(
                     f"""
@@ -145,20 +179,25 @@ class LocalLLM:
                     Return corrected JSON only.
                     """
                 ).strip()
-            except httpx.HTTPStatusError as exc:
-                # Don't retry on 5xx errors - let them trigger fallback
-                logger.error(
-                    f"LLM HTTP error: status={exc.response.status_code}, "
-                    f"response={exc.response.text[:200]}"
+                continue
+            except (httpx.HTTPError, json.JSONDecodeError, RuntimeError, ValueError) as exc:
+                last_error = exc if isinstance(exc, Exception) else RuntimeError(str(exc))
+                logger.warning(
+                    "LLM structured request issue on attempt %s: %s",
+                    attempt + 1,
+                    exc,
                 )
-                raise RuntimeError(
-                    f"LLM service error (HTTP {exc.response.status_code}): {exc.response.text}"
-                ) from exc
-            except Exception as exc:
-                logger.error(f"LLM request error (attempt {attempt + 1}): {exc}")
-                raise
+                prompt = dedent(
+                    f"""
+                    {prompt}
 
-        raise RuntimeError(f"LLM structured output validation failed: {last_error}")
+                    Your previous response was empty, malformed, or otherwise invalid.
+                    Return a complete JSON object only.
+                    """
+                ).strip()
+                continue
+
+        raise RuntimeError(f"LLM structured output validation failed: {last_error}") from last_error
 
     def complete_text(
         self,
@@ -175,35 +214,28 @@ class LocalLLM:
             """
         ).strip()
 
-        try:
-            response = self.client.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": self.model_name,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": self.settings.temperature,
-                        "num_predict": self.settings.max_output_tokens,
-                    },
-                },
-            )
-            response.raise_for_status()
-            payload = cast(dict[str, Any], response.json())
-            content = payload.get("response", "")
+        last_error: Exception | None = None
+        for attempt in range(self.settings.max_retries + 1):
+            try:
+                payload = self._generate_once(prompt)
+                content = self._extract_response_text(payload)
+                logger.debug(
+                    "LLM text response attempt %s: content_length=%s",
+                    attempt + 1,
+                    len(content),
+                )
+                if not content:
+                    raise RuntimeError(
+                        f"LLM returned an empty text response. Payload preview: {self._payload_preview(payload)}"
+                    )
+                return content
+            except (httpx.HTTPError, json.JSONDecodeError, RuntimeError, ValueError) as exc:
+                last_error = exc if isinstance(exc, Exception) else RuntimeError(str(exc))
+                logger.warning(
+                    "LLM text request issue on attempt %s: %s",
+                    attempt + 1,
+                    exc,
+                )
+                continue
 
-            logger.debug(
-                f"LLM text response: "
-                f"status={response.status_code}, "
-                f"content_length={len(content)}"
-            )
-
-            return str(content).strip()
-        except httpx.HTTPStatusError as exc:
-            logger.error(
-                f"LLM HTTP error: status={exc.response.status_code}, "
-                f"response={exc.response.text[:200]}"
-            )
-            raise RuntimeError(
-                f"LLM service error (HTTP {exc.response.status_code})"
-            ) from exc
+        raise RuntimeError(f"LLM text output failed: {last_error}") from last_error
