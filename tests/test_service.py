@@ -213,6 +213,7 @@ def test_start_background_service_records_spawn(monkeypatch, tmp_path: Path) -> 
         interval="1d",
         lookback="180d",
         poll_seconds=300,
+        continuous=True,
         max_cycles=None,
         workdir=tmp_path,
     )

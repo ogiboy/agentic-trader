@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,6 +31,10 @@ class Settings(BaseSettings):
     database_path: Path = Field(
         default_factory=lambda: Path("runtime") / "agentic_trader.duckdb"
     )
+    market_data_cache_dir: Path = Field(
+        default_factory=lambda: Path("runtime") / "market_snapshots"
+    )
+    market_data_mode: Literal["live", "prefer_cache", "refresh_cache"] = "live"
 
     strict_llm: bool = True
     allow_short: bool = True
@@ -42,6 +47,7 @@ class Settings(BaseSettings):
     def ensure_directories(self) -> None:
         self.runtime_dir.mkdir(parents=True, exist_ok=True)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self.market_data_cache_dir.mkdir(parents=True, exist_ok=True)
 
     def model_for_role(self, role: str) -> str:
         mapping = {

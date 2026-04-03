@@ -287,6 +287,7 @@ def start_background_service(
     interval: str,
     lookback: str,
     poll_seconds: int,
+    continuous: bool,
     max_cycles: int | None,
     workdir: Path | None = None,
 ) -> int:
@@ -312,6 +313,7 @@ def start_background_service(
         str(poll_seconds),
         "--continuous",
     ]
+    command.append("--continuous" if continuous else "--no-continuous")
     if max_cycles is not None:
         command.extend(["--max-cycles", str(max_cycles)])
 
@@ -326,7 +328,7 @@ def start_background_service(
 
     db.upsert_service_state(
         state="starting",
-        continuous=True,
+        continuous=continuous,
         poll_seconds=poll_seconds,
         cycle_count=0,
         current_symbol=None,

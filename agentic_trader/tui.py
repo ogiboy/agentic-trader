@@ -21,7 +21,7 @@ from agentic_trader.runtime_status import build_runtime_status_view
 from agentic_trader.schemas import AgentProfile, BehaviorPreset, ChatPersona, InvestmentPreferences, RiskProfile, ServiceEvent, ServiceStateSnapshot, TradeStyle
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run, run_once
-from agentic_trader.workflows.service import ensure_llm_ready, run_service, start_background_service
+from agentic_trader.workflows.service import ensure_llm_ready, start_background_service
 
 console = Console()
 
@@ -581,7 +581,6 @@ def _strict_one_shot(settings: Settings, symbols: Sequence[str], interval: str, 
 
 def _launch_service(settings: Settings, symbols: Sequence[str], interval: str, lookback: str) -> None:
     continuous = Confirm.ask("Continuous mode?", default=False)
-    background = Confirm.ask("Background service?", default=False) if continuous else False
     poll_seconds = IntPrompt.ask(
         "Poll interval seconds",
         default=settings.default_poll_seconds,
@@ -590,24 +589,7 @@ def _launch_service(settings: Settings, symbols: Sequence[str], interval: str, l
     if continuous:
         max_cycles_input = Prompt.ask("Max cycles (blank for infinite)", default="")
         max_cycles = int(max_cycles_input) if max_cycles_input.strip() else None
-    if background:
-        pid = start_background_service(
-            settings=settings,
-            symbols=list(symbols),
-            interval=interval,
-            lookback=lookback,
-            poll_seconds=poll_seconds,
-            max_cycles=max_cycles,
-        )
-        console.print(
-            Panel(
-                f"Background service started with PID {pid}.",
-                title="Service Spawned",
-                border_style="green",
-            )
-        )
-        return
-    results = run_service(
+    pid = start_background_service(
         settings=settings,
         symbols=list(symbols),
         interval=interval,
@@ -616,23 +598,153 @@ def _launch_service(settings: Settings, symbols: Sequence[str], interval: str, l
         continuous=continuous,
         max_cycles=max_cycles,
     )
-    if not results:
-        console.print(
-            Panel(
-                "Service stopped before producing a new result.",
-                title="Service Stopped",
-                border_style="yellow",
-            )
-        )
-        return
-    latest = results[-1]
     console.print(
         Panel(
-            json.dumps(latest.artifacts.model_dump(mode="json"), indent=2),
-            title=f"Service Completed: {latest.symbol} / {latest.order_id}",
-            border_style="bright_magenta",
+            f"Service spawned in the background with PID {pid}.\n\n"
+            "The control room stays responsive. Open the live monitor to watch progress or request a stop at any time.",
+            title="Service Spawned",
+            border_style="green",
         )
     )
+    if Confirm.ask("Open live monitor now?", default=True):
+        observer_db = TradingDatabase(settings, read_only=True)
+        run_live_monitor(settings, observer_db, refresh_seconds=1.0)
+
+
+def _runtime_menu(settings: Settings, db: TradingDatabase) -> None:
+    while True:
+        console.clear()
+        console.print(_banner())
+        table = Table(title="Runtime Control")
+        table.add_column("Key", style="bold cyan")
+        table.add_column("Action")
+        table.add_row("1", "Doctor and system checks")
+        table.add_row("2", "Start one strict agent cycle")
+        table.add_row("3", "Start orchestrator service")
+        table.add_row("4", "Request orchestrator stop")
+        table.add_row("5", "Open live monitor")
+        table.add_row("6", "Back")
+        console.print(table)
+        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6"], default="1")
+        if choice == "1":
+            _render_status(settings, db)
+        elif choice == "2":
+            prefs = db.load_preferences()
+            default_symbols = "AAPL,MSFT" if "US" in prefs.regions else "BTC-USD"
+            symbols = _split_csv(Prompt.ask("Symbols", default=default_symbols))
+            interval = Prompt.ask("Interval", default="1d")
+            lookback = Prompt.ask("Lookback", default="180d")
+            _strict_one_shot(settings, symbols, interval, lookback)
+        elif choice == "3":
+            symbols = _split_csv(Prompt.ask("Symbols", default="AAPL,MSFT"))
+            interval = Prompt.ask("Interval", default="1d")
+            lookback = Prompt.ask("Lookback", default="180d")
+            _launch_service(settings, symbols, interval, lookback)
+        elif choice == "4":
+            state = db.get_service_state()
+            if state is None or state.pid is None:
+                console.print(Panel("No managed service is currently active.", title="Not Running", border_style="yellow"))
+            else:
+                db.request_stop_service()
+                db.insert_service_event(
+                    level="warning",
+                    event_type="stop_requested",
+                    message="Stop requested by operator from the TUI.",
+                    cycle_count=state.cycle_count,
+                    symbol=state.current_symbol,
+                )
+                console.print(Panel(f"Stop requested for PID {state.pid}.", title="Stop Requested", border_style="yellow"))
+        elif choice == "5":
+            refresh_seconds = float(Prompt.ask("Refresh seconds", default="1.0"))
+            observer_db = TradingDatabase(settings, read_only=True)
+            run_live_monitor(settings, observer_db, refresh_seconds=refresh_seconds)
+        else:
+            return
+        Prompt.ask("Press Enter to continue", default="")
+
+
+def _operator_menu(settings: Settings, db: TradingDatabase) -> None:
+    while True:
+        console.clear()
+        console.print(_banner())
+        table = Table(title="Operator Desk")
+        table.add_column("Key", style="bold cyan")
+        table.add_column("Action")
+        table.add_row("1", "Open operator chat")
+        table.add_row("2", "Parse operator instruction")
+        table.add_row("3", "Back")
+        console.print(table)
+        choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
+        if choice == "1":
+            _chat_screen(settings, db)
+        elif choice == "2":
+            _instruction_screen(settings, db)
+        else:
+            return
+
+
+def _portfolio_menu(db: TradingDatabase) -> None:
+    while True:
+        console.clear()
+        table = Table(title="Portfolio And Risk")
+        table.add_column("Key", style="bold cyan")
+        table.add_column("Action")
+        table.add_row("1", "Show paper portfolio")
+        table.add_row("2", "Show trade journal")
+        table.add_row("3", "Show daily risk report")
+        table.add_row("4", "Back")
+        console.print(table)
+        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4"], default="1")
+        if choice == "1":
+            _show_portfolio(db)
+        elif choice == "2":
+            _show_trade_journal(db)
+        elif choice == "3":
+            _show_risk_report(db)
+        else:
+            return
+        Prompt.ask("Press Enter to continue", default="")
+
+
+def _research_menu(settings: Settings, db: TradingDatabase) -> None:
+    while True:
+        console.clear()
+        table = Table(title="Research And Memory")
+        table.add_column("Key", style="bold cyan")
+        table.add_column("Action")
+        table.add_row("1", "Open memory explorer")
+        table.add_row("2", "Show recent runs and events")
+        table.add_row("3", "Back")
+        console.print(table)
+        choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
+        if choice == "1":
+            _show_memory_explorer(settings, db)
+        elif choice == "2":
+            _render_recent_runs(db)
+            _render_runtime_events(db.list_service_events(limit=6))
+        else:
+            return
+        Prompt.ask("Press Enter to continue", default="")
+
+
+def _review_menu(db: TradingDatabase) -> None:
+    while True:
+        console.clear()
+        table = Table(title="Review And Trace")
+        table.add_column("Key", style="bold cyan")
+        table.add_column("Action")
+        table.add_row("1", "Inspect latest run review")
+        table.add_row("2", "Inspect latest run trace")
+        table.add_row("3", "Back")
+        console.print(table)
+        choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
+        if choice == "1":
+            _show_latest_run_review(db)
+        elif choice == "2":
+            _show_latest_run_trace(db)
+        else:
+            return
+        Prompt.ask("Press Enter to continue", default="")
 
 
 def run_main_menu() -> None:
@@ -657,79 +769,33 @@ def run_main_menu() -> None:
         menu.add_column("Key", style="bold cyan")
         menu.add_column("Action")
         menu.add_row("1", "Configure investment preferences")
-        menu.add_row("2", "Run doctor and system checks")
-        menu.add_row("3", "Start one strict agent cycle")
-        menu.add_row("4", "Start orchestrator service")
-        menu.add_row("5", "Request orchestrator stop")
-        menu.add_row("6", "Open operator chat")
-        menu.add_row("7", "Open live monitor")
-        menu.add_row("8", "Parse operator instruction")
-        menu.add_row("9", "Show paper portfolio")
-        menu.add_row("10", "Show trade journal")
-        menu.add_row("11", "Show daily risk report")
-        menu.add_row("12", "Inspect latest run review")
-        menu.add_row("13", "Open memory explorer")
-        menu.add_row("14", "Inspect latest run trace")
-        menu.add_row("15", "Show recent runs / logs")
-        menu.add_row("16", "Exit")
+        menu.add_row("2", "Runtime control")
+        menu.add_row("3", "Operator desk")
+        menu.add_row("4", "Portfolio and risk")
+        menu.add_row("5", "Research and memory")
+        menu.add_row("6", "Review and trace")
+        menu.add_row("7", "Exit")
         console.print(menu)
 
-        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"], default="2")
+        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6", "7"], default="2")
         try:
             if choice == "1":
                 _configure_preferences(db)
             elif choice == "2":
-                _render_status(settings, db)
+                _runtime_menu(settings, db)
             elif choice == "3":
-                prefs = db.load_preferences()
-                default_symbols = "AAPL,MSFT" if "US" in prefs.regions else "BTC-USD"
-                symbols = _split_csv(Prompt.ask("Symbols", default=default_symbols))
-                interval = Prompt.ask("Interval", default="1d")
-                lookback = Prompt.ask("Lookback", default="180d")
-                _strict_one_shot(settings, symbols, interval, lookback)
+                _operator_menu(settings, db)
             elif choice == "4":
-                symbols = _split_csv(Prompt.ask("Symbols", default="AAPL,MSFT"))
-                interval = Prompt.ask("Interval", default="1d")
-                lookback = Prompt.ask("Lookback", default="180d")
-                _launch_service(settings, symbols, interval, lookback)
+                _portfolio_menu(db)
             elif choice == "5":
-                state = db.get_service_state()
-                if state is None or state.pid is None:
-                    console.print(Panel("No managed service is currently active.", title="Not Running", border_style="yellow"))
-                else:
-                    db.request_stop_service()
-                    db.insert_service_event(
-                        level="warning",
-                        event_type="stop_requested",
-                        message="Stop requested by operator from the TUI.",
-                        cycle_count=state.cycle_count,
-                        symbol=state.current_symbol,
-                    )
-                    console.print(Panel(f"Stop requested for PID {state.pid}.", title="Stop Requested", border_style="yellow"))
+                _research_menu(settings, db)
             elif choice == "6":
-                _chat_screen(settings, db)
-            elif choice == "7":
-                refresh_seconds = float(Prompt.ask("Refresh seconds", default="1.0"))
-                run_live_monitor(settings, db, refresh_seconds=refresh_seconds)
-            elif choice == "8":
-                _instruction_screen(settings, db)
-            elif choice == "9":
-                _show_portfolio(db)
-            elif choice == "10":
-                _show_trade_journal(db)
-            elif choice == "11":
-                _show_risk_report(db)
-            elif choice == "12":
-                _show_latest_run_review(db)
-            elif choice == "13":
-                _show_memory_explorer(settings, db)
-            elif choice == "14":
-                _show_latest_run_trace(db)
-            elif choice == "15":
-                _render_recent_runs(db)
+                _review_menu(db)
             else:
                 console.print(Panel("Leaving control room.", title="Exit", border_style="blue"))
                 return
+        except KeyboardInterrupt:
+            console.print(Panel("Action cancelled. Returning to the control room.", title="Cancelled", border_style="yellow"))
         except Exception as exc:
             console.print(Panel(str(exc), title="Action Failed", border_style="red"))
         Prompt.ask("Press Enter to continue", default="")

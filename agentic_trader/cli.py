@@ -564,6 +564,7 @@ def launch(
                 interval=interval,
                 lookback=lookback,
                 poll_seconds=poll_seconds,
+                continuous=continuous,
                 max_cycles=max_cycles,
             )
             console.print(
