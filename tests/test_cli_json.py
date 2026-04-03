@@ -164,3 +164,45 @@ def test_chat_json(monkeypatch, tmp_path: Path) -> None:
     assert payload["persona"] == "operator_liaison"
     assert payload["message"] == "status?"
     assert payload["response"] == "runtime is healthy"
+
+
+def test_dashboard_snapshot_json(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.cli.LocalLLM.health_check",
+        lambda self: LLMHealthStatus(
+            provider="ollama",
+            base_url=self.settings.base_url,
+            model_name=self.settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ready",
+        ),
+    )
+
+    db = TradingDatabase(settings)
+    db.upsert_service_state(
+        state="running",
+        continuous=True,
+        poll_seconds=300,
+        cycle_count=4,
+        current_symbol="AAPL",
+        message="Working.",
+        pid=1234,
+    )
+    db.insert_service_event(level="info", event_type="agent_regime_started", message="Regime started.", cycle_count=4, symbol="AAPL")
+    db.close()
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["dashboard-snapshot"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["doctor"]["ollama_reachable"] is True
+    assert payload["status"]["state"]["current_symbol"] == "AAPL"
+    assert payload["logs"][0]["event_type"] == "agent_regime_started"
+    assert payload["portfolio"]["available"] is True

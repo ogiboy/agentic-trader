@@ -30,6 +30,7 @@ from agentic_trader.schemas import (
     OperatorInstruction,
     BacktestReport,
     BacktestComparisonReport,
+    PositionSnapshot,
     PortfolioSnapshot,
     RunRecord,
     RunArtifacts,
@@ -427,6 +428,115 @@ def _open_db(settings, *, read_only: bool = False) -> TradingDatabase:
     return TradingDatabase(settings, read_only=read_only)
 
 
+def _portfolio_payload(settings) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            snapshot = db.get_account_snapshot()
+            positions = db.list_positions()
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        snapshot = PortfolioSnapshot(
+            cash=0.0,
+            market_value=0.0,
+            equity=0.0,
+            realized_pnl=0.0,
+            unrealized_pnl=0.0,
+            open_positions=0,
+        )
+        positions = []
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "snapshot": snapshot.model_dump(mode="json"),
+        "positions": [position.model_dump(mode="json") for position in positions],
+    }
+
+
+def _preferences_payload(settings) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            preferences = db.load_preferences()
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        preferences = InvestmentPreferences()
+        available = False
+        error = str(exc)
+    payload = preferences.model_dump(mode="json")
+    payload["available"] = available
+    payload["error"] = error
+    return payload
+
+
+def _journal_payload(settings, *, limit: int) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            entries = db.list_trade_journal(limit=limit)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        entries = []
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "entries": [entry.model_dump(mode="json") for entry in entries],
+    }
+
+
+def _risk_report_payload(settings, *, report_date: str | None = None) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            report = db.build_daily_risk_report(report_date=report_date)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        report = None
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "report": report.model_dump(mode="json") if report is not None else None,
+    }
+
+
+def _run_record_payload(settings, *, run_id: str | None = None) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            record = db.get_run(run_id) if run_id is not None else db.latest_run()
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        record = None
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "record": record.model_dump(mode="json") if record is not None else None,
+    }
+
+
 @app.callback()
 def app_entry(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
@@ -619,36 +729,13 @@ def launch(
 def portfolio(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
     """Show the current paper portfolio and open positions."""
     settings = get_settings()
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            snapshot = db.get_account_snapshot()
-            positions = db.list_positions()
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        snapshot = PortfolioSnapshot(
-            cash=0.0,
-            market_value=0.0,
-            equity=0.0,
-            realized_pnl=0.0,
-            unrealized_pnl=0.0,
-            open_positions=0,
-        )
-        positions = []
-        available = False
-        error = str(exc)
+    payload = _portfolio_payload(settings)
+    snapshot = PortfolioSnapshot.model_validate(payload["snapshot"])
+    positions = [PositionSnapshot.model_validate(position) for position in payload["positions"]]
+    available = bool(payload["available"])
+    error = payload["error"]
     if json_output:
-        _emit_json(
-            {
-                "available": available,
-                "error": error,
-                "snapshot": snapshot.model_dump(mode="json"),
-                "positions": [position.model_dump(mode="json") for position in positions],
-            }
-        )
+        _emit_json(payload)
         return
     if not available:
         console.print(
@@ -728,26 +815,74 @@ def logs(
     _render_service_events(events)
 
 
+@app.command("dashboard-snapshot")
+def dashboard_snapshot(
+    log_limit: int = typer.Option(14, min=1, max=100, help="Maximum number of runtime events to include."),
+) -> None:
+    """Emit the full Ink dashboard snapshot as a single JSON payload."""
+    settings = get_settings()
+    llm = LocalLLM(settings)
+    health = llm.health_check()
+    state = read_service_state(settings)
+    view = build_runtime_status_view(state)
+
+    latest: str
+    db_status = "ok"
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            latest = str(db.latest_order())
+        finally:
+            db.close()
+    except Exception as exc:
+        latest = "unavailable"
+        db_status = f"Database unavailable: {exc}"
+
+    doctor_payload = {
+        "model": settings.model_name,
+        "base_url": settings.base_url,
+        "runtime_dir": str(settings.runtime_dir),
+        "database": str(settings.database_path),
+        "db_status": db_status,
+        "model_routing": settings.model_routing(),
+        "ollama_reachable": health.service_reachable,
+        "model_available": health.model_available,
+        "llm_status": health.message,
+        "latest_order": latest,
+    }
+    status_payload = {
+        "runtime_state": view.runtime_state,
+        "live_process": view.live_process,
+        "is_stale": view.is_stale,
+        "age_seconds": view.age_seconds,
+        "status_message": view.status_message,
+        "state": view.state.model_dump(mode="json") if view.state is not None else None,
+    }
+
+    _emit_json(
+        {
+            "doctor": doctor_payload,
+            "status": status_payload,
+            "logs": [event.model_dump(mode="json") for event in read_service_events(settings, limit=log_limit)],
+            "portfolio": _portfolio_payload(settings),
+            "preferences": _preferences_payload(settings),
+            "journal": _journal_payload(settings, limit=8),
+            "riskReport": _risk_report_payload(settings),
+            "review": _run_record_payload(settings),
+            "trace": _run_record_payload(settings),
+        }
+    )
+
+
 @app.command("preferences")
 def preferences_command(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
     """Show the saved investment preferences."""
     settings = get_settings()
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            preferences = db.load_preferences()
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        preferences = InvestmentPreferences()
-        available = False
-        error = str(exc)
+    payload = _preferences_payload(settings)
+    preferences = InvestmentPreferences.model_validate(payload)
+    available = bool(payload["available"])
+    error = payload["error"]
     if json_output:
-        payload = preferences.model_dump(mode="json")
-        payload["available"] = available
-        payload["error"] = error
         _emit_json(payload)
         return
     if not available:
@@ -781,27 +916,12 @@ def journal(
 ) -> None:
     """Show the latest trade journal entries."""
     settings = get_settings()
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            entries = db.list_trade_journal(limit=limit)
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        entries = []
-        available = False
-        error = str(exc)
-
+    payload = _journal_payload(settings, limit=limit)
+    entries = [TradeJournalEntry.model_validate(entry) for entry in payload["entries"]]
+    available = bool(payload["available"])
+    error = payload["error"]
     if json_output:
-        _emit_json(
-            {
-                "available": available,
-                "error": error,
-                "entries": [entry.model_dump(mode="json") for entry in entries],
-            }
-        )
+        _emit_json(payload)
         return
     if not available:
         console.print(
@@ -822,27 +942,12 @@ def risk_report(
 ) -> None:
     """Show a compact daily risk report for the paper portfolio."""
     settings = get_settings()
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            report = db.build_daily_risk_report(report_date=report_date)
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        report = None
-        available = False
-        error = str(exc)
-
+    payload = _risk_report_payload(settings, report_date=report_date)
+    report = DailyRiskReport.model_validate(payload["report"]) if payload["report"] is not None else None
+    available = bool(payload["available"])
+    error = payload["error"]
     if json_output:
-        _emit_json(
-            {
-                "available": available,
-                "error": error,
-                "report": report.model_dump(mode="json") if report is not None else None,
-            }
-        )
+        _emit_json(payload)
         return
     if not available or report is None:
         console.print(
@@ -863,26 +968,12 @@ def review_run(
 ) -> None:
     """Inspect the latest or a specific persisted run in detail."""
     settings = get_settings()
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            record = db.get_run(run_id) if run_id is not None else db.latest_run()
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        record = None
-        available = False
-        error = str(exc)
+    payload = _run_record_payload(settings, run_id=run_id)
+    record = RunRecord.model_validate(payload["record"]) if payload["record"] is not None else None
+    available = bool(payload["available"])
+    error = payload["error"]
     if json_output:
-        _emit_json(
-            {
-                "available": available,
-                "error": error,
-                "record": record.model_dump(mode="json") if record is not None else None,
-            }
-        )
+        _emit_json(payload)
         return
     if not available:
         console.print(
@@ -906,26 +997,12 @@ def trace_run(
 ) -> None:
     """Show the persisted per-stage agent trace for a run."""
     settings = get_settings()
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            record = db.get_run(run_id) if run_id is not None else db.latest_run()
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        record = None
-        available = False
-        error = str(exc)
+    payload = _run_record_payload(settings, run_id=run_id)
+    record = RunRecord.model_validate(payload["record"]) if payload["record"] is not None else None
+    available = bool(payload["available"])
+    error = payload["error"]
     if json_output:
-        _emit_json(
-            {
-                "available": available,
-                "error": error,
-                "record": record.model_dump(mode="json") if record is not None else None,
-            }
-        )
+        _emit_json(payload)
         return
     if not available:
         console.print(

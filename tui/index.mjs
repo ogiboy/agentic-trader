@@ -63,27 +63,9 @@ function defaultSymbolsFromPreferences(preferences) {
 }
 
 async function loadDashboard() {
-  const [doctor, status, logs, portfolio, preferences, journal, riskReport, review, trace] = await Promise.all([
-    runJsonCommand(['doctor', '--json']),
-    runJsonCommand(['status', '--json']),
-    runJsonCommand(['logs', '--json', '--limit', '14']),
-    runJsonCommand(['portfolio', '--json']),
-    runJsonCommand(['preferences', '--json']),
-    runJsonCommand(['journal', '--json', '--limit', '8']),
-    runJsonCommand(['risk-report', '--json']),
-    runJsonCommand(['review-run', '--json']),
-    runJsonCommand(['trace-run', '--json']),
-  ]);
+  const payload = await runJsonCommand(['dashboard-snapshot', '--log-limit', '14']);
   return {
-    doctor,
-    status,
-    logs,
-    portfolio,
-    preferences,
-    journal,
-    riskReport,
-    review,
-    trace,
+    ...payload,
     loadedAt: new Date().toISOString(),
   };
 }
