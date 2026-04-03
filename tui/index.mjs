@@ -81,6 +81,11 @@ function StatusGrid({data}) {
   const positions = data.portfolio.positions;
   const preferences = data.preferences;
   const events = data.logs;
+  const agentEvents = events.filter((event) => event.event_type.startsWith('agent_'));
+  const latestAgentEvent = agentEvents[0];
+  const latestOutcomeEvent = events.find((event) =>
+    ['symbol_completed', 'position_closed', 'service_completed', 'service_failed'].includes(event.event_type),
+  );
 
   return e(
     Box,
@@ -94,6 +99,44 @@ function StatusGrid({data}) {
     e(
       Box,
       {width: '100%'},
+      e(
+        Box,
+        {width: '50%', paddingRight: 1},
+        panel(
+          'CURRENT CYCLE',
+          [
+            `Runtime: ${runtime.runtime_state}`,
+            `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
+            `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
+            `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
+            `Status: ${runtime.status_message}`,
+            `Current Note: ${runtime.state?.message ?? '-'}`,
+            '',
+            `Latest Agent Event: ${latestAgentEvent?.event_type ?? '-'}`,
+            `Agent Message: ${latestAgentEvent?.message ?? 'No agent stage events yet.'}`,
+            '',
+            `Last Outcome: ${latestOutcomeEvent?.message ?? 'Waiting for a completed symbol or service result.'}`,
+          ],
+          runtime.runtime_state === 'active' ? 'green' : runtime.runtime_state === 'stale' ? 'yellow' : 'cyan',
+        ),
+      ),
+      e(
+        Box,
+        {width: '50%', paddingLeft: 1},
+        panel(
+          'AGENT ACTIVITY',
+          [
+            ...(agentEvents.length
+              ? agentEvents.slice(0, 8).map((event) => `${event.created_at} | ${event.event_type} | ${event.message}`)
+              : ['No live agent stage events yet.']),
+          ],
+          'magenta',
+        ),
+      ),
+    ),
+    e(
+      Box,
+      {width: '100%', marginTop: 1},
       e(
         Box,
         {width: '50%', paddingRight: 1},
@@ -114,16 +157,21 @@ function StatusGrid({data}) {
         Box,
         {width: '50%', paddingLeft: 1},
         panel(
-          'RUNTIME',
-          [
-            `Runtime: ${runtime.runtime_state}`,
-            `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
-            `Last Recorded State: ${runtime.state?.state ?? '-'}`,
-            `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
-            `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
-            `Status: ${runtime.status_message}`,
-          ],
-          runtime.runtime_state === 'active' ? 'green' : runtime.runtime_state === 'stale' ? 'yellow' : 'magenta',
+          'PORTFOLIO',
+          data.portfolio.available === false
+            ? [
+                'Portfolio view is temporarily unavailable.',
+                data.portfolio.error || 'The runtime writer currently owns the database.',
+              ]
+            : [
+                `Cash: ${snapshot.cash.toFixed(2)}`,
+                `Market Value: ${snapshot.market_value.toFixed(2)}`,
+                `Equity: ${snapshot.equity.toFixed(2)}`,
+                `Realized PnL: ${snapshot.realized_pnl.toFixed(2)}`,
+                `Unrealized PnL: ${snapshot.unrealized_pnl.toFixed(2)}`,
+                `Open Positions: ${positions.length}`,
+              ],
+          'yellow',
         ),
       ),
     ),
@@ -132,34 +180,23 @@ function StatusGrid({data}) {
       {width: '100%', marginTop: 1},
       e(
         Box,
-        {width: '50%', paddingRight: 1},
-        panel(
-          'PORTFOLIO',
-          [
-            `Cash: ${snapshot.cash.toFixed(2)}`,
-            `Market Value: ${snapshot.market_value.toFixed(2)}`,
-            `Equity: ${snapshot.equity.toFixed(2)}`,
-            `Realized PnL: ${snapshot.realized_pnl.toFixed(2)}`,
-            `Unrealized PnL: ${snapshot.unrealized_pnl.toFixed(2)}`,
-            `Open Positions: ${positions.length}`,
-          ],
-          'yellow',
-        ),
-      ),
-      e(
-        Box,
-        {width: '50%', paddingLeft: 1},
+        {width: '100%'},
         panel(
           'PREFERENCES',
-          [
-            `Regions: ${(preferences.regions || []).join(', ') || '-'}`,
-            `Exchanges: ${(preferences.exchanges || []).join(', ') || '-'}`,
-            `Currencies: ${(preferences.currencies || []).join(', ') || '-'}`,
-            `Risk: ${preferences.risk_profile}`,
-            `Style: ${preferences.trade_style}`,
-            `Behavior: ${preferences.behavior_preset}`,
-            `Agent Profile: ${preferences.agent_profile}`,
-          ],
+          preferences.available === false
+            ? [
+                'Preferences are temporarily unavailable.',
+                preferences.error || 'The runtime writer currently owns the database.',
+              ]
+            : [
+                `Regions: ${(preferences.regions || []).join(', ') || '-'}`,
+                `Exchanges: ${(preferences.exchanges || []).join(', ') || '-'}`,
+                `Currencies: ${(preferences.currencies || []).join(', ') || '-'}`,
+                `Risk: ${preferences.risk_profile}`,
+                `Style: ${preferences.trade_style}`,
+                `Behavior: ${preferences.behavior_preset}`,
+                `Agent Profile: ${preferences.agent_profile}`,
+              ],
           'blue',
         ),
       ),

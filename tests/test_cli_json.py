@@ -83,3 +83,27 @@ def test_doctor_and_logs_json(monkeypatch, tmp_path: Path) -> None:
     assert logs_result.exit_code == 0
     logs_payload = json.loads(logs_result.stdout)
     assert logs_payload[0]["event_type"] == "service_started"
+
+
+def test_preferences_and_portfolio_json_survive_db_lock(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("agentic_trader.cli._open_db", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("db locked")))
+
+    runner = CliRunner()
+
+    preferences_result = runner.invoke(app, ["preferences", "--json"])
+    assert preferences_result.exit_code == 0
+    preferences_payload = json.loads(preferences_result.stdout)
+    assert preferences_payload["available"] is False
+    assert preferences_payload["risk_profile"] == "balanced"
+
+    portfolio_result = runner.invoke(app, ["portfolio", "--json"])
+    assert portfolio_result.exit_code == 0
+    portfolio_payload = json.loads(portfolio_result.stdout)
+    assert portfolio_payload["available"] is False
+    assert portfolio_payload["positions"] == []

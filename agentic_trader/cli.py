@@ -21,13 +21,16 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.memory.retrieval import retrieve_similar_memories
+from agentic_trader.runtime_feed import read_service_events, read_service_state, request_stop
 from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
 from agentic_trader.schemas import (
     ChatPersona,
     DailyRiskReport,
+    InvestmentPreferences,
     OperatorInstruction,
     BacktestReport,
     BacktestComparisonReport,
+    PortfolioSnapshot,
     RunRecord,
     RunArtifacts,
     ServiceEvent,
@@ -616,17 +619,46 @@ def launch(
 def portfolio(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
     """Show the current paper portfolio and open positions."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    snapshot = db.get_account_snapshot()
-    positions = db.list_positions()
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            snapshot = db.get_account_snapshot()
+            positions = db.list_positions()
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        snapshot = PortfolioSnapshot(
+            cash=0.0,
+            market_value=0.0,
+            equity=0.0,
+            realized_pnl=0.0,
+            unrealized_pnl=0.0,
+            open_positions=0,
+        )
+        positions = []
+        available = False
+        error = str(exc)
     if json_output:
         _emit_json(
             {
+                "available": available,
+                "error": error,
                 "snapshot": snapshot.model_dump(mode="json"),
                 "positions": [position.model_dump(mode="json") for position in positions],
             }
         )
         return
+    if not available:
+        console.print(
+            Panel(
+                f"Portfolio view is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
 
     summary = Table(title="Portfolio")
     summary.add_column("Metric")
@@ -665,8 +697,7 @@ def portfolio(json_output: bool = typer.Option(False, "--json", help="Emit machi
 def status(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
     """Show the current orchestrator runtime state."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    state = db.get_service_state()
+    state = read_service_state(settings)
     if json_output:
         view = build_runtime_status_view(state)
         _emit_json(
@@ -690,8 +721,7 @@ def logs(
 ) -> None:
     """Show recent orchestrator runtime events."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    events = db.list_service_events(limit=limit)
+    events = read_service_events(settings, limit=limit)
     if json_output:
         _emit_json([event.model_dump(mode="json") for event in events])
         return
@@ -702,11 +732,33 @@ def logs(
 def preferences_command(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
     """Show the saved investment preferences."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    preferences = db.load_preferences()
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            preferences = db.load_preferences()
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        preferences = InvestmentPreferences()
+        available = False
+        error = str(exc)
     if json_output:
-        _emit_json(preferences.model_dump(mode="json"))
+        payload = preferences.model_dump(mode="json")
+        payload["available"] = available
+        payload["error"] = error
+        _emit_json(payload)
         return
+    if not available:
+        console.print(
+            Panel(
+                f"Preferences are temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
     table = Table(title="Investment Preferences")
     table.add_column("Setting")
     table.add_column("Value")
@@ -925,9 +977,8 @@ def instruct(
 def monitor(refresh_seconds: float = typer.Option(1.0, min=0.2, help="Dashboard refresh interval in seconds.")) -> None:
     """Attach to the live runtime monitor."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    console.print(build_monitor_renderable(settings, db))
-    run_live_monitor(settings, db, refresh_seconds=refresh_seconds)
+    console.print(build_monitor_renderable(settings))
+    run_live_monitor(settings, refresh_seconds=refresh_seconds)
 
 
 @app.command("tui")
@@ -969,60 +1020,35 @@ def ink_tui() -> None:
 def stop_service(force: bool = typer.Option(False, help="Send SIGTERM after marking stop requested.")) -> None:
     """Request a graceful stop for the background orchestrator."""
     settings = get_settings()
-    db = TradingDatabase(settings)
-    state = db.get_service_state()
+    state = read_service_state(settings)
     if state is None or state.pid is None:
         console.print(_render_health_panel("Not Running", "No managed service is currently active.", border_style="yellow"))
         raise typer.Exit(code=0)
     if not is_process_alive(state.pid):
-        db.upsert_service_state(
-            state="stopped",
-            continuous=state.continuous,
-            poll_seconds=state.poll_seconds,
-            cycle_count=state.cycle_count,
-            current_symbol=None,
-            message=f"Cleared stale runtime state from dead PID {state.pid}.",
-            last_error=state.last_error,
-            pid=None,
-            stop_requested=False,
-        )
-        db.insert_service_event(
-            level="warning",
-            event_type="stale_service_cleared",
-            message=f"Cleared stale runtime state from dead PID {state.pid}.",
-            cycle_count=state.cycle_count if state.cycle_count > 0 else None,
-            symbol=state.current_symbol,
-        )
         console.print(
             _render_health_panel(
                 "Stale State Cleared",
-                f"Dead PID {state.pid} was removed from the runtime state.",
+                f"Dead PID {state.pid} is no longer alive. The next service start will recover the stale runtime state automatically.",
                 border_style="yellow",
             )
         )
         raise typer.Exit(code=0)
 
-    db.request_stop_service()
-    db.insert_service_event(
-        level="warning",
-        event_type="stop_requested",
-        message="Stop requested by operator from the CLI.",
-        cycle_count=state.cycle_count,
-        symbol=state.current_symbol,
-    )
+    request_stop(settings)
+    try:
+        db = TradingDatabase(settings)
+        try:
+            db.request_stop_service()
+        finally:
+            db.close()
+    except Exception:
+        pass
     if force:
         os.kill(state.pid, signal.SIGTERM)
-        db.insert_service_event(
-            level="warning",
-            event_type="signal_sent",
-            message=f"SIGTERM sent to PID {state.pid}.",
-            cycle_count=state.cycle_count,
-            symbol=state.current_symbol,
-        )
     console.print(
         _render_health_panel(
             "Stop Requested",
-            f"Service PID {state.pid} was asked to stop gracefully.",
+            f"Service PID {state.pid} was asked to stop gracefully via the runtime control channel.",
             border_style="yellow",
         )
     )

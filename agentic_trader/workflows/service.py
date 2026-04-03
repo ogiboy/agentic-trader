@@ -9,6 +9,7 @@ from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.engine.position_manager import evaluate_position_exit
 from agentic_trader.llm.client import LocalLLM
+from agentic_trader.runtime_feed import clear_stop_request, stop_requested
 from agentic_trader.runtime_status import is_process_alive
 from agentic_trader.schemas import LLMHealthStatus, RunArtifacts
 from agentic_trader.storage.db import TradingDatabase
@@ -23,6 +24,8 @@ class ServiceCycleResult:
 
 
 def _stop_requested(db: TradingDatabase) -> bool:
+    if stop_requested(db.settings):
+        return True
     state = db.get_service_state()
     return bool(state and state.stop_requested)
 
@@ -80,6 +83,7 @@ def run_service(
     max_cycles: int | None,
 ) -> list[ServiceCycleResult]:
     ensure_llm_ready(settings)
+    clear_stop_request(settings)
     db = TradingDatabase(settings)
     broker = PaperBroker(db, settings)
     db.upsert_service_state(
@@ -297,6 +301,8 @@ def run_service(
             cycle_count=cycle_count if cycle_count > 0 else None,
         )
         raise
+    finally:
+        clear_stop_request(settings)
 
     return cycle_results
 
@@ -312,6 +318,7 @@ def start_background_service(
     max_cycles: int | None,
     workdir: Path | None = None,
 ) -> int:
+    clear_stop_request(settings)
     db = TradingDatabase(settings)
     state = db.get_service_state()
     if state is not None and state.state in {"starting", "running", "stopping"} and state.pid is not None:

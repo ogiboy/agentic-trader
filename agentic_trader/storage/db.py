@@ -5,6 +5,7 @@ from uuid import uuid4
 import duckdb
 
 from agentic_trader.config import Settings
+from agentic_trader.runtime_feed import append_service_event, write_service_state
 from agentic_trader.schemas import (
     AccountMark,
     DailyRiskReport,
@@ -749,6 +750,24 @@ class TradingDatabase:
                 message,
             ],
         )
+        write_service_state(
+            self.settings,
+            ServiceStateSnapshot(
+                service_name=service_name,
+                state=state,
+                updated_at=now,
+                started_at=started_at,
+                last_heartbeat_at=now,
+                continuous=continuous,
+                poll_seconds=poll_seconds,
+                cycle_count=cycle_count,
+                current_symbol=current_symbol,
+                last_error=last_error,
+                pid=resolved_pid,
+                stop_requested=resolved_stop_requested,
+                message=message,
+            ),
+        )
 
     def get_service_state(self, service_name: str = "orchestrator") -> ServiceStateSnapshot | None:
         row = self.conn.execute(
@@ -792,6 +811,9 @@ class TradingDatabase:
             """,
             [now, now, service_name],
         )
+        state = self.get_service_state(service_name)
+        if state is not None:
+            write_service_state(self.settings, state)
 
     def clear_stop_request(self, service_name: str = "orchestrator") -> None:
         self.conn.execute(
@@ -802,6 +824,9 @@ class TradingDatabase:
             """,
             [service_name],
         )
+        state = self.get_service_state(service_name)
+        if state is not None:
+            write_service_state(self.settings, state)
 
     def insert_service_event(
         self,
@@ -814,6 +839,7 @@ class TradingDatabase:
         symbol: str | None = None,
     ) -> str:
         event_id = f"evt-{uuid4().hex[:12]}"
+        created_at = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
             """
             insert into service_events (
@@ -823,7 +849,7 @@ class TradingDatabase:
             """,
             [
                 event_id,
-                datetime.now(timezone.utc).isoformat(),
+                created_at,
                 service_name,
                 level,
                 event_type,
@@ -831,6 +857,18 @@ class TradingDatabase:
                 cycle_count,
                 symbol,
             ],
+        )
+        append_service_event(
+            self.settings,
+            ServiceEvent(
+                event_id=event_id,
+                created_at=created_at,
+                level=level,  # type: ignore[arg-type]
+                event_type=event_type,
+                message=message,
+                cycle_count=cycle_count,
+                symbol=symbol,
+            ),
         )
         return event_id
 

@@ -9,3 +9,6 @@ runtime/
 dist/
 build/
 *.egg-info/
+tui/node_modules/
+tui/dist/
+tui/.env
