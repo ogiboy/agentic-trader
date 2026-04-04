@@ -89,6 +89,7 @@ class PaperBroker:
             return order_id
 
         account = self.db.get_account_snapshot()
+        positions = self.db.list_positions()
         notional = max(0.0, account.equity * decision.position_size_pct)
         quantity = round(notional / decision.entry_price, 6)
         if quantity == 0:
@@ -97,6 +98,7 @@ class PaperBroker:
         position = self.db.get_position(decision.symbol)
         current_qty = position.quantity if position else 0.0
         current_avg = position.average_price if position else 0.0
+        current_market_value = abs(position.market_value) if position else 0.0
         if (decision.side == "buy" and current_qty > 0) or (
             decision.side == "sell" and current_qty < 0
         ):
@@ -122,6 +124,28 @@ class PaperBroker:
                 current_qty=current_qty,
                 current_avg=current_avg,
             )
+
+        if decision.side == "buy" and current_qty >= 0 and account.cash + cash_delta < 0:
+            return order_id
+
+        current_gross_exposure = sum(abs(item.market_value) for item in positions)
+        projected_gross_exposure = (
+            current_gross_exposure - current_market_value + abs(new_qty * decision.entry_price)
+        )
+        max_allowed_exposure = max(
+            0.0, account.equity * self.settings.max_gross_exposure_pct
+        )
+        if projected_gross_exposure > max_allowed_exposure:
+            return order_id
+
+        open_positions = len(positions)
+        projected_open_positions = open_positions
+        if current_qty == 0 and new_qty != 0:
+            projected_open_positions += 1
+        elif current_qty != 0 and new_qty == 0:
+            projected_open_positions -= 1
+        if projected_open_positions > self.settings.max_open_positions:
+            return order_id
 
         self.db.apply_fill(
             fill_id=f"fill-{uuid4().hex[:12]}",

@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     default_poll_seconds: int = 300
     min_confidence: float = 0.6
     max_position_pct: float = 0.1
+    max_gross_exposure_pct: float = 0.8
+    max_open_positions: int = 5
     min_risk_reward: float = 1.5
     default_cash: float = 100_000.0
 

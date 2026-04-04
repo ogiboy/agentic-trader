@@ -29,7 +29,7 @@ Status: in progress.
 - add model routing layer to select different models per agent role such as regime, strategy, risk, manager, and explainer
 - ensure deterministic safe-mode diagnostics when no LLM is available without allowing silent trade generation in the strict runtime
 - add runtime guardrails for missing data, tool failures, and low-confidence outputs
-Notes:
+  Notes:
 - root launcher, strict runtime gate, one-shot mode, continuous mode, background mode, status, logs, and control-room loop are already live
 - unified agent context and role-based model routing are the next major orchestration upgrades
 
@@ -47,7 +47,7 @@ Status: in progress.
 - prepare a future model/provider menu so Ollama, remote APIs, and agent profiles can be switched from the operator surface
 - introduce memory injection into market context so agents can retrieve historically similar regimes and conditions
 - ensure all external knowledge such as news, events, and macro signals is accessed only via tools rather than being assumed by the model
-Notes:
+  Notes:
 - operator preferences and curated behavior presets already exist
 - lightweight retrieval from historically similar runs is now injected into agent context
 - multi-timeframe feature enrichment is now part of the market snapshot and already informs fallback coordinator and regime logic
@@ -74,7 +74,7 @@ Status: in progress.
 - add memory explorer UI to inspect long-term and vector memory state
 - add agent decision trace viewer to inspect reasoning, tool calls, and outputs per cycle
 - add retrieval inspection view to show why specific memories were used in a decision
-Notes:
+  Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
 - a first memory explorer surface is now available from the CLI and TUI
 - persisted per-stage trace viewing is now available from the CLI and TUI
@@ -94,7 +94,7 @@ Status: in progress.
 - export run reports for review
 - introduce memory-aware replay mode to reconstruct what the system knew at the time of each decision
 - run ablation tests comparing performance with and without vector memory or a RAG layer
-Notes:
+  Notes:
 - a first walk-forward replay and report export path are now available
 - agent-versus-deterministic baseline comparison is now available
 - memory-aware replay and ablation harnesses are still missing
@@ -114,7 +114,8 @@ Status: in progress.
 - persist full agent decision context for each trade including market snapshot, memory inputs, and tool outputs
 Notes:
 - open positions, fills, account marks, daily risk reports, run reviews, and trade journals are in place
-- portfolio-level exposure caps, multi-position capital rules, and richer per-trade context persistence still need expansion
+- portfolio-level gross exposure caps, open-position caps, and cash-aware long entry checks are now enforced in the paper broker
+- richer multi-position capital rules and deeper per-trade context persistence still need expansion
 
 ## Phase 7: Background Runtime / Daemon
 
@@ -127,7 +128,7 @@ Status: in progress.
 - make the daemon compatible with `launchd` or `systemd`-style supervision later
 - allow the operator TUI to attach to a running background service instead of owning the process directly
 - allow a future WebUI to connect to the same daemon runtime over a local port without duplicating orchestration logic
-Notes:
+  Notes:
 - background launch, status, logs, stop requests, and live monitor attach surfaces are already implemented
 - read-only observer surfaces now attach safely through shared status/log contracts without competing for write locks
 - restart controls, deeper supervisor compatibility, and daemon-backed multi-surface UI support remain open
@@ -158,7 +159,7 @@ Status: in progress.
 - introduce a shared memory bus between agents for cross-agent context consistency
 - add a consensus mechanism for conflicting agent outputs before execution
 - ensure each agent can independently retrieve relevant historical market regimes from vector memory
-Notes:
+  Notes:
 - coordinator, manager, review, specialist roles, and persona-aware operator chat are already present
 - lightweight similarity-based retrieval is now present
 - shared memory bus, calibrated confidence, explicit consensus resolution, and vector retrieval are still open
@@ -173,7 +174,7 @@ Status: in progress.
 - allow the operator to inspect why a manager agent accepted or rejected a specialist recommendation
 - add guardrails so conversational interactions can influence policy only through approved schemas and not free-form hidden side effects
 - introduce memory write permissions and policy-controlled memory mutation rules per agent role
-Notes:
+  Notes:
 - safe operator instruction parsing and curated preference application already exist
 - persisted run review already exposes coordinator, specialist, manager, execution, and review outputs
 - persisted run traces now capture routed model, full context payload, and per-stage outputs

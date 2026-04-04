@@ -678,10 +678,12 @@ class TradingDatabase:
         )
 
         warnings: list[str] = []
-        if snapshot.open_positions >= 5:
+        if snapshot.open_positions >= self.settings.max_open_positions:
             warnings.append("Open position count is elevated.")
-        if gross_exposure / equity > 0.8:
-            warnings.append("Gross exposure is above 80% of equity.")
+        if gross_exposure / equity > self.settings.max_gross_exposure_pct:
+            warnings.append(
+                f"Gross exposure is above {self.settings.max_gross_exposure_pct:.0%} of equity."
+            )
         if drawdown_from_peak_pct > 0.1:
             warnings.append("Portfolio drawdown from peak is above 10%.")
 

@@ -144,3 +144,23 @@ def test_close_position_updates_trade_journal_and_risk_report(tmp_path: Path) ->
     assert journal[0].realized_pnl is not None
     assert report.fills_today >= 2
     assert report.marks_recorded >= 2
+
+
+def test_risk_report_uses_portfolio_limit_thresholds(tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        default_cash=10_000.0,
+        max_open_positions=2,
+        max_gross_exposure_pct=0.2,
+    )
+    settings.ensure_directories()
+
+    persist_run(settings=settings, artifacts=_artifacts("AAPL"))
+    db = TradingDatabase(settings)
+    db.settings.max_open_positions = 1
+    db.settings.max_gross_exposure_pct = 0.05
+    report = db.build_daily_risk_report()
+
+    assert "Open position count is elevated." in report.warnings
+    assert "Gross exposure is above 5% of equity." in report.warnings
