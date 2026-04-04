@@ -77,6 +77,7 @@ Status: in progress.
   Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
 - a first memory explorer surface is now available from the CLI and TUI
+- persisted hybrid memory retrieval now combines heuristic market similarity with a lightweight vector-style embedding layer
 - persisted per-stage trace viewing is now available from the CLI and TUI
 - a first Ink-based control room now exists under `tui/` and consumes JSON status, log, preference, and portfolio surfaces from the Python runtime
 - the Ink control room now ships with overview, runtime, portfolio, and review pages plus start/stop hotkeys
@@ -99,6 +100,7 @@ Notes:
 - agent-versus-deterministic baseline comparison is now available
 - a first memory-aware replay surface is now available through `replay-run`, the dashboard snapshot, and the Ink review page
 - a first memory ablation surface is now available through `backtest --compare-memory`
+- the retrieval layer now has a persisted hybrid heuristic-plus-vector memory path that can be expanded into richer RAG later
 
 ## Phase 6: Paper Portfolio Engine
 
@@ -164,7 +166,7 @@ Status: in progress.
   Notes:
 - coordinator, manager, review, specialist roles, and persona-aware operator chat are already present
 - lightweight similarity-based retrieval is now present
-- shared memory bus, calibrated confidence, explicit consensus resolution, and vector retrieval are still open
+- shared memory bus, calibrated confidence, explicit consensus resolution, and richer vector retrieval are still open
 
 ## Phase 10: Agent Governance And Conversation Layer
 

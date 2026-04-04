@@ -127,5 +127,10 @@ def test_retrieve_similar_memories_prefers_closest_snapshot(tmp_path: Path) -> N
     )
 
     assert len(matches) == 2
+    vectors = db.list_memory_vectors(limit=5)
+    assert len(vectors) == 2
     assert matches[0].symbol == "AAPL"
+    assert matches[0].retrieval_source == "hybrid"
+    assert matches[0].vector_score is not None
+    assert matches[0].heuristic_score is not None
     assert matches[0].similarity_score >= matches[1].similarity_score

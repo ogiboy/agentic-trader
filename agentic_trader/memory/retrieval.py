@@ -1,5 +1,7 @@
 from math import fabs
+from typing import Literal
 
+from agentic_trader.memory.embeddings import cosine_similarity, embed_snapshot
 from agentic_trader.schemas import HistoricalMemoryMatch, MarketSnapshot, RunRecord
 from agentic_trader.storage.db import TradingDatabase
 
@@ -47,16 +49,36 @@ def retrieve_similar_memories(
     candidate_limit: int = 200,
 ) -> list[HistoricalMemoryMatch]:
     candidates: list[RunRecord] = db.list_run_records(limit=candidate_limit)
+    vector_rows = {
+        run_id: embedding
+        for run_id, _created_at, _symbol, embedding, _document in db.list_memory_vectors(
+            limit=candidate_limit
+        )
+    }
+    current_embedding = embed_snapshot(snapshot)
     ranked: list[HistoricalMemoryMatch] = []
     for candidate in candidates:
         historical = candidate.artifacts.snapshot
-        similarity = _snapshot_similarity(snapshot, historical)
+        heuristic_similarity = _snapshot_similarity(snapshot, historical)
+        vector_similarity = None
+        retrieval_source: Literal["heuristic", "vector", "hybrid"] = "heuristic"
+        similarity = heuristic_similarity
+        embedding = vector_rows.get(candidate.run_id)
+        if embedding is not None:
+            vector_similarity = cosine_similarity(current_embedding, embedding)
+            similarity = (heuristic_similarity * 0.45) + (vector_similarity * 0.55)
+            retrieval_source = "hybrid"
         ranked.append(
             HistoricalMemoryMatch(
                 run_id=candidate.run_id,
                 created_at=candidate.created_at,
                 symbol=candidate.symbol,
                 similarity_score=round(similarity, 4),
+                heuristic_score=round(heuristic_similarity, 4),
+                vector_score=(
+                    round(vector_similarity, 4) if vector_similarity is not None else None
+                ),
+                retrieval_source=retrieval_source,
                 regime=candidate.artifacts.regime.regime,
                 strategy_family=candidate.artifacts.strategy.strategy_family,
                 manager_bias=candidate.artifacts.manager.action_bias,

@@ -499,7 +499,7 @@ function MemoryPage({ data }) {
       : explorer.matches.length
         ? explorer.matches.map(
             (match) =>
-              `${match.created_at} | ${match.symbol} | score=${match.similarity_score} | ${match.regime} | ${match.strategy_family} | ${match.summary}`,
+              `${match.created_at} | ${match.symbol} | score=${match.similarity_score} | ${match.retrieval_source} | ${match.regime} | ${match.strategy_family} | ${match.summary}`,
           )
         : ['No similar historical memories found yet.'];
 

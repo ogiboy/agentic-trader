@@ -732,6 +732,7 @@ def _render_memory_matches(matches) -> None:
     table.add_column("Created")
     table.add_column("Symbol")
     table.add_column("Score")
+    table.add_column("Source")
     table.add_column("Regime")
     table.add_column("Strategy")
     table.add_column("Bias")
@@ -741,6 +742,7 @@ def _render_memory_matches(matches) -> None:
             match.created_at,
             match.symbol,
             f"{match.similarity_score:.2f}",
+            match.retrieval_source,
             match.regime,
             match.strategy_family,
             match.manager_bias,

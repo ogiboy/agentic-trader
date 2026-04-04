@@ -6,6 +6,7 @@ from uuid import uuid4
 import duckdb
 
 from agentic_trader.config import Settings
+from agentic_trader.memory.embeddings import build_memory_document, embed_artifacts
 from agentic_trader.runtime_feed import append_service_event, write_service_state
 from agentic_trader.schemas import (
     AccountMark,
@@ -232,6 +233,17 @@ class TradingDatabase:
             )
             """
         )
+        self.conn.execute(
+            """
+            create table if not exists memory_vectors (
+                run_id varchar primary key,
+                created_at varchar not null,
+                symbol varchar not null,
+                embedding_json varchar not null,
+                document_text varchar not null
+            )
+            """
+        )
         existing = self.conn.execute(
             "select count(*) from account_state where account_id = 'paper'"
         ).fetchone()
@@ -256,6 +268,7 @@ class TradingDatabase:
         self.conn.close()
 
     def insert_run(self, run_id: str, artifacts: RunArtifacts) -> None:
+        created_at = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
             """
             insert into runs (run_id, created_at, symbol, interval, approved, payload_json)
@@ -263,13 +276,14 @@ class TradingDatabase:
             """,
             [
                 run_id,
-                datetime.now(timezone.utc).isoformat(),
+                created_at,
                 artifacts.snapshot.symbol,
                 artifacts.snapshot.interval,
                 artifacts.execution.approved,
                 artifacts.model_dump_json(indent=2),
             ],
         )
+        self.upsert_memory_vector(run_id, artifacts, created_at=created_at)
 
     def insert_order(self, order: dict[str, Any]) -> None:
         self.conn.execute(
@@ -422,6 +436,53 @@ class TradingDatabase:
             if record is not None:
                 records.append(record)
         return records
+
+    def upsert_memory_vector(
+        self, run_id: str, artifacts: RunArtifacts, *, created_at: str | None = None
+    ) -> None:
+        self.conn.execute(
+            """
+            insert into memory_vectors (run_id, created_at, symbol, embedding_json, document_text)
+            values (?, ?, ?, ?, ?)
+            on conflict(run_id) do update set
+                created_at = excluded.created_at,
+                symbol = excluded.symbol,
+                embedding_json = excluded.embedding_json,
+                document_text = excluded.document_text
+            """,
+            [
+                run_id,
+                created_at or datetime.now(timezone.utc).isoformat(),
+                artifacts.snapshot.symbol,
+                json.dumps(embed_artifacts(artifacts)),
+                build_memory_document(artifacts),
+            ],
+        )
+
+    def list_memory_vectors(
+        self, limit: int = 200
+    ) -> list[tuple[str, str, str, list[float], str]]:
+        rows = self.conn.execute(
+            """
+            select run_id, created_at, symbol, embedding_json, document_text
+            from memory_vectors
+            order by created_at desc
+            limit ?
+            """,
+            [limit],
+        ).fetchall()
+        vectors: list[tuple[str, str, str, list[float], str]] = []
+        for row in rows:
+            vectors.append(
+                (
+                    str(row[0]),
+                    str(row[1]),
+                    str(row[2]),
+                    [float(value) for value in json.loads(str(row[3]))],
+                    str(row[4]),
+                )
+            )
+        return vectors
 
     def record_account_mark(
         self,

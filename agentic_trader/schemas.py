@@ -464,6 +464,9 @@ class HistoricalMemoryMatch(BaseModel):
     created_at: str
     symbol: str
     similarity_score: float = Field(ge=0.0)
+    heuristic_score: float | None = None
+    vector_score: float | None = None
+    retrieval_source: Literal["heuristic", "vector", "hybrid"] = "heuristic"
     regime: str
     strategy_family: str
     manager_bias: str
