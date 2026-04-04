@@ -140,7 +140,7 @@ agentic-trader tui
 Ink control room hotkeys:
 
 ```text
-1 overview   2 runtime   3 portfolio   4 review   5 chat
+1 overview   2 runtime   3 portfolio   4 review   5 memory   6 chat
 r refresh    s start background runtime    x stop runtime    q quit
 [ and ] switch chat persona on the chat page
 ```
@@ -218,6 +218,12 @@ Inspect historically similar recorded runs for the current snapshot:
 
 ```bash
 python main.py memory-explorer --symbol AAPL --interval 1d --lookback 180d --limit 5
+```
+
+Inspect which retrieved memories and context bundles were attached to each agent stage:
+
+```bash
+python main.py retrieval-inspection
 ```
 
 Run a walk-forward backtest with the current agent pipeline:

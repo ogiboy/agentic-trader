@@ -78,7 +78,8 @@ Notes:
 - a first Ink-based control room now exists under `tui/` and consumes JSON status, log, preference, and portfolio surfaces from the Python runtime
 - the Ink control room now ships with overview, runtime, portfolio, and review pages plus start/stop hotkeys
 - the Ink control room now also includes an operator chat page with persona switching
-- richer trace inspection, retrieval explanation, and deeper Ink feature parity are still open
+- the Ink control room now also includes a memory page backed by similar-run retrieval and stage-level retrieval inspection
+- richer trace inspection and deeper Ink feature parity are still open
 
 ## Phase 5: Backtesting
 

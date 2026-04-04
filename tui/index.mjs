@@ -10,7 +10,7 @@ const cliExecutable = process.env.AGENTIC_TRADER_CLI || 'agentic-trader';
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 const once = process.argv.includes('--once');
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
-const pages = ['overview', 'runtime', 'portfolio', 'review', 'chat'];
+const pages = ['overview', 'runtime', 'portfolio', 'review', 'memory', 'chat'];
 const personas = ['operator_liaison', 'regime_analyst', 'strategy_selector', 'risk_steward', 'portfolio_manager'];
 
 async function execCli(args, {expectJson = false} = {}) {
@@ -347,6 +347,46 @@ function ReviewPage({data}) {
   );
 }
 
+function MemoryPage({data}) {
+  const explorer = data.memoryExplorer;
+  const inspection = data.retrievalInspection;
+
+  const matchLines =
+    explorer.available === false
+      ? ['Memory explorer is temporarily unavailable.', explorer.error || 'No latest run snapshot is available.']
+      : explorer.matches.length
+        ? explorer.matches.map(
+            (match) =>
+              `${match.created_at} | ${match.symbol} | score=${match.similarity_score} | ${match.regime} | ${match.strategy_family} | ${match.summary}`,
+          )
+        : ['No similar historical memories found yet.'];
+
+  const retrievalLines =
+    inspection.available === false
+      ? ['Retrieval inspection is temporarily unavailable.', inspection.error || 'No latest run trace is available.']
+      : inspection.stages.length
+        ? inspection.stages.flatMap((stage) => {
+            const retrieved = stage.retrieved_memories?.length ?? 0;
+            const notes = stage.memory_notes?.length ?? 0;
+            const recentRuns = stage.recent_runs?.length ?? 0;
+            const headline = `${stage.role} | retrieved=${retrieved} | trade-memory=${notes} | recent-runs=${recentRuns}`;
+            const sample = stage.retrieved_memories?.[0] || stage.memory_notes?.[0] || 'No retrieval context attached.';
+            return [headline, `  ${sample}`, ''];
+          })
+        : ['No retrieval inspection data available yet.'];
+
+  return e(
+    Box,
+    {flexDirection: 'column', width: '100%'},
+    e(
+      Box,
+      {width: '100%'},
+      e(Box, {width: '50%', paddingRight: 1}, panel('SIMILAR MEMORIES', matchLines.slice(0, 10), 'cyan')),
+      e(Box, {width: '50%', paddingLeft: 1}, panel('RETRIEVAL INSPECTION', retrievalLines.slice(0, 12), 'yellow')),
+    ),
+  );
+}
+
 function ChatPage({persona, history, draft, chatBusy}) {
   return e(
     Box,
@@ -410,11 +450,13 @@ function DashboardView({data, error, loadingText, page, actionMessage, busy, cha
       ? 'Overview'
       : page === 'runtime'
         ? 'Runtime'
-        : page === 'portfolio'
+      : page === 'portfolio'
           ? 'Portfolio'
           : page === 'review'
             ? 'Review'
-            : 'Chat';
+            : page === 'memory'
+              ? 'Memory'
+              : 'Chat';
 
   const view =
     page === 'overview'
@@ -425,7 +467,9 @@ function DashboardView({data, error, loadingText, page, actionMessage, busy, cha
           ? e(PortfolioPage, {data})
           : page === 'review'
             ? e(ReviewPage, {data})
-            : e(ChatPage, {persona: chatPersona, history: chatHistory, draft: chatDraft, chatBusy});
+            : page === 'memory'
+              ? e(MemoryPage, {data})
+              : e(ChatPage, {persona: chatPersona, history: chatHistory, draft: chatDraft, chatBusy});
 
   return e(
     Box,
@@ -434,7 +478,7 @@ function DashboardView({data, error, loadingText, page, actionMessage, busy, cha
     e(
       Text,
       {color: 'gray'},
-      `page ${pageIndex}/5: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 chat  |  r refresh  s start  x stop  q quit${busy ? '  |  working...' : ''}`,
+      `page ${pageIndex}/6: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 memory  6 chat  |  r refresh  s start  x stop  q quit${busy ? '  |  working...' : ''}`,
     ),
     actionMessage ? e(Text, {color: actionMessage.kind === 'error' ? 'red' : 'yellow'}, actionMessage.text) : null,
     view,
@@ -627,7 +671,7 @@ function InteractiveDashboardApp() {
       prevPage();
       return;
     }
-    if (['1', '2', '3', '4', '5'].includes(input) && page !== 'chat') {
+    if (['1', '2', '3', '4', '5', '6'].includes(input) && page !== 'chat') {
       setPage(pages[Number(input) - 1]);
       return;
     }
@@ -669,7 +713,7 @@ function InteractiveDashboardApp() {
       void runAction('stop');
       return;
     }
-    if (['1', '2', '3', '4', '5'].includes(input)) {
+    if (['1', '2', '3', '4', '5', '6'].includes(input)) {
       setPage(pages[Number(input) - 1]);
     }
   });

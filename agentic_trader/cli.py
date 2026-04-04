@@ -3,7 +3,6 @@ import signal
 import shutil
 import subprocess
 import sys
-
 import json
 from pathlib import Path
 
@@ -26,6 +25,7 @@ from agentic_trader.runtime_status import build_runtime_status_view, is_process_
 from agentic_trader.schemas import (
     ChatPersona,
     DailyRiskReport,
+    HistoricalMemoryMatch,
     InvestmentPreferences,
     OperatorInstruction,
     BacktestReport,
@@ -537,6 +537,88 @@ def _run_record_payload(settings, *, run_id: str | None = None) -> dict[str, obj
     }
 
 
+def _memory_explorer_payload(
+    settings,
+    *,
+    symbol: str | None = None,
+    interval: str | None = None,
+    lookback: str = "180d",
+    limit: int = 5,
+    use_latest_run: bool = False,
+) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            snapshot = None
+            resolved_symbol = symbol
+            resolved_interval = interval
+            if use_latest_run or resolved_symbol is None:
+                record = db.latest_run()
+                if record is not None:
+                    snapshot = record.artifacts.snapshot
+                    resolved_symbol = snapshot.symbol
+                    resolved_interval = snapshot.interval
+            if snapshot is None:
+                if resolved_symbol is None or resolved_interval is None:
+                    raise ValueError("A symbol and interval are required when no latest run snapshot is available.")
+                frame = fetch_ohlcv(resolved_symbol, interval=resolved_interval, lookback=lookback, settings=settings)
+                snapshot = build_snapshot(frame, symbol=resolved_symbol, interval=resolved_interval)
+            matches = retrieve_similar_memories(db, snapshot, limit=limit)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        snapshot = None
+        matches = []
+        available = False
+        error = str(exc)
+
+    return {
+        "available": available,
+        "error": error,
+        "snapshot": snapshot.model_dump(mode="json") if snapshot is not None else None,
+        "matches": [match.model_dump(mode="json") for match in matches],
+    }
+
+
+def _retrieval_inspection_payload(settings, *, run_id: str | None = None) -> dict[str, object]:
+    record_payload = _run_record_payload(settings, run_id=run_id)
+    record_json = record_payload["record"]
+    if record_payload["available"] is False or record_json is None:
+        return {
+            "available": bool(record_payload["available"]),
+            "error": record_payload["error"],
+            "run_id": record_json["run_id"] if isinstance(record_json, dict) and "run_id" in record_json else None,
+            "stages": [],
+        }
+
+    record = RunRecord.model_validate(record_json)
+    stages: list[dict[str, object]] = []
+    for trace in record.artifacts.agent_traces:
+        context = json.loads(trace.context_json)
+        stages.append(
+            {
+                "role": trace.role,
+                "model_name": trace.model_name,
+                "used_fallback": trace.used_fallback,
+                "retrieved_memories": context.get("retrieved_memories", []),
+                "memory_notes": context.get("memory_notes", []),
+                "recent_runs": context.get("recent_runs", []),
+                "tool_outputs": context.get("tool_outputs", []),
+            }
+        )
+
+    return {
+        "available": True,
+        "error": None,
+        "run_id": record.run_id,
+        "symbol": record.symbol,
+        "interval": record.interval,
+        "stages": stages,
+    }
+
+
 @app.callback()
 def app_entry(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
@@ -870,6 +952,8 @@ def dashboard_snapshot(
             "riskReport": _risk_report_payload(settings),
             "review": _run_record_payload(settings),
             "trace": _run_record_payload(settings),
+            "memoryExplorer": _memory_explorer_payload(settings, use_latest_run=True, limit=5),
+            "retrievalInspection": _retrieval_inspection_payload(settings),
         }
     )
 
@@ -1109,18 +1193,89 @@ def backtest(
 
 @app.command("memory-explorer")
 def memory_explorer(
-    symbol: str = typer.Option(..., help="Ticker symbol, for example AAPL or BTC-USD"),
-    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
+    symbol: str | None = typer.Option(None, help="Ticker symbol, for example AAPL or BTC-USD"),
+    interval: str | None = typer.Option(None, help="yfinance interval, for example 1d or 1h"),
     lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
     limit: int = typer.Option(5, min=1, max=20, help="Maximum number of retrieved historical memories."),
+    use_latest_run: bool = typer.Option(True, help="Use the latest recorded run snapshot when available."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     """Inspect historically similar recorded runs for the current market snapshot."""
     settings = get_settings()
-    db = _open_db(settings, read_only=True)
-    frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback)
-    snapshot = build_snapshot(frame, symbol=symbol, interval=interval)
-    matches = retrieve_similar_memories(db, snapshot, limit=limit)
+    payload = _memory_explorer_payload(
+        settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        limit=limit,
+        use_latest_run=use_latest_run,
+    )
+    if json_output:
+        _emit_json(payload)
+        return
+    if not payload["available"]:
+        console.print(
+            Panel(
+                f"Memory explorer is temporarily unavailable.\n\n{payload['error']}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    matches = [HistoricalMemoryMatch.model_validate(match) for match in payload["matches"]]
     _render_memory_matches(matches)
+
+
+@app.command("retrieval-inspection")
+def retrieval_inspection(
+    run_id: str | None = typer.Option(None, help="Run id to inspect. Defaults to the latest recorded run."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Inspect which memories and context bundles were injected into each agent stage."""
+    settings = get_settings()
+    payload = _retrieval_inspection_payload(settings, run_id=run_id)
+    if json_output:
+        _emit_json(payload)
+        return
+    if not payload["available"]:
+        console.print(
+            Panel(
+                f"Retrieval inspection is temporarily unavailable.\n\n{payload['error']}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    if not payload["stages"]:
+        console.print(Panel("No agent trace contexts are available for retrieval inspection yet.", title="Retrieval Inspection", border_style="yellow"))
+        raise typer.Exit(code=0)
+
+    table = Table(title=f"Retrieval Inspection / {payload['run_id']}")
+    table.add_column("Role")
+    table.add_column("Retrieved Memories")
+    table.add_column("Trade Memory")
+    table.add_column("Recent Runs")
+    for stage in payload["stages"]:
+        table.add_row(
+            str(stage["role"]),
+            str(len(stage["retrieved_memories"])),
+            str(len(stage["memory_notes"])),
+            str(len(stage["recent_runs"])),
+        )
+    console.print(table)
+    for stage in payload["stages"]:
+        lines = []
+        if stage["retrieved_memories"]:
+            lines.extend(["Retrieved Similar Memories:"] + [f"- {line}" for line in stage["retrieved_memories"]])
+        if stage["memory_notes"]:
+            lines.extend(["", "Trade Memory:"] + [f"- {line}" for line in stage["memory_notes"]])
+        if stage["recent_runs"]:
+            lines.extend(["", "Recent Runs:"] + [f"- {line}" for line in stage["recent_runs"]])
+        if stage["tool_outputs"]:
+            lines.extend(["", "Tool Outputs:"] + [f"- {line}" for line in stage["tool_outputs"]])
+        if not lines:
+            lines.append("No retrieval or memory context was attached for this stage.")
+        console.print(Panel("\n".join(lines), title=f"Stage / {stage['role']}", border_style="cyan"))
 
 
 @app.command()

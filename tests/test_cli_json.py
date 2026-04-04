@@ -206,3 +206,32 @@ def test_dashboard_snapshot_json(monkeypatch, tmp_path: Path) -> None:
     assert payload["status"]["state"]["current_symbol"] == "AAPL"
     assert payload["logs"][0]["event_type"] == "agent_regime_started"
     assert payload["portfolio"]["available"] is True
+    assert "memoryExplorer" in payload
+    assert "retrievalInspection" in payload
+
+
+def test_memory_explorer_and_retrieval_inspection_json(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    db = TradingDatabase(settings)
+    record = db.latest_run()
+    assert record is None
+    db.close()
+
+    runner = CliRunner()
+
+    memory_result = runner.invoke(app, ["memory-explorer", "--json"])
+    assert memory_result.exit_code == 0
+    memory_payload = json.loads(memory_result.stdout)
+    assert memory_payload["available"] is False
+
+    retrieval_result = runner.invoke(app, ["retrieval-inspection", "--json"])
+    assert retrieval_result.exit_code == 0
+    retrieval_payload = json.loads(retrieval_result.stdout)
+    assert retrieval_payload["available"] is True
+    assert retrieval_payload["stages"] == []
