@@ -235,6 +235,10 @@ function RuntimePage({ data }) {
             `Runtime: ${runtime.runtime_state}`,
             `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
             `State: ${runtime.state?.state ?? '-'}`,
+            `Symbols: ${(runtime.state?.symbols || []).join(', ') || '-'}`,
+            `Interval: ${runtime.state?.interval ?? '-'}`,
+            `Lookback: ${runtime.state?.lookback ?? '-'}`,
+            `Max Cycles: ${runtime.state?.max_cycles ?? '-'}`,
             `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
             `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
             `PID: ${runtime.state?.pid ?? '-'}`,
@@ -654,7 +658,7 @@ function DashboardView({
     e(
       Text,
       { color: 'gray' },
-      `page ${pageIndex}/6: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 memory  6 chat  |  r refresh  s start  x stop  q quit${busy ? '  |  working...' : ''}`,
+      `page ${pageIndex}/6: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 memory  6 chat  |  r refresh  s start  x stop  R restart  q quit${busy ? '  |  working...' : ''}`,
     ),
     actionMessage
       ? e(
@@ -760,6 +764,19 @@ function useDashboardState({ interactive }) {
             setActionMessage({
               kind: 'info',
               text: `Stop requested for PID ${data.status.state.pid}.`,
+            });
+          }
+        } else if (kind === 'restart') {
+          if (!(data.status.state?.symbols || []).length) {
+            setActionMessage({
+              kind: 'info',
+              text: 'No saved runtime launch config is available yet.',
+            });
+          } else {
+            await runTextCommand(['restart-service']);
+            setActionMessage({
+              kind: 'info',
+              text: 'Background runtime restart requested.',
             });
           }
         }
@@ -941,6 +958,10 @@ function InteractiveDashboardApp() {
     }
     if (input.toLowerCase() === 'x') {
       void runAction('stop');
+      return;
+    }
+    if (input === 'R') {
+      void runAction('restart');
       return;
     }
     if (['1', '2', '3', '4', '5', '6'].includes(input)) {
