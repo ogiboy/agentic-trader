@@ -94,10 +94,11 @@ Status: in progress.
 - export run reports for review
 - introduce memory-aware replay mode to reconstruct what the system knew at the time of each decision
 - run ablation tests comparing performance with and without vector memory or a RAG layer
-  Notes:
+Notes:
 - a first walk-forward replay and report export path are now available
 - agent-versus-deterministic baseline comparison is now available
-- memory-aware replay and ablation harnesses are still missing
+- a first memory-aware replay surface is now available through `replay-run`, the dashboard snapshot, and the Ink review page
+- ablation harnesses are still missing
 
 ## Phase 6: Paper Portfolio Engine
 

@@ -443,3 +443,28 @@ class HistoricalMemoryMatch(BaseModel):
     manager_bias: str
     approved: bool
     summary: str
+
+
+class RunReplayStage(BaseModel):
+    role: str
+    model_name: str
+    used_fallback: bool = False
+    market_session: dict[str, object] | None = None
+    retrieved_memories: list[str] = Field(default_factory=list)
+    memory_notes: list[str] = Field(default_factory=list)
+    recent_runs: list[str] = Field(default_factory=list)
+    tool_outputs: list[str] = Field(default_factory=list)
+    upstream_context: dict[str, str] = Field(default_factory=dict)
+    output: dict[str, object] | str
+
+
+class RunReplay(BaseModel):
+    run_id: str
+    created_at: str
+    symbol: str
+    interval: str
+    approved: bool
+    final_side: str
+    final_rationale: str
+    snapshot: MarketSnapshot
+    stages: list[RunReplayStage] = Field(default_factory=list)

@@ -46,6 +46,8 @@ from agentic_trader.schemas import (
     PositionSnapshot,
     PortfolioSnapshot,
     RunRecord,
+    RunReplay,
+    RunReplayStage,
     RunArtifacts,
     ServiceEvent,
     ServiceStateSnapshot,
@@ -422,6 +424,46 @@ def _render_run_trace(record: RunRecord) -> None:
                 border_style="cyan" if not trace.used_fallback else "yellow",
             )
         )
+
+
+def _render_run_replay(replay: RunReplay) -> None:
+    summary = Table(title=f"Memory-Aware Replay / {replay.run_id}")
+    summary.add_column("Field")
+    summary.add_column("Value")
+    summary.add_row("Created", replay.created_at)
+    summary.add_row("Symbol", replay.symbol)
+    summary.add_row("Interval", replay.interval)
+    summary.add_row("Approved", str(replay.approved))
+    summary.add_row("Final Side", replay.final_side)
+    summary.add_row("Final Rationale", replay.final_rationale)
+    summary.add_row(
+        "Multi-Timeframe",
+        f"{replay.snapshot.mtf_alignment} @ {replay.snapshot.higher_timeframe} ({replay.snapshot.mtf_confidence:.2f})",
+    )
+    console.print(summary)
+
+    stage_table = Table(title="Replay Stages")
+    stage_table.add_column("Role")
+    stage_table.add_column("Model")
+    stage_table.add_column("Fallback")
+    stage_table.add_column("Memories")
+    stage_table.add_column("Tools")
+    stage_table.add_column("Output Preview")
+    for stage in replay.stages:
+        output_preview = (
+            json.dumps(stage.output, indent=2)
+            if isinstance(stage.output, dict)
+            else stage.output
+        ).replace("\n", " ")[:120]
+        stage_table.add_row(
+            stage.role,
+            stage.model_name,
+            str(stage.used_fallback),
+            str(len(stage.retrieved_memories)),
+            str(len(stage.tool_outputs)),
+            output_preview,
+        )
+    console.print(stage_table)
 
 
 def _render_backtest_report(report: BacktestReport) -> None:
@@ -834,6 +876,57 @@ def _retrieval_inspection_payload(
     }
 
 
+def _run_replay_payload(settings, *, run_id: str | None = None) -> dict[str, object]:
+    record_payload = _run_record_payload(settings, run_id=run_id)
+    record_json = record_payload["record"]
+    if record_payload["available"] is False or record_json is None:
+        return {
+            "available": bool(record_payload["available"]),
+            "error": record_payload["error"],
+            "replay": None,
+        }
+
+    record = RunRecord.model_validate(record_json)
+    stages: list[RunReplayStage] = []
+    for trace in record.artifacts.agent_traces:
+        context = json.loads(trace.context_json)
+        try:
+            output: dict[str, object] | str = json.loads(trace.output_json)
+        except json.JSONDecodeError:
+            output = trace.output_json
+        stages.append(
+            RunReplayStage(
+                role=trace.role,
+                model_name=trace.model_name,
+                used_fallback=trace.used_fallback,
+                market_session=context.get("market_session"),
+                retrieved_memories=context.get("retrieved_memories", []),
+                memory_notes=context.get("memory_notes", []),
+                recent_runs=context.get("recent_runs", []),
+                tool_outputs=context.get("tool_outputs", []),
+                upstream_context=context.get("upstream_context", {}),
+                output=output,
+            )
+        )
+
+    replay = RunReplay(
+        run_id=record.run_id,
+        created_at=record.created_at,
+        symbol=record.symbol,
+        interval=record.interval,
+        approved=record.approved,
+        final_side=record.artifacts.execution.side,
+        final_rationale=record.artifacts.execution.rationale,
+        snapshot=record.artifacts.snapshot,
+        stages=stages,
+    )
+    return {
+        "available": True,
+        "error": None,
+        "replay": replay.model_dump(mode="json"),
+    }
+
+
 @app.callback()
 def app_entry(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
@@ -1204,6 +1297,7 @@ def dashboard_snapshot(
             "riskReport": _risk_report_payload(settings),
             "review": _run_record_payload(settings),
             "trace": _run_record_payload(settings),
+            "replay": _run_replay_payload(settings),
             "memoryExplorer": _memory_explorer_payload(
                 settings, use_latest_run=True, limit=5
             ),
@@ -1498,6 +1592,47 @@ def trace_run(
         )
         raise typer.Exit(code=0)
     _render_run_trace(record)
+
+
+@app.command("replay-run")
+def replay_run(
+    run_id: str | None = typer.Option(
+        None, help="Run id to replay. Defaults to the latest recorded run."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
+) -> None:
+    """Replay what the system knew at decision time using persisted traces."""
+    settings = get_settings()
+    payload = _run_replay_payload(settings, run_id=run_id)
+    replay = (
+        RunReplay.model_validate(payload["replay"])
+        if payload["replay"] is not None
+        else None
+    )
+    if json_output:
+        _emit_json(payload)
+        return
+    if not payload["available"]:
+        console.print(
+            Panel(
+                f"Run replay is temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    if replay is None:
+        console.print(
+            Panel(
+                "No persisted runs are available to replay.",
+                title="Run Replay",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    _render_run_replay(replay)
 
 
 @app.command("export-report")

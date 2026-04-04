@@ -390,8 +390,10 @@ function PortfolioPage({ data }) {
 function ReviewPage({ data }) {
   const review = data.review;
   const trace = data.trace;
+  const replay = data.replay;
   const reviewRecord = review.record;
   const traceRecord = trace.record;
+  const replayState = replay.replay;
 
   const reviewLines =
     review.available === false
@@ -426,6 +428,25 @@ function ReviewPage({ data }) {
           )
         : ['No persisted agent traces are available yet.'];
 
+  const replayLines =
+    replay.available === false
+      ? [
+          'Replay is temporarily unavailable.',
+          replay.error || 'The runtime writer currently owns the database.',
+        ]
+      : replayState
+        ? [
+            `Final Side: ${replayState.final_side}`,
+            `Approved: ${replayState.approved}`,
+            `MTF: ${replayState.snapshot.mtf_alignment} @ ${replayState.snapshot.higher_timeframe}`,
+            `Final Rationale: ${replayState.final_rationale}`,
+            ...replayState.stages.slice(0, 5).map(
+              (stage) =>
+                `${stage.role} | memories=${stage.retrieved_memories.length} | tools=${stage.tool_outputs.length} | fallback=${stage.used_fallback}`,
+            ),
+          ]
+        : ['No replayable run is available yet.'];
+
   return e(
     Box,
     { flexDirection: 'column', width: '100%' },
@@ -441,6 +462,15 @@ function ReviewPage({ data }) {
         Box,
         { width: '50%', paddingLeft: 1 },
         panel('AGENT TRACE', traceLines.slice(0, 8), 'magenta'),
+      ),
+    ),
+    e(
+      Box,
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '100%' },
+        panel('MEMORY-AWARE REPLAY', replayLines, 'yellow'),
       ),
     ),
   );
