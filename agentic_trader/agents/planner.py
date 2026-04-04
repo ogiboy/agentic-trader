@@ -1,6 +1,11 @@
 from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessment, StrategyPlan
+from agentic_trader.schemas import (
+    AgentContext,
+    MarketSnapshot,
+    RegimeAssessment,
+    StrategyPlan,
+)
 
 
 def _fallback_plan(snapshot: MarketSnapshot, regime: RegimeAssessment) -> StrategyPlan:
@@ -71,11 +76,15 @@ def plan_trade(
         "If conviction is weak, choose no_trade and action hold."
     )
     routed_llm = llm.for_role("strategy")
-    user_prompt = render_agent_context(
-        context,
-        task="Choose the best strategy family and directional action for this cycle. If conviction is weak, choose no_trade and hold.",
-    ) if context is not None else (
-        f"Symbol: {snapshot.symbol}\nInterval: {snapshot.interval}\n\nMarket snapshot:\n{snapshot.model_dump_json(indent=2)}\n\nRegime assessment:\n{regime.model_dump_json(indent=2)}"
+    user_prompt = (
+        render_agent_context(
+            context,
+            task="Choose the best strategy family and directional action for this cycle. If conviction is weak, choose no_trade and hold.",
+        )
+        if context is not None
+        else (
+            f"Symbol: {snapshot.symbol}\nInterval: {snapshot.interval}\n\nMarket snapshot:\n{snapshot.model_dump_json(indent=2)}\n\nRegime assessment:\n{regime.model_dump_json(indent=2)}"
+        )
     )
     try:
         return routed_llm.complete_structured(

@@ -1,5 +1,11 @@
 from agentic_trader.config import Settings
-from agentic_trader.schemas import ExecutionDecision, ManagerDecision, MarketSnapshot, RiskPlan, StrategyPlan
+from agentic_trader.schemas import (
+    ExecutionDecision,
+    ManagerDecision,
+    MarketSnapshot,
+    RiskPlan,
+    StrategyPlan,
+)
 
 
 def evaluate_execution(
@@ -65,7 +71,11 @@ def evaluate_execution(
         entry_price=snapshot.last_close,
         stop_loss=risk.stop_loss,
         take_profit=risk.take_profit,
-        position_size_pct=min(risk.position_size_pct * manager.size_multiplier, settings.max_position_pct),
+        position_size_pct=min(
+            risk.position_size_pct * manager.size_multiplier, settings.max_position_pct
+        ),
         confidence=min(strategy.confidence, manager.confidence_cap),
-        rationale=" ".join(reasons) if reasons else "Execution guard approved the trade.",
+        rationale=(
+            " ".join(reasons) if reasons else "Execution guard approved the trade."
+        ),
     )

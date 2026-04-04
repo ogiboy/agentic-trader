@@ -4,11 +4,23 @@ from pydantic import BaseModel, Field
 
 RiskProfile: TypeAlias = Literal["conservative", "balanced", "aggressive"]
 TradeStyle: TypeAlias = Literal["swing", "position", "intraday"]
-BehaviorPreset: TypeAlias = Literal["balanced_core", "trend_biased", "contrarian", "capital_preservation"]
+BehaviorPreset: TypeAlias = Literal[
+    "balanced_core", "trend_biased", "contrarian", "capital_preservation"
+]
 AgentProfile: TypeAlias = Literal["neutral", "disciplined", "aggressive", "explanatory"]
-ChatPersona: TypeAlias = Literal["operator_liaison", "regime_analyst", "strategy_selector", "risk_steward", "portfolio_manager"]
-CoordinatorFocus: TypeAlias = Literal["trend_following", "breakout", "mean_reversion", "capital_preservation", "no_trade"]
-AgentRole: TypeAlias = Literal["coordinator", "regime", "strategy", "risk", "manager", "explainer", "instruction"]
+ChatPersona: TypeAlias = Literal[
+    "operator_liaison",
+    "regime_analyst",
+    "strategy_selector",
+    "risk_steward",
+    "portfolio_manager",
+]
+CoordinatorFocus: TypeAlias = Literal[
+    "trend_following", "breakout", "mean_reversion", "capital_preservation", "no_trade"
+]
+AgentRole: TypeAlias = Literal[
+    "coordinator", "regime", "strategy", "risk", "manager", "explainer", "instruction"
+]
 
 
 class LLMHealthStatus(BaseModel):
@@ -44,6 +56,14 @@ class MarketSnapshot(BaseModel):
     return_5: float
     return_20: float
     volume_ratio_20: float
+    higher_timeframe: str = "same_as_base"
+    htf_last_close: float = 0.0
+    htf_ema_20: float = 0.0
+    htf_ema_50: float = 0.0
+    htf_rsi_14: float = 50.0
+    htf_return_5: float = 0.0
+    mtf_alignment: Literal["bullish", "bearish", "mixed"] = "mixed"
+    mtf_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     bars_analyzed: int
 
 
@@ -156,7 +176,16 @@ class AccountMark(BaseModel):
 
 class ServiceStateSnapshot(BaseModel):
     service_name: str
-    state: Literal["idle", "starting", "running", "stopping", "stopped", "completed", "failed", "blocked"]
+    state: Literal[
+        "idle",
+        "starting",
+        "running",
+        "stopping",
+        "stopped",
+        "completed",
+        "failed",
+        "blocked",
+    ]
     updated_at: str
     started_at: str | None = None
     last_heartbeat_at: str | None = None

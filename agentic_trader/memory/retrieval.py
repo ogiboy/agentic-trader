@@ -24,10 +24,18 @@ def _snapshot_similarity(current: MarketSnapshot, historical: MarketSnapshot) ->
         _bounded_similarity(current.return_5, historical.return_5, scale=0.2),
         _bounded_similarity(current.return_20, historical.return_20, scale=0.4),
         _bounded_similarity(current.volatility_20, historical.volatility_20, scale=0.2),
-        _bounded_similarity(current.volume_ratio_20, historical.volume_ratio_20, scale=1.5),
-        _bounded_similarity(current.atr_14 / max(current.last_close, 1e-9), historical.atr_14 / max(historical.last_close, 1e-9), scale=0.1),
+        _bounded_similarity(
+            current.volume_ratio_20, historical.volume_ratio_20, scale=1.5
+        ),
+        _bounded_similarity(
+            current.atr_14 / max(current.last_close, 1e-9),
+            historical.atr_14 / max(historical.last_close, 1e-9),
+            scale=0.1,
+        ),
     ]
-    trend_bonus = 0.1 if _trend_signature(current) == _trend_signature(historical) else 0.0
+    trend_bonus = (
+        0.1 if _trend_signature(current) == _trend_signature(historical) else 0.0
+    )
     return min(1.0, (sum(components) / len(components)) + trend_bonus)
 
 

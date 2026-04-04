@@ -5,6 +5,8 @@ from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessmen
 
 def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
     trend_gap = (snapshot.ema_20 - snapshot.ema_50) / snapshot.last_close
+    mtf_penalty = 0.1 if snapshot.mtf_alignment == "mixed" else 0.0
+    mtf_bonus = min(0.1, snapshot.mtf_confidence * 0.1)
 
     if snapshot.volatility_20 > 0.08:
         return RegimeAssessment(
@@ -17,24 +19,46 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
             fallback_reason="LLM unavailable or invalid structured response.",
         )
 
-    if snapshot.last_close > snapshot.ema_20 > snapshot.ema_50 and snapshot.rsi_14 >= 52:
+    if (
+        snapshot.last_close > snapshot.ema_20 > snapshot.ema_50
+        and snapshot.rsi_14 >= 52
+    ):
         return RegimeAssessment(
             regime="trend_up",
             direction_bias="long",
-            confidence=0.72,
-            reasoning="Fallback regime: price is above both trend averages with positive momentum.",
-            key_risks=["trend_exhaustion", "pullback_risk"],
+            confidence=max(0.55, min(0.85, 0.72 + mtf_bonus - mtf_penalty)),
+            reasoning=(
+                "Fallback regime: price is above both trend averages with positive momentum. "
+                f"Higher timeframe alignment is {snapshot.mtf_alignment}."
+            ),
+            key_risks=["trend_exhaustion", "pullback_risk"]
+            + (
+                ["higher_timeframe_conflict"]
+                if snapshot.mtf_alignment == "mixed"
+                else []
+            ),
             source="fallback",
             fallback_reason="LLM unavailable or invalid structured response.",
         )
 
-    if snapshot.last_close < snapshot.ema_20 < snapshot.ema_50 and snapshot.rsi_14 <= 48:
+    if (
+        snapshot.last_close < snapshot.ema_20 < snapshot.ema_50
+        and snapshot.rsi_14 <= 48
+    ):
         return RegimeAssessment(
             regime="trend_down",
             direction_bias="short",
-            confidence=0.72,
-            reasoning="Fallback regime: price is below both trend averages with negative momentum.",
-            key_risks=["short_squeeze", "news_reversal"],
+            confidence=max(0.55, min(0.85, 0.72 + mtf_bonus - mtf_penalty)),
+            reasoning=(
+                "Fallback regime: price is below both trend averages with negative momentum. "
+                f"Higher timeframe alignment is {snapshot.mtf_alignment}."
+            ),
+            key_risks=["short_squeeze", "news_reversal"]
+            + (
+                ["higher_timeframe_conflict"]
+                if snapshot.mtf_alignment == "mixed"
+                else []
+            ),
             source="fallback",
             fallback_reason="LLM unavailable or invalid structured response.",
         )
@@ -53,8 +77,8 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
     return RegimeAssessment(
         regime="breakout_candidate",
         direction_bias="long" if snapshot.return_5 >= 0 else "short",
-        confidence=0.58,
-        reasoning="Fallback regime: mixed trend signals with expansion potential.",
+        confidence=max(0.5, 0.58 - mtf_penalty),
+        reasoning=f"Fallback regime: mixed trend signals with expansion potential and {snapshot.mtf_alignment} higher timeframe alignment.",
         key_risks=["mixed_signals", "low_conviction"],
         source="fallback",
         fallback_reason="LLM unavailable or invalid structured response.",
@@ -73,11 +97,15 @@ def assess_regime(
         "Be conservative. Prefer no_trade over low-conviction guesses."
     )
     routed_llm = llm.for_role("regime")
-    user_prompt = render_agent_context(
-        context,
-        task="Classify the current market regime with a conservative bias and prefer no_trade when conviction is weak.",
-    ) if context is not None else (
-        f"Classify the market for {snapshot.symbol} on interval {snapshot.interval}.\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}"
+    user_prompt = (
+        render_agent_context(
+            context,
+            task="Classify the current market regime with a conservative bias and prefer no_trade when conviction is weak.",
+        )
+        if context is not None
+        else (
+            f"Classify the market for {snapshot.symbol} on interval {snapshot.interval}.\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}"
+        )
     )
     try:
         return routed_llm.complete_structured(

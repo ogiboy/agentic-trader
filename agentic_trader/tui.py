@@ -11,15 +11,32 @@ from rich.text import Text
 from rich.columns import Columns
 from rich.align import Align
 
-from agentic_trader.agents.operator_chat import apply_preference_update, chat_with_persona, interpret_operator_instruction
+from agentic_trader.agents.operator_chat import (
+    apply_preference_update,
+    chat_with_persona,
+    interpret_operator_instruction,
+)
 from agentic_trader.config import Settings, get_settings
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.memory.retrieval import retrieve_similar_memories
-from agentic_trader.runtime_feed import read_service_events, read_service_state, request_stop
+from agentic_trader.runtime_feed import (
+    read_service_events,
+    read_service_state,
+    request_stop,
+)
 from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
-from agentic_trader.schemas import AgentProfile, BehaviorPreset, ChatPersona, InvestmentPreferences, RiskProfile, ServiceEvent, ServiceStateSnapshot, TradeStyle
+from agentic_trader.schemas import (
+    AgentProfile,
+    BehaviorPreset,
+    ChatPersona,
+    InvestmentPreferences,
+    RiskProfile,
+    ServiceEvent,
+    ServiceStateSnapshot,
+    TradeStyle,
+)
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, start_background_service
@@ -76,7 +93,9 @@ def _render_recent_runs(db: TradingDatabase) -> None:
     table.add_column("Interval")
     table.add_column("Approved")
     if not runs:
-        console.print(Panel("No runs recorded yet.", title="Recent Runs", border_style="yellow"))
+        console.print(
+            Panel("No runs recorded yet.", title="Recent Runs", border_style="yellow")
+        )
         return
     for run_id, created_at, symbol, interval, approved in runs:
         table.add_row(run_id, created_at, symbol, interval, str(approved))
@@ -152,7 +171,13 @@ def _observer_mode_panel(feature: str, error: str | None = None) -> Panel:
 def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     view = build_runtime_status_view(state)
     if view.state is None:
-        console.print(Panel("No runtime state recorded yet.", title="Runtime Status", border_style="yellow"))
+        console.print(
+            Panel(
+                "No runtime state recorded yet.",
+                title="Runtime Status",
+                border_style="yellow",
+            )
+        )
         return
     snapshot = view.state
 
@@ -164,7 +189,9 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     table.add_row("Last Recorded State", view.last_recorded_state or "-")
     table.add_row("Updated", snapshot.updated_at)
     table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
-    table.add_row("Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-")
+    table.add_row(
+        "Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-"
+    )
     table.add_row("Cycle Count", str(snapshot.cycle_count))
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
@@ -178,7 +205,13 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
 
 def _render_runtime_events(events: list[ServiceEvent]) -> None:
     if not events:
-        console.print(Panel("No runtime events recorded yet.", title="Runtime Events", border_style="yellow"))
+        console.print(
+            Panel(
+                "No runtime events recorded yet.",
+                title="Runtime Events",
+                border_style="yellow",
+            )
+        )
         return
     table = Table(title="Runtime Events")
     table.add_column("Created")
@@ -224,7 +257,9 @@ def _agent_activity_table(events: list[ServiceEvent]) -> Table:
     table.add_column("Stage")
     table.add_column("Event")
     table.add_column("Message")
-    activity_events = [event for event in events if event.event_type.startswith("agent_")]
+    activity_events = [
+        event for event in events if event.event_type.startswith("agent_")
+    ]
     if not activity_events:
         table.add_row("-", "-", "-", "No live agent stage events yet.")
         return table
@@ -234,14 +269,24 @@ def _agent_activity_table(events: list[ServiceEvent]) -> Table:
     return table
 
 
-def _current_activity_panel(state: ServiceStateSnapshot | None, events: list[ServiceEvent]) -> Panel:
+def _current_activity_panel(
+    state: ServiceStateSnapshot | None, events: list[ServiceEvent]
+) -> Panel:
     view = build_runtime_status_view(state)
-    latest_agent_event = next((event for event in events if event.event_type.startswith("agent_")), None)
+    latest_agent_event = next(
+        (event for event in events if event.event_type.startswith("agent_")), None
+    )
     latest_outcome_event = next(
         (
             event
             for event in events
-            if event.event_type in {"symbol_completed", "position_closed", "service_completed", "service_failed"}
+            if event.event_type
+            in {
+                "symbol_completed",
+                "position_closed",
+                "service_completed",
+                "service_failed",
+            }
         ),
         None,
     )
@@ -260,11 +305,22 @@ def _current_activity_panel(state: ServiceStateSnapshot | None, events: list[Ser
             ]
         )
     else:
-        lines.extend(["", "Latest Agent Event: -", "Agent Message: No agent activity recorded yet."])
+        lines.extend(
+            [
+                "",
+                "Latest Agent Event: -",
+                "Agent Message: No agent activity recorded yet.",
+            ]
+        )
     if latest_outcome_event is not None:
         lines.extend(["", f"Last Outcome: {latest_outcome_event.message}"])
     else:
-        lines.extend(["", "Last Outcome: Waiting for a completed symbol, exit, or service result."])
+        lines.extend(
+            [
+                "",
+                "Last Outcome: Waiting for a completed symbol, exit, or service result.",
+            ]
+        )
     return Panel("\n".join(lines), title="Current Cycle", border_style="bright_cyan")
 
 
@@ -282,7 +338,9 @@ def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     table.add_row("Last Recorded State", view.last_recorded_state or "-")
     table.add_row("Updated", snapshot.updated_at)
     table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
-    table.add_row("Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-")
+    table.add_row(
+        "Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-"
+    )
     table.add_row("Cycle Count", str(snapshot.cycle_count))
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
@@ -307,7 +365,9 @@ def _system_status_table(settings: Settings, db: TradingDatabase | None) -> Tabl
     table.add_row("Model Available", "yes" if health.model_available else "no")
     table.add_row("Strict LLM", str(settings.strict_llm))
     if db is not None:
-        table.add_row("Latest Order", latest_order[0] if latest_order is not None else "-")
+        table.add_row(
+            "Latest Order", latest_order[0] if latest_order is not None else "-"
+        )
     return table
 
 
@@ -346,7 +406,9 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
     return Group(summary, positions_table)
 
 
-def build_monitor_renderable(settings: Settings, db: TradingDatabase | None = None) -> Group:
+def build_monitor_renderable(
+    settings: Settings, db: TradingDatabase | None = None
+) -> Group:
     db = db if db is not None else _safe_open_read_db(settings)
     runtime_state = read_service_state(settings)
     events = read_service_events(settings, limit=20)
@@ -373,26 +435,57 @@ def build_monitor_renderable(settings: Settings, db: TradingDatabase | None = No
     )
     bottom = Columns(
         [
-            Panel(_render_preferences(db.load_preferences()), border_style="green") if db is not None else _observer_mode_panel("Preferences"),
-            Panel(_portfolio_renderable(db), border_style="yellow") if db is not None else _observer_mode_panel("Portfolio"),
+            (
+                Panel(_render_preferences(db.load_preferences()), border_style="green")
+                if db is not None
+                else _observer_mode_panel("Preferences")
+            ),
+            (
+                Panel(_portfolio_renderable(db), border_style="yellow")
+                if db is not None
+                else _observer_mode_panel("Portfolio")
+            ),
         ],
         equal=True,
         expand=True,
     )
     footer = Columns(
         [
-            Panel(Group(_recent_runs_table(db), _trade_journal_table(db, limit=5)), border_style="white") if db is not None else _observer_mode_panel("Run review and trade journal"),
+            (
+                Panel(
+                    Group(_recent_runs_table(db), _trade_journal_table(db, limit=5)),
+                    border_style="white",
+                )
+                if db is not None
+                else _observer_mode_panel("Run review and trade journal")
+            ),
             Panel(_runtime_events_table(events), border_style="bright_blue"),
         ],
         equal=True,
         expand=True,
     )
-    extra = Panel(_risk_report_table(db), border_style="red") if db is not None else _observer_mode_panel("Risk report")
+    extra = (
+        Panel(_risk_report_table(db), border_style="red")
+        if db is not None
+        else _observer_mode_panel("Risk report")
+    )
     return Group(header, top, middle, bottom, footer, extra)
 
 
-def run_live_monitor(settings: Settings, db: TradingDatabase | None = None, *, refresh_seconds: float = 1.0) -> None:
-    with Live(build_monitor_renderable(settings, db), console=console, refresh_per_second=max(1, int(1 / refresh_seconds) if refresh_seconds < 1 else 1), screen=True) as live:
+def run_live_monitor(
+    settings: Settings,
+    db: TradingDatabase | None = None,
+    *,
+    refresh_seconds: float = 1.0,
+) -> None:
+    with Live(
+        build_monitor_renderable(settings, db),
+        console=console,
+        refresh_per_second=max(
+            1, int(1 / refresh_seconds) if refresh_seconds < 1 else 1
+        ),
+        screen=True,
+    ) as live:
         try:
             while True:
                 live.update(build_monitor_renderable(settings, db))
@@ -415,7 +508,11 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     status.add_row("Strict LLM", str(settings.strict_llm))
     console.print(status)
     _render_runtime_state(read_service_state(settings))
-    console.print(_current_activity_panel(read_service_state(settings), read_service_events(settings, limit=12)))
+    console.print(
+        _current_activity_panel(
+            read_service_state(settings), read_service_events(settings, limit=12)
+        )
+    )
     if db is None:
         console.print(_observer_mode_panel("Preferences and portfolio-backed views"))
     else:
@@ -427,9 +524,15 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
 def _configure_preferences(db: TradingDatabase) -> None:
     current = db.load_preferences()
     console.print(_render_preferences(current))
-    regions = Prompt.ask("Regions (comma-separated)", default=", ".join(current.regions))
-    exchanges = Prompt.ask("Exchanges (comma-separated)", default=", ".join(current.exchanges))
-    currencies = Prompt.ask("Currencies (comma-separated)", default=", ".join(current.currencies))
+    regions = Prompt.ask(
+        "Regions (comma-separated)", default=", ".join(current.regions)
+    )
+    exchanges = Prompt.ask(
+        "Exchanges (comma-separated)", default=", ".join(current.exchanges)
+    )
+    currencies = Prompt.ask(
+        "Currencies (comma-separated)", default=", ".join(current.currencies)
+    )
     sectors = Prompt.ask(
         "Sectors (comma-separated, optional)",
         default=", ".join(current.sectors),
@@ -484,7 +587,9 @@ def _show_portfolio(db: TradingDatabase) -> None:
     console.print(summary)
     positions = db.list_positions()
     if not positions:
-        console.print(Panel("No open positions.", title="Positions", border_style="yellow"))
+        console.print(
+            Panel("No open positions.", title="Positions", border_style="yellow")
+        )
         return
     table = Table(title="Positions")
     table.add_column("Symbol")
@@ -517,7 +622,13 @@ def _show_risk_report(db: TradingDatabase) -> None:
 def _show_latest_run_review(db: TradingDatabase) -> None:
     record = db.latest_run()
     if record is None:
-        console.print(Panel("No persisted runs are available to review.", title="Run Review", border_style="yellow"))
+        console.print(
+            Panel(
+                "No persisted runs are available to review.",
+                title="Run Review",
+                border_style="yellow",
+            )
+        )
         return
     console.print(
         Panel(
@@ -562,7 +673,13 @@ def _show_memory_explorer(settings: Settings, db: TradingDatabase) -> None:
 def _show_latest_run_trace(db: TradingDatabase) -> None:
     record = db.latest_run()
     if record is None:
-        console.print(Panel("No persisted runs are available to trace.", title="Trace Viewer", border_style="yellow"))
+        console.print(
+            Panel(
+                "No persisted runs are available to trace.",
+                title="Trace Viewer",
+                border_style="yellow",
+            )
+        )
         return
     table = Table(title=f"Agent Trace / {record.run_id}")
     table.add_column("Role")
@@ -580,7 +697,13 @@ def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
         ChatPersona,
         Prompt.ask(
             "Chat persona",
-            choices=["operator_liaison", "regime_analyst", "strategy_selector", "risk_steward", "portfolio_manager"],
+            choices=[
+                "operator_liaison",
+                "regime_analyst",
+                "strategy_selector",
+                "risk_steward",
+                "portfolio_manager",
+            ],
             default="operator_liaison",
         ),
     )
@@ -588,7 +711,13 @@ def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
     while True:
         console.clear()
         console.print(_banner())
-        console.print(Panel("Type /exit to leave chat.", title=f"Chat / {persona}", border_style="cyan"))
+        console.print(
+            Panel(
+                "Type /exit to leave chat.",
+                title=f"Chat / {persona}",
+                border_style="cyan",
+            )
+        )
         for role, message in transcript[-8:]:
             border = "bright_blue" if role == "operator" else "green"
             console.print(Panel(message, title=role, border_style=border))
@@ -624,7 +753,9 @@ def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
             border_style="cyan",
         )
     )
-    if instruction.should_update_preferences and Confirm.ask("Apply preference update?", default=False):
+    if instruction.should_update_preferences and Confirm.ask(
+        "Apply preference update?", default=False
+    ):
         updated = apply_preference_update(db, instruction.preference_update)
         console.print(
             Panel(
@@ -635,11 +766,16 @@ def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
         )
 
 
-def _strict_one_shot(settings: Settings, symbols: Sequence[str], interval: str, lookback: str) -> None:
+def _strict_one_shot(
+    settings: Settings, symbols: Sequence[str], interval: str, lookback: str
+) -> None:
     ensure_llm_ready(settings)
     for symbol in symbols:
         latest_message = f"Preparing {symbol}."
-        with console.status(f"[bold cyan]{latest_message}[/bold cyan]", spinner="dots") as status:
+        with console.status(
+            f"[bold cyan]{latest_message}[/bold cyan]", spinner="dots"
+        ) as status:
+
             def _progress(stage: str, event: str, message: str) -> None:
                 nonlocal latest_message
                 latest_message = f"[{stage}] {message}"
@@ -663,7 +799,9 @@ def _strict_one_shot(settings: Settings, symbols: Sequence[str], interval: str, 
         )
 
 
-def _launch_service(settings: Settings, symbols: Sequence[str], interval: str, lookback: str) -> None:
+def _launch_service(
+    settings: Settings, symbols: Sequence[str], interval: str, lookback: str
+) -> None:
     continuous = Confirm.ask("Continuous mode?", default=False)
     poll_seconds = IntPrompt.ask(
         "Poll interval seconds",
@@ -708,7 +846,9 @@ def _runtime_menu(settings: Settings) -> None:
         table.add_row("5", "Open live monitor")
         table.add_row("6", "Back")
         console.print(table)
-        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6"], default="1")
+        choice = Prompt.ask(
+            "Select action", choices=["1", "2", "3", "4", "5", "6"], default="1"
+        )
         if choice == "1":
             db = _safe_open_read_db(settings)
             try:
@@ -720,7 +860,13 @@ def _runtime_menu(settings: Settings) -> None:
             db = _safe_open_read_db(settings)
             try:
                 if db is None:
-                    console.print(Panel("Preferences are temporarily unavailable while the runtime writer owns the database.", title="Observer Mode", border_style="yellow"))
+                    console.print(
+                        Panel(
+                            "Preferences are temporarily unavailable while the runtime writer owns the database.",
+                            title="Observer Mode",
+                            border_style="yellow",
+                        )
+                    )
                     Prompt.ask("Press Enter to continue", default="")
                     continue
                 prefs = db.load_preferences()
@@ -740,9 +886,21 @@ def _runtime_menu(settings: Settings) -> None:
         elif choice == "4":
             state = read_service_state(settings)
             if state is None or state.pid is None:
-                console.print(Panel("No managed service is currently active.", title="Not Running", border_style="yellow"))
+                console.print(
+                    Panel(
+                        "No managed service is currently active.",
+                        title="Not Running",
+                        border_style="yellow",
+                    )
+                )
             elif not is_process_alive(state.pid):
-                console.print(Panel(f"PID {state.pid} is no longer alive. The next start will recover the stale runtime state automatically.", title="Stale Runtime", border_style="yellow"))
+                console.print(
+                    Panel(
+                        f"PID {state.pid} is no longer alive. The next start will recover the stale runtime state automatically.",
+                        title="Stale Runtime",
+                        border_style="yellow",
+                    )
+                )
             else:
                 request_stop(settings)
                 try:
@@ -753,7 +911,13 @@ def _runtime_menu(settings: Settings) -> None:
                         db.close()
                 except Exception:
                     pass
-                console.print(Panel(f"Stop requested for PID {state.pid}.", title="Stop Requested", border_style="yellow"))
+                console.print(
+                    Panel(
+                        f"Stop requested for PID {state.pid}.",
+                        title="Stop Requested",
+                        border_style="yellow",
+                    )
+                )
         elif choice == "5":
             refresh_seconds = float(Prompt.ask("Refresh seconds", default="1.0"))
             run_live_monitor(settings, refresh_seconds=refresh_seconds)
@@ -937,7 +1101,9 @@ def run_main_menu() -> None:
         menu.add_row("7", "Exit")
         console.print(menu)
 
-        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4", "5", "6", "7"], default="2")
+        choice = Prompt.ask(
+            "Select action", choices=["1", "2", "3", "4", "5", "6", "7"], default="2"
+        )
         try:
             if choice == "1":
                 try:
@@ -961,10 +1127,18 @@ def run_main_menu() -> None:
             elif choice == "6":
                 _review_menu(settings)
             else:
-                console.print(Panel("Leaving control room.", title="Exit", border_style="blue"))
+                console.print(
+                    Panel("Leaving control room.", title="Exit", border_style="blue")
+                )
                 return
         except KeyboardInterrupt:
-            console.print(Panel("Action cancelled. Returning to the control room.", title="Cancelled", border_style="yellow"))
+            console.print(
+                Panel(
+                    "Action cancelled. Returning to the control room.",
+                    title="Cancelled",
+                    border_style="yellow",
+                )
+            )
         except Exception as exc:
             console.print(Panel(str(exc), title="Action Failed", border_style="red"))
         Prompt.ask("Press Enter to continue", default="")

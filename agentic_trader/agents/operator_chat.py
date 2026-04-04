@@ -2,7 +2,12 @@ from textwrap import dedent
 
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import ChatPersona, InvestmentPreferences, OperatorInstruction, PreferenceUpdate
+from agentic_trader.schemas import (
+    ChatPersona,
+    InvestmentPreferences,
+    OperatorInstruction,
+    PreferenceUpdate,
+)
 from agentic_trader.storage.db import TradingDatabase
 
 
@@ -57,14 +62,18 @@ def build_chat_context(db: TradingDatabase, settings: Settings) -> str:
     if recent_runs:
         lines.append("Recent runs:")
         for run_id, created_at, symbol, interval, approved in recent_runs:
-            lines.append(f"- {created_at} | {symbol} {interval} | approved={approved} | {run_id}")
+            lines.append(
+                f"- {created_at} | {symbol} {interval} | approved={approved} | {run_id}"
+            )
     else:
         lines.append("Recent runs: none")
 
     return "\n".join(lines)
 
 
-def build_persona_system_prompt(persona: ChatPersona, preferences: InvestmentPreferences) -> str:
+def build_persona_system_prompt(
+    persona: ChatPersona, preferences: InvestmentPreferences
+) -> str:
     shared = dedent(
         f"""
         You are part of Agentic Trader, a strict local-first multi-agent paper trading system.
@@ -203,18 +212,46 @@ def interpret_operator_instruction(
         return _fallback_instruction(user_message)
 
 
-def apply_preference_update(db: TradingDatabase, update: PreferenceUpdate) -> InvestmentPreferences:
+def apply_preference_update(
+    db: TradingDatabase, update: PreferenceUpdate
+) -> InvestmentPreferences:
     current = db.load_preferences()
     merged = current.model_copy(
         update={
-            "regions": update.regions if update.regions is not None else current.regions,
-            "exchanges": update.exchanges if update.exchanges is not None else current.exchanges,
-            "currencies": update.currencies if update.currencies is not None else current.currencies,
-            "sectors": update.sectors if update.sectors is not None else current.sectors,
-            "risk_profile": update.risk_profile if update.risk_profile is not None else current.risk_profile,
-            "trade_style": update.trade_style if update.trade_style is not None else current.trade_style,
-            "behavior_preset": update.behavior_preset if update.behavior_preset is not None else current.behavior_preset,
-            "agent_profile": update.agent_profile if update.agent_profile is not None else current.agent_profile,
+            "regions": (
+                update.regions if update.regions is not None else current.regions
+            ),
+            "exchanges": (
+                update.exchanges if update.exchanges is not None else current.exchanges
+            ),
+            "currencies": (
+                update.currencies
+                if update.currencies is not None
+                else current.currencies
+            ),
+            "sectors": (
+                update.sectors if update.sectors is not None else current.sectors
+            ),
+            "risk_profile": (
+                update.risk_profile
+                if update.risk_profile is not None
+                else current.risk_profile
+            ),
+            "trade_style": (
+                update.trade_style
+                if update.trade_style is not None
+                else current.trade_style
+            ),
+            "behavior_preset": (
+                update.behavior_preset
+                if update.behavior_preset is not None
+                else current.behavior_preset
+            ),
+            "agent_profile": (
+                update.agent_profile
+                if update.agent_profile is not None
+                else current.agent_profile
+            ),
             "notes": update.notes if update.notes is not None else current.notes,
         }
     )

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
-import yfinance as yf  # type: ignore[reportMissingTypeStubs]
+import yfinance as yf
 
 from agentic_trader.config import Settings
 
@@ -49,7 +49,11 @@ def fetch_ohlcv(
         cache_dir = settings.market_data_cache_dir
         cache_mode = settings.market_data_mode
 
-    cache_path = _snapshot_path(cache_dir, symbol, interval, lookback) if cache_dir is not None else None
+    cache_path = (
+        _snapshot_path(cache_dir, symbol, interval, lookback)
+        if cache_dir is not None
+        else None
+    )
     if cache_mode == "prefer_cache" and cache_path is not None and cache_path.exists():
         return _read_cached_snapshot(cache_path, symbol=symbol)
 

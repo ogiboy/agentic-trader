@@ -1,6 +1,14 @@
 from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import AgentContext, ManagerDecision, MarketSnapshot, RegimeAssessment, ResearchCoordinatorBrief, RiskPlan, StrategyPlan
+from agentic_trader.schemas import (
+    AgentContext,
+    ManagerDecision,
+    MarketSnapshot,
+    RegimeAssessment,
+    ResearchCoordinatorBrief,
+    RiskPlan,
+    StrategyPlan,
+)
 
 
 def _fallback_manager(
@@ -10,12 +18,19 @@ def _fallback_manager(
     strategy: StrategyPlan,
     risk: RiskPlan,
 ) -> ManagerDecision:
-    approved = strategy.action != "hold" and strategy.confidence >= 0.6 and risk.risk_reward_ratio >= 1.5
+    approved = (
+        strategy.action != "hold"
+        and strategy.confidence >= 0.6
+        and risk.risk_reward_ratio >= 1.5
+    )
     action_bias = strategy.action if approved else "hold"
     size_multiplier = 1.0
     flags: list[str] = []
 
-    if coordinator.market_focus == "capital_preservation" or regime.regime == "high_volatility":
+    if (
+        coordinator.market_focus == "capital_preservation"
+        or regime.regime == "high_volatility"
+    ):
         size_multiplier = 0.5
         flags.append("defensive_posture")
     if strategy.confidence < 0.65:
@@ -53,11 +68,15 @@ def manage_trade_decision(
         "You may approve, force hold, cap confidence, or reduce size."
     )
     routed_llm = llm.for_role("manager")
-    user_prompt = render_agent_context(
-        context,
-        task="Combine coordinator, regime, strategy, and risk outputs into a final execution posture. You may approve, force hold, cap confidence, or reduce size.",
-    ) if context is not None else (
-        f"Symbol: {snapshot.symbol}\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}\n\nCoordinator:\n{coordinator.model_dump_json(indent=2)}\n\nRegime:\n{regime.model_dump_json(indent=2)}\n\nStrategy:\n{strategy.model_dump_json(indent=2)}\n\nRisk:\n{risk.model_dump_json(indent=2)}"
+    user_prompt = (
+        render_agent_context(
+            context,
+            task="Combine coordinator, regime, strategy, and risk outputs into a final execution posture. You may approve, force hold, cap confidence, or reduce size.",
+        )
+        if context is not None
+        else (
+            f"Symbol: {snapshot.symbol}\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}\n\nCoordinator:\n{coordinator.model_dump_json(indent=2)}\n\nRegime:\n{regime.model_dump_json(indent=2)}\n\nStrategy:\n{strategy.model_dump_json(indent=2)}\n\nRisk:\n{risk.model_dump_json(indent=2)}"
+        )
     )
     try:
         return routed_llm.complete_structured(

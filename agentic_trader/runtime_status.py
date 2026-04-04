@@ -62,10 +62,15 @@ def build_runtime_status_view(
     heartbeat = _parse_timestamp(state.last_heartbeat_at or state.updated_at)
     age_seconds: int | None = None
     if heartbeat is not None:
-        age_seconds = max(0, int((datetime.now(timezone.utc) - heartbeat).total_seconds()))
+        age_seconds = max(
+            0, int((datetime.now(timezone.utc) - heartbeat).total_seconds())
+        )
 
     transitional = state.state in {"starting", "running", "stopping"}
-    is_stale = transitional and ((age_seconds is not None and age_seconds > stale_after_seconds) or not live_process)
+    is_stale = transitional and (
+        (age_seconds is not None and age_seconds > stale_after_seconds)
+        or not live_process
+    )
 
     if transitional and live_process and not is_stale:
         return RuntimeStatusView(

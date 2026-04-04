@@ -1,4 +1,11 @@
-from agentic_trader.schemas import ExecutionDecision, ManagerDecision, RegimeAssessment, ReviewNote, RiskPlan, StrategyPlan
+from agentic_trader.schemas import (
+    ExecutionDecision,
+    ManagerDecision,
+    RegimeAssessment,
+    ReviewNote,
+    RiskPlan,
+    StrategyPlan,
+)
 
 
 def build_review_note(

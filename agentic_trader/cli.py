@@ -14,14 +14,25 @@ from rich.table import Table
 from rich.text import Text
 
 from agentic_trader.config import get_settings
-from agentic_trader.agents.operator_chat import apply_preference_update, chat_with_persona, interpret_operator_instruction
-from agentic_trader.backtest.walk_forward import run_backtest_comparison, run_walk_forward_backtest
+from agentic_trader.agents.operator_chat import (
+    apply_preference_update,
+    chat_with_persona,
+    interpret_operator_instruction,
+)
+from agentic_trader.backtest.walk_forward import (
+    run_backtest_comparison,
+    run_walk_forward_backtest,
+)
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.memory.retrieval import retrieve_similar_memories
-from agentic_trader.runtime_feed import read_service_events, read_service_state, request_stop
+from agentic_trader.runtime_feed import (
+    read_service_events,
+    read_service_state,
+    request_stop,
+)
 from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
 from agentic_trader.schemas import (
     ChatPersona,
@@ -43,7 +54,11 @@ from agentic_trader.schemas import (
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
 from agentic_trader.workflows.run_once import persist_run, run_once
-from agentic_trader.workflows.service import ensure_llm_ready, run_service, start_background_service
+from agentic_trader.workflows.service import (
+    ensure_llm_ready,
+    run_service,
+    start_background_service,
+)
 
 app = typer.Typer(help="Agentic Trader CLI", invoke_without_command=True)
 console = Console()
@@ -74,11 +89,31 @@ def _render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
     pipeline.add_column("Stage")
     pipeline.add_column("Source")
     pipeline.add_column("Notes")
-    pipeline.add_row("Coordinator", artifacts.coordinator.source, artifacts.coordinator.fallback_reason or "Structured LLM response")
-    pipeline.add_row("Regime", artifacts.regime.source, artifacts.regime.fallback_reason or "Structured LLM response")
-    pipeline.add_row("Strategy", artifacts.strategy.source, artifacts.strategy.fallback_reason or "Structured LLM response")
-    pipeline.add_row("Risk", artifacts.risk.source, artifacts.risk.fallback_reason or "Structured LLM response")
-    pipeline.add_row("Manager", artifacts.manager.source, artifacts.manager.fallback_reason or "Structured LLM response")
+    pipeline.add_row(
+        "Coordinator",
+        artifacts.coordinator.source,
+        artifacts.coordinator.fallback_reason or "Structured LLM response",
+    )
+    pipeline.add_row(
+        "Regime",
+        artifacts.regime.source,
+        artifacts.regime.fallback_reason or "Structured LLM response",
+    )
+    pipeline.add_row(
+        "Strategy",
+        artifacts.strategy.source,
+        artifacts.strategy.fallback_reason or "Structured LLM response",
+    )
+    pipeline.add_row(
+        "Risk",
+        artifacts.risk.source,
+        artifacts.risk.fallback_reason or "Structured LLM response",
+    )
+    pipeline.add_row(
+        "Manager",
+        artifacts.manager.source,
+        artifacts.manager.fallback_reason or "Structured LLM response",
+    )
     console.print(Columns([summary, pipeline]))
 
     if fallback_components:
@@ -126,7 +161,13 @@ def _render_instruction(instruction: OperatorInstruction) -> None:
 def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     view = build_runtime_status_view(state)
     if view.state is None:
-        console.print(Panel("No runtime state recorded yet.", title="Service Status", border_style="yellow"))
+        console.print(
+            Panel(
+                "No runtime state recorded yet.",
+                title="Service Status",
+                border_style="yellow",
+            )
+        )
         return
     snapshot = view.state
 
@@ -140,9 +181,14 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     table.add_row("Updated", snapshot.updated_at)
     table.add_row("Started", snapshot.started_at or "-")
     table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
-    table.add_row("Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-")
+    table.add_row(
+        "Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-"
+    )
     table.add_row("Continuous", str(snapshot.continuous))
-    table.add_row("Poll Seconds", str(snapshot.poll_seconds) if snapshot.poll_seconds is not None else "-")
+    table.add_row(
+        "Poll Seconds",
+        str(snapshot.poll_seconds) if snapshot.poll_seconds is not None else "-",
+    )
     table.add_row("Cycle Count", str(snapshot.cycle_count))
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
@@ -155,7 +201,13 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
 
 def _render_service_events(events: list[ServiceEvent]) -> None:
     if not events:
-        console.print(Panel("No runtime events recorded yet.", title="Runtime Events", border_style="yellow"))
+        console.print(
+            Panel(
+                "No runtime events recorded yet.",
+                title="Runtime Events",
+                border_style="yellow",
+            )
+        )
         return
 
     table = Table(title="Runtime Events")
@@ -179,7 +231,13 @@ def _render_service_events(events: list[ServiceEvent]) -> None:
 
 def _render_trade_journal(entries: list[TradeJournalEntry]) -> None:
     if not entries:
-        console.print(Panel("No trade journal entries recorded yet.", title="Trade Journal", border_style="yellow"))
+        console.print(
+            Panel(
+                "No trade journal entries recorded yet.",
+                title="Trade Journal",
+                border_style="yellow",
+            )
+        )
         return
 
     table = Table(title="Trade Journal")
@@ -232,7 +290,13 @@ def _render_risk_report(report: DailyRiskReport) -> None:
             )
         )
     else:
-        console.print(Panel("No elevated portfolio risk warnings for this report.", title="Risk Warnings", border_style="green"))
+        console.print(
+            Panel(
+                "No elevated portfolio risk warnings for this report.",
+                title="Risk Warnings",
+                border_style="green",
+            )
+        )
 
 
 def _render_run_review(record: RunRecord) -> None:
@@ -248,12 +312,34 @@ def _render_run_review(record: RunRecord) -> None:
     analysis.add_column("Stage")
     analysis.add_column("Decision")
     analysis.add_column("Notes")
-    analysis.add_row("Coordinator", record.artifacts.coordinator.market_focus, record.artifacts.coordinator.summary)
-    analysis.add_row("Regime", record.artifacts.regime.regime, record.artifacts.regime.reasoning)
-    analysis.add_row("Strategy", record.artifacts.strategy.strategy_family, record.artifacts.strategy.entry_logic)
-    analysis.add_row("Risk", f"size={record.artifacts.risk.position_size_pct:.2%}", record.artifacts.risk.notes)
-    analysis.add_row("Manager", record.artifacts.manager.action_bias, record.artifacts.manager.rationale)
-    analysis.add_row("Execution", record.artifacts.execution.side, record.artifacts.execution.rationale)
+    analysis.add_row(
+        "Coordinator",
+        record.artifacts.coordinator.market_focus,
+        record.artifacts.coordinator.summary,
+    )
+    analysis.add_row(
+        "Regime", record.artifacts.regime.regime, record.artifacts.regime.reasoning
+    )
+    analysis.add_row(
+        "Strategy",
+        record.artifacts.strategy.strategy_family,
+        record.artifacts.strategy.entry_logic,
+    )
+    analysis.add_row(
+        "Risk",
+        f"size={record.artifacts.risk.position_size_pct:.2%}",
+        record.artifacts.risk.notes,
+    )
+    analysis.add_row(
+        "Manager",
+        record.artifacts.manager.action_bias,
+        record.artifacts.manager.rationale,
+    )
+    analysis.add_row(
+        "Execution",
+        record.artifacts.execution.side,
+        record.artifacts.execution.rationale,
+    )
     console.print(Columns([metadata, analysis]))
     console.print(
         Panel(
@@ -386,20 +472,66 @@ def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
     table.add_column("Agent")
     table.add_column("Baseline")
     table.add_column("Delta")
-    table.add_row("Trades", str(report.agent.total_trades), str(report.baseline.total_trades), str(report.agent.total_trades - report.baseline.total_trades))
-    table.add_row("Closed Trades", str(report.agent.closed_trades), str(report.baseline.closed_trades), str(report.agent.closed_trades - report.baseline.closed_trades))
-    table.add_row("Win Rate", f"{report.agent.win_rate:.2%}", f"{report.baseline.win_rate:.2%}", f"{report.agent.win_rate - report.baseline.win_rate:.2%}")
-    table.add_row("Expectancy", f"{report.agent.expectancy:.2f}", f"{report.baseline.expectancy:.2f}", f"{report.agent.expectancy - report.baseline.expectancy:.2f}")
-    table.add_row("Return", f"{report.agent.total_return_pct:.2%}", f"{report.baseline.total_return_pct:.2%}", f"{report.total_return_delta_pct:.2%}")
-    table.add_row("Max Drawdown", f"{report.agent.max_drawdown_pct:.2%}", f"{report.baseline.max_drawdown_pct:.2%}", f"{report.agent.max_drawdown_pct - report.baseline.max_drawdown_pct:.2%}")
-    table.add_row("Exposure", f"{report.agent.exposure_pct:.2%}", f"{report.baseline.exposure_pct:.2%}", f"{report.agent.exposure_pct - report.baseline.exposure_pct:.2%}")
-    table.add_row("Ending Equity", f"{report.agent.ending_equity:.2f}", f"{report.baseline.ending_equity:.2f}", f"{report.ending_equity_delta:.2f}")
+    table.add_row(
+        "Trades",
+        str(report.agent.total_trades),
+        str(report.baseline.total_trades),
+        str(report.agent.total_trades - report.baseline.total_trades),
+    )
+    table.add_row(
+        "Closed Trades",
+        str(report.agent.closed_trades),
+        str(report.baseline.closed_trades),
+        str(report.agent.closed_trades - report.baseline.closed_trades),
+    )
+    table.add_row(
+        "Win Rate",
+        f"{report.agent.win_rate:.2%}",
+        f"{report.baseline.win_rate:.2%}",
+        f"{report.agent.win_rate - report.baseline.win_rate:.2%}",
+    )
+    table.add_row(
+        "Expectancy",
+        f"{report.agent.expectancy:.2f}",
+        f"{report.baseline.expectancy:.2f}",
+        f"{report.agent.expectancy - report.baseline.expectancy:.2f}",
+    )
+    table.add_row(
+        "Return",
+        f"{report.agent.total_return_pct:.2%}",
+        f"{report.baseline.total_return_pct:.2%}",
+        f"{report.total_return_delta_pct:.2%}",
+    )
+    table.add_row(
+        "Max Drawdown",
+        f"{report.agent.max_drawdown_pct:.2%}",
+        f"{report.baseline.max_drawdown_pct:.2%}",
+        f"{report.agent.max_drawdown_pct - report.baseline.max_drawdown_pct:.2%}",
+    )
+    table.add_row(
+        "Exposure",
+        f"{report.agent.exposure_pct:.2%}",
+        f"{report.baseline.exposure_pct:.2%}",
+        f"{report.agent.exposure_pct - report.baseline.exposure_pct:.2%}",
+    )
+    table.add_row(
+        "Ending Equity",
+        f"{report.agent.ending_equity:.2f}",
+        f"{report.baseline.ending_equity:.2f}",
+        f"{report.ending_equity_delta:.2f}",
+    )
     console.print(table)
 
 
 def _render_memory_matches(matches) -> None:
     if not matches:
-        console.print(Panel("No historical memories are available yet.", title="Memory Explorer", border_style="yellow"))
+        console.print(
+            Panel(
+                "No historical memories are available yet.",
+                title="Memory Explorer",
+                border_style="yellow",
+            )
+        )
         return
     table = Table(title="Memory Explorer")
     table.add_column("Created")
@@ -499,7 +631,9 @@ def _journal_payload(settings, *, limit: int) -> dict[str, object]:
     }
 
 
-def _risk_report_payload(settings, *, report_date: str | None = None) -> dict[str, object]:
+def _risk_report_payload(
+    settings, *, report_date: str | None = None
+) -> dict[str, object]:
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -542,7 +676,11 @@ def _run_record_payload(settings, *, run_id: str | None = None) -> dict[str, obj
 def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
     if "BIST" in preferences.exchanges or "TR" in preferences.regions:
         return "THYAO.IS"
-    if "NASDAQ" in preferences.exchanges or "NYSE" in preferences.exchanges or "US" in preferences.regions:
+    if (
+        "NASDAQ" in preferences.exchanges
+        or "NYSE" in preferences.exchanges
+        or "US" in preferences.regions
+    ):
         return "AAPL"
     return "BTC-USD"
 
@@ -557,7 +695,11 @@ def _calendar_payload(settings, *, symbol: str | None = None) -> dict[str, objec
             record = db.latest_run()
         finally:
             db.close()
-        resolved_symbol = symbol or (record.symbol if record is not None else _default_symbol_from_preferences(preferences))
+        resolved_symbol = symbol or (
+            record.symbol
+            if record is not None
+            else _default_symbol_from_preferences(preferences)
+        )
         session = infer_market_session(symbol=resolved_symbol, preferences=preferences)
         available = True
         error = None
@@ -576,7 +718,9 @@ def _market_cache_payload(settings) -> dict[str, object]:
     settings.ensure_directories()
     cache_dir = settings.market_data_cache_dir
     entries = []
-    for path in sorted(cache_dir.glob("*.csv"), key=lambda item: item.stat().st_mtime, reverse=True):
+    for path in sorted(
+        cache_dir.glob("*.csv"), key=lambda item: item.stat().st_mtime, reverse=True
+    ):
         entries.append(
             {
                 "filename": path.name,
@@ -616,9 +760,18 @@ def _memory_explorer_payload(
                     resolved_interval = snapshot.interval
             if snapshot is None:
                 if resolved_symbol is None or resolved_interval is None:
-                    raise ValueError("A symbol and interval are required when no latest run snapshot is available.")
-                frame = fetch_ohlcv(resolved_symbol, interval=resolved_interval, lookback=lookback, settings=settings)
-                snapshot = build_snapshot(frame, symbol=resolved_symbol, interval=resolved_interval)
+                    raise ValueError(
+                        "A symbol and interval are required when no latest run snapshot is available."
+                    )
+                frame = fetch_ohlcv(
+                    resolved_symbol,
+                    interval=resolved_interval,
+                    lookback=lookback,
+                    settings=settings,
+                )
+                snapshot = build_snapshot(
+                    frame, symbol=resolved_symbol, interval=resolved_interval
+                )
             matches = retrieve_similar_memories(db, snapshot, limit=limit)
         finally:
             db.close()
@@ -638,14 +791,20 @@ def _memory_explorer_payload(
     }
 
 
-def _retrieval_inspection_payload(settings, *, run_id: str | None = None) -> dict[str, object]:
+def _retrieval_inspection_payload(
+    settings, *, run_id: str | None = None
+) -> dict[str, object]:
     record_payload = _run_record_payload(settings, run_id=run_id)
     record_json = record_payload["record"]
     if record_payload["available"] is False or record_json is None:
         return {
             "available": bool(record_payload["available"]),
             "error": record_payload["error"],
-            "run_id": record_json["run_id"] if isinstance(record_json, dict) and "run_id" in record_json else None,
+            "run_id": (
+                record_json["run_id"]
+                if isinstance(record_json, dict) and "run_id" in record_json
+                else None
+            ),
             "stages": [],
         }
 
@@ -682,7 +841,11 @@ def app_entry(ctx: typer.Context) -> None:
 
 
 @app.command()
-def doctor(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
+def doctor(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    )
+) -> None:
     """Validate local configuration and print runtime settings."""
     settings = get_settings()
     latest: str
@@ -782,13 +945,21 @@ def run(
 
 @app.command()
 def launch(
-    symbols: str = typer.Option(..., help="Comma-separated symbols, for example AAPL,MSFT,BTC-USD"),
+    symbols: str = typer.Option(
+        ..., help="Comma-separated symbols, for example AAPL,MSFT,BTC-USD"
+    ),
     interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
     lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
-    poll_seconds: int = typer.Option(300, help="Sleep between cycles in continuous mode."),
+    poll_seconds: int = typer.Option(
+        300, help="Sleep between cycles in continuous mode."
+    ),
     continuous: bool = typer.Option(False, help="Keep the orchestrator running."),
-    max_cycles: int | None = typer.Option(None, help="Optional cap for continuous mode."),
-    background: bool = typer.Option(False, help="Spawn the orchestrator as a background service."),
+    max_cycles: int | None = typer.Option(
+        None, help="Optional cap for continuous mode."
+    ),
+    background: bool = typer.Option(
+        False, help="Spawn the orchestrator as a background service."
+    ),
 ) -> None:
     """Start the strict paper-trading runtime from the project root."""
     settings = get_settings()
@@ -864,12 +1035,18 @@ def launch(
 
 
 @app.command()
-def portfolio(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
+def portfolio(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    )
+) -> None:
     """Show the current paper portfolio and open positions."""
     settings = get_settings()
     payload = _portfolio_payload(settings)
     snapshot = PortfolioSnapshot.model_validate(payload["snapshot"])
-    positions = [PositionSnapshot.model_validate(position) for position in payload["positions"]]
+    positions = [
+        PositionSnapshot.model_validate(position) for position in payload["positions"]
+    ]
     available = bool(payload["available"])
     error = payload["error"]
     if json_output:
@@ -915,11 +1092,17 @@ def portfolio(json_output: bool = typer.Option(False, "--json", help="Emit machi
     if positions:
         console.print(positions_table)
     else:
-        console.print(Panel("No open positions.", title="Positions", border_style="yellow"))
+        console.print(
+            Panel("No open positions.", title="Positions", border_style="yellow")
+        )
 
 
 @app.command()
-def status(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
+def status(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    )
+) -> None:
     """Show the current orchestrator runtime state."""
     settings = get_settings()
     state = read_service_state(settings)
@@ -932,7 +1115,11 @@ def status(json_output: bool = typer.Option(False, "--json", help="Emit machine-
                 "is_stale": view.is_stale,
                 "age_seconds": view.age_seconds,
                 "status_message": view.status_message,
-                "state": view.state.model_dump(mode="json") if view.state is not None else None,
+                "state": (
+                    view.state.model_dump(mode="json")
+                    if view.state is not None
+                    else None
+                ),
             }
         )
         return
@@ -941,8 +1128,12 @@ def status(json_output: bool = typer.Option(False, "--json", help="Emit machine-
 
 @app.command()
 def logs(
-    limit: int = typer.Option(20, min=1, max=200, help="Maximum number of runtime events to show."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    limit: int = typer.Option(
+        20, min=1, max=200, help="Maximum number of runtime events to show."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
 ) -> None:
     """Show recent orchestrator runtime events."""
     settings = get_settings()
@@ -955,7 +1146,9 @@ def logs(
 
 @app.command("dashboard-snapshot")
 def dashboard_snapshot(
-    log_limit: int = typer.Option(14, min=1, max=100, help="Maximum number of runtime events to include."),
+    log_limit: int = typer.Option(
+        14, min=1, max=100, help="Maximum number of runtime events to include."
+    ),
 ) -> None:
     """Emit the full Ink dashboard snapshot as a single JSON payload."""
     settings = get_settings()
@@ -1001,14 +1194,19 @@ def dashboard_snapshot(
         {
             "doctor": doctor_payload,
             "status": status_payload,
-            "logs": [event.model_dump(mode="json") for event in read_service_events(settings, limit=log_limit)],
+            "logs": [
+                event.model_dump(mode="json")
+                for event in read_service_events(settings, limit=log_limit)
+            ],
             "portfolio": _portfolio_payload(settings),
             "preferences": _preferences_payload(settings),
             "journal": _journal_payload(settings, limit=8),
             "riskReport": _risk_report_payload(settings),
             "review": _run_record_payload(settings),
             "trace": _run_record_payload(settings),
-            "memoryExplorer": _memory_explorer_payload(settings, use_latest_run=True, limit=5),
+            "memoryExplorer": _memory_explorer_payload(
+                settings, use_latest_run=True, limit=5
+            ),
             "retrievalInspection": _retrieval_inspection_payload(settings),
             "calendar": _calendar_payload(settings),
             "marketCache": _market_cache_payload(settings),
@@ -1018,8 +1216,13 @@ def dashboard_snapshot(
 
 @app.command("calendar-status")
 def calendar_status(
-    symbol: str | None = typer.Option(None, help="Optional ticker symbol. Defaults to the latest run symbol or preference-derived default."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    symbol: str | None = typer.Option(
+        None,
+        help="Optional ticker symbol. Defaults to the latest run symbol or preference-derived default.",
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
 ) -> None:
     """Show the inferred market session state for a symbol."""
     settings = get_settings()
@@ -1051,14 +1254,18 @@ def calendar_status(
 
 @app.command("cache-market-data")
 def cache_market_data(
-    symbol: str = typer.Option(..., help="Ticker symbol, for example AAPL or THYAO.IS."),
+    symbol: str = typer.Option(
+        ..., help="Ticker symbol, for example AAPL or THYAO.IS."
+    ),
     interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h."),
     lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance."),
 ) -> None:
     """Fetch and save a repeatable market snapshot CSV into the runtime cache."""
     settings = get_settings()
     refresh_settings = settings.model_copy(update={"market_data_mode": "refresh_cache"})
-    frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback, settings=refresh_settings)
+    frame = fetch_ohlcv(
+        symbol, interval=interval, lookback=lookback, settings=refresh_settings
+    )
     payload = _market_cache_payload(refresh_settings)
     console.print(
         Panel(
@@ -1070,7 +1277,11 @@ def cache_market_data(
 
 
 @app.command("market-cache")
-def market_cache(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
+def market_cache(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    )
+) -> None:
     """List saved repeatable market snapshots."""
     settings = get_settings()
     payload = _market_cache_payload(settings)
@@ -1101,7 +1312,11 @@ def market_cache(json_output: bool = typer.Option(False, "--json", help="Emit ma
 
 
 @app.command("preferences")
-def preferences_command(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
+def preferences_command(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    )
+) -> None:
     """Show the saved investment preferences."""
     settings = get_settings()
     payload = _preferences_payload(settings)
@@ -1137,8 +1352,12 @@ def preferences_command(json_output: bool = typer.Option(False, "--json", help="
 
 @app.command("journal")
 def journal(
-    limit: int = typer.Option(20, min=1, max=200, help="Maximum number of journal entries to show."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    limit: int = typer.Option(
+        20, min=1, max=200, help="Maximum number of journal entries to show."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
 ) -> None:
     """Show the latest trade journal entries."""
     settings = get_settings()
@@ -1163,13 +1382,21 @@ def journal(
 
 @app.command("risk-report")
 def risk_report(
-    report_date: str | None = typer.Option(None, help="UTC date in YYYY-MM-DD format. Defaults to today."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    report_date: str | None = typer.Option(
+        None, help="UTC date in YYYY-MM-DD format. Defaults to today."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
 ) -> None:
     """Show a compact daily risk report for the paper portfolio."""
     settings = get_settings()
     payload = _risk_report_payload(settings, report_date=report_date)
-    report = DailyRiskReport.model_validate(payload["report"]) if payload["report"] is not None else None
+    report = (
+        DailyRiskReport.model_validate(payload["report"])
+        if payload["report"] is not None
+        else None
+    )
     available = bool(payload["available"])
     error = payload["error"]
     if json_output:
@@ -1189,13 +1416,21 @@ def risk_report(
 
 @app.command("review-run")
 def review_run(
-    run_id: str | None = typer.Option(None, help="Run id to inspect. Defaults to the latest recorded run."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    run_id: str | None = typer.Option(
+        None, help="Run id to inspect. Defaults to the latest recorded run."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
 ) -> None:
     """Inspect the latest or a specific persisted run in detail."""
     settings = get_settings()
     payload = _run_record_payload(settings, run_id=run_id)
-    record = RunRecord.model_validate(payload["record"]) if payload["record"] is not None else None
+    record = (
+        RunRecord.model_validate(payload["record"])
+        if payload["record"] is not None
+        else None
+    )
     available = bool(payload["available"])
     error = payload["error"]
     if json_output:
@@ -1211,20 +1446,34 @@ def review_run(
         )
         raise typer.Exit(code=0)
     if record is None:
-        console.print(Panel("No persisted runs are available to review.", title="Run Review", border_style="yellow"))
+        console.print(
+            Panel(
+                "No persisted runs are available to review.",
+                title="Run Review",
+                border_style="yellow",
+            )
+        )
         raise typer.Exit(code=0)
     _render_run_review(record)
 
 
 @app.command("trace-run")
 def trace_run(
-    run_id: str | None = typer.Option(None, help="Run id to inspect. Defaults to the latest recorded run."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    run_id: str | None = typer.Option(
+        None, help="Run id to inspect. Defaults to the latest recorded run."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
 ) -> None:
     """Show the persisted per-stage agent trace for a run."""
     settings = get_settings()
     payload = _run_record_payload(settings, run_id=run_id)
-    record = RunRecord.model_validate(payload["record"]) if payload["record"] is not None else None
+    record = (
+        RunRecord.model_validate(payload["record"])
+        if payload["record"] is not None
+        else None
+    )
     available = bool(payload["available"])
     error = payload["error"]
     if json_output:
@@ -1240,27 +1489,47 @@ def trace_run(
         )
         raise typer.Exit(code=0)
     if record is None:
-        console.print(Panel("No persisted runs are available to trace.", title="Trace Viewer", border_style="yellow"))
+        console.print(
+            Panel(
+                "No persisted runs are available to trace.",
+                title="Trace Viewer",
+                border_style="yellow",
+            )
+        )
         raise typer.Exit(code=0)
     _render_run_trace(record)
 
 
 @app.command("export-report")
 def export_report(
-    output: str = typer.Option(..., help="Output file path for the exported run review."),
-    run_id: str | None = typer.Option(None, help="Run id to export. Defaults to the latest recorded run."),
+    output: str = typer.Option(
+        ..., help="Output file path for the exported run review."
+    ),
+    run_id: str | None = typer.Option(
+        None, help="Run id to export. Defaults to the latest recorded run."
+    ),
 ) -> None:
     """Export a run review as Markdown."""
     settings = get_settings()
     db = _open_db(settings, read_only=True)
     record = db.get_run(run_id) if run_id is not None else db.latest_run()
     if record is None:
-        console.print(Panel("No persisted runs are available to export.", title="Export Blocked", border_style="yellow"))
+        console.print(
+            Panel(
+                "No persisted runs are available to export.",
+                title="Export Blocked",
+                border_style="yellow",
+            )
+        )
         raise typer.Exit(code=1)
     rendered = _render_run_markdown(record)
     with open(output, "w", encoding="utf-8") as handle:
         handle.write(rendered)
-    console.print(Panel(f"Run report written to {output}.", title="Exported", border_style="green"))
+    console.print(
+        Panel(
+            f"Run report written to {output}.", title="Exported", border_style="green"
+        )
+    )
 
 
 @app.command("backtest")
@@ -1268,9 +1537,15 @@ def backtest(
     symbol: str = typer.Option(..., help="Ticker symbol, for example AAPL or BTC-USD"),
     interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
     lookback: str = typer.Option("2y", help="Lookback window accepted by yfinance"),
-    warmup_bars: int = typer.Option(120, min=60, help="Warmup bars before replay begins."),
-    compare_baseline: bool = typer.Option(False, help="Also compare the agent replay against a deterministic baseline."),
-    output: str | None = typer.Option(None, help="Optional Markdown output path for a compact backtest summary."),
+    warmup_bars: int = typer.Option(
+        120, min=60, help="Warmup bars before replay begins."
+    ),
+    compare_baseline: bool = typer.Option(
+        False, help="Also compare the agent replay against a deterministic baseline."
+    ),
+    output: str | None = typer.Option(
+        None, help="Optional Markdown output path for a compact backtest summary."
+    ),
 ) -> None:
     """Run a walk-forward replay using the current agent pipeline."""
     settings = get_settings()
@@ -1299,7 +1574,13 @@ def backtest(
                 ]
             )
             Path(output).write_text(rendered, encoding="utf-8")
-            console.print(Panel(f"Backtest comparison written to {output}.", title="Exported", border_style="green"))
+            console.print(
+                Panel(
+                    f"Backtest comparison written to {output}.",
+                    title="Exported",
+                    border_style="green",
+                )
+            )
         return
 
     report = run_walk_forward_backtest(
@@ -1330,17 +1611,33 @@ def backtest(
             ]
         )
         Path(output).write_text(rendered, encoding="utf-8")
-        console.print(Panel(f"Backtest summary written to {output}.", title="Exported", border_style="green"))
+        console.print(
+            Panel(
+                f"Backtest summary written to {output}.",
+                title="Exported",
+                border_style="green",
+            )
+        )
 
 
 @app.command("memory-explorer")
 def memory_explorer(
-    symbol: str | None = typer.Option(None, help="Ticker symbol, for example AAPL or BTC-USD"),
-    interval: str | None = typer.Option(None, help="yfinance interval, for example 1d or 1h"),
+    symbol: str | None = typer.Option(
+        None, help="Ticker symbol, for example AAPL or BTC-USD"
+    ),
+    interval: str | None = typer.Option(
+        None, help="yfinance interval, for example 1d or 1h"
+    ),
     lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
-    limit: int = typer.Option(5, min=1, max=20, help="Maximum number of retrieved historical memories."),
-    use_latest_run: bool = typer.Option(True, help="Use the latest recorded run snapshot when available."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    limit: int = typer.Option(
+        5, min=1, max=20, help="Maximum number of retrieved historical memories."
+    ),
+    use_latest_run: bool = typer.Option(
+        True, help="Use the latest recorded run snapshot when available."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
 ) -> None:
     """Inspect historically similar recorded runs for the current market snapshot."""
     settings = get_settings()
@@ -1364,14 +1661,20 @@ def memory_explorer(
             )
         )
         raise typer.Exit(code=0)
-    matches = [HistoricalMemoryMatch.model_validate(match) for match in payload["matches"]]
+    matches = [
+        HistoricalMemoryMatch.model_validate(match) for match in payload["matches"]
+    ]
     _render_memory_matches(matches)
 
 
 @app.command("retrieval-inspection")
 def retrieval_inspection(
-    run_id: str | None = typer.Option(None, help="Run id to inspect. Defaults to the latest recorded run."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    run_id: str | None = typer.Option(
+        None, help="Run id to inspect. Defaults to the latest recorded run."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
 ) -> None:
     """Inspect which memories and context bundles were injected into each agent stage."""
     settings = get_settings()
@@ -1389,7 +1692,13 @@ def retrieval_inspection(
         )
         raise typer.Exit(code=0)
     if not payload["stages"]:
-        console.print(Panel("No agent trace contexts are available for retrieval inspection yet.", title="Retrieval Inspection", border_style="yellow"))
+        console.print(
+            Panel(
+                "No agent trace contexts are available for retrieval inspection yet.",
+                title="Retrieval Inspection",
+                border_style="yellow",
+            )
+        )
         raise typer.Exit(code=0)
 
     table = Table(title=f"Retrieval Inspection / {payload['run_id']}")
@@ -1408,23 +1717,42 @@ def retrieval_inspection(
     for stage in payload["stages"]:
         lines = []
         if stage["retrieved_memories"]:
-            lines.extend(["Retrieved Similar Memories:"] + [f"- {line}" for line in stage["retrieved_memories"]])
+            lines.extend(
+                ["Retrieved Similar Memories:"]
+                + [f"- {line}" for line in stage["retrieved_memories"]]
+            )
         if stage["memory_notes"]:
-            lines.extend(["", "Trade Memory:"] + [f"- {line}" for line in stage["memory_notes"]])
+            lines.extend(
+                ["", "Trade Memory:"] + [f"- {line}" for line in stage["memory_notes"]]
+            )
         if stage["recent_runs"]:
-            lines.extend(["", "Recent Runs:"] + [f"- {line}" for line in stage["recent_runs"]])
+            lines.extend(
+                ["", "Recent Runs:"] + [f"- {line}" for line in stage["recent_runs"]]
+            )
         if stage["tool_outputs"]:
-            lines.extend(["", "Tool Outputs:"] + [f"- {line}" for line in stage["tool_outputs"]])
+            lines.extend(
+                ["", "Tool Outputs:"] + [f"- {line}" for line in stage["tool_outputs"]]
+            )
         if not lines:
             lines.append("No retrieval or memory context was attached for this stage.")
-        console.print(Panel("\n".join(lines), title=f"Stage / {stage['role']}", border_style="cyan"))
+        console.print(
+            Panel(
+                "\n".join(lines), title=f"Stage / {stage['role']}", border_style="cyan"
+            )
+        )
 
 
 @app.command()
 def chat(
-    persona: ChatPersona = typer.Option("operator_liaison", help="Which agent persona should answer."),
-    message: str | None = typer.Option(None, help="Optional message. If omitted, an interactive prompt is shown."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    persona: ChatPersona = typer.Option(
+        "operator_liaison", help="Which agent persona should answer."
+    ),
+    message: str | None = typer.Option(
+        None, help="Optional message. If omitted, an interactive prompt is shown."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
 ) -> None:
     """Talk to the read-only operator chat surface."""
     settings = get_settings()
@@ -1453,7 +1781,9 @@ def chat(
 @app.command()
 def instruct(
     message: str = typer.Option(..., help="Natural-language operator instruction."),
-    apply: bool = typer.Option(False, help="Apply the parsed preference update if one is proposed."),
+    apply: bool = typer.Option(
+        False, help="Apply the parsed preference update if one is proposed."
+    ),
 ) -> None:
     """Interpret a safe operator instruction and optionally apply it."""
     settings = get_settings()
@@ -1480,7 +1810,11 @@ def instruct(
 
 
 @app.command()
-def monitor(refresh_seconds: float = typer.Option(1.0, min=0.2, help="Dashboard refresh interval in seconds.")) -> None:
+def monitor(
+    refresh_seconds: float = typer.Option(
+        1.0, min=0.2, help="Dashboard refresh interval in seconds."
+    )
+) -> None:
     """Attach to the live runtime monitor."""
     settings = get_settings()
     console.print(build_monitor_renderable(settings))
@@ -1492,7 +1826,11 @@ def ink_tui() -> None:
     """Launch the Ink-based control room."""
     tui_dir = Path(__file__).resolve().parent.parent / "tui"
     if not tui_dir.exists():
-        console.print(_render_health_panel("TUI Missing", "The Ink UI directory was not found.", border_style="red"))
+        console.print(
+            _render_health_panel(
+                "TUI Missing", "The Ink UI directory was not found.", border_style="red"
+            )
+        )
         raise typer.Exit(code=1)
 
     npm = shutil.which("npm")
@@ -1518,17 +1856,29 @@ def ink_tui() -> None:
         subprocess.run([npm, "install"], cwd=tui_dir, check=True)
 
     cli_exec = shutil.which("agentic-trader") or "agentic-trader"
-    env = {**os.environ, "AGENTIC_TRADER_CLI": cli_exec, "AGENTIC_TRADER_PYTHON": sys.executable}
+    env = {
+        **os.environ,
+        "AGENTIC_TRADER_CLI": cli_exec,
+        "AGENTIC_TRADER_PYTHON": sys.executable,
+    }
     subprocess.run([npm, "run", "start"], cwd=tui_dir, check=True, env=env)
 
 
 @app.command("stop-service")
-def stop_service(force: bool = typer.Option(False, help="Send SIGTERM after marking stop requested.")) -> None:
+def stop_service(
+    force: bool = typer.Option(False, help="Send SIGTERM after marking stop requested.")
+) -> None:
     """Request a graceful stop for the background orchestrator."""
     settings = get_settings()
     state = read_service_state(settings)
     if state is None or state.pid is None:
-        console.print(_render_health_panel("Not Running", "No managed service is currently active.", border_style="yellow"))
+        console.print(
+            _render_health_panel(
+                "Not Running",
+                "No managed service is currently active.",
+                border_style="yellow",
+            )
+        )
         raise typer.Exit(code=0)
     if not is_process_alive(state.pid):
         console.print(

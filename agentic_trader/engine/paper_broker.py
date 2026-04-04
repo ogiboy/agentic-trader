@@ -12,13 +12,17 @@ class PaperBroker:
         self.settings = settings
 
     @staticmethod
-    def _weighted_average(current_qty: float, current_avg: float, fill_qty: float, fill_price: float) -> float:
+    def _weighted_average(
+        current_qty: float, current_avg: float, fill_qty: float, fill_price: float
+    ) -> float:
         total_qty = current_qty + fill_qty
         if total_qty == 0:
             return 0.0
         return ((current_qty * current_avg) + (fill_qty * fill_price)) / total_qty
 
-    def _apply_buy(self, *, quantity: float, price: float, current_qty: float, current_avg: float) -> tuple[float, float, float, float]:
+    def _apply_buy(
+        self, *, quantity: float, price: float, current_qty: float, current_avg: float
+    ) -> tuple[float, float, float, float]:
         cash_delta = -(quantity * price)
         realized_pnl_delta = 0.0
 
@@ -39,7 +43,9 @@ class PaperBroker:
         new_avg = self._weighted_average(current_qty, current_avg, quantity, price)
         return cash_delta, realized_pnl_delta, new_qty, new_avg
 
-    def _apply_sell(self, *, quantity: float, price: float, current_qty: float, current_avg: float) -> tuple[float, float, float, float]:
+    def _apply_sell(
+        self, *, quantity: float, price: float, current_qty: float, current_avg: float
+    ) -> tuple[float, float, float, float]:
         cash_delta = quantity * price
         realized_pnl_delta = 0.0
 
@@ -91,7 +97,9 @@ class PaperBroker:
         position = self.db.get_position(decision.symbol)
         current_qty = position.quantity if position else 0.0
         current_avg = position.average_price if position else 0.0
-        if (decision.side == "buy" and current_qty > 0) or (decision.side == "sell" and current_qty < 0):
+        if (decision.side == "buy" and current_qty > 0) or (
+            decision.side == "sell" and current_qty < 0
+        ):
             return order_id
 
         if decision.side == "buy":
@@ -102,7 +110,11 @@ class PaperBroker:
                 current_avg=current_avg,
             )
         else:
-            if decision.side == "sell" and not self.settings.allow_short and current_qty <= 0:
+            if (
+                decision.side == "sell"
+                and not self.settings.allow_short
+                and current_qty <= 0
+            ):
                 return order_id
             cash_delta, realized_pnl_delta, new_qty, new_avg = self._apply_sell(
                 quantity=quantity,
@@ -125,7 +137,14 @@ class PaperBroker:
         )
         return order_id
 
-    def record_position_plan(self, *, symbol: str, decision: ExecutionDecision, strategy: StrategyPlan, max_holding_bars: int) -> None:
+    def record_position_plan(
+        self,
+        *,
+        symbol: str,
+        decision: ExecutionDecision,
+        strategy: StrategyPlan,
+        max_holding_bars: int,
+    ) -> None:
         if not decision.approved or decision.side not in {"buy", "sell"}:
             return
         self.db.save_position_plan(

@@ -1,4 +1,9 @@
-from agentic_trader.schemas import MarketSnapshot, PositionExitDecision, PositionPlanSnapshot, PositionSnapshot
+from agentic_trader.schemas import (
+    MarketSnapshot,
+    PositionExitDecision,
+    PositionPlanSnapshot,
+    PositionSnapshot,
+)
 
 
 def evaluate_position_exit(

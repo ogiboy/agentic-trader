@@ -39,17 +39,23 @@ class LocalLLM:
 
     def _parse_generate_payload(self, payload: Any) -> dict[str, Any]:
         if not isinstance(payload, dict):
-            raise RuntimeError(f"LLM returned a non-object payload: {self._payload_preview(payload)}")
+            raise RuntimeError(
+                f"LLM returned a non-object payload: {self._payload_preview(payload)}"
+            )
         return cast(dict[str, Any], payload)
 
     def _extract_response_text(self, payload: dict[str, Any]) -> str:
         error_obj = payload.get("error")
         if isinstance(error_obj, str) and error_obj.strip():
-            raise RuntimeError(f"LLM service returned an error payload: {error_obj.strip()}")
+            raise RuntimeError(
+                f"LLM service returned an error payload: {error_obj.strip()}"
+            )
         if isinstance(error_obj, dict):
             message = error_obj.get("message")
             if isinstance(message, str) and message.strip():
-                raise RuntimeError(f"LLM service returned an error payload: {message.strip()}")
+                raise RuntimeError(
+                    f"LLM service returned an error payload: {message.strip()}"
+                )
 
         response_obj = payload.get("response", "")
         if isinstance(response_obj, str):
@@ -180,8 +186,15 @@ class LocalLLM:
                     """
                 ).strip()
                 continue
-            except (httpx.HTTPError, json.JSONDecodeError, RuntimeError, ValueError) as exc:
-                last_error = exc if isinstance(exc, Exception) else RuntimeError(str(exc))
+            except (
+                httpx.HTTPError,
+                json.JSONDecodeError,
+                RuntimeError,
+                ValueError,
+            ) as exc:
+                last_error = (
+                    exc if isinstance(exc, Exception) else RuntimeError(str(exc))
+                )
                 logger.warning(
                     "LLM structured request issue on attempt %s: %s",
                     attempt + 1,
@@ -197,7 +210,9 @@ class LocalLLM:
                 ).strip()
                 continue
 
-        raise RuntimeError(f"LLM structured output validation failed: {last_error}") from last_error
+        raise RuntimeError(
+            f"LLM structured output validation failed: {last_error}"
+        ) from last_error
 
     def complete_text(
         self,
@@ -229,8 +244,15 @@ class LocalLLM:
                         f"LLM returned an empty text response. Payload preview: {self._payload_preview(payload)}"
                     )
                 return content
-            except (httpx.HTTPError, json.JSONDecodeError, RuntimeError, ValueError) as exc:
-                last_error = exc if isinstance(exc, Exception) else RuntimeError(str(exc))
+            except (
+                httpx.HTTPError,
+                json.JSONDecodeError,
+                RuntimeError,
+                ValueError,
+            ) as exc:
+                last_error = (
+                    exc if isinstance(exc, Exception) else RuntimeError(str(exc))
+                )
                 logger.warning(
                     "LLM text request issue on attempt %s: %s",
                     attempt + 1,

@@ -1,6 +1,10 @@
 from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import AgentContext, MarketSnapshot, ResearchCoordinatorBrief
+from agentic_trader.schemas import (
+    AgentContext,
+    MarketSnapshot,
+    ResearchCoordinatorBrief,
+)
 
 
 def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
@@ -13,10 +17,23 @@ def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
             source="fallback",
             fallback_reason="LLM unavailable or invalid structured response.",
         )
+    if snapshot.mtf_alignment == "mixed":
+        return ResearchCoordinatorBrief(
+            market_focus="capital_preservation",
+            priority_signals=["wait_for_alignment", "higher_timeframe_confirmation"],
+            caution_flags=["multi_timeframe_conflict", "mixed_signals"],
+            summary="Fallback coordinator: lower and higher timeframe structure conflict, so selectivity should stay high.",
+            source="fallback",
+            fallback_reason="LLM unavailable or invalid structured response.",
+        )
     if snapshot.last_close > snapshot.ema_20 > snapshot.ema_50:
         return ResearchCoordinatorBrief(
             market_focus="trend_following",
-            priority_signals=["trend_alignment", "momentum_confirmation"],
+            priority_signals=[
+                "trend_alignment",
+                "momentum_confirmation",
+                f"higher_timeframe_{snapshot.mtf_alignment}",
+            ],
             caution_flags=["trend_exhaustion"],
             summary="Fallback coordinator: trend-following setups deserve priority.",
             source="fallback",
@@ -25,7 +42,11 @@ def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
     if snapshot.last_close < snapshot.ema_20 < snapshot.ema_50:
         return ResearchCoordinatorBrief(
             market_focus="trend_following",
-            priority_signals=["downtrend_alignment", "negative_momentum"],
+            priority_signals=[
+                "downtrend_alignment",
+                "negative_momentum",
+                f"higher_timeframe_{snapshot.mtf_alignment}",
+            ],
             caution_flags=["short_squeeze"],
             summary="Fallback coordinator: short-biased trend setups deserve priority.",
             source="fallback",
@@ -53,11 +74,15 @@ def coordinate_research(
         "Set the focus for downstream specialists and highlight caution flags."
     )
     routed_llm = llm.for_role("coordinator")
-    user_prompt = render_agent_context(
-        context,
-        task="Set the downstream research focus, priority signals, and caution flags for this cycle.",
-    ) if context is not None else (
-        f"Symbol: {snapshot.symbol}\nInterval: {snapshot.interval}\n\nMarket snapshot:\n{snapshot.model_dump_json(indent=2)}"
+    user_prompt = (
+        render_agent_context(
+            context,
+            task="Set the downstream research focus, priority signals, and caution flags for this cycle.",
+        )
+        if context is not None
+        else (
+            f"Symbol: {snapshot.symbol}\nInterval: {snapshot.interval}\n\nMarket snapshot:\n{snapshot.model_dump_json(indent=2)}"
+        )
     )
     try:
         return routed_llm.complete_structured(

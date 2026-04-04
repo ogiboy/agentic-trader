@@ -193,12 +193,16 @@ class TradingDatabase:
         )
         service_columns = {
             str(row[1])
-            for row in self.conn.execute("pragma table_info('service_state')").fetchall()
+            for row in self.conn.execute(
+                "pragma table_info('service_state')"
+            ).fetchall()
         }
         if "pid" not in service_columns:
             self.conn.execute("alter table service_state add column pid bigint")
         if "stop_requested" not in service_columns:
-            self.conn.execute("alter table service_state add column stop_requested boolean not null default false")
+            self.conn.execute(
+                "alter table service_state add column stop_requested boolean not null default false"
+            )
         self.conn.execute(
             """
             create table if not exists service_events (
@@ -329,7 +333,9 @@ class TradingDatabase:
             return preferences
         return InvestmentPreferences.model_validate_json(str(row[0]))
 
-    def list_recent_runs(self, limit: int = 10) -> list[tuple[str, str, str, str, bool]]:
+    def list_recent_runs(
+        self, limit: int = 10
+    ) -> list[tuple[str, str, str, str, bool]]:
         rows = self.conn.execute(
             """
             select run_id, created_at, symbol, interval, approved
@@ -628,7 +634,9 @@ class TradingDatabase:
             )
         return entries
 
-    def build_daily_risk_report(self, report_date: str | None = None) -> DailyRiskReport:
+    def build_daily_risk_report(
+        self, report_date: str | None = None
+    ) -> DailyRiskReport:
         resolved_date = report_date or datetime.now(timezone.utc).date().isoformat()
         snapshot = self.get_account_snapshot()
         positions = self.list_positions()
@@ -659,9 +667,15 @@ class TradingDatabase:
         marks_recorded = int(marks_row[0]) if marks_row is not None else 0
         all_time_peak = float(peak_row[0]) if peak_row is not None else snapshot.equity
         gross_exposure = sum(abs(position.market_value) for position in positions)
-        largest_position = max((abs(position.market_value) for position in positions), default=0.0)
+        largest_position = max(
+            (abs(position.market_value) for position in positions), default=0.0
+        )
         equity = snapshot.equity if snapshot.equity != 0 else 1.0
-        drawdown_from_peak_pct = max(0.0, (all_time_peak - snapshot.equity) / all_time_peak) if all_time_peak > 0 else 0.0
+        drawdown_from_peak_pct = (
+            max(0.0, (all_time_peak - snapshot.equity) / all_time_peak)
+            if all_time_peak > 0
+            else 0.0
+        )
 
         warnings: list[str] = []
         if snapshot.open_positions >= 5:
@@ -708,9 +722,13 @@ class TradingDatabase:
         started_at = existing.started_at if existing is not None else None
         if state == "starting" or started_at is None:
             started_at = now
-        resolved_pid = pid if pid is not None else (existing.pid if existing is not None else None)
+        resolved_pid = (
+            pid if pid is not None else (existing.pid if existing is not None else None)
+        )
         resolved_stop_requested = (
-            stop_requested if stop_requested is not None else (existing.stop_requested if existing is not None else False)
+            stop_requested
+            if stop_requested is not None
+            else (existing.stop_requested if existing is not None else False)
         )
 
         self.conn.execute(
@@ -769,7 +787,9 @@ class TradingDatabase:
             ),
         )
 
-    def get_service_state(self, service_name: str = "orchestrator") -> ServiceStateSnapshot | None:
+    def get_service_state(
+        self, service_name: str = "orchestrator"
+    ) -> ServiceStateSnapshot | None:
         row = self.conn.execute(
             """
             select service_name, state, updated_at, started_at, last_heartbeat_at,
@@ -872,7 +892,9 @@ class TradingDatabase:
         )
         return event_id
 
-    def list_service_events(self, limit: int = 20, service_name: str = "orchestrator") -> list[ServiceEvent]:
+    def list_service_events(
+        self, limit: int = 20, service_name: str = "orchestrator"
+    ) -> list[ServiceEvent]:
         rows = self.conn.execute(
             """
             select event_id, created_at, level, event_type, message, cycle_count, symbol
@@ -910,7 +932,9 @@ class TradingDatabase:
             raise RuntimeError("Paper account state is missing")
 
         positions = self.list_positions()
-        market_value = sum(position.quantity * position.market_price for position in positions)
+        market_value = sum(
+            position.quantity * position.market_price for position in positions
+        )
         unrealized_pnl = sum(position.unrealized_pnl for position in positions)
         cash = float(row[0])
         realized_pnl = float(row[1])

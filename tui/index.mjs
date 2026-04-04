@@ -101,6 +101,7 @@ function OverviewPage({data}) {
   const preferences = data.preferences;
   const calendar = data.calendar;
   const marketCache = data.marketCache;
+  const latestSnapshot = data.review.record?.artifacts?.snapshot;
   const events = data.logs;
   const agentEvents = events.filter((event) => event.event_type.startsWith('agent_'));
   const latestAgentEvent = agentEvents[0];
@@ -126,6 +127,8 @@ function OverviewPage({data}) {
             `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
             `Status: ${runtime.status_message}`,
             `Current Note: ${runtime.state?.message ?? '-'}`,
+            `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
+            `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
             '',
             `Latest Agent Event: ${latestAgentEvent?.event_type ?? '-'}`,
             `Agent Message: ${latestAgentEvent?.message ?? 'No agent stage events yet.'}`,
@@ -179,6 +182,7 @@ function RuntimePage({data}) {
   const reviewRecord = data.review.record;
   const calendar = data.calendar;
   const marketCache = data.marketCache;
+  const latestSnapshot = reviewRecord?.artifacts?.snapshot;
   const recentSummary = reviewRecord?.artifacts?.review?.summary || 'No persisted review summary yet.';
 
   return e(
@@ -203,6 +207,8 @@ function RuntimePage({data}) {
             `Heartbeat Age: ${runtime.age_seconds ?? '-'}s`,
             `Stop Requested: ${runtime.state?.stop_requested ?? false}`,
             `Message: ${runtime.state?.message ?? '-'}`,
+            `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
+            `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
             `Market Session: ${calendar.session ? `${calendar.session.venue} ${calendar.session.session_state} tradable=${calendar.session.tradable_now}` : 'unavailable'}`,
             `Snapshot Cache Mode: ${marketCache.mode}`,
             `Cached Snapshots: ${marketCache.count}`,
@@ -220,6 +226,7 @@ function RuntimePage({data}) {
             `Run ID: ${reviewRecord?.run_id ?? '-'}`,
             `Symbol: ${reviewRecord?.symbol ?? '-'}`,
             `Approved: ${reviewRecord?.approved ?? '-'}`,
+            `MTF: ${latestSnapshot ? `${latestSnapshot.mtf_alignment} @ ${latestSnapshot.higher_timeframe}` : '-'}`,
             `Review Summary: ${recentSummary}`,
           ],
           'green',

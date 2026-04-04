@@ -141,6 +141,7 @@ def run_service(
                 cycle_count=cycle_count,
             )
             for symbol in symbols:
+
                 def _progress(stage: str, status: str, message: str) -> None:
                     event_level = "info" if status == "completed" else "info"
                     db.upsert_service_state(
@@ -321,7 +322,11 @@ def start_background_service(
     clear_stop_request(settings)
     db = TradingDatabase(settings)
     state = db.get_service_state()
-    if state is not None and state.state in {"starting", "running", "stopping"} and state.pid is not None:
+    if (
+        state is not None
+        and state.state in {"starting", "running", "stopping"}
+        and state.pid is not None
+    ):
         if is_process_alive(state.pid):
             raise RuntimeError(f"Service is already active with PID {state.pid}.")
         db.upsert_service_state(
@@ -363,7 +368,10 @@ def start_background_service(
     if max_cycles is not None:
         command.extend(["--max-cycles", str(max_cycles)])
 
-    with open(stdout_path, "ab") as stdout_handle, open(stderr_path, "ab") as stderr_handle:
+    with (
+        open(stdout_path, "ab") as stdout_handle,
+        open(stderr_path, "ab") as stderr_handle,
+    ):
         process = subprocess.Popen(
             command,
             cwd=str(workdir or Path.cwd()),

@@ -77,7 +77,11 @@ def run_from_snapshot(
 
     llm = LocalLLM(settings)
     db = TradingDatabase(settings)
-    emit("coordinator", "started", f"Coordinator is setting research focus for {snapshot.symbol}.")
+    emit(
+        "coordinator",
+        "started",
+        f"Coordinator is setting research focus for {snapshot.symbol}.",
+    )
     coordinator_context = build_agent_context(
         role="coordinator",
         settings=settings,
@@ -90,8 +94,16 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=coordinator_context,
     )
-    emit("coordinator", "completed", f"Coordinator completed with focus {coordinator.market_focus}.")
-    emit("regime", "started", f"Regime analyst is classifying the market for {snapshot.symbol}.")
+    emit(
+        "coordinator",
+        "completed",
+        f"Coordinator completed with focus {coordinator.market_focus}.",
+    )
+    emit(
+        "regime",
+        "started",
+        f"Regime analyst is classifying the market for {snapshot.symbol}.",
+    )
     regime_context = build_agent_context(
         role="regime",
         settings=settings,
@@ -105,8 +117,16 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=regime_context,
     )
-    emit("regime", "completed", f"Regime analyst classified the market as {regime.regime}.")
-    emit("strategy", "started", f"Strategy selector is planning the trade for {snapshot.symbol}.")
+    emit(
+        "regime",
+        "completed",
+        f"Regime analyst classified the market as {regime.regime}.",
+    )
+    emit(
+        "strategy",
+        "started",
+        f"Strategy selector is planning the trade for {snapshot.symbol}.",
+    )
     strategy_context = build_agent_context(
         role="strategy",
         settings=settings,
@@ -124,7 +144,11 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=strategy_context,
     )
-    emit("strategy", "completed", f"Strategy selector chose {strategy.strategy_family} with action {strategy.action}.")
+    emit(
+        "strategy",
+        "completed",
+        f"Strategy selector chose {strategy.strategy_family} with action {strategy.action}.",
+    )
     emit("risk", "started", f"Risk steward is sizing the trade for {snapshot.symbol}.")
     risk_context = build_agent_context(
         role="risk",
@@ -145,8 +169,16 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=risk_context,
     )
-    emit("risk", "completed", f"Risk steward set size {risk.position_size_pct:.2%} and RR {risk.risk_reward_ratio:.2f}.")
-    emit("manager", "started", f"Manager agent is combining specialist outputs for {snapshot.symbol}.")
+    emit(
+        "risk",
+        "completed",
+        f"Risk steward set size {risk.position_size_pct:.2%} and RR {risk.risk_reward_ratio:.2f}.",
+    )
+    emit(
+        "manager",
+        "started",
+        f"Manager agent is combining specialist outputs for {snapshot.symbol}.",
+    )
     manager_context = build_agent_context(
         role="manager",
         settings=settings,
@@ -169,11 +201,27 @@ def run_from_snapshot(
         allow_fallback=allow_fallback,
         context=manager_context,
     )
-    emit("manager", "completed", f"Manager agent returned bias {manager.action_bias} with approval {manager.approved}.")
-    emit("execution", "started", f"Execution guard is validating the plan for {snapshot.symbol}.")
+    emit(
+        "manager",
+        "completed",
+        f"Manager agent returned bias {manager.action_bias} with approval {manager.approved}.",
+    )
+    emit(
+        "execution",
+        "started",
+        f"Execution guard is validating the plan for {snapshot.symbol}.",
+    )
     execution = evaluate_execution(settings, snapshot, strategy, risk, manager)
-    emit("execution", "completed", f"Execution guard {'approved' if execution.approved else 'rejected'} {execution.side}.")
-    emit("review", "started", f"Review agent is writing the post-trade note for {snapshot.symbol}.")
+    emit(
+        "execution",
+        "completed",
+        f"Execution guard {'approved' if execution.approved else 'rejected'} {execution.side}.",
+    )
+    emit(
+        "review",
+        "started",
+        f"Review agent is writing the post-trade note for {snapshot.symbol}.",
+    )
     review = build_review_note(regime, strategy, risk, manager, execution)
     emit("review", "completed", "Review note completed.")
     traces = [

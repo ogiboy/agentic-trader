@@ -46,10 +46,14 @@ def _timestamp_at(frame: pd.DataFrame, index: int) -> str:
     return str(iso_value() if callable(iso_value) else raw_value)
 
 
-def _mark_to_market_equity(cash: float, open_trade: _OpenTradeState | None, current_price: float) -> float:
+def _mark_to_market_equity(
+    cash: float, open_trade: _OpenTradeState | None, current_price: float
+) -> float:
     if open_trade is None:
         return cash
-    signed_quantity = open_trade.quantity if open_trade.side == "buy" else -open_trade.quantity
+    signed_quantity = (
+        open_trade.quantity if open_trade.side == "buy" else -open_trade.quantity
+    )
     return cash + (signed_quantity * current_price)
 
 
@@ -79,8 +83,14 @@ def _summarize_report(label: str, report: BacktestReport) -> BacktestSummary:
 
 
 def _baseline_artifacts(snapshot: MarketSnapshot) -> RunArtifacts:
-    trend_up = snapshot.last_close > snapshot.ema_20 > snapshot.ema_50 and snapshot.rsi_14 >= 52
-    trend_down = snapshot.last_close < snapshot.ema_20 < snapshot.ema_50 and snapshot.rsi_14 <= 48
+    trend_up = (
+        snapshot.last_close > snapshot.ema_20 > snapshot.ema_50
+        and snapshot.rsi_14 >= 52
+    )
+    trend_down = (
+        snapshot.last_close < snapshot.ema_20 < snapshot.ema_50
+        and snapshot.rsi_14 <= 48
+    )
     normalized_atr = max(snapshot.atr_14, snapshot.last_close * 0.01)
 
     if trend_up:
@@ -187,8 +197,14 @@ def _baseline_artifacts(snapshot: MarketSnapshot) -> RunArtifacts:
         )
 
     coordinator = ResearchCoordinatorBrief(
-        market_focus="trend_following" if execution.side in {"buy", "sell"} else "no_trade",
-        priority_signals=["trend_alignment"] if execution.side in {"buy", "sell"} else ["wait_for_clarity"],
+        market_focus=(
+            "trend_following" if execution.side in {"buy", "sell"} else "no_trade"
+        ),
+        priority_signals=(
+            ["trend_alignment"]
+            if execution.side in {"buy", "sell"}
+            else ["wait_for_clarity"]
+        ),
         caution_flags=[] if execution.side in {"buy", "sell"} else ["mixed_signals"],
         summary="Deterministic baseline coordinator summary.",
     )
@@ -250,7 +266,11 @@ def _run_backtest_with_provider(
 
         if open_trade is not None:
             bars_in_market += 1
-            signed_quantity = open_trade.quantity if open_trade.side == "buy" else -open_trade.quantity
+            signed_quantity = (
+                open_trade.quantity
+                if open_trade.side == "buy"
+                else -open_trade.quantity
+            )
             open_trade.holding_bars += 1
             position = PositionSnapshot(
                 symbol=symbol,
@@ -258,7 +278,8 @@ def _run_backtest_with_provider(
                 average_price=open_trade.entry_price,
                 market_price=current_price,
                 market_value=signed_quantity * current_price,
-                unrealized_pnl=(current_price - open_trade.entry_price) * signed_quantity,
+                unrealized_pnl=(current_price - open_trade.entry_price)
+                * signed_quantity,
             )
             plan = PositionPlanSnapshot(
                 symbol=symbol,
@@ -275,11 +296,17 @@ def _run_backtest_with_provider(
             if exit_decision.should_exit:
                 if open_trade.side == "buy":
                     cash += open_trade.quantity * exit_decision.exit_price
-                    pnl = (exit_decision.exit_price - open_trade.entry_price) * open_trade.quantity
+                    pnl = (
+                        exit_decision.exit_price - open_trade.entry_price
+                    ) * open_trade.quantity
                 else:
                     cash -= open_trade.quantity * exit_decision.exit_price
-                    pnl = (open_trade.entry_price - exit_decision.exit_price) * open_trade.quantity
-                trades[open_trade.trade_index] = trades[open_trade.trade_index].model_copy(
+                    pnl = (
+                        open_trade.entry_price - exit_decision.exit_price
+                    ) * open_trade.quantity
+                trades[open_trade.trade_index] = trades[
+                    open_trade.trade_index
+                ].model_copy(
                     update={
                         "exit_at": current_timestamp,
                         "exit_price": exit_decision.exit_price,
@@ -353,7 +380,9 @@ def _run_backtest_with_provider(
         )
         equity_curve.append(cash)
 
-    closed_trades = [trade for trade in trades if trade.status == "closed" and trade.pnl is not None]
+    closed_trades = [
+        trade for trade in trades if trade.status == "closed" and trade.pnl is not None
+    ]
     wins = [trade for trade in closed_trades if trade.pnl is not None and trade.pnl > 0]
     ending_equity = cash
 
@@ -366,8 +395,16 @@ def _run_backtest_with_provider(
         total_trades=len(trades),
         closed_trades=len(closed_trades),
         win_rate=(len(wins) / len(closed_trades)) if closed_trades else 0.0,
-        expectancy=(sum(trade.pnl or 0.0 for trade in closed_trades) / len(closed_trades)) if closed_trades else 0.0,
-        total_return_pct=((ending_equity - starting_equity) / starting_equity) if starting_equity else 0.0,
+        expectancy=(
+            (sum(trade.pnl or 0.0 for trade in closed_trades) / len(closed_trades))
+            if closed_trades
+            else 0.0
+        ),
+        total_return_pct=(
+            ((ending_equity - starting_equity) / starting_equity)
+            if starting_equity
+            else 0.0
+        ),
         max_drawdown_pct=_compute_drawdown(equity_curve),
         exposure_pct=(bars_in_market / total_cycles) if total_cycles else 0.0,
         fallback_cycles=fallback_cycles,
@@ -387,7 +424,11 @@ def run_walk_forward_backtest(
     allow_fallback: bool = False,
     frame: pd.DataFrame | None = None,
 ) -> BacktestReport:
-    history = frame.copy() if frame is not None else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    history = (
+        frame.copy()
+        if frame is not None
+        else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    )
     return _run_backtest_with_provider(
         settings=settings,
         symbol=symbol,
@@ -412,7 +453,11 @@ def run_deterministic_baseline_backtest(
     warmup_bars: int = 120,
     frame: pd.DataFrame | None = None,
 ) -> BacktestReport:
-    history = frame.copy() if frame is not None else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    history = (
+        frame.copy()
+        if frame is not None
+        else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    )
     return _run_backtest_with_provider(
         settings=settings,
         symbol=symbol,
@@ -434,7 +479,11 @@ def run_backtest_comparison(
     allow_fallback: bool = False,
     frame: pd.DataFrame | None = None,
 ) -> BacktestComparisonReport:
-    history = frame.copy() if frame is not None else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    history = (
+        frame.copy()
+        if frame is not None
+        else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    )
     agent_report = run_walk_forward_backtest(
         settings=settings,
         symbol=symbol,
@@ -459,6 +508,10 @@ def run_backtest_comparison(
         warmup_bars=warmup_bars,
         agent=_summarize_report("agent", agent_report),
         baseline=_summarize_report("baseline", baseline_report),
-        ending_equity_delta=round(agent_report.ending_equity - baseline_report.ending_equity, 6),
-        total_return_delta_pct=round(agent_report.total_return_pct - baseline_report.total_return_pct, 6),
+        ending_equity_delta=round(
+            agent_report.ending_equity - baseline_report.ending_equity, 6
+        ),
+        total_return_delta_pct=round(
+            agent_report.total_return_pct - baseline_report.total_return_pct, 6
+        ),
     )

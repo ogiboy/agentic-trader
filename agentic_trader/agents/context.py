@@ -12,7 +12,9 @@ from agentic_trader.storage.db import TradingDatabase
 def _summarize_recent_runs(db: TradingDatabase, *, limit: int = 5) -> list[str]:
     return [
         f"{created_at} | {symbol} {interval} | approved={approved} | {run_id}"
-        for run_id, created_at, symbol, interval, approved in db.list_recent_runs(limit=limit)
+        for run_id, created_at, symbol, interval, approved in db.list_recent_runs(
+            limit=limit
+        )
     ]
 
 
@@ -21,14 +23,18 @@ def _summarize_trade_memory(db: TradingDatabase, *, limit: int = 5) -> list[str]
     notes: list[str] = []
     for entry in entries:
         exit_fragment = f" -> {entry.exit_reason}" if entry.exit_reason else ""
-        pnl_fragment = f" | pnl={entry.realized_pnl:.2f}" if entry.realized_pnl is not None else ""
+        pnl_fragment = (
+            f" | pnl={entry.realized_pnl:.2f}" if entry.realized_pnl is not None else ""
+        )
         notes.append(
             f"{entry.symbol} {entry.planned_side} {entry.journal_status}{exit_fragment} | entry={entry.entry_price:.4f}{pnl_fragment}"
         )
     return notes
 
 
-def _serialize_upstream(upstream_context: Mapping[str, BaseModel | str] | None) -> dict[str, str]:
+def _serialize_upstream(
+    upstream_context: Mapping[str, BaseModel | str] | None,
+) -> dict[str, str]:
     if not upstream_context:
         return {}
     rendered: dict[str, str] = {}
@@ -40,7 +46,9 @@ def _serialize_upstream(upstream_context: Mapping[str, BaseModel | str] | None) 
     return rendered
 
 
-def _summarize_retrieved_memories(db: TradingDatabase, snapshot: MarketSnapshot, *, limit: int = 3) -> list[str]:
+def _summarize_retrieved_memories(
+    db: TradingDatabase, snapshot: MarketSnapshot, *, limit: int = 3
+) -> list[str]:
     matches = retrieve_similar_memories(db, snapshot, limit=limit)
     return [
         f"{match.created_at} | {match.symbol} | score={match.similarity_score:.2f} | regime={match.regime} | strategy={match.strategy_family} | bias={match.manager_bias}"
@@ -117,13 +125,33 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
             ]
         )
     if context.recent_runs:
-        sections.extend(["", "Recent Runs:", "\n".join(f"- {line}" for line in context.recent_runs)])
+        sections.extend(
+            ["", "Recent Runs:", "\n".join(f"- {line}" for line in context.recent_runs)]
+        )
     if context.memory_notes:
-        sections.extend(["", "Trade Memory:", "\n".join(f"- {line}" for line in context.memory_notes)])
+        sections.extend(
+            [
+                "",
+                "Trade Memory:",
+                "\n".join(f"- {line}" for line in context.memory_notes),
+            ]
+        )
     if context.retrieved_memories:
-        sections.extend(["", "Retrieved Similar Memories:", "\n".join(f"- {line}" for line in context.retrieved_memories)])
+        sections.extend(
+            [
+                "",
+                "Retrieved Similar Memories:",
+                "\n".join(f"- {line}" for line in context.retrieved_memories),
+            ]
+        )
     if context.tool_outputs:
-        sections.extend(["", "Tool Outputs:", "\n".join(f"- {line}" for line in context.tool_outputs)])
+        sections.extend(
+            [
+                "",
+                "Tool Outputs:",
+                "\n".join(f"- {line}" for line in context.tool_outputs),
+            ]
+        )
     if context.upstream_context:
         rendered = []
         for key, value in context.upstream_context.items():
