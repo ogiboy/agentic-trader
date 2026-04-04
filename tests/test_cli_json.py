@@ -5,8 +5,10 @@ from typer.testing import CliRunner
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
+from agentic_trader.runtime_feed import append_chat_history
 from agentic_trader.schemas import (
     AgentStageTrace,
+    ChatHistoryEntry,
     ExecutionDecision,
     LLMHealthStatus,
     ManagerDecision,
@@ -439,6 +441,16 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
     calendar_payload = json.loads(calendar_result.stdout)
     assert calendar_payload["available"] is True
     assert calendar_payload["session"]["venue"] == "BIST"
+    append_chat_history(
+        settings,
+        ChatHistoryEntry(
+            entry_id="chat-1",
+            created_at="2026-01-01T00:00:00+00:00",
+            persona="operator_liaison",
+            user_message="What happened?",
+            response_text="The system is waiting for the next cycle.",
+        ),
+    )
 
     snapshot_result = runner.invoke(app, ["dashboard-snapshot"])
     assert snapshot_result.exit_code == 0
@@ -446,6 +458,7 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
     assert "calendar" in snapshot_payload
     assert snapshot_payload["calendar"]["available"] is True
     assert "marketCache" in snapshot_payload
+    assert snapshot_payload["chatHistory"]["entries"][0]["persona"] == "operator_liaison"
 
 
 def test_market_cache_json(monkeypatch, tmp_path: Path) -> None:

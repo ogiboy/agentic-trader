@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from agentic_trader.config import Settings
-from agentic_trader.schemas import ServiceEvent, ServiceStateSnapshot
+from agentic_trader.schemas import ChatHistoryEntry, ServiceEvent, ServiceStateSnapshot
 
 
 def service_state_path(settings: Settings) -> Path:
@@ -15,6 +15,10 @@ def service_events_path(settings: Settings) -> Path:
 
 def stop_request_path(settings: Settings) -> Path:
     return settings.runtime_dir / "service_stop_requested"
+
+
+def chat_history_path(settings: Settings) -> Path:
+    return settings.runtime_dir / "chat_history.jsonl"
 
 
 def write_service_state(settings: Settings, state: ServiceStateSnapshot) -> None:
@@ -50,6 +54,28 @@ def read_service_events(settings: Settings, *, limit: int = 20) -> list[ServiceE
         events.append(ServiceEvent.model_validate(json.loads(line)))
     events.reverse()
     return events
+
+
+def append_chat_history(settings: Settings, entry: ChatHistoryEntry) -> None:
+    path = chat_history_path(settings)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(entry.model_dump_json())
+        handle.write("\n")
+
+
+def read_chat_history(settings: Settings, *, limit: int = 20) -> list[ChatHistoryEntry]:
+    path = chat_history_path(settings)
+    if not path.exists():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    entries: list[ChatHistoryEntry] = []
+    for line in lines[-limit:]:
+        if not line.strip():
+            continue
+        entries.append(ChatHistoryEntry.model_validate(json.loads(line)))
+    entries.reverse()
+    return entries
 
 
 def request_stop(settings: Settings) -> None:

@@ -378,6 +378,14 @@ class SharedMemoryEntry(BaseModel):
     payload_json: str
 
 
+class ChatHistoryEntry(BaseModel):
+    entry_id: str
+    created_at: str
+    persona: ChatPersona
+    user_message: str
+    response_text: str
+
+
 class BacktestTrade(BaseModel):
     symbol: str
     entry_at: str

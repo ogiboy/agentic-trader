@@ -586,6 +586,15 @@ function ChatPage({ persona, history, draft, chatBusy }) {
   );
 }
 
+function normalizeChatHistory(data) {
+  const entries = data?.chatHistory?.entries || [];
+  return [...entries].reverse().map((entry) => ({
+    user: entry.user_message,
+    persona: entry.persona,
+    response: entry.response_text,
+  }));
+}
+
 function DashboardView({
   data,
   error,
@@ -715,6 +724,13 @@ function useDashboardState({ interactive }) {
   useEffect(() => {
     void refresh();
   }, [refresh, refreshCount]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+    setChatHistory(normalizeChatHistory(data));
+  }, [data]);
 
   useEffect(() => {
     if (!interactive) {
@@ -887,6 +903,7 @@ function InteractiveDashboardApp() {
           response: payload.response,
         },
       ]);
+      refreshNow();
       setChatDraft('');
     } catch (err) {
       setChatHistory((current) => [
@@ -905,6 +922,7 @@ function InteractiveDashboardApp() {
     chatBusy,
     chatDraft,
     chatPersona,
+    refreshNow,
     setChatBusy,
     setChatDraft,
     setChatHistory,

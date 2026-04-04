@@ -4,7 +4,9 @@ import shutil
 import subprocess
 import sys
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 import typer
 from rich.columns import Columns
@@ -30,8 +32,10 @@ from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.runtime_feed import (
+    append_chat_history,
     read_service_events,
     read_service_state,
+    read_chat_history,
     request_stop,
 )
 from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
@@ -45,6 +49,7 @@ from agentic_trader.schemas import (
     BacktestReport,
     BacktestAblationReport,
     BacktestComparisonReport,
+    ChatHistoryEntry,
     PositionSnapshot,
     PortfolioSnapshot,
     RunRecord,
@@ -1045,6 +1050,22 @@ def _retrieval_inspection_payload(
     }
 
 
+def _chat_history_payload(settings, *, limit: int = 12) -> dict[str, object]:
+    try:
+        entries = read_chat_history(settings, limit=limit)
+        available = True
+        error = None
+    except Exception as exc:
+        entries = []
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "entries": [entry.model_dump(mode="json") for entry in entries],
+    }
+
+
 def _run_replay_payload(settings, *, run_id: str | None = None) -> dict[str, object]:
     record_payload = _run_record_payload(settings, run_id=run_id)
     record_json = record_payload["record"]
@@ -1476,6 +1497,7 @@ def dashboard_snapshot(
                 settings, use_latest_run=True, limit=5
             ),
             "retrievalInspection": _retrieval_inspection_payload(settings),
+            "chatHistory": _chat_history_payload(settings),
             "calendar": _calendar_payload(settings),
             "marketCache": _market_cache_payload(settings),
         }
@@ -2124,6 +2146,17 @@ def chat(
         settings=settings,
         persona=persona,
         user_message=prompt,
+    )
+    db.close()
+    append_chat_history(
+        settings,
+        ChatHistoryEntry(
+            entry_id=f"chat-{uuid4().hex[:12]}",
+            created_at=datetime.now(timezone.utc).isoformat(),
+            persona=persona,
+            user_message=prompt,
+            response_text=response,
+        ),
     )
     if json_output:
         _emit_json(

@@ -12,6 +12,7 @@ from agentic_trader.schemas import (
     AccountMark,
     DailyRiskReport,
     InvestmentPreferences,
+    ChatHistoryEntry,
     PortfolioSnapshot,
     PositionPlanSnapshot,
     PositionSnapshot,
@@ -230,6 +231,17 @@ class TradingDatabase:
                 message varchar not null,
                 cycle_count integer,
                 symbol varchar
+            )
+            """
+        )
+        self.conn.execute(
+            """
+            create table if not exists operator_chat_history (
+                entry_id varchar primary key,
+                created_at varchar not null,
+                persona varchar not null,
+                user_message varchar not null,
+                response_text varchar not null
             )
             """
         )
@@ -483,6 +495,50 @@ class TradingDatabase:
                 )
             )
         return vectors
+
+    def insert_chat_history(
+        self, *, persona: str, user_message: str, response_text: str
+    ) -> str:
+        entry_id = f"chat-{uuid4().hex[:12]}"
+        self.conn.execute(
+            """
+            insert into operator_chat_history (
+                entry_id, created_at, persona, user_message, response_text
+            )
+            values (?, ?, ?, ?, ?)
+            """,
+            [
+                entry_id,
+                datetime.now(timezone.utc).isoformat(),
+                persona,
+                user_message,
+                response_text,
+            ],
+        )
+        return entry_id
+
+    def list_chat_history(self, limit: int = 20) -> list[ChatHistoryEntry]:
+        rows = self.conn.execute(
+            """
+            select entry_id, created_at, persona, user_message, response_text
+            from operator_chat_history
+            order by created_at desc
+            limit ?
+            """,
+            [limit],
+        ).fetchall()
+        history: list[ChatHistoryEntry] = []
+        for row in rows:
+            history.append(
+                ChatHistoryEntry(
+                    entry_id=str(row[0]),
+                    created_at=str(row[1]),
+                    persona=str(row[2]),
+                    user_message=str(row[3]),
+                    response_text=str(row[4]),
+                )
+            )
+        return history
 
     def record_account_mark(
         self,

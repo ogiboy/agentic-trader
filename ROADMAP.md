@@ -185,7 +185,9 @@ Status: in progress.
 - safe operator instruction parsing and curated preference application already exist
 - persisted run review already exposes coordinator, specialist, manager, execution, and review outputs
 - persisted run traces now capture routed model, full context payload, and per-stage outputs
-- explicit disagreement storage, conversational-memory isolation, and memory write policy controls remain open
+- explicit disagreement storage is now present through manager conflicts and specialist consensus snapshots
+- operator chat history is now persisted separately from trading memory through a dedicated sidecar transcript feed
+- memory write policy controls remain open
 
 ## Cross-Cutting Engineering Track
 
