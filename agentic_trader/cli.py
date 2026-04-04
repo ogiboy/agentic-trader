@@ -359,6 +359,7 @@ def _render_run_review(record: RunRecord) -> None:
             border_style="yellow",
         )
     )
+    console.print(_manager_conflicts_panel(record.artifacts.manager))
     console.print(
         Panel(
             record.artifacts.review.model_dump_json(indent=2),
@@ -405,20 +406,43 @@ def _render_run_markdown(record: RunRecord) -> str:
         f"- Confidence Cap: {artifacts.manager.confidence_cap:.2f}",
         f"- Size Multiplier: {artifacts.manager.size_multiplier:.2f}",
         f"- Rationale: {artifacts.manager.rationale}",
+        f"- Override Applied: {artifacts.manager.override_applied}",
         "",
-        "## Execution",
-        f"- Approved: {artifacts.execution.approved}",
-        f"- Side: {artifacts.execution.side}",
-        f"- Entry Price: {artifacts.execution.entry_price:.4f}",
-        f"- Rationale: {artifacts.execution.rationale}",
-        "",
-        "## Review",
-        f"- Summary: {artifacts.review.summary}",
-        f"- Strengths: {', '.join(artifacts.review.strengths) or '-'}",
-        f"- Warnings: {', '.join(artifacts.review.warnings) or '-'}",
-        f"- Next Checks: {', '.join(artifacts.review.next_checks) or '-'}",
-        "",
+        "## Manager Conflicts",
     ]
+    if artifacts.manager.conflicts:
+        for conflict in artifacts.manager.conflicts:
+            lines.append(
+                f"- [{conflict.severity}] {conflict.conflict_type}: {conflict.summary}"
+            )
+            lines.append(f"  - Specialist: {conflict.specialist_view}")
+            lines.append(f"  - Manager: {conflict.manager_resolution}")
+    else:
+        lines.append("- None detected.")
+    lines.extend(
+        [
+            "",
+            "## Manager Resolution Notes",
+            *(
+                [f"- {note}" for note in _manager_resolution_notes(artifacts)]
+                if _manager_resolution_notes(artifacts)
+                else ["- No additional manager resolution notes."]
+            ),
+            "",
+            "## Execution",
+            f"- Approved: {artifacts.execution.approved}",
+            f"- Side: {artifacts.execution.side}",
+            f"- Entry Price: {artifacts.execution.entry_price:.4f}",
+            f"- Rationale: {artifacts.execution.rationale}",
+            "",
+            "## Review",
+            f"- Summary: {artifacts.review.summary}",
+            f"- Strengths: {', '.join(artifacts.review.strengths) or '-'}",
+            f"- Warnings: {', '.join(artifacts.review.warnings) or '-'}",
+            f"- Next Checks: {', '.join(artifacts.review.next_checks) or '-'}",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -443,6 +467,31 @@ def _manager_override_notes(artifacts: RunArtifacts) -> list[str]:
     if not notes:
         notes.append("Manager accepted the specialist plan without additional overrides.")
     return notes
+
+
+def _manager_resolution_notes(artifacts: RunArtifacts) -> list[str]:
+    return artifacts.manager.resolution_notes or _manager_override_notes(artifacts)
+
+
+def _manager_conflicts_panel(manager: ManagerDecision) -> Panel:
+    if not manager.conflicts:
+        body = "\n".join(f"- {note}" for note in manager.resolution_notes) or (
+            "- Manager accepted the specialist plan without additional overrides."
+        )
+        return Panel(body, title="Manager Conflicts", border_style="green")
+
+    lines: list[str] = []
+    for conflict in manager.conflicts:
+        lines.append(
+            f"- [{conflict.severity}] {conflict.conflict_type}: {conflict.summary}"
+        )
+        lines.append(f"  Specialist: {conflict.specialist_view}")
+        lines.append(f"  Manager: {conflict.manager_resolution}")
+    if manager.resolution_notes:
+        lines.append("")
+        lines.append("Resolution Notes:")
+        lines.extend(f"- {note}" for note in manager.resolution_notes)
+    return Panel("\n".join(lines), title="Manager Conflicts", border_style="yellow")
 
 
 def _render_run_trace(record: RunRecord) -> None:
@@ -487,6 +536,25 @@ def _render_run_replay(replay: RunReplay) -> None:
             border_style="yellow",
         )
     )
+    if replay.manager_conflicts:
+        lines: list[str] = []
+        for conflict in replay.manager_conflicts:
+            lines.append(
+                f"- [{conflict.severity}] {conflict.conflict_type}: {conflict.summary}"
+            )
+            lines.append(f"  Specialist: {conflict.specialist_view}")
+            lines.append(f"  Manager: {conflict.manager_resolution}")
+        if replay.manager_resolution_notes:
+            lines.append("")
+            lines.append("Resolution Notes:")
+            lines.extend(f"- {note}" for note in replay.manager_resolution_notes)
+        console.print(
+            Panel(
+                "\n".join(lines),
+                title="Manager Conflict Replay",
+                border_style="yellow",
+            )
+        )
 
     stage_table = Table(title="Replay Stages")
     stage_table.add_column("Role")
@@ -1004,6 +1072,8 @@ def _run_replay_payload(settings, *, run_id: str | None = None) -> dict[str, obj
         final_rationale=record.artifacts.execution.rationale,
         snapshot=record.artifacts.snapshot,
         manager_override_notes=_manager_override_notes(record.artifacts),
+        manager_conflicts=record.artifacts.manager.conflicts,
+        manager_resolution_notes=_manager_resolution_notes(record.artifacts),
         stages=stages,
     )
     return {

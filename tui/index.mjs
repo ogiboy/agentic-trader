@@ -444,6 +444,11 @@ function ReviewPage({ data }) {
             `Approved: ${replayState.approved}`,
             `MTF: ${replayState.snapshot.mtf_alignment} @ ${replayState.snapshot.higher_timeframe}`,
             `Manager: ${(replayState.manager_override_notes || []).join(' / ')}`,
+            `Conflict Count: ${(replayState.manager_conflicts || []).length}`,
+            ...((replayState.manager_conflicts || []).slice(0, 3).map(
+              (conflict) =>
+                `${conflict.conflict_type} [${conflict.severity}] | ${conflict.summary}`,
+            )),
             `Final Rationale: ${replayState.final_rationale}`,
             ...replayState.stages.slice(0, 5).map(
               (stage) =>

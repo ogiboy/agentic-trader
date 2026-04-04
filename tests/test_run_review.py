@@ -126,3 +126,4 @@ def test_review_run_and_export_report_commands(tmp_path: Path) -> None:
     assert export_result.exit_code == 0
     assert export_path.exists()
     assert "## Manager" in export_path.read_text(encoding="utf-8")
+    assert "## Manager Conflicts" in export_path.read_text(encoding="utf-8")

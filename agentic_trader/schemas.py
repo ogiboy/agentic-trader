@@ -259,8 +259,19 @@ class ManagerDecision(BaseModel):
     size_multiplier: float = Field(gt=0.0, le=1.0)
     rationale: str
     escalation_flags: list[str] = Field(default_factory=list)
+    override_applied: bool = False
+    conflicts: list["ManagerConflict"] = Field(default_factory=list)
+    resolution_notes: list[str] = Field(default_factory=list)
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
+
+
+class ManagerConflict(BaseModel):
+    conflict_type: Literal["focus", "action", "approval", "confidence", "size"]
+    severity: Literal["low", "medium", "high"] = "medium"
+    summary: str
+    specialist_view: str
+    manager_resolution: str
 
 
 class ReviewNote(BaseModel):
@@ -483,4 +494,6 @@ class RunReplay(BaseModel):
     final_rationale: str
     snapshot: MarketSnapshot
     manager_override_notes: list[str] = Field(default_factory=list)
+    manager_conflicts: list[ManagerConflict] = Field(default_factory=list)
+    manager_resolution_notes: list[str] = Field(default_factory=list)
     stages: list[RunReplayStage] = Field(default_factory=list)

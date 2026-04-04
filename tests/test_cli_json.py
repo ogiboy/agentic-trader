@@ -397,6 +397,10 @@ def test_replay_run_json(monkeypatch, tmp_path: Path) -> None:
     assert payload["replay"]["manager_override_notes"] == [
         "Manager accepted the specialist plan without additional overrides."
     ]
+    assert payload["replay"]["manager_conflicts"] == []
+    assert payload["replay"]["manager_resolution_notes"] == [
+        "Manager accepted the specialist plan without additional overrides."
+    ]
     assert payload["replay"]["stages"][0]["retrieved_memories"] == [
         "prior trend continuation"
     ]
