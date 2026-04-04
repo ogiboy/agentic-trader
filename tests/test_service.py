@@ -15,7 +15,11 @@ from agentic_trader.schemas import (
     StrategyPlan,
 )
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.workflows.service import run_service, start_background_service
+from agentic_trader.workflows.service import (
+    restart_background_service,
+    run_service,
+    start_background_service,
+)
 from typer.testing import CliRunner
 
 
@@ -138,6 +142,9 @@ def test_run_service_records_runtime_state_and_events(
     assert state is not None
     assert state.state == "completed"
     assert state.cycle_count == 1
+    assert state.symbols == ["AAPL", "MSFT"]
+    assert state.interval == "1d"
+    assert state.lookback == "180d"
     assert state.current_symbol is None
     assert {event.event_type for event in events} >= {
         "service_started",
@@ -284,6 +291,9 @@ def test_start_background_service_records_spawn(monkeypatch, tmp_path: Path) -> 
     assert state is not None
     assert state.pid == 4242
     assert state.state == "starting"
+    assert state.symbols == ["AAPL", "MSFT"]
+    assert state.interval == "1d"
+    assert state.lookback == "180d"
 
 
 def test_start_background_service_recovers_stale_pid(
@@ -333,7 +343,42 @@ def test_start_background_service_recovers_stale_pid(
     assert updated is not None
     assert updated.pid == 4343
     assert updated.state == "starting"
+    assert updated.symbols == ["AAPL"]
     assert any(event.event_type == "stale_service_recovered" for event in events)
+
+
+def test_restart_background_service_uses_last_recorded_config(
+    monkeypatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    db.upsert_service_state(
+        state="running",
+        continuous=True,
+        poll_seconds=300,
+        cycle_count=4,
+        symbols=["AAPL", "MSFT"],
+        interval="1d",
+        lookback="180d",
+        max_cycles=None,
+        current_symbol="AAPL",
+        message="Processing AAPL",
+        pid=99999,
+    )
+
+    monkeypatch.setattr("agentic_trader.workflows.service.is_process_alive", lambda pid: False)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.start_background_service",
+        lambda **kwargs: 5151,
+    )
+
+    pid = restart_background_service(settings=settings, grace_seconds=0.0, workdir=tmp_path)
+
+    assert pid == 5151
 
 
 def test_stop_service_command_marks_stop_requested(monkeypatch, tmp_path: Path) -> None:
@@ -370,3 +415,45 @@ def test_stop_service_command_marks_stop_requested(monkeypatch, tmp_path: Path) 
     assert updated is not None
     assert updated.stop_requested is True
     assert updated.state == "stopping"
+
+
+def test_restart_service_command_restarts_with_saved_config(
+    monkeypatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    db.upsert_service_state(
+        state="running",
+        continuous=True,
+        poll_seconds=300,
+        cycle_count=3,
+        symbols=["AAPL"],
+        interval="1d",
+        lookback="180d",
+        max_cycles=None,
+        current_symbol="AAPL",
+        message="Running",
+        pid=4242,
+        stop_requested=False,
+    )
+
+    runner = CliRunner()
+    monkeypatch.setattr(
+        "agentic_trader.cli.restart_background_service",
+        lambda **kwargs: 9090,
+    )
+    result = runner.invoke(
+        app,
+        ["restart-service"],
+        env={
+            "AGENTIC_TRADER_RUNTIME_DIR": str(tmp_path),
+            "AGENTIC_TRADER_DATABASE_PATH": str(tmp_path / "agentic_trader.duckdb"),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert "9090" in result.stdout

@@ -192,6 +192,10 @@ class ServiceStateSnapshot(BaseModel):
     continuous: bool = False
     poll_seconds: int | None = None
     cycle_count: int = 0
+    symbols: list[str] = Field(default_factory=list)
+    interval: str | None = None
+    lookback: str | None = None
+    max_cycles: int | None = None
     current_symbol: str | None = None
     last_error: str | None = None
     pid: int | None = None

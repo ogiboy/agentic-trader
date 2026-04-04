@@ -60,6 +60,7 @@ from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_m
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import (
     ensure_llm_ready,
+    restart_background_service,
     run_service,
     start_background_service,
 )
@@ -194,6 +195,12 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
         str(snapshot.poll_seconds) if snapshot.poll_seconds is not None else "-",
     )
     table.add_row("Cycle Count", str(snapshot.cycle_count))
+    table.add_row("Symbols", ", ".join(snapshot.symbols) or "-")
+    table.add_row("Interval", snapshot.interval or "-")
+    table.add_row("Lookback", snapshot.lookback or "-")
+    table.add_row(
+        "Max Cycles", str(snapshot.max_cycles) if snapshot.max_cycles is not None else "-"
+    )
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
     table.add_row("Stop Requested", str(snapshot.stop_requested))
@@ -2122,6 +2129,34 @@ def stop_service(
             "Stop Requested",
             f"Service PID {state.pid} was asked to stop gracefully via the runtime control channel.",
             border_style="yellow",
+        )
+    )
+
+
+@app.command("restart-service")
+def restart_service(
+    grace_seconds: float = typer.Option(
+        3.0, min=0.0, help="How long to wait for a graceful stop before relaunch."
+    )
+) -> None:
+    """Restart the managed background orchestrator using its last recorded launch config."""
+    settings = get_settings()
+    try:
+        pid = restart_background_service(settings=settings, grace_seconds=grace_seconds)
+    except Exception as exc:
+        console.print(
+            _render_health_panel(
+                "Restart Blocked",
+                str(exc),
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1)
+    console.print(
+        _render_health_panel(
+            "Service Restarted",
+            f"Background orchestrator restarted with PID {pid}.",
+            border_style="green",
         )
     )
 

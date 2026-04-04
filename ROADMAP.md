@@ -129,10 +129,11 @@ Status: in progress.
 - make the daemon compatible with `launchd` or `systemd`-style supervision later
 - allow the operator TUI to attach to a running background service instead of owning the process directly
 - allow a future WebUI to connect to the same daemon runtime over a local port without duplicating orchestration logic
-  Notes:
+Notes:
 - background launch, status, logs, stop requests, and live monitor attach surfaces are already implemented
 - read-only observer surfaces now attach safely through shared status/log contracts without competing for write locks
-- restart controls, deeper supervisor compatibility, and daemon-backed multi-surface UI support remain open
+- restart controls are now available from the CLI through stored background launch config
+- deeper supervisor compatibility and daemon-backed multi-surface UI support remain open
 
 ## Phase 8: Live Execution Adapters
 

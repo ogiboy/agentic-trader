@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from typing import Any
 from uuid import uuid4
 
@@ -183,6 +184,10 @@ class TradingDatabase:
                 continuous boolean not null,
                 poll_seconds integer,
                 cycle_count integer not null,
+                symbols_json varchar not null default '[]',
+                interval varchar,
+                lookback varchar,
+                max_cycles integer,
                 current_symbol varchar,
                 last_error varchar,
                 pid bigint,
@@ -203,6 +208,16 @@ class TradingDatabase:
             self.conn.execute(
                 "alter table service_state add column stop_requested boolean not null default false"
             )
+        if "symbols_json" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column symbols_json varchar not null default '[]'"
+            )
+        if "interval" not in service_columns:
+            self.conn.execute("alter table service_state add column interval varchar")
+        if "lookback" not in service_columns:
+            self.conn.execute("alter table service_state add column lookback varchar")
+        if "max_cycles" not in service_columns:
+            self.conn.execute("alter table service_state add column max_cycles integer")
         self.conn.execute(
             """
             create table if not exists service_events (
@@ -713,6 +728,10 @@ class TradingDatabase:
         continuous: bool,
         poll_seconds: int | None,
         cycle_count: int,
+        symbols: list[str] | None = None,
+        interval: str | None = None,
+        lookback: str | None = None,
+        max_cycles: int | None = None,
         current_symbol: str | None,
         message: str,
         last_error: str | None = None,
@@ -732,14 +751,35 @@ class TradingDatabase:
             if stop_requested is not None
             else (existing.stop_requested if existing is not None else False)
         )
+        resolved_symbols = (
+            list(symbols)
+            if symbols is not None
+            else (existing.symbols if existing is not None else [])
+        )
+        resolved_interval = (
+            interval
+            if interval is not None
+            else (existing.interval if existing is not None else None)
+        )
+        resolved_lookback = (
+            lookback
+            if lookback is not None
+            else (existing.lookback if existing is not None else None)
+        )
+        resolved_max_cycles = (
+            max_cycles
+            if max_cycles is not None
+            else (existing.max_cycles if existing is not None else None)
+        )
 
         self.conn.execute(
             """
             insert into service_state (
                 service_name, state, updated_at, started_at, last_heartbeat_at,
-                continuous, poll_seconds, cycle_count, current_symbol, last_error, pid, stop_requested, message
+                continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
+                current_symbol, last_error, pid, stop_requested, message
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             on conflict(service_name) do update set
                 state = excluded.state,
                 updated_at = excluded.updated_at,
@@ -748,6 +788,10 @@ class TradingDatabase:
                 continuous = excluded.continuous,
                 poll_seconds = excluded.poll_seconds,
                 cycle_count = excluded.cycle_count,
+                symbols_json = excluded.symbols_json,
+                interval = excluded.interval,
+                lookback = excluded.lookback,
+                max_cycles = excluded.max_cycles,
                 current_symbol = excluded.current_symbol,
                 last_error = excluded.last_error,
                 pid = excluded.pid,
@@ -763,6 +807,10 @@ class TradingDatabase:
                 continuous,
                 poll_seconds,
                 cycle_count,
+                json.dumps(resolved_symbols),
+                resolved_interval,
+                resolved_lookback,
+                resolved_max_cycles,
                 current_symbol,
                 last_error,
                 resolved_pid,
@@ -781,6 +829,10 @@ class TradingDatabase:
                 continuous=continuous,
                 poll_seconds=poll_seconds,
                 cycle_count=cycle_count,
+                symbols=resolved_symbols,
+                interval=resolved_interval,
+                lookback=resolved_lookback,
+                max_cycles=resolved_max_cycles,
                 current_symbol=current_symbol,
                 last_error=last_error,
                 pid=resolved_pid,
@@ -795,7 +847,8 @@ class TradingDatabase:
         row = self.conn.execute(
             """
             select service_name, state, updated_at, started_at, last_heartbeat_at,
-                   continuous, poll_seconds, cycle_count, current_symbol, last_error, pid, stop_requested, message
+                   continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
+                   current_symbol, last_error, pid, stop_requested, message
             from service_state
             where service_name = ?
             """,
@@ -812,11 +865,15 @@ class TradingDatabase:
             continuous=bool(row[5]),
             poll_seconds=int(row[6]) if row[6] is not None else None,
             cycle_count=int(row[7]),
-            current_symbol=str(row[8]) if row[8] is not None else None,
-            last_error=str(row[9]) if row[9] is not None else None,
-            pid=int(row[10]) if row[10] is not None else None,
-            stop_requested=bool(row[11]),
-            message=str(row[12]),
+            symbols=json.loads(str(row[8])) if row[8] is not None else [],
+            interval=str(row[9]) if row[9] is not None else None,
+            lookback=str(row[10]) if row[10] is not None else None,
+            max_cycles=int(row[11]) if row[11] is not None else None,
+            current_symbol=str(row[12]) if row[12] is not None else None,
+            last_error=str(row[13]) if row[13] is not None else None,
+            pid=int(row[14]) if row[14] is not None else None,
+            stop_requested=bool(row[15]),
+            message=str(row[16]),
         )
 
     def request_stop_service(self, service_name: str = "orchestrator") -> None:

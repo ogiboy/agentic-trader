@@ -1,4 +1,5 @@
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -9,7 +10,7 @@ from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.engine.position_manager import evaluate_position_exit
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.runtime_feed import clear_stop_request, stop_requested
+from agentic_trader.runtime_feed import clear_stop_request, request_stop, stop_requested
 from agentic_trader.runtime_status import is_process_alive
 from agentic_trader.schemas import LLMHealthStatus, RunArtifacts
 from agentic_trader.storage.db import TradingDatabase
@@ -91,6 +92,10 @@ def run_service(
         continuous=continuous,
         poll_seconds=poll_seconds,
         cycle_count=0,
+        symbols=symbols,
+        interval=interval,
+        lookback=lookback,
+        max_cycles=max_cycles,
         current_symbol=None,
         message="Runtime gate passed. Orchestrator is starting.",
         pid=os.getpid(),
@@ -112,6 +117,10 @@ def run_service(
                     continuous=continuous,
                     poll_seconds=poll_seconds,
                     cycle_count=cycle_count,
+                    symbols=symbols,
+                    interval=interval,
+                    lookback=lookback,
+                    max_cycles=max_cycles,
                     current_symbol=None,
                     message="Service stopped before a new cycle started.",
                     pid=os.getpid(),
@@ -130,6 +139,10 @@ def run_service(
                 continuous=continuous,
                 poll_seconds=poll_seconds,
                 cycle_count=cycle_count,
+                symbols=symbols,
+                interval=interval,
+                lookback=lookback,
+                max_cycles=max_cycles,
                 current_symbol=None,
                 message=f"Cycle {cycle_count} started.",
                 pid=os.getpid(),
@@ -149,6 +162,10 @@ def run_service(
                         continuous=continuous,
                         poll_seconds=poll_seconds,
                         cycle_count=cycle_count,
+                        symbols=symbols,
+                        interval=interval,
+                        lookback=lookback,
+                        max_cycles=max_cycles,
                         current_symbol=symbol,
                         message=message,
                         pid=os.getpid(),
@@ -166,6 +183,10 @@ def run_service(
                     continuous=continuous,
                     poll_seconds=poll_seconds,
                     cycle_count=cycle_count,
+                    symbols=symbols,
+                    interval=interval,
+                    lookback=lookback,
+                    max_cycles=max_cycles,
                     current_symbol=symbol,
                     message=f"Processing {symbol} in cycle {cycle_count}.",
                     pid=os.getpid(),
@@ -233,6 +254,10 @@ def run_service(
                         continuous=continuous,
                         poll_seconds=poll_seconds,
                         cycle_count=cycle_count,
+                        symbols=symbols,
+                        interval=interval,
+                        lookback=lookback,
+                        max_cycles=max_cycles,
                         current_symbol=None,
                         message=f"Stop requested after processing {symbol}.",
                         pid=os.getpid(),
@@ -273,6 +298,10 @@ def run_service(
             continuous=continuous,
             poll_seconds=poll_seconds,
             cycle_count=cycle_count,
+            symbols=symbols,
+            interval=interval,
+            lookback=lookback,
+            max_cycles=max_cycles,
             current_symbol=None,
             message=f"Orchestrator completed after {cycle_count} cycle(s).",
             pid=os.getpid(),
@@ -290,6 +319,10 @@ def run_service(
             continuous=continuous,
             poll_seconds=poll_seconds,
             cycle_count=cycle_count,
+            symbols=symbols,
+            interval=interval,
+            lookback=lookback,
+            max_cycles=max_cycles,
             current_symbol=None,
             message="Orchestrator failed.",
             last_error=str(exc),
@@ -334,6 +367,10 @@ def start_background_service(
             continuous=state.continuous,
             poll_seconds=state.poll_seconds,
             cycle_count=state.cycle_count,
+            symbols=state.symbols,
+            interval=state.interval,
+            lookback=state.lookback,
+            max_cycles=state.max_cycles,
             current_symbol=None,
             message=f"Recovered stale runtime state from dead PID {state.pid}.",
             last_error=state.last_error,
@@ -385,6 +422,10 @@ def start_background_service(
         continuous=continuous,
         poll_seconds=poll_seconds,
         cycle_count=0,
+        symbols=symbols,
+        interval=interval,
+        lookback=lookback,
+        max_cycles=max_cycles,
         current_symbol=None,
         message="Background service spawned.",
         pid=process.pid,
@@ -397,3 +438,42 @@ def start_background_service(
     )
     db.close()
     return process.pid
+
+
+def restart_background_service(
+    *,
+    settings: Settings,
+    grace_seconds: float = 3.0,
+    workdir: Path | None = None,
+) -> int:
+    db = TradingDatabase(settings)
+    state = db.get_service_state()
+    if state is None or not state.symbols or state.interval is None or state.lookback is None:
+        db.close()
+        raise RuntimeError("No restartable background service configuration is recorded yet.")
+    if not state.continuous:
+        db.close()
+        raise RuntimeError("Restart is only supported for continuous service configurations.")
+
+    if state.pid is not None and is_process_alive(state.pid):
+        request_stop(settings)
+        db.request_stop_service()
+        deadline = time.time() + grace_seconds
+        while time.time() < deadline and is_process_alive(state.pid):
+            time.sleep(0.2)
+        if is_process_alive(state.pid):
+            try:
+                os.kill(state.pid, signal.SIGTERM)
+            except OSError:
+                pass
+    db.close()
+    return start_background_service(
+        settings=settings,
+        symbols=state.symbols,
+        interval=state.interval,
+        lookback=state.lookback,
+        poll_seconds=state.poll_seconds or settings.default_poll_seconds,
+        continuous=True,
+        max_cycles=state.max_cycles,
+        workdir=workdir,
+    )
