@@ -114,12 +114,23 @@ class PortfolioSnapshot(BaseModel):
     open_positions: int
 
 
+class MarketSessionStatus(BaseModel):
+    symbol: str
+    venue: str
+    asset_class: Literal["equity", "crypto"]
+    timezone: str
+    session_state: Literal["open", "closed", "always_open", "weekend"]
+    tradable_now: bool
+    note: str
+
+
 class AgentContext(BaseModel):
     role: AgentRole
     model_name: str
     snapshot: MarketSnapshot
     preferences: InvestmentPreferences
     portfolio: PortfolioSnapshot
+    market_session: MarketSessionStatus | None = None
     service_state: "ServiceStateSnapshot | None" = None
     recent_runs: list[str] = Field(default_factory=list)
     memory_notes: list[str] = Field(default_factory=list)

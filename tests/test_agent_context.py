@@ -123,5 +123,8 @@ def test_build_agent_context_includes_runs_memory_and_upstream(tmp_path: Path) -
     assert context.model_name == "qwen3:8b"
     assert context.recent_runs
     assert context.memory_notes
-    assert context.tool_outputs == ["news_tool: no event risk detected"]
+    assert context.market_session is not None
+    assert context.market_session.symbol == "AAPL"
+    assert context.tool_outputs[0].startswith("market_session:")
+    assert context.tool_outputs[1:] == ["news_tool: no event risk detected"]
     assert "coordinator" in context.upstream_context

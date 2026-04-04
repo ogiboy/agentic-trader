@@ -235,3 +235,37 @@ def test_memory_explorer_and_retrieval_inspection_json(monkeypatch, tmp_path: Pa
     retrieval_payload = json.loads(retrieval_result.stdout)
     assert retrieval_payload["available"] is True
     assert retrieval_payload["stages"] == []
+
+
+def test_calendar_status_and_dashboard_snapshot_include_calendar(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.cli.LocalLLM.health_check",
+        lambda self: LLMHealthStatus(
+            provider="ollama",
+            base_url=self.settings.base_url,
+            model_name=self.settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ready",
+        ),
+    )
+
+    runner = CliRunner()
+
+    calendar_result = runner.invoke(app, ["calendar-status", "--json", "--symbol", "THYAO.IS"])
+    assert calendar_result.exit_code == 0
+    calendar_payload = json.loads(calendar_result.stdout)
+    assert calendar_payload["available"] is True
+    assert calendar_payload["session"]["venue"] == "BIST"
+
+    snapshot_result = runner.invoke(app, ["dashboard-snapshot"])
+    assert snapshot_result.exit_code == 0
+    snapshot_payload = json.loads(snapshot_result.stdout)
+    assert "calendar" in snapshot_payload
+    assert snapshot_payload["calendar"]["available"] is True

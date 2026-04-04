@@ -50,6 +50,7 @@ Status: in progress.
 Notes:
 - operator preferences and curated behavior presets already exist
 - lightweight retrieval from historically similar runs is now injected into agent context
+- a first market-session heuristic is now available through the CLI, dashboard snapshot, Ink control room, and agent context tool outputs
 - multi-timeframe features, calendar awareness, repeatable cached snapshots, and tool-driven external context are still open
 
 ## Phase 4: Operator Experience

@@ -17,6 +17,7 @@ from agentic_trader.config import get_settings
 from agentic_trader.agents.operator_chat import apply_preference_update, chat_with_persona, interpret_operator_instruction
 from agentic_trader.backtest.walk_forward import run_backtest_comparison, run_walk_forward_backtest
 from agentic_trader.llm.client import LocalLLM
+from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.memory.retrieval import retrieve_similar_memories
@@ -27,6 +28,7 @@ from agentic_trader.schemas import (
     DailyRiskReport,
     HistoricalMemoryMatch,
     InvestmentPreferences,
+    MarketSessionStatus,
     OperatorInstruction,
     BacktestReport,
     BacktestComparisonReport,
@@ -537,6 +539,39 @@ def _run_record_payload(settings, *, run_id: str | None = None) -> dict[str, obj
     }
 
 
+def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
+    if "BIST" in preferences.exchanges or "TR" in preferences.regions:
+        return "THYAO.IS"
+    if "NASDAQ" in preferences.exchanges or "NYSE" in preferences.exchanges or "US" in preferences.regions:
+        return "AAPL"
+    return "BTC-USD"
+
+
+def _calendar_payload(settings, *, symbol: str | None = None) -> dict[str, object]:
+    try:
+        preferences = InvestmentPreferences()
+        record = None
+        db = _open_db(settings, read_only=True)
+        try:
+            preferences = db.load_preferences()
+            record = db.latest_run()
+        finally:
+            db.close()
+        resolved_symbol = symbol or (record.symbol if record is not None else _default_symbol_from_preferences(preferences))
+        session = infer_market_session(symbol=resolved_symbol, preferences=preferences)
+        available = True
+        error = None
+    except Exception as exc:
+        session = None
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "session": session.model_dump(mode="json") if session is not None else None,
+    }
+
+
 def _memory_explorer_payload(
     settings,
     *,
@@ -954,8 +989,42 @@ def dashboard_snapshot(
             "trace": _run_record_payload(settings),
             "memoryExplorer": _memory_explorer_payload(settings, use_latest_run=True, limit=5),
             "retrievalInspection": _retrieval_inspection_payload(settings),
+            "calendar": _calendar_payload(settings),
         }
     )
+
+
+@app.command("calendar-status")
+def calendar_status(
+    symbol: str | None = typer.Option(None, help="Optional ticker symbol. Defaults to the latest run symbol or preference-derived default."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Show the inferred market session state for a symbol."""
+    settings = get_settings()
+    payload = _calendar_payload(settings, symbol=symbol)
+    if json_output:
+        _emit_json(payload)
+        return
+    if not payload["available"] or payload["session"] is None:
+        console.print(
+            Panel(
+                f"Calendar status is temporarily unavailable.\n\n{payload['error']}",
+                title="Calendar Status",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    session = MarketSessionStatus.model_validate(payload["session"])
+    table = Table(title=f"Market Session / {session.symbol}")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("Venue", session.venue)
+    table.add_row("Asset Class", session.asset_class)
+    table.add_row("Timezone", session.timezone)
+    table.add_row("State", session.session_state)
+    table.add_row("Tradable Now", str(session.tradable_now))
+    table.add_row("Note", session.note)
+    console.print(table)
 
 
 @app.command("preferences")

@@ -3,6 +3,7 @@ from typing import Mapping
 from pydantic import BaseModel
 
 from agentic_trader.config import Settings
+from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.schemas import AgentContext, AgentRole, MarketSnapshot
 from agentic_trader.storage.db import TradingDatabase
@@ -56,17 +57,27 @@ def build_agent_context(
     tool_outputs: list[str] | None = None,
     upstream_context: Mapping[str, BaseModel | str] | None = None,
 ) -> AgentContext:
+    preferences = db.load_preferences()
+    market_session = infer_market_session(
+        symbol=snapshot.symbol,
+        preferences=preferences,
+    )
+    rendered_tool_outputs = [
+        f"market_session: venue={market_session.venue} state={market_session.session_state} tradable_now={market_session.tradable_now} note={market_session.note}"
+    ]
+    rendered_tool_outputs.extend(list(tool_outputs or []))
     return AgentContext(
         role=role,
         model_name=settings.model_for_role(role),
         snapshot=snapshot,
-        preferences=db.load_preferences(),
+        preferences=preferences,
         portfolio=db.get_account_snapshot(),
+        market_session=market_session,
         service_state=db.get_service_state(),
         recent_runs=_summarize_recent_runs(db),
         memory_notes=_summarize_trade_memory(db),
         retrieved_memories=_summarize_retrieved_memories(db, snapshot),
-        tool_outputs=list(tool_outputs or []),
+        tool_outputs=rendered_tool_outputs,
         upstream_context=_serialize_upstream(upstream_context),
     )
 
@@ -87,6 +98,15 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         "Portfolio Snapshot:",
         context.portfolio.model_dump_json(indent=2),
     ]
+
+    if context.market_session is not None:
+        sections.extend(
+            [
+                "",
+                "Market Session:",
+                context.market_session.model_dump_json(indent=2),
+            ]
+        )
 
     if context.service_state is not None:
         sections.extend(

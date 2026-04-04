@@ -226,6 +226,12 @@ Inspect which retrieved memories and context bundles were attached to each agent
 python main.py retrieval-inspection
 ```
 
+Inspect inferred market session state:
+
+```bash
+python main.py calendar-status --symbol THYAO.IS
+```
+
 Run a walk-forward backtest with the current agent pipeline:
 
 ```bash
