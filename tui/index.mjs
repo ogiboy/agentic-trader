@@ -100,6 +100,7 @@ function OverviewPage({data}) {
   const runtime = data.status;
   const preferences = data.preferences;
   const calendar = data.calendar;
+  const marketCache = data.marketCache;
   const events = data.logs;
   const agentEvents = events.filter((event) => event.event_type.startsWith('agent_'));
   const latestAgentEvent = agentEvents[0];
@@ -148,6 +149,7 @@ function OverviewPage({data}) {
             `Database: ${doctor.database}`,
             `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
             `Market Session: ${calendar.session ? `${calendar.session.venue} ${calendar.session.session_state}` : 'unavailable'}`,
+            `Cached Snapshots: ${marketCache.count}`,
           ],
           doctor.ollama_reachable && doctor.model_available ? 'green' : 'red',
         ),
@@ -176,6 +178,7 @@ function RuntimePage({data}) {
   const events = data.logs;
   const reviewRecord = data.review.record;
   const calendar = data.calendar;
+  const marketCache = data.marketCache;
   const recentSummary = reviewRecord?.artifacts?.review?.summary || 'No persisted review summary yet.';
 
   return e(
@@ -201,6 +204,8 @@ function RuntimePage({data}) {
             `Stop Requested: ${runtime.state?.stop_requested ?? false}`,
             `Message: ${runtime.state?.message ?? '-'}`,
             `Market Session: ${calendar.session ? `${calendar.session.venue} ${calendar.session.session_state} tradable=${calendar.session.tradable_now}` : 'unavailable'}`,
+            `Snapshot Cache Mode: ${marketCache.mode}`,
+            `Cached Snapshots: ${marketCache.count}`,
           ],
           'cyan',
         ),

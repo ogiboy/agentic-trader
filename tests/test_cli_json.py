@@ -269,3 +269,22 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(monkeypatch, tm
     snapshot_payload = json.loads(snapshot_result.stdout)
     assert "calendar" in snapshot_payload
     assert snapshot_payload["calendar"]["available"] is True
+    assert "marketCache" in snapshot_payload
+
+
+def test_market_cache_json(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        market_data_cache_dir=tmp_path / "snapshots",
+    )
+    settings.ensure_directories()
+    (settings.market_data_cache_dir / "AAPL__1d__180d.csv").write_text("date,open,high,low,close,volume\n", encoding="utf-8")
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["market-cache", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["count"] == 1
+    assert payload["entries"][0]["filename"] == "AAPL__1d__180d.csv"

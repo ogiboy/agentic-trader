@@ -232,6 +232,13 @@ Inspect inferred market session state:
 python main.py calendar-status --symbol THYAO.IS
 ```
 
+Manage repeatable market snapshot cache:
+
+```bash
+python main.py cache-market-data --symbol AAPL --interval 1d --lookback 180d
+python main.py market-cache --json
+```
+
 Run a walk-forward backtest with the current agent pipeline:
 
 ```bash

@@ -572,6 +572,27 @@ def _calendar_payload(settings, *, symbol: str | None = None) -> dict[str, objec
     }
 
 
+def _market_cache_payload(settings) -> dict[str, object]:
+    settings.ensure_directories()
+    cache_dir = settings.market_data_cache_dir
+    entries = []
+    for path in sorted(cache_dir.glob("*.csv"), key=lambda item: item.stat().st_mtime, reverse=True):
+        entries.append(
+            {
+                "filename": path.name,
+                "path": str(path),
+                "size_bytes": path.stat().st_size,
+                "modified_at": path.stat().st_mtime,
+            }
+        )
+    return {
+        "mode": settings.market_data_mode,
+        "cache_dir": str(cache_dir),
+        "count": len(entries),
+        "entries": entries,
+    }
+
+
 def _memory_explorer_payload(
     settings,
     *,
@@ -990,6 +1011,7 @@ def dashboard_snapshot(
             "memoryExplorer": _memory_explorer_payload(settings, use_latest_run=True, limit=5),
             "retrievalInspection": _retrieval_inspection_payload(settings),
             "calendar": _calendar_payload(settings),
+            "marketCache": _market_cache_payload(settings),
         }
     )
 
@@ -1025,6 +1047,57 @@ def calendar_status(
     table.add_row("Tradable Now", str(session.tradable_now))
     table.add_row("Note", session.note)
     console.print(table)
+
+
+@app.command("cache-market-data")
+def cache_market_data(
+    symbol: str = typer.Option(..., help="Ticker symbol, for example AAPL or THYAO.IS."),
+    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h."),
+    lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance."),
+) -> None:
+    """Fetch and save a repeatable market snapshot CSV into the runtime cache."""
+    settings = get_settings()
+    refresh_settings = settings.model_copy(update={"market_data_mode": "refresh_cache"})
+    frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback, settings=refresh_settings)
+    payload = _market_cache_payload(refresh_settings)
+    console.print(
+        Panel(
+            f"Cached {len(frame)} bars for {symbol} {interval} {lookback}.\n\nCache Dir: {payload['cache_dir']}\nSnapshots: {payload['count']}",
+            title="Market Snapshot Cached",
+            border_style="green",
+        )
+    )
+
+
+@app.command("market-cache")
+def market_cache(json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON.")) -> None:
+    """List saved repeatable market snapshots."""
+    settings = get_settings()
+    payload = _market_cache_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+    table = Table(title="Market Snapshot Cache")
+    table.add_column("Filename")
+    table.add_column("Size")
+    table.add_column("Modified")
+    if not payload["entries"]:
+        table.add_row("-", "-", "-")
+    else:
+        for entry in payload["entries"][:20]:
+            table.add_row(
+                str(entry["filename"]),
+                str(entry["size_bytes"]),
+                str(entry["modified_at"]),
+            )
+    console.print(table)
+    console.print(
+        Panel(
+            f"Mode: {payload['mode']}\nCache Dir: {payload['cache_dir']}\nSnapshot Count: {payload['count']}",
+            title="Cache Status",
+            border_style="cyan",
+        )
+    )
 
 
 @app.command("preferences")
