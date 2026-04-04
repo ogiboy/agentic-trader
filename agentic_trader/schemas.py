@@ -482,4 +482,5 @@ class RunReplay(BaseModel):
     final_side: str
     final_rationale: str
     snapshot: MarketSnapshot
+    manager_override_notes: list[str] = Field(default_factory=list)
     stages: list[RunReplayStage] = Field(default_factory=list)

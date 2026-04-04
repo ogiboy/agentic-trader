@@ -394,6 +394,9 @@ def test_replay_run_json(monkeypatch, tmp_path: Path) -> None:
     assert payload["available"] is True
     assert payload["replay"]["symbol"] == "MSFT"
     assert payload["replay"]["snapshot"]["higher_timeframe"] == "1wk"
+    assert payload["replay"]["manager_override_notes"] == [
+        "Manager accepted the specialist plan without additional overrides."
+    ]
     assert payload["replay"]["stages"][0]["retrieved_memories"] == [
         "prior trend continuation"
     ]

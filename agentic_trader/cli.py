@@ -354,6 +354,13 @@ def _render_run_review(record: RunRecord) -> None:
     console.print(Columns([metadata, analysis]))
     console.print(
         Panel(
+            "\n".join(f"- {note}" for note in _manager_override_notes(record.artifacts)),
+            title="Manager Override Notes",
+            border_style="yellow",
+        )
+    )
+    console.print(
+        Panel(
             record.artifacts.review.model_dump_json(indent=2),
             title="Review Note",
             border_style="cyan",
@@ -415,6 +422,29 @@ def _render_run_markdown(record: RunRecord) -> str:
     return "\n".join(lines)
 
 
+def _manager_override_notes(artifacts: RunArtifacts) -> list[str]:
+    notes: list[str] = []
+    if artifacts.manager.action_bias != artifacts.strategy.action:
+        notes.append(
+            f"Manager bias {artifacts.manager.action_bias} diverged from strategy action {artifacts.strategy.action}."
+        )
+    if artifacts.manager.confidence_cap < artifacts.strategy.confidence:
+        notes.append(
+            f"Manager confidence cap {artifacts.manager.confidence_cap:.2f} tightened strategy confidence {artifacts.strategy.confidence:.2f}."
+        )
+    if artifacts.manager.size_multiplier < 1.0:
+        notes.append(
+            f"Manager size multiplier {artifacts.manager.size_multiplier:.2f} reduced the planned position size."
+        )
+    if artifacts.execution.approved != artifacts.manager.approved:
+        notes.append(
+            f"Execution approval {artifacts.execution.approved} differed from manager approval {artifacts.manager.approved}."
+        )
+    if not notes:
+        notes.append("Manager accepted the specialist plan without additional overrides.")
+    return notes
+
+
 def _render_run_trace(record: RunRecord) -> None:
     table = Table(title=f"Agent Trace / {record.run_id}")
     table.add_column("Role")
@@ -450,6 +480,13 @@ def _render_run_replay(replay: RunReplay) -> None:
         f"{replay.snapshot.mtf_alignment} @ {replay.snapshot.higher_timeframe} ({replay.snapshot.mtf_confidence:.2f})",
     )
     console.print(summary)
+    console.print(
+        Panel(
+            "\n".join(f"- {note}" for note in replay.manager_override_notes),
+            title="Manager Override Notes",
+            border_style="yellow",
+        )
+    )
 
     stage_table = Table(title="Replay Stages")
     stage_table.add_column("Role")
@@ -966,6 +1003,7 @@ def _run_replay_payload(settings, *, run_id: str | None = None) -> dict[str, obj
         final_side=record.artifacts.execution.side,
         final_rationale=record.artifacts.execution.rationale,
         snapshot=record.artifacts.snapshot,
+        manager_override_notes=_manager_override_notes(record.artifacts),
         stages=stages,
     )
     return {

@@ -443,6 +443,7 @@ function ReviewPage({ data }) {
             `Final Side: ${replayState.final_side}`,
             `Approved: ${replayState.approved}`,
             `MTF: ${replayState.snapshot.mtf_alignment} @ ${replayState.snapshot.higher_timeframe}`,
+            `Manager: ${(replayState.manager_override_notes || []).join(' / ')}`,
             `Final Rationale: ${replayState.final_rationale}`,
             ...replayState.stages.slice(0, 5).map(
               (stage) =>
