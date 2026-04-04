@@ -105,5 +105,5 @@ def test_run_from_snapshot_propagates_shared_memory_bus(
 
     assert len(strategy_context["shared_memory_bus"]) == 2
     assert strategy_context["shared_memory_bus"][0]["role"] == "coordinator"
-    assert len(manager_context["shared_memory_bus"]) == 4
-    assert manager_context["shared_memory_bus"][-1]["role"] == "risk"
+    assert len(manager_context["shared_memory_bus"]) == 5
+    assert manager_context["shared_memory_bus"][-1]["role"] == "consensus"

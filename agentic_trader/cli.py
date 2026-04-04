@@ -342,6 +342,11 @@ def _render_run_review(record: RunRecord) -> None:
         record.artifacts.risk.notes,
     )
     analysis.add_row(
+        "Consensus",
+        record.artifacts.consensus.alignment_level,
+        record.artifacts.consensus.summary or "-",
+    )
+    analysis.add_row(
         "Manager",
         record.artifacts.manager.action_bias,
         record.artifacts.manager.rationale,
@@ -400,6 +405,13 @@ def _render_run_markdown(record: RunRecord) -> str:
         f"- Stop Loss: {artifacts.risk.stop_loss:.4f}",
         f"- Take Profit: {artifacts.risk.take_profit:.4f}",
         f"- Notes: {artifacts.risk.notes}",
+        "",
+        "## Consensus",
+        f"- Alignment: {artifacts.consensus.alignment_level}",
+        f"- Summary: {artifacts.consensus.summary or '-'}",
+        f"- Supporting Roles: {', '.join(artifacts.consensus.supporting_roles) or '-'}",
+        f"- Dissenting Roles: {', '.join(artifacts.consensus.dissenting_roles) or '-'}",
+        f"- Reasons: {', '.join(artifacts.consensus.reasons) or '-'}",
         "",
         "## Manager",
         f"- Action Bias: {artifacts.manager.action_bias}",
@@ -524,6 +536,7 @@ def _render_run_replay(replay: RunReplay) -> None:
     summary.add_row("Approved", str(replay.approved))
     summary.add_row("Final Side", replay.final_side)
     summary.add_row("Final Rationale", replay.final_rationale)
+    summary.add_row("Consensus", replay.consensus.alignment_level)
     summary.add_row(
         "Multi-Timeframe",
         f"{replay.snapshot.mtf_alignment} @ {replay.snapshot.higher_timeframe} ({replay.snapshot.mtf_confidence:.2f})",
@@ -1075,6 +1088,7 @@ def _run_replay_payload(settings, *, run_id: str | None = None) -> dict[str, obj
         final_side=record.artifacts.execution.side,
         final_rationale=record.artifacts.execution.rationale,
         snapshot=record.artifacts.snapshot,
+        consensus=record.artifacts.consensus,
         manager_override_notes=_manager_override_notes(record.artifacts),
         manager_conflicts=record.artifacts.manager.conflicts,
         manager_resolution_notes=_manager_resolution_notes(record.artifacts),

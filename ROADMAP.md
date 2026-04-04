@@ -168,7 +168,8 @@ Status: in progress.
 - lightweight similarity-based retrieval is now present
 - historical confidence calibration is now present as a downside-aware signal in agent context and manager overrides
 - a first shared memory bus now propagates normalized stage summaries across the agent graph and into persisted traces
-- explicit consensus resolution and richer vector retrieval are still open
+- a first specialist consensus layer now scores pre-manager alignment and persists the result into reviews and replays
+- richer vector retrieval is still open
 
 ## Phase 10: Agent Governance And Conversation Layer
 

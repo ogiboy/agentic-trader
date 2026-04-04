@@ -276,6 +276,14 @@ class ManagerConflict(BaseModel):
     manager_resolution: str
 
 
+class SpecialistConsensus(BaseModel):
+    alignment_level: Literal["aligned", "mixed", "conflicted"] = "mixed"
+    summary: str = ""
+    supporting_roles: list[str] = Field(default_factory=list)
+    dissenting_roles: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+
+
 class ReviewNote(BaseModel):
     summary: str
     strengths: list[str] = Field(default_factory=list)
@@ -444,6 +452,7 @@ class RunArtifacts(BaseModel):
     regime: RegimeAssessment
     strategy: StrategyPlan
     risk: RiskPlan
+    consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
     manager: ManagerDecision
     execution: ExecutionDecision
     review: ReviewNote
@@ -514,6 +523,7 @@ class RunReplay(BaseModel):
     final_side: str
     final_rationale: str
     snapshot: MarketSnapshot
+    consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
     manager_override_notes: list[str] = Field(default_factory=list)
     manager_conflicts: list[ManagerConflict] = Field(default_factory=list)
     manager_resolution_notes: list[str] = Field(default_factory=list)

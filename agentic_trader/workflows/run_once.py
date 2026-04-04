@@ -3,6 +3,7 @@ from agentic_trader.agents.context import build_agent_context
 from uuid import uuid4
 
 from agentic_trader.agents.coordinator import coordinate_research
+from agentic_trader.agents.consensus import assess_specialist_consensus
 from agentic_trader.agents.manager import manage_trade_decision
 from agentic_trader.agents.planner import plan_trade
 from agentic_trader.agents.regime import assess_regime
@@ -222,6 +223,19 @@ def run_from_snapshot(
             payload_json=risk.model_dump_json(indent=2),
         )
     )
+    consensus = assess_specialist_consensus(coordinator, regime, strategy, risk)
+    emit(
+        "consensus",
+        "completed",
+        f"Specialist consensus assessed as {consensus.alignment_level}.",
+    )
+    shared_memory_bus.append(
+        SharedMemoryEntry(
+            role="consensus",
+            summary=consensus.summary,
+            payload_json=consensus.model_dump_json(indent=2),
+        )
+    )
     emit(
         "manager",
         "started",
@@ -234,6 +248,9 @@ def run_from_snapshot(
         snapshot=snapshot,
         memory_enabled=memory_enabled,
         shared_memory_bus=shared_memory_bus,
+        tool_outputs=[
+            f"specialist_consensus: level={consensus.alignment_level} support={','.join(consensus.supporting_roles) or '-'} dissent={','.join(consensus.dissenting_roles) or '-'} summary={consensus.summary}"
+        ],
         upstream_context={
             "coordinator": coordinator,
             "regime": regime,
@@ -331,6 +348,7 @@ def run_from_snapshot(
         regime=regime,
         strategy=strategy,
         risk=risk,
+        consensus=consensus,
         manager=manager,
         execution=execution,
         review=review,

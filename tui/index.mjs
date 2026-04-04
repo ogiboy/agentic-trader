@@ -151,6 +151,7 @@ function OverviewPage({ data }) {
             `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
             `Status: ${runtime.status_message}`,
             `Current Note: ${runtime.state?.message ?? '-'}`,
+            `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
             `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
             `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
             '',
@@ -415,6 +416,7 @@ function ReviewPage({ data }) {
             `Regime: ${reviewRecord.artifacts.regime.regime}`,
             `Strategy: ${reviewRecord.artifacts.strategy.strategy_family}`,
             `Manager Bias: ${reviewRecord.artifacts.manager.action_bias}`,
+            `Consensus: ${reviewRecord.artifacts.consensus.alignment_level}`,
             `Review Summary: ${reviewRecord.artifacts.review.summary}`,
           ]
         : ['No persisted runs are available yet.'];
@@ -442,6 +444,7 @@ function ReviewPage({ data }) {
         ? [
             `Final Side: ${replayState.final_side}`,
             `Approved: ${replayState.approved}`,
+            `Consensus: ${replayState.consensus.alignment_level}`,
             `MTF: ${replayState.snapshot.mtf_alignment} @ ${replayState.snapshot.higher_timeframe}`,
             `Manager: ${(replayState.manager_override_notes || []).join(' / ')}`,
             `Conflict Count: ${(replayState.manager_conflicts || []).length}`,
