@@ -1,6 +1,11 @@
 from agentic_trader.config import Settings
 from agentic_trader.engine.guard import evaluate_execution
-from agentic_trader.schemas import ManagerDecision, MarketSnapshot, RiskPlan, StrategyPlan
+from agentic_trader.schemas import (
+    ManagerDecision,
+    MarketSnapshot,
+    RiskPlan,
+    StrategyPlan,
+)
 
 
 def _snapshot() -> MarketSnapshot:

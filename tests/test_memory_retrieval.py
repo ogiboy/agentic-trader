@@ -17,7 +17,9 @@ from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run
 
 
-def _artifacts(symbol: str, *, close: float, return_5: float, regime: str) -> RunArtifacts:
+def _artifacts(
+    symbol: str, *, close: float, return_5: float, regime: str
+) -> RunArtifacts:
     return RunArtifacts(
         snapshot=MarketSnapshot(
             symbol=symbol,
@@ -95,8 +97,14 @@ def test_retrieve_similar_memories_prefers_closest_snapshot(tmp_path: Path) -> N
     )
     settings.ensure_directories()
 
-    persist_run(settings=settings, artifacts=_artifacts("AAPL", close=100.0, return_5=0.03, regime="trend_up"))
-    persist_run(settings=settings, artifacts=_artifacts("MSFT", close=150.0, return_5=-0.08, regime="trend_down"))
+    persist_run(
+        settings=settings,
+        artifacts=_artifacts("AAPL", close=100.0, return_5=0.03, regime="trend_up"),
+    )
+    persist_run(
+        settings=settings,
+        artifacts=_artifacts("MSFT", close=150.0, return_5=-0.08, regime="trend_down"),
+    )
     db = TradingDatabase(settings)
 
     matches = retrieve_similar_memories(

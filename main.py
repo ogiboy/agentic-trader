@@ -12,4 +12,6 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        console.print(Panel("Control room closed cleanly.", title="Exit", border_style="blue"))
+        console.print(
+            Panel("Control room closed cleanly.", title="Exit", border_style="blue")
+        )

@@ -90,7 +90,9 @@ def _artifacts(symbol: str) -> RunArtifacts:
     )
 
 
-def test_run_service_records_runtime_state_and_events(monkeypatch, tmp_path: Path) -> None:
+def test_run_service_records_runtime_state_and_events(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -172,7 +174,9 @@ def test_run_service_records_agent_stage_events(monkeypatch, tmp_path: Path) -> 
         progress("manager", "completed", "Manager finished.")
         return _artifacts(kwargs["symbol"])
 
-    monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once_with_progress)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.run_once", _run_once_with_progress
+    )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
         lambda **kwargs: "paper-test-order",
@@ -221,7 +225,9 @@ def test_run_service_respects_stop_request(monkeypatch, tmp_path: Path) -> None:
         db.request_stop_service()
         return _artifacts(kwargs["symbol"])
 
-    monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once_with_stop)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.run_once", _run_once_with_stop
+    )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
         lambda **kwargs: "paper-test-order",
@@ -257,7 +263,9 @@ def test_start_background_service_records_spawn(monkeypatch, tmp_path: Path) -> 
     def _fake_popen(*args, **kwargs):
         return _FakeProcess()
 
-    monkeypatch.setattr("agentic_trader.workflows.service.subprocess.Popen", _fake_popen)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.subprocess.Popen", _fake_popen
+    )
 
     pid = start_background_service(
         settings=settings,
@@ -278,7 +286,9 @@ def test_start_background_service_records_spawn(monkeypatch, tmp_path: Path) -> 
     assert state.state == "starting"
 
 
-def test_start_background_service_recovers_stale_pid(monkeypatch, tmp_path: Path) -> None:
+def test_start_background_service_recovers_stale_pid(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -298,8 +308,13 @@ def test_start_background_service_recovers_stale_pid(monkeypatch, tmp_path: Path
     class _FakeProcess:
         pid = 4343
 
-    monkeypatch.setattr("agentic_trader.workflows.service.is_process_alive", lambda pid: False)
-    monkeypatch.setattr("agentic_trader.workflows.service.subprocess.Popen", lambda *args, **kwargs: _FakeProcess())
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.is_process_alive", lambda pid: False
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.subprocess.Popen",
+        lambda *args, **kwargs: _FakeProcess(),
+    )
 
     pid = start_background_service(
         settings=settings,

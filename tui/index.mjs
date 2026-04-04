@@ -1,8 +1,8 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {Box, Text, useApp, useInput} from 'ink';
-import {execFile} from 'node:child_process';
-import {fileURLToPath} from 'node:url';
-import {promisify} from 'node:util';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Box, Text, useApp, useInput } from 'ink';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const e = React.createElement;
@@ -11,9 +11,15 @@ const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 const once = process.argv.includes('--once');
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 const pages = ['overview', 'runtime', 'portfolio', 'review', 'memory', 'chat'];
-const personas = ['operator_liaison', 'regime_analyst', 'strategy_selector', 'risk_steward', 'portfolio_manager'];
+const personas = [
+  'operator_liaison',
+  'regime_analyst',
+  'strategy_selector',
+  'risk_steward',
+  'portfolio_manager',
+];
 
-async function execCli(args, {expectJson = false} = {}) {
+async function execCli(args, { expectJson = false } = {}) {
   const attempts = [];
   if (cliExecutable) {
     attempts.push([cliExecutable, args]);
@@ -25,12 +31,12 @@ async function execCli(args, {expectJson = false} = {}) {
   let lastError;
   for (const [command, commandArgs] of attempts) {
     try {
-      const {stdout, stderr} = await execFileAsync(command, commandArgs, {
+      const { stdout, stderr } = await execFileAsync(command, commandArgs, {
         cwd: projectRoot,
         env: process.env,
         maxBuffer: 1024 * 1024 * 8,
       });
-      return expectJson ? JSON.parse(stdout) : {stdout, stderr};
+      return expectJson ? JSON.parse(stdout) : { stdout, stderr };
     } catch (error) {
       lastError = error;
       if (error && typeof error === 'object' && error.code !== 'ENOENT') {
@@ -43,11 +49,11 @@ async function execCli(args, {expectJson = false} = {}) {
 }
 
 async function runJsonCommand(args) {
-  return execCli(args, {expectJson: true});
+  return execCli(args, { expectJson: true });
 }
 
 async function runTextCommand(args) {
-  return execCli(args, {expectJson: false});
+  return execCli(args, { expectJson: false });
 }
 
 function defaultSymbolsFromPreferences(preferences) {
@@ -56,14 +62,22 @@ function defaultSymbolsFromPreferences(preferences) {
   if (exchanges.includes('BIST') || regions.includes('TR')) {
     return 'THYAO.IS,GARAN.IS';
   }
-  if (exchanges.includes('NASDAQ') || exchanges.includes('NYSE') || regions.includes('US')) {
+  if (
+    exchanges.includes('NASDAQ') ||
+    exchanges.includes('NYSE') ||
+    regions.includes('US')
+  ) {
     return 'AAPL,MSFT';
   }
   return 'BTC-USD,ETH-USD';
 }
 
 async function loadDashboard() {
-  const payload = await runJsonCommand(['dashboard-snapshot', '--log-limit', '14']);
+  const payload = await runJsonCommand([
+    'dashboard-snapshot',
+    '--log-limit',
+    '14',
+  ]);
   return {
     ...payload,
     loadedAt: new Date().toISOString(),
@@ -81,21 +95,24 @@ function panel(title, lines, borderColor = 'cyan') {
       paddingY: 0,
       width: '100%',
     },
-    e(Text, {color: borderColor, bold: true}, title),
+    e(Text, { color: borderColor, bold: true }, title),
     ...lines.map((line, index) =>
-      e(Text, {key: `${title}-${index}`, wrap: 'truncate-end'}, String(line)),
+      e(Text, { key: `${title}-${index}`, wrap: 'truncate-end' }, String(line)),
     ),
   );
 }
 
 function renderLinesFallback(title, available, error, fallback) {
   if (available === false) {
-    return [fallback, error || 'The runtime writer currently owns the database.'];
+    return [
+      fallback,
+      error || 'The runtime writer currently owns the database.',
+    ];
   }
   return null;
 }
 
-function OverviewPage({data}) {
+function OverviewPage({ data }) {
   const doctor = data.doctor;
   const runtime = data.status;
   const preferences = data.preferences;
@@ -103,21 +120,28 @@ function OverviewPage({data}) {
   const marketCache = data.marketCache;
   const latestSnapshot = data.review.record?.artifacts?.snapshot;
   const events = data.logs;
-  const agentEvents = events.filter((event) => event.event_type.startsWith('agent_'));
+  const agentEvents = events.filter((event) =>
+    event.event_type.startsWith('agent_'),
+  );
   const latestAgentEvent = agentEvents[0];
   const latestOutcomeEvent = events.find((event) =>
-    ['symbol_completed', 'position_closed', 'service_completed', 'service_failed'].includes(event.event_type),
+    [
+      'symbol_completed',
+      'position_closed',
+      'service_completed',
+      'service_failed',
+    ].includes(event.event_type),
   );
 
   return e(
     Box,
-    {flexDirection: 'column', width: '100%'},
+    { flexDirection: 'column', width: '100%' },
     e(
       Box,
-      {width: '100%'},
+      { width: '100%' },
       e(
         Box,
-        {width: '50%', paddingRight: 1},
+        { width: '50%', paddingRight: 1 },
         panel(
           'CURRENT CYCLE',
           [
@@ -135,12 +159,16 @@ function OverviewPage({data}) {
             '',
             `Last Outcome: ${latestOutcomeEvent?.message ?? 'Waiting for a completed symbol or service result.'}`,
           ],
-          runtime.runtime_state === 'active' ? 'green' : runtime.runtime_state === 'stale' ? 'yellow' : 'cyan',
+          runtime.runtime_state === 'active'
+            ? 'green'
+            : runtime.runtime_state === 'stale'
+              ? 'yellow'
+              : 'cyan',
         ),
       ),
       e(
         Box,
-        {width: '50%', paddingLeft: 1},
+        { width: '50%', paddingLeft: 1 },
         panel(
           'SYSTEM',
           [
@@ -160,14 +188,19 @@ function OverviewPage({data}) {
     ),
     e(
       Box,
-      {width: '100%', marginTop: 1},
+      { width: '100%', marginTop: 1 },
       e(
         Box,
-        {width: '100%'},
+        { width: '100%' },
         panel(
           'AGENT ACTIVITY',
           agentEvents.length
-            ? agentEvents.slice(0, 8).map((event) => `${event.created_at} | ${event.event_type} | ${event.message}`)
+            ? agentEvents
+                .slice(0, 8)
+                .map(
+                  (event) =>
+                    `${event.created_at} | ${event.event_type} | ${event.message}`,
+                )
             : ['No live agent stage events yet.'],
           'magenta',
         ),
@@ -176,24 +209,26 @@ function OverviewPage({data}) {
   );
 }
 
-function RuntimePage({data}) {
+function RuntimePage({ data }) {
   const runtime = data.status;
   const events = data.logs;
   const reviewRecord = data.review.record;
   const calendar = data.calendar;
   const marketCache = data.marketCache;
   const latestSnapshot = reviewRecord?.artifacts?.snapshot;
-  const recentSummary = reviewRecord?.artifacts?.review?.summary || 'No persisted review summary yet.';
+  const recentSummary =
+    reviewRecord?.artifacts?.review?.summary ||
+    'No persisted review summary yet.';
 
   return e(
     Box,
-    {flexDirection: 'column', width: '100%'},
+    { flexDirection: 'column', width: '100%' },
     e(
       Box,
-      {width: '100%'},
+      { width: '100%' },
       e(
         Box,
-        {width: '50%', paddingRight: 1},
+        { width: '50%', paddingRight: 1 },
         panel(
           'RUNTIME STATE',
           [
@@ -218,7 +253,7 @@ function RuntimePage({data}) {
       ),
       e(
         Box,
-        {width: '50%', paddingLeft: 1},
+        { width: '50%', paddingLeft: 1 },
         panel(
           'LAST REVIEW',
           [
@@ -235,14 +270,17 @@ function RuntimePage({data}) {
     ),
     e(
       Box,
-      {width: '100%', marginTop: 1},
+      { width: '100%', marginTop: 1 },
       e(
         Box,
-        {width: '100%'},
+        { width: '100%' },
         panel(
           'RUNTIME EVENTS',
           events.length
-            ? events.map((event) => `${event.created_at} | ${event.level} | ${event.event_type} | ${event.symbol ?? '-'} | ${event.message}`)
+            ? events.map(
+                (event) =>
+                  `${event.created_at} | ${event.level} | ${event.event_type} | ${event.symbol ?? '-'} | ${event.message}`,
+              )
             : ['No runtime events recorded yet.'],
           'yellow',
         ),
@@ -251,7 +289,7 @@ function RuntimePage({data}) {
   );
 }
 
-function PortfolioPage({data}) {
+function PortfolioPage({ data }) {
   const portfolio = data.portfolio;
   const riskReport = data.riskReport;
   const journal = data.journal;
@@ -259,20 +297,26 @@ function PortfolioPage({data}) {
   const snapshot = portfolio.snapshot;
   const positions = portfolio.positions;
 
-  const portfolioLines =
-    renderLinesFallback('PORTFOLIO', portfolio.available, portfolio.error, 'Portfolio view is temporarily unavailable.') ||
-    [
-      `Cash: ${snapshot.cash.toFixed(2)}`,
-      `Market Value: ${snapshot.market_value.toFixed(2)}`,
-      `Equity: ${snapshot.equity.toFixed(2)}`,
-      `Realized PnL: ${snapshot.realized_pnl.toFixed(2)}`,
-      `Unrealized PnL: ${snapshot.unrealized_pnl.toFixed(2)}`,
-      `Open Positions: ${positions.length}`,
-    ];
+  const portfolioLines = renderLinesFallback(
+    'PORTFOLIO',
+    portfolio.available,
+    portfolio.error,
+    'Portfolio view is temporarily unavailable.',
+  ) || [
+    `Cash: ${snapshot.cash.toFixed(2)}`,
+    `Market Value: ${snapshot.market_value.toFixed(2)}`,
+    `Equity: ${snapshot.equity.toFixed(2)}`,
+    `Realized PnL: ${snapshot.realized_pnl.toFixed(2)}`,
+    `Unrealized PnL: ${snapshot.unrealized_pnl.toFixed(2)}`,
+    `Open Positions: ${positions.length}`,
+  ];
 
   const riskLines =
     riskReport.available === false || !riskReport.report
-      ? ['Risk report is temporarily unavailable.', riskReport.error || 'The runtime writer currently owns the database.']
+      ? [
+          'Risk report is temporarily unavailable.',
+          riskReport.error || 'The runtime writer currently owns the database.',
+        ]
       : [
           `Equity: ${riskReport.report.equity.toFixed(2)}`,
           `Gross Exposure: ${(riskReport.report.gross_exposure_pct * 100).toFixed(2)}%`,
@@ -283,42 +327,67 @@ function PortfolioPage({data}) {
 
   const journalLines =
     journal.available === false
-      ? ['Trade journal is temporarily unavailable.', journal.error || 'The runtime writer currently owns the database.']
+      ? [
+          'Trade journal is temporarily unavailable.',
+          journal.error || 'The runtime writer currently owns the database.',
+        ]
       : journal.entries.length
-        ? journal.entries.map((entry) => `${entry.opened_at} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`)
+        ? journal.entries.map(
+            (entry) =>
+              `${entry.opened_at} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`,
+          )
         : ['No trade journal entries yet.'];
 
-  const preferenceLines =
-    renderLinesFallback('PREFERENCES', preferences.available, preferences.error, 'Preferences are temporarily unavailable.') ||
-    [
-      `Regions: ${(preferences.regions || []).join(', ') || '-'}`,
-      `Exchanges: ${(preferences.exchanges || []).join(', ') || '-'}`,
-      `Currencies: ${(preferences.currencies || []).join(', ') || '-'}`,
-      `Risk: ${preferences.risk_profile}`,
-      `Style: ${preferences.trade_style}`,
-      `Behavior: ${preferences.behavior_preset}`,
-      `Agent Profile: ${preferences.agent_profile}`,
-    ];
+  const preferenceLines = renderLinesFallback(
+    'PREFERENCES',
+    preferences.available,
+    preferences.error,
+    'Preferences are temporarily unavailable.',
+  ) || [
+    `Regions: ${(preferences.regions || []).join(', ') || '-'}`,
+    `Exchanges: ${(preferences.exchanges || []).join(', ') || '-'}`,
+    `Currencies: ${(preferences.currencies || []).join(', ') || '-'}`,
+    `Risk: ${preferences.risk_profile}`,
+    `Style: ${preferences.trade_style}`,
+    `Behavior: ${preferences.behavior_preset}`,
+    `Agent Profile: ${preferences.agent_profile}`,
+  ];
 
   return e(
     Box,
-    {flexDirection: 'column', width: '100%'},
+    { flexDirection: 'column', width: '100%' },
     e(
       Box,
-      {width: '100%'},
-      e(Box, {width: '50%', paddingRight: 1}, panel('PORTFOLIO', portfolioLines, 'yellow')),
-      e(Box, {width: '50%', paddingLeft: 1}, panel('RISK REPORT', riskLines, 'red')),
+      { width: '100%' },
+      e(
+        Box,
+        { width: '50%', paddingRight: 1 },
+        panel('PORTFOLIO', portfolioLines, 'yellow'),
+      ),
+      e(
+        Box,
+        { width: '50%', paddingLeft: 1 },
+        panel('RISK REPORT', riskLines, 'red'),
+      ),
     ),
     e(
       Box,
-      {width: '100%', marginTop: 1},
-      e(Box, {width: '50%', paddingRight: 1}, panel('TRADE JOURNAL', journalLines.slice(0, 8), 'cyan')),
-      e(Box, {width: '50%', paddingLeft: 1}, panel('PREFERENCES', preferenceLines, 'blue')),
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '50%', paddingRight: 1 },
+        panel('TRADE JOURNAL', journalLines.slice(0, 8), 'cyan'),
+      ),
+      e(
+        Box,
+        { width: '50%', paddingLeft: 1 },
+        panel('PREFERENCES', preferenceLines, 'blue'),
+      ),
     ),
   );
 }
 
-function ReviewPage({data}) {
+function ReviewPage({ data }) {
   const review = data.review;
   const trace = data.trace;
   const reviewRecord = review.record;
@@ -326,7 +395,10 @@ function ReviewPage({data}) {
 
   const reviewLines =
     review.available === false
-      ? ['Run review is temporarily unavailable.', review.error || 'The runtime writer currently owns the database.']
+      ? [
+          'Run review is temporarily unavailable.',
+          review.error || 'The runtime writer currently owns the database.',
+        ]
       : reviewRecord
         ? [
             `Run ID: ${reviewRecord.run_id}`,
@@ -343,7 +415,10 @@ function ReviewPage({data}) {
 
   const traceLines =
     trace.available === false
-      ? ['Run trace is temporarily unavailable.', trace.error || 'The runtime writer currently owns the database.']
+      ? [
+          'Run trace is temporarily unavailable.',
+          trace.error || 'The runtime writer currently owns the database.',
+        ]
       : traceRecord?.artifacts?.agent_traces?.length
         ? traceRecord.artifacts.agent_traces.map(
             (stageTrace) =>
@@ -353,23 +428,34 @@ function ReviewPage({data}) {
 
   return e(
     Box,
-    {flexDirection: 'column', width: '100%'},
+    { flexDirection: 'column', width: '100%' },
     e(
       Box,
-      {width: '100%'},
-      e(Box, {width: '50%', paddingRight: 1}, panel('LATEST RUN REVIEW', reviewLines, 'green')),
-      e(Box, {width: '50%', paddingLeft: 1}, panel('AGENT TRACE', traceLines.slice(0, 8), 'magenta')),
+      { width: '100%' },
+      e(
+        Box,
+        { width: '50%', paddingRight: 1 },
+        panel('LATEST RUN REVIEW', reviewLines, 'green'),
+      ),
+      e(
+        Box,
+        { width: '50%', paddingLeft: 1 },
+        panel('AGENT TRACE', traceLines.slice(0, 8), 'magenta'),
+      ),
     ),
   );
 }
 
-function MemoryPage({data}) {
+function MemoryPage({ data }) {
   const explorer = data.memoryExplorer;
   const inspection = data.retrievalInspection;
 
   const matchLines =
     explorer.available === false
-      ? ['Memory explorer is temporarily unavailable.', explorer.error || 'No latest run snapshot is available.']
+      ? [
+          'Memory explorer is temporarily unavailable.',
+          explorer.error || 'No latest run snapshot is available.',
+        ]
       : explorer.matches.length
         ? explorer.matches.map(
             (match) =>
@@ -379,40 +465,54 @@ function MemoryPage({data}) {
 
   const retrievalLines =
     inspection.available === false
-      ? ['Retrieval inspection is temporarily unavailable.', inspection.error || 'No latest run trace is available.']
+      ? [
+          'Retrieval inspection is temporarily unavailable.',
+          inspection.error || 'No latest run trace is available.',
+        ]
       : inspection.stages.length
         ? inspection.stages.flatMap((stage) => {
             const retrieved = stage.retrieved_memories?.length ?? 0;
             const notes = stage.memory_notes?.length ?? 0;
             const recentRuns = stage.recent_runs?.length ?? 0;
             const headline = `${stage.role} | retrieved=${retrieved} | trade-memory=${notes} | recent-runs=${recentRuns}`;
-            const sample = stage.retrieved_memories?.[0] || stage.memory_notes?.[0] || 'No retrieval context attached.';
+            const sample =
+              stage.retrieved_memories?.[0] ||
+              stage.memory_notes?.[0] ||
+              'No retrieval context attached.';
             return [headline, `  ${sample}`, ''];
           })
         : ['No retrieval inspection data available yet.'];
 
   return e(
     Box,
-    {flexDirection: 'column', width: '100%'},
+    { flexDirection: 'column', width: '100%' },
     e(
       Box,
-      {width: '100%'},
-      e(Box, {width: '50%', paddingRight: 1}, panel('SIMILAR MEMORIES', matchLines.slice(0, 10), 'cyan')),
-      e(Box, {width: '50%', paddingLeft: 1}, panel('RETRIEVAL INSPECTION', retrievalLines.slice(0, 12), 'yellow')),
+      { width: '100%' },
+      e(
+        Box,
+        { width: '50%', paddingRight: 1 },
+        panel('SIMILAR MEMORIES', matchLines.slice(0, 10), 'cyan'),
+      ),
+      e(
+        Box,
+        { width: '50%', paddingLeft: 1 },
+        panel('RETRIEVAL INSPECTION', retrievalLines.slice(0, 12), 'yellow'),
+      ),
     ),
   );
 }
 
-function ChatPage({persona, history, draft, chatBusy}) {
+function ChatPage({ persona, history, draft, chatBusy }) {
   return e(
     Box,
-    {flexDirection: 'column', width: '100%'},
+    { flexDirection: 'column', width: '100%' },
     e(
       Box,
-      {width: '100%'},
+      { width: '100%' },
       e(
         Box,
-        {width: '100%'},
+        { width: '100%' },
         panel(
           'OPERATOR CHAT',
           [
@@ -421,7 +521,13 @@ function ChatPage({persona, history, draft, chatBusy}) {
             chatBusy ? 'Sending message to the operator surface...' : 'Ready.',
             '',
             ...(history.length
-              ? history.slice(-8).flatMap((entry) => [`you: ${entry.user}`, `${entry.persona}: ${entry.response}`, ''])
+              ? history
+                  .slice(-8)
+                  .flatMap((entry) => [
+                    `you: ${entry.user}`,
+                    `${entry.persona}: ${entry.response}`,
+                    '',
+                  ])
               : ['No chat messages yet.']),
           ],
           'green',
@@ -430,33 +536,48 @@ function ChatPage({persona, history, draft, chatBusy}) {
     ),
     e(
       Box,
-      {width: '100%', marginTop: 1},
-      e(
-        Box,
-        {width: '100%'},
-        panel('COMPOSER', [draft || ''], 'yellow'),
-      ),
+      { width: '100%', marginTop: 1 },
+      e(Box, { width: '100%' }, panel('COMPOSER', [draft || ''], 'yellow')),
     ),
   );
 }
 
-function DashboardView({data, error, loadingText, page, actionMessage, busy, chatPersona, chatHistory, chatDraft, chatBusy}) {
+function DashboardView({
+  data,
+  error,
+  loadingText,
+  page,
+  actionMessage,
+  busy,
+  chatPersona,
+  chatHistory,
+  chatDraft,
+  chatBusy,
+}) {
   if (error) {
     return e(
       Box,
-      {flexDirection: 'column'},
-      e(Text, {color: 'red', bold: true}, 'AGENTIC TRADER // INK CONTROL ROOM'),
-      e(Text, {color: 'red'}, `Error: ${error}`),
-      e(Text, {color: 'gray'}, `CLI executable: ${cliExecutable}`),
+      { flexDirection: 'column' },
+      e(
+        Text,
+        { color: 'red', bold: true },
+        'AGENTIC TRADER // INK CONTROL ROOM',
+      ),
+      e(Text, { color: 'red' }, `Error: ${error}`),
+      e(Text, { color: 'gray' }, `CLI executable: ${cliExecutable}`),
     );
   }
 
   if (!data) {
     return e(
       Box,
-      {flexDirection: 'column'},
-      e(Text, {color: 'green', bold: true}, 'AGENTIC TRADER // INK CONTROL ROOM'),
-      e(Text, {color: 'gray'}, loadingText),
+      { flexDirection: 'column' },
+      e(
+        Text,
+        { color: 'green', bold: true },
+        'AGENTIC TRADER // INK CONTROL ROOM',
+      ),
+      e(Text, { color: 'gray' }, loadingText),
     );
   }
 
@@ -466,7 +587,7 @@ function DashboardView({data, error, loadingText, page, actionMessage, busy, cha
       ? 'Overview'
       : page === 'runtime'
         ? 'Runtime'
-      : page === 'portfolio'
+        : page === 'portfolio'
           ? 'Portfolio'
           : page === 'review'
             ? 'Review'
@@ -476,34 +597,49 @@ function DashboardView({data, error, loadingText, page, actionMessage, busy, cha
 
   const view =
     page === 'overview'
-      ? e(OverviewPage, {data})
+      ? e(OverviewPage, { data })
       : page === 'runtime'
-        ? e(RuntimePage, {data})
+        ? e(RuntimePage, { data })
         : page === 'portfolio'
-          ? e(PortfolioPage, {data})
+          ? e(PortfolioPage, { data })
           : page === 'review'
-            ? e(ReviewPage, {data})
+            ? e(ReviewPage, { data })
             : page === 'memory'
-              ? e(MemoryPage, {data})
-              : e(ChatPage, {persona: chatPersona, history: chatHistory, draft: chatDraft, chatBusy});
+              ? e(MemoryPage, { data })
+              : e(ChatPage, {
+                  persona: chatPersona,
+                  history: chatHistory,
+                  draft: chatDraft,
+                  chatBusy,
+                });
 
   return e(
     Box,
-    {flexDirection: 'column', width: '100%'},
-    e(Text, {color: 'green', bold: true}, 'AGENTIC TRADER // INK CONTROL ROOM'),
+    { flexDirection: 'column', width: '100%' },
     e(
       Text,
-      {color: 'gray'},
+      { color: 'green', bold: true },
+      'AGENTIC TRADER // INK CONTROL ROOM',
+    ),
+    e(
+      Text,
+      { color: 'gray' },
       `page ${pageIndex}/6: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 memory  6 chat  |  r refresh  s start  x stop  q quit${busy ? '  |  working...' : ''}`,
     ),
-    actionMessage ? e(Text, {color: actionMessage.kind === 'error' ? 'red' : 'yellow'}, actionMessage.text) : null,
+    actionMessage
+      ? e(
+          Text,
+          { color: actionMessage.kind === 'error' ? 'red' : 'yellow' },
+          actionMessage.text,
+        )
+      : null,
     view,
-    e(Text, {color: 'gray'}, `Last refresh: ${data.loadedAt}`),
+    e(Text, { color: 'gray' }, `Last refresh: ${data.loadedAt}`),
   );
 }
 
-function useDashboardState({interactive}) {
-  const {exit} = useApp();
+function useDashboardState({ interactive }) {
+  const { exit } = useApp();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [refreshCount, setRefreshCount] = useState(0);
@@ -559,7 +695,10 @@ function useDashboardState({interactive}) {
       try {
         if (kind === 'start') {
           if (data.status.live_process) {
-            setActionMessage({kind: 'info', text: `Runtime already active with PID ${data.status.state?.pid ?? '-'}.`});
+            setActionMessage({
+              kind: 'info',
+              text: `Runtime already active with PID ${data.status.state?.pid ?? '-'}.`,
+            });
           } else {
             const symbols = defaultSymbolsFromPreferences(data.preferences);
             await runTextCommand([
@@ -575,21 +714,33 @@ function useDashboardState({interactive}) {
               '--poll-seconds',
               '300',
             ]);
-            setActionMessage({kind: 'info', text: `Background runtime launch requested for ${symbols}.`});
+            setActionMessage({
+              kind: 'info',
+              text: `Background runtime launch requested for ${symbols}.`,
+            });
           }
         } else if (kind === 'stop') {
           if (!data.status.state?.pid) {
-            setActionMessage({kind: 'info', text: 'No managed runtime is currently active.'});
+            setActionMessage({
+              kind: 'info',
+              text: 'No managed runtime is currently active.',
+            });
           } else {
             await runTextCommand(['stop-service']);
-            setActionMessage({kind: 'info', text: `Stop requested for PID ${data.status.state.pid}.`});
+            setActionMessage({
+              kind: 'info',
+              text: `Stop requested for PID ${data.status.state.pid}.`,
+            });
           }
         }
         const next = await loadDashboard();
         setData(next);
         setError(null);
       } catch (err) {
-        setActionMessage({kind: 'error', text: err instanceof Error ? err.message : String(err)});
+        setActionMessage({
+          kind: 'error',
+          text: err instanceof Error ? err.message : String(err),
+        });
       } finally {
         setBusy(false);
       }
@@ -602,7 +753,10 @@ function useDashboardState({interactive}) {
   }, []);
 
   const prevPage = useCallback(() => {
-    setPage((current) => pages[(pages.indexOf(current) - 1 + pages.length) % pages.length]);
+    setPage(
+      (current) =>
+        pages[(pages.indexOf(current) - 1 + pages.length) % pages.length],
+    );
   }, []);
 
   return {
@@ -651,7 +805,7 @@ function InteractiveDashboardApp() {
     setChatDraft,
     chatBusy,
     setChatBusy,
-  } = useDashboardState({interactive: true});
+  } = useDashboardState({ interactive: true });
 
   const sendChat = useCallback(async () => {
     const message = chatDraft.trim();
@@ -660,8 +814,22 @@ function InteractiveDashboardApp() {
     }
     setChatBusy(true);
     try {
-      const payload = await runJsonCommand(['chat', '--json', '--persona', chatPersona, '--message', message]);
-      setChatHistory((current) => [...current, {user: payload.message, persona: payload.persona, response: payload.response}]);
+      const payload = await runJsonCommand([
+        'chat',
+        '--json',
+        '--persona',
+        chatPersona,
+        '--message',
+        message,
+      ]);
+      setChatHistory((current) => [
+        ...current,
+        {
+          user: payload.message,
+          persona: payload.persona,
+          response: payload.response,
+        },
+      ]);
       setChatDraft('');
     } catch (err) {
       setChatHistory((current) => [
@@ -676,7 +844,14 @@ function InteractiveDashboardApp() {
     } finally {
       setChatBusy(false);
     }
-  }, [chatBusy, chatDraft, chatPersona, setChatBusy, setChatDraft, setChatHistory]);
+  }, [
+    chatBusy,
+    chatDraft,
+    chatPersona,
+    setChatBusy,
+    setChatDraft,
+    setChatHistory,
+  ]);
 
   useInput((input, key) => {
     if (key.rightArrow || input === '\t') {
@@ -701,11 +876,20 @@ function InteractiveDashboardApp() {
         return;
       }
       if (input === '[') {
-        setChatPersona((current) => personas[(personas.indexOf(current) - 1 + personas.length) % personas.length]);
+        setChatPersona(
+          (current) =>
+            personas[
+              (personas.indexOf(current) - 1 + personas.length) %
+                personas.length
+            ],
+        );
         return;
       }
       if (input === ']') {
-        setChatPersona((current) => personas[(personas.indexOf(current) + 1) % personas.length]);
+        setChatPersona(
+          (current) =>
+            personas[(personas.indexOf(current) + 1) % personas.length],
+        );
         return;
       }
       if (!key.ctrl && !key.meta && input) {
@@ -749,10 +933,32 @@ function InteractiveDashboardApp() {
 }
 
 function StaticDashboardApp() {
-  const {data, error, loadingText, page, actionMessage, busy, chatPersona, chatHistory, chatDraft, chatBusy} = useDashboardState({interactive: false});
-  return e(DashboardView, {data, error, loadingText, page, actionMessage, busy, chatPersona, chatHistory, chatDraft, chatBusy});
+  const {
+    data,
+    error,
+    loadingText,
+    page,
+    actionMessage,
+    busy,
+    chatPersona,
+    chatHistory,
+    chatDraft,
+    chatBusy,
+  } = useDashboardState({ interactive: false });
+  return e(DashboardView, {
+    data,
+    error,
+    loadingText,
+    page,
+    actionMessage,
+    busy,
+    chatPersona,
+    chatHistory,
+    chatDraft,
+    chatBusy,
+  });
 }
 
-await import('ink').then(({render}) => {
+await import('ink').then(({ render }) => {
   render(once ? e(StaticDashboardApp) : e(InteractiveDashboardApp));
 });

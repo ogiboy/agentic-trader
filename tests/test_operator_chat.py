@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from agentic_trader.agents.operator_chat import build_chat_context, build_persona_system_prompt, chat_with_persona
+from agentic_trader.agents.operator_chat import (
+    build_chat_context,
+    build_persona_system_prompt,
+    chat_with_persona,
+)
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import InvestmentPreferences

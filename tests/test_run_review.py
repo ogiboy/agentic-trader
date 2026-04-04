@@ -90,8 +90,8 @@ def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
             AgentStageTrace(
                 role="coordinator",
                 model_name="qwen3:8b",
-                context_json="{\"role\":\"coordinator\"}",
-                output_json="{\"summary\":\"Coordinator summary\"}",
+                context_json='{"role":"coordinator"}',
+                output_json='{"summary":"Coordinator summary"}',
                 used_fallback=False,
             )
         ],
@@ -115,7 +115,9 @@ def test_review_run_and_export_report_commands(tmp_path: Path) -> None:
     review_result = runner.invoke(app, ["review-run"], env=env)
     trace_result = runner.invoke(app, ["trace-run"], env=env)
     export_path = tmp_path / "run-review.md"
-    export_result = runner.invoke(app, ["export-report", "--output", str(export_path)], env=env)
+    export_result = runner.invoke(
+        app, ["export-report", "--output", str(export_path)], env=env
+    )
 
     assert review_result.exit_code == 0
     assert trace_result.exit_code == 0

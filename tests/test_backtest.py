@@ -35,7 +35,9 @@ def _frame() -> pd.DataFrame:
     )
 
 
-def test_walk_forward_backtest_closes_trade_and_reports_metrics(monkeypatch, tmp_path: Path) -> None:
+def test_walk_forward_backtest_closes_trade_and_reports_metrics(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -136,7 +138,10 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(monkeypatch, tmp
             ),
         )
 
-    monkeypatch.setattr("agentic_trader.backtest.walk_forward.run_from_snapshot", _fake_run_from_snapshot)
+    monkeypatch.setattr(
+        "agentic_trader.backtest.walk_forward.run_from_snapshot",
+        _fake_run_from_snapshot,
+    )
 
     report = run_walk_forward_backtest(
         settings=settings,

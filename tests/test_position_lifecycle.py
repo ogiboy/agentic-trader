@@ -89,7 +89,9 @@ def _artifacts(symbol: str, last_close: float, take_profit: float) -> RunArtifac
     )
 
 
-def test_service_closes_position_when_take_profit_is_hit(monkeypatch, tmp_path: Path) -> None:
+def test_service_closes_position_when_take_profit_is_hit(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

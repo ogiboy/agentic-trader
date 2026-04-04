@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from agentic_trader.agents.operator_chat import apply_preference_update, interpret_operator_instruction
+from agentic_trader.agents.operator_chat import (
+    apply_preference_update,
+    interpret_operator_instruction,
+)
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import OperatorInstruction, PreferenceUpdate
@@ -50,7 +53,9 @@ def test_interpret_operator_instruction_uses_fallback_keywords(tmp_path: Path) -
     assert instruction.preference_update.agent_profile == "explanatory"
 
 
-def test_interpret_operator_instruction_can_use_structured_llm(monkeypatch, tmp_path: Path) -> None:
+def test_interpret_operator_instruction_can_use_structured_llm(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

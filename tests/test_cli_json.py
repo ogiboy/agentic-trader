@@ -68,7 +68,9 @@ def test_doctor_and_logs_json(monkeypatch, tmp_path: Path) -> None:
     )
 
     db = TradingDatabase(settings)
-    db.insert_service_event(level="info", event_type="service_started", message="Started.")
+    db.insert_service_event(
+        level="info", event_type="service_started", message="Started."
+    )
     db.conn.close()
 
     runner = CliRunner()
@@ -85,14 +87,19 @@ def test_doctor_and_logs_json(monkeypatch, tmp_path: Path) -> None:
     assert logs_payload[0]["event_type"] == "service_started"
 
 
-def test_preferences_and_portfolio_json_survive_db_lock(monkeypatch, tmp_path: Path) -> None:
+def test_preferences_and_portfolio_json_survive_db_lock(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
     )
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
-    monkeypatch.setattr("agentic_trader.cli._open_db", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("db locked")))
+    monkeypatch.setattr(
+        "agentic_trader.cli._open_db",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("db locked")),
+    )
 
     runner = CliRunner()
 
@@ -152,7 +159,9 @@ def test_chat_json(monkeypatch, tmp_path: Path) -> None:
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", lambda settings: None)
-    monkeypatch.setattr("agentic_trader.cli.chat_with_persona", lambda **kwargs: "runtime is healthy")
+    monkeypatch.setattr(
+        "agentic_trader.cli.chat_with_persona", lambda **kwargs: "runtime is healthy"
+    )
 
     runner = CliRunner()
     result = runner.invoke(
@@ -195,7 +204,13 @@ def test_dashboard_snapshot_json(monkeypatch, tmp_path: Path) -> None:
         message="Working.",
         pid=1234,
     )
-    db.insert_service_event(level="info", event_type="agent_regime_started", message="Regime started.", cycle_count=4, symbol="AAPL")
+    db.insert_service_event(
+        level="info",
+        event_type="agent_regime_started",
+        message="Regime started.",
+        cycle_count=4,
+        symbol="AAPL",
+    )
     db.close()
 
     runner = CliRunner()
@@ -210,7 +225,9 @@ def test_dashboard_snapshot_json(monkeypatch, tmp_path: Path) -> None:
     assert "retrievalInspection" in payload
 
 
-def test_memory_explorer_and_retrieval_inspection_json(monkeypatch, tmp_path: Path) -> None:
+def test_memory_explorer_and_retrieval_inspection_json(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -237,7 +254,9 @@ def test_memory_explorer_and_retrieval_inspection_json(monkeypatch, tmp_path: Pa
     assert retrieval_payload["stages"] == []
 
 
-def test_calendar_status_and_dashboard_snapshot_include_calendar(monkeypatch, tmp_path: Path) -> None:
+def test_calendar_status_and_dashboard_snapshot_include_calendar(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -258,7 +277,9 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(monkeypatch, tm
 
     runner = CliRunner()
 
-    calendar_result = runner.invoke(app, ["calendar-status", "--json", "--symbol", "THYAO.IS"])
+    calendar_result = runner.invoke(
+        app, ["calendar-status", "--json", "--symbol", "THYAO.IS"]
+    )
     assert calendar_result.exit_code == 0
     calendar_payload = json.loads(calendar_result.stdout)
     assert calendar_payload["available"] is True
@@ -279,7 +300,9 @@ def test_market_cache_json(monkeypatch, tmp_path: Path) -> None:
         market_data_cache_dir=tmp_path / "snapshots",
     )
     settings.ensure_directories()
-    (settings.market_data_cache_dir / "AAPL__1d__180d.csv").write_text("date,open,high,low,close,volume\n", encoding="utf-8")
+    (settings.market_data_cache_dir / "AAPL__1d__180d.csv").write_text(
+        "date,open,high,low,close,volume\n", encoding="utf-8"
+    )
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
 
     runner = CliRunner()

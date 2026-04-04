@@ -27,7 +27,7 @@ def test_complete_structured_retries_after_empty_response(monkeypatch) -> None:
     payloads = iter(
         [
             {"response": ""},
-            {"response": "{\"value\":\"ok\"}"},
+            {"response": '{"value":"ok"}'},
         ]
     )
 
@@ -70,7 +70,9 @@ def test_complete_text_retries_after_error_payload(monkeypatch) -> None:
     assert text == "healthy text"
 
 
-def test_complete_structured_reports_payload_preview_when_exhausted(monkeypatch) -> None:
+def test_complete_structured_reports_payload_preview_when_exhausted(
+    monkeypatch,
+) -> None:
     settings = Settings(max_retries=0)
     llm = LocalLLM(settings)
 
@@ -90,4 +92,6 @@ def test_complete_structured_reports_payload_preview_when_exhausted(monkeypatch)
         assert "empty response body" in str(exc).lower()
         assert "response" in str(exc).lower()
     else:
-        raise AssertionError("Expected RuntimeError for exhausted empty structured response")
+        raise AssertionError(
+            "Expected RuntimeError for exhausted empty structured response"
+        )

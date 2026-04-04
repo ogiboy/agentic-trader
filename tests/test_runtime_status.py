@@ -5,8 +5,12 @@ from agentic_trader.schemas import ServiceStateSnapshot
 from agentic_trader.tui import _runtime_state_table
 
 
-def test_build_runtime_status_view_marks_terminal_failure_as_inactive(monkeypatch) -> None:
-    monkeypatch.setattr("agentic_trader.runtime_status.is_process_alive", lambda pid: False)
+def test_build_runtime_status_view_marks_terminal_failure_as_inactive(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "agentic_trader.runtime_status.is_process_alive", lambda pid: False
+    )
     state = ServiceStateSnapshot(
         service_name="orchestrator",
         state="failed",
@@ -32,7 +36,9 @@ def test_build_runtime_status_view_marks_terminal_failure_as_inactive(monkeypatc
 
 
 def test_runtime_state_table_surfaces_last_recorded_failure(monkeypatch) -> None:
-    monkeypatch.setattr("agentic_trader.runtime_status.is_process_alive", lambda pid: False)
+    monkeypatch.setattr(
+        "agentic_trader.runtime_status.is_process_alive", lambda pid: False
+    )
     state = ServiceStateSnapshot(
         service_name="orchestrator",
         state="failed",
