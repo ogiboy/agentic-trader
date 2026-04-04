@@ -14,7 +14,12 @@ from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
-from agentic_trader.schemas import AgentStageTrace, MarketSnapshot, RunArtifacts
+from agentic_trader.schemas import (
+    AgentStageTrace,
+    MarketSnapshot,
+    RunArtifacts,
+    SharedMemoryEntry,
+)
 from agentic_trader.storage.db import TradingDatabase
 
 type ProgressCallback = Callable[[str, str, str], None]
@@ -72,6 +77,8 @@ def run_from_snapshot(
     memory_enabled: bool = True,
     progress_callback: ProgressCallback | None = None,
 ) -> RunArtifacts:
+    shared_memory_bus: list[SharedMemoryEntry] = []
+
     def emit(stage: str, status: str, message: str) -> None:
         if progress_callback is not None:
             progress_callback(stage, status, message)
@@ -89,6 +96,7 @@ def run_from_snapshot(
         db=db,
         snapshot=snapshot,
         memory_enabled=memory_enabled,
+        shared_memory_bus=shared_memory_bus,
     )
     coordinator = coordinate_research(
         llm,
@@ -101,6 +109,13 @@ def run_from_snapshot(
         "completed",
         f"Coordinator completed with focus {coordinator.market_focus}.",
     )
+    shared_memory_bus.append(
+        SharedMemoryEntry(
+            role="coordinator",
+            summary=f"Focus {coordinator.market_focus} with summary: {coordinator.summary}",
+            payload_json=coordinator.model_dump_json(indent=2),
+        )
+    )
     emit(
         "regime",
         "started",
@@ -112,6 +127,7 @@ def run_from_snapshot(
         db=db,
         snapshot=snapshot,
         memory_enabled=memory_enabled,
+        shared_memory_bus=shared_memory_bus,
         upstream_context={"coordinator": coordinator},
     )
     regime = assess_regime(
@@ -125,6 +141,13 @@ def run_from_snapshot(
         "completed",
         f"Regime analyst classified the market as {regime.regime}.",
     )
+    shared_memory_bus.append(
+        SharedMemoryEntry(
+            role="regime",
+            summary=f"Regime {regime.regime} with bias {regime.direction_bias}",
+            payload_json=regime.model_dump_json(indent=2),
+        )
+    )
     emit(
         "strategy",
         "started",
@@ -136,6 +159,7 @@ def run_from_snapshot(
         db=db,
         snapshot=snapshot,
         memory_enabled=memory_enabled,
+        shared_memory_bus=shared_memory_bus,
         upstream_context={
             "coordinator": coordinator,
             "regime": regime,
@@ -153,6 +177,15 @@ def run_from_snapshot(
         "completed",
         f"Strategy selector chose {strategy.strategy_family} with action {strategy.action}.",
     )
+    shared_memory_bus.append(
+        SharedMemoryEntry(
+            role="strategy",
+            summary=(
+                f"Strategy {strategy.strategy_family} chose {strategy.action} at {strategy.confidence:.2f} confidence"
+            ),
+            payload_json=strategy.model_dump_json(indent=2),
+        )
+    )
     emit("risk", "started", f"Risk steward is sizing the trade for {snapshot.symbol}.")
     risk_context = build_agent_context(
         role="risk",
@@ -160,6 +193,7 @@ def run_from_snapshot(
         db=db,
         snapshot=snapshot,
         memory_enabled=memory_enabled,
+        shared_memory_bus=shared_memory_bus,
         upstream_context={
             "coordinator": coordinator,
             "regime": regime,
@@ -179,6 +213,15 @@ def run_from_snapshot(
         "completed",
         f"Risk steward set size {risk.position_size_pct:.2%} and RR {risk.risk_reward_ratio:.2f}.",
     )
+    shared_memory_bus.append(
+        SharedMemoryEntry(
+            role="risk",
+            summary=(
+                f"Risk size {risk.position_size_pct:.2%}, RR {risk.risk_reward_ratio:.2f}, max hold {risk.max_holding_bars}"
+            ),
+            payload_json=risk.model_dump_json(indent=2),
+        )
+    )
     emit(
         "manager",
         "started",
@@ -190,6 +233,7 @@ def run_from_snapshot(
         db=db,
         snapshot=snapshot,
         memory_enabled=memory_enabled,
+        shared_memory_bus=shared_memory_bus,
         upstream_context={
             "coordinator": coordinator,
             "regime": regime,
@@ -211,6 +255,15 @@ def run_from_snapshot(
         "manager",
         "completed",
         f"Manager agent returned bias {manager.action_bias} with approval {manager.approved}.",
+    )
+    shared_memory_bus.append(
+        SharedMemoryEntry(
+            role="manager",
+            summary=(
+                f"Manager bias {manager.action_bias}, approved={manager.approved}, override={manager.override_applied}"
+            ),
+            payload_json=manager.model_dump_json(indent=2),
+        )
     )
     emit(
         "execution",

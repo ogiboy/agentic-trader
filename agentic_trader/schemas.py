@@ -156,6 +156,7 @@ class AgentContext(BaseModel):
     memory_notes: list[str] = Field(default_factory=list)
     retrieved_memories: list[str] = Field(default_factory=list)
     calibration: "ConfidenceCalibration | None" = None
+    shared_memory_bus: list["SharedMemoryEntry"] = Field(default_factory=list)
     tool_outputs: list[str] = Field(default_factory=list)
     upstream_context: dict[str, str] = Field(default_factory=dict)
 
@@ -363,6 +364,12 @@ class ConfidenceCalibration(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class SharedMemoryEntry(BaseModel):
+    role: str
+    summary: str
+    payload_json: str
+
+
 class BacktestTrade(BaseModel):
     symbol: str
     entry_at: str
@@ -491,6 +498,7 @@ class RunReplayStage(BaseModel):
     market_session: dict[str, object] | None = None
     retrieved_memories: list[str] = Field(default_factory=list)
     memory_notes: list[str] = Field(default_factory=list)
+    shared_memory_bus: list[SharedMemoryEntry] = Field(default_factory=list)
     recent_runs: list[str] = Field(default_factory=list)
     tool_outputs: list[str] = Field(default_factory=list)
     upstream_context: dict[str, str] = Field(default_factory=dict)

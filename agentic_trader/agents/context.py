@@ -6,7 +6,12 @@ from agentic_trader.agents.calibration import build_confidence_calibration
 from agentic_trader.config import Settings
 from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.memory.retrieval import retrieve_similar_memories
-from agentic_trader.schemas import AgentContext, AgentRole, MarketSnapshot
+from agentic_trader.schemas import (
+    AgentContext,
+    AgentRole,
+    MarketSnapshot,
+    SharedMemoryEntry,
+)
 from agentic_trader.storage.db import TradingDatabase
 
 
@@ -66,6 +71,7 @@ def build_agent_context(
     memory_enabled: bool = True,
     tool_outputs: list[str] | None = None,
     upstream_context: Mapping[str, BaseModel | str] | None = None,
+    shared_memory_bus: list[SharedMemoryEntry] | None = None,
 ) -> AgentContext:
     preferences = db.load_preferences()
     strategy_family = None
@@ -98,6 +104,7 @@ def build_agent_context(
             snapshot,
             strategy_family=strategy_family,
         ),
+        shared_memory_bus=list(shared_memory_bus or []),
         tool_outputs=rendered_tool_outputs,
         upstream_context=_serialize_upstream(upstream_context),
     )
@@ -163,6 +170,17 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
                 "",
                 "Confidence Calibration:",
                 context.calibration.model_dump_json(indent=2),
+            ]
+        )
+    if context.shared_memory_bus:
+        sections.extend(
+            [
+                "",
+                "Shared Memory Bus:",
+                "\n".join(
+                    f"- {entry.role}: {entry.summary}"
+                    for entry in context.shared_memory_bus
+                ),
             ]
         )
     if context.tool_outputs:

@@ -111,6 +111,7 @@ def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
                         },
                         "retrieved_memories": ["prior trend continuation"],
                         "memory_notes": ["last winner looked similar"],
+                        "shared_memory_bus": [],
                         "recent_runs": ["run-123"],
                         "tool_outputs": ["market_session: venue=NASDAQ state=open"],
                         "upstream_context": {},
@@ -401,6 +402,7 @@ def test_replay_run_json(monkeypatch, tmp_path: Path) -> None:
     assert payload["replay"]["manager_resolution_notes"] == [
         "Manager accepted the specialist plan without additional overrides."
     ]
+    assert payload["replay"]["stages"][0]["shared_memory_bus"] == []
     assert payload["replay"]["stages"][0]["retrieved_memories"] == [
         "prior trend continuation"
     ]

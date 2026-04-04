@@ -1016,6 +1016,7 @@ def _retrieval_inspection_payload(
                 "used_fallback": trace.used_fallback,
                 "retrieved_memories": context.get("retrieved_memories", []),
                 "memory_notes": context.get("memory_notes", []),
+                "shared_memory_bus": context.get("shared_memory_bus", []),
                 "recent_runs": context.get("recent_runs", []),
                 "tool_outputs": context.get("tool_outputs", []),
             }
@@ -1057,6 +1058,7 @@ def _run_replay_payload(settings, *, run_id: str | None = None) -> dict[str, obj
                 market_session=context.get("market_session"),
                 retrieved_memories=context.get("retrieved_memories", []),
                 memory_notes=context.get("memory_notes", []),
+                shared_memory_bus=context.get("shared_memory_bus", []),
                 recent_runs=context.get("recent_runs", []),
                 tool_outputs=context.get("tool_outputs", []),
                 upstream_context=context.get("upstream_context", {}),
@@ -2038,12 +2040,14 @@ def retrieval_inspection(
     table.add_column("Role")
     table.add_column("Retrieved Memories")
     table.add_column("Trade Memory")
+    table.add_column("Shared Bus")
     table.add_column("Recent Runs")
     for stage in payload["stages"]:
         table.add_row(
             str(stage["role"]),
             str(len(stage["retrieved_memories"])),
             str(len(stage["memory_notes"])),
+            str(len(stage["shared_memory_bus"])),
             str(len(stage["recent_runs"])),
         )
     console.print(table)
@@ -2061,6 +2065,14 @@ def retrieval_inspection(
         if stage["recent_runs"]:
             lines.extend(
                 ["", "Recent Runs:"] + [f"- {line}" for line in stage["recent_runs"]]
+            )
+        if stage["shared_memory_bus"]:
+            lines.extend(
+                ["", "Shared Memory Bus:"]
+                + [
+                    f"- {entry['role']}: {entry['summary']}"
+                    for entry in stage["shared_memory_bus"]
+                ]
             )
         if stage["tool_outputs"]:
             lines.extend(

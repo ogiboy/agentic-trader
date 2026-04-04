@@ -452,7 +452,7 @@ function ReviewPage({ data }) {
             `Final Rationale: ${replayState.final_rationale}`,
             ...replayState.stages.slice(0, 5).map(
               (stage) =>
-                `${stage.role} | memories=${stage.retrieved_memories.length} | tools=${stage.tool_outputs.length} | fallback=${stage.used_fallback}`,
+                `${stage.role} | memories=${stage.retrieved_memories.length} | bus=${(stage.shared_memory_bus || []).length} | tools=${stage.tool_outputs.length} | fallback=${stage.used_fallback}`,
             ),
           ]
         : ['No replayable run is available yet.'];
@@ -514,7 +514,8 @@ function MemoryPage({ data }) {
             const retrieved = stage.retrieved_memories?.length ?? 0;
             const notes = stage.memory_notes?.length ?? 0;
             const recentRuns = stage.recent_runs?.length ?? 0;
-            const headline = `${stage.role} | retrieved=${retrieved} | trade-memory=${notes} | recent-runs=${recentRuns}`;
+            const sharedBus = stage.shared_memory_bus?.length ?? 0;
+            const headline = `${stage.role} | retrieved=${retrieved} | trade-memory=${notes} | shared-bus=${sharedBus} | recent-runs=${recentRuns}`;
             const sample =
               stage.retrieved_memories?.[0] ||
               stage.memory_notes?.[0] ||
