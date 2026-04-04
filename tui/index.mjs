@@ -181,6 +181,7 @@ function OverviewPage({ data }) {
             `Database: ${doctor.database}`,
             `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
             `Market Session: ${calendar.session ? `${calendar.session.venue} ${calendar.session.session_state}` : 'unavailable'}`,
+            `News Tool: ${data.news?.mode ?? 'off'}`,
             `Cached Snapshots: ${marketCache.count}`,
           ],
           doctor.ollama_reachable && doctor.model_available ? 'green' : 'red',

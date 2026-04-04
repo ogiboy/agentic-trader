@@ -35,6 +35,8 @@ class Settings(BaseSettings):
         default_factory=lambda: Path("runtime") / "market_snapshots"
     )
     market_data_mode: Literal["live", "prefer_cache", "refresh_cache"] = "live"
+    news_mode: Literal["off", "yfinance"] = "off"
+    news_headline_limit: int = 5
 
     strict_llm: bool = True
     allow_short: bool = True

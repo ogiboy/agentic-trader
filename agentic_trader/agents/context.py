@@ -6,6 +6,7 @@ from agentic_trader.agents.calibration import build_confidence_calibration
 from agentic_trader.config import Settings
 from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.memory.retrieval import retrieve_similar_memories
+from agentic_trader.market.news import fetch_news_brief
 from agentic_trader.schemas import (
     AgentContext,
     AgentRole,
@@ -85,6 +86,18 @@ def build_agent_context(
     rendered_tool_outputs = [
         f"market_session: venue={market_session.venue} state={market_session.session_state} tradable_now={market_session.tradable_now} note={market_session.note}"
     ]
+    news_items = fetch_news_brief(snapshot.symbol, settings)
+    if settings.news_mode == "off":
+        rendered_tool_outputs.append("news_tool: disabled")
+    elif news_items:
+        rendered_tool_outputs.extend(
+            [
+                f"news_tool: {item.publisher} | {item.title}"
+                for item in news_items[: settings.news_headline_limit]
+            ]
+        )
+    else:
+        rendered_tool_outputs.append("news_tool: no headlines returned")
     rendered_tool_outputs.extend(list(tool_outputs or []))
     return AgentContext(
         role=role,

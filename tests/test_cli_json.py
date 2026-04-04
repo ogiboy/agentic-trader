@@ -457,6 +457,8 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
     snapshot_payload = json.loads(snapshot_result.stdout)
     assert "calendar" in snapshot_payload
     assert snapshot_payload["calendar"]["available"] is True
+    assert "news" in snapshot_payload
+    assert snapshot_payload["news"]["mode"] == "off"
     assert "marketCache" in snapshot_payload
     assert snapshot_payload["chatHistory"]["entries"][0]["persona"] == "operator_liaison"
 
@@ -479,3 +481,24 @@ def test_market_cache_json(monkeypatch, tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["count"] == 1
     assert payload["entries"][0]["filename"] == "AAPL__1d__180d.csv"
+
+
+def test_news_brief_json_defaults_to_tool_only_disabled(
+    monkeypatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        news_mode="off",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["news-brief", "--json", "--symbol", "AAPL"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["mode"] == "off"
+    assert payload["symbol"] == "AAPL"
+    assert payload["headlines"] == []

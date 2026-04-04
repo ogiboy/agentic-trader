@@ -30,6 +30,7 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
+from agentic_trader.market.news import fetch_news_brief
 from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.runtime_feed import (
     append_chat_history,
@@ -929,6 +930,38 @@ def _calendar_payload(settings, *, symbol: str | None = None) -> dict[str, objec
     }
 
 
+def _news_payload(settings, *, symbol: str | None = None) -> dict[str, object]:
+    try:
+        preferences = InvestmentPreferences()
+        record = None
+        db = _open_db(settings, read_only=True)
+        try:
+            preferences = db.load_preferences()
+            record = db.latest_run()
+        finally:
+            db.close()
+        resolved_symbol = symbol or (
+            record.symbol
+            if record is not None
+            else _default_symbol_from_preferences(preferences)
+        )
+        headlines = fetch_news_brief(resolved_symbol, settings)
+        available = True
+        error = None
+    except Exception as exc:
+        resolved_symbol = symbol
+        headlines = []
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "mode": settings.news_mode,
+        "symbol": resolved_symbol,
+        "headlines": [item.model_dump(mode="json") for item in headlines],
+    }
+
+
 def _market_cache_payload(settings) -> dict[str, object]:
     settings.ensure_directories()
     cache_dir = settings.market_data_cache_dir
@@ -1499,6 +1532,7 @@ def dashboard_snapshot(
             "retrievalInspection": _retrieval_inspection_payload(settings),
             "chatHistory": _chat_history_payload(settings),
             "calendar": _calendar_payload(settings),
+            "news": _news_payload(settings),
             "marketCache": _market_cache_payload(settings),
         }
     )
@@ -1540,6 +1574,46 @@ def calendar_status(
     table.add_row("Tradable Now", str(session.tradable_now))
     table.add_row("Note", session.note)
     console.print(table)
+
+
+@app.command("news-brief")
+def news_brief(
+    symbol: str | None = typer.Option(None, help="Optional symbol override."),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
+) -> None:
+    """Show news tool output for the resolved symbol."""
+    settings = get_settings()
+    payload = _news_payload(settings, symbol=symbol)
+    if json_output:
+        _emit_json(payload)
+        return
+    table = Table(title=f"News Brief / {payload['symbol'] or '-'}")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("Mode", str(payload["mode"]))
+    table.add_row("Available", str(payload["available"]))
+    table.add_row("Headlines", str(len(payload["headlines"])))
+    console.print(table)
+    headlines = payload["headlines"]
+    if not headlines:
+        console.print(
+            Panel(
+                "No tool-driven news headlines are available for this symbol.",
+                title="News Tool",
+                border_style="yellow",
+            )
+        )
+        return
+    for headline in headlines:
+        console.print(
+            Panel(
+                f"{headline['publisher']} | {headline['title']}",
+                title=headline["symbol"],
+                border_style="cyan",
+            )
+        )
 
 
 @app.command("cache-market-data")

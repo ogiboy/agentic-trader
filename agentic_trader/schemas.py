@@ -386,6 +386,14 @@ class ChatHistoryEntry(BaseModel):
     response_text: str
 
 
+class NewsSignal(BaseModel):
+    symbol: str
+    title: str
+    publisher: str
+    published_at: str | None = None
+    link: str | None = None
+
+
 class BacktestTrade(BaseModel):
     symbol: str
     entry_at: str

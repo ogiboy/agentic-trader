@@ -53,6 +53,7 @@ Status: in progress.
 - multi-timeframe feature enrichment is now part of the market snapshot and already informs fallback coordinator and regime logic
 - a first market-session heuristic is now available through the CLI, dashboard snapshot, Ink control room, and agent context tool outputs
 - repeatable market snapshot cache management is now available through the CLI and dashboard snapshot
+- a first optional news tool contract now exists and only enters agent context through explicit tool outputs
 - richer calendar awareness and tool-driven external context are still open
 
 ## Phase 4: Operator Experience

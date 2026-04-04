@@ -127,7 +127,8 @@ def test_build_agent_context_includes_runs_memory_and_upstream(tmp_path: Path) -
     assert context.market_session is not None
     assert context.market_session.symbol == "AAPL"
     assert context.tool_outputs[0].startswith("market_session:")
-    assert context.tool_outputs[1:] == ["news_tool: no event risk detected"]
+    assert context.tool_outputs[1] == "news_tool: disabled"
+    assert context.tool_outputs[2:] == ["news_tool: no event risk detected"]
     assert "coordinator" in context.upstream_context
 
 
