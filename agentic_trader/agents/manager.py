@@ -134,6 +134,55 @@ def _finalize_manager_decision(
     )
 
 
+def _apply_confidence_calibration(
+    strategy: StrategyPlan,
+    manager: ManagerDecision,
+    context: AgentContext | None,
+) -> ManagerDecision:
+    if context is None or context.calibration is None:
+        return manager
+    calibration = context.calibration
+    if calibration.confidence_multiplier >= 1.0:
+        return manager
+
+    calibrated_cap = min(
+        manager.confidence_cap,
+        round(strategy.confidence * calibration.confidence_multiplier, 4),
+    )
+    calibrated_size = min(manager.size_multiplier, calibration.confidence_multiplier)
+    conflicts = list(manager.conflicts)
+    conflicts.append(
+        ManagerConflict(
+            conflict_type="confidence",
+            severity="medium",
+            summary="Historical trade outcomes triggered a defensive confidence calibration.",
+            specialist_view=(
+                f"Strategy confidence: {strategy.confidence:.2f} with manager cap {manager.confidence_cap:.2f}."
+            ),
+            manager_resolution=(
+                f"Calibration multiplier {calibration.confidence_multiplier:.2f} tightened cap to {calibrated_cap:.2f} and size to {calibrated_size:.2f}."
+            ),
+        )
+    )
+    resolution_notes = list(manager.resolution_notes)
+    resolution_notes.append(
+        f"Historical calibration reduced confidence using {calibration.closed_trades} closed trades at {calibration.win_rate:.0%} win rate."
+    )
+    escalation_flags = list(manager.escalation_flags)
+    if "historical_underperformance" not in escalation_flags:
+        escalation_flags.append("historical_underperformance")
+    return manager.model_copy(
+        update={
+            "confidence_cap": calibrated_cap,
+            "size_multiplier": calibrated_size,
+            "conflicts": conflicts,
+            "resolution_notes": resolution_notes,
+            "escalation_flags": escalation_flags,
+            "override_applied": True,
+        }
+    )
+
+
 def _fallback_manager(
     snapshot: MarketSnapshot,
     coordinator: ResearchCoordinatorBrief,
@@ -207,9 +256,11 @@ def manage_trade_decision(
             user_prompt=user_prompt,
             schema=ManagerDecision,
         )
-        return _finalize_manager_decision(coordinator, regime, strategy, decision)
+        finalized = _finalize_manager_decision(coordinator, regime, strategy, decision)
+        return _apply_confidence_calibration(strategy, finalized, context)
     except Exception:
         if not allow_fallback:
             raise
         decision = _fallback_manager(snapshot, coordinator, regime, strategy, risk)
-        return _finalize_manager_decision(coordinator, regime, strategy, decision)
+        finalized = _finalize_manager_decision(coordinator, regime, strategy, decision)
+        return _apply_confidence_calibration(strategy, finalized, context)

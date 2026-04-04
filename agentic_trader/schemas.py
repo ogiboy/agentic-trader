@@ -155,6 +155,7 @@ class AgentContext(BaseModel):
     recent_runs: list[str] = Field(default_factory=list)
     memory_notes: list[str] = Field(default_factory=list)
     retrieved_memories: list[str] = Field(default_factory=list)
+    calibration: "ConfidenceCalibration | None" = None
     tool_outputs: list[str] = Field(default_factory=list)
     upstream_context: dict[str, str] = Field(default_factory=dict)
 
@@ -351,6 +352,15 @@ class DailyRiskReport(BaseModel):
     largest_position_pct: float
     drawdown_from_peak_pct: float
     warnings: list[str] = Field(default_factory=list)
+
+
+class ConfidenceCalibration(BaseModel):
+    sample_size: int = 0
+    closed_trades: int = 0
+    win_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    average_pnl: float = 0.0
+    confidence_multiplier: float = Field(default=1.0, gt=0.0, le=1.0)
+    notes: list[str] = Field(default_factory=list)
 
 
 class BacktestTrade(BaseModel):

@@ -2,6 +2,7 @@ from typing import Mapping
 
 from pydantic import BaseModel
 
+from agentic_trader.agents.calibration import build_confidence_calibration
 from agentic_trader.config import Settings
 from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.memory.retrieval import retrieve_similar_memories
@@ -67,6 +68,10 @@ def build_agent_context(
     upstream_context: Mapping[str, BaseModel | str] | None = None,
 ) -> AgentContext:
     preferences = db.load_preferences()
+    strategy_family = None
+    strategy_context = upstream_context.get("strategy") if upstream_context else None
+    if hasattr(strategy_context, "strategy_family"):
+        strategy_family = str(getattr(strategy_context, "strategy_family"))
     market_session = infer_market_session(
         symbol=snapshot.symbol,
         preferences=preferences,
@@ -87,6 +92,11 @@ def build_agent_context(
         memory_notes=_summarize_trade_memory(db) if memory_enabled else [],
         retrieved_memories=(
             _summarize_retrieved_memories(db, snapshot) if memory_enabled else []
+        ),
+        calibration=build_confidence_calibration(
+            db,
+            snapshot,
+            strategy_family=strategy_family,
         ),
         tool_outputs=rendered_tool_outputs,
         upstream_context=_serialize_upstream(upstream_context),
@@ -145,6 +155,14 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
                 "",
                 "Retrieved Similar Memories:",
                 "\n".join(f"- {line}" for line in context.retrieved_memories),
+            ]
+        )
+    if context.calibration is not None:
+        sections.extend(
+            [
+                "",
+                "Confidence Calibration:",
+                context.calibration.model_dump_json(indent=2),
             ]
         )
     if context.tool_outputs:

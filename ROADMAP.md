@@ -166,7 +166,8 @@ Status: in progress.
   Notes:
 - coordinator, manager, review, specialist roles, and persona-aware operator chat are already present
 - lightweight similarity-based retrieval is now present
-- shared memory bus, calibrated confidence, explicit consensus resolution, and richer vector retrieval are still open
+- historical confidence calibration is now present as a downside-aware signal in agent context and manager overrides
+- shared memory bus, explicit consensus resolution, and richer vector retrieval are still open
 
 ## Phase 10: Agent Governance And Conversation Layer
 
