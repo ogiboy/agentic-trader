@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 
 from agentic_trader.backtest.walk_forward import (
+    run_memory_ablation_backtest,
     run_backtest_comparison,
     run_deterministic_baseline_backtest,
     run_walk_forward_backtest,
@@ -47,7 +48,7 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
 
     state = {"entered": False}
 
-    def _fake_run_from_snapshot(*, settings, snapshot, allow_fallback):
+    def _fake_run_from_snapshot(*, settings, snapshot, allow_fallback, memory_enabled):
         if not state["entered"]:
             state["entered"] = True
             strategy = StrategyPlan(
@@ -244,3 +245,74 @@ def test_backtest_comparison_reports_deltas(monkeypatch, tmp_path: Path) -> None
 
     assert comparison.ending_equity_delta == 400.0
     assert comparison.total_return_delta_pct == 0.04
+
+
+def test_memory_ablation_backtest_reports_deltas(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        default_cash=10_000.0,
+    )
+    settings.ensure_directories()
+
+    calls: list[bool] = []
+
+    def _fake_run_walk_forward_backtest(**kwargs) -> BacktestReport:
+        memory_enabled = bool(kwargs["memory_enabled"])
+        calls.append(memory_enabled)
+        if memory_enabled:
+            return BacktestReport(
+                symbol="AAPL",
+                interval="1d",
+                lookback="2y",
+                warmup_bars=60,
+                total_cycles=40,
+                total_trades=4,
+                closed_trades=4,
+                win_rate=0.75,
+                expectancy=120.0,
+                total_return_pct=0.12,
+                max_drawdown_pct=0.04,
+                exposure_pct=0.55,
+                fallback_cycles=0,
+                starting_equity=10_000.0,
+                ending_equity=11_200.0,
+                trades=[],
+            )
+        return BacktestReport(
+            symbol="AAPL",
+            interval="1d",
+            lookback="2y",
+            warmup_bars=60,
+            total_cycles=40,
+            total_trades=3,
+            closed_trades=3,
+            win_rate=0.66,
+            expectancy=80.0,
+            total_return_pct=0.08,
+            max_drawdown_pct=0.03,
+            exposure_pct=0.48,
+            fallback_cycles=0,
+            starting_equity=10_000.0,
+            ending_equity=10_800.0,
+            trades=[],
+        )
+
+    monkeypatch.setattr(
+        "agentic_trader.backtest.walk_forward.run_walk_forward_backtest",
+        _fake_run_walk_forward_backtest,
+    )
+
+    ablation = run_memory_ablation_backtest(
+        settings=settings,
+        symbol="AAPL",
+        interval="1d",
+        lookback="2y",
+        warmup_bars=60,
+        allow_fallback=False,
+        frame=_frame(),
+    )
+
+    assert calls == [True, False]
+    assert ablation.ending_equity_delta == 400.0
+    assert ablation.total_return_delta_pct == 0.04

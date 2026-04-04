@@ -69,6 +69,7 @@ def run_from_snapshot(
     settings: Settings,
     snapshot: MarketSnapshot,
     allow_fallback: bool,
+    memory_enabled: bool = True,
     progress_callback: ProgressCallback | None = None,
 ) -> RunArtifacts:
     def emit(stage: str, status: str, message: str) -> None:
@@ -87,6 +88,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        memory_enabled=memory_enabled,
     )
     coordinator = coordinate_research(
         llm,
@@ -109,6 +111,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        memory_enabled=memory_enabled,
         upstream_context={"coordinator": coordinator},
     )
     regime = assess_regime(
@@ -132,6 +135,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        memory_enabled=memory_enabled,
         upstream_context={
             "coordinator": coordinator,
             "regime": regime,
@@ -155,6 +159,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        memory_enabled=memory_enabled,
         upstream_context={
             "coordinator": coordinator,
             "regime": regime,
@@ -184,6 +189,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        memory_enabled=memory_enabled,
         upstream_context={
             "coordinator": coordinator,
             "regime": regime,
@@ -286,6 +292,7 @@ def run_once(
     interval: str,
     lookback: str,
     allow_fallback: bool,
+    memory_enabled: bool = True,
     progress_callback: ProgressCallback | None = None,
 ) -> RunArtifacts:
     frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback, settings=settings)
@@ -294,5 +301,6 @@ def run_once(
         settings=settings,
         snapshot=snapshot,
         allow_fallback=allow_fallback,
+        memory_enabled=memory_enabled,
         progress_callback=progress_callback,
     )

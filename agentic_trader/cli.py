@@ -20,6 +20,7 @@ from agentic_trader.agents.operator_chat import (
     interpret_operator_instruction,
 )
 from agentic_trader.backtest.walk_forward import (
+    run_memory_ablation_backtest,
     run_backtest_comparison,
     run_walk_forward_backtest,
 )
@@ -42,6 +43,7 @@ from agentic_trader.schemas import (
     MarketSessionStatus,
     OperatorInstruction,
     BacktestReport,
+    BacktestAblationReport,
     BacktestComparisonReport,
     PositionSnapshot,
     PortfolioSnapshot,
@@ -560,6 +562,45 @@ def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
         "Ending Equity",
         f"{report.agent.ending_equity:.2f}",
         f"{report.baseline.ending_equity:.2f}",
+        f"{report.ending_equity_delta:.2f}",
+    )
+    console.print(table)
+
+
+def _render_backtest_ablation(report: BacktestAblationReport) -> None:
+    table = Table(title=f"Backtest Memory Ablation / {report.symbol}")
+    table.add_column("Metric")
+    table.add_column("With Memory")
+    table.add_column("Without Memory")
+    table.add_column("Delta")
+    table.add_row(
+        "Trades",
+        str(report.with_memory.total_trades),
+        str(report.without_memory.total_trades),
+        str(report.with_memory.total_trades - report.without_memory.total_trades),
+    )
+    table.add_row(
+        "Win Rate",
+        f"{report.with_memory.win_rate:.2%}",
+        f"{report.without_memory.win_rate:.2%}",
+        f"{report.with_memory.win_rate - report.without_memory.win_rate:.2%}",
+    )
+    table.add_row(
+        "Expectancy",
+        f"{report.with_memory.expectancy:.2f}",
+        f"{report.without_memory.expectancy:.2f}",
+        f"{report.with_memory.expectancy - report.without_memory.expectancy:.2f}",
+    )
+    table.add_row(
+        "Return",
+        f"{report.with_memory.total_return_pct:.2%}",
+        f"{report.without_memory.total_return_pct:.2%}",
+        f"{report.total_return_delta_pct:.2%}",
+    )
+    table.add_row(
+        "Ending Equity",
+        f"{report.with_memory.ending_equity:.2f}",
+        f"{report.without_memory.ending_equity:.2f}",
         f"{report.ending_equity_delta:.2f}",
     )
     console.print(table)
@@ -1678,6 +1719,9 @@ def backtest(
     compare_baseline: bool = typer.Option(
         False, help="Also compare the agent replay against a deterministic baseline."
     ),
+    compare_memory: bool = typer.Option(
+        False, help="Also compare the agent replay with memory enabled versus disabled."
+    ),
     output: str | None = typer.Option(
         None, help="Optional Markdown output path for a compact backtest summary."
     ),
@@ -1685,6 +1729,10 @@ def backtest(
     """Run a walk-forward replay using the current agent pipeline."""
     settings = get_settings()
     ensure_llm_ready(settings)
+    if compare_baseline and compare_memory:
+        raise typer.BadParameter(
+            "Choose either --compare-baseline or --compare-memory for a single run."
+        )
     if compare_baseline:
         comparison = run_backtest_comparison(
             settings=settings,
@@ -1712,6 +1760,39 @@ def backtest(
             console.print(
                 Panel(
                     f"Backtest comparison written to {output}.",
+                    title="Exported",
+                    border_style="green",
+                )
+            )
+        return
+
+    if compare_memory:
+        ablation = run_memory_ablation_backtest(
+            settings=settings,
+            symbol=symbol,
+            interval=interval,
+            lookback=lookback,
+            warmup_bars=warmup_bars,
+            allow_fallback=False,
+        )
+        _render_backtest_ablation(ablation)
+        if output is not None:
+            rendered = "\n".join(
+                [
+                    f"# Backtest Memory Ablation: {ablation.symbol}",
+                    "",
+                    f"- With Memory Return: {ablation.with_memory.total_return_pct:.2%}",
+                    f"- Without Memory Return: {ablation.without_memory.total_return_pct:.2%}",
+                    f"- Return Delta: {ablation.total_return_delta_pct:.2%}",
+                    f"- With Memory Ending Equity: {ablation.with_memory.ending_equity:.2f}",
+                    f"- Without Memory Ending Equity: {ablation.without_memory.ending_equity:.2f}",
+                    f"- Ending Equity Delta: {ablation.ending_equity_delta:.2f}",
+                ]
+            )
+            Path(output).write_text(rendered, encoding="utf-8")
+            console.print(
+                Panel(
+                    f"Backtest memory ablation written to {output}.",
                     title="Exported",
                     border_style="green",
                 )

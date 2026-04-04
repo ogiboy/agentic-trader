@@ -395,6 +395,17 @@ class BacktestComparisonReport(BaseModel):
     total_return_delta_pct: float
 
 
+class BacktestAblationReport(BaseModel):
+    symbol: str
+    interval: str
+    lookback: str
+    warmup_bars: int
+    with_memory: BacktestSummary
+    without_memory: BacktestSummary
+    ending_equity_delta: float
+    total_return_delta_pct: float
+
+
 class RunArtifacts(BaseModel):
     snapshot: MarketSnapshot
     coordinator: ResearchCoordinatorBrief

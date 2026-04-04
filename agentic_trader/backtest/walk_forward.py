@@ -8,6 +8,7 @@ from agentic_trader.engine.position_manager import evaluate_position_exit
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.schemas import (
+    BacktestAblationReport,
     BacktestComparisonReport,
     BacktestReport,
     BacktestSummary,
@@ -422,6 +423,7 @@ def run_walk_forward_backtest(
     lookback: str,
     warmup_bars: int = 120,
     allow_fallback: bool = False,
+    memory_enabled: bool = True,
     frame: pd.DataFrame | None = None,
 ) -> BacktestReport:
     history = (
@@ -440,6 +442,7 @@ def run_walk_forward_backtest(
             settings=settings,
             snapshot=snapshot,
             allow_fallback=allow_fallback,
+            memory_enabled=memory_enabled,
         ),
     )
 
@@ -513,5 +516,56 @@ def run_backtest_comparison(
         ),
         total_return_delta_pct=round(
             agent_report.total_return_pct - baseline_report.total_return_pct, 6
+        ),
+    )
+
+
+def run_memory_ablation_backtest(
+    *,
+    settings: Settings,
+    symbol: str,
+    interval: str,
+    lookback: str,
+    warmup_bars: int = 120,
+    allow_fallback: bool = False,
+    frame: pd.DataFrame | None = None,
+) -> BacktestAblationReport:
+    history = (
+        frame.copy()
+        if frame is not None
+        else fetch_ohlcv(symbol, interval=interval, lookback=lookback)
+    )
+    with_memory = run_walk_forward_backtest(
+        settings=settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        allow_fallback=allow_fallback,
+        memory_enabled=True,
+        frame=history,
+    )
+    without_memory = run_walk_forward_backtest(
+        settings=settings,
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        allow_fallback=allow_fallback,
+        memory_enabled=False,
+        frame=history,
+    )
+    return BacktestAblationReport(
+        symbol=symbol,
+        interval=interval,
+        lookback=lookback,
+        warmup_bars=warmup_bars,
+        with_memory=_summarize_report("with_memory", with_memory),
+        without_memory=_summarize_report("without_memory", without_memory),
+        ending_equity_delta=round(
+            with_memory.ending_equity - without_memory.ending_equity, 6
+        ),
+        total_return_delta_pct=round(
+            with_memory.total_return_pct - without_memory.total_return_pct, 6
         ),
     )

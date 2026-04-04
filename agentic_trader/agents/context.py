@@ -62,6 +62,7 @@ def build_agent_context(
     settings: Settings,
     db: TradingDatabase,
     snapshot: MarketSnapshot,
+    memory_enabled: bool = True,
     tool_outputs: list[str] | None = None,
     upstream_context: Mapping[str, BaseModel | str] | None = None,
 ) -> AgentContext:
@@ -83,8 +84,10 @@ def build_agent_context(
         market_session=market_session,
         service_state=db.get_service_state(),
         recent_runs=_summarize_recent_runs(db),
-        memory_notes=_summarize_trade_memory(db),
-        retrieved_memories=_summarize_retrieved_memories(db, snapshot),
+        memory_notes=_summarize_trade_memory(db) if memory_enabled else [],
+        retrieved_memories=(
+            _summarize_retrieved_memories(db, snapshot) if memory_enabled else []
+        ),
         tool_outputs=rendered_tool_outputs,
         upstream_context=_serialize_upstream(upstream_context),
     )

@@ -128,3 +128,25 @@ def test_build_agent_context_includes_runs_memory_and_upstream(tmp_path: Path) -
     assert context.tool_outputs[0].startswith("market_session:")
     assert context.tool_outputs[1:] == ["news_tool: no event risk detected"]
     assert "coordinator" in context.upstream_context
+
+
+def test_build_agent_context_can_disable_memory_injection(tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    persist_run(settings=settings, artifacts=_artifacts())
+    db = TradingDatabase(settings)
+
+    context = build_agent_context(
+        role="strategy",
+        settings=settings,
+        db=db,
+        snapshot=_artifacts().snapshot,
+        memory_enabled=False,
+    )
+
+    assert context.recent_runs
+    assert context.memory_notes == []
+    assert context.retrieved_memories == []

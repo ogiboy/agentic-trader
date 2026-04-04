@@ -98,7 +98,7 @@ Notes:
 - a first walk-forward replay and report export path are now available
 - agent-versus-deterministic baseline comparison is now available
 - a first memory-aware replay surface is now available through `replay-run`, the dashboard snapshot, and the Ink review page
-- ablation harnesses are still missing
+- a first memory ablation surface is now available through `backtest --compare-memory`
 
 ## Phase 6: Paper Portfolio Engine
 
