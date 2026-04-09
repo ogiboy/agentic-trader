@@ -30,12 +30,15 @@ from agentic_trader.runtime_status import build_runtime_status_view, is_process_
 from agentic_trader.runtime_status import build_agent_activity_view
 from agentic_trader.schemas import (
     AgentProfile,
+    AgentTone,
     BehaviorPreset,
     ChatPersona,
     InvestmentPreferences,
+    InterventionStyle,
     RiskProfile,
     ServiceEvent,
     ServiceStateSnapshot,
+    StrictnessPreset,
     TradeStyle,
 )
 from agentic_trader.storage.db import TradingDatabase
@@ -81,6 +84,9 @@ def _render_preferences(preferences: InvestmentPreferences) -> Table:
     table.add_row("Trade Style", preferences.trade_style)
     table.add_row("Behavior Preset", preferences.behavior_preset)
     table.add_row("Agent Profile", preferences.agent_profile)
+    table.add_row("Agent Tone", preferences.agent_tone)
+    table.add_row("Strictness", preferences.strictness_preset)
+    table.add_row("Intervention", preferences.intervention_style)
     table.add_row("Notes", preferences.notes or "-")
     return table
 
@@ -548,6 +554,21 @@ def _configure_preferences(db: TradingDatabase) -> None:
         choices=["neutral", "disciplined", "aggressive", "explanatory"],
         default=current.agent_profile,
     )
+    agent_tone = Prompt.ask(
+        "Agent tone",
+        choices=["neutral", "supportive", "direct", "forensic"],
+        default=current.agent_tone,
+    )
+    strictness_preset = Prompt.ask(
+        "Strictness preset",
+        choices=["standard", "strict", "paranoid"],
+        default=current.strictness_preset,
+    )
+    intervention_style = Prompt.ask(
+        "Intervention style",
+        choices=["hands_off", "balanced", "protective"],
+        default=current.intervention_style,
+    )
     notes = Prompt.ask("Notes", default=current.notes)
     updated = InvestmentPreferences(
         regions=_split_csv(regions) or current.regions,
@@ -558,6 +579,9 @@ def _configure_preferences(db: TradingDatabase) -> None:
         trade_style=cast(TradeStyle, trade_style),
         behavior_preset=cast(BehaviorPreset, behavior_preset),
         agent_profile=cast(AgentProfile, agent_profile),
+        agent_tone=cast(AgentTone, agent_tone),
+        strictness_preset=cast(StrictnessPreset, strictness_preset),
+        intervention_style=cast(InterventionStyle, intervention_style),
         notes=notes,
     )
     db.save_preferences(updated)

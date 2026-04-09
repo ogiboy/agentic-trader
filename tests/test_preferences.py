@@ -22,6 +22,9 @@ def test_preferences_round_trip(tmp_path: Path) -> None:
         trade_style="position",
         behavior_preset="trend_biased",
         agent_profile="disciplined",
+        agent_tone="forensic",
+        strictness_preset="strict",
+        intervention_style="protective",
         notes="Test preferences",
     )
     db.save_preferences(prefs)

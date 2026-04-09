@@ -525,6 +525,9 @@ function PortfolioPage({ data }) {
     `Style: ${preferences.trade_style}`,
     `Behavior: ${preferences.behavior_preset}`,
     `Agent Profile: ${preferences.agent_profile}`,
+    `Agent Tone: ${preferences.agent_tone}`,
+    `Strictness: ${preferences.strictness_preset}`,
+    `Intervention: ${preferences.intervention_style}`,
   ];
 
   return e(

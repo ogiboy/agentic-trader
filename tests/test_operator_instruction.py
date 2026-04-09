@@ -44,13 +44,16 @@ def test_interpret_operator_instruction_uses_fallback_keywords(tmp_path: Path) -
         llm=llm,
         db=db,
         settings=settings,
-        user_message="Please make the system conservative and explanatory.",
+        user_message="Please make the system conservative, explanatory, forensic, strict, and protective.",
         allow_fallback=True,
     )
 
     assert instruction.should_update_preferences is True
     assert instruction.preference_update.risk_profile == "conservative"
     assert instruction.preference_update.agent_profile == "explanatory"
+    assert instruction.preference_update.agent_tone == "forensic"
+    assert instruction.preference_update.strictness_preset == "strict"
+    assert instruction.preference_update.intervention_style == "protective"
 
 
 def test_interpret_operator_instruction_can_use_structured_llm(

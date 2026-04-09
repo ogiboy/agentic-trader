@@ -46,7 +46,17 @@ Desired direction:
 - better persistence of what context each stage actually received
 - keep memory-policy visibility aligned across CLI and Ink surfaces
 
-### 4. Per-Trade Context Persistence
+### 4. Operator Surface Depth
+
+Build on the new preset layer so the operator surface feels complete, not just inspectable.
+
+Desired direction:
+
+- carry tone, strictness, and intervention presets consistently across CLI, Rich, Ink, and operator chat
+- add more structured agent activity beside chat transcripts
+- keep the Ink control room moving toward full parity with the older Rich admin surface
+
+### 5. Per-Trade Context Persistence
 
 The first persisted trade-context layer now exists. Keep building it into a richer review surface.
 
@@ -60,11 +70,11 @@ Desired direction:
 - guard rejection reason
 - surface trade context cleanly in both CLI and Ink review flows
 
-### 5. CLI / TUI / Runtime Contract Consistency
+### 6. CLI / TUI / Runtime Contract Consistency
 
 Keep all operator surfaces aligned with the same underlying runtime and status truth.
 
-### 6. Future External Provider Readiness
+### 7. Future External Provider Readiness
 
 Prepare for future support of remote providers without making the project cloud-first.
 

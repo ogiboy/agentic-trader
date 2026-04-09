@@ -18,6 +18,7 @@ Implemented or substantially present:
 - execution guard
 - DuckDB-backed paper broker
 - operator preferences and curated behavior presets
+- operator tone, strictness, and intervention presets across TUI and instruction parsing
 - hybrid heuristic + vector-style similar-run retrieval
 - shared memory bus across agent stages
 - downside-aware confidence calibration from historical results

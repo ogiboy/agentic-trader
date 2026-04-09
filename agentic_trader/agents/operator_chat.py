@@ -40,6 +40,9 @@ def build_chat_context(db: TradingDatabase, settings: Settings) -> str:
         f"- Trade style: {preferences.trade_style}",
         f"- Behavior preset: {preferences.behavior_preset}",
         f"- Agent profile: {preferences.agent_profile}",
+        f"- Agent tone: {preferences.agent_tone}",
+        f"- Strictness preset: {preferences.strictness_preset}",
+        f"- Intervention style: {preferences.intervention_style}",
         "Portfolio:",
         f"- Cash: {portfolio.cash:.2f}",
         f"- Equity: {portfolio.equity:.2f}",
@@ -82,6 +85,9 @@ def build_persona_system_prompt(
         Keep answers concise, practical, and grounded in the supplied runtime and portfolio context.
         Operator behavior preset: {preferences.behavior_preset}
         Operator preferred agent profile: {preferences.agent_profile}
+        Operator preferred tone: {preferences.agent_tone}
+        Operator strictness preset: {preferences.strictness_preset}
+        Operator intervention style: {preferences.intervention_style}
         """
     ).strip()
 
@@ -163,6 +169,36 @@ def _fallback_instruction(message: str) -> OperatorInstruction:
         update.agent_profile = "disciplined"
         changed = True
 
+    if "supportive" in lowered:
+        update.agent_tone = "supportive"
+        changed = True
+    elif "forensic" in lowered:
+        update.agent_tone = "forensic"
+        changed = True
+    elif "direct" in lowered:
+        update.agent_tone = "direct"
+        changed = True
+
+    if "paranoid" in lowered:
+        update.strictness_preset = "paranoid"
+        changed = True
+    elif "strict" in lowered:
+        update.strictness_preset = "strict"
+        changed = True
+    elif "standard" in lowered:
+        update.strictness_preset = "standard"
+        changed = True
+
+    if "hands off" in lowered or "hands-off" in lowered:
+        update.intervention_style = "hands_off"
+        changed = True
+    elif "protective" in lowered:
+        update.intervention_style = "protective"
+        changed = True
+    elif "balanced intervention" in lowered or "balanced oversight" in lowered:
+        update.intervention_style = "balanced"
+        changed = True
+
     return OperatorInstruction(
         summary="Fallback operator instruction parser evaluated the request.",
         should_update_preferences=changed,
@@ -189,6 +225,9 @@ def interpret_operator_instruction(
         Do not invent runtime actions or hidden side effects.
         Current behavior preset: {preferences.behavior_preset}
         Current agent profile: {preferences.agent_profile}
+        Current tone: {preferences.agent_tone}
+        Current strictness preset: {preferences.strictness_preset}
+        Current intervention style: {preferences.intervention_style}
         """
     ).strip()
     user_prompt = dedent(
@@ -251,6 +290,21 @@ def apply_preference_update(
                 update.agent_profile
                 if update.agent_profile is not None
                 else current.agent_profile
+            ),
+            "agent_tone": (
+                update.agent_tone
+                if update.agent_tone is not None
+                else current.agent_tone
+            ),
+            "strictness_preset": (
+                update.strictness_preset
+                if update.strictness_preset is not None
+                else current.strictness_preset
+            ),
+            "intervention_style": (
+                update.intervention_style
+                if update.intervention_style is not None
+                else current.intervention_style
             ),
             "notes": update.notes if update.notes is not None else current.notes,
         }

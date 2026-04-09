@@ -157,7 +157,7 @@ Status: in progress.
 - [x] add memory from past trades and post-trade review
 - [x] add confidence calibration based on historical results
 - [x] add configurable agent personas so the operator can choose cautious, balanced, aggressive, contrarian, or trend-biased behavior profiles
-- [ ] let the operator set agent tone, strictness, and intervention style from curated presets in the TUI
+- [x] let the operator set agent tone, strictness, and intervention style from curated presets in the TUI
 - [x] split the agent graph into clearer specialist roles such as research coordinator, regime analyst, strategy selector, risk steward, execution guard, portfolio manager, and review agent
 - [x] add a dedicated operator-facing liaison agent that explains what the system is doing and answers portfolio questions in plain language
 - [x] introduce manager agents that orchestrate specialist agents, resolve conflicts, and decide whether a cycle should advance or pause
@@ -171,6 +171,7 @@ Status: in progress.
 - historical confidence calibration is now present as a downside-aware signal in agent context and manager overrides
 - a first shared memory bus now propagates normalized stage summaries across the agent graph and into persisted traces
 - a first specialist consensus layer now scores pre-manager alignment and persists the result into reviews and replays
+- TUI and operator instruction flows now expose curated tone, strictness, and intervention presets alongside behavior and agent profile
 - richer vector retrieval is still open
 
 ## Phase 10: Agent Governance And Conversation Layer

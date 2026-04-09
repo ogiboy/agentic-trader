@@ -1871,6 +1871,9 @@ def preferences_command(
     table.add_row("Trade Style", preferences.trade_style)
     table.add_row("Behavior Preset", preferences.behavior_preset)
     table.add_row("Agent Profile", preferences.agent_profile)
+    table.add_row("Agent Tone", preferences.agent_tone)
+    table.add_row("Strictness", preferences.strictness_preset)
+    table.add_row("Intervention", preferences.intervention_style)
     table.add_row("Notes", preferences.notes or "-")
     console.print(table)
 

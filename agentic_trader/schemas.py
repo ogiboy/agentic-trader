@@ -8,6 +8,9 @@ BehaviorPreset: TypeAlias = Literal[
     "balanced_core", "trend_biased", "contrarian", "capital_preservation"
 ]
 AgentProfile: TypeAlias = Literal["neutral", "disciplined", "aggressive", "explanatory"]
+AgentTone: TypeAlias = Literal["neutral", "supportive", "direct", "forensic"]
+StrictnessPreset: TypeAlias = Literal["standard", "strict", "paranoid"]
+InterventionStyle: TypeAlias = Literal["hands_off", "balanced", "protective"]
 ChatPersona: TypeAlias = Literal[
     "operator_liaison",
     "regime_analyst",
@@ -41,6 +44,9 @@ class InvestmentPreferences(BaseModel):
     trade_style: TradeStyle = "swing"
     behavior_preset: BehaviorPreset = "balanced_core"
     agent_profile: AgentProfile = "explanatory"
+    agent_tone: AgentTone = "supportive"
+    strictness_preset: StrictnessPreset = "standard"
+    intervention_style: InterventionStyle = "balanced"
     notes: str = ""
 
 
@@ -307,6 +313,9 @@ class PreferenceUpdate(BaseModel):
     trade_style: TradeStyle | None = None
     behavior_preset: BehaviorPreset | None = None
     agent_profile: AgentProfile | None = None
+    agent_tone: AgentTone | None = None
+    strictness_preset: StrictnessPreset | None = None
+    intervention_style: InterventionStyle | None = None
     notes: str | None = None
 
 

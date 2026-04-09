@@ -29,6 +29,9 @@ def test_build_chat_context_includes_preferences_and_portfolio(tmp_path: Path) -
             trade_style="swing",
             behavior_preset="balanced_core",
             agent_profile="explanatory",
+            agent_tone="supportive",
+            strictness_preset="standard",
+            intervention_style="balanced",
             notes="Context test",
         )
     )
@@ -37,6 +40,9 @@ def test_build_chat_context_includes_preferences_and_portfolio(tmp_path: Path) -
 
     assert "Behavior preset: balanced_core" in context
     assert "Agent profile: explanatory" in context
+    assert "Agent tone: supportive" in context
+    assert "Strictness preset: standard" in context
+    assert "Intervention style: balanced" in context
     assert "Portfolio:" in context
 
 
@@ -46,11 +52,17 @@ def test_build_persona_system_prompt_reflects_profile() -> None:
         InvestmentPreferences(
             behavior_preset="capital_preservation",
             agent_profile="disciplined",
+            agent_tone="forensic",
+            strictness_preset="strict",
+            intervention_style="protective",
         ),
     )
 
     assert "capital_preservation" in prompt
     assert "disciplined" in prompt
+    assert "forensic" in prompt
+    assert "strict" in prompt
+    assert "protective" in prompt
     assert "risk steward" in prompt.lower()
 
 
