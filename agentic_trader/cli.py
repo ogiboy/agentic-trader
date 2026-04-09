@@ -32,6 +32,7 @@ from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.market.news import fetch_news_brief
 from agentic_trader.memory.retrieval import retrieve_similar_memories
+from agentic_trader.memory.policy import memory_write_policy_snapshot
 from agentic_trader.runtime_feed import (
     append_chat_history,
     read_service_events,
@@ -1609,6 +1610,7 @@ def dashboard_snapshot(
                 settings, use_latest_run=True, limit=5
             ),
             "retrievalInspection": _retrieval_inspection_payload(settings),
+            "memoryPolicy": memory_write_policy_snapshot(),
             "chatHistory": _chat_history_payload(settings),
             "calendar": _calendar_payload(settings),
             "news": _news_payload(settings),
@@ -2350,6 +2352,31 @@ def retrieval_inspection(
                 "\n".join(lines), title=f"Stage / {stage['role']}", border_style="cyan"
             )
         )
+
+
+@app.command("memory-policy")
+def memory_policy(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
+) -> None:
+    """Show policy-controlled memory write permissions by domain."""
+    payload = memory_write_policy_snapshot()
+    if json_output:
+        _emit_json(payload)
+        return
+
+    table = Table(title="Memory Write Policy")
+    table.add_column("Domain")
+    table.add_column("Allowed Actors")
+    table.add_column("Note")
+    for domain, policy in payload.items():
+        table.add_row(
+            domain,
+            ", ".join(policy["allowed_actors"]),
+            str(policy["note"]),
+        )
+    console.print(table)
 
 
 @app.command()

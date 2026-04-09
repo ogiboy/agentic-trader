@@ -51,3 +51,9 @@ The project benefits from richer similarity search, but retrieval must stay loca
 
 Reason:
 When a manager overrides or moderates a plan, operator review should show not only the final decision but also the pre-manager alignment and disagreements that led to it.
+
+### Memory writes must respect explicit domain policies
+
+Reason:
+Trading memory and operator chat memory serve different purposes and carry different risks.
+Writes should be gated by explicit actor rules so conversational surfaces cannot silently mutate trade-memory retrieval.

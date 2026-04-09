@@ -64,6 +64,7 @@ It also now supports:
 - hybrid heuristic + vector-style retrieval scoring
 - shared memory bus propagation between stages
 - explicit separation between trading memory and operator chat memory
+- explicit memory write-policy rules by domain and actor
 
 It should be treated as:
 

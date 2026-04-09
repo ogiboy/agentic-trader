@@ -7,6 +7,7 @@ import duckdb
 
 from agentic_trader.config import Settings
 from agentic_trader.memory.embeddings import build_memory_document, embed_artifacts
+from agentic_trader.memory.policy import MemoryActor, assert_memory_write_allowed
 from agentic_trader.runtime_feed import append_service_event, write_service_state
 from agentic_trader.schemas import (
     AccountMark,
@@ -307,7 +308,12 @@ class TradingDatabase:
                 artifacts.model_dump_json(indent=2),
             ],
         )
-        self.upsert_memory_vector(run_id, artifacts, created_at=created_at)
+        self.upsert_memory_vector(
+            run_id,
+            artifacts,
+            created_at=created_at,
+            actor="system_runtime",
+        )
 
     def insert_order(self, order: dict[str, Any]) -> None:
         self.conn.execute(
@@ -462,8 +468,14 @@ class TradingDatabase:
         return records
 
     def upsert_memory_vector(
-        self, run_id: str, artifacts: RunArtifacts, *, created_at: str | None = None
+        self,
+        run_id: str,
+        artifacts: RunArtifacts,
+        *,
+        created_at: str | None = None,
+        actor: MemoryActor = "system_runtime",
     ) -> None:
+        assert_memory_write_allowed("trade_memory", actor)
         self.conn.execute(
             """
             insert into memory_vectors (run_id, created_at, symbol, embedding_json, document_text)
@@ -509,8 +521,14 @@ class TradingDatabase:
         return vectors
 
     def insert_chat_history(
-        self, *, persona: str, user_message: str, response_text: str
+        self,
+        *,
+        persona: str,
+        user_message: str,
+        response_text: str,
+        actor: MemoryActor = "operator_chat",
     ) -> str:
+        assert_memory_write_allowed("chat_memory", actor)
         entry_id = f"chat-{uuid4().hex[:12]}"
         self.conn.execute(
             """

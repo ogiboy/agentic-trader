@@ -43,6 +43,7 @@ Desired direction:
 - memory write policy controls per role
 - stronger inspection and replay support
 - better persistence of what context each stage actually received
+- keep memory-policy visibility aligned across CLI and Ink surfaces
 
 ### 4. Per-Trade Context Persistence
 

@@ -29,6 +29,7 @@ Implemented or substantially present:
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
 - trade-level context persistence for memory/tool/model/rationale inspection
+- explicit memory write policy for trade memory versus chat memory domains
 
 ## Current Constraints
 
