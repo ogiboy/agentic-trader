@@ -33,6 +33,7 @@ Implemented or substantially present:
 - operator chat history persisted separately from trading memory
 - trade-level context persistence for memory/tool/model/rationale inspection
 - explicit memory write policy for trade memory versus chat memory domains
+- broker adapter boundary with paper backend, safe live gating, and execution kill-switch semantics
 
 ## Current Constraints
 

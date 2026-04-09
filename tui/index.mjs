@@ -278,6 +278,7 @@ function OverviewPage({ data }) {
   const runtime = data.status;
   const preferences = data.preferences;
   const calendar = data.calendar;
+  const broker = data.broker;
   const marketCache = data.marketCache;
   const latestSnapshot = data.review.record?.artifacts?.snapshot;
   const agentActivity = data.agentActivity;
@@ -328,6 +329,8 @@ function OverviewPage({ data }) {
             `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
             `Runtime Dir: ${doctor.runtime_dir}`,
             `Database: ${doctor.database}`,
+            `Broker Backend: ${broker?.backend ?? '-'}`,
+            `Broker State: ${broker?.state ?? '-'}`,
             `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
             `Market Session: ${formatMarketSession(calendar.session)}`,
             `News Tool: ${data.news?.mode ?? 'off'}`,
@@ -361,6 +364,7 @@ function OverviewPage({ data }) {
 function RuntimePage({ data }) {
   const runtime = data.status;
   const supervisor = data.supervisor;
+  const broker = data.broker;
   const events = data.logs;
   const agentActivity = data.agentActivity;
   const reviewRecord = data.review.record;
@@ -407,6 +411,9 @@ function RuntimePage({ data }) {
             `Stage Detail: ${agentActivity?.current_stage_message ?? '-'}`,
             `Last Completed Stage: ${agentActivity?.last_completed_stage ?? '-'}`,
             `Last Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
+            `Broker Backend: ${broker?.backend ?? '-'}`,
+            `Broker State: ${broker?.state ?? '-'}`,
+            `Kill Switch: ${broker?.kill_switch_active ?? false}`,
             `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
             `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
             `Market Session: ${formatMarketSessionWithTradable(calendar.session)}`,

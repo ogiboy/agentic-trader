@@ -16,6 +16,7 @@ from rich.table import Table
 from rich.text import Text
 
 from agentic_trader.config import get_settings, Settings
+from agentic_trader.engine.broker import broker_runtime_payload
 from agentic_trader.agents.operator_chat import (
     apply_preference_update,
     chat_with_persona,
@@ -959,6 +960,10 @@ def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
     }
 
 
+def _broker_payload(settings: Settings) -> dict[str, object]:
+    return broker_runtime_payload(settings)
+
+
 def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
     if "BIST" in preferences.exchanges or "TR" in preferences.regions:
         return "THYAO.IS"
@@ -1572,6 +1577,32 @@ def supervisor_status(
     )
 
 
+@app.command("broker-status")
+def broker_status(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    )
+) -> None:
+    """Show the active broker backend and execution safety gates."""
+    settings = get_settings()
+    payload = _broker_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    table = Table(title="Broker Status")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("Backend", str(payload["backend"]))
+    table.add_row("State", str(payload["state"]))
+    table.add_row("Live Execution Enabled", str(payload["live_execution_enabled"]))
+    table.add_row("Kill Switch Active", str(payload["kill_switch_active"]))
+    table.add_row("Live Requested", str(payload["live_requested"]))
+    table.add_row("Live Ready", str(payload["live_ready"]))
+    table.add_row("Message", str(payload["message"]))
+    console.print(table)
+
+
 @app.command()
 def logs(
     limit: int = typer.Option(
@@ -1644,6 +1675,7 @@ def dashboard_snapshot(
             "doctor": doctor_payload,
             "status": status_payload,
             "supervisor": _service_supervisor_payload(settings),
+            "broker": _broker_payload(settings),
             "logs": [event.model_dump(mode="json") for event in events],
             "agentActivity": {
                 "cycle_count": activity.cycle_count,

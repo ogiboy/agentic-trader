@@ -33,7 +33,7 @@ Current runtime stages:
   DuckDB persistence for runs, fills, positions, journals, trade contexts, traces, and reports
 
 - `agentic_trader/engine/`
-  Runtime execution and orchestration mechanics
+  Runtime execution and orchestration mechanics, including the broker adapter boundary and the paper broker implementation
 
 - `agentic_trader/workflows/`
   Higher-level flow composition, replay, backtesting, review, and operator workflows
@@ -93,6 +93,7 @@ Good changes fit into one of these buckets:
 - improve daemon, CLI, and TUI consistency
 - keep live agent progress readable without depending on direct DB reads
 - keep daemon supervision metadata readable through sidecar contracts and not only through the database writer
+- keep future live broker work behind the adapter boundary and explicit execution safety gates
 - improve replay and backtest fidelity
 
 ## Architectural Anti-Goals

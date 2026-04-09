@@ -84,3 +84,14 @@ Requirements:
 - explicit configuration
 - diagnostic-only failure behavior
 - no hidden fallback trade generation
+
+### 8. Live Adapter Readiness
+
+The broker boundary now exists. Keep live execution preparation explicit and guarded.
+
+Desired direction:
+
+- preserve paper as the default execution backend
+- keep live execution blocked unless explicitly enabled and implemented
+- surface broker backend, kill-switch, and readiness state in every operator surface
+- add one real live adapter only after paper evaluation quality is stable

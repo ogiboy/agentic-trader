@@ -345,6 +345,7 @@ def test_dashboard_snapshot_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert payload["doctor"]["ollama_reachable"] is True
     assert payload["status"]["state"]["current_symbol"] == "AAPL"
     assert payload["supervisor"]["state"]["launch_count"] == 0
+    assert payload["broker"]["backend"] == "paper"
     assert payload["logs"][0]["event_type"] == "agent_regime_started"
     assert payload["agentActivity"]["current_stage"] == "regime"
     assert payload["agentActivity"]["current_stage_status"] == "running"
@@ -475,6 +476,29 @@ def test_supervisor_status_json_includes_log_tails(
     assert payload["state"]["restart_count"] == 1
     assert payload["stdout_tail"][-1] == "line-2"
     assert payload["stderr_tail"][-1] == "err-1"
+
+
+def test_broker_status_json_reports_execution_guardrails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="live",
+        live_execution_enabled=False,
+        execution_kill_switch_active=False,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["broker-status", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["backend"] == "live"
+    assert payload["state"] == "blocked"
+    assert payload["live_requested"] is True
+    assert payload["live_ready"] is False
 
 
 def test_calendar_status_and_dashboard_snapshot_include_calendar(

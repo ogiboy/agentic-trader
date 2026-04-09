@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agentic_trader.config import Settings
-from agentic_trader.engine.paper_broker import PaperBroker
+from agentic_trader.engine.broker import BrokerAdapter, get_broker_adapter
 from agentic_trader.engine.position_manager import evaluate_position_exit
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.runtime_feed import clear_stop_request, request_stop, stop_requested
@@ -34,7 +34,7 @@ def _stop_requested(db: TradingDatabase) -> bool:
 def _manage_open_position(
     *,
     db: TradingDatabase,
-    broker: PaperBroker,
+    broker: BrokerAdapter,
     artifacts: RunArtifacts,
     cycle_count: int,
 ) -> str | None:
@@ -86,7 +86,7 @@ def run_service(
     ensure_llm_ready(settings)
     clear_stop_request(settings)
     db = TradingDatabase(settings)
-    broker = PaperBroker(db, settings)
+    broker = get_broker_adapter(db=db, settings=settings)
     db.upsert_service_state(
         state="starting",
         continuous=continuous,

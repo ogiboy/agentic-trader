@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     news_headline_limit: int = 5
 
     strict_llm: bool = True
+    execution_backend: Literal["paper", "live"] = "paper"
+    live_execution_enabled: bool = False
+    execution_kill_switch_active: bool = False
     allow_short: bool = True
     default_poll_seconds: int = 300
     min_confidence: float = 0.6

@@ -10,8 +10,8 @@ from agentic_trader.agents.regime import assess_regime
 from agentic_trader.agents.review import build_review_note
 from agentic_trader.agents.risk import build_risk_plan
 from agentic_trader.config import Settings
+from agentic_trader.engine.broker import get_broker_adapter
 from agentic_trader.engine.guard import evaluate_execution
-from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
@@ -28,7 +28,7 @@ type ProgressCallback = Callable[[str, str, str], None]
 
 def persist_position_plan(*, settings: Settings, artifacts: RunArtifacts) -> None:
     db = TradingDatabase(settings)
-    broker = PaperBroker(db, settings)
+    broker = get_broker_adapter(db=db, settings=settings)
     broker.record_position_plan(
         symbol=artifacts.snapshot.symbol,
         decision=artifacts.execution,
@@ -39,7 +39,7 @@ def persist_position_plan(*, settings: Settings, artifacts: RunArtifacts) -> Non
 
 def persist_run(*, settings: Settings, artifacts: RunArtifacts) -> str:
     db = TradingDatabase(settings)
-    broker = PaperBroker(db, settings)
+    broker = get_broker_adapter(db=db, settings=settings)
     run_id = f"run-{uuid4().hex[:12]}"
     db.insert_run(run_id, artifacts)
     order_id = broker.submit(artifacts.execution)

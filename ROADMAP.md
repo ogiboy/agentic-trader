@@ -142,12 +142,16 @@ Notes:
 
 ## Phase 8: Live Execution Adapters
 
-Status: not started.
+Status: in progress.
 
-- [ ] define a broker adapter interface
-- [ ] start with a safe paper/live switch
-- [ ] add approval gates and kill switches
+- [x] define a broker adapter interface
+- [x] start with a safe paper/live switch
+- [x] add approval gates and kill switches
 - [ ] implement one live broker only after paper results are stable
+Notes:
+- a broker adapter boundary now sits in front of execution and the paper broker implements the first adapter
+- runtime surfaces now expose broker backend state, live-request status, and kill-switch status
+- live execution remains intentionally blocked until a real live adapter is added behind the same interface
 
 ## Phase 9: Smarter Agent Layer
 
