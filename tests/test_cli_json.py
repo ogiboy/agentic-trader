@@ -344,6 +344,7 @@ def test_dashboard_snapshot_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     payload = json.loads(result.stdout)
     assert payload["doctor"]["ollama_reachable"] is True
     assert payload["status"]["state"]["current_symbol"] == "AAPL"
+    assert payload["supervisor"]["state"]["launch_count"] == 0
     assert payload["logs"][0]["event_type"] == "agent_regime_started"
     assert payload["agentActivity"]["current_stage"] == "regime"
     assert payload["agentActivity"]["current_stage_status"] == "running"
@@ -433,6 +434,47 @@ def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert payload["available"] is True
     assert payload["record"]["symbol"] == "NVDA"
     assert payload["record"]["execution_rationale"] == "Execution approved."
+
+
+def test_supervisor_status_json_includes_log_tails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    stdout_path = tmp_path / "service.out.log"
+    stderr_path = tmp_path / "service.err.log"
+    stdout_path.write_text("line-1\nline-2\n", encoding="utf-8")
+    stderr_path.write_text("err-1\n", encoding="utf-8")
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    db = TradingDatabase(settings)
+    db.upsert_service_state(
+        state="starting",
+        continuous=True,
+        poll_seconds=300,
+        cycle_count=0,
+        message="Background service spawned.",
+        pid=4242,
+        background_mode=True,
+        launch_count=2,
+        restart_count=1,
+        stdout_log_path=str(stdout_path),
+        stderr_log_path=str(stderr_path),
+    )
+    db.close()
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["supervisor-status", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["state"]["background_mode"] is True
+    assert payload["state"]["launch_count"] == 2
+    assert payload["state"]["restart_count"] == 1
+    assert payload["stdout_tail"][-1] == "line-2"
+    assert payload["stderr_tail"][-1] == "err-1"
 
 
 def test_calendar_status_and_dashboard_snapshot_include_calendar(

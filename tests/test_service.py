@@ -293,6 +293,9 @@ def test_start_background_service_records_spawn(monkeypatch: pytest.MonkeyPatch,
     assert state is not None
     assert state.pid == 4242
     assert state.state == "starting"
+    assert state.background_mode is True
+    assert state.launch_count == 1
+    assert state.restart_count == 0
     assert state.symbols == ["AAPL", "MSFT"]
     assert state.interval == "1d"
     assert state.lookback == "180d"
@@ -420,6 +423,51 @@ def test_stop_service_command_marks_stop_requested(monkeypatch: pytest.MonkeyPat
     assert updated is not None
     assert updated.stop_requested is True
     assert updated.state == "stopping"
+
+
+def test_run_service_records_last_terminal_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.ensure_llm_ready",
+        lambda current_settings: LLMHealthStatus(
+            provider="ollama",
+            base_url=current_settings.base_url,
+            model_name=current_settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ok",
+        ),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.run_once",
+        lambda **kwargs: _artifacts(kwargs["symbol"]),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.persist_run",
+        lambda **kwargs: "paper-test-order",
+    )
+
+    run_service(
+        settings=settings,
+        symbols=["AAPL"],
+        interval="1d",
+        lookback="180d",
+        poll_seconds=1,
+        continuous=False,
+        max_cycles=None,
+    )
+
+    db = TradingDatabase(settings)
+    state = db.get_service_state()
+    assert state is not None
+    assert state.last_terminal_state == "completed"
+    assert state.last_terminal_at is not None
 
 
 def test_restart_service_command_restarts_with_saved_config(

@@ -202,6 +202,13 @@ class ServiceStateSnapshot(BaseModel):
     last_error: str | None = None
     pid: int | None = None
     stop_requested: bool = False
+    background_mode: bool = False
+    launch_count: int = 0
+    restart_count: int = 0
+    last_terminal_state: str | None = None
+    last_terminal_at: str | None = None
+    stdout_log_path: str | None = None
+    stderr_log_path: str | None = None
     message: str = ""
 
 

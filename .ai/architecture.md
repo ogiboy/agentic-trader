@@ -44,6 +44,9 @@ Current runtime stages:
 - `agentic_trader/runtime_status.py`
   Shared runtime state interpretation and derived agent-activity summaries for observer surfaces
 
+- `agentic_trader/runtime_feed.py`
+  Sidecar-friendly runtime state, event, and stop-request contract for background supervision and UI attach flows
+
 ## Configuration Reality
 
 The runtime already supports:
@@ -89,6 +92,7 @@ Good changes fit into one of these buckets:
 - strengthen portfolio-aware reasoning
 - improve daemon, CLI, and TUI consistency
 - keep live agent progress readable without depending on direct DB reads
+- keep daemon supervision metadata readable through sidecar contracts and not only through the database writer
 - improve replay and backtest fidelity
 
 ## Architectural Anti-Goals

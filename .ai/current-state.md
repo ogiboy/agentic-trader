@@ -25,6 +25,7 @@ Implemented or substantially present:
 - backtest and replay surfaces
 - control room / monitor / TUI surfaces
 - derived agent-activity summaries across the control-room surfaces
+- daemon supervision metadata including launch counts, restart counts, terminal states, and stdout or stderr log tails
 - operator chat and safe instruction parsing
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
@@ -41,6 +42,7 @@ Implemented or substantially present:
 - conversational surfaces must not silently mutate trading policy
 - Ink TUI is the primary operator surface, but deeper feature parity and refinement are still open
 - DB-backed review surfaces may intentionally fall back to observer mode while the runtime writer is active
+- background runtime supervision now has a sidecar-friendly status and log contract that UI surfaces can read without competing for the writer connection
 
 ## Current Development Posture
 

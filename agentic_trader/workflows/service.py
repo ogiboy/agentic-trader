@@ -351,10 +351,22 @@ def start_background_service(
     continuous: bool,
     max_cycles: int | None,
     workdir: Path | None = None,
+    launch_count_override: int | None = None,
+    restart_count_override: int | None = None,
 ) -> int:
     clear_stop_request(settings)
     db = TradingDatabase(settings)
     state = db.get_service_state()
+    launch_count = (
+        launch_count_override
+        if launch_count_override is not None
+        else (state.launch_count if state is not None else 0) + 1
+    )
+    restart_count = (
+        restart_count_override
+        if restart_count_override is not None
+        else (state.restart_count if state is not None else 0)
+    )
     if (
         state is not None
         and state.state in {"starting", "running", "stopping"}
@@ -430,6 +442,11 @@ def start_background_service(
         message="Background service spawned.",
         pid=process.pid,
         stop_requested=False,
+        background_mode=True,
+        launch_count=launch_count,
+        restart_count=restart_count,
+        stdout_log_path=str(stdout_path),
+        stderr_log_path=str(stderr_path),
     )
     db.insert_service_event(
         level="info",
@@ -466,6 +483,8 @@ def restart_background_service(
                 os.kill(state.pid, signal.SIGTERM)
             except OSError:
                 pass
+    restart_count = state.restart_count + 1
+    launch_count = state.launch_count + 1
     db.close()
     return start_background_service(
         settings=settings,
@@ -476,4 +495,6 @@ def restart_background_service(
         continuous=True,
         max_cycles=state.max_cycles,
         workdir=workdir,
+        launch_count_override=launch_count,
+        restart_count_override=restart_count,
     )

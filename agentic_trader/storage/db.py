@@ -207,6 +207,13 @@ class TradingDatabase:
                 last_error varchar,
                 pid bigint,
                 stop_requested boolean not null default false,
+                background_mode boolean not null default false,
+                launch_count integer not null default 0,
+                restart_count integer not null default 0,
+                last_terminal_state varchar,
+                last_terminal_at varchar,
+                stdout_log_path varchar,
+                stderr_log_path varchar,
                 message varchar not null
             )
             """
@@ -233,6 +240,34 @@ class TradingDatabase:
             self.conn.execute("alter table service_state add column lookback varchar")
         if "max_cycles" not in service_columns:
             self.conn.execute("alter table service_state add column max_cycles integer")
+        if "background_mode" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column background_mode boolean not null default false"
+            )
+        if "launch_count" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column launch_count integer not null default 0"
+            )
+        if "restart_count" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column restart_count integer not null default 0"
+            )
+        if "last_terminal_state" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column last_terminal_state varchar"
+            )
+        if "last_terminal_at" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column last_terminal_at varchar"
+            )
+        if "stdout_log_path" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column stdout_log_path varchar"
+            )
+        if "stderr_log_path" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column stderr_log_path varchar"
+            )
         self.conn.execute(
             """
             create table if not exists service_events (
@@ -977,11 +1012,16 @@ class TradingDatabase:
         interval: str | None = None,
         lookback: str | None = None,
         max_cycles: int | None = None,
-        current_symbol: str | None,
+        current_symbol: str | None = None,
         message: str,
         last_error: str | None = None,
         pid: int | None = None,
         stop_requested: bool | None = None,
+        background_mode: bool | None = None,
+        launch_count: int | None = None,
+        restart_count: int | None = None,
+        stdout_log_path: str | None = None,
+        stderr_log_path: str | None = None,
     ) -> None:
         now = datetime.now(timezone.utc).isoformat()
         existing = self.get_service_state(service_name)
@@ -1016,15 +1056,53 @@ class TradingDatabase:
             if max_cycles is not None
             else (existing.max_cycles if existing is not None else None)
         )
+        resolved_background_mode = (
+            background_mode
+            if background_mode is not None
+            else (existing.background_mode if existing is not None else False)
+        )
+        resolved_launch_count = (
+            launch_count
+            if launch_count is not None
+            else (existing.launch_count if existing is not None else 0)
+        )
+        resolved_restart_count = (
+            restart_count
+            if restart_count is not None
+            else (existing.restart_count if existing is not None else 0)
+        )
+        resolved_stdout_log_path = (
+            stdout_log_path
+            if stdout_log_path is not None
+            else (existing.stdout_log_path if existing is not None else None)
+        )
+        resolved_stderr_log_path = (
+            stderr_log_path
+            if stderr_log_path is not None
+            else (existing.stderr_log_path if existing is not None else None)
+        )
+        terminal_states = {"stopped", "completed", "failed", "blocked"}
+        resolved_last_terminal_state = (
+            state
+            if state in terminal_states
+            else (existing.last_terminal_state if existing is not None else None)
+        )
+        resolved_last_terminal_at = (
+            now
+            if state in terminal_states
+            else (existing.last_terminal_at if existing is not None else None)
+        )
 
         self.conn.execute(
             """
             insert into service_state (
                 service_name, state, updated_at, started_at, last_heartbeat_at,
                 continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
-                current_symbol, last_error, pid, stop_requested, message
+                current_symbol, last_error, pid, stop_requested, background_mode,
+                launch_count, restart_count, last_terminal_state, last_terminal_at,
+                stdout_log_path, stderr_log_path, message
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             on conflict(service_name) do update set
                 state = excluded.state,
                 updated_at = excluded.updated_at,
@@ -1041,6 +1119,13 @@ class TradingDatabase:
                 last_error = excluded.last_error,
                 pid = excluded.pid,
                 stop_requested = excluded.stop_requested,
+                background_mode = excluded.background_mode,
+                launch_count = excluded.launch_count,
+                restart_count = excluded.restart_count,
+                last_terminal_state = excluded.last_terminal_state,
+                last_terminal_at = excluded.last_terminal_at,
+                stdout_log_path = excluded.stdout_log_path,
+                stderr_log_path = excluded.stderr_log_path,
                 message = excluded.message
             """,
             [
@@ -1060,6 +1145,13 @@ class TradingDatabase:
                 last_error,
                 resolved_pid,
                 resolved_stop_requested,
+                resolved_background_mode,
+                resolved_launch_count,
+                resolved_restart_count,
+                resolved_last_terminal_state,
+                resolved_last_terminal_at,
+                resolved_stdout_log_path,
+                resolved_stderr_log_path,
                 message,
             ],
         )
@@ -1082,6 +1174,13 @@ class TradingDatabase:
                 last_error=last_error,
                 pid=resolved_pid,
                 stop_requested=resolved_stop_requested,
+                background_mode=resolved_background_mode,
+                launch_count=resolved_launch_count,
+                restart_count=resolved_restart_count,
+                last_terminal_state=resolved_last_terminal_state,
+                last_terminal_at=resolved_last_terminal_at,
+                stdout_log_path=resolved_stdout_log_path,
+                stderr_log_path=resolved_stderr_log_path,
                 message=message,
             ),
         )
@@ -1093,7 +1192,9 @@ class TradingDatabase:
             """
             select service_name, state, updated_at, started_at, last_heartbeat_at,
                    continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
-                   current_symbol, last_error, pid, stop_requested, message
+                   current_symbol, last_error, pid, stop_requested, background_mode,
+                   launch_count, restart_count, last_terminal_state, last_terminal_at,
+                   stdout_log_path, stderr_log_path, message
             from service_state
             where service_name = ?
             """,
@@ -1118,7 +1219,14 @@ class TradingDatabase:
             last_error=str(row[13]) if row[13] is not None else None,
             pid=int(row[14]) if row[14] is not None else None,
             stop_requested=bool(row[15]),
-            message=str(row[16]),
+            background_mode=bool(row[16]),
+            launch_count=int(row[17]),
+            restart_count=int(row[18]),
+            last_terminal_state=str(row[19]) if row[19] is not None else None,
+            last_terminal_at=str(row[20]) if row[20] is not None else None,
+            stdout_log_path=str(row[21]) if row[21] is not None else None,
+            stderr_log_path=str(row[22]) if row[22] is not None else None,
+            message=str(row[23]),
         )
 
     def request_stop_service(self, service_name: str = "orchestrator") -> None:

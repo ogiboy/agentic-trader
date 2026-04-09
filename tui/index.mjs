@@ -359,6 +359,7 @@ function OverviewPage({ data }) {
 
 function RuntimePage({ data }) {
   const runtime = data.status;
+  const supervisor = data.supervisor;
   const events = data.logs;
   const agentActivity = data.agentActivity;
   const reviewRecord = data.review.record;
@@ -394,6 +395,11 @@ function RuntimePage({ data }) {
             `Updated: ${runtime.state?.updated_at ?? '-'}`,
             `Heartbeat Age: ${runtime.age_seconds ?? '-'}s`,
             `Stop Requested: ${runtime.state?.stop_requested ?? false}`,
+            `Background Mode: ${runtime.state?.background_mode ?? false}`,
+            `Launch Count: ${runtime.state?.launch_count ?? 0}`,
+            `Restart Count: ${runtime.state?.restart_count ?? 0}`,
+            `Last Terminal State: ${runtime.state?.last_terminal_state ?? '-'}`,
+            `Last Terminal At: ${runtime.state?.last_terminal_at ?? '-'}`,
             `Message: ${runtime.state?.message ?? '-'}`,
             `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
             `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
@@ -413,8 +419,13 @@ function RuntimePage({ data }) {
         Box,
         { width: '50%', paddingLeft: 1 },
         panel(
-          'STAGE FLOW',
+          'SUPERVISOR / STAGE FLOW',
           [
+            `Stdout Tail Lines: ${supervisor?.stdout_tail?.length ?? 0}`,
+            `Stderr Tail Lines: ${supervisor?.stderr_tail?.length ?? 0}`,
+            `Stdout Log: ${runtime.state?.stdout_log_path ?? '-'}`,
+            `Stderr Log: ${runtime.state?.stderr_log_path ?? '-'}`,
+            '',
             ...(agentActivity?.stage_statuses?.length
               ? agentActivity.stage_statuses.map(
                   (stage) => `${stage.stage}: ${stage.status} | ${stage.message}`,
@@ -423,6 +434,12 @@ function RuntimePage({ data }) {
             '',
             `Latest Review Available: ${data.review.available !== false && reviewRecord ? 'yes' : 'no'}`,
             `Latest Review Summary: ${recentSummary}`,
+            '',
+            ...(supervisor?.stderr_tail?.length
+              ? ['stderr:', ...supervisor.stderr_tail.slice(-3)]
+              : supervisor?.stdout_tail?.length
+                ? ['stdout:', ...supervisor.stdout_tail.slice(-3)]
+                : ['No daemon log tail yet.']),
           ],
           'green',
         ),

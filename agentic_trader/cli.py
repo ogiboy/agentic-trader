@@ -95,6 +95,13 @@ HELP_RUN_ID = "Run id to inspect. Defaults to the latest recorded run."
 DB_LOCKED_MSG = "The runtime writer currently owns the database."
 
 
+def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
+    if path is None or not path.exists():
+        return []
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    return lines[-limit:]
+
+
 def _render_health_panel(status: str, body: str, *, border_style: str) -> Panel:
     return Panel(body, title=status, border_style=border_style)
 
@@ -935,6 +942,23 @@ def _trade_context_payload(
     }
 
 
+def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
+    state = read_service_state(settings)
+    view = build_runtime_status_view(state)
+    stdout_path = Path(state.stdout_log_path) if state and state.stdout_log_path else None
+    stderr_path = Path(state.stderr_log_path) if state and state.stderr_log_path else None
+    return {
+        "runtime_state": view.runtime_state,
+        "live_process": view.live_process,
+        "is_stale": view.is_stale,
+        "age_seconds": view.age_seconds,
+        "status_message": view.status_message,
+        "state": state.model_dump(mode="json") if state is not None else None,
+        "stdout_tail": _read_text_tail(stdout_path),
+        "stderr_tail": _read_text_tail(stderr_path),
+    }
+
+
 def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
     if "BIST" in preferences.exchanges or "TR" in preferences.regions:
         return "THYAO.IS"
@@ -1493,6 +1517,61 @@ def status(
     _render_service_state(state)
 
 
+@app.command("supervisor-status")
+def supervisor_status(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    )
+) -> None:
+    """Show daemon supervision metadata and recent background log tails."""
+    settings = get_settings()
+    payload = _service_supervisor_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    state_json = payload["state"]
+    if state_json is None:
+        console.print(
+            Panel(
+                "No runtime state has been recorded yet.",
+                title="Service Supervisor",
+                border_style="yellow",
+            )
+        )
+        return
+
+    state = ServiceStateSnapshot.model_validate(state_json)
+    table = Table(title="Service Supervisor")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("Runtime", str(payload["runtime_state"]))
+    table.add_row("Live Process", "yes" if payload["live_process"] else "no")
+    table.add_row("Background Mode", str(state.background_mode))
+    table.add_row("Launch Count", str(state.launch_count))
+    table.add_row("Restart Count", str(state.restart_count))
+    table.add_row("Last Terminal State", state.last_terminal_state or "-")
+    table.add_row("Last Terminal At", state.last_terminal_at or "-")
+    table.add_row("Stdout Log", state.stdout_log_path or "-")
+    table.add_row("Stderr Log", state.stderr_log_path or "-")
+    table.add_row("Status Note", str(payload["status_message"]))
+    console.print(table)
+    console.print(
+        Panel(
+            "\n".join(cast(list[str], payload["stdout_tail"])) or "No stdout log lines yet.",
+            title="Service Stdout Tail",
+            border_style="cyan",
+        )
+    )
+    console.print(
+        Panel(
+            "\n".join(cast(list[str], payload["stderr_tail"])) or "No stderr log lines yet.",
+            title="Service Stderr Tail",
+            border_style="yellow",
+        )
+    )
+
+
 @app.command()
 def logs(
     limit: int = typer.Option(
@@ -1564,6 +1643,7 @@ def dashboard_snapshot(
         {
             "doctor": doctor_payload,
             "status": status_payload,
+            "supervisor": _service_supervisor_payload(settings),
             "logs": [event.model_dump(mode="json") for event in events],
             "agentActivity": {
                 "cycle_count": activity.cycle_count,

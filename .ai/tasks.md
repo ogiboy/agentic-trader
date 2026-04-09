@@ -16,6 +16,7 @@ Keep the background runtime and the Ink control room aligned and more operationa
 Desired shape:
 
 - stronger daemon supervision readiness
+- richer daemon supervision metadata such as launch counts, restart counts, terminal states, and log-tail visibility
 - richer Ink control-room parity with existing CLI and review surfaces
 - cleaner runtime attach / restart / stop workflows
 - clearer live visibility into stage progress and runtime outcomes
