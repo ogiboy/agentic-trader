@@ -96,3 +96,13 @@ def test_complete_structured_reports_payload_preview_when_exhausted(
         raise AssertionError(
             "Expected RuntimeError for exhausted empty structured response"
         )
+
+
+def test_local_llm_uses_configured_provider_defaults() -> None:
+    settings = Settings(llm_provider="ollama", model_name="qwen3:8b")
+
+    llm = LocalLLM(settings)
+
+    assert llm.provider.provider_name == "ollama"
+    assert llm.model_name == "qwen3:8b"
+    assert llm.base_url.endswith("localhost:11434")

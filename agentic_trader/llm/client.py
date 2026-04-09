@@ -9,6 +9,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from agentic_trader.config import Settings
+from agentic_trader.llm.providers import LLMProvider, build_provider
 from agentic_trader.schemas import AgentRole, LLMHealthStatus
 
 T = TypeVar("T", bound=BaseModel)
@@ -154,11 +155,10 @@ def _attempt_sanitize_and_validate(
 class LocalLLM:
     def __init__(self, settings: Settings, *, model_name: str | None = None):
         self.settings = settings
-        self.base_url = settings.base_url.removesuffix("/v1").rstrip("/")
-        self.model_name = model_name or settings.model_name
-        self.client = httpx.Client(
-            timeout=settings.request_timeout_seconds,
-        )
+        self.provider: LLMProvider = build_provider(settings, model_name=model_name)
+        self.base_url = self.provider.base_url
+        self.model_name = self.provider.model_name
+        self.client = self.provider.client
 
     def for_role(self, role: AgentRole) -> "LocalLLM":
         routed_model = self.settings.model_for_role(role)
@@ -204,60 +204,10 @@ class LocalLLM:
         return str(response_obj).strip()
 
     def _generate_once(self, prompt: str) -> dict[str, Any]:
-        response = self.client.post(
-            f"{self.base_url}/api/generate",
-            json={
-                "model": self.model_name,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": self.settings.temperature,
-                    "num_predict": self.settings.max_output_tokens,
-                },
-            },
-        )
-        response.raise_for_status()
-        return self._parse_generate_payload(response.json())
+        return self._parse_generate_payload(self.provider.generate(prompt=prompt))
 
     def health_check(self) -> LLMHealthStatus:
-        try:
-            response = self.client.get(f"{self.base_url}/api/tags")
-            response.raise_for_status()
-            payload = cast(dict[str, Any], response.json())
-            models_obj: Any = payload.get("models", [])
-            models: list[dict[str, Any]] = []
-            if isinstance(models_obj, list):
-                for raw_item in cast(list[Any], models_obj):
-                    if isinstance(raw_item, dict):
-                        models.append(cast(dict[str, Any], raw_item))
-            available: set[str] = set()
-            for item in models:
-                name: Any = item.get("name")
-                if isinstance(name, str):
-                    available.add(name)
-            model_available = self.model_name in available
-            message = (
-                "Ollama is reachable and the configured model is available."
-                if model_available
-                else "Ollama is reachable, but the configured model is not listed."
-            )
-            return LLMHealthStatus(
-                provider="ollama",
-                base_url=self.settings.base_url,
-                model_name=self.model_name,
-                service_reachable=True,
-                model_available=model_available,
-                message=message,
-            )
-        except Exception as exc:
-            return LLMHealthStatus(
-                provider="ollama",
-                base_url=self.settings.base_url,
-                model_name=self.model_name,
-                service_reachable=False,
-                model_available=False,
-                message=f"Unable to reach Ollama: {exc}",
-            )
+        return self.provider.health_check()
 
     def complete_structured(
         self,

@@ -23,7 +23,7 @@ Desired shape:
 
 ### 2. Provider Adapter Foundation
 
-Create a clean provider abstraction so the project can support more than Ollama over time without changing trading workflow logic.
+The first provider boundary now exists. Continue from that adapter seam so future providers stay additive.
 
 Desired shape:
 
@@ -31,6 +31,7 @@ Desired shape:
 - allow future providers behind a common interface
 - preserve role-based model routing
 - keep strict runtime gating explicit per provider
+- add more provider-aware diagnostics before introducing a second provider
 
 ### 3. Memory Layer Expansion
 

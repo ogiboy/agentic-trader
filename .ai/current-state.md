@@ -12,6 +12,7 @@ Implemented or substantially present:
 - strict runtime and launcher surfaces
 - one-shot and continuous modes
 - background runtime support
+- provider adapter foundation with Ollama behind a provider boundary
 - specialist + manager graph
 - specialist consensus before manager execution
 - execution guard

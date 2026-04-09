@@ -21,7 +21,7 @@ Current runtime stages:
   Specialist, manager, explainer, and instruction-oriented agent logic
 
 - `agentic_trader/llm/`
-  LLM provider access, model routing, and role-based model selection
+  LLM provider access, provider adapters, model routing, and role-based model selection
 
 - `agentic_trader/market/`
   Market data loading, feature preparation, and calendar/session context

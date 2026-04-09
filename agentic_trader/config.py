@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    llm_provider: Literal["ollama"] = "ollama"
     model_name: str = "qwen3:8b"
     coordinator_model_name: str | None = None
     regime_model_name: str | None = None
