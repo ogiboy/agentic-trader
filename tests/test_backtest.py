@@ -1,4 +1,5 @@
 from pathlib import Path
+import pytest
 
 import pandas as pd
 
@@ -13,6 +14,7 @@ from agentic_trader.schemas import (
     BacktestReport,
     ExecutionDecision,
     ManagerDecision,
+    MarketSnapshot,
     RegimeAssessment,
     ResearchCoordinatorBrief,
     RiskPlan,
@@ -37,7 +39,7 @@ def _frame() -> pd.DataFrame:
 
 
 def test_walk_forward_backtest_closes_trade_and_reports_metrics(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -48,7 +50,7 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
 
     state = {"entered": False}
 
-    def _fake_run_from_snapshot(*, settings, snapshot, allow_fallback, memory_enabled):
+    def _fake_run_from_snapshot(*, settings: Settings, snapshot: MarketSnapshot, allow_fallback: bool, memory_enabled: bool) -> RunArtifacts:
         if not state["entered"]:
             state["entered"] = True
             strategy = StrategyPlan(
@@ -156,7 +158,7 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
 
     assert report.total_trades == 1
     assert report.closed_trades == 1
-    assert report.win_rate == 1.0
+    assert report.win_rate == pytest.approx(1.0)
     assert report.ending_equity > report.starting_equity
     assert report.trades[0].exit_reason in {"take_profit", "end_of_data"}
 
@@ -182,7 +184,7 @@ def test_deterministic_baseline_backtest_returns_metrics(tmp_path: Path) -> None
     assert report.ending_equity > 0
 
 
-def test_backtest_comparison_reports_deltas(monkeypatch, tmp_path: Path) -> None:
+def test_backtest_comparison_reports_deltas(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -243,11 +245,11 @@ def test_backtest_comparison_reports_deltas(monkeypatch, tmp_path: Path) -> None
         frame=_frame(),
     )
 
-    assert comparison.ending_equity_delta == 400.0
-    assert comparison.total_return_delta_pct == 0.04
+    assert comparison.ending_equity_delta == pytest.approx(400.0)
+    assert comparison.total_return_delta_pct == pytest.approx(0.04)
 
 
-def test_memory_ablation_backtest_reports_deltas(monkeypatch, tmp_path: Path) -> None:
+def test_memory_ablation_backtest_reports_deltas(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -314,5 +316,5 @@ def test_memory_ablation_backtest_reports_deltas(monkeypatch, tmp_path: Path) ->
     )
 
     assert calls == [True, False]
-    assert ablation.ending_equity_delta == 400.0
-    assert ablation.total_return_delta_pct == 0.04
+    assert ablation.ending_equity_delta == pytest.approx(400.0)
+    assert ablation.total_return_delta_pct == pytest.approx(0.04)

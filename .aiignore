@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+coverage
+.pytest_cache
+.mypy_cache
+.ruff_cache
+__pycache__
+runtime
+.env
+*.pyc
+*.pyo
+*.log

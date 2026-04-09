@@ -1,3 +1,5 @@
+import pytest
+
 from agentic_trader.agents.manager import manage_trade_decision
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
@@ -28,7 +30,7 @@ def _snapshot() -> MarketSnapshot:
     )
 
 
-def test_manager_finalization_derives_conflicts_and_resolution_notes(monkeypatch) -> None:
+def test_manager_finalization_derives_conflicts_and_resolution_notes(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings()
     snapshot = _snapshot()
     coordinator = ResearchCoordinatorBrief(

@@ -1,4 +1,5 @@
 from pathlib import Path
+import pytest
 
 from agentic_trader.agents.operator_chat import (
     build_chat_context,
@@ -53,7 +54,7 @@ def test_build_persona_system_prompt_reflects_profile() -> None:
     assert "risk steward" in prompt.lower()
 
 
-def test_chat_with_persona_uses_llm_response(monkeypatch, tmp_path: Path) -> None:
+def test_chat_with_persona_uses_llm_response(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

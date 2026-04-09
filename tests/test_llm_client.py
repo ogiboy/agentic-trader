@@ -1,3 +1,4 @@
+import pytest
 from typing import Any
 
 from pydantic import BaseModel
@@ -21,7 +22,7 @@ class _FakeResponse:
         return self._payload
 
 
-def test_complete_structured_retries_after_empty_response(monkeypatch) -> None:
+def test_complete_structured_retries_after_empty_response(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings(max_retries=1)
     llm = LocalLLM(settings)
     payloads = iter(
@@ -46,7 +47,7 @@ def test_complete_structured_retries_after_empty_response(monkeypatch) -> None:
     assert parsed.value == "ok"
 
 
-def test_complete_text_retries_after_error_payload(monkeypatch) -> None:
+def test_complete_text_retries_after_error_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings(max_retries=1)
     llm = LocalLLM(settings)
     payloads = iter(
@@ -71,7 +72,7 @@ def test_complete_text_retries_after_error_payload(monkeypatch) -> None:
 
 
 def test_complete_structured_reports_payload_preview_when_exhausted(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     settings = Settings(max_retries=0)
     llm = LocalLLM(settings)

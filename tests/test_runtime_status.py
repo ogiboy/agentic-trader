@@ -1,4 +1,5 @@
 from rich.console import Console
+import pytest
 
 from agentic_trader.runtime_status import build_runtime_status_view
 from agentic_trader.schemas import ServiceStateSnapshot
@@ -6,7 +7,7 @@ from agentic_trader.tui import _runtime_state_table
 
 
 def test_build_runtime_status_view_marks_terminal_failure_as_inactive(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "agentic_trader.runtime_status.is_process_alive", lambda pid: False
@@ -35,7 +36,7 @@ def test_build_runtime_status_view_marks_terminal_failure_as_inactive(
     assert "last recorded runtime state" in view.status_message.lower()
 
 
-def test_runtime_state_table_surfaces_last_recorded_failure(monkeypatch) -> None:
+def test_runtime_state_table_surfaces_last_recorded_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "agentic_trader.runtime_status.is_process_alive", lambda pid: False
     )

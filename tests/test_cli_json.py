@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import pytest
 
 from typer.testing import CliRunner
 
@@ -130,7 +131,7 @@ def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
     )
 
 
-def test_status_preferences_and_portfolio_json(monkeypatch, tmp_path: Path) -> None:
+def test_status_preferences_and_portfolio_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -169,7 +170,7 @@ def test_status_preferences_and_portfolio_json(monkeypatch, tmp_path: Path) -> N
     assert portfolio_payload["positions"] == []
 
 
-def test_doctor_and_logs_json(monkeypatch, tmp_path: Path) -> None:
+def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -209,7 +210,7 @@ def test_doctor_and_logs_json(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_preferences_and_portfolio_json_survive_db_lock(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -237,7 +238,7 @@ def test_preferences_and_portfolio_json_survive_db_lock(
     assert portfolio_payload["positions"] == []
 
 
-def test_journal_risk_review_and_trace_json(monkeypatch, tmp_path: Path) -> None:
+def test_journal_risk_review_and_trace_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -272,7 +273,7 @@ def test_journal_risk_review_and_trace_json(monkeypatch, tmp_path: Path) -> None
     assert trace_payload["record"] is None
 
 
-def test_chat_json(monkeypatch, tmp_path: Path) -> None:
+def test_chat_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -296,7 +297,7 @@ def test_chat_json(monkeypatch, tmp_path: Path) -> None:
     assert payload["response"] == "runtime is healthy"
 
 
-def test_dashboard_snapshot_json(monkeypatch, tmp_path: Path) -> None:
+def test_dashboard_snapshot_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -352,7 +353,7 @@ def test_dashboard_snapshot_json(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_memory_explorer_and_retrieval_inspection_json(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -380,7 +381,7 @@ def test_memory_explorer_and_retrieval_inspection_json(
     assert retrieval_payload["stages"] == []
 
 
-def test_replay_run_json(monkeypatch, tmp_path: Path) -> None:
+def test_replay_run_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -412,7 +413,7 @@ def test_replay_run_json(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_calendar_status_and_dashboard_snapshot_include_calendar(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -463,7 +464,7 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
     assert snapshot_payload["chatHistory"]["entries"][0]["persona"] == "operator_liaison"
 
 
-def test_market_cache_json(monkeypatch, tmp_path: Path) -> None:
+def test_market_cache_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -484,7 +485,7 @@ def test_market_cache_json(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_news_brief_json_defaults_to_tool_only_disabled(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,

@@ -1,4 +1,5 @@
 from pathlib import Path
+import pytest
 
 from agentic_trader.agents.calibration import build_confidence_calibration
 from agentic_trader.agents.manager import manage_trade_decision
@@ -126,10 +127,10 @@ def test_build_confidence_calibration_detects_underperformance(tmp_path: Path) -
 
     assert calibration.closed_trades == 2
     assert calibration.confidence_multiplier < 1.0
-    assert calibration.win_rate == 0.0
+    assert calibration.win_rate == pytest.approx(0.0)
 
 
-def test_manager_applies_historical_calibration(tmp_path: Path, monkeypatch) -> None:
+def test_manager_applies_historical_calibration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

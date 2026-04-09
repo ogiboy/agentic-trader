@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from agentic_trader.config import Settings
 from agentic_trader.schemas import (
     ManagerDecision,
@@ -31,7 +33,7 @@ def _snapshot() -> MarketSnapshot:
 
 
 def test_run_from_snapshot_propagates_shared_memory_bus(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,

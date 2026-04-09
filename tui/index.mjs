@@ -84,6 +84,166 @@ async function loadDashboard() {
   };
 }
 
+function getPageLabel(page) {
+  const labels = {
+    overview: 'Overview',
+    runtime: 'Runtime',
+    portfolio: 'Portfolio',
+    review: 'Review',
+    memory: 'Memory',
+    chat: 'Chat',
+  };
+  return labels[page] || 'Unknown';
+}
+
+function getPageView(page, data, chatPersona, chatHistory, chatDraft, chatBusy) {
+  switch (page) {
+    case 'overview':
+      return e(OverviewPage, { data });
+    case 'runtime':
+      return e(RuntimePage, { data });
+    case 'portfolio':
+      return e(PortfolioPage, { data });
+    case 'review':
+      return e(ReviewPage, { data });
+    case 'memory':
+      return e(MemoryPage, { data });
+    default:
+      return e(ChatPage, {
+        persona: chatPersona,
+        history: chatHistory,
+        draft: chatDraft,
+        chatBusy,
+      });
+  }
+}
+
+function getStatusBorderColor(runtimeState) {
+  switch (runtimeState) {
+    case 'active':
+      return 'green';
+    case 'stale':
+      return 'yellow';
+    default:
+      return 'cyan';
+  }
+}
+
+function formatMarketSession(session) {
+  if (!session) return 'unavailable';
+  return `${session.venue} ${session.session_state}`;
+}
+
+function formatMarketSessionWithTradable(session) {
+  if (!session) return 'unavailable';
+  return `${session.venue} ${session.session_state} tradable=${session.tradable_now}`;
+}
+
+function formatMTFSnapshot(snapshot) {
+  if (!snapshot) return '-';
+  return `${snapshot.mtf_alignment} @ ${snapshot.higher_timeframe}`;
+}
+
+function renderUnavailableMessage(error) {
+  return [
+    'unavailable',
+    error || 'The runtime writer currently owns the database.',
+  ];
+}
+
+function getReviewLines(reviewRecord) {
+  if (!reviewRecord) {
+    return ['No persisted runs are available yet.'];
+  }
+  return [
+    `Run ID: ${reviewRecord.run_id}`,
+    `Created: ${reviewRecord.created_at}`,
+    `Symbol: ${reviewRecord.symbol}`,
+    `Approved: ${reviewRecord.approved}`,
+    `Coordinator Focus: ${reviewRecord.artifacts.coordinator.market_focus}`,
+    `Regime: ${reviewRecord.artifacts.regime.regime}`,
+    `Strategy: ${reviewRecord.artifacts.strategy.strategy_family}`,
+    `Manager Bias: ${reviewRecord.artifacts.manager.action_bias}`,
+    `Consensus: ${reviewRecord.artifacts.consensus.alignment_level}`,
+    `Review Summary: ${reviewRecord.artifacts.review.summary}`,
+  ];
+}
+
+function getTraceLines(traceRecord) {
+  if (!traceRecord?.artifacts?.agent_traces?.length) {
+    return ['No persisted agent traces are available yet.'];
+  }
+  return traceRecord.artifacts.agent_traces.map(
+    (stageTrace) =>
+      `${stageTrace.role} | ${stageTrace.model_name} | fallback=${stageTrace.used_fallback} | ${stageTrace.output_json.replaceAll(/\s+/g, ' ').slice(0, 72)}`,
+  );
+}
+
+function getReplayLines(replayState) {
+  if (!replayState) {
+    return ['No replayable run is available yet.'];
+  }
+  return [
+    `Final Side: ${replayState.final_side}`,
+    `Approved: ${replayState.approved}`,
+    `Consensus: ${replayState.consensus.alignment_level}`,
+    `MTF: ${replayState.snapshot.mtf_alignment} @ ${replayState.snapshot.higher_timeframe}`,
+    `Manager: ${(replayState.manager_override_notes || []).join(' / ')}`,
+    `Conflict Count: ${(replayState.manager_conflicts || []).length}`,
+    ...(replayState.manager_conflicts || [])
+      .slice(0, 3)
+      .map(
+        (conflict) =>
+          `${conflict.conflict_type} [${conflict.severity}] | ${conflict.summary}`,
+      ),
+    `Final Rationale: ${replayState.final_rationale}`,
+    ...replayState.stages
+      .slice(0, 5)
+      .map(
+        (stage) =>
+          `${stage.role} | memories=${stage.retrieved_memories.length} | bus=${(stage.shared_memory_bus || []).length} | tools=${stage.tool_outputs.length} | fallback=${stage.used_fallback}`,
+      ),
+  ];
+}
+
+function getExplorerLines(explorer) {
+  if (!explorer?.matches?.length) {
+    return ['No similar historical memories found yet.'];
+  }
+  return explorer.matches.map(
+    (match) =>
+      `${match.created_at} | ${match.symbol} | score=${match.similarity_score} | ${match.retrieval_source} | ${match.regime} | ${match.strategy_family} | ${match.summary}`,
+  );
+}
+
+function getInspectionLines(inspection) {
+  if (!inspection?.stages?.length) {
+    return ['No retrieval inspection data available yet.'];
+  }
+  return inspection.stages.flatMap((stage) => {
+    const retrieved = stage.retrieved_memories?.length ?? 0;
+    const notes = stage.memory_notes?.length ?? 0;
+    const recentRuns = stage.recent_runs?.length ?? 0;
+    const sharedBus = stage.shared_memory_bus?.length ?? 0;
+    const headline = `${stage.role} | retrieved=${retrieved} | trade-memory=${notes} | shared-bus=${sharedBus} | recent-runs=${recentRuns}`;
+    const sample =
+      stage.retrieved_memories?.[0] ||
+      stage.memory_notes?.[0] ||
+      'No retrieval context attached.';
+    return [headline, `  ${sample}`, ''];
+  });
+}
+
+function getJournalLines(journal) {
+  if (!journal?.entries?.length) {
+    return ['No trade journal entries yet.'];
+  }
+  return journal.entries.map(
+    (entry) =>
+      `${entry.opened_at} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`,
+  );
+}
+
 function panel(title, lines, borderColor = 'cyan') {
   return e(
     Box,
@@ -160,11 +320,7 @@ function OverviewPage({ data }) {
             '',
             `Last Outcome: ${latestOutcomeEvent?.message ?? 'Waiting for a completed symbol or service result.'}`,
           ],
-          runtime.runtime_state === 'active'
-            ? 'green'
-            : runtime.runtime_state === 'stale'
-              ? 'yellow'
-              : 'cyan',
+          getStatusBorderColor(runtime.runtime_state),
         ),
       ),
       e(
@@ -180,7 +336,7 @@ function OverviewPage({ data }) {
             `Runtime Dir: ${doctor.runtime_dir}`,
             `Database: ${doctor.database}`,
             `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
-            `Market Session: ${calendar.session ? `${calendar.session.venue} ${calendar.session.session_state}` : 'unavailable'}`,
+            `Market Session: ${formatMarketSession(calendar.session)}`,
             `News Tool: ${data.news?.mode ?? 'off'}`,
             `Cached Snapshots: ${marketCache.count}`,
           ],
@@ -250,7 +406,7 @@ function RuntimePage({ data }) {
             `Message: ${runtime.state?.message ?? '-'}`,
             `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
             `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
-            `Market Session: ${calendar.session ? `${calendar.session.venue} ${calendar.session.session_state} tradable=${calendar.session.tradable_now}` : 'unavailable'}`,
+            `Market Session: ${formatMarketSessionWithTradable(calendar.session)}`,
             `Snapshot Cache Mode: ${marketCache.mode}`,
             `Cached Snapshots: ${marketCache.count}`,
           ],
@@ -267,7 +423,7 @@ function RuntimePage({ data }) {
             `Run ID: ${reviewRecord?.run_id ?? '-'}`,
             `Symbol: ${reviewRecord?.symbol ?? '-'}`,
             `Approved: ${reviewRecord?.approved ?? '-'}`,
-            `MTF: ${latestSnapshot ? `${latestSnapshot.mtf_alignment} @ ${latestSnapshot.higher_timeframe}` : '-'}`,
+            `MTF: ${formatMTFSnapshot(latestSnapshot)}`,
             `Review Summary: ${recentSummary}`,
           ],
           'green',
@@ -333,16 +489,13 @@ function PortfolioPage({ data }) {
 
   const journalLines =
     journal.available === false
-      ? [
+      ? renderLinesFallback(
+          'TRADE JOURNAL',
+          journal.available,
+          journal.error,
           'Trade journal is temporarily unavailable.',
-          journal.error || 'The runtime writer currently owns the database.',
-        ]
-      : journal.entries.length
-        ? journal.entries.map(
-            (entry) =>
-              `${entry.opened_at} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`,
-          )
-        : ['No trade journal entries yet.'];
+        ) || getJournalLines(journal)
+      : getJournalLines(journal);
 
   const preferenceLines = renderLinesFallback(
     'PREFERENCES',
@@ -403,63 +556,18 @@ function ReviewPage({ data }) {
 
   const reviewLines =
     review.available === false
-      ? [
-          'Run review is temporarily unavailable.',
-          review.error || 'The runtime writer currently owns the database.',
-        ]
-      : reviewRecord
-        ? [
-            `Run ID: ${reviewRecord.run_id}`,
-            `Created: ${reviewRecord.created_at}`,
-            `Symbol: ${reviewRecord.symbol}`,
-            `Approved: ${reviewRecord.approved}`,
-            `Coordinator Focus: ${reviewRecord.artifacts.coordinator.market_focus}`,
-            `Regime: ${reviewRecord.artifacts.regime.regime}`,
-            `Strategy: ${reviewRecord.artifacts.strategy.strategy_family}`,
-            `Manager Bias: ${reviewRecord.artifacts.manager.action_bias}`,
-            `Consensus: ${reviewRecord.artifacts.consensus.alignment_level}`,
-            `Review Summary: ${reviewRecord.artifacts.review.summary}`,
-          ]
-        : ['No persisted runs are available yet.'];
+      ? renderUnavailableMessage(review.error)
+      : getReviewLines(reviewRecord);
 
   const traceLines =
     trace.available === false
-      ? [
-          'Run trace is temporarily unavailable.',
-          trace.error || 'The runtime writer currently owns the database.',
-        ]
-      : traceRecord?.artifacts?.agent_traces?.length
-        ? traceRecord.artifacts.agent_traces.map(
-            (stageTrace) =>
-              `${stageTrace.role} | ${stageTrace.model_name} | fallback=${stageTrace.used_fallback} | ${stageTrace.output_json.replace(/\s+/g, ' ').slice(0, 72)}`,
-          )
-        : ['No persisted agent traces are available yet.'];
+      ? renderUnavailableMessage(trace.error)
+      : getTraceLines(traceRecord);
 
   const replayLines =
     replay.available === false
-      ? [
-          'Replay is temporarily unavailable.',
-          replay.error || 'The runtime writer currently owns the database.',
-        ]
-      : replayState
-        ? [
-            `Final Side: ${replayState.final_side}`,
-            `Approved: ${replayState.approved}`,
-            `Consensus: ${replayState.consensus.alignment_level}`,
-            `MTF: ${replayState.snapshot.mtf_alignment} @ ${replayState.snapshot.higher_timeframe}`,
-            `Manager: ${(replayState.manager_override_notes || []).join(' / ')}`,
-            `Conflict Count: ${(replayState.manager_conflicts || []).length}`,
-            ...((replayState.manager_conflicts || []).slice(0, 3).map(
-              (conflict) =>
-                `${conflict.conflict_type} [${conflict.severity}] | ${conflict.summary}`,
-            )),
-            `Final Rationale: ${replayState.final_rationale}`,
-            ...replayState.stages.slice(0, 5).map(
-              (stage) =>
-                `${stage.role} | memories=${stage.retrieved_memories.length} | bus=${(stage.shared_memory_bus || []).length} | tools=${stage.tool_outputs.length} | fallback=${stage.used_fallback}`,
-            ),
-          ]
-        : ['No replayable run is available yet.'];
+      ? renderUnavailableMessage(replay.error)
+      : getReplayLines(replayState);
 
   return e(
     Box,
@@ -496,37 +604,13 @@ function MemoryPage({ data }) {
 
   const matchLines =
     explorer.available === false
-      ? [
-          'Memory explorer is temporarily unavailable.',
-          explorer.error || 'No latest run snapshot is available.',
-        ]
-      : explorer.matches.length
-        ? explorer.matches.map(
-            (match) =>
-              `${match.created_at} | ${match.symbol} | score=${match.similarity_score} | ${match.retrieval_source} | ${match.regime} | ${match.strategy_family} | ${match.summary}`,
-          )
-        : ['No similar historical memories found yet.'];
+      ? renderUnavailableMessage(explorer.error)
+      : getExplorerLines(explorer);
 
   const retrievalLines =
     inspection.available === false
-      ? [
-          'Retrieval inspection is temporarily unavailable.',
-          inspection.error || 'No latest run trace is available.',
-        ]
-      : inspection.stages.length
-        ? inspection.stages.flatMap((stage) => {
-            const retrieved = stage.retrieved_memories?.length ?? 0;
-            const notes = stage.memory_notes?.length ?? 0;
-            const recentRuns = stage.recent_runs?.length ?? 0;
-            const sharedBus = stage.shared_memory_bus?.length ?? 0;
-            const headline = `${stage.role} | retrieved=${retrieved} | trade-memory=${notes} | shared-bus=${sharedBus} | recent-runs=${recentRuns}`;
-            const sample =
-              stage.retrieved_memories?.[0] ||
-              stage.memory_notes?.[0] ||
-              'No retrieval context attached.';
-            return [headline, `  ${sample}`, ''];
-          })
-        : ['No retrieval inspection data available yet.'];
+      ? renderUnavailableMessage(inspection.error)
+      : getInspectionLines(inspection);
 
   return e(
     Box,
@@ -636,36 +720,9 @@ function DashboardView({
   }
 
   const pageIndex = pages.indexOf(page) + 1;
-  const pageLabel =
-    page === 'overview'
-      ? 'Overview'
-      : page === 'runtime'
-        ? 'Runtime'
-        : page === 'portfolio'
-          ? 'Portfolio'
-          : page === 'review'
-            ? 'Review'
-            : page === 'memory'
-              ? 'Memory'
-              : 'Chat';
+  const pageLabel = getPageLabel(page);
 
-  const view =
-    page === 'overview'
-      ? e(OverviewPage, { data })
-      : page === 'runtime'
-        ? e(RuntimePage, { data })
-        : page === 'portfolio'
-          ? e(PortfolioPage, { data })
-          : page === 'review'
-            ? e(ReviewPage, { data })
-            : page === 'memory'
-              ? e(MemoryPage, { data })
-              : e(ChatPage, {
-                  persona: chatPersona,
-                  history: chatHistory,
-                  draft: chatDraft,
-                  chatBusy,
-                });
+  const view = getPageView(page, data, chatPersona, chatHistory, chatDraft, chatBusy);
 
   return e(
     Box,
@@ -723,7 +780,7 @@ function useDashboardState({ interactive }) {
   }, [exit]);
 
   useEffect(() => {
-    void refresh();
+    refresh();
   }, [refresh, refreshCount]);
 
   useEffect(() => {
@@ -781,29 +838,29 @@ function useDashboardState({ interactive }) {
             });
           }
         } else if (kind === 'stop') {
-          if (!data.status.state?.pid) {
-            setActionMessage({
-              kind: 'info',
-              text: 'No managed runtime is currently active.',
-            });
-          } else {
+          if (data.status.state?.pid) {
             await runTextCommand(['stop-service']);
             setActionMessage({
               kind: 'info',
               text: `Stop requested for PID ${data.status.state.pid}.`,
             });
-          }
-        } else if (kind === 'restart') {
-          if (!(data.status.state?.symbols || []).length) {
+          } else {
             setActionMessage({
               kind: 'info',
-              text: 'No saved runtime launch config is available yet.',
+              text: 'No managed runtime is currently active.',
             });
-          } else {
+          }
+        } else if (kind === 'restart') {
+          if ((data.status.state?.symbols || []).length) {
             await runTextCommand(['restart-service']);
             setActionMessage({
               kind: 'info',
               text: 'Background runtime restart requested.',
+            });
+          } else {
+            setActionMessage({
+              kind: 'info',
+              text: 'No saved runtime launch config is available yet.',
             });
           }
         }
@@ -944,7 +1001,7 @@ function InteractiveDashboardApp() {
     }
     if (page === 'chat') {
       if (key.return) {
-        void sendChat();
+        sendChat();
         return;
       }
       if (key.backspace || key.delete) {
@@ -982,15 +1039,15 @@ function InteractiveDashboardApp() {
       return;
     }
     if (input.toLowerCase() === 's') {
-      void runAction('start');
+      runAction('start');
       return;
     }
     if (input.toLowerCase() === 'x') {
-      void runAction('stop');
+      runAction('stop');
       return;
     }
     if (input === 'R') {
-      void runAction('restart');
+      runAction('restart');
       return;
     }
     if (['1', '2', '3', '4', '5', '6'].includes(input)) {

@@ -1,4 +1,6 @@
 from pathlib import Path
+from typing import Any
+import pytest
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
@@ -95,7 +97,7 @@ def _artifacts(symbol: str) -> RunArtifacts:
 
 
 def test_run_service_records_runtime_state_and_events(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -154,7 +156,7 @@ def test_run_service_records_runtime_state_and_events(
     }
 
 
-def test_run_service_records_agent_stage_events(monkeypatch, tmp_path: Path) -> None:
+def test_run_service_records_agent_stage_events(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -173,7 +175,7 @@ def test_run_service_records_agent_stage_events(monkeypatch, tmp_path: Path) -> 
         ),
     )
 
-    def _run_once_with_progress(**kwargs):
+    def _run_once_with_progress(**kwargs: Any) -> RunArtifacts:
         progress = kwargs["progress_callback"]
         progress("coordinator", "started", "Coordinator started.")
         progress("coordinator", "completed", "Coordinator finished.")
@@ -208,7 +210,7 @@ def test_run_service_records_agent_stage_events(monkeypatch, tmp_path: Path) -> 
     assert "agent_manager_completed" in event_types
 
 
-def test_run_service_respects_stop_request(monkeypatch, tmp_path: Path) -> None:
+def test_run_service_respects_stop_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -228,7 +230,7 @@ def test_run_service_respects_stop_request(monkeypatch, tmp_path: Path) -> None:
         ),
     )
 
-    def _run_once_with_stop(**kwargs):
+    def _run_once_with_stop(**kwargs: Any) -> RunArtifacts:
         db.request_stop_service()
         return _artifacts(kwargs["symbol"])
 
@@ -257,7 +259,7 @@ def test_run_service_respects_stop_request(monkeypatch, tmp_path: Path) -> None:
     assert state.stop_requested is True
 
 
-def test_start_background_service_records_spawn(monkeypatch, tmp_path: Path) -> None:
+def test_start_background_service_records_spawn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -267,7 +269,7 @@ def test_start_background_service_records_spawn(monkeypatch, tmp_path: Path) -> 
     class _FakeProcess:
         pid = 4242
 
-    def _fake_popen(*args, **kwargs):
+    def _fake_popen(*args: Any, **kwargs: Any) -> _FakeProcess:
         return _FakeProcess()
 
     monkeypatch.setattr(
@@ -297,7 +299,7 @@ def test_start_background_service_records_spawn(monkeypatch, tmp_path: Path) -> 
 
 
 def test_start_background_service_recovers_stale_pid(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -318,12 +320,15 @@ def test_start_background_service_recovers_stale_pid(
     class _FakeProcess:
         pid = 4343
 
+    def _fake_popen_stale(*args: Any, **kwargs: Any) -> _FakeProcess:
+        return _FakeProcess()
+
     monkeypatch.setattr(
         "agentic_trader.workflows.service.is_process_alive", lambda pid: False
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.subprocess.Popen",
-        lambda *args, **kwargs: _FakeProcess(),
+        _fake_popen_stale,
     )
 
     pid = start_background_service(
@@ -348,7 +353,7 @@ def test_start_background_service_recovers_stale_pid(
 
 
 def test_restart_background_service_uses_last_recorded_config(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -381,7 +386,7 @@ def test_restart_background_service_uses_last_recorded_config(
     assert pid == 5151
 
 
-def test_stop_service_command_marks_stop_requested(monkeypatch, tmp_path: Path) -> None:
+def test_stop_service_command_marks_stop_requested(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -418,7 +423,7 @@ def test_stop_service_command_marks_stop_requested(monkeypatch, tmp_path: Path) 
 
 
 def test_restart_service_command_restarts_with_saved_config(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,

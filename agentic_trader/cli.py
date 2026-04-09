@@ -15,7 +15,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from agentic_trader.config import get_settings
+from agentic_trader.config import get_settings, Settings
 from agentic_trader.agents.operator_chat import (
     apply_preference_update,
     chat_with_persona,
@@ -51,6 +51,7 @@ from agentic_trader.schemas import (
     BacktestAblationReport,
     BacktestComparisonReport,
     ChatHistoryEntry,
+    ManagerDecision,
     PositionSnapshot,
     PortfolioSnapshot,
     RunRecord,
@@ -73,6 +74,19 @@ from agentic_trader.workflows.service import (
 
 app = typer.Typer(help="Agentic Trader CLI", invoke_without_command=True)
 console = Console()
+
+# Constants for CLI help text and labels (avoid duplication)
+HELP_JSON = "Emit machine-readable JSON."
+LABEL_STRUCTURED_LLM = "Structured LLM response"
+LABEL_MARKET_VALUE = "Market Value"
+LABEL_UNREALIZED_PNL = "Unrealized PnL"
+LABEL_WIN_RATE = "Win Rate"
+LABEL_OBSERVER_MODE = "Observer Mode"
+HELP_SYMBOL = "Ticker symbol, for example AAPL or BTC-USD"
+HELP_INTERVAL = "yfinance interval, for example 1d or 1h"
+HELP_LOOKBACK = "Lookback window accepted by yfinance"
+HELP_RUN_ID = "Run id to inspect. Defaults to the latest recorded run."
+DB_LOCKED_MSG = "The runtime writer currently owns the database."
 
 
 def _render_health_panel(status: str, body: str, *, border_style: str) -> Panel:
@@ -774,11 +788,11 @@ def _emit_json(payload: object) -> None:
     typer.echo(json.dumps(payload, indent=2))
 
 
-def _open_db(settings, *, read_only: bool = False) -> TradingDatabase:
+def _open_db(settings: Settings, *, read_only: bool = False) -> TradingDatabase:
     return TradingDatabase(settings, read_only=read_only)
 
 
-def _portfolio_payload(settings) -> dict[str, object]:
+def _portfolio_payload(settings: Settings) -> dict[str, object]:
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -808,7 +822,7 @@ def _portfolio_payload(settings) -> dict[str, object]:
     }
 
 
-def _preferences_payload(settings) -> dict[str, object]:
+def _preferences_payload(settings: Settings) -> dict[str, object]:
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -827,7 +841,7 @@ def _preferences_payload(settings) -> dict[str, object]:
     return payload
 
 
-def _journal_payload(settings, *, limit: int) -> dict[str, object]:
+def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -848,7 +862,7 @@ def _journal_payload(settings, *, limit: int) -> dict[str, object]:
 
 
 def _risk_report_payload(
-    settings, *, report_date: str | None = None
+    settings: Settings, *, report_date: str | None = None
 ) -> dict[str, object]:
     try:
         db = _open_db(settings, read_only=True)
@@ -869,7 +883,7 @@ def _risk_report_payload(
     }
 
 
-def _run_record_payload(settings, *, run_id: str | None = None) -> dict[str, object]:
+def _run_record_payload(settings: Settings, *, run_id: str | None = None) -> dict[str, object]:
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -901,7 +915,7 @@ def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
     return "BTC-USD"
 
 
-def _calendar_payload(settings, *, symbol: str | None = None) -> dict[str, object]:
+def _calendar_payload(settings: Settings, *, symbol: str | None = None) -> dict[str, object]:
     try:
         preferences = InvestmentPreferences()
         record = None
@@ -930,7 +944,7 @@ def _calendar_payload(settings, *, symbol: str | None = None) -> dict[str, objec
     }
 
 
-def _news_payload(settings, *, symbol: str | None = None) -> dict[str, object]:
+def _news_payload(settings: Settings, *, symbol: str | None = None) -> dict[str, object]:
     try:
         preferences = InvestmentPreferences()
         record = None
@@ -962,7 +976,7 @@ def _news_payload(settings, *, symbol: str | None = None) -> dict[str, object]:
     }
 
 
-def _market_cache_payload(settings) -> dict[str, object]:
+def _market_cache_payload(settings: Settings) -> dict[str, object]:
     settings.ensure_directories()
     cache_dir = settings.market_data_cache_dir
     entries = []
@@ -986,7 +1000,7 @@ def _market_cache_payload(settings) -> dict[str, object]:
 
 
 def _memory_explorer_payload(
-    settings,
+    settings: Settings,
     *,
     symbol: str | None = None,
     interval: str | None = None,
@@ -1040,7 +1054,7 @@ def _memory_explorer_payload(
 
 
 def _retrieval_inspection_payload(
-    settings, *, run_id: str | None = None
+    settings: Settings, *, run_id: str | None = None
 ) -> dict[str, object]:
     record_payload = _run_record_payload(settings, run_id=run_id)
     record_json = record_payload["record"]
@@ -1083,7 +1097,7 @@ def _retrieval_inspection_payload(
     }
 
 
-def _chat_history_payload(settings, *, limit: int = 12) -> dict[str, object]:
+def _chat_history_payload(settings: Settings, *, limit: int = 12) -> dict[str, object]:
     try:
         entries = read_chat_history(settings, limit=limit)
         available = True
@@ -1099,7 +1113,7 @@ def _chat_history_payload(settings, *, limit: int = 12) -> dict[str, object]:
     }
 
 
-def _run_replay_payload(settings, *, run_id: str | None = None) -> dict[str, object]:
+def _run_replay_payload(settings: Settings, *, run_id: str | None = None) -> dict[str, object]:
     record_payload = _run_record_payload(settings, run_id=run_id)
     record_json = record_payload["record"]
     if record_payload["available"] is False or record_json is None:
