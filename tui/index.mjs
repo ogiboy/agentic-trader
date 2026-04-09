@@ -110,6 +110,7 @@ function getPageView(page, data, chatPersona, chatHistory, chatDraft, chatBusy) 
       return e(MemoryPage, { data });
     default:
       return e(ChatPage, {
+        data,
         persona: chatPersona,
         history: chatHistory,
         draft: chatDraft,
@@ -679,7 +680,42 @@ function MemoryPage({ data }) {
   );
 }
 
-function ChatPage({ persona, history, draft, chatBusy }) {
+function ChatPage({ data, persona, history, draft, chatBusy }) {
+  const agentActivity = data?.agentActivity || {};
+  const tradeContext = data?.tradeContext || {};
+  const review = data?.review || {};
+
+  const activityLines = [
+    `Current Stage: ${agentActivity.current_stage ?? '-'}`,
+    `Stage Status: ${agentActivity.current_stage_status ?? '-'}`,
+    `Stage Detail: ${agentActivity.current_stage_message ?? '-'}`,
+    `Last Completed: ${agentActivity.last_completed_stage ?? '-'}`,
+    `Completed Detail: ${agentActivity.last_completed_message ?? '-'}`,
+    `Outcome Type: ${agentActivity.last_outcome_type ?? '-'}`,
+    `Outcome: ${agentActivity.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
+  ];
+
+  const tradeRecord = tradeContext.available === false ? null : tradeContext.record;
+  const reviewRecord = review.available === false ? null : review.record;
+  const toolRoles = tradeRecord
+    ? Object.keys(tradeRecord.tool_outputs || {})
+    : [];
+  const memoryRoles = tradeRecord
+    ? Object.keys(tradeRecord.retrieved_memory_summary || {})
+    : [];
+  const reviewWarnings = reviewRecord?.artifacts?.review?.warnings || [];
+
+  const reasoningLines = [
+    `Tool Roles: ${toolRoles.join(', ') || '-'}`,
+    `Memory Roles: ${memoryRoles.join(', ') || '-'}`,
+    `Review Warnings: ${reviewWarnings.join(' | ') || '-'}`,
+    ...(agentActivity.stage_statuses?.length
+      ? agentActivity.stage_statuses.slice(0, 6).map(
+          (stage) => `${stage.stage} | ${stage.status} | ${stage.message}`,
+        )
+      : ['No stage timeline recorded yet.']),
+  ];
+
   return e(
     Box,
     { flexDirection: 'column', width: '100%' },
@@ -688,7 +724,7 @@ function ChatPage({ persona, history, draft, chatBusy }) {
       { width: '100%' },
       e(
         Box,
-        { width: '100%' },
+        { width: '58%', paddingRight: 1 },
         panel(
           'OPERATOR CHAT',
           [
@@ -707,6 +743,16 @@ function ChatPage({ persona, history, draft, chatBusy }) {
               : ['No chat messages yet.']),
           ],
           'green',
+        ),
+      ),
+      e(
+        Box,
+        { width: '42%', paddingLeft: 1, flexDirection: 'column' },
+        e(Box, { width: '100%' }, panel('LIVE AGENT ACTIVITY', activityLines, 'cyan')),
+        e(
+          Box,
+          { width: '100%', marginTop: 1 },
+          panel('REASONING / TOOLS', reasoningLines.slice(0, 10), 'magenta'),
         ),
       ),
     ),

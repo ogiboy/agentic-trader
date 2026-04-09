@@ -68,7 +68,7 @@ Status: in progress.
 - [x] keep the terminal app open until the operator explicitly exits it
 - [x] add a dedicated chat screen inside the TUI so the operator can talk to the system without leaving the control room
 - [x] support chatting with either a general operator assistant or a selected agent persona from the menu
-- [ ] show structured agent activity, recent tool usage, and the current reasoning stage beside the chat transcript
+- [x] show structured agent activity, recent tool usage, and the current reasoning stage beside the chat transcript
 - [x] add a clearer retro-terminal visual language so the control room feels like a serious operator console rather than a plain CLI
 - [x] introduce an Ink-based next-generation control room under a dedicated `tui/` application so the operator surface can evolve beyond the current Rich menu
 - [x] keep `agentic-trader` as the primary launcher and expose subcommands such as `agentic-trader tui`, `agentic-trader monitor`, and future UI entrypoints
@@ -84,6 +84,7 @@ Status: in progress.
 - the Ink control room now ships with overview, runtime, portfolio, and review pages plus start/stop hotkeys
 - the Ink control room now also includes an operator chat page with persona switching
 - the Ink control room now also includes a memory page backed by similar-run retrieval and stage-level retrieval inspection
+- the Ink chat page now embeds live agent activity, recent tool-role usage, and reasoning-stage context beside the transcript
 - richer trace inspection and deeper Ink feature parity are still open
 
 ## Phase 5: Backtesting

@@ -28,6 +28,7 @@ Implemented or substantially present:
 - derived agent-activity summaries across the control-room surfaces
 - daemon supervision metadata including launch counts, restart counts, terminal states, and stdout or stderr log tails
 - operator chat and safe instruction parsing
+- Ink chat now includes side-by-side live agent activity and reasoning/tool context instead of a transcript-only view
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
 - trade-level context persistence for memory/tool/model/rationale inspection

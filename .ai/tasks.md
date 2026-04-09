@@ -53,7 +53,7 @@ Build on the new preset layer so the operator surface feels complete, not just i
 Desired direction:
 
 - carry tone, strictness, and intervention presets consistently across CLI, Rich, Ink, and operator chat
-- add more structured agent activity beside chat transcripts
+- deepen the new structured agent activity and reasoning context beside chat transcripts
 - keep the Ink control room moving toward full parity with the older Rich admin surface
 
 ### 5. Per-Trade Context Persistence
