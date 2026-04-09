@@ -350,6 +350,8 @@ def test_dashboard_snapshot_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert payload["portfolio"]["available"] is True
     assert "memoryExplorer" in payload
     assert "retrievalInspection" in payload
+    assert "tradeContext" in payload
+    assert payload["tradeContext"]["record"]["symbol"] == "AAPL"
     assert payload["replay"]["available"] is True
     assert payload["replay"]["replay"]["snapshot"]["mtf_alignment"] == "bullish"
 
@@ -412,6 +414,25 @@ def test_replay_run_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     assert payload["replay"]["stages"][0]["retrieved_memories"] == [
         "prior trend continuation"
     ]
+
+
+def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    persist_run(settings=settings, artifacts=_artifacts("NVDA"))
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["trade-context", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["available"] is True
+    assert payload["record"]["symbol"] == "NVDA"
+    assert payload["record"]["execution_rationale"] == "Execution approved."
 
 
 def test_calendar_status_and_dashboard_snapshot_include_calendar(

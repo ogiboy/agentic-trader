@@ -10,9 +10,9 @@ from agentic_trader.memory.embeddings import build_memory_document, embed_artifa
 from agentic_trader.runtime_feed import append_service_event, write_service_state
 from agentic_trader.schemas import (
     AccountMark,
+    ChatHistoryEntry,
     DailyRiskReport,
     InvestmentPreferences,
-    ChatHistoryEntry,
     PortfolioSnapshot,
     PositionPlanSnapshot,
     PositionSnapshot,
@@ -21,6 +21,7 @@ from agentic_trader.schemas import (
     RunArtifacts,
     ServiceEvent,
     ServiceStateSnapshot,
+    TradeContextRecord,
     TradeJournalEntry,
 )
 
@@ -172,6 +173,17 @@ class TradingDatabase:
                 exit_reason varchar,
                 realized_pnl double,
                 notes varchar not null
+            )
+            """
+        )
+        self.conn.execute(
+            """
+            create table if not exists trade_contexts (
+                trade_id varchar primary key,
+                created_at varchar not null,
+                run_id varchar,
+                symbol varchar not null,
+                payload_json varchar not null
             )
             """
         )
@@ -673,6 +685,78 @@ class TradingDatabase:
         )
         return trade_id
 
+    def persist_trade_context(
+        self,
+        *,
+        trade_id: str,
+        run_id: str | None,
+        artifacts: RunArtifacts,
+    ) -> None:
+        routed_models: dict[str, str] = {}
+        retrieved_memory_summary: dict[str, list[str]] = {}
+        tool_outputs: dict[str, list[str]] = {}
+        shared_memory_summary: dict[str, list[str]] = {}
+
+        for trace in artifacts.agent_traces:
+            routed_models[trace.role] = trace.model_name
+            try:
+                context = json.loads(trace.context_json)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(context, dict):
+                continue
+            if isinstance(context.get("retrieved_memories"), list):
+                retrieved_memory_summary[trace.role] = [
+                    str(item) for item in context["retrieved_memories"][:5]
+                ]
+            if isinstance(context.get("tool_outputs"), list):
+                tool_outputs[trace.role] = [
+                    str(item) for item in context["tool_outputs"][:5]
+                ]
+            if isinstance(context.get("shared_memory_bus"), list):
+                shared_memory_summary[trace.role] = [
+                    str(item.get("summary", ""))
+                    for item in context["shared_memory_bus"][:5]
+                    if isinstance(item, dict)
+                ]
+
+        record = TradeContextRecord(
+            trade_id=trade_id,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            run_id=run_id,
+            symbol=artifacts.snapshot.symbol,
+            market_snapshot=artifacts.snapshot,
+            routed_models=routed_models,
+            retrieved_memory_summary=retrieved_memory_summary,
+            tool_outputs=tool_outputs,
+            shared_memory_summary=shared_memory_summary,
+            consensus=artifacts.consensus,
+            manager_rationale=artifacts.manager.rationale,
+            manager_conflicts=artifacts.manager.conflicts,
+            manager_resolution_notes=artifacts.manager.resolution_notes,
+            execution_rationale=artifacts.execution.rationale,
+            review_summary=artifacts.review.summary,
+            review_warnings=artifacts.review.warnings,
+        )
+        self.conn.execute(
+            """
+            insert into trade_contexts (trade_id, created_at, run_id, symbol, payload_json)
+            values (?, ?, ?, ?, ?)
+            on conflict(trade_id) do update set
+                created_at = excluded.created_at,
+                run_id = excluded.run_id,
+                symbol = excluded.symbol,
+                payload_json = excluded.payload_json
+            """,
+            [
+                trade_id,
+                record.created_at,
+                run_id,
+                artifacts.snapshot.symbol,
+                record.model_dump_json(indent=2),
+            ],
+        )
+
     def close_trade_journal(
         self,
         *,
@@ -765,6 +849,32 @@ class TradingDatabase:
                 )
             )
         return entries
+
+    def get_trade_context(self, trade_id: str) -> TradeContextRecord | None:
+        row = self.conn.execute(
+            """
+            select payload_json
+            from trade_contexts
+            where trade_id = ?
+            """,
+            [trade_id],
+        ).fetchone()
+        if row is None:
+            return None
+        return TradeContextRecord.model_validate_json(str(row[0]))
+
+    def latest_trade_context(self) -> TradeContextRecord | None:
+        row = self.conn.execute(
+            """
+            select payload_json
+            from trade_contexts
+            order by created_at desc
+            limit 1
+            """
+        ).fetchone()
+        if row is None:
+            return None
+        return TradeContextRecord.model_validate_json(str(row[0]))
 
     def build_daily_risk_report(
         self, report_date: str | None = None

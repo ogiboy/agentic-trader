@@ -30,7 +30,7 @@ Current runtime stages:
   Similar-run retrieval, hybrid vector-style memory support, memory assembly, and memory inspection support
 
 - `agentic_trader/storage/`
-  DuckDB persistence for runs, fills, positions, journals, traces, and reports
+  DuckDB persistence for runs, fills, positions, journals, trade contexts, traces, and reports
 
 - `agentic_trader/engine/`
   Runtime execution and orchestration mechanics

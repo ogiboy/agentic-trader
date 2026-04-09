@@ -101,6 +101,7 @@ def test_persist_run_creates_trade_journal_and_account_mark(tmp_path: Path) -> N
 
     db = TradingDatabase(settings)
     journal = db.list_trade_journal(limit=5)
+    trade_context = db.latest_trade_context()
     marks = db.list_account_marks(limit=5)
 
     assert order_id.startswith("paper-")
@@ -108,6 +109,9 @@ def test_persist_run_creates_trade_journal_and_account_mark(tmp_path: Path) -> N
     assert journal[0].entry_order_id == order_id
     assert journal[0].journal_status == "open"
     assert journal[0].symbol == "AAPL"
+    assert trade_context is not None
+    assert trade_context.symbol == "AAPL"
+    assert trade_context.manager_rationale == "Manager approved the trend setup."
     assert len(marks) >= 1
     assert marks[0].source == "run_persisted"
 

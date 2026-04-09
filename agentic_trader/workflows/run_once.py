@@ -49,12 +49,17 @@ def persist_run(*, settings: Settings, artifacts: RunArtifacts) -> str:
         journal_status = "open"
     else:
         journal_status = "no_fill"
-    db.create_trade_journal(
+    trade_id = db.create_trade_journal(
         run_id=run_id,
         order_id=order_id,
         artifacts=artifacts,
         journal_status=journal_status,
         notes=artifacts.review.summary,
+    )
+    db.persist_trade_context(
+        trade_id=trade_id,
+        run_id=run_id,
+        artifacts=artifacts,
     )
     broker.record_position_plan(
         symbol=artifacts.snapshot.symbol,

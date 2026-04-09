@@ -548,6 +548,7 @@ function ReviewPage({ data }) {
   const review = data.review;
   const trace = data.trace;
   const replay = data.replay;
+  const tradeContext = data.tradeContext;
   const reviewRecord = review.record;
   const traceRecord = trace.record;
   const replayState = replay.replay;
@@ -566,6 +567,25 @@ function ReviewPage({ data }) {
     replay.available === false
       ? renderUnavailableMessage(replay.error)
       : getReplayLines(replayState);
+
+  const tradeContextLines =
+    tradeContext?.available === false
+      ? renderUnavailableMessage(tradeContext.error)
+      : tradeContext?.record
+        ? [
+            `Trade ID: ${tradeContext.record.trade_id}`,
+            `Run ID: ${tradeContext.record.run_id ?? '-'}`,
+            `Consensus: ${tradeContext.record.consensus.alignment_level}`,
+            `Manager Rationale: ${tradeContext.record.manager_rationale}`,
+            `Execution Rationale: ${tradeContext.record.execution_rationale}`,
+            `Review Summary: ${tradeContext.record.review_summary}`,
+            `Routed Models: ${Object.entries(tradeContext.record.routed_models || {})
+              .map(([role, model]) => `${role}:${model}`)
+              .join(' | ') || '-'}`,
+            `Memory Roles: ${Object.keys(tradeContext.record.retrieved_memory_summary || {}).join(', ') || '-'}`,
+            `Tool Roles: ${Object.keys(tradeContext.record.tool_outputs || {}).join(', ') || '-'}`,
+          ]
+        : ['No persisted trade context is available yet.'];
 
   return e(
     Box,
@@ -591,6 +611,15 @@ function ReviewPage({ data }) {
         Box,
         { width: '100%' },
         panel('MEMORY-AWARE REPLAY', replayLines, 'yellow'),
+      ),
+    ),
+    e(
+      Box,
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '100%' },
+        panel('TRADE CONTEXT', tradeContextLines, 'cyan'),
       ),
     ),
   );

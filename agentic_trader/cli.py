@@ -64,6 +64,7 @@ from agentic_trader.schemas import (
     RunArtifacts,
     ServiceEvent,
     ServiceStateSnapshot,
+    TradeContextRecord,
     TradeJournalEntry,
 )
 from agentic_trader.storage.db import TradingDatabase
@@ -907,6 +908,32 @@ def _run_record_payload(settings: Settings, *, run_id: str | None = None) -> dic
     }
 
 
+def _trade_context_payload(
+    settings: Settings, *, trade_id: str | None = None
+) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            record = (
+                db.get_trade_context(trade_id)
+                if trade_id is not None
+                else db.latest_trade_context()
+            )
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        record = None
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "record": record.model_dump(mode="json") if record is not None else None,
+    }
+
+
 def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
     if "BIST" in preferences.exchanges or "TR" in preferences.regions:
         return "THYAO.IS"
@@ -1576,6 +1603,7 @@ def dashboard_snapshot(
             "riskReport": _risk_report_payload(settings),
             "review": _run_record_payload(settings),
             "trace": _run_record_payload(settings),
+            "tradeContext": _trade_context_payload(settings),
             "replay": _run_replay_payload(settings),
             "memoryExplorer": _memory_explorer_payload(
                 settings, use_latest_run=True, limit=5
@@ -1913,6 +1941,82 @@ def trace_run(
         )
         raise typer.Exit(code=0)
     _render_run_trace(record)
+
+
+@app.command("trade-context")
+def trade_context(
+    trade_id: str | None = typer.Option(
+        None, help="Trade id to inspect. Defaults to the latest recorded trade context."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON."
+    ),
+) -> None:
+    """Inspect the persisted market, memory, and reasoning context for a trade."""
+    settings = get_settings()
+    payload = _trade_context_payload(settings, trade_id=trade_id)
+    record = (
+        TradeContextRecord.model_validate(payload["record"])
+        if payload["record"] is not None
+        else None
+    )
+    if json_output:
+        _emit_json(payload)
+        return
+    if not payload["available"]:
+        console.print(
+            Panel(
+                f"Trade context is temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
+                title="Observer Mode",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    if record is None:
+        console.print(
+            Panel(
+                "No persisted trade context is available yet.",
+                title="Trade Context",
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+
+    summary = Table(title=f"Trade Context / {record.trade_id}")
+    summary.add_column("Field")
+    summary.add_column("Value")
+    summary.add_row("Created", record.created_at)
+    summary.add_row("Run ID", record.run_id or "-")
+    summary.add_row("Symbol", record.symbol)
+    summary.add_row("Consensus", record.consensus.alignment_level)
+    summary.add_row("Manager Rationale", record.manager_rationale)
+    summary.add_row("Execution Rationale", record.execution_rationale)
+    summary.add_row("Review Summary", record.review_summary)
+    console.print(summary)
+
+    routed_models = Table(title="Routed Models")
+    routed_models.add_column("Role")
+    routed_models.add_column("Model")
+    if not record.routed_models:
+        routed_models.add_row("-", "-")
+    else:
+        for role, model_name in sorted(record.routed_models.items()):
+            routed_models.add_row(role, model_name)
+    console.print(routed_models)
+
+    context_lines = [
+        f"Retrieved Memory Roles: {', '.join(sorted(record.retrieved_memory_summary)) or '-'}",
+        f"Tool Output Roles: {', '.join(sorted(record.tool_outputs)) or '-'}",
+        f"Shared Bus Roles: {', '.join(sorted(record.shared_memory_summary)) or '-'}",
+        f"Review Warnings: {', '.join(record.review_warnings) or '-'}",
+    ]
+    console.print(
+        Panel(
+            "\n".join(context_lines),
+            title="Context Summary",
+            border_style="cyan",
+        )
+    )
 
 
 @app.command("replay-run")

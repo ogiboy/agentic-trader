@@ -345,6 +345,25 @@ class TradeJournalEntry(BaseModel):
     notes: str = ""
 
 
+class TradeContextRecord(BaseModel):
+    trade_id: str
+    created_at: str
+    run_id: str | None = None
+    symbol: str
+    market_snapshot: MarketSnapshot
+    routed_models: dict[str, str] = Field(default_factory=dict)
+    retrieved_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
+    tool_outputs: dict[str, list[str]] = Field(default_factory=dict)
+    shared_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
+    consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
+    manager_rationale: str = ""
+    manager_conflicts: list[ManagerConflict] = Field(default_factory=list)
+    manager_resolution_notes: list[str] = Field(default_factory=list)
+    execution_rationale: str = ""
+    review_summary: str = ""
+    review_warnings: list[str] = Field(default_factory=list)
+
+
 class DailyRiskReport(BaseModel):
     report_date: str
     generated_at: str

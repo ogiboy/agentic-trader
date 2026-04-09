@@ -28,6 +28,7 @@ Implemented or substantially present:
 - operator chat and safe instruction parsing
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
+- trade-level context persistence for memory/tool/model/rationale inspection
 
 ## Current Constraints
 

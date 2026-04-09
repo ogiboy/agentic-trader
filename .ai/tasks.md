@@ -46,7 +46,7 @@ Desired direction:
 
 ### 4. Per-Trade Context Persistence
 
-Deepen stored context around executed and rejected decisions.
+The first persisted trade-context layer now exists. Keep building it into a richer review surface.
 
 Desired direction:
 
@@ -56,6 +56,7 @@ Desired direction:
 - specialist disagreements
 - manager rationale
 - guard rejection reason
+- surface trade context cleanly in both CLI and Ink review flows
 
 ### 5. CLI / TUI / Runtime Contract Consistency
 
