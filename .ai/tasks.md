@@ -95,3 +95,14 @@ Desired direction:
 - keep live execution blocked unless explicitly enabled and implemented
 - surface broker backend, kill-switch, and readiness state in every operator surface
 - add one real live adapter only after paper evaluation quality is stable
+
+### 9. Observer API And WebUI Readiness
+
+The first local observer API now exists. Keep it small, read-only, and aligned with the dashboard contract.
+
+Desired direction:
+
+- expose the same runtime truths to future WebUI clients without duplicating orchestration logic
+- keep observer endpoints local-first and read-only
+- reuse dashboard/status/log/broker contracts across Ink, CLI, and future web surfaces
+- avoid introducing a second runtime state system for web consumers

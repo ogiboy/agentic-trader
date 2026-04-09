@@ -132,12 +132,13 @@ Status: in progress.
 - [x] support clean start, stop, and restart from the CLI and TUI
 - [ ] make the daemon compatible with `launchd` or `systemd`-style supervision later
 - [x] allow the operator TUI to attach to a running background service instead of owning the process directly
-- [ ] allow a future WebUI to connect to the same daemon runtime over a local port without duplicating orchestration logic
+- [x] allow a future WebUI to connect to the same daemon runtime over a local port without duplicating orchestration logic
 Notes:
 - background launch, status, logs, stop requests, and live monitor attach surfaces are already implemented
 - read-only observer surfaces now attach safely through shared status/log contracts without competing for write locks
 - restart controls are now available from the CLI through stored background launch config
 - daemon supervision metadata now records background mode, launch counts, restart counts, last terminal state, and stdout or stderr log tails for operator surfaces
+- a local observer API now exposes the same runtime contracts over HTTP endpoints such as `/health`, `/dashboard`, `/status`, `/logs`, and `/broker`
 - deeper supervisor compatibility and daemon-backed multi-surface UI support remain open
 
 ## Phase 8: Live Execution Adapters

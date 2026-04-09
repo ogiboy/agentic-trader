@@ -46,6 +46,7 @@ from agentic_trader.runtime_status import (
     build_runtime_status_view,
     is_process_alive,
 )
+from agentic_trader.observer_api import serve_observer_api
 from agentic_trader.schemas import (
     ChatPersona,
     DailyRiskReport,
@@ -1629,6 +1630,12 @@ def dashboard_snapshot(
 ) -> None:
     """Emit the full Ink dashboard snapshot as a single JSON payload."""
     settings = get_settings()
+    _emit_json(build_dashboard_snapshot_payload(settings, log_limit=log_limit))
+
+
+def build_dashboard_snapshot_payload(
+    settings: Settings, *, log_limit: int = 14
+) -> dict[str, object]:
     llm = LocalLLM(settings)
     health = llm.health_check()
     state = read_service_state(settings)
@@ -1670,64 +1677,122 @@ def dashboard_snapshot(
     events = read_service_events(settings, limit=log_limit)
     activity = build_agent_activity_view(view.state, events)
 
-    _emit_json(
-        {
-            "doctor": doctor_payload,
-            "status": status_payload,
-            "supervisor": _service_supervisor_payload(settings),
-            "broker": _broker_payload(settings),
-            "logs": [event.model_dump(mode="json") for event in events],
-            "agentActivity": {
-                "cycle_count": activity.cycle_count,
-                "current_symbol": activity.current_symbol,
-                "current_stage": activity.current_stage,
-                "current_stage_status": activity.current_stage_status,
-                "current_stage_message": activity.current_stage_message,
-                "last_completed_stage": activity.last_completed_stage,
-                "last_completed_message": activity.last_completed_message,
-                "last_outcome_type": activity.last_outcome_type,
-                "last_outcome_message": activity.last_outcome_message,
-                "stage_statuses": [
-                    {
-                        "stage": stage.stage,
-                        "status": stage.status,
-                        "message": stage.message,
-                        "created_at": stage.created_at,
-                        "cycle_count": stage.cycle_count,
-                        "symbol": stage.symbol,
-                    }
-                    for stage in activity.stage_statuses
-                ],
-                "recent_stage_events": [
-                    {
-                        "stage": stage.stage,
-                        "status": stage.status,
-                        "message": stage.message,
-                        "created_at": stage.created_at,
-                        "cycle_count": stage.cycle_count,
-                        "symbol": stage.symbol,
-                    }
-                    for stage in activity.recent_stage_events
-                ],
-            },
-            "portfolio": _portfolio_payload(settings),
-            "preferences": _preferences_payload(settings),
-            "journal": _journal_payload(settings, limit=8),
-            "riskReport": _risk_report_payload(settings),
-            "review": _run_record_payload(settings),
-            "trace": _run_record_payload(settings),
-            "tradeContext": _trade_context_payload(settings),
-            "replay": _run_replay_payload(settings),
-            "memoryExplorer": _memory_explorer_payload(
-                settings, use_latest_run=True, limit=5
-            ),
-            "retrievalInspection": _retrieval_inspection_payload(settings),
-            "memoryPolicy": memory_write_policy_snapshot(),
-            "chatHistory": _chat_history_payload(settings),
-            "calendar": _calendar_payload(settings),
-            "news": _news_payload(settings),
-            "marketCache": _market_cache_payload(settings),
+    return {
+        "doctor": doctor_payload,
+        "status": status_payload,
+        "supervisor": _service_supervisor_payload(settings),
+        "broker": _broker_payload(settings),
+        "logs": [event.model_dump(mode="json") for event in events],
+        "agentActivity": {
+            "cycle_count": activity.cycle_count,
+            "current_symbol": activity.current_symbol,
+            "current_stage": activity.current_stage,
+            "current_stage_status": activity.current_stage_status,
+            "current_stage_message": activity.current_stage_message,
+            "last_completed_stage": activity.last_completed_stage,
+            "last_completed_message": activity.last_completed_message,
+            "last_outcome_type": activity.last_outcome_type,
+            "last_outcome_message": activity.last_outcome_message,
+            "stage_statuses": [
+                {
+                    "stage": stage.stage,
+                    "status": stage.status,
+                    "message": stage.message,
+                    "created_at": stage.created_at,
+                    "cycle_count": stage.cycle_count,
+                    "symbol": stage.symbol,
+                }
+                for stage in activity.stage_statuses
+            ],
+            "recent_stage_events": [
+                {
+                    "stage": stage.stage,
+                    "status": stage.status,
+                    "message": stage.message,
+                    "created_at": stage.created_at,
+                    "cycle_count": stage.cycle_count,
+                    "symbol": stage.symbol,
+                }
+                for stage in activity.recent_stage_events
+            ],
+        },
+        "portfolio": _portfolio_payload(settings),
+        "preferences": _preferences_payload(settings),
+        "journal": _journal_payload(settings, limit=8),
+        "riskReport": _risk_report_payload(settings),
+        "review": _run_record_payload(settings),
+        "trace": _run_record_payload(settings),
+        "tradeContext": _trade_context_payload(settings),
+        "replay": _run_replay_payload(settings),
+        "memoryExplorer": _memory_explorer_payload(
+            settings, use_latest_run=True, limit=5
+        ),
+        "retrievalInspection": _retrieval_inspection_payload(settings),
+        "memoryPolicy": memory_write_policy_snapshot(),
+        "chatHistory": _chat_history_payload(settings),
+        "calendar": _calendar_payload(settings),
+        "news": _news_payload(settings),
+        "marketCache": _market_cache_payload(settings),
+    }
+
+
+def build_observer_api_payload(
+    settings: Settings, *, path: str, log_limit: int = 14
+) -> tuple[int, dict[str, object]]:
+    if path in {"/", "/dashboard"}:
+        return 200, build_dashboard_snapshot_payload(settings, log_limit=log_limit)
+    if path == "/health":
+        return 200, {
+            "service": "agentic-trader-observer-api",
+            "ok": True,
+            "runtime": build_runtime_status_view(read_service_state(settings)).runtime_state,
         }
+    if path == "/status":
+        state = read_service_state(settings)
+        view = build_runtime_status_view(state)
+        return 200, {
+            "runtime_state": view.runtime_state,
+            "live_process": view.live_process,
+            "is_stale": view.is_stale,
+            "age_seconds": view.age_seconds,
+            "status_message": view.status_message,
+            "state": view.state.model_dump(mode="json") if view.state is not None else None,
+        }
+    if path == "/logs":
+        return 200, {
+            "logs": [
+                event.model_dump(mode="json")
+                for event in read_service_events(settings, limit=log_limit)
+            ]
+        }
+    if path == "/broker":
+        return 200, _broker_payload(settings)
+    return 404, {"error": "not_found", "path": path}
+
+
+@app.command("observer-api")
+def observer_api_command(
+    host: str = typer.Option("127.0.0.1", help="Bind address for the local observer API."),
+    port: int = typer.Option(8765, min=1, max=65535, help="Bind port for the local observer API."),
+    log_limit: int = typer.Option(
+        14, min=1, max=100, help="Maximum number of runtime events to include."
+    ),
+) -> None:
+    """Serve read-only runtime state over a local HTTP API for future WebUI attach flows."""
+    settings = get_settings()
+    console.print(
+        Panel(
+            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker",
+            title="Observer API",
+            border_style="cyan",
+        )
+    )
+    serve_observer_api(
+        host=host,
+        port=port,
+        resolver=lambda path: build_observer_api_payload(
+            settings, path=path, log_limit=log_limit
+        ),
     )
 
 

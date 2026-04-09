@@ -29,6 +29,7 @@ Implemented or substantially present:
 - daemon supervision metadata including launch counts, restart counts, terminal states, and stdout or stderr log tails
 - operator chat and safe instruction parsing
 - Ink chat now includes side-by-side live agent activity and reasoning/tool context instead of a transcript-only view
+- a local observer API can now expose runtime contracts over HTTP for future WebUI attach flows
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
 - trade-level context persistence for memory/tool/model/rationale inspection

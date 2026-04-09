@@ -47,6 +47,9 @@ Current runtime stages:
 - `agentic_trader/runtime_feed.py`
   Sidecar-friendly runtime state, event, and stop-request contract for background supervision and UI attach flows
 
+- `agentic_trader/observer_api.py`
+  Local HTTP observer surface that exposes the same read-only runtime contracts for future WebUI attach flows
+
 ## Configuration Reality
 
 The runtime already supports:
