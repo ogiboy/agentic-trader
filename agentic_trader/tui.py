@@ -27,6 +27,7 @@ from agentic_trader.runtime_feed import (
     request_stop,
 )
 from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
+from agentic_trader.runtime_status import build_agent_activity_view
 from agentic_trader.schemas import (
     AgentProfile,
     BehaviorPreset,
@@ -155,6 +156,10 @@ def _risk_report_table(db: TradingDatabase) -> Table:
 
 
 def _safe_open_read_db(settings: Settings) -> TradingDatabase | None:
+    state = read_service_state(settings)
+    view = build_runtime_status_view(state)
+    if view.live_process and view.last_recorded_state in {"starting", "running", "stopping"}:
+        return None
     try:
         return TradingDatabase(settings, read_only=True)
     except Exception:
@@ -253,19 +258,15 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
 
 def _agent_activity_table(events: list[ServiceEvent]) -> Table:
     table = Table(title="Live Agent Activity")
-    table.add_column("Created")
     table.add_column("Stage")
-    table.add_column("Event")
+    table.add_column("Status")
     table.add_column("Message")
-    activity_events = [
-        event for event in events if event.event_type.startswith("agent_")
-    ]
-    if not activity_events:
-        table.add_row("-", "-", "-", "No live agent stage events yet.")
+    activity = build_agent_activity_view(None, events)
+    if not activity.stage_statuses:
+        table.add_row("-", "-", "No live agent stage events yet.")
         return table
-    for event in activity_events[:10]:
-        _, stage, status = event.event_type.split("_", 2)
-        table.add_row(event.created_at, stage, status, event.message)
+    for stage in activity.stage_statuses:
+        table.add_row(stage.stage, stage.status, stage.message)
     return table
 
 
@@ -273,47 +274,27 @@ def _current_activity_panel(
     state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Panel:
     view = build_runtime_status_view(state)
-    latest_agent_event = next(
-        (event for event in events if event.event_type.startswith("agent_")), None
-    )
-    latest_outcome_event = next(
-        (
-            event
-            for event in events
-            if event.event_type
-            in {
-                "symbol_completed",
-                "position_closed",
-                "service_completed",
-                "service_failed",
-            }
-        ),
-        None,
-    )
+    activity = build_agent_activity_view(state, events)
     lines = [
         f"Runtime: {view.runtime_state}",
         f"Current Symbol: {view.state.current_symbol if view.state is not None and view.state.current_symbol else '-'}",
         f"Cycle: {view.state.cycle_count if view.state is not None else '-'}",
         f"Current Note: {view.state.message if view.state is not None and view.state.message else '-'}",
+        "",
+        f"Current Stage: {activity.current_stage or '-'}",
+        f"Stage Status: {activity.current_stage_status or '-'}",
+        f"Stage Message: {activity.current_stage_message or 'No agent activity recorded yet.'}",
+        f"Last Completed Stage: {activity.last_completed_stage or '-'}",
+        f"Completed Note: {activity.last_completed_message or '-'}",
     ]
-    if latest_agent_event is not None:
+    if activity.last_outcome_message is not None:
         lines.extend(
             [
                 "",
-                f"Latest Agent Event: {latest_agent_event.event_type}",
-                f"Agent Message: {latest_agent_event.message}",
+                f"Last Outcome Type: {activity.last_outcome_type or '-'}",
+                f"Last Outcome: {activity.last_outcome_message}",
             ]
         )
-    else:
-        lines.extend(
-            [
-                "",
-                "Latest Agent Event: -",
-                "Agent Message: No agent activity recorded yet.",
-            ]
-        )
-    if latest_outcome_event is not None:
-        lines.extend(["", f"Last Outcome: {latest_outcome_event.message}"])
     else:
         lines.extend(
             [

@@ -44,7 +44,8 @@ def test_build_monitor_renderable_contains_core_sections(tmp_path: Path) -> None
 
     assert "Agentic Trader Live Monitor" in output
     assert "Current Cycle" in output
-    assert "Latest Agent Event" in output
+    assert "Current Stage" in output
+    assert "Stage Status" in output
     assert "System Status" in output
     assert "Runtime Status" in output
     assert "Portfolio" in output

@@ -41,6 +41,9 @@ Current runtime stages:
 - `agentic_trader/cli.py`, `main.py`, `agentic_trader/tui.py`
   Operator-facing control surfaces
 
+- `agentic_trader/runtime_status.py`
+  Shared runtime state interpretation and derived agent-activity summaries for observer surfaces
+
 ## Configuration Reality
 
 The runtime already supports:
@@ -84,6 +87,7 @@ Good changes fit into one of these buckets:
 - strengthen manager conflict and consensus reasoning
 - strengthen portfolio-aware reasoning
 - improve daemon, CLI, and TUI consistency
+- keep live agent progress readable without depending on direct DB reads
 - improve replay and backtest fidelity
 
 ## Architectural Anti-Goals

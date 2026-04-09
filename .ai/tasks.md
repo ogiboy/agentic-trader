@@ -19,6 +19,7 @@ Desired shape:
 - richer Ink control-room parity with existing CLI and review surfaces
 - cleaner runtime attach / restart / stop workflows
 - clearer live visibility into stage progress and runtime outcomes
+- observer-safe review and memory surfaces while the writer owns DuckDB
 
 ### 2. Provider Adapter Foundation
 

@@ -23,6 +23,7 @@ Implemented or substantially present:
 - memory explorer and retrieval inspection surfaces
 - backtest and replay surfaces
 - control room / monitor / TUI surfaces
+- derived agent-activity summaries across the control-room surfaces
 - operator chat and safe instruction parsing
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
@@ -36,6 +37,7 @@ Implemented or substantially present:
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy
 - Ink TUI is the primary operator surface, but deeper feature parity and refinement are still open
+- DB-backed review surfaces may intentionally fall back to observer mode while the runtime writer is active
 
 ## Current Development Posture
 

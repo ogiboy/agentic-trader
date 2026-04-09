@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from agentic_trader.schemas import ServiceStateSnapshot
+from agentic_trader.schemas import ServiceEvent, ServiceStateSnapshot
 
 
 @dataclass(frozen=True)
@@ -14,6 +14,48 @@ class RuntimeStatusView:
     is_stale: bool
     age_seconds: int | None
     state: ServiceStateSnapshot | None
+
+
+@dataclass(frozen=True)
+class AgentStageStatusView:
+    stage: str
+    status: str
+    message: str
+    created_at: str
+    cycle_count: int | None
+    symbol: str | None
+
+
+@dataclass(frozen=True)
+class AgentActivityView:
+    cycle_count: int | None
+    current_symbol: str | None
+    current_stage: str | None
+    current_stage_status: str | None
+    current_stage_message: str | None
+    last_completed_stage: str | None
+    last_completed_message: str | None
+    last_outcome_type: str | None
+    last_outcome_message: str | None
+    stage_statuses: tuple[AgentStageStatusView, ...]
+    recent_stage_events: tuple[AgentStageStatusView, ...]
+
+
+def _parse_agent_stage_event(event: ServiceEvent) -> AgentStageStatusView | None:
+    if not event.event_type.startswith("agent_"):
+        return None
+    _, _, remainder = event.event_type.partition("agent_")
+    if "_" not in remainder:
+        return None
+    stage, status = remainder.rsplit("_", 1)
+    return AgentStageStatusView(
+        stage=stage,
+        status=status,
+        message=event.message,
+        created_at=event.created_at,
+        cycle_count=event.cycle_count,
+        symbol=event.symbol,
+    )
 
 
 def _parse_timestamp(value: str | None) -> datetime | None:
@@ -102,4 +144,102 @@ def build_runtime_status_view(
         is_stale=False,
         age_seconds=age_seconds,
         state=state,
+    )
+
+
+def build_agent_activity_view(
+    state: ServiceStateSnapshot | None, events: list[ServiceEvent]
+) -> AgentActivityView:
+    stage_events = [
+        parsed
+        for event in events
+        if (parsed := _parse_agent_stage_event(event)) is not None
+    ]
+    cycle_count = (
+        state.cycle_count
+        if state is not None and state.cycle_count > 0
+        else (stage_events[0].cycle_count if stage_events else None)
+    )
+    current_symbol = (
+        state.current_symbol
+        if state is not None and state.current_symbol is not None
+        else (stage_events[0].symbol if stage_events else None)
+    )
+    relevant_stage_events = [
+        event for event in stage_events if cycle_count is None or event.cycle_count == cycle_count
+    ]
+    latest_stage_event = relevant_stage_events[0] if relevant_stage_events else None
+    last_completed_stage = next(
+        (event for event in relevant_stage_events if event.status == "completed"), None
+    )
+    latest_outcome = next(
+        (
+            event
+            for event in events
+            if event.event_type
+            in {
+                "symbol_completed",
+                "position_closed",
+                "service_completed",
+                "service_failed",
+                "service_stopped",
+            }
+            and (cycle_count is None or event.cycle_count == cycle_count)
+        ),
+        None,
+    )
+
+    stage_order = (
+        "coordinator",
+        "regime",
+        "strategy",
+        "risk",
+        "consensus",
+        "manager",
+        "execution",
+        "review",
+    )
+    latest_by_stage: dict[str, AgentStageStatusView] = {}
+    for event in relevant_stage_events:
+        latest_by_stage.setdefault(event.stage, event)
+
+    stage_statuses: list[AgentStageStatusView] = []
+    for stage in stage_order:
+        snapshot = latest_by_stage.get(stage)
+        if snapshot is not None:
+            stage_statuses.append(snapshot)
+        else:
+            stage_statuses.append(
+                AgentStageStatusView(
+                    stage=stage,
+                    status="pending",
+                    message="Waiting for this stage to start.",
+                    created_at="-",
+                    cycle_count=cycle_count,
+                    symbol=current_symbol,
+                )
+            )
+
+    return AgentActivityView(
+        cycle_count=cycle_count,
+        current_symbol=current_symbol,
+        current_stage=latest_stage_event.stage if latest_stage_event is not None else None,
+        current_stage_status=(
+            "running"
+            if latest_stage_event is not None and latest_stage_event.status == "started"
+            else (latest_stage_event.status if latest_stage_event is not None else None)
+        ),
+        current_stage_message=(
+            latest_stage_event.message if latest_stage_event is not None else None
+        ),
+        last_completed_stage=(
+            last_completed_stage.stage if last_completed_stage is not None else None
+        ),
+        last_completed_message=(
+            last_completed_stage.message if last_completed_stage is not None else None
+        ),
+        last_outcome_type=latest_outcome.event_type if latest_outcome is not None else None,
+        last_outcome_message=latest_outcome.message if latest_outcome is not None else None,
+        stage_statuses=tuple(stage_statuses),
+        recent_stage_events=tuple(relevant_stage_events[:8]),
     )

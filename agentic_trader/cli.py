@@ -39,7 +39,11 @@ from agentic_trader.runtime_feed import (
     read_chat_history,
     request_stop,
 )
-from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
+from agentic_trader.runtime_status import (
+    build_agent_activity_view,
+    build_runtime_status_view,
+    is_process_alive,
+)
 from agentic_trader.schemas import (
     ChatPersona,
     DailyRiskReport,
@@ -1525,14 +1529,47 @@ def dashboard_snapshot(
         "state": view.state.model_dump(mode="json") if view.state is not None else None,
     }
 
+    events = read_service_events(settings, limit=log_limit)
+    activity = build_agent_activity_view(view.state, events)
+
     _emit_json(
         {
             "doctor": doctor_payload,
             "status": status_payload,
-            "logs": [
-                event.model_dump(mode="json")
-                for event in read_service_events(settings, limit=log_limit)
-            ],
+            "logs": [event.model_dump(mode="json") for event in events],
+            "agentActivity": {
+                "cycle_count": activity.cycle_count,
+                "current_symbol": activity.current_symbol,
+                "current_stage": activity.current_stage,
+                "current_stage_status": activity.current_stage_status,
+                "current_stage_message": activity.current_stage_message,
+                "last_completed_stage": activity.last_completed_stage,
+                "last_completed_message": activity.last_completed_message,
+                "last_outcome_type": activity.last_outcome_type,
+                "last_outcome_message": activity.last_outcome_message,
+                "stage_statuses": [
+                    {
+                        "stage": stage.stage,
+                        "status": stage.status,
+                        "message": stage.message,
+                        "created_at": stage.created_at,
+                        "cycle_count": stage.cycle_count,
+                        "symbol": stage.symbol,
+                    }
+                    for stage in activity.stage_statuses
+                ],
+                "recent_stage_events": [
+                    {
+                        "stage": stage.stage,
+                        "status": stage.status,
+                        "message": stage.message,
+                        "created_at": stage.created_at,
+                        "cycle_count": stage.cycle_count,
+                        "symbol": stage.symbol,
+                    }
+                    for stage in activity.recent_stage_events
+                ],
+            },
             "portfolio": _portfolio_payload(settings),
             "preferences": _preferences_payload(settings),
             "journal": _journal_payload(settings, limit=8),

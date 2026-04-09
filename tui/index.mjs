@@ -279,19 +279,8 @@ function OverviewPage({ data }) {
   const calendar = data.calendar;
   const marketCache = data.marketCache;
   const latestSnapshot = data.review.record?.artifacts?.snapshot;
-  const events = data.logs;
-  const agentEvents = events.filter((event) =>
-    event.event_type.startsWith('agent_'),
-  );
-  const latestAgentEvent = agentEvents[0];
-  const latestOutcomeEvent = events.find((event) =>
-    [
-      'symbol_completed',
-      'position_closed',
-      'service_completed',
-      'service_failed',
-    ].includes(event.event_type),
-  );
+  const agentActivity = data.agentActivity;
+  const agentEvents = agentActivity?.recent_stage_events || [];
 
   return e(
     Box,
@@ -311,14 +300,17 @@ function OverviewPage({ data }) {
             `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
             `Status: ${runtime.status_message}`,
             `Current Note: ${runtime.state?.message ?? '-'}`,
+            `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
+            `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
+            `Stage Detail: ${agentActivity?.current_stage_message ?? '-'}`,
+            `Last Completed Stage: ${agentActivity?.last_completed_stage ?? '-'}`,
+            `Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
             `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
             `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
             `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
             '',
-            `Latest Agent Event: ${latestAgentEvent?.event_type ?? '-'}`,
-            `Agent Message: ${latestAgentEvent?.message ?? 'No agent stage events yet.'}`,
-            '',
-            `Last Outcome: ${latestOutcomeEvent?.message ?? 'Waiting for a completed symbol or service result.'}`,
+            `Last Outcome Type: ${agentActivity?.last_outcome_type ?? '-'}`,
+            `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
           ],
           getStatusBorderColor(runtime.runtime_state),
         ),
@@ -353,12 +345,10 @@ function OverviewPage({ data }) {
         panel(
           'AGENT ACTIVITY',
           agentEvents.length
-            ? agentEvents
-                .slice(0, 8)
-                .map(
-                  (event) =>
-                    `${event.created_at} | ${event.event_type} | ${event.message}`,
-                )
+            ? agentEvents.map(
+                (event) =>
+                  `${event.created_at} | ${event.stage} | ${event.status} | ${event.message}`,
+              )
             : ['No live agent stage events yet.'],
           'magenta',
         ),
@@ -370,6 +360,7 @@ function OverviewPage({ data }) {
 function RuntimePage({ data }) {
   const runtime = data.status;
   const events = data.logs;
+  const agentActivity = data.agentActivity;
   const reviewRecord = data.review.record;
   const calendar = data.calendar;
   const marketCache = data.marketCache;
@@ -404,6 +395,11 @@ function RuntimePage({ data }) {
             `Heartbeat Age: ${runtime.age_seconds ?? '-'}s`,
             `Stop Requested: ${runtime.state?.stop_requested ?? false}`,
             `Message: ${runtime.state?.message ?? '-'}`,
+            `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
+            `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
+            `Stage Detail: ${agentActivity?.current_stage_message ?? '-'}`,
+            `Last Completed Stage: ${agentActivity?.last_completed_stage ?? '-'}`,
+            `Last Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
             `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
             `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
             `Market Session: ${formatMarketSessionWithTradable(calendar.session)}`,
@@ -417,14 +413,16 @@ function RuntimePage({ data }) {
         Box,
         { width: '50%', paddingLeft: 1 },
         panel(
-          'LAST REVIEW',
+          'STAGE FLOW',
           [
-            `Available: ${data.review.available !== false && reviewRecord ? 'yes' : 'no'}`,
-            `Run ID: ${reviewRecord?.run_id ?? '-'}`,
-            `Symbol: ${reviewRecord?.symbol ?? '-'}`,
-            `Approved: ${reviewRecord?.approved ?? '-'}`,
-            `MTF: ${formatMTFSnapshot(latestSnapshot)}`,
-            `Review Summary: ${recentSummary}`,
+            ...(agentActivity?.stage_statuses?.length
+              ? agentActivity.stage_statuses.map(
+                  (stage) => `${stage.stage}: ${stage.status} | ${stage.message}`,
+                )
+              : ['No stage flow recorded yet.']),
+            '',
+            `Latest Review Available: ${data.review.available !== false && reviewRecord ? 'yes' : 'no'}`,
+            `Latest Review Summary: ${recentSummary}`,
           ],
           'green',
         ),

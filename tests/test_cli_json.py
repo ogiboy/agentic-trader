@@ -345,6 +345,8 @@ def test_dashboard_snapshot_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert payload["doctor"]["ollama_reachable"] is True
     assert payload["status"]["state"]["current_symbol"] == "AAPL"
     assert payload["logs"][0]["event_type"] == "agent_regime_started"
+    assert payload["agentActivity"]["current_stage"] == "regime"
+    assert payload["agentActivity"]["current_stage_status"] == "running"
     assert payload["portfolio"]["available"] is True
     assert "memoryExplorer" in payload
     assert "retrievalInspection" in payload
