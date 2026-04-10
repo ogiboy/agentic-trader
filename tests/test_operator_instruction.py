@@ -31,7 +31,9 @@ def test_apply_preference_update_changes_only_supplied_fields(tmp_path: Path) ->
     assert updated.trade_style == "swing"
 
 
-def test_interpret_operator_instruction_uses_fallback_keywords(tmp_path: Path) -> None:
+def test_interpret_operator_instruction_uses_fallback_keywords(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -39,6 +41,11 @@ def test_interpret_operator_instruction_uses_fallback_keywords(tmp_path: Path) -
     settings.ensure_directories()
     db = TradingDatabase(settings)
     llm = LocalLLM(settings)
+    monkeypatch.setattr(
+        llm,
+        "complete_structured",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("force fallback")),
+    )
 
     instruction = interpret_operator_instruction(
         llm=llm,
