@@ -193,6 +193,21 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     db.insert_service_event(
         level="info", event_type="service_started", message="Started."
     )
+    db.insert_order(
+        {
+            "order_id": "paper-test",
+            "created_at": "2026-04-11T00:00:00+00:00",
+            "symbol": "AAPL",
+            "side": "buy",
+            "approved": True,
+            "entry_price": 100.0,
+            "stop_loss": 95.0,
+            "take_profit": 110.0,
+            "position_size_pct": 0.05,
+            "confidence": 0.72,
+            "rationale": "Test order.",
+        }
+    )
     db.conn.close()
 
     runner = CliRunner()
@@ -202,11 +217,42 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     doctor_payload = json.loads(doctor_result.stdout)
     assert doctor_payload["ollama_reachable"] is True
     assert doctor_payload["model_available"] is True
+    assert doctor_payload["latest_order"].startswith("paper-test | AAPL buy")
+    assert "(" not in doctor_payload["latest_order"]
 
     logs_result = runner.invoke(app, ["logs", "--json", "--limit", "5"])
     assert logs_result.exit_code == 0
     logs_payload = json.loads(logs_result.stdout)
     assert logs_payload[0]["event_type"] == "service_started"
+
+
+def test_rich_menu_eof_exits_cleanly(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("agentic_trader.tui.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.tui.LocalLLM.health_check",
+        lambda self: LLMHealthStatus(
+            provider="ollama",
+            base_url=self.settings.base_url,
+            model_name=self.settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ready",
+        ),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["menu"], input="2\n1\n")
+
+    assert result.exit_code == 0
+    assert "Control room closed cleanly" in result.stdout
 
 
 def test_preferences_and_portfolio_json_survive_db_lock(
@@ -476,6 +522,10 @@ def test_supervisor_status_json_includes_log_tails(
     assert payload["state"]["restart_count"] == 1
     assert payload["stdout_tail"][-1] == "line-2"
     assert payload["stderr_tail"][-1] == "err-1"
+
+    human_result = runner.invoke(app, ["supervisor-status"])
+    assert human_result.exit_code == 0
+    assert "line-2" in human_result.stdout
 
 
 def test_broker_status_json_reports_execution_guardrails(

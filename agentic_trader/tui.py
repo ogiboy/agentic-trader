@@ -53,6 +53,14 @@ def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
 
 
 def _banner() -> Panel:
+    if console.width < 120:
+        compact = (
+            "[bold green]AGENTIC TRADER[/bold green] "
+            "[cyan]// CONTROL ROOM[/cyan]\n"
+            "[dim]Strict LLM gate, portfolio state, runtime controls.[/dim]"
+        )
+        return Panel(Align.center(compact), border_style="bright_blue")
+
     art = r"""
  █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗    ████████╗██████╗  █████╗ ██████╗ ███████╗██████╗
 ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║██╔════╝    ╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
@@ -66,6 +74,12 @@ def _banner() -> Panel:
         "[dim]Strict LLM gate, saved preferences, portfolio state, recent runs, and launch controls.[/dim]"
     )
     return Panel(f"[green]{art}[/green]\n{subtitle}", border_style="bright_blue")
+
+
+def _exit_cleanly() -> None:
+    console.print(
+        Panel("Control room closed cleanly.", title="Exit", border_style="blue")
+    )
 
 
 def _split_csv(value: str) -> list[str]:
@@ -1116,9 +1130,15 @@ def run_main_menu() -> None:
         menu.add_row("7", "Exit")
         console.print(menu)
 
-        choice = Prompt.ask(
-            "Select action", choices=["1", "2", "3", "4", "5", "6", "7"], default="2"
-        )
+        try:
+            choice = Prompt.ask(
+                "Select action",
+                choices=["1", "2", "3", "4", "5", "6", "7"],
+                default="2",
+            )
+        except EOFError:
+            _exit_cleanly()
+            return
         try:
             if choice == "1":
                 try:
@@ -1146,6 +1166,9 @@ def run_main_menu() -> None:
                     Panel("Leaving control room.", title="Exit", border_style="blue")
                 )
                 return
+        except EOFError:
+            _exit_cleanly()
+            return
         except KeyboardInterrupt:
             console.print(
                 Panel(
@@ -1156,4 +1179,8 @@ def run_main_menu() -> None:
             )
         except Exception as exc:
             console.print(Panel(str(exc), title="Action Failed", border_style="red"))
-        Prompt.ask("Press Enter to continue", default="")
+        try:
+            Prompt.ask("Press Enter to continue", default="")
+        except EOFError:
+            _exit_cleanly()
+            return

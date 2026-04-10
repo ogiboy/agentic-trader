@@ -6,6 +6,7 @@ import sys
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 import typer
@@ -70,7 +71,7 @@ from agentic_trader.schemas import (
     TradeContextRecord,
     TradeJournalEntry,
 )
-from agentic_trader.storage.db import TradingDatabase
+from agentic_trader.storage.db import OrderRow, TradingDatabase
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import (
@@ -102,6 +103,28 @@ def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
         return []
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     return lines[-limit:]
+
+
+def _format_latest_order(order: OrderRow | None) -> str:
+    if order is None:
+        return "None"
+    (
+        order_id,
+        _created_at,
+        symbol,
+        side,
+        approved,
+        entry_price,
+        _stop_loss,
+        _take_profit,
+        position_size_pct,
+        confidence,
+    ) = order
+    return (
+        f"{order_id} | {symbol} {side} | approved={approved} | "
+        f"entry={entry_price:.4f} | size={position_size_pct:.2%} | "
+        f"confidence={confidence:.2f}"
+    )
 
 
 def _render_health_panel(status: str, body: str, *, border_style: str) -> Panel:
@@ -1249,7 +1272,7 @@ def doctor(
     db_status = "ok"
     try:
         db = _open_db(settings, read_only=True)
-        latest = str(db.latest_order())
+        latest = _format_latest_order(db.latest_order())
     except Exception as exc:
         latest = "unavailable"
         db_status = f"Database unavailable: {exc}"
@@ -1646,7 +1669,7 @@ def build_dashboard_snapshot_payload(
     try:
         db = _open_db(settings, read_only=True)
         try:
-            latest = str(db.latest_order())
+            latest = _format_latest_order(db.latest_order())
         finally:
             db.close()
     except Exception as exc:

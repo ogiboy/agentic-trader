@@ -135,3 +135,43 @@ def test_build_agent_activity_view_summarizes_stage_progress() -> None:
     assert view.stage_statuses[0].stage == "coordinator"
     assert view.stage_statuses[0].status == "pending"
     assert any(stage.stage == "strategy" and stage.status == "completed" for stage in view.stage_statuses)
+
+
+def test_build_agent_activity_view_closes_running_stage_after_failure() -> None:
+    state = ServiceStateSnapshot(
+        service_name="orchestrator",
+        state="failed",
+        updated_at="2026-04-09T10:00:06+00:00",
+        last_heartbeat_at="2026-04-09T10:00:06+00:00",
+        cycle_count=2,
+        current_symbol="AAPL",
+        pid=1234,
+        message="Orchestrator failed.",
+    )
+    events = [
+        ServiceEvent(
+            event_id="evt-2",
+            created_at="2026-04-09T10:00:06+00:00",
+            level="error",
+            event_type="service_failed",
+            message="LLM structured output validation failed.",
+            cycle_count=2,
+            symbol="AAPL",
+        ),
+        ServiceEvent(
+            event_id="evt-1",
+            created_at="2026-04-09T10:00:05+00:00",
+            level="info",
+            event_type="agent_risk_started",
+            message="Risk steward is sizing the candidate trade.",
+            cycle_count=2,
+            symbol="AAPL",
+        ),
+    ]
+
+    view = build_agent_activity_view(state, events)
+
+    assert view.current_stage == "risk"
+    assert view.current_stage_status == "failed"
+    assert "service_failed" in (view.current_stage_message or "")
+    assert any(stage.stage == "risk" and stage.status == "failed" for stage in view.stage_statuses)

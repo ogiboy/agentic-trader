@@ -21,11 +21,11 @@ const personas = [
 
 async function execCli(args, { expectJson = false } = {}) {
   const attempts = [];
-  if (cliExecutable) {
-    attempts.push([cliExecutable, args]);
-  }
   if (pythonExecutable) {
     attempts.push([pythonExecutable, ['-m', 'agentic_trader.cli', ...args]]);
+  }
+  if (cliExecutable) {
+    attempts.push([cliExecutable, args]);
   }
 
   let lastError;

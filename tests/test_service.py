@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any
+import duckdb
 import pytest
 
 from agentic_trader.cli import app
@@ -94,6 +95,54 @@ def _artifacts(symbol: str) -> RunArtifacts:
             next_checks=["y"],
         ),
     )
+
+
+def test_service_state_migration_allows_legacy_duckdb_file(tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    conn = duckdb.connect(str(settings.database_path))
+    conn.execute(
+        """
+        create table service_state (
+            service_name varchar primary key,
+            state varchar not null,
+            updated_at varchar not null,
+            started_at varchar,
+            last_heartbeat_at varchar,
+            continuous boolean not null,
+            poll_seconds integer,
+            cycle_count integer not null,
+            current_symbol varchar,
+            last_error varchar,
+            message varchar not null
+        )
+        """
+    )
+    conn.execute(
+        """
+        insert into service_state (
+            service_name, state, updated_at, continuous, poll_seconds,
+            cycle_count, message
+        )
+        values ('orchestrator', 'running', '2026-04-11T00:00:00+00:00',
+                true, 300, 3, 'Legacy state.')
+        """
+    )
+    conn.close()
+
+    db = TradingDatabase(settings)
+    state = db.get_service_state()
+    db.close()
+
+    assert state is not None
+    assert state.symbols == []
+    assert state.stop_requested is False
+    assert state.background_mode is False
+    assert state.launch_count == 0
+    assert state.restart_count == 0
 
 
 def test_run_service_records_runtime_state_and_events(

@@ -188,6 +188,33 @@ def build_agent_activity_view(
         ),
         None,
     )
+    terminal_status_by_outcome = {
+        "symbol_completed": "completed",
+        "position_closed": "completed",
+        "service_completed": "completed",
+        "service_failed": "failed",
+        "service_stopped": "stopped",
+    }
+    terminal_override: AgentStageStatusView | None = None
+    if (
+        latest_stage_event is not None
+        and latest_stage_event.status == "started"
+        and latest_outcome is not None
+        and latest_outcome.event_type in terminal_status_by_outcome
+    ):
+        terminal_status = terminal_status_by_outcome[latest_outcome.event_type]
+        terminal_message = (
+            f"{latest_stage_event.stage} interrupted by "
+            f"{latest_outcome.event_type}: {latest_outcome.message}"
+        )
+        terminal_override = AgentStageStatusView(
+            stage=latest_stage_event.stage,
+            status=terminal_status,
+            message=terminal_message,
+            created_at=latest_outcome.created_at,
+            cycle_count=latest_stage_event.cycle_count,
+            symbol=latest_stage_event.symbol,
+        )
 
     stage_order = (
         "coordinator",
@@ -202,6 +229,8 @@ def build_agent_activity_view(
     latest_by_stage: dict[str, AgentStageStatusView] = {}
     for event in relevant_stage_events:
         latest_by_stage.setdefault(event.stage, event)
+    if terminal_override is not None:
+        latest_by_stage[terminal_override.stage] = terminal_override
 
     stage_statuses: list[AgentStageStatusView] = []
     for stage in stage_order:
@@ -223,14 +252,29 @@ def build_agent_activity_view(
     return AgentActivityView(
         cycle_count=cycle_count,
         current_symbol=current_symbol,
-        current_stage=latest_stage_event.stage if latest_stage_event is not None else None,
+        current_stage=(
+            terminal_override.stage
+            if terminal_override is not None
+            else (latest_stage_event.stage if latest_stage_event is not None else None)
+        ),
         current_stage_status=(
-            "running"
-            if latest_stage_event is not None and latest_stage_event.status == "started"
-            else (latest_stage_event.status if latest_stage_event is not None else None)
+            terminal_override.status
+            if terminal_override is not None
+            else (
+                "running"
+                if latest_stage_event is not None
+                and latest_stage_event.status == "started"
+                else (
+                    latest_stage_event.status
+                    if latest_stage_event is not None
+                    else None
+                )
+            )
         ),
         current_stage_message=(
-            latest_stage_event.message if latest_stage_event is not None else None
+            terminal_override.message
+            if terminal_override is not None
+            else (latest_stage_event.message if latest_stage_event is not None else None)
         ),
         last_completed_stage=(
             last_completed_stage.stage if last_completed_stage is not None else None

@@ -17,7 +17,6 @@ from agentic_trader.schemas import (
     PortfolioSnapshot,
     PositionPlanSnapshot,
     PositionSnapshot,
-    PositionExitDecision,
     RunRecord,
     RunArtifacts,
     ServiceEvent,
@@ -227,13 +226,9 @@ class TradingDatabase:
         if "pid" not in service_columns:
             self.conn.execute("alter table service_state add column pid bigint")
         if "stop_requested" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column stop_requested boolean not null default false"
-            )
+            self.conn.execute("alter table service_state add column stop_requested boolean")
         if "symbols_json" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column symbols_json varchar not null default '[]'"
-            )
+            self.conn.execute("alter table service_state add column symbols_json varchar")
         if "interval" not in service_columns:
             self.conn.execute("alter table service_state add column interval varchar")
         if "lookback" not in service_columns:
@@ -241,17 +236,11 @@ class TradingDatabase:
         if "max_cycles" not in service_columns:
             self.conn.execute("alter table service_state add column max_cycles integer")
         if "background_mode" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column background_mode boolean not null default false"
-            )
+            self.conn.execute("alter table service_state add column background_mode boolean")
         if "launch_count" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column launch_count integer not null default 0"
-            )
+            self.conn.execute("alter table service_state add column launch_count integer")
         if "restart_count" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column restart_count integer not null default 0"
-            )
+            self.conn.execute("alter table service_state add column restart_count integer")
         if "last_terminal_state" not in service_columns:
             self.conn.execute(
                 "alter table service_state add column last_terminal_state varchar"
@@ -1218,10 +1207,10 @@ class TradingDatabase:
             current_symbol=str(row[12]) if row[12] is not None else None,
             last_error=str(row[13]) if row[13] is not None else None,
             pid=int(row[14]) if row[14] is not None else None,
-            stop_requested=bool(row[15]),
-            background_mode=bool(row[16]),
-            launch_count=int(row[17]),
-            restart_count=int(row[18]),
+            stop_requested=bool(row[15]) if row[15] is not None else False,
+            background_mode=bool(row[16]) if row[16] is not None else False,
+            launch_count=int(row[17]) if row[17] is not None else 0,
+            restart_count=int(row[18]) if row[18] is not None else 0,
             last_terminal_state=str(row[19]) if row[19] is not None else None,
             last_terminal_at=str(row[20]) if row[20] is not None else None,
             stdout_log_path=str(row[21]) if row[21] is not None else None,
