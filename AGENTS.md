@@ -23,6 +23,13 @@ If the task is related to debugging or runtime behavior, also read:
 
 - `.ai/debugging.md`
 
+If the task changes CLI, Rich menu, Ink TUI, daemon/runtime, memory, broker, or operator-facing behavior, also read:
+
+- `.ai/qa/qa-agent.md`
+- `.ai/qa/qa-checklist.md`
+- `.ai/qa/qa-runbook.md`
+- `.ai/qa/qa-scenarios.md`
+
 ## Core Principles
 
 - Keep the project local-first
@@ -57,6 +64,10 @@ New work should extend those systems instead of bypassing them.
 - Keep names explicit and domain-oriented
 - Prefer extending current contracts over inventing parallel ones
 - Update `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` when a meaningful change is made
+- For CLI, Rich menu, and TUI validation, use pexpect for interaction, tmux for pane capture, asciinema for session recording, and screenshots only when visual evidence is needed.
+- Before finishing any behavior-changing task, run the smallest relevant tests first, then the full test suite when feasible:
+  - `/opt/anaconda3/envs/trader/bin/python -m pytest -q -p no:cacheprovider`
+- For UI/runtime changes, add at least one manual QA pass from `.ai/qa/qa-scenarios.md` or explicitly document why it was skipped.
 
 ## Architecture Guardrails
 

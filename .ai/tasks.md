@@ -21,6 +21,7 @@ Desired shape:
 - cleaner runtime attach / restart / stop workflows
 - clearer live visibility into stage progress and runtime outcomes
 - observer-safe review and memory surfaces while the writer owns DuckDB
+- use `.ai/qa/qa-scenarios.md` for manual validation of daemon, monitor, and control-room changes
 
 ### 2. Provider Adapter Foundation
 
@@ -106,3 +107,14 @@ Desired direction:
 - keep observer endpoints local-first and read-only
 - reuse dashboard/status/log/broker contracts across Ink, CLI, and future web surfaces
 - avoid introducing a second runtime state system for web consumers
+
+### 10. Quality Workflow
+
+The QA docs now exist and should stay in sync with the product.
+
+Desired direction:
+
+- keep QA scenarios aligned with actual CLI/TUI/runtime commands
+- add a scenario whenever a new operator-facing surface or safety gate is introduced
+- use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
+- keep the automated test command in `AGENTS.md` current with the project environment

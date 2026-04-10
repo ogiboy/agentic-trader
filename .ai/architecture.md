@@ -50,6 +50,9 @@ Current runtime stages:
 - `agentic_trader/observer_api.py`
   Local HTTP observer surface that exposes the same read-only runtime contracts for future WebUI attach flows
 
+- `.ai/qa/`
+  Product-specific QA workflow, checklist, runbook, scenarios, and optional evidence artifacts for validating operator-facing behavior
+
 ## Configuration Reality
 
 The runtime already supports:
@@ -97,6 +100,7 @@ Good changes fit into one of these buckets:
 - keep live agent progress readable without depending on direct DB reads
 - keep daemon supervision metadata readable through sidecar contracts and not only through the database writer
 - keep future live broker work behind the adapter boundary and explicit execution safety gates
+- keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - improve replay and backtest fidelity
 
 ## Architectural Anti-Goals
