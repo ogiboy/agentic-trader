@@ -50,7 +50,13 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
 
     state = {"entered": False}
 
-    def _fake_run_from_snapshot(*, settings: Settings, snapshot: MarketSnapshot, allow_fallback: bool, memory_enabled: bool) -> RunArtifacts:
+    def _fake_run_from_snapshot(
+        *,
+        settings: Settings,
+        snapshot: MarketSnapshot,
+        allow_fallback: bool,
+        memory_enabled: bool,
+    ) -> RunArtifacts:
         if not state["entered"]:
             state["entered"] = True
             strategy = StrategyPlan(
@@ -184,7 +190,9 @@ def test_deterministic_baseline_backtest_returns_metrics(tmp_path: Path) -> None
     assert report.ending_equity > 0
 
 
-def test_backtest_comparison_reports_deltas(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_backtest_comparison_reports_deltas(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -249,7 +257,9 @@ def test_backtest_comparison_reports_deltas(monkeypatch: pytest.MonkeyPatch, tmp
     assert comparison.total_return_delta_pct == pytest.approx(0.04)
 
 
-def test_memory_ablation_backtest_reports_deltas(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_memory_ablation_backtest_reports_deltas(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

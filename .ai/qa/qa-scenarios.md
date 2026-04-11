@@ -2,6 +2,35 @@
 
 Use these scenarios as manual product checks. Each scenario should produce either a pass note or a reproducible issue report.
 
+## Scenario 0: Automated Terminal Smoke
+
+Purpose: confirm core operator-facing terminal surfaces open, emit usable output, and leave evidence.
+
+Steps:
+
+```bash
+python scripts/qa/smoke_qa.py
+```
+
+Optional quality extension:
+
+```bash
+python scripts/qa/smoke_qa.py --include-quality
+```
+
+Optional SonarQube extension:
+
+```bash
+SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-sonar
+```
+
+Expected:
+
+- summary exits `0` when all enabled checks pass
+- artifacts are written under `.ai/qa/artifacts/smoke-YYYYMMDD-HHMMSS/`
+- installed `agentic-trader` entrypoint drift is caught as a failed smoke check
+- no Sonar token is written to artifacts
+
 ## Scenario 1: Environment Smoke
 
 Purpose: confirm the project starts from the installed entrypoint and the root launcher.

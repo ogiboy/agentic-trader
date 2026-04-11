@@ -57,9 +57,6 @@ def _higher_timeframe_frame(
     if lower_interval.endswith("m") or lower_interval.endswith("h"):
         rule = "1D"
         higher_timeframe = "1d"
-    elif lower_interval.endswith("d"):
-        rule = "W-FRI"
-        higher_timeframe = "1wk"
     else:
         rule = "W-FRI"
         higher_timeframe = "1wk"

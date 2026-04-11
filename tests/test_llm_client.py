@@ -22,7 +22,9 @@ class _FakeResponse:
         return self._payload
 
 
-def test_complete_structured_retries_after_empty_response(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_complete_structured_retries_after_empty_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     settings = Settings(max_retries=1)
     llm = LocalLLM(settings)
     payloads = iter(
@@ -47,7 +49,9 @@ def test_complete_structured_retries_after_empty_response(monkeypatch: pytest.Mo
     assert parsed.value == "ok"
 
 
-def test_complete_text_retries_after_error_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_complete_text_retries_after_error_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     settings = Settings(max_retries=1)
     llm = LocalLLM(settings)
     payloads = iter(

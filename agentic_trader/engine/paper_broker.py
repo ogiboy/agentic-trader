@@ -1,9 +1,18 @@
 from datetime import datetime, timezone
+from dataclasses import dataclass
 from uuid import uuid4
 
 from agentic_trader.config import Settings
 from agentic_trader.schemas import ExecutionDecision, PositionExitDecision, StrategyPlan
 from agentic_trader.storage.db import TradingDatabase
+
+
+@dataclass(frozen=True)
+class FillProjection:
+    cash_delta: float
+    realized_pnl_delta: float
+    new_quantity: float
+    new_average_price: float
 
 
 class PaperBroker:
@@ -66,8 +75,7 @@ class PaperBroker:
         new_avg = self._weighted_average(abs(current_qty), current_avg, quantity, price)
         return cash_delta, realized_pnl_delta, new_qty, new_avg
 
-    def submit(self, decision: ExecutionDecision) -> str:
-        order_id = f"paper-{uuid4().hex[:12]}"
+    def _record_order(self, order_id: str, decision: ExecutionDecision) -> None:
         self.db.insert_order(
             {
                 "order_id": order_id,
@@ -84,12 +92,88 @@ class PaperBroker:
             }
         )
 
+    def _project_fill(
+        self,
+        decision: ExecutionDecision,
+        *,
+        quantity: float,
+        current_qty: float,
+        current_avg: float,
+    ) -> FillProjection | None:
+        if decision.side == "buy":
+            values = self._apply_buy(
+                quantity=quantity,
+                price=decision.entry_price,
+                current_qty=current_qty,
+                current_avg=current_avg,
+            )
+        elif self.settings.allow_short or current_qty > 0:
+            values = self._apply_sell(
+                quantity=quantity,
+                price=decision.entry_price,
+                current_qty=current_qty,
+                current_avg=current_avg,
+            )
+        else:
+            return None
+        cash_delta, realized_pnl_delta, new_quantity, new_average_price = values
+        return FillProjection(
+            cash_delta=cash_delta,
+            realized_pnl_delta=realized_pnl_delta,
+            new_quantity=new_quantity,
+            new_average_price=new_average_price,
+        )
+
+    @staticmethod
+    def _rejects_same_direction(decision: ExecutionDecision, current_qty: float) -> bool:
+        return (decision.side == "buy" and current_qty > 0) or (
+            decision.side == "sell" and current_qty < 0
+        )
+
+    def _would_exceed_cash(
+        self, decision: ExecutionDecision, current_qty: float, projected_cash: float
+    ) -> bool:
+        return decision.side == "buy" and current_qty >= 0 and projected_cash < 0
+
+    def _would_exceed_exposure(
+        self,
+        decision: ExecutionDecision,
+        projection: FillProjection,
+        current_market_value: float,
+    ) -> bool:
+        account = self.db.get_account_snapshot()
+        current_gross_exposure = sum(
+            abs(item.market_value) for item in self.db.list_positions()
+        )
+        projected_gross_exposure = (
+            current_gross_exposure
+            - current_market_value
+            + abs(projection.new_quantity * decision.entry_price)
+        )
+        max_allowed_exposure = max(
+            0.0, account.equity * self.settings.max_gross_exposure_pct
+        )
+        return projected_gross_exposure > max_allowed_exposure
+
+    def _would_exceed_open_position_limit(
+        self, current_qty: float, new_quantity: float
+    ) -> bool:
+        projected_open_positions = len(self.db.list_positions())
+        if current_qty == 0 and new_quantity != 0:
+            projected_open_positions += 1
+        elif current_qty != 0 and new_quantity == 0:
+            projected_open_positions -= 1
+        return projected_open_positions > self.settings.max_open_positions
+
+    def submit(self, decision: ExecutionDecision) -> str:
+        order_id = f"paper-{uuid4().hex[:12]}"
+        self._record_order(order_id, decision)
+
         self.db.mark_price(decision.symbol, decision.entry_price)
         if not decision.approved or decision.side == "hold":
             return order_id
 
         account = self.db.get_account_snapshot()
-        positions = self.db.list_positions()
         notional = max(0.0, account.equity * decision.position_size_pct)
         quantity = round(notional / decision.entry_price, 6)
         if quantity == 0:
@@ -99,52 +183,29 @@ class PaperBroker:
         current_qty = position.quantity if position else 0.0
         current_avg = position.average_price if position else 0.0
         current_market_value = abs(position.market_value) if position else 0.0
-        if (decision.side == "buy" and current_qty > 0) or (
-            decision.side == "sell" and current_qty < 0
+        if self._rejects_same_direction(decision, current_qty):
+            return order_id
+
+        projection = self._project_fill(
+            decision,
+            quantity=quantity,
+            current_qty=current_qty,
+            current_avg=current_avg,
+        )
+        if projection is None:
+            return order_id
+
+        if self._would_exceed_cash(
+            decision, current_qty, account.cash + projection.cash_delta
         ):
             return order_id
 
-        if decision.side == "buy":
-            cash_delta, realized_pnl_delta, new_qty, new_avg = self._apply_buy(
-                quantity=quantity,
-                price=decision.entry_price,
-                current_qty=current_qty,
-                current_avg=current_avg,
-            )
-        else:
-            if (
-                decision.side == "sell"
-                and not self.settings.allow_short
-                and current_qty <= 0
-            ):
-                return order_id
-            cash_delta, realized_pnl_delta, new_qty, new_avg = self._apply_sell(
-                quantity=quantity,
-                price=decision.entry_price,
-                current_qty=current_qty,
-                current_avg=current_avg,
-            )
-
-        if decision.side == "buy" and current_qty >= 0 and account.cash + cash_delta < 0:
+        if self._would_exceed_exposure(decision, projection, current_market_value):
             return order_id
 
-        current_gross_exposure = sum(abs(item.market_value) for item in positions)
-        projected_gross_exposure = (
-            current_gross_exposure - current_market_value + abs(new_qty * decision.entry_price)
-        )
-        max_allowed_exposure = max(
-            0.0, account.equity * self.settings.max_gross_exposure_pct
-        )
-        if projected_gross_exposure > max_allowed_exposure:
-            return order_id
-
-        open_positions = len(positions)
-        projected_open_positions = open_positions
-        if current_qty == 0 and new_qty != 0:
-            projected_open_positions += 1
-        elif current_qty != 0 and new_qty == 0:
-            projected_open_positions -= 1
-        if projected_open_positions > self.settings.max_open_positions:
+        if self._would_exceed_open_position_limit(
+            current_qty, projection.new_quantity
+        ):
             return order_id
 
         self.db.apply_fill(
@@ -154,10 +215,10 @@ class PaperBroker:
             side=decision.side,
             quantity=quantity,
             price=decision.entry_price,
-            cash_delta=cash_delta,
-            realized_pnl_delta=realized_pnl_delta,
-            new_quantity=new_qty,
-            new_average_price=new_avg,
+            cash_delta=projection.cash_delta,
+            realized_pnl_delta=projection.realized_pnl_delta,
+            new_quantity=projection.new_quantity,
+            new_average_price=projection.new_average_price,
         )
         return order_id
 

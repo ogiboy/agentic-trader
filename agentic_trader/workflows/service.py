@@ -73,6 +73,23 @@ def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
     return health
 
 
+def _override_or_next(
+    override: int | None, current: int | None, *, increment: bool
+) -> int:
+    if override is not None:
+        return override
+    base_value = current or 0
+    return base_value + 1 if increment else base_value
+
+
+def _record_cycle_completed_mark(db: TradingDatabase, cycle_count: int) -> None:
+    db.record_account_mark(
+        source="cycle_completed",
+        note=f"Cycle {cycle_count} completed.",
+        cycle_count=cycle_count,
+    )
+
+
 def run_service(
     *,
     settings: Settings,
@@ -155,8 +172,12 @@ def run_service(
             )
             for symbol in symbols:
 
-                def _progress(stage: str, status: str, message: str) -> None:
-                    event_level = "info" if status == "completed" else "info"
+                def _progress(
+                    stage: str,
+                    status: str,
+                    message: str,
+                    current_symbol: str = symbol,
+                ) -> None:
                     db.upsert_service_state(
                         state="running",
                         continuous=continuous,
@@ -166,16 +187,16 @@ def run_service(
                         interval=interval,
                         lookback=lookback,
                         max_cycles=max_cycles,
-                        current_symbol=symbol,
+                        current_symbol=current_symbol,
                         message=message,
                         pid=os.getpid(),
                     )
                     db.insert_service_event(
-                        level=event_level,
+                        level="info",
                         event_type=f"agent_{stage}_{status}",
                         message=message,
                         cycle_count=cycle_count,
-                        symbol=symbol,
+                        symbol=current_symbol,
                     )
 
                 db.upsert_service_state(
@@ -273,24 +294,12 @@ def run_service(
                     return cycle_results
 
             if not continuous:
-                db.record_account_mark(
-                    source="cycle_completed",
-                    note=f"Cycle {cycle_count} completed.",
-                    cycle_count=cycle_count,
-                )
+                _record_cycle_completed_mark(db, cycle_count)
                 break
             if max_cycles is not None and cycle_count >= max_cycles:
-                db.record_account_mark(
-                    source="cycle_completed",
-                    note=f"Cycle {cycle_count} completed.",
-                    cycle_count=cycle_count,
-                )
+                _record_cycle_completed_mark(db, cycle_count)
                 break
-            db.record_account_mark(
-                source="cycle_completed",
-                note=f"Cycle {cycle_count} completed.",
-                cycle_count=cycle_count,
-            )
+            _record_cycle_completed_mark(db, cycle_count)
             time.sleep(poll_seconds)
 
         db.upsert_service_state(
@@ -357,15 +366,15 @@ def start_background_service(
     clear_stop_request(settings)
     db = TradingDatabase(settings)
     state = db.get_service_state()
-    launch_count = (
-        launch_count_override
-        if launch_count_override is not None
-        else (state.launch_count if state is not None else 0) + 1
+    launch_count = _override_or_next(
+        launch_count_override,
+        state.launch_count if state is not None else None,
+        increment=True,
     )
-    restart_count = (
-        restart_count_override
-        if restart_count_override is not None
-        else (state.restart_count if state is not None else 0)
+    restart_count = _override_or_next(
+        restart_count_override,
+        state.restart_count if state is not None else None,
+        increment=False,
     )
     if (
         state is not None

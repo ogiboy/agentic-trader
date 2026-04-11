@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 def _coerce_numeric_strings(obj: Any) -> Any:
     """Convert numeric-like strings to int/float for safer validation."""
     if isinstance(obj, dict):
-        return {k: _coerce_numeric_strings(v) for k, v in cast(dict[Any, Any], obj).items()}
+        return {
+            k: _coerce_numeric_strings(v) for k, v in cast(dict[Any, Any], obj).items()
+        }
     if isinstance(obj, list):
         return [_coerce_numeric_strings(item) for item in cast(list[Any], obj)]
     if isinstance(obj, str):
@@ -78,15 +80,23 @@ def _navigate_one(obj: Any, key: str | int) -> Any:
         if key not in cast(dict[str, Any], obj):
             cast(dict[str, Any], obj)[key] = {}
         return cast(dict[str, Any], obj)[key]
-    if isinstance(obj, list) and isinstance(key, int) and 0 <= key < len(cast(list[Any], obj)):
+    if (
+        isinstance(obj, list)
+        and isinstance(key, int)
+        and 0 <= key < len(cast(list[Any], obj))
+    ):
         return cast(list[Any], obj)[key]
     return None
 
 
 # Safe coercion for common numeric fields that LLMs often emit as zeros/invalid.
 _SANITIZE_RULES: dict[str, Callable[[Any], float | int]] = {
-    "position_size_pct": lambda v: min(max(float(v) if v is not None else 0.01, 0.01), 1.0),
-    "size_multiplier": lambda v: min(max(float(v) if v is not None else 0.01, 0.01), 1.0),
+    "position_size_pct": lambda v: min(
+        max(float(v) if v is not None else 0.01, 0.01), 1.0
+    ),
+    "size_multiplier": lambda v: min(
+        max(float(v) if v is not None else 0.01, 0.01), 1.0
+    ),
     "max_holding_bars": lambda v: max(int(v) if v is not None else 1, 1),
     "stop_loss": lambda v: max(float(v) if v is not None else 1e-6, 1e-6),
     "take_profit": lambda v: max(float(v) if v is not None else 1e-6, 1e-6),
@@ -150,6 +160,55 @@ def _attempt_sanitize_and_validate(
     except ValidationError as retry_exc:
         logger.warning("Sanitization retry failed: %s", retry_exc)
         return None
+
+
+def _mark_llm_source(parsed: T) -> T:
+    if hasattr(parsed, "source"):
+        return cast(
+            T,
+            parsed.model_copy(update={"source": "llm", "fallback_reason": None}),
+        )
+    return parsed
+
+
+def _validate_structured_content(content: str, schema: type[T]) -> T:
+    try:
+        data_obj = json.loads(content)
+    except json.JSONDecodeError:
+        return _mark_llm_source(schema.model_validate_json(content))
+
+    data_obj = _coerce_numeric_strings(data_obj)
+    try:
+        return _mark_llm_source(schema.model_validate(data_obj))
+    except ValidationError as exc:
+        sanitized = _attempt_sanitize_and_validate(data_obj, exc, schema)
+        if sanitized is not None:
+            return _mark_llm_source(sanitized)
+        raise
+
+
+def _validation_retry_prompt(prompt: str, content: str) -> str:
+    return dedent(
+        f"""
+        {prompt}
+
+        Your previous response did not validate:
+        {content}
+
+        Return corrected JSON only.
+        """
+    ).strip()
+
+
+def _request_issue_retry_prompt(prompt: str) -> str:
+    return dedent(
+        f"""
+        {prompt}
+
+        Your previous response was empty, malformed, or otherwise invalid.
+        Return a complete JSON object only.
+        """
+    ).strip()
 
 
 class LocalLLM:
@@ -250,39 +309,7 @@ class LocalLLM:
                     raise RuntimeError(
                         f"LLM returned an empty response body. Payload preview: {self._payload_preview(payload)}"
                     )
-                # Try to parse JSON so we can coerce/sanitize common numeric issues
-                try:
-                    data_obj = json.loads(content)
-                except json.JSONDecodeError:
-                    # Fall back to pydantic's JSON parsing (more permissive)
-                    parsed = schema.model_validate_json(content)
-                    if hasattr(parsed, "source"):
-                        parsed = parsed.model_copy(
-                            update={"source": "llm", "fallback_reason": None}
-                        )
-                    return parsed
-
-                # Convert numeric-like strings into numeric types for validation
-                data_obj = _coerce_numeric_strings(data_obj)
-
-                try:
-                    parsed = schema.model_validate(data_obj)
-                    if hasattr(parsed, "source"):
-                        parsed = parsed.model_copy(
-                            update={"source": "llm", "fallback_reason": None}
-                        )
-                    return parsed
-                except ValidationError as exc:
-                    # Attempt automatic sanitization for a few known numeric fields
-                    sanitized = _attempt_sanitize_and_validate(data_obj, exc, schema)
-                    if sanitized is not None:
-                        if hasattr(sanitized, "source"):
-                            sanitized = sanitized.model_copy(
-                                update={"source": "llm", "fallback_reason": None}
-                            )
-                        return sanitized
-                    # Let outer ValidationError handler request corrected JSON
-                    raise
+                return _validate_structured_content(content, schema)
             except ValidationError as exc:
                 last_error = exc
                 logger.warning(
@@ -290,16 +317,7 @@ class LocalLLM:
                     attempt + 1,
                     exc,
                 )
-                prompt = dedent(
-                    f"""
-                    {prompt}
-
-                    Your previous response did not validate:
-                    {content}
-
-                    Return corrected JSON only.
-                    """
-                ).strip()
+                prompt = _validation_retry_prompt(prompt, content)
                 continue
             except (
                 httpx.HTTPError,
@@ -312,14 +330,7 @@ class LocalLLM:
                     attempt + 1,
                     exc,
                 )
-                prompt = dedent(
-                    f"""
-                    {prompt}
-
-                    Your previous response was empty, malformed, or otherwise invalid.
-                    Return a complete JSON object only.
-                    """
-                ).strip()
+                prompt = _request_issue_retry_prompt(prompt)
                 continue
 
         raise RuntimeError(

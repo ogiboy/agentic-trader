@@ -115,6 +115,10 @@ The QA docs now exist and should stay in sync with the product.
 Desired direction:
 
 - keep QA scenarios aligned with actual CLI/TUI/runtime commands
+- use `python scripts/qa/smoke_qa.py` for a fast terminal smoke pass before deeper manual QA
+- use `python scripts/qa/smoke_qa.py --include-quality` when code-quality checks should travel with terminal smoke evidence
+- use `python scripts/qa/smoke_qa.py --include-quality --include-sonar` for the full local QA gate; this now emits coverage XML and submits it to SonarQube without writing the token to artifacts
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
 - keep the automated test command in `AGENTS.md` current with the project environment
+- next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate

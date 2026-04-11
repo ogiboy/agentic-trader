@@ -46,10 +46,23 @@ from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, start_background_service
 
 console = Console()
+STYLE_KEY_COLUMN = "bold cyan"
+TITLE_RECENT_RUNS = "Recent Runs"
+TITLE_RUNTIME_EVENTS = "Runtime Events"
+TITLE_RUNTIME_STATUS = "Runtime Status"
+LABEL_MARKET_VALUE = "Market Value"
+LABEL_STOP_REQUESTED = "Stop Requested"
+LABEL_UNREALIZED_PNL = "Unrealized PnL"
+PROMPT_CONTINUE = "Press Enter to continue"
+PROMPT_SELECT_ACTION = "Select action"
 
 
 def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
     return TradingDatabase(settings, read_only=read_only)
+
+
+def _style_key(text: str) -> str:
+    return f"[{STYLE_KEY_COLUMN}]{text}[/{STYLE_KEY_COLUMN}]"
 
 
 def _banner() -> Panel:
@@ -107,7 +120,7 @@ def _render_preferences(preferences: InvestmentPreferences) -> Table:
 
 def _render_recent_runs(db: TradingDatabase) -> None:
     runs = db.list_recent_runs(limit=8)
-    table = Table(title="Recent Runs")
+    table = Table(title=TITLE_RECENT_RUNS)
     table.add_column("Run ID")
     table.add_column("Created")
     table.add_column("Symbol")
@@ -115,7 +128,7 @@ def _render_recent_runs(db: TradingDatabase) -> None:
     table.add_column("Approved")
     if not runs:
         console.print(
-            Panel("No runs recorded yet.", title="Recent Runs", border_style="yellow")
+            Panel("No runs recorded yet.", title=TITLE_RECENT_RUNS, border_style="yellow")
         )
         return
     for run_id, created_at, symbol, interval, approved in runs:
@@ -125,7 +138,7 @@ def _render_recent_runs(db: TradingDatabase) -> None:
 
 def _recent_runs_table(db: TradingDatabase) -> Table:
     runs = db.list_recent_runs(limit=8)
-    table = Table(title="Recent Runs")
+    table = Table(title=TITLE_RECENT_RUNS)
     table.add_column("Run ID")
     table.add_column("Created")
     table.add_column("Symbol")
@@ -199,14 +212,14 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
         console.print(
             Panel(
                 "No runtime state recorded yet.",
-                title="Runtime Status",
+                title=TITLE_RUNTIME_STATUS,
                 border_style="yellow",
             )
         )
         return
     snapshot = view.state
 
-    table = Table(title="Runtime Status")
+    table = Table(title=TITLE_RUNTIME_STATUS)
     table.add_column("Key")
     table.add_column("Value")
     table.add_row("Runtime", view.runtime_state)
@@ -220,7 +233,7 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     table.add_row("Cycle Count", str(snapshot.cycle_count))
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
-    table.add_row("Stop Requested", str(snapshot.stop_requested))
+    table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
     table.add_row("Continuous", str(snapshot.continuous))
     table.add_row("Background Mode", str(snapshot.background_mode))
     table.add_row("Launch Count", str(snapshot.launch_count))
@@ -238,12 +251,12 @@ def _render_runtime_events(events: list[ServiceEvent]) -> None:
         console.print(
             Panel(
                 "No runtime events recorded yet.",
-                title="Runtime Events",
+                title=TITLE_RUNTIME_EVENTS,
                 border_style="yellow",
             )
         )
         return
-    table = Table(title="Runtime Events")
+    table = Table(title=TITLE_RUNTIME_EVENTS)
     table.add_column("Created")
     table.add_column("Level")
     table.add_column("Type")
@@ -261,7 +274,7 @@ def _render_runtime_events(events: list[ServiceEvent]) -> None:
 
 
 def _runtime_events_table(events: list[ServiceEvent]) -> Table:
-    table = Table(title="Runtime Events")
+    table = Table(title=TITLE_RUNTIME_EVENTS)
     table.add_column("Created")
     table.add_column("Level")
     table.add_column("Type")
@@ -331,7 +344,7 @@ def _current_activity_panel(
 
 
 def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
-    table = Table(title="Runtime Status")
+    table = Table(title=TITLE_RUNTIME_STATUS)
     table.add_column("Key")
     table.add_column("Value")
     view = build_runtime_status_view(state)
@@ -350,7 +363,7 @@ def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     table.add_row("Cycle Count", str(snapshot.cycle_count))
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
-    table.add_row("Stop Requested", str(snapshot.stop_requested))
+    table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
     table.add_row("Continuous", str(snapshot.continuous))
     table.add_row("Background Mode", str(snapshot.background_mode))
     table.add_row("Launch Count", str(snapshot.launch_count))
@@ -388,10 +401,10 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row("Market Value", f"{snapshot.market_value:.2f}")
+    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
     summary.add_row("Equity", f"{snapshot.equity:.2f}")
     summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row("Unrealized PnL", f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
     summary.add_row("Open Positions", str(snapshot.open_positions))
 
     positions = db.list_positions()
@@ -400,8 +413,8 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
     positions_table.add_column("Quantity")
     positions_table.add_column("Average Price")
     positions_table.add_column("Market Price")
-    positions_table.add_column("Market Value")
-    positions_table.add_column("Unrealized PnL")
+    positions_table.add_column(LABEL_MARKET_VALUE)
+    positions_table.add_column(LABEL_UNREALIZED_PNL)
     if not positions:
         positions_table.add_row("-", "-", "-", "-", "-", "-")
     else:
@@ -424,7 +437,7 @@ def build_monitor_renderable(
     runtime_state = read_service_state(settings)
     events = read_service_events(settings, limit=20)
     header = Panel(
-        Text("Agentic Trader Live Monitor", style="bold cyan"),
+        Text("Agentic Trader Live Monitor", style=STYLE_KEY_COLUMN),
         subtitle="Ctrl+C to return",
         border_style="bright_blue",
     )
@@ -608,10 +621,10 @@ def _show_portfolio(db: TradingDatabase) -> None:
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row("Market Value", f"{snapshot.market_value:.2f}")
+    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
     summary.add_row("Equity", f"{snapshot.equity:.2f}")
     summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row("Unrealized PnL", f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
     summary.add_row("Open Positions", str(snapshot.open_positions))
     console.print(summary)
     positions = db.list_positions()
@@ -625,8 +638,8 @@ def _show_portfolio(db: TradingDatabase) -> None:
     table.add_column("Quantity")
     table.add_column("Average Price")
     table.add_column("Market Price")
-    table.add_column("Market Value")
-    table.add_column("Unrealized PnL")
+    table.add_column(LABEL_MARKET_VALUE)
+    table.add_column(LABEL_UNREALIZED_PNL)
     for position in positions:
         table.add_row(
             position.symbol,
@@ -802,13 +815,18 @@ def _strict_one_shot(
     for symbol in symbols:
         latest_message = f"Preparing {symbol}."
         with console.status(
-            f"[bold cyan]{latest_message}[/bold cyan]", spinner="dots"
+            _style_key(latest_message), spinner="dots"
         ) as status:
 
-            def _progress(stage: str, event: str, message: str) -> None:
+            def _progress(
+                stage: str,
+                event: str,
+                message: str,
+                current_status=status,
+            ) -> None:
                 nonlocal latest_message
                 latest_message = f"[{stage}] {message}"
-                status.update(f"[bold cyan]{latest_message}[/bold cyan]")
+                current_status.update(_style_key(latest_message))
 
             artifacts = run_once(
                 settings=settings,
@@ -866,7 +884,7 @@ def _runtime_menu(settings: Settings) -> None:
         console.clear()
         console.print(_banner())
         table = Table(title="Runtime Control")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Doctor and system checks")
         table.add_row("2", "Start one strict agent cycle")
@@ -876,7 +894,7 @@ def _runtime_menu(settings: Settings) -> None:
         table.add_row("6", "Back")
         console.print(table)
         choice = Prompt.ask(
-            "Select action", choices=["1", "2", "3", "4", "5", "6"], default="1"
+            PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4", "5", "6"], default="1"
         )
         if choice == "1":
             db = _safe_open_read_db(settings)
@@ -896,7 +914,7 @@ def _runtime_menu(settings: Settings) -> None:
                             border_style="yellow",
                         )
                     )
-                    Prompt.ask("Press Enter to continue", default="")
+                    Prompt.ask(PROMPT_CONTINUE, default="")
                     continue
                 prefs = db.load_preferences()
             finally:
@@ -943,7 +961,7 @@ def _runtime_menu(settings: Settings) -> None:
                 console.print(
                     Panel(
                         f"Stop requested for PID {state.pid}.",
-                        title="Stop Requested",
+                        title=LABEL_STOP_REQUESTED,
                         border_style="yellow",
                     )
                 )
@@ -952,7 +970,7 @@ def _runtime_menu(settings: Settings) -> None:
             run_live_monitor(settings, refresh_seconds=refresh_seconds)
         else:
             return
-        Prompt.ask("Press Enter to continue", default="")
+        Prompt.ask(PROMPT_CONTINUE, default="")
 
 
 def _operator_menu(settings: Settings) -> None:
@@ -960,13 +978,13 @@ def _operator_menu(settings: Settings) -> None:
         console.clear()
         console.print(_banner())
         table = Table(title="Operator Desk")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Open operator chat")
         table.add_row("2", "Parse operator instruction")
         table.add_row("3", "Back")
         console.print(table)
-        choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
+        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
@@ -981,7 +999,7 @@ def _operator_menu(settings: Settings) -> None:
                 db = _open_db(settings, read_only=False)
             except Exception as exc:
                 console.print(_observer_mode_panel("Instruction application", str(exc)))
-                Prompt.ask("Press Enter to continue", default="")
+                Prompt.ask(PROMPT_CONTINUE, default="")
                 continue
             try:
                 _instruction_screen(settings, db)
@@ -995,14 +1013,14 @@ def _portfolio_menu(settings: Settings) -> None:
     while True:
         console.clear()
         table = Table(title="Portfolio And Risk")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Show paper portfolio")
         table.add_row("2", "Show trade journal")
         table.add_row("3", "Show daily risk report")
         table.add_row("4", "Back")
         console.print(table)
-        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4"], default="1")
+        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4"], default="1")
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
@@ -1032,20 +1050,20 @@ def _portfolio_menu(settings: Settings) -> None:
                     db.close()
         else:
             return
-        Prompt.ask("Press Enter to continue", default="")
+        Prompt.ask(PROMPT_CONTINUE, default="")
 
 
 def _research_menu(settings: Settings) -> None:
     while True:
         console.clear()
         table = Table(title="Research And Memory")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Open memory explorer")
         table.add_row("2", "Show recent runs and events")
         table.add_row("3", "Back")
         console.print(table)
-        choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
+        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
@@ -1068,20 +1086,20 @@ def _research_menu(settings: Settings) -> None:
                     db.close()
         else:
             return
-        Prompt.ask("Press Enter to continue", default="")
+        Prompt.ask(PROMPT_CONTINUE, default="")
 
 
 def _review_menu(settings: Settings) -> None:
     while True:
         console.clear()
         table = Table(title="Review And Trace")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Inspect latest run review")
         table.add_row("2", "Inspect latest run trace")
         table.add_row("3", "Back")
         console.print(table)
-        choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
+        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
@@ -1102,7 +1120,7 @@ def _review_menu(settings: Settings) -> None:
                     db.close()
         else:
             return
-        Prompt.ask("Press Enter to continue", default="")
+        Prompt.ask(PROMPT_CONTINUE, default="")
 
 
 def run_main_menu() -> None:
@@ -1119,7 +1137,7 @@ def run_main_menu() -> None:
             if db is not None:
                 db.close()
         menu = Table(title="Main Menu")
-        menu.add_column("Key", style="bold cyan")
+        menu.add_column("Key", style=STYLE_KEY_COLUMN)
         menu.add_column("Action")
         menu.add_row("1", "Configure investment preferences")
         menu.add_row("2", "Runtime control")
@@ -1132,7 +1150,7 @@ def run_main_menu() -> None:
 
         try:
             choice = Prompt.ask(
-                "Select action",
+                PROMPT_SELECT_ACTION,
                 choices=["1", "2", "3", "4", "5", "6", "7"],
                 default="2",
             )
@@ -1145,7 +1163,7 @@ def run_main_menu() -> None:
                     db = _open_db(settings, read_only=False)
                 except Exception as exc:
                     console.print(_observer_mode_panel("Preference editing", str(exc)))
-                    Prompt.ask("Press Enter to continue", default="")
+                    Prompt.ask(PROMPT_CONTINUE, default="")
                     continue
                 try:
                     _configure_preferences(db)
@@ -1180,7 +1198,7 @@ def run_main_menu() -> None:
         except Exception as exc:
             console.print(Panel(str(exc), title="Action Failed", border_style="red"))
         try:
-            Prompt.ask("Press Enter to continue", default="")
+            Prompt.ask(PROMPT_CONTINUE, default="")
         except EOFError:
             _exit_cleanly()
             return

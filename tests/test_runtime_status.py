@@ -1,7 +1,10 @@
 from rich.console import Console
 import pytest
 
-from agentic_trader.runtime_status import build_agent_activity_view, build_runtime_status_view
+from agentic_trader.runtime_status import (
+    build_agent_activity_view,
+    build_runtime_status_view,
+)
 from agentic_trader.schemas import ServiceEvent, ServiceStateSnapshot
 from agentic_trader.tui import _runtime_state_table
 
@@ -36,7 +39,9 @@ def test_build_runtime_status_view_marks_terminal_failure_as_inactive(
     assert "last recorded runtime state" in view.status_message.lower()
 
 
-def test_runtime_state_table_surfaces_last_recorded_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_runtime_state_table_surfaces_last_recorded_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "agentic_trader.runtime_status.is_process_alive", lambda pid: False
     )
@@ -134,7 +139,10 @@ def test_build_agent_activity_view_summarizes_stage_progress() -> None:
     assert view.last_completed_stage == "consensus"
     assert view.stage_statuses[0].stage == "coordinator"
     assert view.stage_statuses[0].status == "pending"
-    assert any(stage.stage == "strategy" and stage.status == "completed" for stage in view.stage_statuses)
+    assert any(
+        stage.stage == "strategy" and stage.status == "completed"
+        for stage in view.stage_statuses
+    )
 
 
 def test_build_agent_activity_view_closes_running_stage_after_failure() -> None:
@@ -174,4 +182,7 @@ def test_build_agent_activity_view_closes_running_stage_after_failure() -> None:
     assert view.current_stage == "risk"
     assert view.current_stage_status == "failed"
     assert "service_failed" in (view.current_stage_message or "")
-    assert any(stage.stage == "risk" and stage.status == "failed" for stage in view.stage_statuses)
+    assert any(
+        stage.stage == "risk" and stage.status == "failed"
+        for stage in view.stage_statuses
+    )

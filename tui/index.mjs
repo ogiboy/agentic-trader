@@ -96,7 +96,14 @@ function getPageLabel(page) {
   return labels[page] || 'Unknown';
 }
 
-function getPageView(page, data, chatPersona, chatHistory, chatDraft, chatBusy) {
+function getPageView(
+  page,
+  data,
+  chatPersona,
+  chatHistory,
+  chatDraft,
+  chatBusy,
+) {
   switch (page) {
     case 'overview':
       return e(OverviewPage, { data });
@@ -436,7 +443,8 @@ function RuntimePage({ data }) {
             '',
             ...(agentActivity?.stage_statuses?.length
               ? agentActivity.stage_statuses.map(
-                  (stage) => `${stage.stage}: ${stage.status} | ${stage.message}`,
+                  (stage) =>
+                    `${stage.stage}: ${stage.status} | ${stage.message}`,
                 )
               : ['No stage flow recorded yet.']),
             '',
@@ -607,9 +615,11 @@ function ReviewPage({ data }) {
             `Manager Rationale: ${tradeContext.record.manager_rationale}`,
             `Execution Rationale: ${tradeContext.record.execution_rationale}`,
             `Review Summary: ${tradeContext.record.review_summary}`,
-            `Routed Models: ${Object.entries(tradeContext.record.routed_models || {})
-              .map(([role, model]) => `${role}:${model}`)
-              .join(' | ') || '-'}`,
+            `Routed Models: ${
+              Object.entries(tradeContext.record.routed_models || {})
+                .map(([role, model]) => `${role}:${model}`)
+                .join(' | ') || '-'
+            }`,
             `Memory Roles: ${Object.keys(tradeContext.record.retrieved_memory_summary || {}).join(', ') || '-'}`,
             `Tool Roles: ${Object.keys(tradeContext.record.tool_outputs || {}).join(', ') || '-'}`,
           ]
@@ -702,7 +712,8 @@ function ChatPage({ data, persona, history, draft, chatBusy }) {
     `Outcome: ${agentActivity.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
   ];
 
-  const tradeRecord = tradeContext.available === false ? null : tradeContext.record;
+  const tradeRecord =
+    tradeContext.available === false ? null : tradeContext.record;
   const reviewRecord = review.available === false ? null : review.record;
   const toolRoles = tradeRecord
     ? Object.keys(tradeRecord.tool_outputs || {})
@@ -717,9 +728,9 @@ function ChatPage({ data, persona, history, draft, chatBusy }) {
     `Memory Roles: ${memoryRoles.join(', ') || '-'}`,
     `Review Warnings: ${reviewWarnings.join(' | ') || '-'}`,
     ...(agentActivity.stage_statuses?.length
-      ? agentActivity.stage_statuses.slice(0, 6).map(
-          (stage) => `${stage.stage} | ${stage.status} | ${stage.message}`,
-        )
+      ? agentActivity.stage_statuses
+          .slice(0, 6)
+          .map((stage) => `${stage.stage} | ${stage.status} | ${stage.message}`)
       : ['No stage timeline recorded yet.']),
   ];
 
@@ -755,7 +766,11 @@ function ChatPage({ data, persona, history, draft, chatBusy }) {
       e(
         Box,
         { width: '42%', paddingLeft: 1, flexDirection: 'column' },
-        e(Box, { width: '100%' }, panel('LIVE AGENT ACTIVITY', activityLines, 'cyan')),
+        e(
+          Box,
+          { width: '100%' },
+          panel('LIVE AGENT ACTIVITY', activityLines, 'cyan'),
+        ),
         e(
           Box,
           { width: '100%', marginTop: 1 },
@@ -822,7 +837,14 @@ function DashboardView({
   const pageIndex = pages.indexOf(page) + 1;
   const pageLabel = getPageLabel(page);
 
-  const view = getPageView(page, data, chatPersona, chatHistory, chatDraft, chatBusy);
+  const view = getPageView(
+    page,
+    data,
+    chatPersona,
+    chatHistory,
+    chatDraft,
+    chatBusy,
+  );
 
   return e(
     Box,

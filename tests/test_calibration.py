@@ -93,7 +93,9 @@ def _artifacts(symbol: str = "AAPL", *, approved: bool = True) -> RunArtifacts:
     )
 
 
-def _close_recent_trade(db: TradingDatabase, artifacts: RunArtifacts, *, pnl: float) -> None:
+def _close_recent_trade(
+    db: TradingDatabase, artifacts: RunArtifacts, *, pnl: float
+) -> None:
     trade_id = db.create_trade_journal(
         run_id="historic-run",
         order_id="order-historic",
@@ -123,14 +125,18 @@ def test_build_confidence_calibration_detects_underperformance(tmp_path: Path) -
     _close_recent_trade(db, losing, pnl=-120.0)
     _close_recent_trade(db, losing, pnl=-45.0)
 
-    calibration = build_confidence_calibration(db, losing.snapshot, strategy_family="trend_following")
+    calibration = build_confidence_calibration(
+        db, losing.snapshot, strategy_family="trend_following"
+    )
 
     assert calibration.closed_trades == 2
     assert calibration.confidence_multiplier < 1.0
     assert calibration.win_rate == pytest.approx(0.0)
 
 
-def test_manager_applies_historical_calibration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_manager_applies_historical_calibration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

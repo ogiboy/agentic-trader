@@ -4,12 +4,27 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## Baseline Verification
 
+- [ ] Run terminal smoke QA:
+  - `python scripts/qa/smoke_qa.py`
+- [ ] For code-quality passes, run:
+  - `python scripts/qa/smoke_qa.py --include-quality`
+- [ ] When SonarQube is available, run:
+  - `SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-sonar`
 - [ ] Run the smallest relevant targeted tests.
 - [ ] Run the full suite when feasible:
   - `/opt/anaconda3/envs/trader/bin/python -m pytest -q -p no:cacheprovider`
 - [ ] Confirm `git status --short` does not contain accidental runtime artifacts.
+- [ ] Confirm smoke artifacts are grouped under a timestamped `.ai/qa/artifacts/smoke-*` directory.
 - [ ] Confirm changed roadmap items are checked or left unchecked accurately.
 - [ ] Confirm `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` are updated when architecture, runtime contracts, or assumptions change.
+
+## Code Quality
+
+- [ ] `ruff check .` passes or findings are triaged.
+- [ ] `pytest -q -p no:cacheprovider` passes or failures are triaged.
+- [ ] `pyright` or IDE/Pylance diagnostics are checked when available.
+- [ ] SonarQube or `pysonar` findings are reviewed when the local Sonar service is available.
+- [ ] `.sonar/` remains ignored and no Sonar token is written to tracked files or artifacts.
 
 ## CLI
 

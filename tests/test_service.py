@@ -205,7 +205,9 @@ def test_run_service_records_runtime_state_and_events(
     }
 
 
-def test_run_service_records_agent_stage_events(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_run_service_records_agent_stage_events(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -259,7 +261,9 @@ def test_run_service_records_agent_stage_events(monkeypatch: pytest.MonkeyPatch,
     assert "agent_manager_completed" in event_types
 
 
-def test_run_service_respects_stop_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_run_service_respects_stop_request(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -308,7 +312,9 @@ def test_run_service_respects_stop_request(monkeypatch: pytest.MonkeyPatch, tmp_
     assert state.stop_requested is True
 
 
-def test_start_background_service_records_spawn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_start_background_service_records_spawn(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -427,18 +433,24 @@ def test_restart_background_service_uses_last_recorded_config(
         pid=99999,
     )
 
-    monkeypatch.setattr("agentic_trader.workflows.service.is_process_alive", lambda pid: False)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.is_process_alive", lambda pid: False
+    )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.start_background_service",
         lambda **kwargs: 5151,
     )
 
-    pid = restart_background_service(settings=settings, grace_seconds=0.0, workdir=tmp_path)
+    pid = restart_background_service(
+        settings=settings, grace_seconds=0.0, workdir=tmp_path
+    )
 
     assert pid == 5151
 
 
-def test_stop_service_command_marks_stop_requested(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_stop_service_command_marks_stop_requested(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

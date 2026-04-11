@@ -26,6 +26,80 @@ from agentic_trader.schemas import (
 )
 
 type OrderRow = tuple[str, str, str, str, bool, float, float, float, float, float]
+TERMINAL_SERVICE_STATES = {"stopped", "completed", "failed", "blocked"}
+
+
+def _str_or_none(value: Any) -> str | None:
+    return str(value) if value is not None else None
+
+
+def _int_or_none(value: Any) -> int | None:
+    return int(value) if value is not None else None
+
+
+def _bool_or_default(value: Any, default: bool) -> bool:
+    return bool(value) if value is not None else default
+
+
+def _resolve_value[T](new_value: T | None, existing_value: T | None, default: T) -> T:
+    if new_value is not None:
+        return new_value
+    if existing_value is not None:
+        return existing_value
+    return default
+
+
+def _resolve_optional_value[T](new_value: T | None, existing_value: T | None) -> T | None:
+    return new_value if new_value is not None else existing_value
+
+
+def _resolve_symbols(
+    symbols: list[str] | None, existing: ServiceStateSnapshot | None
+) -> list[str]:
+    if symbols is not None:
+        return list(symbols)
+    if existing is not None:
+        return existing.symbols
+    return []
+
+
+def _resolve_terminal_state(
+    *, state: str, existing: ServiceStateSnapshot | None, now: str
+) -> tuple[str | None, str | None]:
+    if state in TERMINAL_SERVICE_STATES:
+        return state, now
+    if existing is None:
+        return None, None
+    return existing.last_terminal_state, existing.last_terminal_at
+
+
+def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
+    return ServiceStateSnapshot(
+        service_name=str(row[0]),
+        state=str(row[1]),
+        updated_at=str(row[2]),
+        started_at=_str_or_none(row[3]),
+        last_heartbeat_at=_str_or_none(row[4]),
+        continuous=bool(row[5]),
+        poll_seconds=_int_or_none(row[6]),
+        cycle_count=int(row[7]),
+        symbols=json.loads(str(row[8])) if row[8] is not None else [],
+        interval=_str_or_none(row[9]),
+        lookback=_str_or_none(row[10]),
+        max_cycles=_int_or_none(row[11]),
+        current_symbol=_str_or_none(row[12]),
+        last_error=_str_or_none(row[13]),
+        pid=_int_or_none(row[14]),
+        stop_requested=_bool_or_default(row[15], False),
+        background_mode=_bool_or_default(row[16], False),
+        launch_count=int(row[17]) if row[17] is not None else 0,
+        restart_count=int(row[18]) if row[18] is not None else 0,
+        last_terminal_state=_str_or_none(row[19]),
+        last_terminal_at=_str_or_none(row[20]),
+        stdout_log_path=_str_or_none(row[21]),
+        stderr_log_path=_str_or_none(row[22]),
+        message=str(row[23]),
+    )
 
 
 class TradingDatabase:
@@ -1017,69 +1091,43 @@ class TradingDatabase:
         started_at = existing.started_at if existing is not None else None
         if state == "starting" or started_at is None:
             started_at = now
-        resolved_pid = (
-            pid if pid is not None else (existing.pid if existing is not None else None)
+        resolved_pid = _resolve_optional_value(
+            pid, existing.pid if existing is not None else None
         )
-        resolved_stop_requested = (
-            stop_requested
-            if stop_requested is not None
-            else (existing.stop_requested if existing is not None else False)
+        resolved_stop_requested = _resolve_value(
+            stop_requested,
+            existing.stop_requested if existing is not None else None,
+            False,
         )
-        resolved_symbols = (
-            list(symbols)
-            if symbols is not None
-            else (existing.symbols if existing is not None else [])
+        resolved_symbols = _resolve_symbols(symbols, existing)
+        resolved_interval = _resolve_optional_value(
+            interval, existing.interval if existing is not None else None
         )
-        resolved_interval = (
-            interval
-            if interval is not None
-            else (existing.interval if existing is not None else None)
+        resolved_lookback = _resolve_optional_value(
+            lookback, existing.lookback if existing is not None else None
         )
-        resolved_lookback = (
-            lookback
-            if lookback is not None
-            else (existing.lookback if existing is not None else None)
+        resolved_max_cycles = _resolve_optional_value(
+            max_cycles, existing.max_cycles if existing is not None else None
         )
-        resolved_max_cycles = (
-            max_cycles
-            if max_cycles is not None
-            else (existing.max_cycles if existing is not None else None)
+        resolved_background_mode = _resolve_value(
+            background_mode,
+            existing.background_mode if existing is not None else None,
+            False,
         )
-        resolved_background_mode = (
-            background_mode
-            if background_mode is not None
-            else (existing.background_mode if existing is not None else False)
+        resolved_launch_count = _resolve_value(
+            launch_count, existing.launch_count if existing is not None else None, 0
         )
-        resolved_launch_count = (
-            launch_count
-            if launch_count is not None
-            else (existing.launch_count if existing is not None else 0)
+        resolved_restart_count = _resolve_value(
+            restart_count, existing.restart_count if existing is not None else None, 0
         )
-        resolved_restart_count = (
-            restart_count
-            if restart_count is not None
-            else (existing.restart_count if existing is not None else 0)
+        resolved_stdout_log_path = _resolve_optional_value(
+            stdout_log_path, existing.stdout_log_path if existing is not None else None
         )
-        resolved_stdout_log_path = (
-            stdout_log_path
-            if stdout_log_path is not None
-            else (existing.stdout_log_path if existing is not None else None)
+        resolved_stderr_log_path = _resolve_optional_value(
+            stderr_log_path, existing.stderr_log_path if existing is not None else None
         )
-        resolved_stderr_log_path = (
-            stderr_log_path
-            if stderr_log_path is not None
-            else (existing.stderr_log_path if existing is not None else None)
-        )
-        terminal_states = {"stopped", "completed", "failed", "blocked"}
-        resolved_last_terminal_state = (
-            state
-            if state in terminal_states
-            else (existing.last_terminal_state if existing is not None else None)
-        )
-        resolved_last_terminal_at = (
-            now
-            if state in terminal_states
-            else (existing.last_terminal_at if existing is not None else None)
+        resolved_last_terminal_state, resolved_last_terminal_at = (
+            _resolve_terminal_state(state=state, existing=existing, now=now)
         )
 
         self.conn.execute(
@@ -1191,32 +1239,7 @@ class TradingDatabase:
         ).fetchone()
         if row is None:
             return None
-        return ServiceStateSnapshot(
-            service_name=str(row[0]),
-            state=str(row[1]),
-            updated_at=str(row[2]),
-            started_at=str(row[3]) if row[3] is not None else None,
-            last_heartbeat_at=str(row[4]) if row[4] is not None else None,
-            continuous=bool(row[5]),
-            poll_seconds=int(row[6]) if row[6] is not None else None,
-            cycle_count=int(row[7]),
-            symbols=json.loads(str(row[8])) if row[8] is not None else [],
-            interval=str(row[9]) if row[9] is not None else None,
-            lookback=str(row[10]) if row[10] is not None else None,
-            max_cycles=int(row[11]) if row[11] is not None else None,
-            current_symbol=str(row[12]) if row[12] is not None else None,
-            last_error=str(row[13]) if row[13] is not None else None,
-            pid=int(row[14]) if row[14] is not None else None,
-            stop_requested=bool(row[15]) if row[15] is not None else False,
-            background_mode=bool(row[16]) if row[16] is not None else False,
-            launch_count=int(row[17]) if row[17] is not None else 0,
-            restart_count=int(row[18]) if row[18] is not None else 0,
-            last_terminal_state=str(row[19]) if row[19] is not None else None,
-            last_terminal_at=str(row[20]) if row[20] is not None else None,
-            stdout_log_path=str(row[21]) if row[21] is not None else None,
-            stderr_log_path=str(row[22]) if row[22] is not None else None,
-            message=str(row[23]),
-        )
+        return _service_state_from_row(row)
 
     def request_stop_service(self, service_name: str = "orchestrator") -> None:
         now = datetime.now(timezone.utc).isoformat()

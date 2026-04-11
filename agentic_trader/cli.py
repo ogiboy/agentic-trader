@@ -155,27 +155,27 @@ def _render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
     pipeline.add_row(
         "Coordinator",
         artifacts.coordinator.source,
-        artifacts.coordinator.fallback_reason or "Structured LLM response",
+        artifacts.coordinator.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
         "Regime",
         artifacts.regime.source,
-        artifacts.regime.fallback_reason or "Structured LLM response",
+        artifacts.regime.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
         "Strategy",
         artifacts.strategy.source,
-        artifacts.strategy.fallback_reason or "Structured LLM response",
+        artifacts.strategy.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
         "Risk",
         artifacts.risk.source,
-        artifacts.risk.fallback_reason or "Structured LLM response",
+        artifacts.risk.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
         "Manager",
         artifacts.manager.source,
-        artifacts.manager.fallback_reason or "Structured LLM response",
+        artifacts.manager.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     console.print(Columns([summary, pipeline]))
 
@@ -257,7 +257,8 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     table.add_row("Interval", snapshot.interval or "-")
     table.add_row("Lookback", snapshot.lookback or "-")
     table.add_row(
-        "Max Cycles", str(snapshot.max_cycles) if snapshot.max_cycles is not None else "-"
+        "Max Cycles",
+        str(snapshot.max_cycles) if snapshot.max_cycles is not None else "-",
     )
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
@@ -338,10 +339,10 @@ def _render_risk_report(report: DailyRiskReport) -> None:
     table.add_column("Value")
     table.add_row("Generated", report.generated_at)
     table.add_row("Cash", f"{report.cash:.2f}")
-    table.add_row("Market Value", f"{report.market_value:.2f}")
+    table.add_row(LABEL_MARKET_VALUE, f"{report.market_value:.2f}")
     table.add_row("Equity", f"{report.equity:.2f}")
     table.add_row("Realized PnL", f"{report.realized_pnl:.2f}")
-    table.add_row("Unrealized PnL", f"{report.unrealized_pnl:.2f}")
+    table.add_row(LABEL_UNREALIZED_PNL, f"{report.unrealized_pnl:.2f}")
     table.add_row("Open Positions", str(report.open_positions))
     table.add_row("Fills Today", str(report.fills_today))
     table.add_row("Marks Recorded", str(report.marks_recorded))
@@ -417,7 +418,9 @@ def _render_run_review(record: RunRecord) -> None:
     console.print(Columns([metadata, analysis]))
     console.print(
         Panel(
-            "\n".join(f"- {note}" for note in _manager_override_notes(record.artifacts)),
+            "\n".join(
+                f"- {note}" for note in _manager_override_notes(record.artifacts)
+            ),
             title="Manager Override Notes",
             border_style="yellow",
         )
@@ -535,7 +538,9 @@ def _manager_override_notes(artifacts: RunArtifacts) -> list[str]:
             f"Execution approval {artifacts.execution.approved} differed from manager approval {artifacts.manager.approved}."
         )
     if not notes:
-        notes.append("Manager accepted the specialist plan without additional overrides.")
+        notes.append(
+            "Manager accepted the specialist plan without additional overrides."
+        )
     return notes
 
 
@@ -661,7 +666,7 @@ def _render_backtest_report(report: BacktestReport) -> None:
     summary.add_row("Cycles", str(report.total_cycles))
     summary.add_row("Trades", str(report.total_trades))
     summary.add_row("Closed Trades", str(report.closed_trades))
-    summary.add_row("Win Rate", f"{report.win_rate:.2%}")
+    summary.add_row(LABEL_WIN_RATE, f"{report.win_rate:.2%}")
     summary.add_row("Expectancy", f"{report.expectancy:.2f}")
     summary.add_row("Total Return", f"{report.total_return_pct:.2%}")
     summary.add_row("Max Drawdown", f"{report.max_drawdown_pct:.2%}")
@@ -712,7 +717,7 @@ def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
         str(report.agent.closed_trades - report.baseline.closed_trades),
     )
     table.add_row(
-        "Win Rate",
+        LABEL_WIN_RATE,
         f"{report.agent.win_rate:.2%}",
         f"{report.baseline.win_rate:.2%}",
         f"{report.agent.win_rate - report.baseline.win_rate:.2%}",
@@ -763,7 +768,7 @@ def _render_backtest_ablation(report: BacktestAblationReport) -> None:
         str(report.with_memory.total_trades - report.without_memory.total_trades),
     )
     table.add_row(
-        "Win Rate",
+        LABEL_WIN_RATE,
         f"{report.with_memory.win_rate:.2%}",
         f"{report.without_memory.win_rate:.2%}",
         f"{report.with_memory.win_rate - report.without_memory.win_rate:.2%}",
@@ -921,7 +926,9 @@ def _risk_report_payload(
     }
 
 
-def _run_record_payload(settings: Settings, *, run_id: str | None = None) -> dict[str, object]:
+def _run_record_payload(
+    settings: Settings, *, run_id: str | None = None
+) -> dict[str, object]:
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -970,8 +977,12 @@ def _trade_context_payload(
 def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
     state = read_service_state(settings)
     view = build_runtime_status_view(state)
-    stdout_path = Path(state.stdout_log_path) if state and state.stdout_log_path else None
-    stderr_path = Path(state.stderr_log_path) if state and state.stderr_log_path else None
+    stdout_path = (
+        Path(state.stdout_log_path) if state and state.stdout_log_path else None
+    )
+    stderr_path = (
+        Path(state.stderr_log_path) if state and state.stderr_log_path else None
+    )
     return {
         "runtime_state": view.runtime_state,
         "live_process": view.live_process,
@@ -1000,7 +1011,9 @@ def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
     return "BTC-USD"
 
 
-def _calendar_payload(settings: Settings, *, symbol: str | None = None) -> dict[str, object]:
+def _calendar_payload(
+    settings: Settings, *, symbol: str | None = None
+) -> dict[str, object]:
     try:
         preferences = InvestmentPreferences()
         record = None
@@ -1029,7 +1042,9 @@ def _calendar_payload(settings: Settings, *, symbol: str | None = None) -> dict[
     }
 
 
-def _news_payload(settings: Settings, *, symbol: str | None = None) -> dict[str, object]:
+def _news_payload(
+    settings: Settings, *, symbol: str | None = None
+) -> dict[str, object]:
     try:
         preferences = InvestmentPreferences()
         record = None
@@ -1198,7 +1213,9 @@ def _chat_history_payload(settings: Settings, *, limit: int = 12) -> dict[str, o
     }
 
 
-def _run_replay_payload(settings: Settings, *, run_id: str | None = None) -> dict[str, object]:
+def _run_replay_payload(
+    settings: Settings, *, run_id: str | None = None
+) -> dict[str, object]:
     record_payload = _run_record_payload(settings, run_id=run_id)
     record_json = record_payload["record"]
     if record_payload["available"] is False or record_json is None:
@@ -1261,11 +1278,7 @@ def app_entry(ctx: typer.Context) -> None:
 
 
 @app.command()
-def doctor(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
-) -> None:
+def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
     """Validate local configuration and print runtime settings."""
     settings = get_settings()
     latest: str
@@ -1335,9 +1348,9 @@ def doctor(
 
 @app.command()
 def run(
-    symbol: str = typer.Option(..., help="Ticker symbol, for example AAPL or BTC-USD"),
-    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
-    lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
+    symbol: str = typer.Option(..., help=HELP_SYMBOL),
+    interval: str = typer.Option("1d", help=HELP_INTERVAL),
+    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
 ) -> None:
     """Run one strict LLM-backed agent cycle and log a paper order."""
     settings = get_settings()
@@ -1368,8 +1381,8 @@ def launch(
     symbols: str = typer.Option(
         ..., help="Comma-separated symbols, for example AAPL,MSFT,BTC-USD"
     ),
-    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
-    lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
+    interval: str = typer.Option("1d", help=HELP_INTERVAL),
+    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
     poll_seconds: int = typer.Option(
         300, help="Sleep between cycles in continuous mode."
     ),
@@ -1456,9 +1469,7 @@ def launch(
 
 @app.command()
 def portfolio(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
     """Show the current paper portfolio and open positions."""
     settings = get_settings()
@@ -1476,7 +1487,7 @@ def portfolio(
         console.print(
             Panel(
                 f"Portfolio view is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -1486,10 +1497,10 @@ def portfolio(
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row("Market Value", f"{snapshot.market_value:.2f}")
+    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
     summary.add_row("Equity", f"{snapshot.equity:.2f}")
     summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row("Unrealized PnL", f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
     summary.add_row("Open Positions", str(snapshot.open_positions))
     console.print(summary)
 
@@ -1498,8 +1509,8 @@ def portfolio(
     positions_table.add_column("Quantity")
     positions_table.add_column("Average Price")
     positions_table.add_column("Market Price")
-    positions_table.add_column("Market Value")
-    positions_table.add_column("Unrealized PnL")
+    positions_table.add_column(LABEL_MARKET_VALUE)
+    positions_table.add_column(LABEL_UNREALIZED_PNL)
     for position in positions:
         positions_table.add_row(
             position.symbol,
@@ -1518,11 +1529,7 @@ def portfolio(
 
 
 @app.command()
-def status(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
-) -> None:
+def status(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
     """Show the current orchestrator runtime state."""
     settings = get_settings()
     state = read_service_state(settings)
@@ -1548,9 +1555,7 @@ def status(
 
 @app.command("supervisor-status")
 def supervisor_status(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
     """Show daemon supervision metadata and recent background log tails."""
     settings = get_settings()
@@ -1587,14 +1592,16 @@ def supervisor_status(
     console.print(table)
     console.print(
         Panel(
-            "\n".join(cast(list[str], payload["stdout_tail"])) or "No stdout log lines yet.",
+            "\n".join(cast(list[str], payload["stdout_tail"]))
+            or "No stdout log lines yet.",
             title="Service Stdout Tail",
             border_style="cyan",
         )
     )
     console.print(
         Panel(
-            "\n".join(cast(list[str], payload["stderr_tail"])) or "No stderr log lines yet.",
+            "\n".join(cast(list[str], payload["stderr_tail"]))
+            or "No stderr log lines yet.",
             title="Service Stderr Tail",
             border_style="yellow",
         )
@@ -1603,9 +1610,7 @@ def supervisor_status(
 
 @app.command("broker-status")
 def broker_status(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
     """Show the active broker backend and execution safety gates."""
     settings = get_settings()
@@ -1632,9 +1637,7 @@ def logs(
     limit: int = typer.Option(
         20, min=1, max=200, help="Maximum number of runtime events to show."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show recent orchestrator runtime events."""
     settings = get_settings()
@@ -1768,7 +1771,9 @@ def build_observer_api_payload(
         return 200, {
             "service": "agentic-trader-observer-api",
             "ok": True,
-            "runtime": build_runtime_status_view(read_service_state(settings)).runtime_state,
+            "runtime": build_runtime_status_view(
+                read_service_state(settings)
+            ).runtime_state,
         }
     if path == "/status":
         state = read_service_state(settings)
@@ -1779,7 +1784,9 @@ def build_observer_api_payload(
             "is_stale": view.is_stale,
             "age_seconds": view.age_seconds,
             "status_message": view.status_message,
-            "state": view.state.model_dump(mode="json") if view.state is not None else None,
+            "state": (
+                view.state.model_dump(mode="json") if view.state is not None else None
+            ),
         }
     if path == "/logs":
         return 200, {
@@ -1795,8 +1802,12 @@ def build_observer_api_payload(
 
 @app.command("observer-api")
 def observer_api_command(
-    host: str = typer.Option("127.0.0.1", help="Bind address for the local observer API."),
-    port: int = typer.Option(8765, min=1, max=65535, help="Bind port for the local observer API."),
+    host: str = typer.Option(
+        "127.0.0.1", help="Bind address for the local observer API."
+    ),
+    port: int = typer.Option(
+        8765, min=1, max=65535, help="Bind port for the local observer API."
+    ),
     log_limit: int = typer.Option(
         14, min=1, max=100, help="Maximum number of runtime events to include."
     ),
@@ -1825,9 +1836,7 @@ def calendar_status(
         None,
         help="Optional ticker symbol. Defaults to the latest run symbol or preference-derived default.",
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show the inferred market session state for a symbol."""
     settings = get_settings()
@@ -1860,9 +1869,7 @@ def calendar_status(
 @app.command("news-brief")
 def news_brief(
     symbol: str | None = typer.Option(None, help="Optional symbol override."),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show news tool output for the resolved symbol."""
     settings = get_settings()
@@ -1923,9 +1930,7 @@ def cache_market_data(
 
 @app.command("market-cache")
 def market_cache(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
     """List saved repeatable market snapshots."""
     settings = get_settings()
@@ -1958,9 +1963,7 @@ def market_cache(
 
 @app.command("preferences")
 def preferences_command(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
     """Show the saved investment preferences."""
     settings = get_settings()
@@ -1975,7 +1978,7 @@ def preferences_command(
         console.print(
             Panel(
                 f"Preferences are temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2003,9 +2006,7 @@ def journal(
     limit: int = typer.Option(
         20, min=1, max=200, help="Maximum number of journal entries to show."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show the latest trade journal entries."""
     settings = get_settings()
@@ -2020,7 +2021,7 @@ def journal(
         console.print(
             Panel(
                 f"Trade journal is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2033,9 +2034,7 @@ def risk_report(
     report_date: str | None = typer.Option(
         None, help="UTC date in YYYY-MM-DD format. Defaults to today."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show a compact daily risk report for the paper portfolio."""
     settings = get_settings()
@@ -2054,7 +2053,7 @@ def risk_report(
         console.print(
             Panel(
                 f"Risk report is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2064,12 +2063,8 @@ def risk_report(
 
 @app.command("review-run")
 def review_run(
-    run_id: str | None = typer.Option(
-        None, help="Run id to inspect. Defaults to the latest recorded run."
-    ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    run_id: str | None = typer.Option(None, help=HELP_RUN_ID),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Inspect the latest or a specific persisted run in detail."""
     settings = get_settings()
@@ -2088,7 +2083,7 @@ def review_run(
         console.print(
             Panel(
                 f"Run review is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2107,12 +2102,8 @@ def review_run(
 
 @app.command("trace-run")
 def trace_run(
-    run_id: str | None = typer.Option(
-        None, help="Run id to inspect. Defaults to the latest recorded run."
-    ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    run_id: str | None = typer.Option(None, help=HELP_RUN_ID),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show the persisted per-stage agent trace for a run."""
     settings = get_settings()
@@ -2131,7 +2122,7 @@ def trace_run(
         console.print(
             Panel(
                 f"Run trace is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2153,9 +2144,7 @@ def trade_context(
     trade_id: str | None = typer.Option(
         None, help="Trade id to inspect. Defaults to the latest recorded trade context."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Inspect the persisted market, memory, and reasoning context for a trade."""
     settings = get_settings()
@@ -2172,7 +2161,7 @@ def trade_context(
         console.print(
             Panel(
                 f"Trade context is temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2229,9 +2218,7 @@ def replay_run(
     run_id: str | None = typer.Option(
         None, help="Run id to replay. Defaults to the latest recorded run."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Replay what the system knew at decision time using persisted traces."""
     settings = get_settings()
@@ -2248,7 +2235,7 @@ def replay_run(
         console.print(
             Panel(
                 f"Run replay is temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2299,9 +2286,9 @@ def export_report(
 
 @app.command("backtest")
 def backtest(
-    symbol: str = typer.Option(..., help="Ticker symbol, for example AAPL or BTC-USD"),
-    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
-    lookback: str = typer.Option("2y", help="Lookback window accepted by yfinance"),
+    symbol: str = typer.Option(..., help=HELP_SYMBOL),
+    interval: str = typer.Option("1d", help=HELP_INTERVAL),
+    lookback: str = typer.Option("2y", help=HELP_LOOKBACK),
     warmup_bars: int = typer.Option(
         120, min=60, help="Warmup bars before replay begins."
     ),
@@ -2408,7 +2395,7 @@ def backtest(
                 f"- Cycles: {report.total_cycles}",
                 f"- Trades: {report.total_trades}",
                 f"- Closed Trades: {report.closed_trades}",
-                f"- Win Rate: {report.win_rate:.2%}",
+                f"- {LABEL_WIN_RATE}: {report.win_rate:.2%}",
                 f"- Expectancy: {report.expectancy:.2f}",
                 f"- Total Return: {report.total_return_pct:.2%}",
                 f"- Max Drawdown: {report.max_drawdown_pct:.2%}",
@@ -2427,22 +2414,16 @@ def backtest(
 
 @app.command("memory-explorer")
 def memory_explorer(
-    symbol: str | None = typer.Option(
-        None, help="Ticker symbol, for example AAPL or BTC-USD"
-    ),
-    interval: str | None = typer.Option(
-        None, help="yfinance interval, for example 1d or 1h"
-    ),
-    lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
+    symbol: str | None = typer.Option(None, help=HELP_SYMBOL),
+    interval: str | None = typer.Option(None, help=HELP_INTERVAL),
+    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
     limit: int = typer.Option(
         5, min=1, max=20, help="Maximum number of retrieved historical memories."
     ),
     use_latest_run: bool = typer.Option(
         True, help="Use the latest recorded run snapshot when available."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Inspect historically similar recorded runs for the current market snapshot."""
     settings = get_settings()
@@ -2461,7 +2442,7 @@ def memory_explorer(
         console.print(
             Panel(
                 f"Memory explorer is temporarily unavailable.\n\n{payload['error']}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2474,12 +2455,8 @@ def memory_explorer(
 
 @app.command("retrieval-inspection")
 def retrieval_inspection(
-    run_id: str | None = typer.Option(
-        None, help="Run id to inspect. Defaults to the latest recorded run."
-    ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    run_id: str | None = typer.Option(None, help=HELP_RUN_ID),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Inspect which memories and context bundles were injected into each agent stage."""
     settings = get_settings()
@@ -2491,7 +2468,7 @@ def retrieval_inspection(
         console.print(
             Panel(
                 f"Retrieval inspection is temporarily unavailable.\n\n{payload['error']}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2559,9 +2536,7 @@ def retrieval_inspection(
 
 @app.command("memory-policy")
 def memory_policy(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show policy-controlled memory write permissions by domain."""
     payload = memory_write_policy_snapshot()
@@ -2590,9 +2565,7 @@ def chat(
     message: str | None = typer.Option(
         None, help="Optional message. If omitted, an interactive prompt is shown."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Talk to the read-only operator chat surface."""
     settings = get_settings()

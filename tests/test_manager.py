@@ -30,7 +30,9 @@ def _snapshot() -> MarketSnapshot:
     )
 
 
-def test_manager_finalization_derives_conflicts_and_resolution_notes(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_manager_finalization_derives_conflicts_and_resolution_notes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     settings = Settings()
     snapshot = _snapshot()
     coordinator = ResearchCoordinatorBrief(

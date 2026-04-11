@@ -1,5 +1,8 @@
 .DS_Store
 .pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
 .mypy_cache/
 .ruff_cache/
 .venv/
@@ -7,6 +10,7 @@
 __pycache__/
 *.pyc
 runtime/
+.sonar/
 dist/
 build/
 *.egg-info/
@@ -17,3 +21,5 @@ build/
 dist/
 *.egg-info/
 *.log
+.ai/qa/artifacts/smoke-summary.json
+.ai/qa/artifacts/smoke-*/

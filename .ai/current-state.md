@@ -36,6 +36,8 @@ Implemented or substantially present:
 - explicit memory write policy for trade memory versus chat memory domains
 - broker adapter boundary with paper backend, safe live gating, and execution kill-switch semantics
 - QA workflow docs now define product-specific checklist, runbook, scenarios, and evidence conventions for CLI, Rich, Ink, daemon, observer API, memory, governance, and paper broker validation
+- a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, read-only JSON surfaces, optional quality gates, coverage XML, and SonarQube submission
+- SonarQube MCP is connected for project `agentic-trader-dev`; the latest QA pass reports zero bugs, zero vulnerabilities, 20 open code smells, 46.7% overall coverage, and a Quality Gate blocked only by new-code coverage
 
 ## Current Constraints
 
@@ -49,6 +51,7 @@ Implemented or substantially present:
 - DB-backed review surfaces may intentionally fall back to observer mode while the runtime writer is active
 - background runtime supervision now has a sidecar-friendly status and log contract that UI surfaces can read without competing for the writer connection
 - behavior-changing work should use the QA docs when it affects operator surfaces or runtime behavior
+- Sonar Quality Gate currently requires higher new-code coverage than the repository has; keep adding focused tests before treating the gate as fully green
 
 ## Current Development Posture
 

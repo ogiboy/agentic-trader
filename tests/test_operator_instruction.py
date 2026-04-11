@@ -10,6 +10,10 @@ from agentic_trader.schemas import OperatorInstruction, PreferenceUpdate
 from agentic_trader.storage.db import TradingDatabase
 
 
+def _force_fallback(**_kwargs: object) -> None:
+    raise RuntimeError("force fallback")
+
+
 def test_apply_preference_update_changes_only_supplied_fields(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -44,7 +48,7 @@ def test_interpret_operator_instruction_uses_fallback_keywords(
     monkeypatch.setattr(
         llm,
         "complete_structured",
-        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("force fallback")),
+        _force_fallback,
     )
 
     instruction = interpret_operator_instruction(
