@@ -19,6 +19,17 @@ const personas = [
   'portfolio_manager',
 ];
 
+/**
+ * Execute the Agentic Trader CLI using one of the configured executables, retrying across candidates.
+ *
+ * Attempts to run either the configured Python module invocation or the standalone CLI binary (whichever are available), returning parsed JSON when requested or the raw stdout/stderr pair otherwise.
+ *
+ * @param {string[]} args - Command-line arguments to pass to the CLI.
+ * @param {{ expectJson?: boolean }} [options] - Execution options.
+ * @param {boolean} [options.expectJson=false] - If true, parse and return stdout as JSON.
+ * @returns {any|{stdout: string, stderr: string}} Parsed JSON when `expectJson` is true; otherwise an object containing `stdout` and `stderr`.
+ * @throws Will re-throw a non-ENOENT child-process error immediately, or throw the last captured error (or a generic error) if no candidate executable could be run.
+ */
 async function execCli(args, { expectJson = false } = {}) {
   const attempts = [];
   if (pythonExecutable) {
@@ -56,6 +67,12 @@ async function runTextCommand(args) {
   return execCli(args, { expectJson: false });
 }
 
+/**
+ * Choose a default comma-separated symbol list based on user preferences.
+ *
+ * @param {Object} preferences - Preferences object that may include `exchanges` and `regions` arrays.
+ * @returns {string} A comma-separated symbol list: `THYAO.IS,GARAN.IS` when `exchanges` contains `BIST` or `regions` contains `TR`; `AAPL,MSFT` when `exchanges` contains `NASDAQ` or `NYSE` or `regions` contains `US`; otherwise `BTC-USD,ETH-USD`.
+ */
 function defaultSymbolsFromPreferences(preferences) {
   const exchanges = preferences?.exchanges || [];
   const regions = preferences?.regions || [];
@@ -72,6 +89,12 @@ function defaultSymbolsFromPreferences(preferences) {
   return 'BTC-USD,ETH-USD';
 }
 
+/**
+ * Produce a short tail of the supervisor's recent daemon log lines.
+ *
+ * @param {Object|undefined} supervisor - Supervisor state object that may contain `stderr_tail` and/or `stdout_tail` arrays of log lines.
+ * @returns {string[]} An array of strings: if `stderr_tail` has entries, `['stderr:', ...lastUpTo3Lines]`; else if `stdout_tail` has entries, `['stdout:', ...lastUpTo3Lines]`; otherwise `['No daemon log tail yet.']`.
+ */
 function getSupervisorLogLines(supervisor) {
   if (supervisor?.stderr_tail?.length) {
     return ['stderr:', ...supervisor.stderr_tail.slice(-3)];
@@ -82,6 +105,19 @@ function getSupervisorLogLines(supervisor) {
   return ['No daemon log tail yet.'];
 }
 
+/**
+ * Produce an array of human-readable lines summarizing a trade context for display.
+ *
+ * If `tradeContext.available === false`, returns the unavailable-message lines (including the provided error).
+ * If `tradeContext.record` is missing, returns a single-line notice that no persisted trade context exists.
+ *
+ * @param {Object} tradeContext - Trade context payload from the dashboard snapshot.
+ *   Expected shape (partial): `{ available?: boolean, error?: string, record?: Object }`.
+ *   The `record` object may contain `trade_id`, `run_id`, `consensus.alignment_level`, `manager_rationale`,
+ *   `execution_rationale`, `review_summary`, `routed_models`, `retrieved_memory_summary`, and `tool_outputs`.
+ * @returns {string[]} Lines suitable for rendering in the UI describing IDs, consensus, rationales, routed models,
+ *   memory roles, and tool roles, or fallback lines when unavailable or absent.
+ */
 function getTradeContextLines(tradeContext) {
   if (tradeContext?.available === false) {
     return renderUnavailableMessage(tradeContext.error);
@@ -107,6 +143,13 @@ function getTradeContextLines(tradeContext) {
   ];
 }
 
+/**
+ * Perform a runtime control action (start, stop, or restart) based on the provided dashboard snapshot and return a user-facing action message.
+ *
+ * @param {string} kind - The action to perform: "start", "stop", or other (treated as restart if a previous launch config exists).
+ * @param {Object} data - Dashboard snapshot containing runtime `status` and `preferences` used to decide behavior.
+ * @returns {{kind: string, text: string}} An action message describing the requested operation or why no action was taken (e.g., `{ kind: 'info', text: '...' }`).
+ */
 async function performRuntimeAction(kind, data) {
   if (kind === 'start') {
     if (data.status.live_process) {
@@ -156,12 +199,30 @@ async function performRuntimeAction(kind, data) {
   };
 }
 
+/**
+ * Rotate the chat persona selection by a signed offset within the available personas.
+ *
+ * @param {string} current - The currently selected persona key.
+ * @param {number} offset - Signed integer offset to apply (positive moves forward, negative moves backward).
+ * @returns {string} The persona key at the resulting rotated position.
+ */
 function rotatePersona(current, offset) {
   return personas[
     (personas.indexOf(current) + offset + personas.length) % personas.length
   ];
 }
 
+/**
+ * Handle a single chat input keystroke, updating chat draft or persona or triggering send when applicable.
+ *
+ * @param {string} input - The raw input character (e.g., a typed character or '['/']').
+ * @param {{return?: boolean, backspace?: boolean, delete?: boolean, ctrl?: boolean, meta?: boolean}} key - Key flags indicating special keys pressed.
+ * @param {{sendChat: Function, setChatDraft: Function, setChatPersona: Function}} handlers - Handler functions used to mutate chat state:
+ *   - sendChat(): send the current draft as a chat message.
+ *   - setChatDraft(fn): update the draft; receives the current draft and should return the new draft.
+ *   - setChatPersona(fn): rotate/set the current persona; receives the current persona and should return the new persona.
+ * @returns {boolean} `true` if the input was handled (consumed), `false` otherwise.
+ */
 function handleChatInput(input, key, handlers) {
   if (key.return) {
     handlers.sendChat();
@@ -186,6 +247,21 @@ function handleChatInput(input, key, handlers) {
   return false;
 }
 
+/**
+ * Handle top-level single-key commands and page selection from keyboard input.
+ *
+ * Recognizes:
+ * - 'q' to exit,
+ * - 'r' to refresh,
+ * - 's' to start the runtime,
+ * - 'x' to stop the runtime,
+ * - 'R' to restart the runtime,
+ * - '1'..'6' to switch to the corresponding page.
+ *
+ * @param {string} input - The raw key input (single character).
+ * @param {{ exit: Function, refreshNow: Function, runAction: Function, setPage: Function }} handlers - Action handlers to invoke for recognized keys.
+ * @returns {boolean} `true` if the input was handled, `false` otherwise.
+ */
 function handleGlobalInput(input, handlers) {
   const normalized = input.toLowerCase();
   if (normalized === 'q') {
@@ -215,6 +291,14 @@ function handleGlobalInput(input, handlers) {
   return false;
 }
 
+/**
+ * Load the dashboard snapshot from the CLI and attach a retrieval timestamp.
+ *
+ * Requests a dashboard snapshot and returns the snapshot object augmented with
+ * a `loadedAt` field containing the ISO 8601 timestamp when the snapshot was fetched.
+ *
+ * @returns {object} The dashboard snapshot payload augmented with a `loadedAt` ISO 8601 string.
+ */
 async function loadDashboard() {
   const payload = await runJsonCommand([
     'dashboard-snapshot',
@@ -227,6 +311,11 @@ async function loadDashboard() {
   };
 }
 
+/**
+ * Map a page key to its human-readable label.
+ * @param {string} page - The page key (e.g., 'overview', 'runtime').
+ * @returns {string} The display label for the given page key, or 'Unknown' if the key is not recognized.
+ */
 function getPageLabel(page) {
   const labels = {
     overview: 'Overview',
@@ -239,6 +328,17 @@ function getPageLabel(page) {
   return labels[page] || 'Unknown';
 }
 
+/**
+ * Selects and returns the UI component element corresponding to the specified page key.
+ *
+ * @param {string} page - Page key ('overview', 'runtime', 'portfolio', 'review', 'memory', or other for chat).
+ * @param {Object} data - Dashboard snapshot and related data passed into the page component.
+ * @param {string} chatPersona - Active chat persona (used when rendering the chat page).
+ * @param {Array<Object>} chatHistory - Normalized chat history entries (used when rendering the chat page).
+ * @param {string} chatDraft - Current chat draft text (used when rendering the chat page).
+ * @param {boolean} chatBusy - Whether a chat request is in progress (used when rendering the chat page).
+ * @returns {import('react').ReactElement} The rendered Ink/React element for the requested page (defaults to the Chat page for unknown keys).
+ */
 function getPageView(
   page,
   data,
@@ -511,6 +611,18 @@ function OverviewPage({ data }) {
   );
 }
 
+/**
+ * Render the Runtime page showing runtime status, supervisor/stage flow, and recent events.
+ *
+ * Renders three panels summarizing the current runtime state (process, PID, symbols, timing,
+ * stage details, broker and snapshot info), the supervisor and stage flow (log tails, stage
+ * statuses, and latest review summary), and recent runtime events.
+ *
+ * @param {Object} data - Dashboard snapshot containing runtime and related information.
+ *   Expected properties: `status`, `supervisor`, `broker`, `logs`, `agentActivity`,
+ *   `review`, `calendar`, and `marketCache`.
+ * @returns {import('react').ReactElement} The Ink component tree for the Runtime page.
+ */
 function RuntimePage({ data }) {
   const runtime = data.status;
   const supervisor = data.supervisor;
@@ -719,6 +831,18 @@ function PortfolioPage({ data }) {
   );
 }
 
+/**
+ * Render the Review page with panels for run review, agent trace, memory-aware replay, and trade context.
+ *
+ * @param {{ data: { review: Object, trace: Object, replay: Object, tradeContext: Object } }} props
+ * @param {Object} props.data - Dashboard snapshot subsets used to populate panels.
+ *   Expected keys:
+ *     - review: { available?: boolean, record?: Object, error?: string }
+ *     - trace: { available?: boolean, record?: Object, error?: string }
+ *     - replay: { available?: boolean, replay?: Object, error?: string }
+ *     - tradeContext: Object
+ * @returns {import('react').ReactElement} An Ink layout containing four titled panels: "LATEST RUN REVIEW", "AGENT TRACE", "MEMORY-AWARE REPLAY", and "TRADE CONTEXT".
+ */
 function ReviewPage({ data }) {
   const review = data.review;
   const trace = data.trace;
@@ -817,6 +941,18 @@ function MemoryPage({ data }) {
   );
 }
 
+/**
+ * Render the chat page of the dashboard showing operator chat, live agent activity, reasoning/tools, and the composer.
+ *
+ * Renders panels for operator chat (persona, input instructions, status, and recent history), live agent activity (stage/status details), a reasoning/tools summary derived from trade context and review, and the composer draft.
+ * @param {object} props
+ * @param {object} props.data - Dashboard snapshot containing agentActivity, tradeContext, and review used to build display lines.
+ * @param {string} props.persona - Currently selected chat persona.
+ * @param {Array<object>} props.history - Chat history entries in UI order; each entry should include `user`, `persona`, and `response`.
+ * @param {string} props.draft - Current composer draft text.
+ * @param {boolean} props.chatBusy - Whether a chat send is in progress; affects the operator chat status line.
+ * @returns {import('react').ReactElement} The Ink component tree for the chat page.
+ */
 function ChatPage({ data, persona, history, draft, chatBusy }) {
   const agentActivity = data?.agentActivity || {};
   const tradeContext = data?.tradeContext || {};
@@ -915,6 +1051,26 @@ function normalizeChatHistory(data) {
   }));
 }
 
+/**
+ * Render the Ink dashboard UI for the control room based on current state and props.
+ *
+ * Renders an error view when `error` is present, a loading view when `data` is absent,
+ * and the selected page plus header/footer when `data` is available. Displays action
+ * messages and a busy indicator when appropriate.
+ *
+ * @param {Object} props - Component props.
+ * @param {?Object} props.data - Dashboard snapshot payload; expected to include `loadedAt`.
+ * @param {?string} props.error - Error message to display instead of the dashboard.
+ * @param {string} props.loadingText - Text to display while loading.
+ * @param {string} props.page - Current page key (one of 'overview','runtime','portfolio','review','memory','chat').
+ * @param {?{kind:string,text:string}} props.actionMessage - Optional action message; `kind` controls color.
+ * @param {boolean} props.busy - When true, shows a working indicator in the header.
+ * @param {string} props.chatPersona - Currently selected chat persona key.
+ * @param {Array<Object>} props.chatHistory - Normalized chat history entries for display.
+ * @param {string} props.chatDraft - Current chat composer draft text.
+ * @param {boolean} props.chatBusy - When true, indicates an in-flight chat send.
+ * @returns {import('react').ReactElement} The Ink element tree representing the dashboard view.
+ */
 function DashboardView({
   data,
   error,
@@ -991,6 +1147,38 @@ function DashboardView({
   );
 }
 
+/**
+ * Manage dashboard state, periodic refresh, runtime actions, and chat UI state for the dashboard UI.
+ *
+ * Initializes and exposes dashboard data, error/loading indicators, page navigation, runtime action handling,
+ * and chat-related state (persona, history, draft, busy). When `interactive` is true, the hook also starts a
+ * 2s interval to refresh the dashboard automatically.
+ *
+ * @param {{ interactive: boolean }} params - Configuration options.
+ * @param {boolean} params.interactive - If true, enable periodic automatic refresh and input-interactive behavior.
+ * @returns {{
+ *   data: any,
+ *   error: string|null,
+ *   loadingText: string,
+ *   refreshNow: () => void,
+ *   exit: () => void,
+ *   page: string,
+ *   setPage: (p: string) => void,
+ *   nextPage: () => void,
+ *   prevPage: () => void,
+ *   runAction: (kind: string) => Promise<void>,
+ *   busy: boolean,
+ *   actionMessage: { kind: string, text: string }|null,
+ *   chatPersona: string,
+ *   setChatPersona: (p: string) => void,
+ *   chatHistory: Array<any>,
+ *   setChatHistory: (h: Array<any>) => void,
+ *   chatDraft: string,
+ *   setChatDraft: (d: string) => void,
+ *   chatBusy: boolean,
+ *   setChatBusy: (b: boolean) => void
+ * }}
+ */
 function useDashboardState({ interactive }) {
   const { exit } = useApp();
   const [data, setData] = useState(null);
@@ -1104,6 +1292,13 @@ function useDashboardState({ interactive }) {
   };
 }
 
+/**
+ * Render the interactive Agentic Trader control-room dashboard and wire its input, actions, and chat behavior.
+ *
+ * Manages dashboard state and periodic refresh, handles keyboard-driven page navigation and global runtime actions, and provides a chat composer that sends messages via the CLI and updates the in-UI chat history.
+ *
+ * @returns {import('react').ReactElement} The rendered DashboardView component configured for interactive use.
+ */
 function InteractiveDashboardApp() {
   const {
     data,

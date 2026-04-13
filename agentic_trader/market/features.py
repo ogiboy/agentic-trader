@@ -4,6 +4,22 @@ from agentic_trader.schemas import MarketSnapshot, MTFAlignment
 
 
 def _rsi(series: pd.Series, period: int = 14) -> pd.Series:
+    """
+    Compute the Wilder-style Relative Strength Index (RSI) for a numeric price series.
+    
+    Uses exponential smoothing with alpha = 1/period to compute average gains and losses (Wilder smoothing).
+    Edge-case overrides ensure deterministic values when averages are zero:
+    - If average loss == 0 and average gain > 0 → RSI = 100.0
+    - If average gain == 0 and average loss > 0 → RSI = 0.0
+    - If both averages == 0 → RSI = 50.0
+    
+    Parameters:
+        series (pd.Series): Numeric price series (typically closes) indexed by timestamp or integer index.
+        period (int): Lookback period for RSI calculation (default: 14).
+    
+    Returns:
+        pd.Series: RSI values in the range [0.0, 100.0] with the same index as `series`.
+    """
     delta = series.diff()
     gain = delta.clip(lower=0.0)
     loss = -delta.clip(upper=0.0)
@@ -50,6 +66,18 @@ def _enrich_frame(frame: pd.DataFrame) -> pd.DataFrame:
 def _higher_timeframe_frame(
     frame: pd.DataFrame, *, interval: str
 ) -> tuple[pd.DataFrame, str]:
+    """
+    Resample an OHLCV DataFrame to a higher timeframe when a datetime index and sufficient data are available.
+    
+    If `frame.index` is not a pandas DatetimeIndex, or if the resampled timeframe contains fewer than 30 rows, the function returns a copy of the input frame and the label "same_as_base". For minute- or hour-based `interval` values (ending with "m" or "h") the function resamples to daily bars (label "1d", rule "1D"); otherwise it resamples to weekly bars ending on Friday (label "1wk", rule "W-FRI"). Resampling aggregates columns as: open = first, high = max, low = min, close = last, volume = sum, and drops rows with missing values.
+    
+    Parameters:
+        frame (pd.DataFrame): OHLCV frame indexed by timestamps (expected columns: "open", "high", "low", "close", "volume").
+        interval (str): Lower timeframe label (e.g., "1m", "5m", "1h", "1d") used to decide the higher timeframe.
+    
+    Returns:
+        tuple[pd.DataFrame, str]: A tuple of (resampled_frame, higher_timeframe_label). The label is "1d", "1wk", or "same_as_base".
+    """
     if not isinstance(frame.index, pd.DatetimeIndex):
         return frame.copy(), "same_as_base"
 
@@ -82,6 +110,16 @@ def _higher_timeframe_frame(
 def _mtf_alignment(
     base_last: pd.Series, higher_last: pd.Series
 ) -> tuple[MTFAlignment, float]:
+    """
+    Determine multi-timeframe trend alignment between a base timeframe row and a higher timeframe row.
+    
+    Parameters:
+        base_last (pd.Series): The most recent enriched base-timeframe row; must contain `close`, `ema_20`, and `ema_50`.
+        higher_last (pd.Series): The most recent enriched higher-timeframe row; must contain `close`, `ema_20`, `ema_50`, and `rsi_14`.
+    
+    Returns:
+        tuple[MTFAlignment, float]: A pair where the first element is the alignment — `"bullish"`, `"bearish"`, or `"mixed"` — and the second is a confidence score in [0.0, 1.0]. For aligned bullish/bearish signals the confidence is computed from the higher-timeframe RSI (rounded to 4 decimals); for mixed alignment the confidence is 0.35.
+    """
     base_bullish = bool(base_last["close"] > base_last["ema_20"] > base_last["ema_50"])
     base_bearish = bool(base_last["close"] < base_last["ema_20"] < base_last["ema_50"])
     higher_bullish = bool(

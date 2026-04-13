@@ -22,6 +22,18 @@ from agentic_trader.agents.context import build_agent_context
 
 
 def _artifacts(symbol: str = "AAPL", *, approved: bool = True) -> RunArtifacts:
+    """
+    Create a deterministic RunArtifacts instance populated with realistic test data for a given symbol.
+    
+    This helper constructs a fully populated RunArtifacts object (snapshot, coordinator, regime, strategy, risk, manager, execution, and review) using fixed values suitable for tests of calibration and manager decision logic. It is deterministic and contains no side effects.
+    
+    Parameters:
+        symbol (str): Ticker symbol to embed in the MarketSnapshot and ExecutionDecision.
+        approved (bool): If True, sets manager/execution action to "buy"; if False, sets action to "hold".
+    
+    Returns:
+        RunArtifacts: A complete RunArtifacts object prefilled with consistent test values.
+    """
     side = "buy" if approved else "hold"
     return RunArtifacts(
         snapshot=MarketSnapshot(
@@ -96,6 +108,15 @@ def _artifacts(symbol: str = "AAPL", *, approved: bool = True) -> RunArtifacts:
 def _close_recent_trade(
     db: TradingDatabase, artifacts: RunArtifacts, *, pnl: float
 ) -> None:
+    """
+    Record a historical trade in the database and immediately close it with the provided realized PnL.
+    
+    Creates an open trade journal entry using fixed identifiers ("historic-run", "order-historic"), asserts the returned trade ID starts with "trade-", then closes that journal entry using the snapshot data from `artifacts` and the given `pnl`.
+    
+    Parameters:
+        artifacts (RunArtifacts): Test run artifacts whose snapshot provides `symbol` and `last_close` for the trade entry and exit.
+        pnl (float): Realized profit or loss to record when closing the trade.
+    """
     trade_id = db.create_trade_journal(
         run_id="historic-run",
         order_id="order-historic",

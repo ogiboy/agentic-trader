@@ -9,6 +9,20 @@ from agentic_trader.schemas import (
 
 
 def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
+    """
+    Selects a fallback ResearchCoordinatorBrief based on key fields of the provided MarketSnapshot.
+    
+    Evaluates snapshot.volatility_20, snapshot.mtf_alignment, and the ordering of snapshot.last_close, snapshot.ema_20, and snapshot.ema_50 to choose an appropriate coordinator brief for fallback use. The returned brief always has source set to "fallback" and fallback_reason set to LLM_FALLBACK_REASON.
+    
+    Parameters:
+        snapshot (MarketSnapshot): Market snapshot containing at least `volatility_20`, `mtf_alignment`, `last_close`, `ema_20`, and `ema_50`.
+    
+    Returns:
+        ResearchCoordinatorBrief: A brief configured for fallback coordination:
+          - Capital-preservation when volatility is high or multi-timeframe alignment is mixed.
+          - Trend-following when EMAs and price indicate clear upward or downward trend ordering.
+          - No-trade when conditions are mixed or lack clear conviction.
+    """
     if snapshot.volatility_20 > 0.08:
         return ResearchCoordinatorBrief(
             market_focus="capital_preservation",

@@ -14,6 +14,15 @@ from agentic_trader.storage.db import TradingDatabase
 
 
 def _persona_to_role(persona: ChatPersona) -> AgentRole:
+    """
+    Map a ChatPersona value to its corresponding AgentRole.
+    
+    Returns:
+        The corresponding AgentRole for the provided `persona`.
+    
+    Raises:
+        KeyError: If `persona` is not a recognized ChatPersona key.
+    """
     mapping: dict[ChatPersona, AgentRole] = {
         "operator_liaison": "explainer",
         "regime_analyst": "regime",
@@ -111,6 +120,16 @@ def chat_with_persona(
     persona: ChatPersona,
     user_message: str,
 ) -> str:
+    """
+    Builds a persona-aware system and user prompt, sends them to the local LLM, and returns the assistant's reply.
+    
+    Parameters:
+        persona (ChatPersona): Persona whose role and persona-specific system instructions will be used.
+        user_message (str): Operator's message to include in the user prompt.
+    
+    Returns:
+        str: The text response produced by the LLM for the selected persona.
+    """
     preferences = db.load_preferences()
     context = build_chat_context(db, settings)
     system_prompt = build_persona_system_prompt(persona, preferences)
@@ -135,6 +154,19 @@ def _apply_keyword_preference(
     field_name: str,
     options: tuple[tuple[tuple[str, ...], Any], ...],
 ) -> bool:
+    """
+    Attempt to set a preference field on a PreferenceUpdate by matching any keyword against a lowercased message.
+    
+    Parameters:
+        lowered_message (str): The message already lowercased for substring matching.
+        update (PreferenceUpdate): The PreferenceUpdate instance to modify when a keyword match is found.
+        field_name (str): The name of the attribute on `update` to set.
+        options (tuple): An iterable of (keywords_tuple, value) pairs where `keywords_tuple` is a tuple of strings;
+            if any keyword is found in `lowered_message`, the corresponding `value` is assigned to `update.<field_name>`.
+    
+    Returns:
+        bool: `True` if a keyword matched and the field was set, `False` otherwise.
+    """
     for keywords, value in options:
         if any(keyword in lowered_message for keyword in keywords):
             setattr(update, field_name, value)
@@ -143,6 +175,21 @@ def _apply_keyword_preference(
 
 
 def _fallback_instruction(message: str) -> OperatorInstruction:
+    """
+    Parse a freeform operator message into a conservative OperatorInstruction proposing safe preference updates.
+    
+    This function looks for curated, safe keywords in the provided message and produces an OperatorInstruction that contains a PreferenceUpdate with any matched fields. The instruction indicates whether any preference fields would be changed, requires confirmation, and includes a rationale that the mapping is limited to explicit keywords.
+    
+    Parameters:
+        message (str): The operator's natural-language message to parse for preference keywords.
+    
+    Returns:
+        OperatorInstruction: An instruction object containing:
+            - `preference_update`: a PreferenceUpdate with fields set for any matched keywords.
+            - `should_update_preferences`: `true` if at least one preference field was set, `false` otherwise.
+            - `requires_confirmation`: always `true`.
+            - `summary` and `rationale` describing that a fallback keyword-based parse was performed.
+    """
     lowered = message.lower()
     update = PreferenceUpdate()
     changed_fields = [

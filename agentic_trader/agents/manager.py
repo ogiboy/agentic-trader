@@ -191,6 +191,14 @@ def _fallback_manager(
     strategy: StrategyPlan,
     risk: RiskPlan,
 ) -> ManagerDecision:
+    """
+    Constructs a conservative, rule-based fallback ManagerDecision used when the LLM is unavailable or returns an invalid structured response.
+    
+    The decision approves the specialist plan only if the specialist's action is not "hold", the specialist confidence is at least 0.6, and the risk reward ratio is at least 1.5. The returned decision normalizes action bias to "buy"/"sell"/"hold", sets confidence_cap to the minimum of strategy and regime confidences, adjusts size_multiplier downward for capital preservation focus or high-volatility regimes and when specialist confidence is low, and populates escalation_flags to reflect defensive posture or no-trade outcomes. The decision's source is "fallback" and fallback_reason is set to the LLM fallback constant.
+    
+    Returns:
+        ManagerDecision: A guarded ManagerDecision with computed fields (approved, action_bias, confidence_cap, size_multiplier, rationale, escalation_flags, source="fallback", fallback_reason).
+    """
     approved = (
         strategy.action != "hold"
         and strategy.confidence >= 0.6

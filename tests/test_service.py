@@ -27,6 +27,17 @@ from typer.testing import CliRunner
 
 
 def _artifacts(symbol: str) -> RunArtifacts:
+    """
+    Constructs a RunArtifacts object populated with deterministic test data for the given symbol.
+    
+    Provides a complete, self-contained run result used by tests: a MarketSnapshot and brief/coherent coordinator, regime, strategy, risk, manager, execution, and review sections.
+    
+    Parameters:
+        symbol (str): Ticker symbol placed into the snapshot.symbol and execution.symbol fields.
+    
+    Returns:
+        RunArtifacts: An instance containing populated test data for all run sections (snapshot, coordinator, regime, strategy, risk, manager, execution, review).
+    """
     return RunArtifacts(
         snapshot=MarketSnapshot(
             symbol=symbol,
@@ -315,6 +326,16 @@ def test_run_service_respects_stop_request(
 def test_start_background_service_records_spawn(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verify that starting the background service spawns a process and persists the expected service state.
+    
+    The test stubs subprocess.Popen to return a fake process with pid 4242, calls start_background_service with a configured Settings and service parameters, and asserts that the returned pid and the stored service state reflect the spawn and configuration:
+    - pid matches the spawned process
+    - state is "starting"
+    - background_mode is True
+    - launch_count is 1 and restart_count is 0
+    - symbols, interval, and lookback are recorded as provided
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -413,6 +434,11 @@ def test_start_background_service_recovers_stale_pid(
 def test_restart_background_service_uses_last_recorded_config(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verifies that restart_background_service restarts the service using the last recorded service configuration.
+    
+    Sets a saved running service state (symbols, interval, lookback, pid, etc.), simulates the previous process as dead, stubs the background start function to return a fixed PID, calls restart_background_service, and asserts the returned PID matches the stubbed start result.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

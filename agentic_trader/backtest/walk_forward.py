@@ -246,6 +246,24 @@ def _run_backtest_with_provider(
     frame: pd.DataFrame,
     artifact_provider: Callable[[MarketSnapshot], RunArtifacts],
 ) -> BacktestReport:
+    """
+    Perform a walk-forward backtest over historical bars using the provided artifact provider to decide entries, position sizing, and exits.
+    
+    Parameters:
+        settings (Settings): Backtest settings including starting cash and shorting permission.
+        symbol (str): Ticker or instrument identifier.
+        interval (str): OHLCV interval label used to build snapshots.
+        lookback (str): Human-readable lookback description included in the returned report.
+        warmup_bars (int): Number of initial bars used to warm up indicators before trading begins.
+        frame (pd.DataFrame): Historical OHLCV data for the symbol; must contain at least `warmup_bars + 1` rows.
+        artifact_provider (Callable[[MarketSnapshot], RunArtifacts]): Function that produces trading artifacts (strategy, risk, execution, etc.) from a market snapshot.
+    
+    Returns:
+        BacktestReport: Aggregated backtest results including counts and metrics (total/closed trades, win rate, expectancy, total return, max drawdown, exposure), starting and ending equity, fallback cycle count, and the full list of trade records.
+    
+    Raises:
+        ValueError: If `frame` contains fewer than or equal to `warmup_bars` rows.
+    """
     history = frame.copy()
     if len(history) <= warmup_bars:
         raise ValueError("Not enough bars for walk-forward backtest")

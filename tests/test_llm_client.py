@@ -19,6 +19,12 @@ class _FakeResponse:
         return None
 
     def json(self) -> Any:
+        """
+        Return the stored payload provided when the fake response was created.
+        
+        Returns:
+            Any: The payload originally passed to the _FakeResponse constructor.
+        """
         return self._payload
 
 

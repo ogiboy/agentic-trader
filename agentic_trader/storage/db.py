@@ -42,18 +42,54 @@ TERMINAL_SERVICE_STATES: set[ServiceState] = {
 
 
 def _str_or_none(value: Any) -> str | None:
+    """
+    Convert a value to its string representation, returning None when the input is None.
+    
+    Returns:
+        str | None: The string form of `value`, or `None` if `value` is `None`.
+    """
     return str(value) if value is not None else None
 
 
 def _int_or_none(value: Any) -> int | None:
+    """
+    Convert a value to an integer when present.
+    
+    Parameters:
+        value (Any): The input to convert; if `None`, no conversion is performed.
+    
+    Returns:
+        int if value is not None, `None` otherwise.
+    """
     return int(value) if value is not None else None
 
 
 def _bool_or_default(value: Any, default: bool) -> bool:
+    """
+    Resolve a boolean from an input, falling back to a provided default when the input is None.
+    
+    Parameters:
+        value (Any): The input to convert to bool; if `None`, the `default` is used instead.
+        default (bool): The boolean value returned when `value` is `None`.
+    
+    Returns:
+        bool: `bool(value)` if `value` is not `None`, otherwise `default`.
+    """
     return bool(value) if value is not None else default
 
 
 def _resolve_value[T](new_value: T | None, existing_value: T | None, default: T) -> T:
+    """
+    Choose a resolved value from `new_value`, `existing_value`, or `default`.
+    
+    Parameters:
+        new_value (T | None): Preferred value; used if not `None`.
+        existing_value (T | None): Fallback value; used if `new_value` is `None` and this is not `None`.
+        default (T): Final fallback returned if both `new_value` and `existing_value` are `None`.
+    
+    Returns:
+        T: `new_value` if it is not `None`, otherwise `existing_value` if it is not `None`, otherwise `default`.
+    """
     if new_value is not None:
         return new_value
     if existing_value is not None:
@@ -62,12 +98,32 @@ def _resolve_value[T](new_value: T | None, existing_value: T | None, default: T)
 
 
 def _resolve_optional_value[T](new_value: T | None, existing_value: T | None) -> T | None:
+    """
+    Selects a value between a new candidate and an existing fallback, preferring the new when present.
+    
+    Parameters:
+        new_value (T | None): Candidate value to use if not `None`.
+        existing_value (T | None): Fallback value returned when `new_value` is `None`.
+    
+    Returns:
+        `new_value` if it is not `None`, otherwise `existing_value` (which may be `None`).
+    """
     return new_value if new_value is not None else existing_value
 
 
 def _resolve_symbols(
     symbols: list[str] | None, existing: ServiceStateSnapshot | None
 ) -> list[str]:
+    """
+    Selects the symbols list to use for a service state update.
+    
+    Parameters:
+        symbols (list[str] | None): Explicit symbols provided for the update; if not None, these are used.
+        existing (ServiceStateSnapshot | None): Existing service state to fall back to when `symbols` is None.
+    
+    Returns:
+        list[str]: The resolved symbols list — `symbols` if provided, otherwise `existing.symbols` if `existing` is present, otherwise an empty list.
+    """
     if symbols is not None:
         return list(symbols)
     if existing is not None:
@@ -78,6 +134,19 @@ def _resolve_symbols(
 def _resolve_terminal_state(
     *, state: str, existing: ServiceStateSnapshot | None, now: str
 ) -> tuple[str | None, str | None]:
+    """
+    Determine the terminal state and timestamp to record when updating a service's state.
+    
+    If the provided `state` is in TERMINAL_SERVICE_STATES, returns `(state, now)`. Otherwise, if an existing snapshot is provided, returns its `last_terminal_state` and `last_terminal_at`; if no existing snapshot is available, returns `(None, None)`.
+    
+    Parameters:
+        state: The new service state string being applied.
+        existing: The prior ServiceStateSnapshot for the service, or `None` if none exists.
+        now: ISO-8601 timestamp string representing the current time used when marking a terminal state.
+    
+    Returns:
+        A tuple `(last_terminal_state, last_terminal_at)` where `last_terminal_state` is the terminal state string or `None`, and `last_terminal_at` is the timestamp string when that terminal state was recorded or `None`.
+    """
     if state in TERMINAL_SERVICE_STATES:
         return state, now
     if existing is None:
@@ -86,6 +155,22 @@ def _resolve_terminal_state(
 
 
 def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
+    """
+    Convert a database row tuple into a ServiceStateSnapshot.
+    
+    The input `row` is expected to follow the service_state table column order:
+    (service_name, state, updated_at, started_at, last_heartbeat_at, continuous,
+     poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
+     current_symbol, last_error, pid, stop_requested, background_mode,
+     launch_count, restart_count, last_terminal_state, last_terminal_at,
+     stdout_log_path, stderr_log_path, message).
+    
+    Parameters:
+        row (tuple[Any, ...]): A database row tuple matching the columns above. `symbols_json` may be None or a JSON string.
+    
+    Returns:
+        ServiceStateSnapshot: Parsed snapshot with coerced types (strings, ints, bools, lists) and sensible defaults for missing/None fields.
+    """
     return ServiceStateSnapshot(
         service_name=str(row[0]),
         state=cast(ServiceState, str(row[1])),
@@ -126,6 +211,16 @@ class TradingDatabase:
             self._init_schema()
 
     def _init_schema(self) -> None:
+        """
+        Create and migrate the database schema and ensure required seed rows exist.
+        
+        Creates all application tables if missing (runs, orders, account_state, positions, fills,
+        position_plans, preferences, account_marks, trade_journal, trade_contexts, service_state,
+        service_events, operator_chat_history, memory_vectors) and performs schema migration for
+        service_state by adding any missing columns introduced by newer versions. After schema
+        creation/migration, ensures a paper account row exists in account_state and a default
+        preferences profile is present, inserting seed rows when absent.
+        """
         self.conn.execute(
             """
             create table if not exists runs (
@@ -658,6 +753,13 @@ class TradingDatabase:
         return entry_id
 
     def list_chat_history(self, limit: int = 20) -> list[ChatHistoryEntry]:
+        """
+        Return the most recent operator chat history entries, ordered newest first.
+        
+        Returns:
+            list[ChatHistoryEntry]: A list of chat history entries (most recent first), each containing
+            `entry_id`, `created_at`, `persona`, `user_message`, and `response_text`.
+        """
         rows = self.conn.execute(
             """
             select entry_id, created_at, persona, user_message, response_text
@@ -935,6 +1037,15 @@ class TradingDatabase:
         )
 
     def list_trade_journal(self, limit: int = 20) -> list[TradeJournalEntry]:
+        """
+        List recent trade journal entries ordered by most recent opening time.
+        
+        Parameters:
+            limit (int): Maximum number of entries to return (default 20).
+        
+        Returns:
+            list[TradeJournalEntry]: Entries ordered by `opened_at` descending, up to `limit` records.
+        """
         rows = self.conn.execute(
             """
             select trade_id, opened_at, closed_at, symbol, run_id, entry_order_id, exit_order_id,
@@ -1098,6 +1209,32 @@ class TradingDatabase:
         stdout_log_path: str | None = None,
         stderr_log_path: str | None = None,
     ) -> None:
+        """
+        Update or insert the runtime state snapshot for a named service and persist it to storage.
+        
+        Upserts a service-state row keyed by `service_name`, merges provided fields with any existing state (preserving omitted values), computes terminal-state markers when appropriate, and writes a mirrored service state snapshot via write_service_state.
+        
+        Parameters:
+            service_name (str): The unique service identifier (default "orchestrator").
+            state (str): New service state (e.g., "starting", "running", "stopped").
+            continuous (bool): Whether the service runs continuously.
+            poll_seconds (int | None): Poll interval in seconds for periodic services, or None.
+            cycle_count (int): Current execution cycle counter.
+            symbols (list[str] | None): Active symbol list; if None, existing symbols are preserved.
+            interval (str | None): Trading/data interval (e.g., "1m", "1h"), or None.
+            lookback (str | None): Lookback specification for historical data, or None.
+            max_cycles (int | None): Maximum cycles permitted for the service, or None.
+            current_symbol (str | None): Symbol currently being processed, or None.
+            message (str): Human-readable status or message associated with the state.
+            last_error (str | None): Last error message, if any.
+            pid (int | None): Process ID associated with the running service, or None.
+            stop_requested (bool | None): Explicit stop request flag; if None, preserves existing.
+            background_mode (bool | None): Whether the service is running in background mode; if None, preserves existing.
+            launch_count (int | None): Number of times the service has been launched; if None, preserves existing.
+            restart_count (int | None): Number of restarts; if None, preserves existing.
+            stdout_log_path (str | None): Path to stdout log file, or None.
+            stderr_log_path (str | None): Path to stderr log file, or None.
+        """
         now = datetime.now(timezone.utc).isoformat()
         existing = self.get_service_state(service_name)
         started_at = existing.started_at if existing is not None else None
@@ -1237,6 +1374,15 @@ class TradingDatabase:
     def get_service_state(
         self, service_name: str = "orchestrator"
     ) -> ServiceStateSnapshot | None:
+        """
+        Load the persisted service state snapshot for the given service name.
+        
+        Parameters:
+            service_name (str): Name of the service to retrieve (defaults to "orchestrator").
+        
+        Returns:
+            ServiceStateSnapshot | None: The deserialized service state snapshot for the service, or `None` if no row exists.
+        """
         row = self.conn.execute(
             """
             select service_name, state, updated_at, started_at, last_heartbeat_at,
@@ -1254,6 +1400,14 @@ class TradingDatabase:
         return _service_state_from_row(row)
 
     def request_stop_service(self, service_name: str = "orchestrator") -> None:
+        """
+        Mark the named service as stopping and persist the updated service snapshot.
+        
+        Updates the service record to request a stop (sets stop_requested to true, sets state to "stopping", updates timestamps and message) and, if a service snapshot exists after the update, writes that snapshot via write_service_state.
+        
+        Parameters:
+            service_name (str): The service to request stop for (defaults to "orchestrator").
+        """
         now = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
             """
@@ -1331,6 +1485,16 @@ class TradingDatabase:
     def list_service_events(
         self, limit: int = 20, service_name: str = "orchestrator"
     ) -> list[ServiceEvent]:
+        """
+        Fetch recent service events for the given service, ordered newest first.
+        
+        Parameters:
+            limit (int): Maximum number of events to return.
+            service_name (str): Service name to filter events by.
+        
+        Returns:
+            list[ServiceEvent]: List of service events for the service, ordered by created_at descending and limited by `limit`.
+        """
         rows = self.conn.execute(
             """
             select event_id, created_at, level, event_type, message, cycle_count, symbol
@@ -1480,6 +1644,14 @@ class TradingDatabase:
         )
 
     def get_position_plan(self, symbol: str) -> PositionPlanSnapshot | None:
+        """
+        Retrieve the stored position plan for the given trading symbol.
+        
+        Numeric fields are converted to floats/ints and timestamp fields to strings when constructing the returned snapshot.
+        
+        Returns:
+            PositionPlanSnapshot for the symbol, or `None` if no plan exists.
+        """
         row = self.conn.execute(
             """
             select symbol, side, entry_price, stop_loss, take_profit,
@@ -1504,6 +1676,15 @@ class TradingDatabase:
         )
 
     def list_position_plans(self) -> list[PositionPlanSnapshot]:
+        """
+        Return all saved position plans ordered by symbol.
+        
+        Each entry is a PositionPlanSnapshot containing symbol, side, entry_price, stop_loss,
+        take_profit, max_holding_bars, holding_bars, invalidation_logic, and updated_at.
+        
+        Returns:
+            list[PositionPlanSnapshot]: Position plans ordered by symbol.
+        """
         rows = self.conn.execute(
             """
             select symbol, side, entry_price, stop_loss, take_profit,
