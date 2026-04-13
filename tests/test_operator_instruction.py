@@ -10,6 +10,16 @@ from agentic_trader.schemas import OperatorInstruction, PreferenceUpdate
 from agentic_trader.storage.db import TradingDatabase
 
 
+def _force_fallback(**_kwargs: object) -> None:
+    """
+    Helper that always raises a RuntimeError to force the code path that handles structured-LLM fallback.
+    
+    Raises:
+        RuntimeError: Always raised with the message "force fallback".
+    """
+    raise RuntimeError("force fallback")
+
+
 def test_apply_preference_update_changes_only_supplied_fields(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -31,7 +41,9 @@ def test_apply_preference_update_changes_only_supplied_fields(tmp_path: Path) ->
     assert updated.trade_style == "swing"
 
 
-def test_interpret_operator_instruction_uses_fallback_keywords(tmp_path: Path) -> None:
+def test_interpret_operator_instruction_uses_fallback_keywords(
+    monkeypatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -39,6 +51,11 @@ def test_interpret_operator_instruction_uses_fallback_keywords(tmp_path: Path) -
     settings.ensure_directories()
     db = TradingDatabase(settings)
     llm = LocalLLM(settings)
+    monkeypatch.setattr(
+        llm,
+        "complete_structured",
+        _force_fallback,
+    )
 
     instruction = interpret_operator_instruction(
         llm=llm,

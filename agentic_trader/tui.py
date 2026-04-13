@@ -42,6 +42,18 @@ from agentic_trader.schemas import (
     TradeStyle,
 )
 from agentic_trader.storage.db import TradingDatabase
+from agentic_trader.ui_text import (
+    LABEL_MARKET_VALUE,
+    LABEL_OBSERVER_MODE,
+    LABEL_STOP_REQUESTED,
+    LABEL_UNREALIZED_PNL,
+    PROMPT_CONTINUE,
+    PROMPT_SELECT_ACTION,
+    STYLE_KEY_COLUMN,
+    TITLE_RECENT_RUNS,
+    TITLE_RUNTIME_EVENTS,
+    TITLE_RUNTIME_STATUS,
+)
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, start_background_service
 
@@ -49,10 +61,46 @@ console = Console()
 
 
 def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
+    """
+    Open a TradingDatabase configured from the provided Settings.
+    
+    Parameters:
+        read_only (bool): If true, open the database in read-only mode; otherwise open for read/write.
+    
+    Returns:
+        TradingDatabase: Database instance initialized with the given settings and read-only flag.
+    """
     return TradingDatabase(settings, read_only=read_only)
 
 
+def _style_key(text: str) -> str:
+    """
+    Wrap the given text in Rich markup using the STYLE_KEY_COLUMN tag.
+    
+    Parameters:
+        text (str): The string to wrap.
+    
+    Returns:
+        str: The input string wrapped with opening and closing `[STYLE_KEY_COLUMN]` tags.
+    """
+    return f"[{STYLE_KEY_COLUMN}]{text}[/{STYLE_KEY_COLUMN}]"
+
+
 def _banner() -> Panel:
+    """
+    Create the banner panel used as the Agentic Trader control room header.
+    
+    Returns:
+        Panel: A rich Panel containing the banner renderable; uses a compact single-line banner when the console is narrow and an ASCII-art header with a subtitle for wider consoles.
+    """
+    if console.width < 120:
+        compact = (
+            "[bold green]AGENTIC TRADER[/bold green] "
+            "[cyan]// CONTROL ROOM[/cyan]\n"
+            "[dim]Strict LLM gate, portfolio state, runtime controls.[/dim]"
+        )
+        return Panel(Align.center(compact), border_style="bright_blue")
+
     art = r"""
  █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗    ████████╗██████╗  █████╗ ██████╗ ███████╗██████╗
 ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║██╔════╝    ╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
@@ -68,7 +116,27 @@ def _banner() -> Panel:
     return Panel(f"[green]{art}[/green]\n{subtitle}", border_style="bright_blue")
 
 
+def _exit_cleanly() -> None:
+    """
+    Print a blue-bordered "Exit" panel indicating the control room closed cleanly.
+    
+    This helper writes a short informational panel ("Control room closed cleanly.") to the console.
+    """
+    console.print(
+        Panel("Control room closed cleanly.", title="Exit", border_style="blue")
+    )
+
+
 def _split_csv(value: str) -> list[str]:
+    """
+    Parse a comma-separated string into a list of trimmed, uppercased tokens.
+    
+    Parameters:
+        value (str): Comma-separated input string.
+    
+    Returns:
+        list[str]: Tokens from `value` with surrounding whitespace removed, converted to uppercase, and with empty segments omitted.
+    """
     return [item.strip().upper() for item in value.split(",") if item.strip()]
 
 
@@ -92,8 +160,16 @@ def _render_preferences(preferences: InvestmentPreferences) -> Table:
 
 
 def _render_recent_runs(db: TradingDatabase) -> None:
+    """
+    Render a table of the most recent runs from the trading database to the console.
+    
+    If no runs exist, prints a yellow panel titled with the recent runs title indicating that no runs have been recorded.
+    
+    Parameters:
+        db (TradingDatabase): Database instance used to fetch recent runs (fetches up to 8 entries).
+    """
     runs = db.list_recent_runs(limit=8)
-    table = Table(title="Recent Runs")
+    table = Table(title=TITLE_RECENT_RUNS)
     table.add_column("Run ID")
     table.add_column("Created")
     table.add_column("Symbol")
@@ -101,7 +177,7 @@ def _render_recent_runs(db: TradingDatabase) -> None:
     table.add_column("Approved")
     if not runs:
         console.print(
-            Panel("No runs recorded yet.", title="Recent Runs", border_style="yellow")
+            Panel("No runs recorded yet.", title=TITLE_RECENT_RUNS, border_style="yellow")
         )
         return
     for run_id, created_at, symbol, interval, approved in runs:
@@ -110,8 +186,17 @@ def _render_recent_runs(db: TradingDatabase) -> None:
 
 
 def _recent_runs_table(db: TradingDatabase) -> Table:
+    """
+    Builds a Rich Table listing recent runs for display.
+    
+    Returns:
+        Table: A `rich.table.Table` titled by TITLE_RECENT_RUNS with columns
+        "Run ID", "Created", "Symbol", "Interval", and "Approved". Each row
+        corresponds to a recent run from the database; when no runs exist the
+        table contains a single placeholder row of "-" in each column.
+    """
     runs = db.list_recent_runs(limit=8)
-    table = Table(title="Recent Runs")
+    table = Table(title=TITLE_RECENT_RUNS)
     table.add_column("Run ID")
     table.add_column("Created")
     table.add_column("Symbol")
@@ -173,26 +258,42 @@ def _safe_open_read_db(settings: Settings) -> TradingDatabase | None:
 
 
 def _observer_mode_panel(feature: str, error: str | None = None) -> Panel:
+    """
+    Render a yellow "observer mode" panel indicating a feature is unavailable because the runtime writer owns the database.
+    
+    Parameters:
+        feature (str): The name or short description of the unavailable feature to display.
+        error (str | None): Optional additional error or diagnostic text to include in the panel body.
+    
+    Returns:
+        Panel: A Rich Panel titled with LABEL_OBSERVER_MODE containing the message about unavailability, optionally followed by the provided error text; the panel uses a yellow border style.
+    """
     body = f"{feature} is temporarily unavailable while the runtime writer owns the database."
     if error:
         body += f"\n\n{error}"
-    return Panel(body, title="Observer Mode", border_style="yellow")
+    return Panel(body, title=LABEL_OBSERVER_MODE, border_style="yellow")
 
 
 def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
+    """
+    Render the runtime status view: either a detailed status table or a placeholder panel when no state is available.
+    
+    Parameters:
+        state (ServiceStateSnapshot | None): The latest service state snapshot to display. If `None` or if the snapshot contains no recorded state, a yellow panel indicating "No runtime state recorded yet." is printed instead of the table.
+    """
     view = build_runtime_status_view(state)
     if view.state is None:
         console.print(
             Panel(
                 "No runtime state recorded yet.",
-                title="Runtime Status",
+                title=TITLE_RUNTIME_STATUS,
                 border_style="yellow",
             )
         )
         return
     snapshot = view.state
 
-    table = Table(title="Runtime Status")
+    table = Table(title=TITLE_RUNTIME_STATUS)
     table.add_column("Key")
     table.add_column("Value")
     table.add_row("Runtime", view.runtime_state)
@@ -206,7 +307,7 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     table.add_row("Cycle Count", str(snapshot.cycle_count))
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
-    table.add_row("Stop Requested", str(snapshot.stop_requested))
+    table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
     table.add_row("Continuous", str(snapshot.continuous))
     table.add_row("Background Mode", str(snapshot.background_mode))
     table.add_row("Launch Count", str(snapshot.launch_count))
@@ -220,16 +321,22 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
 
 
 def _render_runtime_events(events: list[ServiceEvent]) -> None:
+    """
+    Render a list of runtime service events to the console as a table or a notice when no events exist.
+    
+    Parameters:
+        events (list[ServiceEvent]): Iterable of service event records to display. If empty, a notice panel indicating no recorded events is printed.
+    """
     if not events:
         console.print(
             Panel(
                 "No runtime events recorded yet.",
-                title="Runtime Events",
+                title=TITLE_RUNTIME_EVENTS,
                 border_style="yellow",
             )
         )
         return
-    table = Table(title="Runtime Events")
+    table = Table(title=TITLE_RUNTIME_EVENTS)
     table.add_column("Created")
     table.add_column("Level")
     table.add_column("Type")
@@ -247,7 +354,18 @@ def _render_runtime_events(events: list[ServiceEvent]) -> None:
 
 
 def _runtime_events_table(events: list[ServiceEvent]) -> Table:
-    table = Table(title="Runtime Events")
+    """
+    Builds a rich Table representing runtime service events.
+    
+    Parameters:
+        events (list[ServiceEvent]): Sequence of service event records to display. Each record is expected to provide
+            `created_at`, `level`, `event_type`, `cycle_count`, and `symbol`.
+    
+    Returns:
+        Table: A rich Table with the columns "Created", "Level", "Type", "Cycle", and "Symbol". If `events` is empty,
+        the table contains a single placeholder row of "-" values; otherwise each event produces one populated row.
+    """
+    table = Table(title=TITLE_RUNTIME_EVENTS)
     table.add_column("Created")
     table.add_column("Level")
     table.add_column("Type")
@@ -317,7 +435,16 @@ def _current_activity_panel(
 
 
 def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
-    table = Table(title="Runtime Status")
+    """
+    Builds a rich Table summarizing the current runtime service status.
+    
+    Parameters:
+        state (ServiceStateSnapshot | None): Latest runtime service snapshot or None when no state is recorded.
+    
+    Returns:
+        Table: A Rich Table with keys and values for runtime properties (runtime state, live process, last recorded state, timestamps, counters, flags, PID, messages, and errors).
+    """
+    table = Table(title=TITLE_RUNTIME_STATUS)
     table.add_column("Key")
     table.add_column("Value")
     view = build_runtime_status_view(state)
@@ -336,7 +463,7 @@ def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     table.add_row("Cycle Count", str(snapshot.cycle_count))
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
-    table.add_row("Stop Requested", str(snapshot.stop_requested))
+    table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
     table.add_row("Continuous", str(snapshot.continuous))
     table.add_row("Background Mode", str(snapshot.background_mode))
     table.add_row("Launch Count", str(snapshot.launch_count))
@@ -369,15 +496,25 @@ def _system_status_table(settings: Settings, db: TradingDatabase | None) -> Tabl
 
 
 def _portfolio_renderable(db: TradingDatabase) -> Group:
+    """
+    Builds a renderable containing a portfolio summary and positions table.
+    
+    Parameters:
+        db (TradingDatabase): Database instance used to retrieve the account snapshot and current positions.
+    
+    Returns:
+        rich.console.Group: A Group with a "Portfolio" summary table (cash, market value, equity, PnL, open positions)
+        followed by a "Positions" table listing symbol, quantity, prices, market value, and unrealized PnL.
+    """
     snapshot = db.get_account_snapshot()
     summary = Table(title="Portfolio")
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row("Market Value", f"{snapshot.market_value:.2f}")
+    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
     summary.add_row("Equity", f"{snapshot.equity:.2f}")
     summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row("Unrealized PnL", f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
     summary.add_row("Open Positions", str(snapshot.open_positions))
 
     positions = db.list_positions()
@@ -386,8 +523,8 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
     positions_table.add_column("Quantity")
     positions_table.add_column("Average Price")
     positions_table.add_column("Market Price")
-    positions_table.add_column("Market Value")
-    positions_table.add_column("Unrealized PnL")
+    positions_table.add_column(LABEL_MARKET_VALUE)
+    positions_table.add_column(LABEL_UNREALIZED_PNL)
     if not positions:
         positions_table.add_row("-", "-", "-", "-", "-", "-")
     else:
@@ -406,11 +543,21 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
 def build_monitor_renderable(
     settings: Settings, db: TradingDatabase | None = None
 ) -> Group:
+    """
+    Builds the complete live-monitor renderable for the control-room UI, composed of header, current activity, agent activity, runtime/system status, preferences/portfolio, recent runs/trade journal, runtime events, and a risk report panel.
+    
+    Parameters:
+        settings (Settings): Application settings used to read runtime state and events.
+        db (TradingDatabase | None): Optional database connection. If None, the function will attempt a safe read-only open; when a readable DB is not available, database-backed panels are replaced with observer-mode placeholders.
+    
+    Returns:
+        Group: A rich.Group containing the assembled panels and tables for the live monitor. Database-dependent sections show actual data when a readable DB is available and observer panels otherwise.
+    """
     db = db if db is not None else _safe_open_read_db(settings)
     runtime_state = read_service_state(settings)
     events = read_service_events(settings, limit=20)
     header = Panel(
-        Text("Agentic Trader Live Monitor", style="bold cyan"),
+        Text("Agentic Trader Live Monitor", style=STYLE_KEY_COLUMN),
         subtitle="Ctrl+C to return",
         border_style="bright_blue",
     )
@@ -589,15 +736,23 @@ def _configure_preferences(db: TradingDatabase) -> None:
 
 
 def _show_portfolio(db: TradingDatabase) -> None:
+    """
+    Render and print the current portfolio summary, positions table, and risk report to the console.
+    
+    Prints a compact summary of cash, market value, equity, realized/unrealized PnL, and number of open positions, followed by a detailed positions table. If there are no open positions, prints a titled placeholder instead of the positions table. Finally, prints the risk report for the account.
+    
+    Parameters:
+        db (TradingDatabase): Database instance used to retrieve the account snapshot, open positions, and risk report.
+    """
     snapshot = db.get_account_snapshot()
     summary = Table(title="Portfolio")
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row("Market Value", f"{snapshot.market_value:.2f}")
+    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
     summary.add_row("Equity", f"{snapshot.equity:.2f}")
     summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row("Unrealized PnL", f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
     summary.add_row("Open Positions", str(snapshot.open_positions))
     console.print(summary)
     positions = db.list_positions()
@@ -611,8 +766,8 @@ def _show_portfolio(db: TradingDatabase) -> None:
     table.add_column("Quantity")
     table.add_column("Average Price")
     table.add_column("Market Price")
-    table.add_column("Market Value")
-    table.add_column("Unrealized PnL")
+    table.add_column(LABEL_MARKET_VALUE)
+    table.add_column(LABEL_UNREALIZED_PNL)
     for position in positions:
         table.add_row(
             position.symbol,
@@ -635,6 +790,11 @@ def _show_risk_report(db: TradingDatabase) -> None:
 
 
 def _show_latest_run_review(db: TradingDatabase) -> None:
+    """
+    Show the latest persisted run review in a formatted panel or a notice if no runs exist.
+    
+    When a latest run record is present, print a cyan-titled panel containing the run's artifacts as pretty-printed JSON and the run id; if no record exists, print a yellow-titled panel stating that no persisted runs are available to review.
+    """
     record = db.latest_run()
     if record is None:
         console.print(
@@ -654,7 +814,13 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
     )
 
 
-def _show_memory_explorer(settings: Settings, db: TradingDatabase) -> None:
+def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
+    """
+    Open an interactive memory explorer that prompts for a symbol, interval, lookback, and match limit, then displays matching historical memories in a table.
+    
+    Parameters:
+        db (TradingDatabase): Database used to fetch and rank similar memories; results are printed to the console.
+    """
     symbol = Prompt.ask("Symbol", default="AAPL").strip().upper()
     interval = Prompt.ask("Interval", default="1d")
     lookback = Prompt.ask("Lookback", default="180d")
@@ -784,17 +950,42 @@ def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
 def _strict_one_shot(
     settings: Settings, symbols: Sequence[str], interval: str, lookback: str
 ) -> None:
+    """
+    Execute a single strict agent trading cycle for each given symbol and persist and display the resulting run artifacts.
+    
+    Parameters:
+        settings (Settings): Application settings and environment configuration.
+        symbols (Sequence[str]): Symbols to run the cycle for.
+        interval (str): Price data interval identifier (e.g., "1m", "5m", "1d").
+        lookback (str): Lookback window specification for historical data (format depends on caller).
+    """
     ensure_llm_ready(settings)
     for symbol in symbols:
         latest_message = f"Preparing {symbol}."
         with console.status(
-            f"[bold cyan]{latest_message}[/bold cyan]", spinner="dots"
+            _style_key(latest_message), spinner="dots"
         ) as status:
 
-            def _progress(stage: str, event: str, message: str) -> None:
+            def _progress(
+                stage: str,
+                event: str,
+                message: str,
+                current_status=status,
+            ) -> None:
+                """
+                Update the live status display with a stage-tagged message.
+                
+                Updates the nonlocal `latest_message` to "[<stage>] <message>" and pushes that text to the provided Rich `Status` object so the UI spinner reflects the current progress.
+                
+                Parameters:
+                	stage (str): Short label for the current stage (e.g., "fetch", "trade").
+                	event (str): Event identifier or name associated with this update (unused by display but available for callers).
+                	message (str): Human-readable status message describing the current activity.
+                	current_status: Rich `Status` instance to update with the composed message.
+                """
                 nonlocal latest_message
                 latest_message = f"[{stage}] {message}"
-                status.update(f"[bold cyan]{latest_message}[/bold cyan]")
+                current_status.update(_style_key(latest_message))
 
             artifacts = run_once(
                 settings=settings,
@@ -848,11 +1039,25 @@ def _launch_service(
 
 
 def _runtime_menu(settings: Settings) -> None:
+    """
+    Present an interactive runtime control menu for managing the orchestrator, one-shot cycles, and monitoring.
+    
+    Displays a numbered menu that lets the operator:
+    - run system/doctor checks,
+    - start a single strict agent cycle,
+    - launch the background orchestrator service,
+    - request the orchestrator to stop,
+    - open the live monitor,
+    or return to the previous menu. The function prompts for any required inputs, performs service/database operations as needed, and blocks until the user selects "Back" or exits the menu.
+    
+    Parameters:
+        settings (Settings): Application configuration used for service control, database access, and runtime operations.
+    """
     while True:
         console.clear()
         console.print(_banner())
         table = Table(title="Runtime Control")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Doctor and system checks")
         table.add_row("2", "Start one strict agent cycle")
@@ -862,7 +1067,7 @@ def _runtime_menu(settings: Settings) -> None:
         table.add_row("6", "Back")
         console.print(table)
         choice = Prompt.ask(
-            "Select action", choices=["1", "2", "3", "4", "5", "6"], default="1"
+            PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4", "5", "6"], default="1"
         )
         if choice == "1":
             db = _safe_open_read_db(settings)
@@ -878,11 +1083,11 @@ def _runtime_menu(settings: Settings) -> None:
                     console.print(
                         Panel(
                             "Preferences are temporarily unavailable while the runtime writer owns the database.",
-                            title="Observer Mode",
+                            title=LABEL_OBSERVER_MODE,
                             border_style="yellow",
                         )
                     )
-                    Prompt.ask("Press Enter to continue", default="")
+                    Prompt.ask(PROMPT_CONTINUE, default="")
                     continue
                 prefs = db.load_preferences()
             finally:
@@ -929,7 +1134,7 @@ def _runtime_menu(settings: Settings) -> None:
                 console.print(
                     Panel(
                         f"Stop requested for PID {state.pid}.",
-                        title="Stop Requested",
+                        title=LABEL_STOP_REQUESTED,
                         border_style="yellow",
                     )
                 )
@@ -938,21 +1143,28 @@ def _runtime_menu(settings: Settings) -> None:
             run_live_monitor(settings, refresh_seconds=refresh_seconds)
         else:
             return
-        Prompt.ask("Press Enter to continue", default="")
+        Prompt.ask(PROMPT_CONTINUE, default="")
 
 
 def _operator_menu(settings: Settings) -> None:
+    """
+    Present an interactive Operator Desk menu that lets the operator open a chat session or parse/apply an instruction.
+    
+    Displays a simple menu with choices to (1) open operator chat, (2) parse operator instruction, or (3) go back. Opening chat attempts to read the database in safe/read-only mode and shows an observer-mode notice if the runtime writer prevents DB access; parsing an instruction requires a writable DB and shows an observer-mode notice on failure to open the DB. The menu loop continues until the user selects "Back".
+    Parameters:
+        settings (Settings): Application settings used to access the trading database and LLM configuration.
+    """
     while True:
         console.clear()
         console.print(_banner())
         table = Table(title="Operator Desk")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Open operator chat")
         table.add_row("2", "Parse operator instruction")
         table.add_row("3", "Back")
         console.print(table)
-        choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
+        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
@@ -967,7 +1179,7 @@ def _operator_menu(settings: Settings) -> None:
                 db = _open_db(settings, read_only=False)
             except Exception as exc:
                 console.print(_observer_mode_panel("Instruction application", str(exc)))
-                Prompt.ask("Press Enter to continue", default="")
+                Prompt.ask(PROMPT_CONTINUE, default="")
                 continue
             try:
                 _instruction_screen(settings, db)
@@ -978,17 +1190,22 @@ def _operator_menu(settings: Settings) -> None:
 
 
 def _portfolio_menu(settings: Settings) -> None:
+    """
+    Present an interactive "Portfolio and Risk" menu, allowing the operator to view portfolio, trade journal, or daily risk reports.
+    
+    Displays a menu of actions, attempts to open a read-only database for views that require persisted data, shows an observer-mode notice when a readable database is unavailable, closes the database after each view, and returns to the caller when the user selects "Back".
+    """
     while True:
         console.clear()
         table = Table(title="Portfolio And Risk")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Show paper portfolio")
         table.add_row("2", "Show trade journal")
         table.add_row("3", "Show daily risk report")
         table.add_row("4", "Back")
         console.print(table)
-        choice = Prompt.ask("Select action", choices=["1", "2", "3", "4"], default="1")
+        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4"], default="1")
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
@@ -1018,20 +1235,28 @@ def _portfolio_menu(settings: Settings) -> None:
                     db.close()
         else:
             return
-        Prompt.ask("Press Enter to continue", default="")
+        Prompt.ask(PROMPT_CONTINUE, default="")
 
 
 def _research_menu(settings: Settings) -> None:
+    """
+    Display the Research and Memory menu and handle user selections.
+    
+    Prompts the operator to choose between opening the memory explorer, viewing recent runs (with a short runtime events list), or returning to the previous menu. When a readable database is required, the function attempts a safe read-only open and shows an observer-mode panel if the runtime writer prevents access. Any opened database is closed before continuing. The function loops until the user selects "Back".
+    
+    Parameters:
+        settings (Settings): Application settings used to locate and open the trading database and service state.
+    """
     while True:
         console.clear()
         table = Table(title="Research And Memory")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Open memory explorer")
         table.add_row("2", "Show recent runs and events")
         table.add_row("3", "Back")
         console.print(table)
-        choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
+        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
@@ -1054,20 +1279,28 @@ def _research_menu(settings: Settings) -> None:
                     db.close()
         else:
             return
-        Prompt.ask("Press Enter to continue", default="")
+        Prompt.ask(PROMPT_CONTINUE, default="")
 
 
 def _review_menu(settings: Settings) -> None:
+    """
+    Present an interactive "Review and Trace" menu allowing inspection of the latest persisted run review or its trace.
+    
+    Displays a 3-option menu, opens a read-only database when available, and shows an observer-mode panel when the runtime writer prevents safe reads. Choosing "Inspect latest run review" or "Inspect latest run trace" will open the DB, render the corresponding view, and always close the DB afterward. Selecting "Back" exits the menu.
+    
+    Parameters:
+        settings (Settings): Application settings used to locate and open the trading database and to configure UI behavior.
+    """
     while True:
         console.clear()
         table = Table(title="Review And Trace")
-        table.add_column("Key", style="bold cyan")
+        table.add_column("Key", style=STYLE_KEY_COLUMN)
         table.add_column("Action")
         table.add_row("1", "Inspect latest run review")
         table.add_row("2", "Inspect latest run trace")
         table.add_row("3", "Back")
         console.print(table)
-        choice = Prompt.ask("Select action", choices=["1", "2", "3"], default="1")
+        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
@@ -1088,10 +1321,15 @@ def _review_menu(settings: Settings) -> None:
                     db.close()
         else:
             return
-        Prompt.ask("Press Enter to continue", default="")
+        Prompt.ask(PROMPT_CONTINUE, default="")
 
 
 def run_main_menu() -> None:
+    """
+    Run the interactive terminal control-room loop for the Agentic Trader UI.
+    
+    Displays the system banner and status, presents the main menu, dispatches to sub-menus (preferences, runtime control, operator desk, portfolio/risk, research/memory, review/trace), and manages opening/closing the trading database as needed. Handles EOF and interrupt signals to exit cleanly and reports action errors to the user.
+    """
     settings = get_settings()
     settings.ensure_directories()
 
@@ -1105,7 +1343,7 @@ def run_main_menu() -> None:
             if db is not None:
                 db.close()
         menu = Table(title="Main Menu")
-        menu.add_column("Key", style="bold cyan")
+        menu.add_column("Key", style=STYLE_KEY_COLUMN)
         menu.add_column("Action")
         menu.add_row("1", "Configure investment preferences")
         menu.add_row("2", "Runtime control")
@@ -1116,16 +1354,22 @@ def run_main_menu() -> None:
         menu.add_row("7", "Exit")
         console.print(menu)
 
-        choice = Prompt.ask(
-            "Select action", choices=["1", "2", "3", "4", "5", "6", "7"], default="2"
-        )
+        try:
+            choice = Prompt.ask(
+                PROMPT_SELECT_ACTION,
+                choices=["1", "2", "3", "4", "5", "6", "7"],
+                default="2",
+            )
+        except EOFError:
+            _exit_cleanly()
+            return
         try:
             if choice == "1":
                 try:
                     db = _open_db(settings, read_only=False)
                 except Exception as exc:
                     console.print(_observer_mode_panel("Preference editing", str(exc)))
-                    Prompt.ask("Press Enter to continue", default="")
+                    Prompt.ask(PROMPT_CONTINUE, default="")
                     continue
                 try:
                     _configure_preferences(db)
@@ -1146,6 +1390,9 @@ def run_main_menu() -> None:
                     Panel("Leaving control room.", title="Exit", border_style="blue")
                 )
                 return
+        except EOFError:
+            _exit_cleanly()
+            return
         except KeyboardInterrupt:
             console.print(
                 Panel(
@@ -1156,4 +1403,8 @@ def run_main_menu() -> None:
             )
         except Exception as exc:
             console.print(Panel(str(exc), title="Action Failed", border_style="red"))
-        Prompt.ask("Press Enter to continue", default="")
+        try:
+            Prompt.ask(PROMPT_CONTINUE, default="")
+        except EOFError:
+            _exit_cleanly()
+            return

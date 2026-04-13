@@ -40,7 +40,9 @@ def test_observer_api_server_serves_local_http_payloads(tmp_path) -> None:
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    host, port = server.server_address
+    address = server.server_address
+    host = str(address[0])
+    port = int(address[1])
     try:
         with urlopen(f"http://{host}:{port}/health", timeout=2) as response:
             payload = json.loads(response.read().decode("utf-8"))

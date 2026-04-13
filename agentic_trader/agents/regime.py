@@ -1,9 +1,21 @@
 from agentic_trader.agents.context import render_agent_context
+from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessment
 
 
 def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
+    """
+    Constructs a conservative fallback RegimeAssessment from a MarketSnapshot when the LLM-based classification is unavailable or invalid.
+    
+    Evaluates snapshot indicators (volatility, moving averages, RSI, multi-timeframe alignment/confidence, and short-term return) to select one of: "high_volatility", "trend_up", "trend_down", "range", or "breakout_candidate". The returned assessment always has source="fallback" and fallback_reason set to the module constant LLM_FALLBACK_REASON.
+    
+    Parameters:
+        snapshot (MarketSnapshot): Market snapshot containing indicators used to decide the fallback regime (expects at least: ema_20, ema_50, last_close, volatility_20, rsi_14, mtf_alignment, mtf_confidence, return_5).
+    
+    Returns:
+        RegimeAssessment: A regime assessment object representing a conservative fallback classification with an appropriate direction_bias, confidence, reasoning, key_risks, source, and fallback_reason.
+    """
     trend_gap = (snapshot.ema_20 - snapshot.ema_50) / snapshot.last_close
     mtf_penalty = 0.1 if snapshot.mtf_alignment == "mixed" else 0.0
     mtf_bonus = min(0.1, snapshot.mtf_confidence * 0.1)
@@ -16,7 +28,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
             reasoning="Fallback regime: volatility is elevated, so trading should stay defensive.",
             key_risks=["high_volatility", "unstable_conditions"],
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if (
@@ -38,7 +50,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
                 else []
             ),
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if (
@@ -60,7 +72,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
                 else []
             ),
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if abs(trend_gap) < 0.01:
@@ -71,7 +83,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
             reasoning="Fallback regime: moving averages are compressed, suggesting range behavior.",
             key_risks=["false_breakout", "low_edge"],
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     return RegimeAssessment(
@@ -81,7 +93,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
         reasoning=f"Fallback regime: mixed trend signals with expansion potential and {snapshot.mtf_alignment} higher timeframe alignment.",
         key_risks=["mixed_signals", "low_conviction"],
         source="fallback",
-        fallback_reason="LLM unavailable or invalid structured response.",
+        fallback_reason=LLM_FALLBACK_REASON,
     )
 
 
@@ -92,6 +104,7 @@ def assess_regime(
     allow_fallback: bool,
     context: AgentContext | None = None,
 ) -> RegimeAssessment:
+    """Ask the routed regime model to classify current market conditions."""
     system_prompt = (
         "You are a market regime classifier for a systematic trading engine. "
         "Be conservative. Prefer no_trade over low-conviction guesses."

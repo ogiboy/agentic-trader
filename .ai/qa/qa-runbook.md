@@ -29,12 +29,36 @@ Recommended core verification:
 /opt/anaconda3/envs/trader/bin/python -m pytest -q -p no:cacheprovider
 ```
 
+Recommended terminal smoke pass:
+
+```bash
+python scripts/qa/smoke_qa.py
+```
+
+Recommended terminal + code-quality pass:
+
+```bash
+python scripts/qa/smoke_qa.py --include-quality
+```
+
+Optional SonarQube pass:
+
+```bash
+SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-sonar
+```
+
 ## Evidence Directory
 
 Store manual QA evidence under:
 
 ```text
 .ai/qa/artifacts/
+```
+
+Automated smoke QA writes each run into a timestamped subdirectory:
+
+```text
+.ai/qa/artifacts/smoke-YYYYMMDD-HHMMSS/
 ```
 
 Suggested files:
@@ -47,6 +71,7 @@ Suggested files:
 - `screen-01.png`
 
 Do not commit large binary evidence unless the task explicitly asks for it. Prefer text captures and concise reports.
+Do not commit `.sonar/` output or Sonar tokens.
 
 ## Tooling
 
@@ -81,6 +106,19 @@ asciinema rec .ai/qa/artifacts/session.cast
 ### Screenshots
 
 Use screenshots only for visual rendering issues that are hard to explain from text capture.
+
+### Code Quality
+
+Use `ruff`, `pytest`, IDE/Pylance or `pyright`, and SonarQube as complementary signals.
+
+```bash
+python -m ruff check .
+python -m pytest -q -p no:cacheprovider
+pyright
+SONAR_TOKEN=... pysonar --sonar-host-url=http://localhost:9000 --sonar-project-key=agentic-trader-dev --sonar-token="$SONAR_TOKEN"
+```
+
+Never hardcode the Sonar token in tracked files. Prefer the `SONAR_TOKEN` environment variable.
 
 ## Standard QA Workflow
 

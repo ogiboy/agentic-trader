@@ -41,6 +41,11 @@ def _frame() -> pd.DataFrame:
 def test_walk_forward_backtest_closes_trade_and_reports_metrics(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Validates that a walk-forward backtest executes a buy trade, closes it, and produces correct summary metrics.
+    
+    Runs a synthetic walk-forward backtest and asserts there is exactly one executed and closed trade, the win rate is approximately 1.0, ending equity exceeds starting equity, and the trade's exit reason is either "take_profit" or "end_of_data".
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -50,7 +55,27 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
 
     state = {"entered": False}
 
-    def _fake_run_from_snapshot(*, settings: Settings, snapshot: MarketSnapshot, allow_fallback: bool, memory_enabled: bool) -> RunArtifacts:
+    def _fake_run_from_snapshot(
+        *,
+        settings: Settings,
+        snapshot: MarketSnapshot,
+        allow_fallback: bool,
+        memory_enabled: bool,
+    ) -> RunArtifacts:
+        """
+        Produce deterministic RunArtifacts used in tests to simulate a single run of the trading engine from a given MarketSnapshot.
+        
+        This helper toggles a local test state on first call: the first invocation returns artifacts representing an approved buy entry (uses snapshot.last_close to set entry, stop-loss, and take-profit); subsequent invocations return artifacts representing no new trade (an unapproved "hold" execution). The function accepts but does not rely on `settings`, `allow_fallback`, or `memory_enabled`.
+        
+        Parameters:
+            snapshot (MarketSnapshot): Market snapshot whose symbol and last_close are used to populate execution and risk prices.
+            settings (Settings): Accepted for API compatibility but not consulted by this fake implementation.
+            allow_fallback (bool): Accepted for API compatibility but unused.
+            memory_enabled (bool): Accepted for API compatibility but unused.
+        
+        Returns:
+            RunArtifacts: Test artifacts including coordinator, regime, strategy, risk, manager, execution, and review. On first call, `execution.approved` is `True` with `side == "buy"` and risk/take-profit/stop-loss derived from `snapshot.last_close`; on subsequent calls, `execution.approved` is `False` with `side == "hold"`.
+        """
         if not state["entered"]:
             state["entered"] = True
             strategy = StrategyPlan(
@@ -184,7 +209,9 @@ def test_deterministic_baseline_backtest_returns_metrics(tmp_path: Path) -> None
     assert report.ending_equity > 0
 
 
-def test_backtest_comparison_reports_deltas(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_backtest_comparison_reports_deltas(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -249,7 +276,17 @@ def test_backtest_comparison_reports_deltas(monkeypatch: pytest.MonkeyPatch, tmp
     assert comparison.total_return_delta_pct == pytest.approx(0.04)
 
 
-def test_memory_ablation_backtest_reports_deltas(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_memory_ablation_backtest_reports_deltas(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    Verifies that the memory-ablation backtest runs with memory enabled then disabled and reports correct deltas.
+    
+    This test monkeypatches the walk-forward backtest to return fixed BacktestReport values for memory-enabled and memory-disabled runs, invokes run_memory_ablation_backtest, and asserts that:
+    - the two runs were performed in order with memory enabled first then disabled,
+    - the computed ending equity delta equals 400.0,
+    - the computed total return delta equals 0.04.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

@@ -1,9 +1,11 @@
 from textwrap import dedent
+from typing import Any
 
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     ChatPersona,
+    AgentRole,
     InvestmentPreferences,
     OperatorInstruction,
     PreferenceUpdate,
@@ -11,8 +13,17 @@ from agentic_trader.schemas import (
 from agentic_trader.storage.db import TradingDatabase
 
 
-def _persona_to_role(persona: ChatPersona) -> str:
-    mapping = {
+def _persona_to_role(persona: ChatPersona) -> AgentRole:
+    """
+    Map a ChatPersona value to its corresponding AgentRole.
+    
+    Returns:
+        The corresponding AgentRole for the provided `persona`.
+    
+    Raises:
+        KeyError: If `persona` is not a recognized ChatPersona key.
+    """
+    mapping: dict[ChatPersona, AgentRole] = {
         "operator_liaison": "explainer",
         "regime_analyst": "regime",
         "strategy_selector": "strategy",
@@ -109,6 +120,16 @@ def chat_with_persona(
     persona: ChatPersona,
     user_message: str,
 ) -> str:
+    """
+    Builds a persona-aware system and user prompt, sends them to the local LLM, and returns the assistant's reply.
+    
+    Parameters:
+        persona (ChatPersona): Persona whose role and persona-specific system instructions will be used.
+        user_message (str): Operator's message to include in the user prompt.
+    
+    Returns:
+        str: The text response produced by the LLM for the selected persona.
+    """
     preferences = db.load_preferences()
     context = build_chat_context(db, settings)
     system_prompt = build_persona_system_prompt(persona, preferences)
@@ -127,81 +148,125 @@ def chat_with_persona(
     )
 
 
+def _apply_keyword_preference(
+    lowered_message: str,
+    update: PreferenceUpdate,
+    field_name: str,
+    options: tuple[tuple[tuple[str, ...], Any], ...],
+) -> bool:
+    """
+    Attempt to set a preference field on a PreferenceUpdate by matching any keyword against a lowercased message.
+    
+    Parameters:
+        lowered_message (str): The message already lowercased for substring matching.
+        update (PreferenceUpdate): The PreferenceUpdate instance to modify when a keyword match is found.
+        field_name (str): The name of the attribute on `update` to set.
+        options (tuple): An iterable of (keywords_tuple, value) pairs where `keywords_tuple` is a tuple of strings;
+            if any keyword is found in `lowered_message`, the corresponding `value` is assigned to `update.<field_name>`.
+    
+    Returns:
+        bool: `True` if a keyword matched and the field was set, `False` otherwise.
+    """
+    for keywords, value in options:
+        if any(keyword in lowered_message for keyword in keywords):
+            setattr(update, field_name, value)
+            return True
+    return False
+
+
 def _fallback_instruction(message: str) -> OperatorInstruction:
+    """
+    Parse a freeform operator message into a conservative OperatorInstruction proposing safe preference updates.
+    
+    This function looks for curated, safe keywords in the provided message and produces an OperatorInstruction that contains a PreferenceUpdate with any matched fields. The instruction indicates whether any preference fields would be changed, requires confirmation, and includes a rationale that the mapping is limited to explicit keywords.
+    
+    Parameters:
+        message (str): The operator's natural-language message to parse for preference keywords.
+    
+    Returns:
+        OperatorInstruction: An instruction object containing:
+            - `preference_update`: a PreferenceUpdate with fields set for any matched keywords.
+            - `should_update_preferences`: `true` if at least one preference field was set, `false` otherwise.
+            - `requires_confirmation`: always `true`.
+            - `summary` and `rationale` describing that a fallback keyword-based parse was performed.
+    """
     lowered = message.lower()
     update = PreferenceUpdate()
-    changed = False
-
-    if "conservative" in lowered:
-        update.risk_profile = "conservative"
-        changed = True
-    elif "balanced" in lowered:
-        update.risk_profile = "balanced"
-        changed = True
-    elif "aggressive" in lowered:
-        update.risk_profile = "aggressive"
-        changed = True
-
-    if "intraday" in lowered:
-        update.trade_style = "intraday"
-        changed = True
-    elif "position" in lowered:
-        update.trade_style = "position"
-        changed = True
-    elif "swing" in lowered:
-        update.trade_style = "swing"
-        changed = True
-
-    if "trend" in lowered:
-        update.behavior_preset = "trend_biased"
-        changed = True
-    elif "contrarian" in lowered:
-        update.behavior_preset = "contrarian"
-        changed = True
-    elif "preservation" in lowered or "defensive" in lowered:
-        update.behavior_preset = "capital_preservation"
-        changed = True
-
-    if "explain" in lowered or "explanatory" in lowered:
-        update.agent_profile = "explanatory"
-        changed = True
-    elif "disciplined" in lowered:
-        update.agent_profile = "disciplined"
-        changed = True
-
-    if "supportive" in lowered:
-        update.agent_tone = "supportive"
-        changed = True
-    elif "forensic" in lowered:
-        update.agent_tone = "forensic"
-        changed = True
-    elif "direct" in lowered:
-        update.agent_tone = "direct"
-        changed = True
-
-    if "paranoid" in lowered:
-        update.strictness_preset = "paranoid"
-        changed = True
-    elif "strict" in lowered:
-        update.strictness_preset = "strict"
-        changed = True
-    elif "standard" in lowered:
-        update.strictness_preset = "standard"
-        changed = True
-
-    if "hands off" in lowered or "hands-off" in lowered:
-        update.intervention_style = "hands_off"
-        changed = True
-    elif "protective" in lowered:
-        update.intervention_style = "protective"
-        changed = True
-    elif "balanced intervention" in lowered or "balanced oversight" in lowered:
-        update.intervention_style = "balanced"
-        changed = True
+    changed_fields = [
+        _apply_keyword_preference(
+            lowered,
+            update,
+            "risk_profile",
+            (
+                (("conservative",), "conservative"),
+                (("balanced",), "balanced"),
+                (("aggressive",), "aggressive"),
+            ),
+        ),
+        _apply_keyword_preference(
+            lowered,
+            update,
+            "trade_style",
+            (
+                (("intraday",), "intraday"),
+                (("position",), "position"),
+                (("swing",), "swing"),
+            ),
+        ),
+        _apply_keyword_preference(
+            lowered,
+            update,
+            "behavior_preset",
+            (
+                (("trend",), "trend_biased"),
+                (("contrarian",), "contrarian"),
+                (("preservation", "defensive"), "capital_preservation"),
+            ),
+        ),
+        _apply_keyword_preference(
+            lowered,
+            update,
+            "agent_profile",
+            (
+                (("explain", "explanatory"), "explanatory"),
+                (("disciplined",), "disciplined"),
+            ),
+        ),
+        _apply_keyword_preference(
+            lowered,
+            update,
+            "agent_tone",
+            (
+                (("supportive",), "supportive"),
+                (("forensic",), "forensic"),
+                (("direct",), "direct"),
+            ),
+        ),
+        _apply_keyword_preference(
+            lowered,
+            update,
+            "strictness_preset",
+            (
+                (("paranoid",), "paranoid"),
+                (("strict",), "strict"),
+                (("standard",), "standard"),
+            ),
+        ),
+        _apply_keyword_preference(
+            lowered,
+            update,
+            "intervention_style",
+            (
+                (("hands off", "hands-off"), "hands_off"),
+                (("protective",), "protective"),
+                (("balanced intervention", "balanced oversight"), "balanced"),
+            ),
+        ),
+    ]
 
     return OperatorInstruction(
         summary="Fallback operator instruction parser evaluated the request.",
-        should_update_preferences=changed,
+        should_update_preferences=any(changed_fields),
         preference_update=update,
         requires_confirmation=True,
         rationale="Fallback parser only maps explicit curated keywords to safe preference fields.",

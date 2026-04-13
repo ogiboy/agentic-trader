@@ -56,12 +56,15 @@ The current memory layer is still lightweight, but it can already retrieve histo
 
 ## Stack
 
-- Python `3.13+`
+- Python `3.12+` (currently exercised with a Conda `3.14` environment)
 - `Pydantic` for contracts and validation
 - `Typer` for CLI
+- `Rich` for the legacy/admin control room
+- `Ink` + React for the primary terminal control room
 - `httpx` against Ollama's native HTTP API
 - `yfinance` for initial market data
 - `DuckDB` for event and order storage
+- `ruff`, `pytest`, `pyright`, and optional SonarQube/`pysonar` for local QA
 
 ## Quick Start
 
@@ -76,6 +79,14 @@ Install the project:
 
 ```bash
 python -m pip install -e ".[dev]"
+```
+
+Install the Ink control-room dependencies if you want the primary terminal UI:
+
+```bash
+cd tui
+npm install
+cd ..
 ```
 
 If you want the installed console entrypoint instead of the root launcher, it is:
@@ -113,13 +124,19 @@ Run a single strict paper-trade cycle:
 python main.py run --symbol AAPL --interval 1d --lookback 180d
 ```
 
-Open the root launcher and control room:
+Open the root launcher. By default this launches the primary Ink control room when the Node dependencies under `tui/` are installed:
+
+```bash
+agentic-trader
+```
+
+The Python root launcher is still available:
 
 ```bash
 python main.py
 ```
 
-Or use the installed console entrypoint directly:
+Open the legacy Rich/admin menu:
 
 ```bash
 agentic-trader menu
@@ -268,19 +285,53 @@ agentic-trader preferences --json
 agentic-trader portfolio --json
 ```
 
+## QA And Code Quality
+
+Developer orientation notes live in [docs/dev/code-map.md](docs/dev/code-map.md).
+
+Fast checks:
+
+```bash
+python -m ruff check .
+pyright
+python -m pytest -q -p no:cacheprovider
+node --check tui/index.mjs
+```
+
+Terminal smoke checks:
+
+```bash
+python scripts/qa/smoke_qa.py
+python scripts/qa/smoke_qa.py --include-quality
+```
+
+Full local QA with SonarQube submission:
+
+```bash
+SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-quality --include-sonar
+```
+
+Smoke artifacts are written to timestamped folders under:
+
+```text
+.ai/qa/artifacts/smoke-YYYYMMDD-HHMMSS/
+```
+
+The current QA harness validates installed CLI entrypoints, the primary Ink TUI, `python main.py`, the Rich menu, read-only JSON status surfaces, optional coverage XML generation, `pyright`, and optional `pysonar` submission. SonarQube may still report a failing Quality Gate while coverage and remaining complexity refactors are being improved; the latest local cleanup reduced open code smells from `20` to `8`.
+
 ## Notes
 
 - This project starts with paper trading only.
 - The trading runtime is strict by default: if Ollama or the configured model is unavailable, the core runtime should not start.
 - Deterministic fallbacks are kept for diagnostics, not for silent trade generation in the main launcher.
-- The main menu is intended to become the long-running operator surface for preferences, logs, start/stop controls, and runtime visibility.
-- A first Ink control room now exists under `tui/` and attaches to the same CLI and daemon contract as the Python surfaces.
+- The Ink control room is the primary terminal operator surface; the Rich menu remains useful as a legacy/admin fallback.
+- UI text is starting to move behind a shared catalog so CLI, Rich, Ink, and a future WebUI can grow toward multi-language support without duplicating labels.
 - Live broker adapters can be added once the planning and portfolio pipeline behaves consistently.
 
 ## Near-Term Direction
 
-- deepen the control room with a denser live dashboard and richer operator workflows
-- keep growing the specialist + manager orchestration layer with more portfolio-aware reasoning
-- turn the lightweight similarity memory into a richer retrieval and inspection layer
-- add backtesting and replay so journaled decisions can be scored against deterministic baselines
-- keep the runtime daemon-capable so the TUI can attach to a long-running service instead of owning it directly
+- reduce the remaining Sonar complexity issues in `tui.py`, `service.py`, `walk_forward.py`, and service-state persistence
+- add focused coverage around storage service-state transitions, runtime-control paths, and operator surfaces
+- keep Ink, Rich, CLI, and future WebUI surfaces attached to the same daemon/status contracts
+- continue evolving memory retrieval and inspection while keeping memory writes policy-controlled and reviewable
+- preserve paper trading as the default until backtest and journal evidence justify any live adapter work

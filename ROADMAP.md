@@ -75,6 +75,8 @@ Status: in progress.
 - [x] add memory explorer UI to inspect long-term and vector memory state
 - [x] add agent decision trace viewer to inspect reasoning, tool calls, and outputs per cycle
 - [x] add retrieval inspection view to show why specific memories were used in a decision
+- [x] prepare a UI text catalog and localization boundary for CLI, Rich, Ink, and future WebUI surfaces
+- [ ] add full multi-language support after operator flows stabilize
   Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
 - a first memory explorer surface is now available from the CLI and TUI
@@ -85,7 +87,9 @@ Status: in progress.
 - the Ink control room now also includes an operator chat page with persona switching
 - the Ink control room now also includes a memory page backed by similar-run retrieval and stage-level retrieval inspection
 - the Ink chat page now embeds live agent activity, recent tool-role usage, and reasoning-stage context beside the transcript
+- a lightweight shared UI text catalog now exists as the first step toward future multi-language operator surfaces
 - richer trace inspection and deeper Ink feature parity are still open
+- full multi-language support should wait until operator flows stabilize, then build on the shared text catalog instead of scattering strings per surface
 
 ## Phase 5: Backtesting
 
@@ -208,3 +212,4 @@ Status: in progress.
 - keep CLI, TUI, and service behavior aligned so operator surfaces do not drift
 - preserve strict paper-trading discipline until evaluation quality justifies live adapter work
 - keep Python console entrypoints and any future Ink or WebUI shells pointed at the same daemon and command contracts
+- keep recurring operator-facing text behind a shared catalog so future localization does not fragment CLI, Rich, Ink, and WebUI surfaces

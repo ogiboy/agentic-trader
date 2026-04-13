@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import json
-from typing import Any
+from typing import Any, cast, get_args
 from uuid import uuid4
 
 import duckdb
@@ -11,22 +11,203 @@ from agentic_trader.memory.policy import MemoryActor, assert_memory_write_allowe
 from agentic_trader.runtime_feed import append_service_event, write_service_state
 from agentic_trader.schemas import (
     AccountMark,
+    ChatPersona,
     ChatHistoryEntry,
+    CoordinatorFocus,
     DailyRiskReport,
+    ExecutionSide,
     InvestmentPreferences,
+    JournalStatus,
     PortfolioSnapshot,
     PositionPlanSnapshot,
     PositionSnapshot,
-    PositionExitDecision,
     RunRecord,
     RunArtifacts,
+    ServiceEventLevel,
+    ServiceState,
     ServiceEvent,
     ServiceStateSnapshot,
+    TradeSide,
     TradeContextRecord,
     TradeJournalEntry,
 )
 
 type OrderRow = tuple[str, str, str, str, bool, float, float, float, float, float]
+TERMINAL_SERVICE_STATES: set[ServiceState] = {
+    "stopped",
+    "completed",
+    "failed",
+    "blocked",
+}
+SERVICE_STATE_VALUES = set(get_args(ServiceState))
+
+
+def _str_or_none(value: Any) -> str | None:
+    """
+    Convert a value to its string representation, returning None when the input is None.
+    
+    Returns:
+        str | None: The string form of `value`, or `None` if `value` is `None`.
+    """
+    return str(value) if value is not None else None
+
+
+def _int_or_none(value: Any) -> int | None:
+    """
+    Convert a value to an integer when present.
+    
+    Parameters:
+        value (Any): The input to convert; if `None`, no conversion is performed.
+    
+    Returns:
+        int if value is not None, `None` otherwise.
+    """
+    return int(value) if value is not None else None
+
+
+def _bool_or_default(value: Any, default: bool) -> bool:
+    """
+    Resolve a boolean from an input, falling back to a provided default when the input is None.
+    
+    Parameters:
+        value (Any): The input to convert to bool; if `None`, the `default` is used instead.
+        default (bool): The boolean value returned when `value` is `None`.
+    
+    Returns:
+        bool: `bool(value)` if `value` is not `None`, otherwise `default`.
+    """
+    return bool(value) if value is not None else default
+
+
+def _resolve_value[T](new_value: T | None, existing_value: T | None, default: T) -> T:
+    """
+    Choose a resolved value from `new_value`, `existing_value`, or `default`.
+    
+    Parameters:
+        new_value (T | None): Preferred value; used if not `None`.
+        existing_value (T | None): Fallback value; used if `new_value` is `None` and this is not `None`.
+        default (T): Final fallback returned if both `new_value` and `existing_value` are `None`.
+    
+    Returns:
+        T: `new_value` if it is not `None`, otherwise `existing_value` if it is not `None`, otherwise `default`.
+    """
+    if new_value is not None:
+        return new_value
+    if existing_value is not None:
+        return existing_value
+    return default
+
+
+def _resolve_optional_value[T](new_value: T | None, existing_value: T | None) -> T | None:
+    """
+    Selects a value between a new candidate and an existing fallback, preferring the new when present.
+    
+    Parameters:
+        new_value (T | None): Candidate value to use if not `None`.
+        existing_value (T | None): Fallback value returned when `new_value` is `None`.
+    
+    Returns:
+        `new_value` if it is not `None`, otherwise `existing_value` (which may be `None`).
+    """
+    return new_value if new_value is not None else existing_value
+
+
+def _resolve_symbols(
+    symbols: list[str] | None, existing: ServiceStateSnapshot | None
+) -> list[str]:
+    """
+    Selects the symbols list to use for a service state update.
+    
+    Parameters:
+        symbols (list[str] | None): Explicit symbols provided for the update; if not None, these are used.
+        existing (ServiceStateSnapshot | None): Existing service state to fall back to when `symbols` is None.
+    
+    Returns:
+        list[str]: The resolved symbols list — `symbols` if provided, otherwise `existing.symbols` if `existing` is present, otherwise an empty list.
+    """
+    if symbols is not None:
+        return list(symbols)
+    if existing is not None:
+        return existing.symbols
+    return []
+
+
+def _resolve_terminal_state(
+    *, state: str, existing: ServiceStateSnapshot | None, now: str
+) -> tuple[str | None, str | None]:
+    """
+    Determine the terminal state and timestamp to record when updating a service's state.
+    
+    If the provided `state` is in TERMINAL_SERVICE_STATES, returns `(state, now)`. Otherwise, if an existing snapshot is provided, returns its `last_terminal_state` and `last_terminal_at`; if no existing snapshot is available, returns `(None, None)`.
+    
+    Parameters:
+        state: The new service state string being applied.
+        existing: The prior ServiceStateSnapshot for the service, or `None` if none exists.
+        now: ISO-8601 timestamp string representing the current time used when marking a terminal state.
+    
+    Returns:
+        A tuple `(last_terminal_state, last_terminal_at)` where `last_terminal_state` is the terminal state string or `None`, and `last_terminal_at` is the timestamp string when that terminal state was recorded or `None`.
+    """
+    if state in TERMINAL_SERVICE_STATES:
+        return state, now
+    if existing is None:
+        return None, None
+    return existing.last_terminal_state, existing.last_terminal_at
+
+
+def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
+    """
+    Convert a database row tuple into a ServiceStateSnapshot.
+    
+    The input `row` is expected to follow the service_state table column order:
+    (service_name, state, updated_at, started_at, last_heartbeat_at, continuous,
+     poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
+     current_symbol, last_error, pid, stop_requested, background_mode,
+     launch_count, restart_count, last_terminal_state, last_terminal_at,
+     stdout_log_path, stderr_log_path, message).
+    
+    Parameters:
+        row (tuple[Any, ...]): A database row tuple matching the columns above. `symbols_json` may be None or a JSON string.
+    
+    Unknown state strings are normalized to "stopped" so stale or manually
+    edited runtime rows cannot break observer/status surfaces. The current
+    schema already accepts the transitional "stopping" state.
+
+    Returns:
+        ServiceStateSnapshot: Parsed snapshot with coerced types (strings, ints, bools, lists) and sensible defaults for missing/None fields.
+    """
+    state_str = str(row[1])
+    state = (
+        cast(ServiceState, state_str)
+        if state_str in SERVICE_STATE_VALUES
+        else "stopped"
+    )
+    return ServiceStateSnapshot(
+        service_name=str(row[0]),
+        state=state,
+        updated_at=str(row[2]),
+        started_at=_str_or_none(row[3]),
+        last_heartbeat_at=_str_or_none(row[4]),
+        continuous=bool(row[5]),
+        poll_seconds=_int_or_none(row[6]),
+        cycle_count=int(row[7]),
+        symbols=json.loads(str(row[8])) if row[8] is not None else [],
+        interval=_str_or_none(row[9]),
+        lookback=_str_or_none(row[10]),
+        max_cycles=_int_or_none(row[11]),
+        current_symbol=_str_or_none(row[12]),
+        last_error=_str_or_none(row[13]),
+        pid=_int_or_none(row[14]),
+        stop_requested=_bool_or_default(row[15], False),
+        background_mode=_bool_or_default(row[16], False),
+        launch_count=int(row[17]) if row[17] is not None else 0,
+        restart_count=int(row[18]) if row[18] is not None else 0,
+        last_terminal_state=_str_or_none(row[19]),
+        last_terminal_at=_str_or_none(row[20]),
+        stdout_log_path=_str_or_none(row[21]),
+        stderr_log_path=_str_or_none(row[22]),
+        message=str(row[23]),
+    )
 
 
 class TradingDatabase:
@@ -41,6 +222,16 @@ class TradingDatabase:
             self._init_schema()
 
     def _init_schema(self) -> None:
+        """
+        Create and migrate the database schema and ensure required seed rows exist.
+        
+        Creates all application tables if missing (runs, orders, account_state, positions, fills,
+        position_plans, preferences, account_marks, trade_journal, trade_contexts, service_state,
+        service_events, operator_chat_history, memory_vectors) and performs schema migration for
+        service_state by adding any missing columns introduced by newer versions. After schema
+        creation/migration, ensures a paper account row exists in account_state and a default
+        preferences profile is present, inserting seed rows when absent.
+        """
         self.conn.execute(
             """
             create table if not exists runs (
@@ -227,13 +418,9 @@ class TradingDatabase:
         if "pid" not in service_columns:
             self.conn.execute("alter table service_state add column pid bigint")
         if "stop_requested" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column stop_requested boolean not null default false"
-            )
+            self.conn.execute("alter table service_state add column stop_requested boolean")
         if "symbols_json" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column symbols_json varchar not null default '[]'"
-            )
+            self.conn.execute("alter table service_state add column symbols_json varchar")
         if "interval" not in service_columns:
             self.conn.execute("alter table service_state add column interval varchar")
         if "lookback" not in service_columns:
@@ -241,17 +428,11 @@ class TradingDatabase:
         if "max_cycles" not in service_columns:
             self.conn.execute("alter table service_state add column max_cycles integer")
         if "background_mode" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column background_mode boolean not null default false"
-            )
+            self.conn.execute("alter table service_state add column background_mode boolean")
         if "launch_count" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column launch_count integer not null default 0"
-            )
+            self.conn.execute("alter table service_state add column launch_count integer")
         if "restart_count" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column restart_count integer not null default 0"
-            )
+            self.conn.execute("alter table service_state add column restart_count integer")
         if "last_terminal_state" not in service_columns:
             self.conn.execute(
                 "alter table service_state add column last_terminal_state varchar"
@@ -583,6 +764,13 @@ class TradingDatabase:
         return entry_id
 
     def list_chat_history(self, limit: int = 20) -> list[ChatHistoryEntry]:
+        """
+        Return the most recent operator chat history entries, ordered newest first.
+        
+        Returns:
+            list[ChatHistoryEntry]: A list of chat history entries (most recent first), each containing
+            `entry_id`, `created_at`, `persona`, `user_message`, and `response_text`.
+        """
         rows = self.conn.execute(
             """
             select entry_id, created_at, persona, user_message, response_text
@@ -598,7 +786,7 @@ class TradingDatabase:
                 ChatHistoryEntry(
                     entry_id=str(row[0]),
                     created_at=str(row[1]),
-                    persona=str(row[2]),
+                    persona=cast(ChatPersona, str(row[2])),
                     user_message=str(row[3]),
                     response_text=str(row[4]),
                 )
@@ -860,6 +1048,15 @@ class TradingDatabase:
         )
 
     def list_trade_journal(self, limit: int = 20) -> list[TradeJournalEntry]:
+        """
+        List recent trade journal entries ordered by most recent opening time.
+        
+        Parameters:
+            limit (int): Maximum number of entries to return (default 20).
+        
+        Returns:
+            list[TradeJournalEntry]: Entries ordered by `opened_at` descending, up to `limit` records.
+        """
         rows = self.conn.execute(
             """
             select trade_id, opened_at, closed_at, symbol, run_id, entry_order_id, exit_order_id,
@@ -883,18 +1080,18 @@ class TradingDatabase:
                     run_id=str(row[4]) if row[4] is not None else None,
                     entry_order_id=str(row[5]),
                     exit_order_id=str(row[6]) if row[6] is not None else None,
-                    planned_side=str(row[7]),
+                    planned_side=cast(ExecutionSide, str(row[7])),
                     approved=bool(row[8]),
-                    journal_status=str(row[9]),
+                    journal_status=cast(JournalStatus, str(row[9])),
                     entry_price=float(row[10]),
                     exit_price=float(row[11]) if row[11] is not None else None,
                     stop_loss=float(row[12]),
                     take_profit=float(row[13]),
                     position_size_pct=float(row[14]),
                     confidence=float(row[15]),
-                    coordinator_focus=str(row[16]),
+                    coordinator_focus=cast(CoordinatorFocus, str(row[16])),
                     strategy_family=str(row[17]),
-                    manager_bias=str(row[18]),
+                    manager_bias=cast(ExecutionSide, str(row[18])),
                     review_summary=str(row[19]),
                     exit_reason=str(row[20]) if row[20] is not None else None,
                     realized_pnl=float(row[21]) if row[21] is not None else None,
@@ -1023,74 +1220,74 @@ class TradingDatabase:
         stdout_log_path: str | None = None,
         stderr_log_path: str | None = None,
     ) -> None:
+        """
+        Update or insert the runtime state snapshot for a named service and persist it to storage.
+        
+        Upserts a service-state row keyed by `service_name`, merges provided fields with any existing state (preserving omitted values), computes terminal-state markers when appropriate, and writes a mirrored service state snapshot via write_service_state.
+        
+        Parameters:
+            service_name (str): The unique service identifier (default "orchestrator").
+            state (str): New service state (e.g., "starting", "running", "stopped").
+            continuous (bool): Whether the service runs continuously.
+            poll_seconds (int | None): Poll interval in seconds for periodic services, or None.
+            cycle_count (int): Current execution cycle counter.
+            symbols (list[str] | None): Active symbol list; if None, existing symbols are preserved.
+            interval (str | None): Trading/data interval (e.g., "1m", "1h"), or None.
+            lookback (str | None): Lookback specification for historical data, or None.
+            max_cycles (int | None): Maximum cycles permitted for the service, or None.
+            current_symbol (str | None): Symbol currently being processed, or None.
+            message (str): Human-readable status or message associated with the state.
+            last_error (str | None): Last error message, if any.
+            pid (int | None): Process ID associated with the running service, or None.
+            stop_requested (bool | None): Explicit stop request flag; if None, preserves existing.
+            background_mode (bool | None): Whether the service is running in background mode; if None, preserves existing.
+            launch_count (int | None): Number of times the service has been launched; if None, preserves existing.
+            restart_count (int | None): Number of restarts; if None, preserves existing.
+            stdout_log_path (str | None): Path to stdout log file, or None.
+            stderr_log_path (str | None): Path to stderr log file, or None.
+        """
         now = datetime.now(timezone.utc).isoformat()
         existing = self.get_service_state(service_name)
         started_at = existing.started_at if existing is not None else None
         if state == "starting" or started_at is None:
             started_at = now
-        resolved_pid = (
-            pid if pid is not None else (existing.pid if existing is not None else None)
+        resolved_pid = _resolve_optional_value(
+            pid, existing.pid if existing is not None else None
         )
-        resolved_stop_requested = (
-            stop_requested
-            if stop_requested is not None
-            else (existing.stop_requested if existing is not None else False)
+        resolved_stop_requested = _resolve_value(
+            stop_requested,
+            existing.stop_requested if existing is not None else None,
+            False,
         )
-        resolved_symbols = (
-            list(symbols)
-            if symbols is not None
-            else (existing.symbols if existing is not None else [])
+        resolved_symbols = _resolve_symbols(symbols, existing)
+        resolved_interval = _resolve_optional_value(
+            interval, existing.interval if existing is not None else None
         )
-        resolved_interval = (
-            interval
-            if interval is not None
-            else (existing.interval if existing is not None else None)
+        resolved_lookback = _resolve_optional_value(
+            lookback, existing.lookback if existing is not None else None
         )
-        resolved_lookback = (
-            lookback
-            if lookback is not None
-            else (existing.lookback if existing is not None else None)
+        resolved_max_cycles = _resolve_optional_value(
+            max_cycles, existing.max_cycles if existing is not None else None
         )
-        resolved_max_cycles = (
-            max_cycles
-            if max_cycles is not None
-            else (existing.max_cycles if existing is not None else None)
+        resolved_background_mode = _resolve_value(
+            background_mode,
+            existing.background_mode if existing is not None else None,
+            False,
         )
-        resolved_background_mode = (
-            background_mode
-            if background_mode is not None
-            else (existing.background_mode if existing is not None else False)
+        resolved_launch_count = _resolve_value(
+            launch_count, existing.launch_count if existing is not None else None, 0
         )
-        resolved_launch_count = (
-            launch_count
-            if launch_count is not None
-            else (existing.launch_count if existing is not None else 0)
+        resolved_restart_count = _resolve_value(
+            restart_count, existing.restart_count if existing is not None else None, 0
         )
-        resolved_restart_count = (
-            restart_count
-            if restart_count is not None
-            else (existing.restart_count if existing is not None else 0)
+        resolved_stdout_log_path = _resolve_optional_value(
+            stdout_log_path, existing.stdout_log_path if existing is not None else None
         )
-        resolved_stdout_log_path = (
-            stdout_log_path
-            if stdout_log_path is not None
-            else (existing.stdout_log_path if existing is not None else None)
+        resolved_stderr_log_path = _resolve_optional_value(
+            stderr_log_path, existing.stderr_log_path if existing is not None else None
         )
-        resolved_stderr_log_path = (
-            stderr_log_path
-            if stderr_log_path is not None
-            else (existing.stderr_log_path if existing is not None else None)
-        )
-        terminal_states = {"stopped", "completed", "failed", "blocked"}
-        resolved_last_terminal_state = (
-            state
-            if state in terminal_states
-            else (existing.last_terminal_state if existing is not None else None)
-        )
-        resolved_last_terminal_at = (
-            now
-            if state in terminal_states
-            else (existing.last_terminal_at if existing is not None else None)
+        resolved_last_terminal_state, resolved_last_terminal_at = (
+            _resolve_terminal_state(state=state, existing=existing, now=now)
         )
 
         self.conn.execute(
@@ -1159,7 +1356,7 @@ class TradingDatabase:
             self.settings,
             ServiceStateSnapshot(
                 service_name=service_name,
-                state=state,
+                state=cast(ServiceState, state),
                 updated_at=now,
                 started_at=started_at,
                 last_heartbeat_at=now,
@@ -1188,6 +1385,15 @@ class TradingDatabase:
     def get_service_state(
         self, service_name: str = "orchestrator"
     ) -> ServiceStateSnapshot | None:
+        """
+        Load the persisted service state snapshot for the given service name.
+        
+        Parameters:
+            service_name (str): Name of the service to retrieve (defaults to "orchestrator").
+        
+        Returns:
+            ServiceStateSnapshot | None: The deserialized service state snapshot for the service, or `None` if no row exists.
+        """
         row = self.conn.execute(
             """
             select service_name, state, updated_at, started_at, last_heartbeat_at,
@@ -1202,34 +1408,17 @@ class TradingDatabase:
         ).fetchone()
         if row is None:
             return None
-        return ServiceStateSnapshot(
-            service_name=str(row[0]),
-            state=str(row[1]),
-            updated_at=str(row[2]),
-            started_at=str(row[3]) if row[3] is not None else None,
-            last_heartbeat_at=str(row[4]) if row[4] is not None else None,
-            continuous=bool(row[5]),
-            poll_seconds=int(row[6]) if row[6] is not None else None,
-            cycle_count=int(row[7]),
-            symbols=json.loads(str(row[8])) if row[8] is not None else [],
-            interval=str(row[9]) if row[9] is not None else None,
-            lookback=str(row[10]) if row[10] is not None else None,
-            max_cycles=int(row[11]) if row[11] is not None else None,
-            current_symbol=str(row[12]) if row[12] is not None else None,
-            last_error=str(row[13]) if row[13] is not None else None,
-            pid=int(row[14]) if row[14] is not None else None,
-            stop_requested=bool(row[15]),
-            background_mode=bool(row[16]),
-            launch_count=int(row[17]),
-            restart_count=int(row[18]),
-            last_terminal_state=str(row[19]) if row[19] is not None else None,
-            last_terminal_at=str(row[20]) if row[20] is not None else None,
-            stdout_log_path=str(row[21]) if row[21] is not None else None,
-            stderr_log_path=str(row[22]) if row[22] is not None else None,
-            message=str(row[23]),
-        )
+        return _service_state_from_row(row)
 
     def request_stop_service(self, service_name: str = "orchestrator") -> None:
+        """
+        Mark the named service as stopping and persist the updated service snapshot.
+        
+        Updates the service record to request a stop (sets stop_requested to true, sets state to "stopping", updates timestamps and message) and, if a service snapshot exists after the update, writes that snapshot via write_service_state.
+        
+        Parameters:
+            service_name (str): The service to request stop for (defaults to "orchestrator").
+        """
         now = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
             """
@@ -1307,6 +1496,16 @@ class TradingDatabase:
     def list_service_events(
         self, limit: int = 20, service_name: str = "orchestrator"
     ) -> list[ServiceEvent]:
+        """
+        Fetch recent service events for the given service, ordered newest first.
+        
+        Parameters:
+            limit (int): Maximum number of events to return.
+            service_name (str): Service name to filter events by.
+        
+        Returns:
+            list[ServiceEvent]: List of service events for the service, ordered by created_at descending and limited by `limit`.
+        """
         rows = self.conn.execute(
             """
             select event_id, created_at, level, event_type, message, cycle_count, symbol
@@ -1323,7 +1522,7 @@ class TradingDatabase:
                 ServiceEvent(
                     event_id=str(row[0]),
                     created_at=str(row[1]),
-                    level=str(row[2]),
+                    level=cast(ServiceEventLevel, str(row[2])),
                     event_type=str(row[3]),
                     message=str(row[4]),
                     cycle_count=int(row[5]) if row[5] is not None else None,
@@ -1456,6 +1655,14 @@ class TradingDatabase:
         )
 
     def get_position_plan(self, symbol: str) -> PositionPlanSnapshot | None:
+        """
+        Retrieve the stored position plan for the given trading symbol.
+        
+        Numeric fields are converted to floats/ints and timestamp fields to strings when constructing the returned snapshot.
+        
+        Returns:
+            PositionPlanSnapshot for the symbol, or `None` if no plan exists.
+        """
         row = self.conn.execute(
             """
             select symbol, side, entry_price, stop_loss, take_profit,
@@ -1469,7 +1676,7 @@ class TradingDatabase:
             return None
         return PositionPlanSnapshot(
             symbol=str(row[0]),
-            side=str(row[1]),
+            side=cast(TradeSide, str(row[1])),
             entry_price=float(row[2]),
             stop_loss=float(row[3]),
             take_profit=float(row[4]),
@@ -1480,6 +1687,15 @@ class TradingDatabase:
         )
 
     def list_position_plans(self) -> list[PositionPlanSnapshot]:
+        """
+        Return all saved position plans ordered by symbol.
+        
+        Each entry is a PositionPlanSnapshot containing symbol, side, entry_price, stop_loss,
+        take_profit, max_holding_bars, holding_bars, invalidation_logic, and updated_at.
+        
+        Returns:
+            list[PositionPlanSnapshot]: Position plans ordered by symbol.
+        """
         rows = self.conn.execute(
             """
             select symbol, side, entry_price, stop_loss, take_profit,
@@ -1493,7 +1709,7 @@ class TradingDatabase:
             plans.append(
                 PositionPlanSnapshot(
                     symbol=str(row[0]),
-                    side=str(row[1]),
+                    side=cast(TradeSide, str(row[1])),
                     entry_price=float(row[2]),
                     stop_loss=float(row[3]),
                     take_profit=float(row[4]),

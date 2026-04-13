@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any
+import duckdb
 import pytest
 
 from agentic_trader.cli import app
@@ -26,6 +27,17 @@ from typer.testing import CliRunner
 
 
 def _artifacts(symbol: str) -> RunArtifacts:
+    """
+    Constructs a RunArtifacts object populated with deterministic test data for the given symbol.
+    
+    Provides a complete, self-contained run result used by tests: a MarketSnapshot and brief/coherent coordinator, regime, strategy, risk, manager, execution, and review sections.
+    
+    Parameters:
+        symbol (str): Ticker symbol placed into the snapshot.symbol and execution.symbol fields.
+    
+    Returns:
+        RunArtifacts: An instance containing populated test data for all run sections (snapshot, coordinator, regime, strategy, risk, manager, execution, review).
+    """
     return RunArtifacts(
         snapshot=MarketSnapshot(
             symbol=symbol,
@@ -96,6 +108,54 @@ def _artifacts(symbol: str) -> RunArtifacts:
     )
 
 
+def test_service_state_migration_allows_legacy_duckdb_file(tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    conn = duckdb.connect(str(settings.database_path))
+    conn.execute(
+        """
+        create table service_state (
+            service_name varchar primary key,
+            state varchar not null,
+            updated_at varchar not null,
+            started_at varchar,
+            last_heartbeat_at varchar,
+            continuous boolean not null,
+            poll_seconds integer,
+            cycle_count integer not null,
+            current_symbol varchar,
+            last_error varchar,
+            message varchar not null
+        )
+        """
+    )
+    conn.execute(
+        """
+        insert into service_state (
+            service_name, state, updated_at, continuous, poll_seconds,
+            cycle_count, message
+        )
+        values ('orchestrator', 'running', '2026-04-11T00:00:00+00:00',
+                true, 300, 3, 'Legacy state.')
+        """
+    )
+    conn.close()
+
+    db = TradingDatabase(settings)
+    state = db.get_service_state()
+    db.close()
+
+    assert state is not None
+    assert state.symbols == []
+    assert state.stop_requested is False
+    assert state.background_mode is False
+    assert state.launch_count == 0
+    assert state.restart_count == 0
+
+
 def test_run_service_records_runtime_state_and_events(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -156,7 +216,9 @@ def test_run_service_records_runtime_state_and_events(
     }
 
 
-def test_run_service_records_agent_stage_events(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_run_service_records_agent_stage_events(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -210,7 +272,9 @@ def test_run_service_records_agent_stage_events(monkeypatch: pytest.MonkeyPatch,
     assert "agent_manager_completed" in event_types
 
 
-def test_run_service_respects_stop_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_run_service_respects_stop_request(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -259,7 +323,19 @@ def test_run_service_respects_stop_request(monkeypatch: pytest.MonkeyPatch, tmp_
     assert state.stop_requested is True
 
 
-def test_start_background_service_records_spawn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_start_background_service_records_spawn(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    Verify that starting the background service spawns a process and persists the expected service state.
+    
+    The test stubs subprocess.Popen to return a fake process with pid 4242, calls start_background_service with a configured Settings and service parameters, and asserts that the returned pid and the stored service state reflect the spawn and configuration:
+    - pid matches the spawned process
+    - state is "starting"
+    - background_mode is True
+    - launch_count is 1 and restart_count is 0
+    - symbols, interval, and lookback are recorded as provided
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -358,6 +434,11 @@ def test_start_background_service_recovers_stale_pid(
 def test_restart_background_service_uses_last_recorded_config(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verifies that restart_background_service restarts the service using the last recorded service configuration.
+    
+    Sets a saved running service state (symbols, interval, lookback, pid, etc.), simulates the previous process as dead, stubs the background start function to return a fixed PID, calls restart_background_service, and asserts the returned PID matches the stubbed start result.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -378,18 +459,24 @@ def test_restart_background_service_uses_last_recorded_config(
         pid=99999,
     )
 
-    monkeypatch.setattr("agentic_trader.workflows.service.is_process_alive", lambda pid: False)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.is_process_alive", lambda pid: False
+    )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.start_background_service",
         lambda **kwargs: 5151,
     )
 
-    pid = restart_background_service(settings=settings, grace_seconds=0.0, workdir=tmp_path)
+    pid = restart_background_service(
+        settings=settings, grace_seconds=0.0, workdir=tmp_path
+    )
 
     assert pid == 5151
 
 
-def test_stop_service_command_marks_stop_requested(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_stop_service_command_marks_stop_requested(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

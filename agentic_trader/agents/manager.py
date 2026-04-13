@@ -1,4 +1,5 @@
 from agentic_trader.agents.context import render_agent_context
+from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
@@ -184,12 +185,20 @@ def _apply_confidence_calibration(
 
 
 def _fallback_manager(
-    snapshot: MarketSnapshot,
+    _snapshot: MarketSnapshot,
     coordinator: ResearchCoordinatorBrief,
     regime: RegimeAssessment,
     strategy: StrategyPlan,
     risk: RiskPlan,
 ) -> ManagerDecision:
+    """
+    Constructs a conservative, rule-based fallback ManagerDecision used when the LLM is unavailable or returns an invalid structured response.
+    
+    The decision approves the specialist plan only if the specialist's action is not "hold", the specialist confidence is at least 0.6, and the risk reward ratio is at least 1.5. The returned decision normalizes action bias to "buy"/"sell"/"hold", sets confidence_cap to the minimum of strategy and regime confidences, adjusts size_multiplier downward for capital preservation focus or high-volatility regimes and when specialist confidence is low, and populates escalation_flags to reflect defensive posture or no-trade outcomes. The decision's source is "fallback" and fallback_reason is set to the LLM fallback constant.
+    
+    Returns:
+        ManagerDecision: A guarded ManagerDecision with computed fields (approved, action_bias, confidence_cap, size_multiplier, rationale, escalation_flags, source="fallback", fallback_reason).
+    """
     approved = (
         strategy.action != "hold"
         and strategy.confidence >= 0.6
@@ -219,7 +228,7 @@ def _fallback_manager(
         rationale="Fallback manager combined specialist outputs into a guarded execution posture.",
         escalation_flags=flags,
         source="fallback",
-        fallback_reason="LLM unavailable or invalid structured response.",
+        fallback_reason=LLM_FALLBACK_REASON,
     )
 
 
@@ -234,6 +243,7 @@ def manage_trade_decision(
     allow_fallback: bool,
     context: AgentContext | None = None,
 ) -> ManagerDecision:
+    """Route specialist outputs through the manager and apply deterministic safeguards."""
     system_prompt = (
         "You are the manager agent for a systematic trading engine. "
         "Combine coordinator, regime, strategy, and risk outputs into a final execution posture. "

@@ -27,6 +27,7 @@ def build_confidence_calibration(
     strategy_family: str | None = None,
     limit: int = 100,
 ) -> ConfidenceCalibration:
+    """Summarize similar closed trades into a confidence multiplier for the manager."""
     entries = db.list_trade_journal(limit=limit)
     matches = _matching_entries(entries, snapshot, strategy_family=strategy_family)
     if not matches:

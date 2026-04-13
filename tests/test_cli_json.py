@@ -25,7 +25,30 @@ from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run
 
 
+def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
+    """
+    Raise a RuntimeError to simulate a database lock.
+    
+    This helper always raises RuntimeError("db locked") and is intended for use in tests to emulate a locked or unavailable database.
+    
+    Raises:
+        RuntimeError: with the message "db locked".
+    """
+    raise RuntimeError("db locked")
+
+
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
+    """
+    Builds a fully populated RunArtifacts instance with realistic sample data for use in tests.
+    
+    Parameters:
+        symbol (str): Ticker symbol to apply to the snapshot and execution sections (defaults to "AAPL").
+    
+    Returns:
+        RunArtifacts: An object containing a MarketSnapshot, ResearchCoordinatorBrief, RegimeAssessment,
+        StrategyPlan, RiskPlan, ManagerDecision, ExecutionDecision, ReviewNote, and a single AgentStageTrace
+        whose context_json and output_json are JSON-encoded strings.
+    """
     return RunArtifacts(
         snapshot=MarketSnapshot(
             symbol=symbol,
@@ -131,7 +154,17 @@ def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
     )
 
 
-def test_status_preferences_and_portfolio_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_status_preferences_and_portfolio_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    Verify status, preferences, and portfolio CLI JSON outputs reflect a completed service state and default settings.
+    
+    Sets up a temporary Settings and TradingDatabase with a service state of "completed", runs the CLI commands `status --json`, `preferences --json`, and `portfolio --json`, and asserts:
+    - the runtime is reported as inactive and the service state is "completed";
+    - the preferences report a "balanced" risk profile;
+    - the portfolio snapshot cash equals the settings' default cash and there are no positions.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -193,6 +226,21 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     db.insert_service_event(
         level="info", event_type="service_started", message="Started."
     )
+    db.insert_order(
+        {
+            "order_id": "paper-test",
+            "created_at": "2026-04-11T00:00:00+00:00",
+            "symbol": "AAPL",
+            "side": "buy",
+            "approved": True,
+            "entry_price": 100.0,
+            "stop_loss": 95.0,
+            "take_profit": 110.0,
+            "position_size_pct": 0.05,
+            "confidence": 0.72,
+            "rationale": "Test order.",
+        }
+    )
     db.conn.close()
 
     runner = CliRunner()
@@ -202,6 +250,8 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     doctor_payload = json.loads(doctor_result.stdout)
     assert doctor_payload["ollama_reachable"] is True
     assert doctor_payload["model_available"] is True
+    assert doctor_payload["latest_order"].startswith("paper-test | AAPL buy")
+    assert "(" not in doctor_payload["latest_order"]
 
     logs_result = runner.invoke(app, ["logs", "--json", "--limit", "5"])
     assert logs_result.exit_code == 0
@@ -209,7 +259,7 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert logs_payload[0]["event_type"] == "service_started"
 
 
-def test_preferences_and_portfolio_json_survive_db_lock(
+def test_rich_menu_eof_exits_cleanly(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
@@ -218,9 +268,43 @@ def test_preferences_and_portfolio_json_survive_db_lock(
     )
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("agentic_trader.tui.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.tui.LocalLLM.health_check",
+        lambda self: LLMHealthStatus(
+            provider="ollama",
+            base_url=self.settings.base_url,
+            model_name=self.settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ready",
+        ),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["menu"], input="2\n1\n")
+
+    assert result.exit_code == 0
+    assert "Control room closed cleanly" in result.stdout
+
+
+def test_preferences_and_portfolio_json_survive_db_lock(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    Ensures preferences and portfolio CLI JSON commands handle a locked database and return fallback responses.
+    
+    Monkeypatches the CLI settings and replaces the database opener with a function that raises RuntimeError("db locked"), then invokes the `preferences --json` and `portfolio --json` commands and asserts both exit successfully with `available == False` and expected fallback values (`risk_profile == "balanced"`, `positions == []`).
+    """
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli._open_db",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("db locked")),
+        _raise_db_locked,
     )
 
     runner = CliRunner()
@@ -238,7 +322,9 @@ def test_preferences_and_portfolio_json_survive_db_lock(
     assert portfolio_payload["positions"] == []
 
 
-def test_journal_risk_review_and_trace_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_journal_risk_review_and_trace_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -274,6 +360,11 @@ def test_journal_risk_review_and_trace_json(monkeypatch: pytest.MonkeyPatch, tmp
 
 
 def test_chat_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Integration test that verifies the CLI 'chat' command returns the expected JSON for a persona message.
+    
+    Mocks CLI settings and LLM/chat dependencies, invokes `chat --json --persona operator_liaison --message status?`, and asserts the returned JSON contains the requested `persona`, `message`, and the `response` value.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -297,7 +388,9 @@ def test_chat_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert payload["response"] == "runtime is healthy"
 
 
-def test_dashboard_snapshot_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_dashboard_snapshot_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -477,6 +570,10 @@ def test_supervisor_status_json_includes_log_tails(
     assert payload["stdout_tail"][-1] == "line-2"
     assert payload["stderr_tail"][-1] == "err-1"
 
+    human_result = runner.invoke(app, ["supervisor-status"])
+    assert human_result.exit_code == 0
+    assert "line-2" in human_result.stdout
+
 
 def test_broker_status_json_reports_execution_guardrails(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -550,10 +647,17 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
     assert "news" in snapshot_payload
     assert snapshot_payload["news"]["mode"] == "off"
     assert "marketCache" in snapshot_payload
-    assert snapshot_payload["chatHistory"]["entries"][0]["persona"] == "operator_liaison"
+    assert (
+        snapshot_payload["chatHistory"]["entries"][0]["persona"] == "operator_liaison"
+    )
 
 
 def test_market_cache_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Verify that the `market-cache` CLI command reports available market snapshot files and their filenames.
+    
+    Creates a single snapshot CSV in the configured market_data_cache_dir, invokes `market-cache --json`, and asserts the JSON `count` is 1 and the first entry's `filename` matches the created file.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

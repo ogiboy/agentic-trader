@@ -101,7 +101,9 @@ def test_run_from_snapshot_propagates_shared_memory_bus(
     strategy_trace = next(
         trace for trace in artifacts.agent_traces if trace.role == "strategy"
     )
-    manager_trace = next(trace for trace in artifacts.agent_traces if trace.role == "manager")
+    manager_trace = next(
+        trace for trace in artifacts.agent_traces if trace.role == "manager"
+    )
     strategy_context = json.loads(strategy_trace.context_json)
     manager_context = json.loads(manager_trace.context_json)
 

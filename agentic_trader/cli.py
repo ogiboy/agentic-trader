@@ -6,6 +6,7 @@ import sys
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 import typer
@@ -70,8 +71,22 @@ from agentic_trader.schemas import (
     TradeContextRecord,
     TradeJournalEntry,
 )
-from agentic_trader.storage.db import TradingDatabase
+from agentic_trader.storage.db import OrderRow, TradingDatabase
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
+from agentic_trader.ui_text import (
+    HELP_INTERVAL,
+    HELP_JSON,
+    HELP_LOOKBACK,
+    HELP_RUN_ID,
+    HELP_SYMBOL,
+    LABEL_MARKET_VALUE,
+    LABEL_OBSERVER_MODE,
+    LABEL_STRUCTURED_LLM,
+    LABEL_UNREALIZED_PNL,
+    LABEL_WIN_RATE,
+    TITLE_RUNTIME_EVENTS,
+    TITLE_SERVICE_STATUS,
+)
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import (
     ensure_llm_ready,
@@ -83,32 +98,84 @@ from agentic_trader.workflows.service import (
 app = typer.Typer(help="Agentic Trader CLI", invoke_without_command=True)
 console = Console()
 
-# Constants for CLI help text and labels (avoid duplication)
-HELP_JSON = "Emit machine-readable JSON."
-LABEL_STRUCTURED_LLM = "Structured LLM response"
-LABEL_MARKET_VALUE = "Market Value"
-LABEL_UNREALIZED_PNL = "Unrealized PnL"
-LABEL_WIN_RATE = "Win Rate"
-LABEL_OBSERVER_MODE = "Observer Mode"
-HELP_SYMBOL = "Ticker symbol, for example AAPL or BTC-USD"
-HELP_INTERVAL = "yfinance interval, for example 1d or 1h"
-HELP_LOOKBACK = "Lookback window accepted by yfinance"
-HELP_RUN_ID = "Run id to inspect. Defaults to the latest recorded run."
-DB_LOCKED_MSG = "The runtime writer currently owns the database."
-
 
 def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
+    """
+    Read up to the last `limit` lines from a UTF-8 text file and return them as a list of lines.
+    
+    If `path` is None or the file does not exist, an empty list is returned. Lines are decoded using UTF-8 with replacement for invalid bytes.
+    
+    Parameters:
+        path (Path | None): Path to the text file to read, or None to indicate absence.
+        limit (int): Maximum number of trailing lines to return (default 12).
+    
+    Returns:
+        list[str]: The last up to `limit` lines from the file, or an empty list if unavailable.
+    """
     if path is None or not path.exists():
         return []
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     return lines[-limit:]
 
 
+def _format_latest_order(order: OrderRow | None) -> str:
+    """
+    Format an OrderRow into a single-line human-readable summary.
+    
+    Parameters:
+        order (OrderRow | None): An order tuple or None.
+    
+    Returns:
+        str: A single-line summary for the given order in the form
+        "order_id | SYMBOL SIDE | approved=<bool> | entry=<price> | size=<pct> | confidence=<score>",
+        or the literal string "None" when `order` is None.
+    """
+    if order is None:
+        return "None"
+    (
+        order_id,
+        _created_at,
+        symbol,
+        side,
+        approved,
+        entry_price,
+        _stop_loss,
+        _take_profit,
+        position_size_pct,
+        confidence,
+    ) = order
+    return (
+        f"{order_id} | {symbol} {side} | approved={approved} | "
+        f"entry={entry_price:.4f} | size={position_size_pct:.2%} | "
+        f"confidence={confidence:.2f}"
+    )
+
+
 def _render_health_panel(status: str, body: str, *, border_style: str) -> Panel:
+    """
+    Create a rich Panel with the given title text and border style.
+    
+    Parameters:
+        status (str): Text to use as the panel title.
+        body (str): Text content to display inside the panel.
+        border_style (str): Rich style string applied to the panel border.
+    
+    Returns:
+        panel (Panel): A `rich.panel.Panel` containing `body`, titled with `status`, and using `border_style`.
+    """
     return Panel(body, title=status, border_style=border_style)
 
 
 def _render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
+    """
+    Render execution summary panels for a completed run to the console.
+    
+    Displays an "Execution Summary" table (order id, approval, side, confidence, entry/stop/take-profit, and decision path), a "Pipeline" table showing each agent stage's source and any fallback reason, a warning panel if any fallbacks occurred (otherwise a green LLM-status panel), and a JSON panel containing the serialized run artifacts.
+    
+    Parameters:
+        order_id (str): The identifier of the order to display in the summary.
+        artifacts (RunArtifacts): RunArtifacts object containing coordinator, regime, strategy, risk, manager, and execution details used to populate the panels.
+    """
     fallback_components: list[str] = artifacts.fallback_components()
     summary = Table(title="Execution Summary")
     summary.add_column("Field")
@@ -132,27 +199,27 @@ def _render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
     pipeline.add_row(
         "Coordinator",
         artifacts.coordinator.source,
-        artifacts.coordinator.fallback_reason or "Structured LLM response",
+        artifacts.coordinator.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
         "Regime",
         artifacts.regime.source,
-        artifacts.regime.fallback_reason or "Structured LLM response",
+        artifacts.regime.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
         "Strategy",
         artifacts.strategy.source,
-        artifacts.strategy.fallback_reason or "Structured LLM response",
+        artifacts.strategy.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
         "Risk",
         artifacts.risk.source,
-        artifacts.risk.fallback_reason or "Structured LLM response",
+        artifacts.risk.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
         "Manager",
         artifacts.manager.source,
-        artifacts.manager.fallback_reason or "Structured LLM response",
+        artifacts.manager.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     console.print(Columns([summary, pipeline]))
 
@@ -199,19 +266,27 @@ def _render_instruction(instruction: OperatorInstruction) -> None:
 
 
 def _render_service_state(state: ServiceStateSnapshot | None) -> None:
+    """
+    Render the service runtime status to the console using rich panels and tables.
+    
+    If `state` is None or contains no runtime state, prints a yellow panel stating that no runtime state is recorded. Otherwise prints a table titled with the service status containing key runtime fields such as service name, runtime state, live process flag, heartbeat/heartbeat age, start/updated times, polling and cycle configuration, symbols/interval/lookback, PID and stop-requested flag, and the last recorded message/error.
+     
+    Parameters:
+        state (ServiceStateSnapshot | None): Snapshot of the supervisor/service runtime state; pass None to indicate no recorded runtime state.
+    """
     view = build_runtime_status_view(state)
     if view.state is None:
         console.print(
             Panel(
                 "No runtime state recorded yet.",
-                title="Service Status",
+                title=TITLE_SERVICE_STATUS,
                 border_style="yellow",
             )
         )
         return
     snapshot = view.state
 
-    table = Table(title="Service Status")
+    table = Table(title=TITLE_SERVICE_STATUS)
     table.add_column("Key")
     table.add_column("Value")
     table.add_row("Service", snapshot.service_name)
@@ -234,7 +309,8 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     table.add_row("Interval", snapshot.interval or "-")
     table.add_row("Lookback", snapshot.lookback or "-")
     table.add_row(
-        "Max Cycles", str(snapshot.max_cycles) if snapshot.max_cycles is not None else "-"
+        "Max Cycles",
+        str(snapshot.max_cycles) if snapshot.max_cycles is not None else "-",
     )
     table.add_row("Current Symbol", snapshot.current_symbol or "-")
     table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
@@ -246,17 +322,23 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
 
 
 def _render_service_events(events: list[ServiceEvent]) -> None:
+    """
+    Render a list of runtime service events as a rich table, or show a yellow placeholder panel when no events exist.
+    
+    Parameters:
+        events (list[ServiceEvent]): Sequence of service event records to display; each event should provide created time, level, type, cycle count, symbol, and message.
+    """
     if not events:
         console.print(
             Panel(
                 "No runtime events recorded yet.",
-                title="Runtime Events",
+                title=TITLE_RUNTIME_EVENTS,
                 border_style="yellow",
             )
         )
         return
 
-    table = Table(title="Runtime Events")
+    table = Table(title=TITLE_RUNTIME_EVENTS)
     table.add_column("Created")
     table.add_column("Level")
     table.add_column("Type")
@@ -310,15 +392,23 @@ def _render_trade_journal(entries: list[TradeJournalEntry]) -> None:
 
 
 def _render_risk_report(report: DailyRiskReport) -> None:
+    """
+    Render a DailyRiskReport to the console as a formatted table and a risk-warnings panel.
+    
+    Displays a table titled with the report date containing generated time, cash, market value, equity, realized/unrealized PnL, counts (open positions, fills, marks), daily realized PnL, exposure metrics, largest position, and drawdown. After the table, prints a yellow "Risk Warnings" panel listing each warning if any exist, otherwise prints a green panel indicating no elevated warnings.
+    
+    Parameters:
+        report (DailyRiskReport): The risk report data to render.
+    """
     table = Table(title=f"Daily Risk Report / {report.report_date}")
     table.add_column("Field")
     table.add_column("Value")
     table.add_row("Generated", report.generated_at)
     table.add_row("Cash", f"{report.cash:.2f}")
-    table.add_row("Market Value", f"{report.market_value:.2f}")
+    table.add_row(LABEL_MARKET_VALUE, f"{report.market_value:.2f}")
     table.add_row("Equity", f"{report.equity:.2f}")
     table.add_row("Realized PnL", f"{report.realized_pnl:.2f}")
-    table.add_row("Unrealized PnL", f"{report.unrealized_pnl:.2f}")
+    table.add_row(LABEL_UNREALIZED_PNL, f"{report.unrealized_pnl:.2f}")
     table.add_row("Open Positions", str(report.open_positions))
     table.add_row("Fills Today", str(report.fills_today))
     table.add_row("Marks Recorded", str(report.marks_recorded))
@@ -346,6 +436,12 @@ def _render_risk_report(report: DailyRiskReport) -> None:
 
 
 def _render_run_review(record: RunRecord) -> None:
+    """
+    Render a human-readable run review to the console, showing metadata, agent decisions, manager override notes, manager conflicts, and the structured review note.
+    
+    Parameters:
+        record (RunRecord): Persisted run record whose metadata and artifacts will be rendered.
+    """
     metadata = Table(title=f"Run Review / {record.run_id}")
     metadata.add_column("Field")
     metadata.add_column("Value")
@@ -394,7 +490,9 @@ def _render_run_review(record: RunRecord) -> None:
     console.print(Columns([metadata, analysis]))
     console.print(
         Panel(
-            "\n".join(f"- {note}" for note in _manager_override_notes(record.artifacts)),
+            "\n".join(
+                f"- {note}" for note in _manager_override_notes(record.artifacts)
+            ),
             title="Manager Override Notes",
             border_style="yellow",
         )
@@ -494,6 +592,15 @@ def _render_run_markdown(record: RunRecord) -> str:
 
 
 def _manager_override_notes(artifacts: RunArtifacts) -> list[str]:
+    """
+    Produce a list of human-readable notes describing any manager overrides present in the run artifacts.
+    
+    Parameters:
+        artifacts (RunArtifacts): Run artifacts containing manager, strategy, and execution decisions to inspect.
+    
+    Returns:
+        list[str]: A list of note strings describing each detected override. If no overrides are detected, returns a single-item list with an acceptance message.
+    """
     notes: list[str] = []
     if artifacts.manager.action_bias != artifacts.strategy.action:
         notes.append(
@@ -512,7 +619,9 @@ def _manager_override_notes(artifacts: RunArtifacts) -> list[str]:
             f"Execution approval {artifacts.execution.approved} differed from manager approval {artifacts.manager.approved}."
         )
     if not notes:
-        notes.append("Manager accepted the specialist plan without additional overrides.")
+        notes.append(
+            "Manager accepted the specialist plan without additional overrides."
+        )
     return notes
 
 
@@ -629,6 +738,14 @@ def _render_run_replay(replay: RunReplay) -> None:
 
 
 def _render_backtest_report(report: BacktestReport) -> None:
+    """
+    Render a walk-forward backtest summary and a table of recent trades to the console using rich tables.
+    
+    The summary table shows key backtest metadata and aggregated metrics (interval, lookback, warmup bars, cycle and trade counts, win rate, expectancy, total return, max drawdown, exposure, and fallback cycles). The trades table lists up to the last 12 trades with entry/exit times, side, entry/exit prices, PnL, and exit reason.
+    
+    Parameters:
+        report (BacktestReport): Backtest results and associated trade records to display.
+    """
     summary = Table(title=f"Walk-Forward Backtest / {report.symbol}")
     summary.add_column("Field")
     summary.add_column("Value")
@@ -638,7 +755,7 @@ def _render_backtest_report(report: BacktestReport) -> None:
     summary.add_row("Cycles", str(report.total_cycles))
     summary.add_row("Trades", str(report.total_trades))
     summary.add_row("Closed Trades", str(report.closed_trades))
-    summary.add_row("Win Rate", f"{report.win_rate:.2%}")
+    summary.add_row(LABEL_WIN_RATE, f"{report.win_rate:.2%}")
     summary.add_row("Expectancy", f"{report.expectancy:.2f}")
     summary.add_row("Total Return", f"{report.total_return_pct:.2%}")
     summary.add_row("Max Drawdown", f"{report.max_drawdown_pct:.2%}")
@@ -671,6 +788,12 @@ def _render_backtest_report(report: BacktestReport) -> None:
 
 
 def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
+    """
+    Render a Rich table comparing agent and baseline backtest metrics for the report's symbol.
+    
+    Parameters:
+        report (BacktestComparisonReport): Comparison report containing the agent and baseline metrics and symbol.
+    """
     table = Table(title=f"Backtest Comparison / {report.symbol}")
     table.add_column("Metric")
     table.add_column("Agent")
@@ -689,7 +812,7 @@ def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
         str(report.agent.closed_trades - report.baseline.closed_trades),
     )
     table.add_row(
-        "Win Rate",
+        LABEL_WIN_RATE,
         f"{report.agent.win_rate:.2%}",
         f"{report.baseline.win_rate:.2%}",
         f"{report.agent.win_rate - report.baseline.win_rate:.2%}",
@@ -728,6 +851,12 @@ def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
 
 
 def _render_backtest_ablation(report: BacktestAblationReport) -> None:
+    """
+    Render a memory-ablation backtest comparison table to the console.
+    
+    Parameters:
+        report (BacktestAblationReport): Backtest results containing `with_memory` and `without_memory` metrics and the tested symbol; used to populate metric rows (trades, win rate, expectancy, return, ending equity).
+    """
     table = Table(title=f"Backtest Memory Ablation / {report.symbol}")
     table.add_column("Metric")
     table.add_column("With Memory")
@@ -740,7 +869,7 @@ def _render_backtest_ablation(report: BacktestAblationReport) -> None:
         str(report.with_memory.total_trades - report.without_memory.total_trades),
     )
     table.add_row(
-        "Win Rate",
+        LABEL_WIN_RATE,
         f"{report.with_memory.win_rate:.2%}",
         f"{report.without_memory.win_rate:.2%}",
         f"{report.with_memory.win_rate - report.without_memory.win_rate:.2%}",
@@ -879,6 +1008,18 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
 def _risk_report_payload(
     settings: Settings, *, report_date: str | None = None
 ) -> dict[str, object]:
+    """
+    Builds a payload containing the daily risk report (or an error indicator) for CLI/observer use.
+    
+    Parameters:
+        report_date (str | None): ISO date string (YYYY-MM-DD) to generate the report for. If None, uses the default/latest date.
+    
+    Returns:
+        dict: A mapping with keys:
+            - "available" (bool): `True` if the report was produced, `False` on error.
+            - "error" (str | None): Error message when `available` is `False`, otherwise `None`.
+            - "report" (dict | None): JSON-serializable representation of the daily risk report when available, otherwise `None`.
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -898,7 +1039,21 @@ def _risk_report_payload(
     }
 
 
-def _run_record_payload(settings: Settings, *, run_id: str | None = None) -> dict[str, object]:
+def _run_record_payload(
+    settings: Settings, *, run_id: str | None = None
+) -> dict[str, object]:
+    """
+    Builds a payload containing a persisted run record (or the latest run) and availability metadata.
+    
+    Parameters:
+        run_id (str | None): Optional run identifier; when None the latest persisted run is loaded.
+    
+    Returns:
+        dict[str, object]: Payload with keys:
+            - "available": `True` if the database read succeeded, `False` on error.
+            - "error": Error message string when unavailable, otherwise `None`.
+            - "record": JSON-serializable dict of the run record when available, otherwise `None`.
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -945,10 +1100,28 @@ def _trade_context_payload(
 
 
 def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
+    """
+    Builds a read-only supervisor payload describing the orchestrator runtime and recent log tails.
+    
+    Returns:
+        payload (dict[str, object]): Dictionary with keys:
+            - `runtime_state`: serialized runtime state view status string.
+            - `live_process`: process metadata for the running service (or `None`).
+            - `is_stale`: `true` if the runtime heartbeat is stale, `false` otherwise.
+            - `age_seconds`: age of the last heartbeat in seconds (or `None` if unavailable).
+            - `status_message`: human-readable status message for the runtime view.
+            - `state`: JSON-serializable snapshot of the full service state (or `None`).
+            - `stdout_tail`: list of last lines from the service stdout log (empty list if not available).
+            - `stderr_tail`: list of last lines from the service stderr log (empty list if not available).
+    """
     state = read_service_state(settings)
     view = build_runtime_status_view(state)
-    stdout_path = Path(state.stdout_log_path) if state and state.stdout_log_path else None
-    stderr_path = Path(state.stderr_log_path) if state and state.stderr_log_path else None
+    stdout_path = (
+        Path(state.stdout_log_path) if state and state.stdout_log_path else None
+    )
+    stderr_path = (
+        Path(state.stderr_log_path) if state and state.stderr_log_path else None
+    )
     return {
         "runtime_state": view.runtime_state,
         "live_process": view.live_process,
@@ -966,6 +1139,17 @@ def _broker_payload(settings: Settings) -> dict[str, object]:
 
 
 def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
+    """
+    Selects a sensible default trading symbol based on the given investment preferences.
+    
+    Prefers a Turkish exchange symbol ("THYAO.IS") when preferences indicate BIST or TR; prefers a US equity ("AAPL") when NASDAQ/NYSE or US region is present; otherwise returns a crypto USD symbol ("BTC-USD").
+    
+    Parameters:
+        preferences (InvestmentPreferences): Saved investment preferences with `exchanges` and `regions` used to determine a representative default symbol.
+    
+    Returns:
+        str: A default symbol string chosen from "THYAO.IS", "AAPL", or "BTC-USD".
+    """
     if "BIST" in preferences.exchanges or "TR" in preferences.regions:
         return "THYAO.IS"
     if (
@@ -977,7 +1161,21 @@ def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
     return "BTC-USD"
 
 
-def _calendar_payload(settings: Settings, *, symbol: str | None = None) -> dict[str, object]:
+def _calendar_payload(
+    settings: Settings, *, symbol: str | None = None
+) -> dict[str, object]:
+    """
+    Builds a payload describing the market session for a resolved symbol and whether it could be retrieved.
+    
+    Parameters:
+        symbol (str | None): Optional explicit symbol to use. If None, the function uses the latest run's symbol when available, otherwise derives a default from saved investment preferences.
+    
+    Returns:
+        dict[str, object]: A dictionary with:
+            - "available" (bool): True when a session was successfully inferred, False on error.
+            - "error" (str | None): The exception message when unavailable, otherwise None.
+            - "session" (dict | None): JSON-serializable market session data when available, otherwise None.
+    """
     try:
         preferences = InvestmentPreferences()
         record = None
@@ -1006,7 +1204,24 @@ def _calendar_payload(settings: Settings, *, symbol: str | None = None) -> dict[
     }
 
 
-def _news_payload(settings: Settings, *, symbol: str | None = None) -> dict[str, object]:
+def _news_payload(
+    settings: Settings, *, symbol: str | None = None
+) -> dict[str, object]:
+    """
+    Builds a payload containing recent news headlines for a resolved trading symbol.
+    
+    Parameters:
+        settings (Settings): Application settings used to determine news mode and I/O behavior.
+        symbol (str | None): Optional explicit symbol to fetch headlines for; when omitted the symbol is resolved from the latest run record or from saved preferences.
+    
+    Returns:
+        dict[str, object]: A mapping with keys:
+            - "available": `True` if headlines were retrieved, `False` otherwise.
+            - "error": Error message string when unavailable, or `None` on success.
+            - "mode": The configured news mode from `settings`.
+            - "symbol": The resolved symbol used to fetch headlines (may be `None` if unresolved).
+            - "headlines": A list of headline objects serialized as JSON-compatible dicts.
+    """
     try:
         preferences = InvestmentPreferences()
         record = None
@@ -1160,6 +1375,18 @@ def _retrieval_inspection_payload(
 
 
 def _chat_history_payload(settings: Settings, *, limit: int = 12) -> dict[str, object]:
+    """
+    Builds a payload containing recent chat history entries for observer/CLI consumption.
+    
+    Parameters:
+        limit (int): Maximum number of most-recent chat history entries to include.
+    
+    Returns:
+        dict: A mapping with keys:
+            - "available": `True` if chat history was read successfully, `False` otherwise.
+            - "error": Error message string when unavailable, or `None` on success.
+            - "entries": List of chat history entries serialized to JSON-compatible dicts.
+    """
     try:
         entries = read_chat_history(settings, limit=limit)
         available = True
@@ -1175,7 +1402,23 @@ def _chat_history_payload(settings: Settings, *, limit: int = 12) -> dict[str, o
     }
 
 
-def _run_replay_payload(settings: Settings, *, run_id: str | None = None) -> dict[str, object]:
+def _run_replay_payload(
+    settings: Settings, *, run_id: str | None = None
+) -> dict[str, object]:
+    """
+    Builds a JSON-serializable replay payload for a persisted run record for observer and CLI use.
+    
+    If a run record is not available or an error occurs while loading it, the payload will indicate availability as `False`, include the error message, and set `replay` to `None`.
+    
+    Parameters:
+        run_id (str | None): Optional run identifier; when `None`, the latest persisted run is used.
+    
+    Returns:
+        dict[str, object]: A payload containing:
+            - `available` (bool): `True` when the replay was successfully built, `False` otherwise.
+            - `error` (str | None): Error message when unavailable, otherwise `None`.
+            - `replay` (dict | None): The replay data serialized to plain JSON-serializable structures when available; `None` if unavailable.
+    """
     record_payload = _run_record_payload(settings, run_id=run_id)
     record_json = record_payload["record"]
     if record_payload["available"] is False or record_json is None:
@@ -1238,18 +1481,24 @@ def app_entry(ctx: typer.Context) -> None:
 
 
 @app.command()
-def doctor(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
-) -> None:
-    """Validate local configuration and print runtime settings."""
+def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
+    """
+    Check local environment and display LLM and database runtime status.
+    
+    Prints a rich table and a readiness health panel showing configured model, runtime and database paths, database availability, the latest persisted order, and LLM reachability/model availability. If `json_output` is true, emits an equivalent JSON payload instead of rendering terminal output.
+    
+    Parameters:
+        json_output (bool): If true, output the environment payload as JSON rather than rendering rich UI.
+    """
     settings = get_settings()
     latest: str
     db_status = "ok"
     try:
         db = _open_db(settings, read_only=True)
-        latest = str(db.latest_order())
+        try:
+            latest = _format_latest_order(db.latest_order())
+        finally:
+            db.close()
     except Exception as exc:
         latest = "unavailable"
         db_status = f"Database unavailable: {exc}"
@@ -1312,11 +1561,21 @@ def doctor(
 
 @app.command()
 def run(
-    symbol: str = typer.Option(..., help="Ticker symbol, for example AAPL or BTC-USD"),
-    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
-    lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
+    symbol: str = typer.Option(..., help=HELP_SYMBOL),
+    interval: str = typer.Option("1d", help=HELP_INTERVAL),
+    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
 ) -> None:
-    """Run one strict LLM-backed agent cycle and log a paper order."""
+    """
+    Run a single agent cycle using the configured LLM and record the resulting paper order.
+    
+    Parameters:
+        symbol (str): Trading symbol to evaluate.
+        interval (str): Candlestick interval to use (e.g., "1d", "1h").
+        lookback (str): Historical lookback window to build the market snapshot (e.g., "180d").
+    
+    Raises:
+        typer.Exit: Exits with code 1 if the run fails.
+    """
     settings = get_settings()
     try:
         ensure_llm_ready(settings)
@@ -1345,8 +1604,8 @@ def launch(
     symbols: str = typer.Option(
         ..., help="Comma-separated symbols, for example AAPL,MSFT,BTC-USD"
     ),
-    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
-    lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
+    interval: str = typer.Option("1d", help=HELP_INTERVAL),
+    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
     poll_seconds: int = typer.Option(
         300, help="Sleep between cycles in continuous mode."
     ),
@@ -1358,7 +1617,24 @@ def launch(
         False, help="Spawn the orchestrator as a background service."
     ),
 ) -> None:
-    """Start the strict paper-trading runtime from the project root."""
+    """
+    Start the agent orchestrator using the provided symbols and runtime options.
+    
+    This command launches the trading orchestrator either in the foreground (runs until completion or stopped) or as a background service (daemon). It validates the provided symbols and runtime flags, then either starts a background service or runs the service loop and renders the latest execution result.
+    
+    Parameters:
+        symbols (str): Comma-separated symbols (e.g., "AAPL,MSFT,BTC-USD").
+        interval (str): OHLCV interval to use for market data (e.g., "1d").
+        lookback (str): Historical lookback window (e.g., "180d").
+        poll_seconds (int): Sleep interval between cycles when running continuously.
+        continuous (bool): If true, keep the orchestrator running across cycles.
+        max_cycles (int | None): Optional cap on the number of cycles when running continuously.
+        background (bool): If true, spawn the orchestrator as a background service (requires --continuous).
+    
+    Raises:
+        typer.BadParameter: If no symbols are provided or if background is requested without --continuous.
+        typer.Exit: Exits with code 1 on runtime errors encountered during launch.
+    """
     settings = get_settings()
     symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
     if not symbol_list:
@@ -1433,16 +1709,17 @@ def launch(
 
 @app.command()
 def portfolio(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
     """Show the current paper portfolio and open positions."""
     settings = get_settings()
     payload = _portfolio_payload(settings)
-    snapshot = PortfolioSnapshot.model_validate(payload["snapshot"])
+    snapshot = PortfolioSnapshot.model_validate(
+        cast(dict[str, object], payload["snapshot"])
+    )
+    position_payloads = cast(list[dict[str, object]], payload["positions"])
     positions = [
-        PositionSnapshot.model_validate(position) for position in payload["positions"]
+        PositionSnapshot.model_validate(position) for position in position_payloads
     ]
     available = bool(payload["available"])
     error = payload["error"]
@@ -1453,7 +1730,7 @@ def portfolio(
         console.print(
             Panel(
                 f"Portfolio view is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -1463,10 +1740,10 @@ def portfolio(
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row("Market Value", f"{snapshot.market_value:.2f}")
+    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
     summary.add_row("Equity", f"{snapshot.equity:.2f}")
     summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row("Unrealized PnL", f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
     summary.add_row("Open Positions", str(snapshot.open_positions))
     console.print(summary)
 
@@ -1475,8 +1752,8 @@ def portfolio(
     positions_table.add_column("Quantity")
     positions_table.add_column("Average Price")
     positions_table.add_column("Market Price")
-    positions_table.add_column("Market Value")
-    positions_table.add_column("Unrealized PnL")
+    positions_table.add_column(LABEL_MARKET_VALUE)
+    positions_table.add_column(LABEL_UNREALIZED_PNL)
     for position in positions:
         positions_table.add_row(
             position.symbol,
@@ -1495,12 +1772,18 @@ def portfolio(
 
 
 @app.command()
-def status(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
-) -> None:
-    """Show the current orchestrator runtime state."""
+def status(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
+    """
+    Show the current orchestrator runtime state.
+    
+    When json_output is True, emit a JSON payload containing keys
+    `runtime_state`, `live_process`, `is_stale`, `age_seconds`,
+    `status_message`, and `state`. Otherwise render a human-readable
+    runtime status view to the terminal.
+    
+    Parameters:
+        json_output (bool): If True, output the status as machine-readable JSON; if False, render rich terminal panels.
+    """
     settings = get_settings()
     state = read_service_state(settings)
     if json_output:
@@ -1525,9 +1808,7 @@ def status(
 
 @app.command("supervisor-status")
 def supervisor_status(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
     """Show daemon supervision metadata and recent background log tails."""
     settings = get_settings()
@@ -1564,14 +1845,16 @@ def supervisor_status(
     console.print(table)
     console.print(
         Panel(
-            "\n".join(cast(list[str], payload["stdout_tail"])) or "No stdout log lines yet.",
+            "\n".join(cast(list[str], payload["stdout_tail"]))
+            or "No stdout log lines yet.",
             title="Service Stdout Tail",
             border_style="cyan",
         )
     )
     console.print(
         Panel(
-            "\n".join(cast(list[str], payload["stderr_tail"])) or "No stderr log lines yet.",
+            "\n".join(cast(list[str], payload["stderr_tail"]))
+            or "No stderr log lines yet.",
             title="Service Stderr Tail",
             border_style="yellow",
         )
@@ -1580,9 +1863,7 @@ def supervisor_status(
 
 @app.command("broker-status")
 def broker_status(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
     """Show the active broker backend and execution safety gates."""
     settings = get_settings()
@@ -1609,11 +1890,15 @@ def logs(
     limit: int = typer.Option(
         20, min=1, max=200, help="Maximum number of runtime events to show."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show recent orchestrator runtime events."""
+    """
+    Display recent orchestrator runtime events.
+    
+    Parameters:
+        limit (int): Maximum number of runtime events to return.
+        json_output (bool): If True, output the events as JSON instead of rendering rich panels.
+    """
     settings = get_settings()
     events = read_service_events(settings, limit=limit)
     if json_output:
@@ -1636,6 +1921,24 @@ def dashboard_snapshot(
 def build_dashboard_snapshot_payload(
     settings: Settings, *, log_limit: int = 14
 ) -> dict[str, object]:
+    """
+    Assembles a comprehensive dashboard snapshot payload aggregating runtime, service, agent, and persisted data for the observer API.
+    
+    Builds a JSON-serializable dictionary containing:
+    - doctor: LLM and database health, model routing, latest recorded order, and runtime paths.
+    - status: runtime service view including staleness, age, message, and serialized state snapshot.
+    - supervisor, broker: supervisor and broker payloads.
+    - logs: recent service events (up to `log_limit`).
+    - agentActivity: current and recent agent cycle/stage summaries and stage status lists.
+    - portfolio, preferences, journal, riskReport, review, trace, tradeContext, replay, memoryExplorer, retrievalInspection, memoryPolicy, chatHistory, calendar, news, marketCache: read-only payloads produced by their respective helper functions.
+    
+    Parameters:
+        settings (Settings): Application settings and paths used to query services and the database.
+        log_limit (int): Maximum number of recent service events to include in `logs` (default 14).
+    
+    Returns:
+        dict[str, object]: A JSON-serializable snapshot payload suitable for the observer API, keyed by the sections described above.
+    """
     llm = LocalLLM(settings)
     health = llm.health_check()
     state = read_service_state(settings)
@@ -1646,7 +1949,7 @@ def build_dashboard_snapshot_payload(
     try:
         db = _open_db(settings, read_only=True)
         try:
-            latest = str(db.latest_order())
+            latest = _format_latest_order(db.latest_order())
         finally:
             db.close()
     except Exception as exc:
@@ -1739,13 +2042,33 @@ def build_dashboard_snapshot_payload(
 def build_observer_api_payload(
     settings: Settings, *, path: str, log_limit: int = 14
 ) -> tuple[int, dict[str, object]]:
+    """
+    Resolve an observer API request path into an HTTP status code and a JSON-serializable payload.
+    
+    Supported paths:
+    - "/" or "/dashboard": returns a full dashboard snapshot payload.
+    - "/health": returns service name, basic OK flag, and the runtime status sub-object.
+    - "/status": returns a detailed runtime status view (runtime_state, live_process, is_stale, age_seconds, status_message, state).
+    - "/logs": returns a list of recent service events under the "logs" key.
+    - "/broker": returns broker runtime payload.
+    - any other path: returns 404 with {"error": "not_found", "path": <requested path>}.
+    
+    Parameters:
+        path (str): The requested API path.
+        log_limit (int): Maximum number of log events to include for the "/logs" path.
+    
+    Returns:
+        tuple[int, dict[str, object]]: A pair of (HTTP status code, payload dictionary) appropriate for the given path.
+    """
     if path in {"/", "/dashboard"}:
         return 200, build_dashboard_snapshot_payload(settings, log_limit=log_limit)
     if path == "/health":
         return 200, {
             "service": "agentic-trader-observer-api",
             "ok": True,
-            "runtime": build_runtime_status_view(read_service_state(settings)).runtime_state,
+            "runtime": build_runtime_status_view(
+                read_service_state(settings)
+            ).runtime_state,
         }
     if path == "/status":
         state = read_service_state(settings)
@@ -1756,7 +2079,9 @@ def build_observer_api_payload(
             "is_stale": view.is_stale,
             "age_seconds": view.age_seconds,
             "status_message": view.status_message,
-            "state": view.state.model_dump(mode="json") if view.state is not None else None,
+            "state": (
+                view.state.model_dump(mode="json") if view.state is not None else None
+            ),
         }
     if path == "/logs":
         return 200, {
@@ -1772,13 +2097,24 @@ def build_observer_api_payload(
 
 @app.command("observer-api")
 def observer_api_command(
-    host: str = typer.Option("127.0.0.1", help="Bind address for the local observer API."),
-    port: int = typer.Option(8765, min=1, max=65535, help="Bind port for the local observer API."),
+    host: str = typer.Option(
+        "127.0.0.1", help="Bind address for the local observer API."
+    ),
+    port: int = typer.Option(
+        8765, min=1, max=65535, help="Bind port for the local observer API."
+    ),
     log_limit: int = typer.Option(
         14, min=1, max=100, help="Maximum number of runtime events to include."
     ),
 ) -> None:
-    """Serve read-only runtime state over a local HTTP API for future WebUI attach flows."""
+    """
+    Start a local, read-only HTTP observer API exposing runtime and diagnostic endpoints.
+    
+    Parameters:
+    	host (str): Bind address for the observer API.
+    	port (int): TCP port to bind the observer API (1–65535).
+    	log_limit (int): Maximum number of recent runtime events to include in responses.
+    """
     settings = get_settings()
     console.print(
         Panel(
@@ -1802,11 +2138,17 @@ def calendar_status(
         None,
         help="Optional ticker symbol. Defaults to the latest run symbol or preference-derived default.",
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show the inferred market session state for a symbol."""
+    """
+    Display the inferred market session status for a symbol.
+    
+    If `symbol` is omitted the function resolves a symbol from the latest run or user preferences. If `json_output` is true the command emits the raw payload as JSON. When session data is unavailable the command prints a notice and exits with code 0.
+    
+    Parameters:
+        symbol (str | None): Optional ticker symbol; if None the latest run symbol or a preference-derived default is used.
+        json_output (bool): When true, emit the raw payload as JSON instead of rendering a table.
+    """
     settings = get_settings()
     payload = _calendar_payload(settings, symbol=symbol)
     if json_output:
@@ -1837,11 +2179,15 @@ def calendar_status(
 @app.command("news-brief")
 def news_brief(
     symbol: str | None = typer.Option(None, help="Optional symbol override."),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show news tool output for the resolved symbol."""
+    """
+    Show a news brief for a resolved trading symbol or emit the raw payload as JSON.
+    
+    If no symbol is provided, the CLI resolves one from saved preferences or the latest run. With --json the function prints the underlying payload; otherwise it renders a short summary table and one panel per headline.
+    @param symbol: Optional symbol override; when omitted the command resolves a default symbol from preferences or the latest run.
+    @param json_output: When true, emit the raw payload as JSON instead of human-readable tables and panels.
+    """
     settings = get_settings()
     payload = _news_payload(settings, symbol=symbol)
     if json_output:
@@ -1852,9 +2198,9 @@ def news_brief(
     table.add_column("Value")
     table.add_row("Mode", str(payload["mode"]))
     table.add_row("Available", str(payload["available"]))
-    table.add_row("Headlines", str(len(payload["headlines"])))
+    headlines = cast(list[dict[str, object]], payload["headlines"])
+    table.add_row("Headlines", str(len(headlines)))
     console.print(table)
-    headlines = payload["headlines"]
     if not headlines:
         console.print(
             Panel(
@@ -1868,7 +2214,7 @@ def news_brief(
         console.print(
             Panel(
                 f"{headline['publisher']} | {headline['title']}",
-                title=headline["symbol"],
+                title=str(headline["symbol"]),
                 border_style="cyan",
             )
         )
@@ -1900,11 +2246,13 @@ def cache_market_data(
 
 @app.command("market-cache")
 def market_cache(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
-    """List saved repeatable market snapshots."""
+    """
+    Show cached market snapshot metadata as a human-readable table or, when requested, emit the full payload as JSON.
+    
+    If the `--json` option is provided, the function emits the observer-style payload produced by the market cache payload builder; otherwise it prints a summarized table of recent cache entries and a compact cache status panel.
+    """
     settings = get_settings()
     payload = _market_cache_payload(settings)
     if json_output:
@@ -1914,10 +2262,11 @@ def market_cache(
     table.add_column("Filename")
     table.add_column("Size")
     table.add_column("Modified")
-    if not payload["entries"]:
+    entries = cast(list[dict[str, object]], payload["entries"])
+    if not entries:
         table.add_row("-", "-", "-")
     else:
-        for entry in payload["entries"][:20]:
+        for entry in entries[:20]:
             table.add_row(
                 str(entry["filename"]),
                 str(entry["size_bytes"]),
@@ -1935,9 +2284,7 @@ def market_cache(
 
 @app.command("preferences")
 def preferences_command(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    )
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
 ) -> None:
     """Show the saved investment preferences."""
     settings = get_settings()
@@ -1952,7 +2299,7 @@ def preferences_command(
         console.print(
             Panel(
                 f"Preferences are temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -1980,14 +2327,24 @@ def journal(
     limit: int = typer.Option(
         20, min=1, max=200, help="Maximum number of journal entries to show."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show the latest trade journal entries."""
+    """
+    Display recent trade journal entries.
+    
+    Emits a formatted terminal table of up to `limit` journal entries, or emits the raw payload as JSON when `json_output` is true. If the journal is unavailable because the runtime writer owns the database, prints an observer-mode panel containing the error and exits.
+    
+    Parameters:
+        limit (int): Maximum number of journal entries to show.
+        json_output (bool): If true, output the full payload as JSON instead of rendering the table.
+    
+    Raises:
+        typer.Exit: Raised with exit code 0 when the journal is unavailable.
+    """
     settings = get_settings()
     payload = _journal_payload(settings, limit=limit)
-    entries = [TradeJournalEntry.model_validate(entry) for entry in payload["entries"]]
+    entry_payloads = cast(list[dict[str, object]], payload["entries"])
+    entries = [TradeJournalEntry.model_validate(entry) for entry in entry_payloads]
     available = bool(payload["available"])
     error = payload["error"]
     if json_output:
@@ -1997,7 +2354,7 @@ def journal(
         console.print(
             Panel(
                 f"Trade journal is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2010,11 +2367,15 @@ def risk_report(
     report_date: str | None = typer.Option(
         None, help="UTC date in YYYY-MM-DD format. Defaults to today."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show a compact daily risk report for the paper portfolio."""
+    """
+    Display the daily risk report for the paper portfolio.
+    
+    Parameters:
+        report_date (str | None): UTC date in `YYYY-MM-DD` format to report on. If None, uses today.
+        json_output (bool): If true, emit the raw observer payload as JSON instead of rendering a human-readable report.
+    """
     settings = get_settings()
     payload = _risk_report_payload(settings, report_date=report_date)
     report = (
@@ -2031,7 +2392,7 @@ def risk_report(
         console.print(
             Panel(
                 f"Risk report is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2041,14 +2402,18 @@ def risk_report(
 
 @app.command("review-run")
 def review_run(
-    run_id: str | None = typer.Option(
-        None, help="Run id to inspect. Defaults to the latest recorded run."
-    ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    run_id: str | None = typer.Option(None, help=HELP_RUN_ID),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Inspect the latest or a specific persisted run in detail."""
+    """
+    Show a detailed review of the latest persisted run or a specific run by ID.
+    
+    If run data is temporarily unavailable because the runtime writer owns the database, prints an observer-mode panel and exits with code 0. If no persisted run is found, prints a notice panel and exits with code 0. When `json_output` is true, emits the raw payload as JSON instead of rendering the human-friendly review.
+    
+    Parameters:
+        run_id (str | None): Optional run identifier; when omitted the latest run is used.
+        json_output (bool): If true, output the underlying payload as JSON rather than rendering panels.
+    """
     settings = get_settings()
     payload = _run_record_payload(settings, run_id=run_id)
     record = (
@@ -2065,7 +2430,7 @@ def review_run(
         console.print(
             Panel(
                 f"Run review is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2084,12 +2449,8 @@ def review_run(
 
 @app.command("trace-run")
 def trace_run(
-    run_id: str | None = typer.Option(
-        None, help="Run id to inspect. Defaults to the latest recorded run."
-    ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    run_id: str | None = typer.Option(None, help=HELP_RUN_ID),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show the persisted per-stage agent trace for a run."""
     settings = get_settings()
@@ -2108,7 +2469,7 @@ def trace_run(
         console.print(
             Panel(
                 f"Run trace is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2130,11 +2491,19 @@ def trade_context(
     trade_id: str | None = typer.Option(
         None, help="Trade id to inspect. Defaults to the latest recorded trade context."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Inspect the persisted market, memory, and reasoning context for a trade."""
+    """
+    Display the persisted market, memory, and reasoning context for a trade.
+    
+    When `json_output` is true, emits the raw payload as JSON. Otherwise renders human-readable panels:
+    a summary table, routed-models table, and a context-summary panel. If the datastore is temporarily
+    unavailable or no trade context exists, prints a warning panel and exits with code 0.
+    
+    Parameters:
+        trade_id (str | None): Trade identifier to inspect. If omitted, the latest recorded trade context is used.
+        json_output (bool): If true, output the underlying payload as JSON instead of rendering panels.
+    """
     settings = get_settings()
     payload = _trade_context_payload(settings, trade_id=trade_id)
     record = (
@@ -2149,7 +2518,7 @@ def trade_context(
         console.print(
             Panel(
                 f"Trade context is temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2206,9 +2575,7 @@ def replay_run(
     run_id: str | None = typer.Option(
         None, help="Run id to replay. Defaults to the latest recorded run."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Replay what the system knew at decision time using persisted traces."""
     settings = get_settings()
@@ -2225,7 +2592,7 @@ def replay_run(
         console.print(
             Panel(
                 f"Run replay is temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
@@ -2276,9 +2643,9 @@ def export_report(
 
 @app.command("backtest")
 def backtest(
-    symbol: str = typer.Option(..., help="Ticker symbol, for example AAPL or BTC-USD"),
-    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h"),
-    lookback: str = typer.Option("2y", help="Lookback window accepted by yfinance"),
+    symbol: str = typer.Option(..., help=HELP_SYMBOL),
+    interval: str = typer.Option("1d", help=HELP_INTERVAL),
+    lookback: str = typer.Option("2y", help=HELP_LOOKBACK),
     warmup_bars: int = typer.Option(
         120, min=60, help="Warmup bars before replay begins."
     ),
@@ -2292,7 +2659,24 @@ def backtest(
         None, help="Optional Markdown output path for a compact backtest summary."
     ),
 ) -> None:
-    """Run a walk-forward replay using the current agent pipeline."""
+    """
+    Run a backtest using the agent pipeline in one of three modes: walk‑forward, baseline comparison, or memory ablation.
+    
+    Parameters:
+        symbol (str): Ticker or symbol to backtest.
+        interval (str): OHLCV interval (e.g., "1d").
+        lookback (str): Historical lookback window (e.g., "2y").
+        warmup_bars (int): Number of warmup bars to seed replay before metrics are collected (minimum 60).
+        compare_baseline (bool): If true, run an agent vs deterministic baseline comparison (mutually exclusive with compare_memory).
+        compare_memory (bool): If true, run an ablation comparing agent performance with memory enabled vs disabled (mutually exclusive with compare_baseline).
+        output (str | None): Optional file path to write a compact Markdown summary of the generated backtest report.
+    
+    Behavior:
+        - Exactly one mode is executed per call: baseline comparison (if compare_baseline),
+          memory ablation (if compare_memory), or walk‑forward backtest (default).
+        - If both compare_baseline and compare_memory are set, a parameter error is raised.
+        - When `output` is provided, writes a brief Markdown summary of the selected report to the given path.
+    """
     settings = get_settings()
     ensure_llm_ready(settings)
     if compare_baseline and compare_memory:
@@ -2385,7 +2769,7 @@ def backtest(
                 f"- Cycles: {report.total_cycles}",
                 f"- Trades: {report.total_trades}",
                 f"- Closed Trades: {report.closed_trades}",
-                f"- Win Rate: {report.win_rate:.2%}",
+                f"- {LABEL_WIN_RATE}: {report.win_rate:.2%}",
                 f"- Expectancy: {report.expectancy:.2f}",
                 f"- Total Return: {report.total_return_pct:.2%}",
                 f"- Max Drawdown: {report.max_drawdown_pct:.2%}",
@@ -2404,24 +2788,30 @@ def backtest(
 
 @app.command("memory-explorer")
 def memory_explorer(
-    symbol: str | None = typer.Option(
-        None, help="Ticker symbol, for example AAPL or BTC-USD"
-    ),
-    interval: str | None = typer.Option(
-        None, help="yfinance interval, for example 1d or 1h"
-    ),
-    lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance"),
+    symbol: str | None = typer.Option(None, help=HELP_SYMBOL),
+    interval: str | None = typer.Option(None, help=HELP_INTERVAL),
+    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
     limit: int = typer.Option(
         5, min=1, max=20, help="Maximum number of retrieved historical memories."
     ),
     use_latest_run: bool = typer.Option(
         True, help="Use the latest recorded run snapshot when available."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Inspect historically similar recorded runs for the current market snapshot."""
+    """
+    Display historically similar recorded market memories for a resolved market snapshot.
+    
+    Resolves a symbol/interval/lookback snapshot (optionally using the latest run snapshot), retrieves up to `limit` similar historical memory matches, and renders them to the terminal. If `json_output` is true, emits the raw payload as JSON instead of rendering. If the explorer is unavailable, prints an observer-mode panel and exits the CLI with code 0.
+    
+    Parameters:
+        symbol (str | None): Symbol override for the snapshot; when None the command will attempt to infer a symbol.
+        interval (str | None): Time interval for the snapshot (e.g., "1d", "1h"); when None a default or inferred interval is used.
+        lookback (str): Lookback window for the snapshot (e.g., "180d").
+        limit (int): Maximum number of historical memory matches to retrieve (1–20).
+        use_latest_run (bool): When true, prefer the latest recorded run snapshot if available.
+        json_output (bool): If true, emit the raw payload as JSON instead of rendering terminal panels.
+    """
     settings = get_settings()
     payload = _memory_explorer_payload(
         settings,
@@ -2438,27 +2828,127 @@ def memory_explorer(
         console.print(
             Panel(
                 f"Memory explorer is temporarily unavailable.\n\n{payload['error']}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
         raise typer.Exit(code=0)
-    matches = [
-        HistoricalMemoryMatch.model_validate(match) for match in payload["matches"]
-    ]
+    match_payloads = cast(list[dict[str, object]], payload["matches"])
+    matches = [HistoricalMemoryMatch.model_validate(match) for match in match_payloads]
     _render_memory_matches(matches)
+
+
+def _retrieval_stage_counts(stage: dict[str, object]) -> tuple[str, str, str, str, str]:
+    """
+    Extracts display-ready string values for a retrieval stage's role and counts of various retrieval-related lists.
+    
+    Parameters:
+    	stage (dict[str, object]): A stage mapping expected to contain the keys:
+    		- "role": role identifier
+    		- "retrieved_memories": list of retrieved memory ids/entries
+    		- "memory_notes": list of memory note strings
+    		- "shared_memory_bus": list of shared-memory entry dicts
+    		- "recent_runs": list of recent run identifiers
+    
+    Returns:
+    	tuple[str, str, str, str, str]: A 5-tuple of strings:
+    		(role, retrieved_memories_count, memory_notes_count, shared_memory_bus_count, recent_runs_count)
+    """
+    return (
+        str(stage["role"]),
+        str(len(cast(list[str], stage["retrieved_memories"]))),
+        str(len(cast(list[str], stage["memory_notes"]))),
+        str(len(cast(list[dict[str, object]], stage["shared_memory_bus"]))),
+        str(len(cast(list[str], stage["recent_runs"]))),
+    )
+
+
+def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
+    """
+    Builds human-readable lines describing retrieval and memory-related fields for a single retrieval stage.
+    
+    The input mapping is expected to contain the following keys:
+    - "retrieved_memories": list[str] — similar memories retrieved for the stage.
+    - "memory_notes": list[str] — notes derived from trade memory for the stage.
+    - "shared_memory_bus": list[dict] — entries with at least "role" and "summary" keys describing shared memory items.
+    - "recent_runs": list[str] — identifiers or summaries of recent runs relevant to the stage.
+    - "tool_outputs": list[str] — outputs produced by tools during the stage.
+    
+    Parameters:
+        stage (dict[str, object]): A stage payload containing retrieval/memory/tool fields as described above.
+    
+    Returns:
+        list[str]: A list of formatted text lines suitable for display. If no relevant fields are present, returns a single-item list with the message "No retrieval or memory context was attached for this stage."
+    """
+    retrieved_memories = cast(list[str], stage["retrieved_memories"])
+    memory_notes = cast(list[str], stage["memory_notes"])
+    shared_memory_bus = cast(list[dict[str, object]], stage["shared_memory_bus"])
+    recent_runs = cast(list[str], stage["recent_runs"])
+    tool_outputs = cast(list[str], stage["tool_outputs"])
+    sections = [
+        ("Retrieved Similar Memories:", retrieved_memories),
+        ("Trade Memory:", memory_notes),
+        ("Recent Runs:", recent_runs),
+        (
+            "Shared Memory Bus:",
+            [f"{entry['role']}: {entry['summary']}" for entry in shared_memory_bus],
+        ),
+        ("Tool Outputs:", tool_outputs),
+    ]
+    lines: list[str] = []
+    for title, values in sections:
+        if not values:
+            continue
+        if lines:
+            lines.append("")
+        lines.append(title)
+        lines.extend(f"- {line}" for line in values)
+    return lines or ["No retrieval or memory context was attached for this stage."]
+
+
+def _render_retrieval_inspection(stages: list[dict[str, object]], run_id: object) -> None:
+    """
+    Render a retrieval-inspection summary and detailed panels for each agent stage to the console.
+    
+    Prints a table titled with the run identifier that summarizes retrieval counts per stage, then prints a detailed panel for each stage containing retrieval lines and context information.
+    
+    Parameters:
+        stages (list[dict[str, object]]): A list of stage records where each dict represents an agent stage (each must include a 'role' key and the retrieval-related fields used to build the summary and detail lines).
+        run_id (object): Identifier of the run displayed in the table title.
+    """
+    table = Table(title=f"Retrieval Inspection / {run_id}")
+    table.add_column("Role")
+    table.add_column("Retrieved Memories")
+    table.add_column("Trade Memory")
+    table.add_column("Shared Bus")
+    table.add_column("Recent Runs")
+    for stage in stages:
+        table.add_row(*_retrieval_stage_counts(stage))
+    console.print(table)
+    for stage in stages:
+        console.print(
+            Panel(
+                "\n".join(_retrieval_stage_lines(stage)),
+                title=f"Stage / {stage['role']}",
+                border_style="cyan",
+            )
+        )
 
 
 @app.command("retrieval-inspection")
 def retrieval_inspection(
-    run_id: str | None = typer.Option(
-        None, help="Run id to inspect. Defaults to the latest recorded run."
-    ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    run_id: str | None = typer.Option(None, help=HELP_RUN_ID),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Inspect which memories and context bundles were injected into each agent stage."""
+    """
+    Render an inspection of which memories and context bundles were injected into each agent stage for a given run.
+    
+    If --json is passed, emit the raw payload as JSON instead of rendering. When no run or stages are available the command prints a yellow observer-mode panel and exits with code 0.
+    
+    Parameters:
+        run_id (str | None): Optional run identifier to inspect; when None the latest run is used.
+        json_output (bool): If True, output the inspection payload as JSON rather than rendered panels.
+    """
     settings = get_settings()
     payload = _retrieval_inspection_payload(settings, run_id=run_id)
     if json_output:
@@ -2468,12 +2958,13 @@ def retrieval_inspection(
         console.print(
             Panel(
                 f"Retrieval inspection is temporarily unavailable.\n\n{payload['error']}",
-                title="Observer Mode",
+                title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
         raise typer.Exit(code=0)
-    if not payload["stages"]:
+    stages = cast(list[dict[str, object]], payload["stages"])
+    if not stages:
         console.print(
             Panel(
                 "No agent trace contexts are available for retrieval inspection yet.",
@@ -2483,62 +2974,12 @@ def retrieval_inspection(
         )
         raise typer.Exit(code=0)
 
-    table = Table(title=f"Retrieval Inspection / {payload['run_id']}")
-    table.add_column("Role")
-    table.add_column("Retrieved Memories")
-    table.add_column("Trade Memory")
-    table.add_column("Shared Bus")
-    table.add_column("Recent Runs")
-    for stage in payload["stages"]:
-        table.add_row(
-            str(stage["role"]),
-            str(len(stage["retrieved_memories"])),
-            str(len(stage["memory_notes"])),
-            str(len(stage["shared_memory_bus"])),
-            str(len(stage["recent_runs"])),
-        )
-    console.print(table)
-    for stage in payload["stages"]:
-        lines = []
-        if stage["retrieved_memories"]:
-            lines.extend(
-                ["Retrieved Similar Memories:"]
-                + [f"- {line}" for line in stage["retrieved_memories"]]
-            )
-        if stage["memory_notes"]:
-            lines.extend(
-                ["", "Trade Memory:"] + [f"- {line}" for line in stage["memory_notes"]]
-            )
-        if stage["recent_runs"]:
-            lines.extend(
-                ["", "Recent Runs:"] + [f"- {line}" for line in stage["recent_runs"]]
-            )
-        if stage["shared_memory_bus"]:
-            lines.extend(
-                ["", "Shared Memory Bus:"]
-                + [
-                    f"- {entry['role']}: {entry['summary']}"
-                    for entry in stage["shared_memory_bus"]
-                ]
-            )
-        if stage["tool_outputs"]:
-            lines.extend(
-                ["", "Tool Outputs:"] + [f"- {line}" for line in stage["tool_outputs"]]
-            )
-        if not lines:
-            lines.append("No retrieval or memory context was attached for this stage.")
-        console.print(
-            Panel(
-                "\n".join(lines), title=f"Stage / {stage['role']}", border_style="cyan"
-            )
-        )
+    _render_retrieval_inspection(stages, payload["run_id"])
 
 
 @app.command("memory-policy")
 def memory_policy(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show policy-controlled memory write permissions by domain."""
     payload = memory_write_policy_snapshot()
@@ -2567,11 +3008,21 @@ def chat(
     message: str | None = typer.Option(
         None, help="Optional message. If omitted, an interactive prompt is shown."
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit machine-readable JSON."
-    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Talk to the read-only operator chat surface."""
+    """
+    Send a message to a chosen operator persona and display or emit the persona's reply.
+    
+    If `message` is omitted an interactive prompt is shown. The interaction is recorded
+    in persistent chat history. Output is printed as a terminal panel unless
+    `json_output` is true, in which case a JSON payload containing `persona`,
+    `message`, and `response` is emitted.
+    
+    Parameters:
+    	persona (ChatPersona): Which agent persona should answer.
+    	message (str | None): Optional message text; when None an interactive prompt is used.
+    	json_output (bool): When true, emit a JSON payload instead of printing a panel.
+    """
     settings = get_settings()
     ensure_llm_ready(settings)
     db = _open_db(settings, read_only=True)

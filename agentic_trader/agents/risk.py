@@ -1,4 +1,5 @@
 from agentic_trader.agents.context import render_agent_context
+from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
@@ -10,6 +11,21 @@ from agentic_trader.schemas import (
 
 
 def _fallback_risk(snapshot: MarketSnapshot, strategy: StrategyPlan) -> RiskPlan:
+    """
+    Return a conservative fallback RiskPlan derived from the market snapshot and strategy when an LLM-produced plan is unavailable.
+    
+    Parameters:
+        snapshot (MarketSnapshot): Current market metrics; used to compute a volatility baseline (ATR) and reference prices.
+        strategy (StrategyPlan): The proposed strategy whose `action` and `confidence` influence sizing and directional plan.
+    
+    Behavior:
+        - For a buy action: produces a long-risk plan with a stop-loss set below the last close by ~1.5×ATR and a take-profit above by ~3.0×ATR. Position size is strategy.confidence × 0.08 clamped to [0.02, 0.08].
+        - For a sell action: produces a short-risk plan with mirrored stop/take levels (stop above, take below) and the same sizing rules as buy.
+        - For any other action: returns a conservative no-trade plan with a small fixed position (1%) and stop/take spaced by ~1×ATR.
+    
+    Returns:
+        RiskPlan: A fully populated fallback risk plan with numeric stop_loss and take_profit (rounded), a risk_reward_ratio, max_holding_bars, `source` set to "fallback", and `fallback_reason` set to the shared LLM fallback constant.
+    """
     atr = max(snapshot.atr_14, snapshot.last_close * 0.01)
 
     if strategy.action == "buy":
@@ -23,7 +39,7 @@ def _fallback_risk(snapshot: MarketSnapshot, strategy: StrategyPlan) -> RiskPlan
             max_holding_bars=20,
             notes="Fallback risk model for long setup.",
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if strategy.action == "sell":
@@ -37,7 +53,7 @@ def _fallback_risk(snapshot: MarketSnapshot, strategy: StrategyPlan) -> RiskPlan
             max_holding_bars=20,
             notes="Fallback risk model for short setup.",
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     return RiskPlan(
@@ -48,7 +64,7 @@ def _fallback_risk(snapshot: MarketSnapshot, strategy: StrategyPlan) -> RiskPlan
         max_holding_bars=5,
         notes="Fallback no-trade risk plan.",
         source="fallback",
-        fallback_reason="LLM unavailable or invalid structured response.",
+        fallback_reason=LLM_FALLBACK_REASON,
     )
 
 
@@ -61,6 +77,7 @@ def build_risk_plan(
     allow_fallback: bool,
     context: AgentContext | None = None,
 ) -> RiskPlan:
+    """Ask the routed risk model for size, stop, take-profit, and holding horizon."""
     system_prompt = (
         "You are a risk agent for a paper trading system. "
         "Use smaller sizing when volatility or uncertainty is elevated. "

@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import cast
 
 import pandas as pd
 
@@ -24,13 +25,14 @@ from agentic_trader.schemas import (
     RiskPlan,
     RunArtifacts,
     StrategyPlan,
+    TradeSide,
 )
 from agentic_trader.workflows.run_once import run_from_snapshot
 
 
 @dataclass
 class _OpenTradeState:
-    side: str
+    side: TradeSide
     quantity: float
     entry_price: float
     stop_loss: float
@@ -244,6 +246,24 @@ def _run_backtest_with_provider(
     frame: pd.DataFrame,
     artifact_provider: Callable[[MarketSnapshot], RunArtifacts],
 ) -> BacktestReport:
+    """
+    Perform a walk-forward backtest over historical bars using the provided artifact provider to decide entries, position sizing, and exits.
+    
+    Parameters:
+        settings (Settings): Backtest settings including starting cash and shorting permission.
+        symbol (str): Ticker or instrument identifier.
+        interval (str): OHLCV interval label used to build snapshots.
+        lookback (str): Human-readable lookback description included in the returned report.
+        warmup_bars (int): Number of initial bars used to warm up indicators before trading begins.
+        frame (pd.DataFrame): Historical OHLCV data for the symbol; must contain at least `warmup_bars + 1` rows.
+        artifact_provider (Callable[[MarketSnapshot], RunArtifacts]): Function that produces trading artifacts (strategy, risk, execution, etc.) from a market snapshot.
+    
+    Returns:
+        BacktestReport: Aggregated backtest results including counts and metrics (total/closed trades, win rate, expectancy, total return, max drawdown, exposure), starting and ending equity, fallback cycle count, and the full list of trade records.
+    
+    Raises:
+        ValueError: If `frame` contains fewer than or equal to `warmup_bars` rows.
+    """
     history = frame.copy()
     if len(history) <= warmup_bars:
         raise ValueError("Not enough bars for walk-forward backtest")
@@ -325,14 +345,15 @@ def _run_backtest_with_provider(
                 fallback_cycles += 1
             decision = artifacts.execution
             if decision.approved and decision.side in {"buy", "sell"}:
-                if decision.side == "sell" and not settings.allow_short:
+                decision_side = cast(TradeSide, decision.side)
+                if decision_side == "sell" and not settings.allow_short:
                     equity_curve.append(cash)
                     continue
                 base_equity = _mark_to_market_equity(cash, open_trade, current_price)
                 notional = max(0.0, base_equity * decision.position_size_pct)
                 quantity = round(notional / decision.entry_price, 6)
                 if quantity > 0:
-                    if decision.side == "buy":
+                    if decision_side == "buy":
                         cash -= quantity * decision.entry_price
                     else:
                         cash += quantity * decision.entry_price
@@ -340,7 +361,7 @@ def _run_backtest_with_provider(
                         BacktestTrade(
                             symbol=symbol,
                             entry_at=current_timestamp,
-                            side=decision.side,
+                            side=decision_side,
                             entry_price=decision.entry_price,
                             quantity=quantity,
                             status="open",
@@ -348,7 +369,7 @@ def _run_backtest_with_provider(
                         )
                     )
                     open_trade = _OpenTradeState(
-                        side=decision.side,
+                        side=decision_side,
                         quantity=quantity,
                         entry_price=decision.entry_price,
                         stop_loss=decision.stop_loss,
@@ -426,6 +447,7 @@ def run_walk_forward_backtest(
     memory_enabled: bool = True,
     frame: pd.DataFrame | None = None,
 ) -> BacktestReport:
+    """Replay historical bars with the current agent pipeline in walk-forward mode."""
     history = (
         frame.copy()
         if frame is not None
@@ -456,6 +478,7 @@ def run_deterministic_baseline_backtest(
     warmup_bars: int = 120,
     frame: pd.DataFrame | None = None,
 ) -> BacktestReport:
+    """Replay historical bars with the deterministic baseline artifact provider."""
     history = (
         frame.copy()
         if frame is not None
@@ -482,6 +505,7 @@ def run_backtest_comparison(
     allow_fallback: bool = False,
     frame: pd.DataFrame | None = None,
 ) -> BacktestComparisonReport:
+    """Compare agent-assisted walk-forward results against the deterministic baseline."""
     history = (
         frame.copy()
         if frame is not None
@@ -530,6 +554,7 @@ def run_memory_ablation_backtest(
     allow_fallback: bool = False,
     frame: pd.DataFrame | None = None,
 ) -> BacktestAblationReport:
+    """Compare walk-forward results with and without memory injection enabled."""
     history = (
         frame.copy()
         if frame is not None
