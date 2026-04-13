@@ -1,6 +1,6 @@
 import pandas as pd
 
-from agentic_trader.schemas import MarketSnapshot
+from agentic_trader.schemas import MarketSnapshot, MTFAlignment
 
 
 def _rsi(series: pd.Series, period: int = 14) -> pd.Series:
@@ -79,7 +79,9 @@ def _higher_timeframe_frame(
     return resampled, higher_timeframe
 
 
-def _mtf_alignment(base_last: pd.Series, higher_last: pd.Series) -> tuple[str, float]:
+def _mtf_alignment(
+    base_last: pd.Series, higher_last: pd.Series
+) -> tuple[MTFAlignment, float]:
     base_bullish = bool(base_last["close"] > base_last["ema_20"] > base_last["ema_50"])
     base_bearish = bool(base_last["close"] < base_last["ema_20"] < base_last["ema_50"])
     higher_bullish = bool(

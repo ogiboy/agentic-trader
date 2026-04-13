@@ -1,4 +1,5 @@
 from agentic_trader.agents.context import render_agent_context
+from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
@@ -184,7 +185,7 @@ def _apply_confidence_calibration(
 
 
 def _fallback_manager(
-    snapshot: MarketSnapshot,
+    _snapshot: MarketSnapshot,
     coordinator: ResearchCoordinatorBrief,
     regime: RegimeAssessment,
     strategy: StrategyPlan,
@@ -219,7 +220,7 @@ def _fallback_manager(
         rationale="Fallback manager combined specialist outputs into a guarded execution posture.",
         escalation_flags=flags,
         source="fallback",
-        fallback_reason="LLM unavailable or invalid structured response.",
+        fallback_reason=LLM_FALLBACK_REASON,
     )
 
 

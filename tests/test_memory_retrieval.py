@@ -7,6 +7,7 @@ from agentic_trader.schemas import (
     ManagerDecision,
     MarketSnapshot,
     RegimeAssessment,
+    RegimeName,
     ResearchCoordinatorBrief,
     RiskPlan,
     ReviewNote,
@@ -18,7 +19,7 @@ from agentic_trader.workflows.run_once import persist_run
 
 
 def _artifacts(
-    symbol: str, *, close: float, return_5: float, regime: str
+    symbol: str, *, close: float, return_5: float, regime: RegimeName
 ) -> RunArtifacts:
     return RunArtifacts(
         snapshot=MarketSnapshot(

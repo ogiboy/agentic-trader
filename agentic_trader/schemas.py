@@ -24,6 +24,33 @@ CoordinatorFocus: TypeAlias = Literal[
 AgentRole: TypeAlias = Literal[
     "coordinator", "regime", "strategy", "risk", "manager", "explainer", "instruction"
 ]
+ExecutionSide: TypeAlias = Literal["buy", "sell", "hold"]
+TradeSide: TypeAlias = Literal["buy", "sell"]
+PositionExitReason: TypeAlias = Literal[
+    "stop_loss", "take_profit", "invalidation", "time_exit", "no_exit"
+]
+MarketSessionState: TypeAlias = Literal["open", "closed", "always_open", "weekend"]
+MTFAlignment: TypeAlias = Literal["bullish", "bearish", "mixed"]
+ServiceState: TypeAlias = Literal[
+    "idle",
+    "starting",
+    "running",
+    "stopping",
+    "stopped",
+    "completed",
+    "failed",
+    "blocked",
+]
+ServiceEventLevel: TypeAlias = Literal["info", "warning", "error"]
+JournalStatus: TypeAlias = Literal["open", "closed", "rejected", "no_fill"]
+RegimeName: TypeAlias = Literal[
+    "trend_up",
+    "trend_down",
+    "range",
+    "breakout_candidate",
+    "high_volatility",
+    "no_trade",
+]
 
 
 class LLMHealthStatus(BaseModel):
@@ -68,20 +95,13 @@ class MarketSnapshot(BaseModel):
     htf_ema_50: float = 0.0
     htf_rsi_14: float = 50.0
     htf_return_5: float = 0.0
-    mtf_alignment: Literal["bullish", "bearish", "mixed"] = "mixed"
+    mtf_alignment: MTFAlignment = "mixed"
     mtf_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     bars_analyzed: int
 
 
 class RegimeAssessment(BaseModel):
-    regime: Literal[
-        "trend_up",
-        "trend_down",
-        "range",
-        "breakout_candidate",
-        "high_volatility",
-        "no_trade",
-    ]
+    regime: RegimeName
     direction_bias: Literal["long", "short", "flat"]
     confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str
@@ -98,7 +118,7 @@ class StrategyPlan(BaseModel):
         "mean_reversion",
         "no_trade",
     ]
-    action: Literal["buy", "sell", "hold"]
+    action: ExecutionSide
     timeframe: str
     entry_logic: str
     invalidation_logic: str
@@ -121,7 +141,7 @@ class RiskPlan(BaseModel):
 
 class ExecutionDecision(BaseModel):
     approved: bool
-    side: Literal["buy", "sell", "hold"]
+    side: ExecutionSide
     symbol: str
     entry_price: float
     stop_loss: float
@@ -145,7 +165,7 @@ class MarketSessionStatus(BaseModel):
     venue: str
     asset_class: Literal["equity", "crypto"]
     timezone: str
-    session_state: Literal["open", "closed", "always_open", "weekend"]
+    session_state: MarketSessionState
     tradable_now: bool
     note: str
 
@@ -184,16 +204,7 @@ class AccountMark(BaseModel):
 
 class ServiceStateSnapshot(BaseModel):
     service_name: str
-    state: Literal[
-        "idle",
-        "starting",
-        "running",
-        "stopping",
-        "stopped",
-        "completed",
-        "failed",
-        "blocked",
-    ]
+    state: ServiceState
     updated_at: str
     started_at: str | None = None
     last_heartbeat_at: str | None = None
@@ -221,7 +232,7 @@ class ServiceStateSnapshot(BaseModel):
 class ServiceEvent(BaseModel):
     event_id: str
     created_at: str
-    level: Literal["info", "warning", "error"]
+    level: ServiceEventLevel
     event_type: str
     message: str
     cycle_count: int | None = None
@@ -239,7 +250,7 @@ class PositionSnapshot(BaseModel):
 
 class PositionPlanSnapshot(BaseModel):
     symbol: str
-    side: Literal["buy", "sell"]
+    side: TradeSide
     entry_price: float
     stop_loss: float
     take_profit: float
@@ -251,9 +262,9 @@ class PositionPlanSnapshot(BaseModel):
 
 class PositionExitDecision(BaseModel):
     should_exit: bool
-    side: Literal["buy", "sell", "hold"]
+    side: ExecutionSide
     symbol: str
-    reason: Literal["stop_loss", "take_profit", "invalidation", "time_exit", "no_exit"]
+    reason: PositionExitReason
     rationale: str
     exit_price: float
 
@@ -269,7 +280,7 @@ class ResearchCoordinatorBrief(BaseModel):
 
 class ManagerDecision(BaseModel):
     approved: bool
-    action_bias: Literal["buy", "sell", "hold"]
+    action_bias: ExecutionSide
     confidence_cap: float = Field(ge=0.0, le=1.0)
     size_multiplier: float = Field(gt=0.0, le=1.0)
     rationale: str
@@ -343,9 +354,9 @@ class TradeJournalEntry(BaseModel):
     run_id: str | None = None
     entry_order_id: str
     exit_order_id: str | None = None
-    planned_side: Literal["buy", "sell", "hold"]
+    planned_side: ExecutionSide
     approved: bool
-    journal_status: Literal["open", "closed", "rejected", "no_fill"]
+    journal_status: JournalStatus
     entry_price: float
     exit_price: float | None = None
     stop_loss: float
@@ -354,7 +365,7 @@ class TradeJournalEntry(BaseModel):
     confidence: float
     coordinator_focus: CoordinatorFocus
     strategy_family: str
-    manager_bias: Literal["buy", "sell", "hold"]
+    manager_bias: ExecutionSide
     review_summary: str
     exit_reason: str | None = None
     realized_pnl: float | None = None
@@ -433,7 +444,7 @@ class BacktestTrade(BaseModel):
     symbol: str
     entry_at: str
     exit_at: str | None = None
-    side: Literal["buy", "sell"]
+    side: TradeSide
     entry_price: float
     exit_price: float | None = None
     quantity: float

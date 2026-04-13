@@ -73,6 +73,20 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import OrderRow, TradingDatabase
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
+from agentic_trader.ui_text import (
+    HELP_INTERVAL,
+    HELP_JSON,
+    HELP_LOOKBACK,
+    HELP_RUN_ID,
+    HELP_SYMBOL,
+    LABEL_MARKET_VALUE,
+    LABEL_OBSERVER_MODE,
+    LABEL_STRUCTURED_LLM,
+    LABEL_UNREALIZED_PNL,
+    LABEL_WIN_RATE,
+    TITLE_RUNTIME_EVENTS,
+    TITLE_SERVICE_STATUS,
+)
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import (
     ensure_llm_ready,
@@ -83,19 +97,6 @@ from agentic_trader.workflows.service import (
 
 app = typer.Typer(help="Agentic Trader CLI", invoke_without_command=True)
 console = Console()
-
-# Constants for CLI help text and labels (avoid duplication)
-HELP_JSON = "Emit machine-readable JSON."
-LABEL_STRUCTURED_LLM = "Structured LLM response"
-LABEL_MARKET_VALUE = "Market Value"
-LABEL_UNREALIZED_PNL = "Unrealized PnL"
-LABEL_WIN_RATE = "Win Rate"
-LABEL_OBSERVER_MODE = "Observer Mode"
-HELP_SYMBOL = "Ticker symbol, for example AAPL or BTC-USD"
-HELP_INTERVAL = "yfinance interval, for example 1d or 1h"
-HELP_LOOKBACK = "Lookback window accepted by yfinance"
-HELP_RUN_ID = "Run id to inspect. Defaults to the latest recorded run."
-DB_LOCKED_MSG = "The runtime writer currently owns the database."
 
 
 def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
@@ -227,14 +228,14 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
         console.print(
             Panel(
                 "No runtime state recorded yet.",
-                title="Service Status",
+                title=TITLE_SERVICE_STATUS,
                 border_style="yellow",
             )
         )
         return
     snapshot = view.state
 
-    table = Table(title="Service Status")
+    table = Table(title=TITLE_SERVICE_STATUS)
     table.add_column("Key")
     table.add_column("Value")
     table.add_row("Service", snapshot.service_name)
@@ -274,13 +275,13 @@ def _render_service_events(events: list[ServiceEvent]) -> None:
         console.print(
             Panel(
                 "No runtime events recorded yet.",
-                title="Runtime Events",
+                title=TITLE_RUNTIME_EVENTS,
                 border_style="yellow",
             )
         )
         return
 
-    table = Table(title="Runtime Events")
+    table = Table(title=TITLE_RUNTIME_EVENTS)
     table.add_column("Created")
     table.add_column("Level")
     table.add_column("Type")
@@ -1474,9 +1475,12 @@ def portfolio(
     """Show the current paper portfolio and open positions."""
     settings = get_settings()
     payload = _portfolio_payload(settings)
-    snapshot = PortfolioSnapshot.model_validate(payload["snapshot"])
+    snapshot = PortfolioSnapshot.model_validate(
+        cast(dict[str, object], payload["snapshot"])
+    )
+    position_payloads = cast(list[dict[str, object]], payload["positions"])
     positions = [
-        PositionSnapshot.model_validate(position) for position in payload["positions"]
+        PositionSnapshot.model_validate(position) for position in position_payloads
     ]
     available = bool(payload["available"])
     error = payload["error"]
@@ -1882,9 +1886,9 @@ def news_brief(
     table.add_column("Value")
     table.add_row("Mode", str(payload["mode"]))
     table.add_row("Available", str(payload["available"]))
-    table.add_row("Headlines", str(len(payload["headlines"])))
+    headlines = cast(list[dict[str, object]], payload["headlines"])
+    table.add_row("Headlines", str(len(headlines)))
     console.print(table)
-    headlines = payload["headlines"]
     if not headlines:
         console.print(
             Panel(
@@ -1898,7 +1902,7 @@ def news_brief(
         console.print(
             Panel(
                 f"{headline['publisher']} | {headline['title']}",
-                title=headline["symbol"],
+                title=str(headline["symbol"]),
                 border_style="cyan",
             )
         )
@@ -1942,10 +1946,11 @@ def market_cache(
     table.add_column("Filename")
     table.add_column("Size")
     table.add_column("Modified")
-    if not payload["entries"]:
+    entries = cast(list[dict[str, object]], payload["entries"])
+    if not entries:
         table.add_row("-", "-", "-")
     else:
-        for entry in payload["entries"][:20]:
+        for entry in entries[:20]:
             table.add_row(
                 str(entry["filename"]),
                 str(entry["size_bytes"]),
@@ -2011,7 +2016,8 @@ def journal(
     """Show the latest trade journal entries."""
     settings = get_settings()
     payload = _journal_payload(settings, limit=limit)
-    entries = [TradeJournalEntry.model_validate(entry) for entry in payload["entries"]]
+    entry_payloads = cast(list[dict[str, object]], payload["entries"])
+    entries = [TradeJournalEntry.model_validate(entry) for entry in entry_payloads]
     available = bool(payload["available"])
     error = payload["error"]
     if json_output:
@@ -2447,10 +2453,66 @@ def memory_explorer(
             )
         )
         raise typer.Exit(code=0)
-    matches = [
-        HistoricalMemoryMatch.model_validate(match) for match in payload["matches"]
-    ]
+    match_payloads = cast(list[dict[str, object]], payload["matches"])
+    matches = [HistoricalMemoryMatch.model_validate(match) for match in match_payloads]
     _render_memory_matches(matches)
+
+
+def _retrieval_stage_counts(stage: dict[str, object]) -> tuple[str, str, str, str, str]:
+    return (
+        str(stage["role"]),
+        str(len(cast(list[str], stage["retrieved_memories"]))),
+        str(len(cast(list[str], stage["memory_notes"]))),
+        str(len(cast(list[dict[str, object]], stage["shared_memory_bus"]))),
+        str(len(cast(list[str], stage["recent_runs"]))),
+    )
+
+
+def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
+    retrieved_memories = cast(list[str], stage["retrieved_memories"])
+    memory_notes = cast(list[str], stage["memory_notes"])
+    shared_memory_bus = cast(list[dict[str, object]], stage["shared_memory_bus"])
+    recent_runs = cast(list[str], stage["recent_runs"])
+    tool_outputs = cast(list[str], stage["tool_outputs"])
+    sections = [
+        ("Retrieved Similar Memories:", retrieved_memories),
+        ("Trade Memory:", memory_notes),
+        ("Recent Runs:", recent_runs),
+        (
+            "Shared Memory Bus:",
+            [f"{entry['role']}: {entry['summary']}" for entry in shared_memory_bus],
+        ),
+        ("Tool Outputs:", tool_outputs),
+    ]
+    lines: list[str] = []
+    for title, values in sections:
+        if not values:
+            continue
+        if lines:
+            lines.append("")
+        lines.append(title)
+        lines.extend(f"- {line}" for line in values)
+    return lines or ["No retrieval or memory context was attached for this stage."]
+
+
+def _render_retrieval_inspection(stages: list[dict[str, object]], run_id: object) -> None:
+    table = Table(title=f"Retrieval Inspection / {run_id}")
+    table.add_column("Role")
+    table.add_column("Retrieved Memories")
+    table.add_column("Trade Memory")
+    table.add_column("Shared Bus")
+    table.add_column("Recent Runs")
+    for stage in stages:
+        table.add_row(*_retrieval_stage_counts(stage))
+    console.print(table)
+    for stage in stages:
+        console.print(
+            Panel(
+                "\n".join(_retrieval_stage_lines(stage)),
+                title=f"Stage / {stage['role']}",
+                border_style="cyan",
+            )
+        )
 
 
 @app.command("retrieval-inspection")
@@ -2473,7 +2535,8 @@ def retrieval_inspection(
             )
         )
         raise typer.Exit(code=0)
-    if not payload["stages"]:
+    stages = cast(list[dict[str, object]], payload["stages"])
+    if not stages:
         console.print(
             Panel(
                 "No agent trace contexts are available for retrieval inspection yet.",
@@ -2483,55 +2546,7 @@ def retrieval_inspection(
         )
         raise typer.Exit(code=0)
 
-    table = Table(title=f"Retrieval Inspection / {payload['run_id']}")
-    table.add_column("Role")
-    table.add_column("Retrieved Memories")
-    table.add_column("Trade Memory")
-    table.add_column("Shared Bus")
-    table.add_column("Recent Runs")
-    for stage in payload["stages"]:
-        table.add_row(
-            str(stage["role"]),
-            str(len(stage["retrieved_memories"])),
-            str(len(stage["memory_notes"])),
-            str(len(stage["shared_memory_bus"])),
-            str(len(stage["recent_runs"])),
-        )
-    console.print(table)
-    for stage in payload["stages"]:
-        lines = []
-        if stage["retrieved_memories"]:
-            lines.extend(
-                ["Retrieved Similar Memories:"]
-                + [f"- {line}" for line in stage["retrieved_memories"]]
-            )
-        if stage["memory_notes"]:
-            lines.extend(
-                ["", "Trade Memory:"] + [f"- {line}" for line in stage["memory_notes"]]
-            )
-        if stage["recent_runs"]:
-            lines.extend(
-                ["", "Recent Runs:"] + [f"- {line}" for line in stage["recent_runs"]]
-            )
-        if stage["shared_memory_bus"]:
-            lines.extend(
-                ["", "Shared Memory Bus:"]
-                + [
-                    f"- {entry['role']}: {entry['summary']}"
-                    for entry in stage["shared_memory_bus"]
-                ]
-            )
-        if stage["tool_outputs"]:
-            lines.extend(
-                ["", "Tool Outputs:"] + [f"- {line}" for line in stage["tool_outputs"]]
-            )
-        if not lines:
-            lines.append("No retrieval or memory context was attached for this stage.")
-        console.print(
-            Panel(
-                "\n".join(lines), title=f"Stage / {stage['role']}", border_style="cyan"
-            )
-        )
+    _render_retrieval_inspection(stages, payload["run_id"])
 
 
 @app.command("memory-policy")

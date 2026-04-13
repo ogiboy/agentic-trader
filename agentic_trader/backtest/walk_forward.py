@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import cast
 
 import pandas as pd
 
@@ -24,13 +25,14 @@ from agentic_trader.schemas import (
     RiskPlan,
     RunArtifacts,
     StrategyPlan,
+    TradeSide,
 )
 from agentic_trader.workflows.run_once import run_from_snapshot
 
 
 @dataclass
 class _OpenTradeState:
-    side: str
+    side: TradeSide
     quantity: float
     entry_price: float
     stop_loss: float
@@ -325,14 +327,15 @@ def _run_backtest_with_provider(
                 fallback_cycles += 1
             decision = artifacts.execution
             if decision.approved and decision.side in {"buy", "sell"}:
-                if decision.side == "sell" and not settings.allow_short:
+                decision_side = cast(TradeSide, decision.side)
+                if decision_side == "sell" and not settings.allow_short:
                     equity_curve.append(cash)
                     continue
                 base_equity = _mark_to_market_equity(cash, open_trade, current_price)
                 notional = max(0.0, base_equity * decision.position_size_pct)
                 quantity = round(notional / decision.entry_price, 6)
                 if quantity > 0:
-                    if decision.side == "buy":
+                    if decision_side == "buy":
                         cash -= quantity * decision.entry_price
                     else:
                         cash += quantity * decision.entry_price
@@ -340,7 +343,7 @@ def _run_backtest_with_provider(
                         BacktestTrade(
                             symbol=symbol,
                             entry_at=current_timestamp,
-                            side=decision.side,
+                            side=decision_side,
                             entry_price=decision.entry_price,
                             quantity=quantity,
                             status="open",
@@ -348,7 +351,7 @@ def _run_backtest_with_provider(
                         )
                     )
                     open_trade = _OpenTradeState(
-                        side=decision.side,
+                        side=decision_side,
                         quantity=quantity,
                         entry_price=decision.entry_price,
                         stop_loss=decision.stop_loss,

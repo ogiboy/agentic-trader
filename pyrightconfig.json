@@ -1,0 +1,19 @@
+{
+  "include": ["agentic_trader", "tests", "scripts"],
+  "exclude": [
+    "build",
+    "dist",
+    "runtime",
+    ".ai/qa/artifacts",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".sonar",
+    "tui/node_modules",
+    "tui/dist",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*"
+  ],
+  "pythonVersion": "3.14",
+  "typeCheckingMode": "standard"
+}

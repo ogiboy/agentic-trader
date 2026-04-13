@@ -10,7 +10,7 @@ from agentic_trader.schemas import (
 
 def build_review_note(
     regime: RegimeAssessment,
-    strategy: StrategyPlan,
+    _strategy: StrategyPlan,
     risk: RiskPlan,
     manager: ManagerDecision,
     execution: ExecutionDecision,

@@ -64,3 +64,9 @@ Reason:
 The installed `agentic-trader` command, `python main.py`, Ink TUI, and Rich menu can drift independently from unit tests.
 A small pexpect-based smoke harness should exercise the actual terminal surfaces, leave timestamped text artifacts, and fail loudly when the operator's PATH resolves a stale entrypoint.
 Quality gates such as ruff, pytest, pyright, and SonarQube should be attached as optional QA checks without hardcoding tokens or changing the trading runtime.
+
+### Localization should start as a shared text boundary, not a full i18n rewrite
+
+Reason:
+The CLI, Rich menu, Ink TUI, and future WebUI need consistent operator language, but the product flows are still moving.
+A lightweight shared UI text catalog avoids duplicated labels today and creates a safe seam for future multi-language support without introducing translation machinery too early.

@@ -1,4 +1,4 @@
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, TypedDict
 
 
 MemoryDomain: TypeAlias = Literal["trade_memory", "chat_memory"]
@@ -9,7 +9,12 @@ MemoryActor: TypeAlias = Literal[
 ]
 
 
-MEMORY_WRITE_POLICIES: dict[MemoryDomain, dict[str, object]] = {
+class MemoryWritePolicy(TypedDict):
+    allowed_actors: list[MemoryActor]
+    note: str
+
+
+MEMORY_WRITE_POLICIES: dict[MemoryDomain, MemoryWritePolicy] = {
     "trade_memory": {
         "allowed_actors": ["system_runtime", "review_agent"],
         "note": "Trading memory is written only from persisted runtime decisions and post-trade review flows.",
@@ -29,7 +34,7 @@ def assert_memory_write_allowed(domain: MemoryDomain, actor: MemoryActor) -> Non
         )
 
 
-def memory_write_policy_snapshot() -> dict[str, dict[str, object]]:
+def memory_write_policy_snapshot() -> dict[str, MemoryWritePolicy]:
     return {
         domain: {
             "allowed_actors": list(policy["allowed_actors"]),

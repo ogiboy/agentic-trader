@@ -1,4 +1,5 @@
 from agentic_trader.agents.context import render_agent_context
+from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
@@ -15,7 +16,7 @@ def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
             caution_flags=["high_volatility", "unstable_conditions"],
             summary="Fallback coordinator: market is unstable, prioritize defense and capital preservation.",
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
     if snapshot.mtf_alignment == "mixed":
         return ResearchCoordinatorBrief(
@@ -24,7 +25,7 @@ def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
             caution_flags=["multi_timeframe_conflict", "mixed_signals"],
             summary="Fallback coordinator: lower and higher timeframe structure conflict, so selectivity should stay high.",
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
     if snapshot.last_close > snapshot.ema_20 > snapshot.ema_50:
         return ResearchCoordinatorBrief(
@@ -37,7 +38,7 @@ def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
             caution_flags=["trend_exhaustion"],
             summary="Fallback coordinator: trend-following setups deserve priority.",
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
     if snapshot.last_close < snapshot.ema_20 < snapshot.ema_50:
         return ResearchCoordinatorBrief(
@@ -50,7 +51,7 @@ def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
             caution_flags=["short_squeeze"],
             summary="Fallback coordinator: short-biased trend setups deserve priority.",
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
     return ResearchCoordinatorBrief(
         market_focus="no_trade",
@@ -58,7 +59,7 @@ def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
         caution_flags=["mixed_signals", "low_conviction"],
         summary="Fallback coordinator: conditions are mixed, so selectivity should stay high.",
         source="fallback",
-        fallback_reason="LLM unavailable or invalid structured response.",
+        fallback_reason=LLM_FALLBACK_REASON,
     )
 
 

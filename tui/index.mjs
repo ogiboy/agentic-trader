@@ -72,6 +72,149 @@ function defaultSymbolsFromPreferences(preferences) {
   return 'BTC-USD,ETH-USD';
 }
 
+function getSupervisorLogLines(supervisor) {
+  if (supervisor?.stderr_tail?.length) {
+    return ['stderr:', ...supervisor.stderr_tail.slice(-3)];
+  }
+  if (supervisor?.stdout_tail?.length) {
+    return ['stdout:', ...supervisor.stdout_tail.slice(-3)];
+  }
+  return ['No daemon log tail yet.'];
+}
+
+function getTradeContextLines(tradeContext) {
+  if (tradeContext?.available === false) {
+    return renderUnavailableMessage(tradeContext.error);
+  }
+  if (!tradeContext?.record) {
+    return ['No persisted trade context is available yet.'];
+  }
+  const record = tradeContext.record;
+  return [
+    `Trade ID: ${record.trade_id}`,
+    `Run ID: ${record.run_id ?? '-'}`,
+    `Consensus: ${record.consensus.alignment_level}`,
+    `Manager Rationale: ${record.manager_rationale}`,
+    `Execution Rationale: ${record.execution_rationale}`,
+    `Review Summary: ${record.review_summary}`,
+    `Routed Models: ${
+      Object.entries(record.routed_models || {})
+        .map(([role, model]) => `${role}:${model}`)
+        .join(' | ') || '-'
+    }`,
+    `Memory Roles: ${Object.keys(record.retrieved_memory_summary || {}).join(', ') || '-'}`,
+    `Tool Roles: ${Object.keys(record.tool_outputs || {}).join(', ') || '-'}`,
+  ];
+}
+
+async function performRuntimeAction(kind, data) {
+  if (kind === 'start') {
+    if (data.status.live_process) {
+      return {
+        kind: 'info',
+        text: `Runtime already active with PID ${data.status.state?.pid ?? '-'}.`,
+      };
+    }
+    const symbols = defaultSymbolsFromPreferences(data.preferences);
+    await runTextCommand([
+      'launch',
+      '--symbols',
+      symbols,
+      '--interval',
+      '1d',
+      '--lookback',
+      '180d',
+      '--continuous',
+      '--background',
+      '--poll-seconds',
+      '300',
+    ]);
+    return {
+      kind: 'info',
+      text: `Background runtime launch requested for ${symbols}.`,
+    };
+  }
+
+  if (kind === 'stop') {
+    if (!data.status.state?.pid) {
+      return { kind: 'info', text: 'No managed runtime is currently active.' };
+    }
+    await runTextCommand(['stop-service']);
+    return {
+      kind: 'info',
+      text: `Stop requested for PID ${data.status.state.pid}.`,
+    };
+  }
+
+  if ((data.status.state?.symbols || []).length) {
+    await runTextCommand(['restart-service']);
+    return { kind: 'info', text: 'Background runtime restart requested.' };
+  }
+  return {
+    kind: 'info',
+    text: 'No saved runtime launch config is available yet.',
+  };
+}
+
+function rotatePersona(current, offset) {
+  return personas[
+    (personas.indexOf(current) + offset + personas.length) % personas.length
+  ];
+}
+
+function handleChatInput(input, key, handlers) {
+  if (key.return) {
+    handlers.sendChat();
+    return true;
+  }
+  if (key.backspace || key.delete) {
+    handlers.setChatDraft((current) => current.slice(0, -1));
+    return true;
+  }
+  if (input === '[') {
+    handlers.setChatPersona((current) => rotatePersona(current, -1));
+    return true;
+  }
+  if (input === ']') {
+    handlers.setChatPersona((current) => rotatePersona(current, 1));
+    return true;
+  }
+  if (!key.ctrl && !key.meta && input) {
+    handlers.setChatDraft((current) => current + input);
+    return true;
+  }
+  return false;
+}
+
+function handleGlobalInput(input, handlers) {
+  const normalized = input.toLowerCase();
+  if (normalized === 'q') {
+    handlers.exit();
+    return true;
+  }
+  if (normalized === 'r') {
+    handlers.refreshNow();
+    return true;
+  }
+  if (normalized === 's') {
+    handlers.runAction('start');
+    return true;
+  }
+  if (normalized === 'x') {
+    handlers.runAction('stop');
+    return true;
+  }
+  if (input === 'R') {
+    handlers.runAction('restart');
+    return true;
+  }
+  if (['1', '2', '3', '4', '5', '6'].includes(input)) {
+    handlers.setPage(pages[Number(input) - 1]);
+    return true;
+  }
+  return false;
+}
+
 async function loadDashboard() {
   const payload = await runJsonCommand([
     'dashboard-snapshot',
@@ -451,11 +594,7 @@ function RuntimePage({ data }) {
             `Latest Review Available: ${data.review.available !== false && reviewRecord ? 'yes' : 'no'}`,
             `Latest Review Summary: ${recentSummary}`,
             '',
-            ...(supervisor?.stderr_tail?.length
-              ? ['stderr:', ...supervisor.stderr_tail.slice(-3)]
-              : supervisor?.stdout_tail?.length
-                ? ['stdout:', ...supervisor.stdout_tail.slice(-3)]
-                : ['No daemon log tail yet.']),
+            ...getSupervisorLogLines(supervisor),
           ],
           'green',
         ),
@@ -604,26 +743,7 @@ function ReviewPage({ data }) {
       ? renderUnavailableMessage(replay.error)
       : getReplayLines(replayState);
 
-  const tradeContextLines =
-    tradeContext?.available === false
-      ? renderUnavailableMessage(tradeContext.error)
-      : tradeContext?.record
-        ? [
-            `Trade ID: ${tradeContext.record.trade_id}`,
-            `Run ID: ${tradeContext.record.run_id ?? '-'}`,
-            `Consensus: ${tradeContext.record.consensus.alignment_level}`,
-            `Manager Rationale: ${tradeContext.record.manager_rationale}`,
-            `Execution Rationale: ${tradeContext.record.execution_rationale}`,
-            `Review Summary: ${tradeContext.record.review_summary}`,
-            `Routed Models: ${
-              Object.entries(tradeContext.record.routed_models || {})
-                .map(([role, model]) => `${role}:${model}`)
-                .join(' | ') || '-'
-            }`,
-            `Memory Roles: ${Object.keys(tradeContext.record.retrieved_memory_summary || {}).join(', ') || '-'}`,
-            `Tool Roles: ${Object.keys(tradeContext.record.tool_outputs || {}).join(', ') || '-'}`,
-          ]
-        : ['No persisted trade context is available yet.'];
+  const tradeContextLines = getTradeContextLines(tradeContext);
 
   return e(
     Box,
@@ -933,59 +1053,7 @@ function useDashboardState({ interactive }) {
       }
       setBusy(true);
       try {
-        if (kind === 'start') {
-          if (data.status.live_process) {
-            setActionMessage({
-              kind: 'info',
-              text: `Runtime already active with PID ${data.status.state?.pid ?? '-'}.`,
-            });
-          } else {
-            const symbols = defaultSymbolsFromPreferences(data.preferences);
-            await runTextCommand([
-              'launch',
-              '--symbols',
-              symbols,
-              '--interval',
-              '1d',
-              '--lookback',
-              '180d',
-              '--continuous',
-              '--background',
-              '--poll-seconds',
-              '300',
-            ]);
-            setActionMessage({
-              kind: 'info',
-              text: `Background runtime launch requested for ${symbols}.`,
-            });
-          }
-        } else if (kind === 'stop') {
-          if (data.status.state?.pid) {
-            await runTextCommand(['stop-service']);
-            setActionMessage({
-              kind: 'info',
-              text: `Stop requested for PID ${data.status.state.pid}.`,
-            });
-          } else {
-            setActionMessage({
-              kind: 'info',
-              text: 'No managed runtime is currently active.',
-            });
-          }
-        } else if (kind === 'restart') {
-          if ((data.status.state?.symbols || []).length) {
-            await runTextCommand(['restart-service']);
-            setActionMessage({
-              kind: 'info',
-              text: 'Background runtime restart requested.',
-            });
-          } else {
-            setActionMessage({
-              kind: 'info',
-              text: 'No saved runtime launch config is available yet.',
-            });
-          }
-        }
+        setActionMessage(await performRuntimeAction(kind, data));
         const next = await loadDashboard();
         setData(next);
         setError(null);
@@ -1121,60 +1189,13 @@ function InteractiveDashboardApp() {
       setPage(pages[Number(input) - 1]);
       return;
     }
-    if (page === 'chat') {
-      if (key.return) {
-        sendChat();
-        return;
-      }
-      if (key.backspace || key.delete) {
-        setChatDraft((current) => current.slice(0, -1));
-        return;
-      }
-      if (input === '[') {
-        setChatPersona(
-          (current) =>
-            personas[
-              (personas.indexOf(current) - 1 + personas.length) %
-                personas.length
-            ],
-        );
-        return;
-      }
-      if (input === ']') {
-        setChatPersona(
-          (current) =>
-            personas[(personas.indexOf(current) + 1) % personas.length],
-        );
-        return;
-      }
-      if (!key.ctrl && !key.meta && input) {
-        setChatDraft((current) => current + input);
-        return;
-      }
-    }
-    if (input.toLowerCase() === 'q') {
-      exit();
+    if (
+      page === 'chat' &&
+      handleChatInput(input, key, { sendChat, setChatDraft, setChatPersona })
+    ) {
       return;
     }
-    if (input.toLowerCase() === 'r') {
-      refreshNow();
-      return;
-    }
-    if (input.toLowerCase() === 's') {
-      runAction('start');
-      return;
-    }
-    if (input.toLowerCase() === 'x') {
-      runAction('stop');
-      return;
-    }
-    if (input === 'R') {
-      runAction('restart');
-      return;
-    }
-    if (['1', '2', '3', '4', '5', '6'].includes(input)) {
-      setPage(pages[Number(input) - 1]);
-    }
+    handleGlobalInput(input, { exit, refreshNow, runAction, setPage });
   });
 
   return e(DashboardView, {

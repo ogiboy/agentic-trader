@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import json
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import duckdb
@@ -11,22 +11,34 @@ from agentic_trader.memory.policy import MemoryActor, assert_memory_write_allowe
 from agentic_trader.runtime_feed import append_service_event, write_service_state
 from agentic_trader.schemas import (
     AccountMark,
+    ChatPersona,
     ChatHistoryEntry,
+    CoordinatorFocus,
     DailyRiskReport,
+    ExecutionSide,
     InvestmentPreferences,
+    JournalStatus,
     PortfolioSnapshot,
     PositionPlanSnapshot,
     PositionSnapshot,
     RunRecord,
     RunArtifacts,
+    ServiceEventLevel,
+    ServiceState,
     ServiceEvent,
     ServiceStateSnapshot,
+    TradeSide,
     TradeContextRecord,
     TradeJournalEntry,
 )
 
 type OrderRow = tuple[str, str, str, str, bool, float, float, float, float, float]
-TERMINAL_SERVICE_STATES = {"stopped", "completed", "failed", "blocked"}
+TERMINAL_SERVICE_STATES: set[ServiceState] = {
+    "stopped",
+    "completed",
+    "failed",
+    "blocked",
+}
 
 
 def _str_or_none(value: Any) -> str | None:
@@ -76,7 +88,7 @@ def _resolve_terminal_state(
 def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
     return ServiceStateSnapshot(
         service_name=str(row[0]),
-        state=str(row[1]),
+        state=cast(ServiceState, str(row[1])),
         updated_at=str(row[2]),
         started_at=_str_or_none(row[3]),
         last_heartbeat_at=_str_or_none(row[4]),
@@ -661,7 +673,7 @@ class TradingDatabase:
                 ChatHistoryEntry(
                     entry_id=str(row[0]),
                     created_at=str(row[1]),
-                    persona=str(row[2]),
+                    persona=cast(ChatPersona, str(row[2])),
                     user_message=str(row[3]),
                     response_text=str(row[4]),
                 )
@@ -946,18 +958,18 @@ class TradingDatabase:
                     run_id=str(row[4]) if row[4] is not None else None,
                     entry_order_id=str(row[5]),
                     exit_order_id=str(row[6]) if row[6] is not None else None,
-                    planned_side=str(row[7]),
+                    planned_side=cast(ExecutionSide, str(row[7])),
                     approved=bool(row[8]),
-                    journal_status=str(row[9]),
+                    journal_status=cast(JournalStatus, str(row[9])),
                     entry_price=float(row[10]),
                     exit_price=float(row[11]) if row[11] is not None else None,
                     stop_loss=float(row[12]),
                     take_profit=float(row[13]),
                     position_size_pct=float(row[14]),
                     confidence=float(row[15]),
-                    coordinator_focus=str(row[16]),
+                    coordinator_focus=cast(CoordinatorFocus, str(row[16])),
                     strategy_family=str(row[17]),
-                    manager_bias=str(row[18]),
+                    manager_bias=cast(ExecutionSide, str(row[18])),
                     review_summary=str(row[19]),
                     exit_reason=str(row[20]) if row[20] is not None else None,
                     realized_pnl=float(row[21]) if row[21] is not None else None,
@@ -1196,7 +1208,7 @@ class TradingDatabase:
             self.settings,
             ServiceStateSnapshot(
                 service_name=service_name,
-                state=state,
+                state=cast(ServiceState, state),
                 updated_at=now,
                 started_at=started_at,
                 last_heartbeat_at=now,
@@ -1335,7 +1347,7 @@ class TradingDatabase:
                 ServiceEvent(
                     event_id=str(row[0]),
                     created_at=str(row[1]),
-                    level=str(row[2]),
+                    level=cast(ServiceEventLevel, str(row[2])),
                     event_type=str(row[3]),
                     message=str(row[4]),
                     cycle_count=int(row[5]) if row[5] is not None else None,
@@ -1481,7 +1493,7 @@ class TradingDatabase:
             return None
         return PositionPlanSnapshot(
             symbol=str(row[0]),
-            side=str(row[1]),
+            side=cast(TradeSide, str(row[1])),
             entry_price=float(row[2]),
             stop_loss=float(row[3]),
             take_profit=float(row[4]),
@@ -1505,7 +1517,7 @@ class TradingDatabase:
             plans.append(
                 PositionPlanSnapshot(
                     symbol=str(row[0]),
-                    side=str(row[1]),
+                    side=cast(TradeSide, str(row[1])),
                     entry_price=float(row[2]),
                     stop_loss=float(row[3]),
                     take_profit=float(row[4]),

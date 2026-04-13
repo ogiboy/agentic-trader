@@ -1,4 +1,5 @@
 from agentic_trader.agents.context import render_agent_context
+from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessment
 
@@ -16,7 +17,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
             reasoning="Fallback regime: volatility is elevated, so trading should stay defensive.",
             key_risks=["high_volatility", "unstable_conditions"],
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if (
@@ -38,7 +39,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
                 else []
             ),
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if (
@@ -60,7 +61,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
                 else []
             ),
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if abs(trend_gap) < 0.01:
@@ -71,7 +72,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
             reasoning="Fallback regime: moving averages are compressed, suggesting range behavior.",
             key_risks=["false_breakout", "low_edge"],
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     return RegimeAssessment(
@@ -81,7 +82,7 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
         reasoning=f"Fallback regime: mixed trend signals with expansion potential and {snapshot.mtf_alignment} higher timeframe alignment.",
         key_risks=["mixed_signals", "low_conviction"],
         source="fallback",
-        fallback_reason="LLM unavailable or invalid structured response.",
+        fallback_reason=LLM_FALLBACK_REASON,
     )
 
 

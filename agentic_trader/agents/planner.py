@@ -1,4 +1,5 @@
 from agentic_trader.agents.context import render_agent_context
+from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
@@ -19,7 +20,7 @@ def _fallback_plan(snapshot: MarketSnapshot, regime: RegimeAssessment) -> Strate
             confidence=max(0.6, regime.confidence),
             reason_codes=["fallback", "trend_alignment", "positive_momentum"],
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if regime.regime == "trend_down":
@@ -32,7 +33,7 @@ def _fallback_plan(snapshot: MarketSnapshot, regime: RegimeAssessment) -> Strate
             confidence=max(0.6, regime.confidence),
             reason_codes=["fallback", "trend_alignment", "negative_momentum"],
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if regime.regime == "breakout_candidate" and snapshot.volume_ratio_20 > 1.1:
@@ -46,7 +47,7 @@ def _fallback_plan(snapshot: MarketSnapshot, regime: RegimeAssessment) -> Strate
             confidence=0.61,
             reason_codes=["fallback", "breakout_candidate", "volume_confirmation"],
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     return StrategyPlan(
@@ -58,7 +59,7 @@ def _fallback_plan(snapshot: MarketSnapshot, regime: RegimeAssessment) -> Strate
         confidence=min(0.55, regime.confidence),
         reason_codes=["fallback", "no_trade"],
         source="fallback",
-        fallback_reason="LLM unavailable or invalid structured response.",
+        fallback_reason=LLM_FALLBACK_REASON,
     )
 
 

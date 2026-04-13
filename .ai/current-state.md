@@ -37,7 +37,9 @@ Implemented or substantially present:
 - broker adapter boundary with paper backend, safe live gating, and execution kill-switch semantics
 - QA workflow docs now define product-specific checklist, runbook, scenarios, and evidence conventions for CLI, Rich, Ink, daemon, observer API, memory, governance, and paper broker validation
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, read-only JSON surfaces, optional quality gates, coverage XML, and SonarQube submission
-- SonarQube MCP is connected for project `agentic-trader-dev`; the latest QA pass reports zero bugs, zero vulnerabilities, 20 open code smells, 46.7% overall coverage, and a Quality Gate blocked only by new-code coverage
+- pyright is now configured as a first-class static check for repository source, tests, and QA scripts
+- recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
+- SonarQube MCP is connected for project `agentic-trader-dev`; the latest QA pass reports zero bugs, zero vulnerabilities, 8 open code smells, 46.7% overall coverage, and a Quality Gate blocked primarily by coverage and remaining complexity refactors
 
 ## Current Constraints
 
@@ -52,6 +54,7 @@ Implemented or substantially present:
 - background runtime supervision now has a sidecar-friendly status and log contract that UI surfaces can read without competing for the writer connection
 - behavior-changing work should use the QA docs when it affects operator surfaces or runtime behavior
 - Sonar Quality Gate currently requires higher new-code coverage than the repository has; keep adding focused tests before treating the gate as fully green
+- full multi-language support is intentionally deferred until operator flows stabilize; new repeated UI strings should be added to the shared catalog rather than duplicated per surface
 
 ## Current Development Posture
 

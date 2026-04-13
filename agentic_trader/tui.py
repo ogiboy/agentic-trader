@@ -42,19 +42,22 @@ from agentic_trader.schemas import (
     TradeStyle,
 )
 from agentic_trader.storage.db import TradingDatabase
+from agentic_trader.ui_text import (
+    LABEL_MARKET_VALUE,
+    LABEL_OBSERVER_MODE,
+    LABEL_STOP_REQUESTED,
+    LABEL_UNREALIZED_PNL,
+    PROMPT_CONTINUE,
+    PROMPT_SELECT_ACTION,
+    STYLE_KEY_COLUMN,
+    TITLE_RECENT_RUNS,
+    TITLE_RUNTIME_EVENTS,
+    TITLE_RUNTIME_STATUS,
+)
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, start_background_service
 
 console = Console()
-STYLE_KEY_COLUMN = "bold cyan"
-TITLE_RECENT_RUNS = "Recent Runs"
-TITLE_RUNTIME_EVENTS = "Runtime Events"
-TITLE_RUNTIME_STATUS = "Runtime Status"
-LABEL_MARKET_VALUE = "Market Value"
-LABEL_STOP_REQUESTED = "Stop Requested"
-LABEL_UNREALIZED_PNL = "Unrealized PnL"
-PROMPT_CONTINUE = "Press Enter to continue"
-PROMPT_SELECT_ACTION = "Select action"
 
 
 def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
@@ -203,7 +206,7 @@ def _observer_mode_panel(feature: str, error: str | None = None) -> Panel:
     body = f"{feature} is temporarily unavailable while the runtime writer owns the database."
     if error:
         body += f"\n\n{error}"
-    return Panel(body, title="Observer Mode", border_style="yellow")
+    return Panel(body, title=LABEL_OBSERVER_MODE, border_style="yellow")
 
 
 def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
@@ -681,7 +684,7 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
     )
 
 
-def _show_memory_explorer(settings: Settings, db: TradingDatabase) -> None:
+def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
     symbol = Prompt.ask("Symbol", default="AAPL").strip().upper()
     interval = Prompt.ask("Interval", default="1d")
     lookback = Prompt.ask("Lookback", default="180d")
@@ -910,7 +913,7 @@ def _runtime_menu(settings: Settings) -> None:
                     console.print(
                         Panel(
                             "Preferences are temporarily unavailable while the runtime writer owns the database.",
-                            title="Observer Mode",
+                            title=LABEL_OBSERVER_MODE,
                             border_style="yellow",
                         )
                     )

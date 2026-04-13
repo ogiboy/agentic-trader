@@ -1,5 +1,7 @@
 from agentic_trader.schemas import (
+    ExecutionSide,
     MarketSnapshot,
+    PositionExitReason,
     PositionExitDecision,
     PositionPlanSnapshot,
     PositionSnapshot,
@@ -8,9 +10,9 @@ from agentic_trader.schemas import (
 
 def _exit_decision(
     *,
-    side: str,
+    side: ExecutionSide,
     symbol: str,
-    reason: str,
+    reason: PositionExitReason,
     rationale: str,
     exit_price: float,
 ) -> PositionExitDecision:

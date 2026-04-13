@@ -75,6 +75,12 @@ Desired direction:
 
 Keep all operator surfaces aligned with the same underlying runtime and status truth.
 
+Desired direction:
+
+- reuse the shared UI text catalog for recurring CLI, Rich, Ink, and future WebUI labels
+- defer full localization until operator flows stabilize, but avoid adding new scattered duplicate labels
+- keep pyright, ruff, pytest, and smoke QA green as surface contracts evolve
+
 ### 7. Future External Provider Readiness
 
 Prepare for future support of remote providers without making the project cloud-first.
@@ -122,3 +128,4 @@ Desired direction:
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
 - keep the automated test command in `AGENTS.md` current with the project environment
 - next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate
+- next Sonar cleanup priority: reduce remaining complexity in `agentic_trader/tui.py`, `agentic_trader/workflows/service.py`, `agentic_trader/backtest/walk_forward.py`, and service-state persistence

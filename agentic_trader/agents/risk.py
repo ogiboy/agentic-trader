@@ -1,4 +1,5 @@
 from agentic_trader.agents.context import render_agent_context
+from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
@@ -23,7 +24,7 @@ def _fallback_risk(snapshot: MarketSnapshot, strategy: StrategyPlan) -> RiskPlan
             max_holding_bars=20,
             notes="Fallback risk model for long setup.",
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     if strategy.action == "sell":
@@ -37,7 +38,7 @@ def _fallback_risk(snapshot: MarketSnapshot, strategy: StrategyPlan) -> RiskPlan
             max_holding_bars=20,
             notes="Fallback risk model for short setup.",
             source="fallback",
-            fallback_reason="LLM unavailable or invalid structured response.",
+            fallback_reason=LLM_FALLBACK_REASON,
         )
 
     return RiskPlan(
@@ -48,7 +49,7 @@ def _fallback_risk(snapshot: MarketSnapshot, strategy: StrategyPlan) -> RiskPlan
         max_holding_bars=5,
         notes="Fallback no-trade risk plan.",
         source="fallback",
-        fallback_reason="LLM unavailable or invalid structured response.",
+        fallback_reason=LLM_FALLBACK_REASON,
     )
 
 

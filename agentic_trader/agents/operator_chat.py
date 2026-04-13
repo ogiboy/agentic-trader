@@ -5,6 +5,7 @@ from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     ChatPersona,
+    AgentRole,
     InvestmentPreferences,
     OperatorInstruction,
     PreferenceUpdate,
@@ -12,8 +13,8 @@ from agentic_trader.schemas import (
 from agentic_trader.storage.db import TradingDatabase
 
 
-def _persona_to_role(persona: ChatPersona) -> str:
-    mapping = {
+def _persona_to_role(persona: ChatPersona) -> AgentRole:
+    mapping: dict[ChatPersona, AgentRole] = {
         "operator_liaison": "explainer",
         "regime_analyst": "regime",
         "strategy_selector": "strategy",

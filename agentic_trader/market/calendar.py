@@ -1,7 +1,11 @@
 from datetime import UTC, datetime, time
 from zoneinfo import ZoneInfo
 
-from agentic_trader.schemas import InvestmentPreferences, MarketSessionStatus
+from agentic_trader.schemas import (
+    InvestmentPreferences,
+    MarketSessionState,
+    MarketSessionStatus,
+)
 
 US_TZ = ZoneInfo("America/New_York")
 TR_TZ = ZoneInfo("Europe/Istanbul")
@@ -21,7 +25,7 @@ def _session_state_for_local_time(
     local_dt: datetime,
     open_time: time,
     close_time: time,
-) -> str:
+) -> MarketSessionState:
     if local_dt.weekday() >= 5:
         return "weekend"
     current = local_dt.time()

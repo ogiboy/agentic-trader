@@ -12,7 +12,7 @@ from argparse import ArgumentParser, Namespace
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pexpect
 
@@ -242,7 +242,7 @@ def run_tui_open_and_quit(
             command,
             args=args,
             cwd=str(REPO_ROOT),
-            env=_spawn_env(),
+            env=cast(Any, _spawn_env()),
             encoding="utf-8",
             timeout=timeout,
             dimensions=(36, 120),
