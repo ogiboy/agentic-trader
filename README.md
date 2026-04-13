@@ -287,6 +287,8 @@ agentic-trader portfolio --json
 
 ## QA And Code Quality
 
+Developer orientation notes live in [docs/dev/code-map.md](docs/dev/code-map.md).
+
 Fast checks:
 
 ```bash

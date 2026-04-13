@@ -22,6 +22,14 @@ ARTIFACTS_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
 TRACEBACK_MARKERS = ("Traceback (most recent call last):", "KeyboardInterrupt")
 RENDER_SECONDS = 3.0
 EXIT_WAIT_SECONDS = 2.0
+TUI_READY_PATTERNS = (
+    r"Agentic Trader",
+    r"AGENTIC TRADER",
+    r"CONTROL ROOM",
+    r"Main Menu",
+    r"Select action",
+    r"Overview",
+)
 DEFAULT_SONAR_HOST_URL = "http://localhost:9000"
 DEFAULT_SONAR_PROJECT_KEY = "agentic-trader-dev"
 
@@ -338,6 +346,19 @@ def _interactive_check_result(
     )
 
 
+def _wait_for_tui_ready(child: pexpect.spawn, *, timeout: int) -> str:
+    """
+    Wait for a concrete rendering marker that indicates the spawned TUI is actually alive.
+
+    A visible byte stream alone is not enough for smoke QA because startup errors can
+    print output before the operator surface renders. These patterns are deliberately
+    broad across the Ink and Rich surfaces while still requiring an Agentic Trader
+    UI marker rather than arbitrary child output.
+    """
+    matched_index = child.expect(list(TUI_READY_PATTERNS), timeout=timeout)
+    return TUI_READY_PATTERNS[matched_index]
+
+
 def run_tui_open_and_quit(
     context: SmokeContext,
     name: str,
@@ -375,13 +396,57 @@ def run_tui_open_and_quit(
             dimensions=(36, 120),
         )
         child.logfile_read = log
+        ready_signal = _wait_for_tui_ready(child, timeout=timeout)
         _drain_child(child, RENDER_SECONDS)
         exit_method = _close_interactive_child(child)
         child.close(force=False)
 
         output = log.getvalue()
         _write_interactive_artifact(artifact, display_command, exit_method, child, output)
-        return _interactive_check_result(name, artifact, exit_method, child, output)
+        result = _interactive_check_result(name, artifact, exit_method, child, output)
+        if not result.passed:
+            return result
+        return CheckResult(
+            name=result.name,
+            passed=True,
+            details=f"{result.details}; ready={ready_signal}",
+            artifact=result.artifact,
+        )
+    except pexpect.TIMEOUT as exc:
+        output = log.getvalue()
+        if child is not None and child.isalive():
+            child.terminate(force=True)
+        _write_artifact(
+            artifact,
+            f"$ {display_command}\n"
+            f"cwd: {REPO_ROOT}\n"
+            f"failure: tui_ready_timeout\n"
+            f"timeout: {timeout}\n"
+            f"exception: {exc}\n\n"
+            f"CAPTURE:\n{output}\n",
+        )
+        return CheckResult(
+            name=name,
+            passed=False,
+            details="tui_ready_timeout",
+            artifact=str(artifact),
+        )
+    except pexpect.EOF as exc:
+        output = log.getvalue()
+        _write_artifact(
+            artifact,
+            f"$ {display_command}\n"
+            f"cwd: {REPO_ROOT}\n"
+            f"failure: tui_ready_eof\n"
+            f"exception: {exc}\n\n"
+            f"CAPTURE:\n{output}\n",
+        )
+        return CheckResult(
+            name=name,
+            passed=False,
+            details="tui_ready_eof",
+            artifact=str(artifact),
+        )
     except Exception as exc:
         output = log.getvalue()
         if child is not None and child.isalive():
@@ -420,6 +485,20 @@ def _skip_result(context: SmokeContext, name: str, details: str) -> CheckResult:
         name=name,
         passed=True,
         details=f"skipped; {details}",
+        artifact=str(artifact),
+    )
+
+
+def _fail_result(context: SmokeContext, name: str, details: str) -> CheckResult:
+    """
+    Create and record a hard-failing check result for required QA prerequisites.
+    """
+    artifact = _artifact_path(context, name)
+    _write_artifact(artifact, f"FAILED: {details}\n")
+    return CheckResult(
+        name=name,
+        passed=False,
+        details=details,
         artifact=str(artifact),
     )
 
@@ -693,7 +772,7 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
 
     pyright = shutil.which("pyright")
     if pyright is None:
-        results.append(_skip_result(context, "pyright", "pyright not found on PATH"))
+        results.append(_fail_result(context, "pyright", "pyright not found on PATH"))
     else:
         results.append(
             run_command_capture(

@@ -447,6 +447,7 @@ def run_walk_forward_backtest(
     memory_enabled: bool = True,
     frame: pd.DataFrame | None = None,
 ) -> BacktestReport:
+    """Replay historical bars with the current agent pipeline in walk-forward mode."""
     history = (
         frame.copy()
         if frame is not None
@@ -477,6 +478,7 @@ def run_deterministic_baseline_backtest(
     warmup_bars: int = 120,
     frame: pd.DataFrame | None = None,
 ) -> BacktestReport:
+    """Replay historical bars with the deterministic baseline artifact provider."""
     history = (
         frame.copy()
         if frame is not None
@@ -503,6 +505,7 @@ def run_backtest_comparison(
     allow_fallback: bool = False,
     frame: pd.DataFrame | None = None,
 ) -> BacktestComparisonReport:
+    """Compare agent-assisted walk-forward results against the deterministic baseline."""
     history = (
         frame.copy()
         if frame is not None
@@ -551,6 +554,7 @@ def run_memory_ablation_backtest(
     allow_fallback: bool = False,
     frame: pd.DataFrame | None = None,
 ) -> BacktestAblationReport:
+    """Compare walk-forward results with and without memory injection enabled."""
     history = (
         frame.copy()
         if frame is not None

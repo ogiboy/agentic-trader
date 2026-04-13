@@ -13,7 +13,7 @@ It checks:
 - root launcher entry through `python main.py`
 - legacy Rich/admin menu through `agentic-trader menu`
 
-The script uses `subprocess` for non-interactive commands and `pexpect` for interactive terminal surfaces. Interactive checks let the UI render, capture visible output, then try to exit with `q`, Ctrl+C, and finally forced termination if needed.
+The script uses `subprocess` for non-interactive commands and `pexpect` for interactive terminal surfaces. Interactive checks wait for an explicit Agentic Trader UI marker before they are considered rendered, capture visible output, then try to exit with `q`, Ctrl+C, and finally forced termination if needed.
 
 ## How To Run
 
@@ -41,7 +41,9 @@ That adds:
 
 - `python -m ruff check .`
 - `python -m pytest -q -p no:cacheprovider`
-- `pyright` when available on `PATH`
+- `pyright` from `PATH`
+
+`pyright` is required for `--include-quality`; if it is missing, the smoke run fails instead of silently skipping the static type check.
 
 When `--include-sonar` is used together with `--include-quality`, the pytest step also writes a coverage XML report into the run artifact directory and passes it to SonarQube.
 

@@ -1495,7 +1495,10 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
     db_status = "ok"
     try:
         db = _open_db(settings, read_only=True)
-        latest = _format_latest_order(db.latest_order())
+        try:
+            latest = _format_latest_order(db.latest_order())
+        finally:
+            db.close()
     except Exception as exc:
         latest = "unavailable"
         db_status = f"Database unavailable: {exc}"

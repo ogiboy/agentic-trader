@@ -84,6 +84,7 @@ def coordinate_research(
     allow_fallback: bool,
     context: AgentContext | None = None,
 ) -> ResearchCoordinatorBrief:
+    """Ask the routed coordinator model for cycle focus, with optional diagnostic fallback."""
     system_prompt = (
         "You are the research coordinator for a systematic trading engine. "
         "Set the focus for downstream specialists and highlight caution flags."

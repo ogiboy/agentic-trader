@@ -74,6 +74,7 @@ def build_agent_context(
     upstream_context: Mapping[str, BaseModel | str] | None = None,
     shared_memory_bus: list[SharedMemoryEntry] | None = None,
 ) -> AgentContext:
+    """Build the complete context bundle passed to one agent stage."""
     preferences = db.load_preferences()
     strategy_family = None
     strategy_context = upstream_context.get("strategy") if upstream_context else None
@@ -124,6 +125,7 @@ def build_agent_context(
 
 
 def render_agent_context(context: AgentContext, *, task: str) -> str:
+    """Render an AgentContext into the prompt text format used by local LLM calls."""
     sections = [
         f"Role: {context.role}",
         f"Routed Model: {context.model_name}",

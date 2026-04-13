@@ -83,6 +83,7 @@ def plan_trade(
     allow_fallback: bool,
     context: AgentContext | None = None,
 ) -> StrategyPlan:
+    """Ask the routed strategy model to choose a trade plan for the assessed regime."""
     system_prompt = (
         "You are a strategy selection agent for a systematic trading engine. "
         "Select the strategy family that best fits the regime. "

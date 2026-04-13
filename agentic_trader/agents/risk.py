@@ -77,6 +77,7 @@ def build_risk_plan(
     allow_fallback: bool,
     context: AgentContext | None = None,
 ) -> RiskPlan:
+    """Ask the routed risk model for size, stop, take-profit, and holding horizon."""
     system_prompt = (
         "You are a risk agent for a paper trading system. "
         "Use smaller sizing when volatility or uncertainty is elevated. "

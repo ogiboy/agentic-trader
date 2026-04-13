@@ -104,6 +104,7 @@ def assess_regime(
     allow_fallback: bool,
     context: AgentContext | None = None,
 ) -> RegimeAssessment:
+    """Ask the routed regime model to classify current market conditions."""
     system_prompt = (
         "You are a market regime classifier for a systematic trading engine. "
         "Be conservative. Prefer no_trade over low-conviction guesses."

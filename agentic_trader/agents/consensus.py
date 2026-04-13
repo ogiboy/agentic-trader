@@ -13,6 +13,7 @@ def assess_specialist_consensus(
     strategy: StrategyPlan,
     risk: RiskPlan,
 ) -> SpecialistConsensus:
+    """Compare specialist outputs before manager synthesis and record alignment."""
     supporting_roles: list[str] = []
     dissenting_roles: list[str] = []
     reasons: list[str] = []

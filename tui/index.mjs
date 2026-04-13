@@ -268,6 +268,10 @@ function handleGlobalInput(input, handlers) {
     handlers.exit();
     return true;
   }
+  if (input === 'R') {
+    handlers.runAction('restart');
+    return true;
+  }
   if (normalized === 'r') {
     handlers.refreshNow();
     return true;
@@ -278,10 +282,6 @@ function handleGlobalInput(input, handlers) {
   }
   if (normalized === 'x') {
     handlers.runAction('stop');
-    return true;
-  }
-  if (input === 'R') {
-    handlers.runAction('restart');
     return true;
   }
   if (['1', '2', '3', '4', '5', '6'].includes(input)) {

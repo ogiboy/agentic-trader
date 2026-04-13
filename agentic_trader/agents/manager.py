@@ -243,6 +243,7 @@ def manage_trade_decision(
     allow_fallback: bool,
     context: AgentContext | None = None,
 ) -> ManagerDecision:
+    """Route specialist outputs through the manager and apply deterministic safeguards."""
     system_prompt = (
         "You are the manager agent for a systematic trading engine. "
         "Combine coordinator, regime, strategy, and risk outputs into a final execution posture. "

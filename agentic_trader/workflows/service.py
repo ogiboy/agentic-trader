@@ -223,6 +223,7 @@ def run_service(
                     status: str,
                     message: str,
                     current_symbol: str = symbol,
+                    cycle_number: int = cycle_count,
                 ) -> None:
                     """
                     Update persisted service state for the current symbol and record a corresponding informational service event.
@@ -232,12 +233,13 @@ def run_service(
                     	status (str): Stage status label (e.g., "started", "finished", "failed").
                     	message (str): Human-readable message describing the current progress or status.
                     	current_symbol (str): Symbol currently being processed; defaults to the loop-bound symbol.
+                    	cycle_number (int): Cycle number bound when this callback is created.
                     """
                     db.upsert_service_state(
                         state="running",
                         continuous=continuous,
                         poll_seconds=poll_seconds,
-                        cycle_count=cycle_count,
+                        cycle_count=cycle_number,
                         symbols=symbols,
                         interval=interval,
                         lookback=lookback,
@@ -250,7 +252,7 @@ def run_service(
                         level="info",
                         event_type=f"agent_{stage}_{status}",
                         message=message,
-                        cycle_count=cycle_count,
+                        cycle_count=cycle_number,
                         symbol=current_symbol,
                     )
 

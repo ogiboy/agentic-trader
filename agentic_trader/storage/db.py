@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import json
-from typing import Any, cast
+from typing import Any, cast, get_args
 from uuid import uuid4
 
 import duckdb
@@ -39,6 +39,7 @@ TERMINAL_SERVICE_STATES: set[ServiceState] = {
     "failed",
     "blocked",
 }
+SERVICE_STATE_VALUES = set(get_args(ServiceState))
 
 
 def _str_or_none(value: Any) -> str | None:
@@ -168,12 +169,22 @@ def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
     Parameters:
         row (tuple[Any, ...]): A database row tuple matching the columns above. `symbols_json` may be None or a JSON string.
     
+    Unknown state strings are normalized to "stopped" so stale or manually
+    edited runtime rows cannot break observer/status surfaces. The current
+    schema already accepts the transitional "stopping" state.
+
     Returns:
         ServiceStateSnapshot: Parsed snapshot with coerced types (strings, ints, bools, lists) and sensible defaults for missing/None fields.
     """
+    state_str = str(row[1])
+    state = (
+        cast(ServiceState, state_str)
+        if state_str in SERVICE_STATE_VALUES
+        else "stopped"
+    )
     return ServiceStateSnapshot(
         service_name=str(row[0]),
-        state=cast(ServiceState, str(row[1])),
+        state=state,
         updated_at=str(row[2]),
         started_at=_str_or_none(row[3]),
         last_heartbeat_at=_str_or_none(row[4]),
