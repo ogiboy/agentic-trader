@@ -23,3 +23,4 @@ dist/
 *.log
 .ai/qa/artifacts/smoke-summary.json
 .ai/qa/artifacts/smoke-*/
+.ai/qa/artifacts/qa-*
