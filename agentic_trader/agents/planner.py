@@ -10,6 +10,18 @@ from agentic_trader.schemas import (
 
 
 def _fallback_plan(snapshot: MarketSnapshot, regime: RegimeAssessment) -> StrategyPlan:
+    """
+    Constructs a deterministic fallback StrategyPlan from a market snapshot and regime assessment.
+    
+    Selects a fallback plan based on `regime.regime` and (for breakouts) `snapshot.volume_ratio_20`. The function returns a trend-following buy plan for "trend_up", a trend-following sell plan for "trend_down", a breakout plan when `regime.regime == "breakout_candidate"` and `snapshot.volume_ratio_20 > 1.1` (direction set by `regime.direction_bias`), or a no-trade/hold plan otherwise. Confidence and reason codes are set to indicate this is a fallback decision.
+    
+    Parameters:
+        snapshot (MarketSnapshot): Market data used to evaluate volume confirmation and other snapshot-derived conditions.
+        regime (RegimeAssessment): Regime assessment that determines strategy family, direction bias, and baseline confidence.
+    
+    Returns:
+        StrategyPlan: A fully populated fallback strategy plan appropriate to the assessed regime.
+    """
     if regime.regime == "trend_up":
         return StrategyPlan(
             strategy_family="trend_following",

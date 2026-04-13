@@ -14,6 +14,14 @@ from agentic_trader.schemas import (
 
 
 def _snapshot() -> MarketSnapshot:
+    """
+    Create a MarketSnapshot populated with deterministic test values for the AAPL 1d timeframe.
+    
+    The returned snapshot provides fixed indicator and market metrics (EMAs, ATR, RSI, volatility, short- and medium-term returns, volume ratio, bars analyzed, and last close) for use in unit tests.
+    
+    Returns:
+        MarketSnapshot: Snapshot with preset values used to make test outcomes reproducible.
+    """
     return MarketSnapshot(
         symbol="AAPL",
         interval="1d",

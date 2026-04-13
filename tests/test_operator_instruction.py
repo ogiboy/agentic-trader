@@ -11,6 +11,12 @@ from agentic_trader.storage.db import TradingDatabase
 
 
 def _force_fallback(**_kwargs: object) -> None:
+    """
+    Helper that always raises a RuntimeError to force the code path that handles structured-LLM fallback.
+    
+    Raises:
+        RuntimeError: Always raised with the message "force fallback".
+    """
     raise RuntimeError("force fallback")
 
 

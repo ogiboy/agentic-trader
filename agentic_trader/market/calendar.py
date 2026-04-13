@@ -26,6 +26,17 @@ def _session_state_for_local_time(
     open_time: time,
     close_time: time,
 ) -> MarketSessionState:
+    """
+    Determine the market session state for a given local datetime relative to daily open and close times.
+    
+    Parameters:
+        local_dt (datetime): Local datetime against which the session state is evaluated (should be in the market's timezone).
+        open_time (time): Daily opening clock time (inclusive).
+        close_time (time): Daily closing clock time (inclusive).
+    
+    Returns:
+        MarketSessionState: `"weekend"` if `local_dt` falls on Saturday or Sunday, `"open"` if the local time is between `open_time` and `close_time` inclusive, `"closed"` otherwise.
+    """
     if local_dt.weekday() >= 5:
         return "weekend"
     current = local_dt.time()

@@ -65,6 +65,18 @@ def _manage_open_position(
 
 
 def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
+    """
+    Verify the local LLM service is reachable and, when configured, that the required model is available.
+    
+    Parameters:
+        settings (Settings): Application settings; `strict_llm` controls whether missing models cause failure.
+    
+    Returns:
+        LLMHealthStatus: Health report returned by the local LLM.
+    
+    Raises:
+        RuntimeError: If the LLM service is not reachable (message from health), or if `settings.strict_llm` is true and the required model is not available (message from health).
+    """
     health = LocalLLM(settings).health_check()
     if not health.service_reachable:
         raise RuntimeError(health.message)
@@ -76,6 +88,17 @@ def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
 def _override_or_next(
     override: int | None, current: int | None, *, increment: bool
 ) -> int:
+    """
+    Compute the next integer value using an optional override and an increment flag.
+    
+    Parameters:
+        override (int | None): If provided, this value is returned verbatim.
+        current (int | None): Current base value; treated as 0 if None.
+        increment (bool): If True and `override` is None, return `current` + 1; otherwise return `current`.
+    
+    Returns:
+        int: `override` when not None; otherwise `current` (treated as 0) plus 1 if `increment` is True, or `current` (treated as 0) if False.
+    """
     if override is not None:
         return override
     base_value = current or 0
@@ -83,6 +106,14 @@ def _override_or_next(
 
 
 def _record_cycle_completed_mark(db: TradingDatabase, cycle_count: int) -> None:
+    """
+    Record an account mark indicating completion of a service cycle.
+    
+    Writes a mark with source "cycle_completed", a human-readable note "Cycle {cycle_count} completed.", and the provided cycle_count value.
+    
+    Parameters:
+        cycle_count (int): The completed cycle number to record.
+    """
     db.record_account_mark(
         source="cycle_completed",
         note=f"Cycle {cycle_count} completed.",
@@ -100,6 +131,21 @@ def run_service(
     continuous: bool,
     max_cycles: int | None,
 ) -> list[ServiceCycleResult]:
+    """
+    Run the orchestrator loop that processes symbols in cycles, executing per-symbol runs, managing open positions, and persisting results.
+    
+    Parameters:
+        settings (Settings): Runtime configuration and environment for the service.
+        symbols (list[str]): Trading symbols to process each cycle.
+        interval (str): Timeframe identifier used for data and strategy evaluation (e.g., "1h", "1d").
+        lookback (str): Lookback window for strategy inputs (e.g., "24h", "30m").
+        poll_seconds (int): Seconds to wait between cycles when running continuously.
+        continuous (bool): If true, keep cycling until a stop is requested or max_cycles is reached.
+        max_cycles (int | None): Optional maximum number of cycles to run when continuous is true; None means unlimited.
+    
+    Returns:
+        list[ServiceCycleResult]: Ordered results for each symbol processed across all completed cycles, including artifacts and any associated order id.
+    """
     ensure_llm_ready(settings)
     clear_stop_request(settings)
     db = TradingDatabase(settings)
@@ -178,6 +224,15 @@ def run_service(
                     message: str,
                     current_symbol: str = symbol,
                 ) -> None:
+                    """
+                    Update persisted service state for the current symbol and record a corresponding informational service event.
+                    
+                    Parameters:
+                    	stage (str): High-level agent stage name (e.g., "planning", "execution").
+                    	status (str): Stage status label (e.g., "started", "finished", "failed").
+                    	message (str): Human-readable message describing the current progress or status.
+                    	current_symbol (str): Symbol currently being processed; defaults to the loop-bound symbol.
+                    """
                     db.upsert_service_state(
                         state="running",
                         continuous=continuous,
@@ -363,6 +418,29 @@ def start_background_service(
     launch_count_override: int | None = None,
     restart_count_override: int | None = None,
 ) -> int:
+    """
+    Spawn the trading service as a background process and record its runtime metadata.
+    
+    If an earlier recorded service state indicates a stale PID (process not alive), that state is marked recovered before launching. The function upserts a new `starting` service state, inserts a spawn event, and returns the spawned process PID.
+    
+    Parameters:
+        settings (Settings): Runtime and environment configuration.
+        symbols (list[str]): Symbols the background service will process.
+        interval (str): Trading interval string used by the service.
+        lookback (str): Lookback period string used by the service.
+        poll_seconds (int): Seconds the background service will sleep between cycles when continuous.
+        continuous (bool): Whether the background service should run continuously.
+        max_cycles (int | None): Maximum number of cycles for the background service, or `None` for unlimited.
+        workdir (Path | None): Working directory for the spawned process; defaults to current working directory when `None`.
+        launch_count_override (int | None): Optional explicit launch count to record; when `None`, an incremented prior launch count is used.
+        restart_count_override (int | None): Optional explicit restart count to record; when `None`, the prior restart count is used.
+    
+    Returns:
+        int: PID of the spawned background process.
+    
+    Raises:
+        RuntimeError: If a recorded service state indicates the service is already active (an alive PID).
+    """
     clear_stop_request(settings)
     db = TradingDatabase(settings)
     state = db.get_service_state()

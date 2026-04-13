@@ -15,6 +15,19 @@ def build_review_note(
     manager: ManagerDecision,
     execution: ExecutionDecision,
 ) -> ReviewNote:
+    """
+    Assembles a ReviewNote summarizing regime, risk, manager, and execution assessments.
+    
+    Parameters:
+        regime (RegimeAssessment): Regime assessment containing a confidence score used to classify regime strength.
+        _strategy (StrategyPlan): Accepted strategy plan (currently unused in the review synthesis).
+        risk (RiskPlan): Risk assessment whose risk_reward_ratio is evaluated to classify the risk/reward profile.
+        manager (ManagerDecision): Manager decision containing optional escalation_flags that are converted into warnings.
+        execution (ExecutionDecision): Execution decision whose approval status is converted into a strength or warning.
+    
+    Returns:
+        ReviewNote: A note with a summary, plus lists of `strengths`, `warnings`, and `next_checks` derived from the inputs.
+    """
     strengths: list[str] = []
     warnings: list[str] = []
     next_checks: list[str] = []
