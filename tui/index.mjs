@@ -144,6 +144,41 @@ function getTradeContextLines(tradeContext) {
 }
 
 /**
+ * Produce human-readable lines for the persisted Market Context Pack.
+ *
+ * @param {Object} marketContext - Dashboard marketContext payload containing
+ *   `{ available?: boolean, error?: string, contextPack?: Object }`.
+ * @returns {string[]} Lines that summarize lookback coverage, data quality,
+ *   anomaly flags, and the first few horizon trend votes.
+ */
+function getMarketContextLines(marketContext) {
+  if (marketContext?.available === false) {
+    return renderUnavailableMessage(marketContext.error);
+  }
+  const pack = marketContext?.contextPack;
+  if (!pack) {
+    return ['No persisted Market Context Pack is available yet.'];
+  }
+  const horizons = (pack.horizons || [])
+    .slice(0, 5)
+    .map(
+      (item) =>
+        `${item.horizon_bars}b ${item.trend_vote} return=${item.return_pct ?? '-'} drawdown=${item.max_drawdown_pct ?? '-'}`,
+    );
+  return [
+    `Summary: ${pack.summary || '-'}`,
+    `Lookback: ${pack.lookback ?? '-'} | Interval: ${pack.interval}`,
+    `Window: ${pack.window_start ?? '-'} -> ${pack.window_end ?? '-'}`,
+    `Bars: ${pack.bars_analyzed}/${pack.bars_expected ?? '?'} coverage=${pack.coverage_ratio ?? '?'}`,
+    `Interval Semantics: ${pack.interval_semantics}`,
+    `HTF: ${pack.higher_timeframe} used=${pack.higher_timeframe_used}`,
+    `Quality: ${(pack.data_quality_flags || []).join(', ') || '-'}`,
+    `Anomalies: ${(pack.anomaly_flags || []).join(', ') || '-'}`,
+    ...horizons,
+  ];
+}
+
+/**
  * Perform a runtime control action (start, stop, or restart) based on the provided dashboard snapshot and return a user-facing action message.
  *
  * @param {string} kind - The action to perform: "start", "stop", or other (treated as restart if a previous launch config exists).
@@ -530,6 +565,7 @@ function OverviewPage({ data }) {
   const calendar = data.calendar;
   const broker = data.broker;
   const marketCache = data.marketCache;
+  const marketContext = data.marketContext;
   const latestSnapshot = data.review.record?.artifacts?.snapshot;
   const agentActivity = data.agentActivity;
   const agentEvents = agentActivity?.recent_stage_events || [];
@@ -547,6 +583,7 @@ function OverviewPage({ data }) {
           'CURRENT CYCLE',
           [
             `Runtime: ${runtime.runtime_state}`,
+            `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
             `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
             `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
             `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
@@ -560,6 +597,8 @@ function OverviewPage({ data }) {
             `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
             `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
             `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
+            `Context Pack: ${marketContext?.contextPack?.summary ?? '-'}`,
+            `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
             '',
             `Last Outcome Type: ${agentActivity?.last_outcome_type ?? '-'}`,
             `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
@@ -574,6 +613,7 @@ function OverviewPage({ data }) {
           'SYSTEM',
           [
             `Model: ${doctor.model}`,
+            `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
             `Base URL: ${doctor.base_url}`,
             `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
             `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
@@ -650,6 +690,7 @@ function RuntimePage({ data }) {
           'RUNTIME STATE',
           [
             `Runtime: ${runtime.runtime_state}`,
+            `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
             `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
             `State: ${runtime.state?.state ?? '-'}`,
             `Symbols: ${(runtime.state?.symbols || []).join(', ') || '-'}`,
@@ -832,22 +873,24 @@ function PortfolioPage({ data }) {
 }
 
 /**
- * Render the Review page with panels for run review, agent trace, memory-aware replay, and trade context.
+ * Render the Review page with panels for run review, agent trace, memory-aware replay, trade context, and market context.
  *
- * @param {{ data: { review: Object, trace: Object, replay: Object, tradeContext: Object } }} props
+ * @param {{ data: { review: Object, trace: Object, replay: Object, tradeContext: Object, marketContext: Object } }} props
  * @param {Object} props.data - Dashboard snapshot subsets used to populate panels.
  *   Expected keys:
  *     - review: { available?: boolean, record?: Object, error?: string }
  *     - trace: { available?: boolean, record?: Object, error?: string }
  *     - replay: { available?: boolean, replay?: Object, error?: string }
  *     - tradeContext: Object
- * @returns {import('react').ReactElement} An Ink layout containing four titled panels: "LATEST RUN REVIEW", "AGENT TRACE", "MEMORY-AWARE REPLAY", and "TRADE CONTEXT".
+ *     - marketContext: Object
+ * @returns {import('react').ReactElement} An Ink layout containing review, trace, replay, trade-context, and market-context panels.
  */
 function ReviewPage({ data }) {
   const review = data.review;
   const trace = data.trace;
   const replay = data.replay;
   const tradeContext = data.tradeContext;
+  const marketContext = data.marketContext;
   const reviewRecord = review.record;
   const traceRecord = trace.record;
   const replayState = replay.replay;
@@ -868,6 +911,7 @@ function ReviewPage({ data }) {
       : getReplayLines(replayState);
 
   const tradeContextLines = getTradeContextLines(tradeContext);
+  const marketContextLines = getMarketContextLines(marketContext);
 
   return e(
     Box,
@@ -900,8 +944,13 @@ function ReviewPage({ data }) {
       { width: '100%', marginTop: 1 },
       e(
         Box,
-        { width: '100%' },
+        { width: '50%', paddingRight: 1 },
         panel('TRADE CONTEXT', tradeContextLines, 'cyan'),
+      ),
+      e(
+        Box,
+        { width: '50%', paddingLeft: 1 },
+        panel('MARKET CONTEXT PACK', marketContextLines, 'blue'),
       ),
     ),
   );

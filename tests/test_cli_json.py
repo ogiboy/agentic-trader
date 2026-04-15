@@ -189,7 +189,9 @@ def test_status_preferences_and_portfolio_json(
     assert status_result.exit_code == 0
     status_payload = json.loads(status_result.stdout)
     assert status_payload["runtime_state"] == "inactive"
+    assert status_payload["runtime_mode"] == "operation"
     assert status_payload["state"]["state"] == "completed"
+    assert status_payload["state"]["runtime_mode"] == "operation"
 
     preferences_result = runner.invoke(app, ["preferences", "--json"])
     assert preferences_result.exit_code == 0
@@ -250,6 +252,7 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     doctor_payload = json.loads(doctor_result.stdout)
     assert doctor_payload["ollama_reachable"] is True
     assert doctor_payload["model_available"] is True
+    assert doctor_payload["runtime_mode"] == "operation"
     assert doctor_payload["latest_order"].startswith("paper-test | AAPL buy")
     assert "(" not in doctor_payload["latest_order"]
 
@@ -436,6 +439,8 @@ def test_dashboard_snapshot_json(
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["doctor"]["ollama_reachable"] is True
+    assert payload["doctor"]["runtime_mode"] == "operation"
+    assert payload["status"]["runtime_mode"] == "operation"
     assert payload["status"]["state"]["current_symbol"] == "AAPL"
     assert payload["supervisor"]["state"]["launch_count"] == 0
     assert payload["broker"]["backend"] == "paper"
@@ -446,6 +451,7 @@ def test_dashboard_snapshot_json(
     assert "memoryExplorer" in payload
     assert "retrievalInspection" in payload
     assert "tradeContext" in payload
+    assert "marketContext" in payload
     assert payload["tradeContext"]["record"]["symbol"] == "AAPL"
     assert payload["replay"]["available"] is True
     assert payload["replay"]["replay"]["snapshot"]["mtf_alignment"] == "bullish"

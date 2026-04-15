@@ -36,18 +36,31 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
 
 
 def snapshot_memory_text(snapshot: MarketSnapshot) -> str:
-    return " ".join(
-        [
-            snapshot.symbol,
-            snapshot.interval,
-            f"mtf:{snapshot.mtf_alignment}",
-            f"htf:{snapshot.higher_timeframe}",
-            f"rsi:{snapshot.rsi_14:.2f}",
-            f"return5:{snapshot.return_5:.4f}",
-            f"return20:{snapshot.return_20:.4f}",
-            f"volatility:{snapshot.volatility_20:.4f}",
-        ]
-    )
+    parts = [
+        snapshot.symbol,
+        snapshot.interval,
+        f"mtf:{snapshot.mtf_alignment}",
+        f"htf:{snapshot.higher_timeframe}",
+        f"rsi:{snapshot.rsi_14:.2f}",
+        f"return5:{snapshot.return_5:.4f}",
+        f"return20:{snapshot.return_20:.4f}",
+        f"volatility:{snapshot.volatility_20:.4f}",
+    ]
+    if snapshot.context_pack is not None:
+        parts.extend(
+            [
+                f"context:{snapshot.context_pack.summary}",
+                "context_flags:"
+                f"{','.join(snapshot.context_pack.data_quality_flags) or 'none'}",
+                "context_anomalies:"
+                f"{','.join(snapshot.context_pack.anomaly_flags) or 'none'}",
+            ]
+        )
+        parts.extend(
+            f"horizon{item.horizon_bars}:{item.trend_vote}:return={item.return_pct}"
+            for item in snapshot.context_pack.horizons
+        )
+    return " ".join(parts)
 
 
 def build_memory_document(artifacts: RunArtifacts) -> str:

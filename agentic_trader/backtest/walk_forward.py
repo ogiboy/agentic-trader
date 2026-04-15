@@ -280,7 +280,9 @@ def _run_backtest_with_provider(
     for index in range(warmup_bars, len(history)):
         total_cycles += 1
         window = history.iloc[: index + 1]
-        snapshot = build_snapshot(window, symbol=symbol, interval=interval)
+        snapshot = build_snapshot(
+            window, symbol=symbol, interval=interval, lookback=lookback
+        )
         current_price = snapshot.last_close
         current_timestamp = _timestamp_at(history, index)
         closed_this_bar = False

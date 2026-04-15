@@ -372,7 +372,7 @@ def run_once(
     progress_callback: ProgressCallback | None = None,
 ) -> RunArtifacts:
     frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback, settings=settings)
-    snapshot = build_snapshot(frame, symbol=symbol, interval=interval)
+    snapshot = build_snapshot(frame, symbol=symbol, interval=interval, lookback=lookback)
     return run_from_snapshot(
         settings=settings,
         snapshot=snapshot,

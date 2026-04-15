@@ -290,6 +290,7 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     table.add_column("Key")
     table.add_column("Value")
     table.add_row("Service", snapshot.service_name)
+    table.add_row("Mode", snapshot.runtime_mode)
     table.add_row("Runtime", view.runtime_state)
     table.add_row("Live Process", "yes" if view.live_process else "no")
     table.add_row("Last Recorded State", view.last_recorded_state or "-")
@@ -1099,6 +1100,38 @@ def _trade_context_payload(
     }
 
 
+def _market_context_payload(settings: Settings) -> dict[str, object]:
+    """
+    Build the latest persisted Market Context Pack payload for operator surfaces.
+
+    The payload reads from the latest run artifact instead of refetching market
+    data, so dashboards show the exact context pack used by the last completed
+    cycle.
+    """
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            record = db.latest_run()
+        finally:
+            db.close()
+        context_pack = (
+            record.artifacts.snapshot.context_pack if record is not None else None
+        )
+        available = context_pack is not None
+        error = None if available else "No persisted market context pack is available."
+    except Exception as exc:
+        context_pack = None
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "contextPack": (
+            context_pack.model_dump(mode="json") if context_pack is not None else None
+        ),
+    }
+
+
 def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
     """
     Builds a read-only supervisor payload describing the orchestrator runtime and recent log tails.
@@ -1309,7 +1342,10 @@ def _memory_explorer_payload(
                     settings=settings,
                 )
                 snapshot = build_snapshot(
-                    frame, symbol=resolved_symbol, interval=resolved_interval
+                    frame,
+                    symbol=resolved_symbol,
+                    interval=resolved_interval,
+                    lookback=lookback,
                 )
             matches = retrieve_similar_memories(db, snapshot, limit=limit)
         finally:
@@ -1509,6 +1545,7 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
         "model": settings.model_name,
         "base_url": settings.base_url,
         "runtime_dir": str(settings.runtime_dir),
+        "runtime_mode": settings.runtime_mode,
         "database": str(settings.database_path),
         "db_status": db_status,
         "model_routing": settings.model_routing(),
@@ -1525,6 +1562,7 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
     table.add_column("Key")
     table.add_column("Value")
     table.add_row("Model", settings.model_name)
+    table.add_row("Runtime Mode", settings.runtime_mode)
     table.add_row("Base URL", settings.base_url)
     table.add_row("Runtime Dir", str(settings.runtime_dir))
     table.add_row("Database", str(settings.database_path))
@@ -1790,6 +1828,11 @@ def status(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
         view = build_runtime_status_view(state)
         _emit_json(
             {
+                "runtime_mode": (
+                    view.state.runtime_mode
+                    if view.state is not None
+                    else settings.runtime_mode
+                ),
                 "runtime_state": view.runtime_state,
                 "live_process": view.live_process,
                 "is_stale": view.is_stale,
@@ -1958,6 +2001,7 @@ def build_dashboard_snapshot_payload(
 
     doctor_payload = {
         "model": settings.model_name,
+        "runtime_mode": settings.runtime_mode,
         "base_url": settings.base_url,
         "runtime_dir": str(settings.runtime_dir),
         "database": str(settings.database_path),
@@ -1969,6 +2013,9 @@ def build_dashboard_snapshot_payload(
         "latest_order": latest,
     }
     status_payload = {
+        "runtime_mode": (
+            view.state.runtime_mode if view.state is not None else settings.runtime_mode
+        ),
         "runtime_state": view.runtime_state,
         "live_process": view.live_process,
         "is_stale": view.is_stale,
@@ -2026,6 +2073,7 @@ def build_dashboard_snapshot_payload(
         "review": _run_record_payload(settings),
         "trace": _run_record_payload(settings),
         "tradeContext": _trade_context_payload(settings),
+        "marketContext": _market_context_payload(settings),
         "replay": _run_replay_payload(settings),
         "memoryExplorer": _memory_explorer_payload(
             settings, use_latest_run=True, limit=5

@@ -39,9 +39,9 @@ Status: in progress.
 
 - [x] add multi-timeframe features
 - [x] add market calendar awareness
-- [ ] introduce a persisted Market Context Pack so `lookback` becomes operator-verifiable rather than only implied by latest-row indicators
-- [ ] add multi-horizon context summaries for returns, volatility, drawdown, trend alignment, range structure, data sufficiency, and anomalies
-- [ ] expose bars expected, bars analyzed, window coverage, cache provenance, and interval semantics in CLI, TUI, dashboard, review, and observer surfaces
+- [x] introduce a persisted Market Context Pack so `lookback` becomes operator-verifiable rather than only implied by latest-row indicators
+- [x] add multi-horizon context summaries for returns, volatility, drawdown, trend alignment, range structure, data sufficiency, and anomalies
+- [x] expose bars expected, bars analyzed, window coverage, cache provenance, and interval semantics in CLI, TUI, dashboard, review, and observer surfaces
 - [ ] add optional news and event feeds
 - [x] add cached data snapshots for repeatable tests
 - [x] let the user choose regions, exchanges, currencies, sectors, and default strategy posture
@@ -57,7 +57,7 @@ Status: in progress.
 - a first market-session heuristic is now available through the CLI, dashboard snapshot, Ink control room, and agent context tool outputs
 - repeatable market snapshot cache management is now available through the CLI and dashboard snapshot
 - a first optional news tool contract now exists and only enters agent context through explicit tool outputs
-- the next major input upgrade is making the full lookback window visible, persisted, and reviewable through a Market Context Pack
+- a first Market Context Pack now makes the full lookback window visible, persisted, and reviewable through run artifacts, trade context, dashboard JSON, observer API, and Ink review surfaces
 - richer calendar awareness and tool-driven external context are still open
 
 ## Phase 4: Operator Experience
@@ -76,7 +76,7 @@ Status: in progress.
 - [x] add a clearer retro-terminal visual language so the control room feels like a serious operator console rather than a plain CLI
 - [x] introduce an Ink-based next-generation control room under a dedicated `tui/` application so the operator surface can evolve beyond the current Rich menu
 - [x] keep `agentic-trader` as the primary launcher and expose subcommands such as `agentic-trader tui`, `agentic-trader monitor`, and future UI entrypoints
-- [ ] show the Market Context Pack in operator surfaces so the user can verify what data window and derived context each cycle used
+- [x] show the Market Context Pack in operator surfaces so the user can verify what data window and derived context each cycle used
 - [ ] add a mode banner across CLI, Rich, Ink, monitor, and observer API so Training and Operation runs are never confused
 - [x] add memory explorer UI to inspect long-term and vector memory state
 - [x] add agent decision trace viewer to inspect reasoning, tool calls, and outputs per cycle
@@ -94,7 +94,8 @@ Status: in progress.
 - the Ink control room now also includes a memory page backed by similar-run retrieval and stage-level retrieval inspection
 - the Ink chat page now embeds live agent activity, recent tool-role usage, and reasoning-stage context beside the transcript
 - a lightweight shared UI text catalog now exists as the first step toward future multi-language operator surfaces
-- the next operator trust upgrade is surfacing mode, lookback coverage, context pack summaries, and retrieval explanations together instead of scattering them across traces
+- the Ink overview and review pages now surface context-pack summaries, lookback coverage, quality flags, anomalies, and horizon votes from the Python dashboard contract
+- the next operator trust upgrade is adding a Training/Operation mode banner and deeper retrieval explanations beside the context pack
 - richer trace inspection and deeper Ink feature parity are still open
 - full multi-language support should wait until operator flows stabilize, then build on the shared text catalog instead of scattering strings per surface
 
@@ -230,20 +231,21 @@ Status: in progress.
 
 ## Phase 11: Market Context Pack And Verifiable Lookback
 
-Status: planned.
+Status: in progress.
 
-- [ ] add a `MarketContextPack` schema that summarizes the full lookback window, not just the latest feature row
-- [ ] compute multi-horizon returns, volatility, drawdown, trend alignment, range structure, ATR-normalized distances, data sufficiency, and anomaly flags
-- [ ] include expected bars, analyzed bars, window coverage, interval semantics, cache provenance, and data quality warnings in the pack
-- [ ] persist the pack per run and per trade context so later reviews can reconstruct exactly what the agents saw
-- [ ] expose the pack through `dashboard-snapshot`, run review, trace inspection, observer API, Rich menu, and Ink control room
-- [ ] include compact summaries by default and only include bar excerpts when Training mode, low confidence, or diagnostic depth requires it
+- [x] add a `MarketContextPack` schema that summarizes the full lookback window, not just the latest feature row
+- [x] compute multi-horizon returns, volatility, drawdown, trend alignment, range structure, ATR-normalized distances, data sufficiency, and anomaly flags
+- [x] include expected bars, analyzed bars, window coverage, interval semantics, cache provenance, and data quality warnings in the pack
+- [x] persist the pack per run and per trade context so later reviews can reconstruct exactly what the agents saw
+- [x] expose the pack through `dashboard-snapshot`, run review, trace inspection, observer API, Rich menu, and Ink control room
+- [x] include compact summaries by default and only include bar excerpts when Training mode, low confidence, or diagnostic depth requires it
 - [ ] fail closed with a clear operator-facing reason when data is too thin for the configured lookback instead of silently behaving like a short-window run
-- [ ] add QA coverage that asserts context-pack fields are present and coherent for representative lookback/interval combinations
+- [x] add QA coverage that asserts context-pack fields are present and coherent for representative lookback/interval combinations
   Notes:
 - this phase answers the operator question: "Did the system really analyze the configured history?"
 - token pressure should be controlled by separating deterministic summaries from optional raw bar excerpts
-- the pack should become the common input contract for agents, memory documents, backtests, and review surfaces
+- the pack is now part of snapshot JSON, agent prompt rendering, memory documents, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
+- remaining work is tightening failure semantics for thin/partial windows and adding broader QA scenarios around provider-specific interval edge cases
 
 ## Phase 12: Semantic Memory And Retrieval Quality
 
@@ -263,10 +265,10 @@ Status: planned.
 
 ## Phase 13: Training And Operation Modes
 
-Status: planned.
+Status: in progress.
 
-- [ ] add an explicit runtime mode such as `training` or `operation` to settings, service state, run records, dashboard payloads, observer API, and operator surfaces
-- [ ] show a mode banner in CLI, Rich, Ink, monitor, and future WebUI surfaces
+- [x] add an explicit runtime mode such as `training` or `operation` to settings, service state, run records, dashboard payloads, observer API, and operator surfaces
+- [x] show a mode banner in CLI, Rich, Ink, monitor, and future WebUI surfaces
 - [ ] enforce Operation mode as strict paper operation: provider/model readiness must pass, unsafe fallbacks are blocked, and live execution remains disabled unless a real adapter and approval gates exist
 - [ ] allow Training mode to run replay, walk-forward, ablation, and diagnostic-only evaluation flows without enabling hidden trade generation
 - [ ] persist data as-of timestamps and prevent leakage in training/replay scenarios
@@ -274,6 +276,7 @@ Status: planned.
 - [ ] document and surface the checklist for switching from Training to Operation
   Notes:
 - this should be a configuration overlay on the existing runtime contracts, not a forked runtime
+- a first runtime mode field now flows through settings, service state migration, status JSON, dashboard snapshots, observer API, Rich status tables, and Ink overview/runtime pages
 - Operation mode still means paper-first until paper performance, QA evidence, and broker adapters are mature
 
 ## Phase 14: Terminal Regression QA And Evidence Bundles
@@ -290,6 +293,7 @@ Status: planned.
 - [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
   Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
+- smoke QA now includes a dashboard contract check for runtime mode and market context fields consumed by operator surfaces
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
 ## Phase 15: Production-Like Paper Operations

@@ -25,6 +25,8 @@ The core idea is simple:
 
 This is intentionally not a "chatty report generator." The system is built around structured outputs and execution-safe contracts.
 
+The runtime also has an explicit mode contract. The default `operation` mode is still paper-first, but the mode now appears in CLI, Rich, Ink, dashboard, and observer surfaces so future Training vs Operation behavior can be enforced without splitting the runtime into two products.
+
 ## Architecture
 
 The current strict runtime uses a staged specialist graph:
@@ -47,6 +49,7 @@ The current strict runtime uses a staged specialist graph:
 Every agent cycle now receives a unified context bundle that can include:
 
 - the current market snapshot
+- a Market Context Pack with lookback coverage, multi-horizon returns, volatility, drawdown, trend votes, range structure, and data-quality flags
 - operator preferences
 - portfolio state
 - recent run summaries
@@ -55,7 +58,7 @@ Every agent cycle now receives a unified context bundle that can include:
 
 The LLM layer also supports role-based model routing, so different local models can be assigned to coordinator, regime, strategy, risk, manager, explainer, and instruction parsing roles.
 
-The current memory layer is still lightweight, but it can already retrieve historically similar recorded runs and inject those summaries into agent context before a cycle.
+The current memory layer is still lightweight, but it can already retrieve historically similar recorded runs and inject those summaries into agent context before a cycle. Memory documents now also include the Market Context Pack summary so later retrieval can reason about the broader lookback, not only the latest indicator row.
 
 ## Stack
 

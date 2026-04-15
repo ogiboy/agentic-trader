@@ -13,23 +13,32 @@
 
 Make the configured `lookback` window visible, persisted, and reviewable.
 
-Desired shape:
+Current state:
 
-- add a deterministic Market Context Pack generated from the full lookback window
-- include multi-horizon returns, volatility, drawdown, trend alignment, range structure, data sufficiency, and anomaly flags
-- expose expected bars, analyzed bars, window coverage, cache provenance, and interval semantics
-- persist the pack per run and per trade context
-- surface the pack through dashboard snapshots, traces, run review, observer API, Rich menu, and Ink control room
-- add QA coverage that proves lookback fields are present and coherent
+- first deterministic Market Context Pack exists
+- multi-horizon returns, volatility, drawdown, trend votes, range structure, data quality flags, and anomaly flags are computed
+- expected bars, analyzed bars, coverage, interval semantics, and window bounds are persisted
+- dashboard snapshot, observer API, trade context, run artifacts, memory documents, agent prompts, and Ink review surfaces can now see the pack
+
+Next desired shape:
+
+- tighten fail-closed behavior when the configured lookback is materially under-covered
+- add provider-specific QA cases for partial yfinance windows, intraday provider limits, non-datetime indexes, and higher-timeframe fallbacks
+- add compact context-pack rendering to any remaining Rich/admin paths that do not already show the raw persisted run artifact
+- connect future Training/Operation mode to context-pack verbosity and bar excerpt rules
 
 ### 2. Training And Operation Modes
 
 Make runtime intent explicit instead of relying on informal workflow naming.
 
-Desired shape:
+Current state:
 
-- add `training` and `operation` mode to settings, service state, run records, dashboard payloads, and observer contracts
-- show a mode banner across CLI, Rich, Ink, monitor, and future WebUI
+- `training` and `operation` mode now exist in settings and service-state persistence
+- service-state migration preserves legacy rows with an `operation` default
+- status JSON, dashboard snapshots, observer API payloads, Rich status tables, and Ink overview/runtime pages expose the mode
+
+Next desired shape:
+
 - Operation mode should hard-block unsafe fallbacks and require strict model/provider readiness
 - Training mode should enable replay, walk-forward, ablation, and diagnostic evaluation without hidden trade generation
 - mode changes should flow through approved schemas, not free-form chat side effects
@@ -165,6 +174,7 @@ Desired direction:
 - use `python scripts/qa/smoke_qa.py --include-quality --include-sonar` for the full local QA gate; this now emits coverage XML and submits it to SonarQube without writing the token to artifacts
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
+- keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
 - keep the automated test command in `AGENTS.md` current with the project environment
 - next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate

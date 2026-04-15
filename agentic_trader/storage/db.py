@@ -27,6 +27,7 @@ from agentic_trader.schemas import (
     ServiceState,
     ServiceEvent,
     ServiceStateSnapshot,
+    RuntimeMode,
     TradeSide,
     TradeContextRecord,
     TradeJournalEntry,
@@ -40,6 +41,7 @@ TERMINAL_SERVICE_STATES: set[ServiceState] = {
     "blocked",
 }
 SERVICE_STATE_VALUES = set(get_args(ServiceState))
+RUNTIME_MODE_VALUES = set(get_args(RuntimeMode))
 
 
 def _str_or_none(value: Any) -> str | None:
@@ -160,7 +162,7 @@ def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
     Convert a database row tuple into a ServiceStateSnapshot.
     
     The input `row` is expected to follow the service_state table column order:
-    (service_name, state, updated_at, started_at, last_heartbeat_at, continuous,
+    (service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at, continuous,
      poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
      current_symbol, last_error, pid, stop_requested, background_mode,
      launch_count, restart_count, last_terminal_state, last_terminal_at,
@@ -185,28 +187,33 @@ def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
     return ServiceStateSnapshot(
         service_name=str(row[0]),
         state=state,
-        updated_at=str(row[2]),
-        started_at=_str_or_none(row[3]),
-        last_heartbeat_at=_str_or_none(row[4]),
-        continuous=bool(row[5]),
-        poll_seconds=_int_or_none(row[6]),
-        cycle_count=int(row[7]),
-        symbols=json.loads(str(row[8])) if row[8] is not None else [],
-        interval=_str_or_none(row[9]),
-        lookback=_str_or_none(row[10]),
-        max_cycles=_int_or_none(row[11]),
-        current_symbol=_str_or_none(row[12]),
-        last_error=_str_or_none(row[13]),
-        pid=_int_or_none(row[14]),
-        stop_requested=_bool_or_default(row[15], False),
-        background_mode=_bool_or_default(row[16], False),
-        launch_count=int(row[17]) if row[17] is not None else 0,
-        restart_count=int(row[18]) if row[18] is not None else 0,
-        last_terminal_state=_str_or_none(row[19]),
-        last_terminal_at=_str_or_none(row[20]),
-        stdout_log_path=_str_or_none(row[21]),
-        stderr_log_path=_str_or_none(row[22]),
-        message=str(row[23]),
+        runtime_mode=(
+            cast(RuntimeMode, str(row[2]))
+            if str(row[2]) in RUNTIME_MODE_VALUES
+            else "operation"
+        ),
+        updated_at=str(row[3]),
+        started_at=_str_or_none(row[4]),
+        last_heartbeat_at=_str_or_none(row[5]),
+        continuous=bool(row[6]),
+        poll_seconds=_int_or_none(row[7]),
+        cycle_count=int(row[8]),
+        symbols=json.loads(str(row[9])) if row[9] is not None else [],
+        interval=_str_or_none(row[10]),
+        lookback=_str_or_none(row[11]),
+        max_cycles=_int_or_none(row[12]),
+        current_symbol=_str_or_none(row[13]),
+        last_error=_str_or_none(row[14]),
+        pid=_int_or_none(row[15]),
+        stop_requested=_bool_or_default(row[16], False),
+        background_mode=_bool_or_default(row[17], False),
+        launch_count=int(row[18]) if row[18] is not None else 0,
+        restart_count=int(row[19]) if row[19] is not None else 0,
+        last_terminal_state=_str_or_none(row[20]),
+        last_terminal_at=_str_or_none(row[21]),
+        stdout_log_path=_str_or_none(row[22]),
+        stderr_log_path=_str_or_none(row[23]),
+        message=str(row[24]),
     )
 
 
@@ -384,6 +391,7 @@ class TradingDatabase:
             create table if not exists service_state (
                 service_name varchar primary key,
                 state varchar not null,
+                runtime_mode varchar not null default 'operation',
                 updated_at varchar not null,
                 started_at varchar,
                 last_heartbeat_at varchar,
@@ -417,6 +425,10 @@ class TradingDatabase:
         }
         if "pid" not in service_columns:
             self.conn.execute("alter table service_state add column pid bigint")
+        if "runtime_mode" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column runtime_mode varchar default 'operation'"
+            )
         if "stop_requested" not in service_columns:
             self.conn.execute("alter table service_state add column stop_requested boolean")
         if "symbols_json" not in service_columns:
@@ -967,6 +979,7 @@ class TradingDatabase:
             run_id=run_id,
             symbol=artifacts.snapshot.symbol,
             market_snapshot=artifacts.snapshot,
+            market_context_pack=artifacts.snapshot.context_pack,
             routed_models=routed_models,
             retrieved_memory_summary=retrieved_memory_summary,
             tool_outputs=tool_outputs,
@@ -1202,6 +1215,7 @@ class TradingDatabase:
         *,
         service_name: str = "orchestrator",
         state: str,
+        runtime_mode: RuntimeMode | None = None,
         continuous: bool,
         poll_seconds: int | None,
         cycle_count: int,
@@ -1228,6 +1242,7 @@ class TradingDatabase:
         Parameters:
             service_name (str): The unique service identifier (default "orchestrator").
             state (str): New service state (e.g., "starting", "running", "stopped").
+            runtime_mode (RuntimeMode | None): Training/operation mode for the runtime; if None, preserves existing or uses settings.
             continuous (bool): Whether the service runs continuously.
             poll_seconds (int | None): Poll interval in seconds for periodic services, or None.
             cycle_count (int): Current execution cycle counter.
@@ -1248,6 +1263,14 @@ class TradingDatabase:
         """
         now = datetime.now(timezone.utc).isoformat()
         existing = self.get_service_state(service_name)
+        resolved_runtime_mode = cast(
+            RuntimeMode,
+            _resolve_value(
+                runtime_mode,
+                existing.runtime_mode if existing is not None else None,
+                self.settings.runtime_mode,
+            ),
+        )
         started_at = existing.started_at if existing is not None else None
         if state == "starting" or started_at is None:
             started_at = now
@@ -1293,15 +1316,16 @@ class TradingDatabase:
         self.conn.execute(
             """
             insert into service_state (
-                service_name, state, updated_at, started_at, last_heartbeat_at,
+                service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at,
                 continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
                 current_symbol, last_error, pid, stop_requested, background_mode,
                 launch_count, restart_count, last_terminal_state, last_terminal_at,
                 stdout_log_path, stderr_log_path, message
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             on conflict(service_name) do update set
                 state = excluded.state,
+                runtime_mode = excluded.runtime_mode,
                 updated_at = excluded.updated_at,
                 started_at = excluded.started_at,
                 last_heartbeat_at = excluded.last_heartbeat_at,
@@ -1328,6 +1352,7 @@ class TradingDatabase:
             [
                 service_name,
                 state,
+                resolved_runtime_mode,
                 now,
                 started_at,
                 now,
@@ -1357,6 +1382,7 @@ class TradingDatabase:
             ServiceStateSnapshot(
                 service_name=service_name,
                 state=cast(ServiceState, state),
+                runtime_mode=resolved_runtime_mode,
                 updated_at=now,
                 started_at=started_at,
                 last_heartbeat_at=now,
@@ -1396,7 +1422,7 @@ class TradingDatabase:
         """
         row = self.conn.execute(
             """
-            select service_name, state, updated_at, started_at, last_heartbeat_at,
+            select service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at,
                    continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
                    current_symbol, last_error, pid, stop_requested, background_mode,
                    launch_count, restart_count, last_terminal_state, last_terminal_at,

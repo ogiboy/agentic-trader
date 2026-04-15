@@ -34,7 +34,7 @@ behavior, while this map explains where to look and how the pieces connect.
 ## Market, Memory, And Execution
 
 - `agentic_trader/market/data.py` fetches or reads cached OHLCV data and normalizes yfinance output.
-- `agentic_trader/market/features.py` computes the compact feature snapshot used by agents and fallbacks.
+- `agentic_trader/market/features.py` computes the compact feature snapshot plus the first Market Context Pack, which makes the configured lookback window visible through multi-horizon summaries, data-quality flags, and coverage metadata.
 - `agentic_trader/market/calendar.py` infers a lightweight market-session status for local runtime context.
 - `agentic_trader/market/news.py` defines the optional tool-driven news/event feed boundary.
 - `agentic_trader/memory/retrieval.py` retrieves historically similar runs for context injection.
@@ -47,9 +47,9 @@ behavior, while this map explains where to look and how the pieces connect.
 
 ## Persistence And Schemas
 
-- `agentic_trader/schemas.py` is the contract layer. Add new agent/runtime payload fields here before wiring them into storage or UI.
+- `agentic_trader/schemas.py` is the contract layer. Add new agent/runtime payload fields here before wiring them into storage or UI. `MarketContextPack` lives here so agents, storage, dashboards, and future UI clients share the same lookback-truth contract.
 - `agentic_trader/storage/db.py` is the DuckDB persistence boundary. It stores runs, orders, fills, service state/events, preferences, memory vectors, trade context, and journals.
-- `agentic_trader/config.py` centralizes environment-driven settings, runtime paths, provider routing, and directory setup.
+- `agentic_trader/config.py` centralizes environment-driven settings, runtime paths, runtime mode, provider routing, and directory setup.
 - `agentic_trader/ui_text.py` is the first shared UI text catalog. Put repeated operator-facing labels/prompts here instead of duplicating them across CLI, Rich, Ink, and future WebUI surfaces.
 
 ## QA And Developer Tooling

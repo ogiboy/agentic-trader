@@ -215,6 +215,76 @@ def run_command_capture(
     )
 
 
+def run_dashboard_contract_check(
+    context: SmokeContext, command: list[str], *, timeout: int = 30
+) -> CheckResult:
+    """
+    Validate dashboard JSON fields that operator surfaces rely on.
+
+    This lightweight contract check intentionally tolerates an empty runtime
+    database, but it fails if the dashboard payload drops the runtime-mode or
+    market-context sections that newer CLI, Ink, and observer surfaces consume.
+    """
+    name = "dashboard_contract"
+    artifact = _artifact_path(context, name)
+    display_command = _command_display(command)
+    issues: list[str] = []
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+        payload = json.loads(proc.stdout or "{}")
+    except Exception as exc:
+        _write_artifact(artifact, f"$ {display_command}\n\nEXCEPTION:\n{exc}\n")
+        return CheckResult(
+            name=name,
+            passed=False,
+            details=f"exception={exc}",
+            artifact=str(artifact),
+        )
+
+    if proc.returncode != 0:
+        issues.append(f"exit_code={proc.returncode}")
+    if not isinstance(payload.get("doctor"), dict):
+        issues.append("missing doctor object")
+    elif "runtime_mode" not in payload["doctor"]:
+        issues.append("doctor.runtime_mode missing")
+    if not isinstance(payload.get("status"), dict):
+        issues.append("missing status object")
+    elif "runtime_mode" not in payload["status"]:
+        issues.append("status.runtime_mode missing")
+    if not isinstance(payload.get("marketContext"), dict):
+        issues.append("marketContext section missing")
+    else:
+        context_pack = payload["marketContext"].get("contextPack")
+        if isinstance(context_pack, dict):
+            for field in ("summary", "bars_analyzed", "horizons"):
+                if field not in context_pack:
+                    issues.append(f"marketContext.contextPack.{field} missing")
+
+    _write_artifact(
+        artifact,
+        (
+            f"$ {display_command}\n"
+            f"cwd: {REPO_ROOT}\n"
+            f"issues: {json.dumps(issues, indent=2)}\n\n"
+            f"STDOUT:\n{proc.stdout}\n\n"
+            f"STDERR:\n{proc.stderr}"
+        ),
+    )
+    return CheckResult(
+        name=name,
+        passed=not issues and not _output_has_traceback(proc.stdout + proc.stderr),
+        details="contract_ok" if not issues else "; ".join(issues),
+        artifact=str(artifact),
+    )
+
+
 def _spawn_env() -> dict[str, str]:
     """
     Provide an environment dictionary for spawning interactive child processes, ensuring a default terminal type.
@@ -661,6 +731,10 @@ def _surface_checks(context: SmokeContext) -> list[CheckResult]:
                     "dashboard_snapshot",
                     [agentic_trader_executable, "dashboard-snapshot"],
                     require_json_stdout=True,
+                ),
+                run_dashboard_contract_check(
+                    context,
+                    [agentic_trader_executable, "dashboard-snapshot"],
                 ),
                 run_command_capture(
                     context,

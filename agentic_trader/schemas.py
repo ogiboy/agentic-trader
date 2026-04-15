@@ -31,6 +31,8 @@ PositionExitReason: TypeAlias = Literal[
 ]
 MarketSessionState: TypeAlias = Literal["open", "closed", "always_open", "weekend"]
 MTFAlignment: TypeAlias = Literal["bullish", "bearish", "mixed"]
+TrendVote: TypeAlias = Literal["bullish", "bearish", "mixed", "insufficient"]
+RuntimeMode: TypeAlias = Literal["training", "operation"]
 ServiceState: TypeAlias = Literal[
     "idle",
     "starting",
@@ -75,29 +77,6 @@ class InvestmentPreferences(BaseModel):
     strictness_preset: StrictnessPreset = "standard"
     intervention_style: InterventionStyle = "balanced"
     notes: str = ""
-
-
-class MarketSnapshot(BaseModel):
-    symbol: str
-    interval: str
-    last_close: float
-    ema_20: float
-    ema_50: float
-    atr_14: float
-    rsi_14: float
-    volatility_20: float
-    return_5: float
-    return_20: float
-    volume_ratio_20: float
-    higher_timeframe: str = "same_as_base"
-    htf_last_close: float = 0.0
-    htf_ema_20: float = 0.0
-    htf_ema_50: float = 0.0
-    htf_rsi_14: float = 50.0
-    htf_return_5: float = 0.0
-    mtf_alignment: MTFAlignment = "mixed"
-    mtf_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-    bars_analyzed: int
 
 
 class RegimeAssessment(BaseModel):
@@ -170,6 +149,63 @@ class MarketSessionStatus(BaseModel):
     note: str
 
 
+class MarketContextHorizon(BaseModel):
+    horizon_bars: int
+    available_bars: int
+    return_pct: float | None = None
+    volatility_pct: float | None = None
+    max_drawdown_pct: float | None = None
+    trend_vote: TrendVote = "insufficient"
+    support: float | None = None
+    resistance: float | None = None
+    range_position: float | None = Field(default=None, ge=0.0, le=1.0)
+    atr_pct: float | None = None
+    volume_ratio: float | None = None
+
+
+class MarketContextPack(BaseModel):
+    symbol: str
+    interval: str
+    lookback: str | None = None
+    interval_semantics: str
+    window_start: str | None = None
+    window_end: str | None = None
+    bars_required: int = 60
+    bars_expected: int | None = None
+    bars_analyzed: int
+    coverage_ratio: float | None = Field(default=None, ge=0.0)
+    higher_timeframe: str
+    higher_timeframe_used: bool
+    horizons: list[MarketContextHorizon] = Field(default_factory=list)
+    data_quality_flags: list[str] = Field(default_factory=list)
+    anomaly_flags: list[str] = Field(default_factory=list)
+    summary: str = ""
+
+
+class MarketSnapshot(BaseModel):
+    symbol: str
+    interval: str
+    last_close: float
+    ema_20: float
+    ema_50: float
+    atr_14: float
+    rsi_14: float
+    volatility_20: float
+    return_5: float
+    return_20: float
+    volume_ratio_20: float
+    higher_timeframe: str = "same_as_base"
+    htf_last_close: float = 0.0
+    htf_ema_20: float = 0.0
+    htf_ema_50: float = 0.0
+    htf_rsi_14: float = 50.0
+    htf_return_5: float = 0.0
+    mtf_alignment: MTFAlignment = "mixed"
+    mtf_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    bars_analyzed: int
+    context_pack: MarketContextPack | None = None
+
+
 class AgentContext(BaseModel):
     role: AgentRole
     model_name: str
@@ -205,6 +241,7 @@ class AccountMark(BaseModel):
 class ServiceStateSnapshot(BaseModel):
     service_name: str
     state: ServiceState
+    runtime_mode: RuntimeMode = "operation"
     updated_at: str
     started_at: str | None = None
     last_heartbeat_at: str | None = None
@@ -378,6 +415,7 @@ class TradeContextRecord(BaseModel):
     run_id: str | None = None
     symbol: str
     market_snapshot: MarketSnapshot
+    market_context_pack: MarketContextPack | None = None
     routed_models: dict[str, str] = Field(default_factory=dict)
     retrieved_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
     tool_outputs: dict[str, list[str]] = Field(default_factory=dict)

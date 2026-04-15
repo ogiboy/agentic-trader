@@ -39,12 +39,14 @@ Implemented or substantially present:
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, read-only JSON surfaces, optional quality gates, coverage XML, and SonarQube submission
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
+- a first Market Context Pack is generated from the fetched lookback window and persisted with snapshots, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
+- a first runtime mode contract exists; `training`/`operation` mode now flows through settings, service-state persistence/migration, status JSON, dashboard snapshots, observer API payloads, Rich status tables, and Ink overview/runtime pages
 - SonarQube MCP is connected for project `agentic-trader-dev`; the latest QA pass reports zero bugs, zero vulnerabilities, 8 open code smells, 46.7% overall coverage, and a Quality Gate blocked primarily by coverage and remaining complexity refactors
 
 New production-expansion direction:
 
-- the main operator-trust gap is not the lack of an agent graph; it is that the configured `lookback` window is not yet represented as a persisted, operator-verifiable Market Context Pack
-- market snapshots currently prove that data was fetched and features were computed, but agents still receive a compact present-biased context rather than a structured multi-horizon lookback artifact
+- the main operator-trust gap is no longer the absence of a lookback artifact; the next gap is making context-pack failure semantics and edge-case coverage stricter
+- market snapshots now carry a structured multi-horizon context pack, and Training/Operation visibility is present; behavior-specific mode gating is still pending
 - memory is currently hybrid and inspectable, but the vector-style layer is still lightweight; true local-first semantic embeddings, embedding metadata, and richer retrieval explanations are now a planned expansion
 - Training and Operation should become first-class runtime modes shown across all surfaces instead of informal workflow concepts
 - QA should grow from smoke coverage into tiered terminal regression evidence with CLI JSON snapshots, pexpect scenarios, optional tmux/asciinema capture, and generated failure reports
@@ -54,9 +56,9 @@ New production-expansion direction:
 - paper trading only
 - local-first assumptions should remain primary
 - memory layer is still lightweight compared with a richer future retrieval and policy layer
-- lookback analysis is not yet fully operator-verifiable across CLI, TUI, observer API, run review, and trade context surfaces
+- lookback analysis has a first operator-verifiable contract, but thin-data and provider-limit edge cases still need stricter QA and messaging
 - true semantic memory is not implemented yet; current vector-style retrieval should be treated as a bridge, not the destination
-- Training vs Operation mode semantics are not yet first-class runtime gates
+- Training vs Operation mode is visible but not yet enforced as separate command/gating semantics
 - live broker adapters are not started
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy

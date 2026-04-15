@@ -132,8 +132,15 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         "Task:",
         task,
         "",
+        "Market Context Pack:",
+        (
+            context.snapshot.context_pack.model_dump_json(indent=2)
+            if context.snapshot.context_pack is not None
+            else "No persisted market context pack is attached."
+        ),
+        "",
         "Market Snapshot:",
-        context.snapshot.model_dump_json(indent=2),
+        context.snapshot.model_dump_json(indent=2, exclude={"context_pack"}),
         "",
         "Operator Preferences:",
         context.preferences.model_dump_json(indent=2),

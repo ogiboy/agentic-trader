@@ -489,6 +489,7 @@ def _system_status_table(
     table.add_column("Key")
     table.add_column("Value")
     table.add_row("Runtime Dir", str(settings.runtime_dir))
+    table.add_row("Runtime Mode", settings.runtime_mode)
     table.add_row("Model", settings.model_name)
     table.add_row("Base URL", settings.base_url)
     table.add_row(
@@ -661,6 +662,7 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     status.add_column("Value")
     status.add_row("Runtime Dir", str(settings.runtime_dir))
     status.add_row("Database", str(settings.database_path))
+    status.add_row("Runtime Mode", settings.runtime_mode)
     status.add_row("Model", settings.model_name)
     status.add_row("Base URL", settings.base_url)
     status.add_row("Ollama Reachable", "yes" if health.service_reachable else "no")
@@ -842,7 +844,7 @@ def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
     lookback = Prompt.ask("Lookback", default="180d")
     limit = IntPrompt.ask("Matches", default=5)
     frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback)
-    snapshot = build_snapshot(frame, symbol=symbol, interval=interval)
+    snapshot = build_snapshot(frame, symbol=symbol, interval=interval, lookback=lookback)
     matches = retrieve_similar_memories(db, snapshot, limit=limit)
 
     table = Table(title="Memory Explorer")
