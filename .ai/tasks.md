@@ -19,10 +19,11 @@ Current state:
 - multi-horizon returns, volatility, drawdown, trend votes, range structure, data quality flags, and anomaly flags are computed
 - expected bars, analyzed bars, coverage, interval semantics, and window bounds are persisted
 - dashboard snapshot, observer API, trade context, run artifacts, memory documents, agent prompts, and Ink review surfaces can now see the pack
+- materially under-covered operation/runtime lookback windows now fail closed before agents are invoked
+- Training replay can intentionally keep growing-window undercoverage as a context-pack data quality flag
 
 Next desired shape:
 
-- tighten fail-closed behavior when the configured lookback is materially under-covered
 - add provider-specific QA cases for partial yfinance windows, intraday provider limits, non-datetime indexes, and higher-timeframe fallbacks
 - add compact context-pack rendering to any remaining Rich/admin paths that do not already show the raw persisted run artifact
 - connect future Training/Operation mode to context-pack verbosity and bar excerpt rules
@@ -36,21 +37,30 @@ Current state:
 - `training` and `operation` mode now exist in settings and service-state persistence
 - service-state migration preserves legacy rows with an `operation` default
 - status JSON, dashboard snapshots, observer API payloads, Rich status tables, and Ink overview/runtime pages expose the mode
+- Operation mode hard-blocks disabled strict LLM gating and still requires provider/model readiness for one-shot, launch, and service execution
+- Training mode can use diagnostic fallback only inside backtest/evaluation flows such as walk-forward, baseline comparison, and memory ablation
+- Market snapshots carry `as_of`, and backtest reports persist data-window plus first/last decision timestamps
+- `runtime-mode-checklist` emits a schema-backed transition plan and keeps mode changes out of chat/free-form side effects
 
 Next desired shape:
 
-- Operation mode should hard-block unsafe fallbacks and require strict model/provider readiness
-- Training mode should enable replay, walk-forward, ablation, and diagnostic evaluation without hidden trade generation
-- mode changes should flow through approved schemas, not free-form chat side effects
+- add QA smoke coverage for `runtime-mode-checklist` so CLI, Ink, and future WebUI consumers can rely on the transition contract
+- decide whether runtime mode should remain env-only or gain an explicit persisted operator profile after the checklist stabilizes
 
 ### 3. Semantic Memory And Retrieval Quality
 
 Build on the current lightweight retrieval layer instead of replacing it.
 
+Current state:
+
+- memory vectors persist provider, model, version, and dimensionality metadata for migration compatibility
+- legacy memory-vector rows without metadata columns are migrated in place with local-hashing defaults
+- the active embedding scheme is still local-first hashed-token pseudo-embedding
+
 Desired direction:
 
 - replace hashed-token pseudo-embeddings with true local-first semantic embeddings behind a provider seam
-- store embedding model metadata and keep migration compatibility
+- keep backwards compatibility with existing lightweight vectors during migration
 - rank retrieval by semantic similarity, regime similarity, freshness, outcome weighting, and diversity
 - persist stage-level retrieval explanations so operators can see why specific memories were used
 - preserve trade-memory versus chat-memory write policies

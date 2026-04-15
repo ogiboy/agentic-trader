@@ -19,6 +19,7 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.service import (
+    ensure_llm_ready,
     restart_background_service,
     run_service,
     start_background_service,
@@ -106,6 +107,18 @@ def _artifacts(symbol: str) -> RunArtifacts:
             next_checks=["y"],
         ),
     )
+
+
+def test_operation_mode_requires_strict_llm_gate(tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        runtime_mode="operation",
+        strict_llm=False,
+    )
+
+    with pytest.raises(RuntimeError, match="Operation mode requires strict LLM"):
+        ensure_llm_ready(settings)
 
 
 def test_service_state_migration_allows_legacy_duckdb_file(tmp_path: Path) -> None:

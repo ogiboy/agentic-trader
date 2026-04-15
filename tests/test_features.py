@@ -18,6 +18,7 @@ def test_build_snapshot_returns_expected_fields() -> None:
 
     assert snapshot.symbol == "TEST"
     assert snapshot.interval == "1d"
+    assert snapshot.as_of == "79"
     assert snapshot.bars_analyzed == 80
     assert snapshot.context_pack is not None
     assert snapshot.context_pack.lookback == "80d"
@@ -64,3 +65,46 @@ def test_build_snapshot_computes_higher_timeframe_alignment() -> None:
     assert snapshot.htf_ema_50 > 0
     assert snapshot.mtf_alignment == "bullish"
     assert snapshot.mtf_confidence > 0.55
+
+
+def test_build_snapshot_fails_when_lookback_is_materially_undercovered() -> None:
+    frame = pd.DataFrame(
+        {
+            "open": [100 + i for i in range(80)],
+            "high": [101 + i for i in range(80)],
+            "low": [99 + i for i in range(80)],
+            "close": [100 + i for i in range(80)],
+            "volume": [1_000 + (i * 10) for i in range(80)],
+        }
+    )
+
+    try:
+        build_snapshot(frame, symbol="THIN", interval="1d", lookback="1y")
+    except ValueError as exc:
+        assert "coverage is too thin" in str(exc)
+        assert "Refusing to run agents" in str(exc)
+    else:
+        raise AssertionError("Expected under-covered lookback window to fail closed")
+
+
+def test_build_snapshot_can_keep_undercoverage_for_training_replay() -> None:
+    frame = pd.DataFrame(
+        {
+            "open": [100 + i for i in range(80)],
+            "high": [101 + i for i in range(80)],
+            "low": [99 + i for i in range(80)],
+            "close": [100 + i for i in range(80)],
+            "volume": [1_000 + (i * 10) for i in range(80)],
+        }
+    )
+
+    snapshot = build_snapshot(
+        frame,
+        symbol="REPLAY",
+        interval="1d",
+        lookback="1y",
+        enforce_lookback_coverage=False,
+    )
+
+    assert snapshot.context_pack is not None
+    assert "low_lookback_coverage" in snapshot.context_pack.data_quality_flags

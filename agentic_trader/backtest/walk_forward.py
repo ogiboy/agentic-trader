@@ -281,7 +281,11 @@ def _run_backtest_with_provider(
         total_cycles += 1
         window = history.iloc[: index + 1]
         snapshot = build_snapshot(
-            window, symbol=symbol, interval=interval, lookback=lookback
+            window,
+            symbol=symbol,
+            interval=interval,
+            lookback=lookback,
+            enforce_lookback_coverage=False,
         )
         current_price = snapshot.last_close
         current_timestamp = _timestamp_at(history, index)
@@ -415,6 +419,10 @@ def _run_backtest_with_provider(
         interval=interval,
         lookback=lookback,
         warmup_bars=warmup_bars,
+        data_start_at=_timestamp_at(history, 0),
+        data_end_at=_timestamp_at(history, len(history) - 1),
+        first_decision_at=_timestamp_at(history, warmup_bars),
+        last_decision_at=_timestamp_at(history, len(history) - 1),
         total_cycles=total_cycles,
         total_trades=len(trades),
         closed_trades=len(closed_trades),

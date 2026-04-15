@@ -80,6 +80,7 @@ Current files include:
 - `doctor.log`
 - `dashboard_snapshot.log`
 - `dashboard_contract.log`
+- `runtime_mode_checklist_json.log`
 - `main_entrypoint_tui.log`
 - `python_main_tui.log`
 - `rich_menu.log`

@@ -5,6 +5,9 @@ from math import sqrt
 from agentic_trader.schemas import MarketSnapshot, RunArtifacts
 
 VECTOR_DIMENSIONS = 64
+EMBEDDING_PROVIDER = "local_hashing"
+EMBEDDING_MODEL_NAME = "agentic-hash-v1"
+EMBEDDING_MODEL_VERSION = "1"
 _TOKEN_RE = re.compile(r"[a-z0-9_.:-]+")
 
 
@@ -27,6 +30,16 @@ def embed_text(text: str, *, dimensions: int = VECTOR_DIMENSIONS) -> list[float]
         weight = 1.0 + (min(len(token), 16) / 16.0)
         vector[index] += sign * weight
     return _normalize(vector)
+
+
+def embedding_metadata() -> dict[str, str | int]:
+    """Return metadata that identifies the current local-first embedding scheme."""
+    return {
+        "provider": EMBEDDING_PROVIDER,
+        "model_name": EMBEDDING_MODEL_NAME,
+        "model_version": EMBEDDING_MODEL_VERSION,
+        "dimensions": VECTOR_DIMENSIONS,
+    }
 
 
 def cosine_similarity(left: list[float], right: list[float]) -> float:

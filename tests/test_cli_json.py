@@ -9,6 +9,7 @@ from agentic_trader.config import Settings
 from agentic_trader.runtime_feed import append_chat_history
 from agentic_trader.schemas import (
     AgentStageTrace,
+    BacktestReport,
     ChatHistoryEntry,
     ExecutionDecision,
     LLMHealthStatus,
@@ -262,6 +263,64 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert logs_payload[0]["event_type"] == "service_started"
 
 
+def test_runtime_mode_checklist_blocks_operation_without_strict_gate(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        strict_llm=False,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.cli.LocalLLM.health_check",
+        lambda self: LLMHealthStatus(
+            provider="ollama",
+            base_url=self.settings.base_url,
+            model_name=self.settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ready",
+        ),
+    )
+
+    result = CliRunner().invoke(app, ["runtime-mode-checklist", "operation", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["target_mode"] == "operation"
+    assert payload["allowed"] is False
+    strict_check = next(
+        check for check in payload["checks"] if check["name"] == "strict_llm_enabled"
+    )
+    assert strict_check["passed"] is False
+
+
+def test_runtime_mode_checklist_allows_training_without_provider_check(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        runtime_mode="operation",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    result = CliRunner().invoke(app, ["runtime-mode-checklist", "training", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["current_mode"] == "operation"
+    assert payload["target_mode"] == "training"
+    assert payload["allowed"] is True
+    assert {check["name"] for check in payload["checks"]} >= {
+        "diagnostic_scope",
+        "runtime_no_hidden_trades",
+    }
+
+
 def test_rich_menu_eof_exits_cleanly(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -389,6 +448,87 @@ def test_chat_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert payload["persona"] == "operator_liaison"
     assert payload["message"] == "status?"
     assert payload["response"] == "runtime is healthy"
+
+
+def test_training_backtest_allows_diagnostic_fallback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        runtime_mode="training",
+    )
+    settings.ensure_directories()
+    captured: dict[str, object] = {}
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    def _blocked_llm(_settings: Settings) -> None:
+        raise RuntimeError("model unavailable")
+
+    def _backtest(**kwargs: object) -> BacktestReport:
+        captured["allow_fallback"] = kwargs["allow_fallback"]
+        warmup_bars = kwargs["warmup_bars"]
+        assert isinstance(warmup_bars, int)
+        return BacktestReport(
+            symbol=str(kwargs["symbol"]),
+            interval=str(kwargs["interval"]),
+            lookback=str(kwargs["lookback"]),
+            warmup_bars=warmup_bars,
+            total_cycles=0,
+            total_trades=0,
+            closed_trades=0,
+            win_rate=0.0,
+            expectancy=0.0,
+            total_return_pct=0.0,
+            max_drawdown_pct=0.0,
+            exposure_pct=0.0,
+            fallback_cycles=0,
+            starting_equity=100_000.0,
+            ending_equity=100_000.0,
+            trades=[],
+        )
+
+    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", _blocked_llm)
+    monkeypatch.setattr("agentic_trader.cli.run_walk_forward_backtest", _backtest)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "backtest",
+            "--symbol",
+            "AAPL",
+            "--interval",
+            "1d",
+            "--lookback",
+            "180d",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["allow_fallback"] is True
+    assert "Training Diagnostic Mode" in result.stdout
+
+
+def test_operation_backtest_blocks_when_llm_gate_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        runtime_mode="operation",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    def _blocked_llm(_settings: Settings) -> None:
+        raise RuntimeError("model unavailable")
+
+    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", _blocked_llm)
+
+    result = CliRunner().invoke(app, ["backtest", "--symbol", "AAPL"])
+
+    assert result.exit_code != 0
+    assert "model unavailable" in str(result.exception)
 
 
 def test_dashboard_snapshot_json(

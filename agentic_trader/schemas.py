@@ -185,6 +185,7 @@ class MarketContextPack(BaseModel):
 class MarketSnapshot(BaseModel):
     symbol: str
     interval: str
+    as_of: str | None = None
     last_close: float
     ema_20: float
     ema_50: float
@@ -375,6 +376,21 @@ class OperatorInstruction(BaseModel):
     rationale: str
 
 
+class RuntimeModeTransitionCheck(BaseModel):
+    name: str
+    passed: bool
+    details: str
+    blocking: bool = True
+
+
+class RuntimeModeTransitionPlan(BaseModel):
+    current_mode: RuntimeMode
+    target_mode: RuntimeMode
+    allowed: bool
+    checks: list[RuntimeModeTransitionCheck] = Field(default_factory=list)
+    summary: str
+
+
 class AgentStageTrace(BaseModel):
     role: AgentRole
     model_name: str
@@ -497,6 +513,10 @@ class BacktestReport(BaseModel):
     interval: str
     lookback: str
     warmup_bars: int
+    data_start_at: str | None = None
+    data_end_at: str | None = None
+    first_decision_at: str | None = None
+    last_decision_at: str | None = None
     total_cycles: int
     total_trades: int
     closed_trades: int

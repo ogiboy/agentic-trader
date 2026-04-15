@@ -6,7 +6,11 @@ from uuid import uuid4
 import duckdb
 
 from agentic_trader.config import Settings
-from agentic_trader.memory.embeddings import build_memory_document, embed_artifacts
+from agentic_trader.memory.embeddings import (
+    build_memory_document,
+    embed_artifacts,
+    embedding_metadata,
+)
 from agentic_trader.memory.policy import MemoryActor, assert_memory_write_allowed
 from agentic_trader.runtime_feed import append_service_event, write_service_state
 from agentic_trader.schemas import (
@@ -492,11 +496,37 @@ class TradingDatabase:
                 run_id varchar primary key,
                 created_at varchar not null,
                 symbol varchar not null,
+                embedding_provider varchar not null default 'local_hashing',
+                embedding_model varchar not null default 'agentic-hash-v1',
+                embedding_version varchar not null default '1',
+                embedding_dimensions integer not null default 64,
                 embedding_json varchar not null,
                 document_text varchar not null
             )
             """
         )
+        memory_columns = {
+            str(row[1])
+            for row in self.conn.execute(
+                "pragma table_info('memory_vectors')"
+            ).fetchall()
+        }
+        if "embedding_provider" not in memory_columns:
+            self.conn.execute(
+                "alter table memory_vectors add column embedding_provider varchar default 'local_hashing'"
+            )
+        if "embedding_model" not in memory_columns:
+            self.conn.execute(
+                "alter table memory_vectors add column embedding_model varchar default 'agentic-hash-v1'"
+            )
+        if "embedding_version" not in memory_columns:
+            self.conn.execute(
+                "alter table memory_vectors add column embedding_version varchar default '1'"
+            )
+        if "embedding_dimensions" not in memory_columns:
+            self.conn.execute(
+                "alter table memory_vectors add column embedding_dimensions integer default 64"
+            )
         existing = self.conn.execute(
             "select count(*) from account_state where account_id = 'paper'"
         ).fetchone()
@@ -704,13 +734,21 @@ class TradingDatabase:
         actor: MemoryActor = "system_runtime",
     ) -> None:
         assert_memory_write_allowed("trade_memory", actor)
+        metadata = embedding_metadata()
         self.conn.execute(
             """
-            insert into memory_vectors (run_id, created_at, symbol, embedding_json, document_text)
-            values (?, ?, ?, ?, ?)
+            insert into memory_vectors (
+                run_id, created_at, symbol, embedding_provider, embedding_model,
+                embedding_version, embedding_dimensions, embedding_json, document_text
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?)
             on conflict(run_id) do update set
                 created_at = excluded.created_at,
                 symbol = excluded.symbol,
+                embedding_provider = excluded.embedding_provider,
+                embedding_model = excluded.embedding_model,
+                embedding_version = excluded.embedding_version,
+                embedding_dimensions = excluded.embedding_dimensions,
                 embedding_json = excluded.embedding_json,
                 document_text = excluded.document_text
             """,
@@ -718,6 +756,10 @@ class TradingDatabase:
                 run_id,
                 created_at or datetime.now(timezone.utc).isoformat(),
                 artifacts.snapshot.symbol,
+                metadata["provider"],
+                metadata["model_name"],
+                metadata["model_version"],
+                metadata["dimensions"],
                 json.dumps(embed_artifacts(artifacts)),
                 build_memory_document(artifacts),
             ],

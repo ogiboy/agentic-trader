@@ -66,6 +66,9 @@ from agentic_trader.schemas import (
     RunReplay,
     RunReplayStage,
     RunArtifacts,
+    RuntimeMode,
+    RuntimeModeTransitionCheck,
+    RuntimeModeTransitionPlan,
     ServiceEvent,
     ServiceStateSnapshot,
     TradeContextRecord,
@@ -1171,6 +1174,148 @@ def _broker_payload(settings: Settings) -> dict[str, object]:
     return broker_runtime_payload(settings)
 
 
+def _training_backtest_allow_fallback(settings: Settings) -> bool:
+    """
+    Decide whether a backtest may use deterministic diagnostic fallbacks.
+
+    Operation mode always requires full LLM readiness and returns False. Training
+    mode first tries the same readiness gate; only when that gate fails does it
+    allow fallback execution, and only for backtest/evaluation flows that do not
+    persist live or paper broker orders.
+    """
+    try:
+        ensure_llm_ready(settings)
+    except RuntimeError as exc:
+        if settings.runtime_mode != "training":
+            raise
+        console.print(
+            Panel(
+                (
+                    "Training mode is continuing this evaluation with deterministic "
+                    f"diagnostic fallbacks because the LLM gate failed:\n\n{exc}"
+                ),
+                title="Training Diagnostic Mode",
+                border_style="yellow",
+            )
+        )
+        return True
+    return False
+
+
+def _runtime_mode_transition_plan(
+    settings: Settings, *, target_mode: RuntimeMode, check_provider: bool
+) -> RuntimeModeTransitionPlan:
+    """Build the approved checklist required before changing runtime intent."""
+    checks: list[RuntimeModeTransitionCheck] = []
+
+    def add_check(
+        name: str, passed: bool, details: str, *, blocking: bool = True
+    ) -> None:
+        checks.append(
+            RuntimeModeTransitionCheck(
+                name=name,
+                passed=passed,
+                details=details,
+                blocking=blocking,
+            )
+        )
+
+    if target_mode == "operation":
+        add_check(
+            "strict_llm_enabled",
+            settings.strict_llm,
+            "Operation mode requires AGENTIC_TRADER_STRICT_LLM=true.",
+        )
+        if check_provider:
+            health = LocalLLM(settings).health_check()
+            add_check(
+                "provider_reachable",
+                health.service_reachable,
+                health.message,
+            )
+            add_check(
+                "model_available",
+                health.model_available,
+                f"Configured model: {health.model_name}",
+            )
+        else:
+            add_check(
+                "provider_reachable",
+                False,
+                "Provider check skipped; run doctor before Operation mode.",
+                blocking=False,
+            )
+        add_check(
+            "paper_backend_selected",
+            settings.execution_backend == "paper",
+            f"Configured backend: {settings.execution_backend}",
+        )
+        add_check(
+            "live_execution_disabled",
+            not settings.live_execution_enabled,
+            "Live execution must remain disabled until a real adapter and approvals exist.",
+        )
+        add_check(
+            "kill_switch_clear",
+            not settings.execution_kill_switch_active,
+            "Execution kill switch must be clear for production-like paper operation.",
+        )
+    else:
+        add_check(
+            "diagnostic_scope",
+            True,
+            "Training mode is limited to replay, walk-forward, ablation, and diagnostic evaluation flows.",
+        )
+        add_check(
+            "runtime_no_hidden_trades",
+            True,
+            "`run`, `launch`, and service orchestration remain strict and do not silently trade with fallback outputs.",
+        )
+        add_check(
+            "operator_confirmation_required",
+            True,
+            "Mode changes must be applied through explicit configuration, not chat side effects.",
+        )
+
+    allowed = all(check.passed for check in checks if check.blocking)
+    summary = (
+        f"Runtime mode transition {settings.runtime_mode} -> {target_mode} is allowed."
+        if allowed
+        else f"Runtime mode transition {settings.runtime_mode} -> {target_mode} is blocked."
+    )
+    return RuntimeModeTransitionPlan(
+        current_mode=settings.runtime_mode,
+        target_mode=target_mode,
+        allowed=allowed,
+        checks=checks,
+        summary=summary,
+    )
+
+
+def _render_runtime_mode_transition_plan(plan: RuntimeModeTransitionPlan) -> None:
+    """Render a runtime-mode transition checklist for the operator."""
+    table = Table(title="Runtime Mode Transition Checklist")
+    table.add_column("Check")
+    table.add_column("Passed")
+    table.add_column("Blocking")
+    table.add_column("Details")
+    for check in plan.checks:
+        table.add_row(
+            check.name,
+            "yes" if check.passed else "no",
+            "yes" if check.blocking else "no",
+            check.details,
+        )
+    console.print(
+        Panel(
+            f"Current: {plan.current_mode}\nTarget: {plan.target_mode}\nAllowed: {plan.allowed}\n\n{plan.summary}",
+            title="Runtime Mode",
+            border_style="green" if plan.allowed else "yellow",
+        )
+    )
+    console.print(table)
+
+
 def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
     """
     Selects a sensible default trading symbol based on the given investment preferences.
@@ -1595,6 +1740,31 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
                 border_style="red",
             )
         )
+
+
+@app.command("runtime-mode-checklist")
+def runtime_mode_checklist(
+    target_mode: RuntimeMode = typer.Argument(
+        ..., help="Target runtime mode: training or operation."
+    ),
+    check_provider: bool = typer.Option(
+        True,
+        "--provider-check/--skip-provider-check",
+        help="Check local provider/model readiness for Operation mode.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show the approved checklist for a Training/Operation mode transition."""
+    settings = get_settings()
+    plan = _runtime_mode_transition_plan(
+        settings,
+        target_mode=target_mode,
+        check_provider=check_provider,
+    )
+    if json_output:
+        _emit_json(plan.model_dump(mode="json"))
+        return
+    _render_runtime_mode_transition_plan(plan)
 
 
 @app.command()
@@ -2726,7 +2896,7 @@ def backtest(
         - When `output` is provided, writes a brief Markdown summary of the selected report to the given path.
     """
     settings = get_settings()
-    ensure_llm_ready(settings)
+    allow_diagnostic_fallback = _training_backtest_allow_fallback(settings)
     if compare_baseline and compare_memory:
         raise typer.BadParameter(
             "Choose either --compare-baseline or --compare-memory for a single run."
@@ -2738,7 +2908,7 @@ def backtest(
             interval=interval,
             lookback=lookback,
             warmup_bars=warmup_bars,
-            allow_fallback=False,
+            allow_fallback=allow_diagnostic_fallback,
         )
         _render_backtest_comparison(comparison)
         if output is not None:
@@ -2771,7 +2941,7 @@ def backtest(
             interval=interval,
             lookback=lookback,
             warmup_bars=warmup_bars,
-            allow_fallback=False,
+            allow_fallback=allow_diagnostic_fallback,
         )
         _render_backtest_ablation(ablation)
         if output is not None:
@@ -2803,7 +2973,7 @@ def backtest(
         interval=interval,
         lookback=lookback,
         warmup_bars=warmup_bars,
-        allow_fallback=False,
+        allow_fallback=allow_diagnostic_fallback,
     )
     _render_backtest_report(report)
     if output is not None:

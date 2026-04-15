@@ -76,18 +76,25 @@ A lightweight shared UI text catalog avoids duplicated labels today and creates 
 Reason:
 Fetching a long market window is not enough if the agent context and operator surfaces only expose compact latest-row indicators.
 The next input layer should persist a Market Context Pack with multi-horizon summaries, data sufficiency, anomaly flags, and window coverage so every run can prove what history was actually considered.
+If expected coverage is materially too low in operation/runtime flows, the system should fail before agent execution instead of silently treating an under-covered provider response as a valid long-window decision.
+Training replay is allowed to use growing windows, but undercoverage must remain visible as context rather than being confused with production-ready coverage.
 
 ### Training and Operation should be runtime modes, not separate products
 
 Reason:
 The project needs a clear distinction between evaluation workflows and continuous paper operation, but forking the runtime would create drift.
 Mode should be a shared settings/service/run attribute that changes gates, allowed commands, and UI banners while preserving one orchestration source of truth.
+Operation mode therefore fails closed when strict LLM gating is disabled and still requires provider/model readiness for runtime execution.
+Training mode may use deterministic diagnostic fallback only in evaluation/backtest flows so replay remains possible without silently generating paper trades.
+Every replay decision should carry an auditable `as_of` boundary, and reports should preserve data-window plus decision-window timestamps so future-data leakage is visible in artifacts.
+Mode transitions should be surfaced as schema-backed transition plans. The current implementation reports checklist state but does not mutate configuration, keeping chat and free-form instructions from silently changing execution policy.
 
 ### Semantic memory must preserve local-first inspectability
 
 Reason:
 True embeddings can improve recall over hashed-token pseudo-embeddings, but trading memory must remain reviewable, policy-bound, and separate from chat memory.
 Embedding metadata, retrieval explanations, and migration compatibility are required before semantic memory becomes a core decision input.
+The current local-hashing vectors now persist provider/model/version/dimension metadata so future semantic vectors can coexist with or migrate from existing memory rows safely.
 
 ### QA should graduate from smoke checks to terminal regression evidence
 

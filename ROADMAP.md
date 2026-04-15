@@ -239,21 +239,23 @@ Status: in progress.
 - [x] persist the pack per run and per trade context so later reviews can reconstruct exactly what the agents saw
 - [x] expose the pack through `dashboard-snapshot`, run review, trace inspection, observer API, Rich menu, and Ink control room
 - [x] include compact summaries by default and only include bar excerpts when Training mode, low confidence, or diagnostic depth requires it
-- [ ] fail closed with a clear operator-facing reason when data is too thin for the configured lookback instead of silently behaving like a short-window run
+- [x] fail closed with a clear operator-facing reason when data is too thin for the configured lookback instead of silently behaving like a short-window run
 - [x] add QA coverage that asserts context-pack fields are present and coherent for representative lookback/interval combinations
   Notes:
 - this phase answers the operator question: "Did the system really analyze the configured history?"
 - token pressure should be controlled by separating deterministic summaries from optional raw bar excerpts
 - the pack is now part of snapshot JSON, agent prompt rendering, memory documents, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
-- remaining work is tightening failure semantics for thin/partial windows and adding broader QA scenarios around provider-specific interval edge cases
+- under-covered operation/runtime windows now stop before agent execution when expected coverage falls below the safety threshold
+- training replay can intentionally keep growing-window undercoverage as an explicit context-pack flag instead of treating it as production-ready coverage
+- remaining work is adding broader QA scenarios around provider-specific interval edge cases
 
 ## Phase 12: Semantic Memory And Retrieval Quality
 
-Status: planned.
+Status: in progress.
 
 - [ ] replace hashed-token pseudo-embeddings with true local-first semantic embeddings behind a provider seam
-- [ ] store embedding model name, version, dimensionality, and created-at metadata with memory vectors
-- [ ] keep backwards compatibility with existing lightweight vectors during migration
+- [x] store embedding model name, version, dimensionality, and created-at metadata with memory vectors
+- [x] keep backwards compatibility with existing lightweight vectors during migration
 - [ ] rank retrieval with semantic similarity, market-regime similarity, freshness, outcome weighting, and diversity constraints
 - [ ] bucket or tag memories by regime, strategy family, outcome, and data quality so retrieval can explain its own choices
 - [ ] expand memory documents with Market Context Pack summaries, explicit success/failure tags, and post-trade review facts
@@ -261,22 +263,28 @@ Status: planned.
 - [ ] preserve chat-memory and trade-memory separation through explicit write policies while improving recall quality
   Notes:
 - this phase keeps memory useful without making it an opaque hidden policy layer
+- memory vectors now persist provider/model/version/dimension metadata so future true-embedding migrations can distinguish old lightweight vectors from newer semantic vectors
+- legacy `memory_vectors` rows without metadata columns are migrated in place with local-hashing defaults
 - DuckDB can remain the source of truth at first; a dedicated vector index or service should wait until memory volume justifies the added operational cost
 
 ## Phase 13: Training And Operation Modes
 
-Status: in progress.
+Status: completed.
 
 - [x] add an explicit runtime mode such as `training` or `operation` to settings, service state, run records, dashboard payloads, observer API, and operator surfaces
 - [x] show a mode banner in CLI, Rich, Ink, monitor, and future WebUI surfaces
-- [ ] enforce Operation mode as strict paper operation: provider/model readiness must pass, unsafe fallbacks are blocked, and live execution remains disabled unless a real adapter and approval gates exist
-- [ ] allow Training mode to run replay, walk-forward, ablation, and diagnostic-only evaluation flows without enabling hidden trade generation
-- [ ] persist data as-of timestamps and prevent leakage in training/replay scenarios
-- [ ] gate mode transitions through approved schemas so chat or free-form instructions cannot silently mutate execution policy
-- [ ] document and surface the checklist for switching from Training to Operation
+- [x] enforce Operation mode as strict paper operation: provider/model readiness must pass, unsafe fallbacks are blocked, and live execution remains disabled unless a real adapter and approval gates exist
+- [x] allow Training mode to run replay, walk-forward, ablation, and diagnostic-only evaluation flows without enabling hidden trade generation
+- [x] persist data as-of timestamps and prevent leakage in training/replay scenarios
+- [x] gate mode transitions through approved schemas so chat or free-form instructions cannot silently mutate execution policy
+- [x] document and surface the checklist for switching from Training to Operation
   Notes:
 - this should be a configuration overlay on the existing runtime contracts, not a forked runtime
 - a first runtime mode field now flows through settings, service state migration, status JSON, dashboard snapshots, observer API, Rich status tables, and Ink overview/runtime pages
+- Operation mode now fails before provider access when strict LLM gating is disabled, and all one-shot/background runtime paths still require model readiness before paper execution
+- Training mode can use diagnostic fallback only for backtest/evaluation flows such as walk-forward, baseline comparison, and memory ablation; `run`, `launch`, and service orchestration remain no-fallback
+- Market snapshots now carry an `as_of` timestamp, and backtest reports persist data-window plus first/last decision timestamps so replay leakage can be audited
+- `runtime-mode-checklist` now emits a schema-backed transition plan so mode changes are explicit operator actions rather than chat side effects
 - Operation mode still means paper-first until paper performance, QA evidence, and broker adapters are mature
 
 ## Phase 14: Terminal Regression QA And Evidence Bundles
@@ -293,7 +301,7 @@ Status: planned.
 - [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
   Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
-- smoke QA now includes a dashboard contract check for runtime mode and market context fields consumed by operator surfaces
+- smoke QA now includes dashboard and runtime-mode checklist contract checks for fields consumed by operator surfaces
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
 ## Phase 15: Production-Like Paper Operations

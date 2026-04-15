@@ -11,6 +11,7 @@ from agentic_trader.schemas import (
 )
 
 MIN_REQUIRED_BARS = 60
+MIN_LOOKBACK_COVERAGE_RATIO = 0.6
 CONTEXT_HORIZONS = (5, 20, 60, 120, 180)
 _LOOKBACK_RE = re.compile(r"^(?P<count>\d+)(?P<unit>d|wk|mo|y)$", re.IGNORECASE)
 _INTERVAL_RE = re.compile(r"^(?P<count>\d+)(?P<unit>m|h|d|wk)$", re.IGNORECASE)
@@ -289,6 +290,22 @@ def _build_context_pack(
     return pack
 
 
+def _validate_context_pack_for_execution(pack: MarketContextPack) -> None:
+    """Fail closed when the fetched window is materially shorter than requested."""
+    if pack.coverage_ratio is None or pack.bars_expected is None:
+        return
+    if pack.coverage_ratio >= MIN_LOOKBACK_COVERAGE_RATIO:
+        return
+
+    coverage_pct = round(pack.coverage_ratio * 100, 1)
+    raise ValueError(
+        "Market data coverage is too thin for "
+        f"{pack.symbol}: analyzed {pack.bars_analyzed}/{pack.bars_expected} "
+        f"expected bars ({coverage_pct}%) for lookback {pack.lookback or 'unknown'} "
+        f"at interval {pack.interval}. Refusing to run agents on an under-covered window."
+    )
+
+
 def _enrich_frame(frame: pd.DataFrame) -> pd.DataFrame:
     enriched = frame.copy()
     enriched["ema_20"] = enriched["close"].ewm(span=20, adjust=False).mean()
@@ -385,8 +402,21 @@ def _mtf_alignment(
 
 
 def build_snapshot(
-    frame: pd.DataFrame, *, symbol: str, interval: str, lookback: str | None = None
+    frame: pd.DataFrame,
+    *,
+    symbol: str,
+    interval: str,
+    lookback: str | None = None,
+    enforce_lookback_coverage: bool = True,
 ) -> MarketSnapshot:
+    """
+    Build the compact market snapshot and context pack from an OHLCV frame.
+
+    Operation/runtime callers should keep `enforce_lookback_coverage=True` so
+    materially under-covered provider responses fail before agents run. Training
+    replay callers may disable the check because walk-forward windows
+    intentionally start with less than the full evaluation lookback.
+    """
     if len(frame) < MIN_REQUIRED_BARS:
         raise ValueError("At least 60 bars are required to build the market snapshot")
 
@@ -411,10 +441,13 @@ def build_snapshot(
         higher_timeframe=higher_timeframe,
         last=last,
     )
+    if enforce_lookback_coverage:
+        _validate_context_pack_for_execution(context_pack)
 
     return MarketSnapshot(
         symbol=symbol,
         interval=interval,
+        as_of=_index_label(frame.index[-1]) if len(frame.index) else None,
         last_close=float(last["close"]),
         ema_20=float(last["ema_20"]),
         ema_50=float(last["ema_50"]),

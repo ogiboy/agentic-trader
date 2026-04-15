@@ -89,8 +89,10 @@ def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
         LLMHealthStatus: Health report returned by the local LLM.
     
     Raises:
-        RuntimeError: If the LLM service is not reachable (message from health), or if `settings.strict_llm` is true and the required model is not available (message from health).
+        RuntimeError: If the LLM service is not reachable (message from health), if Operation mode is configured without strict LLM gating, or if strict mode requires a model that is unavailable.
     """
+    if settings.runtime_mode == "operation" and not settings.strict_llm:
+        raise RuntimeError("Operation mode requires strict LLM gating.")
     health = LocalLLM(settings).health_check()
     if not health.service_reachable:
         raise RuntimeError(health.message)

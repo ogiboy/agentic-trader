@@ -738,6 +738,18 @@ def _surface_checks(context: SmokeContext) -> list[CheckResult]:
                 ),
                 run_command_capture(
                     context,
+                    "runtime_mode_checklist_json",
+                    [
+                        agentic_trader_executable,
+                        "runtime-mode-checklist",
+                        "operation",
+                        "--json",
+                        "--skip-provider-check",
+                    ],
+                    require_json_stdout=True,
+                ),
+                run_command_capture(
+                    context,
                     "status_json",
                     [agentic_trader_executable, "status", "--json"],
                     require_json_stdout=True,
