@@ -25,6 +25,12 @@ class ServiceCycleResult:
 
 
 def _stop_requested(db: TradingDatabase) -> bool:
+    """
+    Check whether a stop of the service has been requested.
+    
+    Returns:
+        True if a stop has been requested via settings or the persisted service state, False otherwise.
+    """
     if stop_requested(db.settings):
         return True
     state = db.get_service_state()
@@ -33,11 +39,15 @@ def _stop_requested(db: TradingDatabase) -> bool:
 
 def _is_nonfatal_symbol_error(exc: Exception) -> bool:
     """
-    Return True when a symbol-level failure should be logged and skipped rather than failing the whole orchestrator.
-
-    We treat missing or incomplete market data as non-fatal because the operator may
-    include symbols or intervals that simply have no bars available yet. LLM/network
-    failures and other unexpected errors should still fail the service.
+    Determine whether an exception represents a non-fatal symbol-level market-data error.
+    
+    Inspect the exception message and classify it as non-fatal when it indicates missing or incomplete market data.
+    
+    Parameters:
+        exc (Exception): The exception whose message will be inspected.
+    
+    Returns:
+        bool: `True` if the exception message starts with "No market data returned for " or "Missing columns from market data:", `False` otherwise.
     """
     message = str(exc)
     return message.startswith("No market data returned for ") or message.startswith(
@@ -52,6 +62,18 @@ def _manage_open_position(
     artifacts: RunArtifacts,
     cycle_count: int,
 ) -> str | None:
+    """
+    Close an open position for the given symbol when its position plan indicates an exit and record the closure.
+    
+    If a non-zero position and a corresponding position plan exist, increments the plan's holding bars, re-evaluates exit conditions against the latest plan and snapshot, and when an exit is required uses the broker to close the position and records a `position_closed` service event.
+    
+    Parameters:
+        artifacts (RunArtifacts): Run artifacts containing the snapshot with the symbol to check.
+        cycle_count (int): Current service cycle number to attach to the recorded event.
+    
+    Returns:
+        str | None: The broker order id for the exit if a position was closed, `None` otherwise.
+    """
     position = db.get_position(artifacts.snapshot.symbol)
     if position is None or position.quantity == 0:
         return None
@@ -80,16 +102,16 @@ def _manage_open_position(
 
 def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
     """
-    Verify the local LLM service is reachable and, when configured, that the required model is available.
+    Ensure the local LLM service is reachable and, if configured, that the required model is available.
     
     Parameters:
-        settings (Settings): Application settings; `strict_llm` controls whether missing models cause failure.
+        settings (Settings): Application settings. When `settings.runtime_mode == "operation"`, `settings.strict_llm` must be True.
     
     Returns:
         LLMHealthStatus: Health report returned by the local LLM.
     
     Raises:
-        RuntimeError: If the LLM service is not reachable (message from health), if Operation mode is configured without strict LLM gating, or if strict mode requires a model that is unavailable.
+        RuntimeError: If operation mode is configured without `strict_llm`, if the LLM service is not reachable (message provided by the health check), or if `strict_llm` is True but the required model is unavailable (message provided by the health check).
     """
     if settings.runtime_mode == "operation" and not settings.strict_llm:
         raise RuntimeError("Operation mode requires strict LLM gating.")
@@ -244,14 +266,14 @@ def run_service(
                     cycle_number: int = cycle_count,
                 ) -> None:
                     """
-                    Update persisted service state for the current symbol and record a corresponding informational service event.
+                    Persist the current symbol's progress in service state and record a corresponding informational service event.
                     
                     Parameters:
                     	stage (str): High-level agent stage name (e.g., "planning", "execution").
                     	status (str): Stage status label (e.g., "started", "finished", "failed").
                     	message (str): Human-readable message describing the current progress or status.
-                    	current_symbol (str): Symbol currently being processed; defaults to the loop-bound symbol.
-                    	cycle_number (int): Cycle number bound when this callback is created.
+                    	current_symbol (str): Symbol being processed; defaults to the loop-bound symbol.
+                    	cycle_number (int): Cycle number captured when the callback was created.
                     """
                     db.upsert_service_state(
                         state="running",

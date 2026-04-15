@@ -232,6 +232,11 @@ def test_run_service_records_runtime_state_and_events(
 def test_run_service_records_agent_stage_events(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Validates that agent coordinator and manager stage transitions are recorded as service events.
+    
+    This test patches LLM readiness, replaces `run_once` to emit coordinator and manager progress events via the provided `progress_callback`, and stubs `persist_run`. It runs the service for a single symbol and asserts the database contains `agent_coordinator_started`, `agent_coordinator_completed`, `agent_manager_started`, and `agent_manager_completed` events.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -307,6 +312,18 @@ def test_run_service_skips_missing_market_data_and_continues(
     )
 
     def _run_once(**kwargs: Any) -> RunArtifacts:
+        """
+        Return deterministic RunArtifacts for the provided symbol or raise when market data is missing.
+        
+        Parameters:
+            kwargs (dict): Expects a key `"symbol"` with the ticker symbol (str) to generate artifacts for.
+        
+        Returns:
+            RunArtifacts: A fully populated RunArtifacts instance with deterministic mock data for the given symbol.
+        
+        Raises:
+            ValueError: If `"symbol"` is `"AAPL"`, indicating no market data was returned for that symbol.
+        """
         if kwargs["symbol"] == "AAPL":
             raise ValueError("No market data returned for AAPL")
         return _artifacts(kwargs["symbol"])

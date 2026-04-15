@@ -144,12 +144,13 @@ function getTradeContextLines(tradeContext) {
 }
 
 /**
- * Produce human-readable lines for the persisted Market Context Pack.
+ * Create human-readable lines describing a persisted Market Context Pack.
  *
- * @param {Object} marketContext - Dashboard marketContext payload containing
+ * @param {Object} marketContext - Dashboard marketContext payload. May include:
  *   `{ available?: boolean, error?: string, contextPack?: Object }`.
- * @returns {string[]} Lines that summarize lookback coverage, data quality,
- *   anomaly flags, and the first few horizon trend votes.
+ * @returns {string[]} Human-readable lines summarizing the pack: summary, lookback,
+ *   window, bars/coverage, interval semantics, higher-timeframe usage, data quality
+ *   and anomaly flags, followed by up to five horizon vote entries.
  */
 function getMarketContextLines(marketContext) {
   if (marketContext?.available === false) {
@@ -558,6 +559,12 @@ function renderLinesFallback(title, available, error, fallback) {
   return null;
 }
 
+/**
+ * Render the Overview dashboard page showing runtime status, system information, and recent agent activity.
+ * @param {object} props
+ * @param {object} props.data - Dashboard snapshot used to populate panels; expected to include keys such as `doctor`, `status`, `preferences`, `calendar`, `broker`, `marketCache`, `marketContext`, `review`, and `agentActivity`.
+ * @returns {import('react').ReactElement} The Ink/React element tree for the Overview page.
+ */
 function OverviewPage({ data }) {
   const doctor = data.doctor;
   const runtime = data.status;
@@ -652,11 +659,7 @@ function OverviewPage({ data }) {
 }
 
 /**
- * Render the Runtime page showing runtime status, supervisor/stage flow, and recent events.
- *
- * Renders three panels summarizing the current runtime state (process, PID, symbols, timing,
- * stage details, broker and snapshot info), the supervisor and stage flow (log tails, stage
- * statuses, and latest review summary), and recent runtime events.
+ * Render the Runtime page with runtime status, supervisor/stage flow, and recent events.
  *
  * @param {Object} data - Dashboard snapshot containing runtime and related information.
  *   Expected properties: `status`, `supervisor`, `broker`, `logs`, `agentActivity`,
@@ -774,6 +777,17 @@ function RuntimePage({ data }) {
   );
 }
 
+/**
+ * Render the Portfolio page panels for the dashboard UI.
+ *
+ * Renders four panels—PORTFOLIO, RISK REPORT, TRADE JOURNAL, and PREFERENCES—arranged in two rows,
+ * using available snapshot/report/journal/preference data or graceful fallback messages when unavailable.
+ *
+ * @param {object} props
+ * @param {object} props.data - Dashboard data bag containing keys used to populate the page:
+ *   `portfolio` (with `snapshot` and `positions`), `riskReport`, `journal`, and `preferences`.
+ * @returns {import('react').ReactElement} The composed Ink/React element for the Portfolio page.
+ */
 function PortfolioPage({ data }) {
   const portfolio = data.portfolio;
   const riskReport = data.riskReport;

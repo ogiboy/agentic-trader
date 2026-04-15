@@ -270,12 +270,12 @@ def _render_instruction(instruction: OperatorInstruction) -> None:
 
 def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     """
-    Render the service runtime status to the console using rich panels and tables.
+    Render the service runtime status to the console.
     
-    If `state` is None or contains no runtime state, prints a yellow panel stating that no runtime state is recorded. Otherwise prints a table titled with the service status containing key runtime fields such as service name, runtime state, live process flag, heartbeat/heartbeat age, start/updated times, polling and cycle configuration, symbols/interval/lookback, PID and stop-requested flag, and the last recorded message/error.
-     
+    If `state` is None or contains no recorded runtime state, prints a yellow panel indicating no runtime state is recorded. Otherwise prints a table summarizing runtime fields such as service name, runtime mode/state, live process flag, heartbeat and its age, start/updated times, polling/cycle settings, symbol/interval/lookback configuration, PID and stop-requested flag, and the last recorded message/error.
+    
     Parameters:
-        state (ServiceStateSnapshot | None): Snapshot of the supervisor/service runtime state; pass None to indicate no recorded runtime state.
+        state (ServiceStateSnapshot | None): Snapshot of the supervisor/service runtime state; pass `None` to indicate no recorded runtime state.
     """
     view = build_runtime_status_view(state)
     if view.state is None:
@@ -1080,6 +1080,19 @@ def _run_record_payload(
 def _trade_context_payload(
     settings: Settings, *, trade_id: str | None = None
 ) -> dict[str, object]:
+    """
+    Builds a payload containing a persisted trade context record for observer output or APIs.
+    
+    Parameters:
+        settings (Settings): Application settings used to open the read-only database.
+        trade_id (str | None): Optional trade identifier; when provided, returns the matching trade context, otherwise returns the latest trade context.
+    
+    Returns:
+        dict: A JSON-serializable mapping with keys:
+            - "available" (bool): `True` if the record was loaded successfully, `False` on error.
+            - "error" (str | None): Error message when loading failed, otherwise `None`.
+            - "record" (dict | None): The trade context serialized for JSON when available, otherwise `None`.
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -1105,11 +1118,13 @@ def _trade_context_payload(
 
 def _market_context_payload(settings: Settings) -> dict[str, object]:
     """
-    Build the latest persisted Market Context Pack payload for operator surfaces.
-
-    The payload reads from the latest run artifact instead of refetching market
-    data, so dashboards show the exact context pack used by the last completed
-    cycle.
+    Produce the latest persisted market context pack used by the most recent completed run.
+    
+    Returns:
+        payload (dict): A JSON-serializable mapping with keys:
+            - "available" (bool): `true` if a persisted context pack was found, `false` otherwise.
+            - "error" (str | None): Error message when unavailable, otherwise `None`.
+            - "contextPack" (dict | None): The context pack serialized as a JSON-like dict when available, otherwise `None`.
     """
     try:
         db = _open_db(settings, read_only=True)
@@ -1139,16 +1154,19 @@ def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
     """
     Builds a read-only supervisor payload describing the orchestrator runtime and recent log tails.
     
+    Parameters:
+        settings (Settings): Application settings used to locate persisted service state and log files.
+    
     Returns:
-        payload (dict[str, object]): Dictionary with keys:
-            - `runtime_state`: serialized runtime state view status string.
-            - `live_process`: process metadata for the running service (or `None`).
-            - `is_stale`: `true` if the runtime heartbeat is stale, `false` otherwise.
-            - `age_seconds`: age of the last heartbeat in seconds (or `None` if unavailable).
-            - `status_message`: human-readable status message for the runtime view.
-            - `state`: JSON-serializable snapshot of the full service state (or `None`).
-            - `stdout_tail`: list of last lines from the service stdout log (empty list if not available).
-            - `stderr_tail`: list of last lines from the service stderr log (empty list if not available).
+        dict[str, object]: A JSON-serializable dictionary with the following keys:
+            - runtime_state: A short runtime status identifier for the service view.
+            - live_process: Metadata for the running service process, or `None` if not running.
+            - is_stale: `true` if the last heartbeat is considered stale, `false` otherwise.
+            - age_seconds: Age of the last heartbeat in seconds, or `None` if unavailable.
+            - status_message: Human-readable status message for the runtime view.
+            - state: Serialized snapshot of the full service state, or `None` if unavailable.
+            - stdout_tail: List of last lines from the service stdout log (empty list if unavailable).
+            - stderr_tail: List of last lines from the service stderr log (empty list if unavailable).
     """
     state = read_service_state(settings)
     view = build_runtime_status_view(state)
@@ -1171,17 +1189,26 @@ def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
 
 
 def _broker_payload(settings: Settings) -> dict[str, object]:
+    """
+    Build a JSON-serializable payload describing the broker runtime and safety-gate state.
+    
+    Returns:
+        dict: A dictionary containing broker runtime metadata and safety gate flags.
+    """
     return broker_runtime_payload(settings)
 
 
 def _training_backtest_allow_fallback(settings: Settings) -> bool:
     """
-    Decide whether a backtest may use deterministic diagnostic fallbacks.
-
-    Operation mode always requires full LLM readiness and returns False. Training
-    mode first tries the same readiness gate; only when that gate fails does it
-    allow fallback execution, and only for backtest/evaluation flows that do not
-    persist live or paper broker orders.
+    Determine whether a backtest running under the current settings may use deterministic diagnostic fallbacks.
+    
+    Attempts to verify LLM readiness; if the readiness check fails and the configured runtime mode is "training", a training diagnostic panel is displayed and fallback execution is permitted. In any other mode the readiness failure is propagated and fallbacks are not allowed.
+    
+    Parameters:
+        settings (Settings): Runtime configuration used to determine the current mode and for contextual diagnostics.
+    
+    Returns:
+        bool: `True` if fallback execution is permitted for this backtest, `False` otherwise.
     """
     try:
         ensure_llm_ready(settings)
@@ -1205,12 +1232,36 @@ def _training_backtest_allow_fallback(settings: Settings) -> bool:
 def _runtime_mode_transition_plan(
     settings: Settings, *, target_mode: RuntimeMode, check_provider: bool
 ) -> RuntimeModeTransitionPlan:
-    """Build the approved checklist required before changing runtime intent."""
+    """
+    Builds a checklist of preconditions required to transition the runtime to the given target mode.
+    
+    Evaluates mode-specific conditions (for "operation" this includes strict-LLM, provider/model health when requested, execution backend and kill-switch state; for "training" this includes diagnostic constraints and operator-safety requirements). Each checklist entry indicates its name, pass/fail state, human-readable details, and whether it is blocking. The plan's `allowed` field is true only if all blocking checks pass, and the returned `RuntimeModeTransitionPlan` contains the current and target modes, the computed `allowed` flag, the list of checks, and a short summary.
+    
+    Parameters:
+        settings (Settings): Runtime configuration used to read current mode and relevant flags.
+        target_mode (RuntimeMode): Desired runtime mode to transition to.
+        check_provider (bool): If true, perform LLM provider health checks (reachability and model availability); if false, provider checks are added as non-blocking.
+    
+    Returns:
+        RuntimeModeTransitionPlan: A plan object containing `current_mode`, `target_mode`, `allowed`, `checks`, and `summary`.
+    """
     checks: list[RuntimeModeTransitionCheck] = []
 
     def add_check(
         name: str, passed: bool, details: str, *, blocking: bool = True
     ) -> None:
+        """
+        Append a runtime mode transition check to the module-level checklist.
+        
+        Parameters:
+            name (str): Human-readable name of the check.
+            passed (bool): `True` if the check passed, `False` otherwise.
+            details (str): Operator-facing explanation or diagnostic message for the check.
+            blocking (bool): If `True`, a failing check blocks the transition; defaults to `True`.
+        
+        Side effects:
+            Appends a `RuntimeModeTransitionCheck` instance to the `checks` list.
+        """
         checks.append(
             RuntimeModeTransitionCheck(
                 name=name,
@@ -1293,7 +1344,14 @@ def _runtime_mode_transition_plan(
 
 
 def _render_runtime_mode_transition_plan(plan: RuntimeModeTransitionPlan) -> None:
-    """Render a runtime-mode transition checklist for the operator."""
+    """
+    Render a runtime-mode transition checklist and summary to the console for operator review.
+    
+    Prints a table of each transition check (name, whether it passed, whether it is blocking, and details) and a summary panel showing the current mode, target mode, whether the transition is allowed, and the plan summary.
+    
+    Parameters:
+        plan (RuntimeModeTransitionPlan): Plan containing the current and target modes, computed checks, overall allowance flag, and a human-readable summary.
+    """
     table = Table(title="Runtime Mode Transition Checklist")
     table.add_column("Check")
     table.add_column("Passed")
@@ -1463,6 +1521,27 @@ def _memory_explorer_payload(
     limit: int = 5,
     use_latest_run: bool = False,
 ) -> dict[str, object]:
+    """
+    Builds a payload containing a market snapshot and similar memory matches for a symbol/interval.
+    
+    Parameters:
+        settings (Settings): Application settings and environment.
+        symbol (str | None): Optional symbol to build or fetch the snapshot for. If omitted and
+            `use_latest_run` is True or a latest run exists, the latest run's snapshot symbol is used.
+        interval (str | None): Optional interval (e.g., "1d", "1h"). If omitted and a latest run
+            snapshot is used, the latest run's interval is used.
+        lookback (str): Historical range to include when building the snapshot (e.g., "180d").
+        limit (int): Maximum number of similar memories to retrieve.
+        use_latest_run (bool): When True, prefer the latest persisted run snapshot instead of
+            fetching/building a new market snapshot.
+    
+    Returns:
+        dict: A JSON-serializable payload with keys:
+            - "available" (bool): `True` if the payload was built successfully, `False` on error.
+            - "error" (str | None): Error message when `available` is `False`, otherwise `None`.
+            - "snapshot" (dict | None): Snapshot serialized to JSON-compatible dict, or `None` if unavailable.
+            - "matches" (list[dict]): List of retrieved memory matches serialized as JSON-compatible dicts.
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -1664,12 +1743,12 @@ def app_entry(ctx: typer.Context) -> None:
 @app.command()
 def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
     """
-    Check local environment and display LLM and database runtime status.
+    Check local environment and present LLM and database runtime status.
     
-    Prints a rich table and a readiness health panel showing configured model, runtime and database paths, database availability, the latest persisted order, and LLM reachability/model availability. If `json_output` is true, emits an equivalent JSON payload instead of rendering terminal output.
+    When not emitting JSON, prints a table of environment fields and a readiness panel indicating whether the trading runtime can start with full LLM access. When `json_output` is true, emits an equivalent JSON payload instead of rendering terminal output.
     
     Parameters:
-        json_output (bool): If true, output the environment payload as JSON rather than rendering rich UI.
+        json_output (bool): If true, emit the environment payload as JSON rather than rendering terminal output.
     """
     settings = get_settings()
     latest: str
@@ -2135,22 +2214,16 @@ def build_dashboard_snapshot_payload(
     settings: Settings, *, log_limit: int = 14
 ) -> dict[str, object]:
     """
-    Assembles a comprehensive dashboard snapshot payload aggregating runtime, service, agent, and persisted data for the observer API.
+    Assembles a dashboard snapshot containing runtime, service, agent activity, and persisted payloads for the observer API.
     
-    Builds a JSON-serializable dictionary containing:
-    - doctor: LLM and database health, model routing, latest recorded order, and runtime paths.
-    - status: runtime service view including staleness, age, message, and serialized state snapshot.
-    - supervisor, broker: supervisor and broker payloads.
-    - logs: recent service events (up to `log_limit`).
-    - agentActivity: current and recent agent cycle/stage summaries and stage status lists.
-    - portfolio, preferences, journal, riskReport, review, trace, tradeContext, replay, memoryExplorer, retrievalInspection, memoryPolicy, chatHistory, calendar, news, marketCache: read-only payloads produced by their respective helper functions.
+    Aggregates health and configuration (doctor), runtime state (status), supervisor and broker payloads, recent service events, agent activity summaries, and read-only payloads such as portfolio, preferences, journal, risk report, run review/trace/replay, market and memory inspection, chat history, calendar, news, and market cache.
     
     Parameters:
-        settings (Settings): Application settings and paths used to query services and the database.
-        log_limit (int): Maximum number of recent service events to include in `logs` (default 14).
+        settings (Settings): Application settings and paths used to read service state, query the database, and call helper payload builders.
+        log_limit (int): Maximum number of recent service events to include in the `logs` section (default 14).
     
     Returns:
-        dict[str, object]: A JSON-serializable snapshot payload suitable for the observer API, keyed by the sections described above.
+        dict[str, object]: JSON-serializable snapshot payload keyed by sections (e.g., `doctor`, `status`, `supervisor`, `broker`, `logs`, `agentActivity`, `portfolio`, `preferences`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, `marketCache`).
     """
     llm = LocalLLM(settings)
     health = llm.health_check()
@@ -2880,20 +2953,16 @@ def backtest(
     """
     Run a backtest using the agent pipeline in one of three modes: walk‑forward, baseline comparison, or memory ablation.
     
+    Exactly one mode is executed per call: baseline comparison (when --compare-baseline), memory ablation (when --compare-memory), or the default walk‑forward backtest. Raises a parameter error if both comparison flags are set. When `output` is provided, writes a compact Markdown summary of the selected report to the given file path.
+    
     Parameters:
         symbol (str): Ticker or symbol to backtest.
         interval (str): OHLCV interval (e.g., "1d").
         lookback (str): Historical lookback window (e.g., "2y").
         warmup_bars (int): Number of warmup bars to seed replay before metrics are collected (minimum 60).
-        compare_baseline (bool): If true, run an agent vs deterministic baseline comparison (mutually exclusive with compare_memory).
-        compare_memory (bool): If true, run an ablation comparing agent performance with memory enabled vs disabled (mutually exclusive with compare_baseline).
+        compare_baseline (bool): Run an agent vs deterministic baseline comparison.
+        compare_memory (bool): Run an ablation comparing agent performance with memory enabled vs disabled.
         output (str | None): Optional file path to write a compact Markdown summary of the generated backtest report.
-    
-    Behavior:
-        - Exactly one mode is executed per call: baseline comparison (if compare_baseline),
-          memory ablation (if compare_memory), or walk‑forward backtest (default).
-        - If both compare_baseline and compare_memory are set, a parameter error is raised.
-        - When `output` is provided, writes a brief Markdown summary of the selected report to the given path.
     """
     settings = get_settings()
     allow_diagnostic_fallback = _training_backtest_allow_fallback(settings)
@@ -3320,7 +3389,17 @@ def monitor(
 
 @app.command("tui")
 def ink_tui() -> None:
-    """Launch the Ink-based control room."""
+    """
+    Launch the Ink-based control room, falling back to the Rich control room when Ink is unavailable.
+    
+    Checks for the bundled `tui` directory and an `npm` executable. If the TUI directory is missing or `npm`
+    is not found, the function invokes the Rich control-room fallback (`run_main_menu`) and returns.
+    On first-run (missing `node_modules`) it runs `npm install` in the TUI directory, then starts the Ink
+    UI with `npm run start`, passing the CLI and Python executable via environment variables.
+    
+    Raises:
+        subprocess.CalledProcessError: If `npm install` or `npm run start` exits with a non-zero status.
+    """
     tui_dir = Path(__file__).resolve().parent.parent / "tui"
     if not tui_dir.exists():
         console.print(

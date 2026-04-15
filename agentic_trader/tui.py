@@ -483,6 +483,25 @@ def _system_status_table(
     *,
     health: LLMHealthStatus | None = None,
 ) -> Table:
+    """
+    Builds a summary key/value table of runtime, model, LLM health, and (when available) the latest order.
+    
+    Parameters:
+        settings: Application settings used to read runtime directory, mode, model name, base URL, and strict-LLM flag.
+        db: Trading database instance or `None`. When provided, the table will include a "Latest Order" row; when `None`, that row is omitted.
+        health: Optional precomputed LLM health snapshot. If omitted, a fresh health check is performed.
+    
+    Returns:
+        Table: A Rich Table titled "System Status" containing rows for:
+            - Runtime Dir
+            - Runtime Mode
+            - Model
+            - Base URL
+            - Ollama Reachable (`yes` or `no`)
+            - Model Available (`yes` or `no`)
+            - Strict LLM
+            - Latest Order (present only when `db` is provided)
+    """
     health_status = health if health is not None else LocalLLM(settings).health_check()
     latest_order = db.latest_order() if db is not None else None
     table = Table(title="System Status")
@@ -556,14 +575,17 @@ def build_monitor_renderable(
     health: LLMHealthStatus | None = None,
 ) -> Group:
     """
-    Builds the complete live-monitor renderable for the control-room UI, composed of header, current activity, agent activity, runtime/system status, preferences/portfolio, recent runs/trade journal, runtime events, and a risk report panel.
+    Assembles the live-monitor UI as a Rich Group of panels and tables.
+    
+    Attempts a safe read-only database open when `db` is None; database-backed panels show actual data when a readable DB is available and show observer-mode placeholders otherwise.
     
     Parameters:
         settings (Settings): Application settings used to read runtime state and events.
-        db (TradingDatabase | None): Optional database connection. If None, the function will attempt a safe read-only open; when a readable DB is not available, database-backed panels are replaced with observer-mode placeholders.
+        db (TradingDatabase | None): Optional database connection. If None, a safe read-only open is attempted and panels that require DB data will fall back to observer-mode when unavailable.
+        health (LLMHealthStatus | None): Optional cached LLM health information to display in the system status panel; when omitted the system status panel may perform its own health check.
     
     Returns:
-        Group: A rich.Group containing the assembled panels and tables for the live monitor. Database-dependent sections show actual data when a readable DB is available and observer panels otherwise.
+        Group: A rich.Group containing the assembled header, activity panels, runtime/system status, preferences/portfolio, recent runs/trade journal, runtime events, and risk report.
     """
     db = db if db is not None else _safe_open_read_db(settings)
     runtime_state = read_service_state(settings)
@@ -634,6 +656,16 @@ def run_live_monitor(
     *,
     refresh_seconds: float = 1.0,
 ) -> None:
+    """
+    Launch a live terminal monitor that renders runtime, portfolio, and system views and updates periodically.
+    
+    Runs a rich Live rendering loop that refreshes the UI every `refresh_seconds`, polling LLM health approximately every 30 seconds and updating the display accordingly. The monitor uses `settings` to build views and, if provided, reads DB-backed panels from `db`. The loop continues until interrupted (KeyboardInterrupt).
+    
+    Parameters:
+        settings (Settings): Application settings used to build monitor renderables and perform health checks.
+        db (TradingDatabase | None): Optional read-only database used to populate portfolio and run/event panels; when None a safe read attempt may be performed internally.
+        refresh_seconds (float): Seconds to sleep between UI updates (controls update frequency).
+    """
     health = LocalLLM(settings).health_check()
     last_health_refresh = time.monotonic()
     with Live(
@@ -656,6 +688,13 @@ def run_live_monitor(
 
 
 def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
+    """
+    Render the system and runtime overview panels to the console, including status, current activity, preferences or observer-mode placeholders, and recent runtime events.
+    
+    Parameters:
+        settings (Settings): Application settings used to populate system status and to read runtime/service state.
+        db (TradingDatabase | None): If provided, DB-backed panels (preferences and recent runs) are rendered; if `None`, observer-mode placeholders are shown.
+    """
     health = LocalLLM(settings).health_check()
     status = Table(title="System Status")
     status.add_column("Key")
@@ -834,10 +873,11 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
 
 def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
     """
-    Open an interactive memory explorer that prompts for a symbol, interval, lookback, and match limit, then displays matching historical memories in a table.
+    Launch an interactive memory explorer that prompts for symbol, interval, lookback, and match limit, then prints a table of similar historical memories.
     
     Parameters:
-        db (TradingDatabase): Database used to fetch and rank similar memories; results are printed to the console.
+        _settings (Settings): Unused in this view; kept for API symmetry.
+        db (TradingDatabase): Database used to retrieve and rank matching memories; results are printed to the console.
     """
     symbol = Prompt.ask("Symbol", default="AAPL").strip().upper()
     interval = Prompt.ask("Interval", default="1d")

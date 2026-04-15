@@ -22,6 +22,23 @@ from agentic_trader.workflows.run_once import persist_run
 
 
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
+    """
+    Create a RunArtifacts object populated with fixed example market, research, strategy, risk, manager, execution, and review data.
+    
+    Parameters:
+        symbol (str): Ticker symbol to use in the generated MarketSnapshot and ExecutionDecision (default "AAPL").
+    
+    Returns:
+        RunArtifacts: A deterministic set of example artifacts including:
+            - snapshot: MarketSnapshot with price, indicators, returns, volume ratio, and bars_analyzed
+            - coordinator: ResearchCoordinatorBrief with market focus, priority signals, and summary
+            - regime: RegimeAssessment with regime, direction bias, confidence, and reasoning
+            - strategy: StrategyPlan describing strategy family, action, timeframe, entry/invalidation logic, and confidence
+            - risk: RiskPlan with position sizing, stop/take-profit, reward ratio, holding limit, and notes
+            - manager: ManagerDecision with approval, bias, confidence cap, size multiplier, and rationale
+            - execution: ExecutionDecision with approval, side, symbol, prices, sizing, confidence, and rationale
+            - review: ReviewNote summarizing strengths, warnings, and next checks
+    """
     return RunArtifacts(
         snapshot=MarketSnapshot(
             symbol=symbol,
