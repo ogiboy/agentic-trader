@@ -3107,21 +3107,25 @@ def ink_tui() -> None:
     if not tui_dir.exists():
         console.print(
             _render_health_panel(
-                "TUI Missing", "The Ink UI directory was not found.", border_style="red"
+                "TUI Missing",
+                "The Ink UI directory was not found. Falling back to the Rich control room.",
+                border_style="yellow",
             )
         )
-        raise typer.Exit(code=1)
+        run_main_menu()
+        return
 
     npm = shutil.which("npm")
     if npm is None:
         console.print(
             _render_health_panel(
                 "Node Missing",
-                "npm is required to run the Ink control room.",
-                border_style="red",
+                "npm is required to run the Ink control room. Falling back to the Rich control room.",
+                border_style="yellow",
             )
         )
-        raise typer.Exit(code=1)
+        run_main_menu()
+        return
 
     node_modules = tui_dir / "node_modules"
     if not node_modules.exists():

@@ -272,6 +272,59 @@ def test_run_service_records_agent_stage_events(
     assert "agent_manager_completed" in event_types
 
 
+def test_run_service_skips_missing_market_data_and_continues(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.ensure_llm_ready",
+        lambda current_settings: LLMHealthStatus(
+            provider="ollama",
+            base_url=current_settings.base_url,
+            model_name=current_settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ok",
+        ),
+    )
+
+    def _run_once(**kwargs: Any) -> RunArtifacts:
+        if kwargs["symbol"] == "AAPL":
+            raise ValueError("No market data returned for AAPL")
+        return _artifacts(kwargs["symbol"])
+
+    monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.persist_run",
+        lambda **kwargs: "paper-test-order",
+    )
+
+    results = run_service(
+        settings=settings,
+        symbols=["AAPL", "MSFT"],
+        interval="1d",
+        lookback="180d",
+        poll_seconds=1,
+        continuous=False,
+        max_cycles=None,
+    )
+
+    db = TradingDatabase(settings)
+    state = db.get_service_state()
+    events = db.list_service_events(limit=10)
+
+    assert len(results) == 1
+    assert state is not None
+    assert state.state == "completed"
+    assert state.last_error == "One or more symbols were skipped because market data was unavailable."
+    assert any(event.event_type == "symbol_skipped" for event in events)
+
+
 def test_run_service_respects_stop_request(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

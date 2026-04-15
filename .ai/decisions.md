@@ -70,3 +70,27 @@ Quality gates such as ruff, pytest, pyright, and SonarQube should be attached as
 Reason:
 The CLI, Rich menu, Ink TUI, and future WebUI need consistent operator language, but the product flows are still moving.
 A lightweight shared UI text catalog avoids duplicated labels today and creates a safe seam for future multi-language support without introducing translation machinery too early.
+
+### Lookback must become an operator-verifiable artifact
+
+Reason:
+Fetching a long market window is not enough if the agent context and operator surfaces only expose compact latest-row indicators.
+The next input layer should persist a Market Context Pack with multi-horizon summaries, data sufficiency, anomaly flags, and window coverage so every run can prove what history was actually considered.
+
+### Training and Operation should be runtime modes, not separate products
+
+Reason:
+The project needs a clear distinction between evaluation workflows and continuous paper operation, but forking the runtime would create drift.
+Mode should be a shared settings/service/run attribute that changes gates, allowed commands, and UI banners while preserving one orchestration source of truth.
+
+### Semantic memory must preserve local-first inspectability
+
+Reason:
+True embeddings can improve recall over hashed-token pseudo-embeddings, but trading memory must remain reviewable, policy-bound, and separate from chat memory.
+Embedding metadata, retrieval explanations, and migration compatibility are required before semantic memory becomes a core decision input.
+
+### QA should graduate from smoke checks to terminal regression evidence
+
+Reason:
+Agentic Trader is operator-facing through terminal surfaces, so quality must include repeatable CLI, Rich, Ink, daemon, observer API, and visual-flow evidence.
+The smoke harness should remain fast, but deeper tiers should capture JSON snapshots, pexpect transcripts, optional tmux/asciinema artifacts, and human-readable failure reports.

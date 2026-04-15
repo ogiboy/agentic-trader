@@ -430,9 +430,11 @@ class LocalLLM:
                 prompt = _request_issue_retry_prompt(prompt)
                 continue
 
-        raise RuntimeError(
-            f"LLM structured output validation failed: {last_error}"
-        ) from last_error
+        if isinstance(last_error, ValidationError):
+            raise RuntimeError(
+                f"LLM structured output validation failed: {last_error}"
+            ) from last_error
+        raise RuntimeError(f"LLM request failed: {last_error}") from last_error
 
     def complete_text(
         self,

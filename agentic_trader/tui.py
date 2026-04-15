@@ -33,6 +33,7 @@ from agentic_trader.schemas import (
     AgentTone,
     BehaviorPreset,
     ChatPersona,
+    LLMHealthStatus,
     InvestmentPreferences,
     InterventionStyle,
     RiskProfile,
@@ -476,8 +477,13 @@ def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     return table
 
 
-def _system_status_table(settings: Settings, db: TradingDatabase | None) -> Table:
-    health = LocalLLM(settings).health_check()
+def _system_status_table(
+    settings: Settings,
+    db: TradingDatabase | None,
+    *,
+    health: LLMHealthStatus | None = None,
+) -> Table:
+    health_status = health if health is not None else LocalLLM(settings).health_check()
     latest_order = db.latest_order() if db is not None else None
     table = Table(title="System Status")
     table.add_column("Key")
@@ -485,8 +491,10 @@ def _system_status_table(settings: Settings, db: TradingDatabase | None) -> Tabl
     table.add_row("Runtime Dir", str(settings.runtime_dir))
     table.add_row("Model", settings.model_name)
     table.add_row("Base URL", settings.base_url)
-    table.add_row("Ollama Reachable", "yes" if health.service_reachable else "no")
-    table.add_row("Model Available", "yes" if health.model_available else "no")
+    table.add_row(
+        "Ollama Reachable", "yes" if health_status.service_reachable else "no"
+    )
+    table.add_row("Model Available", "yes" if health_status.model_available else "no")
     table.add_row("Strict LLM", str(settings.strict_llm))
     if db is not None:
         table.add_row(
@@ -541,7 +549,10 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
 
 
 def build_monitor_renderable(
-    settings: Settings, db: TradingDatabase | None = None
+    settings: Settings,
+    db: TradingDatabase | None = None,
+    *,
+    health: LLMHealthStatus | None = None,
 ) -> Group:
     """
     Builds the complete live-monitor renderable for the control-room UI, composed of header, current activity, agent activity, runtime/system status, preferences/portfolio, recent runs/trade journal, runtime events, and a risk report panel.
@@ -572,7 +583,7 @@ def build_monitor_renderable(
     middle = Columns(
         [
             Panel(_runtime_state_table(runtime_state), border_style="magenta"),
-            Panel(_system_status_table(settings, db), border_style="cyan"),
+            Panel(_system_status_table(settings, db, health=health), border_style="cyan"),
         ],
         equal=True,
         expand=True,
@@ -622,8 +633,10 @@ def run_live_monitor(
     *,
     refresh_seconds: float = 1.0,
 ) -> None:
+    health = LocalLLM(settings).health_check()
+    last_health_refresh = time.monotonic()
     with Live(
-        build_monitor_renderable(settings, db),
+        build_monitor_renderable(settings, db, health=health),
         console=console,
         refresh_per_second=max(
             1, int(1 / refresh_seconds) if refresh_seconds < 1 else 1
@@ -632,7 +645,10 @@ def run_live_monitor(
     ) as live:
         try:
             while True:
-                live.update(build_monitor_renderable(settings, db))
+                if time.monotonic() - last_health_refresh >= 30:
+                    health = LocalLLM(settings).health_check()
+                    last_health_refresh = time.monotonic()
+                live.update(build_monitor_renderable(settings, db, health=health))
                 time.sleep(refresh_seconds)
         except KeyboardInterrupt:
             return

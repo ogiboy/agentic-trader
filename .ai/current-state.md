@@ -41,11 +41,22 @@ Implemented or substantially present:
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
 - SonarQube MCP is connected for project `agentic-trader-dev`; the latest QA pass reports zero bugs, zero vulnerabilities, 8 open code smells, 46.7% overall coverage, and a Quality Gate blocked primarily by coverage and remaining complexity refactors
 
+New production-expansion direction:
+
+- the main operator-trust gap is not the lack of an agent graph; it is that the configured `lookback` window is not yet represented as a persisted, operator-verifiable Market Context Pack
+- market snapshots currently prove that data was fetched and features were computed, but agents still receive a compact present-biased context rather than a structured multi-horizon lookback artifact
+- memory is currently hybrid and inspectable, but the vector-style layer is still lightweight; true local-first semantic embeddings, embedding metadata, and richer retrieval explanations are now a planned expansion
+- Training and Operation should become first-class runtime modes shown across all surfaces instead of informal workflow concepts
+- QA should grow from smoke coverage into tiered terminal regression evidence with CLI JSON snapshots, pexpect scenarios, optional tmux/asciinema capture, and generated failure reports
+
 ## Current Constraints
 
 - paper trading only
 - local-first assumptions should remain primary
 - memory layer is still lightweight compared with a richer future retrieval and policy layer
+- lookback analysis is not yet fully operator-verifiable across CLI, TUI, observer API, run review, and trade context surfaces
+- true semantic memory is not implemented yet; current vector-style retrieval should be treated as a bridge, not the destination
+- Training vs Operation mode semantics are not yet first-class runtime gates
 - live broker adapters are not started
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy

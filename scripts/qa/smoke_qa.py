@@ -88,6 +88,27 @@ def _command_display(command: list[str]) -> str:
     return " ".join(command)
 
 
+def _resolve_agentic_trader_executable() -> str | None:
+    """
+    Resolve the `agentic-trader` executable from the current interpreter environment.
+
+    Prefer the executable next to `sys.executable`, then the active conda prefix,
+    and finally whatever is on PATH. This avoids accidentally testing a stale
+    global install when the repo is being exercised from an isolated env.
+    """
+    candidates: list[Path] = [Path(sys.executable).with_name("agentic-trader")]
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        candidates.append(Path(conda_prefix) / "bin" / "agentic-trader")
+    which_path = shutil.which("agentic-trader")
+    if which_path is not None:
+        candidates.append(Path(which_path))
+    for candidate in candidates:
+        if candidate.exists() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
 def _write_artifact(path: Path, content: str) -> None:
     """
     Write the given text content to the specified file using UTF-8 encoding.
@@ -514,7 +535,10 @@ def _require_executable(context: SmokeContext, name: str) -> CheckResult | None:
     Returns:
         None if the executable is found; otherwise a failing CheckResult with details about the missing executable and the path to the written artifact.
     """
-    if shutil.which(name) is not None:
+    if name == "agentic-trader":
+        if _resolve_agentic_trader_executable() is not None:
+            return None
+    elif shutil.which(name) is not None:
         return None
     artifact = _artifact_path(context, f"{name}_missing")
     _write_artifact(artifact, f"Executable not found on PATH: {name}\n")
@@ -544,7 +568,7 @@ def _write_summary(context: SmokeContext, results: list[CheckResult]) -> Path:
         "repo_root": str(REPO_ROOT),
         "artifacts_dir": str(context.artifacts_dir),
         "python": sys.executable,
-        "agentic_trader_path": shutil.which("agentic-trader"),
+        "agentic_trader_path": _resolve_agentic_trader_executable(),
         "results": [asdict(result) for result in results],
     }
     summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -619,75 +643,77 @@ def _surface_checks(context: SmokeContext) -> list[CheckResult]:
         list[CheckResult]: Ordered list of results for each performed check (availability, CLI checks, TUI checks, and the Python TUI).
     """
     results: list[CheckResult] = []
+    agentic_trader_executable = _resolve_agentic_trader_executable()
     missing_agentic_trader = _require_executable(context, "agentic-trader")
     if missing_agentic_trader is not None:
         results.append(missing_agentic_trader)
     else:
+        assert agentic_trader_executable is not None
         results.extend(
             [
                 run_command_capture(
                     context,
                     "doctor",
-                    ["agentic-trader", "doctor"],
+                    [agentic_trader_executable, "doctor"],
                 ),
                 run_command_capture(
                     context,
                     "dashboard_snapshot",
-                    ["agentic-trader", "dashboard-snapshot"],
+                    [agentic_trader_executable, "dashboard-snapshot"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "status_json",
-                    ["agentic-trader", "status", "--json"],
+                    [agentic_trader_executable, "status", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "broker_status_json",
-                    ["agentic-trader", "broker-status", "--json"],
+                    [agentic_trader_executable, "broker-status", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "supervisor_status_json",
-                    ["agentic-trader", "supervisor-status", "--json"],
+                    [agentic_trader_executable, "supervisor-status", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "logs_json",
-                    ["agentic-trader", "logs", "--json", "--limit", "5"],
+                    [agentic_trader_executable, "logs", "--json", "--limit", "5"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "preferences_json",
-                    ["agentic-trader", "preferences", "--json"],
+                    [agentic_trader_executable, "preferences", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "portfolio_json",
-                    ["agentic-trader", "portfolio", "--json"],
+                    [agentic_trader_executable, "portfolio", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "memory_policy_json",
-                    ["agentic-trader", "memory-policy", "--json"],
+                    [agentic_trader_executable, "memory-policy", "--json"],
                     require_json_stdout=True,
                 ),
                 run_tui_open_and_quit(
                     context,
                     "main_entrypoint_tui",
-                    "agentic-trader",
+                    agentic_trader_executable,
                     [],
                 ),
                 run_tui_open_and_quit(
                     context,
                     "rich_menu",
-                    "agentic-trader",
+                    agentic_trader_executable,
                     ["menu"],
                 ),
             ]

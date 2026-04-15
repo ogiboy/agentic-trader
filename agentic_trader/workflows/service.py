@@ -31,6 +31,20 @@ def _stop_requested(db: TradingDatabase) -> bool:
     return bool(state and state.stop_requested)
 
 
+def _is_nonfatal_symbol_error(exc: Exception) -> bool:
+    """
+    Return True when a symbol-level failure should be logged and skipped rather than failing the whole orchestrator.
+
+    We treat missing or incomplete market data as non-fatal because the operator may
+    include symbols or intervals that simply have no bars available yet. LLM/network
+    failures and other unexpected errors should still fail the service.
+    """
+    message = str(exc)
+    return message.startswith("No market data returned for ") or message.startswith(
+        "Missing columns from market data:"
+    )
+
+
 def _manage_open_position(
     *,
     db: TradingDatabase,
@@ -172,6 +186,7 @@ def run_service(
 
     cycle_results: list[ServiceCycleResult] = []
     cycle_count = 0
+    cycle_had_nonfatal_failure = False
     try:
         while True:
             if _stop_requested(db):
@@ -216,6 +231,7 @@ def run_service(
                 message=f"Cycle {cycle_count} started for {len(symbols)} symbol(s).",
                 cycle_count=cycle_count,
             )
+            cycle_had_nonfatal_failure = False
             for symbol in symbols:
 
                 def _progress(
@@ -269,14 +285,41 @@ def run_service(
                     message=f"Processing {symbol} in cycle {cycle_count}.",
                     pid=os.getpid(),
                 )
-                artifacts = run_once(
-                    settings=settings,
-                    symbol=symbol,
-                    interval=interval,
-                    lookback=lookback,
-                    allow_fallback=False,
-                    progress_callback=_progress,
-                )
+                try:
+                    artifacts = run_once(
+                        settings=settings,
+                        symbol=symbol,
+                        interval=interval,
+                        lookback=lookback,
+                        allow_fallback=False,
+                        progress_callback=_progress,
+                    )
+                except Exception as exc:
+                    if _is_nonfatal_symbol_error(exc):
+                        cycle_had_nonfatal_failure = True
+                        db.upsert_service_state(
+                            state="running",
+                            continuous=continuous,
+                            poll_seconds=poll_seconds,
+                            cycle_count=cycle_count,
+                            symbols=symbols,
+                            interval=interval,
+                            lookback=lookback,
+                            max_cycles=max_cycles,
+                            current_symbol=None,
+                            message=f"Skipped {symbol}: {exc}",
+                            last_error=str(exc),
+                            pid=os.getpid(),
+                        )
+                        db.insert_service_event(
+                            level="warning",
+                            event_type="symbol_skipped",
+                            message=str(exc),
+                            cycle_count=cycle_count,
+                            symbol=symbol,
+                        )
+                        continue
+                    raise
                 exit_order_id = _manage_open_position(
                     db=db,
                     broker=broker,
@@ -357,8 +400,28 @@ def run_service(
                 _record_cycle_completed_mark(db, cycle_count)
                 break
             _record_cycle_completed_mark(db, cycle_count)
+            if cycle_had_nonfatal_failure:
+                db.upsert_service_state(
+                    state="running",
+                    continuous=continuous,
+                    poll_seconds=poll_seconds,
+                    cycle_count=cycle_count,
+                    symbols=symbols,
+                    interval=interval,
+                    lookback=lookback,
+                    max_cycles=max_cycles,
+                    current_symbol=None,
+                    message=f"Cycle {cycle_count} completed with one or more skipped symbols.",
+                    last_error="One or more symbols were skipped because market data was unavailable.",
+                    pid=os.getpid(),
+                )
             time.sleep(poll_seconds)
 
+        completed_last_error = (
+            "One or more symbols were skipped because market data was unavailable."
+            if cycle_had_nonfatal_failure
+            else None
+        )
         db.upsert_service_state(
             state="completed",
             continuous=continuous,
@@ -369,7 +432,14 @@ def run_service(
             lookback=lookback,
             max_cycles=max_cycles,
             current_symbol=None,
-            message=f"Orchestrator completed after {cycle_count} cycle(s).",
+            message=(
+                f"Orchestrator completed after {cycle_count} cycle(s)."
+                if not cycle_had_nonfatal_failure
+                else (
+                    f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
+                )
+            ),
+            last_error=completed_last_error,
             pid=os.getpid(),
             stop_requested=False,
         )
