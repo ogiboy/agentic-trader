@@ -595,7 +595,7 @@ def build_snapshot(
     return MarketSnapshot(
         symbol=symbol,
         interval=interval,
-        as_of=_index_label(frame.index[-1]) if len(frame.index) else None,
+        as_of=_index_label(last.name) if last.name is not None else None,
         last_close=float(last["close"]),
         ema_20=float(last["ema_20"]),
         ema_50=float(last["ema_50"]),

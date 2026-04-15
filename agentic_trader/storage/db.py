@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import json
-from typing import Any, cast, get_args
+from typing import Any, cast, get_args, TypeAlias, TypeVar
 from uuid import uuid4
 
 import duckdb
@@ -37,7 +37,8 @@ from agentic_trader.schemas import (
     TradeJournalEntry,
 )
 
-type OrderRow = tuple[str, str, str, str, bool, float, float, float, float, float]
+OrderRow: TypeAlias = tuple[str, str, str, str, bool, float, float, float, float, float]
+T = TypeVar('T')
 TERMINAL_SERVICE_STATES: set[ServiceState] = {
     "stopped",
     "completed",

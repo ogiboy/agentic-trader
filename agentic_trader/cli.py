@@ -1294,7 +1294,7 @@ def _runtime_mode_transition_plan(
                 "provider_reachable",
                 False,
                 "Provider check skipped; run doctor before Operation mode.",
-                blocking=False,
+                blocking=True,
             )
         add_check(
             "paper_backend_selected",

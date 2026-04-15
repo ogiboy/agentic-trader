@@ -40,18 +40,21 @@ def _stop_requested(db: TradingDatabase) -> bool:
 def _is_nonfatal_symbol_error(exc: Exception) -> bool:
     """
     Determine whether an exception represents a non-fatal symbol-level market-data error.
-    
+
     Inspect the exception message and classify it as non-fatal when it indicates missing or incomplete market data.
-    
+
     Parameters:
         exc (Exception): The exception whose message will be inspected.
-    
+
     Returns:
-        bool: `True` if the exception message starts with "No market data returned for " or "Missing columns from market data:", `False` otherwise.
+        bool: `True` if the exception message starts with "No market data returned for " or "Missing columns from market data:", or contains "coverage is too thin" or "Refusing to run agents"; `False` otherwise.
     """
     message = str(exc)
-    return message.startswith("No market data returned for ") or message.startswith(
-        "Missing columns from market data:"
+    return (
+        message.startswith("No market data returned for ")
+        or message.startswith("Missing columns from market data:")
+        or "coverage is too thin" in message
+        or "Refusing to run agents" in message
     )
 
 

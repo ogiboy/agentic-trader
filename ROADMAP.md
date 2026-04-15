@@ -77,7 +77,7 @@ Status: in progress.
 - [x] introduce an Ink-based next-generation control room under a dedicated `tui/` application so the operator surface can evolve beyond the current Rich menu
 - [x] keep `agentic-trader` as the primary launcher and expose subcommands such as `agentic-trader tui`, `agentic-trader monitor`, and future UI entrypoints
 - [x] show the Market Context Pack in operator surfaces so the user can verify what data window and derived context each cycle used
-- [ ] add a mode banner across CLI, Rich, Ink, monitor, and observer API so Training and Operation runs are never confused
+- [x] add a mode banner across CLI, Rich, Ink, monitor, and observer API so Training and Operation runs are never confused
 - [x] add memory explorer UI to inspect long-term and vector memory state
 - [x] add agent decision trace viewer to inspect reasoning, tool calls, and outputs per cycle
 - [x] add retrieval inspection view to show why specific memories were used in a decision

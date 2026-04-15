@@ -260,11 +260,17 @@ def run_dashboard_contract_check(
     if not isinstance(payload.get("marketContext"), dict):
         issues.append("marketContext section missing")
     else:
-        context_pack = payload["marketContext"].get("contextPack")
-        if isinstance(context_pack, dict):
-            for field in ("summary", "bars_analyzed", "horizons"):
-                if field not in context_pack:
-                    issues.append(f"marketContext.contextPack.{field} missing")
+        market_context = payload["marketContext"]
+        if "contextPack" not in market_context:
+            issues.append("marketContext.contextPack missing")
+        else:
+            context_pack = market_context["contextPack"]
+            if context_pack is not None and not isinstance(context_pack, dict):
+                issues.append("marketContext.contextPack has wrong type (expected dict or null)")
+            elif isinstance(context_pack, dict):
+                for field in ("summary", "bars_analyzed", "horizons"):
+                    if field not in context_pack:
+                        issues.append(f"marketContext.contextPack.{field} missing")
 
     _write_artifact(
         artifact,
