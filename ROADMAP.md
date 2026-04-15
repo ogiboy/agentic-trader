@@ -77,7 +77,7 @@ Status: in progress.
 - [x] introduce an Ink-based next-generation control room under a dedicated `tui/` application so the operator surface can evolve beyond the current Rich menu
 - [x] keep `agentic-trader` as the primary launcher and expose subcommands such as `agentic-trader tui`, `agentic-trader monitor`, and future UI entrypoints
 - [x] show the Market Context Pack in operator surfaces so the user can verify what data window and derived context each cycle used
-- [ ] add a mode banner across CLI, Rich, Ink, monitor, and observer API so Training and Operation runs are never confused
+- [x] add a mode banner across CLI, Rich, Ink, monitor, and observer API so Training and Operation runs are never confused (completed 2026-04-15; keep parity in future UI additions)
 - [x] add memory explorer UI to inspect long-term and vector memory state
 - [x] add agent decision trace viewer to inspect reasoning, tool calls, and outputs per cycle
 - [x] add retrieval inspection view to show why specific memories were used in a decision
@@ -257,7 +257,7 @@ Status: in progress.
 - [x] store embedding model name, version, dimensionality, and created-at metadata with memory vectors
 - [x] keep backwards compatibility with existing lightweight vectors during migration
 - [ ] rank retrieval with semantic similarity, market-regime similarity, freshness, outcome weighting, and diversity constraints
-- [ ] bucket or tag memories by regime, strategy family, outcome, and data quality so retrieval can explain its own choices
+- [ ] bucket or tag memories by regime, strategy family, outcome, and data quality so retrievals can justify their rationale
 - [ ] expand memory documents with Market Context Pack summaries, explicit success/failure tags, and post-trade review facts
 - [ ] persist stage-level retrieval explanations showing which memories were used, why they were selected, and how strongly they influenced the decision
 - [ ] preserve chat-memory and trade-memory separation through explicit write policies while improving recall quality

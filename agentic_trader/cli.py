@@ -46,6 +46,7 @@ from agentic_trader.runtime_status import (
     build_agent_activity_view,
     build_runtime_status_view,
     is_process_alive,
+    RuntimeStatusView,
 )
 from agentic_trader.observer_api import serve_observer_api
 from agentic_trader.schemas import (
@@ -1240,7 +1241,7 @@ def _runtime_mode_transition_plan(
     Parameters:
         settings (Settings): Runtime configuration used to read current mode and relevant flags.
         target_mode (RuntimeMode): Desired runtime mode to transition to.
-        check_provider (bool): If true, perform LLM provider health checks (reachability and model availability); if false, provider checks are added as non-blocking.
+        check_provider (bool): If true, perform LLM provider health checks (reachability and model availability); if false, provider checks are added as blocking unknowns.
     
     Returns:
         RuntimeModeTransitionPlan: A plan object containing `current_mode`, `target_mode`, `allowed`, `checks`, and `summary`.
@@ -1294,7 +1295,6 @@ def _runtime_mode_transition_plan(
                 "provider_reachable",
                 False,
                 "Provider check skipped; run doctor before Operation mode.",
-                blocking=False,
             )
         add_check(
             "paper_backend_selected",
@@ -1372,6 +1372,23 @@ def _render_runtime_mode_transition_plan(plan: RuntimeModeTransitionPlan) -> Non
         )
     )
     console.print(table)
+
+
+def _runtime_status_payload(
+    view: RuntimeStatusView, settings: Settings
+) -> dict[str, object]:
+    """Serialize the shared runtime status contract used by CLI and observer surfaces."""
+    return {
+        "runtime_mode": (
+            view.state.runtime_mode if view.state is not None else settings.runtime_mode
+        ),
+        "runtime_state": view.runtime_state,
+        "live_process": view.live_process,
+        "is_stale": view.is_stale,
+        "age_seconds": view.age_seconds,
+        "status_message": view.status_message,
+        "state": view.state.model_dump(mode="json") if view.state is not None else None,
+    }
 
 
 def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
@@ -2075,25 +2092,7 @@ def status(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
     state = read_service_state(settings)
     if json_output:
         view = build_runtime_status_view(state)
-        _emit_json(
-            {
-                "runtime_mode": (
-                    view.state.runtime_mode
-                    if view.state is not None
-                    else settings.runtime_mode
-                ),
-                "runtime_state": view.runtime_state,
-                "live_process": view.live_process,
-                "is_stale": view.is_stale,
-                "age_seconds": view.age_seconds,
-                "status_message": view.status_message,
-                "state": (
-                    view.state.model_dump(mode="json")
-                    if view.state is not None
-                    else None
-                ),
-            }
-        )
+        _emit_json(_runtime_status_payload(view, settings))
         return
     _render_service_state(state)
 
@@ -2255,17 +2254,7 @@ def build_dashboard_snapshot_payload(
         "llm_status": health.message,
         "latest_order": latest,
     }
-    status_payload = {
-        "runtime_mode": (
-            view.state.runtime_mode if view.state is not None else settings.runtime_mode
-        ),
-        "runtime_state": view.runtime_state,
-        "live_process": view.live_process,
-        "is_stale": view.is_stale,
-        "age_seconds": view.age_seconds,
-        "status_message": view.status_message,
-        "state": view.state.model_dump(mode="json") if view.state is not None else None,
-    }
+    status_payload = _runtime_status_payload(view, settings)
 
     events = read_service_events(settings, limit=log_limit)
     activity = build_agent_activity_view(view.state, events)
@@ -2364,16 +2353,7 @@ def build_observer_api_payload(
     if path == "/status":
         state = read_service_state(settings)
         view = build_runtime_status_view(state)
-        return 200, {
-            "runtime_state": view.runtime_state,
-            "live_process": view.live_process,
-            "is_stale": view.is_stale,
-            "age_seconds": view.age_seconds,
-            "status_message": view.status_message,
-            "state": (
-                view.state.model_dump(mode="json") if view.state is not None else None
-            ),
-        }
+        return 200, _runtime_status_payload(view, settings)
     if path == "/logs":
         return 200, {
             "logs": [

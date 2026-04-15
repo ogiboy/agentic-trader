@@ -47,11 +47,14 @@ def _is_nonfatal_symbol_error(exc: Exception) -> bool:
         exc (Exception): The exception whose message will be inspected.
     
     Returns:
-        bool: `True` if the exception message starts with "No market data returned for " or "Missing columns from market data:", `False` otherwise.
+        bool: `True` if the exception message describes symbol-scoped data absence, invalid market data, or lookback undercoverage; `False` otherwise.
     """
     message = str(exc)
-    return message.startswith("No market data returned for ") or message.startswith(
-        "Missing columns from market data:"
+    return (
+        message.startswith("No market data returned for ")
+        or message.startswith("Missing columns from market data:")
+        or "coverage is too thin" in message
+        or "Refusing to run agents" in message
     )
 
 
@@ -211,6 +214,7 @@ def run_service(
     cycle_results: list[ServiceCycleResult] = []
     cycle_count = 0
     cycle_had_nonfatal_failure = False
+    run_had_nonfatal_failure = False
     try:
         while True:
             if _stop_requested(db):
@@ -321,6 +325,7 @@ def run_service(
                 except Exception as exc:
                     if _is_nonfatal_symbol_error(exc):
                         cycle_had_nonfatal_failure = True
+                        run_had_nonfatal_failure = True
                         db.upsert_service_state(
                             state="running",
                             continuous=continuous,
@@ -443,7 +448,7 @@ def run_service(
 
         completed_last_error = (
             "One or more symbols were skipped because market data was unavailable."
-            if cycle_had_nonfatal_failure
+            if run_had_nonfatal_failure
             else None
         )
         db.upsert_service_state(
@@ -458,7 +463,7 @@ def run_service(
             current_symbol=None,
             message=(
                 f"Orchestrator completed after {cycle_count} cycle(s)."
-                if not cycle_had_nonfatal_failure
+                if not run_had_nonfatal_failure
                 else (
                     f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
                 )
@@ -470,7 +475,13 @@ def run_service(
         db.insert_service_event(
             level="info",
             event_type="service_completed",
-            message=f"Orchestrator completed after {cycle_count} cycle(s).",
+            message=(
+                f"Orchestrator completed after {cycle_count} cycle(s)."
+                if not run_had_nonfatal_failure
+                else (
+                    f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
+                )
+            ),
             cycle_count=cycle_count,
         )
     except Exception as exc:

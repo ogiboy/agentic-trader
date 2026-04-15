@@ -173,7 +173,7 @@ class MarketContextPack(BaseModel):
     bars_required: int = 60
     bars_expected: int | None = None
     bars_analyzed: int
-    coverage_ratio: float | None = Field(default=None, ge=0.0)
+    coverage_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
     higher_timeframe: str
     higher_timeframe_used: bool
     horizons: list[MarketContextHorizon] = Field(default_factory=list)

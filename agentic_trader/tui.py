@@ -481,6 +481,7 @@ def _system_status_table(
     settings: Settings,
     db: TradingDatabase | None,
     *,
+    runtime_state: ServiceStateSnapshot | None = None,
     health: LLMHealthStatus | None = None,
 ) -> Table:
     """
@@ -489,6 +490,7 @@ def _system_status_table(
     Parameters:
         settings: Application settings used to read runtime directory, mode, model name, base URL, and strict-LLM flag.
         db: Trading database instance or `None`. When provided, the table will include a "Latest Order" row; when `None`, that row is omitted.
+        runtime_state: Optional live service state used to prefer the active runtime mode over settings defaults.
         health: Optional precomputed LLM health snapshot. If omitted, a fresh health check is performed.
     
     Returns:
@@ -508,7 +510,10 @@ def _system_status_table(
     table.add_column("Key")
     table.add_column("Value")
     table.add_row("Runtime Dir", str(settings.runtime_dir))
-    table.add_row("Runtime Mode", settings.runtime_mode)
+    table.add_row(
+        "Runtime Mode",
+        runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode,
+    )
     table.add_row("Model", settings.model_name)
     table.add_row("Base URL", settings.base_url)
     table.add_row(
@@ -606,7 +611,15 @@ def build_monitor_renderable(
     middle = Columns(
         [
             Panel(_runtime_state_table(runtime_state), border_style="magenta"),
-            Panel(_system_status_table(settings, db, health=health), border_style="cyan"),
+            Panel(
+                _system_status_table(
+                    settings,
+                    db,
+                    runtime_state=runtime_state,
+                    health=health,
+                ),
+                border_style="cyan",
+            ),
         ],
         equal=True,
         expand=True,
@@ -696,22 +709,26 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
         db (TradingDatabase | None): If provided, DB-backed panels (preferences and recent runs) are rendered; if `None`, observer-mode placeholders are shown.
     """
     health = LocalLLM(settings).health_check()
+    runtime_state = read_service_state(settings)
     status = Table(title="System Status")
     status.add_column("Key")
     status.add_column("Value")
     status.add_row("Runtime Dir", str(settings.runtime_dir))
     status.add_row("Database", str(settings.database_path))
-    status.add_row("Runtime Mode", settings.runtime_mode)
+    status.add_row(
+        "Runtime Mode",
+        runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode,
+    )
     status.add_row("Model", settings.model_name)
     status.add_row("Base URL", settings.base_url)
     status.add_row("Ollama Reachable", "yes" if health.service_reachable else "no")
     status.add_row("Model Available", "yes" if health.model_available else "no")
     status.add_row("Strict LLM", str(settings.strict_llm))
     console.print(status)
-    _render_runtime_state(read_service_state(settings))
+    _render_runtime_state(runtime_state)
     console.print(
         _current_activity_panel(
-            read_service_state(settings), read_service_events(settings, limit=12)
+            runtime_state, read_service_events(settings, limit=12)
         )
     )
     if db is None:

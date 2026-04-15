@@ -355,6 +355,69 @@ def test_run_service_skips_missing_market_data_and_continues(
     assert any(event.event_type == "symbol_skipped" for event in events)
 
 
+def test_run_service_remembers_run_level_undercoverage_skips(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.ensure_llm_ready",
+        lambda current_settings: LLMHealthStatus(
+            provider="ollama",
+            base_url=current_settings.base_url,
+            model_name=current_settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ok",
+        ),
+    )
+    calls = {"AAPL": 0}
+
+    def _run_once(**kwargs: Any) -> RunArtifacts:
+        calls[kwargs["symbol"]] += 1
+        if calls[kwargs["symbol"]] == 1:
+            raise ValueError(
+                "Lookback coverage is too thin for AAPL. Refusing to run agents."
+            )
+        return _artifacts(kwargs["symbol"])
+
+    monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.persist_run",
+        lambda **kwargs: "paper-test-order",
+    )
+
+    results = run_service(
+        settings=settings,
+        symbols=["AAPL"],
+        interval="1d",
+        lookback="180d",
+        poll_seconds=0,
+        continuous=True,
+        max_cycles=2,
+    )
+
+    db = TradingDatabase(settings)
+    state = db.get_service_state()
+    events = db.list_service_events(limit=10)
+
+    assert len(results) == 1
+    assert state is not None
+    assert state.state == "completed"
+    assert state.cycle_count == 2
+    assert state.last_error == "One or more symbols were skipped because market data was unavailable."
+    assert "skipped symbols" in state.message
+    assert any(event.event_type == "symbol_skipped" for event in events)
+    assert any(
+        event.event_type == "service_completed" and "skipped symbols" in event.message
+        for event in events
+    )
+
+
 def test_run_service_respects_stop_request(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

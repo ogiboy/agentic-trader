@@ -306,6 +306,34 @@ def test_runtime_mode_checklist_blocks_operation_without_strict_gate(
     assert strict_check["passed"] is False
 
 
+def test_runtime_mode_checklist_blocks_operation_when_provider_check_skipped(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        runtime_mode="training",
+        strict_llm=True,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    result = CliRunner().invoke(
+        app,
+        ["runtime-mode-checklist", "operation", "--skip-provider-check", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["target_mode"] == "operation"
+    assert payload["allowed"] is False
+    provider_check = next(
+        check for check in payload["checks"] if check["name"] == "provider_reachable"
+    )
+    assert provider_check["passed"] is False
+    assert provider_check["blocking"] is True
+
+
 def test_runtime_mode_checklist_allows_training_without_provider_check(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

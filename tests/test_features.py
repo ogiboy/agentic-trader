@@ -67,6 +67,25 @@ def test_build_snapshot_computes_higher_timeframe_alignment() -> None:
     assert snapshot.mtf_confidence > 0.55
 
 
+def test_build_snapshot_as_of_tracks_latest_clean_indicator_row() -> None:
+    index = pd.date_range("2025-01-01", periods=81, freq="B")
+    frame = pd.DataFrame(
+        {
+            "open": [100 + i for i in range(81)],
+            "high": [101 + i for i in range(81)],
+            "low": [99 + i for i in range(81)],
+            "close": [100 + i for i in range(81)],
+            "volume": [1_000 + (i * 10) for i in range(81)],
+        },
+        index=index,
+    )
+    frame.loc[index[-1], "close"] = pd.NA
+
+    snapshot = build_snapshot(frame, symbol="CLEAN", interval="1d", lookback="80d")
+
+    assert snapshot.as_of == index[-2].isoformat()
+
+
 def test_build_snapshot_fails_when_lookback_is_materially_undercovered() -> None:
     """
     Verify build_snapshot raises a ValueError when the requested lookback window is materially undercovered.

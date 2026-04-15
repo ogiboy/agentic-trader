@@ -12,6 +12,7 @@ from agentic_trader.schemas import (
 
 MIN_REQUIRED_BARS = 60
 MIN_LOOKBACK_COVERAGE_RATIO = 0.6
+PARTIAL_LOOKBACK_COVERAGE_RATIO = 0.85
 CONTEXT_HORIZONS = (5, 20, 60, 120, 180)
 _LOOKBACK_RE = re.compile(r"^(?P<count>\d+)(?P<unit>d|wk|mo|y)$", re.IGNORECASE)
 _INTERVAL_RE = re.compile(r"^(?P<count>\d+)(?P<unit>m|h|d|wk)$", re.IGNORECASE)
@@ -354,9 +355,9 @@ def _build_context_pack(
     if bars_analyzed >= MIN_REQUIRED_BARS:
         data_quality_flags.append("minimum_bar_requirement_met")
     if coverage_ratio is not None:
-        if coverage_ratio < 0.6:
+        if coverage_ratio < MIN_LOOKBACK_COVERAGE_RATIO:
             data_quality_flags.append("low_lookback_coverage")
-        elif coverage_ratio < 0.85:
+        elif coverage_ratio < PARTIAL_LOOKBACK_COVERAGE_RATIO:
             data_quality_flags.append("partial_lookback_coverage")
         else:
             data_quality_flags.append("lookback_coverage_ok")
@@ -566,7 +567,9 @@ def build_snapshot(
         ValueError: If the input frame has fewer than the minimum required bars or if feature engineering yields no valid rows. Also raised when coverage validation is enabled and the context pack indicates insufficient lookback coverage.
     """
     if len(frame) < MIN_REQUIRED_BARS:
-        raise ValueError("At least 60 bars are required to build the market snapshot")
+        raise ValueError(
+            f"At least {MIN_REQUIRED_BARS} bars are required to build the market snapshot"
+        )
 
     enriched = _enrich_frame(frame)
 
@@ -591,11 +594,12 @@ def build_snapshot(
     )
     if enforce_lookback_coverage:
         _validate_context_pack_for_execution(context_pack)
+    as_of_index = last.name if last.name is not None else clean.index[-1]
 
     return MarketSnapshot(
         symbol=symbol,
         interval=interval,
-        as_of=_index_label(frame.index[-1]) if len(frame.index) else None,
+        as_of=_index_label(as_of_index),
         last_close=float(last["close"]),
         ema_20=float(last["ema_20"]),
         ema_50=float(last["ema_50"]),
