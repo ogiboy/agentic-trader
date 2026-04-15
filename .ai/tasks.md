@@ -75,6 +75,8 @@ Desired direction:
 - map `.ai/qa/qa-scenarios.md` to deterministic pexpect flows
 - use fixed terminal size and stable artifact naming
 - capture JSON snapshots, service events, broker state, context-pack excerpts, keypress transcripts, and generated failure reports
+- fail smoke evidence when raw provider output or LLM retry diagnostics leak into operator-facing terminal output
+- keep the one-cycle runtime check as an explicit opt-in tier because it needs live market data and a healthy local model
 - add optional tmux pane dumps and asciinema recordings for visual TUI regressions
 - keep quality gates tiered so CI-safe checks, local interactive checks, and manual visual evidence can run separately
 
@@ -85,8 +87,12 @@ Keep the background runtime and the Ink control room aligned and more operationa
 Desired shape:
 
 - stronger daemon supervision readiness
+- hardware-aware runtime performance profiles for safe agent concurrency, token budgets, request timeouts, and memory use
+- a local capability probe that can recommend lightweight, balanced, or high-throughput profiles from CPU/RAM/GPU/model details
 - richer daemon supervision metadata such as launch counts, restart counts, terminal states, and log-tail visibility
 - richer Ink control-room parity with existing CLI and review surfaces
+- htop-like Ink layout with stable panes, keyboard controls, resize-safe rendering, and less scrollback churn
+- quieter Rich/admin fallback with fewer always-on panels and clearer drill-down pages
 - cleaner runtime attach / restart / stop workflows
 - clearer live visibility into stage progress, context-pack usage, model calls, tool usage, safety gates, and runtime outcomes
 - observer-safe review and memory surfaces while the writer owns DuckDB

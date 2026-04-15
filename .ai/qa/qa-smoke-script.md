@@ -13,6 +13,8 @@ It checks:
 - primary Ink entry through `agentic-trader`
 - root launcher entry through `python main.py`
 - legacy Rich/admin menu through `agentic-trader menu`
+- a deeper Rich/admin navigation path covering review/trace, research/logs, and portfolio pages
+- raw terminal-noise guards for provider download chatter and LLM retry diagnostics
 
 The script uses `subprocess` for non-interactive commands and `pexpect` for interactive terminal surfaces. Interactive checks wait for an explicit Agentic Trader UI marker before they are considered rendered, capture visible output, then try to exit with `q`, Ctrl+C, and finally forced termination if needed.
 
@@ -45,6 +47,14 @@ That adds:
 - `pyright` from `PATH`
 
 `pyright` is required for `--include-quality`; if it is missing, the smoke run fails instead of silently skipping the static type check.
+
+To include one isolated foreground orchestrator cycle:
+
+```bash
+python scripts/qa/smoke_qa.py --include-runtime-cycle
+```
+
+This runs `agentic-trader launch --continuous --max-cycles 1` in an isolated runtime directory under the smoke artifact folder. It is intentionally opt-in because it requires live market data and a healthy configured LLM.
 
 When `--include-sonar` is used together with `--include-quality`, the pytest step also writes a coverage XML report into the run artifact directory and passes it to SonarQube.
 
@@ -84,6 +94,7 @@ Current files include:
 - `main_entrypoint_tui.log`
 - `python_main_tui.log`
 - `rich_menu.log`
+- `rich_menu_deep_navigation.log`
 - `smoke-summary.json`
 
 When quality checks are enabled, the same run directory can also include:
@@ -100,7 +111,6 @@ The JSON summary includes each check name, pass/fail status, details, artifact p
 
 This first version is intentionally conservative. It does not yet:
 
-- run a full strict agent cycle
 - start, monitor, stop, or restart the background daemon
 - validate observer API endpoints
 - exercise every Ink hotkey or Rich submenu

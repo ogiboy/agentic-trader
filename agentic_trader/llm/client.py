@@ -15,6 +15,7 @@ from agentic_trader.schemas import AgentRole, LLMHealthStatus
 T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
+_SENSITIVE_PAYLOAD_KEYS = {"thinking", "thought", "thoughts", "reasoning"}
 
 
 def _coerce_numeric_strings(obj: Any) -> Any:
@@ -121,6 +122,78 @@ _SANITIZE_RULES: dict[str, Callable[[Any], float | int]] = {
     "take_profit": lambda v: max(float(v) if v is not None else 1e-6, 1e-6),
     "risk_reward_ratio": lambda v: max(float(v) if v is not None else 1e-6, 1e-6),
 }
+_WRAPPER_KEYS = (
+    "coordinator",
+    "brief",
+    "regime",
+    "assessment",
+    "strategy",
+    "plan",
+    "risk",
+    "manager",
+    "decision",
+    "result",
+    "output",
+)
+_SCHEMA_ALIAS_MAP: dict[str, dict[str, str]] = {
+    "ResearchCoordinatorBrief": {
+        "focus": "market_focus",
+        "priorities": "priority_signals",
+        "priority": "priority_signals",
+        "cautions": "caution_flags",
+        "warnings": "caution_flags",
+    },
+    "RegimeAssessment": {
+        "bias": "direction_bias",
+        "direction": "direction_bias",
+        "rationale": "reasoning",
+        "risks": "key_risks",
+    },
+    "StrategyPlan": {
+        "family": "strategy_family",
+        "strategy": "strategy_family",
+        "entry": "entry_logic",
+        "entry_rules": "entry_logic",
+        "invalidation": "invalidation_logic",
+        "exit": "invalidation_logic",
+        "rationale": "entry_logic",
+        "reasons": "reason_codes",
+    },
+    "RiskPlan": {
+        "size": "position_size_pct",
+        "position_size": "position_size_pct",
+        "stop": "stop_loss",
+        "target": "take_profit",
+        "take": "take_profit",
+        "rr": "risk_reward_ratio",
+        "holding_bars": "max_holding_bars",
+        "holding_period": "max_holding_bars",
+        "rationale": "notes",
+    },
+    "ManagerDecision": {
+        "action": "action_bias",
+        "bias": "action_bias",
+        "confidence": "confidence_cap",
+        "size": "size_multiplier",
+        "notes": "rationale",
+    },
+}
+
+
+def _redact_payload(value: Any) -> Any:
+    """Remove provider reasoning fields before payload previews reach logs or UI."""
+    if isinstance(value, dict):
+        redacted: dict[str, Any] = {}
+        for key, item in cast(dict[Any, Any], value).items():
+            key_text = str(key)
+            if key_text.lower() in _SENSITIVE_PAYLOAD_KEYS:
+                redacted[key_text] = "<redacted>"
+            else:
+                redacted[key_text] = _redact_payload(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_payload(item) for item in cast(list[Any], value)]
+    return value
 
 
 def _extract_field_name_from_path(path: tuple[str | int, ...]) -> str | None:
@@ -189,7 +262,7 @@ def _attempt_sanitize_and_validate(
     try:
         return schema.model_validate(data)
     except ValidationError as retry_exc:
-        logger.warning("Sanitization retry failed: %s", retry_exc)
+        logger.debug("Sanitization retry failed: %s", retry_exc)
         return None
 
 
@@ -234,6 +307,7 @@ def _validate_structured_content(content: str, schema: type[T]) -> T:
     except json.JSONDecodeError:
         return _mark_llm_source(schema.model_validate_json(content))
 
+    data_obj = _normalize_structured_payload(data_obj, schema)
     data_obj = _coerce_numeric_strings(data_obj)
     try:
         return _mark_llm_source(schema.model_validate(data_obj))
@@ -242,6 +316,53 @@ def _validate_structured_content(content: str, schema: type[T]) -> T:
         if sanitized is not None:
             return _mark_llm_source(sanitized)
         raise
+
+
+def _normalize_structured_payload(data: Any, schema: type[BaseModel]) -> Any:
+    """Unwrap harmless LLM JSON wrappers and alias field names before validation."""
+    if not isinstance(data, dict):
+        return data
+
+    normalized = dict(cast(dict[str, Any], data))
+    field_names = set(schema.model_fields)
+    if field_names.isdisjoint(normalized):
+        for key in _WRAPPER_KEYS:
+            candidate = normalized.get(key)
+            if isinstance(candidate, dict):
+                normalized = dict(cast(dict[str, Any], candidate))
+                break
+
+    aliases = _SCHEMA_ALIAS_MAP.get(schema.__name__, {})
+    for source_key, target_key in aliases.items():
+        if source_key in normalized and target_key not in normalized:
+            normalized[target_key] = normalized[source_key]
+
+    return normalized
+
+
+def _validation_error_summary(exc: ValidationError) -> str:
+    """Return a concise operator-facing summary for a Pydantic validation error."""
+    try:
+        errors = exc.errors()
+    except Exception:
+        return "schema validation failed"
+
+    missing_fields: list[str] = []
+    invalid_fields: list[str] = []
+    for error in errors:
+        loc = error.get("loc", ())
+        field = ".".join(str(part) for part in loc) if loc else "(root)"
+        if error.get("type") == "missing":
+            missing_fields.append(field)
+        else:
+            invalid_fields.append(field)
+
+    parts: list[str] = []
+    if missing_fields:
+        parts.append(f"missing required fields: {', '.join(missing_fields)}")
+    if invalid_fields:
+        parts.append(f"invalid fields: {', '.join(invalid_fields)}")
+    return "; ".join(parts) if parts else "schema validation failed"
 
 
 def _validation_retry_prompt(prompt: str, content: str) -> str:
@@ -311,7 +432,7 @@ class LocalLLM:
     @staticmethod
     def _payload_preview(payload: Any) -> str:
         try:
-            rendered = json.dumps(payload, ensure_ascii=True)
+            rendered = json.dumps(_redact_payload(payload), ensure_ascii=True)
         except Exception:
             rendered = str(payload)
         return rendered[:400]
@@ -345,8 +466,10 @@ class LocalLLM:
             return json.dumps(response_obj, ensure_ascii=False).strip()
         return str(response_obj).strip()
 
-    def _generate_once(self, prompt: str) -> dict[str, Any]:
-        return self._parse_generate_payload(self.provider.generate(prompt=prompt))
+    def _generate_once(self, prompt: str, *, json_mode: bool = False) -> dict[str, Any]:
+        return self._parse_generate_payload(
+            self.provider.generate(prompt=prompt, json_mode=json_mode)
+        )
 
     def health_check(self) -> LLMHealthStatus:
         return self.provider.health_check()
@@ -394,7 +517,7 @@ class LocalLLM:
         for attempt in range(self.settings.max_retries + 1):
             content = ""
             try:
-                payload = self._generate_once(prompt)
+                payload = self._generate_once(prompt, json_mode=True)
                 content = self._extract_response_text(payload)
                 logger.debug(
                     "LLM structured response attempt %s: content_length=%s content_preview=%s",
@@ -409,7 +532,7 @@ class LocalLLM:
                 return _validate_structured_content(content, schema)
             except ValidationError as exc:
                 last_error = exc
-                logger.warning(
+                logger.debug(
                     "LLM structured validation failed on attempt %s: %s",
                     attempt + 1,
                     exc,
@@ -422,7 +545,7 @@ class LocalLLM:
                 ValueError,
             ) as exc:
                 last_error = exc
-                logger.warning(
+                logger.debug(
                     "LLM structured request issue on attempt %s: %s",
                     attempt + 1,
                     exc,
@@ -432,7 +555,8 @@ class LocalLLM:
 
         if isinstance(last_error, ValidationError):
             raise RuntimeError(
-                f"LLM structured output validation failed: {last_error}"
+                f"LLM structured output validation failed for {schema.__name__}: "
+                f"{_validation_error_summary(last_error)}"
             ) from last_error
         raise RuntimeError(f"LLM request failed: {last_error}") from last_error
 
@@ -487,7 +611,7 @@ class LocalLLM:
                 ValueError,
             ) as exc:
                 last_error = exc
-                logger.warning(
+                logger.debug(
                     "LLM text request issue on attempt %s: %s",
                     attempt + 1,
                     exc,

@@ -291,7 +291,7 @@ Status: completed.
 
 Status: planned.
 
-- [ ] expand `scripts/qa/smoke_qa.py` into a tiered terminal regression harness while keeping the fast smoke path lightweight
+- [x] expand `scripts/qa/smoke_qa.py` into a tiered terminal regression harness while keeping the fast smoke path lightweight (fast smoke plus optional quality, Sonar, and runtime-cycle tiers)
 - [ ] map `.ai/qa/qa-scenarios.md` scenarios to deterministic pexpect flows with fixed terminal size, environment, and artifact naming
 - [ ] capture CLI JSON snapshots, status payloads, broker state, service events, context-pack excerpts, and keypress transcripts for each scenario
 - [ ] optionally capture tmux pane dumps and asciinema recordings for Ink and Rich visual regressions
@@ -301,7 +301,7 @@ Status: planned.
 - [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
   Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
-- smoke QA now includes dashboard and runtime-mode checklist contract checks for fields consumed by operator surfaces
+- smoke QA now includes dashboard and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, and an optional isolated one-cycle runtime check
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
 ## Phase 15: Production-Like Paper Operations
@@ -310,7 +310,11 @@ Status: planned.
 
 - [ ] define a canonical operator workflow: doctor, broker status, dashboard snapshot, Training review, one strict cycle, trace review, then background paper operation
 - [ ] harden daemon lifecycle semantics for stale PIDs, stop requests, restarts, log tails, and terminal outcomes
+- [ ] add runtime performance profiles that tune concurrent agents, model routing, token budgets, request timeouts, and memory limits based on local hardware class
+- [ ] add a hardware capability probe that records CPU, RAM, GPU/accelerator, model size, and safe parallelism recommendations before starting long-running operation
 - [ ] make live monitor stage progress show agent stage, current symbol, data context, last tool usage, current model call, terminal outcome, and safety gate result
+- [ ] redesign the Ink control room toward an htop-like operator console with stable panes, visible controls, resize-safe layout, and less scrollback noise
+- [ ] reduce Rich/admin visual density or keep it as a compact fallback surface once Ink reaches full operational parity
 - [ ] add a paper-operations readiness checklist that must pass before longer continuous runs
 - [ ] compare paper operation results against deterministic baselines and memory/no-memory ablations before considering any live adapter
 - [ ] keep live broker work blocked until paper operation has stable QA evidence, context-pack explainability, and reviewable trade journals

@@ -1,3 +1,5 @@
+from contextlib import redirect_stderr, redirect_stdout
+import io
 from pathlib import Path
 
 import pandas as pd
@@ -36,6 +38,19 @@ def _read_cached_snapshot(path: Path, *, symbol: str) -> pd.DataFrame:
     return _normalize_ohlcv(cached, symbol=symbol)
 
 
+def _download_ohlcv(symbol: str, *, interval: str, lookback: str) -> pd.DataFrame | None:
+    buffer = io.StringIO()
+    with redirect_stdout(buffer), redirect_stderr(buffer):
+        raw_data = yf.download(  # type: ignore[reportUnknownMemberType]
+            tickers=symbol,
+            period=lookback,
+            interval=interval,
+            auto_adjust=False,
+            progress=False,
+        )
+    return raw_data
+
+
 def fetch_ohlcv(
     symbol: str,
     *,
@@ -57,13 +72,7 @@ def fetch_ohlcv(
     if cache_mode == "prefer_cache" and cache_path is not None and cache_path.exists():
         return _read_cached_snapshot(cache_path, symbol=symbol)
 
-    raw_data = yf.download(  # type: ignore[reportUnknownMemberType]
-        tickers=symbol,
-        period=lookback,
-        interval=interval,
-        auto_adjust=False,
-        progress=False,
-    )
+    raw_data = _download_ohlcv(symbol, interval=interval, lookback=lookback)
     if raw_data is None:
         raise ValueError(f"No market data returned for {symbol}")
 

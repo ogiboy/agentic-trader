@@ -101,3 +101,16 @@ The current local-hashing vectors now persist provider/model/version/dimension m
 Reason:
 Agentic Trader is operator-facing through terminal surfaces, so quality must include repeatable CLI, Rich, Ink, daemon, observer API, and visual-flow evidence.
 The smoke harness should remain fast, but deeper tiers should capture JSON snapshots, pexpect transcripts, optional tmux/asciinema artifacts, and human-readable failure reports.
+
+### Structured LLM calls should use provider JSON mode and safe previews
+
+Reason:
+Agent outputs are schema-bound contracts, not free-form prose.
+Ollama JSON mode reduces malformed/verbose structured responses and makes one-cycle runtime QA more reliable on local models.
+Provider payload previews must redact reasoning fields such as `thinking` before they reach operator surfaces or artifacts; the UI should expose stage summaries, tool usage, validation errors, and decision rationale rather than raw hidden reasoning.
+
+### Runtime QA should have explicit performance tiers
+
+Reason:
+A real agent cycle can take several minutes on local hardware, so it should not be part of every fast smoke run.
+The QA harness should keep fast terminal checks lightweight while offering opt-in runtime-cycle validation with isolated runtime storage, bounded token budgets, request timeouts, and artifacts that show the active stage when a run fails.
