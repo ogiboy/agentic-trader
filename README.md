@@ -25,6 +25,8 @@ The core idea is simple:
 
 This is intentionally not a "chatty report generator." The system is built around structured outputs and execution-safe contracts.
 
+The runtime also has an explicit mode contract. The default `operation` mode is still paper-first and requires strict LLM gating plus provider/model readiness before one-shot, launch, or service execution can proceed. `training` mode is reserved for replay/backtest evaluation and may use diagnostic fallback there without enabling hidden trade generation in the live paper runtime.
+
 ## Architecture
 
 The current strict runtime uses a staged specialist graph:
@@ -47,15 +49,18 @@ The current strict runtime uses a staged specialist graph:
 Every agent cycle now receives a unified context bundle that can include:
 
 - the current market snapshot
+- a Market Context Pack with lookback coverage, multi-horizon returns, volatility, drawdown, trend votes, range structure, and data-quality flags
 - operator preferences
 - portfolio state
 - recent run summaries
 - trade-journal memory hints
 - upstream agent outputs
 
+If the fetched market data materially under-covers the requested lookback window in operation/runtime flows, snapshot generation fails before any agents run. That keeps a `180d` or `1y` request from silently becoming a short-window decision. Training replay can still use growing windows, but the context pack keeps that undercoverage visible as data quality context.
+
 The LLM layer also supports role-based model routing, so different local models can be assigned to coordinator, regime, strategy, risk, manager, explainer, and instruction parsing roles.
 
-The current memory layer is still lightweight, but it can already retrieve historically similar recorded runs and inject those summaries into agent context before a cycle.
+The current memory layer is still lightweight, but it can already retrieve historically similar recorded runs and inject those summaries into agent context before a cycle. Memory documents now also include the Market Context Pack summary so later retrieval can reason about the broader lookback, not only the latest indicator row. Stored memory vectors include embedding provider, model, version, and dimensionality metadata so future semantic embeddings can migrate without hiding how old memories were produced.
 
 ## Stack
 
@@ -271,6 +276,19 @@ Compare the agent replay against a deterministic baseline:
 python main.py backtest --symbol AAPL --interval 1d --lookback 2y --warmup-bars 120 --compare-baseline
 ```
 
+Backtests run under the same runtime mode contract as the rest of the system. In `operation` mode, provider/model readiness must pass. In `training` mode, backtest/evaluation commands can fall back to deterministic diagnostics when the model is unavailable, but `run`, `launch`, and background service execution remain strict.
+
+Replay artifacts also carry timing boundaries: market snapshots include `as_of`, and backtest reports include data-window plus first/last decision timestamps so future-data leakage can be audited.
+
+Check the approved mode-transition plan before moving between Training and Operation:
+
+```bash
+python main.py runtime-mode-checklist operation
+python main.py runtime-mode-checklist training --json
+```
+
+This command reports a schema-backed checklist only. Runtime mode changes still require explicit configuration; operator chat and free-form instructions cannot silently mutate execution policy.
+
 Inspect orchestrator runtime state and recent events:
 
 ```bash
@@ -326,7 +344,7 @@ The current QA harness validates installed CLI entrypoints, the primary Ink TUI,
 
 - This project starts with paper trading only.
 - The trading runtime is strict by default: if Ollama or the configured model is unavailable, the core runtime should not start.
-- Deterministic fallbacks are kept for diagnostics, not for silent trade generation in the main launcher.
+- Deterministic fallbacks are kept for diagnostics and Training-mode evaluation, not for silent trade generation in the main launcher or background runtime.
 - The Ink control room is the primary terminal operator surface; the Rich menu remains useful as a legacy/admin fallback.
 - UI text is starting to move behind a shared catalog so CLI, Rich, Ink, and a future WebUI can grow toward multi-language support without duplicating labels.
 - Live broker adapters can be added once the planning and portfolio pipeline behaves consistently.

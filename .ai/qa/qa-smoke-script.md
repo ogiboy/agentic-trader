@@ -8,6 +8,7 @@ It checks:
 
 - `agentic-trader doctor`
 - `agentic-trader dashboard-snapshot`
+- dashboard contract fields consumed by operator surfaces, including runtime mode and market context sections
 - read-only JSON status surfaces such as `status`, `broker-status`, `supervisor-status`, `logs`, `preferences`, `portfolio`, and `memory-policy`
 - primary Ink entry through `agentic-trader`
 - root launcher entry through `python main.py`
@@ -78,6 +79,8 @@ Current files include:
 
 - `doctor.log`
 - `dashboard_snapshot.log`
+- `dashboard_contract.log`
+- `runtime_mode_checklist_json.log`
 - `main_entrypoint_tui.log`
 - `python_main_tui.log`
 - `rich_menu.log`

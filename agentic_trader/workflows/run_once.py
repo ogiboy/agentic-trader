@@ -371,8 +371,25 @@ def run_once(
     memory_enabled: bool = True,
     progress_callback: ProgressCallback | None = None,
 ) -> RunArtifacts:
+    """
+    Run the agent pipeline once for a given market symbol and interval using freshly fetched OHLCV data.
+    
+    Fetches market data with the specified lookback, builds a MarketSnapshot, and executes the full run pipeline returning the resulting artifacts.
+    
+    Parameters:
+        settings (Settings): Runtime and environment configuration.
+        symbol (str): Market symbol to run the pipeline for (e.g., "AAPL").
+        interval (str): Candlestick interval (e.g., "1h", "1d").
+        lookback (str): Historical window to fetch (e.g., "30d", "90m") used to build the snapshot.
+        allow_fallback (bool): If True, agents may use fallback behaviour when primary methods fail.
+        memory_enabled (bool): If True, enable shared memory bus entries between stages.
+        progress_callback (ProgressCallback | None): Optional callback invoked with stage, status, and message updates.
+    
+    Returns:
+        RunArtifacts: Object containing the snapshot, all agent outputs (coordinator, regime, strategy, risk, consensus, manager, execution), the review note, and agent stage traces.
+    """
     frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback, settings=settings)
-    snapshot = build_snapshot(frame, symbol=symbol, interval=interval)
+    snapshot = build_snapshot(frame, symbol=symbol, interval=interval, lookback=lookback)
     return run_from_snapshot(
         settings=settings,
         snapshot=snapshot,

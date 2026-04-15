@@ -33,6 +33,7 @@ from agentic_trader.schemas import (
     AgentTone,
     BehaviorPreset,
     ChatPersona,
+    LLMHealthStatus,
     InvestmentPreferences,
     InterventionStyle,
     RiskProfile,
@@ -476,17 +477,49 @@ def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     return table
 
 
-def _system_status_table(settings: Settings, db: TradingDatabase | None) -> Table:
-    health = LocalLLM(settings).health_check()
+def _system_status_table(
+    settings: Settings,
+    db: TradingDatabase | None,
+    *,
+    runtime_state: ServiceStateSnapshot | None = None,
+    health: LLMHealthStatus | None = None,
+) -> Table:
+    """
+    Builds a summary key/value table of runtime, model, LLM health, and (when available) the latest order.
+    
+    Parameters:
+        settings: Application settings used to read runtime directory, mode, model name, base URL, and strict-LLM flag.
+        db: Trading database instance or `None`. When provided, the table will include a "Latest Order" row; when `None`, that row is omitted.
+        runtime_state: Optional live service state used to prefer the active runtime mode over settings defaults.
+        health: Optional precomputed LLM health snapshot. If omitted, a fresh health check is performed.
+    
+    Returns:
+        Table: A Rich Table titled "System Status" containing rows for:
+            - Runtime Dir
+            - Runtime Mode
+            - Model
+            - Base URL
+            - Ollama Reachable (`yes` or `no`)
+            - Model Available (`yes` or `no`)
+            - Strict LLM
+            - Latest Order (present only when `db` is provided)
+    """
+    health_status = health if health is not None else LocalLLM(settings).health_check()
     latest_order = db.latest_order() if db is not None else None
     table = Table(title="System Status")
     table.add_column("Key")
     table.add_column("Value")
     table.add_row("Runtime Dir", str(settings.runtime_dir))
+    table.add_row(
+        "Runtime Mode",
+        runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode,
+    )
     table.add_row("Model", settings.model_name)
     table.add_row("Base URL", settings.base_url)
-    table.add_row("Ollama Reachable", "yes" if health.service_reachable else "no")
-    table.add_row("Model Available", "yes" if health.model_available else "no")
+    table.add_row(
+        "Ollama Reachable", "yes" if health_status.service_reachable else "no"
+    )
+    table.add_row("Model Available", "yes" if health_status.model_available else "no")
     table.add_row("Strict LLM", str(settings.strict_llm))
     if db is not None:
         table.add_row(
@@ -541,17 +574,23 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
 
 
 def build_monitor_renderable(
-    settings: Settings, db: TradingDatabase | None = None
+    settings: Settings,
+    db: TradingDatabase | None = None,
+    *,
+    health: LLMHealthStatus | None = None,
 ) -> Group:
     """
-    Builds the complete live-monitor renderable for the control-room UI, composed of header, current activity, agent activity, runtime/system status, preferences/portfolio, recent runs/trade journal, runtime events, and a risk report panel.
+    Assembles the live-monitor UI as a Rich Group of panels and tables.
+    
+    Attempts a safe read-only database open when `db` is None; database-backed panels show actual data when a readable DB is available and show observer-mode placeholders otherwise.
     
     Parameters:
         settings (Settings): Application settings used to read runtime state and events.
-        db (TradingDatabase | None): Optional database connection. If None, the function will attempt a safe read-only open; when a readable DB is not available, database-backed panels are replaced with observer-mode placeholders.
+        db (TradingDatabase | None): Optional database connection. If None, a safe read-only open is attempted and panels that require DB data will fall back to observer-mode when unavailable.
+        health (LLMHealthStatus | None): Optional cached LLM health information to display in the system status panel; when omitted the system status panel may perform its own health check.
     
     Returns:
-        Group: A rich.Group containing the assembled panels and tables for the live monitor. Database-dependent sections show actual data when a readable DB is available and observer panels otherwise.
+        Group: A rich.Group containing the assembled header, activity panels, runtime/system status, preferences/portfolio, recent runs/trade journal, runtime events, and risk report.
     """
     db = db if db is not None else _safe_open_read_db(settings)
     runtime_state = read_service_state(settings)
@@ -572,7 +611,15 @@ def build_monitor_renderable(
     middle = Columns(
         [
             Panel(_runtime_state_table(runtime_state), border_style="magenta"),
-            Panel(_system_status_table(settings, db), border_style="cyan"),
+            Panel(
+                _system_status_table(
+                    settings,
+                    db,
+                    runtime_state=runtime_state,
+                    health=health,
+                ),
+                border_style="cyan",
+            ),
         ],
         equal=True,
         expand=True,
@@ -622,8 +669,20 @@ def run_live_monitor(
     *,
     refresh_seconds: float = 1.0,
 ) -> None:
+    """
+    Launch a live terminal monitor that renders runtime, portfolio, and system views and updates periodically.
+    
+    Runs a rich Live rendering loop that refreshes the UI every `refresh_seconds`, polling LLM health approximately every 30 seconds and updating the display accordingly. The monitor uses `settings` to build views and, if provided, reads DB-backed panels from `db`. The loop continues until interrupted (KeyboardInterrupt).
+    
+    Parameters:
+        settings (Settings): Application settings used to build monitor renderables and perform health checks.
+        db (TradingDatabase | None): Optional read-only database used to populate portfolio and run/event panels; when None a safe read attempt may be performed internally.
+        refresh_seconds (float): Seconds to sleep between UI updates (controls update frequency).
+    """
+    health = LocalLLM(settings).health_check()
+    last_health_refresh = time.monotonic()
     with Live(
-        build_monitor_renderable(settings, db),
+        build_monitor_renderable(settings, db, health=health),
         console=console,
         refresh_per_second=max(
             1, int(1 / refresh_seconds) if refresh_seconds < 1 else 1
@@ -632,29 +691,44 @@ def run_live_monitor(
     ) as live:
         try:
             while True:
-                live.update(build_monitor_renderable(settings, db))
+                if time.monotonic() - last_health_refresh >= 30:
+                    health = LocalLLM(settings).health_check()
+                    last_health_refresh = time.monotonic()
+                live.update(build_monitor_renderable(settings, db, health=health))
                 time.sleep(refresh_seconds)
         except KeyboardInterrupt:
             return
 
 
 def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
+    """
+    Render the system and runtime overview panels to the console, including status, current activity, preferences or observer-mode placeholders, and recent runtime events.
+    
+    Parameters:
+        settings (Settings): Application settings used to populate system status and to read runtime/service state.
+        db (TradingDatabase | None): If provided, DB-backed panels (preferences and recent runs) are rendered; if `None`, observer-mode placeholders are shown.
+    """
     health = LocalLLM(settings).health_check()
+    runtime_state = read_service_state(settings)
     status = Table(title="System Status")
     status.add_column("Key")
     status.add_column("Value")
     status.add_row("Runtime Dir", str(settings.runtime_dir))
     status.add_row("Database", str(settings.database_path))
+    status.add_row(
+        "Runtime Mode",
+        runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode,
+    )
     status.add_row("Model", settings.model_name)
     status.add_row("Base URL", settings.base_url)
     status.add_row("Ollama Reachable", "yes" if health.service_reachable else "no")
     status.add_row("Model Available", "yes" if health.model_available else "no")
     status.add_row("Strict LLM", str(settings.strict_llm))
     console.print(status)
-    _render_runtime_state(read_service_state(settings))
+    _render_runtime_state(runtime_state)
     console.print(
         _current_activity_panel(
-            read_service_state(settings), read_service_events(settings, limit=12)
+            runtime_state, read_service_events(settings, limit=12)
         )
     )
     if db is None:
@@ -816,17 +890,18 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
 
 def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
     """
-    Open an interactive memory explorer that prompts for a symbol, interval, lookback, and match limit, then displays matching historical memories in a table.
+    Launch an interactive memory explorer that prompts for symbol, interval, lookback, and match limit, then prints a table of similar historical memories.
     
     Parameters:
-        db (TradingDatabase): Database used to fetch and rank similar memories; results are printed to the console.
+        _settings (Settings): Unused in this view; kept for API symmetry.
+        db (TradingDatabase): Database used to retrieve and rank matching memories; results are printed to the console.
     """
     symbol = Prompt.ask("Symbol", default="AAPL").strip().upper()
     interval = Prompt.ask("Interval", default="1d")
     lookback = Prompt.ask("Lookback", default="180d")
     limit = IntPrompt.ask("Matches", default=5)
     frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback)
-    snapshot = build_snapshot(frame, symbol=symbol, interval=interval)
+    snapshot = build_snapshot(frame, symbol=symbol, interval=interval, lookback=lookback)
     matches = retrieve_similar_memories(db, snapshot, limit=limit)
 
     table = Table(title="Memory Explorer")

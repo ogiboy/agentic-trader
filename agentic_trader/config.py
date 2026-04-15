@@ -4,6 +4,8 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from agentic_trader.schemas import RuntimeMode
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -39,6 +41,7 @@ class Settings(BaseSettings):
     news_mode: Literal["off", "yfinance"] = "off"
     news_headline_limit: int = 5
 
+    runtime_mode: RuntimeMode = "operation"
     strict_llm: bool = True
     execution_backend: Literal["paper", "live"] = "paper"
     live_execution_enabled: bool = False

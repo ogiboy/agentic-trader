@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import duckdb
+
 from agentic_trader.config import Settings
 from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.schemas import (
@@ -142,8 +144,62 @@ def test_retrieve_similar_memories_prefers_closest_snapshot(tmp_path: Path) -> N
     assert len(matches) == 2
     vectors = db.list_memory_vectors(limit=5)
     assert len(vectors) == 2
+    metadata = db.conn.execute(
+        """
+        select embedding_provider, embedding_model, embedding_version, embedding_dimensions
+        from memory_vectors
+        where run_id = ?
+        """,
+        [vectors[0][0]],
+    ).fetchone()
+    assert metadata is not None
+    assert metadata[0] == "local_hashing"
+    assert metadata[1] == "agentic-hash-v1"
+    assert metadata[2] == "1"
+    assert metadata[3] == 64
     assert matches[0].symbol == "AAPL"
     assert matches[0].retrieval_source == "hybrid"
     assert matches[0].vector_score is not None
     assert matches[0].heuristic_score is not None
     assert matches[0].similarity_score >= matches[1].similarity_score
+
+
+def test_memory_vector_schema_migrates_legacy_rows(tmp_path: Path) -> None:
+    database_path = tmp_path / "agentic_trader.duckdb"
+    legacy = duckdb.connect(str(database_path))
+    legacy.execute(
+        """
+        create table memory_vectors (
+            run_id varchar primary key,
+            created_at varchar not null,
+            symbol varchar not null,
+            embedding_json varchar not null,
+            document_text varchar not null
+        )
+        """
+    )
+    legacy.execute(
+        """
+        insert into memory_vectors (
+            run_id, created_at, symbol, embedding_json, document_text
+        )
+        values ('legacy-run', '2026-04-15T00:00:00+00:00', 'AAPL', '[0.0]', 'legacy')
+        """
+    )
+    legacy.close()
+    settings = Settings(runtime_dir=tmp_path, database_path=database_path)
+
+    db = TradingDatabase(settings)
+    row = db.conn.execute(
+        """
+        select embedding_provider, embedding_model, embedding_version, embedding_dimensions
+        from memory_vectors
+        where run_id = 'legacy-run'
+        """
+    ).fetchone()
+
+    assert row is not None
+    assert row[0] == "local_hashing"
+    assert row[1] == "agentic-hash-v1"
+    assert row[2] == "1"
+    assert row[3] == 64

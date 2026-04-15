@@ -6,7 +6,11 @@ from uuid import uuid4
 import duckdb
 
 from agentic_trader.config import Settings
-from agentic_trader.memory.embeddings import build_memory_document, embed_artifacts
+from agentic_trader.memory.embeddings import (
+    build_memory_document,
+    embed_artifacts,
+    embedding_metadata,
+)
 from agentic_trader.memory.policy import MemoryActor, assert_memory_write_allowed
 from agentic_trader.runtime_feed import append_service_event, write_service_state
 from agentic_trader.schemas import (
@@ -27,6 +31,7 @@ from agentic_trader.schemas import (
     ServiceState,
     ServiceEvent,
     ServiceStateSnapshot,
+    RuntimeMode,
     TradeSide,
     TradeContextRecord,
     TradeJournalEntry,
@@ -40,14 +45,15 @@ TERMINAL_SERVICE_STATES: set[ServiceState] = {
     "blocked",
 }
 SERVICE_STATE_VALUES = set(get_args(ServiceState))
+RUNTIME_MODE_VALUES = set(get_args(RuntimeMode))
 
 
 def _str_or_none(value: Any) -> str | None:
     """
-    Convert a value to its string representation, returning None when the input is None.
+    Return the string representation of value, or None when value is None.
     
     Returns:
-        str | None: The string form of `value`, or `None` if `value` is `None`.
+        `str` if `value` is not `None`, `None` otherwise.
     """
     return str(value) if value is not None else None
 
@@ -160,7 +166,7 @@ def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
     Convert a database row tuple into a ServiceStateSnapshot.
     
     The input `row` is expected to follow the service_state table column order:
-    (service_name, state, updated_at, started_at, last_heartbeat_at, continuous,
+    (service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at, continuous,
      poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
      current_symbol, last_error, pid, stop_requested, background_mode,
      launch_count, restart_count, last_terminal_state, last_terminal_at,
@@ -185,28 +191,33 @@ def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
     return ServiceStateSnapshot(
         service_name=str(row[0]),
         state=state,
-        updated_at=str(row[2]),
-        started_at=_str_or_none(row[3]),
-        last_heartbeat_at=_str_or_none(row[4]),
-        continuous=bool(row[5]),
-        poll_seconds=_int_or_none(row[6]),
-        cycle_count=int(row[7]),
-        symbols=json.loads(str(row[8])) if row[8] is not None else [],
-        interval=_str_or_none(row[9]),
-        lookback=_str_or_none(row[10]),
-        max_cycles=_int_or_none(row[11]),
-        current_symbol=_str_or_none(row[12]),
-        last_error=_str_or_none(row[13]),
-        pid=_int_or_none(row[14]),
-        stop_requested=_bool_or_default(row[15], False),
-        background_mode=_bool_or_default(row[16], False),
-        launch_count=int(row[17]) if row[17] is not None else 0,
-        restart_count=int(row[18]) if row[18] is not None else 0,
-        last_terminal_state=_str_or_none(row[19]),
-        last_terminal_at=_str_or_none(row[20]),
-        stdout_log_path=_str_or_none(row[21]),
-        stderr_log_path=_str_or_none(row[22]),
-        message=str(row[23]),
+        runtime_mode=(
+            cast(RuntimeMode, str(row[2]))
+            if str(row[2]) in RUNTIME_MODE_VALUES
+            else "operation"
+        ),
+        updated_at=str(row[3]),
+        started_at=_str_or_none(row[4]),
+        last_heartbeat_at=_str_or_none(row[5]),
+        continuous=bool(row[6]),
+        poll_seconds=_int_or_none(row[7]),
+        cycle_count=int(row[8]),
+        symbols=json.loads(str(row[9])) if row[9] is not None else [],
+        interval=_str_or_none(row[10]),
+        lookback=_str_or_none(row[11]),
+        max_cycles=_int_or_none(row[12]),
+        current_symbol=_str_or_none(row[13]),
+        last_error=_str_or_none(row[14]),
+        pid=_int_or_none(row[15]),
+        stop_requested=_bool_or_default(row[16], False),
+        background_mode=_bool_or_default(row[17], False),
+        launch_count=int(row[18]) if row[18] is not None else 0,
+        restart_count=int(row[19]) if row[19] is not None else 0,
+        last_terminal_state=_str_or_none(row[20]),
+        last_terminal_at=_str_or_none(row[21]),
+        stdout_log_path=_str_or_none(row[22]),
+        stderr_log_path=_str_or_none(row[23]),
+        message=str(row[24]),
     )
 
 
@@ -225,12 +236,11 @@ class TradingDatabase:
         """
         Create and migrate the database schema and ensure required seed rows exist.
         
-        Creates all application tables if missing (runs, orders, account_state, positions, fills,
-        position_plans, preferences, account_marks, trade_journal, trade_contexts, service_state,
-        service_events, operator_chat_history, memory_vectors) and performs schema migration for
-        service_state by adding any missing columns introduced by newer versions. After schema
-        creation/migration, ensures a paper account row exists in account_state and a default
-        preferences profile is present, inserting seed rows when absent.
+        Creates any missing application tables and performs lightweight migrations for evolving schemas
+        (e.g., adding columns to `service_state` and `memory_vectors` when introduced in newer versions).
+        After schema creation/migration, ensures a `paper` account row exists in `account_state` (inserting it
+        with the configured default cash when absent) and ensures a default preferences profile exists
+        (inserting a default `InvestmentPreferences()` when absent).
         """
         self.conn.execute(
             """
@@ -384,6 +394,7 @@ class TradingDatabase:
             create table if not exists service_state (
                 service_name varchar primary key,
                 state varchar not null,
+                runtime_mode varchar not null default 'operation',
                 updated_at varchar not null,
                 started_at varchar,
                 last_heartbeat_at varchar,
@@ -417,6 +428,10 @@ class TradingDatabase:
         }
         if "pid" not in service_columns:
             self.conn.execute("alter table service_state add column pid bigint")
+        if "runtime_mode" not in service_columns:
+            self.conn.execute(
+                "alter table service_state add column runtime_mode varchar default 'operation'"
+            )
         if "stop_requested" not in service_columns:
             self.conn.execute("alter table service_state add column stop_requested boolean")
         if "symbols_json" not in service_columns:
@@ -480,11 +495,37 @@ class TradingDatabase:
                 run_id varchar primary key,
                 created_at varchar not null,
                 symbol varchar not null,
+                embedding_provider varchar not null default 'local_hashing',
+                embedding_model varchar not null default 'agentic-hash-v1',
+                embedding_version varchar not null default '1',
+                embedding_dimensions integer not null default 64,
                 embedding_json varchar not null,
                 document_text varchar not null
             )
             """
         )
+        memory_columns = {
+            str(row[1])
+            for row in self.conn.execute(
+                "pragma table_info('memory_vectors')"
+            ).fetchall()
+        }
+        if "embedding_provider" not in memory_columns:
+            self.conn.execute(
+                "alter table memory_vectors add column embedding_provider varchar default 'local_hashing'"
+            )
+        if "embedding_model" not in memory_columns:
+            self.conn.execute(
+                "alter table memory_vectors add column embedding_model varchar default 'agentic-hash-v1'"
+            )
+        if "embedding_version" not in memory_columns:
+            self.conn.execute(
+                "alter table memory_vectors add column embedding_version varchar default '1'"
+            )
+        if "embedding_dimensions" not in memory_columns:
+            self.conn.execute(
+                "alter table memory_vectors add column embedding_dimensions integer default 64"
+            )
         existing = self.conn.execute(
             "select count(*) from account_state where account_id = 'paper'"
         ).fetchone()
@@ -691,14 +732,33 @@ class TradingDatabase:
         created_at: str | None = None,
         actor: MemoryActor = "system_runtime",
     ) -> None:
+        """
+        Persist embedding and document data for a run into the memory_vectors table, inserting a new row or updating an existing one by run_id.
+        
+        This call enforces memory write authorization, computes embedding metadata and artifact embeddings, and stores provider/model metadata, embedding dimensions, embedding JSON, and a plain-text document for the given run. If created_at is not provided, the current UTC ISO timestamp is used.
+        
+        Parameters:
+            run_id (str): Unique identifier for the run whose memory vector is being stored.
+            artifacts (RunArtifacts): Run artifacts used to build the embedding and document payloads.
+            created_at (str | None): ISO-formatted timestamp to record for the vector; defaults to current UTC time when None.
+            actor (MemoryActor): Actor name used for authorization checks (e.g., "system_runtime").
+        """
         assert_memory_write_allowed("trade_memory", actor)
+        metadata = embedding_metadata()
         self.conn.execute(
             """
-            insert into memory_vectors (run_id, created_at, symbol, embedding_json, document_text)
-            values (?, ?, ?, ?, ?)
+            insert into memory_vectors (
+                run_id, created_at, symbol, embedding_provider, embedding_model,
+                embedding_version, embedding_dimensions, embedding_json, document_text
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?)
             on conflict(run_id) do update set
                 created_at = excluded.created_at,
                 symbol = excluded.symbol,
+                embedding_provider = excluded.embedding_provider,
+                embedding_model = excluded.embedding_model,
+                embedding_version = excluded.embedding_version,
+                embedding_dimensions = excluded.embedding_dimensions,
                 embedding_json = excluded.embedding_json,
                 document_text = excluded.document_text
             """,
@@ -706,6 +766,10 @@ class TradingDatabase:
                 run_id,
                 created_at or datetime.now(timezone.utc).isoformat(),
                 artifacts.snapshot.symbol,
+                metadata["provider"],
+                metadata["model_name"],
+                metadata["model_version"],
+                metadata["dimensions"],
                 json.dumps(embed_artifacts(artifacts)),
                 build_memory_document(artifacts),
             ],
@@ -933,6 +997,19 @@ class TradingDatabase:
         run_id: str | None,
         artifacts: RunArtifacts,
     ) -> None:
+        """
+        Persist a trade context assembled from a run's artifacts into the `trade_contexts` table.
+        
+        Builds a TradeContextRecord from `artifacts` and `run_id`, extracting:
+        - routed model names per trace,
+        - up to five entries each of `retrieved_memories`, `tool_outputs`, and `shared_memory_bus` summaries per trace (skips traces with invalid JSON or non-dict context),
+        and includes market snapshot, context pack, manager/execution/review fields. The constructed record is serialized to JSON and upserted by `trade_id` into the `trade_contexts` table.
+        
+        Parameters:
+            trade_id (str): Identifier for the trade context (used as the upsert key).
+            run_id (str | None): Optional run identifier associated with this context.
+            artifacts (RunArtifacts): Run artifacts containing `agent_traces`, `snapshot`, and manager/execution/review data.
+        """
         routed_models: dict[str, str] = {}
         retrieved_memory_summary: dict[str, list[str]] = {}
         tool_outputs: dict[str, list[str]] = {}
@@ -967,6 +1044,7 @@ class TradingDatabase:
             run_id=run_id,
             symbol=artifacts.snapshot.symbol,
             market_snapshot=artifacts.snapshot,
+            market_context_pack=artifacts.snapshot.context_pack,
             routed_models=routed_models,
             retrieved_memory_summary=retrieved_memory_summary,
             tool_outputs=tool_outputs,
@@ -1202,6 +1280,7 @@ class TradingDatabase:
         *,
         service_name: str = "orchestrator",
         state: str,
+        runtime_mode: RuntimeMode | None = None,
         continuous: bool,
         poll_seconds: int | None,
         cycle_count: int,
@@ -1221,33 +1300,25 @@ class TradingDatabase:
         stderr_log_path: str | None = None,
     ) -> None:
         """
-        Update or insert the runtime state snapshot for a named service and persist it to storage.
+        Update or insert the persisted runtime snapshot for a named service.
         
-        Upserts a service-state row keyed by `service_name`, merges provided fields with any existing state (preserving omitted values), computes terminal-state markers when appropriate, and writes a mirrored service state snapshot via write_service_state.
+        Merges provided fields with any existing stored snapshot (preserving omitted values), resolves runtime-mode and other defaults, updates terminal-state markers when the new state is terminal, ensures `started_at` is set when appropriate, writes the resolved row into the database, and emits a mirrored ServiceStateSnapshot via write_service_state.
         
         Parameters:
-            service_name (str): The unique service identifier (default "orchestrator").
-            state (str): New service state (e.g., "starting", "running", "stopped").
-            continuous (bool): Whether the service runs continuously.
-            poll_seconds (int | None): Poll interval in seconds for periodic services, or None.
-            cycle_count (int): Current execution cycle counter.
-            symbols (list[str] | None): Active symbol list; if None, existing symbols are preserved.
-            interval (str | None): Trading/data interval (e.g., "1m", "1h"), or None.
-            lookback (str | None): Lookback specification for historical data, or None.
-            max_cycles (int | None): Maximum cycles permitted for the service, or None.
-            current_symbol (str | None): Symbol currently being processed, or None.
-            message (str): Human-readable status or message associated with the state.
-            last_error (str | None): Last error message, if any.
-            pid (int | None): Process ID associated with the running service, or None.
-            stop_requested (bool | None): Explicit stop request flag; if None, preserves existing.
-            background_mode (bool | None): Whether the service is running in background mode; if None, preserves existing.
-            launch_count (int | None): Number of times the service has been launched; if None, preserves existing.
-            restart_count (int | None): Number of restarts; if None, preserves existing.
-            stdout_log_path (str | None): Path to stdout log file, or None.
-            stderr_log_path (str | None): Path to stderr log file, or None.
+            runtime_mode: If provided, sets the service's runtime mode; if `None`, preserves the existing runtime mode or falls back to settings.
+            symbols: If provided, replaces the stored symbol list; if `None`, preserves existing symbols (or `[]` when no existing snapshot).
+            stop_requested: If provided, sets the explicit stop request flag; if `None`, preserves the existing flag.
         """
         now = datetime.now(timezone.utc).isoformat()
         existing = self.get_service_state(service_name)
+        resolved_runtime_mode = cast(
+            RuntimeMode,
+            _resolve_value(
+                runtime_mode,
+                existing.runtime_mode if existing is not None else None,
+                self.settings.runtime_mode,
+            ),
+        )
         started_at = existing.started_at if existing is not None else None
         if state == "starting" or started_at is None:
             started_at = now
@@ -1293,15 +1364,16 @@ class TradingDatabase:
         self.conn.execute(
             """
             insert into service_state (
-                service_name, state, updated_at, started_at, last_heartbeat_at,
+                service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at,
                 continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
                 current_symbol, last_error, pid, stop_requested, background_mode,
                 launch_count, restart_count, last_terminal_state, last_terminal_at,
                 stdout_log_path, stderr_log_path, message
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             on conflict(service_name) do update set
                 state = excluded.state,
+                runtime_mode = excluded.runtime_mode,
                 updated_at = excluded.updated_at,
                 started_at = excluded.started_at,
                 last_heartbeat_at = excluded.last_heartbeat_at,
@@ -1328,6 +1400,7 @@ class TradingDatabase:
             [
                 service_name,
                 state,
+                resolved_runtime_mode,
                 now,
                 started_at,
                 now,
@@ -1357,6 +1430,7 @@ class TradingDatabase:
             ServiceStateSnapshot(
                 service_name=service_name,
                 state=cast(ServiceState, state),
+                runtime_mode=resolved_runtime_mode,
                 updated_at=now,
                 started_at=started_at,
                 last_heartbeat_at=now,
@@ -1386,17 +1460,17 @@ class TradingDatabase:
         self, service_name: str = "orchestrator"
     ) -> ServiceStateSnapshot | None:
         """
-        Load the persisted service state snapshot for the given service name.
+        Retrieve the persisted service state snapshot for the named service.
         
         Parameters:
-            service_name (str): Name of the service to retrieve (defaults to "orchestrator").
+            service_name (str): Service identifier to fetch (defaults to "orchestrator").
         
         Returns:
-            ServiceStateSnapshot | None: The deserialized service state snapshot for the service, or `None` if no row exists.
+            ServiceStateSnapshot | None: The service's snapshot if present, or `None` when no persisted state exists.
         """
         row = self.conn.execute(
             """
-            select service_name, state, updated_at, started_at, last_heartbeat_at,
+            select service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at,
                    continuous, poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
                    current_symbol, last_error, pid, stop_requested, background_mode,
                    launch_count, restart_count, last_terminal_state, last_terminal_at,

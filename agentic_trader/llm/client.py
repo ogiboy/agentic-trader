@@ -430,9 +430,11 @@ class LocalLLM:
                 prompt = _request_issue_retry_prompt(prompt)
                 continue
 
-        raise RuntimeError(
-            f"LLM structured output validation failed: {last_error}"
-        ) from last_error
+        if isinstance(last_error, ValidationError):
+            raise RuntimeError(
+                f"LLM structured output validation failed: {last_error}"
+            ) from last_error
+        raise RuntimeError(f"LLM request failed: {last_error}") from last_error
 
     def complete_text(
         self,
@@ -440,6 +442,21 @@ class LocalLLM:
         system_prompt: str,
         user_prompt: str,
     ) -> str:
+        """
+        Send the combined system and user prompts to the configured LLM provider and return the provider's textual response.
+        
+        The call is retried on transient request or provider errors up to `self.settings.max_retries`. If the provider returns an empty response or all attempts fail, a RuntimeError is raised.
+        
+        Parameters:
+            system_prompt (str): The system-level instructions to include in the prompt.
+            user_prompt (str): The user's request to include in the prompt.
+        
+        Returns:
+            str: The LLM's textual response.
+        
+        Raises:
+            RuntimeError: If the LLM returns an empty response or all retry attempts fail.
+        """
         prompt = dedent(
             f"""
             {system_prompt}

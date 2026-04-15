@@ -1,8 +1,11 @@
 from pathlib import Path
 
-from agentic_trader.agents.context import build_agent_context
+import pandas as pd
+
+from agentic_trader.agents.context import build_agent_context, render_agent_context
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
+from agentic_trader.market.features import build_snapshot
 from agentic_trader.schemas import (
     ExecutionDecision,
     ManagerDecision,
@@ -14,11 +17,28 @@ from agentic_trader.schemas import (
     RunArtifacts,
     StrategyPlan,
 )
-from agentic_trader.workflows.run_once import persist_run
 from agentic_trader.storage.db import TradingDatabase
+from agentic_trader.workflows.run_once import persist_run
 
 
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
+    """
+    Create a RunArtifacts object populated with fixed example market, research, strategy, risk, manager, execution, and review data.
+    
+    Parameters:
+        symbol (str): Ticker symbol to use in the generated MarketSnapshot and ExecutionDecision (default "AAPL").
+    
+    Returns:
+        RunArtifacts: A deterministic set of example artifacts including:
+            - snapshot: MarketSnapshot with price, indicators, returns, volume ratio, and bars_analyzed
+            - coordinator: ResearchCoordinatorBrief with market focus, priority signals, and summary
+            - regime: RegimeAssessment with regime, direction bias, confidence, and reasoning
+            - strategy: StrategyPlan describing strategy family, action, timeframe, entry/invalidation logic, and confidence
+            - risk: RiskPlan with position sizing, stop/take-profit, reward ratio, holding limit, and notes
+            - manager: ManagerDecision with approval, bias, confidence cap, size multiplier, and rationale
+            - execution: ExecutionDecision with approval, side, symbol, prices, sizing, confidence, and rationale
+            - review: ReviewNote summarizing strengths, warnings, and next checks
+    """
     return RunArtifacts(
         snapshot=MarketSnapshot(
             symbol=symbol,
@@ -152,3 +172,35 @@ def test_build_agent_context_can_disable_memory_injection(tmp_path: Path) -> Non
     assert context.recent_runs
     assert context.memory_notes == []
     assert context.retrieved_memories == []
+
+
+def test_render_agent_context_surfaces_market_context_pack(tmp_path: Path) -> None:
+    frame = pd.DataFrame(
+        {
+            "open": [100 + i for i in range(90)],
+            "high": [101 + i for i in range(90)],
+            "low": [99 + i for i in range(90)],
+            "close": [100 + i for i in range(90)],
+            "volume": [1_000 + (i * 10) for i in range(90)],
+        }
+    )
+    snapshot = build_snapshot(frame, symbol="AAPL", interval="1d", lookback="90d")
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    context = build_agent_context(
+        role="coordinator",
+        settings=settings,
+        db=db,
+        snapshot=snapshot,
+        memory_enabled=False,
+    )
+
+    rendered = render_agent_context(context, task="Assess context.")
+
+    assert "Market Context Pack:" in rendered
+    assert '"lookback": "90d"' in rendered
+    assert "No persisted market context pack" not in rendered

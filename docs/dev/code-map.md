@@ -7,14 +7,14 @@ behavior, while this map explains where to look and how the pieces connect.
 ## Runtime Entrypoints
 
 - `main.py` delegates to `agentic_trader.cli:app` so `python main.py ...` and the installed `agentic-trader ...` command share the same command surface.
-- `agentic_trader/cli.py` is the main Typer command module. It owns operator commands, JSON payload builders for UI clients, Rich renderers, and root command dispatch.
+- `agentic_trader/cli.py` is the main Typer command module. It owns operator commands, JSON payload builders for UI clients, Rich renderers, root command dispatch, Training-mode diagnostic fallback for evaluation/backtest commands, and the schema-backed runtime-mode transition checklist.
 - `agentic_trader/tui.py` is the legacy/admin Rich control room. It remains useful for fallback workflows and manual operator menus.
 - `tui/index.mjs` is the primary Ink control room. It talks to Python through the installed CLI and read-only JSON payload commands.
 
 ## Orchestration
 
 - `agentic_trader/workflows/run_once.py` runs one strict agent cycle from market data or a prepared snapshot, persists stage traces, and emits progress callbacks.
-- `agentic_trader/workflows/service.py` wraps `run_once` in continuous/background orchestration, heartbeats, stop requests, lifecycle events, and daemon-friendly launch metadata.
+- `agentic_trader/workflows/service.py` wraps `run_once` in continuous/background orchestration, heartbeats, stop requests, lifecycle events, daemon-friendly launch metadata, and Operation-mode strict LLM readiness checks.
 - `agentic_trader/runtime_feed.py` writes small sidecar JSON feeds for status, events, stop requests, and chat history so UI surfaces can observe runtime state without owning DuckDB writer locks.
 - `agentic_trader/runtime_status.py` derives user-facing runtime status and agent activity views from persisted service state and events.
 
@@ -34,11 +34,11 @@ behavior, while this map explains where to look and how the pieces connect.
 ## Market, Memory, And Execution
 
 - `agentic_trader/market/data.py` fetches or reads cached OHLCV data and normalizes yfinance output.
-- `agentic_trader/market/features.py` computes the compact feature snapshot used by agents and fallbacks.
+- `agentic_trader/market/features.py` computes the compact feature snapshot plus the first Market Context Pack, which makes the configured lookback window visible through multi-horizon summaries, data-quality flags, coverage metadata, `as_of` timing, and fail-closed undercoverage checks for operation/runtime callers.
 - `agentic_trader/market/calendar.py` infers a lightweight market-session status for local runtime context.
 - `agentic_trader/market/news.py` defines the optional tool-driven news/event feed boundary.
 - `agentic_trader/memory/retrieval.py` retrieves historically similar runs for context injection.
-- `agentic_trader/memory/embeddings.py` owns the lightweight vector-style document and similarity helpers.
+- `agentic_trader/memory/embeddings.py` owns the lightweight vector-style document, embedding metadata, and similarity helpers.
 - `agentic_trader/memory/policy.py` defines which actors may write to which memory domains.
 - `agentic_trader/engine/guard.py` is the deterministic execution approval layer.
 - `agentic_trader/engine/broker.py` defines the broker adapter boundary.
@@ -47,9 +47,9 @@ behavior, while this map explains where to look and how the pieces connect.
 
 ## Persistence And Schemas
 
-- `agentic_trader/schemas.py` is the contract layer. Add new agent/runtime payload fields here before wiring them into storage or UI.
-- `agentic_trader/storage/db.py` is the DuckDB persistence boundary. It stores runs, orders, fills, service state/events, preferences, memory vectors, trade context, and journals.
-- `agentic_trader/config.py` centralizes environment-driven settings, runtime paths, provider routing, and directory setup.
+- `agentic_trader/schemas.py` is the contract layer. Add new agent/runtime payload fields here before wiring them into storage or UI. `MarketContextPack` lives here so agents, storage, dashboards, and future UI clients share the same lookback-truth contract.
+- `agentic_trader/storage/db.py` is the DuckDB persistence boundary. It stores runs, orders, fills, service state/events, preferences, memory vectors with embedding metadata, trade context, and journals.
+- `agentic_trader/config.py` centralizes environment-driven settings, runtime paths, runtime mode, provider routing, and directory setup.
 - `agentic_trader/ui_text.py` is the first shared UI text catalog. Put repeated operator-facing labels/prompts here instead of duplicating them across CLI, Rich, Ink, and future WebUI surfaces.
 
 ## QA And Developer Tooling

@@ -9,7 +9,76 @@
 
 ## Current Suggested Focus
 
-### 1. Daemon And Operator Surface Refinement
+### 1. Market Context Pack And Lookback Truth
+
+Make the configured `lookback` window visible, persisted, and reviewable.
+
+Current state:
+
+- first deterministic Market Context Pack exists
+- multi-horizon returns, volatility, drawdown, trend votes, range structure, data quality flags, and anomaly flags are computed
+- expected bars, analyzed bars, coverage, interval semantics, and window bounds are persisted
+- dashboard snapshot, observer API, trade context, run artifacts, memory documents, agent prompts, and Ink review surfaces can now see the pack
+- materially under-covered operation/runtime lookback windows now fail closed before agents are invoked
+- Training replay can intentionally keep growing-window undercoverage as a context-pack data quality flag
+
+Next desired shape:
+
+- add provider-specific QA cases for partial yfinance windows, intraday provider limits, non-datetime indexes, and higher-timeframe fallbacks
+- add compact context-pack rendering to any remaining Rich/admin paths that do not already show the raw persisted run artifact
+- connect future Training/Operation mode to context-pack verbosity and bar excerpt rules
+
+### 2. Training And Operation Modes
+
+Make runtime intent explicit instead of relying on informal workflow naming.
+
+Current state:
+
+- `training` and `operation` mode now exist in settings and service-state persistence
+- service-state migration preserves legacy rows with an `operation` default
+- status JSON, dashboard snapshots, observer API payloads, Rich status tables, and Ink overview/runtime pages expose the mode
+- Operation mode hard-blocks disabled strict LLM gating and still requires provider/model readiness for one-shot, launch, and service execution
+- Training mode can use diagnostic fallback only inside backtest/evaluation flows such as walk-forward, baseline comparison, and memory ablation
+- Market snapshots carry `as_of`, and backtest reports persist data-window plus first/last decision timestamps
+- `runtime-mode-checklist` emits a schema-backed transition plan and keeps mode changes out of chat/free-form side effects
+
+Next desired shape:
+
+- add QA smoke coverage for `runtime-mode-checklist` so CLI, Ink, and future WebUI consumers can rely on the transition contract
+- decide whether runtime mode should remain env-only or gain an explicit persisted operator profile after the checklist stabilizes
+
+### 3. Semantic Memory And Retrieval Quality
+
+Build on the current lightweight retrieval layer instead of replacing it.
+
+Current state:
+
+- memory vectors persist provider, model, version, and dimensionality metadata for migration compatibility
+- legacy memory-vector rows without metadata columns are migrated in place with local-hashing defaults
+- the active embedding scheme is still local-first hashed-token pseudo-embedding
+
+Desired direction:
+
+- replace hashed-token pseudo-embeddings with true local-first semantic embeddings behind a provider seam
+- keep backwards compatibility with existing lightweight vectors during migration
+- rank retrieval by semantic similarity, regime similarity, freshness, outcome weighting, and diversity
+- persist stage-level retrieval explanations so operators can see why specific memories were used
+- preserve trade-memory versus chat-memory write policies
+
+### 4. Terminal Regression QA And Evidence Bundles
+
+Turn the existing smoke harness into a broader product-surface regression tool.
+
+Desired direction:
+
+- keep the fast smoke path lightweight
+- map `.ai/qa/qa-scenarios.md` to deterministic pexpect flows
+- use fixed terminal size and stable artifact naming
+- capture JSON snapshots, service events, broker state, context-pack excerpts, keypress transcripts, and generated failure reports
+- add optional tmux pane dumps and asciinema recordings for visual TUI regressions
+- keep quality gates tiered so CI-safe checks, local interactive checks, and manual visual evidence can run separately
+
+### 5. Daemon And Operator Surface Refinement
 
 Keep the background runtime and the Ink control room aligned and more operationally complete.
 
@@ -19,11 +88,11 @@ Desired shape:
 - richer daemon supervision metadata such as launch counts, restart counts, terminal states, and log-tail visibility
 - richer Ink control-room parity with existing CLI and review surfaces
 - cleaner runtime attach / restart / stop workflows
-- clearer live visibility into stage progress and runtime outcomes
+- clearer live visibility into stage progress, context-pack usage, model calls, tool usage, safety gates, and runtime outcomes
 - observer-safe review and memory surfaces while the writer owns DuckDB
 - use `.ai/qa/qa-scenarios.md` for manual validation of daemon, monitor, and control-room changes
 
-### 2. Provider Adapter Foundation
+### 6. Provider Adapter Foundation
 
 The first provider boundary now exists. Continue from that adapter seam so future providers stay additive.
 
@@ -35,19 +104,7 @@ Desired shape:
 - keep strict runtime gating explicit per provider
 - add more provider-aware diagnostics before introducing a second provider
 
-### 3. Memory Layer Expansion
-
-Build on the current lightweight retrieval layer instead of replacing it.
-
-Desired direction:
-
-- richer retrieval summaries
-- memory write policy controls per role
-- stronger inspection and replay support
-- better persistence of what context each stage actually received
-- keep memory-policy visibility aligned across CLI and Ink surfaces
-
-### 4. Operator Surface Depth
+### 7. Operator Surface Depth
 
 Build on the new preset layer so the operator surface feels complete, not just inspectable.
 
@@ -57,13 +114,14 @@ Desired direction:
 - deepen the new structured agent activity and reasoning context beside chat transcripts
 - keep the Ink control room moving toward full parity with the older Rich admin surface
 
-### 5. Per-Trade Context Persistence
+### 8. Per-Trade Context Persistence
 
 The first persisted trade-context layer now exists. Keep building it into a richer review surface.
 
 Desired direction:
 
 - market snapshot summary
+- Market Context Pack summary
 - retrieved memory summary
 - routed model identity
 - specialist disagreements
@@ -71,7 +129,7 @@ Desired direction:
 - guard rejection reason
 - surface trade context cleanly in both CLI and Ink review flows
 
-### 6. CLI / TUI / Runtime Contract Consistency
+### 9. CLI / TUI / Runtime Contract Consistency
 
 Keep all operator surfaces aligned with the same underlying runtime and status truth.
 
@@ -81,7 +139,7 @@ Desired direction:
 - defer full localization until operator flows stabilize, but avoid adding new scattered duplicate labels
 - keep pyright, ruff, pytest, and smoke QA green as surface contracts evolve
 
-### 7. Future External Provider Readiness
+### 10. Future External Provider Readiness
 
 Prepare for future support of remote providers without making the project cloud-first.
 
@@ -92,7 +150,7 @@ Requirements:
 - diagnostic-only failure behavior
 - no hidden fallback trade generation
 
-### 8. Live Adapter Readiness
+### 11. Live Adapter Readiness
 
 The broker boundary now exists. Keep live execution preparation explicit and guarded.
 
@@ -103,7 +161,7 @@ Desired direction:
 - surface broker backend, kill-switch, and readiness state in every operator surface
 - add one real live adapter only after paper evaluation quality is stable
 
-### 9. Observer API And WebUI Readiness
+### 12. Observer API And WebUI Readiness
 
 The first local observer API now exists. Keep it small, read-only, and aligned with the dashboard contract.
 
@@ -114,7 +172,7 @@ Desired direction:
 - reuse dashboard/status/log/broker contracts across Ink, CLI, and future web surfaces
 - avoid introducing a second runtime state system for web consumers
 
-### 10. Quality Workflow
+### 13. Quality Workflow
 
 The QA docs now exist and should stay in sync with the product.
 
@@ -125,6 +183,8 @@ Desired direction:
 - use `python scripts/qa/smoke_qa.py --include-quality` when code-quality checks should travel with terminal smoke evidence
 - use `python scripts/qa/smoke_qa.py --include-quality --include-sonar` for the full local QA gate; this now emits coverage XML and submits it to SonarQube without writing the token to artifacts
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
+- add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
+- keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
 - keep the automated test command in `AGENTS.md` current with the project environment
 - next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate

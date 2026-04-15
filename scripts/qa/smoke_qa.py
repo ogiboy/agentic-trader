@@ -77,22 +77,40 @@ def _coverage_path(context: SmokeContext) -> Path:
 
 def _command_display(command: list[str]) -> str:
     """
-    Format a command list into a single space-separated string suitable for logging or display.
-    
-    Parameters:
-        command (list[str]): Sequence of the executable and its arguments.
+    Format a command and its arguments as a single space-separated string for display.
     
     Returns:
-        display (str): The command elements joined with single spaces.
+        The command elements joined into a single space-separated string.
     """
     return " ".join(command)
 
 
+def _resolve_agentic_trader_executable() -> str | None:
+    """
+    Locate the `agentic-trader` executable, preferring a copy next to the running Python interpreter, then in the active conda environment's bin directory, and finally on the system PATH.
+    
+    Returns:
+        The filesystem path to an executable `agentic-trader` as a string if one is found and executable, or `None` if no suitable executable is found.
+    """
+    candidates: list[Path] = [Path(sys.executable).with_name("agentic-trader")]
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        candidates.append(Path(conda_prefix) / "bin" / "agentic-trader")
+    which_path = shutil.which("agentic-trader")
+    if which_path is not None:
+        candidates.append(Path(which_path))
+    for candidate in candidates:
+        if candidate.exists() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
 def _write_artifact(path: Path, content: str) -> None:
     """
-    Write the given text content to the specified file using UTF-8 encoding.
+    Write text content to a file, creating or overwriting it.
     
-    The file at `path` is created or overwritten; encoding errors are handled by replacing invalid characters.
+    The file is written using UTF-8 encoding; encoding errors are handled by replacing invalid characters.
+    
     Parameters:
         path (Path): Destination file path to write the artifact to.
         content (str): Text content to write.
@@ -123,21 +141,23 @@ def run_command_capture(
     display: str | None = None,
 ) -> CheckResult:
     """
-    Run a subprocess command, capture its output to an artifact, and produce a CheckResult summarizing success or failure.
+    Run a command, record its stdout/stderr and metadata to a per-check artifact, and return a CheckResult describing success or failure.
     
     Parameters:
-        context (SmokeContext): Context containing artifacts directory where per-check logs are written.
-        name (str): Short name used to name the artifact file and the resulting CheckResult.
+        context (SmokeContext): Context whose artifacts_dir is used to write the per-check log.
+        name (str): Short identifier used to name the artifact and the resulting CheckResult.
         command (list[str]): Command and arguments to execute.
-        timeout (int): Seconds to wait before killing the command (default 30).
+        timeout (int): Seconds to wait before terminating the command.
         require_json_stdout (bool): If True, the check also requires that stdout parses as JSON.
         display (str | None): Human-friendly command string to record in the artifact; if None the command list is joined.
     
     Returns:
-        CheckResult: Result for the check. The result's `passed` is True only if the process exit code is 0, the combined stdout/stderr contains no traceback markers, and (when requested) stdout is valid JSON. The `details` field includes `exit_code=<n>` and, when applicable, `invalid_json=<error>`. An artifact file containing the command, cwd, exit code, stdout, stderr, and JSON errors (if any) is written and its path is set in the `artifact` field.
+        CheckResult: Contains the check name, whether it passed, human-readable details, and the artifact path.
+            `passed` is True only if the process exit code is 0, the combined stdout/stderr contains no traceback markers, and (when requested) stdout is valid JSON.
+            `details` includes `exit_code=<n>` and, when JSON parsing fails, `invalid_json=<error>`.
     
-    Side effects:
-        Writes a per-check log file in the context's artifacts directory. If an exception occurs while running the command, an artifact is written containing the exception and a failing CheckResult is returned.
+    Notes:
+        On exception while running the subprocess, an artifact is written containing the exception and a failing CheckResult is returned.
     """
     artifact = _artifact_path(context, name)
     display_command = display or _command_display(command)
@@ -190,6 +210,82 @@ def run_command_capture(
         name=name,
         passed=passed,
         details=details,
+        artifact=str(artifact),
+    )
+
+
+def run_dashboard_contract_check(
+    context: SmokeContext, command: list[str], *, timeout: int = 30
+) -> CheckResult:
+    """
+    Validate dashboard JSON fields that operator surfaces rely on.
+
+    This lightweight contract check intentionally tolerates an empty runtime
+    database, but it fails if the dashboard payload drops the runtime-mode or
+    market-context sections that newer CLI, Ink, and observer surfaces consume.
+    """
+    name = "dashboard_contract"
+    artifact = _artifact_path(context, name)
+    display_command = _command_display(command)
+    issues: list[str] = []
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+        payload = json.loads(proc.stdout or "{}")
+    except Exception as exc:
+        _write_artifact(artifact, f"$ {display_command}\n\nEXCEPTION:\n{exc}\n")
+        return CheckResult(
+            name=name,
+            passed=False,
+            details=f"exception={exc}",
+            artifact=str(artifact),
+        )
+
+    if proc.returncode != 0:
+        issues.append(f"exit_code={proc.returncode}")
+    if not isinstance(payload.get("doctor"), dict):
+        issues.append("missing doctor object")
+    elif "runtime_mode" not in payload["doctor"]:
+        issues.append("doctor.runtime_mode missing")
+    if not isinstance(payload.get("status"), dict):
+        issues.append("missing status object")
+    elif "runtime_mode" not in payload["status"]:
+        issues.append("status.runtime_mode missing")
+    if not isinstance(payload.get("marketContext"), dict):
+        issues.append("marketContext section missing")
+    else:
+        market_context = payload["marketContext"]
+        if "contextPack" not in market_context:
+            issues.append("marketContext.contextPack missing")
+        else:
+            context_pack = market_context["contextPack"]
+            if context_pack is not None and not isinstance(context_pack, dict):
+                issues.append("marketContext.contextPack has unexpected type")
+            elif isinstance(context_pack, dict):
+                for field in ("summary", "bars_analyzed", "horizons"):
+                    if field not in context_pack:
+                        issues.append(f"marketContext.contextPack.{field} missing")
+
+    _write_artifact(
+        artifact,
+        (
+            f"$ {display_command}\n"
+            f"cwd: {REPO_ROOT}\n"
+            f"issues: {json.dumps(issues, indent=2)}\n\n"
+            f"STDOUT:\n{proc.stdout}\n\n"
+            f"STDERR:\n{proc.stderr}"
+        ),
+    )
+    return CheckResult(
+        name=name,
+        passed=not issues and not _output_has_traceback(proc.stdout + proc.stderr),
+        details="contract_ok" if not issues else "; ".join(issues),
         artifact=str(artifact),
     )
 
@@ -505,16 +601,21 @@ def _fail_result(context: SmokeContext, name: str, details: str) -> CheckResult:
 
 def _require_executable(context: SmokeContext, name: str) -> CheckResult | None:
     """
-    Ensure the named executable is present on the system PATH, writing a missing-artifact and returning a failing CheckResult if it is not.
+    Verify that a required executable is available and record a failing artifact if it is not.
+    
+    Checks availability of `name`; for `"agentic-trader"` it uses the resolver that checks next to the Python interpreter, the active conda prefix, and PATH, otherwise it uses `shutil.which`. If the executable is missing, writes `<name>_missing.log` into the artifacts directory and returns a failing CheckResult describing the missing executable.
     
     Parameters:
-        context (SmokeContext): Context containing the artifacts directory where a missing-executable log will be written.
-        name (str): The executable name to look up on PATH.
+        context (SmokeContext): Context containing the artifacts directory for written diagnostics.
+        name (str): The executable name to verify.
     
     Returns:
-        None if the executable is found; otherwise a failing CheckResult with details about the missing executable and the path to the written artifact.
+        None if the executable was found; a failing CheckResult with `details` and `artifact` when it is not.
     """
-    if shutil.which(name) is not None:
+    if name == "agentic-trader":
+        if _resolve_agentic_trader_executable() is not None:
+            return None
+    elif shutil.which(name) is not None:
         return None
     artifact = _artifact_path(context, f"{name}_missing")
     _write_artifact(artifact, f"Executable not found on PATH: {name}\n")
@@ -544,7 +645,7 @@ def _write_summary(context: SmokeContext, results: list[CheckResult]) -> Path:
         "repo_root": str(REPO_ROOT),
         "artifacts_dir": str(context.artifacts_dir),
         "python": sys.executable,
-        "agentic_trader_path": shutil.which("agentic-trader"),
+        "agentic_trader_path": _resolve_agentic_trader_executable(),
         "results": [asdict(result) for result in results],
     }
     summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -619,75 +720,93 @@ def _surface_checks(context: SmokeContext) -> list[CheckResult]:
         list[CheckResult]: Ordered list of results for each performed check (availability, CLI checks, TUI checks, and the Python TUI).
     """
     results: list[CheckResult] = []
+    agentic_trader_executable = _resolve_agentic_trader_executable()
     missing_agentic_trader = _require_executable(context, "agentic-trader")
     if missing_agentic_trader is not None:
         results.append(missing_agentic_trader)
     else:
+        assert agentic_trader_executable is not None
         results.extend(
             [
                 run_command_capture(
                     context,
                     "doctor",
-                    ["agentic-trader", "doctor"],
+                    [agentic_trader_executable, "doctor"],
                 ),
                 run_command_capture(
                     context,
                     "dashboard_snapshot",
-                    ["agentic-trader", "dashboard-snapshot"],
+                    [agentic_trader_executable, "dashboard-snapshot"],
+                    require_json_stdout=True,
+                ),
+                run_dashboard_contract_check(
+                    context,
+                    [agentic_trader_executable, "dashboard-snapshot"],
+                ),
+                run_command_capture(
+                    context,
+                    "runtime_mode_checklist_json",
+                    [
+                        agentic_trader_executable,
+                        "runtime-mode-checklist",
+                        "operation",
+                        "--json",
+                        "--skip-provider-check",
+                    ],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "status_json",
-                    ["agentic-trader", "status", "--json"],
+                    [agentic_trader_executable, "status", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "broker_status_json",
-                    ["agentic-trader", "broker-status", "--json"],
+                    [agentic_trader_executable, "broker-status", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "supervisor_status_json",
-                    ["agentic-trader", "supervisor-status", "--json"],
+                    [agentic_trader_executable, "supervisor-status", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "logs_json",
-                    ["agentic-trader", "logs", "--json", "--limit", "5"],
+                    [agentic_trader_executable, "logs", "--json", "--limit", "5"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "preferences_json",
-                    ["agentic-trader", "preferences", "--json"],
+                    [agentic_trader_executable, "preferences", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "portfolio_json",
-                    ["agentic-trader", "portfolio", "--json"],
+                    [agentic_trader_executable, "portfolio", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(
                     context,
                     "memory_policy_json",
-                    ["agentic-trader", "memory-policy", "--json"],
+                    [agentic_trader_executable, "memory-policy", "--json"],
                     require_json_stdout=True,
                 ),
                 run_tui_open_and_quit(
                     context,
                     "main_entrypoint_tui",
-                    "agentic-trader",
+                    agentic_trader_executable,
                     [],
                 ),
                 run_tui_open_and_quit(
                     context,
                     "rich_menu",
-                    "agentic-trader",
+                    agentic_trader_executable,
                     ["menu"],
                 ),
             ]

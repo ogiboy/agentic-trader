@@ -54,6 +54,7 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
     settings.ensure_directories()
 
     state = {"entered": False}
+    observed_as_of: list[str | None] = []
 
     def _fake_run_from_snapshot(
         *,
@@ -76,6 +77,7 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
         Returns:
             RunArtifacts: Test artifacts including coordinator, regime, strategy, risk, manager, execution, and review. On first call, `execution.approved` is `True` with `side == "buy"` and risk/take-profit/stop-loss derived from `snapshot.last_close`; on subsequent calls, `execution.approved` is `False` with `side == "hold"`.
         """
+        observed_as_of.append(snapshot.as_of)
         if not state["entered"]:
             state["entered"] = True
             strategy = StrategyPlan(
@@ -186,9 +188,24 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
     assert report.win_rate == pytest.approx(1.0)
     assert report.ending_equity > report.starting_equity
     assert report.trades[0].exit_reason in {"take_profit", "end_of_data"}
+    frame = _frame()
+    assert observed_as_of[0] == frame.index[60].isoformat()
+    assert observed_as_of[-1] == frame.index[-1].isoformat()
+    assert report.data_start_at == frame.index[0].isoformat()
+    assert report.data_end_at == frame.index[-1].isoformat()
+    assert report.first_decision_at == frame.index[60].isoformat()
+    assert report.last_decision_at == frame.index[-1].isoformat()
 
 
 def test_deterministic_baseline_backtest_returns_metrics(tmp_path: Path) -> None:
+    """
+    Test that the deterministic baseline backtest produces expected cycle count, positive ending equity, and correct data range timestamps.
+    
+    Runs run_deterministic_baseline_backtest using a synthetic OHLCV frame and asserts:
+    - total_cycles equals 40,
+    - ending_equity is greater than 0,
+    - data_start_at and data_end_at match the first and last timestamps of the input frame (ISO format).
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -207,6 +224,9 @@ def test_deterministic_baseline_backtest_returns_metrics(tmp_path: Path) -> None
 
     assert report.total_cycles == 40
     assert report.ending_equity > 0
+    frame = _frame()
+    assert report.data_start_at == frame.index[0].isoformat()
+    assert report.data_end_at == frame.index[-1].isoformat()
 
 
 def test_backtest_comparison_reports_deltas(

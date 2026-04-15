@@ -25,10 +25,37 @@ class ServiceCycleResult:
 
 
 def _stop_requested(db: TradingDatabase) -> bool:
+    """
+    Check whether a stop of the service has been requested.
+    
+    Returns:
+        True if a stop has been requested via settings or the persisted service state, False otherwise.
+    """
     if stop_requested(db.settings):
         return True
     state = db.get_service_state()
     return bool(state and state.stop_requested)
+
+
+def _is_nonfatal_symbol_error(exc: Exception) -> bool:
+    """
+    Determine whether an exception represents a non-fatal symbol-level market-data error.
+    
+    Inspect the exception message and classify it as non-fatal when it indicates missing or incomplete market data.
+    
+    Parameters:
+        exc (Exception): The exception whose message will be inspected.
+    
+    Returns:
+        bool: `True` if the exception message describes symbol-scoped data absence, invalid market data, or lookback undercoverage; `False` otherwise.
+    """
+    message = str(exc)
+    return (
+        message.startswith("No market data returned for ")
+        or message.startswith("Missing columns from market data:")
+        or "coverage is too thin" in message
+        or "Refusing to run agents" in message
+    )
 
 
 def _manage_open_position(
@@ -38,6 +65,18 @@ def _manage_open_position(
     artifacts: RunArtifacts,
     cycle_count: int,
 ) -> str | None:
+    """
+    Close an open position for the given symbol when its position plan indicates an exit and record the closure.
+    
+    If a non-zero position and a corresponding position plan exist, increments the plan's holding bars, re-evaluates exit conditions against the latest plan and snapshot, and when an exit is required uses the broker to close the position and records a `position_closed` service event.
+    
+    Parameters:
+        artifacts (RunArtifacts): Run artifacts containing the snapshot with the symbol to check.
+        cycle_count (int): Current service cycle number to attach to the recorded event.
+    
+    Returns:
+        str | None: The broker order id for the exit if a position was closed, `None` otherwise.
+    """
     position = db.get_position(artifacts.snapshot.symbol)
     if position is None or position.quantity == 0:
         return None
@@ -66,17 +105,19 @@ def _manage_open_position(
 
 def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
     """
-    Verify the local LLM service is reachable and, when configured, that the required model is available.
+    Ensure the local LLM service is reachable and, if configured, that the required model is available.
     
     Parameters:
-        settings (Settings): Application settings; `strict_llm` controls whether missing models cause failure.
+        settings (Settings): Application settings. When `settings.runtime_mode == "operation"`, `settings.strict_llm` must be True.
     
     Returns:
         LLMHealthStatus: Health report returned by the local LLM.
     
     Raises:
-        RuntimeError: If the LLM service is not reachable (message from health), or if `settings.strict_llm` is true and the required model is not available (message from health).
+        RuntimeError: If operation mode is configured without `strict_llm`, if the LLM service is not reachable (message provided by the health check), or if `strict_llm` is True but the required model is unavailable (message provided by the health check).
     """
+    if settings.runtime_mode == "operation" and not settings.strict_llm:
+        raise RuntimeError("Operation mode requires strict LLM gating.")
     health = LocalLLM(settings).health_check()
     if not health.service_reachable:
         raise RuntimeError(health.message)
@@ -172,6 +213,8 @@ def run_service(
 
     cycle_results: list[ServiceCycleResult] = []
     cycle_count = 0
+    cycle_had_nonfatal_failure = False
+    run_had_nonfatal_failure = False
     try:
         while True:
             if _stop_requested(db):
@@ -216,6 +259,7 @@ def run_service(
                 message=f"Cycle {cycle_count} started for {len(symbols)} symbol(s).",
                 cycle_count=cycle_count,
             )
+            cycle_had_nonfatal_failure = False
             for symbol in symbols:
 
                 def _progress(
@@ -226,14 +270,14 @@ def run_service(
                     cycle_number: int = cycle_count,
                 ) -> None:
                     """
-                    Update persisted service state for the current symbol and record a corresponding informational service event.
+                    Persist the current symbol's progress in service state and record a corresponding informational service event.
                     
                     Parameters:
                     	stage (str): High-level agent stage name (e.g., "planning", "execution").
                     	status (str): Stage status label (e.g., "started", "finished", "failed").
                     	message (str): Human-readable message describing the current progress or status.
-                    	current_symbol (str): Symbol currently being processed; defaults to the loop-bound symbol.
-                    	cycle_number (int): Cycle number bound when this callback is created.
+                    	current_symbol (str): Symbol being processed; defaults to the loop-bound symbol.
+                    	cycle_number (int): Cycle number captured when the callback was created.
                     """
                     db.upsert_service_state(
                         state="running",
@@ -269,14 +313,42 @@ def run_service(
                     message=f"Processing {symbol} in cycle {cycle_count}.",
                     pid=os.getpid(),
                 )
-                artifacts = run_once(
-                    settings=settings,
-                    symbol=symbol,
-                    interval=interval,
-                    lookback=lookback,
-                    allow_fallback=False,
-                    progress_callback=_progress,
-                )
+                try:
+                    artifacts = run_once(
+                        settings=settings,
+                        symbol=symbol,
+                        interval=interval,
+                        lookback=lookback,
+                        allow_fallback=False,
+                        progress_callback=_progress,
+                    )
+                except Exception as exc:
+                    if _is_nonfatal_symbol_error(exc):
+                        cycle_had_nonfatal_failure = True
+                        run_had_nonfatal_failure = True
+                        db.upsert_service_state(
+                            state="running",
+                            continuous=continuous,
+                            poll_seconds=poll_seconds,
+                            cycle_count=cycle_count,
+                            symbols=symbols,
+                            interval=interval,
+                            lookback=lookback,
+                            max_cycles=max_cycles,
+                            current_symbol=None,
+                            message=f"Skipped {symbol}: {exc}",
+                            last_error=str(exc),
+                            pid=os.getpid(),
+                        )
+                        db.insert_service_event(
+                            level="warning",
+                            event_type="symbol_skipped",
+                            message=str(exc),
+                            cycle_count=cycle_count,
+                            symbol=symbol,
+                        )
+                        continue
+                    raise
                 exit_order_id = _manage_open_position(
                     db=db,
                     broker=broker,
@@ -357,8 +429,28 @@ def run_service(
                 _record_cycle_completed_mark(db, cycle_count)
                 break
             _record_cycle_completed_mark(db, cycle_count)
+            if cycle_had_nonfatal_failure:
+                db.upsert_service_state(
+                    state="running",
+                    continuous=continuous,
+                    poll_seconds=poll_seconds,
+                    cycle_count=cycle_count,
+                    symbols=symbols,
+                    interval=interval,
+                    lookback=lookback,
+                    max_cycles=max_cycles,
+                    current_symbol=None,
+                    message=f"Cycle {cycle_count} completed with one or more skipped symbols.",
+                    last_error="One or more symbols were skipped because market data was unavailable.",
+                    pid=os.getpid(),
+                )
             time.sleep(poll_seconds)
 
+        completed_last_error = (
+            "One or more symbols were skipped because market data was unavailable."
+            if run_had_nonfatal_failure
+            else None
+        )
         db.upsert_service_state(
             state="completed",
             continuous=continuous,
@@ -369,14 +461,27 @@ def run_service(
             lookback=lookback,
             max_cycles=max_cycles,
             current_symbol=None,
-            message=f"Orchestrator completed after {cycle_count} cycle(s).",
+            message=(
+                f"Orchestrator completed after {cycle_count} cycle(s)."
+                if not run_had_nonfatal_failure
+                else (
+                    f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
+                )
+            ),
+            last_error=completed_last_error,
             pid=os.getpid(),
             stop_requested=False,
         )
         db.insert_service_event(
             level="info",
             event_type="service_completed",
-            message=f"Orchestrator completed after {cycle_count} cycle(s).",
+            message=(
+                f"Orchestrator completed after {cycle_count} cycle(s)."
+                if not run_had_nonfatal_failure
+                else (
+                    f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
+                )
+            ),
             cycle_count=cycle_count,
         )
     except Exception as exc:
