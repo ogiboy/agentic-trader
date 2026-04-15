@@ -125,7 +125,17 @@ def build_agent_context(
 
 
 def render_agent_context(context: AgentContext, *, task: str) -> str:
-    """Render an AgentContext into the prompt text format used by local LLM calls."""
+    """
+    Render an AgentContext into a newline-delimited prompt string with labeled sections.
+    
+    The output contains labeled blocks including: Role, Routed Model, Task, Market Context Pack (serialized if present, otherwise a fixed message), Market Snapshot (serialized excluding the `context_pack` field), Operator Preferences, Portfolio Snapshot, and optional sections for Market Session, Runtime State, Recent Runs, Trade Memory, Retrieved Similar Memories, Confidence Calibration, Shared Memory Bus, Tool Outputs, and Upstream Context.
+    
+    Parameters:
+        task (str): The task text placed under the "Task:" header.
+    
+    Returns:
+        str: The assembled prompt string containing the labeled sections.
+    """
     sections = [
         f"Role: {context.role}",
         f"Routed Model: {context.model_name}",

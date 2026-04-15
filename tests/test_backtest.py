@@ -198,6 +198,14 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
 
 
 def test_deterministic_baseline_backtest_returns_metrics(tmp_path: Path) -> None:
+    """
+    Test that the deterministic baseline backtest produces expected cycle count, positive ending equity, and correct data range timestamps.
+    
+    Runs run_deterministic_baseline_backtest using a synthetic OHLCV frame and asserts:
+    - total_cycles equals 40,
+    - ending_equity is greater than 0,
+    - data_start_at and data_end_at match the first and last timestamps of the input frame (ISO format).
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

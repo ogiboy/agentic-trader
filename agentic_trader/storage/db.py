@@ -50,10 +50,10 @@ RUNTIME_MODE_VALUES = set(get_args(RuntimeMode))
 
 def _str_or_none(value: Any) -> str | None:
     """
-    Convert a value to its string representation, returning None when the input is None.
+    Return the string representation of value, or None when value is None.
     
     Returns:
-        str | None: The string form of `value`, or `None` if `value` is `None`.
+        `str` if `value` is not `None`, `None` otherwise.
     """
     return str(value) if value is not None else None
 
@@ -236,12 +236,11 @@ class TradingDatabase:
         """
         Create and migrate the database schema and ensure required seed rows exist.
         
-        Creates all application tables if missing (runs, orders, account_state, positions, fills,
-        position_plans, preferences, account_marks, trade_journal, trade_contexts, service_state,
-        service_events, operator_chat_history, memory_vectors) and performs schema migration for
-        service_state by adding any missing columns introduced by newer versions. After schema
-        creation/migration, ensures a paper account row exists in account_state and a default
-        preferences profile is present, inserting seed rows when absent.
+        Creates any missing application tables and performs lightweight migrations for evolving schemas
+        (e.g., adding columns to `service_state` and `memory_vectors` when introduced in newer versions).
+        After schema creation/migration, ensures a `paper` account row exists in `account_state` (inserting it
+        with the configured default cash when absent) and ensures a default preferences profile exists
+        (inserting a default `InvestmentPreferences()` when absent).
         """
         self.conn.execute(
             """
@@ -733,6 +732,17 @@ class TradingDatabase:
         created_at: str | None = None,
         actor: MemoryActor = "system_runtime",
     ) -> None:
+        """
+        Persist embedding and document data for a run into the memory_vectors table, inserting a new row or updating an existing one by run_id.
+        
+        This call enforces memory write authorization, computes embedding metadata and artifact embeddings, and stores provider/model metadata, embedding dimensions, embedding JSON, and a plain-text document for the given run. If created_at is not provided, the current UTC ISO timestamp is used.
+        
+        Parameters:
+            run_id (str): Unique identifier for the run whose memory vector is being stored.
+            artifacts (RunArtifacts): Run artifacts used to build the embedding and document payloads.
+            created_at (str | None): ISO-formatted timestamp to record for the vector; defaults to current UTC time when None.
+            actor (MemoryActor): Actor name used for authorization checks (e.g., "system_runtime").
+        """
         assert_memory_write_allowed("trade_memory", actor)
         metadata = embedding_metadata()
         self.conn.execute(
@@ -987,6 +997,19 @@ class TradingDatabase:
         run_id: str | None,
         artifacts: RunArtifacts,
     ) -> None:
+        """
+        Persist a trade context assembled from a run's artifacts into the `trade_contexts` table.
+        
+        Builds a TradeContextRecord from `artifacts` and `run_id`, extracting:
+        - routed model names per trace,
+        - up to five entries each of `retrieved_memories`, `tool_outputs`, and `shared_memory_bus` summaries per trace (skips traces with invalid JSON or non-dict context),
+        and includes market snapshot, context pack, manager/execution/review fields. The constructed record is serialized to JSON and upserted by `trade_id` into the `trade_contexts` table.
+        
+        Parameters:
+            trade_id (str): Identifier for the trade context (used as the upsert key).
+            run_id (str | None): Optional run identifier associated with this context.
+            artifacts (RunArtifacts): Run artifacts containing `agent_traces`, `snapshot`, and manager/execution/review data.
+        """
         routed_models: dict[str, str] = {}
         retrieved_memory_summary: dict[str, list[str]] = {}
         tool_outputs: dict[str, list[str]] = {}
@@ -1277,31 +1300,14 @@ class TradingDatabase:
         stderr_log_path: str | None = None,
     ) -> None:
         """
-        Update or insert the runtime state snapshot for a named service and persist it to storage.
+        Update or insert the persisted runtime snapshot for a named service.
         
-        Upserts a service-state row keyed by `service_name`, merges provided fields with any existing state (preserving omitted values), computes terminal-state markers when appropriate, and writes a mirrored service state snapshot via write_service_state.
+        Merges provided fields with any existing stored snapshot (preserving omitted values), resolves runtime-mode and other defaults, updates terminal-state markers when the new state is terminal, ensures `started_at` is set when appropriate, writes the resolved row into the database, and emits a mirrored ServiceStateSnapshot via write_service_state.
         
         Parameters:
-            service_name (str): The unique service identifier (default "orchestrator").
-            state (str): New service state (e.g., "starting", "running", "stopped").
-            runtime_mode (RuntimeMode | None): Training/operation mode for the runtime; if None, preserves existing or uses settings.
-            continuous (bool): Whether the service runs continuously.
-            poll_seconds (int | None): Poll interval in seconds for periodic services, or None.
-            cycle_count (int): Current execution cycle counter.
-            symbols (list[str] | None): Active symbol list; if None, existing symbols are preserved.
-            interval (str | None): Trading/data interval (e.g., "1m", "1h"), or None.
-            lookback (str | None): Lookback specification for historical data, or None.
-            max_cycles (int | None): Maximum cycles permitted for the service, or None.
-            current_symbol (str | None): Symbol currently being processed, or None.
-            message (str): Human-readable status or message associated with the state.
-            last_error (str | None): Last error message, if any.
-            pid (int | None): Process ID associated with the running service, or None.
-            stop_requested (bool | None): Explicit stop request flag; if None, preserves existing.
-            background_mode (bool | None): Whether the service is running in background mode; if None, preserves existing.
-            launch_count (int | None): Number of times the service has been launched; if None, preserves existing.
-            restart_count (int | None): Number of restarts; if None, preserves existing.
-            stdout_log_path (str | None): Path to stdout log file, or None.
-            stderr_log_path (str | None): Path to stderr log file, or None.
+            runtime_mode: If provided, sets the service's runtime mode; if `None`, preserves the existing runtime mode or falls back to settings.
+            symbols: If provided, replaces the stored symbol list; if `None`, preserves existing symbols (or `[]` when no existing snapshot).
+            stop_requested: If provided, sets the explicit stop request flag; if `None`, preserves the existing flag.
         """
         now = datetime.now(timezone.utc).isoformat()
         existing = self.get_service_state(service_name)
@@ -1454,13 +1460,13 @@ class TradingDatabase:
         self, service_name: str = "orchestrator"
     ) -> ServiceStateSnapshot | None:
         """
-        Load the persisted service state snapshot for the given service name.
+        Retrieve the persisted service state snapshot for the named service.
         
         Parameters:
-            service_name (str): Name of the service to retrieve (defaults to "orchestrator").
+            service_name (str): Service identifier to fetch (defaults to "orchestrator").
         
         Returns:
-            ServiceStateSnapshot | None: The deserialized service state snapshot for the service, or `None` if no row exists.
+            ServiceStateSnapshot | None: The service's snapshot if present, or `None` when no persisted state exists.
         """
         row = self.conn.execute(
             """

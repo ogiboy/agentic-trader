@@ -77,24 +77,20 @@ def _coverage_path(context: SmokeContext) -> Path:
 
 def _command_display(command: list[str]) -> str:
     """
-    Format a command list into a single space-separated string suitable for logging or display.
-    
-    Parameters:
-        command (list[str]): Sequence of the executable and its arguments.
+    Format a command and its arguments as a single space-separated string for display.
     
     Returns:
-        display (str): The command elements joined with single spaces.
+        The command elements joined into a single space-separated string.
     """
     return " ".join(command)
 
 
 def _resolve_agentic_trader_executable() -> str | None:
     """
-    Resolve the `agentic-trader` executable from the current interpreter environment.
-
-    Prefer the executable next to `sys.executable`, then the active conda prefix,
-    and finally whatever is on PATH. This avoids accidentally testing a stale
-    global install when the repo is being exercised from an isolated env.
+    Locate the `agentic-trader` executable, preferring a copy next to the running Python interpreter, then in the active conda environment's bin directory, and finally on the system PATH.
+    
+    Returns:
+        The filesystem path to an executable `agentic-trader` as a string if one is found and executable, or `None` if no suitable executable is found.
     """
     candidates: list[Path] = [Path(sys.executable).with_name("agentic-trader")]
     conda_prefix = os.environ.get("CONDA_PREFIX")
@@ -111,9 +107,10 @@ def _resolve_agentic_trader_executable() -> str | None:
 
 def _write_artifact(path: Path, content: str) -> None:
     """
-    Write the given text content to the specified file using UTF-8 encoding.
+    Write text content to a file, creating or overwriting it.
     
-    The file at `path` is created or overwritten; encoding errors are handled by replacing invalid characters.
+    The file is written using UTF-8 encoding; encoding errors are handled by replacing invalid characters.
+    
     Parameters:
         path (Path): Destination file path to write the artifact to.
         content (str): Text content to write.
@@ -144,21 +141,23 @@ def run_command_capture(
     display: str | None = None,
 ) -> CheckResult:
     """
-    Run a subprocess command, capture its output to an artifact, and produce a CheckResult summarizing success or failure.
+    Run a command, record its stdout/stderr and metadata to a per-check artifact, and return a CheckResult describing success or failure.
     
     Parameters:
-        context (SmokeContext): Context containing artifacts directory where per-check logs are written.
-        name (str): Short name used to name the artifact file and the resulting CheckResult.
+        context (SmokeContext): Context whose artifacts_dir is used to write the per-check log.
+        name (str): Short identifier used to name the artifact and the resulting CheckResult.
         command (list[str]): Command and arguments to execute.
-        timeout (int): Seconds to wait before killing the command (default 30).
+        timeout (int): Seconds to wait before terminating the command.
         require_json_stdout (bool): If True, the check also requires that stdout parses as JSON.
         display (str | None): Human-friendly command string to record in the artifact; if None the command list is joined.
     
     Returns:
-        CheckResult: Result for the check. The result's `passed` is True only if the process exit code is 0, the combined stdout/stderr contains no traceback markers, and (when requested) stdout is valid JSON. The `details` field includes `exit_code=<n>` and, when applicable, `invalid_json=<error>`. An artifact file containing the command, cwd, exit code, stdout, stderr, and JSON errors (if any) is written and its path is set in the `artifact` field.
+        CheckResult: Contains the check name, whether it passed, human-readable details, and the artifact path.
+            `passed` is True only if the process exit code is 0, the combined stdout/stderr contains no traceback markers, and (when requested) stdout is valid JSON.
+            `details` includes `exit_code=<n>` and, when JSON parsing fails, `invalid_json=<error>`.
     
-    Side effects:
-        Writes a per-check log file in the context's artifacts directory. If an exception occurs while running the command, an artifact is written containing the exception and a failing CheckResult is returned.
+    Notes:
+        On exception while running the subprocess, an artifact is written containing the exception and a failing CheckResult is returned.
     """
     artifact = _artifact_path(context, name)
     display_command = display or _command_display(command)
@@ -596,14 +595,16 @@ def _fail_result(context: SmokeContext, name: str, details: str) -> CheckResult:
 
 def _require_executable(context: SmokeContext, name: str) -> CheckResult | None:
     """
-    Ensure the named executable is present on the system PATH, writing a missing-artifact and returning a failing CheckResult if it is not.
+    Verify that a required executable is available and record a failing artifact if it is not.
+    
+    Checks availability of `name`; for `"agentic-trader"` it uses the resolver that checks next to the Python interpreter, the active conda prefix, and PATH, otherwise it uses `shutil.which`. If the executable is missing, writes `<name>_missing.log` into the artifacts directory and returns a failing CheckResult describing the missing executable.
     
     Parameters:
-        context (SmokeContext): Context containing the artifacts directory where a missing-executable log will be written.
-        name (str): The executable name to look up on PATH.
+        context (SmokeContext): Context containing the artifacts directory for written diagnostics.
+        name (str): The executable name to verify.
     
     Returns:
-        None if the executable is found; otherwise a failing CheckResult with details about the missing executable and the path to the written artifact.
+        None if the executable was found; a failing CheckResult with `details` and `artifact` when it is not.
     """
     if name == "agentic-trader":
         if _resolve_agentic_trader_executable() is not None:

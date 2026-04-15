@@ -68,6 +68,11 @@ def test_build_snapshot_computes_higher_timeframe_alignment() -> None:
 
 
 def test_build_snapshot_fails_when_lookback_is_materially_undercovered() -> None:
+    """
+    Verify build_snapshot raises a ValueError when the requested lookback window is materially undercovered.
+    
+    Asserts the raised ValueError's message contains the substrings "coverage is too thin" and "Refusing to run agents"; fails the test if no exception is raised.
+    """
     frame = pd.DataFrame(
         {
             "open": [100 + i for i in range(80)],
@@ -88,6 +93,11 @@ def test_build_snapshot_fails_when_lookback_is_materially_undercovered() -> None
 
 
 def test_build_snapshot_can_keep_undercoverage_for_training_replay() -> None:
+    """
+    Test that build_snapshot produces a snapshot even when the requested lookback is materially undercovered if lookback coverage enforcement is disabled.
+    
+    Verifies that calling build_snapshot with enforce_lookback_coverage=False returns a snapshot containing a context_pack and that the context_pack.data_quality_flags includes "low_lookback_coverage".
+    """
     frame = pd.DataFrame(
         {
             "open": [100 + i for i in range(80)],

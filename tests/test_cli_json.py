@@ -207,6 +207,15 @@ def test_status_preferences_and_portfolio_json(
 
 
 def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Verify the CLI `doctor --json` and `logs --json` outputs reflect LLM health and recent service/order records.
+    
+    Sets up a temporary Settings and monkeypatches the CLI to report a healthy LocalLLM, inserts a service event and an order into the test database, then invokes the `doctor` and `logs` CLI commands and asserts:
+    - the doctor payload reports the provider reachable and model available,
+    - the doctor payload contains `runtime_mode == "operation"`,
+    - the latest order string begins with the inserted order summary and contains no parentheses,
+    - the first entry returned by `logs --json` has `event_type == "service_started"`.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -453,6 +462,11 @@ def test_chat_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 def test_training_backtest_allows_diagnostic_fallback(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verifies that running the backtest CLI in training mode falls back to a diagnostic execution when the LLM gate fails.
+    
+    Runs the `backtest` command with training runtime_mode while mocking `ensure_llm_ready` to raise `RuntimeError("model unavailable")` and stubbing the backtest runner to capture the `allow_fallback` flag. Asserts the CLI exits successfully, that the backtest was invoked with `allow_fallback == True`, and that stdout contains the phrase "Training Diagnostic Mode".
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -463,9 +477,29 @@ def test_training_backtest_allows_diagnostic_fallback(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
 
     def _blocked_llm(_settings: Settings) -> None:
+        """
+        Always raises a RuntimeError indicating the LLM model is unavailable.
+        
+        Raises:
+            RuntimeError: with message "model unavailable".
+        """
         raise RuntimeError("model unavailable")
 
     def _backtest(**kwargs: object) -> BacktestReport:
+        """
+        Test stub that constructs a deterministic BacktestReport for the given run parameters and records whether fallback was allowed.
+        
+        Parameters:
+            kwargs: Expected keys:
+                - symbol (str): Ticker symbol for the backtest.
+                - interval (str): Data interval (e.g., "1d").
+                - lookback (str): Lookback window descriptor (e.g., "180d").
+                - warmup_bars (int): Number of warmup bars; must be an int.
+                - allow_fallback (bool): Whether diagnostic fallback was permitted; recorded to `captured["allow_fallback"]`.
+        
+        Returns:
+            BacktestReport: A report populated with the provided identifiers, the given warmup_bars, deterministic zeroed metrics, and starting/ending equity of 100000.0.
+        """
         captured["allow_fallback"] = kwargs["allow_fallback"]
         warmup_bars = kwargs["warmup_bars"]
         assert isinstance(warmup_bars, int)
@@ -512,6 +546,11 @@ def test_training_backtest_allows_diagnostic_fallback(
 def test_operation_backtest_blocks_when_llm_gate_fails(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verifies that running backtest in "operation" runtime mode fails when the LLM readiness gate raises an error.
+    
+    Invokes the CLI backtest command with a mocked settings object whose runtime_mode is "operation" and a patched `ensure_llm_ready` that raises RuntimeError("model unavailable"), then asserts the command exits with a non-zero code and that the raised exception contains "model unavailable".
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -521,6 +560,12 @@ def test_operation_backtest_blocks_when_llm_gate_fails(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
 
     def _blocked_llm(_settings: Settings) -> None:
+        """
+        Always raises a RuntimeError indicating the LLM model is unavailable.
+        
+        Raises:
+            RuntimeError: with message "model unavailable".
+        """
         raise RuntimeError("model unavailable")
 
     monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", _blocked_llm)
