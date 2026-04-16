@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import StrategyPlan
+from agentic_trader.schemas import RegimeAssessment, StrategyPlan
 
 
 class _StructuredEcho(BaseModel):
@@ -76,7 +76,8 @@ def test_complete_structured_requests_provider_json_mode(
     )
 
     assert parsed.value == "ok"
-    assert request_bodies[0]["format"] == "json"
+    assert request_bodies[0]["format"]["required"] == ["value"]
+    assert "value" in request_bodies[0]["format"]["properties"]
 
 
 def test_complete_text_retries_after_error_payload(
@@ -216,6 +217,125 @@ def test_complete_structured_accepts_wrapped_strategy_aliases(
     assert parsed.strategy_family == "no_trade"
     assert parsed.entry_logic == "No entry."
     assert parsed.invalidation_logic == "Wait for clearer evidence."
+
+
+def test_complete_structured_normalizes_common_regime_value_aliases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(max_retries=0)
+    llm = LocalLLM(settings)
+
+    monkeypatch.setattr(
+        llm.client,
+        "post",
+        lambda *args, **kwargs: _FakeResponse(
+            {
+                "response": (
+                    '{"regime":"sideways","direction_bias":"neutral",'
+                    '"confidence":0.54,"reasoning":"Range behavior dominates."}'
+                )
+            }
+        ),
+    )
+
+    parsed = llm.complete_structured(
+        system_prompt="Return JSON.",
+        user_prompt="Test",
+        schema=RegimeAssessment,
+    )
+
+    assert parsed.regime == "range"
+    assert parsed.direction_bias == "flat"
+
+
+def test_complete_structured_maps_regime_explanation_aliases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(max_retries=0)
+    llm = LocalLLM(settings)
+
+    monkeypatch.setattr(
+        llm.client,
+        "post",
+        lambda *args, **kwargs: _FakeResponse(
+            {
+                "response": (
+                    '{"regime":"no_trade","direction_bias":"flat",'
+                    '"confidence":0.35,'
+                    '"notes":"Evidence is too weak for a trade."}'
+                )
+            }
+        ),
+    )
+
+    parsed = llm.complete_structured(
+        system_prompt="Return JSON.",
+        user_prompt="Test",
+        schema=RegimeAssessment,
+    )
+
+    assert parsed.reasoning == "Evidence is too weak for a trade."
+    assert parsed.source == "llm"
+    assert parsed.fallback_reason is None
+
+
+def test_complete_structured_conservatively_sanitizes_missing_confidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(max_retries=0)
+    llm = LocalLLM(settings)
+
+    monkeypatch.setattr(
+        llm.client,
+        "post",
+        lambda *args, **kwargs: _FakeResponse(
+            {
+                "response": (
+                    '{"regime":"mixed low conviction","directional_bias":"neutral",'
+                    '"notes":"Evidence is mixed."}'
+                )
+            }
+        ),
+    )
+
+    parsed = llm.complete_structured(
+        system_prompt="Return JSON.",
+        user_prompt="Test",
+        schema=RegimeAssessment,
+    )
+
+    assert parsed.regime == "range"
+    assert parsed.direction_bias == "flat"
+    assert parsed.confidence == 0.0
+    assert parsed.reasoning == "Evidence is mixed."
+
+
+def test_complete_structured_coerces_qualitative_confidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(max_retries=0)
+    llm = LocalLLM(settings)
+
+    monkeypatch.setattr(
+        llm.client,
+        "post",
+        lambda *args, **kwargs: _FakeResponse(
+            {
+                "response": (
+                    '{"regime":"range","direction_bias":"flat",'
+                    '"confidence":"low","reasoning":"Weak evidence."}'
+                )
+            }
+        ),
+    )
+
+    parsed = llm.complete_structured(
+        system_prompt="Return JSON.",
+        user_prompt="Test",
+        schema=RegimeAssessment,
+    )
+
+    assert parsed.confidence == 0.25
 
 
 def test_local_llm_uses_configured_provider_defaults() -> None:

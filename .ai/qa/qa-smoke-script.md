@@ -55,6 +55,7 @@ python scripts/qa/smoke_qa.py --include-runtime-cycle
 ```
 
 This runs `agentic-trader launch --continuous --max-cycles 1` in an isolated runtime directory under the smoke artifact folder. It is intentionally opt-in because it requires live market data and a healthy configured LLM.
+The runtime-cycle check uses the product retry policy (`AGENTIC_TRADER_MAX_RETRIES=2`) so it validates the operator-facing runtime rather than a stricter first-response-only LLM diagnostic.
 
 When `--include-sonar` is used together with `--include-quality`, the pytest step also writes a coverage XML report into the run artifact directory and passes it to SonarQube.
 

@@ -147,6 +147,16 @@ def build_memory_document(artifacts: RunArtifacts) -> str:
                 f"macro_news_count:{len(artifacts.decision_features.macro.news_signals)}",
             ]
         )
+    if artifacts.canonical_snapshot is not None:
+        parts.extend(
+            [
+                f"canonical_completeness:{artifacts.canonical_snapshot.completeness_score:.2f}",
+                "canonical_missing:"
+                f"{','.join(artifacts.canonical_snapshot.missing_sections) or 'none'}",
+                "canonical_sources:"
+                f"{','.join(item.source_name for item in artifacts.canonical_snapshot.source_attributions) or 'none'}",
+            ]
+        )
     return " | ".join(parts)
 
 

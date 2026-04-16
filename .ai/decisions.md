@@ -108,12 +108,13 @@ Reason:
 Agent outputs are schema-bound contracts, not free-form prose.
 Ollama JSON mode reduces malformed/verbose structured responses and makes one-cycle runtime QA more reliable on local models.
 Provider payload previews must redact reasoning fields such as `thinking` before they reach operator surfaces or artifacts; the UI should expose stage summaries, tool usage, validation errors, and decision rationale rather than raw hidden reasoning.
+When the provider supports it, structured calls should send the concrete Pydantic JSON schema as Ollama's `format`; older/incompatible Ollama responses can fall back to plain JSON mode while keeping the same Pydantic validation boundary.
 
 ### Runtime QA should have explicit performance tiers
 
 Reason:
 A real agent cycle can take several minutes on local hardware, so it should not be part of every fast smoke run.
-The QA harness should keep fast terminal checks lightweight while offering opt-in runtime-cycle validation with isolated runtime storage, bounded token budgets, request timeouts, and artifacts that show the active stage when a run fails.
+The QA harness should keep fast terminal checks lightweight while offering opt-in runtime-cycle validation with isolated runtime storage, bounded token budgets, product-like retry behavior, request timeouts, and artifacts that show the active stage when a run fails.
 
 ### Broker execution should flow through an explicit intent and outcome contract
 
@@ -123,6 +124,12 @@ The runtime now translates guard-approved or guard-rejected decisions into a can
 This keeps paper execution working while creating a reviewable seam for simulated-real rehearsal and future live broker integration.
 Live execution remains blocked until a real adapter, approval gates, paper-operation evidence, and operator-visible readiness checks exist behind the same contract.
 
+### No-trade risk output should remain readable without changing execution posture
+
+Reason:
+Local models can emit technically valid but operator-hostile sentinel values for no-trade risk levels, such as tiny positive stop/take prices used only to satisfy schema bounds.
+Risk output should be finalized after validation so hold/no-trade decisions keep tiny exposure and no execution approval, while operator surfaces still display reference stop/take levels around the latest close.
+
 ### Financial intelligence should flow through structured feature bundles
 
 Reason:
@@ -131,3 +138,11 @@ Agents should consume typed summaries rather than raw documents or hidden provid
 The new `DecisionFeatureBundle` is the boundary between data ingestion and reasoning: it carries symbol identity, technical summaries, fundamental features, and macro/news context.
 Fundamental and macro/news analysts are now specialist roles in the staged graph, but real provider ingestion remains additive future work behind the feature layer.
 API keys must stay in ignored local env files and should never be serialized into prompts, logs, QA artifacts, or tracked config.
+
+### External data must normalize into canonical analysis snapshots
+
+Reason:
+Provider payloads differ by source, market, region, and availability.
+The runtime now uses provider interfaces for market, fundamental, news, disclosure, and macro data, then aggregates them into a `CanonicalAnalysisSnapshot`.
+Agents still consume the compact `DecisionFeatureBundle`, but the canonical snapshot preserves source attribution, freshness, completeness, and explicit missing sections for prompts, persistence, memory, dashboard JSON, and future UI review surfaces.
+Yahoo remains a fallback market/news source rather than the sole source of truth, while SEC EDGAR, KAP, macro indicators, transcripts, and vendor APIs can be added behind the same adapter seam.

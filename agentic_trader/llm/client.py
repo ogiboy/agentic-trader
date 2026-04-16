@@ -109,8 +109,33 @@ def _navigate_one(obj: Any, key: str | int) -> Any:
     return None
 
 
+def _coerce_confidence(value: Any) -> float:
+    """Coerce qualitative or malformed confidence values conservatively."""
+    if value is None:
+        return 0.0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        qualitative = {
+            "none": 0.0,
+            "unknown": 0.0,
+            "very low": 0.1,
+            "low": 0.25,
+            "medium": 0.5,
+            "moderate": 0.5,
+            "high": 0.75,
+            "very high": 0.9,
+        }
+        if normalized in qualitative:
+            return qualitative[normalized]
+        if normalized.endswith("%"):
+            return min(max(float(normalized[:-1]) / 100.0, 0.0), 1.0)
+    return min(max(float(value), 0.0), 1.0)
+
+
 # Safe coercion for common numeric fields that LLMs often emit as zeros/invalid.
 _SANITIZE_RULES: dict[str, Callable[[Any], float | int]] = {
+    "confidence": _coerce_confidence,
+    "confidence_cap": _coerce_confidence,
     "position_size_pct": lambda v: min(
         max(float(v) if v is not None else 0.01, 0.01), 1.0
     ),
@@ -122,6 +147,44 @@ _SANITIZE_RULES: dict[str, Callable[[Any], float | int]] = {
     "take_profit": lambda v: max(float(v) if v is not None else 1e-6, 1e-6),
     "risk_reward_ratio": lambda v: max(float(v) if v is not None else 1e-6, 1e-6),
 }
+
+
+def _semantic_value_alias(schema_name: str, field_name: str, value: str) -> Any:
+    """Map common free-form enum phrases to conservative schema values."""
+    normalized = value.strip().lower().replace("-", "_")
+    normalized = " ".join(normalized.split())
+    compact = normalized.replace("_", " ")
+    if schema_name == "RegimeAssessment" and field_name == "regime":
+        if "no" in compact and "trade" in compact:
+            return "no_trade"
+        if any(token in compact for token in ("range", "sideways", "mixed", "chop", "consolidat")):
+            return "range"
+        if "volatil" in compact:
+            return "high_volatility"
+        if "break" in compact:
+            return "breakout_candidate"
+        if any(token in compact for token in ("bull", "up")):
+            return "trend_up"
+        if any(token in compact for token in ("bear", "down")):
+            return "trend_down"
+    if schema_name == "RegimeAssessment" and field_name == "direction_bias":
+        if any(token in compact for token in ("flat", "neutral", "mixed", "sideways", "none", "no trade")):
+            return "flat"
+        if any(token in compact for token in ("long", "buy", "bull", "up", "positive")):
+            return "long"
+        if any(token in compact for token in ("short", "sell", "bear", "down", "negative")):
+            return "short"
+    if schema_name in {"StrategyPlan", "ManagerDecision"} and field_name in {
+        "action",
+        "action_bias",
+    }:
+        if any(token in compact for token in ("hold", "flat", "neutral", "none", "no trade")):
+            return "hold"
+        if any(token in compact for token in ("long", "buy", "bull", "up")):
+            return "buy"
+        if any(token in compact for token in ("short", "sell", "bear", "down")):
+            return "sell"
+    return value
 _WRAPPER_KEYS = (
     "coordinator",
     "brief",
@@ -146,7 +209,12 @@ _SCHEMA_ALIAS_MAP: dict[str, dict[str, str]] = {
     "RegimeAssessment": {
         "bias": "direction_bias",
         "direction": "direction_bias",
+        "directional_bias": "direction_bias",
         "rationale": "reasoning",
+        "summary": "reasoning",
+        "message": "reasoning",
+        "notes": "reasoning",
+        "fallback_reason": "reasoning",
         "risks": "key_risks",
     },
     "StrategyPlan": {
@@ -176,6 +244,85 @@ _SCHEMA_ALIAS_MAP: dict[str, dict[str, str]] = {
         "confidence": "confidence_cap",
         "size": "size_multiplier",
         "notes": "rationale",
+    },
+}
+_SCHEMA_VALUE_ALIAS_MAP: dict[str, dict[str, dict[str, Any]]] = {
+    "ResearchCoordinatorBrief": {
+        "market_focus": {
+            "trend": "trend_following",
+            "trending": "trend_following",
+            "breakout_watch": "breakout",
+            "defensive": "capital_preservation",
+            "capital preservation": "capital_preservation",
+            "wait": "no_trade",
+            "none": "no_trade",
+        }
+    },
+    "RegimeAssessment": {
+        "regime": {
+            "bullish": "trend_up",
+            "uptrend": "trend_up",
+            "up_trend": "trend_up",
+            "trend up": "trend_up",
+            "bearish": "trend_down",
+            "downtrend": "trend_down",
+            "down_trend": "trend_down",
+            "trend down": "trend_down",
+            "sideways": "range",
+            "ranging": "range",
+            "mixed": "range",
+            "choppy": "range",
+            "consolidation": "range",
+            "consolidating": "range",
+            "neutral": "range",
+            "volatile": "high_volatility",
+            "high volatility": "high_volatility",
+            "breakout": "breakout_candidate",
+            "cautious": "no_trade",
+            "wait": "no_trade",
+            "no trade": "no_trade",
+        },
+        "direction_bias": {
+            "bullish": "long",
+            "buy": "long",
+            "up": "long",
+            "positive": "long",
+            "bearish": "short",
+            "sell": "short",
+            "down": "short",
+            "negative": "short",
+            "neutral": "flat",
+            "sideways": "flat",
+            "none": "flat",
+            "no_trade": "flat",
+        },
+    },
+    "StrategyPlan": {
+        "strategy_family": {
+            "trend": "trend_following",
+            "momentum": "trend_following",
+            "breakout_candidate": "breakout",
+            "range": "mean_reversion",
+            "sideways": "mean_reversion",
+            "hold": "no_trade",
+            "none": "no_trade",
+        },
+        "action": {
+            "long": "buy",
+            "short": "sell",
+            "flat": "hold",
+            "none": "hold",
+            "no_trade": "hold",
+        },
+    },
+    "ManagerDecision": {
+        "action_bias": {
+            "long": "buy",
+            "short": "sell",
+            "flat": "hold",
+            "none": "hold",
+            "no_trade": "hold",
+        }
     },
 }
 
@@ -337,7 +484,30 @@ def _normalize_structured_payload(data: Any, schema: type[BaseModel]) -> Any:
         if source_key in normalized and target_key not in normalized:
             normalized[target_key] = normalized[source_key]
 
+    value_aliases = _SCHEMA_VALUE_ALIAS_MAP.get(schema.__name__, {})
+    for field_name, replacements in value_aliases.items():
+        value = normalized.get(field_name)
+        if isinstance(value, str):
+            normalized_value = value.strip().lower().replace("-", "_")
+            normalized_value = " ".join(normalized_value.split())
+            normalized[field_name] = replacements.get(
+                normalized_value,
+                _semantic_value_alias(schema.__name__, field_name, value),
+            )
+
     return normalized
+
+
+def _schema_field_instruction(schema: type[BaseModel]) -> str:
+    """Render concise top-level field requirements for structured prompts."""
+    required = schema.model_json_schema().get("required", [])
+    field_names = list(schema.model_fields)
+    required_text = ", ".join(str(item) for item in required) or "none"
+    allowed_text = ", ".join(field_names)
+    return (
+        f"Required top-level keys: {required_text}.\n"
+        f"Allowed top-level keys: {allowed_text}."
+    )
 
 
 def _validation_error_summary(exc: ValidationError) -> str:
@@ -466,9 +636,19 @@ class LocalLLM:
             return json.dumps(response_obj, ensure_ascii=False).strip()
         return str(response_obj).strip()
 
-    def _generate_once(self, prompt: str, *, json_mode: bool = False) -> dict[str, Any]:
+    def _generate_once(
+        self,
+        prompt: str,
+        *,
+        json_mode: bool = False,
+        json_schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return self._parse_generate_payload(
-            self.provider.generate(prompt=prompt, json_mode=json_mode)
+            self.provider.generate(
+                prompt=prompt,
+                json_mode=json_mode,
+                json_schema=json_schema,
+            )
         )
 
     def health_check(self) -> LLMHealthStatus:
@@ -496,6 +676,7 @@ class LocalLLM:
             RuntimeError: If the LLM repeatedly returns empty, malformed, or non-validating responses and all retry attempts are exhausted; the last underlying exception is chained.
         """
         schema_json = json.dumps(schema.model_json_schema(), indent=2)
+        field_instruction = _schema_field_instruction(schema)
 
         prompt = dedent(
             f"""
@@ -504,6 +685,10 @@ class LocalLLM:
             You must respond with valid JSON only.
             Do not wrap the JSON in markdown fences.
             Keep string fields concise and practical.
+            Return the requested schema object itself, not a status report, not a runtime summary, and not an analysis wrapper.
+            If the correct decision is no-trade or hold, still return the full requested schema object.
+            Never return an error object.
+            {field_instruction}
 
             The JSON must validate against this schema:
             {schema_json}
@@ -517,7 +702,11 @@ class LocalLLM:
         for attempt in range(self.settings.max_retries + 1):
             content = ""
             try:
-                payload = self._generate_once(prompt, json_mode=True)
+                payload = self._generate_once(
+                    prompt,
+                    json_mode=True,
+                    json_schema=schema.model_json_schema(),
+                )
                 content = self._extract_response_text(payload)
                 logger.debug(
                     "LLM structured response attempt %s: content_length=%s content_preview=%s",

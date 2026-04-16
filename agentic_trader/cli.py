@@ -1151,6 +1151,41 @@ def _market_context_payload(settings: Settings) -> dict[str, object]:
     }
 
 
+def _canonical_analysis_payload(settings: Settings) -> dict[str, object]:
+    """Return the latest canonical provider aggregation snapshot when persisted."""
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            record = db.latest_run()
+            canonical_snapshot = (
+                record.artifacts.canonical_snapshot if record is not None else None
+            )
+            if canonical_snapshot is None:
+                trade_context = db.latest_trade_context()
+                canonical_snapshot = (
+                    trade_context.canonical_snapshot
+                    if trade_context is not None
+                    else None
+                )
+        finally:
+            db.close()
+        available = canonical_snapshot is not None
+        error = None if available else "No canonical analysis snapshot is available."
+    except Exception as exc:
+        canonical_snapshot = None
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "snapshot": (
+            canonical_snapshot.model_dump(mode="json")
+            if canonical_snapshot is not None
+            else None
+        ),
+    }
+
+
 def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
     """
     Builds a read-only supervisor payload describing the orchestrator runtime and recent log tails.
@@ -2311,6 +2346,7 @@ def build_dashboard_snapshot_payload(
         "trace": _run_record_payload(settings),
         "tradeContext": _trade_context_payload(settings),
         "marketContext": _market_context_payload(settings),
+        "canonicalAnalysis": _canonical_analysis_payload(settings),
         "replay": _run_replay_payload(settings),
         "memoryExplorer": _memory_explorer_payload(
             settings, use_latest_run=True, limit=5

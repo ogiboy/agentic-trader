@@ -901,7 +901,7 @@ def _runtime_cycle_check(
             "AGENTIC_TRADER_DATABASE_PATH": str(database_path),
             "AGENTIC_TRADER_MARKET_DATA_CACHE_DIR": str(runtime_dir / "market_snapshots"),
             "AGENTIC_TRADER_MAX_OUTPUT_TOKENS": "2048",
-            "AGENTIC_TRADER_MAX_RETRIES": "0",
+            "AGENTIC_TRADER_MAX_RETRIES": "2",
             "AGENTIC_TRADER_REQUEST_TIMEOUT_SECONDS": "180",
         },
     )

@@ -27,4 +27,6 @@ dist/
 .ai/qa/artifacts/smoke-summary.json
 .ai/qa/artifacts/smoke-*/
 .ai/qa/artifacts/qa-*
+.ai/qa/artifacts/tmp-*
+.ai/qa/artifacts/manual-*
 .sonarlint/connectedMode.json

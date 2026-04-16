@@ -68,6 +68,34 @@ def _fallback_risk(snapshot: MarketSnapshot, strategy: StrategyPlan) -> RiskPlan
     )
 
 
+def _finalize_risk_plan(
+    snapshot: MarketSnapshot, strategy: StrategyPlan, risk: RiskPlan
+) -> RiskPlan:
+    """Keep LLM risk output operator-safe without changing the selected action."""
+    if strategy.action != "hold" and strategy.strategy_family != "no_trade":
+        return risk
+
+    atr = max(snapshot.atr_14, snapshot.last_close * 0.01)
+    stop_loss = round(max(snapshot.last_close - atr, 1e-6), 4)
+    take_profit = round(snapshot.last_close + atr, 4)
+    notes = risk.notes
+    if risk.stop_loss <= 1e-4 or risk.take_profit <= 1e-4:
+        notes = (
+            f"{risk.notes} Normalized no-trade reference levels around last close "
+            "for operator readability."
+        )
+    return risk.model_copy(
+        update={
+            "position_size_pct": min(risk.position_size_pct, 0.01),
+            "stop_loss": stop_loss,
+            "take_profit": take_profit,
+            "risk_reward_ratio": max(risk.risk_reward_ratio, 1.0),
+            "max_holding_bars": min(risk.max_holding_bars, 5),
+            "notes": notes,
+        }
+    )
+
+
 def build_risk_plan(
     llm: LocalLLM,
     snapshot: MarketSnapshot,
@@ -95,12 +123,13 @@ def build_risk_plan(
         )
     )
     try:
-        return routed_llm.complete_structured(
+        risk = routed_llm.complete_structured(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=RiskPlan,
         )
+        return _finalize_risk_plan(snapshot, strategy, risk)
     except Exception:
         if not allow_fallback:
             raise
-        return _fallback_risk(snapshot, strategy)
+        return _finalize_risk_plan(snapshot, strategy, _fallback_risk(snapshot, strategy))

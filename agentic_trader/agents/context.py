@@ -10,6 +10,7 @@ from agentic_trader.market.news import fetch_news_brief
 from agentic_trader.schemas import (
     AgentContext,
     AgentRole,
+    CanonicalAnalysisSnapshot,
     DecisionFeatureBundle,
     MarketSnapshot,
     NewsSignal,
@@ -65,12 +66,98 @@ def _summarize_retrieved_memories(
     ]
 
 
+def _render_canonical_snapshot_summary(context: AgentContext) -> str:
+    """Render canonical provider context compactly so prompts stay focused."""
+    canonical = context.canonical_snapshot
+    if canonical is None:
+        return "No canonical provider aggregation snapshot is attached."
+    source_lines = [
+        (
+            f"- {item.provider_type}:{item.source_name} "
+            f"role={item.source_role} freshness={item.freshness} "
+            f"completeness={item.completeness:.2f}"
+        )
+        for item in canonical.source_attributions[:8]
+    ]
+    return "\n".join(
+        [
+            f"Summary: {canonical.summary}",
+            f"Completeness: {canonical.completeness_score:.2f}",
+            f"Missing sections: {', '.join(canonical.missing_sections) or 'none'}",
+            (
+                "Market: "
+                f"rows={canonical.market.rows} "
+                f"window={canonical.market.window_start or '-'}..{canonical.market.window_end or '-'} "
+                f"last_close={canonical.market.last_close}"
+            ),
+            (
+                "Fundamental: "
+                f"source={canonical.fundamental.attribution.source_name} "
+                f"missing={','.join(canonical.fundamental.missing_fields) or 'none'}"
+            ),
+            (
+                "Macro: "
+                f"source={canonical.macro.attribution.source_name} "
+                f"fx_risk={canonical.macro.fx_risk} "
+                f"missing={','.join(canonical.macro.missing_fields) or 'none'}"
+            ),
+            f"News events: {len(canonical.news_events)}",
+            f"Disclosure events: {len(canonical.disclosures)}",
+            "Sources:",
+            "\n".join(source_lines) if source_lines else "- none",
+        ]
+    )
+
+
+def _render_decision_feature_summary(context: AgentContext) -> str:
+    """Render the decision feature bundle as a compact prompt-facing summary."""
+    features = context.decision_features
+    if features is None:
+        return "No decision feature bundle is attached."
+    technical = features.technical
+    fundamental = features.fundamental
+    macro = features.macro
+    return "\n".join(
+        [
+            (
+                "Symbol: "
+                f"{features.symbol_identity.symbol} "
+                f"region={features.symbol_identity.region} "
+                f"exchange={features.symbol_identity.exchange or '-'} "
+                f"currency={features.symbol_identity.currency}"
+            ),
+            (
+                "Technical: "
+                f"trend={technical.trend_classification} "
+                f"volatility_20={technical.volatility_20} "
+                f"support={technical.support} resistance={technical.resistance} "
+                f"returns={technical.returns_by_window}"
+            ),
+            f"Technical summary: {technical.context_summary}",
+            (
+                "Fundamental: "
+                f"fx_exposure={fundamental.fx_exposure} "
+                f"flags={','.join(fundamental.quality_flags) or 'none'}"
+            ),
+            f"Fundamental summary: {fundamental.summary}",
+            (
+                "Macro: "
+                f"region={macro.region} currency={macro.currency} "
+                f"rates={macro.rates_bias} inflation={macro.inflation_bias} "
+                f"fx_risk={macro.fx_risk} news_count={len(macro.news_signals)}"
+            ),
+            f"Macro summary: {macro.summary}",
+        ]
+    )
+
+
 def build_agent_context(
     *,
     role: AgentRole,
     settings: Settings,
     db: TradingDatabase,
     snapshot: MarketSnapshot,
+    canonical_snapshot: CanonicalAnalysisSnapshot | None = None,
     decision_features: DecisionFeatureBundle | None = None,
     news_items: list[NewsSignal] | None = None,
     memory_enabled: bool = True,
@@ -112,11 +199,19 @@ def build_agent_context(
             f"fundamental_flags={','.join(decision_features.fundamental.quality_flags) or 'none'} "
             f"macro_news={len(decision_features.macro.news_signals)}"
         )
+    if canonical_snapshot is not None:
+        rendered_tool_outputs.append(
+            "canonical_analysis: "
+            f"completeness={canonical_snapshot.completeness_score:.2f} "
+            f"missing={','.join(canonical_snapshot.missing_sections) or 'none'} "
+            f"sources={len(canonical_snapshot.source_attributions)}"
+        )
     rendered_tool_outputs.extend(list(tool_outputs or []))
     return AgentContext(
         role=role,
         model_name=settings.model_for_role(role),
         snapshot=snapshot,
+        canonical_snapshot=canonical_snapshot,
         decision_features=decision_features,
         preferences=preferences,
         portfolio=db.get_account_snapshot(),
@@ -177,8 +272,17 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         sections.extend(
             [
                 "",
-                "Decision Feature Bundle:",
-                context.decision_features.model_dump_json(indent=2),
+                "Decision Feature Summary:",
+                _render_decision_feature_summary(context),
+            ]
+        )
+
+    if context.canonical_snapshot is not None:
+        sections.extend(
+            [
+                "",
+                "Canonical Analysis Snapshot Summary:",
+                _render_canonical_snapshot_summary(context),
             ]
         )
 
@@ -191,14 +295,6 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
             ]
         )
 
-    if context.service_state is not None:
-        sections.extend(
-            [
-                "",
-                "Runtime State:",
-                context.service_state.model_dump_json(indent=2),
-            ]
-        )
     if context.recent_runs:
         sections.extend(
             ["", "Recent Runs:", "\n".join(f"- {line}" for line in context.recent_runs)]

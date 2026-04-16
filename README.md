@@ -54,6 +54,7 @@ Every agent cycle now receives a unified context bundle that can include:
 
 - the current market snapshot
 - a Market Context Pack with lookback coverage, multi-horizon returns, volatility, drawdown, trend votes, range structure, and data-quality flags
+- a canonical analysis snapshot that preserves provider attribution, freshness, completeness, and explicit missing sections across market, fundamental, news, disclosure, and macro context
 - operator preferences
 - portfolio state
 - recent run summaries
@@ -75,7 +76,7 @@ The current memory layer is still lightweight, but it can already retrieve histo
 - `Rich` for the legacy/admin control room
 - `Ink` + React for the primary terminal control room
 - `httpx` against Ollama's native HTTP API
-- `yfinance` for initial market data
+- `yfinance` as the first fallback market/news source behind the provider boundary
 - `DuckDB` for event and order storage
 - `ruff`, `pytest`, `pyright`, and optional SonarQube/`pysonar` for local QA
 

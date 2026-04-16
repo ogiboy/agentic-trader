@@ -17,13 +17,14 @@ Current state:
 
 - `DecisionFeatureBundle` now carries symbol identity, technical features, fundamental feature placeholders, and macro/news context
 - deterministic technical summaries include returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
+- provider contracts now cover market, fundamental, news, disclosure, and macro sources with canonical source attribution and freshness metadata
 - fundamental and macro/news analyst stages now run before regime, strategy, risk, and manager synthesis
-- trade context and memory documents now persist decision features plus fundamental/macro summaries
+- trade context and memory documents now persist canonical analysis snapshots, decision features, and fundamental/macro summaries
 - Finnhub, Polygon/Massive, SEC, KAP, CBRT, macro indicators, and transcript ingestion remain provider-level future work
 
 Next desired shape:
 
-- implement provider-backed fundamental fetchers without placing secrets in tracked files or QA artifacts
+- implement real provider-backed fundamental fetchers behind the canonical provider interfaces without placing secrets in tracked files or QA artifacts
 - add structured SEC, transcript, insider, macro, KAP, CBRT, inflation, and FX ingestion
 - surface technical/fundamental/macro/memory/guard evidence side by side in operator review surfaces
 - strengthen risk with volatility sizing, sector concentration, portfolio exposure, and macro override checks
@@ -222,5 +223,6 @@ Desired direction:
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
 - keep the automated test command in `AGENTS.md` current with the project environment
+- keep the opt-in runtime-cycle smoke check aligned with real product retry behavior so it validates operator-facing runtime reliability rather than a first-response-only LLM diagnostic
 - next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate
 - next Sonar cleanup priority: reduce remaining complexity in `agentic_trader/tui.py`, `agentic_trader/workflows/service.py`, `agentic_trader/backtest/walk_forward.py`, and service-state persistence

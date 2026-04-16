@@ -20,6 +20,7 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.market.news import fetch_news_brief
+from agentic_trader.providers import build_canonical_analysis_snapshot
 from agentic_trader.schemas import (
     AgentStageTrace,
     MarketSnapshot,
@@ -121,11 +122,19 @@ def run_from_snapshot(
     db = TradingDatabase(settings)
     preferences = db.load_preferences()
     news_items = fetch_news_brief(snapshot.symbol, settings)
+    canonical_snapshot = build_canonical_analysis_snapshot(
+        snapshot,
+        settings=settings,
+        preferences=preferences,
+        news_items=news_items,
+        lookback=snapshot.context_pack.lookback if snapshot.context_pack else None,
+    )
     decision_features = build_decision_feature_bundle(
         snapshot,
         settings=settings,
         preferences=preferences,
         news_items=news_items,
+        canonical_snapshot=canonical_snapshot,
     )
     emit(
         "coordinator",
@@ -137,6 +146,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        canonical_snapshot=canonical_snapshot,
         decision_features=decision_features,
         news_items=news_items,
         memory_enabled=memory_enabled,
@@ -170,6 +180,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        canonical_snapshot=canonical_snapshot,
         decision_features=decision_features,
         news_items=news_items,
         memory_enabled=memory_enabled,
@@ -206,6 +217,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        canonical_snapshot=canonical_snapshot,
         decision_features=decision_features,
         news_items=news_items,
         memory_enabled=memory_enabled,
@@ -243,6 +255,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        canonical_snapshot=canonical_snapshot,
         decision_features=decision_features,
         news_items=news_items,
         memory_enabled=memory_enabled,
@@ -281,6 +294,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        canonical_snapshot=canonical_snapshot,
         decision_features=decision_features,
         news_items=news_items,
         memory_enabled=memory_enabled,
@@ -319,6 +333,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        canonical_snapshot=canonical_snapshot,
         decision_features=decision_features,
         news_items=news_items,
         memory_enabled=memory_enabled,
@@ -383,6 +398,7 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        canonical_snapshot=canonical_snapshot,
         decision_features=decision_features,
         news_items=news_items,
         memory_enabled=memory_enabled,
@@ -501,6 +517,7 @@ def run_from_snapshot(
 
     return RunArtifacts(
         snapshot=snapshot,
+        canonical_snapshot=canonical_snapshot,
         decision_features=decision_features,
         coordinator=coordinator,
         fundamental=fundamental,

@@ -44,6 +44,19 @@ RuntimeMode: TypeAlias = Literal["training", "operation"]
 ExecutionBackend: TypeAlias = Literal["paper", "simulated_real", "live"]
 NewsClassification: TypeAlias = Literal["company_specific", "sector_level", "macro_level"]
 AnalysisSignal: TypeAlias = Literal["supportive", "neutral", "cautious", "avoid"]
+DataProviderKind: TypeAlias = Literal[
+    "market", "fundamental", "news", "disclosure", "macro"
+]
+DataSourceRole: TypeAlias = Literal["primary", "fallback", "inferred", "missing"]
+FreshnessStatus: TypeAlias = Literal["fresh", "stale", "unknown", "missing"]
+DisclosureKind: TypeAlias = Literal[
+    "sec_filing",
+    "kap_disclosure",
+    "earnings",
+    "management",
+    "material_event",
+    "other",
+]
 ServiceState: TypeAlias = Literal[
     "idle",
     "starting",
@@ -281,6 +294,105 @@ class MacroContext(BaseModel):
     summary: str = ""
 
 
+class ProviderMetadata(BaseModel):
+    provider_id: str
+    name: str
+    provider_type: DataProviderKind
+    role: DataSourceRole
+    priority: int = 100
+    enabled: bool = True
+    requires_network: bool = False
+    notes: list[str] = Field(default_factory=list)
+
+
+class DataSourceAttribution(BaseModel):
+    source_name: str
+    provider_type: DataProviderKind
+    source_role: DataSourceRole
+    fetched_at: str | None = None
+    freshness: FreshnessStatus = "unknown"
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    completeness: float = Field(default=0.0, ge=0.0, le=1.0)
+    notes: list[str] = Field(default_factory=list)
+
+
+class MarketDataSnapshot(BaseModel):
+    symbol_identity: SymbolIdentity
+    interval: str
+    lookback: str | None = None
+    rows: int = 0
+    columns: list[str] = Field(default_factory=list)
+    window_start: str | None = None
+    window_end: str | None = None
+    last_close: float | None = None
+    attribution: DataSourceAttribution
+    missing_fields: list[str] = Field(default_factory=list)
+    summary: str = ""
+
+
+class FundamentalSnapshot(BaseModel):
+    symbol_identity: SymbolIdentity
+    revenue_growth: float | None = None
+    profitability_stability: float | None = Field(default=None, ge=0.0, le=1.0)
+    cash_flow_alignment: float | None = Field(default=None, ge=0.0, le=1.0)
+    debt_risk: float | None = Field(default=None, ge=0.0, le=1.0)
+    fx_exposure: str = "unknown"
+    reinvestment_potential: float | None = Field(default=None, ge=0.0, le=1.0)
+    attribution: DataSourceAttribution
+    missing_fields: list[str] = Field(default_factory=list)
+    summary: str = ""
+
+
+class NewsEvent(BaseModel):
+    symbol: str
+    title: str
+    category: NewsClassification
+    source: str
+    published_at: str | None = None
+    summary: str = ""
+    relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    url: str | None = None
+    attribution: DataSourceAttribution
+
+
+class DisclosureEvent(BaseModel):
+    symbol: str
+    region: str
+    disclosure_type: DisclosureKind = "other"
+    title: str
+    published_at: str | None = None
+    summary: str = ""
+    url: str | None = None
+    attribution: DataSourceAttribution
+
+
+class MacroSnapshot(BaseModel):
+    region: str
+    currency: str
+    rates_bias: Literal["tailwind", "neutral", "headwind", "unknown"] = "unknown"
+    inflation_bias: Literal["tailwind", "neutral", "headwind", "unknown"] = "unknown"
+    fx_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
+    sector_risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    political_risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    attribution: DataSourceAttribution
+    missing_fields: list[str] = Field(default_factory=list)
+    summary: str = ""
+
+
+class CanonicalAnalysisSnapshot(BaseModel):
+    symbol_identity: SymbolIdentity
+    generated_at: str
+    market: MarketDataSnapshot
+    fundamental: FundamentalSnapshot
+    news_events: list[NewsEvent] = Field(default_factory=list)
+    disclosures: list[DisclosureEvent] = Field(default_factory=list)
+    macro: MacroSnapshot
+    source_attributions: list[DataSourceAttribution] = Field(default_factory=list)
+    missing_sections: list[str] = Field(default_factory=list)
+    completeness_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    summary: str = ""
+
+
 class DecisionFeatureBundle(BaseModel):
     symbol_identity: SymbolIdentity
     technical: TechnicalFeatureSet
@@ -319,6 +431,7 @@ class AgentContext(BaseModel):
     role: AgentRole
     model_name: str
     snapshot: MarketSnapshot
+    canonical_snapshot: CanonicalAnalysisSnapshot | None = None
     decision_features: DecisionFeatureBundle | None = None
     preferences: InvestmentPreferences
     portfolio: PortfolioSnapshot
@@ -541,6 +654,7 @@ class TradeContextRecord(BaseModel):
     symbol: str
     market_snapshot: MarketSnapshot
     market_context_pack: MarketContextPack | None = None
+    canonical_snapshot: CanonicalAnalysisSnapshot | None = None
     decision_features: DecisionFeatureBundle | None = None
     routed_models: dict[str, str] = Field(default_factory=dict)
     retrieved_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
@@ -687,6 +801,7 @@ class BacktestAblationReport(BaseModel):
 
 class RunArtifacts(BaseModel):
     snapshot: MarketSnapshot
+    canonical_snapshot: CanonicalAnalysisSnapshot | None = None
     decision_features: DecisionFeatureBundle | None = None
     coordinator: ResearchCoordinatorBrief
     fundamental: FundamentalAssessment = Field(default_factory=FundamentalAssessment)

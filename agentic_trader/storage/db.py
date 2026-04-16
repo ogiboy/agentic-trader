@@ -1065,6 +1065,7 @@ class TradingDatabase:
             symbol=artifacts.snapshot.symbol,
             market_snapshot=artifacts.snapshot,
             market_context_pack=artifacts.snapshot.context_pack,
+            canonical_snapshot=artifacts.canonical_snapshot,
             decision_features=artifacts.decision_features,
             routed_models=routed_models,
             retrieved_memory_summary=retrieved_memory_summary,

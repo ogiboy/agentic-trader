@@ -8,6 +8,7 @@
    - data input
    - Market Context Pack generation
    - market feature generation
+   - provider aggregation or canonical analysis snapshot generation
    - decision feature bundle generation
    - fundamental or macro/news feature scaffolds
    - Training vs Operation mode gating
@@ -30,6 +31,10 @@
 - Which runtime mode was active: Training or Operation?
 - What Market Context Pack was generated, and did its bars/window coverage match the requested lookback?
 - What Decision Feature Bundle was attached, and did it include symbol identity plus technical, fundamental, and macro context?
+- What Canonical Analysis Snapshot was attached, and which provider sections were missing, stale, fallback, or inferred?
+- Did the prompt render compact summaries, or did raw persisted runtime/provider JSON leak into the agent-facing context?
+- Was the LLM call using Ollama schema format, or did it fall back to plain JSON mode?
+- If no-trade risk output shows odd price levels, did the risk finalizer normalize reference stop/take levels around the latest close?
 - If no agents ran, did Market Context Pack generation fail closed because coverage was below the safety threshold?
 - What `as_of` timestamp did the snapshot carry, and did replay decisions stay within the first/last decision timestamps reported by the backtest?
 - What memory context was attached?
@@ -45,5 +50,6 @@
 - inspect persisted traces
 - inspect the persisted context pack and retrieval explanations
 - inspect runtime status/log surfaces
+- inspect `.ai/qa/artifacts/<run>/runtime_cycle.log` after opt-in runtime smoke checks
 - change one thing at a time
 - document meaningful findings in `.ai/decisions.md`

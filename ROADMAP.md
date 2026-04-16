@@ -340,6 +340,9 @@ Status: in progress.
 - [x] scaffold macro/news context with company-specific, sector-level, and macro-level classification plus relevance scores
 - [x] add fundamental analyst and macro/news analyst roles with structured schemas instead of free-form LLM output
 - [x] persist decision feature snapshots, fundamental summaries, and macro summaries into trade context and memory documents
+- [x] introduce provider interfaces for market, fundamental, news, disclosure, and macro data sources
+- [x] add a canonical analysis snapshot that preserves source attribution, freshness, completeness, and missing-section metadata
+- [x] aggregate runtime market context, fundamental scaffolds, news events, disclosure scaffolds, and macro scaffolds before feature generation
 - [ ] implement real fundamental providers behind the feature interface, starting with API-backed US equities and SEC filings
 - [ ] implement structured news and macro ingestion from Finnhub, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
 - [ ] add operator-visible reasoning panels that explain how technical, fundamental, macro, memory, and guard evidence combined
@@ -347,6 +350,7 @@ Status: in progress.
 Notes:
 - this phase moves the system from "price plus simple agent reasoning" toward a financially-aware, multi-source decision system
 - agents now consume a compact `DecisionFeatureBundle`; raw noisy data should stay behind feature/provider boundaries
+- canonical analysis snapshots now sit below the feature bundle so provider source, freshness, and missing-data truth can travel into prompts, persistence, memory, and dashboard JSON without coupling agents to provider-specific payloads
 - API keys are configuration-only and must stay in ignored local env files, never in tracked files or QA artifacts
 - live trading remains blocked; this is decision intelligence groundwork, not broker activation
 

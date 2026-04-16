@@ -15,7 +15,13 @@ class LLMProvider(Protocol):
     base_url: str
     client: Any | None
 
-    def generate(self, *, prompt: str, json_mode: bool = False) -> dict[str, Any]: ...
+    def generate(
+        self,
+        *,
+        prompt: str,
+        json_mode: bool = False,
+        json_schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]: ...
 
     def health_check(self) -> LLMHealthStatus: ...
 
@@ -29,7 +35,13 @@ class OllamaProvider:
         self.base_url = settings.base_url.removesuffix("/v1").rstrip("/")
         self.client = httpx.Client(timeout=settings.request_timeout_seconds)
 
-    def generate(self, *, prompt: str, json_mode: bool = False) -> dict[str, Any]:
+    def generate(
+        self,
+        *,
+        prompt: str,
+        json_mode: bool = False,
+        json_schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         body: dict[str, Any] = {
             "model": self.model_name,
             "prompt": prompt,
@@ -40,11 +52,15 @@ class OllamaProvider:
             },
         }
         if json_mode:
+            body["format"] = json_schema or "json"
+        response = self.client.post(f"{self.base_url}/api/generate", json=body)
+        if (
+            json_mode
+            and json_schema is not None
+            and getattr(response, "status_code", None) == 400
+        ):
             body["format"] = "json"
-        response = self.client.post(
-            f"{self.base_url}/api/generate",
-            json=body,
-        )
+            response = self.client.post(f"{self.base_url}/api/generate", json=body)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):

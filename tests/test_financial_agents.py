@@ -72,6 +72,7 @@ def test_fundamental_agent_falls_back_to_structured_neutral_assessment() -> None
     assert assessment.source == "fallback"
     assert assessment.overall_signal == "neutral"
     assert "fundamental_fetch_not_implemented" in assessment.risk_flags
+    assert assessment.fallback_reason == "Structured fundamental provider data is unavailable."
 
 
 def test_macro_agent_falls_back_to_structured_neutral_assessment() -> None:
@@ -86,3 +87,4 @@ def test_macro_agent_falls_back_to_structured_neutral_assessment() -> None:
     assert assessment.source == "fallback"
     assert assessment.macro_signal == "neutral"
     assert "no_structured_news_signals" in assessment.risk_flags
+    assert assessment.fallback_reason == "Structured macro/news provider data is unavailable."
