@@ -20,6 +20,7 @@
 - Keep specialist roles distinct
 - Keep manager and guard responsibilities explicit
 - Do not blur conversational behavior with execution policy
+- Keep financial intelligence schema-first: agents should consume structured feature bundles, not raw noisy provider text
 
 ## Storage Rules
 

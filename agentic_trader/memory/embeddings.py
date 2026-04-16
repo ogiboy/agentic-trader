@@ -126,18 +126,28 @@ def build_memory_document(artifacts: RunArtifacts) -> str:
         memory_document (str): A single string combining the snapshot text and key artifact fields: `regime`, `direction`, `strategy`, `action`, `manager`, `review` summary, and `warnings` (comma-separated or `'none'` when empty). Fields are separated by " | ".
     """
     snapshot = artifacts.snapshot
-    return " | ".join(
-        [
-            snapshot_memory_text(snapshot),
-            f"regime:{artifacts.regime.regime}",
-            f"direction:{artifacts.regime.direction_bias}",
-            f"strategy:{artifacts.strategy.strategy_family}",
-            f"action:{artifacts.strategy.action}",
-            f"manager:{artifacts.manager.action_bias}",
-            f"review:{artifacts.review.summary}",
-            f"warnings:{','.join(artifacts.review.warnings) or 'none'}",
-        ]
-    )
+    parts = [
+        snapshot_memory_text(snapshot),
+        f"regime:{artifacts.regime.regime}",
+        f"direction:{artifacts.regime.direction_bias}",
+        f"strategy:{artifacts.strategy.strategy_family}",
+        f"action:{artifacts.strategy.action}",
+        f"fundamental:{artifacts.fundamental.overall_signal}",
+        f"macro:{artifacts.macro.macro_signal}",
+        f"manager:{artifacts.manager.action_bias}",
+        f"review:{artifacts.review.summary}",
+        f"warnings:{','.join(artifacts.review.warnings) or 'none'}",
+    ]
+    if artifacts.decision_features is not None:
+        parts.extend(
+            [
+                f"symbol_identity:{artifacts.decision_features.symbol_identity.region}:{artifacts.decision_features.symbol_identity.exchange}:{artifacts.decision_features.symbol_identity.currency}",
+                f"technical_trend:{artifacts.decision_features.technical.trend_classification}",
+                f"fundamental_flags:{','.join(artifacts.decision_features.fundamental.quality_flags) or 'none'}",
+                f"macro_news_count:{len(artifacts.decision_features.macro.news_signals)}",
+            ]
+        )
+    return " | ".join(parts)
 
 
 def embed_artifacts(artifacts: RunArtifacts) -> list[float]:

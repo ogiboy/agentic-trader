@@ -98,6 +98,8 @@ def test_run_artifacts_reports_fallback_components() -> None:
     assert artifacts.used_fallback() is True
     assert artifacts.fallback_components() == [
         "coordinator",
+        "fundamental",
+        "macro",
         "regime",
         "risk",
         "manager",

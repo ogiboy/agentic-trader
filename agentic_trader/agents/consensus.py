@@ -1,4 +1,6 @@
 from agentic_trader.schemas import (
+    FundamentalAssessment,
+    MacroAssessment,
     RegimeAssessment,
     ResearchCoordinatorBrief,
     RiskPlan,
@@ -12,6 +14,9 @@ def assess_specialist_consensus(
     regime: RegimeAssessment,
     strategy: StrategyPlan,
     risk: RiskPlan,
+    *,
+    fundamental: FundamentalAssessment | None = None,
+    macro: MacroAssessment | None = None,
 ) -> SpecialistConsensus:
     """Compare specialist outputs before manager synthesis and record alignment."""
     supporting_roles: list[str] = []
@@ -52,10 +57,26 @@ def assess_specialist_consensus(
         dissenting_roles.append("risk")
         reasons.append("Risk plan looked too constrained for full specialist agreement.")
 
+    if fundamental is not None:
+        if fundamental.overall_signal in {"supportive", "neutral"}:
+            supporting_roles.append("fundamental")
+        else:
+            dissenting_roles.append("fundamental")
+            reasons.append(
+                f"Fundamental analyst returned {fundamental.overall_signal} evidence."
+            )
+
+    if macro is not None:
+        if macro.macro_signal in {"supportive", "neutral"}:
+            supporting_roles.append("macro")
+        else:
+            dissenting_roles.append("macro")
+            reasons.append(f"Macro/news analyst returned {macro.macro_signal} context.")
+
     if not dissenting_roles:
         return SpecialistConsensus(
             alignment_level="aligned",
-            summary="Coordinator, regime, strategy, and risk were aligned.",
+            summary="Coordinator, fundamental, macro, regime, strategy, and risk were aligned.",
             supporting_roles=supporting_roles,
             dissenting_roles=[],
             reasons=["No specialist disagreements were detected."],

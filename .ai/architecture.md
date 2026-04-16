@@ -7,13 +7,15 @@ The project already follows a staged, specialist-agent trading pipeline.
 Current runtime stages:
 
 1. Research Coordinator
-2. Regime Agent
-3. Strategy Selector
-4. Risk Agent
-5. Specialist Consensus Layer
-6. Manager Agent
-7. Execution Guard
-8. Paper Broker
+2. Fundamental Analyst
+3. Macro / News Analyst
+4. Regime Agent
+5. Strategy Selector
+6. Risk Agent
+7. Specialist Consensus Layer
+8. Manager Agent
+9. Execution Guard
+10. Paper Broker
 
 ## Core Package Areas
 
@@ -25,6 +27,9 @@ Current runtime stages:
 
 - `agentic_trader/market/`
   Market data loading, feature preparation, and calendar/session context
+
+- `agentic_trader/features/`
+  Structured decision-feature generation across symbol identity, technical summaries, fundamental placeholders, and macro/news context
 
 - `agentic_trader/memory/`
   Similar-run retrieval, hybrid vector-style memory support, memory assembly, and memory inspection support
@@ -104,6 +109,7 @@ Good changes fit into one of these buckets:
 - keep daemon supervision metadata readable through sidecar contracts and not only through the database writer
 - keep future live broker work behind the adapter boundary and explicit execution safety gates
 - keep broker submissions flowing through `ExecutionIntent -> BrokerAdapter.place_order() -> ExecutionOutcome` so paper, simulated-real, and future live adapters share one auditable contract
+- keep financial intelligence behind structured feature/provider boundaries so agents consume summarized technical, fundamental, and macro context instead of raw noisy data
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - improve replay and backtest fidelity
 

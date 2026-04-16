@@ -3,6 +3,8 @@ from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
+    FundamentalAssessment,
+    MacroAssessment,
     ManagerConflict,
     ManagerDecision,
     MarketSnapshot,
@@ -18,6 +20,8 @@ def _derive_manager_conflicts(
     regime: RegimeAssessment,
     strategy: StrategyPlan,
     manager: ManagerDecision,
+    fundamental: FundamentalAssessment | None = None,
+    macro: MacroAssessment | None = None,
 ) -> list[ManagerConflict]:
     conflicts: list[ManagerConflict] = []
     if (
@@ -76,6 +80,13 @@ def _derive_manager_conflicts(
             reason = "high-volatility risk reduction"
         elif coordinator.market_focus == "capital_preservation":
             reason = "capital-preservation risk reduction"
+        elif fundamental is not None and fundamental.overall_signal in {
+            "cautious",
+            "avoid",
+        }:
+            reason = "fundamental risk reduction"
+        elif macro is not None and macro.macro_signal in {"cautious", "avoid"}:
+            reason = "macro/news risk reduction"
         conflicts.append(
             ManagerConflict(
                 conflict_type="size",
@@ -120,9 +131,11 @@ def _finalize_manager_decision(
     regime: RegimeAssessment,
     strategy: StrategyPlan,
     manager: ManagerDecision,
+    fundamental: FundamentalAssessment | None = None,
+    macro: MacroAssessment | None = None,
 ) -> ManagerDecision:
     conflicts = manager.conflicts or _derive_manager_conflicts(
-        coordinator, regime, strategy, manager
+        coordinator, regime, strategy, manager, fundamental=fundamental, macro=macro
     )
     resolution_notes = _derive_resolution_notes(strategy, manager, conflicts)
     override_applied = manager.override_applied or bool(conflicts)
@@ -190,6 +203,8 @@ def _fallback_manager(
     regime: RegimeAssessment,
     strategy: StrategyPlan,
     risk: RiskPlan,
+    fundamental: FundamentalAssessment | None = None,
+    macro: MacroAssessment | None = None,
 ) -> ManagerDecision:
     """
     Constructs a conservative, rule-based fallback ManagerDecision used when the LLM is unavailable or returns an invalid structured response.
@@ -217,6 +232,12 @@ def _fallback_manager(
     if strategy.confidence < 0.65:
         size_multiplier = min(size_multiplier, 0.75)
         flags.append("moderate_conviction")
+    if fundamental is not None and fundamental.overall_signal in {"cautious", "avoid"}:
+        size_multiplier = min(size_multiplier, 0.5)
+        flags.append("fundamental_caution")
+    if macro is not None and macro.macro_signal in {"cautious", "avoid"}:
+        size_multiplier = min(size_multiplier, 0.5)
+        flags.append("macro_caution")
     if action_bias == "hold":
         flags.append("manager_no_trade")
 
@@ -240,24 +261,26 @@ def manage_trade_decision(
     strategy: StrategyPlan,
     risk: RiskPlan,
     *,
+    fundamental: FundamentalAssessment | None = None,
+    macro: MacroAssessment | None = None,
     allow_fallback: bool,
     context: AgentContext | None = None,
 ) -> ManagerDecision:
     """Route specialist outputs through the manager and apply deterministic safeguards."""
     system_prompt = (
         "You are the manager agent for a systematic trading engine. "
-        "Combine coordinator, regime, strategy, and risk outputs into a final execution posture. "
+        "Combine coordinator, fundamental, macro, regime, strategy, and risk outputs into a final execution posture. "
         "You may approve, force hold, cap confidence, or reduce size."
     )
     routed_llm = llm.for_role("manager")
     user_prompt = (
         render_agent_context(
             context,
-            task="Combine coordinator, regime, strategy, and risk outputs into a final execution posture. You may approve, force hold, cap confidence, or reduce size.",
+            task="Combine coordinator, fundamental, macro, regime, strategy, and risk outputs into a final execution posture. You may approve, force hold, cap confidence, or reduce size.",
         )
         if context is not None
         else (
-            f"Symbol: {snapshot.symbol}\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}\n\nCoordinator:\n{coordinator.model_dump_json(indent=2)}\n\nRegime:\n{regime.model_dump_json(indent=2)}\n\nStrategy:\n{strategy.model_dump_json(indent=2)}\n\nRisk:\n{risk.model_dump_json(indent=2)}"
+            f"Symbol: {snapshot.symbol}\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}\n\nCoordinator:\n{coordinator.model_dump_json(indent=2)}\n\nFundamental:\n{fundamental.model_dump_json(indent=2) if fundamental else 'not provided'}\n\nMacro:\n{macro.model_dump_json(indent=2) if macro else 'not provided'}\n\nRegime:\n{regime.model_dump_json(indent=2)}\n\nStrategy:\n{strategy.model_dump_json(indent=2)}\n\nRisk:\n{risk.model_dump_json(indent=2)}"
         )
     )
     try:
@@ -266,11 +289,33 @@ def manage_trade_decision(
             user_prompt=user_prompt,
             schema=ManagerDecision,
         )
-        finalized = _finalize_manager_decision(coordinator, regime, strategy, decision)
+        finalized = _finalize_manager_decision(
+            coordinator,
+            regime,
+            strategy,
+            decision,
+            fundamental=fundamental,
+            macro=macro,
+        )
         return _apply_confidence_calibration(strategy, finalized, context)
     except Exception:
         if not allow_fallback:
             raise
-        decision = _fallback_manager(snapshot, coordinator, regime, strategy, risk)
-        finalized = _finalize_manager_decision(coordinator, regime, strategy, decision)
+        decision = _fallback_manager(
+            snapshot,
+            coordinator,
+            regime,
+            strategy,
+            risk,
+            fundamental=fundamental,
+            macro=macro,
+        )
+        finalized = _finalize_manager_decision(
+            coordinator,
+            regime,
+            strategy,
+            decision,
+            fundamental=fundamental,
+            macro=macro,
+        )
         return _apply_confidence_calibration(strategy, finalized, context)

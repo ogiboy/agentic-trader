@@ -5,6 +5,8 @@ import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.schemas import (
+    FundamentalAssessment,
+    MacroAssessment,
     ManagerDecision,
     MarketSnapshot,
     RegimeAssessment,
@@ -48,6 +50,22 @@ def test_run_from_snapshot_propagates_shared_memory_bus(
             priority_signals=["trend_alignment"],
             caution_flags=[],
             summary="Coordinator summary",
+        ),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.run_once.assess_fundamentals",
+        lambda *args, **kwargs: FundamentalAssessment(
+            overall_signal="neutral",
+            confidence=0.5,
+            summary="Fundamental summary",
+        ),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.run_once.assess_macro_context",
+        lambda *args, **kwargs: MacroAssessment(
+            macro_signal="neutral",
+            confidence=0.5,
+            summary="Macro summary",
         ),
     )
     monkeypatch.setattr(
@@ -107,7 +125,8 @@ def test_run_from_snapshot_propagates_shared_memory_bus(
     strategy_context = json.loads(strategy_trace.context_json)
     manager_context = json.loads(manager_trace.context_json)
 
-    assert len(strategy_context["shared_memory_bus"]) == 2
+    assert len(strategy_context["shared_memory_bus"]) == 4
     assert strategy_context["shared_memory_bus"][0]["role"] == "coordinator"
-    assert len(manager_context["shared_memory_bus"]) == 5
+    assert strategy_context["decision_features"]["technical"]["symbol"] == "AAPL"
+    assert len(manager_context["shared_memory_bus"]) == 7
     assert manager_context["shared_memory_bus"][-1]["role"] == "consensus"

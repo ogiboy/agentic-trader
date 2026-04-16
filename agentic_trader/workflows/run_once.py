@@ -4,6 +4,8 @@ from uuid import uuid4
 
 from agentic_trader.agents.coordinator import coordinate_research
 from agentic_trader.agents.consensus import assess_specialist_consensus
+from agentic_trader.agents.fundamental import assess_fundamentals
+from agentic_trader.agents.macro import assess_macro_context
 from agentic_trader.agents.manager import manage_trade_decision
 from agentic_trader.agents.planner import plan_trade
 from agentic_trader.agents.regime import assess_regime
@@ -13,9 +15,11 @@ from agentic_trader.config import Settings
 from agentic_trader.engine.broker import get_broker_adapter
 from agentic_trader.engine.guard import evaluate_execution
 from agentic_trader.execution.intent import build_execution_intent
+from agentic_trader.features import build_decision_feature_bundle
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
+from agentic_trader.market.news import fetch_news_brief
 from agentic_trader.schemas import (
     AgentStageTrace,
     MarketSnapshot,
@@ -115,6 +119,14 @@ def run_from_snapshot(
 
     llm = LocalLLM(settings)
     db = TradingDatabase(settings)
+    preferences = db.load_preferences()
+    news_items = fetch_news_brief(snapshot.symbol, settings)
+    decision_features = build_decision_feature_bundle(
+        snapshot,
+        settings=settings,
+        preferences=preferences,
+        news_items=news_items,
+    )
     emit(
         "coordinator",
         "started",
@@ -125,6 +137,8 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        decision_features=decision_features,
+        news_items=news_items,
         memory_enabled=memory_enabled,
         shared_memory_bus=shared_memory_bus,
     )
@@ -147,6 +161,79 @@ def run_from_snapshot(
         )
     )
     emit(
+        "fundamental",
+        "started",
+        f"Fundamental analyst is reviewing structured evidence for {snapshot.symbol}.",
+    )
+    fundamental_context = build_agent_context(
+        role="fundamental",
+        settings=settings,
+        db=db,
+        snapshot=snapshot,
+        decision_features=decision_features,
+        news_items=news_items,
+        memory_enabled=memory_enabled,
+        shared_memory_bus=shared_memory_bus,
+        upstream_context={"coordinator": coordinator},
+    )
+    fundamental = assess_fundamentals(
+        llm,
+        snapshot,
+        allow_fallback=allow_fallback,
+        context=fundamental_context,
+    )
+    emit(
+        "fundamental",
+        "completed",
+        f"Fundamental analyst returned {fundamental.overall_signal}.",
+    )
+    shared_memory_bus.append(
+        SharedMemoryEntry(
+            role="fundamental",
+            summary=(
+                f"Fundamental signal {fundamental.overall_signal}: {fundamental.summary}"
+            ),
+            payload_json=fundamental.model_dump_json(indent=2),
+        )
+    )
+    emit(
+        "macro",
+        "started",
+        f"Macro/news analyst is reviewing context for {snapshot.symbol}.",
+    )
+    macro_context = build_agent_context(
+        role="macro",
+        settings=settings,
+        db=db,
+        snapshot=snapshot,
+        decision_features=decision_features,
+        news_items=news_items,
+        memory_enabled=memory_enabled,
+        shared_memory_bus=shared_memory_bus,
+        upstream_context={
+            "coordinator": coordinator,
+            "fundamental": fundamental,
+        },
+    )
+    macro = assess_macro_context(
+        llm,
+        snapshot,
+        allow_fallback=allow_fallback,
+        context=macro_context,
+    )
+    emit(
+        "macro",
+        "completed",
+        f"Macro/news analyst returned {macro.macro_signal}.",
+    )
+    shared_memory_bus.append(
+        SharedMemoryEntry(
+            role="macro",
+            summary=f"Macro signal {macro.macro_signal}: {macro.summary}",
+            payload_json=macro.model_dump_json(indent=2),
+        )
+    )
+    emit(
         "regime",
         "started",
         f"Regime analyst is classifying the market for {snapshot.symbol}.",
@@ -156,9 +243,15 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        decision_features=decision_features,
+        news_items=news_items,
         memory_enabled=memory_enabled,
         shared_memory_bus=shared_memory_bus,
-        upstream_context={"coordinator": coordinator},
+        upstream_context={
+            "coordinator": coordinator,
+            "fundamental": fundamental,
+            "macro": macro,
+        },
     )
     regime = assess_regime(
         llm,
@@ -188,10 +281,14 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        decision_features=decision_features,
+        news_items=news_items,
         memory_enabled=memory_enabled,
         shared_memory_bus=shared_memory_bus,
         upstream_context={
             "coordinator": coordinator,
+            "fundamental": fundamental,
+            "macro": macro,
             "regime": regime,
         },
     )
@@ -222,10 +319,14 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        decision_features=decision_features,
+        news_items=news_items,
         memory_enabled=memory_enabled,
         shared_memory_bus=shared_memory_bus,
         upstream_context={
             "coordinator": coordinator,
+            "fundamental": fundamental,
+            "macro": macro,
             "regime": regime,
             "strategy": strategy,
         },
@@ -252,7 +353,14 @@ def run_from_snapshot(
             payload_json=risk.model_dump_json(indent=2),
         )
     )
-    consensus = assess_specialist_consensus(coordinator, regime, strategy, risk)
+    consensus = assess_specialist_consensus(
+        coordinator,
+        regime,
+        strategy,
+        risk,
+        fundamental=fundamental,
+        macro=macro,
+    )
     emit(
         "consensus",
         "completed",
@@ -275,6 +383,8 @@ def run_from_snapshot(
         settings=settings,
         db=db,
         snapshot=snapshot,
+        decision_features=decision_features,
+        news_items=news_items,
         memory_enabled=memory_enabled,
         shared_memory_bus=shared_memory_bus,
         tool_outputs=[
@@ -282,6 +392,8 @@ def run_from_snapshot(
         ],
         upstream_context={
             "coordinator": coordinator,
+            "fundamental": fundamental,
+            "macro": macro,
             "regime": regime,
             "strategy": strategy,
             "risk": risk,
@@ -294,6 +406,8 @@ def run_from_snapshot(
         regime,
         strategy,
         risk,
+        fundamental=fundamental,
+        macro=macro,
         allow_fallback=allow_fallback,
         context=manager_context,
     )
@@ -337,6 +451,20 @@ def run_from_snapshot(
             output_json=coordinator.model_dump_json(indent=2),
             used_fallback=coordinator.source == "fallback",
         ),
+        AgentStageTrace(
+            role="fundamental",
+            model_name=fundamental_context.model_name,
+            context_json=fundamental_context.model_dump_json(indent=2),
+            output_json=fundamental.model_dump_json(indent=2),
+            used_fallback=fundamental.source == "fallback",
+        ),
+        AgentStageTrace(
+            role="macro",
+            model_name=macro_context.model_name,
+            context_json=macro_context.model_dump_json(indent=2),
+            output_json=macro.model_dump_json(indent=2),
+            used_fallback=macro.source == "fallback",
+        ),
     ]
     traces.extend(
         [
@@ -373,7 +501,10 @@ def run_from_snapshot(
 
     return RunArtifacts(
         snapshot=snapshot,
+        decision_features=decision_features,
         coordinator=coordinator,
+        fundamental=fundamental,
+        macro=macro,
         regime=regime,
         strategy=strategy,
         risk=risk,

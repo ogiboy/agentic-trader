@@ -122,3 +122,12 @@ Agent and guard outputs are not the same thing as broker orders.
 The runtime now translates guard-approved or guard-rejected decisions into a canonical `ExecutionIntent`, sends that through a broker adapter, and records an `ExecutionOutcome`.
 This keeps paper execution working while creating a reviewable seam for simulated-real rehearsal and future live broker integration.
 Live execution remains blocked until a real adapter, approval gates, paper-operation evidence, and operator-visible readiness checks exist behind the same contract.
+
+### Financial intelligence should flow through structured feature bundles
+
+Reason:
+Future fundamentals, news, macro, SEC, KAP, transcript, and broker data can become noisy or provider-specific quickly.
+Agents should consume typed summaries rather than raw documents or hidden provider state.
+The new `DecisionFeatureBundle` is the boundary between data ingestion and reasoning: it carries symbol identity, technical summaries, fundamental features, and macro/news context.
+Fundamental and macro/news analysts are now specialist roles in the staged graph, but real provider ingestion remains additive future work behind the feature layer.
+API keys must stay in ignored local env files and should never be serialized into prompts, logs, QA artifacts, or tracked config.

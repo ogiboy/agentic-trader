@@ -9,7 +9,26 @@
 
 ## Current Suggested Focus
 
-### 1. Market Context Pack And Lookback Truth
+### 1. Financial Intelligence Layer
+
+Move the system from compact price-only reasoning toward structured multi-source decision context.
+
+Current state:
+
+- `DecisionFeatureBundle` now carries symbol identity, technical features, fundamental feature placeholders, and macro/news context
+- deterministic technical summaries include returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
+- fundamental and macro/news analyst stages now run before regime, strategy, risk, and manager synthesis
+- trade context and memory documents now persist decision features plus fundamental/macro summaries
+- Finnhub, Polygon/Massive, SEC, KAP, CBRT, macro indicators, and transcript ingestion remain provider-level future work
+
+Next desired shape:
+
+- implement provider-backed fundamental fetchers without placing secrets in tracked files or QA artifacts
+- add structured SEC, transcript, insider, macro, KAP, CBRT, inflation, and FX ingestion
+- surface technical/fundamental/macro/memory/guard evidence side by side in operator review surfaces
+- strengthen risk with volatility sizing, sector concentration, portfolio exposure, and macro override checks
+
+### 2. Market Context Pack And Lookback Truth
 
 Make the configured `lookback` window visible, persisted, and reviewable.
 
@@ -28,7 +47,7 @@ Next desired shape:
 - add compact context-pack rendering to any remaining Rich/admin paths that do not already show the raw persisted run artifact
 - connect future Training/Operation mode to context-pack verbosity and bar excerpt rules
 
-### 2. Training And Operation Modes
+### 3. Training And Operation Modes
 
 Make runtime intent explicit instead of relying on informal workflow naming.
 
@@ -47,7 +66,7 @@ Next desired shape:
 - add QA smoke coverage for `runtime-mode-checklist` so CLI, Ink, and future WebUI consumers can rely on the transition contract
 - decide whether runtime mode should remain env-only or gain an explicit persisted operator profile after the checklist stabilizes
 
-### 3. Semantic Memory And Retrieval Quality
+### 4. Semantic Memory And Retrieval Quality
 
 Build on the current lightweight retrieval layer instead of replacing it.
 
@@ -65,7 +84,7 @@ Desired direction:
 - persist stage-level retrieval explanations so operators can see why specific memories were used
 - preserve trade-memory versus chat-memory write policies
 
-### 4. Terminal Regression QA And Evidence Bundles
+### 5. Terminal Regression QA And Evidence Bundles
 
 Turn the existing smoke harness into a broader product-surface regression tool.
 
@@ -80,7 +99,7 @@ Desired direction:
 - add optional tmux pane dumps and asciinema recordings for visual TUI regressions
 - keep quality gates tiered so CI-safe checks, local interactive checks, and manual visual evidence can run separately
 
-### 5. Daemon And Operator Surface Refinement
+### 6. Daemon And Operator Surface Refinement
 
 Keep the background runtime and the Ink control room aligned and more operationally complete.
 
@@ -98,7 +117,7 @@ Desired shape:
 - observer-safe review and memory surfaces while the writer owns DuckDB
 - use `.ai/qa/qa-scenarios.md` for manual validation of daemon, monitor, and control-room changes
 
-### 6. Provider Adapter Foundation
+### 7. Provider Adapter Foundation
 
 The first provider boundary now exists. Continue from that adapter seam so future providers stay additive.
 
@@ -110,7 +129,7 @@ Desired shape:
 - keep strict runtime gating explicit per provider
 - add more provider-aware diagnostics before introducing a second provider
 
-### 7. Operator Surface Depth
+### 8. Operator Surface Depth
 
 Build on the new preset layer so the operator surface feels complete, not just inspectable.
 
@@ -120,7 +139,7 @@ Desired direction:
 - deepen the new structured agent activity and reasoning context beside chat transcripts
 - keep the Ink control room moving toward full parity with the older Rich admin surface
 
-### 8. Per-Trade Context Persistence
+### 9. Per-Trade Context Persistence
 
 The first persisted trade-context layer now exists. Keep building it into a richer review surface.
 
@@ -128,6 +147,8 @@ Desired direction:
 
 - market snapshot summary
 - Market Context Pack summary
+- decision feature bundle
+- fundamental and macro summaries
 - retrieved memory summary
 - routed model identity
 - specialist disagreements
@@ -135,7 +156,7 @@ Desired direction:
 - guard rejection reason
 - surface trade context cleanly in both CLI and Ink review flows
 
-### 9. CLI / TUI / Runtime Contract Consistency
+### 10. CLI / TUI / Runtime Contract Consistency
 
 Keep all operator surfaces aligned with the same underlying runtime and status truth.
 
@@ -145,7 +166,7 @@ Desired direction:
 - defer full localization until operator flows stabilize, but avoid adding new scattered duplicate labels
 - keep pyright, ruff, pytest, and smoke QA green as surface contracts evolve
 
-### 10. Future External Provider Readiness
+### 11. Future External Provider Readiness
 
 Prepare for future support of remote providers without making the project cloud-first.
 
@@ -156,7 +177,7 @@ Requirements:
 - diagnostic-only failure behavior
 - no hidden fallback trade generation
 
-### 11. Live Adapter Readiness
+### 12. Live Adapter Readiness
 
 The broker boundary now exists. Keep live execution preparation explicit and guarded.
 
@@ -175,7 +196,7 @@ Desired direction:
 - surface broker backend, kill-switch, and readiness state in every operator surface
 - add one real live adapter only after paper evaluation quality is stable
 
-### 12. Observer API And WebUI Readiness
+### 13. Observer API And WebUI Readiness
 
 The first local observer API now exists. Keep it small, read-only, and aligned with the dashboard contract.
 
@@ -186,7 +207,7 @@ Desired direction:
 - reuse dashboard/status/log/broker contracts across Ink, CLI, and future web surfaces
 - avoid introducing a second runtime state system for web consumers
 
-### 13. Quality Workflow
+### 14. Quality Workflow
 
 The QA docs now exist and should stay in sync with the product.
 

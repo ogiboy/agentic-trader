@@ -22,7 +22,15 @@ CoordinatorFocus: TypeAlias = Literal[
     "trend_following", "breakout", "mean_reversion", "capital_preservation", "no_trade"
 ]
 AgentRole: TypeAlias = Literal[
-    "coordinator", "regime", "strategy", "risk", "manager", "explainer", "instruction"
+    "coordinator",
+    "fundamental",
+    "macro",
+    "regime",
+    "strategy",
+    "risk",
+    "manager",
+    "explainer",
+    "instruction",
 ]
 ExecutionSide: TypeAlias = Literal["buy", "sell", "hold"]
 TradeSide: TypeAlias = Literal["buy", "sell"]
@@ -34,6 +42,8 @@ MTFAlignment: TypeAlias = Literal["bullish", "bearish", "mixed"]
 TrendVote: TypeAlias = Literal["bullish", "bearish", "mixed", "insufficient"]
 RuntimeMode: TypeAlias = Literal["training", "operation"]
 ExecutionBackend: TypeAlias = Literal["paper", "simulated_real", "live"]
+NewsClassification: TypeAlias = Literal["company_specific", "sector_level", "macro_level"]
+AnalysisSignal: TypeAlias = Literal["supportive", "neutral", "cautious", "avoid"]
 ServiceState: TypeAlias = Literal[
     "idle",
     "starting",
@@ -208,10 +218,108 @@ class MarketSnapshot(BaseModel):
     context_pack: MarketContextPack | None = None
 
 
+class SymbolIdentity(BaseModel):
+    symbol: str
+    exchange: str | None = None
+    currency: str = "USD"
+    region: str = "US"
+    asset_class: Literal["equity", "crypto", "fx", "unknown"] = "equity"
+
+
+class TechnicalFeatureSet(BaseModel):
+    symbol: str
+    interval: str
+    as_of: str | None = None
+    returns_by_window: dict[str, float | None] = Field(default_factory=dict)
+    volatility_20: float | None = None
+    max_drawdown_pct: float | None = None
+    support: float | None = None
+    resistance: float | None = None
+    trend_classification: TrendVote = "insufficient"
+    momentum_indicators: dict[str, float] = Field(default_factory=dict)
+    context_summary: str = ""
+    data_quality_flags: list[str] = Field(default_factory=list)
+
+
+class FundamentalFeatureSet(BaseModel):
+    symbol: str
+    as_of: str | None = None
+    revenue_growth: float | None = None
+    profitability_stability: float | None = Field(default=None, ge=0.0, le=1.0)
+    cash_flow_alignment: float | None = Field(default=None, ge=0.0, le=1.0)
+    debt_risk: float | None = Field(default=None, ge=0.0, le=1.0)
+    fx_exposure: str = "unknown"
+    reinvestment_potential: float | None = Field(default=None, ge=0.0, le=1.0)
+    data_sources: list[str] = Field(default_factory=list)
+    quality_flags: list[str] = Field(default_factory=list)
+    summary: str = ""
+
+
+class StructuredNewsSignal(BaseModel):
+    symbol: str | None = None
+    title: str
+    category: NewsClassification
+    source: str
+    published_at: str | None = None
+    summary: str
+    relevance_score: float = Field(ge=0.0, le=1.0)
+
+
+class MacroContext(BaseModel):
+    symbol: str
+    as_of: str | None = None
+    region: str = "US"
+    currency: str = "USD"
+    sector: str | None = None
+    rates_bias: Literal["tailwind", "neutral", "headwind", "unknown"] = "unknown"
+    inflation_bias: Literal["tailwind", "neutral", "headwind", "unknown"] = "unknown"
+    fx_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
+    sector_risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    political_risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    news_signals: list[StructuredNewsSignal] = Field(default_factory=list)
+    data_sources: list[str] = Field(default_factory=list)
+    summary: str = ""
+
+
+class DecisionFeatureBundle(BaseModel):
+    symbol_identity: SymbolIdentity
+    technical: TechnicalFeatureSet
+    fundamental: FundamentalFeatureSet
+    macro: MacroContext
+
+
+class FundamentalAssessment(BaseModel):
+    revenue_growth_quality: AnalysisSignal = "neutral"
+    profitability_quality: AnalysisSignal = "neutral"
+    cash_flow_quality: AnalysisSignal = "neutral"
+    debt_quality: AnalysisSignal = "neutral"
+    fx_exposure_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
+    reinvestment_quality: AnalysisSignal = "neutral"
+    overall_signal: AnalysisSignal = "neutral"
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    summary: str = "Fundamental evidence is not available yet."
+    risk_flags: list[str] = Field(default_factory=list)
+    source: Literal["llm", "fallback"] = "fallback"
+    fallback_reason: str | None = None
+
+
+class MacroAssessment(BaseModel):
+    macro_signal: AnalysisSignal = "neutral"
+    sector_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
+    news_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
+    fx_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    summary: str = "Macro and news evidence is not available yet."
+    risk_flags: list[str] = Field(default_factory=list)
+    source: Literal["llm", "fallback"] = "fallback"
+    fallback_reason: str | None = None
+
+
 class AgentContext(BaseModel):
     role: AgentRole
     model_name: str
     snapshot: MarketSnapshot
+    decision_features: DecisionFeatureBundle | None = None
     preferences: InvestmentPreferences
     portfolio: PortfolioSnapshot
     market_session: MarketSessionStatus | None = None
@@ -433,11 +541,14 @@ class TradeContextRecord(BaseModel):
     symbol: str
     market_snapshot: MarketSnapshot
     market_context_pack: MarketContextPack | None = None
+    decision_features: DecisionFeatureBundle | None = None
     routed_models: dict[str, str] = Field(default_factory=dict)
     retrieved_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
     tool_outputs: dict[str, list[str]] = Field(default_factory=dict)
     shared_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
     consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
+    fundamental_summary: str = ""
+    macro_summary: str = ""
     manager_rationale: str = ""
     manager_conflicts: list[ManagerConflict] = Field(default_factory=list)
     manager_resolution_notes: list[str] = Field(default_factory=list)
@@ -576,7 +687,10 @@ class BacktestAblationReport(BaseModel):
 
 class RunArtifacts(BaseModel):
     snapshot: MarketSnapshot
+    decision_features: DecisionFeatureBundle | None = None
     coordinator: ResearchCoordinatorBrief
+    fundamental: FundamentalAssessment = Field(default_factory=FundamentalAssessment)
+    macro: MacroAssessment = Field(default_factory=MacroAssessment)
     regime: RegimeAssessment
     strategy: StrategyPlan
     risk: RiskPlan
@@ -590,6 +704,10 @@ class RunArtifacts(BaseModel):
         components: list[str] = []
         if self.coordinator.source == "fallback":
             components.append("coordinator")
+        if self.fundamental.source == "fallback":
+            components.append("fundamental")
+        if self.macro.source == "fallback":
+            components.append("macro")
         if self.regime.source == "fallback":
             components.append("regime")
         if self.strategy.source == "fallback":

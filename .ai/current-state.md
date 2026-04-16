@@ -38,6 +38,9 @@ Implemented or substantially present:
 - canonical execution intent and outcome contracts now sit between guard output and broker adapters; paper execution uses the adapter path while preserving existing fills, positions, journals, and account marks
 - a simulated-real adapter scaffold exists for non-live execution rehearsal with slippage, spread, drift, latency metadata, rejection hooks, partial-fill shape, and explicit simulated/non-live status
 - execution intent and adapter outcome metadata are persisted for run/trade review so future live integration can be replayed and audited before any real broker is enabled
+- structured financial feature contracts now exist for symbol identity, technical summaries, fundamental placeholders, and macro/news context
+- the staged graph now includes fundamental and macro/news analyst roles before regime/strategy/risk, and manager synthesis receives those structured outputs
+- decision feature snapshots, fundamental summaries, and macro summaries are persisted into trade context and memory documents for future replay/retrieval
 - QA workflow docs now define product-specific checklist, runbook, scenarios, and evidence conventions for CLI, Rich, Ink, daemon, observer API, memory, governance, and paper broker validation
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, deeper Rich submenu navigation, read-only JSON surfaces, optional one-cycle runtime checks, optional quality gates, coverage XML, and SonarQube submission
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
@@ -54,6 +57,7 @@ Implemented or substantially present:
 New production-expansion direction:
 
 - the main operator-trust gap is no longer the absence of a lookback artifact; the next gap is adding provider-specific QA around the new fail-closed context-pack semantics
+- the next decision-quality gap is replacing placeholder fundamental/macro inputs with structured provider-backed data while keeping raw noisy text out of agent prompts
 - market snapshots now carry a structured multi-horizon context pack, and Training/Operation visibility, behavior-specific gates, as-of audit fields, and transition checklists are present
 - memory is currently hybrid and inspectable, and vector metadata is now persisted; true local-first semantic embeddings and richer retrieval explanations are still planned expansions
 - Training and Operation should become first-class runtime modes shown across all surfaces instead of informal workflow concepts
@@ -68,6 +72,7 @@ New production-expansion direction:
 - true semantic memory is not implemented yet; current vector-style retrieval with explicit metadata should be treated as a migration bridge, not the destination
 - Training vs Operation mode is enforced for the first core boundary: Operation requires strict LLM readiness, while Training diagnostic fallback is limited to evaluation/backtest flows
 - live broker adapters are not implemented or enabled; simulated-real remains local and non-live
+- financial provider adapters for fundamentals, SEC/KAP disclosures, transcripts, macro data, and richer news are not implemented yet; current feature contracts are safe scaffolds
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy
 - Ink TUI is the primary operator surface, but deeper feature parity, htop-like control affordances, resize-safe rendering, and visual refinement are still open

@@ -10,7 +10,7 @@ from agentic_trader.schemas import ExecutionBackend, RuntimeMode
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AGENTIC_TRADER_",
-        env_file=".env",
+        env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     strategy_model_name: str | None = None
     risk_model_name: str | None = None
     manager_model_name: str | None = None
+    fundamental_model_name: str | None = None
+    macro_model_name: str | None = None
     explainer_model_name: str | None = None
     instruction_model_name: str | None = None
     base_url: str = "http://localhost:11434/v1"
@@ -37,6 +39,9 @@ class Settings(BaseSettings):
     market_data_cache_dir: Path = Field(
         default_factory=lambda: Path("runtime") / "market_snapshots"
     )
+    finnhub_api_key: str | None = None
+    polygon_api_key: str | None = None
+    massive_api_key: str | None = None
     market_data_mode: Literal["live", "prefer_cache", "refresh_cache"] = "live"
     news_mode: Literal["off", "yfinance"] = "off"
     news_headline_limit: int = 5
@@ -74,6 +79,8 @@ class Settings(BaseSettings):
             "strategy": self.strategy_model_name,
             "risk": self.risk_model_name,
             "manager": self.manager_model_name,
+            "fundamental": self.fundamental_model_name,
+            "macro": self.macro_model_name,
             "explainer": self.explainer_model_name,
             "instruction": self.instruction_model_name,
         }
@@ -87,6 +94,8 @@ class Settings(BaseSettings):
             "strategy": self.model_for_role("strategy"),
             "risk": self.model_for_role("risk"),
             "manager": self.model_for_role("manager"),
+            "fundamental": self.model_for_role("fundamental"),
+            "macro": self.model_for_role("macro"),
             "explainer": self.model_for_role("explainer"),
             "instruction": self.model_for_role("instruction"),
         }

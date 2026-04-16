@@ -10,7 +10,9 @@ from agentic_trader.market.news import fetch_news_brief
 from agentic_trader.schemas import (
     AgentContext,
     AgentRole,
+    DecisionFeatureBundle,
     MarketSnapshot,
+    NewsSignal,
     SharedMemoryEntry,
 )
 from agentic_trader.storage.db import TradingDatabase
@@ -69,6 +71,8 @@ def build_agent_context(
     settings: Settings,
     db: TradingDatabase,
     snapshot: MarketSnapshot,
+    decision_features: DecisionFeatureBundle | None = None,
+    news_items: list[NewsSignal] | None = None,
     memory_enabled: bool = True,
     tool_outputs: list[str] | None = None,
     upstream_context: Mapping[str, BaseModel | str] | None = None,
@@ -87,7 +91,9 @@ def build_agent_context(
     rendered_tool_outputs = [
         f"market_session: venue={market_session.venue} state={market_session.session_state} tradable_now={market_session.tradable_now} note={market_session.note}"
     ]
-    news_items = fetch_news_brief(snapshot.symbol, settings)
+    news_items = (
+        fetch_news_brief(snapshot.symbol, settings) if news_items is None else news_items
+    )
     if settings.news_mode == "off":
         rendered_tool_outputs.append("news_tool: disabled")
     elif news_items:
@@ -99,11 +105,19 @@ def build_agent_context(
         )
     else:
         rendered_tool_outputs.append("news_tool: no headlines returned")
+    if decision_features is not None:
+        rendered_tool_outputs.append(
+            "decision_features: "
+            f"technical_trend={decision_features.technical.trend_classification} "
+            f"fundamental_flags={','.join(decision_features.fundamental.quality_flags) or 'none'} "
+            f"macro_news={len(decision_features.macro.news_signals)}"
+        )
     rendered_tool_outputs.extend(list(tool_outputs or []))
     return AgentContext(
         role=role,
         model_name=settings.model_for_role(role),
         snapshot=snapshot,
+        decision_features=decision_features,
         preferences=preferences,
         portfolio=db.get_account_snapshot(),
         market_session=market_session,
@@ -158,6 +172,15 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         "Portfolio Snapshot:",
         context.portfolio.model_dump_json(indent=2),
     ]
+
+    if context.decision_features is not None:
+        sections.extend(
+            [
+                "",
+                "Decision Feature Bundle:",
+                context.decision_features.model_dump_json(indent=2),
+            ]
+        )
 
     if context.market_session is not None:
         sections.extend(

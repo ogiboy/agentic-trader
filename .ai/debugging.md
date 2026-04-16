@@ -8,6 +8,8 @@
    - data input
    - Market Context Pack generation
    - market feature generation
+   - decision feature bundle generation
+   - fundamental or macro/news feature scaffolds
    - Training vs Operation mode gating
    - model/provider access
    - memory retrieval
@@ -27,6 +29,7 @@
 - Which model was routed for this role?
 - Which runtime mode was active: Training or Operation?
 - What Market Context Pack was generated, and did its bars/window coverage match the requested lookback?
+- What Decision Feature Bundle was attached, and did it include symbol identity plus technical, fundamental, and macro context?
 - If no agents ran, did Market Context Pack generation fail closed because coverage was below the safety threshold?
 - What `as_of` timestamp did the snapshot carry, and did replay decisions stay within the first/last decision timestamps reported by the backtest?
 - What memory context was attached?

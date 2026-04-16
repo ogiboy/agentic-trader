@@ -188,6 +188,7 @@ Status: in progress.
 - [x] introduce a shared memory bus between agents for cross-agent context consistency
 - [x] add a consensus mechanism for conflicting agent outputs before execution
 - [x] ensure each agent can independently retrieve relevant historical market regimes from vector memory
+- [x] add fundamental and macro/news analyst specialist roles that consume structured feature bundles before manager synthesis
 - [ ] upgrade vector-style memory from hashed-token pseudo-embeddings to true local-first semantic embeddings with metadata and migration compatibility
 - [ ] improve retrieval ranking with freshness, outcome weighting, regime buckets, and diversity constraints
 - [ ] persist per-stage retrieval explanations so the operator can inspect why a memory influenced a decision
@@ -197,6 +198,7 @@ Status: in progress.
 - historical confidence calibration is now present as a downside-aware signal in agent context and manager overrides
 - a first shared memory bus now propagates normalized stage summaries across the agent graph and into persisted traces
 - a first specialist consensus layer now scores pre-manager alignment and persists the result into reviews and replays
+- the agent graph now includes fundamental and macro/news analyst stages between coordinator and regime so manager synthesis sees technical, fundamental, and macro context together
 - TUI and operator instruction flows now expose curated tone, strictness, and intervention presets alongside behavior and agent profile
 - current vector-style retrieval is intentionally lightweight; richer semantic embeddings, retrieval explanations, and outcome-aware ranking are still open
 
@@ -323,6 +325,55 @@ Status: planned.
 - [ ] add a paper-operations readiness checklist that must pass before longer continuous runs
 - [ ] compare paper operation results against deterministic baselines and memory/no-memory ablations before considering any live adapter
 - [ ] keep live broker work blocked until paper operation has stable QA evidence, context-pack explainability, and reviewable trade journals
-  Notes:
+Notes:
 - this phase is about earning operator trust in continuous paper operation before expanding execution risk
 - the product should feel like an inspectable operator system, not a black-box trading bot
+
+## Phase 16: Financial Intelligence Layer
+
+Status: in progress.
+
+- [x] introduce structured symbol identity with symbol, exchange, currency, region, and asset class
+- [x] add a deterministic feature bundle that summarizes technical, fundamental, and macro/news context before agent prompts
+- [x] add technical feature summaries for returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
+- [x] scaffold fundamental feature contracts for revenue growth, profitability stability, cash-flow alignment, debt risk, FX exposure, and reinvestment potential
+- [x] scaffold macro/news context with company-specific, sector-level, and macro-level classification plus relevance scores
+- [x] add fundamental analyst and macro/news analyst roles with structured schemas instead of free-form LLM output
+- [x] persist decision feature snapshots, fundamental summaries, and macro summaries into trade context and memory documents
+- [ ] implement real fundamental providers behind the feature interface, starting with API-backed US equities and SEC filings
+- [ ] implement structured news and macro ingestion from Finnhub, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
+- [ ] add operator-visible reasoning panels that explain how technical, fundamental, macro, memory, and guard evidence combined
+- [ ] improve risk engine with volatility-based sizing, portfolio exposure limits, sector concentration checks, and macro risk overrides
+Notes:
+- this phase moves the system from "price plus simple agent reasoning" toward a financially-aware, multi-source decision system
+- agents now consume a compact `DecisionFeatureBundle`; raw noisy data should stay behind feature/provider boundaries
+- API keys are configuration-only and must stay in ignored local env files, never in tracked files or QA artifacts
+- live trading remains blocked; this is decision intelligence groundwork, not broker activation
+
+## Phase 17: v1 Live Readiness - Alpaca
+
+Status: planned.
+
+- [ ] add an Alpaca adapter behind the existing broker adapter contract for US equities only
+- [ ] keep paper, simulated-real, and live backends explicitly separated in settings, status, persistence, and operator UI
+- [ ] require manual approval before any live execution path can submit an order
+- [ ] enforce strict risk caps, kill switch, and unsupported-backend failures before live adapter activation
+- [ ] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
+- [ ] add paper-to-live readiness checklist that compares paper performance, QA evidence, and broker health before enabling any live mode
+Notes:
+- v1 live readiness is Alpaca-first and US-equities-only to limit blast radius
+- `paper` remains the default; `live` remains blocked until the adapter, approval gate, and readiness checks are intentionally implemented
+
+## Phase 18: v2 Global Expansion - IBKR
+
+Status: planned.
+
+- [ ] add an Interactive Brokers adapter behind the same broker adapter boundary
+- [ ] support multi-market symbol identity across US, EU, TR, and future venues
+- [ ] add currency awareness to account state, intent sizing, fills, PnL, and risk reports
+- [ ] model FX exposure and conversion assumptions explicitly before execution
+- [ ] add timezone/session awareness for global exchanges and market-specific trading calendars
+- [ ] integrate Turkey-specific KAP disclosures and region-aware macro context into the feature layer
+Notes:
+- v2 should reuse the v1 contracts instead of creating a separate global trading runtime
+- global expansion depends on symbol identity, currency/FX accounting, session calendars, and provider-specific QA evidence being mature first

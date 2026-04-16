@@ -33,17 +33,21 @@ The current strict runtime uses a staged specialist graph:
 
 1. `Research Coordinator`
    Sets cycle focus, priority signals, and caution flags.
-2. `Regime Agent`
+2. `Fundamental Analyst`
+   Reviews structured fundamental evidence such as growth quality, profitability, cash-flow alignment, debt, FX exposure, and reinvestment potential.
+3. `Macro / News Analyst`
+   Reviews structured macro and classified news context without ingesting raw noisy text.
+4. `Regime Agent`
    Classifies the market state from recent price and volume features.
-3. `Strategy Selector`
+5. `Strategy Selector`
    Chooses a strategy family and directional action.
-4. `Risk Agent`
+6. `Risk Agent`
    Sets position sizing, stop loss, take profit, and invalidation logic.
-5. `Manager Agent`
+7. `Manager Agent`
    Combines specialist outputs into a final execution posture.
-6. `Execution Guard`
+8. `Execution Guard`
    Rejects low-confidence or poor-risk proposals.
-7. `Paper Broker`
+9. `Paper Broker`
    Records simulated orders, fills, account state, position plans, and journals into DuckDB.
 
 Every agent cycle now receives a unified context bundle that can include:
@@ -55,10 +59,11 @@ Every agent cycle now receives a unified context bundle that can include:
 - recent run summaries
 - trade-journal memory hints
 - upstream agent outputs
+- a structured Decision Feature Bundle containing symbol identity, technical summaries, fundamental placeholders, and macro/news context
 
 If the fetched market data materially under-covers the requested lookback window in operation/runtime flows, snapshot generation fails before any agents run. That keeps a `180d` or `1y` request from silently becoming a short-window decision. Training replay can still use growing windows, but the context pack keeps that undercoverage visible as data quality context.
 
-The LLM layer also supports role-based model routing, so different local models can be assigned to coordinator, regime, strategy, risk, manager, explainer, and instruction parsing roles.
+The LLM layer also supports role-based model routing, so different local models can be assigned to coordinator, fundamental, macro, regime, strategy, risk, manager, explainer, and instruction parsing roles.
 
 The current memory layer is still lightweight, but it can already retrieve historically similar recorded runs and inject those summaries into agent context before a cycle. Memory documents now also include the Market Context Pack summary so later retrieval can reason about the broader lookback, not only the latest indicator row. Stored memory vectors include embedding provider, model, version, and dimensionality metadata so future semantic embeddings can migrate without hiding how old memories were produced.
 
@@ -117,8 +122,12 @@ Optional per-role model routing overrides:
 ```bash
 export AGENTIC_TRADER_REGIME_MODEL_NAME=qwen3:8b
 export AGENTIC_TRADER_RISK_MODEL_NAME=qwen3:14b
+export AGENTIC_TRADER_FUNDAMENTAL_MODEL_NAME=qwen3:8b
+export AGENTIC_TRADER_MACRO_MODEL_NAME=qwen3:8b
 export AGENTIC_TRADER_EXPLAINER_MODEL_NAME=llama3.1:8b
 ```
+
+Optional provider keys for future financial data enrichment should live in an ignored local env file such as `.env.local`; `.env.example` documents the variable names but does not contain secrets.
 
 Smoke check the environment:
 
