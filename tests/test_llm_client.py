@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
+from agentic_trader.schemas import StrategyPlan
 
 
 class _StructuredEcho(BaseModel):
@@ -53,6 +54,29 @@ def test_complete_structured_retries_after_empty_response(
     )
 
     assert parsed.value == "ok"
+
+
+def test_complete_structured_requests_provider_json_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(max_retries=0)
+    llm = LocalLLM(settings)
+    request_bodies: list[dict[str, Any]] = []
+
+    def _capture_post(*_args: object, **kwargs: Any) -> _FakeResponse:
+        request_bodies.append(kwargs["json"])
+        return _FakeResponse({"response": '{"value":"ok"}'})
+
+    monkeypatch.setattr(llm.client, "post", _capture_post)
+
+    parsed = llm.complete_structured(
+        system_prompt="Return JSON.",
+        user_prompt="Test",
+        schema=_StructuredEcho,
+    )
+
+    assert parsed.value == "ok"
+    assert request_bodies[0]["format"] == "json"
 
 
 def test_complete_text_retries_after_error_payload(
@@ -106,6 +130,92 @@ def test_complete_structured_reports_payload_preview_when_exhausted(
         raise AssertionError(
             "Expected RuntimeError for exhausted empty structured response"
         )
+
+
+def test_complete_structured_redacts_provider_thinking_from_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(max_retries=0)
+    llm = LocalLLM(settings)
+
+    monkeypatch.setattr(
+        llm.client,
+        "post",
+        lambda *args, **kwargs: _FakeResponse(
+            {"response": "", "thinking": "private chain of thought"}
+        ),
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        llm.complete_structured(
+            system_prompt="Return JSON.",
+            user_prompt="Test",
+            schema=_StructuredEcho,
+        )
+
+    message = str(exc_info.value)
+    assert "private chain of thought" not in message
+    assert '"thinking": "<redacted>"' in message
+
+
+def test_complete_structured_reports_concise_validation_failure(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    settings = Settings(max_retries=0)
+    llm = LocalLLM(settings)
+
+    monkeypatch.setattr(
+        llm.client,
+        "post",
+        lambda *args, **kwargs: _FakeResponse({"response": '{"unexpected":"shape"}'}),
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        llm.complete_structured(
+            system_prompt="Return JSON.",
+            user_prompt="Test",
+            schema=_StructuredEcho,
+        )
+
+    message = str(exc_info.value)
+    assert message == (
+        "LLM structured output validation failed for _StructuredEcho: "
+        "missing required fields: value"
+    )
+    captured = capsys.readouterr()
+    assert "LLM structured validation failed on attempt" not in captured.err
+
+
+def test_complete_structured_accepts_wrapped_strategy_aliases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(max_retries=0)
+    llm = LocalLLM(settings)
+
+    monkeypatch.setattr(
+        llm.client,
+        "post",
+        lambda *args, **kwargs: _FakeResponse(
+            {
+                "response": (
+                    '{"strategy":{"family":"no_trade","action":"hold",'
+                    '"timeframe":"flat","entry":"No entry.",'
+                    '"invalidation":"Wait for clearer evidence.",'
+                    '"confidence":0.42}}'
+                )
+            }
+        ),
+    )
+
+    parsed = llm.complete_structured(
+        system_prompt="Return JSON.",
+        user_prompt="Test",
+        schema=StrategyPlan,
+    )
+
+    assert parsed.strategy_family == "no_trade"
+    assert parsed.entry_logic == "No entry."
+    assert parsed.invalidation_logic == "Wait for clearer evidence."
 
 
 def test_local_llm_uses_configured_provider_defaults() -> None:

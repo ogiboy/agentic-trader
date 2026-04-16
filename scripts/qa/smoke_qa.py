@@ -20,6 +20,12 @@ import pexpect
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
 TRACEBACK_MARKERS = ("Traceback (most recent call last):", "KeyboardInterrupt")
+OPERATOR_NOISE_MARKERS = (
+    "LLM structured validation failed on attempt",
+    "LLM structured request issue on attempt",
+    "LLM text request issue on attempt",
+    "Failed download:",
+)
 RENDER_SECONDS = 3.0
 EXIT_WAIT_SECONDS = 2.0
 TUI_READY_PATTERNS = (
@@ -131,6 +137,14 @@ def _output_has_traceback(output: str) -> bool:
     return any(marker in output for marker in TRACEBACK_MARKERS)
 
 
+def _operator_noise_marker(output: str) -> str | None:
+    """Return the first raw provider/retry marker that should not leak to terminal UX."""
+    for marker in OPERATOR_NOISE_MARKERS:
+        if marker in output:
+            return marker
+    return None
+
+
 def run_command_capture(
     context: SmokeContext,
     name: str,
@@ -139,6 +153,7 @@ def run_command_capture(
     timeout: int = 30,
     require_json_stdout: bool = False,
     display: str | None = None,
+    env_overrides: dict[str, str] | None = None,
 ) -> CheckResult:
     """
     Run a command, record its stdout/stderr and metadata to a per-check artifact, and return a CheckResult describing success or failure.
@@ -165,10 +180,33 @@ def run_command_capture(
         proc = subprocess.run(
             command,
             cwd=REPO_ROOT,
+            env={**os.environ, **env_overrides} if env_overrides is not None else None,
             text=True,
             capture_output=True,
             timeout=timeout,
             check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        _write_artifact(
+            artifact,
+            f"$ {display_command}\n"
+            f"cwd: {REPO_ROOT}\n"
+            f"timeout: {timeout}\n\n"
+            f"STDOUT:\n{stdout}\n\n"
+            f"STDERR:\n{stderr}\n\n"
+            f"EXCEPTION:\n{exc}\n",
+        )
+        return CheckResult(
+            name=name,
+            passed=False,
+            details=f"timeout_after={timeout}s",
+            artifact=str(artifact),
         )
     except Exception as exc:
         _write_artifact(artifact, f"$ {display_command}\n\nEXCEPTION:\n{exc}\n")
@@ -199,13 +237,21 @@ def run_command_capture(
         artifact_body += f"\n\nJSON_ERROR:\n{json_error}\n"
     _write_artifact(artifact, artifact_body)
 
-    passed = proc.returncode == 0 and not _output_has_traceback(stdout + stderr)
+    combined_output = stdout + stderr
+    noise_marker = _operator_noise_marker(combined_output)
+    passed = (
+        proc.returncode == 0
+        and not _output_has_traceback(combined_output)
+        and noise_marker is None
+    )
     if require_json_stdout:
         passed = passed and json_error is None
 
     details = f"exit_code={proc.returncode}"
     if json_error is not None:
         details += f"; invalid_json={json_error}"
+    if noise_marker is not None:
+        details += f"; raw_operator_noise={noise_marker}"
     return CheckResult(
         name=name,
         passed=passed,
@@ -419,6 +465,14 @@ def _interactive_check_result(
             details=f"{exit_method}; traceback_detected",
             artifact=str(artifact),
         )
+    noise_marker = _operator_noise_marker(output)
+    if noise_marker is not None:
+        return CheckResult(
+            name=name,
+            passed=False,
+            details=f"{exit_method}; raw_operator_noise={noise_marker}",
+            artifact=str(artifact),
+        )
     ctrl_c_exit = exit_method == "sent_ctrl_c" and child.exitstatus == 130
     if child.exitstatus not in (None, 0) and not ctrl_c_exit:
         return CheckResult(
@@ -543,6 +597,96 @@ def run_tui_open_and_quit(
             details="tui_ready_eof",
             artifact=str(artifact),
         )
+    except Exception as exc:
+        output = log.getvalue()
+        if child is not None and child.isalive():
+            child.terminate(force=True)
+        _write_artifact(
+            artifact,
+            f"$ {display_command}\n"
+            f"cwd: {REPO_ROOT}\n"
+            f"exception: {exc}\n\n"
+            f"CAPTURE:\n{output}\n",
+        )
+        return CheckResult(
+            name=name,
+            passed=False,
+            details=f"exception={exc}",
+            artifact=str(artifact),
+        )
+
+
+def run_rich_menu_deep_navigation(
+    context: SmokeContext,
+    command: str,
+    *,
+    timeout: int = 20,
+) -> CheckResult:
+    """Exercise a few nested Rich menu routes instead of only opening the shell."""
+    name = "rich_menu_deep_navigation"
+    artifact = _artifact_path(context, name)
+    display_command = _command_display([command, "menu"])
+    log = io.StringIO()
+    child: pexpect.spawn | None = None
+
+    try:
+        child = pexpect.spawn(
+            command,
+            args=["menu"],
+            cwd=str(REPO_ROOT),
+            env=cast(Any, _spawn_env()),
+            encoding="utf-8",
+            timeout=timeout,
+            dimensions=(40, 140),
+        )
+        child.logfile_read = log
+        _wait_for_tui_ready(child, timeout=timeout)
+
+        child.expect("Select action", timeout=timeout)
+        child.sendline("6")
+        child.expect("Review And Trace", timeout=timeout)
+        child.sendline("3")
+        child.expect("Press Enter to continue", timeout=timeout)
+        child.sendline("")
+
+        child.expect("Select action", timeout=timeout)
+        child.sendline("5")
+        child.expect("Research And Memory", timeout=timeout)
+        child.sendline("2")
+        child.expect("Runtime Events|Recent Runs", timeout=timeout)
+        child.expect("Press Enter to continue", timeout=timeout)
+        child.sendline("")
+        child.expect("Research And Memory", timeout=timeout)
+        child.sendline("3")
+        child.expect("Press Enter to continue", timeout=timeout)
+        child.sendline("")
+
+        child.expect("Select action", timeout=timeout)
+        child.sendline("4")
+        child.expect("Portfolio And Risk", timeout=timeout)
+        child.sendline("1")
+        child.expect("Portfolio", timeout=timeout)
+        child.expect("Press Enter to continue", timeout=timeout)
+        child.sendline("")
+        child.expect("Portfolio And Risk", timeout=timeout)
+        child.sendline("4")
+        child.expect("Press Enter to continue", timeout=timeout)
+        child.sendline("")
+
+        child.expect("Select action", timeout=timeout)
+        child.sendline("7")
+        _drain_child(child, EXIT_WAIT_SECONDS)
+        if child.isalive():
+            child.sendcontrol("c")
+            _drain_child(child, EXIT_WAIT_SECONDS)
+        if child.isalive():
+            child.terminate(force=True)
+
+        child.close(force=False)
+        output = log.getvalue()
+        exit_method = "scripted_navigation"
+        _write_interactive_artifact(artifact, display_command, exit_method, child, output)
+        return _interactive_check_result(name, artifact, exit_method, child, output)
     except Exception as exc:
         output = log.getvalue()
         if child is not None and child.isalive():
@@ -704,10 +848,66 @@ def _parse_args() -> Namespace:
         default=f"smoke-{_run_id()}",
         help="Artifact subdirectory name under .ai/qa/artifacts/.",
     )
+    parser.add_argument(
+        "--include-runtime-cycle",
+        action="store_true",
+        help="Run one isolated foreground orchestrator cycle. This is slower and requires live market data plus a healthy LLM.",
+    )
+    parser.add_argument(
+        "--runtime-symbol",
+        default="BTC-USD",
+        help="Symbol used by --include-runtime-cycle.",
+    )
+    parser.add_argument(
+        "--runtime-interval",
+        default="1d",
+        help="Interval used by --include-runtime-cycle.",
+    )
+    parser.add_argument(
+        "--runtime-lookback",
+        default="180d",
+        help="Lookback used by --include-runtime-cycle.",
+    )
     return parser.parse_args()
 
 
-def _surface_checks(context: SmokeContext) -> list[CheckResult]:
+def _runtime_cycle_check(
+    context: SmokeContext, args: Namespace, agentic_trader_executable: str
+) -> CheckResult:
+    """Run one isolated foreground orchestrator cycle for deeper runtime QA."""
+    runtime_dir = context.artifacts_dir / "runtime-cycle"
+    database_path = runtime_dir / "agentic_trader.duckdb"
+    return run_command_capture(
+        context,
+        "runtime_cycle",
+        [
+            agentic_trader_executable,
+            "launch",
+            "--symbols",
+            str(args.runtime_symbol),
+            "--interval",
+            str(args.runtime_interval),
+            "--lookback",
+            str(args.runtime_lookback),
+            "--poll-seconds",
+            "0",
+            "--continuous",
+            "--max-cycles",
+            "1",
+        ],
+        timeout=420,
+        env_overrides={
+            "AGENTIC_TRADER_RUNTIME_DIR": str(runtime_dir),
+            "AGENTIC_TRADER_DATABASE_PATH": str(database_path),
+            "AGENTIC_TRADER_MARKET_DATA_CACHE_DIR": str(runtime_dir / "market_snapshots"),
+            "AGENTIC_TRADER_MAX_OUTPUT_TOKENS": "2048",
+            "AGENTIC_TRADER_MAX_RETRIES": "0",
+            "AGENTIC_TRADER_REQUEST_TIMEOUT_SECONDS": "180",
+        },
+    )
+
+
+def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]:
     """
     Run the predefined set of CLI and TUI smoke checks for `agentic-trader` and a Python TUI, collecting their CheckResult entries.
     
@@ -809,8 +1009,11 @@ def _surface_checks(context: SmokeContext) -> list[CheckResult]:
                     agentic_trader_executable,
                     ["menu"],
                 ),
+                run_rich_menu_deep_navigation(context, agentic_trader_executable),
             ]
         )
+        if args.include_runtime_cycle:
+            results.append(_runtime_cycle_check(context, args, agentic_trader_executable))
 
     results.append(
         run_tui_open_and_quit(
@@ -989,7 +1192,7 @@ def main() -> int:
     context = SmokeContext(artifacts_dir=ARTIFACTS_ROOT / args.run_label)
     context.artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    results = _surface_checks(context)
+    results = _surface_checks(context, args)
     if args.include_quality:
         results.extend(_quality_checks(context, include_coverage=args.include_sonar))
     if args.include_sonar:

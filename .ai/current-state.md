@@ -36,7 +36,7 @@ Implemented or substantially present:
 - explicit memory write policy for trade memory versus chat memory domains
 - broker adapter boundary with paper backend, safe live gating, and execution kill-switch semantics
 - QA workflow docs now define product-specific checklist, runbook, scenarios, and evidence conventions for CLI, Rich, Ink, daemon, observer API, memory, governance, and paper broker validation
-- a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, read-only JSON surfaces, optional quality gates, coverage XML, and SonarQube submission
+- a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, deeper Rich submenu navigation, read-only JSON surfaces, optional one-cycle runtime checks, optional quality gates, coverage XML, and SonarQube submission
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
 - a first Market Context Pack is generated from the fetched lookback window and persisted with snapshots, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
@@ -67,7 +67,8 @@ New production-expansion direction:
 - live broker adapters are not started
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy
-- Ink TUI is the primary operator surface, but deeper feature parity and refinement are still open
+- Ink TUI is the primary operator surface, but deeper feature parity, htop-like control affordances, resize-safe rendering, and visual refinement are still open
+- runtime performance is currently controlled mostly through static settings; hardware-aware profiles for safe concurrency, token budgets, model routing, and memory use are a planned next step
 - DB-backed review surfaces may intentionally fall back to observer mode while the runtime writer is active
 - background runtime supervision now has a sidecar-friendly status and log contract that UI surfaces can read without competing for the writer connection
 - behavior-changing work should use the QA docs when it affects operator surfaces or runtime behavior

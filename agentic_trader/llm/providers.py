@@ -15,7 +15,7 @@ class LLMProvider(Protocol):
     base_url: str
     client: Any | None
 
-    def generate(self, *, prompt: str) -> dict[str, Any]: ...
+    def generate(self, *, prompt: str, json_mode: bool = False) -> dict[str, Any]: ...
 
     def health_check(self) -> LLMHealthStatus: ...
 
@@ -29,18 +29,21 @@ class OllamaProvider:
         self.base_url = settings.base_url.removesuffix("/v1").rstrip("/")
         self.client = httpx.Client(timeout=settings.request_timeout_seconds)
 
-    def generate(self, *, prompt: str) -> dict[str, Any]:
+    def generate(self, *, prompt: str, json_mode: bool = False) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "model": self.model_name,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": self.settings.temperature,
+                "num_predict": self.settings.max_output_tokens,
+            },
+        }
+        if json_mode:
+            body["format"] = "json"
         response = self.client.post(
             f"{self.base_url}/api/generate",
-            json={
-                "model": self.model_name,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": self.settings.temperature,
-                    "num_predict": self.settings.max_output_tokens,
-                },
-            },
+            json=body,
         )
         response.raise_for_status()
         payload = response.json()
