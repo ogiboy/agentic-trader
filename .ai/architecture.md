@@ -35,6 +35,9 @@ Current runtime stages:
 - `agentic_trader/engine/`
   Runtime execution and orchestration mechanics, including the broker adapter boundary and the paper broker implementation
 
+- `agentic_trader/execution/`
+  Broker-facing execution contracts such as `ExecutionIntent`, `ExecutionOutcome`, health summaries, and translation helpers between guard decisions and adapter submissions
+
 - `agentic_trader/workflows/`
   Higher-level flow composition, replay, backtesting, review, and operator workflows
 
@@ -100,6 +103,7 @@ Good changes fit into one of these buckets:
 - keep live agent progress readable without depending on direct DB reads
 - keep daemon supervision metadata readable through sidecar contracts and not only through the database writer
 - keep future live broker work behind the adapter boundary and explicit execution safety gates
+- keep broker submissions flowing through `ExecutionIntent -> BrokerAdapter.place_order() -> ExecutionOutcome` so paper, simulated-real, and future live adapters share one auditable contract
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - improve replay and backtest fidelity
 

@@ -157,12 +157,17 @@ Notes:
 
 Status: in progress.
 
+- [x] introduce a canonical Execution Intent contract between guard output and broker adapters
 - [x] define a broker adapter interface
 - [x] start with a safe paper/live switch
+- [x] refactor the paper execution path to submit intents through the adapter boundary while preserving paper fills, positions, journals, and risk reports
+- [x] add a simulated-real adapter scaffold that remains local, non-live, and paper-safe while modeling slippage, spread, drift, latency metadata, rejection hooks, and partial-fill shape
+- [x] persist execution intent and outcome metadata for future replay/live-readiness audits
 - [x] add approval gates and kill switches
 - [ ] implement one live broker only after paper results are stable
 Notes:
-- a broker adapter boundary now sits in front of execution and the paper broker implements the first adapter
+- a broker adapter boundary now sits in front of execution and the paper broker implements the first adapter through `ExecutionIntent -> place_order() -> ExecutionOutcome`
+- simulated-real is intentionally not a live broker; it records non-live simulated metadata while still using local paper-safe persistence
 - runtime surfaces now expose broker backend state, live-request status, and kill-switch status
 - live execution remains intentionally blocked until a real live adapter is added behind the same interface
 

@@ -35,6 +35,9 @@ Implemented or substantially present:
 - trade-level context persistence for memory/tool/model/rationale inspection
 - explicit memory write policy for trade memory versus chat memory domains
 - broker adapter boundary with paper backend, safe live gating, and execution kill-switch semantics
+- canonical execution intent and outcome contracts now sit between guard output and broker adapters; paper execution uses the adapter path while preserving existing fills, positions, journals, and account marks
+- a simulated-real adapter scaffold exists for non-live execution rehearsal with slippage, spread, drift, latency metadata, rejection hooks, partial-fill shape, and explicit simulated/non-live status
+- execution intent and adapter outcome metadata are persisted for run/trade review so future live integration can be replayed and audited before any real broker is enabled
 - QA workflow docs now define product-specific checklist, runbook, scenarios, and evidence conventions for CLI, Rich, Ink, daemon, observer API, memory, governance, and paper broker validation
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, deeper Rich submenu navigation, read-only JSON surfaces, optional one-cycle runtime checks, optional quality gates, coverage XML, and SonarQube submission
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
@@ -64,7 +67,7 @@ New production-expansion direction:
 - lookback analysis has a first operator-verifiable fail-closed contract for operation/runtime flows; training replay can preserve growing-window undercoverage as an explicit context flag, but provider-limit edge cases still need broader QA coverage
 - true semantic memory is not implemented yet; current vector-style retrieval with explicit metadata should be treated as a migration bridge, not the destination
 - Training vs Operation mode is enforced for the first core boundary: Operation requires strict LLM readiness, while Training diagnostic fallback is limited to evaluation/backtest flows
-- live broker adapters are not started
+- live broker adapters are not implemented or enabled; simulated-real remains local and non-live
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy
 - Ink TUI is the primary operator surface, but deeper feature parity, htop-like control affordances, resize-safe rendering, and visual refinement are still open

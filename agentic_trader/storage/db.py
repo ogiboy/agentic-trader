@@ -6,6 +6,7 @@ from uuid import uuid4
 import duckdb
 
 from agentic_trader.config import Settings
+from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
 from agentic_trader.memory.embeddings import (
     build_memory_document,
     embed_artifacts,
@@ -386,6 +387,23 @@ class TradingDatabase:
                 run_id varchar,
                 symbol varchar not null,
                 payload_json varchar not null
+            )
+            """
+        )
+        self.conn.execute(
+            """
+            create table if not exists execution_records (
+                intent_id varchar primary key,
+                created_at varchar not null,
+                run_id varchar,
+                order_id varchar,
+                symbol varchar not null,
+                execution_backend varchar not null,
+                adapter_name varchar not null,
+                status varchar not null,
+                rejection_reason varchar,
+                intent_json varchar not null,
+                outcome_json varchar not null
             )
             """
         )
@@ -996,6 +1014,8 @@ class TradingDatabase:
         trade_id: str,
         run_id: str | None,
         artifacts: RunArtifacts,
+        execution_intent: ExecutionIntent | None = None,
+        execution_outcome: ExecutionOutcome | None = None,
     ) -> None:
         """
         Persist a trade context assembled from a run's artifacts into the `trade_contexts` table.
@@ -1054,6 +1074,43 @@ class TradingDatabase:
             manager_conflicts=artifacts.manager.conflicts,
             manager_resolution_notes=artifacts.manager.resolution_notes,
             execution_rationale=artifacts.execution.rationale,
+            execution_backend=(
+                execution_intent.execution_backend
+                if execution_intent is not None
+                else None
+            ),
+            execution_adapter=(
+                execution_outcome.adapter_name
+                if execution_outcome is not None
+                else (
+                    execution_intent.adapter_name
+                    if execution_intent is not None
+                    else None
+                )
+            ),
+            execution_intent=(
+                execution_intent.model_dump(mode="json")
+                if execution_intent is not None
+                else None
+            ),
+            execution_outcome_status=(
+                execution_outcome.status if execution_outcome is not None else None
+            ),
+            execution_rejection_reason=(
+                execution_outcome.rejection_reason
+                if execution_outcome is not None
+                else None
+            ),
+            execution_outcome=(
+                execution_outcome.model_dump(mode="json")
+                if execution_outcome is not None
+                else None
+            ),
+            simulated_fill_metadata=(
+                execution_outcome.simulated_metadata
+                if execution_outcome is not None
+                else {}
+            ),
             review_summary=artifacts.review.summary,
             review_warnings=artifacts.review.warnings,
         )
@@ -1075,6 +1132,80 @@ class TradingDatabase:
                 record.model_dump_json(indent=2),
             ],
         )
+
+    def record_execution_outcome(
+        self,
+        *,
+        run_id: str | None,
+        intent: ExecutionIntent,
+        outcome: ExecutionOutcome,
+    ) -> None:
+        """
+        Persist the broker-facing execution intent and its adapter outcome.
+
+        The table is intentionally append/update by intent id so future live
+        adapters can replay exactly what was requested, which backend handled it,
+        and why the adapter filled, rejected, or blocked the order.
+        """
+        self.conn.execute(
+            """
+            insert into execution_records (
+                intent_id, created_at, run_id, order_id, symbol, execution_backend,
+                adapter_name, status, rejection_reason, intent_json, outcome_json
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            on conflict(intent_id) do update set
+                created_at = excluded.created_at,
+                run_id = excluded.run_id,
+                order_id = excluded.order_id,
+                symbol = excluded.symbol,
+                execution_backend = excluded.execution_backend,
+                adapter_name = excluded.adapter_name,
+                status = excluded.status,
+                rejection_reason = excluded.rejection_reason,
+                intent_json = excluded.intent_json,
+                outcome_json = excluded.outcome_json
+            """,
+            [
+                intent.intent_id,
+                outcome.created_at,
+                run_id,
+                outcome.order_id,
+                intent.symbol,
+                outcome.execution_backend,
+                outcome.adapter_name,
+                outcome.status,
+                outcome.rejection_reason,
+                intent.model_dump_json(indent=2),
+                outcome.model_dump_json(indent=2),
+            ],
+        )
+
+    def latest_execution_record(self) -> dict[str, object] | None:
+        row = self.conn.execute(
+            """
+            select intent_id, created_at, run_id, order_id, symbol, execution_backend,
+                   adapter_name, status, rejection_reason, intent_json, outcome_json
+            from execution_records
+            order by created_at desc
+            limit 1
+            """
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "intent_id": str(row[0]),
+            "created_at": str(row[1]),
+            "run_id": str(row[2]) if row[2] is not None else None,
+            "order_id": str(row[3]) if row[3] is not None else None,
+            "symbol": str(row[4]),
+            "execution_backend": str(row[5]),
+            "adapter_name": str(row[6]),
+            "status": str(row[7]),
+            "rejection_reason": str(row[8]) if row[8] is not None else None,
+            "intent": json.loads(str(row[9])),
+            "outcome": json.loads(str(row[10])),
+        }
 
     def close_trade_journal(
         self,

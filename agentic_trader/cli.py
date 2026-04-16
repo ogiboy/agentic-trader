@@ -1297,8 +1297,8 @@ def _runtime_mode_transition_plan(
                 "Provider check skipped; run doctor before Operation mode.",
             )
         add_check(
-            "paper_backend_selected",
-            settings.execution_backend == "paper",
+            "non_live_execution_backend",
+            settings.execution_backend in {"paper", "simulated_real"},
             f"Configured backend: {settings.execution_backend}",
         )
         add_check(
@@ -2167,12 +2167,17 @@ def broker_status(
     table.add_column("Field")
     table.add_column("Value")
     table.add_row("Backend", str(payload["backend"]))
+    table.add_row("Adapter", str(payload["adapter_name"]))
     table.add_row("State", str(payload["state"]))
+    table.add_row("Simulated", str(payload["simulated"]))
     table.add_row("Live Execution Enabled", str(payload["live_execution_enabled"]))
     table.add_row("Kill Switch Active", str(payload["kill_switch_active"]))
     table.add_row("Live Requested", str(payload["live_requested"]))
     table.add_row("Live Ready", str(payload["live_ready"]))
     table.add_row("Message", str(payload["message"]))
+    healthcheck = payload.get("healthcheck")
+    if isinstance(healthcheck, dict):
+        table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
     console.print(table)
 
 

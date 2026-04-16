@@ -193,6 +193,7 @@ Steps:
 
 ```bash
 agentic-trader broker-status
+AGENTIC_TRADER_EXECUTION_BACKEND=simulated_real agentic-trader broker-status
 AGENTIC_TRADER_EXECUTION_BACKEND=live AGENTIC_TRADER_LIVE_EXECUTION_ENABLED=false agentic-trader broker-status
 AGENTIC_TRADER_EXECUTION_KILL_SWITCH_ACTIVE=true agentic-trader broker-status
 ```
@@ -200,6 +201,7 @@ AGENTIC_TRADER_EXECUTION_KILL_SWITCH_ACTIVE=true agentic-trader broker-status
 Expected:
 
 - default backend is `paper`
+- `simulated_real` is clearly labeled simulated and non-live
 - requested live backend is blocked without enablement
 - kill switch is visible
 - no command claims a live adapter exists

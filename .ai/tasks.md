@@ -160,6 +160,14 @@ Requirements:
 
 The broker boundary now exists. Keep live execution preparation explicit and guarded.
 
+Current state:
+
+- guard output is translated into a canonical `ExecutionIntent` before broker submission
+- broker adapters return an `ExecutionOutcome` with status, backend, adapter, rejection reason, and simulated metadata
+- paper remains the default backend and now conforms to the intent/outcome adapter path
+- `simulated_real` exists as a non-live scaffold for local rehearsal; it must not be treated as live trading
+- live remains blocked unless a real adapter and explicit enablement are added later
+
 Desired direction:
 
 - preserve paper as the default execution backend

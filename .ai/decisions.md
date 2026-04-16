@@ -114,3 +114,11 @@ Provider payload previews must redact reasoning fields such as `thinking` before
 Reason:
 A real agent cycle can take several minutes on local hardware, so it should not be part of every fast smoke run.
 The QA harness should keep fast terminal checks lightweight while offering opt-in runtime-cycle validation with isolated runtime storage, bounded token budgets, request timeouts, and artifacts that show the active stage when a run fails.
+
+### Broker execution should flow through an explicit intent and outcome contract
+
+Reason:
+Agent and guard outputs are not the same thing as broker orders.
+The runtime now translates guard-approved or guard-rejected decisions into a canonical `ExecutionIntent`, sends that through a broker adapter, and records an `ExecutionOutcome`.
+This keeps paper execution working while creating a reviewable seam for simulated-real rehearsal and future live broker integration.
+Live execution remains blocked until a real adapter, approval gates, paper-operation evidence, and operator-visible readiness checks exist behind the same contract.

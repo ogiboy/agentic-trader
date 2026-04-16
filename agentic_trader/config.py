@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from agentic_trader.schemas import RuntimeMode
+from agentic_trader.schemas import ExecutionBackend, RuntimeMode
 
 
 class Settings(BaseSettings):
@@ -43,9 +43,16 @@ class Settings(BaseSettings):
 
     runtime_mode: RuntimeMode = "operation"
     strict_llm: bool = True
-    execution_backend: Literal["paper", "live"] = "paper"
+    execution_backend: ExecutionBackend = "paper"
     live_execution_enabled: bool = False
     execution_kill_switch_active: bool = False
+    simulated_slippage_bps: float = Field(default=5.0, ge=0.0)
+    simulated_spread_bps: float = Field(default=2.0, ge=0.0)
+    simulated_price_drift_bps: float = Field(default=3.0, ge=0.0)
+    simulated_partial_fill_probability: float = Field(default=0.0, ge=0.0, le=1.0)
+    simulated_partial_fill_min_ratio: float = Field(default=0.5, gt=0.0, le=1.0)
+    simulated_order_rejection_probability: float = Field(default=0.0, ge=0.0, le=1.0)
+    simulated_latency_ms: int = Field(default=0, ge=0)
     allow_short: bool = True
     default_poll_seconds: int = 300
     min_confidence: float = 0.6

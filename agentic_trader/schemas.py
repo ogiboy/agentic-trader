@@ -33,6 +33,7 @@ MarketSessionState: TypeAlias = Literal["open", "closed", "always_open", "weeken
 MTFAlignment: TypeAlias = Literal["bullish", "bearish", "mixed"]
 TrendVote: TypeAlias = Literal["bullish", "bearish", "mixed", "insufficient"]
 RuntimeMode: TypeAlias = Literal["training", "operation"]
+ExecutionBackend: TypeAlias = Literal["paper", "simulated_real", "live"]
 ServiceState: TypeAlias = Literal[
     "idle",
     "starting",
@@ -441,6 +442,13 @@ class TradeContextRecord(BaseModel):
     manager_conflicts: list[ManagerConflict] = Field(default_factory=list)
     manager_resolution_notes: list[str] = Field(default_factory=list)
     execution_rationale: str = ""
+    execution_backend: str | None = None
+    execution_adapter: str | None = None
+    execution_intent: dict[str, object] | None = None
+    execution_outcome_status: str | None = None
+    execution_rejection_reason: str | None = None
+    execution_outcome: dict[str, object] | None = None
+    simulated_fill_metadata: dict[str, object] = Field(default_factory=dict)
     review_summary: str = ""
     review_warnings: list[str] = Field(default_factory=list)
 

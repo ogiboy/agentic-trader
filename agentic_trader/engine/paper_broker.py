@@ -3,6 +3,12 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 from agentic_trader.config import Settings
+from agentic_trader.execution.intent import (
+    ExecutionIntent,
+    ExecutionOutcome,
+    ExecutionOutcomeStatus,
+    build_execution_intent,
+)
 from agentic_trader.schemas import ExecutionDecision, PositionExitDecision, StrategyPlan
 from agentic_trader.storage.db import TradingDatabase
 
@@ -122,6 +128,69 @@ class PaperBroker:
                 "confidence": decision.confidence,
                 "rationale": decision.rationale,
             }
+        )
+
+    @staticmethod
+    def _position_size_pct_from_intent(intent: ExecutionIntent) -> float:
+        value = intent.backend_metadata.get("position_size_pct")
+        if isinstance(value, int | float | str):
+            try:
+                return float(value)
+            except ValueError:
+                return 0.0
+        return 0.0
+
+    @classmethod
+    def _decision_from_intent(cls, intent: ExecutionIntent) -> ExecutionDecision:
+        return ExecutionDecision(
+            approved=intent.approved,
+            side=intent.side,
+            symbol=intent.symbol,
+            entry_price=intent.reference_price,
+            stop_loss=intent.stop_loss or intent.reference_price,
+            take_profit=intent.take_profit or intent.reference_price,
+            position_size_pct=cls._position_size_pct_from_intent(intent),
+            confidence=intent.confidence,
+            rationale=intent.thesis,
+        )
+
+    @staticmethod
+    def _quantity_from_intent(
+        intent: ExecutionIntent,
+        *,
+        account_equity: float,
+        position_size_pct: float,
+    ) -> float:
+        if intent.quantity is not None:
+            return round(intent.quantity, 6)
+        notional = intent.notional
+        if notional is None:
+            notional = max(0.0, account_equity * position_size_pct)
+        return round(notional / intent.reference_price, 6)
+
+    @staticmethod
+    def _outcome(
+        intent: ExecutionIntent,
+        *,
+        order_id: str,
+        status: ExecutionOutcomeStatus,
+        message: str,
+        filled_quantity: float = 0.0,
+        average_fill_price: float | None = None,
+        rejection_reason: str | None = None,
+        simulated_metadata: dict[str, object] | None = None,
+    ) -> ExecutionOutcome:
+        return ExecutionOutcome(
+            intent_id=intent.intent_id,
+            order_id=order_id,
+            status=status,
+            adapter_name=intent.adapter_name,
+            execution_backend=intent.execution_backend,
+            filled_quantity=filled_quantity,
+            average_fill_price=average_fill_price,
+            rejection_reason=rejection_reason,
+            message=message,
+            simulated_metadata=simulated_metadata or {},
         )
 
     def _project_fill(
@@ -250,37 +319,67 @@ class PaperBroker:
             projected_open_positions -= 1
         return projected_open_positions > self.settings.max_open_positions
 
-    def submit(self, decision: ExecutionDecision) -> str:
+    def place_order(
+        self,
+        intent: ExecutionIntent,
+        *,
+        order_prefix: str | None = None,
+        simulated_metadata: dict[str, object] | None = None,
+    ) -> ExecutionOutcome:
         """
-        Submit an execution decision to the paper broker, persist the order, and apply a simulated fill if the decision is approved and passes risk/position constraints.
-        
-        Processes the given ExecutionDecision by recording the order, marking the symbol price, computing target quantity from account equity and position_size_pct, projecting the fill effects, and—if approved and all checks pass—applying a simulated fill to the database. If the decision is not approved, is a "hold", results in zero quantity, is invalid under shorting rules, or fails cash/exposure/open-position limits, the order is persisted but no fill is applied.
-        
-        Parameters:
-            decision (ExecutionDecision): The execution decision containing symbol, side, entry_price, position_size_pct, approval flag, and related metadata.
-        
-        Returns:
-            order_id (str): A unique paper order identifier (format "paper-<12 hex>") for the persisted order.
+        Persist an execution intent and apply the paper fill rules when allowed.
         """
-        order_id = f"paper-{uuid4().hex[:12]}"
+        prefix = order_prefix or (
+            "paper" if intent.execution_backend == "paper" else "simulated"
+        )
+        order_id = f"{prefix}-{uuid4().hex[:12]}"
+        decision = self._decision_from_intent(intent)
         self._record_order(order_id, decision)
 
         self.db.mark_price(decision.symbol, decision.entry_price)
         if not decision.approved or decision.side == "hold":
-            return order_id
+            status = "rejected" if not decision.approved else "no_fill"
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status=status,
+                message=(
+                    "Execution guard rejected the intent."
+                    if status == "rejected"
+                    else "Hold intent recorded without a fill."
+                ),
+                rejection_reason=decision.rationale if status == "rejected" else None,
+                simulated_metadata=simulated_metadata,
+            )
 
         account = self.db.get_account_snapshot()
-        notional = max(0.0, account.equity * decision.position_size_pct)
-        quantity = round(notional / decision.entry_price, 6)
+        quantity = self._quantity_from_intent(
+            intent,
+            account_equity=account.equity,
+            position_size_pct=decision.position_size_pct,
+        )
         if quantity == 0:
-            return order_id
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="no_fill",
+                message="Intent resolved to zero quantity.",
+                simulated_metadata=simulated_metadata,
+            )
 
         position = self.db.get_position(decision.symbol)
         current_qty = position.quantity if position else 0.0
         current_avg = position.average_price if position else 0.0
         current_market_value = abs(position.market_value) if position else 0.0
         if self._rejects_same_direction(decision, current_qty):
-            return order_id
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="blocked",
+                message="Existing same-direction position blocks pyramiding.",
+                rejection_reason="same_direction_position",
+                simulated_metadata=simulated_metadata,
+            )
 
         projection = self._project_fill(
             decision,
@@ -289,20 +388,48 @@ class PaperBroker:
             current_avg=current_avg,
         )
         if projection is None:
-            return order_id
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="blocked",
+                message="Short entry blocked because shorting is disabled.",
+                rejection_reason="shorting_disabled",
+                simulated_metadata=simulated_metadata,
+            )
 
         if self._would_exceed_cash(
             decision, current_qty, account.cash + projection.cash_delta
         ):
-            return order_id
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="blocked",
+                message="Intent would exceed available paper cash.",
+                rejection_reason="cash_limit",
+                simulated_metadata=simulated_metadata,
+            )
 
         if self._would_exceed_exposure(decision, projection, current_market_value):
-            return order_id
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="blocked",
+                message="Intent would exceed gross exposure limit.",
+                rejection_reason="gross_exposure_limit",
+                simulated_metadata=simulated_metadata,
+            )
 
         if self._would_exceed_open_position_limit(
             current_qty, projection.new_quantity
         ):
-            return order_id
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="blocked",
+                message="Intent would exceed open-position limit.",
+                rejection_reason="open_position_limit",
+                simulated_metadata=simulated_metadata,
+            )
 
         self.db.apply_fill(
             fill_id=f"fill-{uuid4().hex[:12]}",
@@ -316,7 +443,31 @@ class PaperBroker:
             new_quantity=projection.new_quantity,
             new_average_price=projection.new_average_price,
         )
-        return order_id
+        return self._outcome(
+            intent,
+            order_id=order_id,
+            status="filled",
+            message="Paper intent filled immediately.",
+            filled_quantity=quantity,
+            average_fill_price=decision.entry_price,
+            simulated_metadata=simulated_metadata,
+        )
+
+    def submit(self, decision: ExecutionDecision) -> str:
+        """
+        Backwards-compatible wrapper for older tests and direct paper-broker callers.
+        """
+        account = self.db.get_account_snapshot()
+        intent = build_execution_intent(
+            decision=decision,
+            settings=self.settings,
+            reference_equity=account.equity,
+            adapter_name="paper",
+        )
+        outcome = self.place_order(intent)
+        if outcome.order_id is None:
+            raise RuntimeError("Paper broker did not return an order id.")
+        return outcome.order_id
 
     def record_position_plan(
         self,
