@@ -166,6 +166,7 @@ Desired direction:
 - reuse the shared UI text catalog for recurring CLI, Rich, Ink, and future WebUI labels
 - defer full localization until operator flows stabilize, but avoid adding new scattered duplicate labels
 - keep pyright, ruff, pytest, and smoke QA green as surface contracts evolve
+- keep `pyproject.toml` and `poetry.lock` in sync when Python dependencies change; use Poetry for add/remove/lock operations rather than ad hoc pip installs
 
 ### 11. Future External Provider Readiness
 

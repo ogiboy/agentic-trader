@@ -10,6 +10,7 @@ coverage.xml
 .ruff_cache/
 .venv/
 .conda-env/
+poetry.toml
 __pycache__/
 *.pyc
 runtime/

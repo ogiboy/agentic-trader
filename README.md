@@ -85,14 +85,34 @@ The current memory layer is still lightweight, but it can already retrieve histo
 Create and activate a project-local Conda environment:
 
 ```bash
-conda create -n trader python=3.14
+conda create -n trader python=3.14 poetry
 conda activate trader
 ```
 
-Install the project:
+Point Poetry at the Conda Python, then install the locked Python dependencies
+and the editable project:
 
 ```bash
-python -m pip install -e ".[dev]"
+poetry env use "$CONDA_PREFIX/bin/python"
+poetry install --extras dev
+```
+
+If you want Poetry to install directly into the active Conda environment instead
+of creating its own virtualenv, run this once before `poetry install`:
+
+```bash
+poetry config virtualenvs.create false --local
+poetry install --extras dev
+```
+
+The committed `poetry.lock` file is the Python dependency lock for this
+repository. When adding or removing Python packages, use Poetry so
+`pyproject.toml` and `poetry.lock` stay in sync:
+
+```bash
+poetry add package-name
+poetry add --optional dev dev-tool-name
+poetry lock
 ```
 
 Install the Ink control-room dependencies if you want the primary terminal UI:

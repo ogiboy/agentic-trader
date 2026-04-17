@@ -146,3 +146,10 @@ Provider payloads differ by source, market, region, and availability.
 The runtime now uses provider interfaces for market, fundamental, news, disclosure, and macro data, then aggregates them into a `CanonicalAnalysisSnapshot`.
 Agents still consume the compact `DecisionFeatureBundle`, but the canonical snapshot preserves source attribution, freshness, completeness, and explicit missing sections for prompts, persistence, memory, dashboard JSON, and future UI review surfaces.
 Yahoo remains a fallback market/news source rather than the sole source of truth, while SEC EDGAR, KAP, macro indicators, transcripts, and vendor APIs can be added behind the same adapter seam.
+
+### Python dependencies should be locked with Poetry
+
+Reason:
+The project is expected to run consistently on multiple machines, but Conda and ad hoc pip installs do not update repository manifests automatically.
+`pyproject.toml` remains the direct dependency manifest and `poetry.lock` is now the committed resolver output.
+Conda stays useful for selecting the Python interpreter and native environment, while Poetry owns Python package add, remove, lock, and install synchronization.
