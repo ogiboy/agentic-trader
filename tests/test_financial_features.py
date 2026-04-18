@@ -1,3 +1,5 @@
+import pytest
+
 from agentic_trader.config import Settings
 from agentic_trader.features import (
     build_decision_feature_bundle,
@@ -87,11 +89,11 @@ def test_symbol_identity_uses_market_suffix_and_preferences() -> None:
 def test_market_features_summarize_context_pack() -> None:
     features = get_market_features(_snapshot())
 
-    assert features.returns_by_window["5b"] == 0.03
-    assert features.returns_by_window["20b"] == 0.09
-    assert features.max_drawdown_pct == -0.05
-    assert features.support == 92.0
-    assert features.resistance == 110.0
+    assert features.returns_by_window["5b"] == pytest.approx(0.03)
+    assert features.returns_by_window["20b"] == pytest.approx(0.09)
+    assert features.max_drawdown_pct == pytest.approx(-0.05)
+    assert features.support == pytest.approx(92.0)
+    assert features.resistance == pytest.approx(110.0)
     assert features.trend_classification == "bullish"
 
 

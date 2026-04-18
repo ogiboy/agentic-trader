@@ -226,4 +226,4 @@ Desired direction:
 - keep the automated test command in `AGENTS.md` current with the project environment
 - keep the opt-in runtime-cycle smoke check aligned with real product retry behavior so it validates operator-facing runtime reliability rather than a first-response-only LLM diagnostic
 - next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate
-- next Sonar cleanup priority: reduce remaining complexity in `agentic_trader/tui.py`, `agentic_trader/workflows/service.py`, `agentic_trader/backtest/walk_forward.py`, and service-state persistence
+- next Sonar cleanup priority: rerun analysis after the complexity cleanup, then address any remaining code smells or security hotspots that Sonar still reports

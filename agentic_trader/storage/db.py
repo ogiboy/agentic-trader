@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from dataclasses import dataclass
 import json
 from typing import Any, cast, get_args
 from uuid import uuid4
@@ -47,6 +48,30 @@ TERMINAL_SERVICE_STATES: set[ServiceState] = {
 }
 SERVICE_STATE_VALUES = set(get_args(ServiceState))
 RUNTIME_MODE_VALUES = set(get_args(RuntimeMode))
+
+
+@dataclass
+class ServiceStateUpdate:
+    state: str
+    continuous: bool
+    poll_seconds: int | None
+    cycle_count: int
+    message: str
+    service_name: str = "orchestrator"
+    runtime_mode: RuntimeMode | None = None
+    symbols: list[str] | None = None
+    interval: str | None = None
+    lookback: str | None = None
+    max_cycles: int | None = None
+    current_symbol: str | None = None
+    last_error: str | None = None
+    pid: int | None = None
+    stop_requested: bool | None = None
+    background_mode: bool | None = None
+    launch_count: int | None = None
+    restart_count: int | None = None
+    stdout_log_path: str | None = None
+    stderr_log_path: str | None = None
 
 
 def _str_or_none(value: Any) -> str | None:
@@ -162,6 +187,24 @@ def _resolve_terminal_state(
     return existing.last_terminal_state, existing.last_terminal_at
 
 
+def _coerce_service_state(value: Any) -> ServiceState:
+    state = str(value)
+    return cast(ServiceState, state) if state in SERVICE_STATE_VALUES else "stopped"
+
+
+def _coerce_runtime_mode(value: Any) -> RuntimeMode:
+    mode = str(value)
+    return cast(RuntimeMode, mode) if mode in RUNTIME_MODE_VALUES else "operation"
+
+
+def _decode_symbols(value: Any) -> list[str]:
+    return json.loads(str(value)) if value is not None else []
+
+
+def _int_or_default(value: Any, default: int) -> int:
+    return int(value) if value is not None else default
+
+
 def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
     """
     Convert a database row tuple into a ServiceStateSnapshot.
@@ -183,27 +226,17 @@ def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
     Returns:
         ServiceStateSnapshot: Parsed snapshot with coerced types (strings, ints, bools, lists) and sensible defaults for missing/None fields.
     """
-    state_str = str(row[1])
-    state = (
-        cast(ServiceState, state_str)
-        if state_str in SERVICE_STATE_VALUES
-        else "stopped"
-    )
     return ServiceStateSnapshot(
         service_name=str(row[0]),
-        state=state,
-        runtime_mode=(
-            cast(RuntimeMode, str(row[2]))
-            if str(row[2]) in RUNTIME_MODE_VALUES
-            else "operation"
-        ),
+        state=_coerce_service_state(row[1]),
+        runtime_mode=_coerce_runtime_mode(row[2]),
         updated_at=str(row[3]),
         started_at=_str_or_none(row[4]),
         last_heartbeat_at=_str_or_none(row[5]),
         continuous=bool(row[6]),
         poll_seconds=_int_or_none(row[7]),
         cycle_count=int(row[8]),
-        symbols=json.loads(str(row[9])) if row[9] is not None else [],
+        symbols=_decode_symbols(row[9]),
         interval=_str_or_none(row[10]),
         lookback=_str_or_none(row[11]),
         max_cycles=_int_or_none(row[12]),
@@ -212,8 +245,8 @@ def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
         pid=_int_or_none(row[15]),
         stop_requested=_bool_or_default(row[16], False),
         background_mode=_bool_or_default(row[17], False),
-        launch_count=int(row[18]) if row[18] is not None else 0,
-        restart_count=int(row[19]) if row[19] is not None else 0,
+        launch_count=_int_or_default(row[18], 0),
+        restart_count=_int_or_default(row[19], 0),
         last_terminal_state=_str_or_none(row[20]),
         last_terminal_at=_str_or_none(row[21]),
         stdout_log_path=_str_or_none(row[22]),
@@ -1412,27 +1445,8 @@ class TradingDatabase:
 
     def upsert_service_state(
         self,
-        *,
-        service_name: str = "orchestrator",
-        state: str,
-        runtime_mode: RuntimeMode | None = None,
-        continuous: bool,
-        poll_seconds: int | None,
-        cycle_count: int,
-        symbols: list[str] | None = None,
-        interval: str | None = None,
-        lookback: str | None = None,
-        max_cycles: int | None = None,
-        current_symbol: str | None = None,
-        message: str,
-        last_error: str | None = None,
-        pid: int | None = None,
-        stop_requested: bool | None = None,
-        background_mode: bool | None = None,
-        launch_count: int | None = None,
-        restart_count: int | None = None,
-        stdout_log_path: str | None = None,
-        stderr_log_path: str | None = None,
+        update: ServiceStateUpdate | None = None,
+        **fields: Any,
     ) -> None:
         """
         Update or insert the persisted runtime snapshot for a named service.
@@ -1444,56 +1458,63 @@ class TradingDatabase:
             symbols: If provided, replaces the stored symbol list; if `None`, preserves existing symbols (or `[]` when no existing snapshot).
             stop_requested: If provided, sets the explicit stop request flag; if `None`, preserves the existing flag.
         """
+        if update is None:
+            update = ServiceStateUpdate(**fields)
+        elif fields:
+            raise TypeError("Pass either ServiceStateUpdate or keyword fields, not both.")
+
         now = datetime.now(timezone.utc).isoformat()
-        existing = self.get_service_state(service_name)
+        existing = self.get_service_state(update.service_name)
         resolved_runtime_mode = cast(
             RuntimeMode,
             _resolve_value(
-                runtime_mode,
+                update.runtime_mode,
                 existing.runtime_mode if existing is not None else None,
                 self.settings.runtime_mode,
             ),
         )
         started_at = existing.started_at if existing is not None else None
-        if state == "starting" or started_at is None:
+        if update.state == "starting" or started_at is None:
             started_at = now
         resolved_pid = _resolve_optional_value(
-            pid, existing.pid if existing is not None else None
+            update.pid, existing.pid if existing is not None else None
         )
         resolved_stop_requested = _resolve_value(
-            stop_requested,
+            update.stop_requested,
             existing.stop_requested if existing is not None else None,
             False,
         )
-        resolved_symbols = _resolve_symbols(symbols, existing)
+        resolved_symbols = _resolve_symbols(update.symbols, existing)
         resolved_interval = _resolve_optional_value(
-            interval, existing.interval if existing is not None else None
+            update.interval, existing.interval if existing is not None else None
         )
         resolved_lookback = _resolve_optional_value(
-            lookback, existing.lookback if existing is not None else None
+            update.lookback, existing.lookback if existing is not None else None
         )
         resolved_max_cycles = _resolve_optional_value(
-            max_cycles, existing.max_cycles if existing is not None else None
+            update.max_cycles, existing.max_cycles if existing is not None else None
         )
         resolved_background_mode = _resolve_value(
-            background_mode,
+            update.background_mode,
             existing.background_mode if existing is not None else None,
             False,
         )
         resolved_launch_count = _resolve_value(
-            launch_count, existing.launch_count if existing is not None else None, 0
+            update.launch_count, existing.launch_count if existing is not None else None, 0
         )
         resolved_restart_count = _resolve_value(
-            restart_count, existing.restart_count if existing is not None else None, 0
+            update.restart_count, existing.restart_count if existing is not None else None, 0
         )
         resolved_stdout_log_path = _resolve_optional_value(
-            stdout_log_path, existing.stdout_log_path if existing is not None else None
+            update.stdout_log_path,
+            existing.stdout_log_path if existing is not None else None,
         )
         resolved_stderr_log_path = _resolve_optional_value(
-            stderr_log_path, existing.stderr_log_path if existing is not None else None
+            update.stderr_log_path,
+            existing.stderr_log_path if existing is not None else None,
         )
         resolved_last_terminal_state, resolved_last_terminal_at = (
-            _resolve_terminal_state(state=state, existing=existing, now=now)
+            _resolve_terminal_state(state=update.state, existing=existing, now=now)
         )
 
         self.conn.execute(
@@ -1533,21 +1554,21 @@ class TradingDatabase:
                 message = excluded.message
             """,
             [
-                service_name,
-                state,
+                update.service_name,
+                update.state,
                 resolved_runtime_mode,
                 now,
                 started_at,
                 now,
-                continuous,
-                poll_seconds,
-                cycle_count,
+                update.continuous,
+                update.poll_seconds,
+                update.cycle_count,
                 json.dumps(resolved_symbols),
                 resolved_interval,
                 resolved_lookback,
                 resolved_max_cycles,
-                current_symbol,
-                last_error,
+                update.current_symbol,
+                update.last_error,
                 resolved_pid,
                 resolved_stop_requested,
                 resolved_background_mode,
@@ -1557,27 +1578,27 @@ class TradingDatabase:
                 resolved_last_terminal_at,
                 resolved_stdout_log_path,
                 resolved_stderr_log_path,
-                message,
+                update.message,
             ],
         )
         write_service_state(
             self.settings,
             ServiceStateSnapshot(
-                service_name=service_name,
-                state=cast(ServiceState, state),
+                service_name=update.service_name,
+                state=cast(ServiceState, update.state),
                 runtime_mode=resolved_runtime_mode,
                 updated_at=now,
                 started_at=started_at,
                 last_heartbeat_at=now,
-                continuous=continuous,
-                poll_seconds=poll_seconds,
-                cycle_count=cycle_count,
+                continuous=update.continuous,
+                poll_seconds=update.poll_seconds,
+                cycle_count=update.cycle_count,
                 symbols=resolved_symbols,
                 interval=resolved_interval,
                 lookback=resolved_lookback,
                 max_cycles=resolved_max_cycles,
-                current_symbol=current_symbol,
-                last_error=last_error,
+                current_symbol=update.current_symbol,
+                last_error=update.last_error,
                 pid=resolved_pid,
                 stop_requested=resolved_stop_requested,
                 background_mode=resolved_background_mode,
@@ -1587,7 +1608,7 @@ class TradingDatabase:
                 last_terminal_at=resolved_last_terminal_at,
                 stdout_log_path=resolved_stdout_log_path,
                 stderr_log_path=resolved_stderr_log_path,
-                message=message,
+                message=update.message,
             ),
         )
 

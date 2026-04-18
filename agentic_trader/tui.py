@@ -33,9 +33,11 @@ from agentic_trader.schemas import (
     AgentTone,
     BehaviorPreset,
     ChatPersona,
+    HistoricalMemoryMatch,
     LLMHealthStatus,
     InvestmentPreferences,
     InterventionStyle,
+    OperatorInstruction,
     RiskProfile,
     ServiceEvent,
     ServiceStateSnapshot,
@@ -888,6 +890,30 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
     )
 
 
+def _memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
+    table = Table(title="Memory Explorer")
+    table.add_column("Created")
+    table.add_column("Symbol")
+    table.add_column("Score")
+    table.add_column("Regime")
+    table.add_column("Strategy")
+    table.add_column("Bias")
+    if not matches:
+        table.add_row("-", "-", "-", "-", "-", "-")
+        return table
+
+    for match in matches:
+        table.add_row(
+            match.created_at,
+            match.symbol,
+            f"{match.similarity_score:.2f}",
+            match.regime,
+            match.strategy_family,
+            match.manager_bias,
+        )
+    return table
+
+
 def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
     """
     Launch an interactive memory explorer that prompts for symbol, interval, lookback, and match limit, then prints a table of similar historical memories.
@@ -904,26 +930,7 @@ def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
     snapshot = build_snapshot(frame, symbol=symbol, interval=interval, lookback=lookback)
     matches = retrieve_similar_memories(db, snapshot, limit=limit)
 
-    table = Table(title="Memory Explorer")
-    table.add_column("Created")
-    table.add_column("Symbol")
-    table.add_column("Score")
-    table.add_column("Regime")
-    table.add_column("Strategy")
-    table.add_column("Bias")
-    if not matches:
-        table.add_row("-", "-", "-", "-", "-", "-")
-    else:
-        for match in matches:
-            table.add_row(
-                match.created_at,
-                match.symbol,
-                f"{match.similarity_score:.2f}",
-                match.regime,
-                match.strategy_family,
-                match.manager_bias,
-            )
-    console.print(table)
+    console.print(_memory_explorer_table(matches))
 
 
 def _show_latest_run_trace(db: TradingDatabase) -> None:
@@ -946,10 +953,8 @@ def _show_latest_run_trace(db: TradingDatabase) -> None:
     console.print(table)
 
 
-def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
-    ensure_llm_ready(settings)
-    llm = LocalLLM(settings)
-    persona = cast(
+def _select_chat_persona() -> ChatPersona:
+    return cast(
         ChatPersona,
         Prompt.ask(
             "Chat persona",
@@ -963,20 +968,32 @@ def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
             default="operator_liaison",
         ),
     )
+
+
+def _render_chat_transcript(
+    *, persona: ChatPersona, transcript: Sequence[tuple[str, str]]
+) -> None:
+    console.clear()
+    console.print(_banner())
+    console.print(
+        Panel(
+            "Type /exit to leave chat.",
+            title=f"Chat / {persona}",
+            border_style="cyan",
+        )
+    )
+    for role, message in transcript[-8:]:
+        border = "bright_blue" if role == "operator" else "green"
+        console.print(Panel(message, title=role, border_style=border))
+
+
+def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
+    ensure_llm_ready(settings)
+    llm = LocalLLM(settings)
+    persona = _select_chat_persona()
     transcript: list[tuple[str, str]] = []
     while True:
-        console.clear()
-        console.print(_banner())
-        console.print(
-            Panel(
-                "Type /exit to leave chat.",
-                title=f"Chat / {persona}",
-                border_style="cyan",
-            )
-        )
-        for role, message in transcript[-8:]:
-            border = "bright_blue" if role == "operator" else "green"
-            console.print(Panel(message, title=role, border_style=border))
+        _render_chat_transcript(persona=persona, transcript=transcript)
         user_message = Prompt.ask("You")
         if user_message.strip().lower() in {"/exit", "exit", "quit"}:
             return
@@ -991,6 +1008,34 @@ def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
         transcript.append((persona, response))
 
 
+def _render_instruction_result(instruction: OperatorInstruction) -> None:
+    console.print(
+        Panel(
+            instruction.model_dump_json(indent=2),
+            title="Parsed Operator Instruction",
+            border_style="cyan",
+        )
+    )
+
+
+def _apply_instruction_update_if_confirmed(
+    instruction: OperatorInstruction, db: TradingDatabase
+) -> None:
+    if not instruction.should_update_preferences:
+        return
+    if not Confirm.ask("Apply preference update?", default=False):
+        return
+
+    updated = apply_preference_update(db, instruction.preference_update)
+    console.print(
+        Panel(
+            updated.model_dump_json(indent=2),
+            title="Updated Preferences",
+            border_style="green",
+        )
+    )
+
+
 def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
     ensure_llm_ready(settings)
     llm = LocalLLM(settings)
@@ -1002,24 +1047,8 @@ def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
         user_message=message,
         allow_fallback=True,
     )
-    console.print(
-        Panel(
-            instruction.model_dump_json(indent=2),
-            title="Parsed Operator Instruction",
-            border_style="cyan",
-        )
-    )
-    if instruction.should_update_preferences and Confirm.ask(
-        "Apply preference update?", default=False
-    ):
-        updated = apply_preference_update(db, instruction.preference_update)
-        console.print(
-            Panel(
-                updated.model_dump_json(indent=2),
-                title="Updated Preferences",
-                border_style="green",
-            )
-        )
+    _render_instruction_result(instruction)
+    _apply_instruction_update_if_confirmed(instruction, db)
 
 
 def _strict_one_shot(
@@ -1036,62 +1065,48 @@ def _strict_one_shot(
     """
     ensure_llm_ready(settings)
     for symbol in symbols:
-        latest_message = f"Preparing {symbol}."
-        with console.status(
-            _style_key(latest_message), spinner="dots"
-        ) as status:
+        _run_one_shot_symbol(settings, symbol, interval, lookback)
 
-            def _progress(
-                stage: str,
-                event: str,
-                message: str,
-                current_status=status,
-            ) -> None:
-                """
-                Update the live status display with a stage-tagged message.
-                
-                Updates the nonlocal `latest_message` to "[<stage>] <message>" and pushes that text to the provided Rich `Status` object so the UI spinner reflects the current progress.
-                
-                Parameters:
-                	stage (str): Short label for the current stage (e.g., "fetch", "trade").
-                	event (str): Event identifier or name associated with this update (unused by display but available for callers).
-                	message (str): Human-readable status message describing the current activity.
-                	current_status: Rich `Status` instance to update with the composed message.
-                """
-                nonlocal latest_message
-                latest_message = f"[{stage}] {message}"
-                current_status.update(_style_key(latest_message))
 
-            artifacts = run_once(
-                settings=settings,
-                symbol=symbol,
-                interval=interval,
-                lookback=lookback,
-                allow_fallback=False,
-                progress_callback=_progress,
-            )
-        order_id = persist_run(settings=settings, artifacts=artifacts)
-        console.print(
-            Panel(
-                f"Final stage update: {latest_message}\n\n{json.dumps(artifacts.model_dump(mode='json'), indent=2)}",
-                title=f"Run Completed: {symbol} / {order_id}",
-                border_style="green",
-            )
+def _run_one_shot_symbol(
+    settings: Settings, symbol: str, interval: str, lookback: str
+) -> None:
+    latest_message = f"Preparing {symbol}."
+    with console.status(_style_key(latest_message), spinner="dots") as status:
+
+        def _progress(
+            stage: str,
+            event: str,
+            message: str,
+            current_status=status,
+        ) -> None:
+            nonlocal latest_message
+            latest_message = f"[{stage}] {message}"
+            current_status.update(_style_key(latest_message))
+
+        artifacts = run_once(
+            settings=settings,
+            symbol=symbol,
+            interval=interval,
+            lookback=lookback,
+            allow_fallback=False,
+            progress_callback=_progress,
         )
+
+    order_id = persist_run(settings=settings, artifacts=artifacts)
+    console.print(
+        Panel(
+            f"Final stage update: {latest_message}\n\n{json.dumps(artifacts.model_dump(mode='json'), indent=2)}",
+            title=f"Run Completed: {symbol} / {order_id}",
+            border_style="green",
+        )
+    )
 
 
 def _launch_service(
     settings: Settings, symbols: Sequence[str], interval: str, lookback: str
 ) -> None:
-    continuous = Confirm.ask("Continuous mode?", default=False)
-    poll_seconds = IntPrompt.ask(
-        "Poll interval seconds",
-        default=settings.default_poll_seconds,
-    )
-    max_cycles = None
-    if continuous:
-        max_cycles_input = Prompt.ask("Max cycles (blank for infinite)", default="")
-        max_cycles = int(max_cycles_input) if max_cycles_input.strip() else None
+    continuous, poll_seconds, max_cycles = _prompt_service_launch_options(settings)
     pid = start_background_service(
         settings=settings,
         symbols=list(symbols),
@@ -1109,115 +1124,155 @@ def _launch_service(
             border_style="green",
         )
     )
+    _open_live_monitor_if_requested(settings)
+
+
+def _prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | None]:
+    continuous = Confirm.ask("Continuous mode?", default=False)
+    poll_seconds = IntPrompt.ask(
+        "Poll interval seconds",
+        default=settings.default_poll_seconds,
+    )
+    if not continuous:
+        return continuous, poll_seconds, None
+
+    max_cycles_input = Prompt.ask("Max cycles (blank for infinite)", default="")
+    max_cycles = int(max_cycles_input) if max_cycles_input.strip() else None
+    return continuous, poll_seconds, max_cycles
+
+
+def _open_live_monitor_if_requested(settings: Settings) -> None:
     if Confirm.ask("Open live monitor now?", default=True):
         run_live_monitor(settings, refresh_seconds=1.0)
+
+
+def _runtime_control_table() -> Table:
+    table = Table(title="Runtime Control")
+    table.add_column("Key", style=STYLE_KEY_COLUMN)
+    table.add_column("Action")
+    table.add_row("1", "Doctor and system checks")
+    table.add_row("2", "Start one strict agent cycle")
+    table.add_row("3", "Start orchestrator service")
+    table.add_row("4", "Request orchestrator stop")
+    table.add_row("5", "Open live monitor")
+    table.add_row("6", "Back")
+    return table
+
+
+def _runtime_status_action(settings: Settings) -> None:
+    db = _safe_open_read_db(settings)
+    try:
+        _render_status(settings, db)
+    finally:
+        if db is not None:
+            db.close()
+
+
+def _load_runtime_preferences(settings: Settings) -> InvestmentPreferences | None:
+    db = _safe_open_read_db(settings)
+    try:
+        if db is None:
+            console.print(
+                Panel(
+                    "Preferences are temporarily unavailable while the runtime writer owns the database.",
+                    title=LABEL_OBSERVER_MODE,
+                    border_style="yellow",
+                )
+            )
+            return None
+        return db.load_preferences()
+    finally:
+        if db is not None:
+            db.close()
+
+
+def _runtime_one_shot_action(settings: Settings) -> None:
+    prefs = _load_runtime_preferences(settings)
+    if prefs is None:
+        return
+    default_symbols = "AAPL,MSFT" if "US" in prefs.regions else "BTC-USD"
+    symbols = _split_csv(Prompt.ask("Symbols", default=default_symbols))
+    interval = Prompt.ask("Interval", default="1d")
+    lookback = Prompt.ask("Lookback", default="180d")
+    _strict_one_shot(settings, symbols, interval, lookback)
+
+
+def _runtime_launch_action(settings: Settings) -> None:
+    symbols = _split_csv(Prompt.ask("Symbols", default="AAPL,MSFT"))
+    interval = Prompt.ask("Interval", default="1d")
+    lookback = Prompt.ask("Lookback", default="180d")
+    _launch_service(settings, symbols, interval, lookback)
+
+
+def _persist_stop_request(settings: Settings) -> None:
+    try:
+        db = _open_db(settings, read_only=False)
+        try:
+            db.request_stop_service()
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+
+def _runtime_stop_action(settings: Settings) -> None:
+    state = read_service_state(settings)
+    if state is None or state.pid is None:
+        console.print(
+            Panel(
+                "No managed service is currently active.",
+                title="Not Running",
+                border_style="yellow",
+            )
+        )
+        return
+    if not is_process_alive(state.pid):
+        console.print(
+            Panel(
+                f"PID {state.pid} is no longer alive. The next start will recover the stale runtime state automatically.",
+                title="Stale Runtime",
+                border_style="yellow",
+            )
+        )
+        return
+
+    request_stop(settings)
+    _persist_stop_request(settings)
+    console.print(
+        Panel(
+            f"Stop requested for PID {state.pid}.",
+            title=LABEL_STOP_REQUESTED,
+            border_style="yellow",
+        )
+    )
+
+
+def _runtime_monitor_action(settings: Settings) -> None:
+    refresh_seconds = float(Prompt.ask("Refresh seconds", default="1.0"))
+    run_live_monitor(settings, refresh_seconds=refresh_seconds)
 
 
 def _runtime_menu(settings: Settings) -> None:
     """
     Present an interactive runtime control menu for managing the orchestrator, one-shot cycles, and monitoring.
-    
-    Displays a numbered menu that lets the operator:
-    - run system/doctor checks,
-    - start a single strict agent cycle,
-    - launch the background orchestrator service,
-    - request the orchestrator to stop,
-    - open the live monitor,
-    or return to the previous menu. The function prompts for any required inputs, performs service/database operations as needed, and blocks until the user selects "Back" or exits the menu.
-    
-    Parameters:
-        settings (Settings): Application configuration used for service control, database access, and runtime operations.
     """
+    actions = {
+        "1": _runtime_status_action,
+        "2": _runtime_one_shot_action,
+        "3": _runtime_launch_action,
+        "4": _runtime_stop_action,
+        "5": _runtime_monitor_action,
+    }
     while True:
         console.clear()
         console.print(_banner())
-        table = Table(title="Runtime Control")
-        table.add_column("Key", style=STYLE_KEY_COLUMN)
-        table.add_column("Action")
-        table.add_row("1", "Doctor and system checks")
-        table.add_row("2", "Start one strict agent cycle")
-        table.add_row("3", "Start orchestrator service")
-        table.add_row("4", "Request orchestrator stop")
-        table.add_row("5", "Open live monitor")
-        table.add_row("6", "Back")
-        console.print(table)
+        console.print(_runtime_control_table())
         choice = Prompt.ask(
             PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4", "5", "6"], default="1"
         )
-        if choice == "1":
-            db = _safe_open_read_db(settings)
-            try:
-                _render_status(settings, db)
-            finally:
-                if db is not None:
-                    db.close()
-        elif choice == "2":
-            db = _safe_open_read_db(settings)
-            try:
-                if db is None:
-                    console.print(
-                        Panel(
-                            "Preferences are temporarily unavailable while the runtime writer owns the database.",
-                            title=LABEL_OBSERVER_MODE,
-                            border_style="yellow",
-                        )
-                    )
-                    Prompt.ask(PROMPT_CONTINUE, default="")
-                    continue
-                prefs = db.load_preferences()
-            finally:
-                if db is not None:
-                    db.close()
-            default_symbols = "AAPL,MSFT" if "US" in prefs.regions else "BTC-USD"
-            symbols = _split_csv(Prompt.ask("Symbols", default=default_symbols))
-            interval = Prompt.ask("Interval", default="1d")
-            lookback = Prompt.ask("Lookback", default="180d")
-            _strict_one_shot(settings, symbols, interval, lookback)
-        elif choice == "3":
-            symbols = _split_csv(Prompt.ask("Symbols", default="AAPL,MSFT"))
-            interval = Prompt.ask("Interval", default="1d")
-            lookback = Prompt.ask("Lookback", default="180d")
-            _launch_service(settings, symbols, interval, lookback)
-        elif choice == "4":
-            state = read_service_state(settings)
-            if state is None or state.pid is None:
-                console.print(
-                    Panel(
-                        "No managed service is currently active.",
-                        title="Not Running",
-                        border_style="yellow",
-                    )
-                )
-            elif not is_process_alive(state.pid):
-                console.print(
-                    Panel(
-                        f"PID {state.pid} is no longer alive. The next start will recover the stale runtime state automatically.",
-                        title="Stale Runtime",
-                        border_style="yellow",
-                    )
-                )
-            else:
-                request_stop(settings)
-                try:
-                    db = _open_db(settings, read_only=False)
-                    try:
-                        db.request_stop_service()
-                    finally:
-                        db.close()
-                except Exception:
-                    pass
-                console.print(
-                    Panel(
-                        f"Stop requested for PID {state.pid}.",
-                        title=LABEL_STOP_REQUESTED,
-                        border_style="yellow",
-                    )
-                )
-        elif choice == "5":
-            refresh_seconds = float(Prompt.ask("Refresh seconds", default="1.0"))
-            run_live_monitor(settings, refresh_seconds=refresh_seconds)
-        else:
+        if choice == "6":
             return
+        actions[choice](settings)
         Prompt.ask(PROMPT_CONTINUE, default="")
 
 

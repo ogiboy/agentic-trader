@@ -56,7 +56,7 @@ Implemented or substantially present:
 - Market snapshots now carry `as_of`, and backtest reports persist data-window plus first/last decision timestamps so replay decisions can be audited for future-data leakage
 - `runtime-mode-checklist` now surfaces a schema-backed transition plan; mode changes remain explicit configuration actions and cannot be silently applied through chat/free-form instruction parsing
 - memory vectors now persist embedding provider, model, version, and dimensionality metadata beside the existing lightweight local-hashing vectors, and legacy rows migrate with local-hashing defaults
-- SonarQube MCP is connected for project `agentic-trader-dev`; the latest QA pass reports zero bugs, zero vulnerabilities, 8 open code smells, 46.7% overall coverage, and a Quality Gate blocked primarily by coverage and remaining complexity refactors
+- SonarQube MCP is connected for project `agentic-trader-dev`; the latest known gate is blocked primarily by coverage, while recent cleanup reduced major complexity hotspots in walk-forward backtesting, service runtime flow, Rich TUI menus, service-state persistence, and float-equality tests
 
 New production-expansion direction:
 

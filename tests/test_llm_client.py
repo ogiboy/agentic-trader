@@ -306,7 +306,7 @@ def test_complete_structured_conservatively_sanitizes_missing_confidence(
 
     assert parsed.regime == "range"
     assert parsed.direction_bias == "flat"
-    assert parsed.confidence == 0.0
+    assert parsed.confidence == pytest.approx(0.0)
     assert parsed.reasoning == "Evidence is mixed."
 
 
@@ -335,7 +335,7 @@ def test_complete_structured_coerces_qualitative_confidence(
         schema=RegimeAssessment,
     )
 
-    assert parsed.confidence == 0.25
+    assert parsed.confidence == pytest.approx(0.25)
 
 
 def test_local_llm_uses_configured_provider_defaults() -> None:

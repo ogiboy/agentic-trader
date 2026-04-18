@@ -153,3 +153,9 @@ Reason:
 The project is expected to run consistently on multiple machines, but Conda and ad hoc pip installs do not update repository manifests automatically.
 `pyproject.toml` remains the direct dependency manifest and `poetry.lock` is now the committed resolver output.
 Conda stays useful for selecting the Python interpreter and native environment, while Poetry owns Python package add, remove, lock, and install synchronization.
+
+### Service state updates should use an explicit update contract
+
+Reason:
+Runtime supervision writes many related fields whenever cycle, symbol, daemon, and stop-request state changes.
+Keeping those fields in a `ServiceStateUpdate` contract makes persistence updates easier to evolve and avoids long, fragile method signatures while preserving the sidecar service-state mirror used by CLI, Rich, Ink, observer, and daemon surfaces.

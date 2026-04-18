@@ -24,6 +24,24 @@ class ServiceCycleResult:
     order_id: str
 
 
+@dataclass
+class _ServiceRunConfig:
+    settings: Settings
+    symbols: list[str]
+    interval: str
+    lookback: str
+    poll_seconds: int
+    continuous: bool
+    max_cycles: int | None
+
+
+@dataclass
+class _ServiceSymbolOutcome:
+    result: ServiceCycleResult | None = None
+    skipped: bool = False
+    stop_requested: bool = False
+
+
 def _stop_requested(db: TradingDatabase) -> bool:
     """
     Check whether a stop of the service has been requested.
@@ -162,6 +180,369 @@ def _record_cycle_completed_mark(db: TradingDatabase, cycle_count: int) -> None:
     )
 
 
+def _upsert_runtime_state(
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    *,
+    state: str,
+    cycle_count: int,
+    current_symbol: str | None,
+    message: str,
+    last_error: str | None = None,
+    stop_requested_flag: bool | None = None,
+) -> None:
+    db.upsert_service_state(
+        state=state,
+        continuous=config.continuous,
+        poll_seconds=config.poll_seconds,
+        cycle_count=cycle_count,
+        symbols=config.symbols,
+        interval=config.interval,
+        lookback=config.lookback,
+        max_cycles=config.max_cycles,
+        current_symbol=current_symbol,
+        message=message,
+        last_error=last_error,
+        pid=os.getpid(),
+        stop_requested=stop_requested_flag,
+    )
+
+
+def _record_service_starting(db: TradingDatabase, config: _ServiceRunConfig) -> None:
+    _upsert_runtime_state(
+        db,
+        config,
+        state="starting",
+        cycle_count=0,
+        current_symbol=None,
+        message="Runtime gate passed. Orchestrator is starting.",
+        stop_requested_flag=False,
+    )
+    db.insert_service_event(
+        level="info",
+        event_type="service_started",
+        message="Orchestrator started after passing LLM readiness checks.",
+    )
+
+
+def _record_stop_before_cycle(
+    db: TradingDatabase, config: _ServiceRunConfig, cycle_count: int
+) -> None:
+    _upsert_runtime_state(
+        db,
+        config,
+        state="stopped",
+        cycle_count=cycle_count,
+        current_symbol=None,
+        message="Service stopped before a new cycle started.",
+        stop_requested_flag=True,
+    )
+    db.insert_service_event(
+        level="warning",
+        event_type="service_stopped",
+        message="Orchestrator stopped before a new cycle started.",
+        cycle_count=cycle_count if cycle_count > 0 else None,
+    )
+
+
+def _record_cycle_started(
+    db: TradingDatabase, config: _ServiceRunConfig, cycle_count: int
+) -> None:
+    _upsert_runtime_state(
+        db,
+        config,
+        state="running",
+        cycle_count=cycle_count,
+        current_symbol=None,
+        message=f"Cycle {cycle_count} started.",
+    )
+    db.insert_service_event(
+        level="info",
+        event_type="cycle_started",
+        message=f"Cycle {cycle_count} started for {len(config.symbols)} symbol(s).",
+        cycle_count=cycle_count,
+    )
+
+
+def _progress_callback(
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    *,
+    symbol: str,
+    cycle_count: int,
+):
+    def _progress(stage: str, status: str, message: str) -> None:
+        _upsert_runtime_state(
+            db,
+            config,
+            state="running",
+            cycle_count=cycle_count,
+            current_symbol=symbol,
+            message=message,
+        )
+        db.insert_service_event(
+            level="info",
+            event_type=f"agent_{stage}_{status}",
+            message=message,
+            cycle_count=cycle_count,
+            symbol=symbol,
+        )
+
+    return _progress
+
+
+def _record_symbol_skipped(
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    *,
+    symbol: str,
+    cycle_count: int,
+    exc: Exception,
+) -> None:
+    _upsert_runtime_state(
+        db,
+        config,
+        state="running",
+        cycle_count=cycle_count,
+        current_symbol=None,
+        message=f"Skipped {symbol}: {exc}",
+        last_error=str(exc),
+    )
+    db.insert_service_event(
+        level="warning",
+        event_type="symbol_skipped",
+        message=str(exc),
+        cycle_count=cycle_count,
+        symbol=symbol,
+    )
+
+
+def _record_position_lifecycle(
+    db: TradingDatabase, *, symbol: str, cycle_count: int
+) -> None:
+    db.insert_service_event(
+        level="info",
+        event_type="position_lifecycle",
+        message=f"Open position for {symbol} was evaluated and closed before new entries were considered.",
+        cycle_count=cycle_count,
+        symbol=symbol,
+    )
+    db.record_account_mark(
+        source="position_lifecycle",
+        note=f"{symbol} position lifecycle event closed the active trade.",
+        cycle_count=cycle_count,
+        symbol=symbol,
+    )
+
+
+def _record_symbol_completed(
+    db: TradingDatabase, *, symbol: str, cycle_count: int, order_id: str
+) -> None:
+    db.insert_service_event(
+        level="info",
+        event_type="symbol_completed",
+        message=f"Cycle {cycle_count} completed for {symbol} with order {order_id}.",
+        cycle_count=cycle_count,
+        symbol=symbol,
+    )
+    db.record_account_mark(
+        source="symbol_completed",
+        note=f"Cycle {cycle_count} completed for {symbol}.",
+        cycle_count=cycle_count,
+        symbol=symbol,
+    )
+
+
+def _record_stop_after_symbol(
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    *,
+    symbol: str,
+    cycle_count: int,
+) -> None:
+    _upsert_runtime_state(
+        db,
+        config,
+        state="stopped",
+        cycle_count=cycle_count,
+        current_symbol=None,
+        message=f"Stop requested after processing {symbol}.",
+        stop_requested_flag=True,
+    )
+    db.insert_service_event(
+        level="warning",
+        event_type="service_stopped",
+        message=f"Orchestrator stopped after processing {symbol}.",
+        cycle_count=cycle_count,
+        symbol=symbol,
+    )
+
+
+def _record_cycle_nonfatal_summary(
+    db: TradingDatabase, config: _ServiceRunConfig, cycle_count: int
+) -> None:
+    _upsert_runtime_state(
+        db,
+        config,
+        state="running",
+        cycle_count=cycle_count,
+        current_symbol=None,
+        message=f"Cycle {cycle_count} completed with one or more skipped symbols.",
+        last_error="One or more symbols were skipped because market data was unavailable.",
+    )
+
+
+def _completion_message(cycle_count: int, had_nonfatal_failure: bool) -> str:
+    if had_nonfatal_failure:
+        return (
+            f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
+        )
+    return f"Orchestrator completed after {cycle_count} cycle(s)."
+
+
+def _record_service_completed(
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    *,
+    cycle_count: int,
+    had_nonfatal_failure: bool,
+) -> None:
+    message = _completion_message(cycle_count, had_nonfatal_failure)
+    last_error = (
+        "One or more symbols were skipped because market data was unavailable."
+        if had_nonfatal_failure
+        else None
+    )
+    _upsert_runtime_state(
+        db,
+        config,
+        state="completed",
+        cycle_count=cycle_count,
+        current_symbol=None,
+        message=message,
+        last_error=last_error,
+        stop_requested_flag=False,
+    )
+    db.insert_service_event(
+        level="info",
+        event_type="service_completed",
+        message=message,
+        cycle_count=cycle_count,
+    )
+
+
+def _record_service_failed(
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    *,
+    cycle_count: int,
+    exc: Exception,
+) -> None:
+    _upsert_runtime_state(
+        db,
+        config,
+        state="failed",
+        cycle_count=cycle_count,
+        current_symbol=None,
+        message="Orchestrator failed.",
+        last_error=str(exc),
+    )
+    db.insert_service_event(
+        level="error",
+        event_type="service_failed",
+        message=str(exc),
+        cycle_count=cycle_count if cycle_count > 0 else None,
+    )
+
+
+def _should_stop_after_cycle(config: _ServiceRunConfig, cycle_count: int) -> bool:
+    if not config.continuous:
+        return True
+    return config.max_cycles is not None and cycle_count >= config.max_cycles
+
+
+def _process_service_symbol(
+    *,
+    db: TradingDatabase,
+    broker: BrokerAdapter,
+    config: _ServiceRunConfig,
+    symbol: str,
+    cycle_count: int,
+) -> _ServiceSymbolOutcome:
+    _upsert_runtime_state(
+        db,
+        config,
+        state="running",
+        cycle_count=cycle_count,
+        current_symbol=symbol,
+        message=f"Processing {symbol} in cycle {cycle_count}.",
+    )
+    try:
+        artifacts = run_once(
+            settings=config.settings,
+            symbol=symbol,
+            interval=config.interval,
+            lookback=config.lookback,
+            allow_fallback=False,
+            progress_callback=_progress_callback(
+                db,
+                config,
+                symbol=symbol,
+                cycle_count=cycle_count,
+            ),
+        )
+    except Exception as exc:
+        if not _is_nonfatal_symbol_error(exc):
+            raise
+        _record_symbol_skipped(
+            db,
+            config,
+            symbol=symbol,
+            cycle_count=cycle_count,
+            exc=exc,
+        )
+        return _ServiceSymbolOutcome(skipped=True)
+
+    exit_order_id = _manage_open_position(
+        db=db,
+        broker=broker,
+        artifacts=artifacts,
+        cycle_count=cycle_count,
+    )
+    if exit_order_id is not None:
+        _record_position_lifecycle(db, symbol=symbol, cycle_count=cycle_count)
+        return _ServiceSymbolOutcome(
+            result=ServiceCycleResult(
+                symbol=symbol,
+                artifacts=artifacts,
+                order_id=exit_order_id,
+            )
+        )
+
+    order_id = persist_run(settings=config.settings, artifacts=artifacts)
+    _record_symbol_completed(
+        db,
+        symbol=symbol,
+        cycle_count=cycle_count,
+        order_id=order_id,
+    )
+    if _stop_requested(db):
+        _record_stop_after_symbol(
+            db,
+            config,
+            symbol=symbol,
+            cycle_count=cycle_count,
+        )
+        return _ServiceSymbolOutcome(
+            result=ServiceCycleResult(symbol=symbol, artifacts=artifacts, order_id=order_id),
+            stop_requested=True,
+        )
+
+    return _ServiceSymbolOutcome(
+        result=ServiceCycleResult(symbol=symbol, artifacts=artifacts, order_id=order_id)
+    )
+
+
 def run_service(
     *,
     settings: Settings,
@@ -172,339 +553,65 @@ def run_service(
     continuous: bool,
     max_cycles: int | None,
 ) -> list[ServiceCycleResult]:
-    """
-    Run the orchestrator loop that processes symbols in cycles, executing per-symbol runs, managing open positions, and persisting results.
-    
-    Parameters:
-        settings (Settings): Runtime configuration and environment for the service.
-        symbols (list[str]): Trading symbols to process each cycle.
-        interval (str): Timeframe identifier used for data and strategy evaluation (e.g., "1h", "1d").
-        lookback (str): Lookback window for strategy inputs (e.g., "24h", "30m").
-        poll_seconds (int): Seconds to wait between cycles when running continuously.
-        continuous (bool): If true, keep cycling until a stop is requested or max_cycles is reached.
-        max_cycles (int | None): Optional maximum number of cycles to run when continuous is true; None means unlimited.
-    
-    Returns:
-        list[ServiceCycleResult]: Ordered results for each symbol processed across all completed cycles, including artifacts and any associated order id.
-    """
+    """Run the orchestrator loop across configured symbols and cycles."""
     ensure_llm_ready(settings)
     clear_stop_request(settings)
-    db = TradingDatabase(settings)
-    broker = get_broker_adapter(db=db, settings=settings)
-    db.upsert_service_state(
-        state="starting",
-        continuous=continuous,
-        poll_seconds=poll_seconds,
-        cycle_count=0,
+    config = _ServiceRunConfig(
+        settings=settings,
         symbols=symbols,
         interval=interval,
         lookback=lookback,
+        poll_seconds=poll_seconds,
+        continuous=continuous,
         max_cycles=max_cycles,
-        current_symbol=None,
-        message="Runtime gate passed. Orchestrator is starting.",
-        pid=os.getpid(),
-        stop_requested=False,
     )
-    db.insert_service_event(
-        level="info",
-        event_type="service_started",
-        message="Orchestrator started after passing LLM readiness checks.",
-    )
+    db = TradingDatabase(settings)
+    broker = get_broker_adapter(db=db, settings=settings)
+    _record_service_starting(db, config)
 
     cycle_results: list[ServiceCycleResult] = []
     cycle_count = 0
-    cycle_had_nonfatal_failure = False
     run_had_nonfatal_failure = False
     try:
         while True:
             if _stop_requested(db):
-                db.upsert_service_state(
-                    state="stopped",
-                    continuous=continuous,
-                    poll_seconds=poll_seconds,
-                    cycle_count=cycle_count,
-                    symbols=symbols,
-                    interval=interval,
-                    lookback=lookback,
-                    max_cycles=max_cycles,
-                    current_symbol=None,
-                    message="Service stopped before a new cycle started.",
-                    pid=os.getpid(),
-                    stop_requested=True,
-                )
-                db.insert_service_event(
-                    level="warning",
-                    event_type="service_stopped",
-                    message="Orchestrator stopped before a new cycle started.",
-                    cycle_count=cycle_count if cycle_count > 0 else None,
-                )
+                _record_stop_before_cycle(db, config, cycle_count)
                 break
             cycle_count += 1
-            db.upsert_service_state(
-                state="running",
-                continuous=continuous,
-                poll_seconds=poll_seconds,
-                cycle_count=cycle_count,
-                symbols=symbols,
-                interval=interval,
-                lookback=lookback,
-                max_cycles=max_cycles,
-                current_symbol=None,
-                message=f"Cycle {cycle_count} started.",
-                pid=os.getpid(),
-            )
-            db.insert_service_event(
-                level="info",
-                event_type="cycle_started",
-                message=f"Cycle {cycle_count} started for {len(symbols)} symbol(s).",
-                cycle_count=cycle_count,
-            )
+            _record_cycle_started(db, config, cycle_count)
             cycle_had_nonfatal_failure = False
             for symbol in symbols:
-
-                def _progress(
-                    stage: str,
-                    status: str,
-                    message: str,
-                    current_symbol: str = symbol,
-                    cycle_number: int = cycle_count,
-                ) -> None:
-                    """
-                    Persist the current symbol's progress in service state and record a corresponding informational service event.
-                    
-                    Parameters:
-                    	stage (str): High-level agent stage name (e.g., "planning", "execution").
-                    	status (str): Stage status label (e.g., "started", "finished", "failed").
-                    	message (str): Human-readable message describing the current progress or status.
-                    	current_symbol (str): Symbol being processed; defaults to the loop-bound symbol.
-                    	cycle_number (int): Cycle number captured when the callback was created.
-                    """
-                    db.upsert_service_state(
-                        state="running",
-                        continuous=continuous,
-                        poll_seconds=poll_seconds,
-                        cycle_count=cycle_number,
-                        symbols=symbols,
-                        interval=interval,
-                        lookback=lookback,
-                        max_cycles=max_cycles,
-                        current_symbol=current_symbol,
-                        message=message,
-                        pid=os.getpid(),
-                    )
-                    db.insert_service_event(
-                        level="info",
-                        event_type=f"agent_{stage}_{status}",
-                        message=message,
-                        cycle_count=cycle_number,
-                        symbol=current_symbol,
-                    )
-
-                db.upsert_service_state(
-                    state="running",
-                    continuous=continuous,
-                    poll_seconds=poll_seconds,
-                    cycle_count=cycle_count,
-                    symbols=symbols,
-                    interval=interval,
-                    lookback=lookback,
-                    max_cycles=max_cycles,
-                    current_symbol=symbol,
-                    message=f"Processing {symbol} in cycle {cycle_count}.",
-                    pid=os.getpid(),
-                )
-                try:
-                    artifacts = run_once(
-                        settings=settings,
-                        symbol=symbol,
-                        interval=interval,
-                        lookback=lookback,
-                        allow_fallback=False,
-                        progress_callback=_progress,
-                    )
-                except Exception as exc:
-                    if _is_nonfatal_symbol_error(exc):
-                        cycle_had_nonfatal_failure = True
-                        run_had_nonfatal_failure = True
-                        db.upsert_service_state(
-                            state="running",
-                            continuous=continuous,
-                            poll_seconds=poll_seconds,
-                            cycle_count=cycle_count,
-                            symbols=symbols,
-                            interval=interval,
-                            lookback=lookback,
-                            max_cycles=max_cycles,
-                            current_symbol=None,
-                            message=f"Skipped {symbol}: {exc}",
-                            last_error=str(exc),
-                            pid=os.getpid(),
-                        )
-                        db.insert_service_event(
-                            level="warning",
-                            event_type="symbol_skipped",
-                            message=str(exc),
-                            cycle_count=cycle_count,
-                            symbol=symbol,
-                        )
-                        continue
-                    raise
-                exit_order_id = _manage_open_position(
+                outcome = _process_service_symbol(
                     db=db,
                     broker=broker,
-                    artifacts=artifacts,
+                    config=config,
+                    symbol=symbol,
                     cycle_count=cycle_count,
                 )
-                if exit_order_id is not None:
-                    db.insert_service_event(
-                        level="info",
-                        event_type="position_lifecycle",
-                        message=f"Open position for {symbol} was evaluated and closed before new entries were considered.",
-                        cycle_count=cycle_count,
-                        symbol=symbol,
-                    )
-                    db.record_account_mark(
-                        source="position_lifecycle",
-                        note=f"{symbol} position lifecycle event closed the active trade.",
-                        cycle_count=cycle_count,
-                        symbol=symbol,
-                    )
-                    cycle_results.append(
-                        ServiceCycleResult(
-                            symbol=symbol,
-                            artifacts=artifacts,
-                            order_id=exit_order_id,
-                        )
-                    )
+                if outcome.skipped:
+                    cycle_had_nonfatal_failure = True
+                    run_had_nonfatal_failure = True
                     continue
-                order_id = persist_run(settings=settings, artifacts=artifacts)
-                db.insert_service_event(
-                    level="info",
-                    event_type="symbol_completed",
-                    message=f"Cycle {cycle_count} completed for {symbol} with order {order_id}.",
-                    cycle_count=cycle_count,
-                    symbol=symbol,
-                )
-                db.record_account_mark(
-                    source="symbol_completed",
-                    note=f"Cycle {cycle_count} completed for {symbol}.",
-                    cycle_count=cycle_count,
-                    symbol=symbol,
-                )
-                cycle_results.append(
-                    ServiceCycleResult(
-                        symbol=symbol,
-                        artifacts=artifacts,
-                        order_id=order_id,
-                    )
-                )
-                if _stop_requested(db):
-                    db.upsert_service_state(
-                        state="stopped",
-                        continuous=continuous,
-                        poll_seconds=poll_seconds,
-                        cycle_count=cycle_count,
-                        symbols=symbols,
-                        interval=interval,
-                        lookback=lookback,
-                        max_cycles=max_cycles,
-                        current_symbol=None,
-                        message=f"Stop requested after processing {symbol}.",
-                        pid=os.getpid(),
-                        stop_requested=True,
-                    )
-                    db.insert_service_event(
-                        level="warning",
-                        event_type="service_stopped",
-                        message=f"Orchestrator stopped after processing {symbol}.",
-                        cycle_count=cycle_count,
-                        symbol=symbol,
-                    )
+                if outcome.result is not None:
+                    cycle_results.append(outcome.result)
+                if outcome.stop_requested:
                     return cycle_results
 
-            if not continuous:
-                _record_cycle_completed_mark(db, cycle_count)
-                break
-            if max_cycles is not None and cycle_count >= max_cycles:
-                _record_cycle_completed_mark(db, cycle_count)
-                break
             _record_cycle_completed_mark(db, cycle_count)
+            if _should_stop_after_cycle(config, cycle_count):
+                break
             if cycle_had_nonfatal_failure:
-                db.upsert_service_state(
-                    state="running",
-                    continuous=continuous,
-                    poll_seconds=poll_seconds,
-                    cycle_count=cycle_count,
-                    symbols=symbols,
-                    interval=interval,
-                    lookback=lookback,
-                    max_cycles=max_cycles,
-                    current_symbol=None,
-                    message=f"Cycle {cycle_count} completed with one or more skipped symbols.",
-                    last_error="One or more symbols were skipped because market data was unavailable.",
-                    pid=os.getpid(),
-                )
+                _record_cycle_nonfatal_summary(db, config, cycle_count)
             time.sleep(poll_seconds)
 
-        completed_last_error = (
-            "One or more symbols were skipped because market data was unavailable."
-            if run_had_nonfatal_failure
-            else None
-        )
-        db.upsert_service_state(
-            state="completed",
-            continuous=continuous,
-            poll_seconds=poll_seconds,
+        _record_service_completed(
+            db,
+            config,
             cycle_count=cycle_count,
-            symbols=symbols,
-            interval=interval,
-            lookback=lookback,
-            max_cycles=max_cycles,
-            current_symbol=None,
-            message=(
-                f"Orchestrator completed after {cycle_count} cycle(s)."
-                if not run_had_nonfatal_failure
-                else (
-                    f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
-                )
-            ),
-            last_error=completed_last_error,
-            pid=os.getpid(),
-            stop_requested=False,
-        )
-        db.insert_service_event(
-            level="info",
-            event_type="service_completed",
-            message=(
-                f"Orchestrator completed after {cycle_count} cycle(s)."
-                if not run_had_nonfatal_failure
-                else (
-                    f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
-                )
-            ),
-            cycle_count=cycle_count,
+            had_nonfatal_failure=run_had_nonfatal_failure,
         )
     except Exception as exc:
-        db.upsert_service_state(
-            state="failed",
-            continuous=continuous,
-            poll_seconds=poll_seconds,
-            cycle_count=cycle_count,
-            symbols=symbols,
-            interval=interval,
-            lookback=lookback,
-            max_cycles=max_cycles,
-            current_symbol=None,
-            message="Orchestrator failed.",
-            last_error=str(exc),
-            pid=os.getpid(),
-        )
-        db.insert_service_event(
-            level="error",
-            event_type="service_failed",
-            message=str(exc),
-            cycle_count=cycle_count if cycle_count > 0 else None,
-        )
+        _record_service_failed(db, config, cycle_count=cycle_count, exc=exc)
         raise
     finally:
         clear_stop_request(settings)

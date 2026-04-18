@@ -1,5 +1,7 @@
 from typing import Any, cast
 
+import pytest
+
 from agentic_trader.agents.risk import build_risk_plan
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import MarketSnapshot, RegimeAssessment, RiskPlan, StrategyPlan
@@ -64,8 +66,8 @@ def test_risk_agent_normalizes_no_trade_reference_levels() -> None:
         allow_fallback=False,
     )
 
-    assert finalized.position_size_pct == 0.01
-    assert finalized.stop_loss == 97.5
-    assert finalized.take_profit == 102.5
-    assert finalized.risk_reward_ratio == 1.0
+    assert finalized.position_size_pct == pytest.approx(0.01)
+    assert finalized.stop_loss == pytest.approx(97.5)
+    assert finalized.take_profit == pytest.approx(102.5)
+    assert finalized.risk_reward_ratio == pytest.approx(1.0)
     assert finalized.max_holding_bars == 5
