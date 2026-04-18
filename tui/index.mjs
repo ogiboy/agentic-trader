@@ -132,6 +132,10 @@ function getTradeContextLines(tradeContext) {
     `Consensus: ${record.consensus.alignment_level}`,
     `Manager Rationale: ${record.manager_rationale}`,
     `Execution Rationale: ${record.execution_rationale}`,
+    `Execution Backend: ${record.execution_backend ?? '-'}`,
+    `Execution Adapter: ${record.execution_adapter ?? '-'}`,
+    `Execution Outcome: ${record.execution_outcome_status ?? '-'}`,
+    `Rejection Reason: ${record.execution_rejection_reason ?? '-'}`,
     `Review Summary: ${record.review_summary}`,
     `Routed Models: ${
       Object.entries(record.routed_models || {})

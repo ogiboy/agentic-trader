@@ -747,6 +747,32 @@ def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert payload["available"] is True
     assert payload["record"]["symbol"] == "NVDA"
     assert payload["record"]["execution_rationale"] == "Execution approved."
+    assert payload["record"]["execution_backend"] == "paper"
+    assert payload["record"]["execution_adapter"] == "paper"
+    assert payload["record"]["execution_outcome_status"] == "filled"
+
+
+def test_trade_context_human_output_shows_execution_outcome(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    persist_run(settings=settings, artifacts=_artifacts("NVDA"))
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["trade-context"])
+    assert result.exit_code == 0
+    assert "Execution Backend" in result.stdout
+    assert "Execution Adapter" in result.stdout
+    assert "Execution Outcome" in result.stdout
+    assert "Rejection Reason" in result.stdout
+    assert "paper" in result.stdout
+    assert "filled" in result.stdout
 
 
 def test_supervisor_status_json_includes_log_tails(

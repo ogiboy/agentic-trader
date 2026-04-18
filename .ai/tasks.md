@@ -185,7 +185,7 @@ The broker boundary now exists. Keep live execution preparation explicit and gua
 
 Current state:
 
-- guard output is translated into a canonical `ExecutionIntent` before broker submission
+- guard output is translated into a canonical timestamped `ExecutionIntent` before broker submission
 - broker adapters return an `ExecutionOutcome` with status, backend, adapter, rejection reason, and simulated metadata
 - paper remains the default backend and now conforms to the intent/outcome adapter path
 - `simulated_real` exists as a non-live scaffold for local rehearsal; it must not be treated as live trading
@@ -195,7 +195,7 @@ Desired direction:
 
 - preserve paper as the default execution backend
 - keep live execution blocked unless explicitly enabled and implemented
-- surface broker backend, kill-switch, and readiness state in every operator surface
+- surface broker backend, execution outcome, rejection reason, kill-switch, and readiness state in operator review/status surfaces
 - add one real live adapter only after paper evaluation quality is stable
 
 ### 13. Observer API And WebUI Readiness
@@ -223,6 +223,7 @@ Desired direction:
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
+- keep `.ai/agents/` role guidance aligned with `AGENTS.md`, `.ai/qa/`, and current architecture so development agents remain helpers rather than runtime dependencies
 - keep the automated test command in `AGENTS.md` current with the project environment
 - keep the opt-in runtime-cycle smoke check aligned with real product retry behavior so it validates operator-facing runtime reliability rather than a first-response-only LLM diagnostic
 - next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate

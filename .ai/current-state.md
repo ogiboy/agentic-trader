@@ -35,9 +35,9 @@ Implemented or substantially present:
 - trade-level context persistence for memory/tool/model/rationale inspection
 - explicit memory write policy for trade memory versus chat memory domains
 - broker adapter boundary with paper backend, safe live gating, and execution kill-switch semantics
-- canonical execution intent and outcome contracts now sit between guard output and broker adapters; paper execution uses the adapter path while preserving existing fills, positions, journals, and account marks
+- canonical execution intent and outcome contracts now sit between guard output and broker adapters; the intent carries explicit timestamp/created-at audit fields, and paper execution uses the adapter path while preserving existing fills, positions, journals, and account marks
 - a simulated-real adapter scaffold exists for non-live execution rehearsal with slippage, spread, drift, latency metadata, rejection hooks, partial-fill shape, and explicit simulated/non-live status
-- execution intent and adapter outcome metadata are persisted for run/trade review so future live integration can be replayed and audited before any real broker is enabled
+- execution intent and adapter outcome metadata are persisted and surfaced in trade-context review views so future live integration can be replayed and audited before any real broker is enabled
 - structured financial feature contracts now exist for symbol identity, technical summaries, fundamental placeholders, and macro/news context
 - provider interfaces now exist for market, fundamental, news, disclosure, and macro data; provider outputs are normalized into canonical analysis snapshots before feature generation
 - the staged graph now includes fundamental and macro/news analyst roles before regime/strategy/risk, and manager synthesis receives those structured outputs
@@ -45,6 +45,7 @@ Implemented or substantially present:
 - no-trade risk plans are normalized after LLM validation so operator surfaces show meaningful reference stop/take levels instead of tiny schema-sentinel values
 - canonical analysis snapshots, decision feature snapshots, fundamental summaries, and macro summaries are persisted into trade context and memory documents for future replay/retrieval
 - QA workflow docs now define product-specific checklist, runbook, scenarios, and evidence conventions for CLI, Rich, Ink, daemon, observer API, memory, governance, and paper broker validation
+- `.ai/agents/` now defines development-only collaboration roles for planning, implementation, review, QA, and data architecture; these are guidance documents and not runtime agents or a new orchestration layer
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, deeper Rich submenu navigation, read-only JSON surfaces, optional one-cycle runtime checks, optional quality gates, coverage XML, and SonarQube submission
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
 - Python dependency resolution now uses a committed `poetry.lock` file generated from `pyproject.toml`; Conda remains the recommended Python environment layer while Poetry owns package locking and install synchronization

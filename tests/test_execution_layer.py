@@ -127,6 +127,32 @@ def test_execution_intent_creation_and_validation(tmp_path: Path) -> None:
     assert intent.source_run_id == "run-test"
     assert intent.invalidation_condition == "Exit on close below EMA20."
     assert intent.backend_metadata["position_size_pct"] == pytest.approx(0.1)
+    assert intent.timestamp == intent.created_at
+
+    legacy_timestamp = "2026-01-01T00:00:00+00:00"
+    legacy_intent = ExecutionIntent(
+        symbol="AAPL",
+        side="hold",
+        reference_price=100.0,
+        confidence=0.2,
+        thesis="Legacy payload.",
+        approved=False,
+        created_at=legacy_timestamp,
+    )
+    assert legacy_intent.timestamp == legacy_timestamp
+    assert legacy_intent.created_at == legacy_timestamp
+
+    with pytest.raises(ValueError, match="timestamp and created_at"):
+        ExecutionIntent(
+            symbol="AAPL",
+            side="hold",
+            reference_price=100.0,
+            confidence=0.2,
+            thesis="Conflicting audit timestamps.",
+            approved=False,
+            timestamp="2026-01-01T00:00:00+00:00",
+            created_at="2026-01-01T00:01:00+00:00",
+        )
 
     with pytest.raises(ValueError, match="quantity or notional"):
         ExecutionIntent(
@@ -227,9 +253,46 @@ def test_persist_run_records_execution_context(tmp_path: Path) -> None:
     assert execution_record["order_id"] == order_id
     assert execution_record["execution_backend"] == "paper"
     assert execution_record["status"] == "filled"
+    assert (
+        execution_record["intent"]["timestamp"]
+        == execution_record["intent"]["created_at"]
+    )
+    assert execution_record["outcome"]["status"] == "filled"
     assert trade_context is not None
     assert trade_context.execution_backend == "paper"
     assert trade_context.execution_outcome_status == "filled"
     assert trade_context.execution_intent is not None
     assert trade_context.execution_intent["source_run_id"] == execution_record["run_id"]
+    db.close()
+
+
+def test_persist_run_records_rejected_execution_metadata(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    rejection_reason = "Execution guard rejected the trade."
+    artifacts = _artifacts().model_copy(
+        update={
+            "execution": _decision().model_copy(
+                update={
+                    "approved": False,
+                    "confidence": 0.2,
+                    "rationale": rejection_reason,
+                }
+            )
+        }
+    )
+
+    persist_run(settings=settings, artifacts=artifacts)
+
+    db = TradingDatabase(settings)
+    execution_record = db.latest_execution_record()
+    trade_context = db.latest_trade_context()
+
+    assert execution_record is not None
+    assert execution_record["execution_backend"] == "paper"
+    assert execution_record["status"] == "rejected"
+    assert execution_record["rejection_reason"] == rejection_reason
+    assert execution_record["outcome"]["rejection_reason"] == rejection_reason
+    assert trade_context is not None
+    assert trade_context.execution_outcome_status == "rejected"
+    assert trade_context.execution_rejection_reason == rejection_reason
     db.close()

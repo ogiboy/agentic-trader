@@ -2854,6 +2854,10 @@ def trade_context(
     summary.add_row("Consensus", record.consensus.alignment_level)
     summary.add_row("Manager Rationale", record.manager_rationale)
     summary.add_row("Execution Rationale", record.execution_rationale)
+    summary.add_row("Execution Backend", record.execution_backend or "-")
+    summary.add_row("Execution Adapter", record.execution_adapter or "-")
+    summary.add_row("Execution Outcome", record.execution_outcome_status or "-")
+    summary.add_row("Rejection Reason", record.execution_rejection_reason or "-")
     summary.add_row("Review Summary", record.review_summary)
     console.print(summary)
 

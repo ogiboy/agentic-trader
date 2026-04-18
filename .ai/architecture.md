@@ -64,6 +64,9 @@ Current runtime stages:
 - `.ai/qa/`
   Product-specific QA workflow, checklist, runbook, scenarios, and optional evidence artifacts for validating operator-facing behavior
 
+- `.ai/agents/`
+  Development-only role guidance for planning, implementation, review, QA, and data architecture collaboration. These documents do not define runtime agents and must not bypass the in-repo specialist graph.
+
 ## Configuration Reality
 
 The runtime already supports:

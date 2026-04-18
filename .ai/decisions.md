@@ -12,6 +12,7 @@ Adding an external orchestrator as the central control plane would duplicate and
 
 Reason:
 ChatGPT, Codex, and similar tools may help plan and implement changes, but they should not become assumptions inside the trading runtime.
+The `.ai/agents/` role pack documents development workflows for planner, implementer, reviewer, QA, and data-focused helpers only; it must not be interpreted as a runtime agent platform or external orchestration dependency.
 
 ### Provider expansion should happen through adapters
 
@@ -123,6 +124,8 @@ Agent and guard outputs are not the same thing as broker orders.
 The runtime now translates guard-approved or guard-rejected decisions into a canonical `ExecutionIntent`, sends that through a broker adapter, and records an `ExecutionOutcome`.
 This keeps paper execution working while creating a reviewable seam for simulated-real rehearsal and future live broker integration.
 Live execution remains blocked until a real adapter, approval gates, paper-operation evidence, and operator-visible readiness checks exist behind the same contract.
+The intent contract exposes `timestamp` while preserving `created_at` for existing storage and review payload compatibility.
+If both audit timestamp fields are supplied they must match, and operator review views should show backend, adapter, outcome, and rejection reason without requiring raw JSON.
 
 ### No-trade risk output should remain readable without changing execution posture
 
