@@ -352,6 +352,7 @@ Status: in progress.
 - [x] persist decision feature snapshots, fundamental summaries, and macro summaries into trade context and memory documents
 - [x] introduce provider interfaces for market, fundamental, news, disclosure, and macro data sources
 - [x] add a canonical analysis snapshot that preserves source attribution, freshness, completeness, and missing-section metadata
+- [x] add explicit SEC EDGAR, KAP, Finnhub, and FMP provider scaffolds that surface missing data without fetching or fabricating live fundamentals/disclosures
 - [x] aggregate runtime market context, fundamental scaffolds, news events, disclosure scaffolds, and macro scaffolds before feature generation
 - [x] document the V1 source ladder: regulatory/public data first, free-friendly APIs such as Finnhub/FMP as optional enrichers, and Yahoo only as a degraded fallback
 - [x] make SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX sources explicit scaffold metadata

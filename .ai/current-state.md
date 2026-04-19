@@ -41,6 +41,7 @@ Implemented or substantially present:
 - structured financial feature contracts now exist for symbol identity, technical summaries, fundamental placeholders, and macro/news context
 - technical decision features now expose V1-friendly 30d, 90d, and 180d return windows on top of the existing bar-horizon context, plus a compact price anchor for risk math
 - provider interfaces now exist for market, fundamental, news, disclosure, and macro data; provider outputs are normalized into canonical analysis snapshots before feature generation
+- SEC EDGAR, Finnhub, FMP, and KAP now have explicit provider scaffold adapters in the canonical provider set; they do not fetch live data yet, but missing outputs are represented as source attribution instead of disappearing silently
 - the staged graph now includes fundamental and macro/news analyst roles before regime/strategy/risk, and manager synthesis receives those structured outputs
 - prompt rendering now uses the `DecisionFeatureBundle` as the primary agent input when it is attached; raw compact snapshots remain available only for compatibility and deterministic fallback paths
 - feature-first prompts now keep technical data-quality flags visible, and fallback-generated fundamental/macro assessments are not counted as consensus support

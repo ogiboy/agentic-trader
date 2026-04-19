@@ -2,8 +2,10 @@ from pathlib import Path
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
+from agentic_trader.providers import build_canonical_analysis_snapshot
 from agentic_trader.schemas import (
     AgentStageTrace,
+    CanonicalAnalysisSnapshot,
     ExecutionDecision,
     ManagerDecision,
     MarketSnapshot,
@@ -18,7 +20,10 @@ from agentic_trader.workflows.run_once import persist_run
 from typer.testing import CliRunner
 
 
-def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
+def _artifacts(
+    symbol: str = "AAPL",
+    canonical_snapshot: CanonicalAnalysisSnapshot | None = None,
+) -> RunArtifacts:
     return RunArtifacts(
         snapshot=MarketSnapshot(
             symbol=symbol,
@@ -34,6 +39,7 @@ def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
             volume_ratio_20=1.1,
             bars_analyzed=120,
         ),
+        canonical_snapshot=canonical_snapshot,
         coordinator=ResearchCoordinatorBrief(
             market_focus="trend_following",
             priority_signals=["trend_alignment"],
@@ -131,6 +137,40 @@ def test_review_run_and_export_report_commands(tmp_path: Path) -> None:
     assert "## Manager Conflicts" in export_path.read_text(encoding="utf-8")
 
 
+def test_trade_context_surfaces_canonical_analysis(tmp_path: Path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        news_mode="off",
+    )
+    settings.ensure_directories()
+    base_artifacts = _artifacts()
+    canonical = build_canonical_analysis_snapshot(
+        base_artifacts.snapshot,
+        settings=settings,
+        news_items=[],
+    )
+    persist_run(settings=settings, artifacts=_artifacts(canonical_snapshot=canonical))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["trade-context"],
+        env={
+            "AGENTIC_TRADER_RUNTIME_DIR": str(tmp_path),
+            "AGENTIC_TRADER_DATABASE_PATH": str(tmp_path / "agentic_trader.duckdb"),
+            "AGENTIC_TRADER_NEWS_MODE": "off",
+        },
+    )
+
+    assert result.exit_code == 0
+    assert "Canonical Analysis" in result.output
+    assert "Missing Sections" in result.output
+    assert "fundamentals" in result.output
+    assert "sec_edgar" in result.output
+    assert "local_macro_scaffold" in result.output
+
+
 def test_ink_review_surfaces_fundamental_truth() -> None:
     source = Path("tui/index.mjs").read_text(encoding="utf-8")
 
@@ -144,3 +184,19 @@ def test_ink_review_surfaces_fundamental_truth() -> None:
         "Fundamental Uncertainty",
     ]:
         assert token in source
+
+
+def test_ink_review_reads_canonical_analysis_snapshot() -> None:
+    source = Path("tui/index.mjs").read_text(encoding="utf-8")
+
+    for token in [
+        "getCanonicalAnalysisLines",
+        "data.canonicalAnalysis",
+        "CANONICAL ANALYSIS",
+        "Fundamental Source",
+        "Missing:",
+        "Missing Sources:",
+        "Sources Shown:",
+    ]:
+        assert token in source
+    assert "canonicalAnalysisLines.slice(0, 10)" not in source

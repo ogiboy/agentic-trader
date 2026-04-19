@@ -198,6 +198,48 @@ function getMarketContextLines(marketContext) {
   ];
 }
 
+function getCanonicalAnalysisLines(canonicalAnalysis) {
+  if (canonicalAnalysis?.available === false) {
+    return renderUnavailableMessage(canonicalAnalysis.error);
+  }
+  const snapshot = canonicalAnalysis?.snapshot;
+  if (!snapshot) {
+    return ['No canonical analysis snapshot is available yet.'];
+  }
+  const sourceAttributions = snapshot.source_attributions || [];
+  const formatSource = (source) =>
+    `${source.provider_type}:${source.source_name} role=${source.source_role} freshness=${source.freshness}`;
+  const sources = sourceAttributions.slice(0, 8).map(formatSource);
+  const missingSourceItems = sourceAttributions.filter(
+    (source) => source.source_role === 'missing',
+  );
+  const missingSources = missingSourceItems
+    .slice(0, 8)
+    .map((source) => `${source.provider_type}:${source.source_name}`)
+    .join(', ');
+  const hiddenSourceCount = Math.max(sourceAttributions.length - sources.length, 0);
+  const hiddenSourceNote = hiddenSourceCount > 0 ? ` (+${hiddenSourceCount} more)` : '';
+  const hiddenMissingCount = Math.max(missingSourceItems.length - 8, 0);
+  const hiddenMissingNote = hiddenMissingCount > 0 ? ` (+${hiddenMissingCount} more)` : '';
+  const sourceLines = sources
+    .map(
+      (source) => `Source: ${source}`,
+    );
+  return [
+    `Summary: ${snapshot.summary || '-'}`,
+    `Completeness: ${snapshot.completeness_score ?? '-'}`,
+    `Missing: ${(snapshot.missing_sections || []).join(', ') || '-'}`,
+    `Market Source: ${snapshot.market?.attribution?.source_name ?? '-'}`,
+    `Fundamental Source: ${snapshot.fundamental?.attribution?.source_name ?? '-'}`,
+    `Macro Source: ${snapshot.macro?.attribution?.source_name ?? '-'}`,
+    `News Events: ${(snapshot.news_events || []).length}`,
+    `Disclosures: ${(snapshot.disclosures || []).length}`,
+    `Missing Sources: ${missingSources || '-'}${hiddenMissingNote}`,
+    `Sources Shown: ${sources.length}/${sourceAttributions.length}${hiddenSourceNote}`,
+    ...sourceLines,
+  ];
+}
+
 /**
  * Perform a runtime control action (start, stop, or restart) based on the provided dashboard snapshot and return a user-facing action message.
  *
@@ -909,7 +951,7 @@ function PortfolioPage({ data }) {
 /**
  * Render the Review page with panels for run review, agent trace, memory-aware replay, trade context, and market context.
  *
- * @param {{ data: { review: Object, trace: Object, replay: Object, tradeContext: Object, marketContext: Object } }} props
+ * @param {{ data: { review: Object, trace: Object, replay: Object, tradeContext: Object, marketContext: Object, canonicalAnalysis: Object } }} props
  * @param {Object} props.data - Dashboard snapshot subsets used to populate panels.
  *   Expected keys:
  *     - review: { available?: boolean, record?: Object, error?: string }
@@ -917,6 +959,7 @@ function PortfolioPage({ data }) {
  *     - replay: { available?: boolean, replay?: Object, error?: string }
  *     - tradeContext: Object
  *     - marketContext: Object
+ *     - canonicalAnalysis: Object
  * @returns {import('react').ReactElement} An Ink layout containing review, trace, replay, trade-context, and market-context panels.
  */
 function ReviewPage({ data }) {
@@ -925,6 +968,7 @@ function ReviewPage({ data }) {
   const replay = data.replay;
   const tradeContext = data.tradeContext;
   const marketContext = data.marketContext;
+  const canonicalAnalysis = data.canonicalAnalysis;
   const reviewRecord = review.record;
   const traceRecord = trace.record;
   const replayState = replay.replay;
@@ -946,6 +990,7 @@ function ReviewPage({ data }) {
 
   const tradeContextLines = getTradeContextLines(tradeContext);
   const marketContextLines = getMarketContextLines(marketContext);
+  const canonicalAnalysisLines = getCanonicalAnalysisLines(canonicalAnalysis);
 
   return e(
     Box,
@@ -985,6 +1030,15 @@ function ReviewPage({ data }) {
         Box,
         { width: '50%', paddingLeft: 1 },
         panel('MARKET CONTEXT PACK', marketContextLines, 'blue'),
+      ),
+    ),
+    e(
+      Box,
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '100%' },
+        panel('CANONICAL ANALYSIS', canonicalAnalysisLines, 'blue'),
       ),
     ),
   );

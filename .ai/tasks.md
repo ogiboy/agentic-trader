@@ -18,6 +18,7 @@ Current state:
 - `DecisionFeatureBundle` now carries symbol identity, technical features, fundamental feature placeholders, and macro/news context
 - deterministic technical summaries include 30d, 90d, and 180d returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
 - provider contracts now cover market, fundamental, news, disclosure, and macro sources with canonical source attribution and freshness metadata
+- explicit SEC EDGAR, Finnhub, FMP, and KAP scaffold providers now feed canonical attribution while marking missing fields instead of pretending live ingestion exists
 - source scaffold metadata now names SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX readiness without pretending those ingestors are implemented
 - fundamental and macro/news analyst stages now run before regime, strategy, risk, and manager synthesis
 - consensus excludes fallback-generated fundamental and macro/news assessments from support, keeping unavailable finance evidence visible without overstating alignment

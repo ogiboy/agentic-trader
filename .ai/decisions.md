@@ -161,6 +161,7 @@ Provider payloads differ by source, market, region, and availability.
 The runtime now uses provider interfaces for market, fundamental, news, disclosure, and macro data, then aggregates them into a `CanonicalAnalysisSnapshot`.
 Agents still consume the compact `DecisionFeatureBundle`, but the canonical snapshot preserves source attribution, freshness, completeness, and explicit missing sections for prompts, persistence, memory, dashboard JSON, and future UI review surfaces.
 Yahoo remains a fallback market/news source rather than the sole source of truth, while SEC EDGAR, KAP, macro indicators, transcripts, and vendor APIs can be added behind the same adapter seam.
+Provider scaffolds for SEC EDGAR, KAP, Finnhub, and FMP should return explicit missing snapshots or empty-source attributions until real ingestion exists; absence of provider data must remain visible and must not be converted into neutral supporting evidence.
 
 ### Yahoo is degraded fallback evidence, not the target source of truth
 

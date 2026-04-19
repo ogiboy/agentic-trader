@@ -51,6 +51,7 @@ from agentic_trader.runtime_status import (
 from agentic_trader.observer_api import serve_observer_api
 from agentic_trader.schemas import (
     ChatPersona,
+    CanonicalAnalysisSnapshot,
     DailyRiskReport,
     HistoricalMemoryMatch,
     InvestmentPreferences,
@@ -1209,6 +1210,35 @@ def _canonical_analysis_payload(settings: Settings) -> dict[str, object]:
             else None
         ),
     }
+
+
+def _canonical_analysis_lines(
+    canonical_snapshot: CanonicalAnalysisSnapshot | None,
+) -> list[str]:
+    if canonical_snapshot is None:
+        return ["No canonical analysis snapshot is attached to this trade context."]
+    source_lines = [
+        f"{item.provider_type}:{item.source_name} role={item.source_role} freshness={item.freshness}"
+        for item in canonical_snapshot.source_attributions
+    ]
+    return [
+        f"Summary: {canonical_snapshot.summary or '-'}",
+        f"Completeness: {canonical_snapshot.completeness_score:.2f}",
+        f"Missing Sections: {', '.join(canonical_snapshot.missing_sections) or '-'}",
+        (
+            "Primary Sources: "
+            f"market={canonical_snapshot.market.attribution.source_name} | "
+            f"fundamental={canonical_snapshot.fundamental.attribution.source_name} | "
+            f"macro={canonical_snapshot.macro.attribution.source_name}"
+        ),
+        (
+            "Event Counts: "
+            f"news={len(canonical_snapshot.news_events)} | "
+            f"disclosures={len(canonical_snapshot.disclosures)}"
+        ),
+        "Sources:",
+        *(source_lines or ["-"]),
+    ]
 
 
 def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
@@ -2907,6 +2937,13 @@ def trade_context(
             "\n".join(context_lines),
             title="Context Summary",
             border_style="cyan",
+        )
+    )
+    console.print(
+        Panel(
+            "\n".join(_canonical_analysis_lines(record.canonical_snapshot)),
+            title="Canonical Analysis",
+            border_style="blue",
         )
     )
 

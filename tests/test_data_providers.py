@@ -5,6 +5,7 @@ from agentic_trader.features import build_decision_feature_bundle
 from agentic_trader.providers import (
     ProviderSet,
     build_canonical_analysis_snapshot,
+    default_provider_set,
 )
 from agentic_trader.providers.interfaces import (
     DisclosureProvider,
@@ -17,6 +18,12 @@ from agentic_trader.providers.local import (
     LocalDisclosureProvider,
     LocalFundamentalProvider,
     LocalMacroProvider,
+)
+from agentic_trader.providers.public_sources import (
+    FinnhubFundamentalProvider,
+    FmpFundamentalProvider,
+    KapDisclosureProvider,
+    SecEdgarFundamentalProvider,
 )
 from agentic_trader.providers.yahoo import YahooMarketDataProvider, YahooNewsProvider
 from agentic_trader.schemas import (
@@ -91,8 +98,12 @@ def test_default_provider_adapters_conform_to_interfaces() -> None:
 
     assert isinstance(YahooMarketDataProvider(settings), MarketDataProvider)
     assert isinstance(LocalFundamentalProvider(settings), FundamentalDataProvider)
+    assert isinstance(SecEdgarFundamentalProvider(settings), FundamentalDataProvider)
+    assert isinstance(FinnhubFundamentalProvider(settings), FundamentalDataProvider)
+    assert isinstance(FmpFundamentalProvider(settings), FundamentalDataProvider)
     assert isinstance(YahooNewsProvider(settings), NewsProvider)
     assert isinstance(LocalDisclosureProvider(settings), DisclosureProvider)
+    assert isinstance(KapDisclosureProvider(settings), DisclosureProvider)
     assert isinstance(LocalMacroProvider(settings), MacroDataProvider)
 
 
@@ -117,7 +128,11 @@ def test_canonical_snapshot_preserves_attribution_and_missing_sections() -> None
     assert "fundamentals" in snapshot.missing_sections
     assert "disclosures" in snapshot.missing_sections
     assert any(
-        source.source_name == "local_fundamental_scaffold"
+        source.source_name == "sec_edgar"
+        for source in snapshot.source_attributions
+    )
+    assert any(
+        source.source_name == "kap_disclosures"
         for source in snapshot.source_attributions
     )
 
@@ -141,9 +156,42 @@ def test_decision_bundle_consumes_canonical_snapshot() -> None:
         canonical_snapshot=canonical,
     )
 
-    assert "local_fundamental_scaffold" in bundle.fundamental.data_sources
+    assert "sec_edgar" in bundle.fundamental.data_sources
     assert bundle.macro.news_signals[0].category == "macro_level"
     assert bundle.macro.data_sources[0] == "local_macro_scaffold"
+
+
+def test_default_provider_ladder_names_public_sources() -> None:
+    default_set = default_provider_set(_settings())
+
+    assert [item.metadata().provider_id for item in default_set.market] == [
+        "yahoo_market"
+    ]
+    assert [item.metadata().provider_id for item in default_set.fundamental] == [
+        "sec_edgar_fundamentals",
+        "finnhub_fundamentals",
+        "fmp_fundamentals",
+        "local_fundamental_scaffold",
+    ]
+    assert [item.metadata().provider_id for item in default_set.disclosures] == [
+        "kap_disclosures",
+        "local_disclosure_scaffold",
+    ]
+
+
+def test_empty_provider_outputs_are_visible_in_canonical_attribution() -> None:
+    canonical = build_canonical_analysis_snapshot(
+        _snapshot(),
+        settings=_settings(),
+        news_items=None,
+    )
+
+    source_names = {source.source_name for source in canonical.source_attributions}
+
+    assert "news" in canonical.missing_sections
+    assert "disclosures" in canonical.missing_sections
+    assert "yahoo_news" in source_names
+    assert "kap_disclosures" in source_names
 
 
 class _FailingFundamentalProvider:
