@@ -1,5 +1,7 @@
 from typing import Any, cast
 
+import pytest
+
 from agentic_trader.agents.fundamental import assess_fundamentals
 from agentic_trader.agents.macro import assess_macro_context
 from agentic_trader.config import Settings
@@ -7,6 +9,8 @@ from agentic_trader.features import build_decision_feature_bundle
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
+    EvidenceInferenceBreakdown,
+    FundamentalAssessment,
     InvestmentPreferences,
     MarketSnapshot,
     PortfolioSnapshot,
@@ -19,6 +23,17 @@ class _FailingLLM:
 
     def complete_structured(self, **_kwargs: Any) -> object:
         raise RuntimeError("LLM unavailable in test")
+
+
+class _StaticLLM:
+    def __init__(self, assessment: FundamentalAssessment) -> None:
+        self._assessment = assessment
+
+    def for_role(self, _role: str) -> "_StaticLLM":
+        return self
+
+    def complete_structured(self, **_kwargs: Any) -> FundamentalAssessment:
+        return self._assessment
 
 
 def _snapshot() -> MarketSnapshot:
@@ -70,9 +85,99 @@ def test_fundamental_agent_falls_back_to_structured_neutral_assessment() -> None
     )
 
     assert assessment.source == "fallback"
+    assert assessment.overall_bias == "neutral"
     assert assessment.overall_signal == "neutral"
+    assert assessment.growth_quality == "neutral"
+    assert assessment.balance_sheet_quality == "neutral"
+    assert assessment.business_quality == "neutral"
+    assert assessment.forward_outlook == "neutral"
     assert "fundamental_fetch_not_implemented" in assessment.risk_flags
+    assert "fundamental_fetch_not_implemented" in assessment.red_flags
+    assert assessment.evidence_vs_inference.uncertainty
     assert assessment.fallback_reason == "Structured fundamental provider data is unavailable."
+
+
+def test_fundamental_assessment_schema_exposes_evidence_contract() -> None:
+    properties = FundamentalAssessment.model_json_schema()["properties"]
+
+    for field in [
+        "growth_quality",
+        "profitability_quality",
+        "cash_flow_quality",
+        "balance_sheet_quality",
+        "fx_risk",
+        "business_quality",
+        "macro_fit",
+        "forward_outlook",
+        "red_flags",
+        "strengths",
+        "evidence_vs_inference",
+        "overall_bias",
+    ]:
+        assert field in properties
+
+
+def test_fundamental_agent_is_conservative_with_debt_risk() -> None:
+    context = _context(_snapshot())
+    features = context.decision_features
+    assert features is not None
+    cautious_features = features.model_copy(
+        update={
+            "fundamental": features.fundamental.model_copy(
+                update={
+                    "debt_risk": 0.92,
+                    "quality_flags": [],
+                    "summary": "Provider supplied partial balance sheet metrics.",
+                }
+            )
+        }
+    )
+    cautious_context = context.model_copy(update={"decision_features": cautious_features})
+
+    assessment = assess_fundamentals(
+        cast(LocalLLM, _FailingLLM()),
+        cautious_context.snapshot,
+        allow_fallback=True,
+        context=cautious_context,
+    )
+
+    assert assessment.balance_sheet_quality == "avoid"
+    assert assessment.overall_bias == "avoid"
+    assert "high_debt_risk" in assessment.red_flags
+    assert assessment.evidence_vs_inference.evidence
+
+
+def test_fundamental_agent_rejects_unsupported_llm_bias() -> None:
+    context = _context(_snapshot())
+    features = context.decision_features
+    assert features is not None
+    provider_context = context.model_copy(
+        update={
+            "decision_features": features.model_copy(
+                update={
+                    "fundamental": features.fundamental.model_copy(
+                        update={"quality_flags": [], "data_sources": ["provider_fixture"]}
+                    )
+                }
+            )
+        }
+    )
+    unsupported = FundamentalAssessment(
+        source="llm",
+        overall_bias="supportive",
+        evidence_vs_inference=EvidenceInferenceBreakdown(
+            inference=["Analyst inferred quality without a cited metric."]
+        ),
+        summary="Looks strong without cited evidence.",
+    )
+
+    with pytest.raises(ValueError, match="requires direct evidence"):
+        assess_fundamentals(
+            cast(LocalLLM, _StaticLLM(unsupported)),
+            provider_context.snapshot,
+            allow_fallback=False,
+            context=provider_context,
+        )
 
 
 def test_macro_agent_falls_back_to_structured_neutral_assessment() -> None:

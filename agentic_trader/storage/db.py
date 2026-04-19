@@ -1105,6 +1105,7 @@ class TradingDatabase:
             tool_outputs=tool_outputs,
             shared_memory_summary=shared_memory_summary,
             consensus=artifacts.consensus,
+            fundamental_assessment=artifacts.fundamental,
             fundamental_summary=artifacts.fundamental.summary,
             macro_summary=artifacts.macro.summary,
             manager_rationale=artifacts.manager.rationale,

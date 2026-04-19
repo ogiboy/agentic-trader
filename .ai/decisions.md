@@ -151,6 +151,8 @@ Prompt rendering should use the feature bundle as the primary agent input when i
 The V1 technical feature contract should expose calendar-friendly 30d, 90d, and 180d return windows even though the underlying market context still computes bar horizons.
 Feature-first prompts must still surface technical data-quality flags so agents do not lose lookback or provider-quality truth when raw snapshots stay internal.
 Fallback-generated fundamental and macro/news assessments must not count as consensus support; unavailable finance evidence can be noted as missing or neutral, but it must not make manager synthesis look more complete than the provider evidence actually is.
+The fundamental analyst contract should behave like a cautious financial analyst: every bias must be traceable to evidence, inference, or uncertainty, and incomplete inputs must remain neutral/cautious instead of being filled with imagined business facts.
+Non-neutral LLM-generated fundamental bias must include direct evidence, and prompt-facing feature summaries must expose the actual fundamental metrics instead of asking the model to infer from labels or summaries alone.
 
 ### External data must normalize into canonical analysis snapshots
 

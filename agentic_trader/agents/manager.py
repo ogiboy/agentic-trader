@@ -80,7 +80,7 @@ def _derive_manager_conflicts(
             reason = "high-volatility risk reduction"
         elif coordinator.market_focus == "capital_preservation":
             reason = "capital-preservation risk reduction"
-        elif fundamental is not None and fundamental.overall_signal in {
+        elif fundamental is not None and fundamental.overall_bias in {
             "cautious",
             "avoid",
         }:
@@ -232,7 +232,7 @@ def _fallback_manager(
     if strategy.confidence < 0.65:
         size_multiplier = min(size_multiplier, 0.75)
         flags.append("moderate_conviction")
-    if fundamental is not None and fundamental.overall_signal in {"cautious", "avoid"}:
+    if fundamental is not None and fundamental.overall_bias in {"cautious", "avoid"}:
         size_multiplier = min(size_multiplier, 0.5)
         flags.append("fundamental_caution")
     if macro is not None and macro.macro_signal in {"cautious", "avoid"}:

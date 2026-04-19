@@ -21,6 +21,8 @@ Current state:
 - source scaffold metadata now names SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX readiness without pretending those ingestors are implemented
 - fundamental and macro/news analyst stages now run before regime, strategy, risk, and manager synthesis
 - consensus excludes fallback-generated fundamental and macro/news assessments from support, keeping unavailable finance evidence visible without overstating alignment
+- fundamental assessment output now separates direct evidence, inference, and uncertainty across growth, profitability, cash flow, balance sheet, FX, business quality, macro fit, and forward outlook
+- feature-first prompts now expose the underlying fundamental metrics, and Ink review/trade-context surfaces show fundamental bias, red flags, evidence, inference, and uncertainty
 - trade context and memory documents now persist canonical analysis snapshots, decision features, and fundamental/macro summaries
 - Finnhub, FMP, Polygon/Massive, SEC, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
 

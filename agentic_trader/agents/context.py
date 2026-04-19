@@ -136,8 +136,18 @@ def _render_decision_feature_summary(context: AgentContext) -> str:
             ),
             f"Technical summary: {technical.context_summary}",
             (
-                "Fundamental: "
+                "Fundamental metrics: "
+                f"revenue_growth={fundamental.revenue_growth} "
+                f"profitability_stability={fundamental.profitability_stability} "
+                f"cash_flow_alignment={fundamental.cash_flow_alignment} "
+                f"debt_risk={fundamental.debt_risk} "
+                f"reinvestment_potential={fundamental.reinvestment_potential}"
+            ),
+            (
+                "Fundamental source: "
+                f"as_of={fundamental.as_of} "
                 f"fx_exposure={fundamental.fx_exposure} "
+                f"sources={','.join(fundamental.data_sources) or 'none'} "
                 f"flags={','.join(fundamental.quality_flags) or 'none'}"
             ),
             f"Fundamental summary: {fundamental.summary}",

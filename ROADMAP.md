@@ -348,6 +348,7 @@ Status: in progress.
 - [x] scaffold fundamental feature contracts for revenue growth, profitability stability, cash-flow alignment, debt risk, FX exposure, and reinvestment potential
 - [x] scaffold macro/news context with company-specific, sector-level, and macro-level classification plus relevance scores
 - [x] add fundamental analyst and macro/news analyst roles with structured schemas instead of free-form LLM output
+- [x] expand the fundamental analyst contract so growth, profitability, cash flow, balance sheet, FX, business quality, macro fit, forward outlook, evidence, inference, uncertainty, red flags, strengths, and overall bias are explicit
 - [x] persist decision feature snapshots, fundamental summaries, and macro summaries into trade context and memory documents
 - [x] introduce provider interfaces for market, fundamental, news, disclosure, and macro data sources
 - [x] add a canonical analysis snapshot that preserves source attribution, freshness, completeness, and missing-section metadata

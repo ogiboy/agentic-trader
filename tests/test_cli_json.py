@@ -747,6 +747,8 @@ def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert payload["available"] is True
     assert payload["record"]["symbol"] == "NVDA"
     assert payload["record"]["execution_rationale"] == "Execution approved."
+    assert payload["record"]["fundamental_assessment"]["overall_bias"] == "neutral"
+    assert "evidence_vs_inference" in payload["record"]["fundamental_assessment"]
     assert payload["record"]["execution_backend"] == "paper"
     assert payload["record"]["execution_adapter"] == "paper"
     assert payload["record"]["execution_outcome_status"] == "filled"

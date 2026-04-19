@@ -64,12 +64,12 @@ def assess_specialist_consensus(
     if fundamental is not None:
         if fundamental.source == "fallback":
             reasons.append(_fallback_evidence_note("Fundamental"))
-        elif fundamental.overall_signal in {"supportive", "neutral"}:
+        elif fundamental.overall_bias in {"supportive", "neutral"}:
             supporting_roles.append("fundamental")
         else:
             dissenting_roles.append("fundamental")
             reasons.append(
-                f"Fundamental analyst returned {fundamental.overall_signal} evidence."
+                f"Fundamental analyst returned {fundamental.overall_bias} evidence."
             )
 
     if macro is not None:

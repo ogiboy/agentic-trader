@@ -44,6 +44,8 @@ Implemented or substantially present:
 - the staged graph now includes fundamental and macro/news analyst roles before regime/strategy/risk, and manager synthesis receives those structured outputs
 - prompt rendering now uses the `DecisionFeatureBundle` as the primary agent input when it is attached; raw compact snapshots remain available only for compatibility and deterministic fallback paths
 - feature-first prompts now keep technical data-quality flags visible, and fallback-generated fundamental/macro assessments are not counted as consensus support
+- fundamental assessments now use a richer analyst contract covering growth, profitability, cash flow, balance sheet quality, FX risk, business quality, macro fit, forward outlook, red flags, strengths, and evidence/inference/uncertainty separation
+- prompt-facing fundamental context now carries the actual structured metrics, and non-neutral LLM fundamental bias requires direct evidence before it can influence manager or consensus surfaces
 - structured LLM calls now prefer Ollama JSON-schema format with a compatibility fallback to plain JSON mode, making local model agent-cycle output more reliable without weakening schema validation
 - no-trade risk plans are normalized after LLM validation so operator surfaces show meaningful reference stop/take levels instead of tiny schema-sentinel values
 - canonical analysis snapshots, decision feature snapshots, fundamental summaries, and macro summaries are persisted into trade context and memory documents for future replay/retrieval

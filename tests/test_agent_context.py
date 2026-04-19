@@ -247,6 +247,20 @@ def test_render_agent_context_prefers_structured_features_when_available(
         }
     )
     decision_features = build_decision_feature_bundle(snapshot, settings=settings)
+    decision_features = decision_features.model_copy(
+        update={
+            "fundamental": decision_features.fundamental.model_copy(
+                update={
+                    "revenue_growth": 0.12,
+                    "profitability_stability": 0.74,
+                    "cash_flow_alignment": 0.68,
+                    "debt_risk": 0.22,
+                    "reinvestment_potential": 0.61,
+                    "data_sources": ["provider_fixture"],
+                }
+            )
+        }
+    )
     context = build_agent_context(
         role="coordinator",
         settings=settings,
@@ -261,5 +275,11 @@ def test_render_agent_context_prefers_structured_features_when_available(
     assert "Feature Input:" in rendered
     assert "price_anchor=100.0" in rendered
     assert "quality_flags=partial_lookback_coverage,higher_timeframe_fallback" in rendered
+    assert "revenue_growth=0.12" in rendered
+    assert "profitability_stability=0.74" in rendered
+    assert "cash_flow_alignment=0.68" in rendered
+    assert "debt_risk=0.22" in rendered
+    assert "reinvestment_potential=0.61" in rendered
+    assert "sources=provider_fixture" in rendered
     assert "Market Context Pack:" not in rendered
     assert "Market Snapshot:" not in rendered

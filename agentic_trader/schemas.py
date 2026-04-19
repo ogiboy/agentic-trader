@@ -1,6 +1,6 @@
 from typing import Literal, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 RiskProfile: TypeAlias = Literal["conservative", "balanced", "aggressive"]
 TradeStyle: TypeAlias = Literal["swing", "position", "intraday"]
@@ -401,10 +401,28 @@ class DecisionFeatureBundle(BaseModel):
     macro: MacroContext
 
 
+class EvidenceInferenceBreakdown(BaseModel):
+    evidence: list[str] = Field(default_factory=list)
+    inference: list[str] = Field(default_factory=list)
+    uncertainty: list[str] = Field(default_factory=list)
+
+
 class FundamentalAssessment(BaseModel):
-    revenue_growth_quality: AnalysisSignal = "neutral"
+    growth_quality: AnalysisSignal = "neutral"
     profitability_quality: AnalysisSignal = "neutral"
     cash_flow_quality: AnalysisSignal = "neutral"
+    balance_sheet_quality: AnalysisSignal = "neutral"
+    fx_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
+    business_quality: AnalysisSignal = "neutral"
+    macro_fit: AnalysisSignal = "neutral"
+    forward_outlook: AnalysisSignal = "neutral"
+    red_flags: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    evidence_vs_inference: EvidenceInferenceBreakdown = Field(
+        default_factory=EvidenceInferenceBreakdown
+    )
+    overall_bias: AnalysisSignal = "neutral"
+    revenue_growth_quality: AnalysisSignal = "neutral"
     debt_quality: AnalysisSignal = "neutral"
     fx_exposure_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
     reinvestment_quality: AnalysisSignal = "neutral"
@@ -414,6 +432,35 @@ class FundamentalAssessment(BaseModel):
     risk_flags: list[str] = Field(default_factory=list)
     source: Literal["llm", "fallback"] = "fallback"
     fallback_reason: str | None = None
+
+    @model_validator(mode="after")
+    def sync_legacy_fields(self) -> "FundamentalAssessment":
+        fields = self.model_fields_set
+        if "growth_quality" not in fields and "revenue_growth_quality" in fields:
+            self.growth_quality = self.revenue_growth_quality
+        else:
+            self.revenue_growth_quality = self.growth_quality
+
+        if "balance_sheet_quality" not in fields and "debt_quality" in fields:
+            self.balance_sheet_quality = self.debt_quality
+        else:
+            self.debt_quality = self.balance_sheet_quality
+
+        if "fx_risk" not in fields and "fx_exposure_risk" in fields:
+            self.fx_risk = self.fx_exposure_risk
+        else:
+            self.fx_exposure_risk = self.fx_risk
+
+        if "overall_bias" not in fields and "overall_signal" in fields:
+            self.overall_bias = self.overall_signal
+        else:
+            self.overall_signal = self.overall_bias
+
+        if "red_flags" not in fields and "risk_flags" in fields:
+            self.red_flags = list(self.risk_flags)
+        else:
+            self.risk_flags = list(self.red_flags)
+        return self
 
 
 class MacroAssessment(BaseModel):
@@ -662,6 +709,9 @@ class TradeContextRecord(BaseModel):
     tool_outputs: dict[str, list[str]] = Field(default_factory=dict)
     shared_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
     consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
+    fundamental_assessment: FundamentalAssessment = Field(
+        default_factory=FundamentalAssessment
+    )
     fundamental_summary: str = ""
     macro_summary: str = ""
     manager_rationale: str = ""

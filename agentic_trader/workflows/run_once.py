@@ -196,13 +196,13 @@ def run_from_snapshot(
     emit(
         "fundamental",
         "completed",
-        f"Fundamental analyst returned {fundamental.overall_signal}.",
+        f"Fundamental analyst returned {fundamental.overall_bias}.",
     )
     shared_memory_bus.append(
         SharedMemoryEntry(
             role="fundamental",
             summary=(
-                f"Fundamental signal {fundamental.overall_signal}: {fundamental.summary}"
+                f"Fundamental bias {fundamental.overall_bias}: {fundamental.summary}"
             ),
             payload_json=fundamental.model_dump_json(indent=2),
         )

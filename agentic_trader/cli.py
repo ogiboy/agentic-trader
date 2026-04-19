@@ -465,6 +465,14 @@ def _render_run_review(record: RunRecord) -> None:
         record.artifacts.coordinator.summary,
     )
     analysis.add_row(
+        "Fundamental",
+        record.artifacts.fundamental.overall_bias,
+        (
+            f"{record.artifacts.fundamental.summary} | "
+            f"red_flags={', '.join(record.artifacts.fundamental.red_flags) or '-'}"
+        ),
+    )
+    analysis.add_row(
         "Regime", record.artifacts.regime.regime, record.artifacts.regime.reasoning
     )
     analysis.add_row(
@@ -526,6 +534,23 @@ def _render_run_markdown(record: RunRecord) -> str:
         "## Coordinator",
         f"- Focus: {artifacts.coordinator.market_focus}",
         f"- Summary: {artifacts.coordinator.summary}",
+        "",
+        "## Fundamental",
+        f"- Overall Bias: {artifacts.fundamental.overall_bias}",
+        f"- Growth Quality: {artifacts.fundamental.growth_quality}",
+        f"- Profitability Quality: {artifacts.fundamental.profitability_quality}",
+        f"- Cash Flow Quality: {artifacts.fundamental.cash_flow_quality}",
+        f"- Balance Sheet Quality: {artifacts.fundamental.balance_sheet_quality}",
+        f"- FX Risk: {artifacts.fundamental.fx_risk}",
+        f"- Business Quality: {artifacts.fundamental.business_quality}",
+        f"- Macro Fit: {artifacts.fundamental.macro_fit}",
+        f"- Forward Outlook: {artifacts.fundamental.forward_outlook}",
+        f"- Red Flags: {', '.join(artifacts.fundamental.red_flags) or '-'}",
+        f"- Strengths: {', '.join(artifacts.fundamental.strengths) or '-'}",
+        f"- Evidence: {', '.join(artifacts.fundamental.evidence_vs_inference.evidence) or '-'}",
+        f"- Inference: {', '.join(artifacts.fundamental.evidence_vs_inference.inference) or '-'}",
+        f"- Uncertainty: {', '.join(artifacts.fundamental.evidence_vs_inference.uncertainty) or '-'}",
+        f"- Summary: {artifacts.fundamental.summary}",
         "",
         "## Regime",
         f"- Regime: {artifacts.regime.regime}",

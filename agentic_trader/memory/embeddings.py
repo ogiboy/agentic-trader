@@ -132,7 +132,7 @@ def build_memory_document(artifacts: RunArtifacts) -> str:
         f"direction:{artifacts.regime.direction_bias}",
         f"strategy:{artifacts.strategy.strategy_family}",
         f"action:{artifacts.strategy.action}",
-        f"fundamental:{artifacts.fundamental.overall_signal}",
+        f"fundamental:{artifacts.fundamental.overall_bias}",
         f"macro:{artifacts.macro.macro_signal}",
         f"manager:{artifacts.manager.action_bias}",
         f"review:{artifacts.review.summary}",

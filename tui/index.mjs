@@ -130,6 +130,7 @@ function getTradeContextLines(tradeContext) {
     `Trade ID: ${record.trade_id}`,
     `Run ID: ${record.run_id ?? '-'}`,
     `Consensus: ${record.consensus.alignment_level}`,
+    ...getFundamentalAssessmentLines(record.fundamental_assessment),
     `Manager Rationale: ${record.manager_rationale}`,
     `Execution Rationale: ${record.execution_rationale}`,
     `Execution Backend: ${record.execution_backend ?? '-'}`,
@@ -144,6 +145,20 @@ function getTradeContextLines(tradeContext) {
     }`,
     `Memory Roles: ${Object.keys(record.retrieved_memory_summary || {}).join(', ') || '-'}`,
     `Tool Roles: ${Object.keys(record.tool_outputs || {}).join(', ') || '-'}`,
+  ];
+}
+
+function getFundamentalAssessmentLines(fundamental) {
+  if (!fundamental) {
+    return ['Fundamental Bias: -'];
+  }
+  const breakdown = fundamental.evidence_vs_inference || {};
+  return [
+    `Fundamental Bias: ${fundamental.overall_bias ?? fundamental.overall_signal ?? '-'}`,
+    `Fundamental Red Flags: ${(fundamental.red_flags || fundamental.risk_flags || []).join(', ') || '-'}`,
+    `Fundamental Evidence: ${(breakdown.evidence || []).join(' | ') || '-'}`,
+    `Fundamental Inference: ${(breakdown.inference || []).join(' | ') || '-'}`,
+    `Fundamental Uncertainty: ${(breakdown.uncertainty || []).join(' | ') || '-'}`,
   ];
 }
 
@@ -452,6 +467,7 @@ function getReviewLines(reviewRecord) {
     `Symbol: ${reviewRecord.symbol}`,
     `Approved: ${reviewRecord.approved}`,
     `Coordinator Focus: ${reviewRecord.artifacts.coordinator.market_focus}`,
+    ...getFundamentalAssessmentLines(reviewRecord.artifacts.fundamental),
     `Regime: ${reviewRecord.artifacts.regime.regime}`,
     `Strategy: ${reviewRecord.artifacts.strategy.strategy_family}`,
     `Manager Bias: ${reviewRecord.artifacts.manager.action_bias}`,

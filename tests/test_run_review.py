@@ -122,8 +122,25 @@ def test_review_run_and_export_report_commands(tmp_path: Path) -> None:
     assert review_result.exit_code == 0
     assert trace_result.exit_code == 0
     assert "Run Review" in review_result.output
+    assert "Fundamental" in review_result.output
     assert "Agent Trace" in trace_result.output
     assert export_result.exit_code == 0
     assert export_path.exists()
+    assert "## Fundamental" in export_path.read_text(encoding="utf-8")
     assert "## Manager" in export_path.read_text(encoding="utf-8")
     assert "## Manager Conflicts" in export_path.read_text(encoding="utf-8")
+
+
+def test_ink_review_surfaces_fundamental_truth() -> None:
+    source = Path("tui/index.mjs").read_text(encoding="utf-8")
+
+    for token in [
+        "record.fundamental_assessment",
+        "reviewRecord.artifacts.fundamental",
+        "Fundamental Bias",
+        "Fundamental Red Flags",
+        "Fundamental Evidence",
+        "Fundamental Inference",
+        "Fundamental Uncertainty",
+    ]:
+        assert token in source
