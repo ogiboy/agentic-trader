@@ -149,6 +149,8 @@ Fundamental and macro/news analysts are now specialist roles in the staged graph
 API keys must stay in ignored local env files and should never be serialized into prompts, logs, QA artifacts, or tracked config.
 Prompt rendering should use the feature bundle as the primary agent input when it exists, while compact market snapshots remain internal runtime state for deterministic fallbacks, risk math, audit, and compatibility.
 The V1 technical feature contract should expose calendar-friendly 30d, 90d, and 180d return windows even though the underlying market context still computes bar horizons.
+Feature-first prompts must still surface technical data-quality flags so agents do not lose lookback or provider-quality truth when raw snapshots stay internal.
+Fallback-generated fundamental and macro/news assessments must not count as consensus support; unavailable finance evidence can be noted as missing or neutral, but it must not make manager synthesis look more complete than the provider evidence actually is.
 
 ### External data must normalize into canonical analysis snapshots
 

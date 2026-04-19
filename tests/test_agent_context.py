@@ -10,6 +10,8 @@ from agentic_trader.market.features import build_snapshot
 from agentic_trader.schemas import (
     ExecutionDecision,
     ManagerDecision,
+    MarketContextHorizon,
+    MarketContextPack,
     MarketSnapshot,
     RegimeAssessment,
     ResearchCoordinatorBrief,
@@ -216,7 +218,34 @@ def test_render_agent_context_prefers_structured_features_when_available(
     )
     settings.ensure_directories()
     db = TradingDatabase(settings)
-    snapshot = _artifacts().snapshot
+    snapshot = _artifacts().snapshot.model_copy(
+        update={
+            "context_pack": MarketContextPack(
+                symbol="AAPL",
+                interval="1d",
+                lookback="180d",
+                interval_semantics="business-day approximation",
+                window_start="2025-01-01",
+                window_end="2025-06-30",
+                bars_analyzed=120,
+                higher_timeframe="same_as_base",
+                higher_timeframe_used=False,
+                horizons=[
+                    MarketContextHorizon(
+                        horizon_bars=20,
+                        available_bars=20,
+                        return_pct=0.09,
+                        trend_vote="bullish",
+                    )
+                ],
+                data_quality_flags=[
+                    "partial_lookback_coverage",
+                    "higher_timeframe_fallback",
+                ],
+                summary="AAPL partial context",
+            )
+        }
+    )
     decision_features = build_decision_feature_bundle(snapshot, settings=settings)
     context = build_agent_context(
         role="coordinator",
@@ -231,5 +260,6 @@ def test_render_agent_context_prefers_structured_features_when_available(
 
     assert "Feature Input:" in rendered
     assert "price_anchor=100.0" in rendered
+    assert "quality_flags=partial_lookback_coverage,higher_timeframe_fallback" in rendered
     assert "Market Context Pack:" not in rendered
     assert "Market Snapshot:" not in rendered

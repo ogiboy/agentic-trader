@@ -9,6 +9,10 @@ from agentic_trader.schemas import (
 )
 
 
+def _fallback_evidence_note(role: str) -> str:
+    return f"{role} evidence was fallback-generated and was not counted as support."
+
+
 def assess_specialist_consensus(
     coordinator: ResearchCoordinatorBrief,
     regime: RegimeAssessment,
@@ -58,7 +62,9 @@ def assess_specialist_consensus(
         reasons.append("Risk plan looked too constrained for full specialist agreement.")
 
     if fundamental is not None:
-        if fundamental.overall_signal in {"supportive", "neutral"}:
+        if fundamental.source == "fallback":
+            reasons.append(_fallback_evidence_note("Fundamental"))
+        elif fundamental.overall_signal in {"supportive", "neutral"}:
             supporting_roles.append("fundamental")
         else:
             dissenting_roles.append("fundamental")
@@ -67,7 +73,9 @@ def assess_specialist_consensus(
             )
 
     if macro is not None:
-        if macro.macro_signal in {"supportive", "neutral"}:
+        if macro.source == "fallback":
+            reasons.append(_fallback_evidence_note("Macro/news"))
+        elif macro.macro_signal in {"supportive", "neutral"}:
             supporting_roles.append("macro")
         else:
             dissenting_roles.append("macro")
@@ -76,10 +84,10 @@ def assess_specialist_consensus(
     if not dissenting_roles:
         return SpecialistConsensus(
             alignment_level="aligned",
-            summary="Coordinator, fundamental, macro, regime, strategy, and risk were aligned.",
+            summary="Available specialists were aligned before manager synthesis.",
             supporting_roles=supporting_roles,
             dissenting_roles=[],
-            reasons=["No specialist disagreements were detected."],
+            reasons=reasons or ["No specialist disagreements were detected."],
         )
     if len(dissenting_roles) == 1:
         return SpecialistConsensus(

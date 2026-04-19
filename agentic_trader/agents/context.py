@@ -131,6 +131,7 @@ def _render_decision_feature_summary(context: AgentContext) -> str:
                 f"price_anchor={technical.price_anchor} "
                 f"volatility_20={technical.volatility_20} "
                 f"support={technical.support} resistance={technical.resistance} "
+                f"quality_flags={','.join(technical.data_quality_flags) or 'none'} "
                 f"returns={technical.returns_by_window}"
             ),
             f"Technical summary: {technical.context_summary}",

@@ -20,6 +20,7 @@ Current state:
 - provider contracts now cover market, fundamental, news, disclosure, and macro sources with canonical source attribution and freshness metadata
 - source scaffold metadata now names SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX readiness without pretending those ingestors are implemented
 - fundamental and macro/news analyst stages now run before regime, strategy, risk, and manager synthesis
+- consensus excludes fallback-generated fundamental and macro/news assessments from support, keeping unavailable finance evidence visible without overstating alignment
 - trade context and memory documents now persist canonical analysis snapshots, decision features, and fundamental/macro summaries
 - Finnhub, FMP, Polygon/Massive, SEC, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
 
