@@ -75,6 +75,59 @@ Do not commit `.sonar/` output or Sonar tokens.
 
 ## Tooling
 
+### Computer Use
+
+Use Computer Use when available for operator-facing visual QA of CLI, Rich, and
+Ink terminal surfaces. This is the preferred layer for checking whether a real
+operator would see the right truth, layout, focus, hotkeys, truncation, and
+screen hierarchy.
+
+Computer Use is optional. It must not become a runtime dependency, test-suite
+dependency, or reason to skip QA in headless environments. If it is unavailable,
+continue with pexpect, tmux pane capture, asciinema, screenshots from other
+available tools, and CLI JSON checks.
+
+Recommended visual QA flow:
+
+1. Start a fresh terminal session.
+2. Run the same product command documented in the scenario.
+3. Resize the terminal when layout is in scope: compact around 80x24, normal
+   around 100x30, and wide around 140x40 when feasible.
+4. Navigate the changed page or flow with normal keyboard input.
+5. Capture a screenshot or summarize the visible screen state.
+6. Cross-check visible claims against `dashboard-snapshot`, `broker-status`,
+   `status`, `logs`, trade context, or observer API JSON as appropriate.
+7. Save durable evidence under `.ai/qa/artifacts/` only when the task requires
+   it.
+8. Do not commit large binary screenshots unless explicitly requested.
+
+Visual QA should include more than crash checks:
+
+- UX clarity: can the operator find the next safe action without guessing?
+- CLI ergonomics: are `--help`, `-h`, examples, aliases, and option names clear?
+- Design quality: does the logo/header fit, does visual chrome repeat too much,
+  and do important panes survive resizing?
+- Navigation: do Rich menu back/exit/cancel controls mean the same thing across
+  screens?
+- Finance/accounting readability: are cash, equity, PnL, exposure, currency,
+  backend, adapter, runtime mode, and rejection reason labeled clearly enough to
+  audit?
+- Repair phase: when the product feels confusing, propose the smallest
+  V1-safe repair and the verification path instead of stopping at criticism.
+
+## UX Repair Workflow
+
+Use this loop when a visual/UX/menu issue is found:
+
+1. Capture the current behavior with Computer Use or text artifacts.
+2. Name the operator confusion in one sentence.
+3. Classify the issue as V1 blocker, V1 polish, or V2 redesign.
+4. Propose the smallest repair that preserves runtime truth and paper-first
+   safety.
+5. If implementation is in scope, patch the existing surface rather than
+   creating a parallel UI path.
+6. Re-run the relevant visual scenario and contract check.
+
 ### pexpect
 
 Use for repeatable CLI/Rich menu/Ink interaction.
@@ -105,7 +158,8 @@ asciinema rec .ai/qa/artifacts/session.cast
 
 ### Screenshots
 
-Use screenshots only for visual rendering issues that are hard to explain from text capture.
+Use screenshots for visual rendering issues that are hard to explain from text
+capture. Prefer Computer Use screenshots/screen observations when available.
 
 ### Code Quality
 
@@ -126,7 +180,7 @@ Never hardcode the Sonar token in tracked files. Prefer the `SONAR_TOKEN` enviro
 2. Start from a clean terminal.
 3. Run the smallest relevant automated tests.
 4. Exercise the target scenario manually.
-5. Capture output, pane text, or API JSON.
+5. Capture output, pane text, API JSON, and Computer Use visual evidence when available and relevant.
 6. Compare actual behavior against `.ai/qa/qa-checklist.md`.
 7. Report issues with exact reproduction steps.
 8. If no issues are found, record what was exercised and what evidence exists.

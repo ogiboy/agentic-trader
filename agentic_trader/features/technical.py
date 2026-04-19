@@ -1,8 +1,51 @@
 from agentic_trader.schemas import MarketContextHorizon, MarketSnapshot, TechnicalFeatureSet
 
+CALENDAR_RETURN_WINDOWS = {
+    "30d": 20,
+    "90d": 60,
+    "180d": 120,
+}
+
 
 def _horizon_key(horizon: MarketContextHorizon) -> str:
     return f"{horizon.horizon_bars}b"
+
+
+def _nearest_horizon_return(
+    horizons: list[MarketContextHorizon], target_bars: int
+) -> float | None:
+    candidates = [
+        horizon
+        for horizon in horizons
+        if horizon.return_pct is not None and horizon.available_bars > 0
+    ]
+    if not candidates:
+        return None
+    exact = next(
+        (horizon for horizon in candidates if horizon.horizon_bars == target_bars),
+        None,
+    )
+    if exact is not None:
+        return exact.return_pct
+    eligible = [horizon for horizon in candidates if horizon.horizon_bars >= target_bars]
+    if not eligible:
+        return None
+    nearest = min(
+        eligible,
+        key=lambda horizon: (
+            abs(horizon.horizon_bars - target_bars),
+            horizon.horizon_bars,
+        ),
+    )
+    return nearest.return_pct
+
+
+def _add_calendar_return_windows(
+    returns_by_window: dict[str, float | None],
+    horizons: list[MarketContextHorizon],
+) -> None:
+    for label, target_bars in CALENDAR_RETURN_WINDOWS.items():
+        returns_by_window[label] = _nearest_horizon_return(horizons, target_bars)
 
 
 def _last_structural_horizon(snapshot: MarketSnapshot) -> MarketContextHorizon | None:
@@ -21,6 +64,9 @@ def get_market_features(snapshot: MarketSnapshot) -> TechnicalFeatureSet:
     returns_by_window: dict[str, float | None] = {
         "5b": snapshot.return_5,
         "20b": snapshot.return_20,
+        "30d": snapshot.return_20,
+        "90d": None,
+        "180d": None,
     }
     data_quality_flags: list[str] = []
     context_summary = ""
@@ -34,6 +80,10 @@ def get_market_features(snapshot: MarketSnapshot) -> TechnicalFeatureSet:
         data_quality_flags = list(snapshot.context_pack.data_quality_flags)
         for horizon in snapshot.context_pack.horizons:
             returns_by_window[_horizon_key(horizon)] = horizon.return_pct
+        _add_calendar_return_windows(
+            returns_by_window,
+            snapshot.context_pack.horizons,
+        )
         structural_horizon = _last_structural_horizon(snapshot)
         if structural_horizon is not None:
             support = structural_horizon.support
@@ -72,6 +122,7 @@ def get_market_features(snapshot: MarketSnapshot) -> TechnicalFeatureSet:
         symbol=snapshot.symbol,
         interval=snapshot.interval,
         as_of=snapshot.as_of,
+        price_anchor=snapshot.last_close,
         returns_by_window=returns_by_window,
         volatility_20=snapshot.volatility_20,
         max_drawdown_pct=max_drawdown_pct,

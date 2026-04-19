@@ -24,6 +24,10 @@ Also read the shared repository context listed in `.ai/agents/README.md`.
 - Compare visible operator state with persisted or sidecar runtime truth.
 - Confirm strict runtime gates and paper-only execution safety remain intact.
 - Capture reproducible evidence under `.ai/qa/artifacts/` when useful.
+- Use Computer Use for visual CLI/Rich/Ink validation when it is available.
+- Pull in `.ai/agents/operator-ux.md` when the task involves visual layout,
+  command clarity, menu navigation, resize behavior, or finance/accounting
+  readability.
 - Distinguish product defects from polish issues.
 - Report exact commands, expected behavior, actual behavior, and evidence.
 
@@ -39,6 +43,8 @@ Also read the shared repository context listed in `.ai/agents/README.md`.
 
 - Use Scenario 0 for broad terminal smoke.
 - Use Scenario 1 for environment and JSON payload sanity.
+- Use Scenario 13 when Computer Use is available and the task changes terminal
+  layout, navigation, hotkeys, or operator-visible truth.
 - Use Scenario 4 for one-shot strict cycle behavior.
 - Use Scenario 5 or 6 for daemon and stale runtime behavior.
 - Use Scenario 8 for broker safety gate and live-block visibility.
@@ -59,3 +65,13 @@ Notes:
 
 When no issue is found, report the scenario, commands, result, and any skipped
 checks.
+
+## Visual Evidence Rule
+
+Computer Use evidence should complement, not replace, contract checks. A
+screenshot can prove what an operator saw, but CLI JSON, observer payloads,
+runtime status, broker status, or persisted records should still be checked for
+truth when the scenario depends on runtime state.
+
+If Computer Use is unavailable, say so briefly and continue with pexpect, tmux,
+asciinema, pane capture, and text/JSON artifacts.

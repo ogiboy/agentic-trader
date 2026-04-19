@@ -43,6 +43,7 @@ Status: in progress.
 - [x] add multi-horizon context summaries for returns, volatility, drawdown, trend alignment, range structure, data sufficiency, and anomalies
 - [x] expose bars expected, bars analyzed, window coverage, cache provenance, and interval semantics in CLI, TUI, dashboard, review, and observer surfaces
 - [ ] add optional news and event feeds
+- [ ] add source/provider diagnostics for selected source, fallback reason, freshness, completeness, API-key readiness, rate-limit or degraded-mode state, and explicit Yahoo fallback warnings
 - [x] add cached data snapshots for repeatable tests
 - [x] let the user choose regions, exchanges, currencies, sectors, and default strategy posture
 - [x] let the user define portfolio preferences from the TUI instead of editing files
@@ -83,6 +84,11 @@ Status: in progress.
 - [x] add retrieval inspection view to show why specific memories were used in a decision
 - [x] prepare a UI text catalog and localization boundary for CLI, Rich, Ink, and future WebUI surfaces
 - [ ] add full multi-language support after operator flows stabilize
+- [ ] run a designer-style visual audit for Ink and Rich surfaces, including first-launch logo fit, resize behavior, visual density, and hotkey visibility
+- [ ] run a CLI ergonomics audit for `--help`, `-h`, examples, option naming, and short/long flag consistency
+- [ ] simplify Rich menu navigation so back, close, cancel, and exit controls feel consistent across sections
+- [ ] add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
+- [ ] convert UX audit findings into smallest-safe repair recommendations before deciding whether they are V1 fixes or V2 redesign work
   Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
 - a first memory explorer surface is now available from the CLI and TUI
@@ -254,7 +260,7 @@ Status: in progress.
 - the pack is now part of snapshot JSON, agent prompt rendering, memory documents, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
 - under-covered operation/runtime windows now stop before agent execution when expected coverage falls below the safety threshold
 - training replay can intentionally keep growing-window undercoverage as an explicit context-pack flag instead of treating it as production-ready coverage
-- remaining work is adding broader QA scenarios around provider-specific interval edge cases
+- remaining work is adding broader QA scenarios around provider-specific interval edge cases, including Alpaca IEX versus SIP/delayed feeds, Yahoo fallback coverage gaps, IBKR session/calendar edge cases, and FX/global market data windows
 
 ## Phase 12: Semantic Memory And Retrieval Quality
 
@@ -301,6 +307,7 @@ Status: planned.
 - [x] expand `scripts/qa/smoke_qa.py` into a tiered terminal regression harness while keeping the fast smoke path lightweight (fast smoke plus optional quality, Sonar, and runtime-cycle tiers)
 - [ ] map `.ai/qa/qa-scenarios.md` scenarios to deterministic pexpect flows with fixed terminal size, environment, and artifact naming
 - [ ] capture CLI JSON snapshots, status payloads, broker state, service events, context-pack excerpts, and keypress transcripts for each scenario
+- [ ] use Computer Use for visual CLI/Rich/Ink inspection when available, with pexpect, tmux, asciinema, and text artifacts as the fallback path
 - [ ] optionally capture tmux pane dumps and asciinema recordings for Ink and Rich visual regressions
 - [ ] generate a human-readable `qa-report.md` from structured check results when failures occur
 - [ ] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, trace, context pack, and QA results under a timestamped artifact directory
@@ -309,6 +316,7 @@ Status: planned.
   Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
 - smoke QA now includes dashboard and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, and an optional isolated one-cycle runtime check
+- visual QA can now use Computer Use in Codex/Desktop environments, but it remains optional and must be paired with contract/runtime truth checks
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
 ## Phase 15: Production-Like Paper Operations
@@ -323,6 +331,7 @@ Status: planned.
 - [ ] redesign the Ink control room toward an htop-like operator console with stable panes, visible controls, resize-safe layout, and less scrollback noise
 - [ ] reduce Rich/admin visual density or keep it as a compact fallback surface once Ink reaches full operational parity
 - [ ] add a paper-operations readiness checklist that must pass before longer continuous runs
+- [ ] tie V1 readiness to paper evidence, provider health, source attribution, context-pack explainability, broker health checks, and an explicit no-live-until-approved gate
 - [ ] compare paper operation results against deterministic baselines and memory/no-memory ablations before considering any live adapter
 - [ ] keep live broker work blocked until paper operation has stable QA evidence, context-pack explainability, and reviewable trade journals
 Notes:
@@ -335,7 +344,7 @@ Status: in progress.
 
 - [x] introduce structured symbol identity with symbol, exchange, currency, region, and asset class
 - [x] add a deterministic feature bundle that summarizes technical, fundamental, and macro/news context before agent prompts
-- [x] add technical feature summaries for returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
+- [x] add technical feature summaries for 30d, 90d, and 180d returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
 - [x] scaffold fundamental feature contracts for revenue growth, profitability stability, cash-flow alignment, debt risk, FX exposure, and reinvestment potential
 - [x] scaffold macro/news context with company-specific, sector-level, and macro-level classification plus relevance scores
 - [x] add fundamental analyst and macro/news analyst roles with structured schemas instead of free-form LLM output
@@ -343,41 +352,54 @@ Status: in progress.
 - [x] introduce provider interfaces for market, fundamental, news, disclosure, and macro data sources
 - [x] add a canonical analysis snapshot that preserves source attribution, freshness, completeness, and missing-section metadata
 - [x] aggregate runtime market context, fundamental scaffolds, news events, disclosure scaffolds, and macro scaffolds before feature generation
+- [x] document the V1 source ladder: regulatory/public data first, free-friendly APIs such as Finnhub/FMP as optional enrichers, and Yahoo only as a degraded fallback
+- [x] make SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX sources explicit scaffold metadata
 - [ ] implement real fundamental providers behind the feature interface, starting with API-backed US equities and SEC filings
-- [ ] implement structured news and macro ingestion from Finnhub, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
+- [ ] implement structured news and macro ingestion from Finnhub, FMP, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
 - [ ] add operator-visible reasoning panels that explain how technical, fundamental, macro, memory, and guard evidence combined
 - [ ] improve risk engine with volatility-based sizing, portfolio exposure limits, sector concentration checks, and macro risk overrides
 Notes:
 - this phase moves the system from "price plus simple agent reasoning" toward a financially-aware, multi-source decision system
 - agents now consume a compact `DecisionFeatureBundle`; raw noisy data should stay behind feature/provider boundaries
+- the prompt-facing feature bundle is the primary agent input; compact runtime snapshots remain available internally for deterministic fallback and risk math
 - canonical analysis snapshots now sit below the feature bundle so provider source, freshness, and missing-data truth can travel into prompts, persistence, memory, and dashboard JSON without coupling agents to provider-specific payloads
+- Yahoo should be treated as fallback/degraded evidence once stronger provider data is configured, not as the long-term source of truth
 - API keys are configuration-only and must stay in ignored local env files, never in tracked files or QA artifacts
 - live trading remains blocked; this is decision intelligence groundwork, not broker activation
 
-## Phase 17: v1 Live Readiness - Alpaca
+## Phase 17: V1 Alpaca Readiness - US Paper First
 
 Status: planned.
 
+- [x] add settings-only Alpaca paper credentials/feed fields so env readiness can be checked without enabling live trading
 - [ ] add an Alpaca adapter behind the existing broker adapter contract for US equities only
+- [ ] default to Alpaca paper endpoints and IEX-class data assumptions unless the operator explicitly configures otherwise
 - [ ] keep paper, simulated-real, and live backends explicitly separated in settings, status, persistence, and operator UI
 - [ ] require manual approval before any live execution path can submit an order
 - [ ] enforce strict risk caps, kill switch, and unsupported-backend failures before live adapter activation
+- [ ] add account, order, position, and feed health checks before any Alpaca live-readiness banner can pass
+- [ ] restrict V1 live-readiness scope to US equities until paper evidence, manual approval, and strict safety gates are proven
 - [ ] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
 - [ ] add paper-to-live readiness checklist that compares paper performance, QA evidence, and broker health before enabling any live mode
 Notes:
-- v1 live readiness is Alpaca-first and US-equities-only to limit blast radius
+- V1 readiness is Alpaca-first and US-equities-only to limit blast radius
+- V1 does not mean live trading is enabled; it means the system is Alpaca-ready while remaining paper-first with manual approval and strict safety gates
 - `paper` remains the default; `live` remains blocked until the adapter, approval gate, and readiness checks are intentionally implemented
 
-## Phase 18: v2 Global Expansion - IBKR
+## Phase 18: V2 Global Expansion - IBKR And FX
 
 Status: planned.
 
 - [ ] add an Interactive Brokers adapter behind the same broker adapter boundary
+- [ ] decide and document the IBKR integration route, such as TWS/Gateway versus Web API, before coding the adapter
 - [ ] support multi-market symbol identity across US, EU, TR, and future venues
 - [ ] add currency awareness to account state, intent sizing, fills, PnL, and risk reports
-- [ ] model FX exposure and conversion assumptions explicitly before execution
+- [ ] model FX exposure, conversion assumptions, conversion source, and as-of timestamps explicitly before execution
+- [ ] preserve realized and unrealized PnL by instrument currency and account base currency
 - [ ] add timezone/session awareness for global exchanges and market-specific trading calendars
-- [ ] integrate Turkey-specific KAP disclosures and region-aware macro context into the feature layer
+- [ ] integrate Turkey-specific KAP disclosures, company disclosures, CBRT-style macro data, inflation, rates, and FX context into the feature layer
+- [ ] add region-specific data QA for global sessions, holidays, delayed feeds, and currency conversion gaps
 Notes:
 - v2 should reuse the v1 contracts instead of creating a separate global trading runtime
 - global expansion depends on symbol identity, currency/FX accounting, session calendars, and provider-specific QA evidence being mature first
+- IBKR/global support belongs in V2; it should not pull V1 away from the US-only Alpaca paper-first path

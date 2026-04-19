@@ -4,6 +4,7 @@ import pandas as pd
 
 from agentic_trader.agents.context import build_agent_context, render_agent_context
 from agentic_trader.config import Settings
+from agentic_trader.features import build_decision_feature_bundle
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.schemas import (
@@ -204,3 +205,31 @@ def test_render_agent_context_surfaces_market_context_pack(tmp_path: Path) -> No
     assert "Market Context Pack:" in rendered
     assert '"lookback": "90d"' in rendered
     assert "No persisted market context pack" not in rendered
+
+
+def test_render_agent_context_prefers_structured_features_when_available(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    snapshot = _artifacts().snapshot
+    decision_features = build_decision_feature_bundle(snapshot, settings=settings)
+    context = build_agent_context(
+        role="coordinator",
+        settings=settings,
+        db=db,
+        snapshot=snapshot,
+        decision_features=decision_features,
+        memory_enabled=False,
+    )
+
+    rendered = render_agent_context(context, task="Assess context.")
+
+    assert "Feature Input:" in rendered
+    assert "price_anchor=100.0" in rendered
+    assert "Market Context Pack:" not in rendered
+    assert "Market Snapshot:" not in rendered

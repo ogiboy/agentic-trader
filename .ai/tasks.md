@@ -16,16 +16,18 @@ Move the system from compact price-only reasoning toward structured multi-source
 Current state:
 
 - `DecisionFeatureBundle` now carries symbol identity, technical features, fundamental feature placeholders, and macro/news context
-- deterministic technical summaries include returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
+- deterministic technical summaries include 30d, 90d, and 180d returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
 - provider contracts now cover market, fundamental, news, disclosure, and macro sources with canonical source attribution and freshness metadata
+- source scaffold metadata now names SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX readiness without pretending those ingestors are implemented
 - fundamental and macro/news analyst stages now run before regime, strategy, risk, and manager synthesis
 - trade context and memory documents now persist canonical analysis snapshots, decision features, and fundamental/macro summaries
-- Finnhub, Polygon/Massive, SEC, KAP, CBRT, macro indicators, and transcript ingestion remain provider-level future work
+- Finnhub, FMP, Polygon/Massive, SEC, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
 
 Next desired shape:
 
 - implement real provider-backed fundamental fetchers behind the canonical provider interfaces without placing secrets in tracked files or QA artifacts
 - add structured SEC, transcript, insider, macro, KAP, CBRT, inflation, and FX ingestion
+- keep Yahoo as a degraded fallback only once richer market/news providers are available
 - surface technical/fundamental/macro/memory/guard evidence side by side in operator review surfaces
 - strengthen risk with volatility sizing, sector concentration, portfolio exposure, and macro override checks
 
@@ -139,6 +141,11 @@ Desired direction:
 - carry tone, strictness, and intervention presets consistently across CLI, Rich, Ink, and operator chat
 - deepen the new structured agent activity and reasoning context beside chat transcripts
 - keep the Ink control room moving toward full parity with the older Rich admin surface
+- run a designer-style visual audit with Computer Use when available, including first-launch logo fit, terminal resize behavior, wrapping, visual density, and hotkey visibility
+- run a CLI ergonomics audit for `--help`, `-h`, command examples, option naming, and short/long flag consistency
+- simplify Rich menu navigation so back, close, cancel, and exit behaviors are consistent and the repeated logo/header does not dominate every output
+- add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
+- turn UX findings into smallest-safe repair recommendations, classified as V1 blocker, V1 polish, or V2 redesign before implementation
 
 ### 9. Per-Trade Context Persistence
 
@@ -195,6 +202,8 @@ Desired direction:
 
 - preserve paper as the default execution backend
 - keep live execution blocked unless explicitly enabled and implemented
+- keep V1 focused on Alpaca-ready US equities with manual approval and strict safety checks; do not pull IBKR/global/FX work into V1
+- defer IBKR, global markets, and multi-currency/FX execution accounting to V2
 - surface broker backend, execution outcome, rejection reason, kill-switch, and readiness state in operator review/status surfaces
 - add one real live adapter only after paper evaluation quality is stable
 
@@ -223,6 +232,7 @@ Desired direction:
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
+- use Computer Use for visual CLI/Rich/Ink validation when available, and fall back to pexpect, tmux, asciinema, pane captures, and JSON/text artifacts when it is not
 - keep `.ai/agents/` role guidance aligned with `AGENTS.md`, `.ai/qa/`, and current architecture so development agents remain helpers rather than runtime dependencies
 - keep the automated test command in `AGENTS.md` current with the project environment
 - keep the opt-in runtime-cycle smoke check aligned with real product retry behavior so it validates operator-facing runtime reliability rather than a first-response-only LLM diagnostic

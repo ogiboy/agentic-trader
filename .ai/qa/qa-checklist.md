@@ -17,6 +17,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] Confirm smoke artifacts are grouped under a timestamped `.ai/qa/artifacts/smoke-*` directory.
 - [ ] Confirm changed roadmap items are checked or left unchecked accurately.
 - [ ] Confirm `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` are updated when architecture, runtime contracts, or assumptions change.
+- [ ] For CLI/Rich/Ink visual changes, use Computer Use for a screenshot/screen-state pass when available; otherwise document that text-based pexpect/tmux/asciinema evidence was used.
 
 ## Code Quality
 
@@ -30,6 +31,10 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 - [ ] Commands exit cleanly with code `0` for successful paths.
 - [ ] Commands show clear error messages for blocked paths.
+- [ ] Changed commands have clear `--help` text and, where supported by Typer, `-h`/`--help` behavior is checked.
+- [ ] Common options have consistent short and long forms where a shortcut exists; missing shortcuts are intentional, not accidental.
+- [ ] Help output includes safe examples for non-obvious trading/runtime commands.
+- [ ] Command names and option names are understandable to an operator without reading source code.
 - [ ] `--json` output is valid JSON where supported.
 - [ ] Human-readable output is concise and does not hide critical runtime state.
 - [ ] `agentic-trader broker-status` reports paper/live/kill-switch truth accurately.
@@ -38,8 +43,13 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## Ink TUI
 
+- [ ] When Computer Use is available, open the Ink control room visually and inspect at least the changed page or flow.
 - [ ] `agentic-trader` opens the Ink control room when the console entrypoint is installed.
 - [ ] `python main.py` opens the same primary operator surface.
+- [ ] First-launch logo/header fits without pushing the primary controls off screen.
+- [ ] Layout remains readable after terminal resize, including compact, normal, and wide sizes when feasible.
+- [ ] Text wraps or truncates intentionally; critical state is not clipped.
+- [ ] Navigation hints and hotkeys are visible before the operator needs them.
 - [ ] Hotkeys work: `1-6`, `r`, `s`, `x`, `R`, `q`.
 - [ ] Runtime page shows current stage, daemon metadata, broker state, and recent stage flow.
 - [ ] Chat page shows transcript plus live agent activity, reasoning stage, and tool/memory context.
@@ -48,8 +58,12 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## Rich Menu
 
+- [ ] When Computer Use is available, open the Rich menu visually and inspect the changed page or flow.
 - [ ] `agentic-trader menu` opens the legacy/admin Rich menu.
+- [ ] Logo/header usage does not consume so much space that menu output becomes hard to scan.
 - [ ] Categories are navigable without excessive scrolling.
+- [ ] Back, close, cancel, and exit options are named consistently across menus.
+- [ ] Menu labels explain the action or destination clearly enough for a non-developer operator.
 - [ ] Runtime start does not block the menu.
 - [ ] Live monitor can attach without DuckDB lock crashes.
 - [ ] Observer mode messages are explicit when DB-backed views are temporarily unavailable.
@@ -97,6 +111,11 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## UX / Copy
 
+- [ ] Visual evidence, when captured, agrees with CLI JSON/status/runtime truth.
+- [ ] A designer-style pass checks spacing, hierarchy, visual density, repeated chrome, resize behavior, and focus order.
+- [ ] A finance/accounting-style pass checks cash, equity, PnL, exposure, positions, backend, adapter, runtime mode, rejection reason, and audit labels for clarity.
+- [ ] Confusing menu, command, or layout behavior has a smallest-safe repair recommendation, not only a pass/fail note.
+- [ ] UX repair recommendations are classified as V1 blocker, V1 polish, or V2 redesign.
 - [ ] No screen claims that real trades were executed.
 - [ ] No "active" runtime display when heartbeat is stale.
 - [ ] No hidden long-running operation leaves the operator blind.

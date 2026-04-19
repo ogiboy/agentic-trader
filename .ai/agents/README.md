@@ -32,6 +32,7 @@ also read the QA documents under `.ai/qa/`.
 - `implementer.md`: applies approved plans with small, tested, reviewable changes.
 - `reviewer.md`: reviews diffs for safety, architecture drift, and operator truth.
 - `qa.md`: validates the operator experience and records reproducible evidence.
+- `operator-ux.md`: reviews CLI/Rich/Ink UX, visual design, resize behavior, and finance/accounting readability.
 - `data.md`: protects provider, canonical data, freshness, and attribution boundaries.
 
 ## Hand-Off Rules
@@ -40,6 +41,8 @@ also read the QA documents under `.ai/qa/`.
 - Implementer output should list changed files, validation run, and assumptions.
 - Reviewer output should lead with blockers and safety regressions before praise.
 - QA output should include commands, expected behavior, actual behavior, and evidence.
+- QA output should use Computer Use for visual CLI/Rich/Ink inspection when available, then fall back to pexpect, tmux, asciinema, and text artifacts when it is not.
+- Operator UX output should include viewport, operator lens, evidence, and the smallest simplification or repair recommendation that would improve V1 usability.
 - Data output should keep raw provider payloads behind canonical contracts.
 
 ## Non-Negotiables

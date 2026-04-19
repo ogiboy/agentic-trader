@@ -87,8 +87,7 @@ def _render_canonical_snapshot_summary(context: AgentContext) -> str:
             (
                 "Market: "
                 f"rows={canonical.market.rows} "
-                f"window={canonical.market.window_start or '-'}..{canonical.market.window_end or '-'} "
-                f"last_close={canonical.market.last_close}"
+                f"window={canonical.market.window_start or '-'}..{canonical.market.window_end or '-'}"
             ),
             (
                 "Fundamental: "
@@ -129,6 +128,7 @@ def _render_decision_feature_summary(context: AgentContext) -> str:
             (
                 "Technical: "
                 f"trend={technical.trend_classification} "
+                f"price_anchor={technical.price_anchor} "
                 f"volatility_20={technical.volatility_20} "
                 f"support={technical.support} resistance={technical.resistance} "
                 f"returns={technical.returns_by_window}"
@@ -237,7 +237,11 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
     """
     Render an AgentContext into a newline-delimited prompt string with labeled sections.
     
-    The output contains labeled blocks including: Role, Routed Model, Task, Market Context Pack (serialized if present, otherwise a fixed message), Market Snapshot (serialized excluding the `context_pack` field), Operator Preferences, Portfolio Snapshot, and optional sections for Market Session, Runtime State, Recent Runs, Trade Memory, Retrieved Similar Memories, Confidence Calibration, Shared Memory Bus, Tool Outputs, and Upstream Context.
+    The output contains labeled blocks including: Role, Routed Model, Task,
+    feature input when attached, Operator Preferences, Portfolio Snapshot, and
+    optional sections for Market Session, Runtime State, Recent Runs, Trade
+    Memory, Retrieved Similar Memories, Confidence Calibration, Shared Memory
+    Bus, Tool Outputs, and Upstream Context.
     
     Parameters:
         task (str): The task text placed under the "Task:" header.
@@ -251,16 +255,6 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         "Task:",
         task,
         "",
-        "Market Context Pack:",
-        (
-            context.snapshot.context_pack.model_dump_json(indent=2)
-            if context.snapshot.context_pack is not None
-            else "No persisted market context pack is attached."
-        ),
-        "",
-        "Market Snapshot:",
-        context.snapshot.model_dump_json(indent=2, exclude={"context_pack"}),
-        "",
         "Operator Preferences:",
         context.preferences.model_dump_json(indent=2),
         "",
@@ -272,8 +266,23 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         sections.extend(
             [
                 "",
-                "Decision Feature Summary:",
+                "Feature Input:",
                 _render_decision_feature_summary(context),
+            ]
+        )
+    else:
+        sections.extend(
+            [
+                "",
+                "Market Context Pack:",
+                (
+                    context.snapshot.context_pack.model_dump_json(indent=2)
+                    if context.snapshot.context_pack is not None
+                    else "No persisted market context pack is attached."
+                ),
+                "",
+                "Market Snapshot:",
+                context.snapshot.model_dump_json(indent=2, exclude={"context_pack"}),
             ]
         )
 

@@ -40,8 +40,13 @@ class Settings(BaseSettings):
         default_factory=lambda: Path("runtime") / "market_snapshots"
     )
     finnhub_api_key: str | None = None
+    fmp_api_key: str | None = None
     polygon_api_key: str | None = None
     massive_api_key: str | None = None
+    alpaca_api_key: str | None = None
+    alpaca_secret_key: str | None = None
+    alpaca_base_url: str = "https://paper-api.alpaca.markets/v2"
+    alpaca_data_feed: str = "iex"
     market_data_mode: Literal["live", "prefer_cache", "refresh_cache"] = "live"
     news_mode: Literal["off", "yfinance"] = "off"
     news_headline_limit: int = 5

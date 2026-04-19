@@ -102,6 +102,12 @@ The current local-hashing vectors now persist provider/model/version/dimension m
 Reason:
 Agentic Trader is operator-facing through terminal surfaces, so quality must include repeatable CLI, Rich, Ink, daemon, observer API, and visual-flow evidence.
 The smoke harness should remain fast, but deeper tiers should capture JSON snapshots, pexpect transcripts, optional tmux/asciinema artifacts, and human-readable failure reports.
+When Computer Use is available, visual CLI/Rich/Ink checks should run through the real terminal screen and capture screenshot or screen-state evidence.
+Computer Use is an optional QA capability, not a runtime or CI dependency; if it is unavailable, the existing pexpect, tmux, asciinema, text, and JSON evidence flow remains valid.
+Visual evidence must be cross-checked with runtime contracts or persisted truth whenever the screen claims runtime, broker, execution, or review state.
+Visual QA should include UX, design, and finance/accounting readability, not only crash or smoke behavior.
+The `.ai/agents/operator-ux.md` role exists for this development review lens and should stay separate from runtime agents.
+When this role finds a confusing menu, command, layout, or financial display, it should propose the smallest safe repair and classify it as V1 blocker, V1 polish, or V2 redesign.
 
 ### Structured LLM calls should use provider JSON mode and safe previews
 
@@ -141,6 +147,8 @@ Agents should consume typed summaries rather than raw documents or hidden provid
 The new `DecisionFeatureBundle` is the boundary between data ingestion and reasoning: it carries symbol identity, technical summaries, fundamental features, and macro/news context.
 Fundamental and macro/news analysts are now specialist roles in the staged graph, but real provider ingestion remains additive future work behind the feature layer.
 API keys must stay in ignored local env files and should never be serialized into prompts, logs, QA artifacts, or tracked config.
+Prompt rendering should use the feature bundle as the primary agent input when it exists, while compact market snapshots remain internal runtime state for deterministic fallbacks, risk math, audit, and compatibility.
+The V1 technical feature contract should expose calendar-friendly 30d, 90d, and 180d return windows even though the underlying market context still computes bar horizons.
 
 ### External data must normalize into canonical analysis snapshots
 
@@ -149,6 +157,20 @@ Provider payloads differ by source, market, region, and availability.
 The runtime now uses provider interfaces for market, fundamental, news, disclosure, and macro data, then aggregates them into a `CanonicalAnalysisSnapshot`.
 Agents still consume the compact `DecisionFeatureBundle`, but the canonical snapshot preserves source attribution, freshness, completeness, and explicit missing sections for prompts, persistence, memory, dashboard JSON, and future UI review surfaces.
 Yahoo remains a fallback market/news source rather than the sole source of truth, while SEC EDGAR, KAP, macro indicators, transcripts, and vendor APIs can be added behind the same adapter seam.
+
+### Yahoo is degraded fallback evidence, not the target source of truth
+
+Reason:
+Yahoo/yfinance is useful for local-first bootstrap, tests, and fallback market/news evidence, but V1 financial intelligence should prefer explicit regulatory, public, or configured provider sources when available.
+SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX sources should normalize into canonical snapshots before reaching agents.
+Finnhub, FMP, Polygon/Massive, and similar APIs are optional enrichers; their keys must remain configuration-only and their absence must be visible as missing/degraded evidence rather than hidden fallback completeness.
+
+### V1 is Alpaca-ready and paper-first; V2 owns IBKR/global/FX expansion
+
+Reason:
+The execution boundary is ready for future broker adapters, but V1 should remain narrow enough to ship reliably.
+Alpaca readiness belongs to V1 as US-equities-only preparation with manual approval, paper defaults, strict safety gates, kill switch, and broker/readiness health checks.
+Interactive Brokers, global markets, multi-currency account state, FX conversion assumptions, and region-specific market QA belong in V2 so V1 does not become a broad multi-broker production rewrite.
 
 ### Python dependencies should be locked with Poetry
 

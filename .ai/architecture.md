@@ -29,7 +29,7 @@ Current runtime stages:
   Market data loading, feature preparation, and calendar/session context
 
 - `agentic_trader/features/`
-  Structured decision-feature generation across symbol identity, technical summaries, fundamental placeholders, and macro/news context
+  Structured decision-feature generation across symbol identity, 30d/90d/180d technical summaries, fundamental placeholders, and macro/news context
 
 - `agentic_trader/providers/`
   Data provider interfaces and canonical aggregation for market, fundamental, news, disclosure, and macro context. Provider payloads normalize into `CanonicalAnalysisSnapshot` before features, agents, memory, persistence, or UI contracts consume them.
@@ -76,6 +76,7 @@ The runtime already supports:
 - strict LLM availability checks
 - market data cache directories
 - news mode controls
+- financial data provider readiness keys such as Finnhub, FMP, Polygon/Massive, and settings-only Alpaca paper readiness fields
 - portfolio and risk limits
 
 ## Memory Reality
@@ -116,7 +117,9 @@ Good changes fit into one of these buckets:
 - keep future live broker work behind the adapter boundary and explicit execution safety gates
 - keep broker submissions flowing through `ExecutionIntent -> BrokerAdapter.place_order() -> ExecutionOutcome` so paper, simulated-real, and future live adapters share one auditable contract
 - keep financial intelligence behind structured feature/provider boundaries so agents consume summarized technical, fundamental, and macro context instead of raw noisy data
+- keep prompt rendering feature-first when `DecisionFeatureBundle` is attached; compact snapshots may remain internal for deterministic fallback, audit, and risk math
 - keep canonical source attribution and freshness metadata attached whenever external provider data enters runtime or persisted review context
+- keep V1 scoped to Alpaca-ready US paper-first operation; defer IBKR/global/FX accounting to V2
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - improve replay and backtest fidelity
 

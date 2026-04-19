@@ -15,6 +15,8 @@ def _configured_vendor_notes(settings: Settings) -> list[str]:
     notes: list[str] = []
     if settings.finnhub_api_key:
         notes.append("finnhub_configured")
+    if settings.fmp_api_key:
+        notes.append("fmp_configured")
     if settings.polygon_api_key:
         notes.append("polygon_configured")
     if settings.massive_api_key:
@@ -41,9 +43,21 @@ class LocalFundamentalProvider:
     def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
         notes = _configured_vendor_notes(self._settings)
         if symbol.region == "TR":
-            notes.extend(["kap_primary_future_source", "turkey_financials_pending"])
+            notes.extend(
+                [
+                    "kap_primary_future_source",
+                    "company_disclosures_future_source",
+                    "turkey_financials_pending",
+                ]
+            )
         else:
-            notes.extend(["sec_edgar_primary_future_source", "company_facts_pending"])
+            notes.extend(
+                [
+                    "sec_10k_10q_8k_future_source",
+                    "earnings_transcripts_future_source",
+                    "company_facts_pending",
+                ]
+            )
         return FundamentalSnapshot(
             symbol_identity=symbol,
             fx_exposure="unknown",
@@ -84,7 +98,11 @@ class LocalDisclosureProvider:
             provider_type="disclosure",
             role="missing",
             enabled=True,
-            notes=["sec_edgar_future_source", "kap_future_source"],
+            notes=[
+                "sec_10k_10q_8k_future_source",
+                "kap_future_source",
+                "company_disclosures_future_source",
+            ],
         )
 
     def get_disclosures(
@@ -116,10 +134,24 @@ class LocalMacroProvider:
     def get_macro_context(self, symbol: SymbolIdentity) -> MacroSnapshot:
         notes = _configured_vendor_notes(self._settings)
         if symbol.region == "TR":
-            notes.extend(["cbrt_future_source", "turkey_inflation_fx_pending"])
+            notes.extend(
+                [
+                    "cbrt_future_source",
+                    "turkey_macro_data_future_source",
+                    "fx_rates_future_source",
+                    "turkey_inflation_fx_pending",
+                ]
+            )
             fx_risk = "medium" if symbol.currency == "TRY" else "high"
         else:
-            notes.extend(["macro_indicators_future_source", "rates_inflation_pending"])
+            notes.extend(
+                [
+                    "macro_indicators_future_source",
+                    "sec_10k_10q_8k_future_source",
+                    "earnings_transcripts_future_source",
+                    "rates_inflation_pending",
+                ]
+            )
             fx_risk = "unknown"
         return MacroSnapshot(
             region=symbol.region,

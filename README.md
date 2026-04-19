@@ -60,7 +60,7 @@ Every agent cycle now receives a unified context bundle that can include:
 - recent run summaries
 - trade-journal memory hints
 - upstream agent outputs
-- a structured Decision Feature Bundle containing symbol identity, technical summaries, fundamental placeholders, and macro/news context
+- a structured Decision Feature Bundle containing symbol identity, 30d/90d/180d technical summaries, fundamental placeholders, and macro/news context
 
 If the fetched market data materially under-covers the requested lookback window in operation/runtime flows, snapshot generation fails before any agents run. That keeps a `180d` or `1y` request from silently becoming a short-window decision. Training replay can still use growing windows, but the context pack keeps that undercoverage visible as data quality context.
 
@@ -76,7 +76,7 @@ The current memory layer is still lightweight, but it can already retrieve histo
 - `Rich` for the legacy/admin control room
 - `Ink` + React for the primary terminal control room
 - `httpx` against Ollama's native HTTP API
-- `yfinance` as the first fallback market/news source behind the provider boundary
+- `yfinance` as the degraded fallback market/news source behind the provider boundary
 - `DuckDB` for event and order storage
 - `ruff`, `pytest`, `pyright`, and optional SonarQube/`pysonar` for local QA
 
@@ -148,7 +148,7 @@ export AGENTIC_TRADER_MACRO_MODEL_NAME=qwen3:8b
 export AGENTIC_TRADER_EXPLAINER_MODEL_NAME=llama3.1:8b
 ```
 
-Optional provider keys for future financial data enrichment should live in an ignored local env file such as `.env.local`; `.env.example` documents the variable names but does not contain secrets.
+Optional provider keys for future financial data enrichment should live in an ignored local env file such as `.env.local`; `.env.example` documents the variable names but does not contain secrets. Current source scaffolds name SEC filings, earnings transcripts, macro indicators, KAP, Turkey company disclosures, rates, inflation, and FX sources without fetching them live yet.
 
 Smoke check the environment:
 

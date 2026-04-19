@@ -243,6 +243,7 @@ class TechnicalFeatureSet(BaseModel):
     symbol: str
     interval: str
     as_of: str | None = None
+    price_anchor: float | None = None
     returns_by_window: dict[str, float | None] = Field(default_factory=dict)
     volatility_20: float | None = None
     max_drawdown_pct: float | None = None

@@ -72,6 +72,7 @@ Expected:
 - pages switch correctly
 - runtime page shows current stage, daemon metadata, broker state, and event flow
 - chat page shows transcript plus live activity/reasoning/tool context
+- when Computer Use is available, visual inspection confirms the changed Ink page is readable, focused, and truthful; otherwise pane/text capture is acceptable
 
 ## Scenario 3: Rich Admin Menu
 
@@ -97,6 +98,7 @@ Expected:
 - menu does not become a blind long-running terminal
 - observer mode is clear if runtime writer owns DuckDB
 - Ctrl+C exits cleanly
+- when Computer Use is available, visual inspection confirms the changed Rich page is readable, navigable, and truthful; otherwise pane/text capture is acceptable
 
 ## Scenario 4: One-Shot Strict Cycle
 
@@ -283,3 +285,76 @@ Expected:
 - cash/equity/open positions are readable
 - trade journal status matches persisted fills
 - risk report includes warnings when limits are stressed
+
+## Scenario 13: Computer Use Visual Operator Pass
+
+Purpose: verify the real terminal screen, not only stdout snapshots, for changed
+CLI/Rich/Ink operator flows.
+
+Precondition:
+
+- Computer Use is available in the current Codex/Desktop environment.
+- If Computer Use is unavailable, record that this scenario was skipped and run
+  the matching pexpect/tmux/asciinema flow instead.
+
+Steps:
+
+```bash
+agentic-trader
+agentic-trader tui
+agentic-trader menu
+agentic-trader dashboard-snapshot
+agentic-trader broker-status
+```
+
+Interact:
+
+- navigate to the changed Ink or Rich page
+- trigger the changed hotkey or command path
+- capture a screenshot or screen observation
+- cross-check visible runtime/broker/review claims against JSON output
+
+Expected:
+
+- screen layout is readable and stable at the tested terminal size
+- critical state is not truncated, hidden, or contradicted by JSON/runtime truth
+- first-launch logo/header fits without hiding the primary controls
+- resize behavior is checked at compact, normal, and wide terminal sizes when feasible
+- Rich menu navigation has consistent back, cancel, close, and exit behavior
+- menu labels explain the purpose and destination clearly enough for a non-developer operator
+- CLI help for changed commands is checked with `--help` and `-h` when supported
+- finance/accounting values such as cash, equity, PnL, exposure, positions, currency, and backend state are clearly labeled
+- execution backend, paper/live status, kill switch, runtime mode, and rejection
+  reasons are visible wherever the scenario requires them
+- no screenshot or visual report is treated as proof by itself without a
+  contract or persistence cross-check
+- confusing or inconsistent behavior produces a repair recommendation, not only
+  a pass/fail result
+
+## Scenario 14: CLI Help And Operator Language Audit
+
+Purpose: verify command discoverability and language clarity from an operator
+perspective, not only command success.
+
+Steps:
+
+```bash
+agentic-trader --help
+agentic-trader -h
+agentic-trader run --help
+agentic-trader broker-status --help
+agentic-trader trade-context --help
+agentic-trader tui --help
+agentic-trader menu --help
+```
+
+Expected:
+
+- top-level and changed commands explain what they do in operator language
+- short and long help forms work where supported
+- examples or defaults are present for commands that can affect runtime,
+  broker, review, or portfolio state
+- option names are consistent across CLI, Rich, and Ink mental models
+- blocked/live/safety wording is explicit and not ambiguous
+- confusing help or naming produces a smallest-safe repair recommendation and a
+  V1/V2 classification
