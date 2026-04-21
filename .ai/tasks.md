@@ -104,6 +104,7 @@ Desired direction:
 - fail smoke evidence when raw provider output or LLM retry diagnostics leak into operator-facing terminal output
 - keep the one-cycle runtime check as an explicit opt-in tier because it needs live market data and a healthy local model
 - add optional tmux pane dumps and asciinema recordings for visual TUI regressions
+- keep a tmux-driven compact-terminal Ink settings navigation check in smoke QA so Rich/TUI parity does not silently regress
 - when Computer Use is available, add a real-screen QA pass alongside text artifacts instead of treating screenshots as out of scope
 - keep smoke artifact directories unique even when parallel QA runs start in the same second
 - keep quality gates tiered so CI-safe checks, local interactive checks, and manual visual evidence can run separately
@@ -147,6 +148,7 @@ Desired direction:
 - carry tone, strictness, and intervention presets consistently across CLI, Rich, Ink, and operator chat
 - deepen the new structured agent activity and reasoning context beside chat transcripts
 - keep the Ink control room moving toward full parity with the older Rich admin surface
+- preserve the new Settings-page parity for preferences, recent runs, one-shot control, and safe instruction editing as terminals shrink
 - run designer-style visual audits with pexpect/tmux/asciinema first, and add Computer Use screenshots when visual evidence is necessary or text captures are insufficient
 - define an indirect terminal-visual review path that cross-checks tmux/asciinema captures with dashboard, broker, and observer JSON when a direct terminal session is not available
 - run a CLI ergonomics audit for `--help`, `-h`, command examples, option naming, and short/long flag consistency

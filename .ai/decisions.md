@@ -109,6 +109,7 @@ Visual evidence must be cross-checked with runtime contracts or persisted truth 
 Visual QA should include UX, design, and finance/accounting readability, not only crash or smoke behavior.
 The `.ai/agents/operator-ux.md` role exists for this development review lens and should stay separate from runtime agents.
 When this role finds a confusing menu, command, layout, or financial display, it should propose the smallest safe repair and classify it as V1 blocker, V1 polish, or V2 redesign.
+For Ink specifically, pexpect open/quit coverage is not enough to protect page-switch parity under the `npm` wrapper; tmux-driven compact navigation should be the regression check for real page switching and resize-sensitive operator content.
 
 ### Structured LLM calls should use provider JSON mode and safe previews
 

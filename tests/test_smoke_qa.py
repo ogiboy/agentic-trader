@@ -15,3 +15,26 @@ def test_claim_artifacts_dir_uses_unique_suffix_for_existing_label(
     assert second == tmp_path / "smoke-fixed-2"
     assert first.is_dir()
     assert second.is_dir()
+
+
+def test_ink_settings_capture_issues_accepts_compact_settings_view() -> None:
+    output = "\n".join(
+        [
+            "AGENTIC TRADER // INK CONTROL ROOM",
+            "page 7/7: Settings",
+            "RECENT RUNS",
+            "Risk / Style: conservative / swing",
+            "Behavior / Strictness: capital_preservation / strict",
+            "Mode: preview",
+        ]
+    )
+
+    assert smoke_qa._ink_settings_capture_issues(output) == []
+
+
+def test_ink_settings_capture_issues_reports_missing_markers() -> None:
+    issues = smoke_qa._ink_settings_capture_issues("page 7/7: Settings\nMode: preview")
+
+    assert "recent runs panel missing" in issues
+    assert "risk/style preference line missing" in issues
+    assert "behavior/strictness line missing" in issues

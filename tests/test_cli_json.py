@@ -15,6 +15,8 @@ from agentic_trader.schemas import (
     LLMHealthStatus,
     ManagerDecision,
     MarketSnapshot,
+    OperatorInstruction,
+    PreferenceUpdate,
     RegimeAssessment,
     ResearchCoordinatorBrief,
     ReviewNote,
@@ -686,11 +688,61 @@ def test_dashboard_snapshot_json(
     assert payload["portfolio"]["available"] is True
     assert "memoryExplorer" in payload
     assert "retrievalInspection" in payload
+    assert "recentRuns" in payload
+    assert payload["recentRuns"]["runs"][0]["symbol"] == "AAPL"
     assert "tradeContext" in payload
     assert "marketContext" in payload
     assert payload["tradeContext"]["record"]["symbol"] == "AAPL"
     assert payload["replay"]["available"] is True
     assert payload["replay"]["replay"]["snapshot"]["mtf_alignment"] == "bullish"
+
+
+def test_instruct_json_reports_instruction_and_applied_preferences(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", lambda _settings: None)
+    monkeypatch.setattr(
+        "agentic_trader.cli.interpret_operator_instruction",
+        lambda **_kwargs: OperatorInstruction(
+            summary="Move to a more conservative profile.",
+            should_update_preferences=True,
+            preference_update=PreferenceUpdate(
+                risk_profile="conservative",
+                behavior_preset="capital_preservation",
+            ),
+            requires_confirmation=False,
+            rationale="Structured test instruction.",
+        ),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "instruct",
+            "--message",
+            "be conservative",
+            "--apply",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["instruction"]["summary"] == "Move to a more conservative profile."
+    assert payload["instruction"]["should_update_preferences"] is True
+    assert payload["applied"] is True
+    assert payload["updated_preferences"]["risk_profile"] == "conservative"
+    assert (
+        payload["updated_preferences"]["behavior_preset"]
+        == "capital_preservation"
+    )
 
 
 def test_memory_explorer_and_retrieval_inspection_json(

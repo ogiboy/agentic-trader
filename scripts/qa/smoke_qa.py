@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -344,6 +345,10 @@ def run_dashboard_contract_check(
                 for field in ("summary", "bars_analyzed", "horizons"):
                     if field not in context_pack:
                         issues.append(f"marketContext.contextPack.{field} missing")
+    if not isinstance(payload.get("recentRuns"), dict):
+        issues.append("recentRuns section missing")
+    elif "runs" not in payload["recentRuns"]:
+        issues.append("recentRuns.runs missing")
 
     _write_artifact(
         artifact,
@@ -641,6 +646,146 @@ def run_tui_open_and_quit(
             details=f"exception={exc}",
             artifact=str(artifact),
         )
+
+
+def _ink_settings_capture_issues(output: str) -> list[str]:
+    """Return missing-marker issues for the compact Ink settings page."""
+    required_markers = {
+        "page 7/7: Settings": "settings page header missing",
+        "RECENT RUNS": "recent runs panel missing",
+        "Risk / Style:": "risk/style preference line missing",
+        "Behavior / Strictness:": "behavior/strictness line missing",
+        "Mode: preview": "instruction composer mode missing",
+    }
+    return [issue for marker, issue in required_markers.items() if marker not in output]
+
+
+def _tmux_capture_pane(tmux_path: str, session_name: str, *, timeout: int) -> str:
+    """Capture the visible contents of a tmux pane as text."""
+    proc = subprocess.run(
+        [tmux_path, "capture-pane", "-pt", f"{session_name}:0.0"],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+    )
+    return proc.stdout or ""
+
+
+def run_ink_settings_navigation(
+    context: SmokeContext,
+    command: str,
+    *,
+    timeout: int = 30,
+) -> CheckResult:
+    """Verify that the Ink TUI can navigate to the settings page in a compact terminal."""
+    name = "ink_settings_navigation"
+    artifact = _artifact_path(context, name)
+    tmux_path = shutil.which("tmux")
+    if tmux_path is None:
+        return _skip_result(context, name, "tmux not found on PATH")
+
+    session_name = f"agentic-trader-ink-{int(time.time() * 1000)}"
+    launch_command = (
+        f"cd {shlex.quote(str(REPO_ROOT))} && "
+        f"PATH=/opt/anaconda3/envs/trader/bin:$PATH {shlex.quote(command)} tui"
+    )
+    overview_capture = ""
+    settings_capture = ""
+    issues: list[str] = []
+
+    try:
+        subprocess.run(
+            [
+                tmux_path,
+                "new-session",
+                "-d",
+                "-s",
+                session_name,
+                "-x",
+                "110",
+                "-y",
+                "30",
+                launch_command,
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+
+        ready_deadline = time.monotonic() + timeout
+        while time.monotonic() < ready_deadline:
+            overview_capture = _tmux_capture_pane(
+                tmux_path, session_name, timeout=timeout
+            )
+            if (
+                "AGENTIC TRADER // INK CONTROL ROOM" in overview_capture
+                and "page " in overview_capture
+                and "Last refresh:" in overview_capture
+            ):
+                break
+            time.sleep(0.5)
+        else:
+            issues.append("ink overview did not render in tmux")
+
+        if not issues:
+            subprocess.run(
+                [tmux_path, "send-keys", "-t", f"{session_name}:0.0", "7"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+            settings_deadline = time.monotonic() + timeout
+            while time.monotonic() < settings_deadline:
+                settings_capture = _tmux_capture_pane(
+                    tmux_path, session_name, timeout=timeout
+                )
+                current_issues = _ink_settings_capture_issues(settings_capture)
+                if not current_issues:
+                    break
+                time.sleep(0.5)
+            else:
+                issues.extend(_ink_settings_capture_issues(settings_capture))
+            subprocess.run(
+                [tmux_path, "send-keys", "-t", f"{session_name}:0.0", "q"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+            time.sleep(1.0)
+    except Exception as exc:
+        issues.append(f"exception={exc}")
+    finally:
+        subprocess.run(
+            [tmux_path, "kill-session", "-t", session_name],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+
+    _write_artifact(
+        artifact,
+        f"$ {command} tui (tmux compact navigation)\n"
+        f"cwd: {REPO_ROOT}\n"
+        f"issues: {json.dumps(issues, indent=2)}\n\n"
+        f"OVERVIEW_CAPTURE:\n{overview_capture}\n\n"
+        f"SETTINGS_CAPTURE:\n{settings_capture}\n",
+    )
+    return CheckResult(
+        name=name,
+        passed=not issues,
+        details="tmux_settings_navigation_ok" if not issues else "; ".join(issues),
+        artifact=str(artifact),
+    )
 
 
 def run_rich_menu_deep_navigation(
@@ -1051,6 +1196,7 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
                     agentic_trader_executable,
                     [],
                 ),
+                run_ink_settings_navigation(context, agentic_trader_executable),
                 run_tui_open_and_quit(
                     context,
                     "rich_menu",

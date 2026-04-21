@@ -10,7 +10,7 @@ const cliExecutable = process.env.AGENTIC_TRADER_CLI || 'agentic-trader';
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 const once = process.argv.includes('--once');
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
-const pages = ['overview', 'runtime', 'portfolio', 'review', 'memory', 'chat'];
+const pages = ['overview', 'runtime', 'portfolio', 'review', 'memory', 'chat', 'settings'];
 const personas = [
   'operator_liaison',
   'regime_analyst',
@@ -18,6 +18,7 @@ const personas = [
   'risk_steward',
   'portfolio_manager',
 ];
+const instructionModes = ['preview', 'apply'];
 
 /**
  * Execute the Agentic Trader CLI using one of the configured executables, retrying across candidates.
@@ -87,6 +88,23 @@ function defaultSymbolsFromPreferences(preferences) {
     return 'AAPL,MSFT';
   }
   return 'BTC-USD,ETH-USD';
+}
+
+function defaultSingleSymbol(data) {
+  return (
+    data?.status?.state?.current_symbol ||
+    data?.tradeContext?.record?.symbol ||
+    data?.review?.record?.symbol ||
+    defaultSymbolsFromPreferences(data?.preferences).split(',')[0]
+  );
+}
+
+function defaultRuntimeInterval(data) {
+  return data?.status?.state?.interval || data?.marketContext?.contextPack?.interval || '1d';
+}
+
+function defaultRuntimeLookback(data) {
+  return data?.status?.state?.lookback || data?.marketContext?.contextPack?.lookback || '180d';
 }
 
 /**
@@ -286,6 +304,31 @@ async function performRuntimeAction(kind, data) {
     };
   }
 
+  if (kind === 'one-shot') {
+    if (data.status.live_process) {
+      return {
+        kind: 'info',
+        text: `Runtime already active with PID ${data.status.state?.pid ?? '-'}. Stop it before running a one-shot cycle.`,
+      };
+    }
+    const symbol = defaultSingleSymbol(data);
+    const interval = defaultRuntimeInterval(data);
+    const lookback = defaultRuntimeLookback(data);
+    await runTextCommand([
+      'run',
+      '--symbol',
+      symbol,
+      '--interval',
+      interval,
+      '--lookback',
+      lookback,
+    ]);
+    return {
+      kind: 'info',
+      text: `Strict one-shot cycle completed for ${symbol} (${interval}, ${lookback}).`,
+    };
+  }
+
   if ((data.status.state?.symbols || []).length) {
     await runTextCommand(['restart-service']);
     return { kind: 'info', text: 'Background runtime restart requested.' };
@@ -306,6 +349,13 @@ async function performRuntimeAction(kind, data) {
 function rotatePersona(current, offset) {
   return personas[
     (personas.indexOf(current) + offset + personas.length) % personas.length
+  ];
+}
+
+function rotateInstructionMode(current, offset) {
+  return instructionModes[
+    (instructionModes.indexOf(current) + offset + instructionModes.length) %
+      instructionModes.length
   ];
 }
 
@@ -344,16 +394,41 @@ function handleChatInput(input, key, handlers) {
   return false;
 }
 
+function handleSettingsInput(input, key, handlers) {
+  if (key.return) {
+    handlers.sendInstruction();
+    return true;
+  }
+  if (key.backspace || key.delete) {
+    handlers.setInstructionDraft((current) => current.slice(0, -1));
+    return true;
+  }
+  if (input === '[') {
+    handlers.setInstructionMode((current) => rotateInstructionMode(current, -1));
+    return true;
+  }
+  if (input === ']') {
+    handlers.setInstructionMode((current) => rotateInstructionMode(current, 1));
+    return true;
+  }
+  if (!key.ctrl && !key.meta && input) {
+    handlers.setInstructionDraft((current) => current + input);
+    return true;
+  }
+  return false;
+}
+
 /**
  * Handle top-level single-key commands and page selection from keyboard input.
  *
  * Recognizes:
  * - 'q' to exit,
  * - 'r' to refresh,
+ * - 'o' to run one strict cycle,
  * - 's' to start the runtime,
  * - 'x' to stop the runtime,
  * - 'R' to restart the runtime,
- * - '1'..'6' to switch to the corresponding page.
+ * - '1'..'7' to switch to the corresponding page.
  *
  * @param {string} input - The raw key input (single character).
  * @param {{ exit: Function, refreshNow: Function, runAction: Function, setPage: Function }} handlers - Action handlers to invoke for recognized keys.
@@ -373,6 +448,10 @@ function handleGlobalInput(input, handlers) {
     handlers.refreshNow();
     return true;
   }
+  if (normalized === 'o') {
+    handlers.runAction('one-shot');
+    return true;
+  }
   if (normalized === 's') {
     handlers.runAction('start');
     return true;
@@ -381,7 +460,7 @@ function handleGlobalInput(input, handlers) {
     handlers.runAction('stop');
     return true;
   }
-  if (['1', '2', '3', '4', '5', '6'].includes(input)) {
+  if (['1', '2', '3', '4', '5', '6', '7'].includes(input)) {
     handlers.setPage(pages[Number(input) - 1]);
     return true;
   }
@@ -421,6 +500,7 @@ function getPageLabel(page) {
     review: 'Review',
     memory: 'Memory',
     chat: 'Chat',
+    settings: 'Settings',
   };
   return labels[page] || 'Unknown';
 }
@@ -443,6 +523,10 @@ function getPageView(
   chatHistory,
   chatDraft,
   chatBusy,
+  instructionDraft,
+  instructionBusy,
+  instructionMode,
+  instructionResult,
   compact,
 ) {
   switch (page) {
@@ -456,6 +540,15 @@ function getPageView(
       return e(ReviewPage, { data });
     case 'memory':
       return e(MemoryPage, { data });
+    case 'settings':
+      return e(SettingsPage, {
+        data,
+        draft: instructionDraft,
+        instructionBusy,
+        instructionMode,
+        instructionResult,
+        compact,
+      });
     default:
       return e(ChatPage, {
         data,
@@ -592,6 +685,43 @@ function getJournalLines(journal) {
     (entry) =>
       `${entry.opened_at} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`,
   );
+}
+
+function getRecentRunsLines(recentRuns) {
+  if (recentRuns?.available === false) {
+    return renderUnavailableMessage(recentRuns.error);
+  }
+  if (!recentRuns?.runs?.length) {
+    return ['No recent runs recorded yet.'];
+  }
+  return recentRuns.runs.map(
+    (run) =>
+      `${run.created_at} | ${run.symbol} | ${run.interval} | approved=${run.approved} | ${run.run_id}`,
+  );
+}
+
+function getInstructionResultLines(result) {
+  if (!result) {
+    return [
+      'Type a safe operator instruction.',
+      'Examples:',
+      '  make the system conservative',
+      '  switch to capital preservation',
+    ];
+  }
+  const instruction = result.instruction || {};
+  const update = instruction.preference_update || {};
+  const updateLines = Object.entries(update)
+    .filter(([, value]) => value !== null && value !== undefined && value !== '')
+    .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join(',') : value}`);
+  return [
+    `Summary: ${instruction.summary ?? '-'}`,
+    `Update Preferences: ${instruction.should_update_preferences ?? false}`,
+    `Requires Confirmation: ${instruction.requires_confirmation ?? false}`,
+    `Applied: ${result.applied ? 'yes' : 'no'}`,
+    `Rationale: ${instruction.rationale ?? '-'}`,
+    `Preference Update: ${updateLines.join(' | ') || '-'}`,
+  ];
 }
 
 function panel(title, lines, borderColor = 'cyan') {
@@ -1104,6 +1234,92 @@ function MemoryPage({ data }) {
   );
 }
 
+function SettingsPage({
+  data,
+  draft,
+  instructionBusy,
+  instructionMode,
+  instructionResult,
+  compact = false,
+}) {
+  const preferences = data.preferences;
+  const recentRuns = data.recentRuns;
+  const rawPreferenceLines = renderLinesFallback(
+    'PREFERENCES',
+    preferences.available,
+    preferences.error,
+    'Preferences are temporarily unavailable.',
+  ) || [
+    `Regions: ${(preferences.regions || []).join(', ') || '-'}`,
+    `Exchanges: ${(preferences.exchanges || []).join(', ') || '-'}`,
+    `Currencies: ${(preferences.currencies || []).join(', ') || '-'}`,
+    `Sectors: ${(preferences.sectors || []).join(', ') || '-'}`,
+    `Risk: ${preferences.risk_profile}`,
+    `Style: ${preferences.trade_style}`,
+    `Behavior: ${preferences.behavior_preset}`,
+    `Agent Profile: ${preferences.agent_profile}`,
+    `Agent Tone: ${preferences.agent_tone}`,
+    `Strictness: ${preferences.strictness_preset}`,
+    `Intervention: ${preferences.intervention_style}`,
+    `Notes: ${preferences.notes || '-'}`,
+  ];
+  const preferenceLines = compact
+    ? [
+        `Regions / Exchanges: ${(preferences.regions || []).join(', ') || '-'} / ${(preferences.exchanges || []).join(', ') || '-'}`,
+        `Currencies / Sectors: ${(preferences.currencies || []).join(', ') || '-'} / ${(preferences.sectors || []).join(', ') || '-'}`,
+        `Risk / Style: ${preferences.risk_profile} / ${preferences.trade_style}`,
+        `Behavior / Strictness: ${preferences.behavior_preset} / ${preferences.strictness_preset}`,
+        `Profile / Tone: ${preferences.agent_profile} / ${preferences.agent_tone}`,
+        `Intervention: ${preferences.intervention_style}`,
+        `Notes: ${preferences.notes || '-'}`,
+      ]
+    : rawPreferenceLines;
+  const recentRunLines = getRecentRunsLines(recentRuns);
+  const instructionLines = getInstructionResultLines(instructionResult);
+  const composerLines = [
+    `Mode: ${instructionMode}`,
+    instructionBusy ? 'Working...' : 'Enter submit  |  [ ] switch mode',
+    draft || '(type a safe operator instruction here)',
+  ];
+
+  return e(
+    Box,
+    { flexDirection: 'column', width: '100%' },
+    e(
+      Box,
+      { width: '100%' },
+      e(
+        Box,
+        { width: '50%', paddingRight: 1 },
+        panel('PREFERENCES', preferenceLines.slice(0, compact ? 7 : 12), 'blue'),
+      ),
+      e(
+        Box,
+        { width: '50%', paddingLeft: 1 },
+        panel('RECENT RUNS', recentRunLines.slice(0, compact ? 5 : 8), 'yellow'),
+      ),
+    ),
+    e(
+      Box,
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '100%' },
+        panel('OPERATOR INSTRUCTION', instructionLines, 'green'),
+      ),
+    ),
+    e(
+      Box,
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '100%' },
+        panel('COMPOSER', composerLines, 'magenta'),
+      ),
+    ),
+  );
+}
+
 /**
  * Render the chat page of the dashboard showing operator chat, live agent activity, reasoning/tools, and the composer.
  *
@@ -1232,6 +1448,10 @@ function normalizeChatHistory(data) {
  * @param {Array<Object>} props.chatHistory - Normalized chat history entries for display.
  * @param {string} props.chatDraft - Current chat composer draft text.
  * @param {boolean} props.chatBusy - When true, indicates an in-flight chat send.
+ * @param {string} props.instructionDraft - Current settings/instruction composer draft.
+ * @param {boolean} props.instructionBusy - When true, indicates an in-flight instruction parse/apply request.
+ * @param {string} props.instructionMode - Settings page submit mode (`preview` or `apply`).
+ * @param {?object} props.instructionResult - Latest parsed/applied instruction payload.
  * @returns {import('react').ReactElement} The Ink element tree representing the dashboard view.
  */
 function DashboardView({
@@ -1245,6 +1465,10 @@ function DashboardView({
   chatHistory,
   chatDraft,
   chatBusy,
+  instructionDraft,
+  instructionBusy,
+  instructionMode,
+  instructionResult,
 }) {
   if (error) {
     return e(
@@ -1281,7 +1505,7 @@ function DashboardView({
   const headerRows = 1 + navRows + (actionMessage ? 1 : 0);
   const footerRows = 1;
   const bodyHeight = Math.max(1, terminalRows - headerRows - footerRows);
-  const compact = terminalRows <= 24 || terminalColumns <= 90;
+  const compact = terminalRows <= 30 || terminalColumns <= 110;
 
   const view = getPageView(
     page,
@@ -1290,6 +1514,10 @@ function DashboardView({
     chatHistory,
     chatDraft,
     chatBusy,
+    instructionDraft,
+    instructionBusy,
+    instructionMode,
+    instructionResult,
     compact,
   );
 
@@ -1304,7 +1532,7 @@ function DashboardView({
     e(
       Text,
       { color: 'gray' },
-      `page ${pageIndex}/6: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 memory  6 chat  |  r refresh  s start  x stop  R restart  q quit${busy ? '  |  working...' : ''}`,
+      `page ${pageIndex}/7: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 memory  6 chat  7 settings  |  r refresh  o one-shot  s start  x stop  R restart  q quit${busy ? '  |  working...' : ''}`,
     ),
     actionMessage
       ? e(
@@ -1356,7 +1584,16 @@ function DashboardView({
  *   chatDraft: string,
  *   setChatDraft: (d: string) => void,
  *   chatBusy: boolean,
- *   setChatBusy: (b: boolean) => void
+ *   setChatBusy: (b: boolean) => void,
+ *   instructionDraft: string,
+ *   setInstructionDraft: (d: string) => void,
+ *   instructionBusy: boolean,
+ *   setInstructionBusy: (b: boolean) => void,
+ *   instructionMode: string,
+ *   setInstructionMode: (m: string) => void,
+ *   instructionResult: object|null,
+ *   setInstructionResult: (r: object|null) => void,
+ *   sendInstruction: () => Promise<void>
  * }}
  */
 function useDashboardState({ interactive }) {
@@ -1371,6 +1608,10 @@ function useDashboardState({ interactive }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
+  const [instructionDraft, setInstructionDraft] = useState('');
+  const [instructionBusy, setInstructionBusy] = useState(false);
+  const [instructionMode, setInstructionMode] = useState('preview');
+  const [instructionResult, setInstructionResult] = useState(null);
   const loadingText = useMemo(() => `Connecting to ${cliExecutable}...`, []);
 
   const refresh = useCallback(async () => {
@@ -1437,6 +1678,50 @@ function useDashboardState({ interactive }) {
     [busy, data],
   );
 
+  const sendInstruction = useCallback(async () => {
+    const message = instructionDraft.trim();
+    if (!message || instructionBusy) {
+      return;
+    }
+    setInstructionBusy(true);
+    try {
+      const args = ['instruct', '--json', '--message', message];
+      if (instructionMode === 'apply') {
+        args.push('--apply');
+      }
+      const payload = await runJsonCommand(args);
+      setInstructionResult(payload);
+      setInstructionDraft('');
+      setActionMessage({
+        kind: payload.applied ? 'info' : 'info',
+        text: payload.applied
+          ? 'Operator instruction applied to preferences.'
+          : 'Operator instruction parsed.',
+      });
+      const next = await loadDashboard();
+      setData(next);
+      setError(null);
+    } catch (err) {
+      setInstructionResult({
+        instruction: {
+          summary: 'Instruction failed.',
+          should_update_preferences: false,
+          requires_confirmation: false,
+          rationale: err instanceof Error ? err.message : String(err),
+          preference_update: {},
+        },
+        applied: false,
+        updated_preferences: null,
+      });
+      setActionMessage({
+        kind: 'error',
+        text: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setInstructionBusy(false);
+    }
+  }, [instructionBusy, instructionDraft, instructionMode]);
+
   const nextPage = useCallback(() => {
     setPage((current) => pages[(pages.indexOf(current) + 1) % pages.length]);
   }, []);
@@ -1469,6 +1754,15 @@ function useDashboardState({ interactive }) {
     setChatDraft,
     chatBusy,
     setChatBusy,
+    instructionDraft,
+    setInstructionDraft,
+    instructionBusy,
+    setInstructionBusy,
+    instructionMode,
+    setInstructionMode,
+    instructionResult,
+    setInstructionResult,
+    sendInstruction,
   };
 }
 
@@ -1501,6 +1795,13 @@ function InteractiveDashboardApp() {
     setChatDraft,
     chatBusy,
     setChatBusy,
+    instructionDraft,
+    setInstructionDraft,
+    instructionBusy,
+    instructionMode,
+    setInstructionMode,
+    instructionResult,
+    sendInstruction,
   } = useDashboardState({ interactive: true });
 
   const sendChat = useCallback(async () => {
@@ -1560,13 +1861,23 @@ function InteractiveDashboardApp() {
       prevPage();
       return;
     }
-    if (['1', '2', '3', '4', '5', '6'].includes(input) && page !== 'chat') {
+    if (['1', '2', '3', '4', '5', '6', '7'].includes(input) && !['chat', 'settings'].includes(page)) {
       setPage(pages[Number(input) - 1]);
       return;
     }
     if (
       page === 'chat' &&
       handleChatInput(input, key, { sendChat, setChatDraft, setChatPersona })
+    ) {
+      return;
+    }
+    if (
+      page === 'settings' &&
+      handleSettingsInput(input, key, {
+        sendInstruction,
+        setInstructionDraft,
+        setInstructionMode,
+      })
     ) {
       return;
     }
@@ -1584,6 +1895,10 @@ function InteractiveDashboardApp() {
     chatHistory,
     chatDraft,
     chatBusy,
+    instructionDraft,
+    instructionBusy,
+    instructionMode,
+    instructionResult,
   });
 }
 
@@ -1599,6 +1914,10 @@ function StaticDashboardApp() {
     chatHistory,
     chatDraft,
     chatBusy,
+    instructionDraft,
+    instructionBusy,
+    instructionMode,
+    instructionResult,
   } = useDashboardState({ interactive: false });
   return e(DashboardView, {
     data,
@@ -1611,6 +1930,10 @@ function StaticDashboardApp() {
     chatHistory,
     chatDraft,
     chatBusy,
+    instructionDraft,
+    instructionBusy,
+    instructionMode,
+    instructionResult,
   });
 }
 

@@ -1040,6 +1040,35 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
     }
 
 
+def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            runs = db.list_recent_runs(limit=limit)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        runs = []
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "runs": [
+            {
+                "run_id": run_id,
+                "created_at": created_at,
+                "symbol": symbol,
+                "interval": interval,
+                "approved": approved,
+            }
+            for run_id, created_at, symbol, interval, approved in runs
+        ],
+    }
+
+
 def _risk_report_payload(
     settings: Settings, *, report_date: str | None = None
 ) -> dict[str, object]:
@@ -2399,6 +2428,7 @@ def build_dashboard_snapshot_payload(
         },
         "portfolio": _portfolio_payload(settings),
         "preferences": _preferences_payload(settings),
+        "recentRuns": _recent_runs_payload(settings, limit=8),
         "journal": _journal_payload(settings, limit=8),
         "riskReport": _risk_report_payload(settings),
         "review": _run_record_payload(settings),
@@ -3441,29 +3471,46 @@ def instruct(
     apply: bool = typer.Option(
         False, help="Apply the parsed preference update if one is proposed."
     ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Interpret a safe operator instruction and optionally apply it."""
     settings = get_settings()
     ensure_llm_ready(settings)
     db = TradingDatabase(settings)
-    llm = LocalLLM(settings)
-    instruction = interpret_operator_instruction(
-        llm=llm,
-        db=db,
-        settings=settings,
-        user_message=message,
-        allow_fallback=True,
-    )
-    _render_instruction(instruction)
-    if apply and instruction.should_update_preferences:
-        updated = apply_preference_update(db, instruction.preference_update)
-        console.print(
-            Panel(
-                updated.model_dump_json(indent=2),
-                title="Updated Preferences",
-                border_style="green",
-            )
+    try:
+        llm = LocalLLM(settings)
+        instruction = interpret_operator_instruction(
+            llm=llm,
+            db=db,
+            settings=settings,
+            user_message=message,
+            allow_fallback=True,
         )
+        updated: InvestmentPreferences | None = None
+        if apply and instruction.should_update_preferences:
+            updated = apply_preference_update(db, instruction.preference_update)
+        if json_output:
+            _emit_json(
+                {
+                    "instruction": instruction.model_dump(mode="json"),
+                    "applied": updated is not None,
+                    "updated_preferences": (
+                        updated.model_dump(mode="json") if updated is not None else None
+                    ),
+                }
+            )
+            return
+        _render_instruction(instruction)
+        if updated is not None:
+            console.print(
+                Panel(
+                    updated.model_dump_json(indent=2),
+                    title="Updated Preferences",
+                    border_style="green",
+                )
+            )
+    finally:
+        db.close()
 
 
 @app.command()
