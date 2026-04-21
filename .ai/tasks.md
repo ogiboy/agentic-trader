@@ -104,6 +104,8 @@ Desired direction:
 - fail smoke evidence when raw provider output or LLM retry diagnostics leak into operator-facing terminal output
 - keep the one-cycle runtime check as an explicit opt-in tier because it needs live market data and a healthy local model
 - add optional tmux pane dumps and asciinema recordings for visual TUI regressions
+- when Computer Use is available, add a real-screen QA pass alongside text artifacts instead of treating screenshots as out of scope
+- keep smoke artifact directories unique even when parallel QA runs start in the same second
 - keep quality gates tiered so CI-safe checks, local interactive checks, and manual visual evidence can run separately
 
 ### 6. Daemon And Operator Surface Refinement
@@ -145,7 +147,8 @@ Desired direction:
 - carry tone, strictness, and intervention presets consistently across CLI, Rich, Ink, and operator chat
 - deepen the new structured agent activity and reasoning context beside chat transcripts
 - keep the Ink control room moving toward full parity with the older Rich admin surface
-- run a designer-style visual audit with Computer Use when available, including first-launch logo fit, terminal resize behavior, wrapping, visual density, and hotkey visibility
+- run designer-style visual audits with pexpect/tmux/asciinema first, and add Computer Use screenshots when visual evidence is necessary or text captures are insufficient
+- define an indirect terminal-visual review path that cross-checks tmux/asciinema captures with dashboard, broker, and observer JSON when a direct terminal session is not available
 - run a CLI ergonomics audit for `--help`, `-h`, command examples, option naming, and short/long flag consistency
 - simplify Rich menu navigation so back, close, cancel, and exit behaviors are consistent and the repeated logo/header does not dominate every output
 - add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
@@ -236,7 +239,7 @@ Desired direction:
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
-- use Computer Use for visual CLI/Rich/Ink validation when available, and fall back to pexpect, tmux, asciinema, pane captures, and JSON/text artifacts when it is not
+- use pexpect, tmux, asciinema, pane captures, and JSON/text artifacts as the primary CLI/Rich/Ink validation path, and add a Computer Use visual pass whenever the environment exposes it and layout/operator clarity is in scope
 - keep `.ai/agents/` role guidance aligned with `AGENTS.md`, `.ai/qa/`, and current architecture so development agents remain helpers rather than runtime dependencies
 - keep the automated test command in `AGENTS.md` current with the project environment
 - keep the opt-in runtime-cycle smoke check aligned with real product retry behavior so it validates operator-facing runtime reliability rather than a first-response-only LLM diagnostic

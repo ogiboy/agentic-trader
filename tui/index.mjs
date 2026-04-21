@@ -443,10 +443,11 @@ function getPageView(
   chatHistory,
   chatDraft,
   chatBusy,
+  compact,
 ) {
   switch (page) {
     case 'overview':
-      return e(OverviewPage, { data });
+      return e(OverviewPage, { data, compact });
     case 'runtime':
       return e(RuntimePage, { data });
     case 'portfolio':
@@ -627,7 +628,7 @@ function renderLinesFallback(title, available, error, fallback) {
  * @param {object} props.data - Dashboard snapshot used to populate panels; expected to include keys such as `doctor`, `status`, `preferences`, `calendar`, `broker`, `marketCache`, `marketContext`, `review`, and `agentActivity`.
  * @returns {import('react').ReactElement} The Ink/React element tree for the Overview page.
  */
-function OverviewPage({ data }) {
+function OverviewPage({ data, compact = false }) {
   const doctor = data.doctor;
   const runtime = data.status;
   const preferences = data.preferences;
@@ -638,6 +639,66 @@ function OverviewPage({ data }) {
   const latestSnapshot = data.review.record?.artifacts?.snapshot;
   const agentActivity = data.agentActivity;
   const agentEvents = agentActivity?.recent_stage_events || [];
+  const currentCycleLines = compact
+    ? [
+        `Runtime: ${runtime.runtime_state}`,
+        `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
+        `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
+        `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
+        `Status: ${runtime.status_message}`,
+        `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
+        `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
+        `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
+        `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
+        `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
+      ]
+    : [
+        `Runtime: ${runtime.runtime_state}`,
+        `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
+        `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
+        `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
+        `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
+        `Status: ${runtime.status_message}`,
+        `Current Note: ${runtime.state?.message ?? '-'}`,
+        `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
+        `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
+        `Stage Detail: ${agentActivity?.current_stage_message ?? '-'}`,
+        `Last Completed Stage: ${agentActivity?.last_completed_stage ?? '-'}`,
+        `Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
+        `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
+        `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
+        `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
+        `Context Pack: ${marketContext?.contextPack?.summary ?? '-'}`,
+        `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
+        '',
+        `Last Outcome Type: ${agentActivity?.last_outcome_type ?? '-'}`,
+        `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
+      ];
+  const systemLines = compact
+    ? [
+        `Model: ${doctor.model}`,
+        `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
+        `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
+        `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
+        `Broker Backend: ${broker?.backend ?? '-'}`,
+        `Broker State: ${broker?.state ?? '-'}`,
+        `Market Session: ${formatMarketSession(calendar.session)}`,
+      ]
+    : [
+        `Model: ${doctor.model}`,
+        `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
+        `Base URL: ${doctor.base_url}`,
+        `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
+        `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
+        `Runtime Dir: ${doctor.runtime_dir}`,
+        `Database: ${doctor.database}`,
+        `Broker Backend: ${broker?.backend ?? '-'}`,
+        `Broker State: ${broker?.state ?? '-'}`,
+        `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
+        `Market Session: ${formatMarketSession(calendar.session)}`,
+        `News Tool: ${data.news?.mode ?? 'off'}`,
+        `Cached Snapshots: ${marketCache.count}`,
+      ];
 
   return e(
     Box,
@@ -650,28 +711,7 @@ function OverviewPage({ data }) {
         { width: '50%', paddingRight: 1 },
         panel(
           'CURRENT CYCLE',
-          [
-            `Runtime: ${runtime.runtime_state}`,
-            `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
-            `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
-            `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
-            `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
-            `Status: ${runtime.status_message}`,
-            `Current Note: ${runtime.state?.message ?? '-'}`,
-            `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
-            `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
-            `Stage Detail: ${agentActivity?.current_stage_message ?? '-'}`,
-            `Last Completed Stage: ${agentActivity?.last_completed_stage ?? '-'}`,
-            `Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
-            `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
-            `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
-            `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
-            `Context Pack: ${marketContext?.contextPack?.summary ?? '-'}`,
-            `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
-            '',
-            `Last Outcome Type: ${agentActivity?.last_outcome_type ?? '-'}`,
-            `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
-          ],
+          currentCycleLines,
           getStatusBorderColor(runtime.runtime_state),
         ),
       ),
@@ -680,21 +720,7 @@ function OverviewPage({ data }) {
         { width: '50%', paddingLeft: 1 },
         panel(
           'SYSTEM',
-          [
-            `Model: ${doctor.model}`,
-            `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
-            `Base URL: ${doctor.base_url}`,
-            `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
-            `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
-            `Runtime Dir: ${doctor.runtime_dir}`,
-            `Database: ${doctor.database}`,
-            `Broker Backend: ${broker?.backend ?? '-'}`,
-            `Broker State: ${broker?.state ?? '-'}`,
-            `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
-            `Market Session: ${formatMarketSession(calendar.session)}`,
-            `News Tool: ${data.news?.mode ?? 'off'}`,
-            `Cached Snapshots: ${marketCache.count}`,
-          ],
+          systemLines,
           doctor.ollama_reachable && doctor.model_available ? 'green' : 'red',
         ),
       ),
@@ -1249,6 +1275,13 @@ function DashboardView({
 
   const pageIndex = pages.indexOf(page) + 1;
   const pageLabel = getPageLabel(page);
+  const terminalRows = process.stdout.rows || 36;
+  const terminalColumns = process.stdout.columns || 100;
+  const navRows = terminalColumns < 140 ? 2 : 1;
+  const headerRows = 1 + navRows + (actionMessage ? 1 : 0);
+  const footerRows = 1;
+  const bodyHeight = Math.max(1, terminalRows - headerRows - footerRows);
+  const compact = terminalRows <= 24 || terminalColumns <= 90;
 
   const view = getPageView(
     page,
@@ -1257,6 +1290,7 @@ function DashboardView({
     chatHistory,
     chatDraft,
     chatBusy,
+    compact,
   );
 
   return e(
@@ -1279,7 +1313,16 @@ function DashboardView({
           actionMessage.text,
         )
       : null,
-    view,
+    e(
+      Box,
+      {
+        flexDirection: 'column',
+        width: '100%',
+        height: bodyHeight,
+        overflowY: 'hidden',
+      },
+      view,
+    ),
     e(Text, { color: 'gray' }, `Last refresh: ${data.loadedAt}`),
   );
 }

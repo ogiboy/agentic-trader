@@ -17,7 +17,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] Confirm smoke artifacts are grouped under a timestamped `.ai/qa/artifacts/smoke-*` directory.
 - [ ] Confirm changed roadmap items are checked or left unchecked accurately.
 - [ ] Confirm `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` are updated when architecture, runtime contracts, or assumptions change.
-- [ ] For CLI/Rich/Ink visual changes, use Computer Use for a screenshot/screen-state pass when available; otherwise document that text-based pexpect/tmux/asciinema evidence was used.
+- [ ] For CLI/Rich/Ink visual changes, use pexpect/tmux/asciinema for baseline interaction and layout verification, and add a Computer Use screenshot/screen-state pass when the environment exposes it.
 
 ## Code Quality
 
@@ -43,7 +43,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## Ink TUI
 
-- [ ] When Computer Use is available, open the Ink control room visually and inspect at least the changed page or flow.
+- [ ] Use pexpect/tmux/asciinema to open the Ink control room and inspect the changed page or flow; add a Computer Use visual pass when available.
 - [ ] `agentic-trader` opens the Ink control room when the console entrypoint is installed.
 - [ ] `python main.py` opens the same primary operator surface.
 - [ ] First-launch logo/header fits without pushing the primary controls off screen.
@@ -58,7 +58,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## Rich Menu
 
-- [ ] When Computer Use is available, open the Rich menu visually and inspect the changed page or flow.
+- [ ] Use pexpect/tmux/asciinema to open the Rich menu and inspect the changed page or flow; add a Computer Use visual pass when available.
 - [ ] `agentic-trader menu` opens the legacy/admin Rich menu.
 - [ ] Logo/header usage does not consume so much space that menu output becomes hard to scan.
 - [ ] Categories are navigable without excessive scrolling.

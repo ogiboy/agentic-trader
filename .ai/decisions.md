@@ -102,8 +102,9 @@ The current local-hashing vectors now persist provider/model/version/dimension m
 Reason:
 Agentic Trader is operator-facing through terminal surfaces, so quality must include repeatable CLI, Rich, Ink, daemon, observer API, and visual-flow evidence.
 The smoke harness should remain fast, but deeper tiers should capture JSON snapshots, pexpect transcripts, optional tmux/asciinema artifacts, and human-readable failure reports.
-When Computer Use is available, visual CLI/Rich/Ink checks should run through the real terminal screen and capture screenshot or screen-state evidence.
+When Computer Use is available, visual CLI/Rich/Ink checks should run through the real terminal screen and capture screenshot or screen-state evidence in addition to the baseline text and JSON artifacts.
 Computer Use is an optional QA capability, not a runtime or CI dependency; if it is unavailable, the existing pexpect, tmux, asciinema, text, and JSON evidence flow remains valid.
+Indirect terminal review is also valid when direct screen control is unavailable: pane capture, session recording, dashboard/status/broker JSON, and observer API payloads should be cross-checked to reconstruct what the operator would have seen.
 Visual evidence must be cross-checked with runtime contracts or persisted truth whenever the screen claims runtime, broker, execution, or review state.
 Visual QA should include UX, design, and finance/accounting readability, not only crash or smoke behavior.
 The `.ai/agents/operator-ux.md` role exists for this development review lens and should stay separate from runtime agents.
@@ -130,8 +131,10 @@ Agent and guard outputs are not the same thing as broker orders.
 The runtime now translates guard-approved or guard-rejected decisions into a canonical `ExecutionIntent`, sends that through a broker adapter, and records an `ExecutionOutcome`.
 This keeps paper execution working while creating a reviewable seam for simulated-real rehearsal and future live broker integration.
 Live execution remains blocked until a real adapter, approval gates, paper-operation evidence, and operator-visible readiness checks exist behind the same contract.
-The intent contract exposes `timestamp` while preserving `created_at` for existing storage and review payload compatibility.
-If both audit timestamp fields are supplied they must match, and operator review views should show backend, adapter, outcome, and rejection reason without requiring raw JSON.
+The intent contract exposes `timestamp` as the canonical audit field while preserving `created_at` for legacy storage and review payload compatibility.
+When only one audit field is supplied, contract validation normalizes it into the canonical timestamp and mirrors it for compatibility.
+When both `timestamp` and `created_at` are supplied, they must be identical; any mismatch must be rejected as a validation error before persistence, with storage still asserting the invariant.
+Operator review views should show backend, adapter, outcome, and rejection reason without requiring raw JSON.
 
 ### No-trade risk output should remain readable without changing execution posture
 

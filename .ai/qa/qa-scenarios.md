@@ -72,7 +72,8 @@ Expected:
 - pages switch correctly
 - runtime page shows current stage, daemon metadata, broker state, and event flow
 - chat page shows transcript plus live activity/reasoning/tool context
-- when Computer Use is available, visual inspection confirms the changed Ink page is readable, focused, and truthful; otherwise pane/text capture is acceptable
+- pexpect/tmux/asciinema evidence confirms the changed Ink page is readable, focused, and truthful
+- when Computer Use is available, a real-screen visual pass confirms the same page is readable, focused, and truthful at the tested size
 
 ## Scenario 3: Rich Admin Menu
 
@@ -98,7 +99,8 @@ Expected:
 - menu does not become a blind long-running terminal
 - observer mode is clear if runtime writer owns DuckDB
 - Ctrl+C exits cleanly
-- when Computer Use is available, visual inspection confirms the changed Rich page is readable, navigable, and truthful; otherwise pane/text capture is acceptable
+- pexpect/tmux/asciinema evidence confirms the changed Rich page is readable, navigable, and truthful
+- when Computer Use is available, a real-screen visual pass confirms the same page is readable, navigable, and truthful at the tested size
 
 ## Scenario 4: One-Shot Strict Cycle
 

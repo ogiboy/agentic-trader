@@ -30,4 +30,7 @@ dist/
 .ai/qa/artifacts/qa-*
 .ai/qa/artifacts/tmp-*
 .ai/qa/artifacts/manual-*
+.ai/qa/artifacts/menu-*
+.ai/qa/artifacts/tmux-*
+.ai/qa/artifacts/edge-*
 .sonarlint/connectedMode.json

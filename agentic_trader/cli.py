@@ -100,7 +100,11 @@ from agentic_trader.workflows.service import (
     start_background_service,
 )
 
-app = typer.Typer(help="Agentic Trader CLI", invoke_without_command=True)
+app = typer.Typer(
+    help="Agentic Trader CLI",
+    invoke_without_command=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 console = Console()
 
 

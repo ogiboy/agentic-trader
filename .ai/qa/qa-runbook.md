@@ -61,6 +61,8 @@ Automated smoke QA writes each run into a timestamped subdirectory:
 .ai/qa/artifacts/smoke-YYYYMMDD-HHMMSS/
 ```
 
+Parallel smoke runs may append a numeric suffix such as `-2`; keep each run directory intact so evidence remains traceable.
+
 Suggested files:
 
 - `run.log`
@@ -77,15 +79,16 @@ Do not commit `.sonar/` output or Sonar tokens.
 
 ### Computer Use
 
-Use Computer Use when available for operator-facing visual QA of CLI, Rich, and
-Ink terminal surfaces. This is the preferred layer for checking whether a real
-operator would see the right truth, layout, focus, hotkeys, truncation, and
-screen hierarchy.
+Use pexpect, tmux pane capture, asciinema, and CLI JSON checks as the primary
+operator-facing QA path for CLI, Rich, and Ink terminal surfaces. These tools
+provide repeatable evidence for truth, layout, focus, hotkeys, truncation, and
+screen hierarchy. When Computer Use is available, add a real-screen visual pass
+instead of relying on text artifacts alone for layout-sensitive changes.
 
 Computer Use is optional. It must not become a runtime dependency, test-suite
-dependency, or reason to skip QA in headless environments. If it is unavailable,
-continue with pexpect, tmux pane capture, asciinema, screenshots from other
-available tools, and CLI JSON checks.
+dependency, or reason to skip QA in headless environments. If it is available,
+use it for the final visual/operator pass. If it is unavailable, continue with
+text artifacts and JSON/runtime cross-checks.
 
 Recommended visual QA flow:
 
@@ -119,7 +122,7 @@ Visual QA should include more than crash checks:
 
 Use this loop when a visual/UX/menu issue is found:
 
-1. Capture the current behavior with Computer Use or text artifacts.
+1. Capture the current behavior with pexpect/tmux/asciinema text artifacts, then add Computer Use screenshots or screen observations when available.
 2. Name the operator confusion in one sentence.
 3. Classify the issue as V1 blocker, V1 polish, or V2 redesign.
 4. Propose the smallest repair that preserves runtime truth and paper-first
@@ -160,6 +163,16 @@ asciinema rec .ai/qa/artifacts/session.cast
 
 Use screenshots for visual rendering issues that are hard to explain from text
 capture. Prefer Computer Use screenshots/screen observations when available.
+
+### Indirect Terminal Review
+
+When you cannot directly drive or observe the terminal screen:
+
+1. capture pane text with `tmux capture-pane`
+2. record the interaction with `asciinema` when timing matters
+3. save `dashboard-snapshot`, `status`, `broker-status`, `logs`, or observer API JSON
+4. compare the captured text with the structured payloads to reconstruct what the operator would have seen
+5. treat mismatches between screen-like captures and structured truth as QA findings
 
 ### Code Quality
 

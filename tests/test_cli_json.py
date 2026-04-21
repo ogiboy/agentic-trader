@@ -38,6 +38,29 @@ def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("db locked")
 
 
+def test_cli_help_supports_short_and_long_forms() -> None:
+    runner = CliRunner()
+
+    for args in (
+        ["--help"],
+        ["-h"],
+        ["run", "--help"],
+        ["run", "-h"],
+        ["broker-status", "--help"],
+        ["broker-status", "-h"],
+        ["trade-context", "--help"],
+        ["trade-context", "-h"],
+        ["tui", "--help"],
+        ["tui", "-h"],
+        ["menu", "--help"],
+        ["menu", "-h"],
+    ):
+        result = runner.invoke(app, args)
+
+        assert result.exit_code == 0
+        assert "Usage:" in result.stdout
+
+
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
     """
     Builds a fully populated RunArtifacts instance with realistic sample data for use in tests.

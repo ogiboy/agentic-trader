@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -253,11 +254,10 @@ def test_persist_run_records_execution_context(tmp_path: Path) -> None:
     assert execution_record["order_id"] == order_id
     assert execution_record["execution_backend"] == "paper"
     assert execution_record["status"] == "filled"
-    assert (
-        execution_record["intent"]["timestamp"]
-        == execution_record["intent"]["created_at"]
-    )
-    assert execution_record["outcome"]["status"] == "filled"
+    intent = cast(dict[str, object], execution_record["intent"])
+    outcome = cast(dict[str, object], execution_record["outcome"])
+    assert intent["timestamp"] == intent["created_at"]
+    assert outcome["status"] == "filled"
     assert trade_context is not None
     assert trade_context.execution_backend == "paper"
     assert trade_context.execution_outcome_status == "filled"
@@ -291,7 +291,8 @@ def test_persist_run_records_rejected_execution_metadata(tmp_path: Path) -> None
     assert execution_record["execution_backend"] == "paper"
     assert execution_record["status"] == "rejected"
     assert execution_record["rejection_reason"] == rejection_reason
-    assert execution_record["outcome"]["rejection_reason"] == rejection_reason
+    outcome = cast(dict[str, object], execution_record["outcome"])
+    assert outcome["rejection_reason"] == rejection_reason
     assert trade_context is not None
     assert trade_context.execution_outcome_status == "rejected"
     assert trade_context.execution_rejection_reason == rejection_reason

@@ -147,6 +147,32 @@ def test_fundamental_agent_is_conservative_with_debt_risk() -> None:
     assert assessment.evidence_vs_inference.evidence
 
 
+def test_fundamental_agent_handles_missing_fx_exposure() -> None:
+    context = _context(_snapshot())
+    features = context.decision_features
+    assert features is not None
+    missing_fx_context = context.model_copy(
+        update={
+            "decision_features": features.model_copy(
+                update={
+                    "fundamental": features.fundamental.model_copy(
+                        update={"fx_exposure": None}
+                    )
+                }
+            )
+        }
+    )
+
+    assessment = assess_fundamentals(
+        cast(LocalLLM, _FailingLLM()),
+        missing_fx_context.snapshot,
+        allow_fallback=True,
+        context=missing_fx_context,
+    )
+
+    assert assessment.fx_risk == "unknown"
+
+
 def test_fundamental_agent_rejects_unsupported_llm_bias() -> None:
     context = _context(_snapshot())
     features = context.decision_features

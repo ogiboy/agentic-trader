@@ -17,6 +17,7 @@ from agentic_trader.agents.operator_chat import (
     interpret_operator_instruction,
 )
 from agentic_trader.config import Settings, get_settings
+from agentic_trader.engine.broker import broker_runtime_payload
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
@@ -739,6 +740,35 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
         console.print(_render_preferences(db.load_preferences()))
         _render_recent_runs(db)
     _render_runtime_events(read_service_events(settings, limit=6))
+
+
+def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> None:
+    health = LocalLLM(settings).health_check()
+    runtime_state = read_service_state(settings)
+    runtime_view = build_runtime_status_view(runtime_state)
+    broker = broker_runtime_payload(settings)
+    table = Table(title="AGENTIC TRADER // System Snapshot", expand=True)
+    table.add_column("Key", style="cyan")
+    table.add_column("Value")
+    table.add_row(
+        "Runtime",
+        f"{runtime_view.runtime_state} / {runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode}",
+    )
+    table.add_row("Model", settings.model_name)
+    table.add_row(
+        "LLM Ready",
+        "yes" if health.service_reachable and health.model_available else "no",
+    )
+    table.add_row(
+        "Broker",
+        f"{broker['backend']} / {broker['state']}",
+    )
+    table.add_row("Kill Switch", str(broker["kill_switch_active"]))
+    table.add_row(
+        "DB Views",
+        "readable" if db is not None else LABEL_OBSERVER_MODE,
+    )
+    console.print(table)
 
 
 def _configure_preferences(db: TradingDatabase) -> None:
@@ -1468,7 +1498,10 @@ def run_main_menu() -> None:
         console.print(_banner())
         db = _safe_open_read_db(settings)
         try:
-            _render_status(settings, db)
+            if console.height < 40:
+                _render_compact_status(settings, db)
+            else:
+                _render_status(settings, db)
         finally:
             if db is not None:
                 db.close()

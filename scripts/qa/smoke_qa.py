@@ -111,6 +111,33 @@ def _resolve_agentic_trader_executable() -> str | None:
     return None
 
 
+def _resolve_pyright_executable() -> str | None:
+    """Locate pyright from PATH, the active environment, or the Conda base bin."""
+    candidates: list[Path] = []
+    which_path = shutil.which("pyright")
+    if which_path is not None:
+        candidates.append(Path(which_path))
+    candidates.append(Path(sys.executable).with_name("pyright"))
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        candidates.append(Path(conda_prefix) / "bin" / "pyright")
+    conda_exe = os.environ.get("CONDA_EXE")
+    if conda_exe:
+        candidates.append(Path(conda_exe).with_name("pyright"))
+    executable_path = Path(sys.executable)
+    if "envs" in executable_path.parts:
+        try:
+            envs_index = executable_path.parts.index("envs")
+            conda_root = Path(*executable_path.parts[:envs_index])
+            candidates.append(conda_root / "bin" / "pyright")
+        except ValueError:
+            pass
+    for candidate in candidates:
+        if candidate.exists() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
 def _write_artifact(path: Path, content: str) -> None:
     """
     Write text content to a file, creating or overwriting it.
@@ -806,6 +833,27 @@ def _run_id() -> str:
     return datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
+def _claim_artifacts_dir(run_label: str) -> Path:
+    """
+    Atomically create and return a run artifact directory.
+
+    Parallel smoke runs can receive the same default timestamp label when they
+    start in the same second. Claiming the directory with exist_ok=False keeps
+    their evidence separated instead of letting one run overwrite another.
+    """
+    ARTIFACTS_ROOT.mkdir(parents=True, exist_ok=True)
+    for attempt in range(1, 1000):
+        suffix = "" if attempt == 1 else f"-{attempt}"
+        candidate = ARTIFACTS_ROOT / f"{run_label}{suffix}"
+        try:
+            candidate.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            continue
+        return candidate
+    msg = f"Unable to claim a unique smoke artifact directory for {run_label!r}"
+    raise RuntimeError(msg)
+
+
 def _parse_args() -> Namespace:
     """
     Parse command-line arguments for the smoke QA script.
@@ -1092,7 +1140,7 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
         ),
     ]
 
-    pyright = shutil.which("pyright")
+    pyright = _resolve_pyright_executable()
     if pyright is None:
         results.append(_fail_result(context, "pyright", "pyright not found on PATH"))
     else:
@@ -1100,9 +1148,9 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
             run_command_capture(
                 context,
                 "pyright",
-                [pyright],
+                [pyright, "--pythonpath", sys.executable, "agentic_trader", "tests"],
                 timeout=120,
-                display="pyright",
+                display="pyright --pythonpath <smoke-python> agentic_trader tests",
             )
         )
     return results
@@ -1189,8 +1237,7 @@ def main() -> int:
         int: 0 if all checks passed, 1 if any check failed.
     """
     args = _parse_args()
-    context = SmokeContext(artifacts_dir=ARTIFACTS_ROOT / args.run_label)
-    context.artifacts_dir.mkdir(parents=True, exist_ok=True)
+    context = SmokeContext(artifacts_dir=_claim_artifacts_dir(args.run_label))
 
     results = _surface_checks(context, args)
     if args.include_quality:

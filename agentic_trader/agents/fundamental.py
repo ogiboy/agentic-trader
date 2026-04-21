@@ -56,6 +56,8 @@ def _growth_quality(value: float | None) -> AnalysisSignal:
 def _fx_risk(features: FundamentalFeatureSet, macro: MacroContext | None) -> FxRisk:
     if macro is not None and macro.fx_risk != "unknown":
         return macro.fx_risk
+    if not features.fx_exposure:
+        return "unknown"
     normalized_fx_exposure = features.fx_exposure.lower()
     if normalized_fx_exposure in {"low", "medium", "high"}:
         return cast(FxRisk, normalized_fx_exposure)
