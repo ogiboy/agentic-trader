@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 from scripts.qa import smoke_qa
@@ -38,3 +39,29 @@ def test_ink_settings_capture_issues_reports_missing_markers() -> None:
     assert "recent runs panel missing" in issues
     assert "risk/style preference line missing" in issues
     assert "behavior/strictness line missing" in issues
+
+
+def test_run_ink_settings_navigation_reports_tmux_session_failures(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(smoke_qa.shutil, "which", lambda name: "/usr/bin/tmux")
+
+    def _fake_run(*args, **kwargs):
+        command = args[0]
+        if command[1] == "new-session":
+            raise subprocess.CalledProcessError(
+                returncode=1,
+                cmd=command,
+                stderr="permission denied",
+            )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(smoke_qa.subprocess, "run", _fake_run)
+
+    result = smoke_qa.run_ink_settings_navigation(
+        smoke_qa.SmokeContext(artifacts_dir=tmp_path),
+        "agentic-trader",
+    )
+
+    assert not result.passed
+    assert "tmux new-session failed" in result.details

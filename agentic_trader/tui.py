@@ -770,7 +770,10 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
         "Broker",
         f"{broker['backend']} / {broker['state']}",
     )
-    table.add_row("Kill Switch", str(broker["kill_switch_active"]))
+    table.add_row(
+        "Kill Switch",
+        "yes" if broker["kill_switch_active"] else "no",
+    )
     table.add_row(
         "DB Views",
         "readable" if db is not None else LABEL_OBSERVER_MODE,

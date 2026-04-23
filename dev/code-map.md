@@ -11,6 +11,13 @@ behavior, while this map explains where to look and how the pieces connect.
 - `agentic_trader/tui.py` is the legacy/admin Rich control room. It remains useful for fallback workflows and manual operator menus.
 - `tui/index.mjs` is the primary Ink control room. It talks to Python through the installed CLI and read-only JSON payload commands.
 
+## Web And Docs Surfaces
+
+- `webgui/` is the local Web GUI. It uses Next.js App Router route handlers to call the same dashboard, runtime, chat, and instruction contracts that power the terminal surfaces.
+- `docs/` is the developer docs app. It now uses Fumadocs plus MDX for curated setup, architecture, runtime, operator-surface, and QA documentation.
+- `docs/source.config.ts`, `docs/lib/source.ts`, and `docs/content/docs/` own the Fumadocs content pipeline.
+- `docs/app/docs/[[...slug]]/page.tsx` renders the generated MDX pages, while `docs/app/page.tsx` is the project-facing landing page for developers.
+
 ## Orchestration
 
 - `agentic_trader/workflows/run_once.py` runs one strict agent cycle from market data or a prepared snapshot, persists stage traces, and emits progress callbacks.

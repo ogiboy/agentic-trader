@@ -1,0 +1,60 @@
+---
+title: Veri ve Zekâ Katmanı
+description: Canonical snapshot'lar, feature bundle'lar, provider truth ve kanıt ile reasoning arasındaki sınır.
+---
+
+## Veri duruşu
+
+Ham provider payload'ları doğrudan agent truth'u olacak kadar güvenilir değil.
+Provider'lar anlaşmaz, alanlar eksik gelir, freshness değişir ve tekst özeti önemli boşlukları gizleyebilir.
+
+Repo yönü, dış veriyi model katmanına vermeden önce typed contract'lere normalize etmektir.
+
+## Ana sözleşmeler
+
+- `CanonicalAnalysisSnapshot`
+- `DecisionFeatureBundle`
+- `MarketContextPack`
+- canonical birleşim öncesi provider'a özgü fundamental ya da news snapshot'ları
+
+## Bunun önemi
+
+Modelden belirsiz string'lerden örtük finansal gerçek çıkarması beklenmemeli.
+Model şu girdileri almalı:
+
+- yapılandırılmış özetler
+- missing-field visibility
+- freshness context
+- source attribution
+- açık risk flag'leri
+
+## Provider aggregation kuralları
+
+Bu repo için iyi aggregation şu anlama gelir:
+
+- provider'a özgü string parsing yerine canonical output'u tercih etmek
+- eksik provider evidence'ı görünür tutmak
+- source attribution'ları korumak
+- evidence katmanı zayıfsa confidence'ı düşürmek
+- generic fallback'leri açıkça fallback diye etiketlemek
+
+## Feature preparation
+
+Feature katmanı; karışık market, provider ve runtime sinyallerini derli toplu bir decision context'e dönüştüren yerdir.
+Bu katman eksik ya da yarımsa downstream confidence bunu yansıtmalıdır.
+
+Bu yüzden missing `context` ya da missing `decision_features`, kozmetik bir eksik değil gerçek bir provider ya da evidence gap olarak ele alınmalıdır.
+
+## Review ve persistence bağlantısı
+
+Bu yapısal artefact'ler yalnızca canlı reasoning için değil şunlar için de önemlidir:
+
+- review yüzeyleri
+- QA
+- replay
+- provider ile agent arasındaki anlaşmazlıkları debug etmek
+
+## Güvenli zihinsel model
+
+Modeli, typed evidence üzerine oturan bir reasoning katmanı olarak düşün.
+Eksik piyasa gerçeğini icat eden yer olarak değil.

@@ -9,6 +9,22 @@
 
 ## Current Suggested Focus
 
+### 0. Immediate Now vs Next
+
+Now:
+
+- keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
+- capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, including JetBrains Mono typography
+- keep the locale-aware English and Turkish docs trees curated, modular, and synced with runtime reality instead of letting them collapse back into oversized route files or duplicated repo notes
+- keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts while avoiding a broad one-shot CSS rewrite
+- design the Ollama-management path as an extension of the existing daemon/log/status surfaces so the app can eventually start, stop, inspect, and expose model-service logs without creating a parallel supervisor
+
+Next:
+
+- add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
+- resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind resolution issue so local interactive frontend work matches the now-green lint/build path
+- verify the docs GitHub App wiring and discussion category in the target repo so feedback can forward beyond the local mirror consistently
+
 ### 1. Financial Intelligence Layer
 
 Move the system from compact price-only reasoning toward structured multi-source decision context.
@@ -116,6 +132,7 @@ Keep the background runtime and the Ink control room aligned and more operationa
 Desired shape:
 
 - stronger daemon supervision readiness
+- optional app-managed Ollama lifecycle control, health probes, and operator-visible request/log tails inside the same supervision surface
 - hardware-aware runtime performance profiles for safe agent concurrency, token budgets, request timeouts, and memory use
 - a local capability probe that can recommend lightweight, balanced, or high-throughput profiles from CPU/RAM/GPU/model details
 - richer daemon supervision metadata such as launch counts, restart counts, terminal states, and log-tail visibility
@@ -155,6 +172,7 @@ Desired direction:
 - simplify Rich menu navigation so back, close, cancel, and exit behaviors are consistent and the repeated logo/header does not dominate every output
 - add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
 - turn UX findings into smallest-safe repair recommendations, classified as V1 blocker, V1 polish, or V2 redesign before implementation
+- keep the Web GUI on the same parity path, including production-verifiable visuals and a follow-up fix for the current `next dev` workspace-resolution issue
 
 ### 9. Per-Trade Context Persistence
 
@@ -241,6 +259,25 @@ Desired direction:
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
+
+### 15. Docs And Frontend System
+
+Current state:
+
+- `docs/` now uses Fumadocs plus MDX for setup, architecture, runtime operations, agent pipeline, data/intelligence, operator-surface, memory/review, QA, and contribution pages
+- `docs/` now serves locale-prefixed English and Turkish trees with localized landing, navigation, and feedback copy
+- `docs` and `webgui` share the same shadcn preset result from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`
+- `webgui` still leans on a large legacy global shell layer even though Next.js App Router, Tailwind v4, and shadcn are already present
+
+Desired direction:
+
+- preserve the current `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono, and app-local `components/ui` baseline across both apps
+- keep `docs` curated and source-linked instead of turning it into a second dump of repository files
+- keep docs route files, feedback flows, and content helpers modular whenever splitting improves readability or reviewability
+- keep `docs/.env.example` aligned with the actual GitHub Discussions feedback inputs and use `docs/.env.local` for real secrets
+- verify the docs GitHub App wiring and discussion category in the target repo so feedback can forward beyond the local mirror consistently
+- migrate `webgui` screen by screen from legacy shell classes toward shadcn primitives and token-driven utility composition
+- avoid introducing new global shell classes when a shadcn primitive plus `cn` or `cva` composition can own the change
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
 - use pexpect, tmux, asciinema, pane captures, and JSON/text artifacts as the primary CLI/Rich/Ink validation path, and add a Computer Use visual pass whenever the environment exposes it and layout/operator clarity is in scope
 - keep `.ai/agents/` role guidance aligned with `AGENTS.md`, `.ai/qa/`, and current architecture so development agents remain helpers rather than runtime dependencies

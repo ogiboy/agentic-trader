@@ -15,13 +15,13 @@ from agentic_trader.schemas import (
 )
 
 
-FUNDAMENTAL_FIELDS = [
+FUNDAMENTAL_FIELDS = (
     "revenue_growth",
     "profitability_stability",
     "cash_flow_alignment",
     "debt_risk",
     "reinvestment_potential",
-]
+)
 
 
 class SecEdgarFundamentalProvider:

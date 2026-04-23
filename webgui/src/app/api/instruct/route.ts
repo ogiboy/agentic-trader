@@ -23,7 +23,8 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const result = await runInstruction(body.message, Boolean(body.apply));
+    const apply = body.apply === true;
+    const result = await runInstruction(body.message, apply);
     const dashboard = await getDashboardSnapshot();
     return Response.json({ result, dashboard });
   } catch (error) {

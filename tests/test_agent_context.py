@@ -13,7 +13,6 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.schemas import (
     AgentContext,
-    CanonicalAnalysisSnapshot,
     ExecutionDecision,
     InvestmentPreferences,
     ManagerDecision,
@@ -296,10 +295,6 @@ def test_render_agent_context_prefers_structured_features_when_available(
 def test_render_decision_feature_summary_returns_placeholder_when_no_features(
     tmp_path: Path,
 ) -> None:
-    settings = Settings(
-        runtime_dir=tmp_path,
-        database_path=tmp_path / "agentic_trader.duckdb",
-    )
     snapshot = _artifacts().snapshot
     context = AgentContext(
         role="coordinator",

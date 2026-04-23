@@ -1,0 +1,71 @@
+---
+title: Bootstrap ve Onboarding
+description: Hedeflenen kurulum deneyimi, neden hâlâ tam basit olmadığı ve gelecekteki installer'ın neleri çözmesi gerektiği.
+---
+
+## Bugünkü gerçeklik
+
+Depo hâlâ oldukça elle yürütülen bir Python ve Node kurulumu bekliyor.
+Bu, katkı verenler için kabul edilebilir; ama daha geniş kullanıcı tabanı için istediğimiz V1 onboarding deneyimi henüz bu değil.
+
+## Ürün hedefi
+
+Uzun vadeli bootstrap akışı README içinden komut avlatmak yerine yönlendirmeli bir launcher gibi hissettirmeli.
+En azından şu işleri yapabilmeli:
+
+1. platform ve prerequisite eksiklerini tespit etmek
+2. isteğe bağlı bağımlılık kurulumunu teklif etmek
+3. Python ve Node ortamlarını hazırlamak
+4. provider ve model ready oluşunu doğrulamak
+5. ilgili lokal yüzeyi başlatmak
+6. herhangi bir şey bozulduğunda sonraki adımı açıkça söylemek
+
+## Vazgeçilmez gereksinimler
+
+- macOS, Linux ve Windows desteği
+- Ollama'yı zorla dayatmayan provider-aware davranış
+- isteğe bağlı model servisleri ve modeller için açık onay
+- yarım kurulumlarda resume ya da repair davranışı
+- görünür loglar ve aksiyon alınabilir hata mesajları
+
+## Ollama için özel yön
+
+Bugün gerçek bir lokal başlangıç komutu şöyle görünebiliyor:
+
+```bash
+OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" /opt/homebrew/opt/ollama/bin/ollama serve
+```
+
+İstenen gelecek durum “kullanıcı bu komutu ezberlesin” değil.
+İstenen gelecek durum şu:
+
+- uygulama Ollama'yı bilinçli biçimde başlatıp durdurabilsin
+- uygulama health ve son logları gösterebilsin
+- operatör idle, busy ve broken hâllerini ayırt edebilsin
+
+## Tasarlanması gereken edge case'ler
+
+- kullanıcı başka provider istediği için Ollama'yı atlayabilmeli
+- package manager ya da shell toolchain eksik olabilir
+- PATH bakımcının makinesinden farklı olabilir
+- kısmi kurulum vardır ve repair ister
+- Web GUI açılır ama runtime readiness check'lerini geçemez
+- model vardır ama yanlış adapter ya da base URL yapılandırılmıştır
+
+## İyi bir bootstrap UX neyi açık söyler
+
+İyi bir bootstrap akışı şu konularda net olmalı:
+
+- ne kuracağı
+- neyi atladığı
+- neyin zorunlu neyin opsiyonel olduğu
+- hangi dosyaları değiştirdiği
+- hangi lokal URL ya da UI'yi başlattığı
+
+## Önerilen kabul listesi
+
+- Yeni bir makine `doctor` noktasına tahmin yürütmeden ulaşabilmeli.
+- İsteğe bağlı model kurulumu atlanınca geri kalan sistem bozulmamalı.
+- Model ya da provider ready oluşu eksikse kullanıcı açık bir hata görmeli.
+- Launcher kullanıcıyı loglara yönlendirebilmeli; logları saklamamalı.
+- Oluşturulan ortam repo'nun mevcut runtime sözleşmeleriyle uyumlu kalmalı.

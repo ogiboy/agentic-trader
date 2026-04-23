@@ -1,0 +1,49 @@
+---
+title: Operator Surfaces
+description: How CLI, Rich, Ink, observer API, and Web GUI should stay aligned on one runtime truth.
+---
+
+## Surfaces in scope
+
+- CLI commands in `agentic_trader/cli.py`
+- Rich menu and status surfaces in `agentic_trader/tui.py`
+- Ink control room in `tui/index.mjs`
+- observer API in `agentic_trader/observer_api.py`
+- Next.js Web GUI in `webgui/`
+
+## Shared truth rule
+
+No surface should invent a private runtime model.
+If a screen shows runtime, broker, memory, review, or health state, that should come from shared contracts.
+
+## What the Web GUI is allowed to do
+
+- validate web input at the API boundary
+- delegate to existing runtime contracts
+- present operator-focused copy and controls
+- poll or refresh shared status safely
+
+## What the Web GUI is not allowed to do
+
+- create a parallel orchestration path
+- invent web-only execution semantics
+- hide safety gates behind optimistic UI
+- mutate operator intent through a loose chat path
+
+## Docs-specific surface rule
+
+The docs app is also a surface.
+Its job is to explain the runtime, not to drift into its own product narrative.
+
+That means:
+
+- feedback copy must explain whether data is logged locally, forwarded to GitHub, or both
+- docs pages should reflect real repo posture
+- project memory and docs content should move together
+
+## Change checklist for surface work
+
+- confirm the backend contract first
+- confirm the UI is reading the right fields
+- confirm degraded states are visible
+- run at least one operator-facing QA pass when behavior changes

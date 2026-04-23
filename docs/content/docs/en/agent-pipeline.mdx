@@ -1,0 +1,66 @@
+---
+title: Agent Pipeline
+description: How context becomes specialist analysis, manager output, and guarded execution without hidden leaps.
+---
+
+## Why the pipeline matters
+
+The repo is not asking a single chat prompt to improvise a trade.
+It is assembling typed context, routing it through specialist stages, and applying a deterministic guard before anything reaches execution.
+
+## High-level flow
+
+1. Market and provider context is assembled.
+2. Specialist agents interpret their slice of the problem.
+3. A manager synthesizes the specialist outputs.
+4. Guard logic decides whether action is allowed.
+5. Execution intent and outcome are persisted as explicit records.
+
+## Inputs the pipeline should prefer
+
+- canonical provider snapshots
+- typed feature bundles
+- freshness and source attribution
+- missing-data visibility
+- runtime mode and operator intent
+
+## Inputs the pipeline should avoid pretending to have
+
+- fabricated fundamental confidence
+- hidden provider truth when a provider is missing
+- unstated fallbacks that change semantics
+- web-only local state not reflected in runtime contracts
+
+## Fallback rule
+
+Fallbacks are sometimes necessary, but they must be honest.
+
+That means:
+
+- explicit reasons when provider evidence is missing
+- different behavior between permissive training paths and strict operational paths
+- zero or degraded confidence when supporting evidence is absent
+- no silent substitution that looks like primary truth
+
+## Where to debug pipeline issues
+
+When a result feels suspicious, inspect:
+
+- normalized provider snapshots
+- decision feature bundles
+- specialist outputs
+- manager summaries
+- guard decisions
+- persisted review or trace artifacts
+
+The right fix is usually found there before touching prompts blindly.
+
+## Docs rule for this area
+
+If the pipeline contract changes, update:
+
+- architecture docs
+- data and intelligence docs
+- runtime docs if operator-visible behavior changed
+- `.ai/current-state.md`
+- `.ai/decisions.md`

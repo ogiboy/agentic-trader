@@ -1055,7 +1055,7 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
             db.close()
         available = True
         error = None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         entries = []
         available = False
         error = str(exc)
@@ -1093,7 +1093,7 @@ def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]
             db.close()
         available = True
         error = None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         runs = []
         available = False
         error = str(exc)

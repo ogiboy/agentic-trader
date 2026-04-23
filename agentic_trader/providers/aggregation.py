@@ -151,6 +151,24 @@ def _first_fundamental_snapshot(
             ]
         missing_snapshots.append(snapshot)
     if missing_snapshots:
+        if len(missing_snapshots) == len(providers):
+            return (
+                FundamentalSnapshot(
+                    symbol_identity=symbol,
+                    attribution=source_attribution(
+                        source_name="fundamental_provider_unavailable",
+                        provider_type="fundamental",
+                        source_role="missing",
+                        fetched_at=utc_now_iso(),
+                        freshness="missing",
+                        notes=errors,
+                    ),
+                    missing_fields=["fundamental_snapshot"],
+                    summary="No fundamental provider produced a snapshot.",
+                ),
+                errors,
+                [item.attribution for item in missing_snapshots],
+            )
         return (
             missing_snapshots[0],
             errors,
@@ -223,7 +241,12 @@ def _collect_disclosures(
     errors: list[str] = []
     empty_attributions: list[DataSourceAttribution] = []
     for provider in providers:
-        provider_metadata = provider.metadata()
+        try:
+            provider_metadata = provider.metadata()
+        except Exception as exc:
+            provider_name = type(provider).__name__
+            errors.append(f"{provider_name}: metadata failed: {exc}")
+            continue
         try:
             provider_disclosures = provider.get_disclosures(symbol, limit=limit)
         except Exception as exc:
@@ -268,7 +291,12 @@ def _collect_provider_news(
     errors: list[str] = []
     empty_attributions: list[DataSourceAttribution] = []
     for provider in providers:
-        provider_metadata = provider.metadata()
+        try:
+            provider_metadata = provider.metadata()
+        except Exception as exc:
+            provider_name = type(provider).__name__
+            errors.append(f"{provider_name}: metadata failed: {exc}")
+            continue
         try:
             provider_events = provider.get_news(symbol, limit=limit)
         except Exception as exc:

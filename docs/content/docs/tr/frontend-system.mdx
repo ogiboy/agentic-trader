@@ -1,0 +1,63 @@
+---
+title: Frontend Sistemi
+description: Docs ve Web GUI için ortak Next.js kararları; tema, modülerlik ve migration kuralları.
+---
+
+## Ortak temel
+
+Hem `docs/` hem de `webgui/` şu komutla başlatıldı:
+
+```bash
+pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next
+```
+
+Bu da iki uygulamaya ortak bir temel veriyor:
+
+- Next.js App Router
+- Tailwind v4
+- CSS-variable tabanlı theme
+- mevcut shadcn preset'i
+- tipografi yönü olarak JetBrains Mono
+
+## Component kuralı
+
+`pnpm dlx shadcn@latest add ...` ile yeni component eklediğimizde CLI, her uygulamanın kendi `components.json` dosyasını okur.
+Bu sayede eklenen component'ler mevcut preset'i miras alır; görsel olarak başka bir tarafa kaymaz.
+
+## Modülerlik kuralı
+
+Küçük dosya tek başına bir hedef değil; ama okunabilirliği artırıyorsa frontend tarafı bölünmeli.
+Dosya bölmek için iyi nedenler:
+
+- route dosyası loading, copy ve layout'u aynı anda taşıyorsa
+- tek bir component çok alakasız sorumluluk üstleniyorsa
+- review tek bir dosyada birkaç farklı zihinsel modeli takip etmeyi zorlaştırıyorsa
+- locale-aware ya da feature-aware copy'yi ayrı test etmek kolaylaşıyorsa
+
+Docs uygulaması artık bu yaklaşımı `components/home`, `components/feedback`, `components/layout`, `lib/i18n` ve `lib/home/content` ayrımıyla uyguluyor.
+
+## Web GUI migration gerçeği
+
+`webgui/` hâlâ geçiş sürecinde.
+Modern temel orada da hazır; ama bazı ekranlar hâlâ eski global CSS'e dayanıyor.
+
+Güvenli migration kuralları:
+
+- ekran ekran ilerle
+- shadcn primitive'leri ve Tailwind utility'lerini tercih et
+- route handler'ları ince tut
+- bir component taşıyabiliyorsa yeni global CSS ekleme
+
+## Route handler kuralı
+
+`webgui/` içindeki Next.js route handler'ları input'u doğrulayıp sonra Python runtime contract'ine delegasyon yapmalı.
+Yeni bir business-logic katmanına dönüşmemeli.
+
+## Docs UX kuralı
+
+Özellikle docs uygulaması için:
+
+- locale desteğini açık tut
+- navigasyonu öngörülebilir kıl
+- landing page'leri gereksiz yükleme
+- feedback mesajlarında local kayıt ile opsiyonel GitHub forwarding ayrımını net yaz

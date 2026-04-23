@@ -1,6 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { CHAT_PERSONAS, type ChatPersona } from "@/lib/chat-personas";
 
 type DashboardData = Record<string, any>;
 type TabId = "overview" | "runtime" | "portfolio" | "review" | "memory" | "chat" | "settings";
@@ -14,14 +18,6 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: "memory", label: "Memory" },
   { id: "chat", label: "Chat" },
   { id: "settings", label: "Settings" },
-];
-
-const personas = [
-  "operator_liaison",
-  "regime_analyst",
-  "strategy_selector",
-  "risk_steward",
-  "portfolio_manager",
 ];
 
 const marketLensImage =
@@ -315,7 +311,7 @@ export function ControlRoom() {
   );
   const [busy, setBusy] = useState<string | null>(null);
   const [chatDraft, setChatDraft] = useState("");
-  const [chatPersona, setChatPersona] = useState("operator_liaison");
+  const [chatPersona, setChatPersona] = useState<ChatPersona>("operator_liaison");
   const [chatHistory, setChatHistory] = useState<Array<Record<string, string>>>([]);
   const [instructionDraft, setInstructionDraft] = useState("");
   const [instructionMode, setInstructionMode] = useState<"preview" | "apply">("preview");
@@ -323,27 +319,66 @@ export function ControlRoom() {
     null,
   );
   const [lastLoadedAt, setLastLoadedAt] = useState<string>("-");
+  const lastRequestSeqRef = useRef(0);
+  const dashboardAbortRef = useRef<AbortController | null>(null);
 
-  const loadDashboard = useCallback(async () => {
-    try {
-      const payload = await readJson<DashboardData>("/api/dashboard");
-      setDashboard(payload);
-      setChatHistory(normalizeChatHistory(payload));
-      setLastLoadedAt(new Date().toLocaleTimeString());
-      setError(null);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : String(nextError));
-    } finally {
-      setLoading(false);
-    }
+  const applyDashboardPayload = useCallback((payload: DashboardData) => {
+    setDashboard(payload);
+    setChatHistory(normalizeChatHistory(payload));
+    setLastLoadedAt(new Date().toLocaleTimeString());
+    setError(null);
   }, []);
 
+  const applyLatestDashboard = useCallback(
+    (payload: DashboardData) => {
+      lastRequestSeqRef.current += 1;
+      dashboardAbortRef.current?.abort();
+      dashboardAbortRef.current = null;
+      applyDashboardPayload(payload);
+      setLoading(false);
+    },
+    [applyDashboardPayload],
+  );
+
+  const loadDashboard = useCallback(async () => {
+    const seq = lastRequestSeqRef.current + 1;
+    lastRequestSeqRef.current = seq;
+    dashboardAbortRef.current?.abort();
+    const controller = new AbortController();
+    dashboardAbortRef.current = controller;
+    try {
+      const payload = await readJson<DashboardData>("/api/dashboard", {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
+        return;
+      }
+      applyDashboardPayload(payload);
+    } catch (nextError) {
+      if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
+        return;
+      }
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      if (dashboardAbortRef.current === controller) {
+        dashboardAbortRef.current = null;
+      }
+      if (seq === lastRequestSeqRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [applyDashboardPayload]);
   useEffect(() => {
-    void loadDashboard();
+    const initialRefresh = setTimeout(() => {
+      void loadDashboard();
+    }, 0);
     const timer = setInterval(() => {
       void loadDashboard();
     }, 2500);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initialRefresh);
+      clearInterval(timer);
+    };
   }, [loadDashboard]);
 
   const runAction = useCallback(
@@ -364,10 +399,8 @@ export function ControlRoom() {
             body: JSON.stringify({ kind }),
           },
         );
-        setDashboard(result.dashboard);
-        setChatHistory(normalizeChatHistory(result.dashboard));
+        applyLatestDashboard(result.dashboard);
         setMessage({ text: result.message, tone: "good" });
-        setLastLoadedAt(new Date().toLocaleTimeString());
       } catch (nextError) {
         setMessage({
           text: nextError instanceof Error ? nextError.message : String(nextError),
@@ -377,7 +410,7 @@ export function ControlRoom() {
         setBusy(null);
       }
     },
-    [loadDashboard],
+    [applyLatestDashboard, loadDashboard],
   );
 
   const sendChat = useCallback(async () => {
@@ -387,21 +420,13 @@ export function ControlRoom() {
     }
     setBusy("chat");
     try {
-      const result = await readJson<Record<string, string>>("/api/chat", {
+      await readJson<Record<string, string>>("/api/chat", {
         method: "POST",
         body: JSON.stringify({
           persona: chatPersona,
           message: messageText,
         }),
       });
-      setChatHistory((current) => [
-        ...current,
-        {
-          user: result.message,
-          persona: result.persona,
-          response: result.response,
-        },
-      ]);
       setChatDraft("");
       setMessage({ text: "Operator reply received.", tone: "good" });
       await loadDashboard();
@@ -433,8 +458,7 @@ export function ControlRoom() {
         },
       );
       setInstructionResult(result.result);
-      setDashboard(result.dashboard);
-      setChatHistory(normalizeChatHistory(result.dashboard));
+      applyLatestDashboard(result.dashboard);
       setInstructionDraft("");
       setMessage({
         text:
@@ -443,7 +467,6 @@ export function ControlRoom() {
             : "Instruction preview ready.",
         tone: "good",
       });
-      setLastLoadedAt(new Date().toLocaleTimeString());
     } catch (nextError) {
       setMessage({
         text: nextError instanceof Error ? nextError.message : String(nextError),
@@ -452,7 +475,7 @@ export function ControlRoom() {
     } finally {
       setBusy(null);
     }
-  }, [instructionDraft, instructionMode]);
+  }, [applyLatestDashboard, instructionDraft, instructionMode]);
 
   const currentCycle = useMemo<Array<[string, string]>>(
     () => [
@@ -491,10 +514,13 @@ export function ControlRoom() {
       return (
         <div className="stack">
           <section className="market-ribbon">
-            <img
+            <Image
               className="market-ribbon__image"
               src={marketLensImage}
               alt="Trading screens showing market data."
+              fill
+              priority
+              sizes="(max-width: 960px) 100vw, 50vw"
             />
             <div className="market-ribbon__overlay">
               <div>
@@ -726,9 +752,11 @@ export function ControlRoom() {
                 Persona
                 <select
                   value={chatPersona}
-                  onChange={(event) => setChatPersona(event.target.value)}
+                  onChange={(event) =>
+                    setChatPersona(event.target.value as ChatPersona)
+                  }
                 >
-                  {personas.map((persona) => (
+                  {CHAT_PERSONAS.map((persona) => (
                     <option key={persona} value={persona}>
                       {persona}
                     </option>

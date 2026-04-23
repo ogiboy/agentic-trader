@@ -7,6 +7,12 @@ from agentic_trader.providers import (
     build_canonical_analysis_snapshot,
     default_provider_set,
 )
+from agentic_trader.providers.aggregation import (
+    _collect_disclosures,
+    _collect_provider_news,
+    _first_fundamental_snapshot,
+)
+from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
 from agentic_trader.providers.interfaces import (
     DisclosureProvider,
     FundamentalDataProvider,
@@ -177,7 +183,11 @@ def test_decision_bundle_consumes_canonical_snapshot() -> None:
         canonical_snapshot=canonical,
     )
 
-    assert "sec_edgar" in bundle.fundamental.data_sources
+    assert bundle.fundamental.data_sources == ["fundamental_provider_unavailable"]
+    assert any(
+        source.source_name == "sec_edgar"
+        for source in canonical.source_attributions
+    )
     assert bundle.macro.news_signals[0].category == "macro_level"
     assert bundle.macro.data_sources[0] == "local_macro_scaffold"
 
@@ -354,3 +364,94 @@ def test_trade_context_persists_canonical_snapshot(tmp_path: Path) -> None:
     assert record is not None
     assert record.canonical_snapshot is not None
     assert record.canonical_snapshot.symbol_identity.symbol == "AAPL"
+
+
+class _MissingFundamentalProvider:
+    def __init__(self, provider_id: str) -> None:
+        self._provider_id = provider_id
+
+    def metadata(self) -> ProviderMetadata:
+        return metadata(
+            provider_id=self._provider_id,
+            name=self._provider_id,
+            provider_type="fundamental",
+            role="missing",
+        )
+
+    def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
+        return FundamentalSnapshot(
+            symbol_identity=symbol,
+            attribution=source_attribution(
+                source_name=self._provider_id,
+                provider_type="fundamental",
+                source_role="missing",
+                fetched_at=utc_now_iso(),
+                freshness="missing",
+            ),
+            missing_fields=["fundamental_snapshot"],
+            summary=f"{self._provider_id} missing fundamentals.",
+        )
+
+
+class _MetadataFailingDisclosureProvider:
+    def metadata(self) -> ProviderMetadata:
+        raise RuntimeError("metadata offline")
+
+    def get_disclosures(
+        self, symbol: SymbolIdentity, *, limit: int
+    ) -> list[DisclosureEvent]:
+        _ = (symbol, limit)
+        raise AssertionError("get_disclosures should not be called")
+
+
+class _MetadataFailingNewsProvider:
+    def metadata(self) -> ProviderMetadata:
+        raise RuntimeError("metadata offline")
+
+    def get_news(self, symbol: SymbolIdentity, *, limit: int) -> list[NewsEvent]:
+        _ = (symbol, limit)
+        raise AssertionError("get_news should not be called")
+
+
+def test_all_missing_fundamental_providers_return_generic_missing_snapshot() -> None:
+    symbol = SymbolIdentity(symbol="AAPL")
+
+    snapshot, errors, extra_attributions = _first_fundamental_snapshot(
+        [
+          _MissingFundamentalProvider("provider_a"),
+          _MissingFundamentalProvider("provider_b"),
+        ],
+        symbol,
+    )
+
+    assert snapshot.attribution.source_name == "fundamental_provider_unavailable"
+    assert snapshot.summary == "No fundamental provider produced a snapshot."
+    assert errors == []
+    assert {item.source_name for item in extra_attributions} == {
+        "provider_a",
+        "provider_b",
+    }
+
+
+def test_collect_disclosures_records_metadata_failures_without_aborting() -> None:
+    disclosures, errors, empty_attributions = _collect_disclosures(
+        [_MetadataFailingDisclosureProvider(), LocalDisclosureProvider(_settings())],
+        SymbolIdentity(symbol="AAPL"),
+        limit=5,
+    )
+
+    assert disclosures == []
+    assert any("metadata failed" in error for error in errors)
+    assert empty_attributions
+
+
+def test_collect_provider_news_records_metadata_failures_without_aborting() -> None:
+    events, errors, empty_attributions = _collect_provider_news(
+        [_MetadataFailingNewsProvider(), YahooNewsProvider(_settings())],
+        SymbolIdentity(symbol="AAPL"),
+        limit=5,
+    )
+
+    assert events == []
+    assert any("metadata failed" in error for error in errors)
+    assert empty_attributions

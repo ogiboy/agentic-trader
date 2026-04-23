@@ -2,6 +2,30 @@ import { runRuntimeAction } from '../../../lib/agentic-trader';
 
 export const dynamic = 'force-dynamic';
 
+const SUPPORTED_RUNTIME_ACTIONS = new Set([
+  'start',
+  'stop',
+  'restart',
+  'one-shot',
+]);
+
+function isSameOriginRequest(request: Request): boolean {
+  const requestOrigin = new URL(request.url).origin;
+  const origin = request.headers.get('origin');
+  if (origin) {
+    return origin === requestOrigin;
+  }
+  const referer = request.headers.get('referer');
+  if (!referer) {
+    return true;
+  }
+  try {
+    return new URL(referer).origin === requestOrigin;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Handle POST requests to execute a runtime action and return the result as JSON.
  *
@@ -17,11 +41,28 @@ export const dynamic = 'force-dynamic';
  *          - `{ error: <message> }` with status 500 on failure.
  */
 export async function POST(request: Request) {
+  const contentType = request.headers.get('content-type')?.toLowerCase() || '';
+  if (!contentType.includes('application/json')) {
+    return Response.json({ error: 'expected application/json' }, { status: 400 });
+  }
+  if (!isSameOriginRequest(request)) {
+    return Response.json({ error: 'forbidden origin' }, { status: 403 });
+  }
+
+  let body: { kind?: unknown };
   try {
-    const body = (await request.json()) as { kind?: string };
-    if (!body.kind) {
+    body = (await request.json()) as { kind?: unknown };
+  } catch {
+    return Response.json({ error: 'invalid json' }, { status: 400 });
+  }
+
+  try {
+    if (
+      typeof body.kind !== 'string' ||
+      !SUPPORTED_RUNTIME_ACTIONS.has(body.kind)
+    ) {
       return Response.json(
-        { error: 'missing runtime action' },
+        { error: 'invalid runtime action' },
         { status: 400 },
       );
     }

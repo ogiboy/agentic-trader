@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
+from uuid import uuid4
 
 import pexpect
 
@@ -721,17 +722,14 @@ def run_ink_settings_navigation(
     if tmux_path is None:
         return _skip_result(context, name, "tmux not found on PATH")
 
-    session_name = f"agentic-trader-ink-{int(time.time() * 1000)}"
-    launch_command = (
-        f"cd {shlex.quote(str(REPO_ROOT))} && "
-        f"PATH=/opt/anaconda3/envs/trader/bin:$PATH {shlex.quote(command)} tui"
-    )
+    session_name = f"agentic-trader-ink-{int(time.time() * 1000)}-{uuid4().hex}"
+    launch_command = f"cd {shlex.quote(str(REPO_ROOT))} && {shlex.quote(command)} tui"
     overview_capture = ""
     settings_capture = ""
     issues: list[str] = []
 
     try:
-        subprocess.run(
+        launch_proc = subprocess.run(
             [
                 tmux_path,
                 "new-session",
@@ -748,8 +746,10 @@ def run_ink_settings_navigation(
             text=True,
             capture_output=True,
             timeout=timeout,
-            check=False,
+            check=True,
         )
+        if launch_proc.stderr:
+            issues.append(f"tmux new-session stderr: {launch_proc.stderr.strip()}")
 
         ready_deadline = time.monotonic() + timeout
         while time.monotonic() < ready_deadline:
@@ -795,6 +795,11 @@ def run_ink_settings_navigation(
                 check=False,
             )
             time.sleep(1.0)
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else str(exc.stderr)
+        issues.append(
+            f"tmux new-session failed with code {exc.returncode}: {stderr or 'no stderr'}"
+        )
     except Exception as exc:
         issues.append(f"exception={exc}")
     finally:

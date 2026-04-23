@@ -1,0 +1,66 @@
+---
+title: QA And Debugging
+description: Validate operator-facing changes with targeted tests, smoke QA, and runtime evidence.
+---
+
+## Baseline automated checks
+
+Start with focused checks:
+
+```bash
+python -m ruff check .
+python -m pytest -q -p no:cacheprovider
+python scripts/qa/smoke_qa.py
+```
+
+For the docs app:
+
+```bash
+cd docs
+pnpm lint
+pnpm build
+```
+
+## Why smoke QA matters
+
+This repo has real operator surfaces.
+A passing unit test is not enough if the CLI, Ink, Rich, observer, or Web GUI disagree about runtime truth.
+
+## Preferred evidence stack
+
+1. targeted tests
+2. CLI or observer contract output
+3. smoke QA artifacts
+4. tmux or asciinema capture when interaction matters
+5. browser or Computer Use checks for visual confirmation
+
+## Runtime-first debugging rule
+
+When behavior looks wrong:
+
+- inspect runtime artifacts before assuming the UI is right
+- inspect logs before inferring health from background traffic
+- inspect persisted context and review artifacts before changing prompts
+
+## Docs-specific QA checklist
+
+Before treating docs work as PR-ready:
+
+- confirm routing works for both locales
+- confirm search still returns useful results
+- confirm feedback copy explains local logging and optional GitHub forwarding
+- confirm page structure is readable and not overloaded
+- confirm changed assumptions were written back into `.ai` notes
+
+## Manual QA ideas
+
+- open `/en/docs` and `/tr/docs`
+- open at least one deep page in each locale
+- confirm sidebar, search, and feedback UI render correctly
+- confirm JetBrains Mono and theme tokens still apply
+
+## Good final question
+
+Before opening a PR, ask:
+
+“Does this branch make the next contributor faster, or did it only make the current diff pass?”

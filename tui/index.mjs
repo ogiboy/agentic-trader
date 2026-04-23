@@ -3,6 +3,10 @@ import { Box, Text, useApp, useInput } from 'ink';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import {
+  getCanonicalAnalysisLines,
+  getFundamentalAssessmentLines,
+} from './review-lines.mjs';
 
 const execFileAsync = promisify(execFile);
 const e = React.createElement;
@@ -203,20 +207,6 @@ function getTradeContextLines(tradeContext) {
  *   4. Inference (pipe-separated or `-`),
  *   5. Uncertainty (pipe-separated or `-`).
  */
-function getFundamentalAssessmentLines(fundamental) {
-  if (!fundamental) {
-    return ['Fundamental Bias: -'];
-  }
-  const breakdown = fundamental.evidence_vs_inference || {};
-  return [
-    `Fundamental Bias: ${fundamental.overall_bias ?? fundamental.overall_signal ?? '-'}`,
-    `Fundamental Red Flags: ${(fundamental.red_flags || fundamental.risk_flags || []).join(', ') || '-'}`,
-    `Fundamental Evidence: ${(breakdown.evidence || []).join(' | ') || '-'}`,
-    `Fundamental Inference: ${(breakdown.inference || []).join(' | ') || '-'}`,
-    `Fundamental Uncertainty: ${(breakdown.uncertainty || []).join(' | ') || '-'}`,
-  ];
-}
-
 /**
  * Format a persisted Market Context Pack into an array of human-readable lines.
  *
@@ -252,66 +242,6 @@ function getMarketContextLines(marketContext) {
     `Quality: ${(pack.data_quality_flags || []).join(', ') || '-'}`,
     `Anomalies: ${(pack.anomaly_flags || []).join(', ') || '-'}`,
     ...horizons,
-  ];
-}
-
-/**
- * Format a canonical analysis payload into an array of display lines for the UI.
- *
- * When `canonicalAnalysis.available === false` returns the standard unavailable message lines;
- * when `canonicalAnalysis.snapshot` is missing returns a single notice line.
- *
- * @param {Object|null|undefined} canonicalAnalysis - The canonical analysis container returned by the dashboard CLI.
- *   May include:
- *     - available {boolean} — availability flag.
- *     - error {string} — optional error message used when unavailable.
- *     - snapshot {Object} — optional analysis snapshot with fields used below.
- * @returns {string[]} An array of text lines including:
- *   - Summary, completeness score, missing sections.
- *   - Top-level source attributions for market/fundamental/macro and counts of news events/disclosures.
- *   - A comma-separated list of missing source names and a note about hidden missing sources if any.
- *   - A "Sources Shown" summary (shown/total) with a note for additional hidden sources if present.
- *   - One "Source: ..." line per shown attribution (up to 8), each including provider type, source name, role, and freshness.
- */
-function getCanonicalAnalysisLines(canonicalAnalysis) {
-  if (canonicalAnalysis?.available === false) {
-    return renderUnavailableMessage(canonicalAnalysis.error);
-  }
-  const snapshot = canonicalAnalysis?.snapshot;
-  if (!snapshot) {
-    return ['No canonical analysis snapshot is available yet.'];
-  }
-  const sourceAttributions = snapshot.source_attributions || [];
-  const formatSource = (source) =>
-    `${source.provider_type}:${source.source_name} role=${source.source_role} freshness=${source.freshness}`;
-  const sources = sourceAttributions.slice(0, 8).map(formatSource);
-  const missingSourceItems = sourceAttributions.filter(
-    (source) => source.source_role === 'missing',
-  );
-  const missingSources = missingSourceItems
-    .slice(0, 8)
-    .map((source) => `${source.provider_type}:${source.source_name}`)
-    .join(', ');
-  const hiddenSourceCount = Math.max(sourceAttributions.length - sources.length, 0);
-  const hiddenSourceNote = hiddenSourceCount > 0 ? ` (+${hiddenSourceCount} more)` : '';
-  const hiddenMissingCount = Math.max(missingSourceItems.length - 8, 0);
-  const hiddenMissingNote = hiddenMissingCount > 0 ? ` (+${hiddenMissingCount} more)` : '';
-  const sourceLines = sources
-    .map(
-      (source) => `Source: ${source}`,
-    );
-  return [
-    `Summary: ${snapshot.summary || '-'}`,
-    `Completeness: ${snapshot.completeness_score ?? '-'}`,
-    `Missing: ${(snapshot.missing_sections || []).join(', ') || '-'}`,
-    `Market Source: ${snapshot.market?.attribution?.source_name ?? '-'}`,
-    `Fundamental Source: ${snapshot.fundamental?.attribution?.source_name ?? '-'}`,
-    `Macro Source: ${snapshot.macro?.attribution?.source_name ?? '-'}`,
-    `News Events: ${(snapshot.news_events || []).length}`,
-    `Disclosures: ${(snapshot.disclosures || []).length}`,
-    `Missing Sources: ${missingSources || '-'}${hiddenMissingNote}`,
-    `Sources Shown: ${sources.length}/${sourceAttributions.length}${hiddenSourceNote}`,
-    ...sourceLines,
   ];
 }
 
@@ -1401,7 +1331,7 @@ function SettingsPage({
     `Intervention: ${preferences.intervention_style}`,
     `Notes: ${preferences.notes || '-'}`,
   ];
-  const preferenceLines = compact
+  const preferenceLines = compact && preferences.available !== false
     ? [
         `Regions / Exchanges: ${(preferences.regions || []).join(', ') || '-'} / ${(preferences.exchanges || []).join(', ') || '-'}`,
         `Currencies / Sectors: ${(preferences.currencies || []).join(', ') || '-'} / ${(preferences.sectors || []).join(', ') || '-'}`,

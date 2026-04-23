@@ -61,6 +61,12 @@ Current runtime stages:
 - `agentic_trader/observer_api.py`
   Local HTTP observer surface that exposes the same read-only runtime contracts for future WebUI attach flows
 
+- `webgui/`
+  Next.js App Router local operator shell. It must stay thin, local-first, and delegated to the existing dashboard/runtime/chat/instruction contracts rather than becoming a second runtime.
+
+- `docs/`
+  Fumadocs-based Next.js developer docs site. It documents the existing repository truth through curated MDX pages and should share the same frontend baseline without importing runtime logic.
+
 - `.ai/qa/`
   Product-specific QA workflow, checklist, runbook, scenarios, and optional evidence artifacts for validating operator-facing behavior
 
@@ -121,6 +127,7 @@ Good changes fit into one of these buckets:
 - keep canonical source attribution and freshness metadata attached whenever external provider data enters runtime or persisted review context
 - keep V1 scoped to Alpaca-ready US paper-first operation; defer IBKR/global/FX accounting to V2
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
+- keep `webgui` and `docs` aligned on the current Next.js App Router plus Tailwind v4 plus shadcn baseline while migrating the Web GUI screen by screen instead of through a one-shot CSS rewrite
 - improve replay and backtest fidelity
 
 ## Architectural Anti-Goals
