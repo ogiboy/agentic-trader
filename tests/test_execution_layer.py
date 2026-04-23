@@ -267,6 +267,11 @@ def test_persist_run_records_execution_context(tmp_path: Path) -> None:
 
 
 def test_persist_run_records_rejected_execution_metadata(tmp_path: Path) -> None:
+    """
+    Verify that persisting a run with a rejected execution stores rejection metadata in the database.
+    
+    Asserts that an execution record exists with `execution_backend == "paper"`, `status == "rejected"`, and `rejection_reason` set; that the `outcome` dictionary also contains the `rejection_reason`; and that the persisted trade context records `execution_outcome_status == "rejected"` and `execution_rejection_reason` equal to the rejection reason.
+    """
     settings = _settings(tmp_path)
     rejection_reason = "Execution guard rejected the trade."
     artifacts = _artifacts().model_copy(

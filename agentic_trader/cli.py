@@ -526,6 +526,20 @@ def _render_run_review(record: RunRecord) -> None:
 
 
 def _render_run_markdown(record: RunRecord) -> str:
+    """
+    Builds a Markdown-formatted run review document from a persisted RunRecord.
+    
+    Generates a human-readable Markdown summary that includes metadata, coordinator,
+    fundamental analysis, regime, strategy, risk, consensus, manager decisions and
+    conflicts, execution details, and reviewer notes derived from the record's
+    artifacts.
+    
+    Parameters:
+        record (RunRecord): Persisted run record containing artifacts to serialize.
+    
+    Returns:
+        markdown (str): A Markdown document string summarizing the run review.
+    """
     artifacts = record.artifacts
     lines = [
         f"# Run Review: {record.run_id}",
@@ -1021,6 +1035,18 @@ def _preferences_payload(settings: Settings) -> dict[str, object]:
 
 
 def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
+    """
+    Builds a JSON-serializable payload containing recent trade journal entries.
+    
+    Parameters:
+        limit (int): Maximum number of journal entries to include, ordered from newest to oldest.
+    
+    Returns:
+        dict: A payload with:
+            - `available` (bool): `True` when the database read succeeded, `False` on error.
+            - `error` (str | None): Error message when `available` is `False`, otherwise `None`.
+            - `entries` (list[dict]): List of journal entries serialized with `model_dump(mode="json")`.
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -1041,6 +1067,24 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
 
 
 def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]:
+    """
+    Builds a JSON-serializable payload of recent run metadata for CLI/observer consumption.
+    
+    Parameters:
+        settings (Settings): Application settings used to open the database.
+        limit (int): Maximum number of recent runs to include.
+    
+    Returns:
+        dict: A mapping with keys:
+            - `available` (bool): `True` when runs were loaded successfully, `False` on error.
+            - `error` (str | None): Error message when `available` is `False`, otherwise `None`.
+            - `runs` (list[dict]): List of run summaries. Each entry contains:
+                - `run_id` (str): Persisted run identifier.
+                - `created_at` (str): Run creation timestamp.
+                - `symbol` (str): Traded symbol for the run.
+                - `interval` (str): Market interval used for the run.
+                - `approved` (bool): Whether the run/execution was approved.
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -1211,7 +1255,15 @@ def _market_context_payload(settings: Settings) -> dict[str, object]:
 
 
 def _canonical_analysis_payload(settings: Settings) -> dict[str, object]:
-    """Return the latest canonical provider aggregation snapshot when persisted."""
+    """
+    Retrieve the most recently persisted canonical provider aggregation snapshot, if any.
+    
+    Returns:
+        dict: A payload with keys:
+            - available (bool): `True` if a canonical snapshot was found, `False` otherwise.
+            - error (str | None): An error message when unavailable or on failure; `None` when `available` is `True`.
+            - snapshot (dict | None): The canonical snapshot serialized to a JSON-compatible dict when available, otherwise `None`.
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -1248,6 +1300,15 @@ def _canonical_analysis_payload(settings: Settings) -> dict[str, object]:
 def _canonical_analysis_lines(
     canonical_snapshot: CanonicalAnalysisSnapshot | None,
 ) -> list[str]:
+    """
+    Builds a list of human-readable lines summarizing a canonical analysis snapshot for terminal display.
+    
+    Parameters:
+        canonical_snapshot (CanonicalAnalysisSnapshot | None): The canonical analysis snapshot to summarize; pass None when no snapshot is attached.
+    
+    Returns:
+        list[str]: Ordered lines suitable for printing or panel rendering. If `canonical_snapshot` is None, returns a single-line message indicating no snapshot is attached.
+    """
     if canonical_snapshot is None:
         return ["No canonical analysis snapshot is attached to this trade context."]
     source_lines = [
@@ -1276,19 +1337,19 @@ def _canonical_analysis_lines(
 
 def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
     """
-    Builds a read-only supervisor payload describing the orchestrator runtime and recent log tails.
+    Builds a JSON-serializable supervisor payload describing the orchestrator runtime status, recent log tails, and the serialized service state.
     
     Parameters:
         settings (Settings): Application settings used to locate persisted service state and log files.
     
     Returns:
-        dict[str, object]: A JSON-serializable dictionary with the following keys:
-            - runtime_state: A short runtime status identifier for the service view.
+        dict[str, object]: Dictionary with the following keys:
+            - runtime_state: Short runtime status identifier for the service view.
             - live_process: Metadata for the running service process, or `None` if not running.
             - is_stale: `true` if the last heartbeat is considered stale, `false` otherwise.
             - age_seconds: Age of the last heartbeat in seconds, or `None` if unavailable.
             - status_message: Human-readable status message for the runtime view.
-            - state: Serialized snapshot of the full service state, or `None` if unavailable.
+            - state: Serialized snapshot of the full service state as JSON-compatible dict, or `None` if unavailable.
             - stdout_tail: List of last lines from the service stdout log (empty list if unavailable).
             - stderr_tail: List of last lines from the service stderr log (empty list if unavailable).
     """
@@ -2341,16 +2402,16 @@ def build_dashboard_snapshot_payload(
     settings: Settings, *, log_limit: int = 14
 ) -> dict[str, object]:
     """
-    Assembles a dashboard snapshot containing runtime, service, agent activity, and persisted payloads for the observer API.
+    Assembles a JSON-serializable dashboard snapshot containing runtime, service, agent activity, and persisted payloads for the observer API.
     
-    Aggregates health and configuration (doctor), runtime state (status), supervisor and broker payloads, recent service events, agent activity summaries, and read-only payloads such as portfolio, preferences, journal, risk report, run review/trace/replay, market and memory inspection, chat history, calendar, news, and market cache.
+    Builds health/doctor info, runtime status, supervisor and broker payloads, recent service events and agent activity summary, and a collection of read-only payloads (portfolio, preferences, recent runs, journal, risk report, run review/trace/replay, trade/market context, canonical analysis, memory inspection, retrieval inspection, memory policy, chat history, calendar, news, and market cache).
     
     Parameters:
-        settings (Settings): Application settings and paths used to read service state, query the database, and call helper payload builders.
+        settings (Settings): Application settings used to read service state, access the database, and resolve runtime paths.
         log_limit (int): Maximum number of recent service events to include in the `logs` section (default 14).
     
     Returns:
-        dict[str, object]: JSON-serializable snapshot payload keyed by sections (e.g., `doctor`, `status`, `supervisor`, `broker`, `logs`, `agentActivity`, `portfolio`, `preferences`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, `marketCache`).
+        dict[str, object]: A JSON-serializable snapshot keyed by sections including (but not limited to) `doctor`, `status`, `supervisor`, `broker`, `logs`, `agentActivity`, `portfolio`, `preferences`, `recentRuns`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `canonicalAnalysis`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, and `marketCache`.
     """
     llm = LocalLLM(settings)
     health = llm.health_check()
@@ -3473,7 +3534,22 @@ def instruct(
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Interpret a safe operator instruction and optionally apply it."""
+    """
+    Interpret an operator instruction and optionally apply any parsed preference update.
+    
+    Processes a natural-language operator instruction using the configured LLM and the trading
+    database. If the parsed instruction proposes a preference update and `apply` is True,
+    the update is persisted to the database. When `json_output` is True, emits a JSON object
+    with keys `instruction` (the interpreted instruction), `applied` (true if an update was
+    persisted), and `updated_preferences` (the new preferences or `null`). Otherwise the
+    instruction is rendered to the console and any updated preferences are displayed.
+    The database connection opened for this operation is closed before the function exits.
+    
+    Parameters:
+        message (str): Natural-language operator instruction to interpret.
+        apply (bool): If True, persist the parsed preference update when one is proposed.
+        json_output (bool): If True, emit a JSON payload instead of rendering console output.
+    """
     settings = get_settings()
     ensure_llm_ready(settings)
     db = TradingDatabase(settings)

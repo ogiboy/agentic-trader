@@ -5,6 +5,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Handle POST requests that run an instruction and return its result alongside the current dashboard snapshot.
+ *
+ * @param request - HTTP request whose JSON body must contain `message` (string). May include `apply` (boolean) to indicate whether the instruction should be applied.
+ * @returns A Response whose JSON body is `{ result, dashboard }` on success. If `message` is missing or empty the response is `{ error: 'missing instruction message' }` with status 400. On other errors the response is `{ error: <message> }` with status 500.
+ */
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {

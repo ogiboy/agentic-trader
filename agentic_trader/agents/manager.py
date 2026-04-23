@@ -23,6 +23,20 @@ def _derive_manager_conflicts(
     fundamental: FundamentalAssessment | None = None,
     macro: MacroAssessment | None = None,
 ) -> list[ManagerConflict]:
+    """
+    Derives a list of ManagerConflict entries describing mismatches or risk-control constraints between the coordinator, regime, strategy, and manager decisions.
+    
+    Parameters:
+        coordinator (ResearchCoordinatorBrief): High-level research directives including market_focus.
+        regime (RegimeAssessment): Current market regime assessment (e.g., high_volatility).
+        strategy (StrategyPlan): Specialist plan including desired action and confidence.
+        manager (ManagerDecision): Proposed manager decision used to detect overrides or tightenings.
+        fundamental (FundamentalAssessment | None): Optional fundamental assessment; its `overall_bias` may trigger conservative sizing.
+        macro (MacroAssessment | None): Optional macro/news assessment; its `macro_signal` may trigger conservative sizing.
+    
+    Returns:
+        list[ManagerConflict]: A list of conflicts found (empty if manager decision aligns with guidance). Each conflict indicates type, severity, summary, specialist_view, and manager_resolution.
+    """
     conflicts: list[ManagerConflict] = []
     if (
         coordinator.market_focus == "capital_preservation"
@@ -207,12 +221,12 @@ def _fallback_manager(
     macro: MacroAssessment | None = None,
 ) -> ManagerDecision:
     """
-    Constructs a conservative, rule-based fallback ManagerDecision used when the LLM is unavailable or returns an invalid structured response.
+    Produce a conservative, rule-based ManagerDecision when LLM output is unavailable or invalid.
     
-    The decision approves the specialist plan only if the specialist's action is not "hold", the specialist confidence is at least 0.6, and the risk reward ratio is at least 1.5. The returned decision normalizes action bias to "buy"/"sell"/"hold", sets confidence_cap to the minimum of strategy and regime confidences, adjusts size_multiplier downward for capital preservation focus or high-volatility regimes and when specialist confidence is low, and populates escalation_flags to reflect defensive posture or no-trade outcomes. The decision's source is "fallback" and fallback_reason is set to the LLM fallback constant.
+    Approves the specialist plan only if the specialist's action is not "hold", the specialist confidence is >= 0.6, and the risk reward ratio is >= 1.5. Sets `confidence_cap` to the minimum of strategy and regime confidences. Reduces `size_multiplier` for capital-preservation focus, high-volatility regimes, low specialist confidence, or when fundamental.overall_bias or macro.macro_signal is "cautious" or "avoid". Populates `escalation_flags` to reflect defensive posture, reduced conviction, fundamental/macro caution, or a no-trade outcome. The decision's `source` is "fallback" and `fallback_reason` is set to the LLM fallback constant.
     
     Returns:
-        ManagerDecision: A guarded ManagerDecision with computed fields (approved, action_bias, confidence_cap, size_multiplier, rationale, escalation_flags, source="fallback", fallback_reason).
+        ManagerDecision: A guarded decision with computed `approved`, normalized `action_bias` ("buy"/"sell"/"hold"), `confidence_cap`, `size_multiplier`, `rationale`, `escalation_flags`, `source="fallback"`, and `fallback_reason`.
     """
     approved = (
         strategy.action != "hold"

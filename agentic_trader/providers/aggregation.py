@@ -55,7 +55,20 @@ class ProviderSet:
 
 
 def default_provider_set(settings: Settings) -> ProviderSet:
-    """Create the default local-first provider set without mandatory cloud services."""
+    """
+    Builds the default ProviderSet using a local-first ordering for adapters.
+    
+    Parameters:
+        settings (Settings): Configuration passed to provider adapters.
+    
+    Returns:
+        ProviderSet: A ProviderSet with default adapters:
+          - market: YahooMarketDataProvider
+          - fundamental: SecEdgar, Finnhub, Fmp, and Local fundamental providers
+          - news: YahooNewsProvider
+          - disclosures: KapDisclosureProvider and LocalDisclosureProvider
+          - macro: LocalMacroProvider
+    """
     return ProviderSet(
         market=[YahooMarketDataProvider(settings)],
         fundamental=[
@@ -111,6 +124,19 @@ def canonical_news_from_signals(
 def _first_fundamental_snapshot(
     providers: list[FundamentalDataProvider], symbol: SymbolIdentity
 ) -> tuple[FundamentalSnapshot, list[str], list[DataSourceAttribution]]:
+    """
+    Select the first available fundamental snapshot from a list of providers, collecting provider errors and extra attributions for providers that returned "missing".
+    
+    Parameters:
+        providers (list[FundamentalDataProvider]): Ordered providers to query for fundamental data.
+        symbol (SymbolIdentity): Resolved symbol identity used to request fundamental data.
+    
+    Returns:
+        tuple[FundamentalSnapshot, list[str], list[DataSourceAttribution]]:
+            - FundamentalSnapshot: The first snapshot whose attribution has a source_role other than "missing", or a synthesized "missing" snapshot if no provider produced a usable snapshot. If only "missing" snapshots were returned, the first missing snapshot is returned.
+            - list[str]: Collected error messages from providers that raised exceptions while fetching data.
+            - list[DataSourceAttribution]: Attributions corresponding to any additional providers that returned "missing" (excludes the first successful snapshot and, when no success, excludes the first missing snapshot).
+    """
     errors: list[str] = []
     missing_snapshots: list[FundamentalSnapshot] = []
     for provider in providers:
@@ -180,6 +206,19 @@ def _first_macro_snapshot(
 def _collect_disclosures(
     providers: list[DisclosureProvider], symbol: SymbolIdentity, *, limit: int
 ) -> tuple[list[DisclosureEvent], list[str], list[DataSourceAttribution]]:
+    """
+    Collect disclosures from multiple providers, aggregating results, provider errors, and attributions for providers that returned no disclosures.
+    
+    Parameters:
+        providers (list[DisclosureProvider]): Ordered list of disclosure provider adapters to query.
+        symbol (SymbolIdentity): Symbol identity used to request disclosures.
+        limit (int): Maximum number of disclosure events to return.
+    
+    Returns:
+        disclosures (list[DisclosureEvent]): Up to `limit` disclosure events aggregated from all providers (preserves provider order).
+        errors (list[str]): Error messages for providers that raised exceptions, formatted as "<provider_id>: <error>".
+        empty_attributions (list[DataSourceAttribution]): Attributions for providers that returned no disclosures, indicating a missing source.
+    """
     disclosures: list[DisclosureEvent] = []
     errors: list[str] = []
     empty_attributions: list[DataSourceAttribution] = []
@@ -211,6 +250,20 @@ def _collect_disclosures(
 def _collect_provider_news(
     providers: list[NewsProvider], symbol: SymbolIdentity, *, limit: int
 ) -> tuple[list[NewsEvent], list[str], list[DataSourceAttribution]]:
+    """
+    Aggregate news events from multiple providers for a given symbol and collect provider-level errors and missing-source attributions.
+    
+    Parameters:
+        providers (list[NewsProvider]): Ordered list of news providers to query.
+        symbol (SymbolIdentity): Symbol identity used to scope provider queries.
+        limit (int): Maximum number of news events to return (slice applied after aggregation).
+    
+    Returns:
+        tuple[list[NewsEvent], list[str], list[DataSourceAttribution]]:
+            events: Aggregated news events from all providers, truncated to `limit`.
+            errors: Strings of provider exceptions formatted as "<provider_id>: <exception>" for providers that raised.
+            empty_attributions: Attributions for providers that returned no events (source_role="missing"), with notes including "no_news_events_returned" and the provider's metadata notes.
+    """
     events: list[NewsEvent] = []
     errors: list[str] = []
     empty_attributions: list[DataSourceAttribution] = []
@@ -248,6 +301,20 @@ def _attributions(
     disclosures: list[DisclosureEvent],
     extra_attributions: list[DataSourceAttribution] | None = None,
 ) -> list[DataSourceAttribution]:
+    """
+    Assemble canonical data source attributions from market, fundamental, macro, and event-level sources into a single ordered list.
+    
+    Parameters:
+        market (DataSourceAttribution): Attribution for the market snapshot.
+        fundamental (DataSourceAttribution): Attribution for the fundamental snapshot.
+        macro (DataSourceAttribution): Attribution for the macro snapshot.
+        news_events (list[NewsEvent]): News events whose `attribution` values will be included in order.
+        disclosures (list[DisclosureEvent]): Disclosure events whose `attribution` values will be included in order.
+        extra_attributions (list[DataSourceAttribution] | None): Additional attributions to append, if any.
+    
+    Returns:
+        list[DataSourceAttribution]: Ordered list containing the market, fundamental, and macro attributions followed by attributions extracted from `news_events`, `disclosures`, and `extra_attributions`.
+    """
     return [
         market,
         fundamental,
@@ -276,7 +343,29 @@ def build_canonical_analysis_snapshot(
     providers: ProviderSet | None = None,
     lookback: str | None = None,
 ) -> CanonicalAnalysisSnapshot:
-    """Merge provider outputs into one canonical analysis snapshot."""
+    """
+    Build a canonical analysis snapshot by aggregating market, fundamental, macro, news, and disclosure data from configured providers.
+    
+    Constructs a CanonicalAnalysisSnapshot for the given runtime MarketSnapshot by:
+    - resolving the symbol identity (using optional investment preferences),
+    - deriving a canonical market snapshot (respecting an optional lookback),
+    - selecting the first available fundamental and macro snapshots from configured providers (collecting provider errors and missing-role attributions),
+    - either converting provided NewsSignal items into canonical NewsEvent objects or fetching news from providers,
+    - fetching disclosures from configured disclosure providers,
+    - assembling source attributions (including empty/missing attributions and aggregation error notes),
+    - computing a completeness score and a summary string.
+    
+    Parameters:
+        snapshot (MarketSnapshot): Runtime market snapshot to base the canonical market alignment on.
+        settings (Settings): Application settings used to build the default provider set and limits.
+        preferences (InvestmentPreferences | None): Optional investment preferences affecting symbol resolution.
+        news_items (list[NewsSignal] | None): Optional pre-fetched lightweight news signals to convert instead of calling news providers.
+        providers (ProviderSet | None): Optional override of the provider configuration; if omitted, a default provider set is used.
+        lookback (str | None): Optional lookback window to apply when deriving the canonical market snapshot; if omitted the snapshot's context_pack lookback is used when available.
+    
+    Returns:
+        CanonicalAnalysisSnapshot: Aggregated canonical snapshot containing market, fundamental, macro, news_events, disclosures, source attributions, missing sections, completeness score, and a human-readable summary.
+    """
     provider_set = providers or default_provider_set(settings)
     symbol_identity = resolve_symbol_identity(snapshot.symbol, preferences)
     market = market_snapshot_from_runtime_snapshot(

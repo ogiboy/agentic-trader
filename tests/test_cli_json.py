@@ -41,6 +41,11 @@ def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
 
 
 def test_cli_help_supports_short_and_long_forms() -> None:
+    """
+    Verifies that CLI commands accept both short (-h) and long (--help) help options.
+    
+    Asserts each tested subcommand exits with code 0 and its help output contains the "Usage:" header.
+    """
     runner = CliRunner()
 
     for args in (
@@ -632,6 +637,20 @@ def test_operation_backtest_blocks_when_llm_gate_fails(
 def test_dashboard_snapshot_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Validates that the `dashboard-snapshot` CLI JSON aggregates persisted run artifacts, service state, LLM health, logs, portfolio, UI sections, and replay snapshot.
+    
+    Asserts that the payload includes:
+    - doctor health indicating the LLM provider is reachable and runtime mode is `"operation"`.
+    - status reflecting runtime mode `"operation"` and `current_symbol == "AAPL"`.
+    - supervisor and broker summaries (launch count and backend).
+    - recent log entries including an `"agent_regime_started"` event.
+    - agent activity showing `current_stage == "regime"` with status `"running"`.
+    - portfolio availability (`available is True`).
+    - presence of UI sections: `memoryExplorer`, `retrievalInspection`, and `recentRuns` with the first recent run symbol `"AAPL"`.
+    - trade and market context with `tradeContext.record.symbol == "AAPL"`.
+    - replay availability and that the replay snapshot's `mtf_alignment == "bullish"`.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -748,6 +767,13 @@ def test_instruct_json_reports_instruction_and_applied_preferences(
 def test_memory_explorer_and_retrieval_inspection_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Validates JSON availability semantics for `memory-explorer` and `retrieval-inspection` CLI commands when no persisted run exists.
+    
+    Sets up temporary settings and an empty TradingDatabase, then invokes the CLI:
+    - `memory-explorer --json` must exit successfully with `"available": false`.
+    - `retrieval-inspection --json` must exit successfully with `"available": true` and an empty `stages` list.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -806,6 +832,14 @@ def test_replay_run_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
 
 
 def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Verifies the CLI JSON output of the `trade-context` command reflects a persisted run's execution and fundamental assessment.
+    
+    Persists a run for symbol "NVDA", invokes `trade-context --json`, and asserts the payload is available and contains:
+    - the persisted record's symbol and execution rationale,
+    - fundamental assessment with `overall_bias == "neutral"` and an `evidence_vs_inference` field,
+    - execution fields `execution_backend`, `execution_adapter`, and `execution_outcome_status` set to `"paper"`, `"paper"`, and `"filled"` respectively.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

@@ -435,6 +435,14 @@ class FundamentalAssessment(BaseModel):
 
     @model_validator(mode="after")
     def sync_legacy_fields(self) -> "FundamentalAssessment":
+        """
+        Synchronize legacy and current field names so both representations remain consistent after model initialization.
+        
+        Copies values between legacy and new field pairs when only one of each pair was provided, ensuring fields such as `growth_quality`/`revenue_growth_quality`, `balance_sheet_quality`/`debt_quality`, `fx_risk`/`fx_exposure_risk`, `overall_bias`/`overall_signal`, and `red_flags`/`risk_flags` are aligned.
+        
+        Returns:
+        	self (FundamentalAssessment): The model instance with synchronized fields.
+        """
         fields = self.model_fields_set
         if "growth_quality" not in fields and "revenue_growth_quality" in fields:
             self.growth_quality = self.revenue_growth_quality

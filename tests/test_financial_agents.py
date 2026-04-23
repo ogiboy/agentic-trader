@@ -22,21 +22,60 @@ class _FailingLLM:
         return self
 
     def complete_structured(self, **_kwargs: Any) -> object:
+        """
+        Simulate an unavailable LLM by always raising a RuntimeError.
+        
+        This method is used in tests to force code paths that handle an LLM being unreachable or disabled.
+        
+        Raises:
+            RuntimeError: Always raised with the message "LLM unavailable in test".
+        """
         raise RuntimeError("LLM unavailable in test")
 
 
 class _StaticLLM:
     def __init__(self, assessment: FundamentalAssessment) -> None:
+        """
+        Initialize the instance with a preset FundamentalAssessment.
+        
+        Parameters:
+            assessment (FundamentalAssessment): The assessment this instance will supply for structured completion requests.
+        """
         self._assessment = assessment
 
     def for_role(self, _role: str) -> "_StaticLLM":
+        """
+        Return the same _StaticLLM instance regardless of the provided role.
+        
+        Parameters:
+            _role (str): Role identifier (ignored).
+        
+        Returns:
+            _StaticLLM: The same LLM instance (`self`).
+        """
         return self
 
     def complete_structured(self, **_kwargs: Any) -> FundamentalAssessment:
+        """
+        Return the preconfigured FundamentalAssessment used by this test LLM.
+        
+        Any keyword arguments are ignored.
+        
+        Returns:
+            FundamentalAssessment: The stored assessment instance.
+        """
         return self._assessment
 
 
 def _snapshot() -> MarketSnapshot:
+    """
+    Builds a deterministic MarketSnapshot for symbol "AAPL" with preset indicator and market fields for use in tests.
+    
+    The snapshot is dated 2025-06-30 and includes EMA, ATR, RSI, volatility, short- and medium-term returns, volume ratio, multi-timeframe alignment and confidence, and bars_analyzed.
+    
+    Returns:
+        MarketSnapshot: A MarketSnapshot instance populated with the fixed AAPL test values.
+    """
     return MarketSnapshot(
         symbol="AAPL",
         interval="1d",
@@ -98,6 +137,11 @@ def test_fundamental_agent_falls_back_to_structured_neutral_assessment() -> None
 
 
 def test_fundamental_assessment_schema_exposes_evidence_contract() -> None:
+    """
+    Verify the FundamentalAssessment JSON schema exposes the required evidence and quality fields.
+    
+    Asserts that the schema's "properties" includes quality metrics, risk/flag fields, evidence_vs_inference, and overall_bias used by the evidence contract.
+    """
     properties = FundamentalAssessment.model_json_schema()["properties"]
 
     for field in [
@@ -207,6 +251,15 @@ def test_fundamental_agent_rejects_unsupported_llm_bias() -> None:
 
 
 def test_macro_agent_falls_back_to_structured_neutral_assessment() -> None:
+    """
+    Verify the macro agent falls back to a structured neutral assessment when structured macro/news data is unavailable.
+    
+    Asserts that the returned assessment:
+    - has source "fallback"
+    - sets macro_signal to "neutral"
+    - includes "no_structured_news_signals" in risk_flags
+    - sets fallback_reason to "Structured macro/news provider data is unavailable."
+    """
     context = _context(_snapshot())
     assessment = assess_macro_context(
         cast(LocalLLM, _FailingLLM()),

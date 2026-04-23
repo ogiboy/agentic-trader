@@ -109,7 +109,15 @@ def _render_canonical_snapshot_summary(context: AgentContext) -> str:
 
 
 def _render_decision_feature_summary(context: AgentContext) -> str:
-    """Render the decision feature bundle as a compact prompt-facing summary."""
+    """
+    Render the decision feature bundle into a compact, labeled summary suitable for inclusion in a prompt.
+    
+    Parameters:
+        context (AgentContext): Agent context whose `decision_features` will be rendered.
+    
+    Returns:
+        str: A newline-delimited summary containing symbol identity, technical metrics and summary, fundamental metrics, fundamental provenance and summary, and macro metrics and summary; or the literal string "No decision feature bundle is attached." when `decision_features` is None.
+    """
     features = context.decision_features
     if features is None:
         return "No decision feature bundle is attached."

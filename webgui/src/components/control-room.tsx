@@ -27,10 +27,23 @@ const personas = [
 const marketLensImage =
   "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1600&q=80";
 
+/**
+ * Builds a space-separated className string from the provided fragments, ignoring falsy entries.
+ *
+ * @param values - Class name fragments; falsy values (false, null, undefined, or empty string) are omitted
+ * @returns The concatenated className or an empty string if no fragments remain
+ */
 function cx(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
+/**
+ * Formats a numeric input using en-US locale with a fixed number of fraction digits.
+ *
+ * @param value - The value to format; non-number or `NaN` yields `"-"`.
+ * @param digits - Number of fraction digits to display (default: `2`).
+ * @returns `"-"` for non-number or `NaN`, otherwise the number formatted with exactly `digits` fraction digits.
+ */
 function formatNumber(value: unknown, digits = 2): string {
   if (typeof value !== "number" || Number.isNaN(value)) {
     return "-";
@@ -41,6 +54,13 @@ function formatNumber(value: unknown, digits = 2): string {
   }).format(value);
 }
 
+/**
+ * Format a numeric ratio as a percent string.
+ *
+ * @param value - The numeric ratio to format (e.g., `0.12` for 12%). Non-number or `NaN` values produce `"-"`.
+ * @param digits - Number of digits after the decimal point in the formatted percent (default: `2`).
+ * @returns `"-"` for non-number or `NaN`, otherwise the percentage string with a trailing `%` (e.g., `"12.00%"`).
+ */
 function formatPercent(value: unknown, digits = 2): string {
   if (typeof value !== "number" || Number.isNaN(value)) {
     return "-";
@@ -48,6 +68,12 @@ function formatPercent(value: unknown, digits = 2): string {
   return `${(value * 100).toFixed(digits)}%`;
 }
 
+/**
+ * Produce a comma-separated display string from an array or a placeholder when missing.
+ *
+ * @param value - The value expected to be an array of items; elements are joined with ", ". If `value` is not an array or is empty, the placeholder `"-"` is returned.
+ * @returns The joined string of `value` elements separated by ", " when `value` is a non-empty array, otherwise `"-"`.
+ */
 function formatList(value: unknown): string {
   if (!Array.isArray(value) || value.length === 0) {
     return "-";
@@ -55,6 +81,12 @@ function formatList(value: unknown): string {
   return value.join(", ");
 }
 
+/**
+ * Format a timestamp string into the current locale's readable date and time.
+ *
+ * @param value - The input timestamp to format. If `value` is falsy or not a string, the function returns `"-"`. If `value` is a string that cannot be parsed as a valid Date, the original string is returned.
+ * @returns A localized date/time string when `value` is a parseable date string; the original `value` string if it cannot be parsed; `"-"` when `value` is falsy or not a string.
+ */
 function formatTimestamp(value: unknown): string {
   if (typeof value !== "string" || !value) {
     return "-";
@@ -66,6 +98,12 @@ function formatTimestamp(value: unknown): string {
   return date.toLocaleString();
 }
 
+/**
+ * Builds an array of human-readable lines summarizing a persisted trade context record for UI display.
+ *
+ * @param record - The trade context object (may be `null`/`undefined`). Expected fields include `trade_id`, `run_id`, `consensus.alignment_level`, `manager_rationale`, `execution_rationale`, `execution_backend`, `execution_adapter`, `execution_outcome_status`, `execution_rejection_reason`, `review_summary`, and `routed_models`.
+ * @returns An array of labeled strings for trade/run IDs, consensus, rationales, execution details, review summary, and routed models; if `record` is missing returns a single line stating no persisted trade context is available.
+ */
 function tradeContextLines(record: Record<string, any> | null | undefined): string[] {
   if (!record) {
     return ["No persisted trade context is available yet."];
@@ -88,6 +126,12 @@ function tradeContextLines(record: Record<string, any> | null | undefined): stri
   ];
 }
 
+/**
+ * Builds display lines summarizing a canonical analysis snapshot.
+ *
+ * @param snapshot - Snapshot object containing analysis fields; if `null` or `undefined` a placeholder line is returned
+ * @returns An array of human-readable lines: summary, completeness score, missing sections, market/fundamental/macro source names, counts for news events and disclosures, and up to six source attribution lines
+ */
 function canonicalLines(snapshot: Record<string, any> | null | undefined): string[] {
   if (!snapshot) {
     return ["No canonical analysis snapshot is available yet."];
@@ -111,6 +155,18 @@ function canonicalLines(snapshot: Record<string, any> | null | undefined): strin
   ];
 }
 
+/**
+ * Builds an array of human-readable lines summarizing a market context pack for display.
+ *
+ * @param pack - Market context pack object (or `null`/`undefined`). Expected fields used:
+ *   `summary`, `lookback`, `interval`, `window_start`, `window_end`,
+ *   `bars_analyzed`, `bars_expected`, `coverage_ratio`,
+ *   `data_quality_flags`, `anomaly_flags`, and `horizons` (each horizon may include
+ *   `horizon_bars`, `trend_vote`, `return_pct`, `max_drawdown_pct`).
+ * @returns An array of formatted strings representing the pack summary, window, coverage,
+ * quality/anomaly flags, and up to four horizon lines. If `pack` is `null`/`undefined`,
+ * returns a single line stating that no persisted market context pack is available yet.
+ */
 function marketContextLines(pack: Record<string, any> | null | undefined): string[] {
   if (!pack) {
     return ["No persisted market context pack is available yet."];
@@ -132,6 +188,12 @@ function marketContextLines(pack: Record<string, any> | null | undefined): strin
   ];
 }
 
+/**
+ * Convert dashboard chat history into a simplified, normalized list of message objects.
+ *
+ * @param data - The dashboard payload (or `null`) containing optional `chatHistory.entries`.
+ * @returns An array of objects each with `user` (the user's message), `persona`, and `response` (the agent's reply); the order is the source entries reversed.
+ */
 function normalizeChatHistory(data: DashboardData | null): Array<Record<string, string>> {
   const entries = data?.chatHistory?.entries || [];
   return [...entries].reverse().map((entry: Record<string, any>) => ({
@@ -141,6 +203,17 @@ function normalizeChatHistory(data: DashboardData | null): Array<Record<string, 
   }));
 }
 
+/**
+ * Fetches JSON from the given URL and returns the parsed payload.
+ *
+ * The request includes a `Content-Type: application/json` header (merged with any headers in `init`)
+ * and uses `cache: "no-store"`.
+ *
+ * @param url - The endpoint URL to fetch.
+ * @param init - Optional fetch init options; headers provided here are merged with the default JSON header.
+ * @returns The parsed JSON payload cast to `T`.
+ * @throws Error when the response has a non-OK status; the error message is `payload.error` if present or `"Request failed."`.
+ */
 async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -157,6 +230,12 @@ async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
+/**
+ * Render a titled panel section with optional accent styling.
+ *
+ * @param accent - Optional accent color; one of `"lime"`, `"amber"`, `"cyan"`, or `"rose"`. When provided, applies the `panel--{accent}` modifier class.
+ * @returns The section element containing the panel title and body.
+ */
 function Panel({
   title,
   accent,
@@ -174,6 +253,12 @@ function Panel({
   );
 }
 
+/**
+ * Renders a description list (`dl`) of label/value pairs as a key/value list.
+ *
+ * @param items - An array of `[label, value]` string tuples to render as `dt`/`dd` rows
+ * @returns A `<dl>` element containing one row per tuple, each with a `dt` for the label and a `dd` for the value
+ */
 function KeyValueList({ items }: { items: Array<[string, string]> }) {
   return (
     <dl className="kv-list">
@@ -187,6 +272,12 @@ function KeyValueList({ items }: { items: Array<[string, string]> }) {
   );
 }
 
+/**
+ * Render an unordered list from an array of strings.
+ *
+ * @param items - Array of text entries to display as list items
+ * @returns A `<ul>` element whose children are `<li>` elements for each string in `items`
+ */
 function TextList({ items }: { items: string[] }) {
   return (
     <ul className="text-list">
@@ -197,10 +288,23 @@ function TextList({ items }: { items: string[] }) {
   );
 }
 
+/**
+ * Renders a pretty-printed JSON representation of `value` inside a <pre> element.
+ *
+ * @param value - The value to serialize as formatted JSON for display
+ * @returns A React element containing the formatted JSON
+ */
 function JsonPreview({ value }: { value: unknown }) {
   return <pre className="json-preview">{JSON.stringify(value, null, 2)}</pre>;
 }
 
+/**
+ * Render the operator control room UI that displays dashboard data and provides tabbed views, runtime controls, chat, and an instruction composer.
+ *
+ * On mount the component loads dashboard data and polls /api/dashboard every 2.5 seconds; user actions issue requests to /api/runtime, /api/chat, and /api/instruct and update local UI state (messages, busy state, chat history, instruction results, and last refresh time).
+ *
+ * @returns A React element containing the operator dashboard UI with tabs for overview, runtime, portfolio, review, memory, chat, and settings, plus controls for runtime actions, chat composition, and operator instructions.
+ */
 export function ControlRoom() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [tab, setTab] = useState<TabId>("overview");

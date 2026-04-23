@@ -113,7 +113,14 @@ def _resolve_agentic_trader_executable() -> str | None:
 
 
 def _resolve_pyright_executable() -> str | None:
-    """Locate pyright from PATH, the active environment, or the Conda base bin."""
+    """
+    Find the `pyright` executable by checking PATH, the current Python environment, and common Conda locations.
+    
+    Checks candidates in this order: `shutil.which("pyright")`, a `pyright` sibling next to `sys.executable`, `$CONDA_PREFIX/bin/pyright`, a `pyright` sibling of `$CONDA_EXE`, and an inferred Conda root `bin/pyright` when the interpreter path contains an `envs/` segment.
+    
+    Returns:
+        str | None: Absolute path string to the first executable `pyright` found, or `None` if no executable is discovered.
+    """
     candidates: list[Path] = []
     which_path = shutil.which("pyright")
     if which_path is not None:
@@ -649,7 +656,15 @@ def run_tui_open_and_quit(
 
 
 def _ink_settings_capture_issues(output: str) -> list[str]:
-    """Return missing-marker issues for the compact Ink settings page."""
+    """
+    Check the compact Ink settings pane output for required markers.
+    
+    Parameters:
+        output (str): Captured pane text from the Ink settings view.
+    
+    Returns:
+        list[str]: Issue messages for each required marker that is missing; empty list if all markers are present.
+    """
     required_markers = {
         "page 7/7: Settings": "settings page header missing",
         "RECENT RUNS": "recent runs panel missing",
@@ -661,7 +676,17 @@ def _ink_settings_capture_issues(output: str) -> list[str]:
 
 
 def _tmux_capture_pane(tmux_path: str, session_name: str, *, timeout: int) -> str:
-    """Capture the visible contents of a tmux pane as text."""
+    """
+    Capture the visible contents of a tmux pane and return it as text.
+    
+    Parameters:
+        tmux_path (str): Path to the tmux executable.
+        session_name (str): Name of the tmux session whose pane to capture.
+        timeout (int): Seconds to wait before the capture operation times out.
+    
+    Returns:
+        str: The captured pane text, or an empty string if there is no output.
+    """
     proc = subprocess.run(
         [tmux_path, "capture-pane", "-pt", f"{session_name}:0.0"],
         cwd=REPO_ROOT,
@@ -679,7 +704,17 @@ def run_ink_settings_navigation(
     *,
     timeout: int = 30,
 ) -> CheckResult:
-    """Verify that the Ink TUI can navigate to the settings page in a compact terminal."""
+    """
+    Check that the Ink TUI, when launched inside a compact tmux session, renders its overview and that the settings page contains the expected markers.
+    
+    Parameters:
+        context (SmokeContext): Smoke test context that determines where artifacts are written.
+        command (str): Executable or command used to launch the Ink TUI (the function will append `tui`).
+        timeout (int): Maximum time in seconds to wait for rendering and navigation before reporting a failure.
+    
+    Returns:
+        CheckResult: Result named "ink_settings_navigation". `passed` is `True` when the overview rendered and the settings page contains all required markers; otherwise `False`. `details` is `"tmux_settings_navigation_ok"` on success or a semicolon-separated list of issue messages on failure. `artifact` points to the written tmux overview/settings capture and the issue list.
+    """
     name = "ink_settings_navigation"
     artifact = _artifact_path(context, name)
     tmux_path = shutil.which("tmux")
@@ -794,7 +829,19 @@ def run_rich_menu_deep_navigation(
     *,
     timeout: int = 20,
 ) -> CheckResult:
-    """Exercise a few nested Rich menu routes instead of only opening the shell."""
+    """
+    Navigate the application's rich "menu" TUI through a scripted sequence and record the session.
+    
+    Runs the given command with the "menu" argument in a pexpect-controlled terminal, performs a fixed sequence of menu selections to exercise nested routes, captures terminal output to an interactive artifact in the run artifacts directory, and evaluates the session for errors or operator noise.
+    
+    Parameters:
+        context (SmokeContext): Smoke test context providing the artifacts directory.
+        command (str): Executable or command to run (will be invoked with the "menu" subcommand).
+        timeout (int): Seconds to wait for expected TUI prompts and operations.
+    
+    Returns:
+        CheckResult: Result whose `passed` is true when the scripted navigation completed without tracebacks, operator-noise markers, empty capture, disallowed exit methods, or non-permitted exit codes; `artifact` contains the path to the written interactive log.
+    """
     name = "rich_menu_deep_navigation"
     artifact = _artifact_path(context, name)
     display_command = _command_display([command, "menu"])
@@ -980,11 +1027,20 @@ def _run_id() -> str:
 
 def _claim_artifacts_dir(run_label: str) -> Path:
     """
-    Atomically create and return a run artifact directory.
-
-    Parallel smoke runs can receive the same default timestamp label when they
-    start in the same second. Claiming the directory with exist_ok=False keeps
-    their evidence separated instead of letting one run overwrite another.
+    Claim and create a unique artifacts directory for this run.
+    
+    Creates ARTIFACTS_ROOT if missing and then attempts to create a new subdirectory named
+    `<run_label>` or `<run_label>-N` (with N starting at 2) to avoid collisions with
+    concurrent runs. Returns the Path to the newly created directory.
+    
+    Parameters:
+        run_label (str): Base name to use for the run directory.
+    
+    Returns:
+        Path: Path to the claimed artifacts directory.
+    
+    Raises:
+        RuntimeError: If a unique directory cannot be created after 999 attempts.
     """
     ARTIFACTS_ROOT.mkdir(parents=True, exist_ok=True)
     for attempt in range(1, 1000):
@@ -1249,18 +1305,16 @@ def _pytest_command(context: SmokeContext, *, include_coverage: bool) -> list[st
 
 def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[CheckResult]:
     """
-    Run code-quality checks (ruff, pytest, and pyright) and collect their results.
+    Run the project's static and test-quality checks (ruff, pytest, and pyright) and collect their results.
     
-    When `include_coverage` is true, pytest is invoked to produce a coverage XML report (coverage.xml)
-    alongside test execution. If `pyright` is not available on PATH, a skipped CheckResult is returned for it.
+    When `include_coverage` is true, pytest is invoked to produce a coverage XML report alongside test execution. If `pyright` is not available, the returned list contains a failing `CheckResult` for the pyright check.
     
     Parameters:
-        context (SmokeContext): Artifact/output directory and execution context.
+        context (SmokeContext): Execution/artifacts context used to write per-check logs.
         include_coverage (bool): If true, enable coverage reporting for the pytest run.
     
     Returns:
-        list[CheckResult]: A list of results for `ruff_check`, `pytest`, and `pyright` (or a skipped result
-        if pyright is absent).
+        list[CheckResult]: Results for the `ruff_check`, `pytest`, and `pyright` checks (pyright result will indicate failure if the executable is not found).
     """
     results = [
         run_command_capture(
@@ -1371,13 +1425,9 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
 
 def main() -> int:
     """
-    Run the smoke QA suite (CLI and TUI checks), optional code-quality checks, and optional Sonar analysis; write artifacts and a JSON summary, print a human-readable summary, and return an exit code.
+    Run the smoke QA suite, produce per-check artifacts and a consolidated JSON summary, print a pass/fail table, and return an exit status.
     
-    The function:
-    - Creates the artifacts directory for this run.
-    - Executes surface smoke checks and, if requested, quality and Sonar checks.
-    - Persists per-check log artifacts and a top-level `smoke-summary.json`.
-    - Prints a pass/fail table with details and artifact locations to stdout.
+    Creates a unique artifacts directory for the run, executes surface smoke checks and (optionally) code-quality and Sonar checks, writes per-check log artifacts and a top-level `smoke-summary.json`, and prints a human-readable summary with each check's status, details, and artifact path.
     
     Returns:
         int: 0 if all checks passed, 1 if any check failed.

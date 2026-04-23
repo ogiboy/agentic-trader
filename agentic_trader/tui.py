@@ -743,6 +743,13 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
 
 
 def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> None:
+    """
+    Render a compact system snapshot table showing runtime state, model, LLM readiness, broker status, kill-switch state, and whether database views are readable.
+    
+    Parameters:
+        settings (Settings): Application settings used to read runtime and broker state and to evaluate LLM health.
+        db (TradingDatabase | None): Open read-capable database instance; when None the UI marks DB views as observer-only.
+    """
     health = LocalLLM(settings).health_check()
     runtime_state = read_service_state(settings)
     runtime_view = build_runtime_status_view(runtime_state)
@@ -772,6 +779,11 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
 
 
 def _configure_preferences(db: TradingDatabase) -> None:
+    """
+    Interactively prompt the operator to review and update investment preferences and persist the changes.
+    
+    Displays the current preferences, prompts for each preference field (list fields accept comma-separated values; choice fields present fixed options), preserves existing list values when the input is empty, builds an InvestmentPreferences object from the responses, and saves it to the provided TradingDatabase.
+    """
     current = db.load_preferences()
     console.print(_render_preferences(current))
     regions = Prompt.ask(

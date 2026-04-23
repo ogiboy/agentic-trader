@@ -94,6 +94,16 @@ def _snapshot() -> MarketSnapshot:
 
 
 def test_default_provider_adapters_conform_to_interfaces() -> None:
+    """
+    Verify default provider adapter classes implement their expected provider interfaces.
+    
+    Asserts that the default provider classes instantiate as the corresponding interface types:
+    - YahooMarketDataProvider -> MarketDataProvider
+    - LocalFundamentalProvider, SecEdgarFundamentalProvider, FinnhubFundamentalProvider, FmpFundamentalProvider -> FundamentalDataProvider
+    - YahooNewsProvider -> NewsProvider
+    - LocalDisclosureProvider, KapDisclosureProvider -> DisclosureProvider
+    - LocalMacroProvider -> MacroDataProvider
+    """
     settings = _settings()
 
     assert isinstance(YahooMarketDataProvider(settings), MarketDataProvider)
@@ -108,6 +118,17 @@ def test_default_provider_adapters_conform_to_interfaces() -> None:
 
 
 def test_canonical_snapshot_preserves_attribution_and_missing_sections() -> None:
+    """
+    Validate that building a canonical analysis snapshot preserves source attributions, records missing sections, and retains key snapshot metadata.
+    
+    Asserts that the canonical snapshot for the sample market:
+    - has symbol "AAPL";
+    - marks the market attribution `source_role` as "inferred";
+    - contains 120 market rows;
+    - classifies the first news event as "company_specific";
+    - lists "fundamentals" and "disclosures" in `missing_sections`;
+    - includes sources named "sec_edgar" and "kap_disclosures" in `source_attributions`.
+    """
     snapshot = build_canonical_analysis_snapshot(
         _snapshot(),
         settings=_settings(),
@@ -196,6 +217,11 @@ def test_empty_provider_outputs_are_visible_in_canonical_attribution() -> None:
 
 class _FailingFundamentalProvider:
     def metadata(self) -> ProviderMetadata:
+        """
+        Metadata describing this fundamental data provider.
+        
+        @returns ProviderMetadata: The provider's identifier, display name, and capabilities (e.g., supported symbols, data types, and rate/limit hints).
+        """
         return LocalFundamentalProvider(_settings()).metadata()
 
     def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:

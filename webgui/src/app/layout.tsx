@@ -17,6 +17,12 @@ export const metadata: Metadata = {
   description: 'Local-first command center for Agentic Trader',
 };
 
+/**
+ * Provides the application's root HTML layout, applies global font CSS variables and document-level links, and renders `children` inside the page body.
+ *
+ * @param children - Elements to render inside the document `<body>`
+ * @returns The root HTML element tree for the application layout
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -12,6 +12,12 @@ type ExecOptions = {
   timeoutMs?: number;
 };
 
+/**
+ * Build an ordered list of executable invocation attempts for the given CLI arguments.
+ *
+ * @param args - Command-line arguments to pass to the Agentic Trader CLI
+ * @returns An array of tuples where each tuple is `[executablePath, argv]`; the list prefers the configured Python module runner (if available) followed by the direct CLI executable fallback
+ */
 function buildAttempts(args: string[]): Array<[string, string[]]> {
   const attempts: Array<[string, string[]]> = [];
   if (pythonExecutable) {
@@ -21,6 +27,12 @@ function buildAttempts(args: string[]): Array<[string, string[]]> {
   return attempts;
 }
 
+/**
+ * Selects a default comma-separated list of market symbols based on exchange and region preferences.
+ *
+ * @param preferences - Object containing optional `exchanges` and `regions` arrays used to infer market preference.
+ * @returns `THYAO.IS,GARAN.IS` when `exchanges` contains `BIST` or `regions` contains `TR`; `AAPL,MSFT` when `exchanges` contains `NASDAQ` or `NYSE` or `regions` contains `US`; otherwise `BTC-USD,ETH-USD`.
+ */
 function defaultSymbolsFromPreferences(preferences: {
   exchanges?: string[];
   regions?: string[];
@@ -40,6 +52,12 @@ function defaultSymbolsFromPreferences(preferences: {
   return "BTC-USD,ETH-USD";
 }
 
+/**
+ * Selects a single trading symbol from the provided application state or preferences.
+ *
+ * @param data - Application state object which may contain `status.state.current_symbol`, `tradeContext.record.symbol`, `review.record.symbol`, or `preferences` used to derive defaults.
+ * @returns The chosen symbol string from the first available source in priority order: `status.state.current_symbol`, `tradeContext.record.symbol`, `review.record.symbol`, or the first symbol from defaults derived from `preferences`.
+ */
 function defaultSingleSymbol(data: Record<string, any>): string {
   return (
     data?.status?.state?.current_symbol ||
@@ -49,10 +67,24 @@ function defaultSingleSymbol(data: Record<string, any>): string {
   );
 }
 
+/**
+ * Selects the runtime interval for the trader from available data sources.
+ *
+ * Checks `data.status.state.interval` first, then `data.marketContext.contextPack.interval`, and falls back to `"1d"`.
+ *
+ * @param data - Object containing runtime and market context (`status.state.interval` and `marketContext.contextPack.interval` are checked)
+ * @returns The chosen interval string (e.g., `"1d"`) from status, context pack, or the `"1d"` fallback
+ */
 function defaultRuntimeInterval(data: Record<string, any>): string {
   return data?.status?.state?.interval || data?.marketContext?.contextPack?.interval || "1d";
 }
 
+/**
+ * Selects the runtime lookback period from available sources or falls back to "180d".
+ *
+ * @param data - Object that may contain `status.state.lookback` or `marketContext.contextPack.lookback`
+ * @returns The lookback string from `status.state.lookback` if present, otherwise from `marketContext.contextPack.lookback`, otherwise `"180d"`
+ */
 function defaultRuntimeLookback(data: Record<string, any>): string {
   return (
     data?.status?.state?.lookback ||
@@ -61,6 +93,12 @@ function defaultRuntimeLookback(data: Record<string, any>): string {
   );
 }
 
+/**
+ * Extracts a human-readable message from an unknown error value.
+ *
+ * @param error - The value to extract a message from; may be an `Error` or any other value
+ * @returns The error's `message` if `error` is an `Error`, otherwise `String(error)`
+ */
 function extractError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -68,6 +106,15 @@ function extractError(error: unknown): string {
   return String(error);
 }
 
+/**
+ * Execute the Agentic Trader CLI with the provided arguments, trying configured executable entrypoints until one succeeds.
+ *
+ * @param args - Command-line arguments to pass to the Agentic Trader CLI (e.g., `["run", "--symbol", "AAPL"]`)
+ * @param options.expectJson - If `true`, parse and return `stdout` as JSON; otherwise return raw `stdout` and `stderr`
+ * @param options.timeoutMs - Process execution timeout in milliseconds
+ * @returns When `expectJson` is `true`, the parsed JSON result from `stdout`; otherwise an object `{ stdout, stderr }` with the command output
+ * @throws Error when a command invocation fails with a non-ENOENT error (message includes the command's `stderr`, `stdout`, or error message), or when no suitable Agentic Trader executable is available
+ */
 export async function execTrader(
   args: string[],
   { expectJson = false, timeoutMs = 30_000 }: ExecOptions = {},
@@ -98,6 +145,11 @@ export async function execTrader(
   throw new Error(extractError(lastError || "No Agentic Trader executable was available."));
 }
 
+/**
+ * Fetches the Agentic Trader dashboard snapshot.
+ *
+ * @returns The dashboard data parsed from the CLI's JSON output.
+ */
 export async function getDashboardSnapshot(): Promise<any> {
   return execTrader(["dashboard-snapshot", "--log-limit", "14"], {
     expectJson: true,
@@ -105,6 +157,13 @@ export async function getDashboardSnapshot(): Promise<any> {
   });
 }
 
+/**
+ * Orchestrates runtime actions (start, stop, restart, one-shot) for the Agentic Trader and returns a message and updated dashboard.
+ *
+ * @param kind - Action to perform: "start", "stop", "restart", or "one-shot".
+ * @returns An object with a human-readable `message` describing the outcome and the current `dashboard` snapshot.
+ * @throws Error if `kind` is unsupported.
+ */
 export async function runRuntimeAction(kind: string): Promise<{
   message: string;
   dashboard: any;
@@ -192,6 +251,13 @@ export async function runRuntimeAction(kind: string): Promise<{
   throw new Error(`Unsupported runtime action: ${kind}`);
 }
 
+/**
+ * Sends an instruction message to the Agentic Trader CLI and returns the CLI's JSON response.
+ *
+ * @param message - The plaintext instruction to send to the CLI.
+ * @param apply - If `true`, apply the instruction; if `false`, perform a non-applying evaluation (dry run).
+ * @returns The parsed JSON response produced by the Agentic Trader CLI.
+ */
 export async function runInstruction(message: string, apply: boolean): Promise<any> {
   const args = ["instruct", "--json", "--message", message];
   if (apply) {
@@ -203,6 +269,13 @@ export async function runInstruction(message: string, apply: boolean): Promise<a
   });
 }
 
+/**
+ * Send a chat message as a specified persona to the Agentic Trader.
+ *
+ * @param persona - The persona name to use for the chat assistant
+ * @param message - The chat message to send
+ * @returns The parsed JSON response produced by the chat command
+ */
 export async function runChat(persona: string, message: string): Promise<any> {
   return execTrader(
     ["chat", "--json", "--persona", persona, "--message", message],
