@@ -9,6 +9,21 @@
 
 ## Current Suggested Focus
 
+### 0. Immediate Now vs Next
+
+Now:
+
+- finish the current pasted fix batch across Python runtime, Ink, smoke QA, and Web GUI without widening scope into a full frontend rewrite
+- keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts
+- refresh docs hygiene by keeping README pointers aligned with the current developer code-map and activating the existing `docs/` app instead of planning a second docs project
+- design the Ollama-management path as an extension of the existing daemon/log/status surfaces so the app can eventually start, stop, inspect, and expose model-service logs without creating a parallel supervisor
+
+Next:
+
+- add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
+- resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind resolution issue so local interactive frontend work matches the now-green lint/build path
+- turn `docs/` from placeholder scaffold into a real documentation site with setup, architecture, and operator workflows
+
 ### 1. Financial Intelligence Layer
 
 Move the system from compact price-only reasoning toward structured multi-source decision context.
@@ -116,6 +131,7 @@ Keep the background runtime and the Ink control room aligned and more operationa
 Desired shape:
 
 - stronger daemon supervision readiness
+- optional app-managed Ollama lifecycle control, health probes, and operator-visible request/log tails inside the same supervision surface
 - hardware-aware runtime performance profiles for safe agent concurrency, token budgets, request timeouts, and memory use
 - a local capability probe that can recommend lightweight, balanced, or high-throughput profiles from CPU/RAM/GPU/model details
 - richer daemon supervision metadata such as launch counts, restart counts, terminal states, and log-tail visibility
@@ -155,6 +171,7 @@ Desired direction:
 - simplify Rich menu navigation so back, close, cancel, and exit behaviors are consistent and the repeated logo/header does not dominate every output
 - add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
 - turn UX findings into smallest-safe repair recommendations, classified as V1 blocker, V1 polish, or V2 redesign before implementation
+- keep the Web GUI on the same parity path, including production-verifiable visuals and a follow-up fix for the current `next dev` workspace-resolution issue
 
 ### 9. Per-Trade Context Persistence
 

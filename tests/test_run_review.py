@@ -1,3 +1,5 @@
+import json
+import subprocess
 from pathlib import Path
 
 from agentic_trader.cli import app
@@ -190,31 +192,71 @@ def test_trade_context_surfaces_canonical_analysis(tmp_path: Path) -> None:
 
 
 def test_ink_review_surfaces_fundamental_truth() -> None:
-    source = Path("tui/index.mjs").read_text(encoding="utf-8")
+    script = """
+import { getFundamentalAssessmentLines } from './tui/review-lines.mjs';
+const lines = getFundamentalAssessmentLines({
+  overall_bias: 'supportive',
+  risk_flags: ['high_debt_risk'],
+  evidence_vs_inference: {
+    evidence: ['revenue_growth=0.12'],
+    inference: ['growth is broad-based'],
+    uncertainty: ['provider lag possible'],
+  },
+});
+console.log(JSON.stringify(lines));
+"""
+    proc = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=Path.cwd(),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    lines = json.loads(proc.stdout)
 
-    for token in [
-        "record.fundamental_assessment",
-        "reviewRecord.artifacts.fundamental",
-        "Fundamental Bias",
-        "Fundamental Red Flags",
-        "Fundamental Evidence",
-        "Fundamental Inference",
-        "Fundamental Uncertainty",
-    ]:
-        assert token in source
+    assert lines == [
+        "Fundamental Bias: supportive",
+        "Fundamental Red Flags: high_debt_risk",
+        "Fundamental Evidence: revenue_growth=0.12",
+        "Fundamental Inference: growth is broad-based",
+        "Fundamental Uncertainty: provider lag possible",
+    ]
 
 
 def test_ink_review_reads_canonical_analysis_snapshot() -> None:
-    source = Path("tui/index.mjs").read_text(encoding="utf-8")
+    script = """
+import { getCanonicalAnalysisLines } from './tui/review-lines.mjs';
+const lines = getCanonicalAnalysisLines({
+  snapshot: {
+    summary: 'Canonical summary',
+    completeness_score: 0.75,
+    missing_sections: ['fundamentals'],
+    market: { attribution: { source_name: 'polygon' } },
+    fundamental: { attribution: { source_name: 'sec_edgar' } },
+    macro: { attribution: { source_name: 'local_macro_scaffold' } },
+    news_events: [{}, {}],
+    disclosures: [{}],
+    source_attributions: [
+      { provider_type: 'market', source_name: 'polygon', source_role: 'primary', freshness: 'fresh' },
+      { provider_type: 'fundamental', source_name: 'sec_edgar', source_role: 'missing', freshness: 'missing' },
+    ],
+  },
+});
+console.log(JSON.stringify(lines));
+"""
+    proc = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=Path.cwd(),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    lines = json.loads(proc.stdout)
 
-    for token in [
-        "getCanonicalAnalysisLines",
-        "data.canonicalAnalysis",
-        "CANONICAL ANALYSIS",
-        "Fundamental Source",
-        "Missing:",
-        "Missing Sources:",
-        "Sources Shown:",
-    ]:
-        assert token in source
-    assert "canonicalAnalysisLines.slice(0, 10)" not in source
+    assert "Summary: Canonical summary" in lines
+    assert "Completeness: 0.75" in lines
+    assert "Missing: fundamentals" in lines
+    assert "Fundamental Source: sec_edgar" in lines
+    assert "Macro Source: local_macro_scaffold" in lines
+    assert "Missing Sources: fundamental:sec_edgar" in lines
+    assert "Sources Shown: 2/2" in lines

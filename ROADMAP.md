@@ -151,6 +151,7 @@ Status: in progress.
 - [ ] make the daemon compatible with `launchd` or `systemd`-style supervision later
 - [x] allow the operator TUI to attach to a running background service instead of owning the process directly
 - [x] allow a future WebUI to connect to the same daemon runtime over a local port without duplicating orchestration logic
+- [ ] let the runtime optionally supervise the local Ollama service lifecycle, health checks, and operator-visible log tails instead of assuming Ollama was started in a separate terminal
 Notes:
 - background launch, status, logs, stop requests, and live monitor attach surfaces are already implemented
 - read-only observer surfaces now attach safely through shared status/log contracts without competing for write locks
@@ -314,10 +315,15 @@ Status: planned.
 - [ ] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, trace, context pack, and QA results under a timestamped artifact directory
 - [ ] keep quality gates tiered: CI-safe CLI/static checks first, local interactive TUI checks second, manual visual recordings third
 - [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
+- [ ] refresh developer orientation notes and keep README links pointed at the current code-map instead of stale `docs/dev/*` paths
+- [ ] turn the existing `docs/` Next.js scaffold into a real local documentation site for setup, architecture, and operator workflows
+- [ ] add a cross-platform bootstrap flow for macOS, Linux, and Windows that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and opens the Web GUI
+- [ ] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
   Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
 - smoke QA now includes dashboard and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, and an optional isolated one-cycle runtime check
 - visual QA can now use Computer Use in Codex/Desktop environments, but it remains optional and must be paired with contract/runtime truth checks
+- `docs/` already exists as a placeholder Next.js app and should be activated rather than recreated
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
 ## Phase 15: Production-Like Paper Operations

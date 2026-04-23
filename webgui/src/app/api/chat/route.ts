@@ -1,4 +1,5 @@
 import { runChat } from '../../../lib/agentic-trader';
+import { isChatPersona } from '../../../lib/chat-personas';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +18,11 @@ export async function POST(request: Request) {
     if (!body.message?.trim()) {
       return Response.json({ error: 'missing chat message' }, { status: 400 });
     }
+    if (body.persona !== undefined && !isChatPersona(body.persona)) {
+      return Response.json({ error: 'invalid persona' }, { status: 400 });
+    }
     const result = await runChat(
-      body.persona || 'operator_liaison',
+      body.persona ?? 'operator_liaison',
       body.message,
     );
     return Response.json(result);

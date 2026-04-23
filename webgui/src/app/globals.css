@@ -59,7 +59,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
-    Inter,
+    var(--font-geist-sans),
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -348,7 +348,7 @@ button {
 
 .kv-list__row dd {
   margin: 0;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .text-list {
@@ -363,7 +363,7 @@ button {
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(244, 245, 239, 0.06);
   line-height: 1.5;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .text-list li:last-child {

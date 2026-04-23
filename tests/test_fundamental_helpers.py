@@ -624,7 +624,7 @@ class TestFallbackFundamental:
         assert result.source == "fallback"
         assert result.overall_bias == "neutral"
         assert result.overall_signal == "neutral"
-        assert result.confidence == 0.0 or result.confidence == 0.35
+        assert result.confidence == 0.0
 
     def test_fallback_with_high_debt_risk_produces_avoid_balance_sheet(self) -> None:
         context = _context()
@@ -824,8 +824,6 @@ class TestAssessFundamentals:
                 )
             }
         )
-        # With provider flags, assess_fundamentals returns fallback without calling LLM,
-        # even with allow_fallback=False, because it short-circuits before LLM call.
         from agentic_trader.llm.client import LocalLLM
 
         class _FailLLM:
@@ -835,11 +833,13 @@ class TestAssessFundamentals:
             def complete_structured(self, **_kwargs: object) -> object:
                 raise RuntimeError("LLM unavailable")
 
-        result = assess_fundamentals(
-            cast(LocalLLM, _FailLLM()),
-            _snapshot(),
-            allow_fallback=False,
-            context=flagged,
-        )
-        # Returns fallback because provider flags gate LLM call
-        assert result.source == "fallback"
+        with pytest.raises(
+            RuntimeError,
+            match=FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON,
+        ):
+            assess_fundamentals(
+                cast(LocalLLM, _FailLLM()),
+                _snapshot(),
+                allow_fallback=False,
+                context=flagged,
+            )

@@ -21,9 +21,6 @@ build/
 tui/node_modules/
 tui/dist/
 tui/.env
-webgui/node_modules/
-webgui/.next/
-webgui/.env
 build/
 dist/
 *.egg-info/
@@ -79,4 +76,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-

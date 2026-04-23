@@ -349,7 +349,7 @@ agentic-trader portfolio --json
 
 ## QA And Code Quality
 
-Developer orientation notes live in [docs/dev/code-map.md](docs/dev/code-map.md).
+Developer orientation notes live in [dev/code-map.md](dev/code-map.md).
 
 Fast checks:
 

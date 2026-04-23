@@ -31,6 +31,7 @@ Implemented or substantially present:
 - Ink chat now includes side-by-side live agent activity and reasoning/tool context instead of a transcript-only view
 - a local observer API can now expose runtime contracts over HTTP for future WebUI attach flows
 - a first local Web GUI now exists under `webgui/`; it uses a Next.js shell plus server-side route handlers that call the existing CLI/dashboard/runtime/chat/instruction contracts instead of adding a second runtime
+- the Web GUI now also validates persona/runtime inputs at the route boundary, uses a sequence guard to prevent stale dashboard polls from overwriting newer state, and uses Next metadata/icon wiring plus `next/image` on the operator hero surface
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
 - trade-level context persistence for memory/tool/model/rationale inspection
@@ -58,6 +59,7 @@ Implemented or substantially present:
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, deeper Rich submenu navigation, read-only JSON surfaces, optional one-cycle runtime checks, optional quality gates, coverage XML, and SonarQube submission
 - Ink settings now covers the remaining V1 parity gap for preference visibility, recent runs, and safe operator-instruction editing in a resize-safer compact layout, and smoke QA verifies that page switch through tmux in a 110x30 terminal
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
+- the repository already contains a `docs/` Next.js scaffold; it remains a placeholder today and should be treated as the future documentation site rather than a hypothetical new project
 - Python dependency resolution now uses a committed `poetry.lock` file generated from `pyproject.toml`; Conda remains the recommended Python environment layer while Poetry owns package locking and install synchronization
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
 - the initial Web GUI development flow now enables Watchpack polling in `webgui` dev mode to avoid file-watch limit noise in larger local worktree setups while the shell is still young
@@ -101,6 +103,7 @@ New production-expansion direction:
 - behavior-changing work should use the QA docs when it affects operator surfaces or runtime behavior
 - Sonar Quality Gate currently requires higher new-code coverage than the repository has; keep adding focused tests before treating the gate as fully green
 - full multi-language support is intentionally deferred until operator flows stabilize; new repeated UI strings should be added to the shared catalog rather than duplicated per surface
+- `webgui` lint and production build are currently green in this worktree, but `next dev` still needs a follow-up for the multi-lockfile/Turbopack Tailwind resolution issue observed during manual QA
 
 ## Current Development Posture
 
@@ -111,3 +114,4 @@ The codebase should be treated as:
 - already opinionated
 - ready for targeted extension, not a rewrite
 - dependent on keeping `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` in sync with meaningful architecture changes
+- now entering a V1-hardening phase that includes optional app-managed Ollama supervision, docs activation, and onboarding/bootstrap work without replacing the existing runtime shape

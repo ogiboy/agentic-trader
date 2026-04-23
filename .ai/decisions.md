@@ -199,3 +199,22 @@ Conda stays useful for selecting the Python interpreter and native environment, 
 Reason:
 Runtime supervision writes many related fields whenever cycle, symbol, daemon, and stop-request state changes.
 Keeping those fields in a `ServiceStateUpdate` contract makes persistence updates easier to evolve and avoids long, fragile method signatures while preserving the sidecar service-state mirror used by CLI, Rich, Ink, observer, and daemon surfaces.
+
+### App-managed Ollama should extend the existing daemon supervision surface
+
+Reason:
+The repository already has runtime supervision metadata, status commands, log tails, observer attach flows, and a Web GUI that reads those contracts.
+If the application starts or stops Ollama for the operator, it should do so through the same local supervision and diagnostics surface rather than by creating a second orchestration/runtime layer.
+That keeps model-service truth visible to CLI, Ink, observer, and Web GUI users, and it preserves the existing local-first architecture.
+
+### V1 bootstrap should be provider-aware and opt-in around model installs
+
+Reason:
+V1 needs a smoother onboarding flow, but forced Ollama or default-model installation would over-assume the user's adapter and local setup choices.
+The bootstrap path should detect missing prerequisites, offer sensible defaults such as Ollama plus a default local model, and still allow users to skip or replace that path without hidden behavior.
+
+### The existing docs scaffold should be activated, not replaced
+
+Reason:
+The repository already contains a `docs/` Next.js scaffold, while developer orientation still partly lives in repo notes such as `dev/code-map.md`.
+The right next step is to refresh links, migrate/update content, and grow the existing docs site into the canonical documentation surface instead of creating a second documentation project.

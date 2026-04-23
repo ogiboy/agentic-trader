@@ -344,7 +344,10 @@ def _fallback_fundamental(
         inference.append(
             "Fallback assessment used only structured feature metrics and source quality flags."
         )
-    provider_gap = any(
+    provider_gap = (
+        context is None
+        or context.decision_features is None
+        or any(
         flag
         in {
             "fundamental_provider_missing",
@@ -352,6 +355,7 @@ def _fallback_fundamental(
             "fundamental_provider_not_configured",
         }
         for flag in risk_flags
+        )
     )
     signals: list[AnalysisSignal] = [
         growth_quality,
@@ -446,6 +450,8 @@ def assess_fundamentals(
         "When data is incomplete, stay neutral or cautious instead of filling gaps."
     )
     if not _has_structured_fundamental_evidence(context):
+        if not allow_fallback:
+            raise RuntimeError(FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON)
         return _fallback_fundamental(
             context,
             fallback_reason=FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON,

@@ -443,31 +443,28 @@ class FundamentalAssessment(BaseModel):
         Returns:
         	self (FundamentalAssessment): The model instance with synchronized fields.
         """
-        fields = self.model_fields_set
-        if "growth_quality" not in fields and "revenue_growth_quality" in fields:
-            self.growth_quality = self.revenue_growth_quality
-        else:
-            self.revenue_growth_quality = self.growth_quality
+        fields = set(self.model_fields_set)
 
-        if "balance_sheet_quality" not in fields and "debt_quality" in fields:
-            self.balance_sheet_quality = self.debt_quality
-        else:
-            self.debt_quality = self.balance_sheet_quality
+        def _sync_pair(current: str, legacy: str) -> None:
+            current_present = current in fields
+            legacy_present = legacy in fields
+            current_value = getattr(self, current)
+            legacy_value = getattr(self, legacy)
 
-        if "fx_risk" not in fields and "fx_exposure_risk" in fields:
-            self.fx_risk = self.fx_exposure_risk
-        else:
-            self.fx_exposure_risk = self.fx_risk
+            if current_present and legacy_present and current_value != legacy_value:
+                raise ValueError(
+                    f"Conflicting fundamental assessment fields: {current} != {legacy}."
+                )
+            if not current_present and legacy_present:
+                setattr(self, current, legacy_value)
+            elif not legacy_present and current_present:
+                setattr(self, legacy, current_value)
 
-        if "overall_bias" not in fields and "overall_signal" in fields:
-            self.overall_bias = self.overall_signal
-        else:
-            self.overall_signal = self.overall_bias
-
-        if "red_flags" not in fields and "risk_flags" in fields:
-            self.red_flags = list(self.risk_flags)
-        else:
-            self.risk_flags = list(self.red_flags)
+        _sync_pair("growth_quality", "revenue_growth_quality")
+        _sync_pair("balance_sheet_quality", "debt_quality")
+        _sync_pair("fx_risk", "fx_exposure_risk")
+        _sync_pair("overall_bias", "overall_signal")
+        _sync_pair("red_flags", "risk_flags")
         return self
 
 

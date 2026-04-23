@@ -1,9 +1,31 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- CLI/dashboard payloads are schema-loose JSON today */
 import { execFile } from "node:child_process";
-import { resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
-const workspaceRoot = resolve(process.cwd(), "..");
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+
+function detectWorkspaceRoot(start: string): string {
+  let current = resolve(start);
+  while (true) {
+    if (
+      existsSync(resolve(current, "pyproject.toml")) &&
+      existsSync(resolve(current, "agentic_trader"))
+    ) {
+      return current;
+    }
+    const parent = resolve(current, "..");
+    if (parent === current) {
+      return process.cwd();
+    }
+    current = parent;
+  }
+}
+
+const workspaceRoot = detectWorkspaceRoot(resolve(moduleDir, "../../.."));
 const cliExecutable = process.env.AGENTIC_TRADER_CLI || "agentic-trader";
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 
