@@ -195,10 +195,21 @@ agentic-trader tui
 Ink control room hotkeys:
 
 ```text
-1 overview   2 runtime   3 portfolio   4 review   5 memory   6 chat
-r refresh    s start background runtime    x stop runtime    q quit
+1 overview   2 runtime   3 portfolio   4 review   5 memory   6 chat   7 settings
+r refresh    o one-shot    s start background runtime    x stop runtime    R restart    q quit
 [ and ] switch chat persona on the chat page
 ```
+
+Open the local web control room:
+
+```bash
+cd webgui
+npm install
+npm run dev
+```
+
+The web command center runs on [http://localhost:3210](http://localhost:3210) and stays local-first by calling the same `dashboard-snapshot`, runtime, chat, and instruction contracts that CLI, Rich, and Ink already use. The dev script enables Watchpack polling to avoid file-watch limit noise in larger worktree setups.
+If the Node process cannot see the installed CLI, set `AGENTIC_TRADER_CLI` or `AGENTIC_TRADER_PYTHON` before starting the web shell.
 
 Start the runtime directly from the root launcher:
 
@@ -376,6 +387,7 @@ The current QA harness validates installed CLI entrypoints, the primary Ink TUI,
 - The trading runtime is strict by default: if Ollama or the configured model is unavailable, the core runtime should not start.
 - Deterministic fallbacks are kept for diagnostics and Training-mode evaluation, not for silent trade generation in the main launcher or background runtime.
 - The Ink control room is the primary terminal operator surface; the Rich menu remains useful as a legacy/admin fallback.
+- A first local Web GUI now lives under `webgui/` and reuses the same CLI/dashboard contracts instead of introducing a second runtime surface.
 - UI text is starting to move behind a shared catalog so CLI, Rich, Ink, and a future WebUI can grow toward multi-language support without duplicating labels.
 - Live broker adapters can be added once the planning and portfolio pipeline behaves consistently.
 

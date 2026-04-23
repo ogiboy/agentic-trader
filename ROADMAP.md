@@ -157,6 +157,7 @@ Notes:
 - restart controls are now available from the CLI through stored background launch config
 - daemon supervision metadata now records background mode, launch counts, restart counts, last terminal state, and stdout or stderr log tails for operator surfaces
 - a local observer API now exposes the same runtime contracts over HTTP endpoints such as `/health`, `/dashboard`, `/status`, `/logs`, and `/broker`
+- a first `webgui/` shell now exists and uses those shared contracts through local server-side route handlers instead of introducing a separate runtime
 - deeper supervisor compatibility and daemon-backed multi-surface UI support remain open
 
 ## Phase 8: Live Execution Adapters

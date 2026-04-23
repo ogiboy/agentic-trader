@@ -38,6 +38,12 @@ Reason:
 Operator trust depends on consistent state across surfaces.
 UI-specific hidden logic should be avoided.
 
+### The first Web GUI should stay a thin local shell over existing contracts
+
+Reason:
+The project now has a `webgui/` command center, but it should not grow a second orchestration path.
+The web shell should call the same CLI/dashboard/runtime/chat/instruction contracts that already power CLI, Rich, and Ink, keeping local-first truth and operator-visible behavior aligned while the Web UI grows.
+
 ### Operator chat memory must remain separate from trading memory
 
 Reason:

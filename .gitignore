@@ -21,6 +21,9 @@ build/
 tui/node_modules/
 tui/dist/
 tui/.env
+webgui/node_modules/
+webgui/.next/
+webgui/.env
 build/
 dist/
 *.egg-info/
@@ -34,3 +37,4 @@ dist/
 .ai/qa/artifacts/tmux-*
 .ai/qa/artifacts/edge-*
 .sonarlint/connectedMode.json
+!webgui/src/app/api/runtime

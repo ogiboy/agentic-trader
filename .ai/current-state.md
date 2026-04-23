@@ -30,6 +30,7 @@ Implemented or substantially present:
 - operator chat and safe instruction parsing
 - Ink chat now includes side-by-side live agent activity and reasoning/tool context instead of a transcript-only view
 - a local observer API can now expose runtime contracts over HTTP for future WebUI attach flows
+- a first local Web GUI now exists under `webgui/`; it uses a Next.js shell plus server-side route handlers that call the existing CLI/dashboard/runtime/chat/instruction contracts instead of adding a second runtime
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
 - trade-level context persistence for memory/tool/model/rationale inspection
@@ -59,6 +60,7 @@ Implemented or substantially present:
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
 - Python dependency resolution now uses a committed `poetry.lock` file generated from `pyproject.toml`; Conda remains the recommended Python environment layer while Poetry owns package locking and install synchronization
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
+- the initial Web GUI development flow now enables Watchpack polling in `webgui` dev mode to avoid file-watch limit noise in larger local worktree setups while the shell is still young
 - a first Market Context Pack is generated from the fetched lookback window and persisted with snapshots, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
 - Market Context Pack generation now fails closed before operation/runtime agent execution when the fetched data materially under-covers the requested lookback
 - a first runtime mode contract exists; `training`/`operation` mode now flows through settings, service-state persistence/migration, status JSON, dashboard snapshots, observer API payloads, Rich status tables, and Ink overview/runtime pages

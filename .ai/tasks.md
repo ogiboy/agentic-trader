@@ -222,6 +222,7 @@ The first local observer API now exists. Keep it small, read-only, and aligned w
 
 Desired direction:
 
+- keep the new `webgui/` shell thin and local-first, with server-side route handlers delegating to the existing CLI/dashboard/runtime contracts
 - expose the same runtime truths to future WebUI clients without duplicating orchestration logic
 - keep observer endpoints local-first and read-only
 - reuse dashboard/status/log/broker contracts across Ink, CLI, and future web surfaces
