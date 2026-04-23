@@ -22,6 +22,7 @@ from agentic_trader.agents.fundamental import (
 from agentic_trader.config import Settings
 from agentic_trader.features import build_decision_feature_bundle
 from agentic_trader.schemas import (
+    AnalysisSignal,
     AgentContext,
     EvidenceInferenceBreakdown,
     FundamentalAssessment,
@@ -355,24 +356,52 @@ class TestForwardOutlook:
 
 class TestOverallBias:
     def test_avoid_signal_dominates(self) -> None:
-        signals = ["avoid", "supportive", "supportive", "supportive", "supportive"]
+        signals: list[AnalysisSignal] = [
+            "avoid",
+            "supportive",
+            "supportive",
+            "supportive",
+            "supportive",
+        ]
         assert _overall_bias(signals, has_provider_gap=False) == "avoid"
 
     def test_cautious_without_avoid_dominates(self) -> None:
-        signals = ["cautious", "supportive", "supportive", "supportive", "supportive"]
+        signals: list[AnalysisSignal] = [
+            "cautious",
+            "supportive",
+            "supportive",
+            "supportive",
+            "supportive",
+        ]
         assert _overall_bias(signals, has_provider_gap=False) == "cautious"
 
     def test_provider_gap_forces_neutral(self) -> None:
         # Even 4+ supportive signals yield neutral when provider gap exists
-        signals = ["supportive", "supportive", "supportive", "supportive", "supportive"]
+        signals: list[AnalysisSignal] = [
+            "supportive",
+            "supportive",
+            "supportive",
+            "supportive",
+            "supportive",
+        ]
         assert _overall_bias(signals, has_provider_gap=True) == "neutral"
 
     def test_four_or_more_supportive_without_gap_returns_supportive(self) -> None:
-        signals = ["supportive", "supportive", "supportive", "supportive"]
+        signals: list[AnalysisSignal] = [
+            "supportive",
+            "supportive",
+            "supportive",
+            "supportive",
+        ]
         assert _overall_bias(signals, has_provider_gap=False) == "supportive"
 
     def test_fewer_than_four_supportive_returns_neutral(self) -> None:
-        signals = ["supportive", "supportive", "supportive", "neutral"]
+        signals: list[AnalysisSignal] = [
+            "supportive",
+            "supportive",
+            "supportive",
+            "neutral",
+        ]
         assert _overall_bias(signals, has_provider_gap=False) == "neutral"
 
     def test_empty_signals_without_gap_returns_neutral(self) -> None:
@@ -382,11 +411,11 @@ class TestOverallBias:
         assert _overall_bias([], has_provider_gap=True) == "neutral"
 
     def test_avoid_takes_priority_over_provider_gap(self) -> None:
-        signals = ["avoid"]
+        signals: list[AnalysisSignal] = ["avoid"]
         assert _overall_bias(signals, has_provider_gap=True) == "avoid"
 
     def test_cautious_takes_priority_over_provider_gap(self) -> None:
-        signals = ["cautious"]
+        signals: list[AnalysisSignal] = ["cautious"]
         assert _overall_bias(signals, has_provider_gap=True) == "cautious"
 
 

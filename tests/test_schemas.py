@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
@@ -30,7 +32,7 @@ from agentic_trader.schemas import FundamentalAssessment
     ],
 )
 def test_fundamental_assessment_syncs_legacy_fields(
-    kwargs: dict[str, object], expected_field: str, expected_value: object
+    kwargs: dict[str, Any], expected_field: str, expected_value: object
 ) -> None:
     assessment = FundamentalAssessment(**kwargs)
 
@@ -63,7 +65,7 @@ def test_fundamental_assessment_syncs_legacy_fields(
     ],
 )
 def test_fundamental_assessment_rejects_conflicting_legacy_fields(
-    kwargs: dict[str, object],
+    kwargs: dict[str, Any],
 ) -> None:
     with pytest.raises(ValidationError, match="Conflicting fundamental assessment fields"):
         FundamentalAssessment(**kwargs)
