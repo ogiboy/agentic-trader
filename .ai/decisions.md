@@ -242,3 +242,10 @@ The new Fumadocs feedback surface is useful immediately, but the repository is s
 The docs app should therefore store feedback locally in an inspectable append-only log first, while explicitly forwarding to GitHub Discussions when the docs GitHub App credentials are configured.
 The operator-facing configuration path for that forwarding should follow the repository's existing example-vs-local env contract, so `docs/.env.example` documents the variables and `docs/.env.local` carries the real credentials.
 If GitHub forwarding is unavailable or fails, the UI should say so plainly instead of pretending the external handoff worked.
+
+### Docs should use locale-prefixed routes and modular content ownership
+
+Reason:
+The docs surface now needs real bilingual coverage, but the broader product is not ready for a full repo-wide i18n rewrite.
+Keeping docs under explicit `/en/...` and `/tr/...` routes provides a practical English/Turkish split for navigation, search, and page trees without changing the trading runtime.
+Within the docs app, route files, feedback flows, i18n helpers, and landing-page content should be split into smaller modules whenever that improves readability, reviewability, and long-term maintenance.

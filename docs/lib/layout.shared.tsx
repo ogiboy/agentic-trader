@@ -1,8 +1,22 @@
-import { Blocks, ChartCandlestick, FileText, LayoutPanelTop, Rocket } from "lucide-react";
+import { ChartCandlestick } from "lucide-react";
+import { defineI18nUI } from "fumadocs-ui/i18n";
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
+import { i18n, languageLabels, type DocLanguage } from "@/lib/i18n/config";
+import { withLanguagePrefix } from "@/lib/i18n/routing";
 
-export function baseOptions(): BaseLayoutProps {
+export const i18nUI = defineI18nUI(i18n, {
+  en: {
+    displayName: languageLabels.en,
+  },
+  tr: {
+    displayName: languageLabels.tr,
+    search: "Dokümanlarda ara",
+  },
+});
+
+export function baseOptions(locale: DocLanguage): BaseLayoutProps {
   return {
+    i18n,
     nav: {
       title: (
         <span className="inline-flex items-center gap-2 font-medium">
@@ -10,34 +24,8 @@ export function baseOptions(): BaseLayoutProps {
           Agentic Trader Docs
         </span>
       ),
-      url: "/",
+      url: withLanguagePrefix(locale, "/"),
     },
-    links: [
-      {
-        text: "Docs",
-        url: "/docs",
-        active: "nested-url",
-        icon: <Blocks className="size-4" />,
-      },
-      {
-        text: "Get Started",
-        url: "/docs/getting-started",
-        active: "nested-url",
-        icon: <Rocket className="size-4" />,
-      },
-      {
-        text: "Architecture",
-        url: "/docs/architecture",
-        active: "nested-url",
-        icon: <FileText className="size-4" />,
-      },
-      {
-        text: "Frontend",
-        url: "/docs/frontend-system",
-        active: "nested-url",
-        icon: <LayoutPanelTop className="size-4" />,
-      },
-    ],
     githubUrl: "https://github.com/ogiboy/agentic-trader",
   };
 }

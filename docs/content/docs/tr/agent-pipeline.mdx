@@ -1,0 +1,66 @@
+---
+title: Agent Pipeline
+description: Context'in hidden sıçramalar olmadan specialist analysis, manager output ve guarded execution'a nasıl dönüştüğü.
+---
+
+## Pipeline neden önemli
+
+Bu repo tek bir chat prompt'una “trade uydur” demiyor.
+Typed context hazırlanıyor, specialist aşamalardan geçiriliyor ve execution'a gitmeden önce deterministic bir guard uygulanıyor.
+
+## Yüksek seviye akış
+
+1. Market ve provider context hazırlanır.
+2. Specialist agent'lar problemin kendi parçalarını yorumlar.
+3. Manager bu specialist çıktılarını sentezler.
+4. Guard mantığı aksiyona izin verilip verilmeyeceğine karar verir.
+5. Execution intent ve outcome açık kayıtlar olarak persist edilir.
+
+## Pipeline'ın tercih etmesi gereken girdiler
+
+- canonical provider snapshot'ları
+- typed feature bundle'lar
+- freshness ve source attribution
+- missing-data visibility
+- runtime mode ve operator intent
+
+## Varmış gibi davranmaması gereken girdiler
+
+- uydurulmuş fundamental confidence
+- provider eksikken gizlenen provider truth
+- semantiği değiştiren ama söylenmeyen fallback'ler
+- runtime contract'te görünmeyen web-only local state
+
+## Fallback kuralı
+
+Fallback bazen gerekli olabilir; ama dürüst olmalı.
+
+Bunun anlamı:
+
+- provider evidence eksikken açık gerekçe
+- permissive training yolları ile strict operasyon yolları arasında farklı davranış
+- destekleyici kanıt yoksa sıfır ya da degrade confidence
+- primary truth gibi görünen sessiz ikame yokluğu
+
+## Pipeline sorunu nerede debug edilir
+
+Bir sonuç şüpheli görünüyorsa şu katmanları incele:
+
+- normalize edilmiş provider snapshot'ları
+- decision feature bundle'ları
+- specialist çıktı
+- manager özetleri
+- guard kararları
+- persist edilmiş review ya da trace artefact'leri
+
+Doğru düzeltme çoğu zaman prompt'a dokunmadan önce bu katmanlarda bulunur.
+
+## Bu alan için docs kuralı
+
+Pipeline sözleşmesi değişirse şunları birlikte güncelle:
+
+- mimari dokümanları
+- veri ve zeka dokümanları
+- operatöre görünen davranış değiştiyse runtime docs'u
+- `.ai/current-state.md`
+- `.ai/decisions.md`

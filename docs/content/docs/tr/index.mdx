@@ -1,0 +1,78 @@
+---
+title: Geliştirici Dokümanları
+description: Kurulum, mimari, runtime gerçeği ve Agentic Trader'ı denetlenebilir tutan kurallarla başlamak için ilk durak.
+---
+
+## Bu docs yüzeyi ne için var
+
+Agentic Trader zaten gerçek bir local runtime'a, gerçek bir kalıcılık katmanına ve gerçek operatör yüzeylerine sahip.
+Bu docs sitesinin görevi, o sistemi daha kolay gezilebilir hâle getirmek; ikinci bir mimari icat etmek değil.
+
+Bu dokümanlar özellikle şu sorular için var:
+
+- Bu davranışın sahibi hangi paket?
+- Bu ekran shared runtime truth'u mu okuyor, yoksa kendi lokal state'ini mi uyduruyor?
+- Kurulum, QA, feedback ve review beklentileri nerede yaşamalı?
+- Bir davranış değiştiğinde hangi repo notları güncellenmeli?
+
+## Role göre okuma yolları
+
+### Eğer projeye yeni giriyorsan
+
+1. [Getting Started](/tr/docs/getting-started) ile başla.
+2. Ortamı `doctor` ile doğrula.
+3. Runtime davranışını değiştirmeden önce ana operatör yüzeylerini aç.
+4. Depoda şu an neyin zaten doğru olduğunu görmek için [Project State](/tr/docs/project-state) sayfasını oku.
+
+### Eğer runtime davranışını değiştiriyorsan
+
+1. [Architecture](/tr/docs/architecture) sayfasını oku.
+2. [Agent Pipeline](/tr/docs/agent-pipeline) sayfasını oku.
+3. [Runtime And Operations](/tr/docs/runtime-and-operations) sayfasını oku.
+4. Kapanışta [QA And Debugging](/tr/docs/qa-and-debugging) sayfasına dön.
+
+### Eğer docs veya frontend yüzeylerine dokunuyorsan
+
+1. [Operator Surfaces](/tr/docs/operator-surfaces) sayfasını oku.
+2. [Frontend System](/tr/docs/frontend-system) sayfasını oku.
+3. [Memory And Review](/tr/docs/memory-and-review) sayfasını oku.
+4. İlgili docs sayfasıyla birlikte `.ai/current-state.md`, `.ai/tasks.md` ve `.ai/decisions.md` dosyalarını da güncelle.
+
+## Temel vazgeçilmezler
+
+- Varsayılan çalışma biçimi local-first kalmalı.
+- Varsayılan execution modu paper trading kalmalı.
+- Degrade truth'u gizleyen sessiz fallback'ler kabul edilemez.
+- CLI, Rich, Ink, observer API ve Web GUI aynı runtime state'i anlatmalı.
+- Docs uygulaması ve Web GUI mevcut runtime'ın etrafındaki kabuklardır; onun yerine geçmezler.
+
+## Açık tutulması faydalı dosyalar
+
+- `README.md`
+- `ROADMAP.md`
+- `.ai/architecture.md`
+- `.ai/current-state.md`
+- `.ai/tasks.md`
+- `.ai/decisions.md`
+- `.ai/qa/qa-checklist.md`
+- `.ai/qa/qa-scenarios.md`
+
+## Bu docs yüzeyinin şu anki odağı
+
+Bu docs alanı şu anda aynı anda dört iş yapıyor:
+
+- mevcut runtime'ı dürüst biçimde belgelemek
+- daha geniş V1 itmesi öncesinde onboarding beklentilerini sertleştirmek
+- `docs/` ile `webgui/` arasındaki frontend hizasını korumak
+- proje hafızasını canlı tutarak katkı verenlerin aynı sınırları tekrar tekrar keşfetmesini önlemek
+
+## Docs bakım sözleşmesi
+
+Bir değişiklik runtime davranışını, ürün yönünü veya geliştirici workflow varsayımlarını etkiliyorsa aynı branch içinde şunları birlikte güncelle:
+
+- etkilenen docs sayfası
+- `.ai/current-state.md`
+- `.ai/tasks.md`
+- `.ai/decisions.md`
+
+Böylece docs sitesi, repo hafızası ve gerçek implementasyon birbirinden kopmaz.

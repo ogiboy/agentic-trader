@@ -1,0 +1,68 @@
+---
+title: Architecture
+description: Package ownership, staged runtime shape, and the boundaries that keep the system inspectable.
+---
+
+## Runtime shape
+
+The current runtime is a staged specialist graph that feeds a guarded execution path:
+
+1. Research Coordinator
+2. Fundamental Analyst
+3. Macro and News Analyst
+4. Regime Agent
+5. Strategy Selector
+6. Risk Agent
+7. Specialist Consensus Layer
+8. Manager Agent
+9. Execution Guard
+10. Paper Broker
+
+The details can evolve, but the important rule is that reasoning and execution still pass through explicit contracts instead of ad hoc chat messages.
+
+## Package ownership
+
+- `agentic_trader/agents/`: specialist, manager, and operator-facing reasoning surfaces
+- `agentic_trader/llm/`: provider access and role-based model routing
+- `agentic_trader/market/`: market data loading, calendar logic, and feature preparation
+- `agentic_trader/providers/`: provider boundaries and canonical aggregation
+- `agentic_trader/memory/`: retrieval, embeddings, and memory assembly
+- `agentic_trader/storage/`: DuckDB persistence and query surfaces
+- `agentic_trader/engine/` and `agentic_trader/execution/`: guard logic, intents, outcomes, and broker seams
+- `agentic_trader/workflows/`: run-once, service, replay, and backtest orchestration
+
+## Frontend boundary
+
+The repo currently has two Next.js shells:
+
+- `webgui/` for the operator-facing local UI
+- `docs/` for developer-facing documentation
+
+Neither should become a second runtime.
+Thin route handlers, shared contracts, and explicit CLI delegation are preferred over duplicating orchestration in TypeScript.
+
+## Design rules
+
+- Prefer explicit typed inputs over prompt-only inference.
+- Keep missing data visible.
+- Preserve source attribution and timestamps.
+- Avoid UI-only fixes for backend truth problems.
+- Keep failures visible instead of smoothing them into fake confidence.
+
+## When to split files
+
+This repo does not need abstraction for its own sake, but it does benefit from modular files when:
+
+- a page or component becomes hard to scan
+- one file mixes unrelated responsibilities
+- testing or reasoning improves when logic is extracted
+- a frontend shell starts coupling data access, copy, and rendering too tightly
+
+## What counts as architecture drift
+
+Examples of drift we want to avoid:
+
+- adding web-only runtime semantics
+- introducing a hidden orchestration layer outside the Python runtime
+- treating docs as a parallel source of truth instead of synced project memory
+- burying execution safety in prompts that should live in code

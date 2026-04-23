@@ -1,0 +1,122 @@
+---
+title: Başlangıç
+description: Depoyu kur, lokal hazır oluşu doğrula ve ana operatör yüzeylerini aç.
+---
+
+## Temel toolchain
+
+Depo şu anda Python artı Node workflow'u varsayıyor.
+Asıl trading logic hâlâ Python runtime içinde; `webgui/` ve `docs/` ise ayrı Next.js kabukları.
+
+Önerilen temel kurulum:
+
+- Conda ya da benzeri yönetilen bir yorumlayıcı üzerinden Python 3.14
+- Python bağımlılık yönetimi için Poetry
+- Node 20+ ve `pnpm`
+- İsteğe bağlı olarak `tmux`, `asciinema` ve QA için tarayıcı araçları
+- Varsayılan lokal model yolunu kullanıyorsan isteğe bağlı Ollama
+
+## Python runtime'ı kur
+
+```bash
+conda create -n trader python=3.14 poetry
+conda activate trader
+poetry env use "$CONDA_PREFIX/bin/python"
+poetry install --extras dev
+```
+
+## UI açmadan önce ortamı doğrula
+
+En küçük güven kontrolüyle başla:
+
+```bash
+python main.py doctor
+```
+
+Kurulu CLI entrypoint'ine güveniyorsan onu da doğrula:
+
+```bash
+agentic-trader doctor
+```
+
+Bunu Web GUI ya da Ink TUI debug etmeden önce yap.
+`doctor` zaten yanlışsa UI çoğu zaman alt katmandaki gerçek problemi sadece yansıtıyordur.
+
+## Ortam dosyalarını yapılandır
+
+Proje örnek artı lokal override düzenini kullanıyor.
+
+- Root runtime ayarları `.env.local` içinde olmalı.
+- Track edilen örnekler `.env.example` içinde kalmalı.
+- Docs'e özel GitHub feedback ayarları `docs/.env.local` içinde yaşamalı.
+
+Docs feedback akışının GitHub Discussions'a da iletmesini istiyorsan `docs/.env.example` dosyasını `docs/.env.local` olarak kopyalayıp şunları ekle:
+
+- `GITHUB_APP_ID`
+- `GITHUB_APP_PRIVATE_KEY`
+- isteğe bağlı `DOCS_FEEDBACK_GITHUB_OWNER`
+- isteğe bağlı `DOCS_FEEDBACK_GITHUB_REPO`
+- isteğe bağlı `DOCS_FEEDBACK_GITHUB_CATEGORY`
+
+## Lokal model kurulumu
+
+Depo varsayılan olarak hâlâ Ollama yönelimli, fakat yön giderek provider-aware hâle geliyor.
+Tipik lokal model ayarları şöyle görünebilir:
+
+```bash
+export AGENTIC_TRADER_MODEL=qwen3:8b
+export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
+```
+
+Sadece Ollama trafiğini görmeyi sistemin sağlıklı olduğunun kanıtı sayma.
+Model erişimi, runtime ready oluşu ve son loglar birbiriyle uyumlu olmalı.
+
+## Ana yüzeyleri ayağa kaldır
+
+Tek bir strict cycle çalıştır:
+
+```bash
+python main.py run --symbol AAPL --interval 1d --lookback 180d
+```
+
+Ink control room'u aç:
+
+```bash
+agentic-trader
+```
+
+Web GUI'yi çalıştır:
+
+```bash
+cd webgui
+pnpm install
+pnpm dev
+```
+
+Docs sitesini lokal çalıştır:
+
+```bash
+cd docs
+pnpm install
+pnpm dev
+```
+
+## Bir şey ters hissedildiğinde önce bakılacak yerler
+
+- `doctor` çıktısı
+- CLI ya da observer yüzeyindeki runtime durumu
+- son runtime logları
+- model servisinin hazır oluşu
+- root repo ile iç içe Next uygulamaları arasındaki environment farkları
+
+## Yakın dönem onboarding yönü
+
+Hedeflenen V1 hardening yolu şu:
+
+1. platforma göre prerequisite tespiti
+2. isteğe bağlı provider ve model kurulumu
+3. Python ve Node ortamlarının hazırlanması
+4. ready oluş doğrulaması
+5. doğru lokal yüzeyin otomatik açılması
+
+Bu gelecek akışın amacı sürtünmeyi azaltmak; hataları gizlemek değil.

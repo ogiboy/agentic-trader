@@ -1,0 +1,66 @@
+---
+title: QA ve Debugging
+description: Operatöre görünen değişiklikleri hedefli testler, smoke QA ve runtime kanıtı ile doğrula.
+---
+
+## Temel otomatik kontroller
+
+Hedefli kontrollerle başla:
+
+```bash
+python -m ruff check .
+python -m pytest -q -p no:cacheprovider
+python scripts/qa/smoke_qa.py
+```
+
+Docs uygulaması için:
+
+```bash
+cd docs
+pnpm lint
+pnpm build
+```
+
+## Smoke QA neden önemli
+
+Bu repo gerçek operatör yüzeylerine sahip.
+Unit test yeşil olsa bile CLI, Ink, Rich, observer ve Web GUI runtime truth konusunda anlaşmıyorsa iş bitmiş sayılmaz.
+
+## Tercih edilen kanıt sırası
+
+1. hedefli testler
+2. CLI ya da observer contract çıktısı
+3. smoke QA artefact'leri
+4. etkileşim önemliyse tmux ya da asciinema kaydı
+5. görsel doğrulama için tarayıcı ya da Computer Use kontrolü
+
+## Runtime-first debugging kuralı
+
+Bir davranış yanlış görünüyorsa:
+
+- UI'ye güvenmeden önce runtime artefact'lerini incele
+- arka plan trafiğine bakıp sağlık varsaymadan önce logları incele
+- prompt'a dokunmadan önce persist edilmiş context ve review artefact'lerini incele
+
+## Docs'e özel QA kontrol listesi
+
+Docs işini PR-ready saymadan önce:
+
+- her iki locale için routing çalışıyor mu kontrol et
+- search hâlâ anlamlı sonuç veriyor mu bak
+- feedback copy local log ile opsiyonel GitHub forwarding'i açık anlatıyor mu doğrula
+- sayfa yapısı okunabilir mi, aşırı yüklenmiş mi bak
+- değişen varsayımların `.ai` notlarına işlendiğini doğrula
+
+## Manuel QA fikirleri
+
+- `/en/docs` ve `/tr/docs` sayfalarını aç
+- her locale içinde en az bir derin sayfayı aç
+- sidebar, search ve feedback UI doğru render oluyor mu bak
+- JetBrains Mono ve tema token'ları hâlâ uygulanıyor mu kontrol et
+
+## İyi kapanış sorusu
+
+PR açmadan önce şunu sor:
+
+“Bu branch sonraki katkı vereni gerçekten hızlandırıyor mu, yoksa yalnızca bu diff'i geçiriyor mu?”

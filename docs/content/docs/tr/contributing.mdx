@@ -1,0 +1,55 @@
+---
+title: Katkı Vermek
+description: Working style, branch hijyeni ve değişiklikleri güvenli ve okunabilir tutan beklentiler.
+---
+
+## Çalışma tarzı
+
+Bu repo şunları tercih eder:
+
+- kodlamadan önce okumak
+- küçük ve hedefli diff'ler
+- açık sahiplik sınırları
+- minimum abstraction
+- görünür fail durumları
+
+## En önemli katkı kuralları
+
+- Çalışan sistemleri gelişigüzel yeniden yazma.
+- Spekülatif yeniden mimari yerine eklemeli hardening yap.
+- Proje yönü açıkça değişmeden local-first ve paper-first varsayımlarını koru.
+- Frontend kabuklarını Python runtime etrafında ince tut.
+
+## Önerilen katkı akışı
+
+1. en küçük sahip modülü oku
+2. eşleşen docs ve `.ai` notlarını oku
+3. minimum ama gerçek faydalı değişikliği yap
+4. önce hedefli testleri çalıştır
+5. davranış değiştiyse daha geniş doğrulamaya çık
+6. varsayımlar değiştiyse docs ve `.ai` notlarını da güncelle
+
+## Commit tarzı
+
+Conventional commit tarzı tercih edilir; çünkü release otomasyonu ve tarihçe daha okunabilir kalır.
+Örnekler:
+
+- `feat: add locale-aware docs routing`
+- `docs: expand runtime and onboarding guidance`
+- `fix: clarify docs feedback forwarding state`
+
+## Docs güncellemesi ne zaman işin parçasıdır
+
+Şu durumlarda docs aynı branch içinde güncellenmeli:
+
+- komut ya da workflow değiştiyse
+- frontend ile runtime sınırı değiştiyse
+- yeni bir guardrail ya da tasarım kuralı geldiyse
+- onboarding beklentileri hareket ettiyse
+
+## Bu repo için iyi PR neye benzer
+
+- diff odaklı kalır
+- operatöre görünen davranış doğrulanır
+- docs implementasyonla eşleşir
+- gelecek katkı veren aynı kuralı yeniden keşfetmek zorunda kalmaz

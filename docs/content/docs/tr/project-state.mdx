@@ -1,0 +1,78 @@
+---
+title: Proje Durumu
+description: Nelerin zaten çalıştığı, nelerin hâlâ sertleştirildiği ve V1 sıkılaştırılırken nelerin drift etmemesi gerektiği.
+---
+
+## Zaten doğru olan şeyler
+
+Agentic Trader artık yalnızca bir prototip değil.
+Depoda şu anda şunlar gerçekten var:
+
+- aşamalı specialist graph
+- shared runtime ve review sözleşmeleri
+- DuckDB tabanlı persistence
+- CLI, Rich, Ink, observer API ve Web GUI yüzeyleri
+- paper-first execution disiplini
+- smoke QA ve runtime inspection araçları
+
+Docs sitesi bu gerçeği yansıtmalı; projeyi soyut bir AI ürün hikâyesine çevirmemeli.
+
+## Şu an aktif olarak sertleştirilen alanlar
+
+Mevcut hardening hattı şunlara odaklanıyor:
+
+- runtime, provider ve model sağlığını daha görünür yapmak
+- onboarding ve kurulum kalitesini yükseltmek
+- web yüzeylerini ince ve contract-aligned tutmak
+- katkı verenlerin daha az drift ile daha hızlı hareket etmesini sağlayacak açık sınırlar yazmak
+
+## Drift etmemesi gereken şeyler
+
+- Kaynak gerçek hâlâ Python runtime'dır.
+- `webgui/` hâlâ Python CLI'ya delegasyon yapar; onun yerine geçmez.
+- `docs/` geliştiriciye dönük bir yüzeydir; ikinci ürün runtime'ı değildir.
+- Varsayılan execution posture paper trading olarak kalır.
+- Fallback yolları açık ve inspect edilebilir olmalıdır.
+
+## Ürün tarafında açık girişimler
+
+### İsteğe bağlı app-managed Ollama supervision
+
+Hedef davranış, Ollama'yı runtime diagnostiklerinde zaten kullanılan aynı status ve log yüzeyi üzerinden yönetebilmek.
+
+Bunun anlamı:
+
+- açık start ve stop davranışı
+- görünür health check'ler
+- okunabilir request ve log kanıtı
+- model takıldığında sahte “healthy” durumu olmaması
+
+### Cross-platform bootstrap
+
+Daha uzun vadeli onboarding hedefi; macOS, Linux ve Windows için şu işleri yapabilen yönlendirmeli bir kurulum akışı:
+
+- prerequisite denetimi
+- isteğe bağlı bağımlılık kurulum teklifleri
+- Python ve Node ortam hazırlığı
+- provider ve model ready oluş doğrulaması
+- doğru lokal yüzeyin başlatılması
+
+## Docs açısından mevcut duruş
+
+Bu docs sitesi artık yalnızca kısa bir quick start olmamalı.
+Şunları da açıklamalı:
+
+- mevcut sistem sahipliği
+- runtime davranışının arkasındaki guardrail'ler
+- frontend yüzeylerinin nasıl evrilmesine izin verildiği
+- hangi kanıtların anlamlı QA sayıldığı
+
+## Bu branch için PR ölçütü
+
+Bir docs branch yalnızca render olduğu için hazır sayılmaz.
+Ayrıca:
+
+- repo durumunu dürüst anlatmalı
+- repo büyüdükçe korunabilir olmalı
+- okunabilirliği gerçekten artırıyorsa uzun dosyaları bölmeli
+- docs, `.ai` notları ve gerçek implementasyon varsayımlarını hizalı tutmalı

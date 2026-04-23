@@ -1,0 +1,64 @@
+---
+title: Runtime And Operations
+description: One-shot runs, service mode, health visibility, and the operational truth every surface should share.
+---
+
+## Runtime entrypoints
+
+- `main.py` and `agentic_trader.cli:app` expose the same command surface
+- `agentic_trader/workflows/run_once.py` owns one strict cycle
+- `agentic_trader/workflows/service.py` owns continuous and background orchestration
+- observer and UI surfaces should read shared runtime state instead of inferring it
+
+## Runtime modes
+
+The project already distinguishes different intents:
+
+- `operation`: strict, paper-first, and readiness-sensitive
+- `training`: replay and evaluation oriented, with more diagnostic latitude
+
+The exact implementation can evolve, but docs and UI copy should respect those operational differences.
+
+## What operators need to see
+
+If a surface claims to show runtime state, it should be able to surface:
+
+- process identity or service status
+- heartbeat truth
+- current symbol or task
+- stage or cycle count
+- recent stdout and stderr logs
+- model or provider readiness evidence
+- stop and failure state when applicable
+
+## Ollama direction
+
+Today the runtime usually assumes the model service is already running.
+The desired next step is optional app-managed Ollama supervision through the same daemon and log surface already used for runtime diagnostics.
+
+That future work should include:
+
+- explicit start and stop hooks
+- health checks
+- log tails
+- visible distinction between “idle”, “busy”, and “broken”
+
+## What not to infer from model traffic
+
+Repeated requests to Ollama do not automatically mean the runtime is healthy.
+If a cycle looks stuck, inspect:
+
+- runtime status
+- stop request state
+- recent service events
+- model health
+- actual errors recorded in the runtime layer
+
+## Incident checklist
+
+When operator behavior looks wrong:
+
+1. inspect runtime artifacts first
+2. compare UI state with runtime state
+3. inspect the latest error and recent log tail
+4. only then decide whether the bug is UI, orchestration, or provider related

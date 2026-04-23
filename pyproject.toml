@@ -10,7 +10,7 @@ authors = [
     {name = "Oğuzcan Toptaş",email = "oguzcantoptas@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12,<4.0.0"
+requires-python = ">=3.12,<4.0.0,<3.15"
 dependencies = [
   "duckdb>=1.2.2",
   "httpx>=0.28.1",
@@ -39,3 +39,8 @@ agentic-trader = "agentic_trader.cli:app"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
+[dependency-groups]
+dev = [
+    "pyinstaller (>=6.20.0,<7.0.0)"
+]

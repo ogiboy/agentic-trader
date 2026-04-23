@@ -32,8 +32,9 @@ Implemented or substantially present:
 - a local observer API can now expose runtime contracts over HTTP for future WebUI attach flows
 - a first local Web GUI now exists under `webgui/`; it uses a Next.js shell plus server-side route handlers that call the existing CLI/dashboard/runtime/chat/instruction contracts instead of adding a second runtime
 - the Web GUI now also validates persona/runtime inputs at the route boundary, uses a sequence guard to prevent stale dashboard polls from overwriting newer state, and uses Next metadata/icon wiring plus `next/image` on the operator hero surface
-- the repository now also ships a Fumadocs-based `docs/` app with MDX pages for setup, architecture, runtime, data/execution, operator surfaces, and QA, turning the existing docs scaffold into the canonical developer-docs starting point
-- the docs app now also exposes a page-feedback panel on MDX docs pages; feedback is mirrored to `runtime/docs-feedback.jsonl` locally and can forward into GitHub Discussions when `docs/.env.local` is populated from `docs/.env.example` with `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`
+- the repository now also ships a Fumadocs-based `docs/` app with curated MDX pages for onboarding, architecture, agent pipeline, runtime operations, operator surfaces, frontend guidance, memory/review, QA, and contribution workflow, turning the existing docs scaffold into the canonical developer-docs starting point
+- the docs app now uses locale-prefixed English and Turkish routes (`/en/...` and `/tr/...`) with localized page trees, localized feedback copy, and a modular frontend split across home, feedback, layout, i18n, and content helpers instead of one overloaded docs page file
+- the docs app now also exposes a page-feedback panel on MDX docs pages; feedback is always mirrored to `runtime/docs-feedback.jsonl` locally and can additionally forward into GitHub Discussions when `docs/.env.local` is populated from `docs/.env.example` with `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`
 - `docs/` and `webgui/` currently share the resolved shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`, which today means `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono typography, and app-local `components/ui`
 - `webgui` remains mid-migration: its route handlers and some primitives follow the new frontend baseline, but much of the live shell still relies on legacy global classes in `src/app/globals.css`
 - tool-driven news context surfaces
@@ -105,7 +106,7 @@ New production-expansion direction:
 - background runtime supervision now has a sidecar-friendly status and log contract that UI surfaces can read without competing for the writer connection
 - behavior-changing work should use the QA docs when it affects operator surfaces or runtime behavior
 - Sonar Quality Gate currently requires higher new-code coverage than the repository has; keep adding focused tests before treating the gate as fully green
-- full multi-language support is intentionally deferred until operator flows stabilize; new repeated UI strings should be added to the shared catalog rather than duplicated per surface
+- the docs surface now supports English and Turkish locale routes, while broader CLI/Rich/Ink/Web GUI localization is still intentionally deferred; outside docs, new repeated UI strings should continue flowing through the shared text catalog instead of ad hoc duplication
 - `webgui` lint and production build are currently green in this worktree, but `next dev` still needs a follow-up for the multi-lockfile/Turbopack Tailwind resolution issue observed during manual QA
 - `docs` now builds and lints with the new Fumadocs shell, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped

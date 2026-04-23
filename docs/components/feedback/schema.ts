@@ -31,6 +31,7 @@ export type ActionResponse =
       ok: true;
       storedAt: string;
       destination: 'github-discussion' | 'local-log';
+      forwarding: 'succeeded' | 'disabled' | 'failed';
       githubUrl?: string;
       warning?: string;
     }

@@ -1,0 +1,18 @@
+{
+  "title": "Geliştirici Dokümanları",
+  "pages": [
+    "index",
+    "getting-started",
+    "project-state",
+    "bootstrap-and-onboarding",
+    "architecture",
+    "agent-pipeline",
+    "data-and-intelligence",
+    "runtime-and-operations",
+    "operator-surfaces",
+    "frontend-system",
+    "memory-and-review",
+    "qa-and-debugging",
+    "contributing"
+  ]
+}

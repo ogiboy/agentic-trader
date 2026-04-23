@@ -1,0 +1,62 @@
+---
+title: Memory And Review
+description: How project memory, review artifacts, and docs updates stay aligned with runtime reality.
+---
+
+## What “memory” means in this repo
+
+Memory here is not only model memory.
+It also includes:
+
+- `.ai/current-state.md`
+- `.ai/tasks.md`
+- `.ai/decisions.md`
+- runtime review artifacts
+- persisted traces and context packs
+- docs pages that explain current working assumptions
+
+## Why this matters
+
+A repo this size becomes harder to maintain if implementation, docs, and working assumptions drift apart.
+The fastest way to make future work slower is to leave behind stale project memory.
+
+## When to update repo memory
+
+Update `.ai` notes when a change affects:
+
+- runtime behavior
+- product direction
+- developer workflow
+- frontend or docs architecture
+- QA expectations
+- safety boundaries
+
+## Review posture
+
+When reviewing a suspicious result, prefer inspectable evidence:
+
+1. typed provider or market artifacts
+2. runtime state and logs
+3. specialist and manager outputs
+4. persisted review snapshots
+5. UI behavior
+
+Do not jump straight from “the answer feels wrong” to “the prompt must be rewritten”.
+
+## Docs responsibility
+
+This docs site is part of project memory.
+Whenever a durable decision changes, the right follow-up is usually:
+
+- update the implementation
+- update the relevant docs page
+- update `.ai/current-state.md`
+- update `.ai/decisions.md`
+- update `.ai/tasks.md` if work remains
+
+## Feedback flow in plain language
+
+Docs feedback always writes a local record to `runtime/docs-feedback.jsonl`.
+If the docs app has GitHub App credentials in `docs/.env.local`, the same feedback is also forwarded into GitHub Discussions for the corresponding page.
+
+That “local log plus optional forwarding” model is intentional because it keeps a local audit trail even when GitHub is unavailable.

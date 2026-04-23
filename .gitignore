@@ -36,8 +36,6 @@ dist/
 .sonarlint/connectedMode.json
 !webgui/src/app/api/runtime
 
-
-
 */node_modules
 /.pnp
 .pnp.*

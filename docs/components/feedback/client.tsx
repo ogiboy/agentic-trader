@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import { MessageSquareText, ThumbsDown, ThumbsUp } from "lucide-react";
+import { getFeedbackCopy } from "@/components/feedback/copy";
+import { FeedbackResult } from "@/components/feedback/feedback-result";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,19 +20,17 @@ import type {
   FeedbackOpinion,
   PageFeedbackInput,
 } from "@/components/feedback/schema";
+import type { DocLanguage } from "@/lib/i18n/config";
 
 type FeedbackProps = {
+  locale: DocLanguage;
   title: string;
   onSendAction: (feedback: PageFeedbackInput) => Promise<ActionResponse>;
 };
 
-const opinionCopy: Record<FeedbackOpinion, string> = {
-  good: "Helpful",
-  bad: "Needs work",
-};
-
-export function Feedback({ title, onSendAction }: FeedbackProps) {
+export function Feedback({ locale, title, onSendAction }: FeedbackProps) {
   const pathname = usePathname();
+  const copy = getFeedbackCopy(locale);
   const [opinion, setOpinion] = useState<FeedbackOpinion | null>(null);
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<ActionResponse | null>(null);
@@ -60,7 +60,7 @@ export function Feedback({ title, onSendAction }: FeedbackProps) {
             error:
               error instanceof Error
                 ? error.message
-                : "Failed to send feedback.",
+                : copy.genericError,
           });
         });
     });
@@ -71,13 +71,9 @@ export function Feedback({ title, onSendAction }: FeedbackProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <MessageSquareText data-icon="inline-start" />
-          How was this page?
+          {copy.title}
         </CardTitle>
-        <CardDescription>
-          Feedback is mirrored into a local log for this checkout and forwards
-          into GitHub Discussions when the docs app credentials are configured
-          in <code>docs/.env.local</code>.
-        </CardDescription>
+        <CardDescription>{copy.description}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-3">
@@ -93,61 +89,36 @@ export function Feedback({ title, onSendAction }: FeedbackProps) {
               ) : (
                 <ThumbsDown data-icon="inline-start" />
               )}
-              {opinionCopy[value]}
+              {value === "good" ? copy.helpful : copy.needsWork}
             </Button>
           ))}
         </div>
         <label className="flex flex-col gap-2 text-sm text-muted-foreground">
-          Optional note
+          {copy.noteLabel}
           <textarea
             className={cn(
               "min-h-28 rounded-none border border-input bg-background px-3 py-2 text-sm text-foreground",
               "outline-none transition-all focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50",
             )}
-            placeholder="Tell us what was clear, missing, or confusing."
+            placeholder={copy.notePlaceholder}
             value={message}
             onChange={(event) => setMessage(event.target.value)}
           />
         </label>
       </CardContent>
       <CardFooter className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted-foreground">
-          Local mirror: `runtime/docs-feedback.jsonl`
-        </p>
+        <p className="text-xs text-muted-foreground">{copy.destinationSummary}</p>
         <Button
           type="button"
           disabled={!opinion || isPending}
           onClick={submitFeedback}
         >
-          {isPending ? "Saving feedback..." : "Send feedback"}
+          {isPending ? copy.saving : copy.submit}
         </Button>
       </CardFooter>
       {result ? (
         <div className="border-t px-4 py-3 text-sm">
-          {result.ok ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-primary">
-                {result.destination === "github-discussion"
-                  ? "Thanks. Saved locally and forwarded to GitHub Discussions."
-                  : `Thanks. Saved locally to ${result.storedAt}.`}
-              </p>
-              {result.githubUrl ? (
-                <a
-                  className="text-sm text-primary underline underline-offset-4"
-                  href={result.githubUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Open GitHub discussion
-                </a>
-              ) : null}
-              {result.warning ? (
-                <p className="text-muted-foreground">{result.warning}</p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-destructive">{result.error}</p>
-          )}
+          <FeedbackResult locale={locale} result={result} />
         </div>
       ) : null}
     </Card>
