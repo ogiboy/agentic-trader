@@ -1,0 +1,32 @@
+---
+title: Operator Surfaces
+description: CLI, Rich, Ink, observer API, and Web GUI all read the same truth.
+---
+
+## Surfaces in scope
+
+- CLI commands in `agentic_trader/cli.py`
+- Rich admin/control room in `agentic_trader/tui.py`
+- Ink control room in `tui/index.mjs`
+- observer API in `agentic_trader/observer_api.py`
+- Web GUI in `webgui/`
+
+## Non-negotiable rule
+
+No surface should invent a private runtime state model.
+If a screen shows runtime, broker, memory, or review truth, that truth must come from shared contracts.
+
+## Web GUI posture
+
+The Web GUI is a thin local shell:
+
+- route handlers validate and forward to existing contracts
+- no second orchestration path
+- no web-only execution semantics
+- no hidden policy mutation via chat or settings UX
+
+## Frontend migration reality
+
+`webgui` is still in transition.
+It already uses Next.js App Router, Tailwind v4, and shadcn setup, but much of the live shell still sits on legacy global classes.
+Migrate screen by screen instead of rewriting `globals.css` in one sweep.

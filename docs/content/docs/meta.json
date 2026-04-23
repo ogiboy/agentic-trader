@@ -1,0 +1,15 @@
+{
+  "title": "Developer Docs",
+  "pages": [
+    "index",
+    "getting-started",
+    "project-state",
+    "bootstrap-and-onboarding",
+    "architecture",
+    "runtime",
+    "data-and-execution",
+    "operator-surfaces",
+    "frontend-system",
+    "qa-and-debugging"
+  ]
+}

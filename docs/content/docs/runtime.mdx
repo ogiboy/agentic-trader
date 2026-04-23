@@ -1,0 +1,35 @@
+---
+title: Runtime
+description: How one-shot runs, service mode, observer surfaces, and model-service health fit together.
+---
+
+## Runtime entrypoints
+
+- `main.py` and `agentic_trader.cli:app` expose the same command surface.
+- `agentic_trader/workflows/run_once.py` owns one strict cycle.
+- `agentic_trader/workflows/service.py` owns continuous and background orchestration.
+- `agentic_trader/runtime_feed.py` and `agentic_trader/runtime_status.py` keep observer surfaces attached without owning DuckDB writer locks.
+
+## Mode contract
+
+The project now has explicit runtime modes:
+
+- `operation`: strict, paper-first, and blocked when model/provider readiness fails.
+- `training`: replay and evaluation oriented, with diagnostic fallback limited to evaluation paths.
+
+## Ollama and provider health
+
+Today the runtime still assumes the local model service is already running.
+Near-term product direction is to let the application optionally supervise Ollama start, stop, health checks, and log tails through the same daemon/status surface instead of a separate helper process.
+
+## Background service rule
+
+The service layer should expose:
+
+- PID and heartbeat truth
+- launch and restart counts
+- current symbol and stage
+- stdout and stderr log tails
+- model-service health and readiness evidence
+
+If any UI wants runtime state, it should read that shared contract.

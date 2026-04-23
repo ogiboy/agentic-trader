@@ -1,0 +1,37 @@
+---
+title: Data And Execution
+description: Canonical snapshots, feature bundles, execution intent, and the paper/live boundary.
+---
+
+## Data flow
+
+External provider payloads should normalize into a canonical analysis snapshot before they become agent context, persistence, or review material.
+
+Key boundaries:
+
+- `CanonicalAnalysisSnapshot`
+- `DecisionFeatureBundle`
+- `MarketContextPack`
+
+## Why this matters
+
+The system should not ask the model to infer hidden finance truth from vague provider text.
+It should pass typed summaries with source attribution, freshness, and missing-data visibility.
+
+## Execution flow
+
+Execution is also explicit:
+
+1. Agents and manager produce a plan.
+2. The deterministic guard decides whether execution is allowed.
+3. Guard output is translated into an `ExecutionIntent`.
+4. A broker adapter returns an `ExecutionOutcome`.
+
+## Live boundary
+
+Paper remains the default backend.
+Live execution stays blocked until a real adapter, explicit approval, and operator-visible readiness checks are added behind the same contract.
+
+## Planned onboarding tie-in
+
+Future bootstrap work should validate provider and model readiness as part of setup instead of assuming one local path works for every user.

@@ -218,3 +218,27 @@ The bootstrap path should detect missing prerequisites, offer sensible defaults 
 Reason:
 The repository already contains a `docs/` Next.js scaffold, while developer orientation still partly lives in repo notes such as `dev/code-map.md`.
 The right next step is to refresh links, migrate/update content, and grow the existing docs site into the canonical documentation surface instead of creating a second documentation project.
+Fumadocs is a good fit for that work because it gives the existing app a docs-native MDX layout, page tree, and search flow without changing the repository's runtime architecture.
+
+### Shared frontend surfaces should preserve the current shadcn preset baseline
+
+Reason:
+Both `docs/` and `webgui/` were initialized from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`.
+Future component additions should preserve the resolved baseline that command produced today: `radix-lyra`, `olive`, `lucide`, Tailwind v4, CSS-variable theming, and app-local `components/ui`.
+If the design system changes later, it should be an explicit decision rather than accidental drift from one surface to another.
+JetBrains Mono is also part of that shared baseline for the current docs plus Web GUI typography direction.
+
+### Web GUI CSS migration should be incremental
+
+Reason:
+`webgui/src/app/globals.css` currently carries both legacy shell classes and the newer token/shadcn groundwork.
+Rewriting that file in one sweep would create too much operator-surface risk.
+Migration should happen screen by screen or primitive family by primitive family, and new work should prefer shadcn primitives plus utility composition over adding more global shell classes.
+
+### Docs feedback should mirror locally first and optionally forward to GitHub Discussions
+
+Reason:
+The new Fumadocs feedback surface is useful immediately, but the repository is still local-first and should not quietly depend on GitHub Discussion, analytics, or another SaaS sink just to collect basic documentation feedback.
+The docs app should therefore store feedback locally in an inspectable append-only log first, while explicitly forwarding to GitHub Discussions when the docs GitHub App credentials are configured.
+The operator-facing configuration path for that forwarding should follow the repository's existing example-vs-local env contract, so `docs/.env.example` documents the variables and `docs/.env.local` carries the real credentials.
+If GitHub forwarding is unavailable or fails, the UI should say so plainly instead of pretending the external handoff worked.

@@ -13,16 +13,16 @@
 
 Now:
 
-- finish the current pasted fix batch across Python runtime, Ink, smoke QA, and Web GUI without widening scope into a full frontend rewrite
-- keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts
-- refresh docs hygiene by keeping README pointers aligned with the current developer code-map and activating the existing `docs/` app instead of planning a second docs project
+- keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
+- capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, including JetBrains Mono typography
+- keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts while avoiding a broad one-shot CSS rewrite
 - design the Ollama-management path as an extension of the existing daemon/log/status surfaces so the app can eventually start, stop, inspect, and expose model-service logs without creating a parallel supervisor
 
 Next:
 
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind resolution issue so local interactive frontend work matches the now-green lint/build path
-- turn `docs/` from placeholder scaffold into a real documentation site with setup, architecture, and operator workflows
+- expand the new docs site with contributing, project-state, and deeper reference pages without duplicating repo truth
 
 ### 1. Financial Intelligence Layer
 
@@ -258,6 +258,24 @@ Desired direction:
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
+
+### 15. Docs And Frontend System
+
+Current state:
+
+- `docs/` now uses Fumadocs plus MDX for setup, architecture, runtime, data/execution, operator-surface, and QA pages
+- `docs` and `webgui` share the same shadcn preset result from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`
+- `webgui` still leans on a large legacy global shell layer even though Next.js App Router, Tailwind v4, and shadcn are already present
+
+Desired direction:
+
+- preserve the current `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono, and app-local `components/ui` baseline across both apps
+- keep `docs` curated and source-linked instead of turning it into a second dump of repository files
+- expand docs with contributing, reference, project-state, and bootstrap guidance
+- keep `docs/.env.example` aligned with the actual GitHub Discussions feedback inputs and use `docs/.env.local` for real secrets
+- verify the docs GitHub App wiring and discussion category in the target repo so feedback can forward beyond the local mirror consistently
+- migrate `webgui` screen by screen from legacy shell classes toward shadcn primitives and token-driven utility composition
+- avoid introducing new global shell classes when a shadcn primitive plus `cn` or `cva` composition can own the change
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
 - use pexpect, tmux, asciinema, pane captures, and JSON/text artifacts as the primary CLI/Rich/Ink validation path, and add a Computer Use visual pass whenever the environment exposes it and layout/operator clarity is in scope
 - keep `.ai/agents/` role guidance aligned with `AGENTS.md`, `.ai/qa/`, and current architecture so development agents remain helpers rather than runtime dependencies

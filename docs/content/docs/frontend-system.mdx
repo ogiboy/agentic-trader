@@ -1,0 +1,48 @@
+---
+title: Frontend System
+description: Shared web-facing decisions for docs and Web GUI, including shadcn baseline and migration rules.
+---
+
+## Shared baseline
+
+Both `docs/` and `webgui/` were initialized from:
+
+```bash
+pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next
+```
+
+Today that resolves to a shared baseline of:
+
+- `radix-lyra`
+- `olive`
+- `lucide`
+- Tailwind v4
+- CSS-variable theming
+- app-local `components/ui`
+- JetBrains Mono as the active typography baseline
+
+## What this means for new components
+
+When we add shadcn components with `pnpm dlx shadcn@latest add ...`, the CLI reads the current project config from `components.json`.
+That means new components inherit the current project's resolved style and aliases instead of floating off into a different theme by accident.
+
+## Docs posture
+
+`docs/` is now a Fumadocs-powered developer shell with curated MDX content.
+It should feel related to the Web GUI, but it should stay documentation-first rather than becoming a duplicate app.
+
+## Web GUI posture
+
+`webgui/` is still mid-migration.
+It already has the modern Next.js plus Tailwind plus shadcn baseline, but much of the live shell still sits on legacy global classes.
+
+The safe rule is:
+
+- migrate screen by screen
+- prefer shadcn primitives plus token-driven utilities
+- avoid adding more global shell CSS when a component can own the change
+
+## Typography rule
+
+JetBrains Mono is the shared type direction for now.
+If typography changes later, that should be an explicit design decision reflected in both apps and in the `.ai` guidance files.

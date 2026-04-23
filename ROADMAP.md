@@ -315,15 +315,10 @@ Status: planned.
 - [ ] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, trace, context pack, and QA results under a timestamped artifact directory
 - [ ] keep quality gates tiered: CI-safe CLI/static checks first, local interactive TUI checks second, manual visual recordings third
 - [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
-- [ ] refresh developer orientation notes and keep README links pointed at the current code-map instead of stale `docs/dev/*` paths
-- [ ] turn the existing `docs/` Next.js scaffold into a real local documentation site for setup, architecture, and operator workflows
-- [ ] add a cross-platform bootstrap flow for macOS, Linux, and Windows that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and opens the Web GUI
-- [ ] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
   Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
 - smoke QA now includes dashboard and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, and an optional isolated one-cycle runtime check
 - visual QA can now use Computer Use in Codex/Desktop environments, but it remains optional and must be paired with contract/runtime truth checks
-- `docs/` already exists as a placeholder Next.js app and should be activated rather than recreated
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
 ## Phase 15: Production-Like Paper Operations
@@ -412,3 +407,21 @@ Notes:
 - v2 should reuse the v1 contracts instead of creating a separate global trading runtime
 - global expansion depends on symbol identity, currency/FX accounting, session calendars, and provider-specific QA evidence being mature first
 - IBKR/global support belongs in V2; it should not pull V1 away from the US-only Alpaca paper-first path
+
+## Phase 19: Onboarding, Docs, And Frontend System
+
+Status: in progress.
+
+- [x] refresh developer orientation notes and keep README links pointed at the current code-map instead of stale `docs/dev/*` paths
+- [x] activate the existing `docs/` app as a Fumadocs-based local documentation site for setup, architecture, runtime, data/execution, operator surfaces, and QA
+- [x] expand docs with project-state, bootstrap, and frontend-system pages without duplicating repository truth
+- [ ] expand docs with contributing and deeper reference pages without duplicating repository truth
+- [ ] add a cross-platform bootstrap flow for macOS, Linux, and Windows that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and opens the Web GUI
+- [ ] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
+- [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, including JetBrains Mono typography
+- [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
+- [ ] resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind issue so local interactive frontend work matches the green lint/build path
+Notes:
+- `docs/` and `webgui/` should stay visually related, but neither should become a second runtime or a cross-app shared-package experiment before the surfaces stabilize
+- the docs app should stay curated and source-linked rather than mirroring whole repository files blindly
+- app-managed Ollama and bootstrap work should plug into the existing daemon/log/status surfaces rather than inventing separate setup helpers with hidden runtime state

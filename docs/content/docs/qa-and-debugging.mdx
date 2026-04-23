@@ -1,0 +1,45 @@
+---
+title: QA And Debugging
+description: Validate operator-facing changes with smoke QA, runtime evidence, and real-surface checks.
+---
+
+## Baseline validation
+
+Start with focused checks:
+
+```bash
+python -m ruff check .
+python -m pytest -q -p no:cacheprovider
+python scripts/qa/smoke_qa.py
+```
+
+## Why smoke QA matters
+
+This repository has real operator surfaces.
+A passing unit test is not enough if the CLI, Ink, Rich, or Web GUI drift from runtime truth.
+
+## Evidence stack
+
+Preferred order:
+
+1. targeted tests
+2. CLI JSON or status contracts
+3. smoke QA artifacts
+4. tmux or asciinema capture when layout or interaction matters
+5. Computer Use when a real-screen pass is available
+
+## Debugging stance
+
+When something looks wrong:
+
+- inspect runtime state before assuming the UI is right
+- inspect logs and service-state truth before inferring health from model traffic
+- inspect persisted context packs, traces, and review artifacts before changing prompts
+
+## Files worth reading
+
+- `.ai/debugging.md`
+- `.ai/qa/qa-checklist.md`
+- `.ai/qa/qa-runbook.md`
+- `.ai/qa/qa-scenarios.md`
+- `scripts/qa/smoke_qa.py`

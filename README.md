@@ -204,12 +204,24 @@ Open the local web control room:
 
 ```bash
 cd webgui
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 The web command center runs on [http://localhost:3210](http://localhost:3210) and stays local-first by calling the same `dashboard-snapshot`, runtime, chat, and instruction contracts that CLI, Rich, and Ink already use. The dev script enables Watchpack polling to avoid file-watch limit noise in larger worktree setups.
 If the Node process cannot see the installed CLI, set `AGENTIC_TRADER_CLI` or `AGENTIC_TRADER_PYTHON` before starting the web shell.
+
+Open the local developer docs:
+
+```bash
+cd docs
+pnpm install
+pnpm dev
+```
+
+The docs app uses Fumadocs plus MDX on top of the same shadcn preset baseline used by `webgui`.
+If you want the page-feedback panel to forward into GitHub Discussions, copy `docs/.env.example` to `docs/.env.local` and fill in the GitHub App credentials before starting the docs app.
+It is meant to be the canonical developer-facing guide for setup, architecture, runtime surfaces, and QA flow.
 
 Start the runtime directly from the root launcher:
 

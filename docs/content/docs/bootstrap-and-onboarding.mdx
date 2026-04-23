@@ -1,0 +1,52 @@
+---
+title: Bootstrap And Onboarding
+description: The intended streamlined setup flow and the constraints it needs to respect.
+---
+
+## Current state
+
+The repository still expects a fairly hands-on Python plus Node setup.
+That is workable for developers, but it is not yet the V1 onboarding experience we want for broader users.
+
+## Target direction
+
+The bootstrap path should eventually:
+
+1. detect platform and prerequisite gaps
+2. offer to install or skip optional dependencies
+3. prepare the Python and Node environments
+4. validate provider and model readiness
+5. launch the Web GUI and point the user at the correct local surface
+
+## Non-negotiable rules
+
+- bootstrap must be cross-platform: macOS, Linux, and Windows
+- bootstrap must be provider-aware, not Ollama-only by force
+- Ollama and the default local model should be opt-in prompts, not hidden installs
+- errors should explain what failed and what the user can do next
+- the final launched system should still use the existing runtime contracts and supervision surfaces
+
+## Ollama-specific direction
+
+The current real-world launch command can look like this:
+
+```bash
+OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" /opt/homebrew/opt/ollama/bin/ollama serve
+```
+
+Longer term, the application should be able to supervise that service through the same status and log surfaces already used for runtime diagnostics.
+
+That means:
+
+- start and stop hooks should be explicit
+- health checks should be operator-visible
+- request and log tails should be readable from the app
+- model silence should never be mistaken for healthy progress
+
+## Edge cases the script should handle
+
+- a user wants another provider and should be allowed to skip Ollama
+- the required package manager is missing
+- the shell or PATH differs from the developer's machine
+- a partial install exists and needs resume or repair behavior
+- the Web GUI can start but the runtime or model service still fails readiness checks

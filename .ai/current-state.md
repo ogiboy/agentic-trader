@@ -32,6 +32,10 @@ Implemented or substantially present:
 - a local observer API can now expose runtime contracts over HTTP for future WebUI attach flows
 - a first local Web GUI now exists under `webgui/`; it uses a Next.js shell plus server-side route handlers that call the existing CLI/dashboard/runtime/chat/instruction contracts instead of adding a second runtime
 - the Web GUI now also validates persona/runtime inputs at the route boundary, uses a sequence guard to prevent stale dashboard polls from overwriting newer state, and uses Next metadata/icon wiring plus `next/image` on the operator hero surface
+- the repository now also ships a Fumadocs-based `docs/` app with MDX pages for setup, architecture, runtime, data/execution, operator surfaces, and QA, turning the existing docs scaffold into the canonical developer-docs starting point
+- the docs app now also exposes a page-feedback panel on MDX docs pages; feedback is mirrored to `runtime/docs-feedback.jsonl` locally and can forward into GitHub Discussions when `docs/.env.local` is populated from `docs/.env.example` with `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`
+- `docs/` and `webgui/` currently share the resolved shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`, which today means `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono typography, and app-local `components/ui`
+- `webgui` remains mid-migration: its route handlers and some primitives follow the new frontend baseline, but much of the live shell still relies on legacy global classes in `src/app/globals.css`
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
 - trade-level context persistence for memory/tool/model/rationale inspection
@@ -59,7 +63,6 @@ Implemented or substantially present:
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, deeper Rich submenu navigation, read-only JSON surfaces, optional one-cycle runtime checks, optional quality gates, coverage XML, and SonarQube submission
 - Ink settings now covers the remaining V1 parity gap for preference visibility, recent runs, and safe operator-instruction editing in a resize-safer compact layout, and smoke QA verifies that page switch through tmux in a 110x30 terminal
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
-- the repository already contains a `docs/` Next.js scaffold; it remains a placeholder today and should be treated as the future documentation site rather than a hypothetical new project
 - Python dependency resolution now uses a committed `poetry.lock` file generated from `pyproject.toml`; Conda remains the recommended Python environment layer while Poetry owns package locking and install synchronization
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
 - the initial Web GUI development flow now enables Watchpack polling in `webgui` dev mode to avoid file-watch limit noise in larger local worktree setups while the shell is still young
@@ -104,6 +107,8 @@ New production-expansion direction:
 - Sonar Quality Gate currently requires higher new-code coverage than the repository has; keep adding focused tests before treating the gate as fully green
 - full multi-language support is intentionally deferred until operator flows stabilize; new repeated UI strings should be added to the shared catalog rather than duplicated per surface
 - `webgui` lint and production build are currently green in this worktree, but `next dev` still needs a follow-up for the multi-lockfile/Turbopack Tailwind resolution issue observed during manual QA
+- `docs` now builds and lints with the new Fumadocs shell, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
+- `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture
 
@@ -114,4 +119,4 @@ The codebase should be treated as:
 - already opinionated
 - ready for targeted extension, not a rewrite
 - dependent on keeping `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` in sync with meaningful architecture changes
-- now entering a V1-hardening phase that includes optional app-managed Ollama supervision, docs activation, and onboarding/bootstrap work without replacing the existing runtime shape
+- now in a V1-hardening phase that includes optional app-managed Ollama supervision, provider-aware bootstrap work, and expanding the new Fumadocs developer docs without replacing the existing runtime shape
