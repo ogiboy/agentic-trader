@@ -1,6 +1,7 @@
 import { runChat } from '../../../lib/agentic-trader';
 import { isChatPersona } from '../../../lib/chat-personas';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SAFE_METHODS_WITHOUT_BROWSER_ORIGIN = new Set(['GET', 'HEAD', 'OPTIONS']);

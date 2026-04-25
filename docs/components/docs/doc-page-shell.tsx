@@ -5,7 +5,6 @@ import {
   DocsTitle,
 } from "fumadocs-ui/layouts/docs/page";
 import { Feedback } from "@/components/feedback/client";
-import { onPageFeedbackAction } from "@/lib/feedback";
 import type { DocLanguage } from "@/lib/i18n/config";
 import { getMDXComponents } from "@/mdx-components";
 import type { source } from "@/lib/source";
@@ -36,7 +35,6 @@ export function DocPageShell({
         key={`${locale}:${slug.join("/") || "index"}`}
         locale={locale}
         title={page.data.title}
-        onSendAction={onPageFeedbackAction}
       />
     </DocsPage>
   );

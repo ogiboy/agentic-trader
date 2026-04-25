@@ -3,6 +3,7 @@ import {
   runInstruction,
 } from '../../../lib/agentic-trader';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SAFE_METHODS_WITHOUT_BROWSER_ORIGIN = new Set(['GET', 'HEAD', 'OPTIONS']);

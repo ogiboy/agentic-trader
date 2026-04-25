@@ -1,0 +1,121 @@
+name: Binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build assets for, for example v0.2.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  POETRY_VERSION: "2.3.4"
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS Apple Silicon
+            asset_suffix: macos-arm64
+            extension: ""
+          - os: windows-latest
+            label: Windows
+            asset_suffix: windows-x64
+            extension: ".exe"
+
+    steps:
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Poetry
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "poetry==${POETRY_VERSION}"
+
+      - name: Install packaging dependencies
+        shell: bash
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry install --with dev --extras dev
+
+      - name: Build CLI binary
+        shell: bash
+        run: poetry run pyinstaller --clean --onefile --name agentic-trader main.py
+
+      - name: Smoke-test CLI binary
+        shell: bash
+        run: "./dist/agentic-trader${{ matrix.extension }} doctor --json"
+
+      - name: Package binary asset
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          asset_base="agentic-trader-${{ matrix.asset_suffix }}-${{ steps.tag.outputs.tag }}"
+          binary="dist/agentic-trader${{ matrix.extension }}"
+          staged="release/${asset_base}${{ matrix.extension }}"
+          cp "$binary" "$staged"
+
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            archive="release/${asset_base}.zip"
+            7z a "$archive" "$staged"
+          else
+            archive="release/${asset_base}.tar.gz"
+            tar -czf "$archive" -C release "$(basename "$staged")"
+          fi
+
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_suffix }}-${{ steps.tag.outputs.tag }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+
+      - name: Attach binary to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..18}; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 10
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" "${{ steps.package.outputs.archive }}" --clobber

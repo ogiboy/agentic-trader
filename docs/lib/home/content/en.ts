@@ -84,7 +84,7 @@ export const homeContentEn: HomeContent = {
       href: "/docs/memory-and-review",
       title: "Memory And Review",
       description:
-        "See how docs, `.ai` notes, local feedback logs, and review artifacts stay aligned with runtime reality.",
+        "See how docs, `.ai` notes, feedback drafts, and review artifacts stay aligned with runtime reality.",
       badge: "Continuity",
     },
     {
@@ -128,7 +128,7 @@ export const homeContentEn: HomeContent = {
         },
         {
           title: "Feedback flow",
-          body: "Docs feedback always writes a local JSONL record and can additionally forward into GitHub Discussions when the GitHub App is configured.",
+          body: "Pages docs feedback prepares a browser-local GitHub issue draft; server-side forwarding should only return if a Node-hosted docs surface is explicit.",
         },
       ],
     },

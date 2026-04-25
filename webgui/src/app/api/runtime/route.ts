@@ -1,5 +1,6 @@
 import { runRuntimeAction } from '../../../lib/agentic-trader';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SUPPORTED_RUNTIME_ACTIONS = new Set([

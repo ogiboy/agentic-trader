@@ -18,7 +18,9 @@ export function FeedbackResult({
   }
 
   const message =
-    result.forwarding === "succeeded"
+    result.forwarding === "prepared"
+      ? copy.successForwarded
+      : result.forwarding === "succeeded"
       ? copy.successForwarded
       : result.forwarding === "failed"
         ? copy.successLocalOnlyFailed
