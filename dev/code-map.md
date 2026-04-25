@@ -16,7 +16,7 @@ behavior, while this map explains where to look and how the pieces connect.
 - `webgui/` is the local Web GUI. It uses Next.js App Router route handlers to call the same dashboard, runtime, chat, and instruction contracts that power the terminal surfaces.
 - `docs/` is the developer docs app. It now uses Fumadocs plus MDX for curated setup, architecture, runtime, operator-surface, and QA documentation.
 - `docs/source.config.ts`, `docs/lib/source.ts`, and `docs/content/docs/` own the Fumadocs content pipeline.
-- `docs/app/docs/[[...slug]]/page.tsx` renders the generated MDX pages, while `docs/app/page.tsx` is the project-facing landing page for developers.
+- `docs/app/[lang]/docs/[[...slug]]/page.tsx` renders the generated MDX pages under locale-prefixed routes such as `/en/...` and `/tr/...`, while `docs/app/page.tsx` is the project-facing landing page for developers.
 
 ## Orchestration
 

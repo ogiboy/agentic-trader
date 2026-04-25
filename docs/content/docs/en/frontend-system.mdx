@@ -11,6 +11,9 @@ Both `docs/` and `webgui/` were initialized from:
 pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next
 ```
 
+`b2CQzAxv8` is the preset slug used at initialization time; if it is unavailable in the registry later or produces different output,
+each app's local `components.json` is the authoritative component contract.
+
 That gives both apps a common baseline:
 
 - Next.js App Router

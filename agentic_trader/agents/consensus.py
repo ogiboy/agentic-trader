@@ -79,7 +79,11 @@ def assess_specialist_consensus(
         supporting_roles.append("risk")
     else:
         dissenting_roles.append("risk")
-        reasons.append("Risk plan looked too constrained for full specialist agreement.")
+        reasons.append(
+            "Risk plan looked too constrained for full specialist agreement "
+            f"(risk_reward_ratio={risk.risk_reward_ratio:.2f}, "
+            f"position_size_pct={risk.position_size_pct:.2%})."
+        )
 
     if fundamental is not None:
         if fundamental.source == "fallback":

@@ -411,3 +411,4 @@ def test_mixed_consensus_when_exactly_one_dissenter() -> None:
     assert consensus.alignment_level == "mixed"
     assert "risk" in consensus.dissenting_roles
     assert len(consensus.dissenting_roles) == 1
+    assert any("risk_reward_ratio=1.00" in reason for reason in consensus.reasons)

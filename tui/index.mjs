@@ -1738,7 +1738,7 @@ function useDashboardState({ interactive }) {
       setInstructionResult(payload);
       setInstructionDraft('');
       setActionMessage({
-        kind: payload.applied ? 'info' : 'info',
+        kind: 'info',
         text: payload.applied
           ? 'Operator instruction applied to preferences.'
           : 'Operator instruction parsed.',

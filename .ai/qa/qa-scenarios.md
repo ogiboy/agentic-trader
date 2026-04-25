@@ -297,7 +297,7 @@ Expected:
 - preferences update only curated fields
 - no runtime action is executed as a hidden side effect
 
-## Scenario 12: Paper Portfolio Consistency
+## Scenario 13: Paper Portfolio Consistency
 
 Purpose: verify paper account views stay coherent.
 
@@ -315,7 +315,7 @@ Expected:
 - trade journal status matches persisted fills
 - risk report includes warnings when limits are stressed
 
-## Scenario 13: Computer Use Visual Operator Pass
+## Scenario 14: Computer Use Visual Operator Pass
 
 Purpose: verify the real terminal screen, not only stdout snapshots, for changed
 CLI/Rich/Ink operator flows.
@@ -360,7 +360,7 @@ Expected:
 - confusing or inconsistent behavior produces a repair recommendation, not only
   a pass/fail result
 
-## Scenario 14: CLI Help And Operator Language Audit
+## Scenario 15: CLI Help And Operator Language Audit
 
 Purpose: verify command discoverability and language clarity from an operator
 perspective, not only command success.

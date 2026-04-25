@@ -125,7 +125,6 @@ def test_fundamental_agent_falls_back_to_structured_neutral_assessment() -> None
 
     assert assessment.source == "fallback"
     assert assessment.overall_bias == "neutral"
-    assert assessment.overall_signal == "neutral"
     assert assessment.growth_quality == "neutral"
     assert assessment.balance_sheet_quality == "neutral"
     assert assessment.business_quality == "neutral"

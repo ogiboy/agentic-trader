@@ -15,7 +15,7 @@ function isWorkspaceRoot(candidate: string): boolean {
   );
 }
 
-function detectWorkspaceRoot(start: string): string {
+function findWorkspaceRoot(start: string): null | string {
   let current = resolve(start);
   while (true) {
     if (isWorkspaceRoot(current)) {
@@ -23,16 +23,27 @@ function detectWorkspaceRoot(start: string): string {
     }
     const parent = resolve(current, "..");
     if (parent === current) {
-      return process.cwd();
+      return null;
     }
     current = parent;
   }
 }
 
-const workspaceRoot =
-  [detectWorkspaceRoot(process.cwd()), detectWorkspaceRoot(resolve(moduleDir, "../../.."))].find(
-    isWorkspaceRoot,
-  ) || detectWorkspaceRoot(process.cwd());
+const workspaceRootCandidates = [
+  process.cwd(),
+  resolve(moduleDir, "../../.."),
+];
+const detectedWorkspaceRoot = workspaceRootCandidates
+  .map(findWorkspaceRoot)
+  .find((candidate): candidate is string => Boolean(candidate));
+
+if (!detectedWorkspaceRoot) {
+  throw new Error(
+    `Unable to locate Agentic Trader workspace root from ${workspaceRootCandidates.join(" or ")}. ` +
+      "Start the Web GUI from the repository worktree or set AGENTIC_TRADER_PYTHON/AGENTIC_TRADER_CLI explicitly.",
+  );
+}
+const workspaceRoot = detectedWorkspaceRoot;
 const cliExecutable = process.env.AGENTIC_TRADER_CLI || "agentic-trader";
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 
@@ -300,15 +311,17 @@ export async function runRuntimeAction(kind: string): Promise<{
       };
     }
     const symbols = defaultSymbolsFromPreferences(data?.preferences || {});
+    const interval = defaultRuntimeInterval(data);
+    const lookback = defaultRuntimeLookback(data);
     await execTrader(
       [
         "launch",
         "--symbols",
         symbols,
         "--interval",
-        "1d",
+        interval,
         "--lookback",
-        "180d",
+        lookback,
         "--continuous",
         "--background",
         "--poll-seconds",
@@ -317,7 +330,7 @@ export async function runRuntimeAction(kind: string): Promise<{
       { timeoutMs: 60_000 },
     );
     return {
-      message: `Background runtime launch requested for ${symbols}.`,
+      message: `Background runtime launch requested for ${symbols} (${interval}, ${lookback}).`,
       dashboard: await getDashboardSnapshot(),
     };
   }

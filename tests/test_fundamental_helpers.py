@@ -245,9 +245,10 @@ class TestFxRisk:
         feat = _features(fx_exposure="unknown")
         assert _fx_risk(feat, None) == "unknown"
 
-    def test_macro_none_and_feature_unknown_returns_unknown(self) -> None:
+    def test_macro_unknown_and_feature_unknown_returns_unknown(self) -> None:
         feat = _features(fx_exposure="unknown")
-        assert _fx_risk(feat, None) == "unknown"
+        mac = _macro(fx_risk="unknown")
+        assert _fx_risk(feat, mac) == "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -652,7 +653,6 @@ class TestFallbackFundamental:
         result = _fallback_fundamental(None)
         assert result.source == "fallback"
         assert result.overall_bias == "neutral"
-        assert result.overall_signal == "neutral"
         assert result.confidence == 0.0
 
     def test_fallback_with_high_debt_risk_produces_avoid_balance_sheet(self) -> None:

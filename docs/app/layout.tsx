@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { JetBrains_Mono } from 'next/font/google';
+import { headers } from 'next/headers';
 import './globals.css';
+import { getDocLanguage } from '@/lib/i18n/routing';
 
 const jetbrainsMono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
@@ -34,13 +36,16 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const lang = getDocLanguage(requestHeaders.get('x-agentic-doc-lang') ?? undefined);
+
   return (
-    <html lang="en" suppressHydrationWarning className={jetbrainsMono.variable}>
+    <html lang={lang} suppressHydrationWarning className={jetbrainsMono.variable}>
       <body className="flex min-h-screen flex-col bg-background text-foreground antialiased">
         {children}
       </body>

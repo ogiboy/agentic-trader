@@ -30,10 +30,11 @@ At minimum it should:
 
 ## Ollama-specific direction
 
-Today a real local launch can look like this:
+When Ollama is on PATH, a portable local launch can look like this.
+macOS Homebrew, Linux, and Windows installs may use different binary paths.
 
 ```bash
-OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" /opt/homebrew/opt/ollama/bin/ollama serve
+OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" ollama serve
 ```
 
 The desired future state is not “teach the user to memorize that command”.

@@ -30,10 +30,11 @@ En azından şu işleri yapabilmeli:
 
 ## Ollama için özel yön
 
-Bugün gerçek bir lokal başlangıç komutu şöyle görünebiliyor:
+Ollama PATH'teyse taşınabilir bir lokal başlangıç komutu şöyle görünebilir.
+macOS Homebrew, Linux veya Windows kurulumlarında binary yolu farklı olabilir.
 
 ```bash
-OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" /opt/homebrew/opt/ollama/bin/ollama serve
+OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" ollama serve
 ```
 
 İstenen gelecek durum “kullanıcı bu komutu ezberlesin” değil.

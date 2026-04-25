@@ -31,7 +31,7 @@ export function FeedbackResult({
         <a
           className="text-sm text-primary underline underline-offset-4"
           href={result.githubUrl}
-          rel="noreferrer"
+          rel="noopener noreferrer"
           target="_blank"
         >
           {copy.openDiscussion}

@@ -8,6 +8,7 @@ const SUPPORTED_RUNTIME_ACTIONS = new Set([
   'restart',
   'one-shot',
 ]);
+const SAFE_METHODS_WITHOUT_BROWSER_ORIGIN = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 function isSameOriginRequest(request: Request): boolean {
   const requestOrigin = new URL(request.url).origin;
@@ -17,7 +18,7 @@ function isSameOriginRequest(request: Request): boolean {
   }
   const referer = request.headers.get('referer');
   if (!referer) {
-    return true;
+    return SAFE_METHODS_WITHOUT_BROWSER_ORIGIN.has(request.method.toUpperCase());
   }
   try {
     return new URL(referer).origin === requestOrigin;
