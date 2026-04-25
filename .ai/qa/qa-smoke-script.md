@@ -44,9 +44,9 @@ That adds:
 
 - `python -m ruff check .`
 - `python -m pytest -q -p no:cacheprovider`
-- `pyright` from `PATH`
+- `pyright --pythonpath <smoke-python> agentic_trader tests`
 
-`pyright` is required for `--include-quality`; if it is missing, the smoke run fails instead of silently skipping the static type check.
+`pyright` is required for `--include-quality`; if it is missing, the smoke run fails instead of silently skipping the static type check. The smoke harness resolves `pyright` from `PATH`, the active environment, or the Conda base bin, then points it at the same Python interpreter running the smoke script so installed dependencies are checked consistently.
 
 To include one isolated foreground orchestrator cycle:
 
@@ -85,6 +85,8 @@ Artifacts are written under:
 ```text
 .ai/qa/artifacts/smoke-YYYYMMDD-HHMMSS/
 ```
+
+If two smoke runs start in the same second, the later run claims a suffix such as `smoke-YYYYMMDD-HHMMSS-2` so parallel QA evidence does not overwrite an existing run.
 
 Current files include:
 

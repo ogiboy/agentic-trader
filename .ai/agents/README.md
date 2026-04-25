@@ -26,6 +26,11 @@ Required reading before role work:
 For runtime, CLI, TUI, daemon, broker, memory, or operator-facing changes,
 also read the QA documents under `.ai/qa/`.
 
+For `webgui/` or `docs/` work, also read the local app guidance:
+
+- `webgui/AGENTS.md`
+- `docs/AGENTS.md`
+
 ## Role Map
 
 - `planner.md`: shapes scoped implementation plans and separates V1 from later work.
@@ -53,3 +58,4 @@ also read the QA documents under `.ai/qa/`.
 - Operator chat and instruction flows must not become hidden execution paths.
 - Storage changes should be additive and replay/audit friendly.
 - CLI, Rich, Ink, observer API, and storage should expose the same underlying truth.
+- `webgui` and `docs` should preserve the current shadcn/Tailwind baseline unless an explicit design-system decision changes it.

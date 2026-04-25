@@ -1,6 +1,6 @@
 from typing import Literal, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 RiskProfile: TypeAlias = Literal["conservative", "balanced", "aggressive"]
 TradeStyle: TypeAlias = Literal["swing", "position", "intraday"]
@@ -401,10 +401,28 @@ class DecisionFeatureBundle(BaseModel):
     macro: MacroContext
 
 
+class EvidenceInferenceBreakdown(BaseModel):
+    evidence: list[str] = Field(default_factory=list)
+    inference: list[str] = Field(default_factory=list)
+    uncertainty: list[str] = Field(default_factory=list)
+
+
 class FundamentalAssessment(BaseModel):
-    revenue_growth_quality: AnalysisSignal = "neutral"
+    growth_quality: AnalysisSignal = "neutral"
     profitability_quality: AnalysisSignal = "neutral"
     cash_flow_quality: AnalysisSignal = "neutral"
+    balance_sheet_quality: AnalysisSignal = "neutral"
+    fx_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
+    business_quality: AnalysisSignal = "neutral"
+    macro_fit: AnalysisSignal = "neutral"
+    forward_outlook: AnalysisSignal = "neutral"
+    red_flags: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    evidence_vs_inference: EvidenceInferenceBreakdown = Field(
+        default_factory=EvidenceInferenceBreakdown
+    )
+    overall_bias: AnalysisSignal = "neutral"
+    revenue_growth_quality: AnalysisSignal = "neutral"
     debt_quality: AnalysisSignal = "neutral"
     fx_exposure_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
     reinvestment_quality: AnalysisSignal = "neutral"
@@ -414,6 +432,43 @@ class FundamentalAssessment(BaseModel):
     risk_flags: list[str] = Field(default_factory=list)
     source: Literal["llm", "fallback"] = "fallback"
     fallback_reason: str | None = None
+
+    @model_validator(mode="after")
+    def sync_legacy_fields(self) -> "FundamentalAssessment":
+        """
+        Synchronize legacy and current field names so both representations remain consistent after model initialization.
+        
+        Copies values between legacy and new field pairs when only one of each pair was provided, ensuring fields such as `growth_quality`/`revenue_growth_quality`, `balance_sheet_quality`/`debt_quality`, `fx_risk`/`fx_exposure_risk`, `overall_bias`/`overall_signal`, and `red_flags`/`risk_flags` are aligned.
+        
+        Returns:
+        	self (FundamentalAssessment): The model instance with synchronized fields.
+        """
+        fields = set(self.model_fields_set)
+
+        def _sync_pair(current: str, legacy: str) -> None:
+            current_present = current in fields
+            legacy_present = legacy in fields
+            current_value = getattr(self, current)
+            legacy_value = getattr(self, legacy)
+
+            def _copy_mutable(value: object) -> object:
+                return list(value) if isinstance(value, list) else value
+
+            if current_present and legacy_present and current_value != legacy_value:
+                raise ValueError(
+                    f"Conflicting fundamental assessment fields: {current} != {legacy}."
+                )
+            if not current_present and legacy_present:
+                setattr(self, current, _copy_mutable(legacy_value))
+            elif not legacy_present and current_present:
+                setattr(self, legacy, _copy_mutable(current_value))
+
+        _sync_pair("growth_quality", "revenue_growth_quality")
+        _sync_pair("balance_sheet_quality", "debt_quality")
+        _sync_pair("fx_risk", "fx_exposure_risk")
+        _sync_pair("overall_bias", "overall_signal")
+        _sync_pair("red_flags", "risk_flags")
+        return self
 
 
 class MacroAssessment(BaseModel):
@@ -662,6 +717,9 @@ class TradeContextRecord(BaseModel):
     tool_outputs: dict[str, list[str]] = Field(default_factory=dict)
     shared_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
     consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
+    fundamental_assessment: FundamentalAssessment = Field(
+        default_factory=FundamentalAssessment
+    )
     fundamental_summary: str = ""
     macro_summary: str = ""
     manager_rationale: str = ""

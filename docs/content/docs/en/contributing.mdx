@@ -1,0 +1,55 @@
+---
+title: Contributing
+description: Working style, branch hygiene, and the expectations that keep changes safe and readable.
+---
+
+## Working style
+
+This repo favors:
+
+- reading before coding
+- small, targeted diffs
+- explicit ownership boundaries
+- minimal abstraction
+- visible failures
+
+## Contribution rules that matter most
+
+- Do not rewrite working systems casually.
+- Prefer additive hardening over speculative rearchitecture.
+- Preserve local-first and paper-first assumptions unless the project direction changes explicitly.
+- Keep frontend shells thin around the Python runtime.
+
+## Recommended contribution flow
+
+1. read the smallest owning module
+2. read the matching docs and `.ai` notes
+3. make the minimal useful change
+4. run focused tests first
+5. run broader validation if behavior changed
+6. update docs and `.ai` notes when assumptions changed
+
+## Commit style
+
+Conventional commit style is preferred because it keeps release automation and history readable.
+Examples:
+
+- `feat: add locale-aware docs routing`
+- `docs: expand runtime and onboarding guidance`
+- `fix: clarify docs feedback forwarding state`
+
+## When docs updates are part of the task
+
+Docs should be updated in the same branch when:
+
+- a command or workflow changed
+- the frontend or runtime boundary changed
+- a new guardrail or design rule was introduced
+- onboarding expectations moved
+
+## What makes a good PR in this repo
+
+- the diff stays focused
+- operator-visible behavior is verified
+- docs match the implementation
+- future contributors do not have to rediscover the same rule from scratch

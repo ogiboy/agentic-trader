@@ -1,0 +1,72 @@
+---
+title: Bootstrap And Onboarding
+description: The intended setup experience, why it is not simple yet, and what the future installer must handle.
+---
+
+## Current reality
+
+The repo still expects a fairly hands-on Python and Node setup.
+That is acceptable for contributors, but it is not yet the V1 onboarding experience we want for broader users.
+
+## Product goal
+
+The long-term bootstrap flow should feel more like a guided launcher than a README scavenger hunt.
+At minimum it should:
+
+1. detect platform and prerequisite gaps
+2. offer optional dependency installation
+3. prepare the Python and Node environments
+4. validate provider and model readiness
+5. start the relevant local surface
+6. explain next steps when anything fails
+
+## Non-negotiable requirements
+
+- cross-platform support: macOS, Linux, and Windows
+- provider-aware behavior instead of forcing Ollama-only setup
+- explicit prompts before installing optional model services or models
+- resume or repair behavior for partial installs
+- visible logs and actionable error messages
+
+## Ollama-specific direction
+
+When Ollama is on PATH, a portable local launch can look like this.
+macOS Homebrew, Linux, and Windows installs may use different binary paths.
+
+```bash
+OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" ollama serve
+```
+
+The desired future state is not “teach the user to memorize that command”.
+The desired future state is:
+
+- the app can start or stop Ollama intentionally
+- the app can show health and recent logs
+- the operator can tell the difference between idle, busy, and broken
+
+## Edge cases worth designing for
+
+- the user wants another provider and should be allowed to skip Ollama
+- the package manager or shell toolchain is missing
+- the PATH differs from the maintainer machine
+- a partial installation exists and needs repair
+- the Web GUI launches but the runtime fails readiness checks
+- a model is present but the wrong adapter or base URL is configured
+
+## What a good bootstrap UX says out loud
+
+A good bootstrap flow should be explicit about:
+
+- what it is going to install
+- what it skipped
+- what is optional versus required
+- which files it changed
+- which local URL or UI it launched
+
+## Suggested acceptance checklist
+
+- A new machine can reach `doctor` without manual guesswork.
+- Optional model setup can be skipped without breaking the rest of the install.
+- The user sees a clear failure when model or provider readiness is missing.
+- The launcher can point the user to logs instead of hiding them.
+- The generated environment stays consistent with the repo’s current runtime contracts.

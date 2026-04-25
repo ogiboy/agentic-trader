@@ -117,13 +117,15 @@ def snapshot_memory_text(snapshot: MarketSnapshot) -> str:
 
 def build_memory_document(artifacts: RunArtifacts) -> str:
     """
-    Constructs a single textual memory document representing a run's artifacts.
+    Construct a single textual memory document representing a run's artifacts.
+    
+    The document begins with the single-line snapshot text from `snapshot_memory_text(snapshot)` followed by key artifact fields joined with " | ". Always-included fields (in order) are: `regime`, `direction`, `strategy`, `action`, `fundamental` (using `fundamental.overall_bias`), `macro`, `manager`, `review`, and `warnings` (comma-joined or `'none'` when empty). If present, `decision_features` appends `symbol_identity` (`region:exchange:currency`), `technical_trend`, `fundamental_flags` (comma-joined or `'none'`), and `macro_news_count`. If present, `canonical_snapshot` appends `canonical_completeness` (two decimals), `canonical_missing` (comma-joined or `'none'`), and `canonical_sources` (comma-joined source names or `'none'`).
     
     Parameters:
-        artifacts (RunArtifacts): Collected run artifacts including snapshot, regime, strategy, manager, and review data.
+        artifacts (RunArtifacts): Collected run artifacts used to build the document.
     
     Returns:
-        memory_document (str): A single string combining the snapshot text and key artifact fields: `regime`, `direction`, `strategy`, `action`, `manager`, `review` summary, and `warnings` (comma-separated or `'none'` when empty). Fields are separated by " | ".
+        memory_document (str): A single " | "-separated string containing the snapshot text and the listed artifact fields.
     """
     snapshot = artifacts.snapshot
     parts = [
@@ -132,7 +134,7 @@ def build_memory_document(artifacts: RunArtifacts) -> str:
         f"direction:{artifacts.regime.direction_bias}",
         f"strategy:{artifacts.strategy.strategy_family}",
         f"action:{artifacts.strategy.action}",
-        f"fundamental:{artifacts.fundamental.overall_signal}",
+        f"fundamental:{artifacts.fundamental.overall_bias}",
         f"macro:{artifacts.macro.macro_signal}",
         f"manager:{artifacts.manager.action_bias}",
         f"review:{artifacts.review.summary}",

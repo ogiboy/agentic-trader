@@ -109,7 +109,15 @@ def _render_canonical_snapshot_summary(context: AgentContext) -> str:
 
 
 def _render_decision_feature_summary(context: AgentContext) -> str:
-    """Render the decision feature bundle as a compact prompt-facing summary."""
+    """
+    Render the decision feature bundle into a compact, labeled summary suitable for inclusion in a prompt.
+    
+    Parameters:
+        context (AgentContext): Agent context whose `decision_features` will be rendered.
+    
+    Returns:
+        str: A newline-delimited summary containing symbol identity, technical metrics and summary, fundamental metrics, fundamental provenance and summary, and macro metrics and summary; or the literal string "No decision feature bundle is attached." when `decision_features` is None.
+    """
     features = context.decision_features
     if features is None:
         return "No decision feature bundle is attached."
@@ -136,8 +144,18 @@ def _render_decision_feature_summary(context: AgentContext) -> str:
             ),
             f"Technical summary: {technical.context_summary}",
             (
-                "Fundamental: "
+                "Fundamental metrics: "
+                f"revenue_growth={fundamental.revenue_growth} "
+                f"profitability_stability={fundamental.profitability_stability} "
+                f"cash_flow_alignment={fundamental.cash_flow_alignment} "
+                f"debt_risk={fundamental.debt_risk} "
+                f"reinvestment_potential={fundamental.reinvestment_potential}"
+            ),
+            (
+                "Fundamental source: "
+                f"as_of={fundamental.as_of} "
                 f"fx_exposure={fundamental.fx_exposure} "
+                f"sources={','.join(fundamental.data_sources) or 'none'} "
                 f"flags={','.join(fundamental.quality_flags) or 'none'}"
             ),
             f"Fundamental summary: {fundamental.summary}",

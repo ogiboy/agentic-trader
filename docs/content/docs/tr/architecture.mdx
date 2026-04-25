@@ -1,0 +1,68 @@
+---
+title: Mimari
+description: Paket sahipliği, aşamalı runtime şekli ve sistemi denetlenebilir tutan sınırlar.
+---
+
+## Runtime şekli
+
+Mevcut runtime, guarded execution yoluna akan aşamalı bir specialist graph kullanıyor:
+
+1. Research Coordinator
+2. Fundamental Analyst
+3. Macro ve News Analyst
+4. Regime Agent
+5. Strategy Selector
+6. Risk Agent
+7. Specialist Consensus Layer
+8. Manager Agent
+9. Execution Guard
+10. Paper Broker
+
+Detaylar zamanla değişebilir; önemli olan reasoning ile execution'ın hâlâ açık sözleşmeler üzerinden akmasıdır.
+
+## Paket sahipliği
+
+- `agentic_trader/agents/`: specialist, manager ve operatöre dönük reasoning yüzeyleri
+- `agentic_trader/llm/`: provider erişimi ve role-based model routing
+- `agentic_trader/market/`: market data yükleme, takvim mantığı ve feature preparation
+- `agentic_trader/providers/`: provider sınırları ve canonical aggregation
+- `agentic_trader/memory/`: retrieval, embeddings ve memory assembly
+- `agentic_trader/storage/`: DuckDB persistence ve query yüzeyleri
+- `agentic_trader/engine/` ve `agentic_trader/execution/`: guard mantığı, intent, outcome ve broker seams
+- `agentic_trader/workflows/`: run-once, service, replay ve backtest orkestrasyonu
+
+## Frontend sınırı
+
+Depoda şu anda iki Next.js kabuğu var:
+
+- operatöre dönük lokal UI için `webgui/`
+- geliştiriciye dönük dokümantasyon için `docs/`
+
+İkisi de ikinci bir runtime'a dönüşmemeli.
+İnce route handler'lar, shared contract'ler ve açık CLI delegasyonu; TypeScript içinde yeni orkestrasyon yazmaktan daha doğru.
+
+## Tasarım kuralları
+
+- Prompt-only çıkarım yerine açık typed input'ları tercih et.
+- Eksik veriyi görünür tut.
+- Source attribution ve timestamp koru.
+- Backend truth problemini UI-only yama ile çözmeye çalışma.
+- Fail durumlarını sahte güvene yumuşatma.
+
+## Dosya ne zaman bölünmeli
+
+Bu repo sırf soyutlama olsun diye bölünmek zorunda değil; ama şu durumlarda modüler dosyalar gerçekten faydalı:
+
+- bir sayfa ya da component taranması zor hâle gelirse
+- tek dosya birden çok alakasız sorumluluğu taşıyorsa
+- logic'i ayırmak test etmeyi ya da reasoning'i kolaylaştırıyorsa
+- frontend kabuğu data access, copy ve rendering'i gereğinden fazla birbirine bağlıyorsa
+
+## Mimari drift sayılan örnekler
+
+Kaçınmak istediğimiz drift örnekleri:
+
+- web-only runtime semantiği eklemek
+- Python runtime dışında gizli bir orkestrasyon katmanı üretmek
+- docs'u senkron proje hafızası yerine paralel bir gerçeklik kaynağına çevirmek
+- execution safety'i kod yerine prompt içine saklamak

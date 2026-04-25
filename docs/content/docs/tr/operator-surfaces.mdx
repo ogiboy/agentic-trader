@@ -1,0 +1,49 @@
+---
+title: Operatör Yüzeyleri
+description: CLI, Rich, Ink, observer API ve Web GUI'nin tek bir runtime truth üzerinde nasıl hizalı kalması gerektiği.
+---
+
+## Kapsamdaki yüzeyler
+
+- `agentic_trader/cli.py` içindeki CLI komutları
+- `agentic_trader/tui.py` içindeki Rich menü ve durum yüzeyleri
+- `tui/index.mjs` içindeki Ink control room
+- `agentic_trader/observer_api.py` içindeki observer API
+- `webgui/` içindeki Next.js Web GUI
+
+## Shared truth kuralı
+
+Hiçbir yüzey kendine ait özel bir runtime modeli üretmemeli.
+Bir ekran runtime, broker, memory, review ya da health state gösteriyorsa bu shared contract'lerden gelmelidir.
+
+## Web GUI'nin yapmasına izin verilenler
+
+- API sınırında web input'unu doğrulamak
+- mevcut runtime sözleşmelerine delegasyon yapmak
+- operatöre dönük copy ve kontroller sunmak
+- shared status'u güvenli biçimde poll ya da refresh etmek
+
+## Web GUI'nin yapmaması gerekenler
+
+- paralel bir orkestrasyon yolu yaratmak
+- web-only execution semantiği üretmek
+- optimistic UI arkasında safety gate saklamak
+- gevşek bir chat yolu üzerinden operator intent'i mutate etmek
+
+## Docs'e özel yüzey kuralı
+
+Docs uygulaması da bir yüzeydir.
+Görevi runtime'ı açıklamaktır; kendi ürün anlatısını yazmak değil.
+
+Bunun anlamı:
+
+- feedback copy; verinin lokal log'a mı, GitHub'a mı, yoksa ikisine birden mi gittiğini açıkça söylemeli
+- docs sayfaları repo'nun gerçek duruşunu yansıtmalı
+- proje hafızası ile docs içeriği birlikte hareket etmeli
+
+## Yüzey işi için değişiklik kontrol listesi
+
+- önce backend contract'i doğrula
+- UI'nin doğru alanları okuduğunu doğrula
+- degrade state'lerin görünür kaldığını doğrula
+- davranış değiştiyse en az bir operator-facing QA turu çalıştır

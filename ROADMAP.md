@@ -151,12 +151,14 @@ Status: in progress.
 - [ ] make the daemon compatible with `launchd` or `systemd`-style supervision later
 - [x] allow the operator TUI to attach to a running background service instead of owning the process directly
 - [x] allow a future WebUI to connect to the same daemon runtime over a local port without duplicating orchestration logic
+- [ ] let the runtime optionally supervise the local Ollama service lifecycle, health checks, and operator-visible log tails instead of assuming Ollama was started in a separate terminal
 Notes:
 - background launch, status, logs, stop requests, and live monitor attach surfaces are already implemented
 - read-only observer surfaces now attach safely through shared status/log contracts without competing for write locks
 - restart controls are now available from the CLI through stored background launch config
 - daemon supervision metadata now records background mode, launch counts, restart counts, last terminal state, and stdout or stderr log tails for operator surfaces
 - a local observer API now exposes the same runtime contracts over HTTP endpoints such as `/health`, `/dashboard`, `/status`, `/logs`, and `/broker`
+- a first `webgui/` shell now exists and uses those shared contracts through local server-side route handlers instead of introducing a separate runtime
 - deeper supervisor compatibility and daemon-backed multi-surface UI support remain open
 
 ## Phase 8: Live Execution Adapters
@@ -348,9 +350,11 @@ Status: in progress.
 - [x] scaffold fundamental feature contracts for revenue growth, profitability stability, cash-flow alignment, debt risk, FX exposure, and reinvestment potential
 - [x] scaffold macro/news context with company-specific, sector-level, and macro-level classification plus relevance scores
 - [x] add fundamental analyst and macro/news analyst roles with structured schemas instead of free-form LLM output
+- [x] expand the fundamental analyst contract so growth, profitability, cash flow, balance sheet, FX, business quality, macro fit, forward outlook, evidence, inference, uncertainty, red flags, strengths, and overall bias are explicit
 - [x] persist decision feature snapshots, fundamental summaries, and macro summaries into trade context and memory documents
 - [x] introduce provider interfaces for market, fundamental, news, disclosure, and macro data sources
 - [x] add a canonical analysis snapshot that preserves source attribution, freshness, completeness, and missing-section metadata
+- [x] add explicit SEC EDGAR, KAP, Finnhub, and FMP provider scaffolds that surface missing data without fetching or fabricating live fundamentals/disclosures
 - [x] aggregate runtime market context, fundamental scaffolds, news events, disclosure scaffolds, and macro scaffolds before feature generation
 - [x] document the V1 source ladder: regulatory/public data first, free-friendly APIs such as Finnhub/FMP as optional enrichers, and Yahoo only as a degraded fallback
 - [x] make SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX sources explicit scaffold metadata
@@ -403,3 +407,22 @@ Notes:
 - v2 should reuse the v1 contracts instead of creating a separate global trading runtime
 - global expansion depends on symbol identity, currency/FX accounting, session calendars, and provider-specific QA evidence being mature first
 - IBKR/global support belongs in V2; it should not pull V1 away from the US-only Alpaca paper-first path
+
+## Phase 19: Onboarding, Docs, And Frontend System
+
+Status: in progress.
+
+- [x] refresh developer orientation notes and keep README links pointed at the current code-map instead of stale `docs/dev/*` paths
+- [x] activate the existing `docs/` app as a Fumadocs-based local documentation site for setup, architecture, runtime, data/execution, operator surfaces, and QA
+- [x] expand docs with project-state, bootstrap, and frontend-system pages without duplicating repository truth
+- [ ] expand docs with contributing and deeper reference pages without duplicating repository truth
+- [ ] add a cross-platform bootstrap flow for macOS, Linux, and Windows that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and opens the Web GUI
+- [ ] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
+- [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, including JetBrains Mono typography
+- [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
+- [x] resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind issue so local interactive frontend work matches the green lint/build path
+Notes:
+- `docs/` and `webgui/` should stay visually related, but neither should become a second runtime or a cross-app shared-package experiment before the surfaces stabilize
+- the docs app should stay curated and source-linked rather than mirroring whole repository files blindly
+- `webgui` dev mode now runs on `localhost:3210` with Watchpack polling so browser QA matches the README and avoids file-watch noise in this worktree
+- app-managed Ollama and bootstrap work should plug into the existing daemon/log/status surfaces rather than inventing separate setup helpers with hidden runtime state

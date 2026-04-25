@@ -15,6 +15,8 @@ from agentic_trader.schemas import (
     LLMHealthStatus,
     ManagerDecision,
     MarketSnapshot,
+    OperatorInstruction,
+    PreferenceUpdate,
     RegimeAssessment,
     ResearchCoordinatorBrief,
     ReviewNote,
@@ -36,6 +38,34 @@ def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
         RuntimeError: with the message "db locked".
     """
     raise RuntimeError("db locked")
+
+
+def test_cli_help_supports_short_and_long_forms() -> None:
+    """
+    Verifies that CLI commands accept both short (-h) and long (--help) help options.
+    
+    Asserts each tested subcommand exits with code 0 and its help output contains the "Usage:" header.
+    """
+    runner = CliRunner()
+
+    for args in (
+        ["--help"],
+        ["-h"],
+        ["run", "--help"],
+        ["run", "-h"],
+        ["broker-status", "--help"],
+        ["broker-status", "-h"],
+        ["trade-context", "--help"],
+        ["trade-context", "-h"],
+        ["tui", "--help"],
+        ["tui", "-h"],
+        ["menu", "--help"],
+        ["menu", "-h"],
+    ):
+        result = runner.invoke(app, args)
+
+        assert result.exit_code == 0
+        assert "Usage:" in result.stdout
 
 
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
@@ -607,6 +637,20 @@ def test_operation_backtest_blocks_when_llm_gate_fails(
 def test_dashboard_snapshot_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Validates that the `dashboard-snapshot` CLI JSON aggregates persisted run artifacts, service state, LLM health, logs, portfolio, UI sections, and replay snapshot.
+    
+    Asserts that the payload includes:
+    - doctor health indicating the LLM provider is reachable and runtime mode is `"operation"`.
+    - status reflecting runtime mode `"operation"` and `current_symbol == "AAPL"`.
+    - supervisor and broker summaries (launch count and backend).
+    - recent log entries including an `"agent_regime_started"` event.
+    - agent activity showing `current_stage == "regime"` with status `"running"`.
+    - portfolio availability (`available is True`).
+    - presence of UI sections: `memoryExplorer`, `retrievalInspection`, and `recentRuns` with the first recent run symbol `"AAPL"`.
+    - trade and market context with `tradeContext.record.symbol == "AAPL"`.
+    - replay availability and that the replay snapshot's `mtf_alignment == "bullish"`.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -663,6 +707,8 @@ def test_dashboard_snapshot_json(
     assert payload["portfolio"]["available"] is True
     assert "memoryExplorer" in payload
     assert "retrievalInspection" in payload
+    assert "recentRuns" in payload
+    assert payload["recentRuns"]["runs"][0]["symbol"] == "AAPL"
     assert "tradeContext" in payload
     assert "marketContext" in payload
     assert payload["tradeContext"]["record"]["symbol"] == "AAPL"
@@ -670,9 +716,64 @@ def test_dashboard_snapshot_json(
     assert payload["replay"]["replay"]["snapshot"]["mtf_alignment"] == "bullish"
 
 
+def test_instruct_json_reports_instruction_and_applied_preferences(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", lambda _settings: None)
+    monkeypatch.setattr(
+        "agentic_trader.cli.interpret_operator_instruction",
+        lambda **_kwargs: OperatorInstruction(
+            summary="Move to a more conservative profile.",
+            should_update_preferences=True,
+            preference_update=PreferenceUpdate(
+                risk_profile="conservative",
+                behavior_preset="capital_preservation",
+            ),
+            requires_confirmation=False,
+            rationale="Structured test instruction.",
+        ),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "instruct",
+            "--message",
+            "be conservative",
+            "--apply",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["instruction"]["summary"] == "Move to a more conservative profile."
+    assert payload["instruction"]["should_update_preferences"] is True
+    assert payload["applied"] is True
+    assert payload["updated_preferences"]["risk_profile"] == "conservative"
+    assert (
+        payload["updated_preferences"]["behavior_preset"]
+        == "capital_preservation"
+    )
+
+
 def test_memory_explorer_and_retrieval_inspection_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Validates JSON availability semantics for `memory-explorer` and `retrieval-inspection` CLI commands when no persisted run exists.
+    
+    Sets up temporary settings and an empty TradingDatabase, then invokes the CLI:
+    - `memory-explorer --json` must exit successfully with `"available": false`.
+    - `retrieval-inspection --json` must exit successfully with `"available": true` and an empty `stages` list.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -731,6 +832,14 @@ def test_replay_run_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
 
 
 def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Verifies the CLI JSON output of the `trade-context` command reflects a persisted run's execution and fundamental assessment.
+    
+    Persists a run for symbol "NVDA", invokes `trade-context --json`, and asserts the payload is available and contains:
+    - the persisted record's symbol and execution rationale,
+    - fundamental assessment with `overall_bias == "neutral"` and an `evidence_vs_inference` field,
+    - execution fields `execution_backend`, `execution_adapter`, and `execution_outcome_status` set to `"paper"`, `"paper"`, and `"filled"` respectively.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -747,6 +856,8 @@ def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert payload["available"] is True
     assert payload["record"]["symbol"] == "NVDA"
     assert payload["record"]["execution_rationale"] == "Execution approved."
+    assert payload["record"]["fundamental_assessment"]["overall_bias"] == "neutral"
+    assert "evidence_vs_inference" in payload["record"]["fundamental_assessment"]
     assert payload["record"]["execution_backend"] == "paper"
     assert payload["record"]["execution_adapter"] == "paper"
     assert payload["record"]["execution_outcome_status"] == "filled"

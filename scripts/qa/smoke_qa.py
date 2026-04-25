@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
+from uuid import uuid4
 
 import pexpect
 
@@ -91,6 +93,75 @@ def _command_display(command: list[str]) -> str:
     return " ".join(command)
 
 
+def _resolve_managed_conda_env_name() -> str | None:
+    """Read the repo's Codex environment manifest and return the declared Conda env name."""
+    manifest_path = REPO_ROOT / ".codex" / "environments" / "environment.toml"
+    if not manifest_path.exists():
+        return None
+    manifest = manifest_path.read_text(encoding="utf-8", errors="replace")
+    marker = "conda activate "
+    index = manifest.find(marker)
+    if index == -1:
+        return None
+    remainder = manifest[index + len(marker) :].lstrip()
+    env_name = remainder.splitlines()[0].strip().strip("'").strip('"')
+    return env_name or None
+
+
+def _resolve_smoke_python() -> str:
+    """
+    Resolve the Python executable that smoke QA should use for commands and quality gates.
+
+    Preference order:
+    1. explicit `AGENTIC_TRADER_PYTHON`
+    2. active virtualenv
+    3. active non-base Conda env
+    4. repo-managed Conda env from `.codex/environments/environment.toml`
+    5. current interpreter as a final fallback
+    """
+    candidates: list[Path] = []
+
+    explicit_python = os.environ.get("AGENTIC_TRADER_PYTHON")
+    if explicit_python:
+        candidates.append(Path(explicit_python).expanduser())
+
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if virtual_env:
+        candidates.append(Path(virtual_env) / "bin" / "python")
+
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    conda_default_env = os.environ.get("CONDA_DEFAULT_ENV")
+    if conda_prefix and conda_default_env and conda_default_env != "base":
+        candidates.append(Path(conda_prefix) / "bin" / "python")
+
+    managed_env_name = _resolve_managed_conda_env_name()
+    if managed_env_name:
+        conda_roots: list[Path] = []
+        conda_exe = os.environ.get("CONDA_EXE")
+        if conda_exe:
+            conda_roots.append(Path(conda_exe).resolve().parent.parent)
+        home = Path.home()
+        conda_roots.extend(
+            [
+                home / "miniconda3",
+                home / "anaconda3",
+                Path("/opt/anaconda3"),
+                Path("/usr/local/anaconda3"),
+            ]
+        )
+        for conda_root in conda_roots:
+            candidates.append(conda_root / "envs" / managed_env_name / "bin" / "python")
+
+    candidates.append(Path(sys.executable))
+    for candidate in candidates:
+        if candidate.exists() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return sys.executable
+
+
+SMOKE_PYTHON = _resolve_smoke_python()
+
+
 def _resolve_agentic_trader_executable() -> str | None:
     """
     Locate the `agentic-trader` executable, preferring a copy next to the running Python interpreter, then in the active conda environment's bin directory, and finally on the system PATH.
@@ -98,13 +169,47 @@ def _resolve_agentic_trader_executable() -> str | None:
     Returns:
         The filesystem path to an executable `agentic-trader` as a string if one is found and executable, or `None` if no suitable executable is found.
     """
-    candidates: list[Path] = [Path(sys.executable).with_name("agentic-trader")]
+    candidates: list[Path] = [Path(SMOKE_PYTHON).with_name("agentic-trader")]
     conda_prefix = os.environ.get("CONDA_PREFIX")
     if conda_prefix:
         candidates.append(Path(conda_prefix) / "bin" / "agentic-trader")
     which_path = shutil.which("agentic-trader")
     if which_path is not None:
         candidates.append(Path(which_path))
+    for candidate in candidates:
+        if candidate.exists() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
+def _resolve_pyright_executable() -> str | None:
+    """
+    Find the `pyright` executable by checking PATH, the current Python environment, and common Conda locations.
+    
+    Checks candidates in this order: `shutil.which("pyright")`, a `pyright` sibling next to `sys.executable`, `$CONDA_PREFIX/bin/pyright`, a `pyright` sibling of `$CONDA_EXE`, and an inferred Conda root `bin/pyright` when the interpreter path contains an `envs/` segment.
+    
+    Returns:
+        str | None: Absolute path string to the first executable `pyright` found, or `None` if no executable is discovered.
+    """
+    candidates: list[Path] = []
+    which_path = shutil.which("pyright")
+    if which_path is not None:
+        candidates.append(Path(which_path))
+    candidates.append(Path(SMOKE_PYTHON).with_name("pyright"))
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        candidates.append(Path(conda_prefix) / "bin" / "pyright")
+    conda_exe = os.environ.get("CONDA_EXE")
+    if conda_exe:
+        candidates.append(Path(conda_exe).with_name("pyright"))
+    executable_path = Path(SMOKE_PYTHON)
+    if "envs" in executable_path.parts:
+        try:
+            envs_index = executable_path.parts.index("envs")
+            conda_root = Path(*executable_path.parts[:envs_index])
+            candidates.append(conda_root / "bin" / "pyright")
+        except ValueError:
+            pass
     for candidate in candidates:
         if candidate.exists() and os.access(candidate, os.X_OK):
             return str(candidate)
@@ -317,6 +422,10 @@ def run_dashboard_contract_check(
                 for field in ("summary", "bars_analyzed", "horizons"):
                     if field not in context_pack:
                         issues.append(f"marketContext.contextPack.{field} missing")
+    if not isinstance(payload.get("recentRuns"), dict):
+        issues.append("recentRuns section missing")
+    elif "runs" not in payload["recentRuns"]:
+        issues.append("recentRuns.runs missing")
 
     _write_artifact(
         artifact,
@@ -616,13 +725,197 @@ def run_tui_open_and_quit(
         )
 
 
+def _ink_settings_capture_issues(output: str) -> list[str]:
+    """
+    Check the compact Ink settings pane output for required markers.
+    
+    Parameters:
+        output (str): Captured pane text from the Ink settings view.
+    
+    Returns:
+        list[str]: Issue messages for each required marker that is missing; empty list if all markers are present.
+    """
+    required_markers = {
+        "page 7/7: Settings": "settings page header missing",
+        "RECENT RUNS": "recent runs panel missing",
+        "Risk / Style:": "risk/style preference line missing",
+        "Behavior / Strictness:": "behavior/strictness line missing",
+        "Mode: preview": "instruction composer mode missing",
+    }
+    return [issue for marker, issue in required_markers.items() if marker not in output]
+
+
+def _tmux_capture_pane(tmux_path: str, session_name: str, *, timeout: int) -> str:
+    """
+    Capture the visible contents of a tmux pane and return it as text.
+    
+    Parameters:
+        tmux_path (str): Path to the tmux executable.
+        session_name (str): Name of the tmux session whose pane to capture.
+        timeout (int): Seconds to wait before the capture operation times out.
+    
+    Returns:
+        str: The captured pane text, or an empty string if there is no output.
+    """
+    proc = subprocess.run(
+        [tmux_path, "capture-pane", "-pt", f"{session_name}:0.0"],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+    )
+    return proc.stdout or ""
+
+
+def run_ink_settings_navigation(
+    context: SmokeContext,
+    command: str,
+    *,
+    timeout: int = 30,
+) -> CheckResult:
+    """
+    Check that the Ink TUI, when launched inside a compact tmux session, renders its overview and that the settings page contains the expected markers.
+    
+    Parameters:
+        context (SmokeContext): Smoke test context that determines where artifacts are written.
+        command (str): Executable or command used to launch the Ink TUI (the function will append `tui`).
+        timeout (int): Maximum time in seconds to wait for rendering and navigation before reporting a failure.
+    
+    Returns:
+        CheckResult: Result named "ink_settings_navigation". `passed` is `True` when the overview rendered and the settings page contains all required markers; otherwise `False`. `details` is `"tmux_settings_navigation_ok"` on success or a semicolon-separated list of issue messages on failure. `artifact` points to the written tmux overview/settings capture and the issue list.
+    """
+    name = "ink_settings_navigation"
+    artifact = _artifact_path(context, name)
+    tmux_path = shutil.which("tmux")
+    if tmux_path is None:
+        return _skip_result(context, name, "tmux not found on PATH")
+
+    session_name = f"agentic-trader-ink-{int(time.time() * 1000)}-{uuid4().hex}"
+    launch_command = f"cd {shlex.quote(str(REPO_ROOT))} && {shlex.quote(command)} tui"
+    overview_capture = ""
+    settings_capture = ""
+    issues: list[str] = []
+
+    try:
+        launch_proc = subprocess.run(
+            [
+                tmux_path,
+                "new-session",
+                "-d",
+                "-s",
+                session_name,
+                "-x",
+                "110",
+                "-y",
+                "30",
+                launch_command,
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=True,
+        )
+        if launch_proc.stderr:
+            issues.append(f"tmux new-session stderr: {launch_proc.stderr.strip()}")
+
+        ready_deadline = time.monotonic() + timeout
+        while time.monotonic() < ready_deadline:
+            overview_capture = _tmux_capture_pane(
+                tmux_path, session_name, timeout=timeout
+            )
+            if (
+                "AGENTIC TRADER // INK CONTROL ROOM" in overview_capture
+                and "page " in overview_capture
+                and "Last refresh:" in overview_capture
+            ):
+                break
+            time.sleep(0.5)
+        else:
+            issues.append("ink overview did not render in tmux")
+
+        if not issues:
+            subprocess.run(
+                [tmux_path, "send-keys", "-t", f"{session_name}:0.0", "7"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+            settings_deadline = time.monotonic() + timeout
+            while time.monotonic() < settings_deadline:
+                settings_capture = _tmux_capture_pane(
+                    tmux_path, session_name, timeout=timeout
+                )
+                current_issues = _ink_settings_capture_issues(settings_capture)
+                if not current_issues:
+                    break
+                time.sleep(0.5)
+            else:
+                issues.extend(_ink_settings_capture_issues(settings_capture))
+            subprocess.run(
+                [tmux_path, "send-keys", "-t", f"{session_name}:0.0", "q"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+            time.sleep(1.0)
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else str(exc.stderr)
+        issues.append(
+            f"tmux new-session failed with code {exc.returncode}: {stderr or 'no stderr'}"
+        )
+    except Exception as exc:
+        issues.append(f"exception={exc}")
+    finally:
+        subprocess.run(
+            [tmux_path, "kill-session", "-t", session_name],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+
+    _write_artifact(
+        artifact,
+        f"$ {command} tui (tmux compact navigation)\n"
+        f"cwd: {REPO_ROOT}\n"
+        f"issues: {json.dumps(issues, indent=2)}\n\n"
+        f"OVERVIEW_CAPTURE:\n{overview_capture}\n\n"
+        f"SETTINGS_CAPTURE:\n{settings_capture}\n",
+    )
+    return CheckResult(
+        name=name,
+        passed=not issues,
+        details="tmux_settings_navigation_ok" if not issues else "; ".join(issues),
+        artifact=str(artifact),
+    )
+
+
 def run_rich_menu_deep_navigation(
     context: SmokeContext,
     command: str,
     *,
     timeout: int = 20,
 ) -> CheckResult:
-    """Exercise a few nested Rich menu routes instead of only opening the shell."""
+    """
+    Navigate the application's rich "menu" TUI through a scripted sequence and record the session.
+    
+    Runs the given command with the "menu" argument in a pexpect-controlled terminal, performs a fixed sequence of menu selections to exercise nested routes, captures terminal output to an interactive artifact in the run artifacts directory, and evaluates the session for errors or operator noise.
+    
+    Parameters:
+        context (SmokeContext): Smoke test context providing the artifacts directory.
+        command (str): Executable or command to run (will be invoked with the "menu" subcommand).
+        timeout (int): Seconds to wait for expected TUI prompts and operations.
+    
+    Returns:
+        CheckResult: Result whose `passed` is true when the scripted navigation completed without tracebacks, operator-noise markers, empty capture, disallowed exit methods, or non-permitted exit codes; `artifact` contains the path to the written interactive log.
+    """
     name = "rich_menu_deep_navigation"
     artifact = _artifact_path(context, name)
     display_command = _command_display([command, "menu"])
@@ -788,7 +1081,7 @@ def _write_summary(context: SmokeContext, results: list[CheckResult]) -> Path:
     payload: dict[str, Any] = {
         "repo_root": str(REPO_ROOT),
         "artifacts_dir": str(context.artifacts_dir),
-        "python": sys.executable,
+        "python": SMOKE_PYTHON,
         "agentic_trader_path": _resolve_agentic_trader_executable(),
         "results": [asdict(result) for result in results],
     }
@@ -804,6 +1097,36 @@ def _run_id() -> str:
         str: Timestamp in the format YYYYMMDD-HHMMSS (e.g., 20260413-142530).
     """
     return datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def _claim_artifacts_dir(run_label: str) -> Path:
+    """
+    Claim and create a unique artifacts directory for this run.
+    
+    Creates ARTIFACTS_ROOT if missing and then attempts to create a new subdirectory named
+    `<run_label>` or `<run_label>-N` (with N starting at 2) to avoid collisions with
+    concurrent runs. Returns the Path to the newly created directory.
+    
+    Parameters:
+        run_label (str): Base name to use for the run directory.
+    
+    Returns:
+        Path: Path to the claimed artifacts directory.
+    
+    Raises:
+        RuntimeError: If a unique directory cannot be created after 999 attempts.
+    """
+    ARTIFACTS_ROOT.mkdir(parents=True, exist_ok=True)
+    for attempt in range(1, 1000):
+        suffix = "" if attempt == 1 else f"-{attempt}"
+        candidate = ARTIFACTS_ROOT / f"{run_label}{suffix}"
+        try:
+            candidate.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            continue
+        return candidate
+    msg = f"Unable to claim a unique smoke artifact directory for {run_label!r}"
+    raise RuntimeError(msg)
 
 
 def _parse_args() -> Namespace:
@@ -1003,6 +1326,7 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
                     agentic_trader_executable,
                     [],
                 ),
+                run_ink_settings_navigation(context, agentic_trader_executable),
                 run_tui_open_and_quit(
                     context,
                     "rich_menu",
@@ -1019,9 +1343,9 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
         run_tui_open_and_quit(
             context,
             "python_main_tui",
-            sys.executable,
+            SMOKE_PYTHON,
             ["main.py"],
-            display=f"python main.py (resolved: {sys.executable})",
+            display=f"python main.py (resolved: {SMOKE_PYTHON})",
         )
     )
     return results
@@ -1042,7 +1366,7 @@ def _pytest_command(context: SmokeContext, *, include_coverage: bool) -> list[st
     Returns:
         list[str]: The full pytest command as an argument list suitable for subprocess execution.
     """
-    command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
+    command = [SMOKE_PYTHON, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
     if include_coverage:
         command.extend(
             [
@@ -1055,24 +1379,22 @@ def _pytest_command(context: SmokeContext, *, include_coverage: bool) -> list[st
 
 def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[CheckResult]:
     """
-    Run code-quality checks (ruff, pytest, and pyright) and collect their results.
+    Run the project's static and test-quality checks (ruff, pytest, and pyright) and collect their results.
     
-    When `include_coverage` is true, pytest is invoked to produce a coverage XML report (coverage.xml)
-    alongside test execution. If `pyright` is not available on PATH, a skipped CheckResult is returned for it.
+    When `include_coverage` is true, pytest is invoked to produce a coverage XML report alongside test execution. If `pyright` is not available, the returned list contains a failing `CheckResult` for the pyright check.
     
     Parameters:
-        context (SmokeContext): Artifact/output directory and execution context.
+        context (SmokeContext): Execution/artifacts context used to write per-check logs.
         include_coverage (bool): If true, enable coverage reporting for the pytest run.
     
     Returns:
-        list[CheckResult]: A list of results for `ruff_check`, `pytest`, and `pyright` (or a skipped result
-        if pyright is absent).
+        list[CheckResult]: Results for the `ruff_check`, `pytest`, and `pyright` checks (pyright result will indicate failure if the executable is not found).
     """
     results = [
         run_command_capture(
             context,
             "ruff_check",
-            [sys.executable, "-m", "ruff", "check", "."],
+            [SMOKE_PYTHON, "-m", "ruff", "check", "."],
             timeout=90,
             display="python -m ruff check .",
         ),
@@ -1092,7 +1414,7 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
         ),
     ]
 
-    pyright = shutil.which("pyright")
+    pyright = _resolve_pyright_executable()
     if pyright is None:
         results.append(_fail_result(context, "pyright", "pyright not found on PATH"))
     else:
@@ -1100,9 +1422,9 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
             run_command_capture(
                 context,
                 "pyright",
-                [pyright],
+                [pyright, "--pythonpath", SMOKE_PYTHON, "agentic_trader", "tests"],
                 timeout=120,
-                display="pyright",
+                display="pyright --pythonpath <smoke-python> agentic_trader tests",
             )
         )
     return results
@@ -1177,20 +1499,15 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
 
 def main() -> int:
     """
-    Run the smoke QA suite (CLI and TUI checks), optional code-quality checks, and optional Sonar analysis; write artifacts and a JSON summary, print a human-readable summary, and return an exit code.
+    Run the smoke QA suite, produce per-check artifacts and a consolidated JSON summary, print a pass/fail table, and return an exit status.
     
-    The function:
-    - Creates the artifacts directory for this run.
-    - Executes surface smoke checks and, if requested, quality and Sonar checks.
-    - Persists per-check log artifacts and a top-level `smoke-summary.json`.
-    - Prints a pass/fail table with details and artifact locations to stdout.
+    Creates a unique artifacts directory for the run, executes surface smoke checks and (optionally) code-quality and Sonar checks, writes per-check log artifacts and a top-level `smoke-summary.json`, and prints a human-readable summary with each check's status, details, and artifact path.
     
     Returns:
         int: 0 if all checks passed, 1 if any check failed.
     """
     args = _parse_args()
-    context = SmokeContext(artifacts_dir=ARTIFACTS_ROOT / args.run_label)
-    context.artifacts_dir.mkdir(parents=True, exist_ok=True)
+    context = SmokeContext(artifacts_dir=_claim_artifacts_dir(args.run_label))
 
     results = _surface_checks(context, args)
     if args.include_quality:

@@ -72,7 +72,8 @@ Expected:
 - pages switch correctly
 - runtime page shows current stage, daemon metadata, broker state, and event flow
 - chat page shows transcript plus live activity/reasoning/tool context
-- when Computer Use is available, visual inspection confirms the changed Ink page is readable, focused, and truthful; otherwise pane/text capture is acceptable
+- pexpect/tmux/asciinema evidence confirms the changed Ink page is readable, focused, and truthful
+- when Computer Use is available, a real-screen visual pass confirms the same page is readable, focused, and truthful at the tested size
 
 ## Scenario 3: Rich Admin Menu
 
@@ -98,7 +99,8 @@ Expected:
 - menu does not become a blind long-running terminal
 - observer mode is clear if runtime writer owns DuckDB
 - Ctrl+C exits cleanly
-- when Computer Use is available, visual inspection confirms the changed Rich page is readable, navigable, and truthful; otherwise pane/text capture is acceptable
+- pexpect/tmux/asciinema evidence confirms the changed Rich page is readable, navigable, and truthful
+- when Computer Use is available, a real-screen visual pass confirms the same page is readable, navigable, and truthful at the tested size
 
 ## Scenario 4: One-Shot Strict Cycle
 
@@ -229,7 +231,34 @@ Expected:
 - observer API is read-only
 - payloads match dashboard/status/log/broker CLI truth
 
-## Scenario 10: Memory And Governance
+## Scenario 10: Local Web GUI
+
+Purpose: verify the local browser shell stays aligned with dashboard truth and does not invent a second runtime.
+
+Steps:
+
+```bash
+cd webgui
+pnpm install
+pnpm dev
+curl -s http://localhost:3210/api/dashboard > ../.ai/qa/artifacts/webgui-dashboard.json
+```
+
+Interact:
+
+- open `http://localhost:3210` in Browser Use or another localhost-capable browser tool
+- confirm Overview loads and reflects runtime mode, backend, and last refresh
+- open Review, Memory, and Settings
+- compare any unavailable panels with `webgui-dashboard.json`
+
+Expected:
+
+- the app serves on `localhost:3210`
+- the page reads the same dashboard/runtime/chat/instruction contracts as other operator surfaces
+- section-level review/memory/portfolio errors are shown explicitly instead of masquerading as empty states
+- no browser flow suggests a second runtime or hidden execution path
+
+## Scenario 11: Memory And Governance
 
 Purpose: verify memory is inspectable and chat memory does not mutate trading policy.
 
@@ -250,7 +279,7 @@ Expected:
 - chat response is explanatory, not an execution path
 - preferences do not change unless `instruct --apply` is used
 
-## Scenario 11: Safe Operator Instruction
+## Scenario 12: Safe Operator Instruction
 
 Purpose: verify preference updates only happen through schemas.
 
@@ -268,7 +297,7 @@ Expected:
 - preferences update only curated fields
 - no runtime action is executed as a hidden side effect
 
-## Scenario 12: Paper Portfolio Consistency
+## Scenario 13: Paper Portfolio Consistency
 
 Purpose: verify paper account views stay coherent.
 
@@ -286,7 +315,7 @@ Expected:
 - trade journal status matches persisted fills
 - risk report includes warnings when limits are stressed
 
-## Scenario 13: Computer Use Visual Operator Pass
+## Scenario 14: Computer Use Visual Operator Pass
 
 Purpose: verify the real terminal screen, not only stdout snapshots, for changed
 CLI/Rich/Ink operator flows.
@@ -331,7 +360,7 @@ Expected:
 - confusing or inconsistent behavior produces a repair recommendation, not only
   a pass/fail result
 
-## Scenario 14: CLI Help And Operator Language Audit
+## Scenario 15: CLI Help And Operator Language Audit
 
 Purpose: verify command discoverability and language clarity from an operator
 perspective, not only command success.

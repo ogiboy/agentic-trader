@@ -1051,17 +1051,16 @@ class TradingDatabase:
         execution_outcome: ExecutionOutcome | None = None,
     ) -> None:
         """
-        Persist a trade context assembled from a run's artifacts into the `trade_contexts` table.
+        Persist a consolidated trade context for a given trade into the `trade_contexts` table.
         
-        Builds a TradeContextRecord from `artifacts` and `run_id`, extracting:
-        - routed model names per trace,
-        - up to five entries each of `retrieved_memories`, `tool_outputs`, and `shared_memory_bus` summaries per trace (skips traces with invalid JSON or non-dict context),
-        and includes market snapshot, context pack, manager/execution/review fields. The constructed record is serialized to JSON and upserted by `trade_id` into the `trade_contexts` table.
+        Builds a TradeContextRecord from the provided `artifacts` and optional execution metadata, extracts routed model names and up to five items per trace for `retrieved_memories`, `tool_outputs`, and `shared_memory_bus` summaries (skipping traces with invalid or non-dict context), includes market snapshot, decision and review data, and the artifact-provided `fundamental_assessment` and `fundamental_summary`. The resulting record is serialized to JSON and upserted by `trade_id` into the `trade_contexts` table.
         
         Parameters:
-            trade_id (str): Identifier for the trade context (used as the upsert key).
+            trade_id (str): Identifier used as the upsert key for the persisted trade context.
             run_id (str | None): Optional run identifier associated with this context.
-            artifacts (RunArtifacts): Run artifacts containing `agent_traces`, `snapshot`, and manager/execution/review data.
+            artifacts (RunArtifacts): Run artifacts containing agent traces, snapshots, decision features, and manager/review/execution data.
+            execution_intent (ExecutionIntent | None): Optional execution intent; its backend/adapter and JSON form are included when present.
+            execution_outcome (ExecutionOutcome | None): Optional execution outcome; its adapter, status, rejection reason, simulated metadata, and JSON form are included when present.
         """
         routed_models: dict[str, str] = {}
         retrieved_memory_summary: dict[str, list[str]] = {}
@@ -1105,6 +1104,7 @@ class TradingDatabase:
             tool_outputs=tool_outputs,
             shared_memory_summary=shared_memory_summary,
             consensus=artifacts.consensus,
+            fundamental_assessment=artifacts.fundamental,
             fundamental_summary=artifacts.fundamental.summary,
             macro_summary=artifacts.macro.summary,
             manager_rationale=artifacts.manager.rationale,

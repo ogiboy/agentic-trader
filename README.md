@@ -94,7 +94,7 @@ and the editable project:
 
 ```bash
 poetry env use "$CONDA_PREFIX/bin/python"
-poetry install --extras dev
+poetry install --with dev --extras dev
 ```
 
 If you want Poetry to install directly into the active Conda environment instead
@@ -102,7 +102,7 @@ of creating its own virtualenv, run this once before `poetry install`:
 
 ```bash
 poetry config virtualenvs.create false --local
-poetry install --extras dev
+poetry install --with dev --extras dev
 ```
 
 The committed `poetry.lock` file is the Python dependency lock for this
@@ -195,10 +195,34 @@ agentic-trader tui
 Ink control room hotkeys:
 
 ```text
-1 overview   2 runtime   3 portfolio   4 review   5 memory   6 chat
-r refresh    s start background runtime    x stop runtime    q quit
+1 overview   2 runtime   3 portfolio   4 review   5 memory   6 chat   7 settings
+r refresh    o one-shot    s start background runtime    x stop runtime    R restart    q quit
 [ and ] switch chat persona on the chat page
 ```
+
+Open the local web control room:
+
+```bash
+cd webgui
+pnpm install
+pnpm dev
+```
+
+The web command center runs on [http://localhost:3210](http://localhost:3210) and stays local-first by calling the same `dashboard-snapshot`, runtime, chat, and instruction contracts that CLI, Rich, and Ink already use. The dev script enables Watchpack polling to avoid file-watch limit noise in larger worktree setups.
+The route handlers prefer an explicitly configured `AGENTIC_TRADER_PYTHON` or the repo-managed Conda environment before falling back to the PATH-resolved `agentic-trader` entrypoint, which helps the Web GUI stay attached to the current worktree instead of a stale global install.
+If your local setup needs an override, set `AGENTIC_TRADER_CLI` or `AGENTIC_TRADER_PYTHON` before starting the web shell.
+
+Open the local developer docs:
+
+```bash
+cd docs
+pnpm install
+pnpm dev
+```
+
+The docs app uses Fumadocs plus MDX on top of the same shadcn preset baseline used by `webgui`.
+If you want the page-feedback panel to forward into GitHub Discussions, copy `docs/.env.example` to `docs/.env.local` and fill in the GitHub App credentials before starting the docs app.
+It is meant to be the canonical developer-facing guide for setup, architecture, runtime surfaces, and QA flow.
 
 Start the runtime directly from the root launcher:
 
@@ -338,7 +362,7 @@ agentic-trader portfolio --json
 
 ## QA And Code Quality
 
-Developer orientation notes live in [docs/dev/code-map.md](docs/dev/code-map.md).
+Developer orientation notes live in [dev/code-map.md](dev/code-map.md).
 
 Fast checks:
 
@@ -376,6 +400,7 @@ The current QA harness validates installed CLI entrypoints, the primary Ink TUI,
 - The trading runtime is strict by default: if Ollama or the configured model is unavailable, the core runtime should not start.
 - Deterministic fallbacks are kept for diagnostics and Training-mode evaluation, not for silent trade generation in the main launcher or background runtime.
 - The Ink control room is the primary terminal operator surface; the Rich menu remains useful as a legacy/admin fallback.
+- A first local Web GUI now lives under `webgui/` and reuses the same CLI/dashboard contracts instead of introducing a second runtime surface.
 - UI text is starting to move behind a shared catalog so CLI, Rich, Ink, and a future WebUI can grow toward multi-language support without duplicating labels.
 - Live broker adapters can be added once the planning and portfolio pipeline behaves consistently.
 

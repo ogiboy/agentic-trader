@@ -3,6 +3,10 @@ import { Box, Text, useApp, useInput } from 'ink';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import {
+  getCanonicalAnalysisLines,
+  getFundamentalAssessmentLines,
+} from './review-lines.mjs';
 
 const execFileAsync = promisify(execFile);
 const e = React.createElement;
@@ -10,7 +14,7 @@ const cliExecutable = process.env.AGENTIC_TRADER_CLI || 'agentic-trader';
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 const once = process.argv.includes('--once');
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
-const pages = ['overview', 'runtime', 'portfolio', 'review', 'memory', 'chat'];
+const pages = ['overview', 'runtime', 'portfolio', 'review', 'memory', 'chat', 'settings'];
 const personas = [
   'operator_liaison',
   'regime_analyst',
@@ -18,6 +22,7 @@ const personas = [
   'risk_steward',
   'portfolio_manager',
 ];
+const instructionModes = ['preview', 'apply'];
 
 /**
  * Execute the Agentic Trader CLI using one of the configured executables, retrying across candidates.
@@ -90,6 +95,39 @@ function defaultSymbolsFromPreferences(preferences) {
 }
 
 /**
+ * Selects a default single trading symbol from dashboard snapshot data.
+ *
+ * @param {object} data - Dashboard snapshot which may contain `status.state.current_symbol`, `tradeContext.record.symbol`, `review.record.symbol`, and `preferences`.
+ * @returns {string} The first available symbol from (in order): the current runtime symbol, the trade context record symbol, the review record symbol, or the first symbol derived from preferences.
+ */
+function defaultSingleSymbol(data) {
+  return (
+    data?.status?.state?.current_symbol ||
+    data?.tradeContext?.record?.symbol ||
+    data?.review?.record?.symbol ||
+    defaultSymbolsFromPreferences(data?.preferences).split(',')[0]
+  );
+}
+
+/**
+ * Resolve the runtime interval from the provided dashboard data, falling back to the market context pack and then '1d'.
+ * @param {Object} data - Dashboard snapshot that may contain `status.state.interval` or `marketContext.contextPack.interval`.
+ * @returns {string} The resolved interval value, or '1d' if none is present.
+ */
+function defaultRuntimeInterval(data) {
+  return data?.status?.state?.interval || data?.marketContext?.contextPack?.interval || '1d';
+}
+
+/**
+ * Selects the runtime lookback interval from dashboard data, falling back to '180d'.
+ * @param {object} data - Dashboard snapshot that may contain `status.state.lookback` or `marketContext.contextPack.lookback`.
+ * @returns {string} The lookback interval string from runtime state if present, otherwise from the market context pack, otherwise `'180d'`.
+ */
+function defaultRuntimeLookback(data) {
+  return data?.status?.state?.lookback || data?.marketContext?.contextPack?.lookback || '180d';
+}
+
+/**
  * Produce a short tail of the supervisor's recent daemon log lines.
  *
  * @param {Object|undefined} supervisor - Supervisor state object that may contain `stderr_tail` and/or `stdout_tail` arrays of log lines.
@@ -130,6 +168,7 @@ function getTradeContextLines(tradeContext) {
     `Trade ID: ${record.trade_id}`,
     `Run ID: ${record.run_id ?? '-'}`,
     `Consensus: ${record.consensus.alignment_level}`,
+    ...getFundamentalAssessmentLines(record.fundamental_assessment),
     `Manager Rationale: ${record.manager_rationale}`,
     `Execution Rationale: ${record.execution_rationale}`,
     `Execution Backend: ${record.execution_backend ?? '-'}`,
@@ -148,13 +187,15 @@ function getTradeContextLines(tradeContext) {
 }
 
 /**
- * Create human-readable lines describing a persisted Market Context Pack.
+ * Format a persisted Market Context Pack into an array of human-readable lines.
  *
- * @param {Object} marketContext - Dashboard marketContext payload. May include:
+ * @param {Object} marketContext - Dashboard marketContext payload. May include
  *   `{ available?: boolean, error?: string, contextPack?: Object }`.
- * @returns {string[]} Human-readable lines summarizing the pack: summary, lookback,
- *   window, bars/coverage, interval semantics, higher-timeframe usage, data quality
- *   and anomaly flags, followed by up to five horizon vote entries.
+ * @returns {string[]} Lines summarizing the pack (summary, lookback, window,
+ *   bars/coverage, interval semantics, higher-timeframe usage, data quality and
+ *   anomaly flags, plus up to five horizon vote entries). If `available === false`
+ *   the returned lines convey unavailability; if no `contextPack` is present a
+ *   single notice line is returned.
  */
 function getMarketContextLines(marketContext) {
   if (marketContext?.available === false) {
@@ -184,11 +225,11 @@ function getMarketContextLines(marketContext) {
 }
 
 /**
- * Perform a runtime control action (start, stop, or restart) based on the provided dashboard snapshot and return a user-facing action message.
+ * Control the runtime (start, stop, one-shot, or restart) using the provided dashboard snapshot and produce a user-facing action message.
  *
- * @param {string} kind - The action to perform: "start", "stop", or other (treated as restart if a previous launch config exists).
+ * @param {string} kind - Action to perform: "start", "stop", "one-shot", or other (treated as restart when a saved launch config exists).
  * @param {Object} data - Dashboard snapshot containing runtime `status` and `preferences` used to decide behavior.
- * @returns {{kind: string, text: string}} An action message describing the requested operation or why no action was taken (e.g., `{ kind: 'info', text: '...' }`).
+ * @returns {{kind: string, text: string}} An action message describing the requested operation or why no action was taken (`kind: 'info'`, `text` explains the outcome).
  */
 async function performRuntimeAction(kind, data) {
   if (kind === 'start') {
@@ -229,6 +270,31 @@ async function performRuntimeAction(kind, data) {
     };
   }
 
+  if (kind === 'one-shot') {
+    if (data.status.live_process) {
+      return {
+        kind: 'info',
+        text: `Runtime already active with PID ${data.status.state?.pid ?? '-'}. Stop it before running a one-shot cycle.`,
+      };
+    }
+    const symbol = defaultSingleSymbol(data);
+    const interval = defaultRuntimeInterval(data);
+    const lookback = defaultRuntimeLookback(data);
+    await runTextCommand([
+      'run',
+      '--symbol',
+      symbol,
+      '--interval',
+      interval,
+      '--lookback',
+      lookback,
+    ]);
+    return {
+      kind: 'info',
+      text: `Strict one-shot cycle completed for ${symbol} (${interval}, ${lookback}).`,
+    };
+  }
+
   if ((data.status.state?.symbols || []).length) {
     await runTextCommand(['restart-service']);
     return { kind: 'info', text: 'Background runtime restart requested.' };
@@ -253,14 +319,27 @@ function rotatePersona(current, offset) {
 }
 
 /**
- * Handle a single chat input keystroke, updating chat draft or persona or triggering send when applicable.
+ * Rotate the current instruction mode by a signed offset within the available modes.
+ * @param {string} current - The currently selected instruction mode.
+ * @param {number} offset - Signed offset to move within the mode list (positive for forward, negative for backward).
+ * @returns {string} The instruction mode after applying the offset, wrapped around the mode list.
+ */
+function rotateInstructionMode(current, offset) {
+  return instructionModes[
+    (instructionModes.indexOf(current) + offset + instructionModes.length) %
+      instructionModes.length
+  ];
+}
+
+/**
+ * Process a single chat keystroke to update the draft, rotate the persona, or submit the message.
  *
- * @param {string} input - The raw input character (e.g., a typed character or '['/']').
- * @param {{return?: boolean, backspace?: boolean, delete?: boolean, ctrl?: boolean, meta?: boolean}} key - Key flags indicating special keys pressed.
- * @param {{sendChat: Function, setChatDraft: Function, setChatPersona: Function}} handlers - Handler functions used to mutate chat state:
- *   - sendChat(): send the current draft as a chat message.
- *   - setChatDraft(fn): update the draft; receives the current draft and should return the new draft.
- *   - setChatPersona(fn): rotate/set the current persona; receives the current persona and should return the new persona.
+ * @param {string} input - Raw input character (e.g., a typed character or '[' / ']' for persona rotation).
+ * @param {{return?: boolean, backspace?: boolean, delete?: boolean, ctrl?: boolean, meta?: boolean}} key - Flags for special keys pressed.
+ * @param {{sendChat: Function, setChatDraft: Function, setChatPersona: Function}} handlers - State mutators:
+ *   - sendChat(): submit the current draft as a chat message.
+ *   - setChatDraft(fn): update the draft; receives current draft and returns new draft.
+ *   - setChatPersona(fn): update the current persona; receives current persona and returns new persona.
  * @returns {boolean} `true` if the input was handled (consumed), `false` otherwise.
  */
 function handleChatInput(input, key, handlers) {
@@ -288,19 +367,53 @@ function handleChatInput(input, key, handlers) {
 }
 
 /**
- * Handle top-level single-key commands and page selection from keyboard input.
+ * Handle keyboard input for the settings/instruction composer.
  *
- * Recognizes:
- * - 'q' to exit,
- * - 'r' to refresh,
- * - 's' to start the runtime,
- * - 'x' to stop the runtime,
- * - 'R' to restart the runtime,
- * - '1'..'6' to switch to the corresponding page.
+ * Processes Enter to send the instruction, Backspace/Delete to truncate the draft,
+ * `[`/`]` to rotate instruction mode, and printable characters to append to the draft.
+ *
+ * @param {string} input - The raw character input (empty string for non-printable keys).
+ * @param {object} key - Parsed key state (e.g., `{ return, backspace, delete, ctrl, meta }`).
+ * @param {object} handlers - UI handlers.
+ * @param {Function} handlers.sendInstruction - Trigger submission of the current instruction.
+ * @param {Function} handlers.setInstructionDraft - Setter for the instruction draft; receives an updater function.
+ * @param {Function} handlers.setInstructionMode - Setter for the instruction mode; receives an updater function.
+ * @returns {boolean} `true` if the input was handled, `false` otherwise.
+ */
+function handleSettingsInput(input, key, handlers) {
+  if (key.return) {
+    handlers.sendInstruction();
+    return true;
+  }
+  if (key.backspace || key.delete) {
+    handlers.setInstructionDraft((current) => current.slice(0, -1));
+    return true;
+  }
+  if (input === '[') {
+    handlers.setInstructionMode((current) => rotateInstructionMode(current, -1));
+    return true;
+  }
+  if (input === ']') {
+    handlers.setInstructionMode((current) => rotateInstructionMode(current, 1));
+    return true;
+  }
+  if (!key.ctrl && !key.meta && input) {
+    handlers.setInstructionDraft((current) => current + input);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Handle top-level single-key keyboard commands and page selection.
+ *
+ * Invokes the corresponding handler when a recognized key is pressed:
+ * q (exit), r (refresh), o (one-shot run), s (start), x (stop), R (restart),
+ * and numeric keys 1–7 to switch pages.
  *
  * @param {string} input - The raw key input (single character).
- * @param {{ exit: Function, refreshNow: Function, runAction: Function, setPage: Function }} handlers - Action handlers to invoke for recognized keys.
- * @returns {boolean} `true` if the input was handled, `false` otherwise.
+ * @param {{ exit: Function, refreshNow: Function, runAction: Function, setPage: Function }} handlers - Callback handlers for actions: `exit()`, `refreshNow()`, `runAction(kind)`, and `setPage(page)`.
+ * @returns {boolean} `true` if the input was handled and a handler was invoked, `false` otherwise.
  */
 function handleGlobalInput(input, handlers) {
   const normalized = input.toLowerCase();
@@ -316,6 +429,10 @@ function handleGlobalInput(input, handlers) {
     handlers.refreshNow();
     return true;
   }
+  if (normalized === 'o') {
+    handlers.runAction('one-shot');
+    return true;
+  }
   if (normalized === 's') {
     handlers.runAction('start');
     return true;
@@ -324,7 +441,7 @@ function handleGlobalInput(input, handlers) {
     handlers.runAction('stop');
     return true;
   }
-  if (['1', '2', '3', '4', '5', '6'].includes(input)) {
+  if (['1', '2', '3', '4', '5', '6', '7'].includes(input)) {
     handlers.setPage(pages[Number(input) - 1]);
     return true;
   }
@@ -364,20 +481,26 @@ function getPageLabel(page) {
     review: 'Review',
     memory: 'Memory',
     chat: 'Chat',
+    settings: 'Settings',
   };
   return labels[page] || 'Unknown';
 }
 
 /**
- * Selects and returns the UI component element corresponding to the specified page key.
+ * Return the UI component element for the given dashboard page key.
  *
- * @param {string} page - Page key ('overview', 'runtime', 'portfolio', 'review', 'memory', or other for chat).
+ * @param {string} page - Page key: 'overview', 'runtime', 'portfolio', 'review', 'memory', 'settings', or other (defaults to chat).
  * @param {Object} data - Dashboard snapshot and related data passed into the page component.
- * @param {string} chatPersona - Active chat persona (used when rendering the chat page).
- * @param {Array<Object>} chatHistory - Normalized chat history entries (used when rendering the chat page).
- * @param {string} chatDraft - Current chat draft text (used when rendering the chat page).
- * @param {boolean} chatBusy - Whether a chat request is in progress (used when rendering the chat page).
- * @returns {import('react').ReactElement} The rendered Ink/React element for the requested page (defaults to the Chat page for unknown keys).
+ * @param {string} chatPersona - Active chat persona used by the chat page.
+ * @param {Array<Object>} chatHistory - Normalized chat history entries used by the chat page.
+ * @param {string} chatDraft - Current chat draft text used by the chat page.
+ * @param {boolean} chatBusy - Whether a chat request is in progress.
+ * @param {string} instructionDraft - Current instruction draft text used by the settings page.
+ * @param {boolean} instructionBusy - Whether an instruction request is in progress (settings page).
+ * @param {string} instructionMode - Instruction mode ('preview' or 'apply') used by the settings page.
+ * @param {Object|null} instructionResult - Result object from the last instruction invocation shown in the settings page.
+ * @param {boolean} compact - Whether to render pages in compact mode (affects applicable pages).
+ * @returns {import('react').ReactElement} The page element corresponding to `page`; unknown keys render the Chat page.
  */
 function getPageView(
   page,
@@ -386,10 +509,15 @@ function getPageView(
   chatHistory,
   chatDraft,
   chatBusy,
+  instructionDraft,
+  instructionBusy,
+  instructionMode,
+  instructionResult,
+  compact,
 ) {
   switch (page) {
     case 'overview':
-      return e(OverviewPage, { data });
+      return e(OverviewPage, { data, compact });
     case 'runtime':
       return e(RuntimePage, { data });
     case 'portfolio':
@@ -398,6 +526,15 @@ function getPageView(
       return e(ReviewPage, { data });
     case 'memory':
       return e(MemoryPage, { data });
+    case 'settings':
+      return e(SettingsPage, {
+        data,
+        draft: instructionDraft,
+        instructionBusy,
+        instructionMode,
+        instructionResult,
+        compact,
+      });
     default:
       return e(ChatPage, {
         data,
@@ -442,6 +579,17 @@ function renderUnavailableMessage(error) {
   ];
 }
 
+/**
+ * Format a review record into an array of display lines for the review panel.
+ *
+ * @param {Object|null} reviewRecord - Review snapshot or null/undefined when none available.
+ *   Expected shape (properties used): `run_id`, `created_at`, `symbol`, `approved`, and
+ *   `artifacts` containing `coordinator.market_focus`, `fundamental`, `regime.regime`,
+ *   `strategy.strategy_family`, `manager.action_bias`, `consensus.alignment_level`, and
+ *   `review.summary`.
+ * @returns {string[]} An array of human-readable lines describing the review. If `reviewRecord`
+ *   is falsy, returns `['No persisted runs are available yet.']`.
+ */
 function getReviewLines(reviewRecord) {
   if (!reviewRecord) {
     return ['No persisted runs are available yet.'];
@@ -452,6 +600,7 @@ function getReviewLines(reviewRecord) {
     `Symbol: ${reviewRecord.symbol}`,
     `Approved: ${reviewRecord.approved}`,
     `Coordinator Focus: ${reviewRecord.artifacts.coordinator.market_focus}`,
+    ...getFundamentalAssessmentLines(reviewRecord.artifacts.fundamental),
     `Regime: ${reviewRecord.artifacts.regime.regime}`,
     `Strategy: ${reviewRecord.artifacts.strategy.strategy_family}`,
     `Manager Bias: ${reviewRecord.artifacts.manager.action_bias}`,
@@ -525,6 +674,11 @@ function getInspectionLines(inspection) {
   });
 }
 
+/**
+ * Produce display lines summarizing a trade journal's entries.
+ * @param {Object} journal - Object containing a list of journal entries under `entries`.
+ * @returns {string[]} An array of lines; each entry is formatted as `opened_at | symbol | journal_status | planned_side | realized_pnl`, or `['No trade journal entries yet.']` when there are no entries.
+ */
 function getJournalLines(journal) {
   if (!journal?.entries?.length) {
     return ['No trade journal entries yet.'];
@@ -535,6 +689,68 @@ function getJournalLines(journal) {
   );
 }
 
+/**
+ * Produce display lines summarizing recent run records for the dashboard.
+ *
+ * @param {object} recentRuns - Snapshot of recent runs.
+ * @param {boolean} [recentRuns.available] - If false, the runs are unavailable and `error` may explain why.
+ * @param {string} [recentRuns.error] - Error message when unavailable.
+ * @param {Array} [recentRuns.runs] - Array of run records; each record is expected to include `created_at`, `symbol`, `interval`, `approved`, and `run_id`.
+ * @returns {string[]} An array of lines for display:
+ *   - If `available === false`, returns the unavailable message lines (including the error if present).
+ *   - If there are no runs, returns a single line: `"No recent runs recorded yet."`.
+ *   - Otherwise returns one line per run formatted as: "<created_at> | <symbol> | <interval> | approved=<approved> | <run_id>".
+ */
+function getRecentRunsLines(recentRuns) {
+  if (recentRuns?.available === false) {
+    return renderUnavailableMessage(recentRuns.error);
+  }
+  if (!recentRuns?.runs?.length) {
+    return ['No recent runs recorded yet.'];
+  }
+  return recentRuns.runs.map(
+    (run) =>
+      `${run.created_at} | ${run.symbol} | ${run.interval} | approved=${run.approved} | ${run.run_id}`,
+  );
+}
+
+/**
+ * Format an instruction result into display-ready text lines.
+ * @param {Object|null} result - The instruction result object (or null/undefined). Expected shape: `{ applied?: boolean, instruction?: { summary?: string, rationale?: string, should_update_preferences?: boolean, requires_confirmation?: boolean, preference_update?: Object } }`.
+ * @returns {string[]} An array of human-readable lines summarizing the instruction: a summary, whether preferences should be updated, whether confirmation is required, whether the instruction was applied, the rationale, and a formatted preference-update line (or example help lines when `result` is falsy).
+ */
+function getInstructionResultLines(result) {
+  if (!result) {
+    return [
+      'Type a safe operator instruction.',
+      'Examples:',
+      '  make the system conservative',
+      '  switch to capital preservation',
+    ];
+  }
+  const instruction = result.instruction || {};
+  const update = instruction.preference_update || {};
+  const updateLines = Object.entries(update)
+    .filter(([, value]) => value !== null && value !== undefined && value !== '')
+    .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join(',') : value}`);
+  return [
+    `Summary: ${instruction.summary ?? '-'}`,
+    `Update Preferences: ${instruction.should_update_preferences ?? false}`,
+    `Requires Confirmation: ${instruction.requires_confirmation ?? false}`,
+    `Applied: ${result.applied ? 'yes' : 'no'}`,
+    `Rationale: ${instruction.rationale ?? '-'}`,
+    `Preference Update: ${updateLines.join(' | ') || '-'}`,
+  ];
+}
+
+/**
+ * Render a bordered panel with a bold colored title and a list of text lines.
+ *
+ * @param {string} title - The panel title shown in bold at the top.
+ * @param {Array<any>} lines - Lines to display inside the panel; each item will be converted to a string.
+ * @param {string} [borderColor='cyan'] - Color used for the panel border and title text.
+ * @returns {import('react').ReactElement} The Ink Box element containing the titled panel and its lines.
+ */
 function panel(title, lines, borderColor = 'cyan') {
   return e(
     Box,
@@ -569,7 +785,7 @@ function renderLinesFallback(title, available, error, fallback) {
  * @param {object} props.data - Dashboard snapshot used to populate panels; expected to include keys such as `doctor`, `status`, `preferences`, `calendar`, `broker`, `marketCache`, `marketContext`, `review`, and `agentActivity`.
  * @returns {import('react').ReactElement} The Ink/React element tree for the Overview page.
  */
-function OverviewPage({ data }) {
+function OverviewPage({ data, compact = false }) {
   const doctor = data.doctor;
   const runtime = data.status;
   const preferences = data.preferences;
@@ -580,6 +796,66 @@ function OverviewPage({ data }) {
   const latestSnapshot = data.review.record?.artifacts?.snapshot;
   const agentActivity = data.agentActivity;
   const agentEvents = agentActivity?.recent_stage_events || [];
+  const currentCycleLines = compact
+    ? [
+        `Runtime: ${runtime.runtime_state}`,
+        `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
+        `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
+        `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
+        `Status: ${runtime.status_message}`,
+        `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
+        `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
+        `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
+        `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
+        `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
+      ]
+    : [
+        `Runtime: ${runtime.runtime_state}`,
+        `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
+        `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
+        `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
+        `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
+        `Status: ${runtime.status_message}`,
+        `Current Note: ${runtime.state?.message ?? '-'}`,
+        `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
+        `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
+        `Stage Detail: ${agentActivity?.current_stage_message ?? '-'}`,
+        `Last Completed Stage: ${agentActivity?.last_completed_stage ?? '-'}`,
+        `Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
+        `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
+        `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
+        `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
+        `Context Pack: ${marketContext?.contextPack?.summary ?? '-'}`,
+        `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
+        '',
+        `Last Outcome Type: ${agentActivity?.last_outcome_type ?? '-'}`,
+        `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
+      ];
+  const systemLines = compact
+    ? [
+        `Model: ${doctor.model}`,
+        `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
+        `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
+        `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
+        `Broker Backend: ${broker?.backend ?? '-'}`,
+        `Broker State: ${broker?.state ?? '-'}`,
+        `Market Session: ${formatMarketSession(calendar.session)}`,
+      ]
+    : [
+        `Model: ${doctor.model}`,
+        `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
+        `Base URL: ${doctor.base_url}`,
+        `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
+        `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
+        `Runtime Dir: ${doctor.runtime_dir}`,
+        `Database: ${doctor.database}`,
+        `Broker Backend: ${broker?.backend ?? '-'}`,
+        `Broker State: ${broker?.state ?? '-'}`,
+        `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
+        `Market Session: ${formatMarketSession(calendar.session)}`,
+        `News Tool: ${data.news?.mode ?? 'off'}`,
+        `Cached Snapshots: ${marketCache.count}`,
+      ];
 
   return e(
     Box,
@@ -592,28 +868,7 @@ function OverviewPage({ data }) {
         { width: '50%', paddingRight: 1 },
         panel(
           'CURRENT CYCLE',
-          [
-            `Runtime: ${runtime.runtime_state}`,
-            `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
-            `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
-            `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
-            `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
-            `Status: ${runtime.status_message}`,
-            `Current Note: ${runtime.state?.message ?? '-'}`,
-            `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
-            `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
-            `Stage Detail: ${agentActivity?.current_stage_message ?? '-'}`,
-            `Last Completed Stage: ${agentActivity?.last_completed_stage ?? '-'}`,
-            `Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
-            `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
-            `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
-            `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
-            `Context Pack: ${marketContext?.contextPack?.summary ?? '-'}`,
-            `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
-            '',
-            `Last Outcome Type: ${agentActivity?.last_outcome_type ?? '-'}`,
-            `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
-          ],
+          currentCycleLines,
           getStatusBorderColor(runtime.runtime_state),
         ),
       ),
@@ -622,21 +877,7 @@ function OverviewPage({ data }) {
         { width: '50%', paddingLeft: 1 },
         panel(
           'SYSTEM',
-          [
-            `Model: ${doctor.model}`,
-            `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
-            `Base URL: ${doctor.base_url}`,
-            `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
-            `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
-            `Runtime Dir: ${doctor.runtime_dir}`,
-            `Database: ${doctor.database}`,
-            `Broker Backend: ${broker?.backend ?? '-'}`,
-            `Broker State: ${broker?.state ?? '-'}`,
-            `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
-            `Market Session: ${formatMarketSession(calendar.session)}`,
-            `News Tool: ${data.news?.mode ?? 'off'}`,
-            `Cached Snapshots: ${marketCache.count}`,
-          ],
+          systemLines,
           doctor.ollama_reachable && doctor.model_available ? 'green' : 'red',
         ),
       ),
@@ -893,7 +1134,7 @@ function PortfolioPage({ data }) {
 /**
  * Render the Review page with panels for run review, agent trace, memory-aware replay, trade context, and market context.
  *
- * @param {{ data: { review: Object, trace: Object, replay: Object, tradeContext: Object, marketContext: Object } }} props
+ * @param {{ data: { review: Object, trace: Object, replay: Object, tradeContext: Object, marketContext: Object, canonicalAnalysis: Object } }} props
  * @param {Object} props.data - Dashboard snapshot subsets used to populate panels.
  *   Expected keys:
  *     - review: { available?: boolean, record?: Object, error?: string }
@@ -901,6 +1142,7 @@ function PortfolioPage({ data }) {
  *     - replay: { available?: boolean, replay?: Object, error?: string }
  *     - tradeContext: Object
  *     - marketContext: Object
+ *     - canonicalAnalysis: Object
  * @returns {import('react').ReactElement} An Ink layout containing review, trace, replay, trade-context, and market-context panels.
  */
 function ReviewPage({ data }) {
@@ -909,6 +1151,7 @@ function ReviewPage({ data }) {
   const replay = data.replay;
   const tradeContext = data.tradeContext;
   const marketContext = data.marketContext;
+  const canonicalAnalysis = data.canonicalAnalysis;
   const reviewRecord = review.record;
   const traceRecord = trace.record;
   const replayState = replay.replay;
@@ -930,6 +1173,7 @@ function ReviewPage({ data }) {
 
   const tradeContextLines = getTradeContextLines(tradeContext);
   const marketContextLines = getMarketContextLines(marketContext);
+  const canonicalAnalysisLines = getCanonicalAnalysisLines(canonicalAnalysis);
 
   return e(
     Box,
@@ -971,9 +1215,26 @@ function ReviewPage({ data }) {
         panel('MARKET CONTEXT PACK', marketContextLines, 'blue'),
       ),
     ),
+    e(
+      Box,
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '100%' },
+        panel('CANONICAL ANALYSIS', canonicalAnalysisLines, 'blue'),
+      ),
+    ),
   );
 }
 
+/**
+ * Render the Memory page containing a "Similar Memories" panel and a "Retrieval Inspection" panel.
+ *
+ * @param {Object} data - Dashboard snapshot payload for this page.
+ * @param {Object} data.memoryExplorer - Explorer results used to populate the "Similar Memories" panel; may include `available` and `error`.
+ * @param {Object} data.retrievalInspection - Inspection results used to populate the "Retrieval Inspection" panel; may include `available` and `error`.
+ * @returns {import('react').ReactElement} An Ink layout Box containing two side-by-side panels with memory matches and retrieval inspection lines.
+ */
 function MemoryPage({ data }) {
   const explorer = data.memoryExplorer;
   const inspection = data.retrievalInspection;
@@ -1003,6 +1264,104 @@ function MemoryPage({ data }) {
         Box,
         { width: '50%', paddingLeft: 1 },
         panel('RETRIEVAL INSPECTION', retrievalLines.slice(0, 12), 'yellow'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Render the Settings page composed of Preferences, Recent Runs, Operator Instruction, and Composer panels.
+ *
+ * @param {Object} params - Component props.
+ * @param {Object} params.data - Dashboard snapshot containing preferences and recentRuns used to populate panels.
+ * @param {string} params.draft - Current instruction draft text shown in the composer.
+ * @param {boolean} params.instructionBusy - Whether an instruction submit is in progress; displays a working indicator when true.
+ * @param {'preview'|'apply'} params.instructionMode - Current instruction mode; shown in the composer header.
+ * @param {Object|null} params.instructionResult - Result object from the last instruction invocation used to render the Operator Instruction panel.
+ * @param {boolean} [params.compact=false] - When true, render condensed preference/recent-run summaries for tighter layouts.
+ * @returns {React.Element} The Settings page React element tree.
+ */
+function SettingsPage({
+  data,
+  draft,
+  instructionBusy,
+  instructionMode,
+  instructionResult,
+  compact = false,
+}) {
+  const preferences = data.preferences;
+  const recentRuns = data.recentRuns;
+  const rawPreferenceLines = renderLinesFallback(
+    'PREFERENCES',
+    preferences.available,
+    preferences.error,
+    'Preferences are temporarily unavailable.',
+  ) || [
+    `Regions: ${(preferences.regions || []).join(', ') || '-'}`,
+    `Exchanges: ${(preferences.exchanges || []).join(', ') || '-'}`,
+    `Currencies: ${(preferences.currencies || []).join(', ') || '-'}`,
+    `Sectors: ${(preferences.sectors || []).join(', ') || '-'}`,
+    `Risk: ${preferences.risk_profile}`,
+    `Style: ${preferences.trade_style}`,
+    `Behavior: ${preferences.behavior_preset}`,
+    `Agent Profile: ${preferences.agent_profile}`,
+    `Agent Tone: ${preferences.agent_tone}`,
+    `Strictness: ${preferences.strictness_preset}`,
+    `Intervention: ${preferences.intervention_style}`,
+    `Notes: ${preferences.notes || '-'}`,
+  ];
+  const preferenceLines = compact && preferences.available !== false
+    ? [
+        `Regions / Exchanges: ${(preferences.regions || []).join(', ') || '-'} / ${(preferences.exchanges || []).join(', ') || '-'}`,
+        `Currencies / Sectors: ${(preferences.currencies || []).join(', ') || '-'} / ${(preferences.sectors || []).join(', ') || '-'}`,
+        `Risk / Style: ${preferences.risk_profile} / ${preferences.trade_style}`,
+        `Behavior / Strictness: ${preferences.behavior_preset} / ${preferences.strictness_preset}`,
+        `Profile / Tone: ${preferences.agent_profile} / ${preferences.agent_tone}`,
+        `Intervention: ${preferences.intervention_style}`,
+        `Notes: ${preferences.notes || '-'}`,
+      ]
+    : rawPreferenceLines;
+  const recentRunLines = getRecentRunsLines(recentRuns);
+  const instructionLines = getInstructionResultLines(instructionResult);
+  const composerLines = [
+    `Mode: ${instructionMode}`,
+    instructionBusy ? 'Working...' : 'Enter submit  |  [ ] switch mode',
+    draft || '(type a safe operator instruction here)',
+  ];
+
+  return e(
+    Box,
+    { flexDirection: 'column', width: '100%' },
+    e(
+      Box,
+      { width: '100%' },
+      e(
+        Box,
+        { width: '50%', paddingRight: 1 },
+        panel('PREFERENCES', preferenceLines.slice(0, compact ? 7 : 12), 'blue'),
+      ),
+      e(
+        Box,
+        { width: '50%', paddingLeft: 1 },
+        panel('RECENT RUNS', recentRunLines.slice(0, compact ? 5 : 8), 'yellow'),
+      ),
+    ),
+    e(
+      Box,
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '100%' },
+        panel('OPERATOR INSTRUCTION', instructionLines, 'green'),
+      ),
+    ),
+    e(
+      Box,
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '100%' },
+        panel('COMPOSER', composerLines, 'magenta'),
       ),
     ),
   );
@@ -1119,23 +1478,25 @@ function normalizeChatHistory(data) {
 }
 
 /**
- * Render the Ink dashboard UI for the control room based on current state and props.
+ * Render the Ink dashboard UI for the control room using the provided view state and props.
  *
- * Renders an error view when `error` is present, a loading view when `data` is absent,
- * and the selected page plus header/footer when `data` is available. Displays action
- * messages and a busy indicator when appropriate.
+ * Renders an error view when `error` is present, a loading view when `data` is absent, and the selected page with header/footer and optional action message when `data` is available.
  *
  * @param {Object} props - Component props.
- * @param {?Object} props.data - Dashboard snapshot payload; expected to include `loadedAt`.
- * @param {?string} props.error - Error message to display instead of the dashboard.
- * @param {string} props.loadingText - Text to display while loading.
- * @param {string} props.page - Current page key (one of 'overview','runtime','portfolio','review','memory','chat').
- * @param {?{kind:string,text:string}} props.actionMessage - Optional action message; `kind` controls color.
+ * @param {?Object} props.data - Dashboard snapshot payload; expected to include `loadedAt` (ISO string) used for the footer timestamp.
+ * @param {?string} props.error - Error message to display in the header area; when present the full dashboard is replaced by the error view.
+ * @param {string} props.loadingText - Text displayed while the dashboard snapshot is loading.
+ * @param {string} props.page - Current page key; one of 'overview','runtime','portfolio','review','memory','chat','settings'.
+ * @param {?{kind:string,text:string}} props.actionMessage - Optional transient action message; `kind === 'error'` renders in red, other kinds render in yellow.
  * @param {boolean} props.busy - When true, shows a working indicator in the header.
- * @param {string} props.chatPersona - Currently selected chat persona key.
- * @param {Array<Object>} props.chatHistory - Normalized chat history entries for display.
+ * @param {string} props.chatPersona - Selected chat persona key for the chat composer.
+ * @param {Array<Object>} props.chatHistory - Normalized chat history entries shown in the chat page.
  * @param {string} props.chatDraft - Current chat composer draft text.
- * @param {boolean} props.chatBusy - When true, indicates an in-flight chat send.
+ * @param {boolean} props.chatBusy - When true, indicates an in-flight chat send and disables composer actions.
+ * @param {string} props.instructionDraft - Current settings/instruction composer draft text.
+ * @param {boolean} props.instructionBusy - When true, indicates an in-flight instruction preview/apply request.
+ * @param {string} props.instructionMode - Settings page submit mode; either 'preview' or 'apply'.
+ * @param {?object} props.instructionResult - Latest parsed/applied instruction payload returned by the CLI (used to render preview/result on the settings page).
  * @returns {import('react').ReactElement} The Ink element tree representing the dashboard view.
  */
 function DashboardView({
@@ -1149,6 +1510,10 @@ function DashboardView({
   chatHistory,
   chatDraft,
   chatBusy,
+  instructionDraft,
+  instructionBusy,
+  instructionMode,
+  instructionResult,
 }) {
   if (error) {
     return e(
@@ -1179,6 +1544,13 @@ function DashboardView({
 
   const pageIndex = pages.indexOf(page) + 1;
   const pageLabel = getPageLabel(page);
+  const terminalRows = process.stdout.rows || 36;
+  const terminalColumns = process.stdout.columns || 100;
+  const navRows = terminalColumns < 140 ? 2 : 1;
+  const headerRows = 1 + navRows + (actionMessage ? 1 : 0);
+  const footerRows = 1;
+  const bodyHeight = Math.max(1, terminalRows - headerRows - footerRows);
+  const compact = terminalRows <= 30 || terminalColumns <= 110;
 
   const view = getPageView(
     page,
@@ -1187,6 +1559,11 @@ function DashboardView({
     chatHistory,
     chatDraft,
     chatBusy,
+    instructionDraft,
+    instructionBusy,
+    instructionMode,
+    instructionResult,
+    compact,
   );
 
   return e(
@@ -1200,7 +1577,7 @@ function DashboardView({
     e(
       Text,
       { color: 'gray' },
-      `page ${pageIndex}/6: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 memory  6 chat  |  r refresh  s start  x stop  R restart  q quit${busy ? '  |  working...' : ''}`,
+      `page ${pageIndex}/7: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 memory  6 chat  7 settings  |  r refresh  o one-shot  s start  x stop  R restart  q quit${busy ? '  |  working...' : ''}`,
     ),
     actionMessage
       ? e(
@@ -1209,7 +1586,16 @@ function DashboardView({
           actionMessage.text,
         )
       : null,
-    view,
+    e(
+      Box,
+      {
+        flexDirection: 'column',
+        width: '100%',
+        height: bodyHeight,
+        overflowY: 'hidden',
+      },
+      view,
+    ),
     e(Text, { color: 'gray' }, `Last refresh: ${data.loadedAt}`),
   );
 }
@@ -1243,7 +1629,16 @@ function DashboardView({
  *   chatDraft: string,
  *   setChatDraft: (d: string) => void,
  *   chatBusy: boolean,
- *   setChatBusy: (b: boolean) => void
+ *   setChatBusy: (b: boolean) => void,
+ *   instructionDraft: string,
+ *   setInstructionDraft: (d: string) => void,
+ *   instructionBusy: boolean,
+ *   setInstructionBusy: (b: boolean) => void,
+ *   instructionMode: string,
+ *   setInstructionMode: (m: string) => void,
+ *   instructionResult: object|null,
+ *   setInstructionResult: (r: object|null) => void,
+ *   sendInstruction: () => Promise<void>
  * }}
  */
 function useDashboardState({ interactive }) {
@@ -1258,6 +1653,10 @@ function useDashboardState({ interactive }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
+  const [instructionDraft, setInstructionDraft] = useState('');
+  const [instructionBusy, setInstructionBusy] = useState(false);
+  const [instructionMode, setInstructionMode] = useState('preview');
+  const [instructionResult, setInstructionResult] = useState(null);
   const loadingText = useMemo(() => `Connecting to ${cliExecutable}...`, []);
 
   const refresh = useCallback(async () => {
@@ -1324,6 +1723,50 @@ function useDashboardState({ interactive }) {
     [busy, data],
   );
 
+  const sendInstruction = useCallback(async () => {
+    const message = instructionDraft.trim();
+    if (!message || instructionBusy) {
+      return;
+    }
+    setInstructionBusy(true);
+    try {
+      const args = ['instruct', '--json', '--message', message];
+      if (instructionMode === 'apply') {
+        args.push('--apply');
+      }
+      const payload = await runJsonCommand(args);
+      setInstructionResult(payload);
+      setInstructionDraft('');
+      setActionMessage({
+        kind: 'info',
+        text: payload.applied
+          ? 'Operator instruction applied to preferences.'
+          : 'Operator instruction parsed.',
+      });
+      const next = await loadDashboard();
+      setData(next);
+      setError(null);
+    } catch (err) {
+      setInstructionResult({
+        instruction: {
+          summary: 'Instruction failed.',
+          should_update_preferences: false,
+          requires_confirmation: false,
+          rationale: err instanceof Error ? err.message : String(err),
+          preference_update: {},
+        },
+        applied: false,
+        updated_preferences: null,
+      });
+      setActionMessage({
+        kind: 'error',
+        text: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setInstructionBusy(false);
+    }
+  }, [instructionBusy, instructionDraft, instructionMode]);
+
   const nextPage = useCallback(() => {
     setPage((current) => pages[(pages.indexOf(current) + 1) % pages.length]);
   }, []);
@@ -1356,6 +1799,15 @@ function useDashboardState({ interactive }) {
     setChatDraft,
     chatBusy,
     setChatBusy,
+    instructionDraft,
+    setInstructionDraft,
+    instructionBusy,
+    setInstructionBusy,
+    instructionMode,
+    setInstructionMode,
+    instructionResult,
+    setInstructionResult,
+    sendInstruction,
   };
 }
 
@@ -1388,6 +1840,13 @@ function InteractiveDashboardApp() {
     setChatDraft,
     chatBusy,
     setChatBusy,
+    instructionDraft,
+    setInstructionDraft,
+    instructionBusy,
+    instructionMode,
+    setInstructionMode,
+    instructionResult,
+    sendInstruction,
   } = useDashboardState({ interactive: true });
 
   const sendChat = useCallback(async () => {
@@ -1447,13 +1906,23 @@ function InteractiveDashboardApp() {
       prevPage();
       return;
     }
-    if (['1', '2', '3', '4', '5', '6'].includes(input) && page !== 'chat') {
+    if (['1', '2', '3', '4', '5', '6', '7'].includes(input) && !['chat', 'settings'].includes(page)) {
       setPage(pages[Number(input) - 1]);
       return;
     }
     if (
       page === 'chat' &&
       handleChatInput(input, key, { sendChat, setChatDraft, setChatPersona })
+    ) {
+      return;
+    }
+    if (
+      page === 'settings' &&
+      handleSettingsInput(input, key, {
+        sendInstruction,
+        setInstructionDraft,
+        setInstructionMode,
+      })
     ) {
       return;
     }
@@ -1471,9 +1940,21 @@ function InteractiveDashboardApp() {
     chatHistory,
     chatDraft,
     chatBusy,
+    instructionDraft,
+    instructionBusy,
+    instructionMode,
+    instructionResult,
   });
 }
 
+/**
+ * Render a read-only snapshot of the dashboard UI.
+ *
+ * Uses the dashboard state hook in non-interactive mode and returns the
+ * DashboardView element populated with that state (no input wiring or periodic refresh).
+ *
+ * @returns {import('react').ReactElement} The DashboardView React element showing the current snapshot. 
+ */
 function StaticDashboardApp() {
   const {
     data,
@@ -1486,6 +1967,10 @@ function StaticDashboardApp() {
     chatHistory,
     chatDraft,
     chatBusy,
+    instructionDraft,
+    instructionBusy,
+    instructionMode,
+    instructionResult,
   } = useDashboardState({ interactive: false });
   return e(DashboardView, {
     data,
@@ -1498,6 +1983,10 @@ function StaticDashboardApp() {
     chatHistory,
     chatDraft,
     chatBusy,
+    instructionDraft,
+    instructionBusy,
+    instructionMode,
+    instructionResult,
   });
 }
 
