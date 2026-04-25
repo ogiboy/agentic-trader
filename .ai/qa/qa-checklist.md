@@ -112,7 +112,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## Web GUI
 
-- [ ] `cd webgui && pnpm dev` serves the local shell on `http://localhost:3210`.
+- [ ] `pnpm dev:webgui` serves the local shell on `http://localhost:3210`.
 - [ ] The Web GUI uses the same dashboard/runtime/chat/instruction truth as CLI, Rich, and Ink.
 - [ ] Browser-visible cards surface section-level errors explicitly instead of collapsing them into empty-state copy.
 - [ ] Route handlers reject malformed JSON or foreign origins for POST actions.

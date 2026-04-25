@@ -40,6 +40,7 @@ The repository is now a small monorepo-style workspace:
 | `main.py` | Root launcher for the Python CLI layer |
 | `webgui/` | Local Next.js Web GUI that shells out to existing Python CLI/runtime contracts |
 | `docs/` | Separate Next.js documentation site intended for GitHub Pages |
+| `tui/` | Ink terminal control room managed through the root pnpm workspace |
 
 ## Features
 
@@ -50,6 +51,7 @@ The repository is now a small monorepo-style workspace:
 - Ink TUI, Rich/admin menu, live monitor, and JSON status surfaces
 - Local Web GUI that delegates to the Python runtime instead of replacing it
 - Static-exportable docs site for setup, architecture, QA, and development notes
+- Root pnpm workspace and thin Makefile aliases for setup, checks, builds, and local app startup
 - Release automation for semantic versioning, changelog updates, GitHub Releases, and packaged CLI binaries
 
 ## Installation
@@ -65,12 +67,27 @@ poetry install --with dev --extras dev
 
 Copy `.env.example` to a local ignored env file only when you need provider/model overrides. Do not put secrets in tracked files.
 
+### Node Workspace
+
+`pnpm` manages the Web GUI, docs site, and Ink TUI from the repository root:
+
+```bash
+pnpm install
+pnpm approve-builds --all
+```
+
+For one-command setup after activating the Conda environment, use:
+
+```bash
+pnpm run setup
+# or
+make setup
+```
+
 ### Optional Web GUI
 
 ```bash
-cd webgui
-pnpm install
-pnpm dev
+pnpm dev:webgui
 ```
 
 The Web GUI runs at [http://localhost:3210](http://localhost:3210).
@@ -78,9 +95,13 @@ The Web GUI runs at [http://localhost:3210](http://localhost:3210).
 ### Optional Docs Site
 
 ```bash
-cd docs
-pnpm install
-pnpm dev
+pnpm dev:docs
+```
+
+### Optional Ink TUI
+
+```bash
+pnpm start:tui
 ```
 
 ### Optional Release Binary
@@ -122,8 +143,7 @@ Tag builds then package PyInstaller CLI binaries for macOS and Windows and attac
 `webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction contracts from server-side route handlers. It is intentionally not a second orchestrator.
 
 ```bash
-cd webgui
-pnpm dev
+pnpm dev:webgui
 ```
 
 ## Documentation
@@ -132,19 +152,20 @@ The docs app lives in `docs/` and is intended to deploy to GitHub Pages:
 
 [https://ogiboy.github.io/agentic-trader/](https://ogiboy.github.io/agentic-trader/)
 
-Use it for deeper setup, architecture, runtime, QA, frontend, and contribution guidance. Local development still uses `cd docs && pnpm dev`.
+Use it for deeper setup, architecture, runtime, QA, frontend, and contribution guidance. Local development uses `pnpm dev:docs`.
 
 ## Development
 
 This repo favors small, inspectable changes over broad rewrites. Keep Python runtime behavior, Web GUI delegation, and docs content aligned.
 
 ```bash
-poetry run ruff check .
-poetry run pyright agentic_trader tests scripts
-poetry run python -m pytest -q
-cd webgui && pnpm lint && pnpm typecheck && pnpm build
-cd ../docs && pnpm lint && pnpm typecheck && pnpm build
+pnpm check
+make check
 ```
+
+`pnpm check` is the canonical full local check. The Makefile is a thin alias layer for developers who prefer `make setup`, `make check`, `make webgui`, `make docs`, or `make tui`.
+
+Conda selects the Python interpreter, Poetry owns Python dependency locking and installs, and pnpm owns JavaScript workspace dependencies. These managers intentionally stay separate below the root command surface.
 
 Commit messages should follow conventional commits so release automation can infer version bumps:
 

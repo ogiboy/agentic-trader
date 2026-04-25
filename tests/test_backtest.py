@@ -38,6 +38,12 @@ def _frame() -> pd.DataFrame:
     )
 
 
+def _index_iso(frame: pd.DataFrame, position: int) -> str:
+    value = frame.index.to_list()[position]
+    isoformat = getattr(value, "isoformat")
+    return str(isoformat())
+
+
 def test_walk_forward_backtest_closes_trade_and_reports_metrics(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -189,12 +195,12 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
     assert report.ending_equity > report.starting_equity
     assert report.trades[0].exit_reason in {"take_profit", "end_of_data"}
     frame = _frame()
-    assert observed_as_of[0] == frame.index[60].isoformat()
-    assert observed_as_of[-1] == frame.index[-1].isoformat()
-    assert report.data_start_at == frame.index[0].isoformat()
-    assert report.data_end_at == frame.index[-1].isoformat()
-    assert report.first_decision_at == frame.index[60].isoformat()
-    assert report.last_decision_at == frame.index[-1].isoformat()
+    assert observed_as_of[0] == _index_iso(frame, 60)
+    assert observed_as_of[-1] == _index_iso(frame, -1)
+    assert report.data_start_at == _index_iso(frame, 0)
+    assert report.data_end_at == _index_iso(frame, -1)
+    assert report.first_decision_at == _index_iso(frame, 60)
+    assert report.last_decision_at == _index_iso(frame, -1)
 
 
 def test_deterministic_baseline_backtest_returns_metrics(tmp_path: Path) -> None:
@@ -225,8 +231,8 @@ def test_deterministic_baseline_backtest_returns_metrics(tmp_path: Path) -> None
     assert report.total_cycles == 40
     assert report.ending_equity > 0
     frame = _frame()
-    assert report.data_start_at == frame.index[0].isoformat()
-    assert report.data_end_at == frame.index[-1].isoformat()
+    assert report.data_start_at == _index_iso(frame, 0)
+    assert report.data_end_at == _index_iso(frame, -1)
 
 
 def test_backtest_comparison_reports_deltas(

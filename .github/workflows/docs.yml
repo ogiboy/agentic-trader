@@ -6,12 +6,18 @@ on:
     paths:
       - "docs/**"
       - "README.md"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/docs.yml"
   pull_request:
     branches: [main, devdocs]
     paths:
       - "docs/**"
       - "README.md"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
@@ -47,24 +53,24 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-          cache-dependency-path: docs/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
       - name: Install docs dependencies
-        run: pnpm --dir docs install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Lint docs
-        run: pnpm --dir docs lint
+        run: pnpm --filter docs run lint
 
       - name: Typecheck docs
-        run: pnpm --dir docs typecheck
+        run: pnpm --filter docs run typecheck
 
       - name: Build static docs
         env:
           GITHUB_PAGES: "true"
-        run: pnpm --dir docs build
+        run: pnpm --filter docs run build
 
       - name: Verify static export
         run: |

@@ -16,9 +16,8 @@ python scripts/qa/smoke_qa.py
 For the docs app:
 
 ```bash
-cd docs
-pnpm lint
-pnpm build
+pnpm --filter docs run lint
+pnpm --filter docs run build
 ```
 
 ## Why smoke QA matters

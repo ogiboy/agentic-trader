@@ -46,8 +46,9 @@ Feature commit'leri minor release, fix/perf/docs/build/ci/chore commit'leri patc
 Pull request'ler ve korunan branch'lerde şu kontroller yeşil kalmalı:
 
 - Python core: Poetry install, Ruff, Pyright, Pytest ve PyInstaller smoke build
-- Web GUI: pnpm install, lint, typecheck ve production build
-- Docs: pnpm install, lint, typecheck ve static export
+- Web GUI: pnpm workspace install, lint, typecheck ve production build
+- Docs: pnpm workspace install, lint, typecheck ve static export
+- TUI: pnpm workspace install ve Ink entrypoint syntax check
 - Release tag'leri: GitHub Release'e eklenen macOS ve Windows PyInstaller binary'leri
 
 ## Docs güncellemesi ne zaman işin parçasıdır

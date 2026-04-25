@@ -238,10 +238,9 @@ Purpose: verify the local browser shell stays aligned with dashboard truth and d
 Steps:
 
 ```bash
-cd webgui
 pnpm install
-pnpm dev
-curl -s http://localhost:3210/api/dashboard > ../.ai/qa/artifacts/webgui-dashboard.json
+pnpm dev:webgui
+curl -s http://localhost:3210/api/dashboard > .ai/qa/artifacts/webgui-dashboard.json
 ```
 
 Interact:

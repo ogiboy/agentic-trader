@@ -201,6 +201,14 @@ The project is expected to run consistently on multiple machines, but Conda and 
 `pyproject.toml` remains the direct dependency manifest and `poetry.lock` is now the committed resolver output.
 Conda stays useful for selecting the Python interpreter and native environment, while Poetry owns Python package add, remove, lock, and install synchronization.
 
+### JavaScript surfaces should share a root pnpm workspace
+
+Reason:
+`webgui/`, `docs/`, and the Ink `tui/` are separate UI surfaces, but they should not each own independent package-manager islands.
+A root pnpm workspace keeps Node dependency locking, CI cache keys, setup, build, and local start commands in one place without merging Python and JavaScript dependency ownership.
+Poetry remains the Python truth, while root `package.json` scripts and thin Makefile aliases provide the human-facing command surface.
+The Makefile must stay an alias layer over pnpm and Poetry commands rather than becoming a second build system.
+
 ### Service state updates should use an explicit update contract
 
 Reason:

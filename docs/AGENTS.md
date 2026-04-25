@@ -35,8 +35,7 @@ If the change affects operator behavior, also read the QA notes under `.ai/qa/`.
 Run the smallest useful checks before finishing:
 
 ```bash
-cd docs
-pnpm lint
-pnpm typecheck
-pnpm build
+pnpm --filter docs run lint
+pnpm --filter docs run typecheck
+pnpm --filter docs run build
 ```

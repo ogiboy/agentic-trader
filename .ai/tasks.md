@@ -14,7 +14,8 @@
 Now:
 
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
-- keep the GitHub Actions CI, semantic-release, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's Python-plus-two-Next-app structure
+- keep the GitHub Actions CI, semantic-release, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's Poetry-plus-root-pnpm-workspace structure
+- keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
 - capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, including JetBrains Mono typography
 - keep the locale-aware English and Turkish docs trees curated, modular, and synced with runtime reality instead of letting them collapse back into oversized route files or duplicated repo notes
 - keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts while avoiding a broad one-shot CSS rewrite
@@ -269,6 +270,7 @@ Current state:
 - `docs/` now uses Fumadocs plus MDX for setup, architecture, runtime operations, agent pipeline, data/intelligence, operator-surface, memory/review, QA, and contribution pages
 - `docs/` now serves locale-prefixed English and Turkish trees with localized landing, navigation, and feedback copy
 - `docs` and `webgui` share the same shadcn preset result from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`
+- `webgui`, `docs`, and `tui` are now managed by a root pnpm workspace, with Makefile targets as thin aliases rather than a second build system
 - `webgui` still leans on a large legacy global shell layer even though Next.js App Router, Tailwind v4, and shadcn are already present
 
 Desired direction:

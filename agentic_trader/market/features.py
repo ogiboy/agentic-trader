@@ -1,4 +1,5 @@
 import re
+from typing import cast
 
 import pandas as pd
 
@@ -41,7 +42,7 @@ def _rsi(series: pd.Series, period: int = 14) -> pd.Series:
     avg_gain = gain.ewm(alpha=1 / period, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1 / period, adjust=False).mean()
     rs = avg_gain / avg_loss.replace(0, pd.NA)
-    rsi = 100 - (100 / (1 + rs))
+    rsi = cast(pd.Series, 100 - (100 / (1 + rs)))
     rsi = rsi.where(~((avg_loss == 0) & (avg_gain > 0)), 100.0)
     rsi = rsi.where(~((avg_gain == 0) & (avg_loss > 0)), 0.0)
     rsi = rsi.where(~((avg_gain == 0) & (avg_loss == 0)), 50.0)
@@ -59,17 +60,20 @@ def _atr(frame: pd.DataFrame, period: int = 14) -> pd.Series:
     Returns:
         pd.Series: ATR values aligned to the input frame's index, computed with Wilder smoothing (EWMA alpha = 1/period).
     """
-    prev_close = frame["close"].shift(1)
+    high = cast(pd.Series, frame["high"])
+    low = cast(pd.Series, frame["low"])
+    close = cast(pd.Series, frame["close"])
+    prev_close = close.shift(1)
     tr_components = pd.concat(
         [
-            frame["high"] - frame["low"],
-            (frame["high"] - prev_close).abs(),
-            (frame["low"] - prev_close).abs(),
+            high - low,
+            (high - prev_close).abs(),
+            (low - prev_close).abs(),
         ],
         axis=1,
     )
-    true_range = tr_components.max(axis=1)
-    return true_range.ewm(alpha=1 / period, adjust=False).mean()
+    true_range = cast(pd.Series, tr_components.max(axis=1))
+    return cast(pd.Series, true_range.ewm(alpha=1 / period, adjust=False).mean())
 
 
 def _round_float(value: float | None, digits: int = 6) -> float | None:
@@ -86,6 +90,10 @@ def _round_float(value: float | None, digits: int = 6) -> float | None:
     if value is None or pd.isna(value):
         return None
     return round(float(value), digits)
+
+
+def _as_float(value: object) -> float:
+    return float(cast(float, value))
 
 
 def _index_label(value: object) -> str | None:
@@ -193,9 +201,9 @@ def _trend_vote(last: pd.Series, *, enough_data: bool) -> TrendVote:
     """
     if not enough_data:
         return "insufficient"
-    close = float(last["close"])
-    ema_20 = float(last["ema_20"])
-    ema_50 = float(last["ema_50"])
+    close = _as_float(last["close"])
+    ema_20 = _as_float(last["ema_20"])
+    ema_50 = _as_float(last["ema_50"])
     if close > ema_20 > ema_50:
         return "bullish"
     if close < ema_20 < ema_50:
@@ -244,24 +252,24 @@ def _horizon_context(
           - `atr_pct`: `atr_14` divided by `last.close`, or `None` if `last.close` is zero.
           - `volume_ratio`: latest `volume_ratio_20` value.
     """
-    close = clean["close"].astype(float)
-    returns = clean["returns"].astype(float)
-    high = clean["high"].astype(float)
-    low = clean["low"].astype(float)
+    close = cast(pd.Series, clean["close"]).astype(float)
+    returns = cast(pd.Series, clean["returns"]).astype(float)
+    high = cast(pd.Series, clean["high"]).astype(float)
+    low = cast(pd.Series, clean["low"]).astype(float)
     available_bars = max(0, min(horizon_bars, len(clean) - 1))
     enough_data = len(clean) > horizon_bars
-    current_close = float(last["close"])
+    current_close = _as_float(last["close"])
     horizon_return = None
     if enough_data:
-        start_close = float(close.iloc[-(horizon_bars + 1)])
+        start_close = _as_float(close.iloc[-(horizon_bars + 1)])
         if start_close != 0:
             horizon_return = (current_close / start_close) - 1.0
 
     close_window = close.tail(max(available_bars, 1))
     high_window = high.tail(max(available_bars, 1))
     low_window = low.tail(max(available_bars, 1))
-    support = float(low_window.min()) if not low_window.empty else None
-    resistance = float(high_window.max()) if not high_window.empty else None
+    support = _as_float(low_window.min()) if not low_window.empty else None
+    resistance = _as_float(high_window.max()) if not high_window.empty else None
     range_position = None
     if support is not None and resistance is not None and resistance > support:
         range_position = (current_close - support) / (resistance - support)
@@ -270,11 +278,11 @@ def _horizon_context(
     volatility = None
     return_window = returns.tail(max(available_bars, 1)).dropna()
     if len(return_window) >= 2:
-        volatility = float(return_window.std() * (available_bars**0.5))
+        volatility = _as_float(return_window.std() * (available_bars**0.5))
 
     atr_pct = None
     if current_close != 0:
-        atr_pct = float(last["atr_14"]) / current_close
+        atr_pct = _as_float(last["atr_14"]) / current_close
 
     return MarketContextHorizon(
         horizon_bars=horizon_bars,
@@ -287,7 +295,7 @@ def _horizon_context(
         resistance=_round_float(resistance),
         range_position=_round_float(range_position),
         atr_pct=_round_float(atr_pct),
-        volume_ratio=_round_float(float(last["volume_ratio_20"])),
+        volume_ratio=_round_float(_as_float(last["volume_ratio_20"])),
     )
 
 
@@ -363,11 +371,11 @@ def _build_context_pack(
             data_quality_flags.append("lookback_coverage_ok")
     if higher_timeframe == "same_as_base":
         data_quality_flags.append("higher_timeframe_fallback")
-    if abs(float(last["return_5"])) >= 0.08:
+    if abs(_as_float(last["return_5"])) >= 0.08:
         anomaly_flags.append("large_5_bar_move")
-    if float(last["volume_ratio_20"]) >= 2.5:
+    if _as_float(last["volume_ratio_20"]) >= 2.5:
         anomaly_flags.append("volume_spike")
-    if float(last["volatility_20"]) >= 0.12:
+    if _as_float(last["volatility_20"]) >= 0.12:
         anomaly_flags.append("high_recent_volatility")
 
     pack = MarketContextPack(
@@ -447,17 +455,18 @@ def _enrich_frame(frame: pd.DataFrame) -> pd.DataFrame:
             - `volume_ratio_20`: `volume` divided by its 20-period moving average.
     """
     enriched = frame.copy()
-    enriched["ema_20"] = enriched["close"].ewm(span=20, adjust=False).mean()
-    enriched["ema_50"] = enriched["close"].ewm(span=50, adjust=False).mean()
+    close = cast(pd.Series, enriched["close"])
+    volume = cast(pd.Series, enriched["volume"])
+    enriched["ema_20"] = close.ewm(span=20, adjust=False).mean()
+    enriched["ema_50"] = close.ewm(span=50, adjust=False).mean()
     enriched["atr_14"] = _atr(enriched, 14)
-    enriched["rsi_14"] = _rsi(enriched["close"], 14)
-    enriched["returns"] = enriched["close"].pct_change()
-    enriched["volatility_20"] = enriched["returns"].rolling(20).std() * (20**0.5)
-    enriched["return_5"] = enriched["close"].pct_change(5)
-    enriched["return_20"] = enriched["close"].pct_change(20)
-    enriched["volume_ratio_20"] = (
-        enriched["volume"] / enriched["volume"].rolling(20).mean()
-    )
+    enriched["rsi_14"] = _rsi(close, 14)
+    enriched["returns"] = close.pct_change()
+    returns = cast(pd.Series, enriched["returns"])
+    enriched["volatility_20"] = returns.rolling(20).std() * (20**0.5)
+    enriched["return_5"] = close.pct_change(5)
+    enriched["return_20"] = close.pct_change(20)
+    enriched["volume_ratio_20"] = volume / volume.rolling(20).mean()
     return enriched
 
 
@@ -487,7 +496,8 @@ def _higher_timeframe_frame(
         rule = "W-FRI"
         higher_timeframe = "1wk"
 
-    resampled = (
+    resampled = cast(
+        pd.DataFrame,
         frame.resample(rule)
         .agg(
             {
@@ -498,7 +508,7 @@ def _higher_timeframe_frame(
                 "volume": "sum",
             }
         )
-        .dropna()
+        .dropna(),
     )
     if len(resampled) < 30:
         return frame.copy(), "same_as_base"
@@ -528,13 +538,15 @@ def _mtf_alignment(
     )
 
     if base_bullish and higher_bullish:
+        higher_rsi = _as_float(higher_last["rsi_14"])
         confidence = min(
-            1.0, 0.55 + max(0.0, (float(higher_last["rsi_14"]) - 50.0) / 100.0)
+            1.0, 0.55 + max(0.0, (higher_rsi - 50.0) / 100.0)
         )
         return "bullish", round(confidence, 4)
     if base_bearish and higher_bearish:
+        higher_rsi = _as_float(higher_last["rsi_14"])
         confidence = min(
-            1.0, 0.55 + max(0.0, (50.0 - float(higher_last["rsi_14"])) / 100.0)
+            1.0, 0.55 + max(0.0, (50.0 - higher_rsi) / 100.0)
         )
         return "bearish", round(confidence, 4)
     return "mixed", 0.35

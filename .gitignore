@@ -21,6 +21,7 @@ build/
 tui/node_modules/
 tui/dist/
 tui/.env
+/node_modules/
 *.log
 .ai/qa/artifacts/smoke-summary.json
 .ai/qa/artifacts/smoke-*/

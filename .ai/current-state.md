@@ -37,6 +37,7 @@ Implemented or substantially present:
 - the docs app now uses locale-prefixed English and Turkish routes (`/en/...` and `/tr/...`) with localized page trees, localized feedback copy, and a modular frontend split across home, feedback, layout, i18n, and content helpers instead of one overloaded docs page file
 - the docs app is now configured for GitHub Pages static export with a project base path, static Fumadocs search data, and a feedback widget that prepares browser-local GitHub issue drafts instead of relying on Server Actions or filesystem writes
 - the repository now has GitHub Actions workflow scaffolding for Python/Web GUI/docs CI, semantic-release versioning, release changelog/tag/GitHub Release creation, PyInstaller macOS/Windows binaries, and GitHub Pages docs deployment
+- JavaScript dependency management is now consolidated at the repository root with a pnpm workspace for `webgui/`, `docs/`, and `tui/`; root `package.json` scripts plus thin Makefile aliases provide shared setup, check, build, and local app entrypoints while Poetry remains the Python dependency owner
 - `docs/` and `webgui/` currently share the resolved shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`, which today means `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono typography, and app-local `components/ui`
 - `webgui` remains mid-migration: its route handlers and some primitives follow the new frontend baseline, but much of the live shell still relies on legacy global classes in `src/app/globals.css`
 - tool-driven news context surfaces
@@ -67,6 +68,7 @@ Implemented or substantially present:
 - Ink settings now covers the remaining V1 parity gap for preference visibility, recent runs, and safe operator-instruction editing in a resize-safer compact layout, and smoke QA verifies that page switch through tmux in a 110x30 terminal
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
 - Python dependency resolution now uses a committed `poetry.lock` file generated from `pyproject.toml`; Conda remains the recommended Python environment layer while Poetry owns package locking and install synchronization
+- the Ink TUI is now a pnpm workspace package, and the Python CLI launcher resolves a compatible Node package manager instead of requiring npm specifically
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
 - the initial Web GUI development flow now enables Watchpack polling in `webgui` dev mode on port `3210`, avoiding file-watch limit noise in larger local worktree setups while matching the README/browser QA contract
 - a first Market Context Pack is generated from the fetched lookback window and persisted with snapshots, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
@@ -109,9 +111,10 @@ New production-expansion direction:
 - behavior-changing work should use the QA docs when it affects operator surfaces or runtime behavior
 - Sonar Quality Gate currently requires higher new-code coverage than the repository has; keep adding focused tests before treating the gate as fully green
 - the docs surface now supports English and Turkish locale routes, while broader CLI/Rich/Ink/Web GUI localization is still intentionally deferred; outside docs, new repeated UI strings should continue flowing through the shared text catalog instead of ad hoc duplication
-- `webgui` lint, typecheck, production build, and the local `pnpm dev` flow on `localhost:3210` are now green in this worktree
+- `webgui` lint, typecheck, production build, and the local `pnpm dev:webgui` flow on `localhost:3210` are now green in this worktree
 - Web GUI review, portfolio, risk, journal, and memory panels now surface section-level unavailability errors explicitly instead of collapsing them into generic empty states
 - `docs` now builds and lints with the new Fumadocs shell and is prepared for GitHub Pages static export, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
+- root `pnpm check` and `make check` are now the intended full local validation entrypoints; use focused `pnpm --filter ...` and Poetry commands when narrowing a failure
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture

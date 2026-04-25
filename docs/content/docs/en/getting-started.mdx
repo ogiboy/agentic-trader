@@ -6,7 +6,7 @@ description: Install the repo, validate local readiness, and bring up the main o
 ## Baseline toolchain
 
 The repository currently assumes a Python plus Node workflow.
-The Python runtime still owns the actual trading logic, while `webgui/` and `docs/` are separate Next.js shells.
+The Python runtime still owns the actual trading logic, while `webgui/`, `docs/`, and `tui/` are managed from the root pnpm workspace.
 
 Recommended baseline:
 
@@ -23,6 +23,20 @@ conda create -n trader python=3.14 poetry
 conda activate trader
 poetry env use "$CONDA_PREFIX/bin/python"
 poetry install --with dev --extras dev
+```
+
+Install the Node workspace from the repository root:
+
+```bash
+pnpm install
+pnpm approve-builds --all
+```
+
+After the Conda environment is active, the combined setup shortcut is:
+
+```bash
+pnpm run setup
+make setup
 ```
 
 ## Validate the environment before opening UIs
@@ -83,17 +97,19 @@ agentic-trader
 Run the Web GUI:
 
 ```bash
-cd webgui
-pnpm install
-pnpm dev
+pnpm dev:webgui
 ```
 
 Run the docs site locally:
 
 ```bash
-cd docs
-pnpm install
-pnpm dev
+pnpm dev:docs
+```
+
+Run the Ink TUI directly:
+
+```bash
+pnpm start:tui
 ```
 
 ## First things to inspect when something feels wrong

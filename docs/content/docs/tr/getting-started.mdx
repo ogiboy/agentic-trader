@@ -6,7 +6,7 @@ description: Depoyu kur, lokal hazır oluşu doğrula ve ana operatör yüzeyler
 ## Temel toolchain
 
 Depo şu anda Python artı Node workflow'u varsayıyor.
-Asıl trading logic hâlâ Python runtime içinde; `webgui/` ve `docs/` ise ayrı Next.js kabukları.
+Asıl trading logic hâlâ Python runtime içinde; `webgui/`, `docs/` ve `tui/` root pnpm workspace üzerinden yönetiliyor.
 
 Önerilen temel kurulum:
 
@@ -23,6 +23,20 @@ conda create -n trader python=3.14 poetry
 conda activate trader
 poetry env use "$CONDA_PREFIX/bin/python"
 poetry install --with dev --extras dev
+```
+
+Node workspace'i repo root'undan kur:
+
+```bash
+pnpm install
+pnpm approve-builds --all
+```
+
+Conda ortamı aktifken birleşik kurulum kısayolu:
+
+```bash
+pnpm run setup
+make setup
 ```
 
 ## UI açmadan önce ortamı doğrula
@@ -83,17 +97,19 @@ agentic-trader
 Web GUI'yi çalıştır:
 
 ```bash
-cd webgui
-pnpm install
-pnpm dev
+pnpm dev:webgui
 ```
 
 Docs sitesini lokal çalıştır:
 
 ```bash
-cd docs
-pnpm install
-pnpm dev
+pnpm dev:docs
+```
+
+Ink TUI'yi doğrudan çalıştır:
+
+```bash
+pnpm start:tui
 ```
 
 ## Bir şey ters hissedildiğinde önce bakılacak yerler

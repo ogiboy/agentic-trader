@@ -75,19 +75,19 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-          cache-dependency-path: webgui/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Web GUI dependencies
-        run: pnpm --dir webgui install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Lint Web GUI
-        run: pnpm --dir webgui lint
+        run: pnpm --filter webgui run lint
 
       - name: Typecheck Web GUI
-        run: pnpm --dir webgui typecheck
+        run: pnpm --filter webgui run typecheck
 
       - name: Build Web GUI
-        run: pnpm --dir webgui build
+        run: pnpm --filter webgui run build
 
   docs:
     name: Docs
@@ -108,21 +108,21 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-          cache-dependency-path: docs/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install docs dependencies
-        run: pnpm --dir docs install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Lint docs
-        run: pnpm --dir docs lint
+        run: pnpm --filter docs run lint
 
       - name: Typecheck docs
-        run: pnpm --dir docs typecheck
+        run: pnpm --filter docs run typecheck
 
       - name: Build docs static export
         env:
           GITHUB_PAGES: "true"
-        run: pnpm --dir docs build
+        run: pnpm --filter docs run build
 
   terminal-ui:
     name: Terminal UI
@@ -133,15 +133,20 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: tui/package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install TUI dependencies
-        run: npm ci --prefix tui
+        run: pnpm install --frozen-lockfile
 
       - name: Syntax-check TUI entrypoint
-        run: node --check tui/index.mjs
+        run: pnpm --filter agentic-trader-tui exec node --check index.mjs

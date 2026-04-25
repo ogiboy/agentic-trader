@@ -5,6 +5,9 @@ description: Shared Next.js decisions for docs and Web GUI, including theming, m
 
 ## Shared baseline
 
+The repository uses a root pnpm workspace for `webgui/`, `docs/`, and the Ink `tui/`.
+Poetry remains the Python dependency manager; Makefile targets are thin aliases over pnpm and Poetry commands.
+
 Both `docs/` and `webgui/` were initialized from:
 
 ```bash

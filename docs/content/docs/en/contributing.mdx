@@ -46,8 +46,9 @@ Feature commits create minor releases, fix/perf/docs/build/ci/chore commits crea
 Pull requests and protected branches should keep these checks green:
 
 - Python core: Poetry install, Ruff, Pyright, Pytest, and a PyInstaller smoke build
-- Web GUI: pnpm install, lint, typecheck, and production build
-- Docs: pnpm install, lint, typecheck, and static export
+- Web GUI: pnpm workspace install, lint, typecheck, and production build
+- Docs: pnpm workspace install, lint, typecheck, and static export
+- TUI: pnpm workspace install and Ink entrypoint syntax check
 - Release tags: PyInstaller binaries for macOS and Windows attached to the GitHub Release
 
 ## When docs updates are part of the task

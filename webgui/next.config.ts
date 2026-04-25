@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const workspaceRoot = dirname(fileURLToPath(import.meta.url));
+const repoRoot = dirname(workspaceRoot);
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -21,7 +22,7 @@ const nextConfig: NextConfig = {
     ],
   },
   turbopack: {
-    root: workspaceRoot,
+    root: repoRoot,
   },
 };
 
