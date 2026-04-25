@@ -7,17 +7,39 @@ script = '''
 eval "$(conda shell.zsh hook)"
 conda activate trader
 poetry install
+cd webgui
+pnpm install
+pnpm approve-builds --all
+cd ..
+cd docs
+pnpm install
+pnpm approve-builds --all
+cd ..
 '''
 
 [[actions]]
-name = "env activate"
+name = "env activate & install deps"
 icon = "tool"
 command = '''
 eval "$(conda shell.zsh hook)"
 conda activate trader
+poetry install
 '''
 
 [[actions]]
-name = "install deps"
+name = "install webgui deps"
 icon = "tool"
-command = "poetry install"
+command = '''
+cd webgui
+pnpm install
+pnpm approve-builds --all
+'''
+
+[[actions]]
+name = "install devdocs deps"
+icon = "tool"
+command = '''
+cd docs
+pnpm install
+pnpm approve-builds --all
+'''
