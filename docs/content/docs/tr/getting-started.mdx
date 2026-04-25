@@ -48,15 +48,10 @@ Proje örnek artı lokal override düzenini kullanıyor.
 
 - Root runtime ayarları `.env.local` içinde olmalı.
 - Track edilen örnekler `.env.example` içinde kalmalı.
-- Docs'e özel GitHub feedback ayarları `docs/.env.local` içinde yaşamalı.
+- GitHub Pages docs build'i `docs/.env.local` gerektirmez.
 
-Docs feedback akışının GitHub Discussions'a da iletmesini istiyorsan `docs/.env.example` dosyasını `docs/.env.local` olarak kopyalayıp şunları ekle:
-
-- `GITHUB_APP_ID`
-- `GITHUB_APP_PRIVATE_KEY`
-- isteğe bağlı `DOCS_FEEDBACK_GITHUB_OWNER`
-- isteğe bağlı `DOCS_FEEDBACK_GITHUB_REPO`
-- isteğe bağlı `DOCS_FEEDBACK_GITHUB_CATEGORY`
+Pages üzerindeki docs feedback, tarayıcı içinde GitHub issue taslağı hazırlar.
+İleride Node-hosted bir docs örneği server-side forwarding'i yeniden açarsa credential'lar `docs/.env.local` içinde kalmalı ve track edilen config'e girmemeli.
 
 ## Lokal model kurulumu
 

@@ -35,7 +35,8 @@ Implemented or substantially present:
 - the Web GUI command runner now prefers an explicit `AGENTIC_TRADER_PYTHON` or the repo-managed Conda environment before falling back to the PATH `agentic-trader` entrypoint, which keeps the browser shell attached to the current worktree more reliably
 - the repository now also ships a Fumadocs-based `docs/` app with curated MDX pages for onboarding, architecture, agent pipeline, runtime operations, operator surfaces, frontend guidance, memory/review, QA, and contribution workflow, turning the existing docs scaffold into the canonical developer-docs starting point
 - the docs app now uses locale-prefixed English and Turkish routes (`/en/...` and `/tr/...`) with localized page trees, localized feedback copy, and a modular frontend split across home, feedback, layout, i18n, and content helpers instead of one overloaded docs page file
-- the docs app now also exposes a page-feedback panel on MDX docs pages; feedback is always mirrored to `runtime/docs-feedback.jsonl` locally and can additionally forward into GitHub Discussions when `docs/.env.local` is populated from `docs/.env.example` with `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`
+- the docs app is now configured for GitHub Pages static export with a project base path, static Fumadocs search data, and a feedback widget that prepares browser-local GitHub issue drafts instead of relying on Server Actions or filesystem writes
+- the repository now has GitHub Actions workflow scaffolding for Python/Web GUI/docs CI, semantic-release versioning, release changelog/tag/GitHub Release creation, PyInstaller macOS/Windows binaries, and GitHub Pages docs deployment
 - `docs/` and `webgui/` currently share the resolved shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`, which today means `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono typography, and app-local `components/ui`
 - `webgui` remains mid-migration: its route handlers and some primitives follow the new frontend baseline, but much of the live shell still relies on legacy global classes in `src/app/globals.css`
 - tool-driven news context surfaces
@@ -110,7 +111,7 @@ New production-expansion direction:
 - the docs surface now supports English and Turkish locale routes, while broader CLI/Rich/Ink/Web GUI localization is still intentionally deferred; outside docs, new repeated UI strings should continue flowing through the shared text catalog instead of ad hoc duplication
 - `webgui` lint, typecheck, production build, and the local `pnpm dev` flow on `localhost:3210` are now green in this worktree
 - Web GUI review, portfolio, risk, journal, and memory panels now surface section-level unavailability errors explicitly instead of collapsing them into generic empty states
-- `docs` now builds and lints with the new Fumadocs shell, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
+- `docs` now builds and lints with the new Fumadocs shell and is prepared for GitHub Pages static export, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture

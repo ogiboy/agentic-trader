@@ -14,6 +14,7 @@
 Now:
 
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
+- keep the GitHub Actions CI, semantic-release, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's Python-plus-two-Next-app structure
 - capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, including JetBrains Mono typography
 - keep the locale-aware English and Turkish docs trees curated, modular, and synced with runtime reality instead of letting them collapse back into oversized route files or duplicated repo notes
 - keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts while avoiding a broad one-shot CSS rewrite
@@ -24,7 +25,7 @@ Next:
 
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
-- verify the docs GitHub App wiring and discussion category in the target repo so feedback can forward beyond the local mirror consistently
+- verify GitHub Pages, required status checks, semantic-release permissions, and release binary upload behavior after the workflows are pushed
 
 ### 1. Financial Intelligence Layer
 
@@ -274,9 +275,9 @@ Desired direction:
 
 - preserve the current `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono, and app-local `components/ui` baseline across both apps
 - keep `docs` curated and source-linked instead of turning it into a second dump of repository files
-- keep docs route files, feedback flows, and content helpers modular whenever splitting improves readability or reviewability
-- keep `docs/.env.example` aligned with the actual GitHub Discussions feedback inputs and use `docs/.env.local` for real secrets
-- verify the docs GitHub App wiring and discussion category in the target repo so feedback can forward beyond the local mirror consistently
+- keep docs route files, static feedback flow, and content helpers modular whenever splitting improves readability or reviewability
+- keep GitHub Pages feedback honest: browser-local issue drafts are allowed, but static docs must not claim filesystem writes or automatic forwarding
+- revisit server-side docs feedback only if the docs surface intentionally moves to a Node-hosted target later
 - migrate `webgui` screen by screen from legacy shell classes toward shadcn primitives and token-driven utility composition
 - avoid introducing new global shell classes when a shadcn primitive plus `cn` or `cva` composition can own the change
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues

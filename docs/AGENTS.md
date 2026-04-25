@@ -28,7 +28,7 @@ If the change affects operator behavior, also read the QA notes under `.ai/qa/`.
 - Next.js App Router
 - Tailwind v4 + shadcn primitives
 - app-local `components/ui`
-- local-first feedback flow that always mirrors to `runtime/docs-feedback.jsonl`
+- GitHub Pages-compatible feedback flow that prepares browser-local GitHub issue drafts without server writes
 
 ## Validation
 

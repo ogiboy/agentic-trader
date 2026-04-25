@@ -48,15 +48,10 @@ The project follows an example-plus-local-override pattern.
 
 - Root runtime settings should live in `.env.local`.
 - Keep tracked examples in `.env.example`.
-- Docs-specific GitHub feedback settings belong in `docs/.env.local`.
+- The GitHub Pages docs build does not need `docs/.env.local`.
 
-If you want docs feedback to forward into GitHub Discussions, copy `docs/.env.example` to `docs/.env.local` and provide:
-
-- `GITHUB_APP_ID`
-- `GITHUB_APP_PRIVATE_KEY`
-- optional `DOCS_FEEDBACK_GITHUB_OWNER`
-- optional `DOCS_FEEDBACK_GITHUB_REPO`
-- optional `DOCS_FEEDBACK_GITHUB_CATEGORY`
+Docs feedback on Pages prepares a browser-local GitHub issue draft.
+If a future Node-hosted docs instance re-enables server-side forwarding, keep its credentials in `docs/.env.local` and never in tracked config.
 
 ## Local model setup
 
