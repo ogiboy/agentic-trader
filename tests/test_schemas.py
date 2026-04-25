@@ -39,6 +39,14 @@ def test_fundamental_assessment_syncs_legacy_fields(
     assert getattr(assessment, expected_field) == expected_value
 
 
+def test_fundamental_assessment_copies_synced_list_aliases() -> None:
+    assessment = FundamentalAssessment(red_flags=["fundamental_provider_missing"])
+
+    assessment.red_flags.append("later_red_flag")
+
+    assert assessment.risk_flags == ["fundamental_provider_missing"]
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [

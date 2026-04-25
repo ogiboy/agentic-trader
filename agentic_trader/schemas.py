@@ -451,14 +451,17 @@ class FundamentalAssessment(BaseModel):
             current_value = getattr(self, current)
             legacy_value = getattr(self, legacy)
 
+            def _copy_mutable(value: object) -> object:
+                return list(value) if isinstance(value, list) else value
+
             if current_present and legacy_present and current_value != legacy_value:
                 raise ValueError(
                     f"Conflicting fundamental assessment fields: {current} != {legacy}."
                 )
             if not current_present and legacy_present:
-                setattr(self, current, legacy_value)
+                setattr(self, current, _copy_mutable(legacy_value))
             elif not legacy_present and current_present:
-                setattr(self, legacy, current_value)
+                setattr(self, legacy, _copy_mutable(current_value))
 
         _sync_pair("growth_quality", "revenue_growth_quality")
         _sync_pair("balance_sheet_quality", "debt_quality")

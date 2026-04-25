@@ -7,6 +7,7 @@ const workspaceRoot = dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  allowedDevOrigins: ["127.0.0.1"],
   images: {
     remotePatterns: [
       {

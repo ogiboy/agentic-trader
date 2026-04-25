@@ -23,7 +23,11 @@ function buildBlockDiscussionBody(
   opinion: string,
   message: string,
 ) {
-  return `> ${blockBody}\n\n[${opinion}] ${message || "No additional note provided."}\n\n> Forwarded from docs block feedback.`;
+  const quotedBlock = blockBody
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+  return `${quotedBlock}\n\n[${opinion}] ${message || "No additional note provided."}\n\n> Forwarded from docs block feedback.`;
 }
 
 export async function onPageFeedbackAction(

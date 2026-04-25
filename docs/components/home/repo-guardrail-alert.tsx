@@ -7,6 +7,11 @@ type RepoGuardrailAlertProps = {
   text: string;
 };
 
+const titles: Record<DocLanguage, string> = {
+  en: "Repo guardrail",
+  tr: "Depo koruma sınırı",
+};
+
 export function RepoGuardrailAlert({
   locale,
   text,
@@ -15,7 +20,7 @@ export function RepoGuardrailAlert({
     <Alert className="docs-home-panel">
       <ShieldCheck className="size-4" />
       <AlertTitle>
-        {locale === "en" ? "Repo guardrail" : "Depo koruma sınırı"}
+        {titles[locale]}
       </AlertTitle>
       <AlertDescription>{text}</AlertDescription>
     </Alert>

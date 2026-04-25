@@ -10,7 +10,7 @@ The Python runtime still owns the actual trading logic, while `webgui/` and `doc
 
 Recommended baseline:
 
-- Python 3.14 through Conda or another managed interpreter
+- Python 3.14.x through Conda or another managed interpreter
 - Poetry for Python dependency management
 - Node 20+ and `pnpm`
 - Optional: `tmux`, `asciinema`, and browser tooling for QA
@@ -22,7 +22,7 @@ Recommended baseline:
 conda create -n trader python=3.14 poetry
 conda activate trader
 poetry env use "$CONDA_PREFIX/bin/python"
-poetry install --extras dev
+poetry install --with dev --extras dev
 ```
 
 ## Validate the environment before opening UIs

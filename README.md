@@ -94,7 +94,7 @@ and the editable project:
 
 ```bash
 poetry env use "$CONDA_PREFIX/bin/python"
-poetry install --extras dev
+poetry install --with dev --extras dev
 ```
 
 If you want Poetry to install directly into the active Conda environment instead
@@ -102,7 +102,7 @@ of creating its own virtualenv, run this once before `poetry install`:
 
 ```bash
 poetry config virtualenvs.create false --local
-poetry install --extras dev
+poetry install --with dev --extras dev
 ```
 
 The committed `poetry.lock` file is the Python dependency lock for this
@@ -209,7 +209,8 @@ pnpm dev
 ```
 
 The web command center runs on [http://localhost:3210](http://localhost:3210) and stays local-first by calling the same `dashboard-snapshot`, runtime, chat, and instruction contracts that CLI, Rich, and Ink already use. The dev script enables Watchpack polling to avoid file-watch limit noise in larger worktree setups.
-If the Node process cannot see the installed CLI, set `AGENTIC_TRADER_CLI` or `AGENTIC_TRADER_PYTHON` before starting the web shell.
+The route handlers prefer an explicitly configured `AGENTIC_TRADER_PYTHON` or the repo-managed Conda environment before falling back to the PATH-resolved `agentic-trader` entrypoint, which helps the Web GUI stay attached to the current worktree instead of a stale global install.
+If your local setup needs an override, set `AGENTIC_TRADER_CLI` or `AGENTIC_TRADER_PYTHON` before starting the web shell.
 
 Open the local developer docs:
 

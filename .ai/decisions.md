@@ -44,6 +44,13 @@ Reason:
 The project now has a `webgui/` command center, but it should not grow a second orchestration path.
 The web shell should call the same CLI/dashboard/runtime/chat/instruction contracts that already power CLI, Rich, and Ink, keeping local-first truth and operator-visible behavior aligned while the Web UI grows.
 
+### Web GUI command execution should prefer the managed Python runtime over a PATH-only CLI fallback
+
+Reason:
+The Web GUI shells out to the existing runtime contracts, but relying on whichever `agentic-trader` entrypoint happens to be first on `PATH` can drift onto a stale global install in worktree-heavy setups.
+The route layer should therefore prefer an explicit `AGENTIC_TRADER_PYTHON`, then the repo-managed Conda environment when it can be resolved locally, and only then fall back to the PATH CLI.
+This keeps browser QA and local operator workflows attached to the same code the worktree is editing without inventing a web-only runtime.
+
 ### Operator chat memory must remain separate from trading memory
 
 Reason:

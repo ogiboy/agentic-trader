@@ -65,3 +65,35 @@ def test_run_ink_settings_navigation_reports_tmux_session_failures(
 
     assert not result.passed
     assert "tmux new-session failed" in result.details
+
+
+def test_resolve_smoke_python_prefers_repo_managed_conda_env(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    manifest_dir = repo_root / ".codex" / "environments"
+    manifest_dir.mkdir(parents=True)
+    manifest_dir.joinpath("environment.toml").write_text(
+        "[setup]\nscript = '''\nconda activate trader\n'''\n",
+        encoding="utf-8",
+    )
+
+    conda_root = tmp_path / "conda"
+    python_path = conda_root / "envs" / "trader" / "bin" / "python"
+    python_path.parent.mkdir(parents=True)
+    python_path.write_text("#!/bin/sh\n", encoding="utf-8")
+    python_path.chmod(0o755)
+
+    conda_exe = conda_root / "bin" / "conda"
+    conda_exe.parent.mkdir(parents=True)
+    conda_exe.write_text("#!/bin/sh\n", encoding="utf-8")
+    conda_exe.chmod(0o755)
+
+    monkeypatch.setattr(smoke_qa, "REPO_ROOT", repo_root)
+    monkeypatch.delenv("AGENTIC_TRADER_PYTHON", raising=False)
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    monkeypatch.setenv("CONDA_PREFIX", "/opt/anaconda3")
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "base")
+    monkeypatch.setenv("CONDA_EXE", str(conda_exe))
+
+    assert smoke_qa._resolve_smoke_python() == str(python_path)

@@ -231,7 +231,34 @@ Expected:
 - observer API is read-only
 - payloads match dashboard/status/log/broker CLI truth
 
-## Scenario 10: Memory And Governance
+## Scenario 10: Local Web GUI
+
+Purpose: verify the local browser shell stays aligned with dashboard truth and does not invent a second runtime.
+
+Steps:
+
+```bash
+cd webgui
+pnpm install
+pnpm dev
+curl -s http://localhost:3210/api/dashboard > ../.ai/qa/artifacts/webgui-dashboard.json
+```
+
+Interact:
+
+- open `http://localhost:3210` in Browser Use or another localhost-capable browser tool
+- confirm Overview loads and reflects runtime mode, backend, and last refresh
+- open Review, Memory, and Settings
+- compare any unavailable panels with `webgui-dashboard.json`
+
+Expected:
+
+- the app serves on `localhost:3210`
+- the page reads the same dashboard/runtime/chat/instruction contracts as other operator surfaces
+- section-level review/memory/portfolio errors are shown explicitly instead of masquerading as empty states
+- no browser flow suggests a second runtime or hidden execution path
+
+## Scenario 11: Memory And Governance
 
 Purpose: verify memory is inspectable and chat memory does not mutate trading policy.
 
@@ -252,7 +279,7 @@ Expected:
 - chat response is explanatory, not an execution path
 - preferences do not change unless `instruct --apply` is used
 
-## Scenario 11: Safe Operator Instruction
+## Scenario 12: Safe Operator Instruction
 
 Purpose: verify preference updates only happen through schemas.
 

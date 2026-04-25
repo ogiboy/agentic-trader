@@ -185,6 +185,23 @@ function marketContextLines(pack: Record<string, any> | null | undefined): strin
 }
 
 /**
+ * Returns a single explicit operator-facing error line when a dashboard section is unavailable.
+ *
+ * @param section - Dashboard section object that may expose `available` and `error`
+ * @param label - Human-readable section label used in the message
+ * @returns A one-line array when the section is explicitly unavailable; otherwise `null`
+ */
+function unavailableSectionLines(
+  section: Record<string, any> | null | undefined,
+  label: string,
+): null | string[] {
+  if (section?.available === false) {
+    return [`${label} unavailable: ${section.error || "Unknown error."}`];
+  }
+  return null;
+}
+
+/**
  * Convert dashboard chat history into a simplified, normalized list of message objects.
  *
  * @param data - The dashboard payload (or `null`) containing optional `chatHistory.entries`.
@@ -378,6 +395,8 @@ export function ControlRoom() {
     return () => {
       clearTimeout(initialRefresh);
       clearInterval(timer);
+      dashboardAbortRef.current?.abort();
+      dashboardAbortRef.current = null;
     };
   }, [loadDashboard]);
 
@@ -621,39 +640,52 @@ export function ControlRoom() {
       return (
         <div className="grid grid--2">
           <Panel title="Portfolio" accent="lime">
-            <KeyValueList
-              items={[
-                ["Cash", formatNumber(dashboard.portfolio?.snapshot?.cash)],
-                ["Market Value", formatNumber(dashboard.portfolio?.snapshot?.market_value)],
-                ["Equity", formatNumber(dashboard.portfolio?.snapshot?.equity)],
-                ["Realized PnL", formatNumber(dashboard.portfolio?.snapshot?.realized_pnl)],
-                ["Unrealized PnL", formatNumber(dashboard.portfolio?.snapshot?.unrealized_pnl)],
-                ["Open Positions", String(dashboard.portfolio?.snapshot?.open_positions ?? "-")],
-              ]}
-            />
-            <JsonPreview value={dashboard.portfolio?.positions || []} />
+            {unavailableSectionLines(dashboard.portfolio, "Portfolio") ? (
+              <TextList items={unavailableSectionLines(dashboard.portfolio, "Portfolio") || []} />
+            ) : (
+              <>
+                <KeyValueList
+                  items={[
+                    ["Cash", formatNumber(dashboard.portfolio?.snapshot?.cash)],
+                    ["Market Value", formatNumber(dashboard.portfolio?.snapshot?.market_value)],
+                    ["Equity", formatNumber(dashboard.portfolio?.snapshot?.equity)],
+                    ["Realized PnL", formatNumber(dashboard.portfolio?.snapshot?.realized_pnl)],
+                    ["Unrealized PnL", formatNumber(dashboard.portfolio?.snapshot?.unrealized_pnl)],
+                    ["Open Positions", String(dashboard.portfolio?.snapshot?.open_positions ?? "-")],
+                  ]}
+                />
+                <JsonPreview value={dashboard.portfolio?.positions || []} />
+              </>
+            )}
           </Panel>
           <Panel title="Risk Report" accent="rose">
-            <KeyValueList
-              items={[
-                ["Equity", formatNumber(dashboard.riskReport?.report?.equity)],
-                ["Gross Exposure", formatPercent(dashboard.riskReport?.report?.gross_exposure_pct)],
-                ["Largest Position", formatPercent(dashboard.riskReport?.report?.largest_position_pct)],
-                ["Drawdown", formatPercent(dashboard.riskReport?.report?.drawdown_from_peak_pct)],
-                ["Warnings", String((dashboard.riskReport?.report?.warnings || []).length)],
-              ]}
-            />
-            <TextList items={dashboard.riskReport?.report?.warnings || ["No warnings."]} />
+            {unavailableSectionLines(dashboard.riskReport, "Risk report") ? (
+              <TextList items={unavailableSectionLines(dashboard.riskReport, "Risk report") || []} />
+            ) : (
+              <>
+                <KeyValueList
+                  items={[
+                    ["Equity", formatNumber(dashboard.riskReport?.report?.equity)],
+                    ["Gross Exposure", formatPercent(dashboard.riskReport?.report?.gross_exposure_pct)],
+                    ["Largest Position", formatPercent(dashboard.riskReport?.report?.largest_position_pct)],
+                    ["Drawdown", formatPercent(dashboard.riskReport?.report?.drawdown_from_peak_pct)],
+                    ["Warnings", String((dashboard.riskReport?.report?.warnings || []).length)],
+                  ]}
+                />
+                <TextList items={dashboard.riskReport?.report?.warnings || ["No warnings."]} />
+              </>
+            )}
           </Panel>
           <Panel title="Trade Journal" accent="amber">
             <TextList
               items={
-                dashboard.journal?.entries?.length
+                unavailableSectionLines(dashboard.journal, "Trade journal") ||
+                (dashboard.journal?.entries?.length
                   ? dashboard.journal.entries.map(
                       (entry: Record<string, any>) =>
                         `${formatTimestamp(entry.opened_at)} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? "-"}`,
                     )
-                  : ["No trade journal entries yet."]
+                  : ["No trade journal entries yet."])
               }
             />
           </Panel>
@@ -681,7 +713,8 @@ export function ControlRoom() {
           <Panel title="Latest Review" accent="lime">
             <TextList
               items={
-                dashboard.review?.record
+                unavailableSectionLines(dashboard.review, "Latest review") ||
+                (dashboard.review?.record
                   ? [
                       `Run ID: ${dashboard.review.record.run_id}`,
                       `Created: ${formatTimestamp(dashboard.review.record.created_at)}`,
@@ -691,7 +724,7 @@ export function ControlRoom() {
                       `Consensus: ${dashboard.review.record.artifacts?.consensus?.alignment_level ?? "-"}`,
                       `Review Summary: ${dashboard.review.record.artifacts?.review?.summary ?? "-"}`,
                     ]
-                  : ["No persisted runs are available yet."]
+                  : ["No persisted runs are available yet."])
               }
             />
           </Panel>
@@ -714,19 +747,21 @@ export function ControlRoom() {
           <Panel title="Similar Memories" accent="lime">
             <TextList
               items={
-                dashboard.memoryExplorer?.matches?.length
+                unavailableSectionLines(dashboard.memoryExplorer, "Memory explorer") ||
+                (dashboard.memoryExplorer?.matches?.length
                   ? dashboard.memoryExplorer.matches.map(
                       (match: Record<string, any>) =>
                         `${formatTimestamp(match.created_at)} | ${match.symbol} | score=${match.similarity_score} | ${match.summary}`,
                     )
-                  : ["No similar historical memories found yet."]
+                  : ["No similar historical memories found yet."])
               }
             />
           </Panel>
           <Panel title="Retrieval Inspection" accent="cyan">
             <TextList
               items={
-                dashboard.retrievalInspection?.stages?.length
+                unavailableSectionLines(dashboard.retrievalInspection, "Retrieval inspection") ||
+                (dashboard.retrievalInspection?.stages?.length
                   ? dashboard.retrievalInspection.stages.flatMap((stage: Record<string, any>) => [
                       `${stage.role} | retrieved=${stage.retrieved_memories?.length ?? 0} | trade-memory=${stage.memory_notes?.length ?? 0} | shared-bus=${stage.shared_memory_bus?.length ?? 0} | recent-runs=${stage.recent_runs?.length ?? 0}`,
                       `Sample: ${
@@ -735,7 +770,7 @@ export function ControlRoom() {
                         "No retrieval context attached."
                       }`,
                     ])
-                  : ["No retrieval inspection data available yet."]
+                  : ["No retrieval inspection data available yet."])
               }
             />
           </Panel>
@@ -934,6 +969,7 @@ export function ControlRoom() {
 
         <div className="sidebar__meta">
           <div>Runtime: {dashboard?.status?.runtime_state ?? "-"}</div>
+          <div>Mode: {dashboard?.status?.runtime_mode ?? dashboard?.doctor?.runtime_mode ?? "-"}</div>
           <div>Backend: {dashboard?.broker?.backend ?? "-"}</div>
           <div>Last refresh: {lastLoadedAt}</div>
         </div>

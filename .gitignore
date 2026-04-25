@@ -13,7 +13,7 @@ coverage.xml
 poetry.toml
 __pycache__/
 *.pyc
-runtime/
+/runtime/
 .sonar/
 dist/
 build/
@@ -33,9 +33,8 @@ dist/
 .ai/qa/artifacts/menu-*
 .ai/qa/artifacts/tmux-*
 .ai/qa/artifacts/edge-*
+.ai/qa/artifacts/webgui-visual-*
 .sonarlint/connectedMode.json
-!webgui/src/app/api/runtime
-
 */node_modules
 /.pnp
 .pnp.*

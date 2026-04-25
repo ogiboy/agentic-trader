@@ -35,11 +35,11 @@ export function CurrentFocusPanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
-        {items.map((item) => {
+        {items.map((item, index) => {
           const Icon = icons[item.icon];
 
           return (
-            <div key={item.text} className="flex items-start gap-3">
+            <div key={`${item.icon}-${index}`} className="flex items-start gap-3">
               <Icon className="mt-0.5 size-4 text-primary" />
               {item.text}
             </div>

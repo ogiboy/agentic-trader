@@ -1,5 +1,42 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Docs App Instructions
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+This app is the canonical developer-docs surface for Agentic Trader.
+It documents the existing local-first runtime; it does not define a parallel product architecture.
+
+## Before Editing
+
+Read the repository-level guidance first:
+
+- `README.md`
+- `ROADMAP.md`
+- `.ai/current-state.md`
+- `.ai/tasks.md`
+- `.ai/decisions.md`
+
+If the change affects operator behavior, also read the QA notes under `.ai/qa/`.
+
+## Guardrails
+
+- Keep `docs/` aligned with the real Python runtime, CLI, Rich menu, Ink TUI, observer API, and Web GUI.
+- Do not document speculative behavior as if it already exists.
+- Treat `docs/` as a thin explanatory shell around the repo, not a second source of truth.
+- Keep `docs/` and `webgui/` visually related, but do not invent a shared package before the surfaces stabilize.
+- When behavior or workflow assumptions move, update the relevant docs page together with `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md`.
+
+## Frontend Baseline
+
+- Next.js App Router
+- Tailwind v4 + shadcn primitives
+- app-local `components/ui`
+- local-first feedback flow that always mirrors to `runtime/docs-feedback.jsonl`
+
+## Validation
+
+Run the smallest useful checks before finishing:
+
+```bash
+cd docs
+pnpm lint
+pnpm typecheck
+pnpm build
+```

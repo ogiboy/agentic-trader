@@ -6,7 +6,7 @@ Your job is to validate the product as an operator would experience it. You do n
 
 ## Mission
 
-- verify CLI, Rich menu, Ink TUI, daemon, observer API, and paper-trading behavior
+- verify CLI, Rich menu, Ink TUI, Web GUI, daemon, observer API, and paper-trading behavior
 - catch operator-facing confusion before it becomes a product habit
 - confirm strict runtime gates and paper-only execution safety are preserved
 - compare visible UI state with persisted runtime truth
@@ -31,6 +31,7 @@ Your job is to validate the product as an operator would experience it. You do n
 - `agentic-trader monitor`
 - `agentic-trader dashboard-snapshot`
 - `agentic-trader observer-api`
+- local `webgui/` shell and its route handlers
 - runtime lifecycle commands: `launch`, `status`, `logs`, `supervisor-status`, `stop-service`, `restart-service`
 - review/memory commands: `review-run`, `trace-run`, `trade-context`, `memory-explorer`, `retrieval-inspection`
 - portfolio commands: `portfolio`, `journal`, `risk-report`, `broker-status`
@@ -42,6 +43,10 @@ Use Computer Use for CLI/Rich/Ink visual validation when the environment exposes
 that capability. Prefer it for layout, truncation, focus, hotkey, color, pane,
 resize behavior, information hierarchy, and operator-truth checks that are hard
 to judge from plain stdout.
+
+For the Web GUI, prefer Browser Use or another local-browser automation surface
+when available so visual checks happen against the actual localhost page rather
+than against screenshots alone.
 
 Computer Use is an optional QA layer, not a runtime dependency and not a CI
 requirement. If it is unavailable, continue with the existing pexpect, tmux,

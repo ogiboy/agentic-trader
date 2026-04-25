@@ -31,7 +31,8 @@ Implemented or substantially present:
 - Ink chat now includes side-by-side live agent activity and reasoning/tool context instead of a transcript-only view
 - a local observer API can now expose runtime contracts over HTTP for future WebUI attach flows
 - a first local Web GUI now exists under `webgui/`; it uses a Next.js shell plus server-side route handlers that call the existing CLI/dashboard/runtime/chat/instruction contracts instead of adding a second runtime
-- the Web GUI now also validates persona/runtime inputs at the route boundary, uses a sequence guard to prevent stale dashboard polls from overwriting newer state, and uses Next metadata/icon wiring plus `next/image` on the operator hero surface
+- the Web GUI now also validates persona/runtime inputs at the route boundary, rejects cross-origin or malformed POST bodies, uses a sequence guard to prevent stale dashboard polls from overwriting newer state, and uses Next metadata/icon wiring plus `next/image` on the operator hero surface
+- the Web GUI command runner now prefers an explicit `AGENTIC_TRADER_PYTHON` or the repo-managed Conda environment before falling back to the PATH `agentic-trader` entrypoint, which keeps the browser shell attached to the current worktree more reliably
 - the repository now also ships a Fumadocs-based `docs/` app with curated MDX pages for onboarding, architecture, agent pipeline, runtime operations, operator surfaces, frontend guidance, memory/review, QA, and contribution workflow, turning the existing docs scaffold into the canonical developer-docs starting point
 - the docs app now uses locale-prefixed English and Turkish routes (`/en/...` and `/tr/...`) with localized page trees, localized feedback copy, and a modular frontend split across home, feedback, layout, i18n, and content helpers instead of one overloaded docs page file
 - the docs app now also exposes a page-feedback panel on MDX docs pages; feedback is always mirrored to `runtime/docs-feedback.jsonl` locally and can additionally forward into GitHub Discussions when `docs/.env.local` is populated from `docs/.env.example` with `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`
@@ -66,7 +67,7 @@ Implemented or substantially present:
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
 - Python dependency resolution now uses a committed `poetry.lock` file generated from `pyproject.toml`; Conda remains the recommended Python environment layer while Poetry owns package locking and install synchronization
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
-- the initial Web GUI development flow now enables Watchpack polling in `webgui` dev mode to avoid file-watch limit noise in larger local worktree setups while the shell is still young
+- the initial Web GUI development flow now enables Watchpack polling in `webgui` dev mode on port `3210`, avoiding file-watch limit noise in larger local worktree setups while matching the README/browser QA contract
 - a first Market Context Pack is generated from the fetched lookback window and persisted with snapshots, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
 - Market Context Pack generation now fails closed before operation/runtime agent execution when the fetched data materially under-covers the requested lookback
 - a first runtime mode contract exists; `training`/`operation` mode now flows through settings, service-state persistence/migration, status JSON, dashboard snapshots, observer API payloads, Rich status tables, and Ink overview/runtime pages
@@ -107,7 +108,8 @@ New production-expansion direction:
 - behavior-changing work should use the QA docs when it affects operator surfaces or runtime behavior
 - Sonar Quality Gate currently requires higher new-code coverage than the repository has; keep adding focused tests before treating the gate as fully green
 - the docs surface now supports English and Turkish locale routes, while broader CLI/Rich/Ink/Web GUI localization is still intentionally deferred; outside docs, new repeated UI strings should continue flowing through the shared text catalog instead of ad hoc duplication
-- `webgui` lint and production build are currently green in this worktree, but `next dev` still needs a follow-up for the multi-lockfile/Turbopack Tailwind resolution issue observed during manual QA
+- `webgui` lint, typecheck, production build, and the local `pnpm dev` flow on `localhost:3210` are now green in this worktree
+- Web GUI review, portfolio, risk, journal, and memory panels now surface section-level unavailability errors explicitly instead of collapsing them into generic empty states
 - `docs` now builds and lints with the new Fumadocs shell, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 

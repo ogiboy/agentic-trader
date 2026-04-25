@@ -837,8 +837,8 @@ class TestAssessFundamentals:
         assert result.source == "fallback"
         assert result.fallback_reason == FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON
 
-    def test_propagates_error_when_allow_fallback_false_and_no_provider_evidence(self) -> None:
-        """When no provider evidence exists and allow_fallback=False, propagates exception."""
+    def test_returns_structured_fallback_when_allow_fallback_false_and_no_provider_evidence(self) -> None:
+        """When no provider evidence exists, returns explicit fallback even in strict runtime mode."""
         context = _context()
         features = context.decision_features
         assert features is not None
@@ -862,13 +862,12 @@ class TestAssessFundamentals:
             def complete_structured(self, **_kwargs: object) -> object:
                 raise RuntimeError("LLM unavailable")
 
-        with pytest.raises(
-            RuntimeError,
-            match=FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON,
-        ):
-            assess_fundamentals(
-                cast(LocalLLM, _FailLLM()),
-                _snapshot(),
-                allow_fallback=False,
-                context=flagged,
-            )
+        result = assess_fundamentals(
+            cast(LocalLLM, _FailLLM()),
+            _snapshot(),
+            allow_fallback=False,
+            context=flagged,
+        )
+
+        assert result.source == "fallback"
+        assert result.fallback_reason == FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON

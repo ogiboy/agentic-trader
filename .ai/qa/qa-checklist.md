@@ -18,6 +18,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] Confirm changed roadmap items are checked or left unchecked accurately.
 - [ ] Confirm `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` are updated when architecture, runtime contracts, or assumptions change.
 - [ ] For CLI/Rich/Ink visual changes, use pexpect/tmux/asciinema for baseline interaction and layout verification, and add a Computer Use screenshot/screen-state pass when the environment exposes it.
+- [ ] For Web GUI changes, run the local `webgui/` shell, check the route handlers and browser surface, and add a Browser Use or equivalent localhost visual pass when the environment exposes it.
 
 ## Code Quality
 
@@ -108,6 +109,14 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] `/health`, `/dashboard`, `/status`, `/logs`, and `/broker` return valid JSON.
 - [ ] Observer API does not duplicate orchestration logic.
 - [ ] Web-facing payloads match dashboard/CLI contracts.
+
+## Web GUI
+
+- [ ] `cd webgui && pnpm dev` serves the local shell on `http://localhost:3210`.
+- [ ] The Web GUI uses the same dashboard/runtime/chat/instruction truth as CLI, Rich, and Ink.
+- [ ] Browser-visible cards surface section-level errors explicitly instead of collapsing them into empty-state copy.
+- [ ] Route handlers reject malformed JSON or foreign origins for POST actions.
+- [ ] Browser Use or equivalent localhost QA confirms overview, review, memory, and settings flows without a second runtime path.
 
 ## UX / Copy
 

@@ -134,7 +134,7 @@ export const homeContentTr: HomeContent = {
     },
     {
       id: "inspect",
-      label: "Incele",
+      label: "İncele",
       cards: [
         {
           title: "Review izi",

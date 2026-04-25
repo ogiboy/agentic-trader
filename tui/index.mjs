@@ -187,27 +187,6 @@ function getTradeContextLines(tradeContext) {
 }
 
 /**
- * Format a fundamental assessment into display-ready text lines.
- *
- * @param {object|null|undefined} fundamental - Fundamental assessment object or falsy when unavailable.
- *   Expected shape (only these fields are used):
- *     - overall_bias?: string
- *     - overall_signal?: string
- *     - red_flags?: string[]
- *     - risk_flags?: string[]
- *     - evidence_vs_inference?: {
- *         evidence?: string[],
- *         inference?: string[],
- *         uncertainty?: string[]
- *       }
- * @returns {string[]} An array of five lines:
- *   1. Bias (uses `overall_bias` then `overall_signal`, or `-` if missing),
- *   2. Red flags (comma-separated or `-`),
- *   3. Evidence (pipe-separated or `-`),
- *   4. Inference (pipe-separated or `-`),
- *   5. Uncertainty (pipe-separated or `-`).
- */
-/**
  * Format a persisted Market Context Pack into an array of human-readable lines.
  *
  * @param {Object} marketContext - Dashboard marketContext payload. May include

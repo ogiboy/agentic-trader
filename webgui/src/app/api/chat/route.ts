@@ -3,18 +3,46 @@ import { isChatPersona } from '../../../lib/chat-personas';
 
 export const dynamic = 'force-dynamic';
 
+function isSameOriginRequest(request: Request): boolean {
+  const requestOrigin = new URL(request.url).origin;
+  const origin = request.headers.get('origin');
+  if (origin) {
+    return origin === requestOrigin;
+  }
+  const referer = request.headers.get('referer');
+  if (!referer) {
+    return true;
+  }
+  try {
+    return new URL(referer).origin === requestOrigin;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Handle POST requests to run a chat workflow using a JSON body.
+ * Handle same-origin JSON POST requests that run an operator chat workflow.
  *
  * @param request - HTTP request whose JSON body must include an optional `persona` and a `message` string; `message` must be non-empty after trimming
- * @returns A Response whose JSON is the chat result on success; if `message` is missing or empty, a 400 JSON `{ error: 'missing chat message' }`; on unexpected errors, a 500 JSON `{ error: <message> }`
+ * @returns A Response whose JSON is the chat result on success; malformed content type, bad JSON, foreign origins, invalid persona values, or missing messages return structured 4xx JSON errors
  */
 export async function POST(request: Request) {
+  const contentType = request.headers.get('content-type')?.toLowerCase() || '';
+  if (!contentType.includes('application/json')) {
+    return Response.json({ error: 'expected application/json' }, { status: 400 });
+  }
+  if (!isSameOriginRequest(request)) {
+    return Response.json({ error: 'forbidden origin' }, { status: 403 });
+  }
+
+  let body: { persona?: string; message?: string };
   try {
-    const body = (await request.json()) as {
-      persona?: string;
-      message?: string;
-    };
+    body = (await request.json()) as { persona?: string; message?: string };
+  } catch {
+    return Response.json({ error: 'invalid json' }, { status: 400 });
+  }
+
+  try {
     if (!body.message?.trim()) {
       return Response.json({ error: 'missing chat message' }, { status: 400 });
     }

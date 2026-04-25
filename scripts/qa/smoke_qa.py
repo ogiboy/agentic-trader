@@ -93,6 +93,75 @@ def _command_display(command: list[str]) -> str:
     return " ".join(command)
 
 
+def _resolve_managed_conda_env_name() -> str | None:
+    """Read the repo's Codex environment manifest and return the declared Conda env name."""
+    manifest_path = REPO_ROOT / ".codex" / "environments" / "environment.toml"
+    if not manifest_path.exists():
+        return None
+    manifest = manifest_path.read_text(encoding="utf-8", errors="replace")
+    marker = "conda activate "
+    index = manifest.find(marker)
+    if index == -1:
+        return None
+    remainder = manifest[index + len(marker) :].lstrip()
+    env_name = remainder.splitlines()[0].strip().strip("'").strip('"')
+    return env_name or None
+
+
+def _resolve_smoke_python() -> str:
+    """
+    Resolve the Python executable that smoke QA should use for commands and quality gates.
+
+    Preference order:
+    1. explicit `AGENTIC_TRADER_PYTHON`
+    2. active virtualenv
+    3. active non-base Conda env
+    4. repo-managed Conda env from `.codex/environments/environment.toml`
+    5. current interpreter as a final fallback
+    """
+    candidates: list[Path] = []
+
+    explicit_python = os.environ.get("AGENTIC_TRADER_PYTHON")
+    if explicit_python:
+        candidates.append(Path(explicit_python).expanduser())
+
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if virtual_env:
+        candidates.append(Path(virtual_env) / "bin" / "python")
+
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    conda_default_env = os.environ.get("CONDA_DEFAULT_ENV")
+    if conda_prefix and conda_default_env and conda_default_env != "base":
+        candidates.append(Path(conda_prefix) / "bin" / "python")
+
+    managed_env_name = _resolve_managed_conda_env_name()
+    if managed_env_name:
+        conda_roots: list[Path] = []
+        conda_exe = os.environ.get("CONDA_EXE")
+        if conda_exe:
+            conda_roots.append(Path(conda_exe).resolve().parent.parent)
+        home = Path.home()
+        conda_roots.extend(
+            [
+                home / "miniconda3",
+                home / "anaconda3",
+                Path("/opt/anaconda3"),
+                Path("/usr/local/anaconda3"),
+            ]
+        )
+        for conda_root in conda_roots:
+            candidates.append(conda_root / "envs" / managed_env_name / "bin" / "python")
+
+    candidates.append(Path(sys.executable))
+    for candidate in candidates:
+        if candidate.exists() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return sys.executable
+
+
+SMOKE_PYTHON = _resolve_smoke_python()
+
+
 def _resolve_agentic_trader_executable() -> str | None:
     """
     Locate the `agentic-trader` executable, preferring a copy next to the running Python interpreter, then in the active conda environment's bin directory, and finally on the system PATH.
@@ -100,7 +169,7 @@ def _resolve_agentic_trader_executable() -> str | None:
     Returns:
         The filesystem path to an executable `agentic-trader` as a string if one is found and executable, or `None` if no suitable executable is found.
     """
-    candidates: list[Path] = [Path(sys.executable).with_name("agentic-trader")]
+    candidates: list[Path] = [Path(SMOKE_PYTHON).with_name("agentic-trader")]
     conda_prefix = os.environ.get("CONDA_PREFIX")
     if conda_prefix:
         candidates.append(Path(conda_prefix) / "bin" / "agentic-trader")
@@ -126,14 +195,14 @@ def _resolve_pyright_executable() -> str | None:
     which_path = shutil.which("pyright")
     if which_path is not None:
         candidates.append(Path(which_path))
-    candidates.append(Path(sys.executable).with_name("pyright"))
+    candidates.append(Path(SMOKE_PYTHON).with_name("pyright"))
     conda_prefix = os.environ.get("CONDA_PREFIX")
     if conda_prefix:
         candidates.append(Path(conda_prefix) / "bin" / "pyright")
     conda_exe = os.environ.get("CONDA_EXE")
     if conda_exe:
         candidates.append(Path(conda_exe).with_name("pyright"))
-    executable_path = Path(sys.executable)
+    executable_path = Path(SMOKE_PYTHON)
     if "envs" in executable_path.parts:
         try:
             envs_index = executable_path.parts.index("envs")
@@ -1012,7 +1081,7 @@ def _write_summary(context: SmokeContext, results: list[CheckResult]) -> Path:
     payload: dict[str, Any] = {
         "repo_root": str(REPO_ROOT),
         "artifacts_dir": str(context.artifacts_dir),
-        "python": sys.executable,
+        "python": SMOKE_PYTHON,
         "agentic_trader_path": _resolve_agentic_trader_executable(),
         "results": [asdict(result) for result in results],
     }
@@ -1274,9 +1343,9 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
         run_tui_open_and_quit(
             context,
             "python_main_tui",
-            sys.executable,
+            SMOKE_PYTHON,
             ["main.py"],
-            display=f"python main.py (resolved: {sys.executable})",
+            display=f"python main.py (resolved: {SMOKE_PYTHON})",
         )
     )
     return results
@@ -1297,7 +1366,7 @@ def _pytest_command(context: SmokeContext, *, include_coverage: bool) -> list[st
     Returns:
         list[str]: The full pytest command as an argument list suitable for subprocess execution.
     """
-    command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
+    command = [SMOKE_PYTHON, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
     if include_coverage:
         command.extend(
             [
@@ -1325,7 +1394,7 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
         run_command_capture(
             context,
             "ruff_check",
-            [sys.executable, "-m", "ruff", "check", "."],
+            [SMOKE_PYTHON, "-m", "ruff", "check", "."],
             timeout=90,
             display="python -m ruff check .",
         ),
@@ -1353,7 +1422,7 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
             run_command_capture(
                 context,
                 "pyright",
-                [pyright, "--pythonpath", sys.executable, "agentic_trader", "tests"],
+                [pyright, "--pythonpath", SMOKE_PYTHON, "agentic_trader", "tests"],
                 timeout=120,
                 display="pyright --pythonpath <smoke-python> agentic_trader tests",
             )

@@ -428,12 +428,12 @@ def assess_fundamentals(
     This asks the role-routed fundamental analyst (LLM) to evaluate growth, profitability,
     cash flow, balance sheet quality, FX risk, business quality, macro fit, and forward outlook,
     and to return red flags, strengths, a separation of evidence/inference/uncertainty, and an overall bias.
-    If structured provider evidence is missing or an error occurs and allow_fallback is True, a computed fallback assessment is returned instead.
+    If structured provider evidence is missing, a computed fallback assessment is returned instead so the paper runtime can keep explicit missing-data truth without pretending provider coverage exists. If LLM execution fails, a computed fallback assessment is returned only when `allow_fallback` is True.
     
     Parameters:
         llm (LocalLLM): Local LLM client used to run the role-specific completion.
         snapshot (MarketSnapshot): Snapshot of market/state used when no agent context is provided.
-        allow_fallback (bool): If True, return a computed fallback assessment on missing data or on errors; if False, propagate exceptions.
+        allow_fallback (bool): If True, return a computed fallback assessment on LLM or validation errors; missing provider evidence always returns a structured fallback assessment.
         context (AgentContext | None): Optional agent context containing structured decision_features used to build the assessment.
     
     Returns:
@@ -450,8 +450,6 @@ def assess_fundamentals(
         "When data is incomplete, stay neutral or cautious instead of filling gaps."
     )
     if not _has_structured_fundamental_evidence(context):
-        if not allow_fallback:
-            raise RuntimeError(FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON)
         return _fallback_fundamental(
             context,
             fallback_reason=FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON,

@@ -12,6 +12,11 @@ type EntryPointGridProps = {
   entryPoints: HomeEntryPoint[];
 };
 
+const openSectionLabel: Record<DocLanguage, string> = {
+  en: "Open section",
+  tr: "Bölümü aç",
+};
+
 export function EntryPointGrid({
   locale,
   entryPoints,
@@ -30,7 +35,7 @@ export function EntryPointGrid({
           <CardFooter>
             <Button asChild variant="ghost">
               <Link href={withLanguagePrefix(locale, item.href)}>
-                {locale === "en" ? "Open section" : "Bölümü aç"}
+                {openSectionLabel[locale]}
                 <ArrowRight data-icon="inline-end" />
               </Link>
             </Button>

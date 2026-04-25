@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- CLI/dashboard payloads are schema-loose JSON today */
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -8,13 +8,17 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 
+function isWorkspaceRoot(candidate: string): boolean {
+  return (
+    existsSync(resolve(candidate, "pyproject.toml")) &&
+    existsSync(resolve(candidate, "agentic_trader"))
+  );
+}
+
 function detectWorkspaceRoot(start: string): string {
   let current = resolve(start);
   while (true) {
-    if (
-      existsSync(resolve(current, "pyproject.toml")) &&
-      existsSync(resolve(current, "agentic_trader"))
-    ) {
+    if (isWorkspaceRoot(current)) {
       return current;
     }
     const parent = resolve(current, "..");
@@ -25,7 +29,10 @@ function detectWorkspaceRoot(start: string): string {
   }
 }
 
-const workspaceRoot = detectWorkspaceRoot(resolve(moduleDir, "../../.."));
+const workspaceRoot =
+  [detectWorkspaceRoot(process.cwd()), detectWorkspaceRoot(resolve(moduleDir, "../../.."))].find(
+    isWorkspaceRoot,
+  ) || detectWorkspaceRoot(process.cwd());
 const cliExecutable = process.env.AGENTIC_TRADER_CLI || "agentic-trader";
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 
@@ -35,6 +42,76 @@ type ExecOptions = {
 };
 
 /**
+ * Reads the local Codex environment manifest and returns the declared Conda environment name when present.
+ *
+ * @returns The Conda environment name from `.codex/environments/environment.toml`, or `null` when the file is missing or does not declare a `conda activate <name>` command.
+ */
+function detectManagedCondaEnvName(): null | string {
+  const manifestPath = resolve(workspaceRoot, ".codex/environments/environment.toml");
+  if (!existsSync(manifestPath)) {
+    return null;
+  }
+  const manifest = readFileSync(manifestPath, "utf-8");
+  const match = manifest.match(/conda activate ([^\s'"]+)/);
+  return match?.[1] || null;
+}
+
+/**
+ * Resolve the most reliable Python executable for the current worktree without requiring explicit user configuration.
+ *
+ * Preference order:
+ * 1. active virtual environment
+ * 2. active non-base Conda environment
+ * 3. repo-declared Codex Conda environment derived from `CONDA_EXE`
+ *
+ * @returns An absolute Python path when one can be resolved locally; otherwise `null`.
+ */
+function detectManagedPythonExecutable(): null | string {
+  if (process.env.VIRTUAL_ENV) {
+    const virtualEnvPython = resolve(process.env.VIRTUAL_ENV, "bin", "python");
+    if (existsSync(virtualEnvPython)) {
+      return virtualEnvPython;
+    }
+  }
+
+  if (
+    process.env.CONDA_PREFIX &&
+    process.env.CONDA_DEFAULT_ENV &&
+    process.env.CONDA_DEFAULT_ENV !== "base"
+  ) {
+    const activeCondaPython = resolve(process.env.CONDA_PREFIX, "bin", "python");
+    if (existsSync(activeCondaPython)) {
+      return activeCondaPython;
+    }
+  }
+
+  const managedEnvName = detectManagedCondaEnvName();
+  if (!managedEnvName) {
+    return null;
+  }
+
+  const condaRoots = new Set<string>();
+  if (process.env.CONDA_EXE) {
+    condaRoots.add(resolve(dirname(process.env.CONDA_EXE), ".."));
+  }
+  if (process.env.HOME) {
+    condaRoots.add(resolve(process.env.HOME, "miniconda3"));
+    condaRoots.add(resolve(process.env.HOME, "anaconda3"));
+  }
+  condaRoots.add("/opt/anaconda3");
+  condaRoots.add("/usr/local/anaconda3");
+
+  for (const condaRoot of condaRoots) {
+    const managedCondaPython = resolve(condaRoot, "envs", managedEnvName, "bin", "python");
+    if (existsSync(managedCondaPython)) {
+      return managedCondaPython;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Build an ordered list of executable invocation attempts for the given CLI arguments.
  *
  * @param args - Command-line arguments to pass to the Agentic Trader CLI
@@ -42,11 +119,24 @@ type ExecOptions = {
  */
 function buildAttempts(args: string[]): Array<[string, string[]]> {
   const attempts: Array<[string, string[]]> = [];
+  const managedPythonExecutable = detectManagedPythonExecutable();
   if (pythonExecutable) {
     attempts.push([pythonExecutable, ["-m", "agentic_trader.cli", ...args]]);
   }
+  if (managedPythonExecutable) {
+    attempts.push([managedPythonExecutable, ["-m", "agentic_trader.cli", ...args]]);
+  }
   attempts.push([cliExecutable, args]);
-  return attempts;
+
+  const seen = new Set<string>();
+  return attempts.filter(([command, commandArgs]) => {
+    const key = `${command}\u0000${commandArgs.join("\u0000")}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 /**
@@ -113,6 +203,16 @@ function defaultRuntimeLookback(data: Record<string, any>): string {
     data?.marketContext?.contextPack?.lookback ||
     "180d"
   );
+}
+
+/**
+ * Determine whether the managed runtime is currently active according to the dashboard snapshot.
+ *
+ * @param data - Dashboard snapshot that may expose both `status.live_process` and `status.state.pid`
+ * @returns `true` only when the dashboard confirms a live process; persisted PIDs can describe historical terminal states.
+ */
+function isTraderRunning(data: Record<string, any>): boolean {
+  return data?.status?.live_process === true;
 }
 
 /**
@@ -193,7 +293,7 @@ export async function runRuntimeAction(kind: string): Promise<{
   const data = await getDashboardSnapshot();
 
   if (kind === "start") {
-    if (data?.status?.live_process) {
+    if (isTraderRunning(data)) {
       return {
         message: `Runtime already active with PID ${data?.status?.state?.pid ?? "-"}.`,
         dashboard: data,
@@ -223,7 +323,7 @@ export async function runRuntimeAction(kind: string): Promise<{
   }
 
   if (kind === "stop") {
-    if (!data?.status?.state?.pid) {
+    if (!isTraderRunning(data)) {
       return {
         message: "No managed runtime is currently active.",
         dashboard: data,
@@ -251,7 +351,7 @@ export async function runRuntimeAction(kind: string): Promise<{
   }
 
   if (kind === "one-shot") {
-    if (data?.status?.live_process) {
+    if (isTraderRunning(data)) {
       return {
         message: `Runtime already active with PID ${data?.status?.state?.pid ?? "-"}. Stop it before running a one-shot cycle.`,
         dashboard: data,

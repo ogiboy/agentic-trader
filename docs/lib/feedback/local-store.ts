@@ -15,8 +15,8 @@ export async function appendFeedbackRecord(
   await appendFile(
     feedbackFile,
     `${JSON.stringify({
-      kind,
       ...feedback,
+      kind,
     })}\n`,
     "utf8",
   );

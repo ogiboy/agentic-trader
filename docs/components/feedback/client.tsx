@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageSquareText, ThumbsDown, ThumbsUp } from "lucide-react";
 import { getFeedbackCopy } from "@/components/feedback/copy";
@@ -34,36 +34,36 @@ export function Feedback({ locale, title, onSendAction }: FeedbackProps) {
   const [opinion, setOpinion] = useState<FeedbackOpinion | null>(null);
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<ActionResponse | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submitFeedback = () => {
+  const submitFeedback = async () => {
     if (!opinion) return;
 
-    startTransition(() => {
-      void onSendAction({
+    setIsSubmitting(true);
+    try {
+      const response = await onSendAction({
         opinion,
         message,
         title,
         url: pathname,
         submittedAt: new Date().toISOString(),
-      })
-        .then((response) => {
-          setResult(response);
+      });
+      setResult(response);
 
-          if (response.ok) {
-            setMessage("");
-          }
-        })
-        .catch((error) => {
-          setResult({
-            ok: false,
-            error:
-              error instanceof Error
-                ? error.message
-                : copy.genericError,
-          });
-        });
-    });
+      if (response.ok) {
+        setMessage("");
+      }
+    } catch (error) {
+      setResult({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : copy.genericError,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -110,10 +110,10 @@ export function Feedback({ locale, title, onSendAction }: FeedbackProps) {
         <p className="text-xs text-muted-foreground">{copy.destinationSummary}</p>
         <Button
           type="button"
-          disabled={!opinion || isPending}
+          disabled={!opinion || isSubmitting}
           onClick={submitFeedback}
         >
-          {isPending ? copy.saving : copy.submit}
+          {isSubmitting ? copy.saving : copy.submit}
         </Button>
       </CardFooter>
       {result ? (
