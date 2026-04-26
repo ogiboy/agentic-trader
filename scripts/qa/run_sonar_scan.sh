@@ -38,6 +38,7 @@ resolve_token() {
 		echo "SONAR_TOKEN is required. Set it in the environment or store it in macOS Keychain service '${SONAR_TOKEN_KEYCHAIN_SERVICE}'." >&2
 		exit 1
 	fi
+	return 0
 }
 
 redacted_runner() {
@@ -47,6 +48,7 @@ redacted_runner() {
 	"${command[@]}" 2>&1 \
 		| SONAR_TOKEN_REDACT="${token_to_redact}" perl -pe 'BEGIN { $t = $ENV{SONAR_TOKEN_REDACT} // ""; } if (length $t) { s/\Q$t\E/<redacted>/g }' \
 		| tee "${redacted_log}"
+	return 0
 }
 
 run_coverage() {
@@ -59,6 +61,7 @@ run_coverage() {
 	poetry run python -m pytest -q -p no:cacheprovider \
 		--cov=agentic_trader \
 		--cov-report="xml:${COVERAGE_XML}" 2>&1 | tee "${COVERAGE_LOG}"
+	return 0
 }
 
 run_pysonar() {
@@ -99,6 +102,7 @@ run_pysonar() {
 
 	echo "Running pysonar for project '${SONAR_PROJECT_KEY}' at ${SONAR_HOST_URL}"
 	redacted_runner "${command[@]}"
+	return 0
 }
 
 run_npm_scanner() {
@@ -121,6 +125,7 @@ run_npm_scanner() {
 
 	echo "Running @sonar/scan for project '${SONAR_PROJECT_KEY}' at ${SONAR_HOST_URL}"
 	redacted_runner "${command[@]}"
+	return 0
 }
 
 resolve_token

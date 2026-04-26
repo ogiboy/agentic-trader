@@ -38,8 +38,10 @@ jobs:
       - name: Resolve release tag
         id: tag
         shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          TAG="${{ inputs.tag }}"
+          TAG="${INPUT_TAG}"
           if [ -z "$TAG" ]; then
             TAG="${GITHUB_REF_NAME}"
           fi

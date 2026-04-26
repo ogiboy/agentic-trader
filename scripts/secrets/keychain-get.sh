@@ -7,9 +7,10 @@ Usage:
   scripts/secrets/keychain-get.sh SERVICE [ACCOUNT]
   scripts/secrets/keychain-get.sh --check SERVICE [ACCOUNT]
 
-Reads a generic password from macOS Keychain without writing it to disk.
-Use --check to verify that the item exists without printing the secret.
+	Reads a generic password from macOS Keychain without writing it to disk.
+	Use --check to verify that the item exists without printing the secret.
 EOF
+	return 0
 }
 
 MODE="get"

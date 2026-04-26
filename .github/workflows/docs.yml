@@ -21,11 +21,6 @@ on:
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -38,6 +33,8 @@ jobs:
     name: Build GitHub Pages artifact
     runs-on: ubuntu-latest
     if: ${{ hashFiles('docs/package.json') != '' }}
+    permissions:
+      contents: read
 
     steps:
       - name: Check out repository
@@ -96,6 +93,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
