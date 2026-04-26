@@ -1,4 +1,4 @@
-.PHONY: setup check check-python check-node build qa qa-quality qa-sonar sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run webgui docs tui clean
+.PHONY: setup check check-python check-node build qa qa-quality qa-sonar sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper webgui docs tui clean
 
 setup:
 	pnpm run setup
@@ -56,6 +56,12 @@ sonarcloud-secret-check:
 
 sonar-mcp-dry-run:
 	pnpm run mcp:sonarqube:dry-run
+
+sonar-mcp-status:
+	pnpm run mcp:sonarqube:status
+
+sonar-mcp-install-wrapper:
+	pnpm run mcp:sonarqube:install-wrapper
 
 webgui:
 	pnpm run dev:webgui

@@ -36,6 +36,10 @@ Token'lar tracked dosyalara yazılmamalı. Tek seferlik shell için `SONAR_TOKEN
 
 Editor MCP bağlantısı için `scripts/secrets/run-sonarqube-mcp.sh` kullan. Script token'ı Keychain'den okur ve yalnızca Docker MCP process'ine verir; VS Code `mcp.json` içinde ham token tutmaya gerek kalmaz.
 
+Local `sonarqube` server konteyneri ile geçici `mcp/sonarqube` client konteynerlerini ayırmak için `pnpm run mcp:sonarqube:status` kullan. Birden fazla MCP konteyneri çoğu zaman birden fazla aktif editor veya agent oturumu anlamına gelir; birden fazla SonarQube server anlamına gelmez.
+
+Sonar issue ürettiğinde sadece son commit'e bakma. Tüm proje backlog'unu incele; vulnerability, security hotspot, correctness bug, blocker/critical issue ve ardından maintainability cleanup sırasıyla önceliklendir. Kabul edilen bulgular için kısa gerekçe ve residual risk notu bırak.
+
 ## Smoke QA neden önemli
 
 Bu repo gerçek operatör yüzeylerine sahip.

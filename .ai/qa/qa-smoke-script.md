@@ -77,6 +77,10 @@ The default smoke target is local Docker SonarQube project `agentic-trader`. For
 
 The token is read from `SONAR_TOKEN` or a macOS Keychain service and is redacted in command artifacts. Use `codex-sonarqube-token` for local Docker SonarQube and `codex-sonarcloud-token` for manual SonarCloud uploads. For a full scanner upload outside the smoke harness, use `pnpm run sonar` for local `pysonar`, `pnpm run sonar:js` for local `@sonar/scan`, or `pnpm run sonar:cloud` for SonarCloud.
 
+Use `pnpm run mcp:sonarqube:status` before diagnosing MCP confusion. It reports the local server containers, the Docker MCP client command, and any running `mcp/sonarqube` client containers without printing tokens. Multiple MCP containers usually indicate multiple active editor/agent sessions; they are not additional SonarQube servers.
+
+When Sonar reports issues, treat the scan as a full-codebase review signal. Prioritize vulnerabilities, security hotspots, blocker/critical issues, and correctness bugs before maintainability or formatting cleanup. Accepted findings require a short reason and residual-risk note.
+
 The script intentionally runs the installed `agentic-trader` entrypoint from `PATH` for console-entrypoint checks. If your shell resolves an old entrypoint, the smoke harness should fail and leave evidence showing the resolved path in the summary JSON.
 
 ## Artifacts

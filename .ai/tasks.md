@@ -259,7 +259,8 @@ Desired direction:
 - use `pnpm run qa` for a fast terminal smoke pass before deeper manual QA
 - use `pnpm run qa:quality` when code-quality checks should travel with terminal smoke evidence
 - use `pnpm run qa:quality` for terminal smoke plus quality checks, `pnpm run sonar` for local pysonar upload, `pnpm run sonar:js` when the local npm scanner path also needs validation, and `pnpm run sonar:cloud` only for an intentional SonarCloud upload; all Sonar paths emit coverage XML and must not write tokens to artifacts
-- use `pnpm run secret:sonar:check` and `pnpm run mcp:sonarqube:dry-run` when verifying that editor/MCP Sonar wiring reads from Keychain instead of tracked JSON env values
+- use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, and `pnpm run mcp:sonarqube:status` when verifying that editor/MCP Sonar wiring reads from Keychain and points at the intended local server instead of relying on tracked JSON env values
+- when Sonar reports issues, inspect the full codebase/project backlog rather than only the last commit; prioritize vulnerabilities, security hotspots, correctness bugs, blocker/critical issues, then maintainability cleanup, and record any accepted residual risk
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
@@ -289,4 +290,4 @@ Desired direction:
 - keep the automated test command in `AGENTS.md` current with the project environment
 - keep the opt-in runtime-cycle smoke check aligned with real product retry behavior so it validates operator-facing runtime reliability rather than a first-response-only LLM diagnostic
 - next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate
-- next Sonar cleanup priority: keep local project `agentic-trader` green on new code, review the remaining backlog issues/hotspots with a token that has hotspot permissions, and keep SonarCloud project `ogiboy_agentic-trader` as the GitHub-facing history/badge target
+- next Sonar cleanup priority: keep local project `agentic-trader` green on new code, review and burn down the full remaining backlog issues/hotspots with a token that has hotspot permissions, and keep SonarCloud project `ogiboy_agentic-trader` as the GitHub-facing history/badge target

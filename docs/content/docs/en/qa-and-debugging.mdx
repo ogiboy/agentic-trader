@@ -36,6 +36,10 @@ Tokens must stay out of tracked files. Use `SONAR_TOKEN` for one-off shells, `co
 
 For editor MCP wiring, use `scripts/secrets/run-sonarqube-mcp.sh`. It reads the token from Keychain and exports it only to the Docker MCP process, so VS Code `mcp.json` does not need a raw token.
 
+Use `pnpm run mcp:sonarqube:status` to distinguish the local `sonarqube` server from transient `mcp/sonarqube` client containers. Multiple MCP containers usually mean multiple active editor or agent sessions, not multiple SonarQube servers.
+
+When Sonar reports issues, review the full project backlog rather than only the latest commit. Prioritize vulnerabilities, security hotspots, correctness bugs, blocker/critical issues, and then maintainability cleanup. Accepted findings need a short reason and residual-risk note.
+
 ## Why smoke QA matters
 
 This repo has real operator surfaces.

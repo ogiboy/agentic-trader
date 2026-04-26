@@ -67,4 +67,12 @@ icon = "key"
 command = '''
 pnpm run secret:sonar:check
 pnpm run mcp:sonarqube:dry-run
+pnpm run mcp:sonarqube:status
+'''
+
+[[actions]]
+name = "install sonar mcp wrapper"
+icon = "plug"
+command = '''
+pnpm run mcp:sonarqube:install-wrapper
 '''

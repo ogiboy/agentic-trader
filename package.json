@@ -35,6 +35,8 @@
     "secret:sonar:check": "scripts/secrets/keychain-get.sh --check codex-sonarqube-token",
     "secret:sonarcloud:check": "scripts/secrets/keychain-get.sh --check codex-sonarcloud-token",
     "mcp:sonarqube:dry-run": "SONARQUBE_MCP_DRY_RUN=1 scripts/secrets/run-sonarqube-mcp.sh",
+    "mcp:sonarqube:status": "scripts/secrets/check-sonarqube-mcp.sh",
+    "mcp:sonarqube:install-wrapper": "scripts/secrets/install-sonarqube-mcp-wrapper.sh",
     "dev:webgui": "pnpm --filter webgui run dev",
     "dev:docs": "pnpm --filter docs run dev",
     "start:tui": "pnpm --filter agentic-trader-tui run start",

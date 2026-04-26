@@ -47,6 +47,7 @@ Optional SonarQube pass:
 
 ```bash
 pnpm run sonar:status
+pnpm run mcp:sonarqube:status
 pnpm run sonar
 pnpm run sonar:js
 ```
@@ -189,7 +190,16 @@ pyright
 pnpm run sonar
 ```
 
-Never hardcode the Sonar token in tracked files. Prefer `SONAR_TOKEN`, or store the local Docker token in macOS Keychain service `codex-sonarqube-token`. `pnpm run sonar` and `pnpm run sonar:js` upload to local project `agentic-trader`. `pnpm run sonar:cloud` uploads to SonarCloud project `ogiboy_agentic-trader` and should use a separate token, preferably Keychain service `codex-sonarcloud-token`. Root `sonar-project.properties` is the local default scanner file; CI overrides project key and organization for SonarCloud. Use `pnpm run secret:sonar:check` and `pnpm run mcp:sonarqube:dry-run` to verify Keychain/MCP wiring without printing the token.
+Never hardcode the Sonar token in tracked files. Prefer `SONAR_TOKEN`, or store the local Docker token in macOS Keychain service `codex-sonarqube-token`. `pnpm run sonar` and `pnpm run sonar:js` upload to local project `agentic-trader`. `pnpm run sonar:cloud` uploads to SonarCloud project `ogiboy_agentic-trader` and should use a separate token, preferably Keychain service `codex-sonarcloud-token`. Root `sonar-project.properties` is the local default scanner file; CI overrides project key and organization for SonarCloud. Use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, and `pnpm run mcp:sonarqube:status` to verify Keychain/MCP wiring without printing the token.
+
+Sonar review is repository-wide by default. Do not limit investigation to the last commit unless the task explicitly says so. Review bugs, vulnerabilities, security hotspots, blocker/critical issues, maintainability issues, and scanner suggestions across the intended project key. Prioritize security and correctness first, then high-complexity maintainability findings, then minor style or formatting issues. If a finding is accepted rather than fixed, record the reason and residual risk instead of dismissing it as unimportant.
+
+Sonar topology:
+
+- `sonarqube` and `sonarqube-db` are the local analysis server.
+- `pnpm run sonar` / `pnpm run sonar:js` are scanner uploads into that server.
+- `mcp/sonarqube` containers are MCP clients used by Codex or VS Code to query the server.
+- Multiple running `mcp/sonarqube` containers usually mean multiple active editor/agent sessions, not multiple SonarQube servers. Use `pnpm run mcp:sonarqube:status` before assuming the server or token is broken.
 
 ## Standard QA Workflow
 

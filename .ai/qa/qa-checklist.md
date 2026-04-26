@@ -10,6 +10,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
   - `pnpm run qa:quality`
 - [ ] When SonarQube is available, run:
   - `pnpm run sonar:status`
+  - `pnpm run mcp:sonarqube:status`
   - `pnpm run sonar`
   - `pnpm run sonar:js` when validating the npm scanner path specifically
   - `pnpm run sonar:cloud` only when intentionally uploading to SonarCloud
@@ -29,6 +30,8 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] `pytest -q -p no:cacheprovider` passes or failures are triaged.
 - [ ] `pyright` or IDE/Pylance diagnostics are checked when available.
 - [ ] SonarQube, `pysonar`, `@sonar/scan`, and SonarCloud findings are reviewed against the intended target/project key.
+- [ ] Sonar findings are triaged across the full codebase, not only the latest commit, and are prioritized as security/correctness, blocker/critical maintainability, then minor cleanup.
+- [ ] Any accepted Sonar finding has a written reason and residual-risk note; no finding is dismissed as "unimportant" without review.
 - [ ] `.sonar/` remains ignored and no Sonar token is written to tracked files or artifacts.
 
 ## CLI

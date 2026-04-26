@@ -80,7 +80,9 @@ Implemented or substantially present:
 - memory vectors now persist embedding provider, model, version, and dimensionality metadata beside the existing lightweight local-hashing vectors, and legacy rows migrate with local-hashing defaults
 - Sonar is split into two explicit targets: local Docker SonarQube Community Build uses project `agentic-trader` through root `sonar-project.properties`, while GitHub-hosted CI and public badges use SonarCloud project `ogiboy_agentic-trader`
 - local `pnpm run sonar` uses `pysonar`, local `pnpm run sonar:js` uses `@sonar/scan`, and manual `pnpm run sonar:cloud` uses the npm scanner with SonarCloud organization `ogiboy`; tokens must come from `SONAR_TOKEN` or separate macOS Keychain services (`codex-sonarqube-token` for local, `codex-sonarcloud-token` for cloud)
-- VS Code MCP can run through `scripts/secrets/run-sonarqube-mcp.sh`, which reads the local SonarQube token from Keychain and exports it only to the Docker MCP process
+- VS Code and Codex MCP should route through the same local wrapper, which calls `scripts/secrets/run-sonarqube-mcp.sh`; the repo script reads the local SonarQube token from Keychain and exports it only to the Docker MCP process
+- `pnpm run mcp:sonarqube:status` distinguishes the local `sonarqube` server from transient `mcp/sonarqube` client containers and warns when several MCP clients are running
+- Sonar findings are treated as full-codebase review input; security/correctness findings, security hotspots, and blocker/critical maintainability issues are not dismissed without a fix or explicit risk acceptance
 
 New production-expansion direction:
 

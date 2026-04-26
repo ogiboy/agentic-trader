@@ -164,6 +164,7 @@ pnpm check
 make check
 pnpm run qa:quality
 pnpm run sonar:status
+pnpm run mcp:sonarqube:status
 pnpm run sonar
 ```
 
@@ -178,7 +179,7 @@ Sonar is split by target on purpose:
 
 `sonar-project.properties` is the local default scanner file. `pnpm run sonar` runs the local Python scanner path through `pysonar`; `pnpm run sonar:js` runs the local npm scanner through `@sonar/scan`. Both read `SONAR_TOKEN` from the environment or macOS Keychain service `codex-sonarqube-token`. Use `pnpm run sonar:cloud` only when manually uploading to SonarCloud; it expects a SonarCloud token in `SONAR_TOKEN` or Keychain service `codex-sonarcloud-token`.
 
-Use `pnpm run secret:sonar:check` or `pnpm run mcp:sonarqube:dry-run` to verify the local Keychain/MCP wiring without printing tokens. The VS Code MCP wrapper uses `SONARQUBE_URL=http://host.docker.internal:9000` so Docker can reach the local host SonarQube server.
+Use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, or `pnpm run mcp:sonarqube:status` to verify the local Keychain/MCP wiring without printing tokens. The editor/Codex MCP wrapper uses `SONARQUBE_URL=http://host.docker.internal:9000` so Docker can reach the local host SonarQube server. Multiple running `mcp/sonarqube` containers usually mean multiple active MCP clients, not multiple SonarQube servers.
 
 GitHub Actions needs only `SONAR_TOKEN` as a repository secret for SonarCloud. Docs deployment uses GitHub Pages permissions, releases/binaries use the built-in `GITHUB_TOKEN`, and local Docker SonarQube tokens should stay on the developer machine.
 

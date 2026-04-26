@@ -22,6 +22,7 @@ Optional SonarQube extension:
 
 ```bash
 pnpm run sonar:status
+pnpm run mcp:sonarqube:status
 pnpm run sonar
 pnpm run sonar:js
 # Only when intentionally validating the SonarCloud path:
@@ -35,6 +36,8 @@ Expected:
 - installed `agentic-trader` entrypoint drift is caught as a failed smoke check
 - no Sonar token is written to artifacts or tracked files
 - local scans target `agentic-trader`; cloud scans target `ogiboy_agentic-trader`
+- MCP status distinguishes the local `sonarqube` server from transient `mcp/sonarqube` client containers
+- any Sonar findings are reviewed across the full project backlog, not only recent commits
 
 ## Scenario 1: Environment Smoke
 
