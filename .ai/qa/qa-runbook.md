@@ -12,7 +12,7 @@ Use the project environment unless the task says otherwise:
 
 ```bash
 conda activate trader
-python -m pip install -e ".[dev]"
+pnpm run setup
 ```
 
 If the shell cannot find the console entrypoint:
@@ -26,25 +26,29 @@ python -m agentic_trader.cli doctor
 Recommended core verification:
 
 ```bash
-/opt/anaconda3/envs/trader/bin/python -m pytest -q -p no:cacheprovider
+pnpm run check
 ```
+
+This wraps `ruff check .`, `pyright agentic_trader tests scripts`, `python -m pytest -q`, and the Node workspace lint/type/build checks.
 
 Recommended terminal smoke pass:
 
 ```bash
-python scripts/qa/smoke_qa.py
+pnpm run qa
 ```
 
 Recommended terminal + code-quality pass:
 
 ```bash
-python scripts/qa/smoke_qa.py --include-quality
+pnpm run qa:quality
 ```
 
 Optional SonarQube pass:
 
 ```bash
-SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-sonar
+pnpm run sonar:status
+pnpm run sonar
+pnpm run sonar:js
 ```
 
 ## Evidence Directory
@@ -138,7 +142,7 @@ Use for repeatable CLI/Rich menu/Ink interaction.
 Install only if missing:
 
 ```bash
-python -m pip install pexpect
+pnpm run setup
 ```
 
 ### tmux
@@ -182,10 +186,10 @@ Use `ruff`, `pytest`, IDE/Pylance or `pyright`, and SonarQube as complementary s
 python -m ruff check .
 python -m pytest -q -p no:cacheprovider
 pyright
-SONAR_TOKEN=... pysonar --sonar-host-url=http://localhost:9000 --sonar-project-key=agentic-trader-dev --sonar-token="$SONAR_TOKEN"
+pnpm run sonar
 ```
 
-Never hardcode the Sonar token in tracked files. Prefer the `SONAR_TOKEN` environment variable.
+Never hardcode the Sonar token in tracked files. Prefer `SONAR_TOKEN`, or store the local Docker token in macOS Keychain service `codex-sonarqube-token`. `pnpm run sonar` and `pnpm run sonar:js` upload to local project `agentic-trader`. `pnpm run sonar:cloud` uploads to SonarCloud project `ogiboy_agentic-trader` and should use a separate token, preferably Keychain service `codex-sonarcloud-token`. Root `sonar-project.properties` is the local default scanner file; CI overrides project key and organization for SonarCloud. Use `pnpm run secret:sonar:check` and `pnpm run mcp:sonarqube:dry-run` to verify Keychain/MCP wiring without printing the token.
 
 ## Standard QA Workflow
 

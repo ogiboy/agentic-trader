@@ -15,20 +15,59 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type {
-  ActionResponse,
-  FeedbackOpinion,
-  PageFeedbackInput,
+import {
+  parsePageFeedback,
+  type ActionResponse,
+  type FeedbackOpinion,
 } from "@/components/feedback/schema";
 import type { DocLanguage } from "@/lib/i18n/config";
 
-type FeedbackProps = {
+const feedbackStorageKey = "agentic-trader-docs-feedback";
+const feedbackIssueUrl = "https://github.com/ogiboy/agentic-trader/issues/new";
+
+type ParsedPageFeedback = ReturnType<typeof parsePageFeedback>;
+
+type FeedbackProps = Readonly<{
   locale: DocLanguage;
   title: string;
-  onSendAction: (feedback: PageFeedbackInput) => Promise<ActionResponse>;
-};
+}>;
 
-export function Feedback({ locale, title, onSendAction }: FeedbackProps) {
+function buildIssueUrl(feedback: ParsedPageFeedback) {
+  const body = [
+    "## Docs feedback",
+    "",
+    `Page: ${feedback.title}`,
+    `URL: ${feedback.url}`,
+    `Opinion: ${feedback.opinion}`,
+    `Submitted at: ${feedback.submittedAt}`,
+    "",
+    "## Note",
+    "",
+    feedback.message || "No additional note provided.",
+  ].join("\n");
+
+  const params = new URLSearchParams({
+    title: `Docs feedback: ${feedback.title}`,
+    body,
+  });
+
+  return `${feedbackIssueUrl}?${params.toString()}`;
+}
+
+function storeFeedbackDraft(feedback: ParsedPageFeedback) {
+  try {
+    const storage = globalThis.localStorage;
+    const existing = storage.getItem(feedbackStorageKey);
+    const parsed = existing ? JSON.parse(existing) : [];
+    const records = Array.isArray(parsed) ? parsed : [];
+    const nextRecords = [...records, feedback].slice(-25);
+    storage.setItem(feedbackStorageKey, JSON.stringify(nextRecords));
+  } catch {
+    return;
+  }
+}
+
+export function Feedback({ locale, title }: FeedbackProps) {
   const pathname = usePathname();
   const copy = getFeedbackCopy(locale);
   const [opinion, setOpinion] = useState<FeedbackOpinion | null>(null);
@@ -41,18 +80,22 @@ export function Feedback({ locale, title, onSendAction }: FeedbackProps) {
 
     setIsSubmitting(true);
     try {
-      const response = await onSendAction({
+      const feedback = parsePageFeedback({
         opinion,
         message,
         title,
         url: pathname,
         submittedAt: new Date().toISOString(),
       });
-      setResult(response);
-
-      if (response.ok) {
-        setMessage("");
-      }
+      storeFeedbackDraft(feedback);
+      setResult({
+        ok: true,
+        storedAt: "browser-local-storage",
+        destination: "github-issue",
+        forwarding: "prepared",
+        githubUrl: buildIssueUrl(feedback),
+      });
+      setMessage("");
     } catch (error) {
       setResult({
         ok: false,

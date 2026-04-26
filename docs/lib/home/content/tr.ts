@@ -84,7 +84,7 @@ export const homeContentTr: HomeContent = {
       href: "/docs/memory-and-review",
       title: "Hafıza ve Review",
       description:
-        "Docs, `.ai` notları, local feedback logları ve review artefact'lerinin runtime gerçeğiyle nasıl hizalı kaldığını gör.",
+        "Docs, `.ai` notları, feedback taslakları ve review artefact'lerinin runtime gerçeğiyle nasıl hizalı kaldığını gör.",
       badge: "Süreklilik",
     },
     {
@@ -128,7 +128,7 @@ export const homeContentTr: HomeContent = {
         },
         {
           title: "Feedback akışı",
-          body: "Docs feedback her zaman local JSONL kaydı yazar; GitHub App ayarlıysa aynı kayıt GitHub Discussions'a da iletilir.",
+          body: "Pages docs feedback tarayıcı içinde GitHub issue taslağı hazırlar; server-side forwarding ancak açık bir Node-hosted docs yüzeyi varsa geri gelmeli.",
         },
       ],
     },

@@ -42,7 +42,7 @@ Run the smallest relevant checks first, then broaden when feasible:
 
 1. Targeted unit tests for changed modules.
 2. `python -m ruff check .`
-3. `/opt/anaconda3/envs/trader/bin/python -m pytest -q -p no:cacheprovider`
+3. `pnpm run check`
 4. A relevant `.ai/qa/qa-scenarios.md` manual or CLI pass for operator/runtime
    behavior.
 

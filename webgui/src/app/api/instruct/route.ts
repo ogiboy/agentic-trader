@@ -3,6 +3,7 @@ import {
   runInstruction,
 } from '../../../lib/agentic-trader';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SAFE_METHODS_WITHOUT_BROWSER_ORIGIN = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -41,7 +42,11 @@ export async function POST(request: Request) {
 
   let body: { message?: string; apply?: boolean };
   try {
-    body = (await request.json()) as { message?: string; apply?: boolean };
+    const parsed: unknown = await request.json();
+    if (typeof parsed !== 'object' || parsed === null) {
+      return Response.json({ error: 'invalid json' }, { status: 400 });
+    }
+    body = parsed as { message?: string; apply?: boolean };
   } catch {
     return Response.json({ error: 'invalid json' }, { status: 400 });
   }

@@ -6,40 +6,65 @@ name = "agentic-trader"
 script = '''
 eval "$(conda shell.zsh hook)"
 conda activate trader
-poetry install
-cd webgui
-pnpm install
-pnpm approve-builds --all
-cd ..
-cd docs
-pnpm install
-pnpm approve-builds --all
-cd ..
+pnpm run setup
 '''
 
 [[actions]]
-name = "env activate & install deps"
+name = "setup workspace"
 icon = "tool"
 command = '''
 eval "$(conda shell.zsh hook)"
 conda activate trader
-poetry install
+pnpm run setup
 '''
 
 [[actions]]
-name = "install webgui deps"
+name = "install node workspace deps"
 icon = "tool"
 command = '''
-cd webgui
 pnpm install
 pnpm approve-builds --all
 '''
 
 [[actions]]
-name = "install devdocs deps"
+name = "install python deps"
 icon = "tool"
 command = '''
-cd docs
-pnpm install
-pnpm approve-builds --all
+eval "$(conda shell.zsh hook)"
+conda activate trader
+pnpm install:python
+'''
+
+[[actions]]
+name = "start local sonarqube"
+icon = "database"
+command = '''
+pnpm run sonar:start
+pnpm run sonar:status
+'''
+
+[[actions]]
+name = "run local sonar scan"
+icon = "search"
+command = '''
+eval "$(conda shell.zsh hook)"
+conda activate trader
+pnpm run sonar
+'''
+
+[[actions]]
+name = "run sonarcloud scan"
+icon = "cloud"
+command = '''
+eval "$(conda shell.zsh hook)"
+conda activate trader
+SONAR_TOKEN_KEYCHAIN_SERVICE=codex-sonarcloud-token pnpm run sonar:cloud
+'''
+
+[[actions]]
+name = "check sonar keychain"
+icon = "key"
+command = '''
+pnpm run secret:sonar:check
+pnpm run mcp:sonarqube:dry-run
 '''

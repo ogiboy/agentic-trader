@@ -1,0 +1,106 @@
+name: Docs
+
+on:
+  push:
+    branches: [main, devdocs, V1]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [main, devdocs, V1]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  PNPM_VERSION: '10.33.2'
+
+jobs:
+  build:
+    name: Build GitHub Pages artifact
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('docs/package.json') != '' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Install docs dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint docs
+        run: pnpm --filter docs run lint
+
+      - name: Typecheck docs
+        run: pnpm --filter docs run typecheck
+
+      - name: Build static docs
+        env:
+          GITHUB_PAGES: 'true'
+        run: pnpm --filter docs run build
+
+      - name: Verify static export
+        run: |
+          test -f docs/out/index.html
+          test -f docs/out/en/index.html
+          test -f docs/out/tr/index.html
+          test -f docs/out/api/search
+          test -f docs/out/favicon.ico
+          test -f docs/out/favicon-16x16.png
+          test -f docs/out/favicon-32x32.png
+          test -f docs/out/apple-touch-icon.png
+          test -f docs/out/android-chrome-192x192.png
+          test -f docs/out/android-chrome-512x512.png
+          test -f docs/out/site.webmanifest
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/out
+
+  deploy:
+    name: Deploy GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy docs
+        id: deployment
+        uses: actions/deploy-pages@v4

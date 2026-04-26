@@ -56,7 +56,7 @@ Whenever a durable decision changes, the right follow-up is usually:
 
 ## Feedback flow in plain language
 
-Docs feedback always writes a local record to `runtime/docs-feedback.jsonl`.
-If the docs app has GitHub App credentials in `docs/.env.local`, the same feedback is also forwarded into GitHub Discussions for the corresponding page.
+The GitHub Pages docs build cannot write to the repository filesystem.
+Its feedback widget stores a short browser-local draft and prepares a prefilled GitHub issue link for manual submission.
 
-That “local log plus optional forwarding” model is intentional because it keeps a local audit trail even when GitHub is unavailable.
+If a future Node-hosted docs instance re-enables server-side feedback, it should keep local auditability explicit and avoid pretending that external forwarding succeeded when it did not.

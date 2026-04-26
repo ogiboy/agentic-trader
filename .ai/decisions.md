@@ -77,7 +77,7 @@ Writes should be gated by explicit actor rules so conversational surfaces cannot
 Reason:
 The installed `agentic-trader` command, `python main.py`, Ink TUI, and Rich menu can drift independently from unit tests.
 A small pexpect-based smoke harness should exercise the actual terminal surfaces, leave timestamped text artifacts, and fail loudly when the operator's PATH resolves a stale entrypoint.
-Quality gates such as ruff, pytest, pyright, and SonarQube should be attached as optional QA checks without hardcoding tokens or changing the trading runtime.
+Quality gates such as ruff, pytest, pyright, and SonarQube should be attached as optional QA checks without hardcoding tokens or changing the trading runtime. Sonar scanners should keep local Docker SonarQube and SonarCloud explicit: local branch/MCP work targets `agentic-trader` with root `sonar-project.properties`, while GitHub-hosted CI targets SonarCloud project `ogiboy_agentic-trader` with CLI overrides for organization/project key. Tokens must come from `SONAR_TOKEN` or target-specific Keychain services, and MCP wrappers should inject tokens at process launch rather than storing them in editor config.
 
 ### Localization should start as a shared text boundary, not a full i18n rewrite
 
@@ -122,7 +122,7 @@ Visual evidence must be cross-checked with runtime contracts or persisted truth 
 Visual QA should include UX, design, and finance/accounting readability, not only crash or smoke behavior.
 The `.ai/agents/operator-ux.md` role exists for this development review lens and should stay separate from runtime agents.
 When this role finds a confusing menu, command, layout, or financial display, it should propose the smallest safe repair and classify it as V1 blocker, V1 polish, or V2 redesign.
-For Ink specifically, pexpect open/quit coverage is not enough to protect page-switch parity under the `npm` wrapper; tmux-driven compact navigation should be the regression check for real page switching and resize-sensitive operator content.
+For Ink specifically, pexpect open/quit coverage is not enough to protect page-switch parity under the Node package-manager wrapper; tmux-driven compact navigation should be the regression check for real page switching and resize-sensitive operator content.
 
 ### Structured LLM calls should use provider JSON mode and safe previews
 
@@ -201,6 +201,14 @@ The project is expected to run consistently on multiple machines, but Conda and 
 `pyproject.toml` remains the direct dependency manifest and `poetry.lock` is now the committed resolver output.
 Conda stays useful for selecting the Python interpreter and native environment, while Poetry owns Python package add, remove, lock, and install synchronization.
 
+### JavaScript surfaces should share a root pnpm workspace
+
+Reason:
+`webgui/`, `docs/`, and the Ink `tui/` are separate UI surfaces, but they should not each own independent package-manager islands.
+A root pnpm workspace keeps Node dependency locking, CI cache keys, setup, build, and local start commands in one place without merging Python and JavaScript dependency ownership.
+Poetry remains the Python truth, while root `package.json` scripts and thin Makefile aliases provide the human-facing command surface.
+The Makefile must stay an alias layer over pnpm and Poetry commands rather than becoming a second build system.
+
 ### Service state updates should use an explicit update contract
 
 Reason:
@@ -242,13 +250,12 @@ Reason:
 Rewriting that file in one sweep would create too much operator-surface risk.
 Migration should happen screen by screen or primitive family by primitive family, and new work should prefer shadcn primitives plus utility composition over adding more global shell classes.
 
-### Docs feedback should mirror locally first and optionally forward to GitHub Discussions
+### Docs feedback should stay honest about the hosting surface
 
 Reason:
-The new Fumadocs feedback surface is useful immediately, but the repository is still local-first and should not quietly depend on GitHub Discussion, analytics, or another SaaS sink just to collect basic documentation feedback.
-The docs app should therefore store feedback locally in an inspectable append-only log first, while explicitly forwarding to GitHub Discussions when the docs GitHub App credentials are configured.
-The operator-facing configuration path for that forwarding should follow the repository's existing example-vs-local env contract, so `docs/.env.example` documents the variables and `docs/.env.local` carries the real credentials.
-If GitHub forwarding is unavailable or fails, the UI should say so plainly instead of pretending the external handoff worked.
+The public docs target is GitHub Pages, which cannot write local JSONL files or run Server Actions.
+The feedback widget should therefore prepare a browser-local GitHub issue draft and say plainly that submission remains manual.
+If a future Node-hosted docs surface reintroduces server-side local logging or GitHub forwarding, that should be an explicit hosting decision with credentials in ignored local env files and failure states visible to the operator.
 
 ### Docs should use locale-prefixed routes and modular content ownership
 
@@ -256,3 +263,16 @@ Reason:
 The docs surface now needs real bilingual coverage, but the broader product is not ready for a full repo-wide i18n rewrite.
 Keeping docs under explicit `/en/...` and `/tr/...` routes provides a practical English/Turkish split for navigation, search, and page trees without changing the trading runtime.
 Within the docs app, route files, feedback flows, i18n helpers, and landing-page content should be split into smaller modules whenever that improves readability, reviewability, and long-term maintenance.
+
+### Docs deployment should be static-first for GitHub Pages
+
+Reason:
+The public documentation target is GitHub Pages, so the docs app should export static assets rather than depending on a Node runtime, Server Actions, request headers, middleware/proxy behavior, or repository filesystem writes.
+Search should use exported Fumadocs search data, locale routes should remain statically generated, and feedback should clearly prepare a browser-local GitHub issue draft instead of pretending to write `runtime/docs-feedback.jsonl` on a static host.
+
+### Release automation should follow conventional commits
+
+Reason:
+The project needs practical solo-maintainer release hygiene without changing the runtime toolchain.
+`python-semantic-release` should read conventional commits on `main`, bump `project.version` in `pyproject.toml`, update `CHANGELOG.md`, create a `v*` tag, publish a GitHub Release, and let a separate tag workflow attach PyInstaller CLI binaries.
+The binary assets are convenience builds for the Python CLI layer; they do not bundle the Web GUI, docs app, Node runtime, Ollama, or external provider services.

@@ -6,7 +6,7 @@ description: Install the repo, validate local readiness, and bring up the main o
 ## Baseline toolchain
 
 The repository currently assumes a Python plus Node workflow.
-The Python runtime still owns the actual trading logic, while `webgui/` and `docs/` are separate Next.js shells.
+The Python runtime still owns the actual trading logic, while `webgui/`, `docs/`, and `tui/` are managed from the root pnpm workspace.
 
 Recommended baseline:
 
@@ -23,6 +23,21 @@ conda create -n trader python=3.14 poetry
 conda activate trader
 poetry env use "$CONDA_PREFIX/bin/python"
 poetry install --with dev --extras dev
+```
+
+Install the Node workspace from the repository root:
+
+```bash
+pnpm install
+pnpm approve-builds --all
+```
+
+After the Conda environment is active, use either shortcut:
+
+```bash
+pnpm run setup
+# or
+make setup
 ```
 
 ## Validate the environment before opening UIs
@@ -48,15 +63,10 @@ The project follows an example-plus-local-override pattern.
 
 - Root runtime settings should live in `.env.local`.
 - Keep tracked examples in `.env.example`.
-- Docs-specific GitHub feedback settings belong in `docs/.env.local`.
+- The GitHub Pages docs build does not need `docs/.env.local`.
 
-If you want docs feedback to forward into GitHub Discussions, copy `docs/.env.example` to `docs/.env.local` and provide:
-
-- `GITHUB_APP_ID`
-- `GITHUB_APP_PRIVATE_KEY`
-- optional `DOCS_FEEDBACK_GITHUB_OWNER`
-- optional `DOCS_FEEDBACK_GITHUB_REPO`
-- optional `DOCS_FEEDBACK_GITHUB_CATEGORY`
+Docs feedback on Pages prepares a browser-local GitHub issue draft.
+If a future Node-hosted docs instance re-enables server-side forwarding, keep its credentials in `docs/.env.local` and never in tracked config.
 
 ## Local model setup
 
@@ -88,17 +98,19 @@ agentic-trader
 Run the Web GUI:
 
 ```bash
-cd webgui
-pnpm install
-pnpm dev
+pnpm dev:webgui
 ```
 
 Run the docs site locally:
 
 ```bash
-cd docs
-pnpm install
-pnpm dev
+pnpm dev:docs
+```
+
+Run the Ink TUI directly:
+
+```bash
+pnpm start:tui
 ```
 
 ## First things to inspect when something feels wrong

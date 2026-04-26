@@ -30,8 +30,8 @@ export type ActionResponse =
   | {
       ok: true;
       storedAt: string;
-      destination: 'github-discussion' | 'local-log';
-      forwarding: 'succeeded' | 'disabled' | 'failed';
+      destination: 'github-discussion' | 'github-issue' | 'local-log';
+      forwarding: 'succeeded' | 'prepared' | 'disabled' | 'failed';
       githubUrl?: string;
       warning?: string;
     }

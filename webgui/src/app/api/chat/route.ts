@@ -1,6 +1,7 @@
 import { runChat } from '../../../lib/agentic-trader';
 import { isChatPersona } from '../../../lib/chat-personas';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SAFE_METHODS_WITHOUT_BROWSER_ORIGIN = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -39,7 +40,11 @@ export async function POST(request: Request) {
 
   let body: { persona?: string; message?: string };
   try {
-    body = (await request.json()) as { persona?: string; message?: string };
+    const parsed: unknown = await request.json();
+    if (typeof parsed !== 'object' || parsed === null) {
+      return Response.json({ error: 'invalid json' }, { status: 400 });
+    }
+    body = parsed as { persona?: string; message?: string };
   } catch {
     return Response.json({ error: 'invalid json' }, { status: 400 });
   }

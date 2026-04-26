@@ -38,6 +38,19 @@ Conventional commit tarzı tercih edilir; çünkü release otomasyonu ve tarihç
 - `docs: expand runtime and onboarding guidance`
 - `fix: clarify docs feedback forwarding state`
 
+Release otomasyonu `main` üzerindeki conventional commit'leri okur.
+Feature commit'leri minor release, fix/perf/docs/build/ci/chore commit'leri patch release üretir; `!` veya `BREAKING CHANGE:` major release anlamına gelir.
+
+## CI ve release kontrolleri
+
+Pull request'ler ve korunan branch'lerde şu kontroller yeşil kalmalı:
+
+- Python core: Poetry install, Ruff, Pyright, Pytest ve PyInstaller smoke build
+- Web GUI: pnpm workspace install, lint, typecheck ve production build
+- Docs: pnpm workspace install, lint, typecheck ve static export
+- TUI: pnpm workspace install ve Ink entrypoint syntax check
+- Release tag'leri: GitHub Release'e eklenen macOS ve Windows PyInstaller binary'leri
+
 ## Docs güncellemesi ne zaman işin parçasıdır
 
 Şu durumlarda docs aynı branch içinde güncellenmeli:

@@ -1,413 +1,214 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
-
+[![Python](https://img.shields.io/badge/python-3.12--3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![CI](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml)
+[![SonarCloud CI](https://github.com/ogiboy/agentic-trader/actions/workflows/sonar.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/sonar.yml)
+[![Release](https://github.com/ogiboy/agentic-trader/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/release.yml)
+[![Docs](https://github.com/ogiboy/agentic-trader/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/docs.yml)
+[![Latest Release](https://img.shields.io/github/v/release/ogiboy/agentic-trader?sort=semver&display_name=tag)](https://github.com/ogiboy/agentic-trader/releases)
 
 ```text
- █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗    ████████╗██████╗  █████╗ ██████╗ ███████╗██████╗
-██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║██╔════╝    ╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
-███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ██║██║            ██║   ██████╔╝███████║██║  ██║█████╗  ██████╔╝
-██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██║██║            ██║   ██╔══██╗██╔══██║██║  ██║██╔══╝  ██╔══██╗
-██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ██║╚██████╗       ██║   ██║  ██║██║  ██║██████╔╝███████╗██║  ██║
-╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═════╝       ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+AGENTIC TRADER :: local-first paper trading runtime
 ```
 
 # Agentic Trader
 
-> Strict, local-first, multi-agent paper trading for Ollama-class models.
+Agentic Trader is a strict, local-first, multi-agent paper trading system for Ollama-class models. It keeps the Python runtime as the source of truth, uses deterministic guardrails before any paper order, and records decision context so operator-facing surfaces can be inspected instead of trusted blindly.
 
-Agentic Trader is a strict, local-first, multi-agent paper trading system designed for Ollama-class models such as Qwen.
+## Navigation
 
-The core idea is simple:
+| Section | Link |
+| --- | --- |
+| Overview | [What it is](#overview) |
+| Features | [Core capabilities](#features) |
+| Installation | [Install paths](#installation) |
+| Quick Start | [First commands](#quick-start) |
+| Binaries / Releases | [Release builds](#releases--binaries) |
+| Web UI | [Local command center](#web-gui) |
+| Documentation | [Docs site](#documentation) |
+| Development | [Contributor workflow](#development) |
+| Uninstall / Cleanup | [Local cleanup](#uninstall--cleanup) |
+| License / Disclaimer | [Terms and safety](#license--disclaimer) |
 
-- agents decide market regime, strategy family, and risk plan
-- a deterministic guard decides whether a trade proposal is allowed
-- a paper broker records the simulated order
-- every run is logged so we can measure what the system is actually doing
+## Overview
 
-This is intentionally not a "chatty report generator." The system is built around structured outputs and execution-safe contracts.
+Agentic Trader is not a generic chat bot or a live broker. The runtime uses a staged specialist graph, structured model outputs, a deterministic execution guard, DuckDB-backed persistence, and paper broker accounting. The default posture is local-first, paper-first, and explicit about missing data, model readiness, and blocked execution paths.
 
-The runtime also has an explicit mode contract. The default `operation` mode is still paper-first and requires strict LLM gating plus provider/model readiness before one-shot, launch, or service execution can proceed. `training` mode is reserved for replay/backtest evaluation and may use diagnostic fallback there without enabling hidden trade generation in the live paper runtime.
+The repository is now a small monorepo-style workspace:
 
-## Architecture
+| Path | Purpose |
+| --- | --- |
+| `agentic_trader/` | Python core runtime, CLI, agents, storage, workflows, and broker contracts |
+| `main.py` | Root launcher for the Python CLI layer |
+| `webgui/` | Local Next.js Web GUI that shells out to existing Python CLI/runtime contracts |
+| `docs/` | Separate Next.js documentation site intended for GitHub Pages |
+| `tui/` | Ink terminal control room managed through the root pnpm workspace |
 
-The current strict runtime uses a staged specialist graph:
+## Features
 
-1. `Research Coordinator`
-   Sets cycle focus, priority signals, and caution flags.
-2. `Fundamental Analyst`
-   Reviews structured fundamental evidence such as growth quality, profitability, cash-flow alignment, debt, FX exposure, and reinvestment potential.
-3. `Macro / News Analyst`
-   Reviews structured macro and classified news context without ingesting raw noisy text.
-4. `Regime Agent`
-   Classifies the market state from recent price and volume features.
-5. `Strategy Selector`
-   Chooses a strategy family and directional action.
-6. `Risk Agent`
-   Sets position sizing, stop loss, take profit, and invalidation logic.
-7. `Manager Agent`
-   Combines specialist outputs into a final execution posture.
-8. `Execution Guard`
-   Rejects low-confidence or poor-risk proposals.
-9. `Paper Broker`
-   Records simulated orders, fills, account state, position plans, and journals into DuckDB.
+- Python CLI entrypoint: `agentic-trader = "agentic_trader.cli:app"`
+- Strict paper-trading runtime with model/provider readiness checks
+- Specialist agent pipeline with manager synthesis and execution guardrails
+- DuckDB-backed run records, traces, trade context, journal, and portfolio state
+- Ink TUI, Rich/admin menu, live monitor, and JSON status surfaces
+- Local Web GUI that delegates to the Python runtime instead of replacing it
+- Static-exportable docs site for setup, architecture, QA, and development notes
+- Root pnpm workspace and thin Makefile aliases for setup, checks, builds, and local app startup
+- Release automation for semantic versioning, changelog updates, GitHub Releases, and packaged CLI binaries
 
-Every agent cycle now receives a unified context bundle that can include:
+## Installation
 
-- the current market snapshot
-- a Market Context Pack with lookback coverage, multi-horizon returns, volatility, drawdown, trend votes, range structure, and data-quality flags
-- a canonical analysis snapshot that preserves provider attribution, freshness, completeness, and explicit missing sections across market, fundamental, news, disclosure, and macro context
-- operator preferences
-- portfolio state
-- recent run summaries
-- trade-journal memory hints
-- upstream agent outputs
-- a structured Decision Feature Bundle containing symbol identity, 30d/90d/180d technical summaries, fundamental placeholders, and macro/news context
-
-If the fetched market data materially under-covers the requested lookback window in operation/runtime flows, snapshot generation fails before any agents run. That keeps a `180d` or `1y` request from silently becoming a short-window decision. Training replay can still use growing windows, but the context pack keeps that undercoverage visible as data quality context.
-
-The LLM layer also supports role-based model routing, so different local models can be assigned to coordinator, fundamental, macro, regime, strategy, risk, manager, explainer, and instruction parsing roles.
-
-The current memory layer is still lightweight, but it can already retrieve historically similar recorded runs and inject those summaries into agent context before a cycle. Memory documents now also include the Market Context Pack summary so later retrieval can reason about the broader lookback, not only the latest indicator row. Stored memory vectors include embedding provider, model, version, and dimensionality metadata so future semantic embeddings can migrate without hiding how old memories were produced.
-
-## Stack
-
-- Python `3.12+` (currently exercised with a Conda `3.14` environment)
-- `Pydantic` for contracts and validation
-- `Typer` for CLI
-- `Rich` for the legacy/admin control room
-- `Ink` + React for the primary terminal control room
-- `httpx` against Ollama's native HTTP API
-- `yfinance` as the degraded fallback market/news source behind the provider boundary
-- `DuckDB` for event and order storage
-- `ruff`, `pytest`, `pyright`, and optional SonarQube/`pysonar` for local QA
-
-## Quick Start
-
-Create and activate a project-local Conda environment:
+### Python / Poetry From Source
 
 ```bash
 conda create -n trader python=3.14 poetry
 conda activate trader
-```
-
-Point Poetry at the Conda Python, then install the locked Python dependencies
-and the editable project:
-
-```bash
 poetry env use "$CONDA_PREFIX/bin/python"
 poetry install --with dev --extras dev
 ```
 
-If you want Poetry to install directly into the active Conda environment instead
-of creating its own virtualenv, run this once before `poetry install`:
+Copy `.env.example` to a local ignored env file only when you need provider/model overrides. Do not put secrets in tracked files.
+
+### Node Workspace
+
+`pnpm` manages the Web GUI, docs site, and Ink TUI from the repository root:
 
 ```bash
-poetry config virtualenvs.create false --local
-poetry install --with dev --extras dev
-```
-
-The committed `poetry.lock` file is the Python dependency lock for this
-repository. When adding or removing Python packages, use Poetry so
-`pyproject.toml` and `poetry.lock` stay in sync:
-
-```bash
-poetry add package-name
-poetry add --optional dev dev-tool-name
-poetry lock
-```
-
-Install the Ink control-room dependencies if you want the primary terminal UI:
-
-```bash
-cd tui
-npm install
-cd ..
-```
-
-If you want the installed console entrypoint instead of the root launcher, it is:
-
-```bash
-agentic-trader doctor
-```
-
-If your shell resolves `pip` to a different Python, prefer `python -m pip` so the active interpreter and installer always match.
-
-Set Ollama settings if you want to override defaults:
-
-```bash
-export AGENTIC_TRADER_MODEL=qwen3:8b
-export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
-```
-
-Optional per-role model routing overrides:
-
-```bash
-export AGENTIC_TRADER_REGIME_MODEL_NAME=qwen3:8b
-export AGENTIC_TRADER_RISK_MODEL_NAME=qwen3:14b
-export AGENTIC_TRADER_FUNDAMENTAL_MODEL_NAME=qwen3:8b
-export AGENTIC_TRADER_MACRO_MODEL_NAME=qwen3:8b
-export AGENTIC_TRADER_EXPLAINER_MODEL_NAME=llama3.1:8b
-```
-
-Optional provider keys for future financial data enrichment should live in an ignored local env file such as `.env.local`; `.env.example` documents the variable names but does not contain secrets. Current source scaffolds name SEC filings, earnings transcripts, macro indicators, KAP, Turkey company disclosures, rates, inflation, and FX sources without fetching them live yet.
-
-Smoke check the environment:
-
-```bash
-python main.py doctor
-```
-
-Run a single strict paper-trade cycle:
-
-```bash
-python main.py run --symbol AAPL --interval 1d --lookback 180d
-```
-
-Open the root launcher. By default this launches the primary Ink control room when the Node dependencies under `tui/` are installed:
-
-```bash
-agentic-trader
-```
-
-The Python root launcher is still available:
-
-```bash
-python main.py
-```
-
-Open the legacy Rich/admin menu:
-
-```bash
-agentic-trader menu
-```
-
-Attach to the live monitor:
-
-```bash
-python main.py monitor --refresh-seconds 1.0
-```
-
-Open the Ink-based next-generation control room:
-
-```bash
-agentic-trader tui
-```
-
-Ink control room hotkeys:
-
-```text
-1 overview   2 runtime   3 portfolio   4 review   5 memory   6 chat   7 settings
-r refresh    o one-shot    s start background runtime    x stop runtime    R restart    q quit
-[ and ] switch chat persona on the chat page
-```
-
-Open the local web control room:
-
-```bash
-cd webgui
 pnpm install
-pnpm dev
+pnpm approve-builds --all
 ```
 
-The web command center runs on [http://localhost:3210](http://localhost:3210) and stays local-first by calling the same `dashboard-snapshot`, runtime, chat, and instruction contracts that CLI, Rich, and Ink already use. The dev script enables Watchpack polling to avoid file-watch limit noise in larger worktree setups.
-The route handlers prefer an explicitly configured `AGENTIC_TRADER_PYTHON` or the repo-managed Conda environment before falling back to the PATH-resolved `agentic-trader` entrypoint, which helps the Web GUI stay attached to the current worktree instead of a stale global install.
-If your local setup needs an override, set `AGENTIC_TRADER_CLI` or `AGENTIC_TRADER_PYTHON` before starting the web shell.
-
-Open the local developer docs:
+For one-command setup after activating the Conda environment, use:
 
 ```bash
-cd docs
-pnpm install
-pnpm dev
+pnpm run setup
+# or
+make setup
 ```
 
-The docs app uses Fumadocs plus MDX on top of the same shadcn preset baseline used by `webgui`.
-If you want the page-feedback panel to forward into GitHub Discussions, copy `docs/.env.example` to `docs/.env.local` and fill in the GitHub App credentials before starting the docs app.
-It is meant to be the canonical developer-facing guide for setup, architecture, runtime surfaces, and QA flow.
-
-Start the runtime directly from the root launcher:
+### Optional Web GUI
 
 ```bash
-python main.py launch --symbols AAPL,MSFT --interval 1d --lookback 180d
+pnpm dev:webgui
 ```
 
-Run continuously:
+The Web GUI runs at [http://localhost:3210](http://localhost:3210).
+
+### Optional Docs Site
 
 ```bash
-python main.py launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous --poll-seconds 300
+pnpm dev:docs
 ```
 
-Run continuously in the background:
+### Optional Ink TUI
 
 ```bash
-python main.py launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous --background
-python main.py status
-python main.py logs --limit 20
-python main.py stop-service
+pnpm start:tui
 ```
 
-Talk to the built-in operator chat:
+### Optional Release Binary
+
+Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/agentic-trader/releases) when available. Binaries package the Python CLI layer; they do not bundle Ollama, the Web GUI, or the docs app.
+
+## Quick Start
+
+| Command | Purpose |
+| --- | --- |
+| `python main.py doctor` | Check local runtime, model, database, and configuration readiness |
+| `agentic-trader doctor --json` | Emit the same health check as machine-readable JSON |
+| `python main.py run --symbol AAPL --interval 1d --lookback 180d` | Run one strict paper-trading cycle |
+| `agentic-trader` | Open the primary Ink terminal control room |
+| `agentic-trader menu` | Open the Rich/admin fallback menu |
+| `agentic-trader dashboard-snapshot` | Print the shared dashboard payload used by UI surfaces |
+
+Advanced usage belongs in the docs site, not in this landing README.
+
+## Releases / Binaries
+
+Releases are driven by conventional commits on `main` through `python-semantic-release`. A release bump updates `pyproject.toml`, writes `CHANGELOG.md`, creates a `v*` tag, and opens a GitHub Release.
+
+Tag builds then package PyInstaller CLI binaries for macOS and Windows and attach them to the matching release. Source install remains the most complete developer path; release binaries are for quick CLI/admin use.
+
+## Usage
+
+| Command | Notes |
+| --- | --- |
+| `agentic-trader doctor` | Human-readable environment check |
+| `agentic-trader run --symbol AAPL --interval 1d --lookback 180d` | One paper cycle with strict gates |
+| `agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous` | Continuous paper runtime |
+| `agentic-trader monitor --refresh-seconds 1` | Attach to runtime status |
+| `agentic-trader broker-status --json` | Inspect paper/live/simulated backend truth |
+| `agentic-trader review-run` | Review the latest persisted run |
+
+## Web GUI
+
+`webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction contracts from server-side route handlers. It is intentionally not a second orchestrator.
 
 ```bash
-python main.py chat --persona operator_liaison --message "What is the runtime doing right now?"
+pnpm dev:webgui
 ```
 
-Parse a safe operator instruction and optionally apply it:
+## Documentation
+
+The docs app lives in `docs/` and is intended to deploy to GitHub Pages:
+
+[https://ogiboy.github.io/agentic-trader/](https://ogiboy.github.io/agentic-trader/)
+
+Use it for deeper setup, architecture, runtime, QA, frontend, and contribution guidance. Local development uses `pnpm dev:docs`.
+
+## Development
+
+This repo favors small, inspectable changes over broad rewrites. Keep Python runtime behavior, Web GUI delegation, and docs content aligned.
 
 ```bash
-python main.py instruct --message "Switch the system to a more conservative, explanatory posture" --apply
+pnpm check
+make check
+pnpm run qa:quality
+pnpm run sonar:status
+pnpm run sonar
 ```
 
-Inspect the paper portfolio:
+`pnpm check` is the canonical static/build validation entrypoint. Use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA and operator-surface checks. The Makefile is a thin alias layer for developers who prefer `make setup`, `make check`, `make webgui`, `make docs`, or `make tui`.
+
+Sonar is split by target on purpose:
+
+| Target | Project key | Use |
+| --- | --- | --- |
+| Local SonarQube Community Build | `agentic-trader` | Local Docker server, branch QA, Codex/MCP inspection |
+| SonarCloud | `ogiboy_agentic-trader` | GitHub-hosted CI, public badge, repository-level quality history |
+
+`sonar-project.properties` is the local default scanner file. `pnpm run sonar` runs the local Python scanner path through `pysonar`; `pnpm run sonar:js` runs the local npm scanner through `@sonar/scan`. Both read `SONAR_TOKEN` from the environment or macOS Keychain service `codex-sonarqube-token`. Use `pnpm run sonar:cloud` only when manually uploading to SonarCloud; it expects a SonarCloud token in `SONAR_TOKEN` or Keychain service `codex-sonarcloud-token`.
+
+Use `pnpm run secret:sonar:check` or `pnpm run mcp:sonarqube:dry-run` to verify the local Keychain/MCP wiring without printing tokens. The VS Code MCP wrapper uses `SONARQUBE_URL=http://host.docker.internal:9000` so Docker can reach the local host SonarQube server.
+
+GitHub Actions needs only `SONAR_TOKEN` as a repository secret for SonarCloud. Docs deployment uses GitHub Pages permissions, releases/binaries use the built-in `GITHUB_TOKEN`, and local Docker SonarQube tokens should stay on the developer machine.
+
+Conda selects the Python interpreter, Poetry owns Python dependency locking and installs, and pnpm owns JavaScript workspace dependencies. These managers intentionally stay separate below the root command surface.
+
+Commit messages should follow conventional commits so release automation can infer version bumps:
+
+| Type | Example |
+| --- | --- |
+| Feature | `feat: add docs deployment workflow` |
+| Fix | `fix: correct pyinstaller smoke build entrypoint` |
+| Docs | `docs: rewrite root readme` |
+| Breaking | `feat!: change release packaging flow` |
+
+## Uninstall / Cleanup
 
 ```bash
-python main.py portfolio
+rm -rf .venv .conda-env .pytest_cache .ruff_cache build dist *.egg-info
+rm -rf runtime docs/.next docs/out webgui/.next webgui/out
+rm -rf docs/node_modules webgui/node_modules tui/node_modules
 ```
 
-Inspect the trade journal:
+If Poetry was pointed at a Conda env, remove the env from Conda separately:
 
 ```bash
-python main.py journal --limit 20
+conda remove -n trader --all
 ```
 
-Inspect the daily paper risk report:
+## License / Disclaimer
 
-```bash
-python main.py risk-report
-```
+No license has been granted yet; usage restrictions apply until a `LICENSE` file is added.
 
-Inspect the latest persisted run in detail:
-
-```bash
-python main.py review-run
-```
-
-Inspect the per-stage agent trace for the latest run:
-
-```bash
-python main.py trace-run
-```
-
-Export the latest run review as Markdown:
-
-```bash
-python main.py export-report --output runtime/latest-run-review.md
-```
-
-Inspect historically similar recorded runs for the current snapshot:
-
-```bash
-python main.py memory-explorer --symbol AAPL --interval 1d --lookback 180d --limit 5
-```
-
-Inspect which retrieved memories and context bundles were attached to each agent stage:
-
-```bash
-python main.py retrieval-inspection
-```
-
-Inspect inferred market session state:
-
-```bash
-python main.py calendar-status --symbol THYAO.IS
-```
-
-Manage repeatable market snapshot cache:
-
-```bash
-python main.py cache-market-data --symbol AAPL --interval 1d --lookback 180d
-python main.py market-cache --json
-```
-
-Run a walk-forward backtest with the current agent pipeline:
-
-```bash
-python main.py backtest --symbol AAPL --interval 1d --lookback 2y --warmup-bars 120
-```
-
-Compare the agent replay against a deterministic baseline:
-
-```bash
-python main.py backtest --symbol AAPL --interval 1d --lookback 2y --warmup-bars 120 --compare-baseline
-```
-
-Backtests run under the same runtime mode contract as the rest of the system. In `operation` mode, provider/model readiness must pass. In `training` mode, backtest/evaluation commands can fall back to deterministic diagnostics when the model is unavailable, but `run`, `launch`, and background service execution remain strict.
-
-Replay artifacts also carry timing boundaries: market snapshots include `as_of`, and backtest reports include data-window plus first/last decision timestamps so future-data leakage can be audited.
-
-Check the approved mode-transition plan before moving between Training and Operation:
-
-```bash
-python main.py runtime-mode-checklist operation
-python main.py runtime-mode-checklist training --json
-```
-
-This command reports a schema-backed checklist only. Runtime mode changes still require explicit configuration; operator chat and free-form instructions cannot silently mutate execution policy.
-
-Inspect orchestrator runtime state and recent events:
-
-```bash
-python main.py status
-python main.py logs --limit 20
-```
-
-Machine-readable status surfaces for future UI shells:
-
-```bash
-agentic-trader doctor --json
-agentic-trader status --json
-agentic-trader logs --json --limit 8
-agentic-trader preferences --json
-agentic-trader portfolio --json
-```
-
-## QA And Code Quality
-
-Developer orientation notes live in [dev/code-map.md](dev/code-map.md).
-
-Fast checks:
-
-```bash
-python -m ruff check .
-pyright
-python -m pytest -q -p no:cacheprovider
-node --check tui/index.mjs
-```
-
-Terminal smoke checks:
-
-```bash
-python scripts/qa/smoke_qa.py
-python scripts/qa/smoke_qa.py --include-quality
-```
-
-Full local QA with SonarQube submission:
-
-```bash
-SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-quality --include-sonar
-```
-
-Smoke artifacts are written to timestamped folders under:
-
-```text
-.ai/qa/artifacts/smoke-YYYYMMDD-HHMMSS/
-```
-
-The current QA harness validates installed CLI entrypoints, the primary Ink TUI, `python main.py`, the Rich menu, read-only JSON status surfaces, optional coverage XML generation, `pyright`, and optional `pysonar` submission. SonarQube may still report a failing Quality Gate while coverage and remaining complexity refactors are being improved; the latest local cleanup reduced open code smells from `20` to `8`.
-
-## Notes
-
-- This project starts with paper trading only.
-- The trading runtime is strict by default: if Ollama or the configured model is unavailable, the core runtime should not start.
-- Deterministic fallbacks are kept for diagnostics and Training-mode evaluation, not for silent trade generation in the main launcher or background runtime.
-- The Ink control room is the primary terminal operator surface; the Rich menu remains useful as a legacy/admin fallback.
-- A first local Web GUI now lives under `webgui/` and reuses the same CLI/dashboard contracts instead of introducing a second runtime surface.
-- UI text is starting to move behind a shared catalog so CLI, Rich, Ink, and a future WebUI can grow toward multi-language support without duplicating labels.
-- Live broker adapters can be added once the planning and portfolio pipeline behaves consistently.
-
-## Near-Term Direction
-
-- reduce the remaining Sonar complexity issues in `tui.py`, `service.py`, `walk_forward.py`, and service-state persistence
-- add focused coverage around storage service-state transitions, runtime-control paths, and operator surfaces
-- keep Ink, Rich, CLI, and future WebUI surfaces attached to the same daemon/status contracts
-- continue evolving memory retrieval and inspection while keeping memory writes policy-controlled and reviewable
-- preserve paper trading as the default until backtest and journal evidence justify any live adapter work
+Agentic Trader is a paper-trading research and operator-tooling project. It does not provide financial advice, and it must not be treated as a live brokerage system. Live execution remains blocked unless a real adapter, explicit approval gates, and operator-visible safety checks are implemented.

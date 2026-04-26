@@ -10,16 +10,31 @@ Start with focused checks:
 ```bash
 python -m ruff check .
 python -m pytest -q -p no:cacheprovider
-python scripts/qa/smoke_qa.py
+pnpm run qa
 ```
 
 For the docs app:
 
 ```bash
-cd docs
-pnpm lint
-pnpm build
+pnpm --filter docs run lint
+pnpm --filter docs run build
 ```
+
+## Sonar targets
+
+Keep local SonarQube and SonarCloud separate:
+
+| Target | Project key | Command |
+| --- | --- | --- |
+| Local SonarQube Community Build | `agentic-trader` | `pnpm run sonar` |
+| Local npm scanner path | `agentic-trader` | `pnpm run sonar:js` |
+| SonarCloud | `ogiboy_agentic-trader` | `pnpm run sonar:cloud` |
+
+The local target is for Docker-backed branch analysis, Codex/MCP inspection, and developer QA. SonarCloud remains the GitHub-facing target for public badges and CI history.
+
+Tokens must stay out of tracked files. Use `SONAR_TOKEN` for one-off shells, `codex-sonarqube-token` in macOS Keychain for local Docker SonarQube, and `codex-sonarcloud-token` for manual SonarCloud uploads.
+
+For editor MCP wiring, use `scripts/secrets/run-sonarqube-mcp.sh`. It reads the token from Keychain and exports it only to the Docker MCP process, so VS Code `mcp.json` does not need a raw token.
 
 ## Why smoke QA matters
 
@@ -48,7 +63,7 @@ Before treating docs work as PR-ready:
 
 - confirm routing works for both locales
 - confirm search still returns useful results
-- confirm feedback copy explains local logging and optional GitHub forwarding
+- confirm feedback copy explains the browser-local draft and manual GitHub issue link
 - confirm page structure is readable and not overloaded
 - confirm changed assumptions were written back into `.ai` notes
 

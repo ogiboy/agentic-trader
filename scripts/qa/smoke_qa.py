@@ -39,7 +39,14 @@ TUI_READY_PATTERNS = (
     r"Overview",
 )
 DEFAULT_SONAR_HOST_URL = "http://localhost:9000"
-DEFAULT_SONAR_PROJECT_KEY = "agentic-trader-dev"
+DEFAULT_SONAR_PROJECT_KEY = "agentic-trader"
+DEFAULT_SONAR_ORGANIZATION = ""
+DEFAULT_SONAR_SOURCES = (
+    "agentic_trader,main.py,webgui/src,docs/app,docs/components,"
+    "docs/content,docs/lib,tui"
+)
+DEFAULT_SONAR_TESTS = "tests"
+DEFAULT_SONAR_TOKEN_KEYCHAIN_SERVICE = "codex-sonarqube-token"
 
 
 @dataclass(frozen=True)
@@ -93,6 +100,70 @@ def _command_display(command: list[str]) -> str:
     return " ".join(command)
 
 
+def _current_git_branch() -> str | None:
+    """Return the current branch name when the checkout is not detached."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except Exception:
+        return None
+    branch = proc.stdout.strip()
+    if proc.returncode != 0 or not branch or branch == "HEAD":
+        return None
+    return branch
+
+
+def _redact_sensitive_text(text: str, sensitive_values: tuple[str, ...]) -> str:
+    """Replace known sensitive values before writing command output to artifacts."""
+    redacted = text
+    for value in sensitive_values:
+        if value:
+            redacted = redacted.replace(value, "<redacted>")
+    return redacted
+
+
+def _resolve_sonar_token() -> str | None:
+    """Return SONAR_TOKEN from the environment or the configured macOS Keychain item."""
+    token = os.environ.get("SONAR_TOKEN")
+    if token:
+        return token
+    if sys.platform != "darwin" or shutil.which("security") is None:
+        return None
+    service = os.environ.get(
+        "SONAR_TOKEN_KEYCHAIN_SERVICE", DEFAULT_SONAR_TOKEN_KEYCHAIN_SERVICE
+    )
+    account = os.environ.get("SONAR_TOKEN_KEYCHAIN_ACCOUNT", os.environ.get("USER", ""))
+    if not account:
+        return None
+    try:
+        proc = subprocess.run(
+            [
+                "security",
+                "find-generic-password",
+                "-a",
+                account,
+                "-s",
+                service,
+                "-w",
+            ],
+            text=True,
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
 def _resolve_managed_conda_env_name() -> str | None:
     """Read the repo's Codex environment manifest and return the declared Conda env name."""
     manifest_path = REPO_ROOT / ".codex" / "environments" / "environment.toml"
@@ -104,7 +175,10 @@ def _resolve_managed_conda_env_name() -> str | None:
     if index == -1:
         return None
     remainder = manifest[index + len(marker) :].lstrip()
-    env_name = remainder.splitlines()[0].strip().strip("'").strip('"')
+    lines = remainder.splitlines()
+    if not lines:
+        return None
+    env_name = lines[0].strip().strip("'").strip('"')
     return env_name or None
 
 
@@ -216,6 +290,32 @@ def _resolve_pyright_executable() -> str | None:
     return None
 
 
+def _resolve_pysonar_executable() -> str | None:
+    """Find the pysonar executable across PATH, the active Python env, and common macOS installs."""
+    candidates: list[Path] = []
+    which_path = shutil.which("pysonar")
+    if which_path is not None:
+        candidates.append(Path(which_path))
+    candidates.append(Path(SMOKE_PYTHON).with_name("pysonar"))
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        candidates.append(Path(conda_prefix) / "bin" / "pysonar")
+    conda_exe = os.environ.get("CONDA_EXE")
+    if conda_exe:
+        candidates.append(Path(conda_exe).with_name("pysonar"))
+    candidates.extend(
+        [
+            Path("/Library/Frameworks/Python.framework/Versions/3.12/bin/pysonar"),
+            Path("/opt/homebrew/bin/pysonar"),
+            Path("/usr/local/bin/pysonar"),
+        ]
+    )
+    for candidate in candidates:
+        if candidate.exists() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
 def _write_artifact(path: Path, content: str) -> None:
     """
     Write text content to a file, creating or overwriting it.
@@ -259,6 +359,7 @@ def run_command_capture(
     require_json_stdout: bool = False,
     display: str | None = None,
     env_overrides: dict[str, str] | None = None,
+    sensitive_values: tuple[str, ...] = (),
 ) -> CheckResult:
     """
     Run a command, record its stdout/stderr and metadata to a per-check artifact, and return a CheckResult describing success or failure.
@@ -298,6 +399,9 @@ def run_command_capture(
             stdout = stdout.decode("utf-8", errors="replace")
         if isinstance(stderr, bytes):
             stderr = stderr.decode("utf-8", errors="replace")
+        stdout = _redact_sensitive_text(stdout, sensitive_values)
+        stderr = _redact_sensitive_text(stderr, sensitive_values)
+        exception_text = _redact_sensitive_text(str(exc), sensitive_values)
         _write_artifact(
             artifact,
             f"$ {display_command}\n"
@@ -305,7 +409,7 @@ def run_command_capture(
             f"timeout: {timeout}\n\n"
             f"STDOUT:\n{stdout}\n\n"
             f"STDERR:\n{stderr}\n\n"
-            f"EXCEPTION:\n{exc}\n",
+            f"EXCEPTION:\n{exception_text}\n",
         )
         return CheckResult(
             name=name,
@@ -314,7 +418,10 @@ def run_command_capture(
             artifact=str(artifact),
         )
     except Exception as exc:
-        _write_artifact(artifact, f"$ {display_command}\n\nEXCEPTION:\n{exc}\n")
+        exception_text = _redact_sensitive_text(str(exc), sensitive_values)
+        _write_artifact(
+            artifact, f"$ {display_command}\n\nEXCEPTION:\n{exception_text}\n"
+        )
         return CheckResult(
             name=name,
             passed=False,
@@ -330,13 +437,15 @@ def run_command_capture(
             json.loads(stdout)
         except json.JSONDecodeError as exc:
             json_error = str(exc)
+    artifact_stdout = _redact_sensitive_text(stdout, sensitive_values)
+    artifact_stderr = _redact_sensitive_text(stderr, sensitive_values)
 
     artifact_body = (
         f"$ {display_command}\n"
         f"cwd: {REPO_ROOT}\n"
         f"exit_code: {proc.returncode}\n\n"
-        f"STDOUT:\n{stdout}\n\n"
-        f"STDERR:\n{stderr}"
+        f"STDOUT:\n{artifact_stdout}\n\n"
+        f"STDERR:\n{artifact_stderr}"
     )
     if json_error is not None:
         artifact_body += f"\n\nJSON_ERROR:\n{json_error}\n"
@@ -969,15 +1078,17 @@ def run_rich_menu_deep_navigation(
         child.expect("Select action", timeout=timeout)
         child.sendline("7")
         _drain_child(child, EXIT_WAIT_SECONDS)
+        exit_method = "scripted_navigation"
         if child.isalive():
             child.sendcontrol("c")
+            exit_method = "scripted_navigation_ctrl_c"
             _drain_child(child, EXIT_WAIT_SECONDS)
         if child.isalive():
             child.terminate(force=True)
+            exit_method = "force_terminated"
 
         child.close(force=False)
         output = log.getvalue()
-        exit_method = "scripted_navigation"
         _write_interactive_artifact(artifact, display_command, exit_method, child, output)
         return _interactive_check_result(name, artifact, exit_method, child, output)
     except Exception as exc:
@@ -1138,9 +1249,11 @@ def _parse_args() -> Namespace:
     Returns:
         argparse.Namespace: Parsed arguments with attributes:
             include_quality (bool): If true, run ruff, pytest, and pyright when available.
-            include_sonar (bool): If true, run pysonar (requires SONAR_TOKEN in the environment).
+            include_sonar (bool): If true, run pysonar (requires SONAR_TOKEN or Keychain token).
             sonar_host_url (str): SonarQube host URL to use when running pysonar.
             sonar_project_key (str): SonarQube project key to use when running pysonar.
+            sonar_organization (str): Optional SonarCloud organization key.
+            sonar_branch_name (str | None): Optional SonarQube branch name override.
             run_label (str): Subdirectory name under .ai/qa/artifacts/ where artifacts will be written.
     """
     parser = ArgumentParser(
@@ -1154,7 +1267,7 @@ def _parse_args() -> Namespace:
     parser.add_argument(
         "--include-sonar",
         action="store_true",
-        help="Also run pysonar. Requires SONAR_TOKEN in the environment.",
+        help="Also run pysonar. Reads SONAR_TOKEN or the macOS Keychain token.",
     )
     parser.add_argument(
         "--sonar-host-url",
@@ -1165,6 +1278,16 @@ def _parse_args() -> Namespace:
         "--sonar-project-key",
         default=os.environ.get("SONAR_PROJECT_KEY", DEFAULT_SONAR_PROJECT_KEY),
         help="SonarQube project key for --include-sonar.",
+    )
+    parser.add_argument(
+        "--sonar-organization",
+        default=os.environ.get("SONAR_ORGANIZATION", DEFAULT_SONAR_ORGANIZATION),
+        help="Optional SonarCloud organization key for --include-sonar.",
+    )
+    parser.add_argument(
+        "--sonar-branch-name",
+        default=os.environ.get("SONAR_BRANCH_NAME"),
+        help="Optional SonarQube branch name for --include-sonar. Leave unset for local Community Build.",
     )
     parser.add_argument(
         "--run-label",
@@ -1422,9 +1545,16 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
             run_command_capture(
                 context,
                 "pyright",
-                [pyright, "--pythonpath", SMOKE_PYTHON, "agentic_trader", "tests"],
+                [
+                    pyright,
+                    "--pythonpath",
+                    SMOKE_PYTHON,
+                    "agentic_trader",
+                    "tests",
+                    "scripts",
+                ],
                 timeout=120,
-                display="pyright --pythonpath <smoke-python> agentic_trader tests",
+                display="pyright --pythonpath <smoke-python> agentic_trader tests scripts",
             )
         )
     return results
@@ -1434,7 +1564,12 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
     """
     Run SonarQube analysis using the `pysonar` CLI and record the invocation/result in the artifacts directory.
     
-    Checks that `pysonar` is available on PATH and that the `SONAR_TOKEN` environment variable is set; if either is missing, writes a diagnostic artifact and returns a failing CheckResult. If a coverage.xml artifact exists, it is passed to pysonar. Invokes `pysonar` (with a 240s timeout) via the common command-capture helper so stdout/stderr and exit status are persisted.
+    Checks that `pysonar` is available and that a Sonar token can be read from
+    `SONAR_TOKEN` or macOS Keychain. If either is missing, writes a diagnostic
+    artifact and returns a failing CheckResult. If a coverage.xml artifact
+    exists, it is passed to pysonar. Invokes `pysonar` (with a 240s timeout) via
+    the common command-capture helper so stdout/stderr and exit status are
+    persisted.
     
     Parameters:
         context (SmokeContext): Execution context containing the artifacts directory.
@@ -1443,31 +1578,37 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
     Returns:
         CheckResult: Result of the pysonar invocation; `passed` reflects the command exit status and output validation, and `artifact` points to the written log.
     """
-    pysonar = shutil.which("pysonar")
+    pysonar = _resolve_pysonar_executable()
     if pysonar is None:
         artifact = _artifact_path(context, "pysonar")
-        _write_artifact(artifact, "pysonar executable not found on PATH.\n")
+        _write_artifact(artifact, "pysonar executable not found.\n")
         return CheckResult(
             name="pysonar",
             passed=False,
-            details="pysonar not found on PATH",
+            details="pysonar not found",
             artifact=str(artifact),
         )
 
-    token = os.environ.get("SONAR_TOKEN")
+    token = _resolve_sonar_token()
     if not token:
         artifact = _artifact_path(context, "pysonar")
         _write_artifact(
             artifact,
-            "SONAR_TOKEN is required for --include-sonar. No token was written to artifacts.\n",
+            (
+                "A Sonar token is required for --include-sonar. Set SONAR_TOKEN "
+                "or store it in macOS Keychain service "
+                f"{DEFAULT_SONAR_TOKEN_KEYCHAIN_SERVICE!r}. No token was written "
+                "to artifacts.\n"
+            ),
         )
         return CheckResult(
             name="pysonar",
             passed=False,
-            details="SONAR_TOKEN missing",
+            details="Sonar token missing",
             artifact=str(artifact),
         )
 
+    branch_name = args.sonar_branch_name
     command = [
         pysonar,
         "--sonar-host-url",
@@ -1476,7 +1617,17 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
         token,
         "--sonar-project-key",
         args.sonar_project_key,
+        "--sonar-sources",
+        DEFAULT_SONAR_SOURCES,
+        "--sonar-tests",
+        DEFAULT_SONAR_TESTS,
+        "--sonar-python-version",
+        "3.12",
     ]
+    if branch_name:
+        command.extend(["--sonar-branch-name", branch_name])
+    if args.sonar_organization:
+        command.append(f"-Dsonar.organization={args.sonar_organization}")
     coverage_path = _coverage_path(context)
     if coverage_path.exists():
         command.extend(["--sonar-python-coverage-report-paths", str(coverage_path)])
@@ -1484,8 +1635,14 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
         "pysonar "
         f"--sonar-host-url={args.sonar_host_url} "
         "--sonar-token=<redacted> "
-        f"--sonar-project-key={args.sonar_project_key}"
+        f"--sonar-project-key={args.sonar_project_key} "
+        f"--sonar-sources={DEFAULT_SONAR_SOURCES} "
+        f"--sonar-tests={DEFAULT_SONAR_TESTS}"
     )
+    if branch_name:
+        display += f" --sonar-branch-name={branch_name}"
+    if args.sonar_organization:
+        display += f" -Dsonar.organization={args.sonar_organization}"
     if coverage_path.exists():
         display += " --sonar-python-coverage-report-paths=coverage.xml"
     return run_command_capture(
@@ -1494,6 +1651,7 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
         command,
         timeout=240,
         display=display,
+        sensitive_values=(token,),
     )
 
 

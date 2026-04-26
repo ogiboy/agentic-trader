@@ -1,5 +1,6 @@
 import { runRuntimeAction } from '../../../lib/agentic-trader';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SUPPORTED_RUNTIME_ACTIONS = new Set([
@@ -52,7 +53,11 @@ export async function POST(request: Request) {
 
   let body: { kind?: unknown };
   try {
-    body = (await request.json()) as { kind?: unknown };
+    const parsed: unknown = await request.json();
+    if (typeof parsed !== 'object' || parsed === null) {
+      return Response.json({ error: 'invalid json' }, { status: 400 });
+    }
+    body = parsed as { kind?: unknown };
   } catch {
     return Response.json({ error: 'invalid json' }, { status: 400 });
   }

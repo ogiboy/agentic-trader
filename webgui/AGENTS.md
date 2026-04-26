@@ -35,10 +35,9 @@ Read:
 Run:
 
 ```bash
-cd webgui
-pnpm lint
-pnpm typecheck
-pnpm build
+pnpm --filter webgui run lint
+pnpm --filter webgui run typecheck
+pnpm --filter webgui run build
 ```
 
 When UI behavior changes, also do a browser pass against the local dev server.

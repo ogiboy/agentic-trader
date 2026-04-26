@@ -9,19 +9,23 @@ Purpose: confirm core operator-facing terminal surfaces open, emit usable output
 Steps:
 
 ```bash
-python scripts/qa/smoke_qa.py
+pnpm run qa
 ```
 
 Optional quality extension:
 
 ```bash
-python scripts/qa/smoke_qa.py --include-quality
+pnpm run qa:quality
 ```
 
 Optional SonarQube extension:
 
 ```bash
-SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-sonar
+pnpm run sonar:status
+pnpm run sonar
+pnpm run sonar:js
+# Only when intentionally validating the SonarCloud path:
+pnpm run sonar:cloud
 ```
 
 Expected:
@@ -29,7 +33,8 @@ Expected:
 - summary exits `0` when all enabled checks pass
 - artifacts are written under `.ai/qa/artifacts/smoke-YYYYMMDD-HHMMSS/`
 - installed `agentic-trader` entrypoint drift is caught as a failed smoke check
-- no Sonar token is written to artifacts
+- no Sonar token is written to artifacts or tracked files
+- local scans target `agentic-trader`; cloud scans target `ogiboy_agentic-trader`
 
 ## Scenario 1: Environment Smoke
 
@@ -238,10 +243,9 @@ Purpose: verify the local browser shell stays aligned with dashboard truth and d
 Steps:
 
 ```bash
-cd webgui
 pnpm install
-pnpm dev
-curl -s http://localhost:3210/api/dashboard > ../.ai/qa/artifacts/webgui-dashboard.json
+pnpm dev:webgui
+curl -s http://localhost:3210/api/dashboard > .ai/qa/artifacts/webgui-dashboard.json
 ```
 
 Interact:

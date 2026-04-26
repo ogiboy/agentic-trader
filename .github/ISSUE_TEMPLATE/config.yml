@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://ogiboy.github.io/agentic-trader/
+    about: Start with the published docs site for setup, architecture, and QA guidance.

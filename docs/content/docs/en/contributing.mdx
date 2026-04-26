@@ -38,6 +38,19 @@ Examples:
 - `docs: expand runtime and onboarding guidance`
 - `fix: clarify docs feedback forwarding state`
 
+Release automation reads conventional commits on `main`.
+Feature commits create minor releases, fix/perf/docs/build/ci/chore commits create patch releases, and `!` or `BREAKING CHANGE:` marks a major release.
+
+## CI and release checks
+
+Pull requests and protected branches should keep these checks green:
+
+- Python core: Poetry install, Ruff, Pyright, Pytest, and a PyInstaller smoke build
+- Web GUI: pnpm workspace install, lint, typecheck, and production build
+- Docs: pnpm workspace install, lint, typecheck, and static export
+- TUI: pnpm workspace install and Ink entrypoint syntax check
+- Release tags: PyInstaller binaries for macOS and Windows attached to the GitHub Release
+
 ## When docs updates are part of the task
 
 Docs should be updated in the same branch when:

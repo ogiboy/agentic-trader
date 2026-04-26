@@ -6,7 +6,7 @@ description: Depoyu kur, lokal hazır oluşu doğrula ve ana operatör yüzeyler
 ## Temel toolchain
 
 Depo şu anda Python artı Node workflow'u varsayıyor.
-Asıl trading logic hâlâ Python runtime içinde; `webgui/` ve `docs/` ise ayrı Next.js kabukları.
+Asıl trading logic hâlâ Python runtime içinde; `webgui/`, `docs/` ve `tui/` root pnpm workspace üzerinden yönetiliyor.
 
 Önerilen temel kurulum:
 
@@ -23,6 +23,21 @@ conda create -n trader python=3.14 poetry
 conda activate trader
 poetry env use "$CONDA_PREFIX/bin/python"
 poetry install --with dev --extras dev
+```
+
+Node workspace'i repo root'undan kur:
+
+```bash
+pnpm install
+pnpm approve-builds --all
+```
+
+Conda ortamı aktifken aşağıdaki kısayollardan birini kullan:
+
+```bash
+pnpm run setup
+# veya
+make setup
 ```
 
 ## UI açmadan önce ortamı doğrula
@@ -48,15 +63,10 @@ Proje örnek artı lokal override düzenini kullanıyor.
 
 - Root runtime ayarları `.env.local` içinde olmalı.
 - Track edilen örnekler `.env.example` içinde kalmalı.
-- Docs'e özel GitHub feedback ayarları `docs/.env.local` içinde yaşamalı.
+- GitHub Pages docs build'i `docs/.env.local` gerektirmez.
 
-Docs feedback akışının GitHub Discussions'a da iletmesini istiyorsan `docs/.env.example` dosyasını `docs/.env.local` olarak kopyalayıp şunları ekle:
-
-- `GITHUB_APP_ID`
-- `GITHUB_APP_PRIVATE_KEY`
-- isteğe bağlı `DOCS_FEEDBACK_GITHUB_OWNER`
-- isteğe bağlı `DOCS_FEEDBACK_GITHUB_REPO`
-- isteğe bağlı `DOCS_FEEDBACK_GITHUB_CATEGORY`
+Pages üzerindeki docs feedback, tarayıcı içinde GitHub issue taslağı hazırlar.
+İleride Node-hosted bir docs örneği server-side forwarding'i yeniden açarsa credential'lar `docs/.env.local` içinde kalmalı ve track edilen config'e girmemeli.
 
 ## Lokal model kurulumu
 
@@ -88,17 +98,19 @@ agentic-trader
 Web GUI'yi çalıştır:
 
 ```bash
-cd webgui
-pnpm install
-pnpm dev
+pnpm dev:webgui
 ```
 
 Docs sitesini lokal çalıştır:
 
 ```bash
-cd docs
-pnpm install
-pnpm dev
+pnpm dev:docs
+```
+
+Ink TUI'yi doğrudan çalıştır:
+
+```bash
+pnpm start:tui
 ```
 
 ## Bir şey ters hissedildiğinde önce bakılacak yerler
