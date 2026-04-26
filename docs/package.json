@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "fumadocs-mdx && next dev",
+    "dev": "fumadocs-mdx && CHOKIDAR_USEPOLLING=true WATCHPACK_POLLING=true next dev",
     "generate": "fumadocs-mdx",
     "build": "fumadocs-mdx && next build",
     "start": "next start",

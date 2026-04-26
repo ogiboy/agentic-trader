@@ -1,17 +1,10 @@
 import type { Metadata } from 'next';
-import { JetBrains_Mono } from 'next/font/google';
-import './globals.css';
-import { defaultLanguage } from '@/lib/i18n/config';
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: '--font-jetbrains-mono',
-  subsets: ['latin'],
-});
+export const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const assetPath = (path: `/${string}`) => `${basePath}${path}`;
 
-export const metadata: Metadata = {
+export const docsMetadata: Metadata = {
   title: {
     default: 'Agentic Trader Docs',
     template: '%s | Agentic Trader Docs',
@@ -37,21 +30,3 @@ export const metadata: Metadata = {
   },
   manifest: assetPath('/site.webmanifest'),
 };
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html
-      lang={defaultLanguage}
-      suppressHydrationWarning
-      className={jetbrainsMono.variable}
-    >
-      <body className="flex min-h-screen flex-col bg-background text-foreground antialiased">
-        {children}
-      </body>
-    </html>
-  );
-}

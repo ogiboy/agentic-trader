@@ -1,6 +1,7 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Python](https://img.shields.io/badge/python-3.12--3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![CI](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml)
+[![SonarCloud CI](https://github.com/ogiboy/agentic-trader/actions/workflows/sonar.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/sonar.yml)
 [![Release](https://github.com/ogiboy/agentic-trader/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/release.yml)
 [![Docs](https://github.com/ogiboy/agentic-trader/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/docs.yml)
 [![Latest Release](https://img.shields.io/github/v/release/ogiboy/agentic-trader?sort=semver&display_name=tag)](https://github.com/ogiboy/agentic-trader/releases)
@@ -161,9 +162,25 @@ This repo favors small, inspectable changes over broad rewrites. Keep Python run
 ```bash
 pnpm check
 make check
+pnpm run qa:quality
+pnpm run sonar:status
+pnpm run sonar
 ```
 
-`pnpm check` is the canonical full local check. The Makefile is a thin alias layer for developers who prefer `make setup`, `make check`, `make webgui`, `make docs`, or `make tui`.
+`pnpm check` is the canonical static/build validation entrypoint. Use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA and operator-surface checks. The Makefile is a thin alias layer for developers who prefer `make setup`, `make check`, `make webgui`, `make docs`, or `make tui`.
+
+Sonar is split by target on purpose:
+
+| Target | Project key | Use |
+| --- | --- | --- |
+| Local SonarQube Community Build | `agentic-trader` | Local Docker server, branch QA, Codex/MCP inspection |
+| SonarCloud | `ogiboy_agentic-trader` | GitHub-hosted CI, public badge, repository-level quality history |
+
+`sonar-project.properties` is the local default scanner file. `pnpm run sonar` runs the local Python scanner path through `pysonar`; `pnpm run sonar:js` runs the local npm scanner through `@sonar/scan`. Both read `SONAR_TOKEN` from the environment or macOS Keychain service `codex-sonarqube-token`. Use `pnpm run sonar:cloud` only when manually uploading to SonarCloud; it expects a SonarCloud token in `SONAR_TOKEN` or Keychain service `codex-sonarcloud-token`.
+
+Use `pnpm run secret:sonar:check` or `pnpm run mcp:sonarqube:dry-run` to verify the local Keychain/MCP wiring without printing tokens. The VS Code MCP wrapper uses `SONARQUBE_URL=http://host.docker.internal:9000` so Docker can reach the local host SonarQube server.
+
+GitHub Actions needs only `SONAR_TOKEN` as a repository secret for SonarCloud. Docs deployment uses GitHub Pages permissions, releases/binaries use the built-in `GITHUB_TOKEN`, and local Docker SonarQube tokens should stay on the developer machine.
 
 Conda selects the Python interpreter, Poetry owns Python dependency locking and installs, and pnpm owns JavaScript workspace dependencies. These managers intentionally stay separate below the root command surface.
 
@@ -192,6 +209,6 @@ conda remove -n trader --all
 
 ## License / Disclaimer
 
-No project license is declared in this repository yet.
+No license has been granted yet; usage restrictions apply until a `LICENSE` file is added.
 
 Agentic Trader is a paper-trading research and operator-tooling project. It does not provide financial advice, and it must not be treated as a live brokerage system. Live execution remains blocked unless a real adapter, explicit approval gates, and operator-visible safety checks are implemented.

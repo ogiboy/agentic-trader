@@ -27,10 +27,10 @@ const feedbackIssueUrl = "https://github.com/ogiboy/agentic-trader/issues/new";
 
 type ParsedPageFeedback = ReturnType<typeof parsePageFeedback>;
 
-type FeedbackProps = {
+type FeedbackProps = Readonly<{
   locale: DocLanguage;
   title: string;
-};
+}>;
 
 function buildIssueUrl(feedback: ParsedPageFeedback) {
   const body = [
@@ -55,10 +55,16 @@ function buildIssueUrl(feedback: ParsedPageFeedback) {
 }
 
 function storeFeedbackDraft(feedback: ParsedPageFeedback) {
-  const existing = window.localStorage.getItem(feedbackStorageKey);
-  const records = existing ? (JSON.parse(existing) as unknown[]) : [];
-  const nextRecords = [...records, feedback].slice(-25);
-  window.localStorage.setItem(feedbackStorageKey, JSON.stringify(nextRecords));
+  try {
+    const storage = globalThis.localStorage;
+    const existing = storage.getItem(feedbackStorageKey);
+    const parsed = existing ? JSON.parse(existing) : [];
+    const records = Array.isArray(parsed) ? parsed : [];
+    const nextRecords = [...records, feedback].slice(-25);
+    storage.setItem(feedbackStorageKey, JSON.stringify(nextRecords));
+  } catch {
+    return;
+  }
 }
 
 export function Feedback({ locale, title }: FeedbackProps) {

@@ -22,14 +22,14 @@ export function DocPageShell({
   page,
   slug,
 }: Readonly<DocPageShellProps>) {
-  const MDX = page.data.body;
+  const MdxContent = page.data.body;
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
-        <MDX components={getMDXComponents()} />
+        <MdxContent components={getMDXComponents()} />
       </DocsBody>
       <Feedback
         key={`${locale}:${slug.join("/") || "index"}`}

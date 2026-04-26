@@ -34,3 +34,37 @@ eval "$(conda shell.zsh hook)"
 conda activate trader
 pnpm install:python
 '''
+
+[[actions]]
+name = "start local sonarqube"
+icon = "database"
+command = '''
+pnpm run sonar:start
+pnpm run sonar:status
+'''
+
+[[actions]]
+name = "run local sonar scan"
+icon = "search"
+command = '''
+eval "$(conda shell.zsh hook)"
+conda activate trader
+pnpm run sonar
+'''
+
+[[actions]]
+name = "run sonarcloud scan"
+icon = "cloud"
+command = '''
+eval "$(conda shell.zsh hook)"
+conda activate trader
+SONAR_TOKEN_KEYCHAIN_SERVICE=codex-sonarcloud-token pnpm run sonar:cloud
+'''
+
+[[actions]]
+name = "check sonar keychain"
+icon = "key"
+command = '''
+pnpm run secret:sonar:check
+pnpm run mcp:sonarqube:dry-run
+'''

@@ -77,7 +77,7 @@ Writes should be gated by explicit actor rules so conversational surfaces cannot
 Reason:
 The installed `agentic-trader` command, `python main.py`, Ink TUI, and Rich menu can drift independently from unit tests.
 A small pexpect-based smoke harness should exercise the actual terminal surfaces, leave timestamped text artifacts, and fail loudly when the operator's PATH resolves a stale entrypoint.
-Quality gates such as ruff, pytest, pyright, and SonarQube should be attached as optional QA checks without hardcoding tokens or changing the trading runtime.
+Quality gates such as ruff, pytest, pyright, and SonarQube should be attached as optional QA checks without hardcoding tokens or changing the trading runtime. Sonar scanners should keep local Docker SonarQube and SonarCloud explicit: local branch/MCP work targets `agentic-trader` with root `sonar-project.properties`, while GitHub-hosted CI targets SonarCloud project `ogiboy_agentic-trader` with CLI overrides for organization/project key. Tokens must come from `SONAR_TOKEN` or target-specific Keychain services, and MCP wrappers should inject tokens at process launch rather than storing them in editor config.
 
 ### Localization should start as a shared text boundary, not a full i18n rewrite
 
@@ -122,7 +122,7 @@ Visual evidence must be cross-checked with runtime contracts or persisted truth 
 Visual QA should include UX, design, and finance/accounting readability, not only crash or smoke behavior.
 The `.ai/agents/operator-ux.md` role exists for this development review lens and should stay separate from runtime agents.
 When this role finds a confusing menu, command, layout, or financial display, it should propose the smallest safe repair and classify it as V1 blocker, V1 polish, or V2 redesign.
-For Ink specifically, pexpect open/quit coverage is not enough to protect page-switch parity under the `npm` wrapper; tmux-driven compact navigation should be the regression check for real page switching and resize-sensitive operator content.
+For Ink specifically, pexpect open/quit coverage is not enough to protect page-switch parity under the Node package-manager wrapper; tmux-driven compact navigation should be the regression check for real page switching and resize-sensitive operator content.
 
 ### Structured LLM calls should use provider JSON mode and safe previews
 

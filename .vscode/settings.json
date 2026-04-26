@@ -2,7 +2,7 @@
   "python-envs.defaultEnvManager": "ms-python.python:conda",
   "python-envs.defaultPackageManager": "ms-python.python:conda",
   "sonarlint.connectedMode.project": {
-    "connectionId": "ogiboy",
-    "projectKey": "ogiboy_agentic-trader"
+    "connectionId": "local server",
+    "projectKey": "agentic-trader"
   }
 }

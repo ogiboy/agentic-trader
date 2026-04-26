@@ -1,10 +1,17 @@
 import type { ReactNode } from "react";
+import { JetBrains_Mono } from "next/font/google";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { i18nUI } from "@/lib/layout.shared";
 import { getDocLanguage } from "@/lib/i18n/routing";
+import { basePath } from "@/lib/site-metadata";
+import "../globals.css";
+export { docsMetadata as metadata } from "@/lib/site-metadata";
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const searchApi = `${basePath}/api/search`;
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+});
 
 type LocaleLayoutProps = {
   children: ReactNode;
@@ -18,11 +25,19 @@ export default async function LocaleLayout({
   const lang = getDocLanguage((await params).lang);
 
   return (
-    <RootProvider
-      i18n={i18nUI.provider(lang)}
-      search={{ options: { type: "static", api: searchApi } }}
+    <html
+      lang={lang}
+      suppressHydrationWarning
+      className={jetbrainsMono.variable}
     >
-      {children}
-    </RootProvider>
+      <body className="flex min-h-screen flex-col bg-background text-foreground antialiased">
+        <RootProvider
+          i18n={i18nUI.provider(lang)}
+          search={{ options: { type: "static", api: searchApi } }}
+        >
+          {children}
+        </RootProvider>
+      </body>
+    </html>
   );
 }

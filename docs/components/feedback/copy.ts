@@ -58,7 +58,7 @@ const feedbackCopy: Record<DocLanguage, FeedbackCopy> = {
     successLocalOnlyDisabled:
       "Geri bildirim taslağı bu tarayıcıda yerel olarak hazırlandı.",
     successLocalOnlyFailed:
-      "Geri bildirim taslağı yerel olarak hazırlandı, fakat external issue bağlantısı açılamadı.",
+      "Geri bildirim taslağı yerel olarak hazırlandı, fakat harici issue bağlantısı açılamadı.",
     technicalDetail: "Teknik ayrıntı",
     openDiscussion: "GitHub issue aç",
     genericError: "Geri bildirim gönderilemedi.",

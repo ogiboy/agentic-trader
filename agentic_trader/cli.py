@@ -119,7 +119,7 @@ def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
     pnpm = shutil.which("pnpm")
     if pnpm and (repo_root / "pnpm-workspace.yaml").exists():
         return (
-            [pnpm, "--filter", TUI_PACKAGE_NAME, "install"],
+            [pnpm, "install"],
             [pnpm, "--filter", TUI_PACKAGE_NAME, "run", "start"],
             repo_root,
             "pnpm workspace",
@@ -165,6 +165,17 @@ def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
         )
 
     return None
+
+
+def _tui_dependencies_installed(tui_dir: Path, command_cwd: Path) -> bool:
+    """Return whether the resolved Node command directory already has installed dependencies."""
+    candidates = (
+        command_cwd / "node_modules",
+        command_cwd / "node_modules" / ".pnpm",
+        tui_dir / "node_modules",
+        tui_dir / "node_modules" / ".pnpm",
+    )
+    return any(candidate.exists() for candidate in candidates)
 
 
 def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
@@ -3699,8 +3710,7 @@ def ink_tui() -> None:
         return
     install_command, start_command, command_cwd, package_manager = node_commands
 
-    node_modules = tui_dir / "node_modules"
-    if not node_modules.exists():
+    if not _tui_dependencies_installed(tui_dir, command_cwd):
         console.print(
             _render_health_panel(
                 "Installing TUI Dependencies",

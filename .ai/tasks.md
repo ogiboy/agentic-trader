@@ -175,7 +175,7 @@ Desired direction:
 - simplify Rich menu navigation so back, close, cancel, and exit behaviors are consistent and the repeated logo/header does not dominate every output
 - add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
 - turn UX findings into smallest-safe repair recommendations, classified as V1 blocker, V1 polish, or V2 redesign before implementation
-- keep the Web GUI on the same parity path, including production-verifiable visuals and a follow-up fix for the current `next dev` workspace-resolution issue
+- keep the Web GUI on the same parity path, including production-verifiable visuals, browser QA, and route-boundary checks under the root pnpm workspace
 
 ### 9. Per-Trade Context Persistence
 
@@ -256,9 +256,10 @@ The QA docs now exist and should stay in sync with the product.
 Desired direction:
 
 - keep QA scenarios aligned with actual CLI/TUI/runtime commands
-- use `python scripts/qa/smoke_qa.py` for a fast terminal smoke pass before deeper manual QA
-- use `python scripts/qa/smoke_qa.py --include-quality` when code-quality checks should travel with terminal smoke evidence
-- use `python scripts/qa/smoke_qa.py --include-quality --include-sonar` for the full local QA gate; this now emits coverage XML and submits it to SonarQube without writing the token to artifacts
+- use `pnpm run qa` for a fast terminal smoke pass before deeper manual QA
+- use `pnpm run qa:quality` when code-quality checks should travel with terminal smoke evidence
+- use `pnpm run qa:quality` for terminal smoke plus quality checks, `pnpm run sonar` for local pysonar upload, `pnpm run sonar:js` when the local npm scanner path also needs validation, and `pnpm run sonar:cloud` only for an intentional SonarCloud upload; all Sonar paths emit coverage XML and must not write tokens to artifacts
+- use `pnpm run secret:sonar:check` and `pnpm run mcp:sonarqube:dry-run` when verifying that editor/MCP Sonar wiring reads from Keychain instead of tracked JSON env values
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
@@ -288,4 +289,4 @@ Desired direction:
 - keep the automated test command in `AGENTS.md` current with the project environment
 - keep the opt-in runtime-cycle smoke check aligned with real product retry behavior so it validates operator-facing runtime reliability rather than a first-response-only LLM diagnostic
 - next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate
-- next Sonar cleanup priority: rerun analysis after the complexity cleanup, then address any remaining code smells or security hotspots that Sonar still reports
+- next Sonar cleanup priority: keep local project `agentic-trader` green on new code, review the remaining backlog issues/hotspots with a token that has hotspot permissions, and keep SonarCloud project `ogiboy_agentic-trader` as the GitHub-facing history/badge target

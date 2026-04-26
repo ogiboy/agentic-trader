@@ -2,23 +2,23 @@ name: Docs
 
 on:
   push:
-    branches: [main, devdocs]
+    branches: [main, devdocs, V1]
     paths:
-      - "docs/**"
-      - "README.md"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - ".github/workflows/docs.yml"
+      - 'docs/**'
+      - 'README.md'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/docs.yml'
   pull_request:
-    branches: [main, devdocs]
+    branches: [main, devdocs, V1]
     paths:
-      - "docs/**"
-      - "README.md"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - ".github/workflows/docs.yml"
+      - 'docs/**'
+      - 'README.md'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 permissions:
@@ -31,7 +31,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PNPM_VERSION: "10.33.2"
+  PNPM_VERSION: '10.33.2'
 
 jobs:
   build:
@@ -51,7 +51,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -69,7 +69,7 @@ jobs:
 
       - name: Build static docs
         env:
-          GITHUB_PAGES: "true"
+          GITHUB_PAGES: 'true'
         run: pnpm --filter docs run build
 
       - name: Verify static export
@@ -78,6 +78,13 @@ jobs:
           test -f docs/out/en/index.html
           test -f docs/out/tr/index.html
           test -f docs/out/api/search
+          test -f docs/out/favicon.ico
+          test -f docs/out/favicon-16x16.png
+          test -f docs/out/favicon-32x32.png
+          test -f docs/out/apple-touch-icon.png
+          test -f docs/out/android-chrome-192x192.png
+          test -f docs/out/android-chrome-512x512.png
+          test -f docs/out/site.webmanifest
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -78,7 +78,9 @@ Implemented or substantially present:
 - Market snapshots now carry `as_of`, and backtest reports persist data-window plus first/last decision timestamps so replay decisions can be audited for future-data leakage
 - `runtime-mode-checklist` now surfaces a schema-backed transition plan; mode changes remain explicit configuration actions and cannot be silently applied through chat/free-form instruction parsing
 - memory vectors now persist embedding provider, model, version, and dimensionality metadata beside the existing lightweight local-hashing vectors, and legacy rows migrate with local-hashing defaults
-- SonarQube MCP is connected for project `agentic-trader-dev`; the latest known gate is blocked primarily by coverage, while recent cleanup reduced major complexity hotspots in walk-forward backtesting, service runtime flow, Rich TUI menus, service-state persistence, and float-equality tests
+- Sonar is split into two explicit targets: local Docker SonarQube Community Build uses project `agentic-trader` through root `sonar-project.properties`, while GitHub-hosted CI and public badges use SonarCloud project `ogiboy_agentic-trader`
+- local `pnpm run sonar` uses `pysonar`, local `pnpm run sonar:js` uses `@sonar/scan`, and manual `pnpm run sonar:cloud` uses the npm scanner with SonarCloud organization `ogiboy`; tokens must come from `SONAR_TOKEN` or separate macOS Keychain services (`codex-sonarqube-token` for local, `codex-sonarcloud-token` for cloud)
+- VS Code MCP can run through `scripts/secrets/run-sonarqube-mcp.sh`, which reads the local SonarQube token from Keychain and exports it only to the Docker MCP process
 
 New production-expansion direction:
 
@@ -114,7 +116,7 @@ New production-expansion direction:
 - `webgui` lint, typecheck, production build, and the local `pnpm dev:webgui` flow on `localhost:3210` are now green in this worktree
 - Web GUI review, portfolio, risk, journal, and memory panels now surface section-level unavailability errors explicitly instead of collapsing them into generic empty states
 - `docs` now builds and lints with the new Fumadocs shell and is prepared for GitHub Pages static export, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
-- root `pnpm check` and `make check` are now the intended full local validation entrypoints; use focused `pnpm --filter ...` and Poetry commands when narrowing a failure
+- root `pnpm check` and `make check` are now the intended static/build validation entrypoints; use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA, and focused `pnpm --filter ...` or Poetry commands when narrowing a failure
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture

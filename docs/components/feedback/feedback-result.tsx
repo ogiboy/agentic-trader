@@ -17,14 +17,12 @@ export function FeedbackResult({
     return <p className="text-destructive">{result.error}</p>;
   }
 
-  const message =
-    result.forwarding === "prepared"
-      ? copy.successForwarded
-      : result.forwarding === "succeeded"
-      ? copy.successForwarded
-      : result.forwarding === "failed"
-        ? copy.successLocalOnlyFailed
-        : copy.successLocalOnlyDisabled;
+  let message = copy.successLocalOnlyDisabled;
+  if (result.forwarding === "prepared" || result.forwarding === "succeeded") {
+    message = copy.successForwarded;
+  } else if (result.forwarding === "failed") {
+    message = copy.successLocalOnlyFailed;
+  }
 
   return (
     <div className="flex flex-col gap-2">

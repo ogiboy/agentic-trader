@@ -9,16 +9,17 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        default:
+          "bg-primary text-primary-foreground data-[interactive=true]:hover:bg-primary/80",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground data-[interactive=true]:hover:bg-secondary/80",
         destructive:
-          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 hover:bg-destructive/20",
+          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 data-[interactive=true]:hover:bg-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40",
         outline:
-          "border-border text-foreground hover:bg-muted hover:text-muted-foreground",
+          "border-border text-foreground data-[interactive=true]:hover:bg-muted data-[interactive=true]:hover:text-muted-foreground",
         ghost:
-          "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          "data-[interactive=true]:hover:bg-muted data-[interactive=true]:hover:text-muted-foreground dark:data-[interactive=true]:hover:bg-muted/50",
+        link: "text-primary underline-offset-4 data-[interactive=true]:hover:underline",
       },
     },
     defaultVariants: {
@@ -39,6 +40,7 @@ function Badge({
   return (
     <Comp
       data-slot="badge"
+      data-interactive={asChild ? "true" : undefined}
       data-variant={variant}
       className={cn(badgeVariants({ variant }), className)}
       {...props}
