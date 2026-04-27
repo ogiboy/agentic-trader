@@ -426,13 +426,12 @@ class TestOverallBias:
 
 
 class TestValidateLlmEvidenceContract:
-    def test_non_llm_source_passes_through(self) -> None:
+    def test_non_llm_source_passes_validation(self) -> None:
         assessment = FundamentalAssessment(
             source="fallback",
             overall_bias="supportive",
         )
-        result = _validate_llm_evidence_contract(assessment)
-        assert result is assessment
+        assert _validate_llm_evidence_contract(assessment) is None
 
     def test_llm_with_no_evidence_or_inference_or_uncertainty_raises(self) -> None:
         assessment = FundamentalAssessment(
@@ -453,8 +452,7 @@ class TestValidateLlmEvidenceContract:
                 inference=["Inferred from sector trends."]
             ),
         )
-        result = _validate_llm_evidence_contract(assessment)
-        assert result is assessment
+        assert _validate_llm_evidence_contract(assessment) is None
 
     def test_llm_with_only_uncertainty_passes(self) -> None:
         assessment = FundamentalAssessment(
@@ -464,8 +462,7 @@ class TestValidateLlmEvidenceContract:
                 uncertainty=["Data is incomplete."]
             ),
         )
-        result = _validate_llm_evidence_contract(assessment)
-        assert result is assessment
+        assert _validate_llm_evidence_contract(assessment) is None
 
     def test_non_neutral_llm_bias_without_direct_evidence_raises(self) -> None:
         assessment = FundamentalAssessment(
@@ -487,8 +484,7 @@ class TestValidateLlmEvidenceContract:
                 inference=["Likely to face refinancing headwinds."],
             ),
         )
-        result = _validate_llm_evidence_contract(assessment)
-        assert result is assessment
+        assert _validate_llm_evidence_contract(assessment) is None
 
     def test_avoid_bias_without_direct_evidence_raises(self) -> None:
         assessment = FundamentalAssessment(
@@ -653,7 +649,7 @@ class TestFallbackFundamental:
         result = _fallback_fundamental(None)
         assert result.source == "fallback"
         assert result.overall_bias == "neutral"
-        assert result.confidence == 0.0
+        assert result.confidence == pytest.approx(0.0)
 
     def test_fallback_with_high_debt_risk_produces_avoid_balance_sheet(self) -> None:
         context = _context()
@@ -694,7 +690,7 @@ class TestFallbackFundamental:
         result = _fallback_fundamental(
             flagged, fallback_reason=FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON
         )
-        assert result.confidence == 0.0
+        assert result.confidence == pytest.approx(0.0)
 
     def test_fallback_without_provider_missing_flag_sets_confidence_035(self) -> None:
         context = _context()

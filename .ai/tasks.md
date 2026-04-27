@@ -14,7 +14,7 @@
 Now:
 
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
-- keep the GitHub Actions CI, semantic-release, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's Poetry-plus-root-pnpm-workspace structure
+- keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's Poetry-plus-root-pnpm-workspace structure
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
 - capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, including JetBrains Mono typography
 - keep the locale-aware English and Turkish docs trees curated, modular, and synced with runtime reality instead of letting them collapse back into oversized route files or duplicated repo notes
@@ -26,7 +26,7 @@ Next:
 
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
-- verify GitHub Pages, required status checks, semantic-release permissions, and release binary upload behavior after the workflows are pushed
+- verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
 
 ### 1. Financial Intelligence Layer
 

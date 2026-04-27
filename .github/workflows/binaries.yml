@@ -2,17 +2,33 @@ name: Binaries
 
 on:
   push:
+    branches:
+      - "**"
     tags:
       - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to build assets for, for example v0.2.0"
-        required: true
+        description: "Optional release tag to build and attach assets for, for example v0.2.0"
+        required: false
         type: string
+      channel:
+        description: "Override artifact channel for manual branch builds"
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - stable
+          - next
+          - beta
 
 permissions:
   contents: write
+
+concurrency:
+  group: binaries-${{ github.ref }}-${{ github.event.inputs.tag || 'branch' }}
+  cancel-in-progress: false
 
 env:
   POETRY_VERSION: "2.3.4"
@@ -35,22 +51,34 @@ jobs:
             extension: ".exe"
 
     steps:
-      - name: Resolve release tag
-        id: tag
+      - name: Resolve checkout ref
+        id: ref
         shell: bash
         env:
-          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          TAG="${INPUT_TAG}"
-          if [ -z "$TAG" ]; then
-            TAG="${GITHUB_REF_NAME}"
+          set -euo pipefail
+          release_ref=""
+          checkout_ref="${GITHUB_REF_NAME}"
+          ref_name="${GITHUB_REF_NAME}"
+
+          if [ -n "${INPUT_TAG}" ]; then
+            release_ref="${INPUT_TAG}"
+            checkout_ref="${INPUT_TAG}"
+            ref_name="${INPUT_TAG}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            release_ref="${GITHUB_REF_NAME}"
           fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          echo "checkout_ref=${checkout_ref}" >> "$GITHUB_OUTPUT"
+          echo "release_ref=${release_ref}" >> "$GITHUB_OUTPUT"
+          echo "ref_name=${ref_name}" >> "$GITHUB_OUTPUT"
 
       - name: Check out repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ steps.tag.outputs.tag }}
+          ref: ${{ steps.ref.outputs.checkout_ref }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -70,6 +98,46 @@ jobs:
           poetry config virtualenvs.in-project true
           poetry install --with dev --extras dev
 
+      - name: Detect semantic tag candidate
+        id: semantic
+        shell: bash
+        env:
+          RELEASE_REF: ${{ steps.ref.outputs.release_ref }}
+        run: |
+          set -euo pipefail
+          tag="${RELEASE_REF}"
+          if [ -z "$tag" ]; then
+            set +e
+            tag="$(
+              poetry run semantic-release --noop version --print-tag 2>/tmp/semantic-release-preview.log \
+                | grep -E '^v[0-9]+(\.[0-9]+){2}([-.+][0-9A-Za-z.-]+)?$' \
+                | tail -n 1
+            )"
+            set -e
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute artifact version
+        id: plan
+        shell: bash
+        env:
+          RELEASE_REF: ${{ steps.ref.outputs.release_ref }}
+          REF_NAME: ${{ steps.ref.outputs.ref_name }}
+          SEMANTIC_TAG: ${{ steps.semantic.outputs.tag }}
+          CHANNEL: ${{ github.event.inputs.channel }}
+        run: |
+          set -euo pipefail
+          args=(
+            --semantic-tag "$SEMANTIC_TAG"
+            --release-ref "$RELEASE_REF"
+            --ref-name "$REF_NAME"
+            --format github
+          )
+          if [ -n "${CHANNEL}" ] && [ "${CHANNEL}" != "auto" ]; then
+            args+=(--channel "$CHANNEL")
+          fi
+          python scripts/release/version_plan.py "${args[@]}"
+
       - name: Build CLI binary
         shell: bash
         run: poetry run pyinstaller --clean --onefile --name agentic-trader main.py
@@ -84,7 +152,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          asset_base="agentic-trader-${{ matrix.asset_suffix }}-${{ steps.tag.outputs.tag }}"
+          asset_base="agentic-trader-${{ matrix.asset_suffix }}-${{ steps.plan.outputs.artifact_version }}"
           binary="dist/agentic-trader${{ matrix.extension }}"
           staged="release/${asset_base}${{ matrix.extension }}"
           cp "$binary" "$staged"
@@ -102,15 +170,17 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.asset_suffix }}-${{ steps.tag.outputs.tag }}
+          name: ${{ matrix.asset_suffix }}-${{ steps.plan.outputs.artifact_version }}
           path: ${{ steps.package.outputs.archive }}
           if-no-files-found: error
+          retention-days: 30
 
       - name: Attach binary to GitHub Release
+        if: ${{ steps.plan.outputs.attach_to_release == 'true' }}
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.tag.outputs.tag }}
+          TAG: ${{ steps.plan.outputs.release_ref }}
         run: |
           set -euo pipefail
           for attempt in {1..18}; do

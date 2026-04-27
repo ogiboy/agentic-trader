@@ -17,6 +17,9 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] Run the smallest relevant targeted tests.
 - [ ] Run the full suite when feasible:
   - `pnpm run check`
+- [ ] For workflow/release changes, preview version identity without mutating files:
+  - `pnpm run release:preview`
+  - `pnpm run version:plan`
 - [ ] Confirm `git status --short` does not contain accidental runtime artifacts.
 - [ ] Confirm smoke artifacts are grouped under a timestamped `.ai/qa/artifacts/smoke-*` directory.
 - [ ] Confirm changed roadmap items are checked or left unchecked accurately.

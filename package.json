@@ -20,6 +20,8 @@
     "qa": "poetry run python scripts/qa/smoke_qa.py",
     "qa:quality": "poetry run python scripts/qa/smoke_qa.py --include-quality",
     "qa:sonar": "poetry run python scripts/qa/smoke_qa.py --include-quality --include-sonar",
+    "version:plan": "scripts/release/preview_version_plan.sh",
+    "release:preview": "poetry run semantic-release --noop version --print-tag",
     "sonar": "pnpm run sonar:local",
     "sonar:install": "scripts/sonarqube/install-tools.sh",
     "sonar:start": "scripts/sonarqube/start-local.sh",

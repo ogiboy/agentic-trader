@@ -19,6 +19,11 @@ FxRisk = Literal["low", "medium", "high", "unknown"]
 FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON = (
     "Structured fundamental provider data is unavailable."
 )
+PROVIDER_GAP_FLAGS = {
+    "fundamental_provider_missing",
+    "fundamental_fetch_not_implemented",
+    "fundamental_provider_not_configured",
+}
 
 
 def _dedupe(items: list[str]) -> list[str]:
@@ -214,23 +219,20 @@ def _overall_bias(
 
 def _validate_llm_evidence_contract(
     assessment: FundamentalAssessment,
-) -> FundamentalAssessment:
+) -> None:
     """
     Validate that an LLM-produced FundamentalAssessment satisfies minimum evidence requirements.
     
-    If the assessment's source is "llm", requires that at least one of `evidence`, `inference`, or `uncertainty` is present in `assessment.evidence_vs_inference`. Additionally, if `assessment.overall_bias` is not "neutral", requires non-empty direct `evidence`. Returns the assessment unchanged when valid.
+    If the assessment's source is "llm", requires that at least one of `evidence`, `inference`, or `uncertainty` is present in `assessment.evidence_vs_inference`. Additionally, if `assessment.overall_bias` is not "neutral", requires non-empty direct `evidence`.
     
     Parameters:
         assessment (FundamentalAssessment): The assessment to validate.
-    
-    Returns:
-        FundamentalAssessment: The same assessment if validation passes.
     
     Raises:
         ValueError: If `assessment.source == "llm"` but no evidence/inference/uncertainty are provided, or if the assessment has a non-neutral overall_bias without direct evidence.
     """
     if assessment.source != "llm":
-        return assessment
+        return
     evidence = assessment.evidence_vs_inference
     if not (evidence.evidence or evidence.inference or evidence.uncertainty):
         raise ValueError(
@@ -240,7 +242,6 @@ def _validate_llm_evidence_contract(
         raise ValueError(
             "Non-neutral LLM fundamental assessment requires direct evidence."
         )
-    return assessment
 
 
 def _metric_evidence(features: FundamentalFeatureSet) -> list[str]:
@@ -275,6 +276,38 @@ def _metric_evidence(features: FundamentalFeatureSet) -> list[str]:
     return evidence
 
 
+def _fallback_risk_flags(
+    features: FundamentalFeatureSet,
+    balance_sheet_quality: AnalysisSignal,
+    fx_risk: FxRisk,
+) -> list[str]:
+    risk_flags = ["fundamental_evidence_neutral", *features.quality_flags]
+    if balance_sheet_quality in {"cautious", "avoid"}:
+        risk_flags.append("high_debt_risk")
+    if fx_risk in {"medium", "high"}:
+        risk_flags.append(f"{fx_risk}_fx_risk")
+    return risk_flags
+
+
+def _fallback_strengths(
+    growth_quality: AnalysisSignal,
+    profitability_quality: AnalysisSignal,
+    cash_flow_quality: AnalysisSignal,
+) -> list[str]:
+    quality_labels = [
+        (growth_quality, "growth_evidence_supportive"),
+        (profitability_quality, "profitability_evidence_supportive"),
+        (cash_flow_quality, "cash_flow_evidence_supportive"),
+    ]
+    return [label for quality, label in quality_labels if quality == "supportive"]
+
+
+def _has_provider_gap(context: AgentContext | None, risk_flags: Sequence[str]) -> bool:
+    if context is None or context.decision_features is None:
+        return True
+    return any(flag in PROVIDER_GAP_FLAGS for flag in risk_flags)
+
+
 def _fallback_fundamental(
     context: AgentContext | None,
     *,
@@ -306,10 +339,10 @@ def _fallback_fundamental(
     business_quality: AnalysisSignal = "neutral"
     macro_fit: AnalysisSignal = "neutral"
     forward_outlook: AnalysisSignal = "neutral"
+    reinvestment_quality: AnalysisSignal = "neutral"
     if context is not None and context.decision_features is not None:
         features = context.decision_features.fundamental
         macro = context.decision_features.macro
-        risk_flags.extend(features.quality_flags)
         summary = features.summary or summary
         evidence.extend(_metric_evidence(features))
         if features.quality_flags:
@@ -331,32 +364,18 @@ def _fallback_fundamental(
             business_quality,
             macro_fit,
         )
-        if balance_sheet_quality in {"cautious", "avoid"}:
-            risk_flags.append("high_debt_risk")
-        if fx_risk in {"medium", "high"}:
-            risk_flags.append(f"{fx_risk}_fx_risk")
-        if growth_quality == "supportive":
-            strengths.append("growth_evidence_supportive")
-        if profitability_quality == "supportive":
-            strengths.append("profitability_evidence_supportive")
-        if cash_flow_quality == "supportive":
-            strengths.append("cash_flow_evidence_supportive")
+        risk_flags = _fallback_risk_flags(features, balance_sheet_quality, fx_risk)
+        strengths.extend(
+            _fallback_strengths(
+                growth_quality,
+                profitability_quality,
+                cash_flow_quality,
+            )
+        )
         inference.append(
             "Fallback assessment used only structured feature metrics and source quality flags."
         )
-    provider_gap = (
-        context is None
-        or context.decision_features is None
-        or any(
-        flag
-        in {
-            "fundamental_provider_missing",
-            "fundamental_fetch_not_implemented",
-            "fundamental_provider_not_configured",
-        }
-        for flag in risk_flags
-        )
-    )
+    provider_gap = _has_provider_gap(context, risk_flags)
     signals: list[AnalysisSignal] = [
         growth_quality,
         profitability_quality,
@@ -388,11 +407,7 @@ def _fallback_fundamental(
         revenue_growth_quality=growth_quality,
         debt_quality=balance_sheet_quality,
         fx_exposure_risk=fx_risk,
-        reinvestment_quality=_score_quality(
-            context.decision_features.fundamental.reinvestment_potential
-            if context is not None and context.decision_features is not None
-            else None
-        ),
+        reinvestment_quality=reinvestment_quality,
         overall_signal=overall_bias,
         confidence=0.0 if provider_gap else 0.35,
         summary=summary,
@@ -474,7 +489,8 @@ def assess_fundamentals(
             user_prompt=user_prompt,
             schema=FundamentalAssessment,
         )
-        return _validate_llm_evidence_contract(assessment)
+        _validate_llm_evidence_contract(assessment)
+        return assessment
     except Exception:
         if not allow_fallback:
             raise

@@ -2,6 +2,7 @@
 [![Python](https://img.shields.io/badge/python-3.12--3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![CI](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml)
 [![SonarCloud CI](https://github.com/ogiboy/agentic-trader/actions/workflows/sonar.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/sonar.yml)
+[![Version Check](https://github.com/ogiboy/agentic-trader/actions/workflows/version-check.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/version-check.yml)
 [![Release](https://github.com/ogiboy/agentic-trader/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/release.yml)
 [![Docs](https://github.com/ogiboy/agentic-trader/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/docs.yml)
 [![Latest Release](https://img.shields.io/github/v/release/ogiboy/agentic-trader?sort=semver&display_name=tag)](https://github.com/ogiboy/agentic-trader/releases)
@@ -136,9 +137,11 @@ Advanced usage belongs in the docs site, not in this landing README.
 
 ## Releases / Binaries
 
-Releases are driven by conventional commits on `main` through `python-semantic-release`. A release bump updates `pyproject.toml`, writes `CHANGELOG.md`, creates a `v*` tag, and opens a GitHub Release.
+Stable releases are driven by conventional commits on `main` through `python-semantic-release`. A release bump updates `pyproject.toml`, prepends `CHANGELOG.md`, creates a strict SemVer `v*` tag such as `v0.9.5`, and opens a GitHub Release.
 
-Tag builds then package PyInstaller CLI binaries for macOS and Windows and attach them to the matching release. Source install remains the most complete developer path; release binaries are for quick CLI/admin use.
+Preview builds keep SemVer compatibility by using prerelease and build metadata instead of a fourth core version segment. Integration branches such as `V1` produce `next` artifacts like `v0.9.6-next.9870+gabc1234`; feature branches produce `beta` artifacts like `v0.9.6-beta.9870+gabc1234`.
+
+Tagged release builds attach PyInstaller CLI binaries for macOS and Windows to the matching release. Branch binary builds are workflow artifacts for testing. Source install remains the most complete developer path; release binaries are for quick CLI/admin use.
 
 ## Usage
 
@@ -175,6 +178,8 @@ This repo favors small, inspectable changes over broad rewrites. Keep Python run
 pnpm check
 make check
 pnpm run qa:quality
+pnpm run version:plan
+pnpm run release:preview
 pnpm run sonar:status
 pnpm run mcp:sonarqube:status
 pnpm run sonar
@@ -205,6 +210,8 @@ Commit messages should follow conventional commits so release automation can inf
 | Fix | `fix: correct pyinstaller smoke build entrypoint` |
 | Docs | `docs: rewrite root readme` |
 | Breaking | `feat!: change release packaging flow` |
+
+`main` is the only branch that mutates `pyproject.toml`, `CHANGELOG.md`, tags, and GitHub Releases automatically. Other branches run version previews and binary artifact builds without changing tracked version files.
 
 ## Uninstall / Cleanup
 

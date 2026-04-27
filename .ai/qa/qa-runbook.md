@@ -201,6 +201,13 @@ Sonar topology:
 - `mcp/sonarqube` containers are MCP clients used by Codex or VS Code to query the server.
 - Multiple running `mcp/sonarqube` containers usually mean multiple active editor/agent sessions, not multiple SonarQube servers. Use `pnpm run mcp:sonarqube:status` before assuming the server or token is broken.
 
+### Release and Build Identity
+
+Use `pnpm run release:preview` to ask `python-semantic-release` what tag the current conventional-commit history implies, and `pnpm run version:plan` to inspect the branch artifact identity.
+
+Stable releases should happen only from `main` and should use strict SemVer tags such as `v0.9.5`.
+Branch builds must not use a fourth SemVer core segment. Use prerelease/build metadata instead: integration branches such as `V1` use `next` artifact identities like `v0.9.6-next.9870+gabc1234`, while feature branches use `beta` identities like `v0.9.6-beta.9870+gabc1234`.
+
 ## Standard QA Workflow
 
 1. Read `AGENTS.md`, `.ai/current-state.md`, `.ai/tasks.md`, `.ai/debugging.md`, and the QA scenario being executed.
