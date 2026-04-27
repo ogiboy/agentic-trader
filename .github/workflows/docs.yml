@@ -32,7 +32,6 @@ jobs:
   build:
     name: Build GitHub Pages artifact
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('docs/package.json') != '' }}
     permissions:
       contents: read
 

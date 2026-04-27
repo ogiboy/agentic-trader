@@ -59,7 +59,6 @@ jobs:
   webgui:
     name: Web GUI
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('webgui/package.json') != '' }}
 
     steps:
       - name: Check out repository
@@ -92,7 +91,6 @@ jobs:
   docs:
     name: Docs
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('docs/package.json') != '' }}
 
     steps:
       - name: Check out repository
@@ -127,7 +125,6 @@ jobs:
   terminal-ui:
     name: Terminal UI
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('tui/package.json') != '' }}
 
     steps:
       - name: Check out repository
