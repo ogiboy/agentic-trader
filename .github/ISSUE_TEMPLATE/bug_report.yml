@@ -1,7 +1,7 @@
 name: Bug report
 description: Report a reproducible problem in the CLI, runtime, Web GUI, or docs.
-title: "fix: "
-labels: ["bug"]
+title: 'fix: '
+labels: ['bug']
 body:
   - type: textarea
     id: summary

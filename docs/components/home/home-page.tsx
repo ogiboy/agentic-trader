@@ -1,10 +1,10 @@
-import { EntryPointGrid } from "@/components/home/entry-point-grid";
-import { HomeHero } from "@/components/home/home-hero";
-import { CurrentFocusPanel } from "@/components/home/current-focus-panel";
-import { RepoGuardrailAlert } from "@/components/home/repo-guardrail-alert";
-import { WorkflowTabs } from "@/components/home/workflow-tabs";
-import type { DocLanguage } from "@/lib/i18n/config";
-import { getHomeContent } from "@/lib/home/content";
+import { EntryPointGrid } from '@/components/home/entry-point-grid';
+import { HomeHero } from '@/components/home/home-hero';
+import { CurrentFocusPanel } from '@/components/home/current-focus-panel';
+import { RepoGuardrailAlert } from '@/components/home/repo-guardrail-alert';
+import { WorkflowTabs } from '@/components/home/workflow-tabs';
+import type { DocLanguage } from '@/lib/i18n/config';
+import { getHomeContent } from '@/lib/home/content';
 
 type HomePageProps = {
   locale: DocLanguage;

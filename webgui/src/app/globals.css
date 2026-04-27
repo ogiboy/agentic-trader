@@ -1,6 +1,6 @@
 @import 'tailwindcss';
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -59,11 +59,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
-    var(--font-jetbrains-mono),
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 button,

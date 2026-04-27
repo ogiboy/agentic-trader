@@ -29,11 +29,11 @@ MEMORY_WRITE_POLICIES: dict[MemoryDomain, MemoryWritePolicy] = {
 def assert_memory_write_allowed(domain: MemoryDomain, actor: MemoryActor) -> None:
     """
     Ensure the specified actor is permitted to write to the given memory domain.
-    
+
     Parameters:
         domain (MemoryDomain): The memory domain to check (e.g., "trade_memory" or "chat_memory").
         actor (MemoryActor): The actor attempting the write (e.g., "system_runtime", "review_agent", or "operator_chat").
-    
+
     Raises:
         PermissionError: If the actor is not allowed to write to the domain; message will indicate the blocked actor and domain.
     """
@@ -47,9 +47,9 @@ def assert_memory_write_allowed(domain: MemoryDomain, actor: MemoryActor) -> Non
 def memory_write_policy_snapshot() -> dict[str, MemoryWritePolicy]:
     """
     Return a defensive copy of MEMORY_WRITE_POLICIES with mutable lists duplicated.
-    
+
     Each entry maps a memory domain to a MemoryWritePolicy where `allowed_actors` is a new list copied from the original and `note` is the same string value.
-    
+
     Returns:
         dict[str, MemoryWritePolicy]: Snapshot of policies; modifying any `allowed_actors` list in the result will not affect the original MEMORY_WRITE_POLICIES.
     """

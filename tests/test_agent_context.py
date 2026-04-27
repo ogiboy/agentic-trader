@@ -34,10 +34,10 @@ from agentic_trader.workflows.run_once import persist_run
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
     """
     Create a RunArtifacts object populated with fixed example market, research, strategy, risk, manager, execution, and review data.
-    
+
     Parameters:
         symbol (str): Ticker symbol to use in the generated MarketSnapshot and ExecutionDecision (default "AAPL").
-    
+
     Returns:
         RunArtifacts: A deterministic set of example artifacts including:
             - snapshot: MarketSnapshot with price, indicators, returns, volume ratio, and bars_analyzed
@@ -281,7 +281,9 @@ def test_render_agent_context_prefers_structured_features_when_available(
 
     assert "Feature Input:" in rendered
     assert "price_anchor=100.0" in rendered
-    assert "quality_flags=partial_lookback_coverage,higher_timeframe_fallback" in rendered
+    assert (
+        "quality_flags=partial_lookback_coverage,higher_timeframe_fallback" in rendered
+    )
     assert "revenue_growth=0.12" in rendered
     assert "profitability_stability=0.74" in rendered
     assert "cash_flow_alignment=0.68" in rendered

@@ -116,7 +116,9 @@ def test_trade_memory_rejects_chat_actor(tmp_path: Path) -> None:
         )
 
 
-def test_memory_policy_cli_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_memory_policy_cli_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

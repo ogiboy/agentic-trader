@@ -1,8 +1,8 @@
-import { ChartCandlestick } from "lucide-react";
-import { defineI18nUI } from "fumadocs-ui/i18n";
-import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
-import { i18n, languageLabels, type DocLanguage } from "@/lib/i18n/config";
-import { withLanguagePrefix } from "@/lib/i18n/routing";
+import { ChartCandlestick } from 'lucide-react';
+import { defineI18nUI } from 'fumadocs-ui/i18n';
+import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import { i18n, languageLabels, type DocLanguage } from '@/lib/i18n/config';
+import { withLanguagePrefix } from '@/lib/i18n/routing';
 
 export const i18nUI = defineI18nUI(i18n, {
   en: {
@@ -10,7 +10,7 @@ export const i18nUI = defineI18nUI(i18n, {
   },
   tr: {
     displayName: languageLabels.tr,
-    search: "Dokümanlarda ara",
+    search: 'Dokümanlarda ara',
   },
 });
 
@@ -24,8 +24,8 @@ export function baseOptions(locale: DocLanguage): BaseLayoutProps {
           Agentic Trader Docs
         </span>
       ),
-      url: withLanguagePrefix(locale, "/"),
+      url: withLanguagePrefix(locale, '/'),
     },
-    githubUrl: "https://github.com/ogiboy/agentic-trader",
+    githubUrl: 'https://github.com/ogiboy/agentic-trader',
   };
 }

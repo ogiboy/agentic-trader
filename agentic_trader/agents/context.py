@@ -111,10 +111,10 @@ def _render_canonical_snapshot_summary(context: AgentContext) -> str:
 def _render_decision_feature_summary(context: AgentContext) -> str:
     """
     Render the decision feature bundle into a compact, labeled summary suitable for inclusion in a prompt.
-    
+
     Parameters:
         context (AgentContext): Agent context whose `decision_features` will be rendered.
-    
+
     Returns:
         str: A newline-delimited summary containing symbol identity, technical metrics and summary, fundamental metrics, fundamental provenance and summary, and macro metrics and summary; or the literal string "No decision feature bundle is attached." when `decision_features` is None.
     """
@@ -198,7 +198,9 @@ def build_agent_context(
         f"market_session: venue={market_session.venue} state={market_session.session_state} tradable_now={market_session.tradable_now} note={market_session.note}"
     ]
     news_items = (
-        fetch_news_brief(snapshot.symbol, settings) if news_items is None else news_items
+        fetch_news_brief(snapshot.symbol, settings)
+        if news_items is None
+        else news_items
     )
     if settings.news_mode == "off":
         rendered_tool_outputs.append("news_tool: disabled")
@@ -255,16 +257,16 @@ def build_agent_context(
 def render_agent_context(context: AgentContext, *, task: str) -> str:
     """
     Render an AgentContext into a newline-delimited prompt string with labeled sections.
-    
+
     The output contains labeled blocks including: Role, Routed Model, Task,
     feature input when attached, Operator Preferences, Portfolio Snapshot, and
     optional sections for Market Session, Runtime State, Recent Runs, Trade
     Memory, Retrieved Similar Memories, Confidence Calibration, Shared Memory
     Bus, Tool Outputs, and Upstream Context.
-    
+
     Parameters:
         task (str): The task text placed under the "Task:" header.
-    
+
     Returns:
         str: The assembled prompt string containing the labeled sections.
     """

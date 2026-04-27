@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from agentic_trader.schemas import ExecutionBackend, RuntimeMode
@@ -13,10 +13,17 @@ class Settings(BaseSettings):
         env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     llm_provider: Literal["ollama"] = "ollama"
-    model_name: str = "qwen3:8b"
+    model_name: str = Field(
+        default="qwen3:8b",
+        validation_alias=AliasChoices(
+            "AGENTIC_TRADER_MODEL_NAME",
+            "AGENTIC_TRADER_MODEL",
+        ),
+    )
     coordinator_model_name: str | None = None
     regime_model_name: str | None = None
     strategy_model_name: str | None = None

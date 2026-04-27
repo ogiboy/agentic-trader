@@ -36,7 +36,9 @@ def test_observer_api_server_serves_local_http_payloads(tmp_path) -> None:
     server = create_observer_server(
         host="127.0.0.1",
         port=0,
-        resolver=lambda path: build_observer_api_payload(settings, path=path, log_limit=5),
+        resolver=lambda path: build_observer_api_payload(
+            settings, path=path, log_limit=5
+        ),
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

@@ -16,7 +16,9 @@ function isSameOriginRequest(request: Request): boolean {
   }
   const referer = request.headers.get('referer');
   if (!referer) {
-    return SAFE_METHODS_WITHOUT_BROWSER_ORIGIN.has(request.method.toUpperCase());
+    return SAFE_METHODS_WITHOUT_BROWSER_ORIGIN.has(
+      request.method.toUpperCase(),
+    );
   }
   try {
     return new URL(referer).origin === requestOrigin;
@@ -34,7 +36,10 @@ function isSameOriginRequest(request: Request): boolean {
 export async function POST(request: Request) {
   const contentType = request.headers.get('content-type')?.toLowerCase() || '';
   if (!contentType.includes('application/json')) {
-    return Response.json({ error: 'expected application/json' }, { status: 400 });
+    return Response.json(
+      { error: 'expected application/json' },
+      { status: 400 },
+    );
   }
   if (!isSameOriginRequest(request)) {
     return Response.json({ error: 'forbidden origin' }, { status: 403 });

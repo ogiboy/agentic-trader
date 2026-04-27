@@ -131,7 +131,10 @@ def get_macro_context(
         ]
     sources = _configured_macro_sources(settings, symbol_identity.region)
     if macro_snapshot is not None:
-        sources = [macro_snapshot.attribution.source_name, *macro_snapshot.attribution.notes]
+        sources = [
+            macro_snapshot.attribution.source_name,
+            *macro_snapshot.attribution.notes,
+        ]
     if not news_signals and settings.news_mode == "off":
         sources.append("news_disabled")
 
@@ -148,11 +151,19 @@ def get_macro_context(
             if macro_snapshot is not None
             else datetime.now(UTC).isoformat()
         ),
-        region=macro_snapshot.region if macro_snapshot is not None else symbol_identity.region,
-        currency=(
-            macro_snapshot.currency if macro_snapshot is not None else symbol_identity.currency
+        region=(
+            macro_snapshot.region
+            if macro_snapshot is not None
+            else symbol_identity.region
         ),
-        rates_bias=macro_snapshot.rates_bias if macro_snapshot is not None else "unknown",
+        currency=(
+            macro_snapshot.currency
+            if macro_snapshot is not None
+            else symbol_identity.currency
+        ),
+        rates_bias=(
+            macro_snapshot.rates_bias if macro_snapshot is not None else "unknown"
+        ),
         inflation_bias=(
             macro_snapshot.inflation_bias if macro_snapshot is not None else "unknown"
         ),

@@ -1,8 +1,8 @@
-@import "tailwindcss";
-@import "fumadocs-ui/css/neutral.css";
-@import "fumadocs-ui/css/preset.css";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -26,23 +26,11 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --font-sans:
-    var(--font-jetbrains-mono),
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-mono:
-    var(--font-jetbrains-mono),
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading:
-    var(--font-jetbrains-mono),
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -103,7 +91,11 @@ html {
   body {
     @apply bg-background font-sans text-foreground;
     background-image:
-      radial-gradient(circle at top, oklch(0.73 0.123 142.52 / 0.12), transparent 36%),
+      radial-gradient(
+        circle at top,
+        oklch(0.73 0.123 142.52 / 0.12),
+        transparent 36%
+      ),
       linear-gradient(180deg, transparent, oklch(0 0 0 / 0.08));
   }
 }

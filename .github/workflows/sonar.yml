@@ -12,8 +12,8 @@ permissions:
   pull-requests: read
 
 env:
-  POETRY_VERSION: "2.3.4"
-  PNPM_VERSION: "10.33.2"
+  POETRY_VERSION: '2.3.4'
+  PNPM_VERSION: '10.33.2'
   SONAR_HOST_URL: https://sonarcloud.io
   SONAR_ORGANIZATION: ogiboy
   SONAR_PROJECT_KEY: ogiboy_agentic-trader
@@ -34,7 +34,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: '3.12'
           cache: pip
 
       - name: Install Poetry
@@ -55,7 +55,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: '22'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 

@@ -22,17 +22,17 @@ _INTERVAL_RE = re.compile(r"^(?P<count>\d+)(?P<unit>m|h|d|wk)$", re.IGNORECASE)
 def _rsi(series: pd.Series, period: int = 14) -> pd.Series:
     """
     Compute the Wilder-style Relative Strength Index (RSI) for a numeric price series.
-    
+
     Uses exponential smoothing with alpha = 1/period to compute average gains and losses (Wilder smoothing).
     Edge-case overrides ensure deterministic values when averages are zero:
     - If average loss == 0 and average gain > 0 → RSI = 100.0
     - If average gain == 0 and average loss > 0 → RSI = 0.0
     - If both averages == 0 → RSI = 50.0
-    
+
     Parameters:
         series (pd.Series): Numeric price series (typically closes) indexed by timestamp or integer index.
         period (int): Lookback period for RSI calculation (default: 14).
-    
+
     Returns:
         pd.Series: RSI values in the range [0.0, 100.0] with the same index as `series`.
     """
@@ -52,11 +52,11 @@ def _rsi(series: pd.Series, period: int = 14) -> pd.Series:
 def _atr(frame: pd.DataFrame, period: int = 14) -> pd.Series:
     """
     Compute the Wilder-style Average True Range (ATR) from an OHLC frame.
-    
+
     Parameters:
         frame (pd.DataFrame): DataFrame containing at least `high`, `low`, and `close` columns indexed by time.
         period (int): Lookback period used for Wilder smoothing (default 14).
-    
+
     Returns:
         pd.Series: ATR values aligned to the input frame's index, computed with Wilder smoothing (EWMA alpha = 1/period).
     """
@@ -79,11 +79,11 @@ def _atr(frame: pd.DataFrame, period: int = 14) -> pd.Series:
 def _round_float(value: float | None, digits: int = 6) -> float | None:
     """
     Round a float to a specified number of decimal places, preserving None/NaN as None.
-    
+
     Parameters:
         value (float | None): The numeric value to round; returns None if this is None or NaN.
         digits (int): Number of decimal places to keep (default 6).
-    
+
     Returns:
         float | None: The rounded value, or None when input was None or NaN.
     """
@@ -95,13 +95,13 @@ def _round_float(value: float | None, digits: int = 6) -> float | None:
 def _as_float(value: object) -> float:
     """
     Convert an input to a floating-point numeric value.
-    
+
     Parameters:
         value (object): The input to convert; may be any object accepted by Python's float() constructor.
-    
+
     Returns:
         float_value (float): The numeric floating-point representation of `value`.
-    
+
     Raises:
         ValueError: If `value` cannot be converted to a float.
         TypeError: If `value` is of a type not supported by float().
@@ -112,12 +112,12 @@ def _as_float(value: object) -> float:
 def _index_label(value: object) -> str | None:
     """
     Format an index value for use as a persisted context-pack window boundary label.
-    
+
     If `value` is a datetime-like object, returns its ISO 8601 representation as a string; otherwise returns `str(value)`. Returns `None` when `value` is `None`.
-    
+
     Parameters:
         value (object): The index value to format; may be a datetime-like object.
-    
+
     Returns:
         str | None: The formatted label string or `None` if `value` is `None`.
     """
@@ -132,7 +132,7 @@ def _index_label(value: object) -> str | None:
 def _lookback_days(lookback: str | None) -> int | None:
     """
     Parse a yfinance-style lookback string and return its approximate length in calendar days.
-    
+
     Parameters:
         lookback (str | None): Lookback in the form "<count><unit>" where unit is one of:
             - "d"  for days
@@ -140,7 +140,7 @@ def _lookback_days(lookback: str | None) -> int | None:
             - "mo" for months (30 days)
             - "y"  for years (365 days)
             Whitespace is ignored. If falsy or not matching the pattern, the function returns None.
-    
+
     Returns:
         days (int | None): Approximate number of calendar days represented by `lookback`, or
         `None` if `lookback` is falsy or cannot be parsed.
@@ -168,11 +168,11 @@ def _estimate_expected_bars(
 ) -> tuple[int | None, str]:
     """
     Estimate the approximate number of bars covered by a given lookback and interval, and provide a short description of the estimate's uncertainty.
-    
+
     Parameters:
         lookback (str | None): Lookback string like "30d", "12wk", "3mo", "1y" (or None). If falsy or unparseable, the estimate is unknown.
         interval (str): Interval string like "1m", "5m", "1h", "1d", "1wk".
-    
+
     Returns:
         expected_bars (int | None): Approximate expected number of bars for the provided lookback and interval, or `None` if the lookback or interval cannot be interpreted.
         uncertainty_text (str): Human-readable note describing the approximation method and any caveats (e.g., business-day vs. calendar approximations, session/holiday/provider limits).
@@ -206,11 +206,11 @@ def _estimate_expected_bars(
 def _trend_vote(last: pd.Series, *, enough_data: bool) -> TrendVote:
     """
     Determine the horizon trend label from the latest row.
-    
+
     Parameters:
         last (pd.Series): The most-recent row containing at least `close`, `ema_20`, and `ema_50`.
         enough_data (bool): Whether there is sufficient historical data to evaluate the horizon.
-    
+
     Returns:
         trend (TrendVote): `"insufficient"` if `enough_data` is false; otherwise `"bullish"` if `close > ema_20 > ema_50`, `"bearish"` if `close < ema_20 < ema_50`, or `"mixed"` otherwise.
     """
@@ -229,7 +229,7 @@ def _trend_vote(last: pd.Series, *, enough_data: bool) -> TrendVote:
 def _max_drawdown_pct(values: pd.Series) -> float | None:
     """
     Compute the worst peak-to-trough drawdown for a series of price or value observations.
-    
+
     Returns:
         The largest drawdown as a negative float (e.g., -0.25), or `None` if fewer than two values or the result is not a number.
     """
@@ -248,12 +248,12 @@ def _horizon_context(
 ) -> MarketContextHorizon:
     """
     Builds per-horizon derived metrics (returns, volatility, support/resistance, trend vote, etc.) for inclusion in the MarketContextPack.
-    
+
     Parameters:
         clean (pd.DataFrame): Enriched OHLCV frame containing `close`, `returns`, `high`, and `low` used to compute windowed statistics.
         horizon_bars (int): Horizon length in bars for which metrics are computed.
         last (pd.Series): The most recent non-NaN row from the enriched frame; used as the reference/current values.
-    
+
     Returns:
         MarketContextHorizon: Container with these fields:
           - horizon_bars: requested horizon size.
@@ -323,17 +323,17 @@ def _build_context_summary(
 ) -> str:
     """
     Build a concise operator-facing summary string for a market context pack.
-    
+
     The summary includes the symbol, number of bars analyzed, lookback coverage as a percentage (or "unknown"), and trend votes for the first four horizons formatted as "{horizon_bars}b={trend_vote}".
-    
+
     Parameters:
-    	symbol (str): Ticker or symbol identifier.
-    	bars_analyzed (int): Number of bars examined to produce the context.
-    	coverage_ratio (float | None): Fraction of expected bars covered by the analyzed window, or `None` if unknown.
-    	horizons (list[MarketContextHorizon]): Horizon objects whose `horizon_bars` and `trend_vote` are used; only the first four are shown.
-    
+        symbol (str): Ticker or symbol identifier.
+        bars_analyzed (int): Number of bars examined to produce the context.
+        coverage_ratio (float | None): Fraction of expected bars covered by the analyzed window, or `None` if unknown.
+        horizons (list[MarketContextHorizon]): Horizon objects whose `horizon_bars` and `trend_vote` are used; only the first four are shown.
+
     Returns:
-    	summary (str): Single-line human-readable summary containing symbol, bars analyzed, coverage, and up to four horizon trend votes.
+        summary (str): Single-line human-readable summary containing symbol, bars analyzed, coverage, and up to four horizon trend votes.
     """
     horizon_votes = ", ".join(
         f"{item.horizon_bars}b={item.trend_vote}" for item in horizons[:4]
@@ -354,9 +354,9 @@ def _build_context_pack(
 ) -> MarketContextPack:
     """
     Builds a MarketContextPack summarizing data quality, anomalies, horizon metrics, and coverage for the provided lookback window.
-    
+
     Constructs per-horizon derived metrics, estimates expected bars from the requested lookback/interval, computes a coverage ratio, and aggregates data quality and anomaly flags (including minimum-bar requirement, coverage tiers, higher-timeframe fallback, large recent moves, volume spikes, and elevated recent volatility). The returned pack includes window boundary labels, required/expected/analyzed bar counts, rounded coverage, higher-timeframe usage, the list of horizon contexts, and a human-readable summary string.
-    
+
     Returns:
         MarketContextPack: A populated context pack ready for persistence and operator inspection.
     """
@@ -422,16 +422,16 @@ def _build_context_pack(
 def _validate_context_pack_for_execution(pack: MarketContextPack) -> None:
     """
     Validate that a context pack provides sufficient lookback coverage for safe execution.
-    
+
     Does nothing when `coverage_ratio` or `bars_expected` is unknown. If both are known and
     `coverage_ratio` is below `MIN_LOOKBACK_COVERAGE_RATIO`, raises a `ValueError` that
     includes the pack's symbol, analyzed and expected bar counts, coverage percentage,
     lookback, and interval.
-    
+
     Parameters:
         pack (MarketContextPack): Context pack containing `coverage_ratio`, `bars_expected`,
             `symbol`, `bars_analyzed`, `lookback`, and `interval`.
-    
+
     Raises:
         ValueError: If coverage is known and below the minimum required lookback coverage.
     """
@@ -452,11 +452,11 @@ def _validate_context_pack_for_execution(pack: MarketContextPack) -> None:
 def _enrich_frame(frame: pd.DataFrame) -> pd.DataFrame:
     """
     Add common technical indicators and derived features to an OHLCV DataFrame.
-    
+
     Parameters:
         frame (pd.DataFrame): OHLCV dataframe indexed by timestamp with columns
             `open`, `high`, `low`, `close`, and `volume`.
-    
+
     Returns:
         pd.DataFrame: A copy of `frame` with the following additional columns:
             - `ema_20`: 20-period exponential moving average of `close`.
@@ -490,13 +490,13 @@ def _higher_timeframe_frame(
 ) -> tuple[pd.DataFrame, str]:
     """
     Resample an OHLCV DataFrame to a higher timeframe when a datetime index and sufficient data are available.
-    
+
     If `frame.index` is not a pandas DatetimeIndex, or if the resampled timeframe contains fewer than 30 rows, the function returns a copy of the input frame and the label "same_as_base". For minute- or hour-based `interval` values (ending with "m" or "h") the function resamples to daily bars (label "1d", rule "1D"); otherwise it resamples to weekly bars ending on Friday (label "1wk", rule "W-FRI"). Resampling aggregates columns as: open = first, high = max, low = min, close = last, volume = sum, and drops rows with missing values.
-    
+
     Parameters:
         frame (pd.DataFrame): OHLCV frame indexed by timestamps (expected columns: "open", "high", "low", "close", "volume").
         interval (str): Lower timeframe label (e.g., "1m", "5m", "1h", "1d") used to decide the higher timeframe.
-    
+
     Returns:
         tuple[pd.DataFrame, str]: A tuple of (resampled_frame, higher_timeframe_label). The label is "1d", "1wk", or "same_as_base".
     """
@@ -535,11 +535,11 @@ def _mtf_alignment(
 ) -> tuple[MTFAlignment, float]:
     """
     Determine multi-timeframe trend alignment between a base timeframe row and a higher timeframe row.
-    
+
     Parameters:
         base_last (pd.Series): The most recent enriched base-timeframe row; must contain `close`, `ema_20`, and `ema_50`.
         higher_last (pd.Series): The most recent enriched higher-timeframe row; must contain `close`, `ema_20`, `ema_50`, and `rsi_14`.
-    
+
     Returns:
         tuple[MTFAlignment, float]: A pair where the first element is the alignment — `"bullish"`, `"bearish"`, or `"mixed"` — and the second is a confidence score in [0.0, 1.0]. For aligned bullish/bearish signals the confidence is computed from the higher-timeframe RSI (rounded to 4 decimals); for mixed alignment the confidence is 0.35.
     """
@@ -554,15 +554,11 @@ def _mtf_alignment(
 
     if base_bullish and higher_bullish:
         higher_rsi = _as_float(higher_last["rsi_14"])
-        confidence = min(
-            1.0, 0.55 + max(0.0, (higher_rsi - 50.0) / 100.0)
-        )
+        confidence = min(1.0, 0.55 + max(0.0, (higher_rsi - 50.0) / 100.0))
         return "bullish", round(confidence, 4)
     if base_bearish and higher_bearish:
         higher_rsi = _as_float(higher_last["rsi_14"])
-        confidence = min(
-            1.0, 0.55 + max(0.0, (50.0 - higher_rsi) / 100.0)
-        )
+        confidence = min(1.0, 0.55 + max(0.0, (50.0 - higher_rsi) / 100.0))
         return "bearish", round(confidence, 4)
     return "mixed", 0.35
 
@@ -577,19 +573,19 @@ def build_snapshot(
 ) -> MarketSnapshot:
     """
     Build a MarketSnapshot and associated MarketContextPack from an OHLCV DataFrame.
-    
+
     Processes the input frame to compute indicators, an optional higher timeframe view, multi-timeframe alignment, and a context pack describing horizon metrics and data-quality flags. Optionally enforces lookback coverage validation that will refuse execution when coverage is insufficient.
-    
+
     Parameters:
         frame (pd.DataFrame): Raw OHLCV frame indexed by timestamps (or other index) used to compute indicators and context.
         symbol (str): Market symbol identifier to include in the snapshot and context pack.
         interval (str): Base timeframe interval string (e.g., "1m", "1d") used for higher-timeframe estimation and context semantics.
         lookback (str | None): Optional lookback descriptor (e.g., "6mo") used to estimate expected bars and coverage; pass None when unknown.
         enforce_lookback_coverage (bool): If True, validate the context pack's coverage against minimum thresholds and raise on insufficient coverage; if False, skip this validation.
-    
+
     Returns:
         MarketSnapshot: Snapshot containing last-period indicators, higher-timeframe summary, multi-timeframe alignment/confidence, bars analyzed, and the constructed MarketContextPack.
-    
+
     Raises:
         ValueError: If the input frame has fewer than the minimum required bars or if feature engineering yields no valid rows. Also raised when coverage validation is enabled and the context pack indicates insufficient lookback coverage.
     """

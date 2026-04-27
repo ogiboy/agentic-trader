@@ -37,7 +37,10 @@ class LocalFundamentalProvider:
             provider_type="fundamental",
             role="missing",
             enabled=True,
-            notes=["structured_contract_only", *_configured_vendor_notes(self._settings)],
+            notes=[
+                "structured_contract_only",
+                *_configured_vendor_notes(self._settings),
+            ],
         )
 
     def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:

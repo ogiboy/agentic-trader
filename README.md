@@ -29,17 +29,17 @@ Agentic Trader is a strict, local-first, multi-agent paper trading system for Ol
 
 ## Navigation
 
-| Section | Link |
-| --- | --- |
-| Overview | [What it is](#overview) |
-| Features | [Core capabilities](#features) |
-| Installation | [Install paths](#installation) |
-| Quick Start | [First commands](#quick-start) |
-| Binaries / Releases | [Release builds](#releases--binaries) |
-| Web UI | [Local command center](#web-gui) |
-| Documentation | [Docs site](#documentation) |
-| Development | [Contributor workflow](#development) |
-| Uninstall / Cleanup | [Local cleanup](#uninstall--cleanup) |
+| Section              | Link                                     |
+| -------------------- | ---------------------------------------- |
+| Overview             | [What it is](#overview)                  |
+| Features             | [Core capabilities](#features)           |
+| Installation         | [Install paths](#installation)           |
+| Quick Start          | [First commands](#quick-start)           |
+| Binaries / Releases  | [Release builds](#releases--binaries)    |
+| Web UI               | [Local command center](#web-gui)         |
+| Documentation        | [Docs site](#documentation)              |
+| Development          | [Contributor workflow](#development)     |
+| Uninstall / Cleanup  | [Local cleanup](#uninstall--cleanup)     |
 | License / Disclaimer | [Terms and safety](#license--disclaimer) |
 
 ## Overview
@@ -48,13 +48,13 @@ Agentic Trader is not a generic chat bot or a live broker. The runtime uses a st
 
 The repository is now a small monorepo-style workspace:
 
-| Path | Purpose |
-| --- | --- |
-| `agentic_trader/` | Python core runtime, CLI, agents, storage, workflows, and broker contracts |
-| `main.py` | Root launcher for the Python CLI layer |
-| `webgui/` | Local Next.js Web GUI that shells out to existing Python CLI/runtime contracts |
-| `docs/` | Separate Next.js documentation site intended for GitHub Pages |
-| `tui/` | Ink terminal control room managed through the root pnpm workspace |
+| Path              | Purpose                                                                        |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `agentic_trader/` | Python core runtime, CLI, agents, storage, workflows, and broker contracts     |
+| `main.py`         | Root launcher for the Python CLI layer                                         |
+| `webgui/`         | Local Next.js Web GUI that shells out to existing Python CLI/runtime contracts |
+| `docs/`           | Separate Next.js documentation site intended for GitHub Pages                  |
+| `tui/`            | Ink terminal control room managed through the root pnpm workspace              |
 
 ## Features
 
@@ -124,14 +124,14 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 
 ## Quick Start
 
-| Command | Purpose |
-| --- | --- |
-| `python main.py doctor` | Check local runtime, model, database, and configuration readiness |
-| `agentic-trader doctor --json` | Emit the same health check as machine-readable JSON |
-| `python main.py run --symbol AAPL --interval 1d --lookback 180d` | Run one strict paper-trading cycle |
-| `agentic-trader` | Open the primary Ink terminal control room |
-| `agentic-trader menu` | Open the Rich/admin fallback menu |
-| `agentic-trader dashboard-snapshot` | Print the shared dashboard payload used by UI surfaces |
+| Command                                                          | Purpose                                                           |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `python main.py doctor`                                          | Check local runtime, model, database, and configuration readiness |
+| `agentic-trader doctor --json`                                   | Emit the same health check as machine-readable JSON               |
+| `python main.py run --symbol AAPL --interval 1d --lookback 180d` | Run one strict paper-trading cycle                                |
+| `agentic-trader`                                                 | Open the primary Ink terminal control room                        |
+| `agentic-trader menu`                                            | Open the Rich/admin fallback menu                                 |
+| `agentic-trader dashboard-snapshot`                              | Print the shared dashboard payload used by UI surfaces            |
 
 Advanced usage belongs in the docs site, not in this landing README.
 
@@ -145,14 +145,14 @@ Tagged release builds attach PyInstaller CLI binaries for macOS and Windows to t
 
 ## Usage
 
-| Command | Notes |
-| --- | --- |
-| `agentic-trader doctor` | Human-readable environment check |
-| `agentic-trader run --symbol AAPL --interval 1d --lookback 180d` | One paper cycle with strict gates |
-| `agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous` | Continuous paper runtime |
-| `agentic-trader monitor --refresh-seconds 1` | Attach to runtime status |
-| `agentic-trader broker-status --json` | Inspect paper/live/simulated backend truth |
-| `agentic-trader review-run` | Review the latest persisted run |
+| Command                                                                                | Notes                                      |
+| -------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `agentic-trader doctor`                                                                | Human-readable environment check           |
+| `agentic-trader run --symbol AAPL --interval 1d --lookback 180d`                       | One paper cycle with strict gates          |
+| `agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous` | Continuous paper runtime                   |
+| `agentic-trader monitor --refresh-seconds 1`                                           | Attach to runtime status                   |
+| `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
+| `agentic-trader review-run`                                                            | Review the latest persisted run            |
 
 ## Web GUI
 
@@ -189,10 +189,10 @@ pnpm run sonar
 
 Sonar is split by target on purpose:
 
-| Target | Project key | Use |
-| --- | --- | --- |
-| Local SonarQube Community Build | `agentic-trader` | Local Docker server, branch QA, Codex/MCP inspection |
-| SonarCloud | `ogiboy_agentic-trader` | GitHub-hosted CI, public badge, repository-level quality history |
+| Target                          | Project key             | Use                                                              |
+| ------------------------------- | ----------------------- | ---------------------------------------------------------------- |
+| Local SonarQube Community Build | `agentic-trader`        | Local Docker server, branch QA, Codex/MCP inspection             |
+| SonarCloud                      | `ogiboy_agentic-trader` | GitHub-hosted CI, public badge, repository-level quality history |
 
 `sonar-project.properties` is the local default scanner file. `pnpm run sonar` runs the local Python scanner path through `pysonar`; `pnpm run sonar:js` runs the local npm scanner through `@sonar/scan`. Both read `SONAR_TOKEN` from the environment or macOS Keychain service `codex-sonarqube-token`. Use `pnpm run sonar:cloud` only when manually uploading to SonarCloud; it expects a SonarCloud token in `SONAR_TOKEN` or Keychain service `codex-sonarcloud-token`.
 
@@ -204,12 +204,12 @@ Conda selects the Python interpreter, Poetry owns Python dependency locking and 
 
 Commit messages should follow conventional commits so release automation can infer version bumps:
 
-| Type | Example |
-| --- | --- |
-| Feature | `feat: add docs deployment workflow` |
-| Fix | `fix: correct pyinstaller smoke build entrypoint` |
-| Docs | `docs: rewrite root readme` |
-| Breaking | `feat!: change release packaging flow` |
+| Type     | Example                                           |
+| -------- | ------------------------------------------------- |
+| Feature  | `feat: add docs deployment workflow`              |
+| Fix      | `fix: correct pyinstaller smoke build entrypoint` |
+| Docs     | `docs: rewrite root readme`                       |
+| Breaking | `feat!: change release packaging flow`            |
 
 `main` is the only branch that mutates `pyproject.toml`, `CHANGELOG.md`, tags, and GitHub Releases automatically. Other branches run version previews and binary artifact builds without changing tracked version files.
 

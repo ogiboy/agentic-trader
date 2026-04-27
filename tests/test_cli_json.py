@@ -31,9 +31,9 @@ from agentic_trader.workflows.run_once import persist_run
 def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
     """
     Raise a RuntimeError to simulate a database lock.
-    
+
     This helper always raises RuntimeError("db locked") and is intended for use in tests to emulate a locked or unavailable database.
-    
+
     Raises:
         RuntimeError: with the message "db locked".
     """
@@ -43,7 +43,7 @@ def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
 def test_cli_help_supports_short_and_long_forms() -> None:
     """
     Verifies that CLI commands accept both short (-h) and long (--help) help options.
-    
+
     Asserts each tested subcommand exits with code 0 and its help output contains the "Usage:" header.
     """
     runner = CliRunner()
@@ -71,10 +71,10 @@ def test_cli_help_supports_short_and_long_forms() -> None:
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
     """
     Builds a fully populated RunArtifacts instance with realistic sample data for use in tests.
-    
+
     Parameters:
         symbol (str): Ticker symbol to apply to the snapshot and execution sections (defaults to "AAPL").
-    
+
     Returns:
         RunArtifacts: An object containing a MarketSnapshot, ResearchCoordinatorBrief, RegimeAssessment,
         StrategyPlan, RiskPlan, ManagerDecision, ExecutionDecision, ReviewNote, and a single AgentStageTrace
@@ -190,7 +190,7 @@ def test_status_preferences_and_portfolio_json(
 ) -> None:
     """
     Verify status, preferences, and portfolio CLI JSON outputs reflect a completed service state and default settings.
-    
+
     Sets up a temporary Settings and TradingDatabase with a service state of "completed", runs the CLI commands `status --json`, `preferences --json`, and `portfolio --json`, and asserts:
     - the runtime is reported as inactive and the service state is "completed";
     - the preferences report a "balanced" risk profile;
@@ -239,7 +239,7 @@ def test_status_preferences_and_portfolio_json(
 def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     Verify the CLI `doctor --json` and `logs --json` outputs reflect LLM health and recent service/order records.
-    
+
     Sets up a temporary Settings and monkeypatches the CLI to report a healthy LocalLLM, inserts a service event and an order into the test database, then invokes the `doctor` and `logs` CLI commands and asserts:
     - the doctor payload reports the provider reachable and model available,
     - the doctor payload contains `runtime_mode == "operation"`,
@@ -422,7 +422,7 @@ def test_preferences_and_portfolio_json_survive_db_lock(
 ) -> None:
     """
     Ensures preferences and portfolio CLI JSON commands handle a locked database and return fallback responses.
-    
+
     Monkeypatches the CLI settings and replaces the database opener with a function that raises RuntimeError("db locked"), then invokes the `preferences --json` and `portfolio --json` commands and asserts both exit successfully with `available == False` and expected fallback values (`risk_profile == "balanced"`, `positions == []`).
     """
     settings = Settings(
@@ -491,7 +491,7 @@ def test_journal_risk_review_and_trace_json(
 def test_chat_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     Integration test that verifies the CLI 'chat' command returns the expected JSON for a persona message.
-    
+
     Mocks CLI settings and LLM/chat dependencies, invokes `chat --json --persona operator_liaison --message status?`, and asserts the returned JSON contains the requested `persona`, `message`, and the `response` value.
     """
     settings = Settings(
@@ -522,7 +522,7 @@ def test_training_backtest_allows_diagnostic_fallback(
 ) -> None:
     """
     Verifies that running the backtest CLI in training mode falls back to a diagnostic execution when the LLM gate fails.
-    
+
     Runs the `backtest` command with training runtime_mode while mocking `ensure_llm_ready` to raise `RuntimeError("model unavailable")` and stubbing the backtest runner to capture the `allow_fallback` flag. Asserts the CLI exits successfully, that the backtest was invoked with `allow_fallback == True`, and that stdout contains the phrase "Training Diagnostic Mode".
     """
     settings = Settings(
@@ -537,7 +537,7 @@ def test_training_backtest_allows_diagnostic_fallback(
     def _blocked_llm(_settings: Settings) -> None:
         """
         Always raises a RuntimeError indicating the LLM model is unavailable.
-        
+
         Raises:
             RuntimeError: with message "model unavailable".
         """
@@ -546,7 +546,7 @@ def test_training_backtest_allows_diagnostic_fallback(
     def _backtest(**kwargs: object) -> BacktestReport:
         """
         Test stub that constructs a deterministic BacktestReport for the given run parameters and records whether fallback was allowed.
-        
+
         Parameters:
             kwargs: Expected keys:
                 - symbol (str): Ticker symbol for the backtest.
@@ -554,7 +554,7 @@ def test_training_backtest_allows_diagnostic_fallback(
                 - lookback (str): Lookback window descriptor (e.g., "180d").
                 - warmup_bars (int): Number of warmup bars; must be an int.
                 - allow_fallback (bool): Whether diagnostic fallback was permitted; recorded to `captured["allow_fallback"]`.
-        
+
         Returns:
             BacktestReport: A report populated with the provided identifiers, the given warmup_bars, deterministic zeroed metrics, and starting/ending equity of 100000.0.
         """
@@ -606,7 +606,7 @@ def test_operation_backtest_blocks_when_llm_gate_fails(
 ) -> None:
     """
     Verifies that running backtest in "operation" runtime mode fails when the LLM readiness gate raises an error.
-    
+
     Invokes the CLI backtest command with a mocked settings object whose runtime_mode is "operation" and a patched `ensure_llm_ready` that raises RuntimeError("model unavailable"), then asserts the command exits with a non-zero code and that the raised exception contains "model unavailable".
     """
     settings = Settings(
@@ -620,7 +620,7 @@ def test_operation_backtest_blocks_when_llm_gate_fails(
     def _blocked_llm(_settings: Settings) -> None:
         """
         Always raises a RuntimeError indicating the LLM model is unavailable.
-        
+
         Raises:
             RuntimeError: with message "model unavailable".
         """
@@ -639,7 +639,7 @@ def test_dashboard_snapshot_json(
 ) -> None:
     """
     Validates that the `dashboard-snapshot` CLI JSON aggregates persisted run artifacts, service state, LLM health, logs, portfolio, UI sections, and replay snapshot.
-    
+
     Asserts that the payload includes:
     - doctor health indicating the LLM provider is reachable and runtime mode is `"operation"`.
     - status reflecting runtime mode `"operation"` and `current_symbol == "AAPL"`.
@@ -758,10 +758,7 @@ def test_instruct_json_reports_instruction_and_applied_preferences(
     assert payload["instruction"]["should_update_preferences"] is True
     assert payload["applied"] is True
     assert payload["updated_preferences"]["risk_profile"] == "conservative"
-    assert (
-        payload["updated_preferences"]["behavior_preset"]
-        == "capital_preservation"
-    )
+    assert payload["updated_preferences"]["behavior_preset"] == "capital_preservation"
 
 
 def test_memory_explorer_and_retrieval_inspection_json(
@@ -769,7 +766,7 @@ def test_memory_explorer_and_retrieval_inspection_json(
 ) -> None:
     """
     Validates JSON availability semantics for `memory-explorer` and `retrieval-inspection` CLI commands when no persisted run exists.
-    
+
     Sets up temporary settings and an empty TradingDatabase, then invokes the CLI:
     - `memory-explorer --json` must exit successfully with `"available": false`.
     - `retrieval-inspection --json` must exit successfully with `"available": true` and an empty `stages` list.
@@ -834,7 +831,7 @@ def test_replay_run_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
 def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     Verifies the CLI JSON output of the `trade-context` command reflects a persisted run's execution and fundamental assessment.
-    
+
     Persists a run for symbol "NVDA", invokes `trade-context --json`, and asserts the payload is available and contains:
     - the persisted record's symbol and execution rationale,
     - fundamental assessment with `overall_bias == "neutral"` and an `evidence_vs_inference` field,
@@ -1011,7 +1008,7 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
 def test_market_cache_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     Verify that the `market-cache` CLI command reports available market snapshot files and their filenames.
-    
+
     Creates a single snapshot CSV in the configured market_data_cache_dir, invokes `market-cache --json`, and asserts the JSON `count` is 1 and the first entry's `filename` matches the created file.
     """
     settings = Settings(

@@ -3,17 +3,17 @@ name: Binaries
 on:
   push:
     branches:
-      - "**"
+      - '**'
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: "Optional release tag to build and attach assets for, for example v0.2.0"
+        description: 'Optional release tag to build and attach assets for, for example v0.2.0'
         required: false
         type: string
       channel:
-        description: "Override artifact channel for manual branch builds"
+        description: 'Override artifact channel for manual branch builds'
         required: false
         default: auto
         type: choice
@@ -31,7 +31,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  POETRY_VERSION: "2.3.4"
+  POETRY_VERSION: '2.3.4'
 
 jobs:
   build:
@@ -44,11 +44,11 @@ jobs:
           - os: macos-14
             label: macOS Apple Silicon
             asset_suffix: macos-arm64
-            extension: ""
+            extension: ''
           - os: windows-latest
             label: Windows
             asset_suffix: windows-x64
-            extension: ".exe"
+            extension: '.exe'
 
     steps:
       - name: Resolve checkout ref
@@ -83,7 +83,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: '3.12'
           cache: pip
 
       - name: Install Poetry
@@ -140,11 +140,11 @@ jobs:
 
       - name: Build CLI binary
         shell: bash
-        run: poetry run pyinstaller --clean --onefile --name agentic-trader main.py
+        run: poetry run pyinstaller --clean --noconfirm agentic-trader.spec
 
       - name: Smoke-test CLI binary
         shell: bash
-        run: "./dist/agentic-trader${{ matrix.extension }} doctor --json"
+        run: './dist/agentic-trader${{ matrix.extension }} doctor --json'
 
       - name: Package binary asset
         id: package

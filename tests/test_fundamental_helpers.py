@@ -1,4 +1,5 @@
 """Tests for the helper functions added/changed in agentic_trader/agents/fundamental.py."""
+
 from typing import cast
 
 import pytest
@@ -295,10 +296,14 @@ class TestBusinessQuality:
         assert _business_quality("neutral", "cautious", "supportive") == "cautious"
         assert _business_quality("supportive", "neutral", "cautious") == "cautious"
 
-    def test_supportive_both_profitability_and_cash_flow_returns_supportive(self) -> None:
+    def test_supportive_both_profitability_and_cash_flow_returns_supportive(
+        self,
+    ) -> None:
         assert _business_quality("supportive", "supportive", "neutral") == "supportive"
 
-    def test_profitability_supportive_cash_flow_neutral_reinvestment_supportive(self) -> None:
+    def test_profitability_supportive_cash_flow_neutral_reinvestment_supportive(
+        self,
+    ) -> None:
         assert _business_quality("supportive", "neutral", "supportive") == "supportive"
 
     def test_all_neutral_returns_neutral(self) -> None:
@@ -338,7 +343,9 @@ class TestForwardOutlook:
 
     def test_both_growth_and_business_supportive_returns_supportive(self) -> None:
         assert _forward_outlook("supportive", "supportive", "neutral") == "supportive"
-        assert _forward_outlook("supportive", "supportive", "supportive") == "supportive"
+        assert (
+            _forward_outlook("supportive", "supportive", "supportive") == "supportive"
+        )
 
     def test_only_growth_supportive_returns_neutral(self) -> None:
         assert _forward_outlook("supportive", "neutral", "neutral") == "neutral"
@@ -534,7 +541,13 @@ class TestMetricEvidence:
             reinvestment_potential=0.61,
         )
         result = _metric_evidence(feat)
-        labels = {"revenue_growth", "profitability_stability", "cash_flow_alignment", "debt_risk", "reinvestment_potential"}
+        labels = {
+            "revenue_growth",
+            "profitability_stability",
+            "cash_flow_alignment",
+            "debt_risk",
+            "reinvestment_potential",
+        }
         found = {item.split("=")[0] for item in result}
         assert labels <= found
 
@@ -579,7 +592,9 @@ class TestHasStructuredFundamentalEvidence:
                 "decision_features": features.model_copy(
                     update={
                         "fundamental": features.fundamental.model_copy(
-                            update={"quality_flags": ["fundamental_fetch_not_implemented"]}
+                            update={
+                                "quality_flags": ["fundamental_fetch_not_implemented"]
+                            }
                         )
                     }
                 )
@@ -596,7 +611,9 @@ class TestHasStructuredFundamentalEvidence:
                 "decision_features": features.model_copy(
                     update={
                         "fundamental": features.fundamental.model_copy(
-                            update={"quality_flags": ["fundamental_provider_not_configured"]}
+                            update={
+                                "quality_flags": ["fundamental_provider_not_configured"]
+                            }
                         )
                     }
                 )
@@ -771,7 +788,9 @@ class TestFallbackFundamental:
             }
         )
         result = _fallback_fundamental(with_growth)
-        assert any("revenue_growth=0.15" in e for e in result.evidence_vs_inference.evidence)
+        assert any(
+            "revenue_growth=0.15" in e for e in result.evidence_vs_inference.evidence
+        )
 
     def test_fallback_with_medium_fx_risk_adds_flag(self) -> None:
         context = _context()
@@ -820,7 +839,9 @@ class TestAssessFundamentals:
                 return self
 
             def complete_structured(self, **_kwargs: object) -> object:
-                raise AssertionError("LLM should not be called when provider data is missing")
+                raise AssertionError(
+                    "LLM should not be called when provider data is missing"
+                )
 
         from agentic_trader.llm.client import LocalLLM
 
@@ -833,7 +854,9 @@ class TestAssessFundamentals:
         assert result.source == "fallback"
         assert result.fallback_reason == FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON
 
-    def test_returns_structured_fallback_when_allow_fallback_false_and_no_provider_evidence(self) -> None:
+    def test_returns_structured_fallback_when_allow_fallback_false_and_no_provider_evidence(
+        self,
+    ) -> None:
         """When no provider evidence exists, returns explicit fallback even in strict runtime mode."""
         context = _context()
         features = context.decision_features

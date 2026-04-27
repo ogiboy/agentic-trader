@@ -1,17 +1,14 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { DocLanguage } from "@/lib/i18n/config";
-import type { WorkflowTrack } from "@/lib/home/content/types";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { DocLanguage } from '@/lib/i18n/config';
+import type { WorkflowTrack } from '@/lib/home/content/types';
 
 type WorkflowTabsProps = {
   locale: DocLanguage;
   tracks: WorkflowTrack[];
 };
 
-export function WorkflowTabs({
-  locale,
-  tracks,
-}: Readonly<WorkflowTabsProps>) {
+export function WorkflowTabs({ locale, tracks }: Readonly<WorkflowTabsProps>) {
   return (
     <section className="docs-home-panel p-6 sm:p-8">
       <Tabs className="flex flex-col gap-6" defaultValue={tracks[0]?.id}>
@@ -40,9 +37,9 @@ export function WorkflowTabs({
         ))}
       </Tabs>
       <p className="mt-5 text-sm text-muted-foreground">
-        {locale === "en"
-          ? "The docs should stay close to the runtime truth, not become a second architecture."
-          : "Dokümanlar runtime gerçeğine yakın durmalı; ikinci bir mimari anlatısı olmamalı."}
+        {locale === 'en'
+          ? 'The docs should stay close to the runtime truth, not become a second architecture.'
+          : 'Dokümanlar runtime gerçeğine yakın durmalı; ikinci bir mimari anlatısı olmamalı.'}
       </p>
     </section>
   );

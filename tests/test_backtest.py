@@ -27,9 +27,9 @@ from agentic_trader.schemas import (
 def _frame() -> pd.DataFrame:
     """
     Builds a deterministic 100-row OHLCV DataFrame for testing.
-    
+
     The DataFrame contains columns "open", "high", "low", "close", and "volume" with a daily DatetimeIndex starting at 2024-01-01 and 100 periods.
-    
+
     Returns:
         pd.DataFrame: 100-row DataFrame where `close` starts at 100.0 and increases by 0.5 per row; `open` equals `close`; `high` is `close + 0.5`; `low` is `close - 0.5`; `volume` starts at 1_000_000 and increases by 1_000 per row; index is daily timestamps from 2024-01-01.
     """
@@ -49,11 +49,11 @@ def _frame() -> pd.DataFrame:
 def _index_iso(frame: pd.DataFrame, position: int) -> str:
     """
     Return the ISO 8601 string for the timestamp at the given index position in `frame`.
-    
+
     Parameters:
         frame (pd.DataFrame): DataFrame whose DatetimeIndex will be sampled.
         position (int): Integer index into `frame.index`. Supports negative indices.
-    
+
     Returns:
         str: The ISO 8601 formatted timestamp string for the selected index entry.
     """
@@ -67,7 +67,7 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
 ) -> None:
     """
     Validates that a walk-forward backtest executes a buy trade, closes it, and produces correct summary metrics.
-    
+
     Runs a synthetic walk-forward backtest and asserts there is exactly one executed and closed trade, the win rate is approximately 1.0, ending equity exceeds starting equity, and the trade's exit reason is either "take_profit" or "end_of_data".
     """
     settings = Settings(
@@ -89,15 +89,15 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
     ) -> RunArtifacts:
         """
         Produce deterministic RunArtifacts used in tests to simulate a single run of the trading engine from a given MarketSnapshot.
-        
+
         This helper toggles a local test state on first call: the first invocation returns artifacts representing an approved buy entry (uses snapshot.last_close to set entry, stop-loss, and take-profit); subsequent invocations return artifacts representing no new trade (an unapproved "hold" execution). The function accepts but does not rely on `settings`, `allow_fallback`, or `memory_enabled`.
-        
+
         Parameters:
             snapshot (MarketSnapshot): Market snapshot whose symbol and last_close are used to populate execution and risk prices.
             settings (Settings): Accepted for API compatibility but not consulted by this fake implementation.
             allow_fallback (bool): Accepted for API compatibility but unused.
             memory_enabled (bool): Accepted for API compatibility but unused.
-        
+
         Returns:
             RunArtifacts: Test artifacts including coordinator, regime, strategy, risk, manager, execution, and review. On first call, `execution.approved` is `True` with `side == "buy"` and risk/take-profit/stop-loss derived from `snapshot.last_close`; on subsequent calls, `execution.approved` is `False` with `side == "hold"`.
         """
@@ -224,7 +224,7 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
 def test_deterministic_baseline_backtest_returns_metrics(tmp_path: Path) -> None:
     """
     Test that the deterministic baseline backtest produces expected cycle count, positive ending equity, and correct data range timestamps.
-    
+
     Runs run_deterministic_baseline_backtest using a synthetic OHLCV frame and asserts:
     - total_cycles equals 40,
     - ending_equity is greater than 0,
@@ -325,7 +325,7 @@ def test_memory_ablation_backtest_reports_deltas(
 ) -> None:
     """
     Verifies that the memory-ablation backtest runs with memory enabled then disabled and reports correct deltas.
-    
+
     This test monkeypatches the walk-forward backtest to return fixed BacktestReport values for memory-enabled and memory-disabled runs, invokes run_memory_ablation_backtest, and asserts that:
     - the two runs were performed in order with memory enabled first then disabled,
     - the computed ending equity delta equals 400.0,

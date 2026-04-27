@@ -1,11 +1,17 @@
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DocLanguage } from "@/lib/i18n/config";
-import { withLanguagePrefix } from "@/lib/i18n/routing";
-import type { HomeEntryPoint } from "@/lib/home/content/types";
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import type { DocLanguage } from '@/lib/i18n/config';
+import { withLanguagePrefix } from '@/lib/i18n/routing';
+import type { HomeEntryPoint } from '@/lib/home/content/types';
 
 type EntryPointGridProps = {
   locale: DocLanguage;
@@ -13,8 +19,8 @@ type EntryPointGridProps = {
 };
 
 const openSectionLabel: Record<DocLanguage, string> = {
-  en: "Open section",
-  tr: "Bölümü aç",
+  en: 'Open section',
+  tr: 'Bölümü aç',
 };
 
 export function EntryPointGrid({

@@ -76,7 +76,9 @@ def retrieve_similar_memories(
                 similarity_score=round(similarity, 4),
                 heuristic_score=round(heuristic_similarity, 4),
                 vector_score=(
-                    round(vector_similarity, 4) if vector_similarity is not None else None
+                    round(vector_similarity, 4)
+                    if vector_similarity is not None
+                    else None
                 ),
                 retrieval_source=retrieval_source,
                 regime=candidate.artifacts.regime.regime,

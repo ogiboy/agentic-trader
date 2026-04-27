@@ -19,11 +19,7 @@ export default function LandingRootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={jetbrainsMono.variable}
-    >
+    <html lang="en" suppressHydrationWarning className={jetbrainsMono.variable}>
       <body className="flex min-h-screen flex-col bg-background text-foreground antialiased">
         {children}
       </body>

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
-import { MessageSquareText, ThumbsDown, ThumbsUp } from "lucide-react";
-import { getFeedbackCopy } from "@/components/feedback/copy";
-import { FeedbackResult } from "@/components/feedback/feedback-result";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { MessageSquareText, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { getFeedbackCopy } from '@/components/feedback/copy';
+import { FeedbackResult } from '@/components/feedback/feedback-result';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -13,17 +13,17 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import {
   parsePageFeedback,
   type ActionResponse,
   type FeedbackOpinion,
-} from "@/components/feedback/schema";
-import type { DocLanguage } from "@/lib/i18n/config";
+} from '@/components/feedback/schema';
+import type { DocLanguage } from '@/lib/i18n/config';
 
-const feedbackStorageKey = "agentic-trader-docs-feedback";
-const feedbackIssueUrl = "https://github.com/ogiboy/agentic-trader/issues/new";
+const feedbackStorageKey = 'agentic-trader-docs-feedback';
+const feedbackIssueUrl = 'https://github.com/ogiboy/agentic-trader/issues/new';
 
 type ParsedPageFeedback = ReturnType<typeof parsePageFeedback>;
 
@@ -40,17 +40,17 @@ type FeedbackProps = Readonly<{
  */
 function buildIssueUrl(feedback: ParsedPageFeedback) {
   const body = [
-    "## Docs feedback",
-    "",
+    '## Docs feedback',
+    '',
     `Page: ${feedback.title}`,
     `URL: ${feedback.url}`,
     `Opinion: ${feedback.opinion}`,
     `Submitted at: ${feedback.submittedAt}`,
-    "",
-    "## Note",
-    "",
-    feedback.message || "No additional note provided.",
-  ].join("\n");
+    '',
+    '## Note',
+    '',
+    feedback.message || 'No additional note provided.',
+  ].join('\n');
 
   const params = new URLSearchParams({
     title: `Docs feedback: ${feedback.title}`,
@@ -93,7 +93,7 @@ export function Feedback({ locale, title }: FeedbackProps) {
   const pathname = usePathname();
   const copy = getFeedbackCopy(locale);
   const [opinion, setOpinion] = useState<FeedbackOpinion | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState('');
   const [result, setResult] = useState<ActionResponse | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -112,19 +112,16 @@ export function Feedback({ locale, title }: FeedbackProps) {
       storeFeedbackDraft(feedback);
       setResult({
         ok: true,
-        storedAt: "browser-local-storage",
-        destination: "github-issue",
-        forwarding: "prepared",
+        storedAt: 'browser-local-storage',
+        destination: 'github-issue',
+        forwarding: 'prepared',
         githubUrl: buildIssueUrl(feedback),
       });
-      setMessage("");
+      setMessage('');
     } catch (error) {
       setResult({
         ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : copy.genericError,
+        error: error instanceof Error ? error.message : copy.genericError,
       });
     } finally {
       setIsSubmitting(false);
@@ -142,19 +139,19 @@ export function Feedback({ locale, title }: FeedbackProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-3">
-          {(["good", "bad"] as const).map((value) => (
+          {(['good', 'bad'] as const).map((value) => (
             <Button
               key={value}
               type="button"
-              variant={opinion === value ? "default" : "outline"}
+              variant={opinion === value ? 'default' : 'outline'}
               onClick={() => setOpinion(value)}
             >
-              {value === "good" ? (
+              {value === 'good' ? (
                 <ThumbsUp data-icon="inline-start" />
               ) : (
                 <ThumbsDown data-icon="inline-start" />
               )}
-              {value === "good" ? copy.helpful : copy.needsWork}
+              {value === 'good' ? copy.helpful : copy.needsWork}
             </Button>
           ))}
         </div>
@@ -162,8 +159,8 @@ export function Feedback({ locale, title }: FeedbackProps) {
           {copy.noteLabel}
           <textarea
             className={cn(
-              "min-h-28 rounded-none border border-input bg-background px-3 py-2 text-sm text-foreground",
-              "outline-none transition-all focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50",
+              'min-h-28 rounded-none border border-input bg-background px-3 py-2 text-sm text-foreground',
+              'outline-none transition-all focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50',
             )}
             placeholder={copy.notePlaceholder}
             value={message}
@@ -172,7 +169,9 @@ export function Feedback({ locale, title }: FeedbackProps) {
         </label>
       </CardContent>
       <CardFooter className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted-foreground">{copy.destinationSummary}</p>
+        <p className="text-xs text-muted-foreground">
+          {copy.destinationSummary}
+        </p>
         <Button
           type="button"
           disabled={!opinion || isSubmitting}

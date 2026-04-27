@@ -1,7 +1,11 @@
 from datetime import UTC, datetime
 
 from agentic_trader.config import Settings
-from agentic_trader.schemas import FundamentalFeatureSet, FundamentalSnapshot, SymbolIdentity
+from agentic_trader.schemas import (
+    FundamentalFeatureSet,
+    FundamentalSnapshot,
+    SymbolIdentity,
+)
 
 
 def _configured_fundamental_sources(settings: Settings) -> list[str]:

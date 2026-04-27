@@ -29,10 +29,10 @@ PROVIDER_GAP_FLAGS = {
 def _dedupe(items: list[str]) -> list[str]:
     """
     Return a list of unique, truthy strings from the input while preserving their first-seen order.
-    
+
     Parameters:
         items (list[str]): Sequence of strings that may contain duplicates or falsy/empty values.
-    
+
     Returns:
         list[str]: Deduplicated list containing the first occurrence of each truthy string from `items`, in original order.
     """
@@ -42,12 +42,12 @@ def _dedupe(items: list[str]) -> list[str]:
 def _score_quality(value: float | None, *, low_is_bad: bool = True) -> AnalysisSignal:
     """
     Map a numeric score to an analysis signal representing quality.
-    
+
     When `low_is_bad` is True, higher numeric values indicate better quality; when False, lower values indicate better quality and very high values may indicate `"avoid"`.
-    
+
     Parameters:
         low_is_bad (bool): If True, treat lower scores as worse; if False, treat higher scores as worse.
-    
+
     Returns:
         AnalysisSignal: One of `"supportive"`, `"cautious"`, `"neutral"`, or `"avoid"`. Returns `"neutral"` if `value` is `None`.
     """
@@ -71,10 +71,10 @@ def _score_quality(value: float | None, *, low_is_bad: bool = True) -> AnalysisS
 def _growth_quality(value: float | None) -> AnalysisSignal:
     """
     Classify a growth rate into an analysis quality signal.
-    
+
     Parameters:
         value (float | None): Growth rate as a decimal (e.g., 0.05 for 5%), or `None` if unavailable.
-    
+
     Returns:
         str: `'supportive'` if value is greater than or equal to 0.1, `'cautious'` if value is less than or equal to -0.05, `'neutral'` otherwise.
     """
@@ -90,11 +90,11 @@ def _growth_quality(value: float | None) -> AnalysisSignal:
 def _fx_risk(features: FundamentalFeatureSet, macro: MacroContext | None) -> FxRisk:
     """
     Determine the FX risk label for an instrument using macro context when available, otherwise deriving it from feature-provided exposure.
-    
+
     Parameters:
         features (FundamentalFeatureSet): Structured fundamental features; `features.fx_exposure` may contain a textual exposure label.
         macro (MacroContext | None): Optional macro context whose `fx_risk` overrides feature-derived exposure when it is not `"unknown"`.
-    
+
     Returns:
         FxRisk: One of `"low"`, `"medium"`, `"high"`, or `"unknown"`. If `macro.fx_risk` is set (not `"unknown"`), that value is returned. If `features.fx_exposure` is empty or not one of `"low"`, `"medium"`, or `"high"`, returns `"unknown"`.
     """
@@ -111,10 +111,10 @@ def _fx_risk(features: FundamentalFeatureSet, macro: MacroContext | None) -> FxR
 def _macro_fit(macro: MacroContext | None) -> AnalysisSignal:
     """
     Determine how macroeconomic conditions influence the assessment's macro fit signal.
-    
+
     Parameters:
         macro (MacroContext | None): Macro context containing `fx_risk` and `rates_bias`; pass `None` when macro data is unavailable.
-    
+
     Returns:
         AnalysisSignal: `"supportive"` if macro conditions are favorable, `"cautious"` if they are adverse, `"neutral"` otherwise.
     """
@@ -134,18 +134,18 @@ def _business_quality(
 ) -> AnalysisSignal:
     """
     Determine the aggregate business-quality signal from profitability, cash-flow, and reinvestment signals.
-    
+
     Parameters:
-    	profitability_quality (AnalysisSignal): Quality signal for profitability.
-    	cash_flow_quality (AnalysisSignal): Quality signal for cash flow alignment.
-    	reinvestment_quality (AnalysisSignal): Quality signal for reinvestment potential.
-    
+        profitability_quality (AnalysisSignal): Quality signal for profitability.
+        cash_flow_quality (AnalysisSignal): Quality signal for cash flow alignment.
+        reinvestment_quality (AnalysisSignal): Quality signal for reinvestment potential.
+
     Returns:
-    	AnalysisSignal: One of `"avoid"`, `"cautious"`, `"supportive"`, or `"neutral"`.
-    	- `"avoid"` if any input is `"avoid"`.
-    	- `"cautious"` if no inputs are `"avoid"` and any input is `"cautious"`.
-    	- `"supportive"` if profitability and cash flow are both in `{"supportive", "neutral"}` and at least one of profitability, cash flow, or reinvestment is `"supportive"`.
-    	- `"neutral"` otherwise.
+        AnalysisSignal: One of `"avoid"`, `"cautious"`, `"supportive"`, or `"neutral"`.
+        - `"avoid"` if any input is `"avoid"`.
+        - `"cautious"` if no inputs are `"avoid"` and any input is `"cautious"`.
+        - `"supportive"` if profitability and cash flow are both in `{"supportive", "neutral"}` and at least one of profitability, cash flow, or reinvestment is `"supportive"`.
+        - `"neutral"` otherwise.
     """
     if "avoid" in {
         profitability_quality,
@@ -176,7 +176,7 @@ def _forward_outlook(
 ) -> AnalysisSignal:
     """
     Determine the forward outlook signal from growth, business quality, and macro fit.
-    
+
     Returns:
         AnalysisSignal: `"avoid"` if any input is `"avoid"`, `"cautious"` if any input is `"cautious"` (and none are `"avoid"`), `"supportive"` if both `growth_quality` and `business_quality` are `"supportive"`, and `"neutral"` otherwise.
     """
@@ -196,13 +196,13 @@ def _overall_bias(
 ) -> AnalysisSignal:
     """
     Compute an aggregated overall bias from multiple analysis signals and a provider-gap indicator.
-    
+
     Evaluates precedence: any `"avoid"` yields `"avoid"`, else any `"cautious"` yields `"cautious"`. If neither is present and `has_provider_gap` is True, returns `"neutral"`. If at least four signals are `"supportive"`, returns `"supportive"`. Otherwise returns `"neutral"`.
-    
+
     Parameters:
         signals (Sequence[AnalysisSignal]): Sequence of individual analysis signals to aggregate.
         has_provider_gap (bool): When True and no `"avoid"`/`"cautious"` signals are present, forces a `"neutral"` bias to reflect missing provider-backed evidence.
-    
+
     Returns:
         AnalysisSignal: One of `"avoid"`, `"cautious"`, `"supportive"`, or `"neutral"` representing the aggregated bias.
     """
@@ -222,12 +222,12 @@ def _validate_llm_evidence_contract(
 ) -> None:
     """
     Validate that an LLM-produced FundamentalAssessment satisfies minimum evidence requirements.
-    
+
     If the assessment's source is "llm", requires that at least one of `evidence`, `inference`, or `uncertainty` is present in `assessment.evidence_vs_inference`. Additionally, if `assessment.overall_bias` is not "neutral", requires non-empty direct `evidence`.
-    
+
     Parameters:
         assessment (FundamentalAssessment): The assessment to validate.
-    
+
     Raises:
         ValueError: If `assessment.source == "llm"` but no evidence/inference/uncertainty are provided, or if the assessment has a non-neutral overall_bias without direct evidence.
     """
@@ -247,10 +247,10 @@ def _validate_llm_evidence_contract(
 def _metric_evidence(features: FundamentalFeatureSet) -> list[str]:
     """
     Builds a list of evidence strings from the provided fundamental feature set.
-    
+
     Parameters:
         features (FundamentalFeatureSet): Feature bundle containing metric fields, optional data_sources, and an optional summary.
-    
+
     Returns:
         list[str]: Evidence entries in this order:
             - `label=value` for each non-None metric among `revenue_growth`, `profitability_stability`,
@@ -283,12 +283,12 @@ def _fallback_risk_flags(
 ) -> list[str]:
     """
     Builds a list of fallback risk-flag identifiers based on feature quality flags, balance-sheet quality, and FX risk.
-    
+
     Parameters:
         features (FundamentalFeatureSet): Source of base `quality_flags` to include.
         balance_sheet_quality (AnalysisSignal): If `"cautious"` or `"avoid"`, adds `"high_debt_risk"`.
         fx_risk (FxRisk): If `"medium"` or `"high"`, adds `"{fx_risk}_fx_risk"` (e.g., `"high_fx_risk"`).
-    
+
     Returns:
         list[str]: Deduplicated-semantics list of risk flag strings starting with `"fundamental_evidence_neutral"` followed by `features.quality_flags` and any added debt or FX risk flags.
     """
@@ -307,12 +307,12 @@ def _fallback_strengths(
 ) -> list[str]:
     """
     Produce strength labels corresponding to quality signals that are "supportive".
-    
+
     Parameters:
         growth_quality (AnalysisSignal): Quality signal for revenue/growth.
         profitability_quality (AnalysisSignal): Quality signal for profitability.
         cash_flow_quality (AnalysisSignal): Quality signal for cash flow.
-    
+
     Returns:
         list[str]: A list containing any of "growth_evidence_supportive",
         "profitability_evidence_supportive", and "cash_flow_evidence_supportive"
@@ -329,11 +329,11 @@ def _fallback_strengths(
 def _has_provider_gap(context: AgentContext | None, risk_flags: Sequence[str]) -> bool:
     """
     Determine whether structured fundamental data from providers is missing or flagged as unavailable.
-    
+
     Parameters:
         context (AgentContext | None): Agent context that may contain `decision_features`; treat `None` as missing.
         risk_flags (Sequence[str]): Sequence of risk/quality flags to check for provider-gap indicators.
-    
+
     Returns:
         True if `context` is missing or lacks `decision_features`, or if any flag in `risk_flags` appears in `PROVIDER_GAP_FLAGS`; `false` otherwise.
     """
@@ -349,13 +349,13 @@ def _fallback_fundamental(
 ) -> FundamentalAssessment:
     """
     Build a fallback FundamentalAssessment when structured provider-backed fundamentals are unavailable.
-    
+
     If `context.decision_features` is present, derives quality signals, evidence, risk flags, strengths, FX risk, macro fit, business quality, and forward outlook from those structured features. If structured features are missing, returns a neutral minimal assessment indicating provider-backed data is unavailable. The returned assessment has `source="fallback"`, records `fallback_reason`, and sets `confidence` to 0.0 when a provider-gap flag is present or 0.35 otherwise.
-    
+
     Parameters:
         context (AgentContext | None): Optional agent context whose `decision_features` (if present) are used to populate fallback signals and evidence.
         fallback_reason (str): Human-readable reason stored on the returned assessment explaining why the fallback was used.
-    
+
     Returns:
         FundamentalAssessment: A complete fallback assessment populated from available structured features or neutral defaults, including `evidence_vs_inference`, `red_flags`/`risk_flags`, `strengths`, individual quality and risk fields, `overall_bias`/`overall_signal`, `confidence`, `source`, and `fallback_reason`.
     """
@@ -473,18 +473,18 @@ def assess_fundamentals(
 ) -> FundamentalAssessment:
     """
     Builds a structured FundamentalAssessment for a market snapshot using the role-routed fundamental LLM or a computed fallback.
-    
+
     If structured provider evidence is missing a deterministic fallback assessment is returned. If the LLM call or validation fails, a fallback is returned only when allow_fallback is True; otherwise the original exception is propagated.
-    
+
     Parameters:
         llm (LocalLLM): Role-routed local LLM client used to generate the assessment.
         snapshot (MarketSnapshot): Market snapshot used when no AgentContext is provided.
         allow_fallback (bool): If True, return a computed fallback assessment on LLM or validation errors.
         context (AgentContext | None): Optional agent context containing structured decision_features to ground the assessment.
-    
+
     Returns:
         FundamentalAssessment: The assembled assessment; `source` is `"llm"` when produced by the model or `"fallback"` when a computed fallback is used.
-    
+
     Raises:
         Exception: Propagates any exception raised during LLM invocation or validation when allow_fallback is False.
     """

@@ -1,7 +1,7 @@
 packages:
-  - "webgui"
-  - "docs"
-  - "tui"
+  - 'webgui'
+  - 'docs'
+  - 'tui'
 
 ignoredBuiltDependencies:
   - sharp

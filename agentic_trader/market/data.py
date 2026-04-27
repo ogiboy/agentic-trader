@@ -38,7 +38,9 @@ def _read_cached_snapshot(path: Path, *, symbol: str) -> pd.DataFrame:
     return _normalize_ohlcv(cached, symbol=symbol)
 
 
-def _download_ohlcv(symbol: str, *, interval: str, lookback: str) -> pd.DataFrame | None:
+def _download_ohlcv(
+    symbol: str, *, interval: str, lookback: str
+) -> pd.DataFrame | None:
     buffer = io.StringIO()
     with redirect_stdout(buffer), redirect_stderr(buffer):
         raw_data = yf.download(  # type: ignore[reportUnknownMemberType]

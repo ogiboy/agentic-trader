@@ -2,7 +2,7 @@ import {
   defaultLanguage,
   docLanguages,
   type DocLanguage,
-} from "@/lib/i18n/config";
+} from '@/lib/i18n/config';
 
 export function isDocLanguage(value: string): value is DocLanguage {
   return docLanguages.includes(value as DocLanguage);
@@ -20,7 +20,7 @@ export function withLanguagePrefix(
   locale: DocLanguage,
   path: `/${string}`,
 ): string {
-  if (path === "/") {
+  if (path === '/') {
     return `/${locale}`;
   }
 

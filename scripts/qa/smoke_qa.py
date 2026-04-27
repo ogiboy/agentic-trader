@@ -65,11 +65,11 @@ class SmokeContext:
 def _artifact_path(context: SmokeContext, name: str) -> Path:
     """
     Return the Path to a log artifact for a named check, creating the artifacts directory if necessary.
-    
+
     Parameters:
         context (SmokeContext): Context containing the artifacts_dir where logs are stored.
         name (str): Base name for the artifact file (no extension).
-    
+
     Returns:
         Path: Path to the artifact file at `<artifacts_dir>/<name>.log`.
     """
@@ -80,10 +80,10 @@ def _artifact_path(context: SmokeContext, name: str) -> Path:
 def _coverage_path(context: SmokeContext) -> Path:
     """
     Return the file path for the coverage XML artifact inside the provided context's artifacts directory.
-    
+
     Parameters:
         context (SmokeContext): Context containing the artifacts_dir.
-    
+
     Returns:
         Path: Path to coverage.xml within the artifacts directory.
     """
@@ -93,7 +93,7 @@ def _coverage_path(context: SmokeContext) -> Path:
 def _command_display(command: list[str]) -> str:
     """
     Format a command and its arguments for human-readable display.
-    
+
     Returns:
         A single space-separated string containing the command and its arguments.
     """
@@ -103,7 +103,7 @@ def _command_display(command: list[str]) -> str:
 def _current_git_branch() -> str | None:
     """
     Return the current Git branch name for the repository checkout when it is not detached.
-    
+
     Returns:
         branch_name (str | None): The current branch name, or `None` if the checkout is detached, the branch cannot be determined, or an error occurs.
     """
@@ -127,11 +127,11 @@ def _current_git_branch() -> str | None:
 def _redact_sensitive_text(text: str, sensitive_values: tuple[str, ...]) -> str:
     """
     Redact occurrences of sensitive substrings in a text string.
-    
+
     Parameters:
         text (str): The input text that may contain sensitive values.
         sensitive_values (tuple[str, ...]): Substrings to redact; empty strings are ignored.
-    
+
     Returns:
         str: The input text with each non-empty sensitive value replaced by "<redacted>".
     """
@@ -145,13 +145,13 @@ def _redact_sensitive_text(text: str, sensitive_values: tuple[str, ...]) -> str:
 def _resolve_sonar_token() -> str | None:
     """
     Resolve the Sonar authentication token from the environment or macOS Keychain.
-    
+
     Checks the `SONAR_TOKEN` environment variable first. On macOS, if that is unset and the `security` utility is available,
     attempts to read a generic password item from the Keychain using the service from
     `SONAR_TOKEN_KEYCHAIN_SERVICE` (or the module default) and the account from
     `SONAR_TOKEN_KEYCHAIN_ACCOUNT` (or `$USER`). Returns `None` if no token can be found
     or if any lookup step fails.
-    
+
     Returns:
         sonar_token (str | None): The resolved token string, or `None` when not available.
     """
@@ -192,9 +192,9 @@ def _resolve_sonar_token() -> str | None:
 def _resolve_managed_conda_env_name() -> str | None:
     """
     Get the Conda environment name declared in the repository's Codex environment manifest.
-    
+
     Reads .codex/environments/environment.toml and returns the first token following the first occurrence of the literal "conda activate ". Quotes around the name are stripped.
-    
+
     Returns:
         str | None: The declared Conda environment name if found, `None` otherwise.
     """
@@ -271,7 +271,7 @@ SMOKE_PYTHON = _resolve_smoke_python()
 def _resolve_agentic_trader_executable() -> str | None:
     """
     Locate the `agentic-trader` executable, preferring a copy next to the running Python interpreter, then in the active conda environment's bin directory, and finally on the system PATH.
-    
+
     Returns:
         The filesystem path to an executable `agentic-trader` as a string if one is found and executable, or `None` if no suitable executable is found.
     """
@@ -291,9 +291,9 @@ def _resolve_agentic_trader_executable() -> str | None:
 def _resolve_pyright_executable() -> str | None:
     """
     Locate the `pyright` executable by probing common locations related to the current environment.
-    
+
     Checks candidates in this order: `pyright` on PATH, a `pyright` sibling next to `SMOKE_PYTHON`, `$CONDA_PREFIX/bin/pyright`, a `pyright` sibling of `CONDA_EXE`, and an inferred `<conda_root>/bin/pyright` when `SMOKE_PYTHON` appears under an `envs/` path.
-    
+
     Returns:
         Absolute path to the first executable `pyright` found, or `None` if no candidate is executable.
     """
@@ -325,7 +325,7 @@ def _resolve_pyright_executable() -> str | None:
 def _resolve_pysonar_executable() -> str | None:
     """
     Locate the `pysonar` executable by checking common locations: system PATH, the sibling of the resolved smoke Python interpreter, conda-related bin paths, and common macOS/Homebrew install paths.
-    
+
     Returns:
         str: Filesystem path to the first executable `pysonar` found, or `None` if no suitable executable is present.
     """
@@ -356,7 +356,7 @@ def _resolve_pysonar_executable() -> str | None:
 def _write_artifact(path: Path, content: str) -> None:
     """
     Write text content to the given file path, creating or overwriting it.
-    
+
     The file is written with UTF-8 encoding; invalid characters are replaced.
     """
     path.write_text(content, encoding="utf-8", errors="replace")
@@ -365,10 +365,10 @@ def _write_artifact(path: Path, content: str) -> None:
 def _output_has_traceback(output: str) -> bool:
     """
     Check whether the given captured output contains any known traceback or interrupt markers.
-    
+
     Parameters:
         output (str): Combined stdout and stderr text to scan for error markers.
-    
+
     Returns:
         True if any marker from TRACEBACK_MARKERS appears in `output`, False otherwise.
     """
@@ -396,7 +396,7 @@ def run_command_capture(
 ) -> CheckResult:
     """
     Run a command, record its stdout/stderr and metadata to a per-check artifact, and return a CheckResult describing success or failure.
-    
+
     Parameters:
         context (SmokeContext): Context whose artifacts_dir is used to write the per-check log.
         name (str): Short identifier used to name the artifact and the resulting CheckResult.
@@ -404,12 +404,12 @@ def run_command_capture(
         timeout (int): Seconds to wait before terminating the command.
         require_json_stdout (bool): If True, the check also requires that stdout parses as JSON.
         display (str | None): Human-friendly command string to record in the artifact; if None the command list is joined.
-    
+
     Returns:
         CheckResult: Contains the check name, whether it passed, human-readable details, and the artifact path.
             `passed` is True only if the process exit code is 0, the combined stdout/stderr contains no traceback markers, and (when requested) stdout is valid JSON.
             `details` includes `exit_code=<n>` and, when JSON parsing fails, `invalid_json=<error>`.
-    
+
     Notes:
         On exception while running the subprocess, an artifact is written containing the exception and a failing CheckResult is returned.
     """
@@ -590,7 +590,7 @@ def run_dashboard_contract_check(
 def _spawn_env() -> dict[str, str]:
     """
     Provide an environment dictionary for spawning interactive child processes, ensuring a default terminal type.
-    
+
     Returns:
         env (dict[str, str]): A copy of the current process environment with `TERM` set to `"xterm-256color"` when it was not already defined.
     """
@@ -602,9 +602,9 @@ def _spawn_env() -> dict[str, str]:
 def _drain_child(child: pexpect.spawn, seconds: float) -> None:
     """
     Consume and discard any pending output from a spawned pexpect child for up to the given number of seconds.
-    
+
     This repeatedly performs short, non-blocking expect calls to read available data while the child process is alive, stopping when the deadline is reached or if an OSError occurs.
-    
+
     Parameters:
         child (pexpect.spawn): The spawned child process whose output should be drained.
         seconds (float): Maximum time in seconds to attempt draining output.
@@ -620,10 +620,10 @@ def _drain_child(child: pexpect.spawn, seconds: float) -> None:
 def _close_interactive_child(child: pexpect.spawn) -> str:
     """
     Attempt to close a spawned pexpect child process by sending a quit key, then Ctrl-C, and finally force-terminating if necessary.
-    
+
     Parameters:
         child (pexpect.spawn): The spawned child process to close.
-    
+
     Returns:
         A string describing how the child exited:
         - "exited_after_render": child was already not alive on entry.
@@ -667,7 +667,7 @@ def _write_interactive_artifact(
 ) -> None:
     """
     Write an artifact file summarizing a spawned interactive TUI session.
-    
+
     Parameters:
         artifact (Path): Path to the artifact file to create (UTF-8 text).
         display_command (str): Human-readable command string shown at the top of the artifact.
@@ -691,14 +691,14 @@ def _interactive_check_result(
 ) -> CheckResult:
     """
     Evaluate the captured interactive session and produce a CheckResult that indicates whether the TUI run passed smoke checks.
-    
+
     Parameters:
         name (str): Logical name of the check.
         artifact (Path): Path to the artifact file containing the saved session.
         exit_method (str): How the session was terminated (e.g., "exited_after_render", "sent_ctrl_c", "force_terminated").
         child (pexpect.spawn): Spawned process object; its exitstatus is used to determine failures.
         output (str): Captured terminal output from the session.
-    
+
     Returns:
         CheckResult: Contains `passed` set to `false` when any of the following are observed: the output is empty or whitespace, a traceback is detected in output, the process exited with a nonzero code (except the special-case of Ctrl-C exit with status 130), or the session was force-terminated; otherwise `passed` is `true`. The `details` field describes the exit method and failure reason, and `artifact` is the artifact path as a string.
     """
@@ -771,13 +771,13 @@ def run_tui_open_and_quit(
 ) -> CheckResult:
     """
     Launches a TUI command, attempts to render and quit it, captures the terminal session to an artifact, and returns a pass/fail check result.
-    
+
     The spawned process runs in the repository root with a fixed terminal size; its captured output, exit method, and exit codes are persisted to an artifact file named for this check. The CheckResult indicates success when the TUI produced visible output, contains no traceback markers, and exited cleanly (with a special-case allowance for Ctrl-C). On error or exception the artifact contains the exception and any captured output.
-    
+
     Parameters:
         display (str | None): Optional human-readable command string to record in the artifact; when omitted a display string is derived from `command` and `args`.
         timeout (int): Seconds to use as the spawn/read timeout for the interactive session.
-    
+
     Returns:
         CheckResult: Result for the named smoke check; `passed` is `true` when the interactive run met the success criteria, `false` otherwise. The `artifact` field points to the written log file and `details` explains failures when present.
     """
@@ -803,7 +803,9 @@ def run_tui_open_and_quit(
         child.close(force=False)
 
         output = log.getvalue()
-        _write_interactive_artifact(artifact, display_command, exit_method, child, output)
+        _write_interactive_artifact(
+            artifact, display_command, exit_method, child, output
+        )
         result = _interactive_check_result(name, artifact, exit_method, child, output)
         if not result.passed:
             return result
@@ -870,10 +872,10 @@ def run_tui_open_and_quit(
 def _ink_settings_capture_issues(output: str) -> list[str]:
     """
     Check the compact Ink settings pane output for required markers.
-    
+
     Parameters:
         output (str): Captured pane text from the Ink settings view.
-    
+
     Returns:
         list[str]: Issue messages for each required marker that is missing; empty list if all markers are present.
     """
@@ -890,12 +892,12 @@ def _ink_settings_capture_issues(output: str) -> list[str]:
 def _tmux_capture_pane(tmux_path: str, session_name: str, *, timeout: int) -> str:
     """
     Capture the visible contents of a tmux pane and return it as text.
-    
+
     Parameters:
         tmux_path (str): Path to the tmux executable.
         session_name (str): Name of the tmux session whose pane to capture.
         timeout (int): Seconds to wait before the capture operation times out.
-    
+
     Returns:
         str: The captured pane text, or an empty string if there is no output.
     """
@@ -918,12 +920,12 @@ def run_ink_settings_navigation(
 ) -> CheckResult:
     """
     Check that the Ink TUI, when launched inside a compact tmux session, renders its overview and that the settings page contains the expected markers.
-    
+
     Parameters:
         context (SmokeContext): Smoke test context that determines where artifacts are written.
         command (str): Executable or command used to launch the Ink TUI (the function will append `tui`).
         timeout (int): Maximum time in seconds to wait for rendering and navigation before reporting a failure.
-    
+
     Returns:
         CheckResult: Result named "ink_settings_navigation". `passed` is `True` when the overview rendered and the settings page contains all required markers; otherwise `False`. `details` is `"tmux_settings_navigation_ok"` on success or a semicolon-separated list of issue messages on failure. `artifact` points to the written tmux overview/settings capture and the issue list.
     """
@@ -1047,14 +1049,14 @@ def run_rich_menu_deep_navigation(
 ) -> CheckResult:
     """
     Navigate the application's rich "menu" TUI through a scripted sequence and record the session.
-    
+
     Runs the given command with the "menu" argument in a pexpect-controlled terminal, performs a fixed sequence of menu selections to exercise nested routes, captures terminal output to an interactive artifact in the run artifacts directory, and evaluates the session for errors or operator noise.
-    
+
     Parameters:
         context (SmokeContext): Smoke test context providing the artifacts directory.
         command (str): Executable or command to run (will be invoked with the "menu" subcommand).
         timeout (int): Seconds to wait for expected TUI prompts and operations.
-    
+
     Returns:
         CheckResult: Result whose `passed` is true when the scripted navigation completed without tracebacks, operator-noise markers, empty capture, disallowed exit methods, or non-permitted exit codes; `artifact` contains the path to the written interactive log.
     """
@@ -1122,7 +1124,9 @@ def run_rich_menu_deep_navigation(
 
         child.close(force=False)
         output = log.getvalue()
-        _write_interactive_artifact(artifact, display_command, exit_method, child, output)
+        _write_interactive_artifact(
+            artifact, display_command, exit_method, child, output
+        )
         return _interactive_check_result(name, artifact, exit_method, child, output)
     except Exception as exc:
         output = log.getvalue()
@@ -1146,12 +1150,12 @@ def run_rich_menu_deep_navigation(
 def _skip_result(context: SmokeContext, name: str, details: str) -> CheckResult:
     """
     Create and record a skipped check result.
-    
+
     Parameters:
         context (SmokeContext): Artifact directory/context used to store the skip log.
         name (str): Identifier for the check; used to name the artifact file and the result.
         details (str): Human-readable reason for skipping the check.
-    
+
     Returns:
         CheckResult: A result with `passed=True`, `details` starting with "skipped; " followed by `details`,
         and `artifact` set to the path of the written skip log.
@@ -1183,13 +1187,13 @@ def _fail_result(context: SmokeContext, name: str, details: str) -> CheckResult:
 def _require_executable(context: SmokeContext, name: str) -> CheckResult | None:
     """
     Verify that a required executable is available and record a failing artifact if it is not.
-    
+
     Checks availability of `name`; for `"agentic-trader"` it uses the resolver that checks next to the Python interpreter, the active conda prefix, and PATH, otherwise it uses `shutil.which`. If the executable is missing, writes `<name>_missing.log` into the artifacts directory and returns a failing CheckResult describing the missing executable.
-    
+
     Parameters:
         context (SmokeContext): Context containing the artifacts directory for written diagnostics.
         name (str): The executable name to verify.
-    
+
     Returns:
         None if the executable was found; a failing CheckResult with `details` and `artifact` when it is not.
     """
@@ -1211,13 +1215,13 @@ def _require_executable(context: SmokeContext, name: str) -> CheckResult | None:
 def _write_summary(context: SmokeContext, results: list[CheckResult]) -> Path:
     """
     Write a JSON summary of the smoke run to the artifacts directory.
-    
+
     The file is named "smoke-summary.json" and contains the repository root, the artifacts directory path, the Python interpreter path, the resolved `agentic-trader` executable path (or null if not found), and the provided list of check results serialized as dictionaries.
-    
+
     Parameters:
         context (SmokeContext): Context containing the artifacts_dir where the summary will be written.
         results (list[CheckResult]): Ordered list of check results to include in the summary.
-    
+
     Returns:
         Path: Path to the written "smoke-summary.json" file.
     """
@@ -1236,7 +1240,7 @@ def _write_summary(context: SmokeContext, results: list[CheckResult]) -> Path:
 def _run_id() -> str:
     """
     Produce a timestamp string used as a unique run identifier.
-    
+
     Returns:
         str: Timestamp in the format YYYYMMDD-HHMMSS (e.g., 20260413-142530).
     """
@@ -1246,17 +1250,17 @@ def _run_id() -> str:
 def _claim_artifacts_dir(run_label: str) -> Path:
     """
     Claim and create a unique artifacts directory for this run.
-    
+
     Creates ARTIFACTS_ROOT if missing and then attempts to create a new subdirectory named
     `<run_label>` or `<run_label>-N` (with N starting at 2) to avoid collisions with
     concurrent runs. Returns the Path to the newly created directory.
-    
+
     Parameters:
         run_label (str): Base name to use for the run directory.
-    
+
     Returns:
         Path: Path to the claimed artifacts directory.
-    
+
     Raises:
         RuntimeError: If a unique directory cannot be created after 999 attempts.
     """
@@ -1276,9 +1280,9 @@ def _claim_artifacts_dir(run_label: str) -> Path:
 def _parse_args() -> Namespace:
     """
     Parse command-line arguments for the smoke QA script.
-    
+
     Supports flags to include code-quality checks and SonarQube analysis, and to configure Sonar host/project and the artifact run label.
-    
+
     Returns:
         argparse.Namespace: Parsed arguments with attributes:
             include_quality (bool): If true, run ruff, pytest, and pyright when available.
@@ -1378,7 +1382,9 @@ def _runtime_cycle_check(
         env_overrides={
             "AGENTIC_TRADER_RUNTIME_DIR": str(runtime_dir),
             "AGENTIC_TRADER_DATABASE_PATH": str(database_path),
-            "AGENTIC_TRADER_MARKET_DATA_CACHE_DIR": str(runtime_dir / "market_snapshots"),
+            "AGENTIC_TRADER_MARKET_DATA_CACHE_DIR": str(
+                runtime_dir / "market_snapshots"
+            ),
             "AGENTIC_TRADER_MAX_OUTPUT_TOKENS": "2048",
             "AGENTIC_TRADER_MAX_RETRIES": "2",
             "AGENTIC_TRADER_REQUEST_TIMEOUT_SECONDS": "180",
@@ -1389,12 +1395,12 @@ def _runtime_cycle_check(
 def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]:
     """
     Run the predefined set of CLI and TUI smoke checks for `agentic-trader` and a Python TUI, collecting their CheckResult entries.
-    
+
     If the `agentic-trader` executable is not found on PATH, a single failing availability CheckResult is returned. Otherwise this function runs multiple command-capture checks (including several JSON-output checks) and interactive TUI open-and-quit checks for the `agentic-trader` CLI, then always runs a Python TUI check against `main.py`. Artifacts for each check are written into context.artifacts_dir.
-    
+
     Parameters:
         context (SmokeContext): Execution context containing the artifacts directory where per-check logs are written.
-    
+
     Returns:
         list[CheckResult]: Ordered list of results for each performed check (availability, CLI checks, TUI checks, and the Python TUI).
     """
@@ -1493,7 +1499,9 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
             ]
         )
         if args.include_runtime_cycle:
-            results.append(_runtime_cycle_check(context, args, agentic_trader_executable))
+            results.append(
+                _runtime_cycle_check(context, args, agentic_trader_executable)
+            )
 
     results.append(
         run_tui_open_and_quit(
@@ -1510,15 +1518,15 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
 def _pytest_command(context: SmokeContext, *, include_coverage: bool) -> list[str]:
     """
     Builds the pytest command-line invocation used for running the test suite.
-    
+
     When `include_coverage` is True, adds coverage measurement for the `agentic_trader`
     package and writes an XML report to the run artifacts coverage path resolved from
     the provided `context`.
-    
+
     Parameters:
         context (SmokeContext): Context used to resolve artifact paths (coverage.xml).
         include_coverage (bool): If True, include coverage flags and an XML report path.
-    
+
     Returns:
         list[str]: The full pytest command as an argument list suitable for subprocess execution.
     """
@@ -1533,16 +1541,18 @@ def _pytest_command(context: SmokeContext, *, include_coverage: bool) -> list[st
     return command
 
 
-def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[CheckResult]:
+def _quality_checks(
+    context: SmokeContext, *, include_coverage: bool
+) -> list[CheckResult]:
     """
     Run the project's static and test-quality checks (ruff, pytest, and pyright) and collect their results.
-    
+
     When `include_coverage` is true, pytest is invoked to produce a coverage XML report alongside test execution. If `pyright` is not available, the returned list contains a failing `CheckResult` for the pyright check.
-    
+
     Parameters:
         context (SmokeContext): Execution/artifacts context used to write per-check logs.
         include_coverage (bool): If true, enable coverage reporting for the pytest run.
-    
+
     Returns:
         list[CheckResult]: Results for the `ruff_check`, `pytest`, and `pyright` checks (pyright result will indicate failure if the executable is not found).
     """
@@ -1596,13 +1606,13 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
 def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
     """
     Run SonarQube analysis with the pysonar CLI and record the invocation and output in the artifacts directory.
-    
+
     If the pysonar executable or a Sonar token cannot be resolved, writes a diagnostic artifact and returns a failing CheckResult. Otherwise invokes pysonar with the configured host, project, default sources/tests and Python version, optionally includes branch, organization, and coverage.xml when available, and persists the command output with sensitive values redacted.
-    
+
     Parameters:
         context (SmokeContext): Execution context containing the artifacts directory.
         args (Namespace): Parsed CLI arguments; must provide `sonar_host_url` and `sonar_project_key`, and may include `sonar_branch_name` and `sonar_organization`.
-    
+
     Returns:
         CheckResult: Result of the pysonar invocation; `passed` indicates success and `artifact` is the path to the written log.
     """
@@ -1686,9 +1696,9 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
 def main() -> int:
     """
     Run the smoke QA suite, produce per-check artifacts and a consolidated JSON summary, print a pass/fail table, and return an exit status.
-    
+
     Creates a unique artifacts directory for the run, executes surface smoke checks and (optionally) code-quality and Sonar checks, writes per-check log artifacts and a top-level `smoke-summary.json`, and prints a human-readable summary with each check's status, details, and artifact path.
-    
+
     Returns:
         int: 0 if all checks passed, 1 if any check failed.
     """

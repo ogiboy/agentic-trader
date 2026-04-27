@@ -1,9 +1,15 @@
-import { Bot, FileSearch, LayoutPanelTop } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DocLanguage } from "@/lib/i18n/config";
+import { Bot, FileSearch, LayoutPanelTop } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import type { DocLanguage } from '@/lib/i18n/config';
 
 type CurrentFocusItem = {
-  icon: "bot" | "layout" | "inspect";
+  icon: 'bot' | 'layout' | 'inspect';
   text: string;
 };
 
@@ -26,12 +32,12 @@ export function CurrentFocusPanel({
     <Card className="docs-home-panel sticky top-6">
       <CardHeader>
         <CardTitle>
-          {locale === "en" ? "Current V1 focus" : "Güncel V1 odağı"}
+          {locale === 'en' ? 'Current V1 focus' : 'Güncel V1 odağı'}
         </CardTitle>
         <CardDescription>
-          {locale === "en"
-            ? "The project is in hardening mode, not in “invent a parallel system” mode."
-            : "Proje şu anda sertleştirme aşamasında; paralel bir sistem icat etme aşamasında değil."}
+          {locale === 'en'
+            ? 'The project is in hardening mode, not in “invent a parallel system” mode.'
+            : 'Proje şu anda sertleştirme aşamasında; paralel bir sistem icat etme aşamasında değil.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
@@ -39,7 +45,10 @@ export function CurrentFocusPanel({
           const Icon = icons[item.icon];
 
           return (
-            <div key={`${item.icon}-${index}`} className="flex items-start gap-3">
+            <div
+              key={`${item.icon}-${index}`}
+              className="flex items-start gap-3"
+            >
               <Icon className="mt-0.5 size-4 text-primary" />
               {item.text}
             </div>

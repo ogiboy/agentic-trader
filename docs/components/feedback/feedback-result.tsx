@@ -1,6 +1,6 @@
-import type { ActionResponse } from "@/components/feedback/schema";
-import type { DocLanguage } from "@/lib/i18n/config";
-import { getFeedbackCopy } from "@/components/feedback/copy";
+import type { ActionResponse } from '@/components/feedback/schema';
+import type { DocLanguage } from '@/lib/i18n/config';
+import { getFeedbackCopy } from '@/components/feedback/copy';
 
 type FeedbackResultProps = {
   locale: DocLanguage;
@@ -25,9 +25,9 @@ export function FeedbackResult({
   }
 
   let message = copy.successLocalOnlyDisabled;
-  if (result.forwarding === "prepared" || result.forwarding === "succeeded") {
+  if (result.forwarding === 'prepared' || result.forwarding === 'succeeded') {
     message = copy.successForwarded;
-  } else if (result.forwarding === "failed") {
+  } else if (result.forwarding === 'failed') {
     message = copy.successLocalOnlyFailed;
   }
 
@@ -46,7 +46,9 @@ export function FeedbackResult({
       ) : null}
       {result.warning ? (
         <p className="text-muted-foreground">
-          <span className="font-medium text-foreground">{copy.technicalDetail}:</span>{" "}
+          <span className="font-medium text-foreground">
+            {copy.technicalDetail}:
+          </span>{' '}
           {result.warning}
         </p>
       ) : null}

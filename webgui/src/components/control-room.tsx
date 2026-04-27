@@ -1,27 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
-"use client";
+'use client';
 
-import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from 'next/image';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { CHAT_PERSONAS, type ChatPersona } from "@/lib/chat-personas";
+import { CHAT_PERSONAS, type ChatPersona } from '@/lib/chat-personas';
 
 type DashboardData = Record<string, any>;
-type TabId = "overview" | "runtime" | "portfolio" | "review" | "memory" | "chat" | "settings";
-type MessageTone = "neutral" | "good" | "warn" | "bad";
+type TabId =
+  | 'overview'
+  | 'runtime'
+  | 'portfolio'
+  | 'review'
+  | 'memory'
+  | 'chat'
+  | 'settings';
+type MessageTone = 'neutral' | 'good' | 'warn' | 'bad';
 
 const tabs: Array<{ id: TabId; label: string }> = [
-  { id: "overview", label: "Overview" },
-  { id: "runtime", label: "Runtime" },
-  { id: "portfolio", label: "Portfolio" },
-  { id: "review", label: "Review" },
-  { id: "memory", label: "Memory" },
-  { id: "chat", label: "Chat" },
-  { id: "settings", label: "Settings" },
+  { id: 'overview', label: 'Overview' },
+  { id: 'runtime', label: 'Runtime' },
+  { id: 'portfolio', label: 'Portfolio' },
+  { id: 'review', label: 'Review' },
+  { id: 'memory', label: 'Memory' },
+  { id: 'chat', label: 'Chat' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 const marketLensImage =
-  "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1600&q=80";
+  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1600&q=80';
 
 /**
  * Builds a space-separated className string from the provided fragments, ignoring falsy entries.
@@ -30,7 +37,7 @@ const marketLensImage =
  * @returns The concatenated className or an empty string if no fragments remain
  */
 function cx(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(" ");
+  return values.filter(Boolean).join(' ');
 }
 
 /**
@@ -41,10 +48,10 @@ function cx(...values: Array<string | false | null | undefined>) {
  * @returns `"-"` for non-number or `NaN`, otherwise the number formatted with exactly `digits` fraction digits.
  */
 function formatNumber(value: unknown, digits = 2): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '-';
   }
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: digits,
     minimumFractionDigits: digits,
   }).format(value);
@@ -58,8 +65,8 @@ function formatNumber(value: unknown, digits = 2): string {
  * @returns `"-"` for non-number or `NaN`, otherwise the percentage string with a trailing `%` (e.g., `"12.00%"`).
  */
 function formatPercent(value: unknown, digits = 2): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '-';
   }
   return `${(value * 100).toFixed(digits)}%`;
 }
@@ -72,9 +79,9 @@ function formatPercent(value: unknown, digits = 2): string {
  */
 function formatList(value: unknown): string {
   if (!Array.isArray(value) || value.length === 0) {
-    return "-";
+    return '-';
   }
-  return value.join(", ");
+  return value.join(', ');
 }
 
 /**
@@ -84,8 +91,8 @@ function formatList(value: unknown): string {
  * @returns A localized date/time string when `value` is a parseable date string; the original `value` string if it cannot be parsed; `"-"` when `value` is falsy or not a string.
  */
 function formatTimestamp(value: unknown): string {
-  if (typeof value !== "string" || !value) {
-    return "-";
+  if (typeof value !== 'string' || !value) {
+    return '-';
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -100,25 +107,27 @@ function formatTimestamp(value: unknown): string {
  * @param record - The trade context object (may be `null`/`undefined`). Expected fields include `trade_id`, `run_id`, `consensus.alignment_level`, `manager_rationale`, `execution_rationale`, `execution_backend`, `execution_adapter`, `execution_outcome_status`, `execution_rejection_reason`, `review_summary`, and `routed_models`.
  * @returns An array of labeled strings for trade/run IDs, consensus, rationales, execution details, review summary, and routed models; if `record` is missing returns a single line stating no persisted trade context is available.
  */
-function tradeContextLines(record: Record<string, any> | null | undefined): string[] {
+function tradeContextLines(
+  record: Record<string, any> | null | undefined,
+): string[] {
   if (!record) {
-    return ["No persisted trade context is available yet."];
+    return ['No persisted trade context is available yet.'];
   }
   const routedModels = Object.entries(record.routed_models || {})
     .map(([role, model]) => `${role}:${model}`)
-    .join(" | ");
+    .join(' | ');
   return [
-    `Trade ID: ${record.trade_id ?? "-"}`,
-    `Run ID: ${record.run_id ?? "-"}`,
-    `Consensus: ${record.consensus?.alignment_level ?? "-"}`,
-    `Manager Rationale: ${record.manager_rationale ?? "-"}`,
-    `Execution Rationale: ${record.execution_rationale ?? "-"}`,
-    `Execution Backend: ${record.execution_backend ?? "-"}`,
-    `Execution Adapter: ${record.execution_adapter ?? "-"}`,
-    `Execution Outcome: ${record.execution_outcome_status ?? "-"}`,
-    `Rejection Reason: ${record.execution_rejection_reason ?? "-"}`,
-    `Review Summary: ${record.review_summary ?? "-"}`,
-    `Routed Models: ${routedModels || "-"}`,
+    `Trade ID: ${record.trade_id ?? '-'}`,
+    `Run ID: ${record.run_id ?? '-'}`,
+    `Consensus: ${record.consensus?.alignment_level ?? '-'}`,
+    `Manager Rationale: ${record.manager_rationale ?? '-'}`,
+    `Execution Rationale: ${record.execution_rationale ?? '-'}`,
+    `Execution Backend: ${record.execution_backend ?? '-'}`,
+    `Execution Adapter: ${record.execution_adapter ?? '-'}`,
+    `Execution Outcome: ${record.execution_outcome_status ?? '-'}`,
+    `Rejection Reason: ${record.execution_rejection_reason ?? '-'}`,
+    `Review Summary: ${record.review_summary ?? '-'}`,
+    `Routed Models: ${routedModels || '-'}`,
   ];
 }
 
@@ -128,9 +137,11 @@ function tradeContextLines(record: Record<string, any> | null | undefined): stri
  * @param snapshot - Snapshot object containing analysis fields; if `null` or `undefined` a placeholder line is returned
  * @returns An array of human-readable lines: summary, completeness score, missing sections, market/fundamental/macro source names, counts for news events and disclosures, and up to six source attribution lines
  */
-function canonicalLines(snapshot: Record<string, any> | null | undefined): string[] {
+function canonicalLines(
+  snapshot: Record<string, any> | null | undefined,
+): string[] {
   if (!snapshot) {
-    return ["No canonical analysis snapshot is available yet."];
+    return ['No canonical analysis snapshot is available yet.'];
   }
   const sources = (snapshot.source_attributions || [])
     .slice(0, 6)
@@ -139,12 +150,12 @@ function canonicalLines(snapshot: Record<string, any> | null | undefined): strin
         `${source.provider_type}:${source.source_name} (${source.source_role}, ${source.freshness})`,
     );
   return [
-    `Summary: ${snapshot.summary || "-"}`,
-    `Completeness: ${snapshot.completeness_score ?? "-"}`,
+    `Summary: ${snapshot.summary || '-'}`,
+    `Completeness: ${snapshot.completeness_score ?? '-'}`,
     `Missing Sections: ${formatList(snapshot.missing_sections)}`,
-    `Market Source: ${snapshot.market?.attribution?.source_name ?? "-"}`,
-    `Fundamental Source: ${snapshot.fundamental?.attribution?.source_name ?? "-"}`,
-    `Macro Source: ${snapshot.macro?.attribution?.source_name ?? "-"}`,
+    `Market Source: ${snapshot.market?.attribution?.source_name ?? '-'}`,
+    `Fundamental Source: ${snapshot.fundamental?.attribution?.source_name ?? '-'}`,
+    `Macro Source: ${snapshot.macro?.attribution?.source_name ?? '-'}`,
     `News Events: ${(snapshot.news_events || []).length}`,
     `Disclosures: ${(snapshot.disclosures || []).length}`,
     ...sources.map((source: string) => `Source: ${source}`),
@@ -163,21 +174,23 @@ function canonicalLines(snapshot: Record<string, any> | null | undefined): strin
  * quality/anomaly flags, and up to four horizon lines. If `pack` is `null`/`undefined`,
  * returns a single line stating that no persisted market context pack is available yet.
  */
-function marketContextLines(pack: Record<string, any> | null | undefined): string[] {
+function marketContextLines(
+  pack: Record<string, any> | null | undefined,
+): string[] {
   if (!pack) {
-    return ["No persisted market context pack is available yet."];
+    return ['No persisted market context pack is available yet.'];
   }
   const horizons = (pack.horizons || [])
     .slice(0, 4)
     .map(
       (item: Record<string, any>) =>
-        `${item.horizon_bars} bars | ${item.trend_vote} | return=${item.return_pct ?? "-"} | drawdown=${item.max_drawdown_pct ?? "-"}`,
+        `${item.horizon_bars} bars | ${item.trend_vote} | return=${item.return_pct ?? '-'} | drawdown=${item.max_drawdown_pct ?? '-'}`,
     );
   return [
-    `Summary: ${pack.summary || "-"}`,
-    `Lookback: ${pack.lookback ?? "-"} | Interval: ${pack.interval ?? "-"}`,
-    `Window: ${pack.window_start ?? "-"} -> ${pack.window_end ?? "-"}`,
-    `Coverage: ${pack.bars_analyzed ?? "-"} / ${pack.bars_expected ?? "-"} (${pack.coverage_ratio ?? "-"})`,
+    `Summary: ${pack.summary || '-'}`,
+    `Lookback: ${pack.lookback ?? '-'} | Interval: ${pack.interval ?? '-'}`,
+    `Window: ${pack.window_start ?? '-'} -> ${pack.window_end ?? '-'}`,
+    `Coverage: ${pack.bars_analyzed ?? '-'} / ${pack.bars_expected ?? '-'} (${pack.coverage_ratio ?? '-'})`,
     `Quality: ${formatList(pack.data_quality_flags)}`,
     `Anomalies: ${formatList(pack.anomaly_flags)}`,
     ...horizons,
@@ -196,7 +209,7 @@ function unavailableSectionLines(
   label: string,
 ): null | string[] {
   if (section?.available === false) {
-    return [`${label} unavailable: ${section.error || "Unknown error."}`];
+    return [`${label} unavailable: ${section.error || 'Unknown error.'}`];
   }
   return null;
 }
@@ -207,7 +220,9 @@ function unavailableSectionLines(
  * @param data - The dashboard payload (or `null`) containing optional `chatHistory.entries`.
  * @returns An array of objects each with `user` (the user's message), `persona`, and `response` (the agent's reply); the order is the source entries reversed.
  */
-function normalizeChatHistory(data: DashboardData | null): Array<Record<string, string>> {
+function normalizeChatHistory(
+  data: DashboardData | null,
+): Array<Record<string, string>> {
   const entries = data?.chatHistory?.entries || [];
   return [...entries].reverse().map((entry: Record<string, any>) => ({
     user: entry.user_message,
@@ -231,14 +246,14 @@ async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...(init?.headers || {}),
     },
-    cache: "no-store",
+    cache: 'no-store',
   });
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.error || "Request failed.");
+    throw new Error(payload.error || 'Request failed.');
   }
   return payload as T;
 }
@@ -255,11 +270,11 @@ function Panel({
   children,
 }: {
   title: string;
-  accent?: "lime" | "amber" | "cyan" | "rose";
+  accent?: 'lime' | 'amber' | 'cyan' | 'rose';
   children: React.ReactNode;
 }) {
   return (
-    <section className={cx("panel", accent ? `panel--${accent}` : undefined)}>
+    <section className={cx('panel', accent ? `panel--${accent}` : undefined)}>
       <div className="panel__title">{title}</div>
       <div className="panel__body">{children}</div>
     </section>
@@ -320,22 +335,29 @@ function JsonPreview({ value }: { value: unknown }) {
  */
 export function ControlRoom() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [tab, setTab] = useState<TabId>("overview");
+  const [tab, setTab] = useState<TabId>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ text: string; tone: MessageTone } | null>(
-    null,
-  );
+  const [message, setMessage] = useState<{
+    text: string;
+    tone: MessageTone;
+  } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [chatDraft, setChatDraft] = useState("");
-  const [chatPersona, setChatPersona] = useState<ChatPersona>("operator_liaison");
-  const [chatHistory, setChatHistory] = useState<Array<Record<string, string>>>([]);
-  const [instructionDraft, setInstructionDraft] = useState("");
-  const [instructionMode, setInstructionMode] = useState<"preview" | "apply">("preview");
-  const [instructionResult, setInstructionResult] = useState<Record<string, any> | null>(
-    null,
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatPersona, setChatPersona] =
+    useState<ChatPersona>('operator_liaison');
+  const [chatHistory, setChatHistory] = useState<Array<Record<string, string>>>(
+    [],
   );
-  const [lastLoadedAt, setLastLoadedAt] = useState<string>("-");
+  const [instructionDraft, setInstructionDraft] = useState('');
+  const [instructionMode, setInstructionMode] = useState<'preview' | 'apply'>(
+    'preview',
+  );
+  const [instructionResult, setInstructionResult] = useState<Record<
+    string,
+    any
+  > | null>(null);
+  const [lastLoadedAt, setLastLoadedAt] = useState<string>('-');
   const lastRequestSeqRef = useRef(0);
   const dashboardAbortRef = useRef<AbortController | null>(null);
 
@@ -364,7 +386,7 @@ export function ControlRoom() {
     const controller = new AbortController();
     dashboardAbortRef.current = controller;
     try {
-      const payload = await readJson<DashboardData>("/api/dashboard", {
+      const payload = await readJson<DashboardData>('/api/dashboard', {
         signal: controller.signal,
       });
       if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
@@ -375,7 +397,9 @@ export function ControlRoom() {
       if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
         return;
       }
-      setError(nextError instanceof Error ? nextError.message : String(nextError));
+      setError(
+        nextError instanceof Error ? nextError.message : String(nextError),
+      );
     } finally {
       if (dashboardAbortRef.current === controller) {
         dashboardAbortRef.current = null;
@@ -401,29 +425,30 @@ export function ControlRoom() {
   }, [loadDashboard]);
 
   const runAction = useCallback(
-    async (kind: "refresh" | "start" | "stop" | "restart" | "one-shot") => {
-      if (kind === "refresh") {
-        setBusy("refresh");
+    async (kind: 'refresh' | 'start' | 'stop' | 'restart' | 'one-shot') => {
+      if (kind === 'refresh') {
+        setBusy('refresh');
         await loadDashboard();
-        setMessage({ text: "Dashboard refreshed.", tone: "neutral" });
+        setMessage({ text: 'Dashboard refreshed.', tone: 'neutral' });
         setBusy(null);
         return;
       }
       setBusy(kind);
       try {
-        const result = await readJson<{ message: string; dashboard: DashboardData }>(
-          "/api/runtime",
-          {
-            method: "POST",
-            body: JSON.stringify({ kind }),
-          },
-        );
+        const result = await readJson<{
+          message: string;
+          dashboard: DashboardData;
+        }>('/api/runtime', {
+          method: 'POST',
+          body: JSON.stringify({ kind }),
+        });
         applyLatestDashboard(result.dashboard);
-        setMessage({ text: result.message, tone: "good" });
+        setMessage({ text: result.message, tone: 'good' });
       } catch (nextError) {
         setMessage({
-          text: nextError instanceof Error ? nextError.message : String(nextError),
-          tone: "bad",
+          text:
+            nextError instanceof Error ? nextError.message : String(nextError),
+          tone: 'bad',
         });
       } finally {
         setBusy(null);
@@ -437,22 +462,23 @@ export function ControlRoom() {
     if (!messageText) {
       return;
     }
-    setBusy("chat");
+    setBusy('chat');
     try {
-      await readJson<Record<string, string>>("/api/chat", {
-        method: "POST",
+      await readJson<Record<string, string>>('/api/chat', {
+        method: 'POST',
         body: JSON.stringify({
           persona: chatPersona,
           message: messageText,
         }),
       });
-      setChatDraft("");
-      setMessage({ text: "Operator reply received.", tone: "good" });
+      setChatDraft('');
+      setMessage({ text: 'Operator reply received.', tone: 'good' });
       await loadDashboard();
     } catch (nextError) {
       setMessage({
-        text: nextError instanceof Error ? nextError.message : String(nextError),
-        tone: "bad",
+        text:
+          nextError instanceof Error ? nextError.message : String(nextError),
+        tone: 'bad',
       });
     } finally {
       setBusy(null);
@@ -464,32 +490,33 @@ export function ControlRoom() {
     if (!messageText) {
       return;
     }
-    setBusy("instruction");
+    setBusy('instruction');
     try {
-      const result = await readJson<{ result: Record<string, any>; dashboard: DashboardData }>(
-        "/api/instruct",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            message: messageText,
-            apply: instructionMode === "apply",
-          }),
-        },
-      );
+      const result = await readJson<{
+        result: Record<string, any>;
+        dashboard: DashboardData;
+      }>('/api/instruct', {
+        method: 'POST',
+        body: JSON.stringify({
+          message: messageText,
+          apply: instructionMode === 'apply',
+        }),
+      });
       setInstructionResult(result.result);
       applyLatestDashboard(result.dashboard);
-      setInstructionDraft("");
+      setInstructionDraft('');
       setMessage({
         text:
-          instructionMode === "apply"
-            ? "Preferences updated from operator instruction."
-            : "Instruction preview ready.",
-        tone: "good",
+          instructionMode === 'apply'
+            ? 'Preferences updated from operator instruction.'
+            : 'Instruction preview ready.',
+        tone: 'good',
       });
     } catch (nextError) {
       setMessage({
-        text: nextError instanceof Error ? nextError.message : String(nextError),
-        tone: "bad",
+        text:
+          nextError instanceof Error ? nextError.message : String(nextError),
+        tone: 'bad',
       });
     } finally {
       setBusy(null);
@@ -498,28 +525,37 @@ export function ControlRoom() {
 
   const currentCycle = useMemo<Array<[string, string]>>(
     () => [
-      ["Runtime", dashboard?.status?.runtime_state ?? "-"],
-      ["Mode", dashboard?.status?.runtime_mode ?? dashboard?.doctor?.runtime_mode ?? "-"],
-      ["Current Symbol", dashboard?.status?.state?.current_symbol ?? "-"],
-      ["Cycle Count", String(dashboard?.status?.state?.cycle_count ?? "-")],
-      ["Status", dashboard?.status?.status_message ?? "-"],
-      ["Current Stage", dashboard?.agentActivity?.current_stage ?? "-"],
-      ["Stage Status", dashboard?.agentActivity?.current_stage_status ?? "-"],
-      ["Last Outcome", dashboard?.agentActivity?.last_outcome_message ?? "Waiting for a completed symbol or service result."],
+      ['Runtime', dashboard?.status?.runtime_state ?? '-'],
+      [
+        'Mode',
+        dashboard?.status?.runtime_mode ??
+          dashboard?.doctor?.runtime_mode ??
+          '-',
+      ],
+      ['Current Symbol', dashboard?.status?.state?.current_symbol ?? '-'],
+      ['Cycle Count', String(dashboard?.status?.state?.cycle_count ?? '-')],
+      ['Status', dashboard?.status?.status_message ?? '-'],
+      ['Current Stage', dashboard?.agentActivity?.current_stage ?? '-'],
+      ['Stage Status', dashboard?.agentActivity?.current_stage_status ?? '-'],
+      [
+        'Last Outcome',
+        dashboard?.agentActivity?.last_outcome_message ??
+          'Waiting for a completed symbol or service result.',
+      ],
     ],
     [dashboard],
   );
 
   const system = useMemo<Array<[string, string]>>(
     () => [
-      ["Model", dashboard?.doctor?.model ?? "-"],
-      ["Base URL", dashboard?.doctor?.base_url ?? "-"],
-      ["Ollama Reachable", dashboard?.doctor?.ollama_reachable ? "yes" : "no"],
-      ["Model Available", dashboard?.doctor?.model_available ? "yes" : "no"],
-      ["Broker Backend", dashboard?.broker?.backend ?? "-"],
-      ["Broker State", dashboard?.broker?.state ?? "-"],
-      ["Execution Mode", dashboard?.broker?.execution_mode ?? "-"],
-      ["Market Session", dashboard?.calendar?.session?.session_state ?? "-"],
+      ['Model', dashboard?.doctor?.model ?? '-'],
+      ['Base URL', dashboard?.doctor?.base_url ?? '-'],
+      ['Ollama Reachable', dashboard?.doctor?.ollama_reachable ? 'yes' : 'no'],
+      ['Model Available', dashboard?.doctor?.model_available ? 'yes' : 'no'],
+      ['Broker Backend', dashboard?.broker?.backend ?? '-'],
+      ['Broker State', dashboard?.broker?.state ?? '-'],
+      ['Execution Mode', dashboard?.broker?.execution_mode ?? '-'],
+      ['Market Session', dashboard?.calendar?.session?.session_state ?? '-'],
     ],
     [dashboard],
   );
@@ -529,7 +565,7 @@ export function ControlRoom() {
       return null;
     }
 
-    if (tab === "overview") {
+    if (tab === 'overview') {
       return (
         <div className="stack">
           <section className="market-ribbon">
@@ -546,14 +582,19 @@ export function ControlRoom() {
                 <p className="eyebrow">Operator Truth</p>
                 <h1>Agentic Trader Web GUI</h1>
                 <p className="market-ribbon__copy">
-                  Local-first runtime, paper-first execution, and the same dashboard contract that powers CLI, Rich, and Ink.
+                  Local-first runtime, paper-first execution, and the same
+                  dashboard contract that powers CLI, Rich, and Ink.
                 </p>
               </div>
               <div className="pill-row">
-                <span className="pill">{dashboard.status?.runtime_mode ?? "-"}</span>
-                <span className="pill">{dashboard.broker?.backend ?? "-"}</span>
-                <span className="pill">{dashboard.calendar?.session?.venue ?? "session unknown"}</span>
-                <span className="pill">{dashboard.doctor?.model ?? "-"}</span>
+                <span className="pill">
+                  {dashboard.status?.runtime_mode ?? '-'}
+                </span>
+                <span className="pill">{dashboard.broker?.backend ?? '-'}</span>
+                <span className="pill">
+                  {dashboard.calendar?.session?.venue ?? 'session unknown'}
+                </span>
+                <span className="pill">{dashboard.doctor?.model ?? '-'}</span>
               </div>
             </div>
           </section>
@@ -575,7 +616,7 @@ export function ControlRoom() {
                       (event: Record<string, any>) =>
                         `${formatTimestamp(event.created_at)} | ${event.stage} | ${event.status} | ${event.message}`,
                     )
-                  : ["No live agent stage events yet."]
+                  : ['No live agent stage events yet.']
               }
             />
           </Panel>
@@ -583,20 +624,32 @@ export function ControlRoom() {
       );
     }
 
-    if (tab === "runtime") {
+    if (tab === 'runtime') {
       return (
         <div className="grid grid--2">
           <Panel title="Runtime State" accent="lime">
             <KeyValueList
               items={[
-                ["Runtime", dashboard.status?.runtime_state ?? "-"],
-                ["Live Process", dashboard.status?.live_process ? "yes" : "no"],
-                ["PID", String(dashboard.status?.state?.pid ?? "-")],
-                ["Current Symbol", dashboard.status?.state?.current_symbol ?? "-"],
-                ["Cycle Count", String(dashboard.status?.state?.cycle_count ?? "-")],
-                ["Updated", formatTimestamp(dashboard.status?.state?.updated_at)],
-                ["Stop Requested", String(dashboard.status?.state?.stop_requested ?? false)],
-                ["Status", dashboard.status?.status_message ?? "-"],
+                ['Runtime', dashboard.status?.runtime_state ?? '-'],
+                ['Live Process', dashboard.status?.live_process ? 'yes' : 'no'],
+                ['PID', String(dashboard.status?.state?.pid ?? '-')],
+                [
+                  'Current Symbol',
+                  dashboard.status?.state?.current_symbol ?? '-',
+                ],
+                [
+                  'Cycle Count',
+                  String(dashboard.status?.state?.cycle_count ?? '-'),
+                ],
+                [
+                  'Updated',
+                  formatTimestamp(dashboard.status?.state?.updated_at),
+                ],
+                [
+                  'Stop Requested',
+                  String(dashboard.status?.state?.stop_requested ?? false),
+                ],
+                ['Status', dashboard.status?.status_message ?? '-'],
               ]}
             />
           </Panel>
@@ -614,9 +667,9 @@ export function ControlRoom() {
                 dashboard.logs?.length
                   ? dashboard.logs.map(
                       (event: Record<string, any>) =>
-                        `${formatTimestamp(event.created_at)} | ${event.level} | ${event.event_type} | ${event.symbol ?? "-"} | ${event.message}`,
+                        `${formatTimestamp(event.created_at)} | ${event.level} | ${event.event_type} | ${event.symbol ?? '-'} | ${event.message}`,
                     )
-                  : ["No runtime events recorded yet."]
+                  : ['No runtime events recorded yet.']
               }
             />
           </Panel>
@@ -625,10 +678,10 @@ export function ControlRoom() {
               items={[
                 ...(dashboard.supervisor?.stderr_tail?.length
                   ? dashboard.supervisor.stderr_tail
-                  : ["No stderr tail."]),
+                  : ['No stderr tail.']),
                 ...(dashboard.supervisor?.stdout_tail?.length
                   ? dashboard.supervisor.stdout_tail
-                  : ["No stdout tail."]),
+                  : ['No stdout tail.']),
               ]}
             />
           </Panel>
@@ -636,22 +689,46 @@ export function ControlRoom() {
       );
     }
 
-    if (tab === "portfolio") {
+    if (tab === 'portfolio') {
       return (
         <div className="grid grid--2">
           <Panel title="Portfolio" accent="lime">
-            {unavailableSectionLines(dashboard.portfolio, "Portfolio") ? (
-              <TextList items={unavailableSectionLines(dashboard.portfolio, "Portfolio") || []} />
+            {unavailableSectionLines(dashboard.portfolio, 'Portfolio') ? (
+              <TextList
+                items={
+                  unavailableSectionLines(dashboard.portfolio, 'Portfolio') ||
+                  []
+                }
+              />
             ) : (
               <>
                 <KeyValueList
                   items={[
-                    ["Cash", formatNumber(dashboard.portfolio?.snapshot?.cash)],
-                    ["Market Value", formatNumber(dashboard.portfolio?.snapshot?.market_value)],
-                    ["Equity", formatNumber(dashboard.portfolio?.snapshot?.equity)],
-                    ["Realized PnL", formatNumber(dashboard.portfolio?.snapshot?.realized_pnl)],
-                    ["Unrealized PnL", formatNumber(dashboard.portfolio?.snapshot?.unrealized_pnl)],
-                    ["Open Positions", String(dashboard.portfolio?.snapshot?.open_positions ?? "-")],
+                    ['Cash', formatNumber(dashboard.portfolio?.snapshot?.cash)],
+                    [
+                      'Market Value',
+                      formatNumber(dashboard.portfolio?.snapshot?.market_value),
+                    ],
+                    [
+                      'Equity',
+                      formatNumber(dashboard.portfolio?.snapshot?.equity),
+                    ],
+                    [
+                      'Realized PnL',
+                      formatNumber(dashboard.portfolio?.snapshot?.realized_pnl),
+                    ],
+                    [
+                      'Unrealized PnL',
+                      formatNumber(
+                        dashboard.portfolio?.snapshot?.unrealized_pnl,
+                      ),
+                    ],
+                    [
+                      'Open Positions',
+                      String(
+                        dashboard.portfolio?.snapshot?.open_positions ?? '-',
+                      ),
+                    ],
                   ]}
                 />
                 <JsonPreview value={dashboard.portfolio?.positions || []} />
@@ -659,47 +736,81 @@ export function ControlRoom() {
             )}
           </Panel>
           <Panel title="Risk Report" accent="rose">
-            {unavailableSectionLines(dashboard.riskReport, "Risk report") ? (
-              <TextList items={unavailableSectionLines(dashboard.riskReport, "Risk report") || []} />
+            {unavailableSectionLines(dashboard.riskReport, 'Risk report') ? (
+              <TextList
+                items={
+                  unavailableSectionLines(
+                    dashboard.riskReport,
+                    'Risk report',
+                  ) || []
+                }
+              />
             ) : (
               <>
                 <KeyValueList
                   items={[
-                    ["Equity", formatNumber(dashboard.riskReport?.report?.equity)],
-                    ["Gross Exposure", formatPercent(dashboard.riskReport?.report?.gross_exposure_pct)],
-                    ["Largest Position", formatPercent(dashboard.riskReport?.report?.largest_position_pct)],
-                    ["Drawdown", formatPercent(dashboard.riskReport?.report?.drawdown_from_peak_pct)],
-                    ["Warnings", String((dashboard.riskReport?.report?.warnings || []).length)],
+                    [
+                      'Equity',
+                      formatNumber(dashboard.riskReport?.report?.equity),
+                    ],
+                    [
+                      'Gross Exposure',
+                      formatPercent(
+                        dashboard.riskReport?.report?.gross_exposure_pct,
+                      ),
+                    ],
+                    [
+                      'Largest Position',
+                      formatPercent(
+                        dashboard.riskReport?.report?.largest_position_pct,
+                      ),
+                    ],
+                    [
+                      'Drawdown',
+                      formatPercent(
+                        dashboard.riskReport?.report?.drawdown_from_peak_pct,
+                      ),
+                    ],
+                    [
+                      'Warnings',
+                      String(
+                        (dashboard.riskReport?.report?.warnings || []).length,
+                      ),
+                    ],
                   ]}
                 />
-                <TextList items={dashboard.riskReport?.report?.warnings || ["No warnings."]} />
+                <TextList
+                  items={
+                    dashboard.riskReport?.report?.warnings || ['No warnings.']
+                  }
+                />
               </>
             )}
           </Panel>
           <Panel title="Trade Journal" accent="amber">
             <TextList
               items={
-                unavailableSectionLines(dashboard.journal, "Trade journal") ||
+                unavailableSectionLines(dashboard.journal, 'Trade journal') ||
                 (dashboard.journal?.entries?.length
                   ? dashboard.journal.entries.map(
                       (entry: Record<string, any>) =>
-                        `${formatTimestamp(entry.opened_at)} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? "-"}`,
+                        `${formatTimestamp(entry.opened_at)} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`,
                     )
-                  : ["No trade journal entries yet."])
+                  : ['No trade journal entries yet.'])
               }
             />
           </Panel>
           <Panel title="Preferences" accent="cyan">
             <KeyValueList
               items={[
-                ["Regions", formatList(dashboard.preferences?.regions)],
-                ["Exchanges", formatList(dashboard.preferences?.exchanges)],
-                ["Currencies", formatList(dashboard.preferences?.currencies)],
-                ["Risk", dashboard.preferences?.risk_profile ?? "-"],
-                ["Style", dashboard.preferences?.trade_style ?? "-"],
-                ["Behavior", dashboard.preferences?.behavior_preset ?? "-"],
-                ["Tone", dashboard.preferences?.agent_tone ?? "-"],
-                ["Strictness", dashboard.preferences?.strictness_preset ?? "-"],
+                ['Regions', formatList(dashboard.preferences?.regions)],
+                ['Exchanges', formatList(dashboard.preferences?.exchanges)],
+                ['Currencies', formatList(dashboard.preferences?.currencies)],
+                ['Risk', dashboard.preferences?.risk_profile ?? '-'],
+                ['Style', dashboard.preferences?.trade_style ?? '-'],
+                ['Behavior', dashboard.preferences?.behavior_preset ?? '-'],
+                ['Tone', dashboard.preferences?.agent_tone ?? '-'],
+                ['Strictness', dashboard.preferences?.strictness_preset ?? '-'],
               ]}
             />
           </Panel>
@@ -707,70 +818,84 @@ export function ControlRoom() {
       );
     }
 
-    if (tab === "review") {
+    if (tab === 'review') {
       return (
         <div className="grid grid--2">
           <Panel title="Latest Review" accent="lime">
             <TextList
               items={
-                unavailableSectionLines(dashboard.review, "Latest review") ||
+                unavailableSectionLines(dashboard.review, 'Latest review') ||
                 (dashboard.review?.record
                   ? [
                       `Run ID: ${dashboard.review.record.run_id}`,
                       `Created: ${formatTimestamp(dashboard.review.record.created_at)}`,
                       `Symbol: ${dashboard.review.record.symbol}`,
                       `Approved: ${dashboard.review.record.approved}`,
-                      `Coordinator Focus: ${dashboard.review.record.artifacts?.coordinator?.market_focus ?? "-"}`,
-                      `Consensus: ${dashboard.review.record.artifacts?.consensus?.alignment_level ?? "-"}`,
-                      `Review Summary: ${dashboard.review.record.artifacts?.review?.summary ?? "-"}`,
+                      `Coordinator Focus: ${dashboard.review.record.artifacts?.coordinator?.market_focus ?? '-'}`,
+                      `Consensus: ${dashboard.review.record.artifacts?.consensus?.alignment_level ?? '-'}`,
+                      `Review Summary: ${dashboard.review.record.artifacts?.review?.summary ?? '-'}`,
                     ]
-                  : ["No persisted runs are available yet."])
+                  : ['No persisted runs are available yet.'])
               }
             />
           </Panel>
           <Panel title="Trade Context" accent="cyan">
-            <TextList items={tradeContextLines(dashboard.tradeContext?.record)} />
+            <TextList
+              items={tradeContextLines(dashboard.tradeContext?.record)}
+            />
           </Panel>
           <Panel title="Canonical Analysis" accent="amber">
-            <TextList items={canonicalLines(dashboard.canonicalAnalysis?.snapshot)} />
+            <TextList
+              items={canonicalLines(dashboard.canonicalAnalysis?.snapshot)}
+            />
           </Panel>
           <Panel title="Market Context Pack" accent="rose">
-            <TextList items={marketContextLines(dashboard.marketContext?.contextPack)} />
+            <TextList
+              items={marketContextLines(dashboard.marketContext?.contextPack)}
+            />
           </Panel>
         </div>
       );
     }
 
-    if (tab === "memory") {
+    if (tab === 'memory') {
       return (
         <div className="grid grid--2">
           <Panel title="Similar Memories" accent="lime">
             <TextList
               items={
-                unavailableSectionLines(dashboard.memoryExplorer, "Memory explorer") ||
+                unavailableSectionLines(
+                  dashboard.memoryExplorer,
+                  'Memory explorer',
+                ) ||
                 (dashboard.memoryExplorer?.matches?.length
                   ? dashboard.memoryExplorer.matches.map(
                       (match: Record<string, any>) =>
                         `${formatTimestamp(match.created_at)} | ${match.symbol} | score=${match.similarity_score} | ${match.summary}`,
                     )
-                  : ["No similar historical memories found yet."])
+                  : ['No similar historical memories found yet.'])
               }
             />
           </Panel>
           <Panel title="Retrieval Inspection" accent="cyan">
             <TextList
               items={
-                unavailableSectionLines(dashboard.retrievalInspection, "Retrieval inspection") ||
+                unavailableSectionLines(
+                  dashboard.retrievalInspection,
+                  'Retrieval inspection',
+                ) ||
                 (dashboard.retrievalInspection?.stages?.length
-                  ? dashboard.retrievalInspection.stages.flatMap((stage: Record<string, any>) => [
-                      `${stage.role} | retrieved=${stage.retrieved_memories?.length ?? 0} | trade-memory=${stage.memory_notes?.length ?? 0} | shared-bus=${stage.shared_memory_bus?.length ?? 0} | recent-runs=${stage.recent_runs?.length ?? 0}`,
-                      `Sample: ${
-                        stage.retrieved_memories?.[0] ||
-                        stage.memory_notes?.[0] ||
-                        "No retrieval context attached."
-                      }`,
-                    ])
-                  : ["No retrieval inspection data available yet."])
+                  ? dashboard.retrievalInspection.stages.flatMap(
+                      (stage: Record<string, any>) => [
+                        `${stage.role} | retrieved=${stage.retrieved_memories?.length ?? 0} | trade-memory=${stage.memory_notes?.length ?? 0} | shared-bus=${stage.shared_memory_bus?.length ?? 0} | recent-runs=${stage.recent_runs?.length ?? 0}`,
+                        `Sample: ${
+                          stage.retrieved_memories?.[0] ||
+                          stage.memory_notes?.[0] ||
+                          'No retrieval context attached.'
+                        }`,
+                      ],
+                    )
+                  : ['No retrieval inspection data available yet.'])
               }
             />
           </Panel>
@@ -778,7 +903,7 @@ export function ControlRoom() {
       );
     }
 
-    if (tab === "chat") {
+    if (tab === 'chat') {
       return (
         <div className="grid grid--2">
           <Panel title="Operator Chat" accent="lime">
@@ -802,7 +927,10 @@ export function ControlRoom() {
             <div className="chat-log">
               {chatHistory.length ? (
                 chatHistory.map((entry, index) => (
-                  <article className="chat-bubble" key={`${entry.user}-${index}`}>
+                  <article
+                    className="chat-bubble"
+                    key={`${entry.user}-${index}`}
+                  >
                     <div className="chat-bubble__meta">you</div>
                     <p>{entry.user}</p>
                     <div className="chat-bubble__meta">{entry.persona}</div>
@@ -821,24 +949,24 @@ export function ControlRoom() {
               />
               <button
                 className="button button--solid"
-                disabled={busy === "chat"}
+                disabled={busy === 'chat'}
                 onClick={() => void sendChat()}
                 type="button"
               >
-                {busy === "chat" ? "Working..." : "Send"}
+                {busy === 'chat' ? 'Working...' : 'Send'}
               </button>
             </div>
           </Panel>
           <Panel title="Live Agent Context" accent="cyan">
             <TextList
               items={[
-                `Current Stage: ${dashboard.agentActivity?.current_stage ?? "-"}`,
-                `Stage Status: ${dashboard.agentActivity?.current_stage_status ?? "-"}`,
-                `Stage Detail: ${dashboard.agentActivity?.current_stage_message ?? "-"}`,
-                `Last Completed: ${dashboard.agentActivity?.last_completed_stage ?? "-"}`,
-                `Completed Detail: ${dashboard.agentActivity?.last_completed_message ?? "-"}`,
-                `Tool Roles: ${Object.keys(dashboard.tradeContext?.record?.tool_outputs || {}).join(", ") || "-"}`,
-                `Memory Roles: ${Object.keys(dashboard.tradeContext?.record?.retrieved_memory_summary || {}).join(", ") || "-"}`,
+                `Current Stage: ${dashboard.agentActivity?.current_stage ?? '-'}`,
+                `Stage Status: ${dashboard.agentActivity?.current_stage_status ?? '-'}`,
+                `Stage Detail: ${dashboard.agentActivity?.current_stage_message ?? '-'}`,
+                `Last Completed: ${dashboard.agentActivity?.last_completed_stage ?? '-'}`,
+                `Completed Detail: ${dashboard.agentActivity?.last_completed_message ?? '-'}`,
+                `Tool Roles: ${Object.keys(dashboard.tradeContext?.record?.tool_outputs || {}).join(', ') || '-'}`,
+                `Memory Roles: ${Object.keys(dashboard.tradeContext?.record?.retrieved_memory_summary || {}).join(', ') || '-'}`,
               ]}
             />
           </Panel>
@@ -851,16 +979,16 @@ export function ControlRoom() {
         <Panel title="Preferences" accent="lime">
           <KeyValueList
             items={[
-              ["Regions", formatList(dashboard.preferences?.regions)],
-              ["Exchanges", formatList(dashboard.preferences?.exchanges)],
-              ["Currencies", formatList(dashboard.preferences?.currencies)],
-              ["Sectors", formatList(dashboard.preferences?.sectors)],
-              ["Risk", dashboard.preferences?.risk_profile ?? "-"],
-              ["Style", dashboard.preferences?.trade_style ?? "-"],
-              ["Behavior", dashboard.preferences?.behavior_preset ?? "-"],
-              ["Profile", dashboard.preferences?.agent_profile ?? "-"],
-              ["Tone", dashboard.preferences?.agent_tone ?? "-"],
-              ["Strictness", dashboard.preferences?.strictness_preset ?? "-"],
+              ['Regions', formatList(dashboard.preferences?.regions)],
+              ['Exchanges', formatList(dashboard.preferences?.exchanges)],
+              ['Currencies', formatList(dashboard.preferences?.currencies)],
+              ['Sectors', formatList(dashboard.preferences?.sectors)],
+              ['Risk', dashboard.preferences?.risk_profile ?? '-'],
+              ['Style', dashboard.preferences?.trade_style ?? '-'],
+              ['Behavior', dashboard.preferences?.behavior_preset ?? '-'],
+              ['Profile', dashboard.preferences?.agent_profile ?? '-'],
+              ['Tone', dashboard.preferences?.agent_tone ?? '-'],
+              ['Strictness', dashboard.preferences?.strictness_preset ?? '-'],
             ]}
           />
         </Panel>
@@ -872,7 +1000,7 @@ export function ControlRoom() {
                     (run: Record<string, any>) =>
                       `${formatTimestamp(run.created_at)} | ${run.symbol} | ${run.interval} | approved=${run.approved}`,
                   )
-                : ["No recent runs recorded yet."]
+                : ['No recent runs recorded yet.']
             }
           />
         </Panel>
@@ -881,17 +1009,17 @@ export function ControlRoom() {
             items={
               instructionResult
                 ? [
-                    `Summary: ${instructionResult.instruction?.summary ?? "-"}`,
+                    `Summary: ${instructionResult.instruction?.summary ?? '-'}`,
                     `Update Preferences: ${instructionResult.instruction?.should_update_preferences ?? false}`,
                     `Requires Confirmation: ${instructionResult.instruction?.requires_confirmation ?? false}`,
-                    `Applied: ${instructionResult.applied ? "yes" : "no"}`,
-                    `Rationale: ${instructionResult.instruction?.rationale ?? "-"}`,
+                    `Applied: ${instructionResult.applied ? 'yes' : 'no'}`,
+                    `Rationale: ${instructionResult.instruction?.rationale ?? '-'}`,
                   ]
                 : [
-                    "Type a safe operator instruction.",
-                    "Examples:",
-                    "make the system conservative",
-                    "switch to capital preservation",
+                    'Type a safe operator instruction.',
+                    'Examples:',
+                    'make the system conservative',
+                    'switch to capital preservation',
                   ]
             }
           />
@@ -903,7 +1031,7 @@ export function ControlRoom() {
               <select
                 value={instructionMode}
                 onChange={(event) =>
-                  setInstructionMode(event.target.value as "preview" | "apply")
+                  setInstructionMode(event.target.value as 'preview' | 'apply')
                 }
               >
                 <option value="preview">preview</option>
@@ -919,11 +1047,15 @@ export function ControlRoom() {
             />
             <button
               className="button button--solid"
-              disabled={busy === "instruction"}
+              disabled={busy === 'instruction'}
               onClick={() => void sendInstruction()}
               type="button"
             >
-              {busy === "instruction" ? "Working..." : instructionMode === "apply" ? "Apply" : "Preview"}
+              {busy === 'instruction'
+                ? 'Working...'
+                : instructionMode === 'apply'
+                  ? 'Apply'
+                  : 'Preview'}
             </button>
           </div>
         </Panel>
@@ -951,13 +1083,18 @@ export function ControlRoom() {
         <div className="sidebar__brand">
           <div className="sidebar__eyebrow">Local-first control room</div>
           <div className="sidebar__title">Agentic Trader</div>
-          <div className="sidebar__subtitle">Paper-first. Strict. Inspectable.</div>
+          <div className="sidebar__subtitle">
+            Paper-first. Strict. Inspectable.
+          </div>
         </div>
 
         <nav className="sidebar__nav" aria-label="Sections">
           {tabs.map((item) => (
             <button
-              className={cx("nav-button", item.id === tab && "nav-button--active")}
+              className={cx(
+                'nav-button',
+                item.id === tab && 'nav-button--active',
+              )}
               key={item.id}
               onClick={() => setTab(item.id)}
               type="button"
@@ -968,9 +1105,14 @@ export function ControlRoom() {
         </nav>
 
         <div className="sidebar__meta">
-          <div>Runtime: {dashboard?.status?.runtime_state ?? "-"}</div>
-          <div>Mode: {dashboard?.status?.runtime_mode ?? dashboard?.doctor?.runtime_mode ?? "-"}</div>
-          <div>Backend: {dashboard?.broker?.backend ?? "-"}</div>
+          <div>Runtime: {dashboard?.status?.runtime_state ?? '-'}</div>
+          <div>
+            Mode:{' '}
+            {dashboard?.status?.runtime_mode ??
+              dashboard?.doctor?.runtime_mode ??
+              '-'}
+          </div>
+          <div>Backend: {dashboard?.broker?.backend ?? '-'}</div>
           <div>Last refresh: {lastLoadedAt}</div>
         </div>
       </aside>
@@ -978,32 +1120,68 @@ export function ControlRoom() {
       <main className="main">
         <header className="topbar">
           <div className="topbar__status">
-            <span className="topbar__headline">{tabs.find((item) => item.id === tab)?.label}</span>
-            <span className="chip">{dashboard?.status?.runtime_mode ?? dashboard?.doctor?.runtime_mode ?? "-"}</span>
-            <span className="chip">{dashboard?.broker?.execution_mode ?? "-"}</span>
-            <span className="chip">{dashboard?.broker?.message ?? "runtime unavailable"}</span>
+            <span className="topbar__headline">
+              {tabs.find((item) => item.id === tab)?.label}
+            </span>
+            <span className="chip">
+              {dashboard?.status?.runtime_mode ??
+                dashboard?.doctor?.runtime_mode ??
+                '-'}
+            </span>
+            <span className="chip">
+              {dashboard?.broker?.execution_mode ?? '-'}
+            </span>
+            <span className="chip">
+              {dashboard?.broker?.message ?? 'runtime unavailable'}
+            </span>
           </div>
           <div className="topbar__actions">
-            <button className="button" onClick={() => void runAction("refresh")} type="button">
+            <button
+              className="button"
+              onClick={() => void runAction('refresh')}
+              type="button"
+            >
               Refresh
             </button>
-            <button className="button" disabled={busy !== null} onClick={() => void runAction("one-shot")} type="button">
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => void runAction('one-shot')}
+              type="button"
+            >
               One Shot
             </button>
-            <button className="button" disabled={busy !== null} onClick={() => void runAction("start")} type="button">
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => void runAction('start')}
+              type="button"
+            >
               Start
             </button>
-            <button className="button" disabled={busy !== null} onClick={() => void runAction("stop")} type="button">
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => void runAction('stop')}
+              type="button"
+            >
               Stop
             </button>
-            <button className="button" disabled={busy !== null} onClick={() => void runAction("restart")} type="button">
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => void runAction('restart')}
+              type="button"
+            >
               Restart
             </button>
           </div>
         </header>
 
         {message ? (
-          <div className={cx("banner", `banner--${message.tone}`)}>{message.text}</div>
+          <div className={cx('banner', `banner--${message.tone}`)}>
+            {message.text}
+          </div>
         ) : null}
         {error ? <div className="banner banner--bad">{error}</div> : null}
 

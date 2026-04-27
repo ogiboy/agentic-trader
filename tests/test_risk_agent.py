@@ -4,7 +4,12 @@ import pytest
 
 from agentic_trader.agents.risk import build_risk_plan
 from agentic_trader.llm.client import LocalLLM
-from agentic_trader.schemas import MarketSnapshot, RegimeAssessment, RiskPlan, StrategyPlan
+from agentic_trader.schemas import (
+    MarketSnapshot,
+    RegimeAssessment,
+    RiskPlan,
+    StrategyPlan,
+)
 
 
 class _RiskLLM:

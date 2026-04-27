@@ -75,5 +75,7 @@ def test_fundamental_assessment_copies_synced_list_aliases() -> None:
 def test_fundamental_assessment_rejects_conflicting_legacy_fields(
     kwargs: dict[str, Any],
 ) -> None:
-    with pytest.raises(ValidationError, match="Conflicting fundamental assessment fields"):
+    with pytest.raises(
+        ValidationError, match="Conflicting fundamental assessment fields"
+    ):
         FundamentalAssessment(**kwargs)

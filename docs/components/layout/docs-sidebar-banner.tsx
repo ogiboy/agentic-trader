@@ -1,5 +1,5 @@
-import type { DocLanguage } from "@/lib/i18n/config";
-import { getLayoutCopy } from "@/lib/navigation/nav-copy";
+import type { DocLanguage } from '@/lib/i18n/config';
+import { getLayoutCopy } from '@/lib/navigation/nav-copy';
 
 type DocsSidebarBannerProps = {
   locale: DocLanguage;

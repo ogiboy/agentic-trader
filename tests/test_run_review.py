@@ -28,11 +28,11 @@ def _artifacts(
 ) -> RunArtifacts:
     """
     Create a RunArtifacts test fixture populated with a MarketSnapshot and related analysis/decision objects.
-    
+
     Parameters:
         symbol (str): Ticker symbol to use in the snapshot (default "AAPL").
         canonical_snapshot (CanonicalAnalysisSnapshot | None): Optional canonical analysis snapshot to attach to the returned RunArtifacts.
-    
+
     Returns:
         RunArtifacts: A RunArtifacts instance with a MarketSnapshot (hardcoded indicators and bars_analyzed=120), coordinator, regime, strategy, risk, manager, execution, review, and a single agent trace. The provided canonical_snapshot is stored on the returned object when supplied.
     """
@@ -152,9 +152,9 @@ def test_review_run_and_export_report_commands(tmp_path: Path) -> None:
 def test_trade_context_surfaces_canonical_analysis(tmp_path: Path) -> None:
     """
     Verifies that the `trade-context` CLI command displays the canonical analysis and its expected subsections.
-    
+
     Asserts that invoking `trade-context` with a persisted run containing a canonical analysis snapshot exits successfully and that the output contains the "Canonical Analysis" header, "Missing Sections", and the specific subsection keys: "fundamentals", "sec_edgar", and "local_macro_scaffold".
-    
+
     Parameters:
         tmp_path (Path): Temporary directory provided by pytest used as the runtime directory and database location for the test.
     """

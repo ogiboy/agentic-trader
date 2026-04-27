@@ -209,6 +209,15 @@ A root pnpm workspace keeps Node dependency locking, CI cache keys, setup, build
 Poetry remains the Python truth, while root `package.json` scripts and thin Makefile aliases provide the human-facing command surface.
 The Makefile must stay an alias layer over pnpm and Poetry commands rather than becoming a second build system.
 
+### Environment templates document targets, local env files own secrets
+
+Reason:
+Tracked `.env.example` files are templates only; real runtime and provider overrides belong in ignored `.env.local` files or GitHub repository secrets.
+The Python runtime loads root `.env` and `.env.local` through Pydantic settings, so root API keys and model/runtime overrides should stay at the repository root.
+The Web GUI may run without `webgui/.env.local` because it auto-detects the worktree and managed Python runtime; that app-local env file should only override command execution details.
+The docs app should keep local `GITHUB_PAGES=false`; GitHub Actions and `pnpm build:docs:pages` set `GITHUB_PAGES=true` at build time so Pages gets the `/agentic-trader` base path without committing production env files.
+`AGENTIC_TRADER_MODEL_NAME` is the canonical model setting, while the legacy `AGENTIC_TRADER_MODEL` env alias remains accepted for existing local files.
+
 ### Service state updates should use an explicit update contract
 
 Reason:
@@ -281,3 +290,11 @@ Stable release identity and branch build identity are intentionally separate.
 Strict SemVer release tags keep the `MAJOR.MINOR.PATCH` core, such as `v0.9.5`; CI/build counters must not become a fourth core segment like `v0.9.5.9870`.
 Integration branches such as `V1` should use `next` artifact identities, for example `v0.9.6-next.9870+gabc1234`, while feature branches should use `beta` artifact identities such as `v0.9.6-beta.9870+gabc1234`.
 Only `main` should mutate tracked version/changelog/release state automatically; non-main branches should preview the semantic version and publish branch workflow artifacts for testing.
+The pre-1.0 baseline is `0.9.0`; `allow_zero_version=true` and `major_on_zero=false` keep V1-hardening releases on the 0.x line until the project intentionally declares a stable `1.0.0`.
+
+### PyInstaller builds should use a tracked CLI spec
+
+Reason:
+Release binaries should come from a reproducible packaging contract instead of whatever spec PyInstaller generates in a CI runner.
+The canonical tracked spec is `agentic-trader.spec`, points at `main.py`, names the executable `agentic-trader`, and disables UPX to reduce platform-specific packaging variance and antivirus false positives.
+CI smoke builds and release binary builds should use this spec directly.

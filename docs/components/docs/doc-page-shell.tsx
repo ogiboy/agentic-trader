@@ -3,11 +3,11 @@ import {
   DocsDescription,
   DocsPage,
   DocsTitle,
-} from "fumadocs-ui/layouts/docs/page";
-import { Feedback } from "@/components/feedback/client";
-import type { DocLanguage } from "@/lib/i18n/config";
-import { getMDXComponents } from "@/mdx-components";
-import type { source } from "@/lib/source";
+} from 'fumadocs-ui/layouts/docs/page';
+import { Feedback } from '@/components/feedback/client';
+import type { DocLanguage } from '@/lib/i18n/config';
+import { getMDXComponents } from '@/mdx-components';
+import type { source } from '@/lib/source';
 
 type DocPage = ReturnType<typeof source.getPage>;
 
@@ -40,7 +40,7 @@ export function DocPageShell({
         <MdxContent components={getMDXComponents()} />
       </DocsBody>
       <Feedback
-        key={`${locale}:${slug.join("/") || "index"}`}
+        key={`${locale}:${slug.join('/') || 'index'}`}
         locale={locale}
         title={page.data.title}
       />

@@ -1,10 +1,10 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps } from 'react';
 
 export type HomeBadge = {
   label: string;
-  variant: ComponentProps<"span">["className"] extends never
+  variant: ComponentProps<'span'>['className'] extends never
     ? never
-    : "secondary" | "outline";
+    : 'secondary' | 'outline';
 };
 
 export type HomeEntryPoint = {
@@ -38,7 +38,7 @@ export type HomeContent = {
     surface: { title: string; body: string };
   };
   currentFocusItems: {
-    icon: "bot" | "layout" | "inspect";
+    icon: 'bot' | 'layout' | 'inspect';
     text: string;
   }[];
   guardrail: string;

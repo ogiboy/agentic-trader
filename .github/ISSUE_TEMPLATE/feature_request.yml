@@ -1,7 +1,7 @@
 name: Feature request
 description: Propose a scoped improvement without changing the project direction.
-title: "feat: "
-labels: ["enhancement"]
+title: 'feat: '
+labels: ['enhancement']
 body:
   - type: textarea
     id: problem

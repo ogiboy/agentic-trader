@@ -25,7 +25,7 @@ class PaperBroker:
     def __init__(self, db: TradingDatabase, settings: Settings):
         """
         Initialize the PaperBroker with its persistence backend and configuration.
-        
+
         Stores the provided TradingDatabase for reading/writing orders, fills, positions, and account snapshots, and stores Settings that govern broker constraints (e.g., shorting, exposure limits).
         """
         self.db = db
@@ -68,13 +68,13 @@ class PaperBroker:
     ) -> tuple[float, float, float, float]:
         """
         Compute the cash and realized PnL effects of selling a quantity and the resulting position quantity and average price.
-        
+
         Parameters:
             quantity (float): Quantity being sold.
             price (float): Execution price per unit.
             current_qty (float): Current position quantity (positive for long, negative for short, zero for flat).
             current_avg (float): Current average price of the position.
-        
+
         Returns:
             tuple[float, float, float, float]: A tuple containing:
                 - cash_delta: change in cash from the sale (positive for proceeds),
@@ -105,10 +105,10 @@ class PaperBroker:
     def _record_order(self, order_id: str, decision: ExecutionDecision) -> None:
         """
         Persist an order record for the given decision to the trading database.
-        
+
         Stores a snapshot of the order including creation timestamp, symbol, side, approval flag,
         entry/stop/take-profit prices, position size percentage, confidence, and rationale.
-        
+
         Parameters:
             order_id (str): Unique identifier to associate with the persisted order.
             decision (ExecutionDecision): The execution decision whose fields (symbol, side, approved,
@@ -203,13 +203,13 @@ class PaperBroker:
     ) -> FillProjection | None:
         """
         Create a FillProjection describing the effect of applying the requested fill, or return None when the fill is not applicable under shorting rules.
-        
+
         Parameters:
             decision (ExecutionDecision): Execution decision containing `side` and `entry_price`.
             quantity (float): Quantity to be filled.
             current_qty (float): Current position quantity for the symbol.
             current_avg (float): Current average price for the position.
-        
+
         Returns:
             FillProjection | None: A projection with `cash_delta`, `realized_pnl_delta`, `new_quantity`, and `new_average_price` if the fill can be applied; `None` when the decision would initiate a short position but shorting is disallowed and there is no existing long position.
         """
@@ -238,14 +238,16 @@ class PaperBroker:
         )
 
     @staticmethod
-    def _rejects_same_direction(decision: ExecutionDecision, current_qty: float) -> bool:
+    def _rejects_same_direction(
+        decision: ExecutionDecision, current_qty: float
+    ) -> bool:
         """
         Determine whether an execution decision would increase exposure in the same direction as the current position.
-        
+
         Parameters:
             decision (ExecutionDecision): The proposed execution decision; `decision.side` is expected to be "buy" or "sell".
             current_qty (float): Current position quantity (positive for long, negative for short).
-        
+
         Returns:
             bool: `True` if the decision would add to the existing position in the same direction (buy into a long, sell into a short), `False` otherwise.
         """
@@ -258,12 +260,12 @@ class PaperBroker:
     ) -> bool:
         """
         Determine whether a proposed buy would push projected cash below zero when not currently short.
-        
+
         Parameters:
             decision (ExecutionDecision): The execution decision; only the `side` field is used.
             current_qty (float): Current position quantity for the symbol.
             projected_cash (float): Account cash after applying the proposed fill projection.
-        
+
         Returns:
             `True` if the decision is a buy, the current position is not short (quantity >= 0), and `projected_cash` is less than 0; `False` otherwise.
         """
@@ -277,11 +279,11 @@ class PaperBroker:
     ) -> bool:
         """
         Determine whether applying the projected fill would cause gross exposure to exceed the account's maximum allowed gross exposure.
-        
+
         Parameters:
             projection (FillProjection): Projected outcome of the fill (includes `new_quantity`).
             current_market_value (float): Absolute market value of the existing position being replaced or modified.
-        
+
         Returns:
             True if projected gross exposure would be greater than account.equity * settings.max_gross_exposure_pct, False otherwise.
         """
@@ -304,11 +306,11 @@ class PaperBroker:
     ) -> bool:
         """
         Determine whether applying a projected change in position quantity would exceed the broker's maximum allowed open positions.
-        
+
         Parameters:
             current_qty (float): Current position quantity for the symbol before the change.
             new_quantity (float): Projected position quantity for the symbol after the change.
-        
+
         Returns:
             bool: `True` if the resulting number of open positions would be greater than settings.max_open_positions, `False` otherwise.
         """
@@ -419,9 +421,7 @@ class PaperBroker:
                 simulated_metadata=simulated_metadata,
             )
 
-        if self._would_exceed_open_position_limit(
-            current_qty, projection.new_quantity
-        ):
+        if self._would_exceed_open_position_limit(current_qty, projection.new_quantity):
             return self._outcome(
                 intent,
                 order_id=order_id,
