@@ -7,6 +7,12 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
 });
 
+/**
+ * Renders the root HTML layout for the landing page, applying the JetBrains Mono font variable and base layout classes.
+ *
+ * @param children - The content to be placed inside the page's <body>.
+ * @returns The root HTML structure for the landing page containing the provided children.
+ */
 export default function LandingRootLayout({
   children,
 }: Readonly<{

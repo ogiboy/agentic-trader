@@ -21,6 +21,8 @@ SONAR_TOKEN_KEYCHAIN_ACCOUNT="${SONAR_TOKEN_KEYCHAIN_ACCOUNT:-${USER:-}}"
 cd "${REPO_ROOT}"
 mkdir -p "${ARTIFACT_DIR}"
 
+# resolve_token resolves the Sonar authentication token used by the script.
+# It ensures SONAR_TOKEN is set (exported) by using the existing environment value or, if absent, by attempting a macOS Keychain lookup; if the token cannot be obtained it prints an error and exits with status 1.
 resolve_token() {
 	if [[ -n "${SONAR_TOKEN:-}" ]]; then
 		return 0
@@ -41,6 +43,7 @@ resolve_token() {
 	return 0
 }
 
+# redacted_runner executes a command, replacing occurrences of `SONAR_TOKEN` in its combined stdout/stderr with `<redacted>` and teeing the redacted output to `SCAN_LOG` and to stdout.
 redacted_runner() {
 	local -a command=("$@")
 	local redacted_log="${SCAN_LOG}"
@@ -51,6 +54,7 @@ redacted_runner() {
 	return 0
 }
 
+# run_coverage generates Python coverage XML at ${COVERAGE_XML} and saves pytest output to ${COVERAGE_LOG}; if SONAR_SKIP_COVERAGE=1 it prints a skipping message and returns immediately.
 run_coverage() {
 	if [[ "${SONAR_SKIP_COVERAGE:-0}" == "1" ]]; then
 		echo "Skipping coverage generation because SONAR_SKIP_COVERAGE=1."
@@ -64,6 +68,7 @@ run_coverage() {
 	return 0
 }
 
+# run_pysonar runs the Python Sonar scanner (`pysonar`) with project and environment-derived arguments and dispatches execution through `redacted_runner`. It fails and exits with status 1 if no usable `pysonar` executable is found; when present, it includes the coverage XML, organization, region, and branch parameters only if those environment variables/files are set.
 run_pysonar() {
 	local -a command=()
 	if poetry run sh -c 'command -v pysonar >/dev/null 2>&1'; then
@@ -105,6 +110,7 @@ run_pysonar() {
 	return 0
 }
 
+# run_npm_scanner builds and runs `pnpm exec sonar` with configured Sonar properties (host, project key/name, optional organization/region/branch, and Python coverage report path) and streams redacted scanner output to the scan log.
 run_npm_scanner() {
 	local -a command=(
 		pnpm exec sonar

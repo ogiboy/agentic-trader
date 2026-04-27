@@ -114,7 +114,20 @@ type NodeCommandSet = tuple[list[str], list[str], Path, str]
 
 
 def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
-    """Resolve install/start commands for the bundled Ink TUI."""
+    """
+    Resolve package-manager install and start command vectors and a working directory for the bundled Ink TUI.
+    
+    Parameters:
+        tui_dir (Path): Path to the bundled TUI directory.
+    
+    Returns:
+        NodeCommandSet | None: A tuple (install_command, start_command, command_cwd, manager_name) where
+            - install_command (list[str]) is the package-manager install command to run,
+            - start_command (list[str]) is the command to start the TUI,
+            - command_cwd (Path) is the directory where the start command should be executed,
+            - manager_name (str) is a short identifier for the chosen package manager/workflow.
+        Returns `None` if no supported Node package manager can be resolved.
+    """
     repo_root = tui_dir.parent
     pnpm = shutil.which("pnpm")
     if pnpm and (repo_root / "pnpm-workspace.yaml").exists():
@@ -168,7 +181,16 @@ def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
 
 
 def _tui_dependencies_installed(tui_dir: Path, command_cwd: Path) -> bool:
-    """Return whether the resolved Node command directory already has installed dependencies."""
+    """
+    Check whether Node dependencies appear installed for the TUI by probing likely node_modules locations.
+    
+    Parameters:
+        tui_dir (Path): Path to the bundled TUI directory.
+        command_cwd (Path): Working directory where the resolved package-manager commands will run.
+    
+    Returns:
+        bool: `True` if any of the checked `node_modules` or `.pnpm` directories exist under `command_cwd` or `tui_dir`, `False` otherwise.
+    """
     candidates = (
         command_cwd / "node_modules",
         command_cwd / "node_modules" / ".pnpm",

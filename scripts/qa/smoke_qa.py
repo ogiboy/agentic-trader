@@ -92,16 +92,21 @@ def _coverage_path(context: SmokeContext) -> Path:
 
 def _command_display(command: list[str]) -> str:
     """
-    Format a command and its arguments as a single space-separated string for display.
+    Format a command and its arguments for human-readable display.
     
     Returns:
-        The command elements joined into a single space-separated string.
+        A single space-separated string containing the command and its arguments.
     """
     return " ".join(command)
 
 
 def _current_git_branch() -> str | None:
-    """Return the current branch name when the checkout is not detached."""
+    """
+    Return the current Git branch name for the repository checkout when it is not detached.
+    
+    Returns:
+        branch_name (str | None): The current branch name, or `None` if the checkout is detached, the branch cannot be determined, or an error occurs.
+    """
     try:
         proc = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -120,7 +125,16 @@ def _current_git_branch() -> str | None:
 
 
 def _redact_sensitive_text(text: str, sensitive_values: tuple[str, ...]) -> str:
-    """Replace known sensitive values before writing command output to artifacts."""
+    """
+    Redact occurrences of sensitive substrings in a text string.
+    
+    Parameters:
+        text (str): The input text that may contain sensitive values.
+        sensitive_values (tuple[str, ...]): Substrings to redact; empty strings are ignored.
+    
+    Returns:
+        str: The input text with each non-empty sensitive value replaced by "<redacted>".
+    """
     redacted = text
     for value in sensitive_values:
         if value:
@@ -129,7 +143,18 @@ def _redact_sensitive_text(text: str, sensitive_values: tuple[str, ...]) -> str:
 
 
 def _resolve_sonar_token() -> str | None:
-    """Return SONAR_TOKEN from the environment or the configured macOS Keychain item."""
+    """
+    Resolve the Sonar authentication token from the environment or macOS Keychain.
+    
+    Checks the `SONAR_TOKEN` environment variable first. On macOS, if that is unset and the `security` utility is available,
+    attempts to read a generic password item from the Keychain using the service from
+    `SONAR_TOKEN_KEYCHAIN_SERVICE` (or the module default) and the account from
+    `SONAR_TOKEN_KEYCHAIN_ACCOUNT` (or `$USER`). Returns `None` if no token can be found
+    or if any lookup step fails.
+    
+    Returns:
+        sonar_token (str | None): The resolved token string, or `None` when not available.
+    """
     token = os.environ.get("SONAR_TOKEN")
     if token:
         return token
@@ -165,7 +190,14 @@ def _resolve_sonar_token() -> str | None:
 
 
 def _resolve_managed_conda_env_name() -> str | None:
-    """Read the repo's Codex environment manifest and return the declared Conda env name."""
+    """
+    Get the Conda environment name declared in the repository's Codex environment manifest.
+    
+    Reads .codex/environments/environment.toml and returns the first token following the first occurrence of the literal "conda activate ". Quotes around the name are stripped.
+    
+    Returns:
+        str | None: The declared Conda environment name if found, `None` otherwise.
+    """
     manifest_path = REPO_ROOT / ".codex" / "environments" / "environment.toml"
     if not manifest_path.exists():
         return None
@@ -258,12 +290,12 @@ def _resolve_agentic_trader_executable() -> str | None:
 
 def _resolve_pyright_executable() -> str | None:
     """
-    Find the `pyright` executable by checking PATH, the current Python environment, and common Conda locations.
+    Locate the `pyright` executable by probing common locations related to the current environment.
     
-    Checks candidates in this order: `shutil.which("pyright")`, a `pyright` sibling next to `sys.executable`, `$CONDA_PREFIX/bin/pyright`, a `pyright` sibling of `$CONDA_EXE`, and an inferred Conda root `bin/pyright` when the interpreter path contains an `envs/` segment.
+    Checks candidates in this order: `pyright` on PATH, a `pyright` sibling next to `SMOKE_PYTHON`, `$CONDA_PREFIX/bin/pyright`, a `pyright` sibling of `CONDA_EXE`, and an inferred `<conda_root>/bin/pyright` when `SMOKE_PYTHON` appears under an `envs/` path.
     
     Returns:
-        str | None: Absolute path string to the first executable `pyright` found, or `None` if no executable is discovered.
+        Absolute path to the first executable `pyright` found, or `None` if no candidate is executable.
     """
     candidates: list[Path] = []
     which_path = shutil.which("pyright")
@@ -291,7 +323,12 @@ def _resolve_pyright_executable() -> str | None:
 
 
 def _resolve_pysonar_executable() -> str | None:
-    """Find the pysonar executable across PATH, the active Python env, and common macOS installs."""
+    """
+    Locate the `pysonar` executable by checking common locations: system PATH, the sibling of the resolved smoke Python interpreter, conda-related bin paths, and common macOS/Homebrew install paths.
+    
+    Returns:
+        str: Filesystem path to the first executable `pysonar` found, or `None` if no suitable executable is present.
+    """
     candidates: list[Path] = []
     which_path = shutil.which("pysonar")
     if which_path is not None:
@@ -318,13 +355,9 @@ def _resolve_pysonar_executable() -> str | None:
 
 def _write_artifact(path: Path, content: str) -> None:
     """
-    Write text content to a file, creating or overwriting it.
+    Write text content to the given file path, creating or overwriting it.
     
-    The file is written using UTF-8 encoding; encoding errors are handled by replacing invalid characters.
-    
-    Parameters:
-        path (Path): Destination file path to write the artifact to.
-        content (str): Text content to write.
+    The file is written with UTF-8 encoding; invalid characters are replaced.
     """
     path.write_text(content, encoding="utf-8", errors="replace")
 
@@ -1562,21 +1595,16 @@ def _quality_checks(context: SmokeContext, *, include_coverage: bool) -> list[Ch
 
 def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
     """
-    Run SonarQube analysis using the `pysonar` CLI and record the invocation/result in the artifacts directory.
+    Run SonarQube analysis with the pysonar CLI and record the invocation and output in the artifacts directory.
     
-    Checks that `pysonar` is available and that a Sonar token can be read from
-    `SONAR_TOKEN` or macOS Keychain. If either is missing, writes a diagnostic
-    artifact and returns a failing CheckResult. If a coverage.xml artifact
-    exists, it is passed to pysonar. Invokes `pysonar` (with a 240s timeout) via
-    the common command-capture helper so stdout/stderr and exit status are
-    persisted.
+    If the pysonar executable or a Sonar token cannot be resolved, writes a diagnostic artifact and returns a failing CheckResult. Otherwise invokes pysonar with the configured host, project, default sources/tests and Python version, optionally includes branch, organization, and coverage.xml when available, and persists the command output with sensitive values redacted.
     
     Parameters:
         context (SmokeContext): Execution context containing the artifacts directory.
-        args (Namespace): Parsed CLI arguments; must provide `sonar_host_url` and `sonar_project_key`.
+        args (Namespace): Parsed CLI arguments; must provide `sonar_host_url` and `sonar_project_key`, and may include `sonar_branch_name` and `sonar_organization`.
     
     Returns:
-        CheckResult: Result of the pysonar invocation; `passed` reflects the command exit status and output validation, and `artifact` points to the written log.
+        CheckResult: Result of the pysonar invocation; `passed` indicates success and `artifact` is the path to the written log.
     """
     pysonar = _resolve_pysonar_executable()
     if pysonar is None:

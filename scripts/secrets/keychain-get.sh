@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# usage prints the usage message for scripts/secrets/keychain-get.sh to stderr, describing the SERVICE [ACCOUNT] and --check modes and then returns 0.
 usage() {
 	cat >&2 <<'EOF'
 Usage:

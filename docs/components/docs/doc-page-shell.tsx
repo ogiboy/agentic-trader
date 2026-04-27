@@ -17,6 +17,14 @@ type DocPageShellProps = {
   slug: string[];
 };
 
+/**
+ * Renders a documentation page composed of title, description, table of contents, MDX body, and a feedback widget.
+ *
+ * @param locale - The locale to use for the page and feedback component
+ * @param page - The document page data returned by the source (includes title, description, toc, full flag, and MDX body)
+ * @param slug - Path segments identifying the page (used to key the feedback component)
+ * @returns The rendered documentation page element
+ */
 export function DocPageShell({
   locale,
   page,

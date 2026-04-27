@@ -32,6 +32,12 @@ type FeedbackProps = Readonly<{
   title: string;
 }>;
 
+/**
+ * Builds a prefilled GitHub "new issue" URL representing the provided page feedback.
+ *
+ * @param feedback - Parsed page feedback whose `title`, `url`, `opinion`, `submittedAt`, and `message` are included in the generated issue body
+ * @returns A URL string that opens GitHub's new-issue page with the issue title and body prefilled
+ */
 function buildIssueUrl(feedback: ParsedPageFeedback) {
   const body = [
     "## Docs feedback",
@@ -54,6 +60,15 @@ function buildIssueUrl(feedback: ParsedPageFeedback) {
   return `${feedbackIssueUrl}?${params.toString()}`;
 }
 
+/**
+ * Persists a feedback entry as a browser-local draft for later use.
+ *
+ * Attempts to append `feedback` to an array stored in `localStorage` under the feedback key, keeps only the most recent 25 entries, and writes the updated array back to `localStorage`.
+ *
+ * Errors (storage access, JSON parse/stringify) are swallowed and the function returns silently on failure.
+ *
+ * @param feedback - The parsed page feedback object to persist as a draft
+ */
 function storeFeedbackDraft(feedback: ParsedPageFeedback) {
   try {
     const storage = globalThis.localStorage;
@@ -67,6 +82,13 @@ function storeFeedbackDraft(feedback: ParsedPageFeedback) {
   }
 }
 
+/**
+ * Render a documentation feedback card that captures an opinion and an optional note, persists a draft to browser localStorage, and prepares a prefilled GitHub issue URL.
+ *
+ * @param locale - Locale used to select localized copy for labels and messages
+ * @param title - Page title included in the saved feedback and prefilled issue
+ * @returns The feedback card React element
+ */
 export function Feedback({ locale, title }: FeedbackProps) {
   const pathname = usePathname();
   const copy = getFeedbackCopy(locale);

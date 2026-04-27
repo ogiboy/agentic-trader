@@ -7,6 +7,13 @@ type FeedbackResultProps = {
   result: ActionResponse;
 };
 
+/**
+ * Render a localized feedback message and related details for a feedback action result.
+ *
+ * @param locale - Locale key used to select localized copy
+ * @param result - ActionResponse that determines what is displayed (error message when `ok` is false; on success, a status message selected from forwarding state, optional `githubUrl`, and optional `warning`)
+ * @returns A React element containing the localized feedback: either a single error paragraph when `result.ok` is false, or a success block with a primary message, an optional external link to `result.githubUrl`, and an optional technical warning
+ */
 export function FeedbackResult({
   locale,
   result,

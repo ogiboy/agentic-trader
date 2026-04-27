@@ -281,6 +281,17 @@ def _fallback_risk_flags(
     balance_sheet_quality: AnalysisSignal,
     fx_risk: FxRisk,
 ) -> list[str]:
+    """
+    Builds a list of fallback risk-flag identifiers based on feature quality flags, balance-sheet quality, and FX risk.
+    
+    Parameters:
+        features (FundamentalFeatureSet): Source of base `quality_flags` to include.
+        balance_sheet_quality (AnalysisSignal): If `"cautious"` or `"avoid"`, adds `"high_debt_risk"`.
+        fx_risk (FxRisk): If `"medium"` or `"high"`, adds `"{fx_risk}_fx_risk"` (e.g., `"high_fx_risk"`).
+    
+    Returns:
+        list[str]: Deduplicated-semantics list of risk flag strings starting with `"fundamental_evidence_neutral"` followed by `features.quality_flags` and any added debt or FX risk flags.
+    """
     risk_flags = ["fundamental_evidence_neutral", *features.quality_flags]
     if balance_sheet_quality in {"cautious", "avoid"}:
         risk_flags.append("high_debt_risk")
@@ -294,6 +305,19 @@ def _fallback_strengths(
     profitability_quality: AnalysisSignal,
     cash_flow_quality: AnalysisSignal,
 ) -> list[str]:
+    """
+    Produce strength labels corresponding to quality signals that are "supportive".
+    
+    Parameters:
+        growth_quality (AnalysisSignal): Quality signal for revenue/growth.
+        profitability_quality (AnalysisSignal): Quality signal for profitability.
+        cash_flow_quality (AnalysisSignal): Quality signal for cash flow.
+    
+    Returns:
+        list[str]: A list containing any of "growth_evidence_supportive",
+        "profitability_evidence_supportive", and "cash_flow_evidence_supportive"
+        for each input whose quality equals "supportive".
+    """
     quality_labels = [
         (growth_quality, "growth_evidence_supportive"),
         (profitability_quality, "profitability_evidence_supportive"),
@@ -303,6 +327,16 @@ def _fallback_strengths(
 
 
 def _has_provider_gap(context: AgentContext | None, risk_flags: Sequence[str]) -> bool:
+    """
+    Determine whether structured fundamental data from providers is missing or flagged as unavailable.
+    
+    Parameters:
+        context (AgentContext | None): Agent context that may contain `decision_features`; treat `None` as missing.
+        risk_flags (Sequence[str]): Sequence of risk/quality flags to check for provider-gap indicators.
+    
+    Returns:
+        True if `context` is missing or lacks `decision_features`, or if any flag in `risk_flags` appears in `PROVIDER_GAP_FLAGS`; `false` otherwise.
+    """
     if context is None or context.decision_features is None:
         return True
     return any(flag in PROVIDER_GAP_FLAGS for flag in risk_flags)
@@ -316,14 +350,14 @@ def _fallback_fundamental(
     """
     Build a fallback FundamentalAssessment when structured provider-backed fundamentals are unavailable.
     
-    If `context` contains decision feature bundles, derive quality signals, risk flags, evidence, inference, uncertainty, strengths, FX risk, macro fit, and forward outlook from those structured features; otherwise produce a neutral, minimal assessment indicating provider-backed data is missing. The returned assessment uses `source="fallback"`, records `fallback_reason`, and sets `confidence` to 0.0 when a provider-missing flag is present or 0.35 otherwise.
+    If `context.decision_features` is present, derives quality signals, evidence, risk flags, strengths, FX risk, macro fit, business quality, and forward outlook from those structured features. If structured features are missing, returns a neutral minimal assessment indicating provider-backed data is unavailable. The returned assessment has `source="fallback"`, records `fallback_reason`, and sets `confidence` to 0.0 when a provider-gap flag is present or 0.35 otherwise.
     
     Parameters:
-        context (AgentContext | None): Optional agent context containing `decision_features` used to derive fallback signals and evidence. If `None` or missing structured fundamentals, the function returns a generic neutral fallback assessment.
+        context (AgentContext | None): Optional agent context whose `decision_features` (if present) are used to populate fallback signals and evidence.
         fallback_reason (str): Human-readable reason stored on the returned assessment explaining why the fallback was used.
     
     Returns:
-        FundamentalAssessment: A complete assessment populated from available structured features (or neutral defaults), including `evidence_vs_inference`, `red_flags`, `strengths`, quality signal fields, `overall_bias`, `confidence`, `source="fallback"`, and `fallback_reason`.
+        FundamentalAssessment: A complete fallback assessment populated from available structured features or neutral defaults, including `evidence_vs_inference`, `red_flags`/`risk_flags`, `strengths`, individual quality and risk fields, `overall_bias`/`overall_signal`, `confidence`, `source`, and `fallback_reason`.
     """
     risk_flags: list[str] = ["fundamental_evidence_neutral"]
     summary = "No structured fundamental provider data is available yet."
@@ -438,24 +472,21 @@ def assess_fundamentals(
     context: AgentContext | None = None,
 ) -> FundamentalAssessment:
     """
-    Produce a structured FundamentalAssessment for a given market snapshot.
+    Builds a structured FundamentalAssessment for a market snapshot using the role-routed fundamental LLM or a computed fallback.
     
-    This asks the role-routed fundamental analyst (LLM) to evaluate growth, profitability,
-    cash flow, balance sheet quality, FX risk, business quality, macro fit, and forward outlook,
-    and to return red flags, strengths, a separation of evidence/inference/uncertainty, and an overall bias.
-    If structured provider evidence is missing, a computed fallback assessment is returned instead so the paper runtime can keep explicit missing-data truth without pretending provider coverage exists. If LLM execution fails, a computed fallback assessment is returned only when `allow_fallback` is True.
+    If structured provider evidence is missing a deterministic fallback assessment is returned. If the LLM call or validation fails, a fallback is returned only when allow_fallback is True; otherwise the original exception is propagated.
     
     Parameters:
-        llm (LocalLLM): Local LLM client used to run the role-specific completion.
-        snapshot (MarketSnapshot): Snapshot of market/state used when no agent context is provided.
-        allow_fallback (bool): If True, return a computed fallback assessment on LLM or validation errors; missing provider evidence always returns a structured fallback assessment.
-        context (AgentContext | None): Optional agent context containing structured decision_features used to build the assessment.
+        llm (LocalLLM): Role-routed local LLM client used to generate the assessment.
+        snapshot (MarketSnapshot): Market snapshot used when no AgentContext is provided.
+        allow_fallback (bool): If True, return a computed fallback assessment on LLM or validation errors.
+        context (AgentContext | None): Optional agent context containing structured decision_features to ground the assessment.
     
     Returns:
-        FundamentalAssessment: The assembled fundamental assessment (source will be "llm" when produced by the model or "fallback" when a fallback is used).
+        FundamentalAssessment: The assembled assessment; `source` is `"llm"` when produced by the model or `"fallback"` when a computed fallback is used.
     
     Raises:
-        Exception: Propagates LLM or validation errors when allow_fallback is False.
+        Exception: Propagates any exception raised during LLM invocation or validation when allow_fallback is False.
     """
     system_prompt = (
         "You are the fundamental analyst for a paper trading system. "

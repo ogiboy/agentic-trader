@@ -29,18 +29,16 @@ function isSameOriginRequest(request: Request): boolean {
 }
 
 /**
- * Handle POST requests to execute a runtime action and return the result as JSON.
+ * Handle POST requests that execute a supported runtime action specified in the request JSON.
  *
- * Expects the request body to be JSON with a `kind` string. If `kind` is missing,
- * responds with a 400 JSON error. On success returns the runtime action result
- * as JSON. On unexpected errors responds with a 500 JSON error containing the
- * error message.
- *
- * @param request - The incoming HTTP request whose JSON body should include `kind`
+ * @param request - The incoming HTTP request whose JSON body must include a string `kind` identifying the action
  * @returns A Response with a JSON body:
- *          - the runtime action result and status 200 on success,
- *          - `{ error: 'missing runtime action' }` with status 400 if `kind` is absent,
- *          - `{ error: <message> }` with status 500 on failure.
+ *          - the runtime action result (status 200) on success,
+ *          - `{ error: 'expected application/json' }` (400) if the Content-Type is not JSON,
+ *          - `{ error: 'invalid json' }` (400) if the body is not valid JSON or not an object,
+ *          - `{ error: 'invalid runtime action' }` (400) if `kind` is missing, not a string, or not supported,
+ *          - `{ error: 'forbidden origin' }` (403) if the request origin/referer is not same-origin,
+ *          - `{ error: <message> }` (500) on unexpected internal errors. 
  */
 export async function POST(request: Request) {
   const contentType = request.headers.get('content-type')?.toLowerCase() || '';

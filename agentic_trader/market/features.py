@@ -93,6 +93,19 @@ def _round_float(value: float | None, digits: int = 6) -> float | None:
 
 
 def _as_float(value: object) -> float:
+    """
+    Convert an input to a floating-point numeric value.
+    
+    Parameters:
+        value (object): The input to convert; may be any object accepted by Python's float() constructor.
+    
+    Returns:
+        float_value (float): The numeric floating-point representation of `value`.
+    
+    Raises:
+        ValueError: If `value` cannot be converted to a float.
+        TypeError: If `value` is of a type not supported by float().
+    """
     return float(cast(float, value))
 
 
@@ -100,11 +113,13 @@ def _index_label(value: object) -> str | None:
     """
     Format an index value for use as a persisted context-pack window boundary label.
     
+    If `value` is a datetime-like object, returns its ISO 8601 representation as a string; otherwise returns `str(value)`. Returns `None` when `value` is `None`.
+    
     Parameters:
         value (object): The index value to format; may be a datetime-like object.
     
     Returns:
-        str | None: The result of `value.isoformat()` as a string if available, otherwise `str(value)`. Returns `None` if `value` is `None`.
+        str | None: The formatted label string or `None` if `value` is `None`.
     """
     if value is None:
         return None
@@ -232,25 +247,25 @@ def _horizon_context(
     clean: pd.DataFrame, *, horizon_bars: int, last: pd.Series
 ) -> MarketContextHorizon:
     """
-    Builds derived metrics for a single horizon used in the Market Context Pack.
+    Builds per-horizon derived metrics (returns, volatility, support/resistance, trend vote, etc.) for inclusion in the MarketContextPack.
     
     Parameters:
-        clean (pd.DataFrame): Enriched OHLCV frame (must contain `close`, `returns`, `high`, `low`) used to compute windowed metrics.
+        clean (pd.DataFrame): Enriched OHLCV frame containing `close`, `returns`, `high`, and `low` used to compute windowed statistics.
         horizon_bars (int): Horizon length in bars for which metrics are computed.
-        last (pd.Series): The most recent row from the enriched, non-NaN frame; used for current values (e.g., `close`, `atr_14`, `volume_ratio_20`).
+        last (pd.Series): The most recent non-NaN row from the enriched frame; used as the reference/current values.
     
     Returns:
-        MarketContextHorizon: A container with per-horizon metrics:
-          - `horizon_bars`: requested horizon size.
-          - `available_bars`: number of bars available within the horizon (clamped to data length).
-          - `return_pct`: horizon percent return from the start bar to `last`, or `None` if insufficient history.
-          - `volatility_pct`: scaled volatility over the horizon, or `None` if not enough points.
-          - `max_drawdown_pct`: worst peak-to-trough drawdown in the window, or `None`.
-          - `trend_vote`: horizon trend label (`"bullish"`, `"bearish"`, `"mixed"`, or `"insufficient"`).
-          - `support` / `resistance`: window low/high, or `None` if not available.
-          - `range_position`: normalized position of `last.close` within the support–resistance range (0–1), or `None`.
-          - `atr_pct`: `atr_14` divided by `last.close`, or `None` if `last.close` is zero.
-          - `volume_ratio`: latest `volume_ratio_20` value.
+        MarketContextHorizon: Container with these fields:
+          - horizon_bars: requested horizon size.
+          - available_bars: number of bars available within the horizon (clamped to data length).
+          - return_pct: percent return from the horizon start to `last.close`, or `None` if insufficient history.
+          - volatility_pct: scaled volatility over the horizon (std * sqrt(available_bars)), or `None` if fewer than 2 returns.
+          - max_drawdown_pct: worst peak-to-trough drawdown in the window, or `None`.
+          - trend_vote: horizon trend label (`"bullish"`, `"bearish"`, `"mixed"`, or `"insufficient"`).
+          - support / resistance: window low/high values, or `None` if not available.
+          - range_position: normalized position of `last.close` within support–resistance (0–1), or `None`.
+          - atr_pct: `atr_14` divided by `last.close`, or `None` if `last.close` is zero or undefined.
+          - volume_ratio: latest `volume_ratio_20` value (or `None`).
     """
     close = cast(pd.Series, clean["close"]).astype(float)
     returns = cast(pd.Series, clean["returns"]).astype(float)

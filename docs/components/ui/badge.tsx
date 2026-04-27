@@ -28,6 +28,13 @@ const badgeVariants = cva(
   }
 )
 
+/**
+ * Renders a styled badge element with variant-driven appearance.
+ *
+ * @param variant - Visual variant to apply (e.g., "default", "secondary", "destructive", "outline", "ghost", "link"); defaults to `"default"`.
+ * @param asChild - When `true`, renders the badge as a polymorphic child element instead of a native `span` and sets `data-interactive="true"` to enable interactive hover styles.
+ * @returns A JSX element (either a native `span` or a polymorphic Slot child) with the computed badge classes and data attributes applied.
+ */
 function Badge({
   className,
   variant = "default",

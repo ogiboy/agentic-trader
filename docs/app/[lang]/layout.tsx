@@ -18,6 +18,14 @@ type LocaleLayoutProps = {
   params: Promise<{ lang: string }>;
 };
 
+/**
+ * Render the root HTML layout for a documentation locale.
+ *
+ * Resolves the route `lang` parameter to a documentation language, applies the JetBrains Mono font variable on the <html> element, and wraps `children` with the app-wide `RootProvider` configured with localized UI and a static search API.
+ *
+ * @param params - A promise resolving to route parameters containing `lang`, used to determine the document language
+ * @returns The top-level HTML element for the locale-specific documentation page
+ */
 export default async function LocaleLayout({
   children,
   params,

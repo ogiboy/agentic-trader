@@ -68,6 +68,11 @@ def test_build_snapshot_computes_higher_timeframe_alignment() -> None:
 
 
 def test_build_snapshot_as_of_tracks_latest_clean_indicator_row() -> None:
+    """
+    Verifies that build_snapshot sets `as_of` to the ISO-formatted timestamp of the latest row with a non-missing indicator.
+    
+    The test creates a business-day indexed OHLCV DataFrame, injects a missing `close` on the final row, calls `build_snapshot`, and asserts that `snapshot.as_of` equals the ISO string for the last non-missing index entry.
+    """
     index = pd.date_range("2025-01-01", periods=81, freq="B")
     frame = pd.DataFrame(
         {
