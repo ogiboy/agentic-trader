@@ -654,7 +654,7 @@ function ChatView({
       <Panel title="Operator Chat" accent="lime">
         <div className="form-row">
           <label className="field-label">
-            Persona
+            <span>Persona</span>
             <select
               value={chatPersona}
               onChange={(event) =>
@@ -793,7 +793,7 @@ function SettingsView({
       <Panel title="Composer" accent="rose">
         <div className="form-row">
           <label className="field-label">
-            Mode
+            <span>Mode</span>
             <select
               value={instructionMode}
               onChange={(event) =>

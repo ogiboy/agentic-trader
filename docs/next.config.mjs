@@ -1,10 +1,12 @@
 import { createMDX } from 'fumadocs-mdx/next';
 import { dirname } from 'node:path';
 
+const explicitBasePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const githubPagesBasePath =
   process.env.GITHUB_PAGES === 'true'
-    ? `/${process.env.GITHUB_PAGES_REPO_NAME ?? 'agentic-trader'}`
-    : '';
+    ? explicitBasePath ||
+      `/${process.env.GITHUB_PAGES_REPO_NAME ?? 'agentic-trader'}`
+    : explicitBasePath;
 const repoRoot = dirname(import.meta.dirname);
 
 /** @type {import("next").NextConfig} */
