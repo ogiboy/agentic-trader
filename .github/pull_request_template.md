@@ -8,7 +8,9 @@
 
 ## Testing
 
--
+- Command:
+- Expected result:
+- Evidence path:
 
 ## Screenshots / Evidence
 

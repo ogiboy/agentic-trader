@@ -9,5 +9,19 @@ if ! command -v docker >/dev/null 2>&1; then
 	exit 1
 fi
 
-docker compose -f "${COMPOSE_FILE}" up -d
+if [[ ! -r "${COMPOSE_FILE}" ]]; then
+	echo "SonarQube compose file is not readable: ${COMPOSE_FILE}" >&2
+	exit 1
+fi
+
+if docker compose version >/dev/null 2>&1; then
+	COMPOSE_COMMAND=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+	COMPOSE_COMMAND=(docker-compose)
+else
+	echo "Docker Compose is required. Install Docker Compose v2 or docker-compose." >&2
+	exit 1
+fi
+
+"${COMPOSE_COMMAND[@]}" -f "${COMPOSE_FILE}" up -d
 echo "Local SonarQube is starting at http://localhost:9000"

@@ -1,6 +1,12 @@
 import type { Metadata } from 'next';
 
-export const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+function normalizeBasePath(value: string | undefined) {
+  const trimmed = (value ?? '').trim().replace(/\/+$/g, '');
+  if (!trimmed) return '';
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+}
+
+export const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH);
 
 const assetPath = (path: `/${string}`) => `${basePath}${path}`;
 

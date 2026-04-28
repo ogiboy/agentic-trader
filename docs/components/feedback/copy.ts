@@ -10,11 +10,12 @@ export type FeedbackCopy = {
   destinationSummary: string;
   submit: string;
   saving: string;
-  successForwarded: string;
+  successPrepared: string;
   successLocalOnlyDisabled: string;
   successLocalOnlyFailed: string;
+  storageWarning: string;
   technicalDetail: string;
-  openDiscussion: string;
+  openIssue: string;
   genericError: string;
 };
 
@@ -31,14 +32,16 @@ const feedbackCopy: Record<DocLanguage, FeedbackCopy> = {
       'Stores a draft in this browser and gives you a GitHub issue link to submit when ready.',
     submit: 'Prepare issue',
     saving: 'Preparing feedback...',
-    successForwarded:
+    successPrepared:
       'Feedback draft is ready. Open the prefilled GitHub issue to submit it.',
     successLocalOnlyDisabled:
       'Feedback draft was prepared locally in this browser.',
     successLocalOnlyFailed:
       'Feedback draft was prepared locally, but opening the external issue link failed.',
+    storageWarning:
+      'Browser local storage could not save the draft; the issue link is still ready.',
     technicalDetail: 'Technical detail',
-    openDiscussion: 'Open GitHub issue',
+    openIssue: 'Open GitHub issue',
     genericError: 'Failed to send feedback.',
   },
   tr: {
@@ -53,14 +56,16 @@ const feedbackCopy: Record<DocLanguage, FeedbackCopy> = {
       'Taslağı bu tarayıcıda tutar ve hazır olduğunda gönderebilmen için GitHub issue bağlantısı verir.',
     submit: 'Issue hazırla',
     saving: 'Geri bildirim hazırlanıyor...',
-    successForwarded:
+    successPrepared:
       'Geri bildirim taslağı hazır. Göndermek için hazır doldurulmuş GitHub issue bağlantısını aç.',
     successLocalOnlyDisabled:
       'Geri bildirim taslağı bu tarayıcıda yerel olarak hazırlandı.',
     successLocalOnlyFailed:
       'Geri bildirim taslağı yerel olarak hazırlandı, fakat harici issue bağlantısı açılamadı.',
+    storageWarning:
+      'Tarayıcı yerel depolaması taslağı kaydedemedi; issue bağlantısı yine de hazır.',
     technicalDetail: 'Teknik ayrıntı',
-    openDiscussion: 'GitHub issue aç',
+    openIssue: 'GitHub issue aç',
     genericError: 'Geri bildirim gönderilemedi.',
   },
 };

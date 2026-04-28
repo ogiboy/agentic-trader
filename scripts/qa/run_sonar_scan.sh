@@ -24,32 +24,29 @@ mkdir -p "${ARTIFACT_DIR}"
 # resolve_token resolves the Sonar authentication token used by the script.
 # It ensures SONAR_TOKEN is set (exported) by using the existing environment value or, if absent, by attempting a macOS Keychain lookup; if the token cannot be obtained it prints an error and exits with status 1.
 resolve_token() {
-	if [[ -n "${SONAR_TOKEN:-}" ]]; then
-		return 0
-	fi
-	if command -v security >/dev/null 2>&1 && [[ -n "${SONAR_TOKEN_KEYCHAIN_ACCOUNT}" ]]; then
+	if [[ -z "${SONAR_TOKEN:-}" ]] && command -v security >/dev/null 2>&1 && [[ -n "${SONAR_TOKEN_KEYCHAIN_ACCOUNT}" ]]; then
 		SONAR_TOKEN="$(
 			security find-generic-password \
 				-a "${SONAR_TOKEN_KEYCHAIN_ACCOUNT}" \
 				-s "${SONAR_TOKEN_KEYCHAIN_SERVICE}" \
 				-w 2>/dev/null || true
 		)"
-		export SONAR_TOKEN
 	fi
 	if [[ -z "${SONAR_TOKEN:-}" ]]; then
 		echo "SONAR_TOKEN is required. Set it in the environment or store it in macOS Keychain service '${SONAR_TOKEN_KEYCHAIN_SERVICE}'." >&2
 		exit 1
 	fi
+	export SONAR_TOKEN
 	return 0
 }
 
 # redacted_runner executes a command, replacing occurrences of `SONAR_TOKEN` in its combined stdout/stderr with `<redacted>` and teeing the redacted output to `SCAN_LOG` and to stdout.
 redacted_runner() {
 	local -a command=("$@")
-	local redacted_log="${SCAN_LOG}"
+	local -r redacted_log="${SCAN_LOG:-${ARTIFACT_DIR}/${SCANNER}.log}"
 	local token_to_redact="${SONAR_TOKEN}"
 	"${command[@]}" 2>&1 \
-		| SONAR_TOKEN_REDACT="${token_to_redact}" perl -pe 'BEGIN { $t = $ENV{SONAR_TOKEN_REDACT} // ""; } if (length $t) { s/\Q$t\E/<redacted>/g }' \
+		| SONAR_TOKEN_REDACT="${token_to_redact}" perl -pe 'BEGIN { $t = $ENV{SONAR_TOKEN_REDACT} // ""; } if (length $t) { s/\Q$t\E/<redacted>/go }' \
 		| tee "${redacted_log}"
 	return 0
 }
@@ -84,7 +81,6 @@ run_pysonar() {
 
 	command+=(
 		--sonar-host-url "${SONAR_HOST_URL}"
-		--sonar-token "${SONAR_TOKEN}"
 		--sonar-project-key "${SONAR_PROJECT_KEY}"
 		--sonar-project-name "${SONAR_PROJECT_NAME}"
 		--sonar-project-base-dir "${REPO_ROOT}"
@@ -117,8 +113,10 @@ run_npm_scanner() {
 		"-Dsonar.host.url=${SONAR_HOST_URL}"
 		"-Dsonar.projectKey=${SONAR_PROJECT_KEY}"
 		"-Dsonar.projectName=${SONAR_PROJECT_NAME}"
-		"-Dsonar.python.coverage.reportPaths=${COVERAGE_XML}"
 	)
+	if [[ -f "${COVERAGE_XML}" ]]; then
+		command+=("-Dsonar.python.coverage.reportPaths=${COVERAGE_XML}")
+	fi
 	if [[ -n "${SONAR_ORGANIZATION}" ]]; then
 		command+=("-Dsonar.organization=${SONAR_ORGANIZATION}")
 	fi
@@ -147,7 +145,7 @@ case "${SCANNER}" in
 		run_npm_scanner
 		;;
 	*)
-		echo "Unknown scanner '${SCANNER}'. Use 'pysonar' or 'npm'." >&2
+		echo "Unknown scanner '${SCANNER}'. Use one of: py, python, pysonar, js, node, npm, sonar." >&2
 		exit 2
 		;;
 esac

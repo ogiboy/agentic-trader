@@ -58,8 +58,7 @@ def _index_iso(frame: pd.DataFrame, position: int) -> str:
         str: The ISO 8601 formatted timestamp string for the selected index entry.
     """
     value = frame.index.to_list()[position]
-    isoformat = getattr(value, "isoformat")
-    return str(isoformat())
+    return str(value.isoformat())
 
 
 def test_walk_forward_backtest_closes_trade_and_reports_metrics(

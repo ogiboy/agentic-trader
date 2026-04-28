@@ -1,5 +1,5 @@
 import re
-from typing import cast
+from typing import Any, cast
 
 import pandas as pd
 
@@ -106,7 +106,8 @@ def _as_float(value: object) -> float:
         ValueError: If `value` cannot be converted to a float.
         TypeError: If `value` is of a type not supported by float().
     """
-    return float(cast(float, value))
+    raw_value: Any = value
+    return float(raw_value)
 
 
 def _index_label(value: object) -> str | None:

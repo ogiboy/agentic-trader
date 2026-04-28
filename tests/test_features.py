@@ -89,7 +89,7 @@ def test_build_snapshot_as_of_tracks_latest_clean_indicator_row() -> None:
     snapshot = build_snapshot(frame, symbol="CLEAN", interval="1d", lookback="80d")
 
     expected_as_of = index.to_list()[-2]
-    assert snapshot.as_of == str(getattr(expected_as_of, "isoformat")())
+    assert snapshot.as_of == str(expected_as_of.isoformat())
 
 
 def test_build_snapshot_fails_when_lookback_is_materially_undercovered() -> None:

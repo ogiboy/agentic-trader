@@ -182,22 +182,17 @@ def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
 
 def _tui_dependencies_installed(tui_dir: Path, command_cwd: Path) -> bool:
     """
-    Check whether Node dependencies appear installed for the TUI by probing likely node_modules locations.
-    
+    Check whether TUI-specific Node dependencies appear installed.
+
     Parameters:
         tui_dir (Path): Path to the bundled TUI directory.
-        command_cwd (Path): Working directory where the resolved package-manager commands will run.
-    
+        command_cwd (Path): Working directory where the resolved package-manager commands will run; root workspace dependencies alone are not sufficient.
+
     Returns:
-        bool: `True` if any of the checked `node_modules` or `.pnpm` directories exist under `command_cwd` or `tui_dir`, `False` otherwise.
+        bool: `True` only when the TUI package has its own `node_modules` link directory, `False` otherwise.
     """
-    candidates = (
-        command_cwd / "node_modules",
-        command_cwd / "node_modules" / ".pnpm",
-        tui_dir / "node_modules",
-        tui_dir / "node_modules" / ".pnpm",
-    )
-    return any(candidate.exists() for candidate in candidates)
+    _ = command_cwd
+    return (tui_dir / "node_modules").exists()
 
 
 def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:

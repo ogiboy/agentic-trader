@@ -1,4 +1,19 @@
-.PHONY: setup check check-python check-node build qa qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper webgui docs tui clean
+.DEFAULT_GOAL := help
+
+.PHONY: help setup check check-python check-node build qa qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper webgui docs tui clean
+
+help:
+	@printf '%s\n' \
+		'Agentic Trader aliases:' \
+		'  make setup        install Python and Node dependencies' \
+		'  make check        run Python and Node checks' \
+		'  make build        build webgui/docs and check TUI' \
+		'  make qa           run terminal smoke QA' \
+		'  make sonar        run local Sonar scan' \
+		'  make webgui       start Web GUI dev server' \
+		'  make docs         start docs dev server' \
+		'  make tui          start terminal UI' \
+		'  make clean        remove local build/test artifacts'
 
 setup:
 	pnpm run setup

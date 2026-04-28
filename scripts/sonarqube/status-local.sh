@@ -4,7 +4,7 @@ set -Eeuo pipefail
 SONAR_HOST_URL="${SONAR_HOST_URL:-http://localhost:9000}"
 
 if command -v docker >/dev/null 2>&1; then
-	docker ps --filter "name=sonarqube" --filter "name=sonarqube-db" \
+	docker ps --filter "name=^sonarqube$" --filter "name=^sonarqube-db$" \
 		--format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
 fi
 

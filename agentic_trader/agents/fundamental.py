@@ -456,12 +456,7 @@ def _has_structured_fundamental_evidence(context: AgentContext | None) -> bool:
     if context is None or context.decision_features is None:
         return False
     flags = set(context.decision_features.fundamental.quality_flags)
-    missing_flags = {
-        "fundamental_provider_missing",
-        "fundamental_fetch_not_implemented",
-        "fundamental_provider_not_configured",
-    }
-    return not bool(flags.intersection(missing_flags))
+    return not bool(flags.intersection(PROVIDER_GAP_FLAGS))
 
 
 def assess_fundamentals(

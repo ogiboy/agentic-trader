@@ -65,9 +65,10 @@ function buildIssueUrl(feedback: ParsedPageFeedback) {
  *
  * Attempts to append `feedback` to an array stored in `localStorage` under the feedback key, keeps only the most recent 25 entries, and writes the updated array back to `localStorage`.
  *
- * Errors (storage access, JSON parse/stringify) are swallowed and the function returns silently on failure.
+ * Storage access, JSON parse/stringify, or quota failures return `false` so the caller can surface the persistence result.
  *
  * @param feedback - The parsed page feedback object to persist as a draft
+ * @returns True when the draft is stored in browser localStorage, otherwise false.
  */
 function storeFeedbackDraft(feedback: ParsedPageFeedback) {
   try {
@@ -77,8 +78,9 @@ function storeFeedbackDraft(feedback: ParsedPageFeedback) {
     const records = Array.isArray(parsed) ? parsed : [];
     const nextRecords = [...records, feedback].slice(-25);
     storage.setItem(feedbackStorageKey, JSON.stringify(nextRecords));
+    return true;
   } catch {
-    return;
+    return false;
   }
 }
 
@@ -109,13 +111,14 @@ export function Feedback({ locale, title }: FeedbackProps) {
         url: pathname,
         submittedAt: new Date().toISOString(),
       });
-      storeFeedbackDraft(feedback);
+      const stored = storeFeedbackDraft(feedback);
       setResult({
         ok: true,
-        storedAt: 'browser-local-storage',
+        storedAt: stored ? 'browser-local-storage' : 'browser-memory',
         destination: 'github-issue',
         forwarding: 'prepared',
         githubUrl: buildIssueUrl(feedback),
+        warning: stored ? undefined : copy.storageWarning,
       });
       setMessage('');
     } catch (error) {

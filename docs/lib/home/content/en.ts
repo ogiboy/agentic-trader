@@ -128,7 +128,7 @@ export const homeContentEn: HomeContent = {
         },
         {
           title: 'Feedback flow',
-          body: 'Pages docs feedback prepares a browser-local GitHub issue draft; server-side forwarding should only return if a Node-hosted docs surface is explicit.',
+          body: 'Pages docs feedback prepares a browser-local GitHub issue draft; server-side forwarding should only occur when the docs site is explicitly hosted on a Node server.',
         },
       ],
     },

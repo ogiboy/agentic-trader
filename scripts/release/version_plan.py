@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SEMVER_RE = re.compile(
-    r"^v?(?P<core>\d+\.\d+\.\d+)"
+    r"^[Vv]?(?P<core>\d+\.\d+\.\d+)"
     r"(?P<prerelease>-[0-9A-Za-z.-]+)?"
     r"(?P<metadata>\+[0-9A-Za-z.-]+)?$"
 )
@@ -110,7 +110,7 @@ def _normalize_semver(value: str | None, fallback: str) -> str:
     """
     Normalize a SemVer candidate string and return a validated semantic version or a fallback.
 
-    Strips surrounding whitespace, accepts an optional leading "v" (which is removed), and validates the resulting candidate against the module's SemVer pattern. If the candidate is missing or does not match the SemVer pattern, the provided fallback is returned.
+    Strips surrounding whitespace, accepts an optional leading "v" or "V" (which is removed), and validates the resulting candidate against the module's SemVer pattern. If the candidate is missing or does not match the SemVer pattern, the provided fallback is returned.
 
     Parameters:
         value (str | None): Candidate SemVer string (may start with "v" or be None).
@@ -123,7 +123,7 @@ def _normalize_semver(value: str | None, fallback: str) -> str:
     match = SEMVER_RE.match(candidate)
     if not match:
         return fallback
-    return candidate[1:] if candidate.startswith("v") else candidate
+    return re.sub(r"^[Vv]", "", candidate)
 
 
 def _semver_core(value: str) -> str:
@@ -194,6 +194,10 @@ def _build_number(raw: str | None) -> int:
     commit_count = _run_git(["rev-list", "--count", "HEAD"])
     if commit_count.isdecimal() and int(commit_count) > 0:
         return int(commit_count)
+    print(
+        "version_plan._build_number warning: missing GITHUB_RUN_NUMBER and git rev-list count; using fallback build number 1.",
+        file=sys.stderr,
+    )
     return 1
 
 
@@ -324,7 +328,6 @@ def _emit_github_outputs(plan: VersionPlan) -> None:
         plan (VersionPlan): The computed version plan whose fields will be emitted.
     """
     output_path = os.getenv("GITHUB_OUTPUT")
-    lines = []
     payload = {
         **asdict(plan),
         "is_stable": str(plan.is_stable).lower(),
@@ -332,8 +335,17 @@ def _emit_github_outputs(plan: VersionPlan) -> None:
         "is_beta": str(plan.is_beta).lower(),
         "attach_to_release": str(plan.attach_to_release).lower(),
     }
+
+    lines: list[str] = []
     for key, value in payload.items():
-        lines.append(f"{key}={value}")
+        text_value = str(value)
+        if "\n" not in text_value:
+            lines.append(f"{key}={text_value}")
+            continue
+        delimiter = f"EOF_{key.upper()}"
+        while delimiter in text_value:
+            delimiter = f"{delimiter}_END"
+        lines.append(f"{key}<<{delimiter}\n{text_value}\n{delimiter}")
 
     text = "\n".join(lines) + "\n"
     if output_path:

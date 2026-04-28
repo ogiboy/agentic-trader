@@ -458,7 +458,7 @@ def run_command_capture(
         return CheckResult(
             name=name,
             passed=False,
-            details=f"exception={exc}",
+            details=f"exception={exception_text}",
             artifact=str(artifact),
         )
 
@@ -1651,8 +1651,6 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
         pysonar,
         "--sonar-host-url",
         args.sonar_host_url,
-        "--sonar-token",
-        token,
         "--sonar-project-key",
         args.sonar_project_key,
         "--sonar-sources",
@@ -1670,9 +1668,8 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
     if coverage_path.exists():
         command.extend(["--sonar-python-coverage-report-paths", str(coverage_path)])
     display = (
-        "pysonar "
+        "SONAR_TOKEN=<redacted> pysonar "
         f"--sonar-host-url={args.sonar_host_url} "
-        "--sonar-token=<redacted> "
         f"--sonar-project-key={args.sonar_project_key} "
         f"--sonar-sources={DEFAULT_SONAR_SOURCES} "
         f"--sonar-tests={DEFAULT_SONAR_TESTS}"
@@ -1689,6 +1686,7 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
         command,
         timeout=240,
         display=display,
+        env_overrides={"SONAR_TOKEN": token},
         sensitive_values=(token,),
     )
 

@@ -49,7 +49,7 @@ tui/.env
 
 # next.js
 */.next/
-*/out/
+**/out/
 /docs/.source/
 
 # production

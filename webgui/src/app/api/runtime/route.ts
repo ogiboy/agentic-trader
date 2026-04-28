@@ -1,4 +1,5 @@
 import { runRuntimeAction } from '../../../lib/agentic-trader';
+import { parseJsonObjectBody } from '../../../lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,16 +55,11 @@ export async function POST(request: Request) {
     return Response.json({ error: 'forbidden origin' }, { status: 403 });
   }
 
-  let body: { kind?: unknown };
-  try {
-    const parsed: unknown = await request.json();
-    if (typeof parsed !== 'object' || parsed === null) {
-      return Response.json({ error: 'invalid json' }, { status: 400 });
-    }
-    body = parsed as { kind?: unknown };
-  } catch {
-    return Response.json({ error: 'invalid json' }, { status: 400 });
+  const parsed = await parseJsonObjectBody(request);
+  if (!parsed.ok) {
+    return parsed.response;
   }
+  const body = parsed.body;
 
   try {
     if (

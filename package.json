@@ -3,6 +3,9 @@
   "version": "0.9.0",
   "private": true,
   "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "setup": "pnpm install && pnpm approve-builds --all && pnpm install:python",
     "install:python": "scripts/install-python.sh",

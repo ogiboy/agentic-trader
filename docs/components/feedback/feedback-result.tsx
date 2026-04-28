@@ -26,7 +26,7 @@ export function FeedbackResult({
 
   let message = copy.successLocalOnlyDisabled;
   if (result.forwarding === 'prepared' || result.forwarding === 'succeeded') {
-    message = copy.successForwarded;
+    message = copy.successPrepared;
   } else if (result.forwarding === 'failed') {
     message = copy.successLocalOnlyFailed;
   }
@@ -41,7 +41,7 @@ export function FeedbackResult({
           rel="noopener noreferrer"
           target="_blank"
         >
-          {copy.openDiscussion}
+          {copy.openIssue}
         </a>
       ) : null}
       {result.warning ? (
