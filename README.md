@@ -139,9 +139,9 @@ Advanced usage belongs in the docs site, not in this landing README.
 
 Stable releases are driven by conventional commits on `main` through `python-semantic-release`. A release bump updates `pyproject.toml`, prepends `CHANGELOG.md`, creates a strict SemVer `v*` tag such as `v0.9.5`, and opens a GitHub Release.
 
-Preview builds keep SemVer compatibility by using prerelease and build metadata instead of a fourth core version segment. Integration branches such as `V1` produce `next` artifacts like `v0.9.6-next.9870+gabc1234`; feature branches produce `beta` artifacts like `v0.9.6-beta.9870+gabc1234`.
+Preview builds keep SemVer compatibility by using prerelease and build metadata instead of a fourth core version segment. Integration branches such as `V1` produce `next` prereleases like `v0.9.6-next.9870+gabc1234`; feature branches produce `beta` prereleases like `v0.9.6-beta.9870+gabc1234`.
 
-Tagged release builds attach PyInstaller CLI binaries for macOS and Windows to the matching release. Branch binary builds are workflow artifacts for testing. Source install remains the most complete developer path; release binaries are for quick CLI/admin use.
+Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to the matching release. Branch pushes also upload the same binaries as workflow artifacts and publish prerelease GitHub Releases for branch testing. Source install remains the most complete developer path; release binaries are for quick CLI/admin use.
 
 ## Usage
 
@@ -211,7 +211,7 @@ Commit messages should follow conventional commits so release automation can inf
 | Docs     | `docs: rewrite root readme`                       |
 | Breaking | `feat!: change release packaging flow`            |
 
-`main` is the only branch that mutates `pyproject.toml`, `CHANGELOG.md`, tags, and GitHub Releases automatically. Other branches run version previews and binary artifact builds without changing tracked version files.
+`main` is the only branch that mutates `pyproject.toml` and `CHANGELOG.md` automatically. Other branches run version previews and publish SemVer-compatible prerelease tags/releases without changing tracked version files.
 
 ## Uninstall / Cleanup
 

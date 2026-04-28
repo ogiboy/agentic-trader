@@ -37,6 +37,15 @@ jobs:
   build:
     name: Build ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
+    outputs:
+      artifact_version: ${{ steps.release-target.outputs.artifact_version }}
+      branch: ${{ steps.release-target.outputs.branch }}
+      channel: ${{ steps.release-target.outputs.channel }}
+      is_stable: ${{ steps.release-target.outputs.is_stable }}
+      publish_to_release: ${{ steps.release-target.outputs.publish_to_release }}
+      release_ref: ${{ steps.release-target.outputs.release_ref }}
+      release_tag: ${{ steps.release-target.outputs.release_tag }}
+      short_sha: ${{ steps.release-target.outputs.short_sha }}
     strategy:
       fail-fast: false
       matrix:
@@ -138,6 +147,35 @@ jobs:
           fi
           python scripts/release/version_plan.py "${args[@]}"
 
+      - name: Resolve release target
+        id: release-target
+        shell: bash
+        env:
+          ARTIFACT_VERSION: ${{ steps.plan.outputs.artifact_version }}
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          CHANNEL: ${{ steps.plan.outputs.channel }}
+          IS_STABLE: ${{ steps.plan.outputs.is_stable }}
+          RELEASE_REF: ${{ steps.plan.outputs.release_ref }}
+          SHORT_SHA: ${{ steps.plan.outputs.short_sha }}
+          ATTACH_TO_RELEASE: ${{ steps.plan.outputs.attach_to_release }}
+        run: |
+          set -euo pipefail
+          publish_to_release=false
+          if [ "${ATTACH_TO_RELEASE}" = "true" ]; then
+            publish_to_release=true
+          elif [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_TYPE}" = "branch" ] && [ "${IS_STABLE}" != "true" ]; then
+            publish_to_release=true
+          fi
+
+          echo "artifact_version=${ARTIFACT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
+          echo "is_stable=${IS_STABLE}" >> "$GITHUB_OUTPUT"
+          echo "publish_to_release=${publish_to_release}" >> "$GITHUB_OUTPUT"
+          echo "release_ref=${RELEASE_REF}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_REF:-$ARTIFACT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
       - name: Build CLI binary
         shell: bash
         run: poetry run pyinstaller --clean --noconfirm agentic-trader.spec
@@ -175,19 +213,81 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Attach binary to GitHub Release
-        if: ${{ steps.plan.outputs.attach_to_release == 'true' }}
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ needs.build.outputs.publish_to_release == 'true' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download packaged binary artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: '*-${{ needs.build.outputs.artifact_version }}'
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish release with assets
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.plan.outputs.release_ref }}
+          TAG: ${{ needs.build.outputs.release_tag }}
+          RELEASE_REF: ${{ needs.build.outputs.release_ref }}
+          CHANNEL: ${{ needs.build.outputs.channel }}
+          BRANCH: ${{ needs.build.outputs.branch }}
+          SHORT_SHA: ${{ needs.build.outputs.short_sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          for attempt in {1..18}; do
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              break
+          shopt -s nullglob
+          assets=(release-assets/*)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release assets were downloaded." >&2
+            exit 1
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            asset_count="$(gh release view "$TAG" --json assets --jq '.assets | length')"
+            if [ "$asset_count" -gt 0 ]; then
+              echo "Release ${TAG} already exists with ${asset_count} asset(s); skipping publish."
+              exit 0
             fi
-            sleep 10
-          done
-          gh release view "$TAG" >/dev/null
-          gh release upload "$TAG" "${{ steps.package.outputs.archive }}" --clobber
+            echo "Release ${TAG} already exists without assets; immutable releases cannot be repaired automatically." >&2
+            exit 1
+          fi
+
+          notes="$(mktemp)"
+          if [ -n "${RELEASE_REF}" ]; then
+            cat > "$notes" <<EOF
+          Stable release build for \`${TAG}\`.
+
+          - Workflow run: ${RUN_URL}
+          EOF
+            gh release create "$TAG" "${assets[@]}" \
+              --verify-tag \
+              --title "Agentic Trader ${TAG}" \
+              --notes-file "$notes"
+          else
+            cat > "$notes" <<EOF
+          Automated ${CHANNEL} preview build for \`${BRANCH}\`.
+
+          - Channel: \`${CHANNEL}\`
+          - Commit: \`${SHORT_SHA}\`
+          - Workflow run: ${RUN_URL}
+
+          This prerelease is intended for branch testing. Stable releases are produced from \`main\`.
+          EOF
+            gh release create "$TAG" "${assets[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "Agentic Trader ${TAG}" \
+              --notes-file "$notes" \
+              --prerelease \
+              --latest=false
+          fi
