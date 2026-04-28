@@ -16,6 +16,7 @@ T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 _SENSITIVE_PAYLOAD_KEYS = {"thinking", "thought", "thoughts", "reasoning"}
+_NO_TRADE_PHRASE = "no trade"
 
 
 def _coerce_numeric_strings(obj: Any) -> Any:
@@ -173,7 +174,14 @@ def _semantic_value_alias(schema_name: str, field_name: str, value: str) -> Any:
     if schema_name == "RegimeAssessment" and field_name == "direction_bias":
         if any(
             token in compact
-            for token in ("flat", "neutral", "mixed", "sideways", "none", "no trade")
+            for token in (
+                "flat",
+                "neutral",
+                "mixed",
+                "sideways",
+                "none",
+                _NO_TRADE_PHRASE,
+            )
         ):
             return "flat"
         if any(token in compact for token in ("long", "buy", "bull", "up", "positive")):
@@ -188,7 +196,7 @@ def _semantic_value_alias(schema_name: str, field_name: str, value: str) -> Any:
     }:
         if any(
             token in compact
-            for token in ("hold", "flat", "neutral", "none", "no trade")
+            for token in ("hold", "flat", "neutral", "none", _NO_TRADE_PHRASE)
         ):
             return "hold"
         if any(token in compact for token in ("long", "buy", "bull", "up")):
@@ -293,7 +301,7 @@ _SCHEMA_VALUE_ALIAS_MAP: dict[str, dict[str, dict[str, Any]]] = {
             "breakout": "breakout_candidate",
             "cautious": "no_trade",
             "wait": "no_trade",
-            "no trade": "no_trade",
+            _NO_TRADE_PHRASE: "no_trade",
         },
         "direction_bias": {
             "bullish": "long",

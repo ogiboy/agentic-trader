@@ -16,6 +16,9 @@ type TabId =
   | 'chat'
   | 'settings';
 type MessageTone = 'neutral' | 'good' | 'warn' | 'bad';
+type InstructionMode = 'preview' | 'apply';
+type PanelAccent = 'lime' | 'amber' | 'cyan' | 'rose';
+type KeyValueItems = Array<[string, string]>;
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
@@ -268,11 +271,11 @@ function Panel({
   title,
   accent,
   children,
-}: {
+}: Readonly<{
   title: string;
-  accent?: 'lime' | 'amber' | 'cyan' | 'rose';
+  accent?: PanelAccent;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <section className={cx('panel', accent ? `panel--${accent}` : undefined)}>
       <div className="panel__title">{title}</div>
@@ -287,7 +290,7 @@ function Panel({
  * @param items - An array of `[label, value]` string tuples to render as `dt`/`dd` rows
  * @returns A `<dl>` element containing one row per tuple, each with a `dt` for the label and a `dd` for the value
  */
-function KeyValueList({ items }: { items: Array<[string, string]> }) {
+function KeyValueList({ items }: Readonly<{ items: KeyValueItems }>) {
   return (
     <dl className="kv-list">
       {items.map(([label, value]) => (
@@ -306,7 +309,7 @@ function KeyValueList({ items }: { items: Array<[string, string]> }) {
  * @param items - Array of text entries to display as list items
  * @returns A `<ul>` element whose children are `<li>` elements for each string in `items`
  */
-function TextList({ items }: { items: string[] }) {
+function TextList({ items }: Readonly<{ items: string[] }>) {
   return (
     <ul className="text-list">
       {items.map((item, index) => (
@@ -322,8 +325,571 @@ function TextList({ items }: { items: string[] }) {
  * @param value - The value to serialize as formatted JSON for display
  * @returns A React element containing the formatted JSON
  */
-function JsonPreview({ value }: { value: unknown }) {
+function JsonPreview({ value }: Readonly<{ value: unknown }>) {
   return <pre className="json-preview">{JSON.stringify(value, null, 2)}</pre>;
+}
+
+function OverviewView({
+  dashboard,
+  currentCycle,
+  system,
+}: Readonly<{
+  dashboard: DashboardData;
+  currentCycle: KeyValueItems;
+  system: KeyValueItems;
+}>) {
+  const recentStageEvents = dashboard.agentActivity?.recent_stage_events?.length
+    ? dashboard.agentActivity.recent_stage_events.map(
+        (event: Record<string, any>) =>
+          `${formatTimestamp(event.created_at)} | ${event.stage} | ${event.status} | ${event.message}`,
+      )
+    : ['No live agent stage events yet.'];
+
+  return (
+    <div className="stack">
+      <section className="market-ribbon">
+        <Image
+          className="market-ribbon__image"
+          src={marketLensImage}
+          alt="Trading screens showing market data."
+          fill
+          priority
+          sizes="(max-width: 960px) 100vw, 50vw"
+        />
+        <div className="market-ribbon__overlay">
+          <div>
+            <p className="eyebrow">Operator Truth</p>
+            <h1>Agentic Trader Web GUI</h1>
+            <p className="market-ribbon__copy">
+              Local-first runtime, paper-first execution, and the same
+              dashboard contract that powers CLI, Rich, and Ink.
+            </p>
+          </div>
+          <div className="pill-row">
+            <span className="pill">{dashboard.status?.runtime_mode ?? '-'}</span>
+            <span className="pill">{dashboard.broker?.backend ?? '-'}</span>
+            <span className="pill">
+              {dashboard.calendar?.session?.venue ?? 'session unknown'}
+            </span>
+            <span className="pill">{dashboard.doctor?.model ?? '-'}</span>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid--2">
+        <Panel title="Current Cycle" accent="lime">
+          <KeyValueList items={currentCycle} />
+        </Panel>
+        <Panel title="System" accent="cyan">
+          <KeyValueList items={system} />
+        </Panel>
+      </div>
+
+      <Panel title="Agent Activity" accent="amber">
+        <TextList items={recentStageEvents} />
+      </Panel>
+    </div>
+  );
+}
+
+function RuntimeView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
+  const runtimeEvents = dashboard.logs?.length
+    ? dashboard.logs.map(
+        (event: Record<string, any>) =>
+          `${formatTimestamp(event.created_at)} | ${event.level} | ${event.event_type} | ${event.symbol ?? '-'} | ${event.message}`,
+      )
+    : ['No runtime events recorded yet.'];
+  const supervisorTails = [
+    ...(dashboard.supervisor?.stderr_tail?.length
+      ? dashboard.supervisor.stderr_tail
+      : ['No stderr tail.']),
+    ...(dashboard.supervisor?.stdout_tail?.length
+      ? dashboard.supervisor.stdout_tail
+      : ['No stdout tail.']),
+  ];
+
+  return (
+    <div className="grid grid--2">
+      <Panel title="Runtime State" accent="lime">
+        <KeyValueList
+          items={[
+            ['Runtime', dashboard.status?.runtime_state ?? '-'],
+            ['Live Process', dashboard.status?.live_process ? 'yes' : 'no'],
+            ['PID', String(dashboard.status?.state?.pid ?? '-')],
+            ['Current Symbol', dashboard.status?.state?.current_symbol ?? '-'],
+            [
+              'Cycle Count',
+              String(dashboard.status?.state?.cycle_count ?? '-'),
+            ],
+            ['Updated', formatTimestamp(dashboard.status?.state?.updated_at)],
+            [
+              'Stop Requested',
+              String(dashboard.status?.state?.stop_requested ?? false),
+            ],
+            ['Status', dashboard.status?.status_message ?? '-'],
+          ]}
+        />
+      </Panel>
+      <Panel title="Stage Flow" accent="cyan">
+        <TextList
+          items={(dashboard.agentActivity?.stage_statuses || []).map(
+            (stage: Record<string, any>) =>
+              `${stage.stage} | ${stage.status} | ${stage.message}`,
+          )}
+        />
+      </Panel>
+      <Panel title="Runtime Events" accent="amber">
+        <TextList items={runtimeEvents} />
+      </Panel>
+      <Panel title="Supervisor Tails" accent="rose">
+        <TextList items={supervisorTails} />
+      </Panel>
+    </div>
+  );
+}
+
+function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
+  const portfolioUnavailable = unavailableSectionLines(
+    dashboard.portfolio,
+    'Portfolio',
+  );
+  const riskUnavailable = unavailableSectionLines(
+    dashboard.riskReport,
+    'Risk report',
+  );
+  const journalLines =
+    unavailableSectionLines(dashboard.journal, 'Trade journal') ||
+    (dashboard.journal?.entries?.length
+      ? dashboard.journal.entries.map(
+          (entry: Record<string, any>) =>
+            `${formatTimestamp(entry.opened_at)} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`,
+        )
+      : ['No trade journal entries yet.']);
+
+  return (
+    <div className="grid grid--2">
+      <Panel title="Portfolio" accent="lime">
+        {portfolioUnavailable ? (
+          <TextList items={portfolioUnavailable} />
+        ) : (
+          <>
+            <KeyValueList
+              items={[
+                ['Cash', formatNumber(dashboard.portfolio?.snapshot?.cash)],
+                [
+                  'Market Value',
+                  formatNumber(dashboard.portfolio?.snapshot?.market_value),
+                ],
+                ['Equity', formatNumber(dashboard.portfolio?.snapshot?.equity)],
+                [
+                  'Realized PnL',
+                  formatNumber(dashboard.portfolio?.snapshot?.realized_pnl),
+                ],
+                [
+                  'Unrealized PnL',
+                  formatNumber(dashboard.portfolio?.snapshot?.unrealized_pnl),
+                ],
+                [
+                  'Open Positions',
+                  String(dashboard.portfolio?.snapshot?.open_positions ?? '-'),
+                ],
+              ]}
+            />
+            <JsonPreview value={dashboard.portfolio?.positions || []} />
+          </>
+        )}
+      </Panel>
+      <Panel title="Risk Report" accent="rose">
+        {riskUnavailable ? (
+          <TextList items={riskUnavailable} />
+        ) : (
+          <>
+            <KeyValueList
+              items={[
+                ['Equity', formatNumber(dashboard.riskReport?.report?.equity)],
+                [
+                  'Gross Exposure',
+                  formatPercent(
+                    dashboard.riskReport?.report?.gross_exposure_pct,
+                  ),
+                ],
+                [
+                  'Largest Position',
+                  formatPercent(
+                    dashboard.riskReport?.report?.largest_position_pct,
+                  ),
+                ],
+                [
+                  'Drawdown',
+                  formatPercent(
+                    dashboard.riskReport?.report?.drawdown_from_peak_pct,
+                  ),
+                ],
+                [
+                  'Warnings',
+                  String((dashboard.riskReport?.report?.warnings || []).length),
+                ],
+              ]}
+            />
+            <TextList
+              items={dashboard.riskReport?.report?.warnings || ['No warnings.']}
+            />
+          </>
+        )}
+      </Panel>
+      <Panel title="Trade Journal" accent="amber">
+        <TextList items={journalLines} />
+      </Panel>
+      <Panel title="Preferences" accent="cyan">
+        <KeyValueList
+          items={[
+            ['Regions', formatList(dashboard.preferences?.regions)],
+            ['Exchanges', formatList(dashboard.preferences?.exchanges)],
+            ['Currencies', formatList(dashboard.preferences?.currencies)],
+            ['Risk', dashboard.preferences?.risk_profile ?? '-'],
+            ['Style', dashboard.preferences?.trade_style ?? '-'],
+            ['Behavior', dashboard.preferences?.behavior_preset ?? '-'],
+            ['Tone', dashboard.preferences?.agent_tone ?? '-'],
+            ['Strictness', dashboard.preferences?.strictness_preset ?? '-'],
+          ]}
+        />
+      </Panel>
+    </div>
+  );
+}
+
+function ReviewView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
+  const reviewLines =
+    unavailableSectionLines(dashboard.review, 'Latest review') ||
+    (dashboard.review?.record
+      ? [
+          `Run ID: ${dashboard.review.record.run_id}`,
+          `Created: ${formatTimestamp(dashboard.review.record.created_at)}`,
+          `Symbol: ${dashboard.review.record.symbol}`,
+          `Approved: ${dashboard.review.record.approved}`,
+          `Coordinator Focus: ${dashboard.review.record.artifacts?.coordinator?.market_focus ?? '-'}`,
+          `Consensus: ${dashboard.review.record.artifacts?.consensus?.alignment_level ?? '-'}`,
+          `Review Summary: ${dashboard.review.record.artifacts?.review?.summary ?? '-'}`,
+        ]
+      : ['No persisted runs are available yet.']);
+
+  return (
+    <div className="grid grid--2">
+      <Panel title="Latest Review" accent="lime">
+        <TextList items={reviewLines} />
+      </Panel>
+      <Panel title="Trade Context" accent="cyan">
+        <TextList items={tradeContextLines(dashboard.tradeContext?.record)} />
+      </Panel>
+      <Panel title="Canonical Analysis" accent="amber">
+        <TextList items={canonicalLines(dashboard.canonicalAnalysis?.snapshot)} />
+      </Panel>
+      <Panel title="Market Context Pack" accent="rose">
+        <TextList items={marketContextLines(dashboard.marketContext?.contextPack)} />
+      </Panel>
+    </div>
+  );
+}
+
+function MemoryView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
+  const memoryLines =
+    unavailableSectionLines(dashboard.memoryExplorer, 'Memory explorer') ||
+    (dashboard.memoryExplorer?.matches?.length
+      ? dashboard.memoryExplorer.matches.map(
+          (match: Record<string, any>) =>
+            `${formatTimestamp(match.created_at)} | ${match.symbol} | score=${match.similarity_score} | ${match.summary}`,
+        )
+      : ['No similar historical memories found yet.']);
+  const retrievalLines =
+    unavailableSectionLines(
+      dashboard.retrievalInspection,
+      'Retrieval inspection',
+    ) ||
+    (dashboard.retrievalInspection?.stages?.length
+      ? dashboard.retrievalInspection.stages.flatMap(
+          (stage: Record<string, any>) => [
+            `${stage.role} | retrieved=${stage.retrieved_memories?.length ?? 0} | trade-memory=${stage.memory_notes?.length ?? 0} | shared-bus=${stage.shared_memory_bus?.length ?? 0} | recent-runs=${stage.recent_runs?.length ?? 0}`,
+            `Sample: ${
+              stage.retrieved_memories?.[0] ||
+              stage.memory_notes?.[0] ||
+              'No retrieval context attached.'
+            }`,
+          ],
+        )
+      : ['No retrieval inspection data available yet.']);
+
+  return (
+    <div className="grid grid--2">
+      <Panel title="Similar Memories" accent="lime">
+        <TextList items={memoryLines} />
+      </Panel>
+      <Panel title="Retrieval Inspection" accent="cyan">
+        <TextList items={retrievalLines} />
+      </Panel>
+    </div>
+  );
+}
+
+function ChatView({
+  dashboard,
+  chatPersona,
+  chatHistory,
+  chatDraft,
+  busy,
+  onChatPersonaChange,
+  onChatDraftChange,
+  onSendChat,
+}: Readonly<{
+  dashboard: DashboardData;
+  chatPersona: ChatPersona;
+  chatHistory: Array<Record<string, string>>;
+  chatDraft: string;
+  busy: string | null;
+  onChatPersonaChange: (value: ChatPersona) => void;
+  onChatDraftChange: (value: string) => void;
+  onSendChat: () => Promise<void>;
+}>) {
+  return (
+    <div className="grid grid--2">
+      <Panel title="Operator Chat" accent="lime">
+        <div className="form-row">
+          <label className="field-label">
+            Persona
+            <select
+              value={chatPersona}
+              onChange={(event) =>
+                onChatPersonaChange(event.target.value as ChatPersona)
+              }
+            >
+              {CHAT_PERSONAS.map((persona) => (
+                <option key={persona} value={persona}>
+                  {persona}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="chat-log">
+          {chatHistory.length ? (
+            chatHistory.map((entry, index) => (
+              <article className="chat-bubble" key={`${entry.user}-${index}`}>
+                <div className="chat-bubble__meta">you</div>
+                <p>{entry.user}</p>
+                <div className="chat-bubble__meta">{entry.persona}</div>
+                <p>{entry.response}</p>
+              </article>
+            ))
+          ) : (
+            <p className="empty-copy">No chat messages yet.</p>
+          )}
+        </div>
+        <div className="composer">
+          <textarea
+            value={chatDraft}
+            onChange={(event) => onChatDraftChange(event.target.value)}
+            placeholder="Ask for a review, status, or explanation."
+          />
+          <button
+            className="button button--solid"
+            disabled={busy === 'chat'}
+            onClick={() => void onSendChat()}
+            type="button"
+          >
+            {busy === 'chat' ? 'Working...' : 'Send'}
+          </button>
+        </div>
+      </Panel>
+      <Panel title="Live Agent Context" accent="cyan">
+        <TextList
+          items={[
+            `Current Stage: ${dashboard.agentActivity?.current_stage ?? '-'}`,
+            `Stage Status: ${dashboard.agentActivity?.current_stage_status ?? '-'}`,
+            `Stage Detail: ${dashboard.agentActivity?.current_stage_message ?? '-'}`,
+            `Last Completed: ${dashboard.agentActivity?.last_completed_stage ?? '-'}`,
+            `Completed Detail: ${dashboard.agentActivity?.last_completed_message ?? '-'}`,
+            `Tool Roles: ${Object.keys(dashboard.tradeContext?.record?.tool_outputs || {}).join(', ') || '-'}`,
+            `Memory Roles: ${Object.keys(dashboard.tradeContext?.record?.retrieved_memory_summary || {}).join(', ') || '-'}`,
+          ]}
+        />
+      </Panel>
+    </div>
+  );
+}
+
+function instructionButtonLabel(
+  busy: string | null,
+  instructionMode: InstructionMode,
+) {
+  if (busy === 'instruction') {
+    return 'Working...';
+  }
+  return instructionMode === 'apply' ? 'Apply' : 'Preview';
+}
+
+function SettingsView({
+  dashboard,
+  instructionDraft,
+  instructionMode,
+  instructionResult,
+  busy,
+  onInstructionDraftChange,
+  onInstructionModeChange,
+  onSendInstruction,
+}: Readonly<{
+  dashboard: DashboardData;
+  instructionDraft: string;
+  instructionMode: InstructionMode;
+  instructionResult: Record<string, any> | null;
+  busy: string | null;
+  onInstructionDraftChange: (value: string) => void;
+  onInstructionModeChange: (value: InstructionMode) => void;
+  onSendInstruction: () => Promise<void>;
+}>) {
+  const recentRunLines = dashboard.recentRuns?.runs?.length
+    ? dashboard.recentRuns.runs.map(
+        (run: Record<string, any>) =>
+          `${formatTimestamp(run.created_at)} | ${run.symbol} | ${run.interval} | approved=${run.approved}`,
+      )
+    : ['No recent runs recorded yet.'];
+  const instructionLines = instructionResult
+    ? [
+        `Summary: ${instructionResult.instruction?.summary ?? '-'}`,
+        `Update Preferences: ${instructionResult.instruction?.should_update_preferences ?? false}`,
+        `Requires Confirmation: ${instructionResult.instruction?.requires_confirmation ?? false}`,
+        `Applied: ${instructionResult.applied ? 'yes' : 'no'}`,
+        `Rationale: ${instructionResult.instruction?.rationale ?? '-'}`,
+      ]
+    : [
+        'Type a safe operator instruction.',
+        'Examples:',
+        'make the system conservative',
+        'switch to capital preservation',
+      ];
+
+  return (
+    <div className="grid grid--2">
+      <Panel title="Preferences" accent="lime">
+        <KeyValueList
+          items={[
+            ['Regions', formatList(dashboard.preferences?.regions)],
+            ['Exchanges', formatList(dashboard.preferences?.exchanges)],
+            ['Currencies', formatList(dashboard.preferences?.currencies)],
+            ['Sectors', formatList(dashboard.preferences?.sectors)],
+            ['Risk', dashboard.preferences?.risk_profile ?? '-'],
+            ['Style', dashboard.preferences?.trade_style ?? '-'],
+            ['Behavior', dashboard.preferences?.behavior_preset ?? '-'],
+            ['Profile', dashboard.preferences?.agent_profile ?? '-'],
+            ['Tone', dashboard.preferences?.agent_tone ?? '-'],
+            ['Strictness', dashboard.preferences?.strictness_preset ?? '-'],
+          ]}
+        />
+      </Panel>
+      <Panel title="Recent Runs" accent="amber">
+        <TextList items={recentRunLines} />
+      </Panel>
+      <Panel title="Operator Instruction" accent="cyan">
+        <TextList items={instructionLines} />
+      </Panel>
+      <Panel title="Composer" accent="rose">
+        <div className="form-row">
+          <label className="field-label">
+            Mode
+            <select
+              value={instructionMode}
+              onChange={(event) =>
+                onInstructionModeChange(event.target.value as InstructionMode)
+              }
+            >
+              <option value="preview">preview</option>
+              <option value="apply">apply</option>
+            </select>
+          </label>
+        </div>
+        <div className="composer">
+          <textarea
+            value={instructionDraft}
+            onChange={(event) => onInstructionDraftChange(event.target.value)}
+            placeholder="Make the system more conservative and protective."
+          />
+          <button
+            className="button button--solid"
+            disabled={busy === 'instruction'}
+            onClick={() => void onSendInstruction()}
+            type="button"
+          >
+            {instructionButtonLabel(busy, instructionMode)}
+          </button>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+type ActiveViewProps = Readonly<{
+  tab: TabId;
+  dashboard: DashboardData;
+  currentCycle: KeyValueItems;
+  system: KeyValueItems;
+  chatPersona: ChatPersona;
+  chatHistory: Array<Record<string, string>>;
+  chatDraft: string;
+  instructionDraft: string;
+  instructionMode: InstructionMode;
+  instructionResult: Record<string, any> | null;
+  busy: string | null;
+  onChatPersonaChange: (value: ChatPersona) => void;
+  onChatDraftChange: (value: string) => void;
+  onSendChat: () => Promise<void>;
+  onInstructionDraftChange: (value: string) => void;
+  onInstructionModeChange: (value: InstructionMode) => void;
+  onSendInstruction: () => Promise<void>;
+}>;
+
+function ActiveView(props: ActiveViewProps) {
+  switch (props.tab) {
+    case 'overview':
+      return (
+        <OverviewView
+          dashboard={props.dashboard}
+          currentCycle={props.currentCycle}
+          system={props.system}
+        />
+      );
+    case 'runtime':
+      return <RuntimeView dashboard={props.dashboard} />;
+    case 'portfolio':
+      return <PortfolioView dashboard={props.dashboard} />;
+    case 'review':
+      return <ReviewView dashboard={props.dashboard} />;
+    case 'memory':
+      return <MemoryView dashboard={props.dashboard} />;
+    case 'chat':
+      return (
+        <ChatView
+          dashboard={props.dashboard}
+          chatPersona={props.chatPersona}
+          chatHistory={props.chatHistory}
+          chatDraft={props.chatDraft}
+          busy={props.busy}
+          onChatPersonaChange={props.onChatPersonaChange}
+          onChatDraftChange={props.onChatDraftChange}
+          onSendChat={props.onSendChat}
+        />
+      );
+    case 'settings':
+      return (
+        <SettingsView
+          dashboard={props.dashboard}
+          instructionDraft={props.instructionDraft}
+          instructionMode={props.instructionMode}
+          instructionResult={props.instructionResult}
+          busy={props.busy}
+          onInstructionDraftChange={props.onInstructionDraftChange}
+          onInstructionModeChange={props.onInstructionModeChange}
+          onSendInstruction={props.onSendInstruction}
+        />
+      );
+  }
 }
 
 /**
@@ -350,9 +916,8 @@ export function ControlRoom() {
     [],
   );
   const [instructionDraft, setInstructionDraft] = useState('');
-  const [instructionMode, setInstructionMode] = useState<'preview' | 'apply'>(
-    'preview',
-  );
+  const [instructionMode, setInstructionMode] =
+    useState<InstructionMode>('preview');
   const [instructionResult, setInstructionResult] = useState<Record<
     string,
     any
@@ -523,7 +1088,7 @@ export function ControlRoom() {
     }
   }, [applyLatestDashboard, instructionDraft, instructionMode]);
 
-  const currentCycle = useMemo<Array<[string, string]>>(
+  const currentCycle = useMemo<KeyValueItems>(
     () => [
       ['Runtime', dashboard?.status?.runtime_state ?? '-'],
       [
@@ -546,7 +1111,7 @@ export function ControlRoom() {
     [dashboard],
   );
 
-  const system = useMemo<Array<[string, string]>>(
+  const system = useMemo<KeyValueItems>(
     () => [
       ['Model', dashboard?.doctor?.model ?? '-'],
       ['Base URL', dashboard?.doctor?.base_url ?? '-'],
@@ -560,522 +1125,27 @@ export function ControlRoom() {
     [dashboard],
   );
 
-  const activeView = useMemo(() => {
-    if (!dashboard) {
-      return null;
-    }
-
-    if (tab === 'overview') {
-      return (
-        <div className="stack">
-          <section className="market-ribbon">
-            <Image
-              className="market-ribbon__image"
-              src={marketLensImage}
-              alt="Trading screens showing market data."
-              fill
-              priority
-              sizes="(max-width: 960px) 100vw, 50vw"
-            />
-            <div className="market-ribbon__overlay">
-              <div>
-                <p className="eyebrow">Operator Truth</p>
-                <h1>Agentic Trader Web GUI</h1>
-                <p className="market-ribbon__copy">
-                  Local-first runtime, paper-first execution, and the same
-                  dashboard contract that powers CLI, Rich, and Ink.
-                </p>
-              </div>
-              <div className="pill-row">
-                <span className="pill">
-                  {dashboard.status?.runtime_mode ?? '-'}
-                </span>
-                <span className="pill">{dashboard.broker?.backend ?? '-'}</span>
-                <span className="pill">
-                  {dashboard.calendar?.session?.venue ?? 'session unknown'}
-                </span>
-                <span className="pill">{dashboard.doctor?.model ?? '-'}</span>
-              </div>
-            </div>
-          </section>
-
-          <div className="grid grid--2">
-            <Panel title="Current Cycle" accent="lime">
-              <KeyValueList items={currentCycle} />
-            </Panel>
-            <Panel title="System" accent="cyan">
-              <KeyValueList items={system} />
-            </Panel>
-          </div>
-
-          <Panel title="Agent Activity" accent="amber">
-            <TextList
-              items={
-                dashboard.agentActivity?.recent_stage_events?.length
-                  ? dashboard.agentActivity.recent_stage_events.map(
-                      (event: Record<string, any>) =>
-                        `${formatTimestamp(event.created_at)} | ${event.stage} | ${event.status} | ${event.message}`,
-                    )
-                  : ['No live agent stage events yet.']
-              }
-            />
-          </Panel>
-        </div>
-      );
-    }
-
-    if (tab === 'runtime') {
-      return (
-        <div className="grid grid--2">
-          <Panel title="Runtime State" accent="lime">
-            <KeyValueList
-              items={[
-                ['Runtime', dashboard.status?.runtime_state ?? '-'],
-                ['Live Process', dashboard.status?.live_process ? 'yes' : 'no'],
-                ['PID', String(dashboard.status?.state?.pid ?? '-')],
-                [
-                  'Current Symbol',
-                  dashboard.status?.state?.current_symbol ?? '-',
-                ],
-                [
-                  'Cycle Count',
-                  String(dashboard.status?.state?.cycle_count ?? '-'),
-                ],
-                [
-                  'Updated',
-                  formatTimestamp(dashboard.status?.state?.updated_at),
-                ],
-                [
-                  'Stop Requested',
-                  String(dashboard.status?.state?.stop_requested ?? false),
-                ],
-                ['Status', dashboard.status?.status_message ?? '-'],
-              ]}
-            />
-          </Panel>
-          <Panel title="Stage Flow" accent="cyan">
-            <TextList
-              items={(dashboard.agentActivity?.stage_statuses || []).map(
-                (stage: Record<string, any>) =>
-                  `${stage.stage} | ${stage.status} | ${stage.message}`,
-              )}
-            />
-          </Panel>
-          <Panel title="Runtime Events" accent="amber">
-            <TextList
-              items={
-                dashboard.logs?.length
-                  ? dashboard.logs.map(
-                      (event: Record<string, any>) =>
-                        `${formatTimestamp(event.created_at)} | ${event.level} | ${event.event_type} | ${event.symbol ?? '-'} | ${event.message}`,
-                    )
-                  : ['No runtime events recorded yet.']
-              }
-            />
-          </Panel>
-          <Panel title="Supervisor Tails" accent="rose">
-            <TextList
-              items={[
-                ...(dashboard.supervisor?.stderr_tail?.length
-                  ? dashboard.supervisor.stderr_tail
-                  : ['No stderr tail.']),
-                ...(dashboard.supervisor?.stdout_tail?.length
-                  ? dashboard.supervisor.stdout_tail
-                  : ['No stdout tail.']),
-              ]}
-            />
-          </Panel>
-        </div>
-      );
-    }
-
-    if (tab === 'portfolio') {
-      return (
-        <div className="grid grid--2">
-          <Panel title="Portfolio" accent="lime">
-            {unavailableSectionLines(dashboard.portfolio, 'Portfolio') ? (
-              <TextList
-                items={
-                  unavailableSectionLines(dashboard.portfolio, 'Portfolio') ||
-                  []
-                }
-              />
-            ) : (
-              <>
-                <KeyValueList
-                  items={[
-                    ['Cash', formatNumber(dashboard.portfolio?.snapshot?.cash)],
-                    [
-                      'Market Value',
-                      formatNumber(dashboard.portfolio?.snapshot?.market_value),
-                    ],
-                    [
-                      'Equity',
-                      formatNumber(dashboard.portfolio?.snapshot?.equity),
-                    ],
-                    [
-                      'Realized PnL',
-                      formatNumber(dashboard.portfolio?.snapshot?.realized_pnl),
-                    ],
-                    [
-                      'Unrealized PnL',
-                      formatNumber(
-                        dashboard.portfolio?.snapshot?.unrealized_pnl,
-                      ),
-                    ],
-                    [
-                      'Open Positions',
-                      String(
-                        dashboard.portfolio?.snapshot?.open_positions ?? '-',
-                      ),
-                    ],
-                  ]}
-                />
-                <JsonPreview value={dashboard.portfolio?.positions || []} />
-              </>
-            )}
-          </Panel>
-          <Panel title="Risk Report" accent="rose">
-            {unavailableSectionLines(dashboard.riskReport, 'Risk report') ? (
-              <TextList
-                items={
-                  unavailableSectionLines(
-                    dashboard.riskReport,
-                    'Risk report',
-                  ) || []
-                }
-              />
-            ) : (
-              <>
-                <KeyValueList
-                  items={[
-                    [
-                      'Equity',
-                      formatNumber(dashboard.riskReport?.report?.equity),
-                    ],
-                    [
-                      'Gross Exposure',
-                      formatPercent(
-                        dashboard.riskReport?.report?.gross_exposure_pct,
-                      ),
-                    ],
-                    [
-                      'Largest Position',
-                      formatPercent(
-                        dashboard.riskReport?.report?.largest_position_pct,
-                      ),
-                    ],
-                    [
-                      'Drawdown',
-                      formatPercent(
-                        dashboard.riskReport?.report?.drawdown_from_peak_pct,
-                      ),
-                    ],
-                    [
-                      'Warnings',
-                      String(
-                        (dashboard.riskReport?.report?.warnings || []).length,
-                      ),
-                    ],
-                  ]}
-                />
-                <TextList
-                  items={
-                    dashboard.riskReport?.report?.warnings || ['No warnings.']
-                  }
-                />
-              </>
-            )}
-          </Panel>
-          <Panel title="Trade Journal" accent="amber">
-            <TextList
-              items={
-                unavailableSectionLines(dashboard.journal, 'Trade journal') ||
-                (dashboard.journal?.entries?.length
-                  ? dashboard.journal.entries.map(
-                      (entry: Record<string, any>) =>
-                        `${formatTimestamp(entry.opened_at)} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`,
-                    )
-                  : ['No trade journal entries yet.'])
-              }
-            />
-          </Panel>
-          <Panel title="Preferences" accent="cyan">
-            <KeyValueList
-              items={[
-                ['Regions', formatList(dashboard.preferences?.regions)],
-                ['Exchanges', formatList(dashboard.preferences?.exchanges)],
-                ['Currencies', formatList(dashboard.preferences?.currencies)],
-                ['Risk', dashboard.preferences?.risk_profile ?? '-'],
-                ['Style', dashboard.preferences?.trade_style ?? '-'],
-                ['Behavior', dashboard.preferences?.behavior_preset ?? '-'],
-                ['Tone', dashboard.preferences?.agent_tone ?? '-'],
-                ['Strictness', dashboard.preferences?.strictness_preset ?? '-'],
-              ]}
-            />
-          </Panel>
-        </div>
-      );
-    }
-
-    if (tab === 'review') {
-      return (
-        <div className="grid grid--2">
-          <Panel title="Latest Review" accent="lime">
-            <TextList
-              items={
-                unavailableSectionLines(dashboard.review, 'Latest review') ||
-                (dashboard.review?.record
-                  ? [
-                      `Run ID: ${dashboard.review.record.run_id}`,
-                      `Created: ${formatTimestamp(dashboard.review.record.created_at)}`,
-                      `Symbol: ${dashboard.review.record.symbol}`,
-                      `Approved: ${dashboard.review.record.approved}`,
-                      `Coordinator Focus: ${dashboard.review.record.artifacts?.coordinator?.market_focus ?? '-'}`,
-                      `Consensus: ${dashboard.review.record.artifacts?.consensus?.alignment_level ?? '-'}`,
-                      `Review Summary: ${dashboard.review.record.artifacts?.review?.summary ?? '-'}`,
-                    ]
-                  : ['No persisted runs are available yet.'])
-              }
-            />
-          </Panel>
-          <Panel title="Trade Context" accent="cyan">
-            <TextList
-              items={tradeContextLines(dashboard.tradeContext?.record)}
-            />
-          </Panel>
-          <Panel title="Canonical Analysis" accent="amber">
-            <TextList
-              items={canonicalLines(dashboard.canonicalAnalysis?.snapshot)}
-            />
-          </Panel>
-          <Panel title="Market Context Pack" accent="rose">
-            <TextList
-              items={marketContextLines(dashboard.marketContext?.contextPack)}
-            />
-          </Panel>
-        </div>
-      );
-    }
-
-    if (tab === 'memory') {
-      return (
-        <div className="grid grid--2">
-          <Panel title="Similar Memories" accent="lime">
-            <TextList
-              items={
-                unavailableSectionLines(
-                  dashboard.memoryExplorer,
-                  'Memory explorer',
-                ) ||
-                (dashboard.memoryExplorer?.matches?.length
-                  ? dashboard.memoryExplorer.matches.map(
-                      (match: Record<string, any>) =>
-                        `${formatTimestamp(match.created_at)} | ${match.symbol} | score=${match.similarity_score} | ${match.summary}`,
-                    )
-                  : ['No similar historical memories found yet.'])
-              }
-            />
-          </Panel>
-          <Panel title="Retrieval Inspection" accent="cyan">
-            <TextList
-              items={
-                unavailableSectionLines(
-                  dashboard.retrievalInspection,
-                  'Retrieval inspection',
-                ) ||
-                (dashboard.retrievalInspection?.stages?.length
-                  ? dashboard.retrievalInspection.stages.flatMap(
-                      (stage: Record<string, any>) => [
-                        `${stage.role} | retrieved=${stage.retrieved_memories?.length ?? 0} | trade-memory=${stage.memory_notes?.length ?? 0} | shared-bus=${stage.shared_memory_bus?.length ?? 0} | recent-runs=${stage.recent_runs?.length ?? 0}`,
-                        `Sample: ${
-                          stage.retrieved_memories?.[0] ||
-                          stage.memory_notes?.[0] ||
-                          'No retrieval context attached.'
-                        }`,
-                      ],
-                    )
-                  : ['No retrieval inspection data available yet.'])
-              }
-            />
-          </Panel>
-        </div>
-      );
-    }
-
-    if (tab === 'chat') {
-      return (
-        <div className="grid grid--2">
-          <Panel title="Operator Chat" accent="lime">
-            <div className="form-row">
-              <label className="field-label">
-                Persona
-                <select
-                  value={chatPersona}
-                  onChange={(event) =>
-                    setChatPersona(event.target.value as ChatPersona)
-                  }
-                >
-                  {CHAT_PERSONAS.map((persona) => (
-                    <option key={persona} value={persona}>
-                      {persona}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="chat-log">
-              {chatHistory.length ? (
-                chatHistory.map((entry, index) => (
-                  <article
-                    className="chat-bubble"
-                    key={`${entry.user}-${index}`}
-                  >
-                    <div className="chat-bubble__meta">you</div>
-                    <p>{entry.user}</p>
-                    <div className="chat-bubble__meta">{entry.persona}</div>
-                    <p>{entry.response}</p>
-                  </article>
-                ))
-              ) : (
-                <p className="empty-copy">No chat messages yet.</p>
-              )}
-            </div>
-            <div className="composer">
-              <textarea
-                value={chatDraft}
-                onChange={(event) => setChatDraft(event.target.value)}
-                placeholder="Ask for a review, status, or explanation."
-              />
-              <button
-                className="button button--solid"
-                disabled={busy === 'chat'}
-                onClick={() => void sendChat()}
-                type="button"
-              >
-                {busy === 'chat' ? 'Working...' : 'Send'}
-              </button>
-            </div>
-          </Panel>
-          <Panel title="Live Agent Context" accent="cyan">
-            <TextList
-              items={[
-                `Current Stage: ${dashboard.agentActivity?.current_stage ?? '-'}`,
-                `Stage Status: ${dashboard.agentActivity?.current_stage_status ?? '-'}`,
-                `Stage Detail: ${dashboard.agentActivity?.current_stage_message ?? '-'}`,
-                `Last Completed: ${dashboard.agentActivity?.last_completed_stage ?? '-'}`,
-                `Completed Detail: ${dashboard.agentActivity?.last_completed_message ?? '-'}`,
-                `Tool Roles: ${Object.keys(dashboard.tradeContext?.record?.tool_outputs || {}).join(', ') || '-'}`,
-                `Memory Roles: ${Object.keys(dashboard.tradeContext?.record?.retrieved_memory_summary || {}).join(', ') || '-'}`,
-              ]}
-            />
-          </Panel>
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid grid--2">
-        <Panel title="Preferences" accent="lime">
-          <KeyValueList
-            items={[
-              ['Regions', formatList(dashboard.preferences?.regions)],
-              ['Exchanges', formatList(dashboard.preferences?.exchanges)],
-              ['Currencies', formatList(dashboard.preferences?.currencies)],
-              ['Sectors', formatList(dashboard.preferences?.sectors)],
-              ['Risk', dashboard.preferences?.risk_profile ?? '-'],
-              ['Style', dashboard.preferences?.trade_style ?? '-'],
-              ['Behavior', dashboard.preferences?.behavior_preset ?? '-'],
-              ['Profile', dashboard.preferences?.agent_profile ?? '-'],
-              ['Tone', dashboard.preferences?.agent_tone ?? '-'],
-              ['Strictness', dashboard.preferences?.strictness_preset ?? '-'],
-            ]}
-          />
-        </Panel>
-        <Panel title="Recent Runs" accent="amber">
-          <TextList
-            items={
-              dashboard.recentRuns?.runs?.length
-                ? dashboard.recentRuns.runs.map(
-                    (run: Record<string, any>) =>
-                      `${formatTimestamp(run.created_at)} | ${run.symbol} | ${run.interval} | approved=${run.approved}`,
-                  )
-                : ['No recent runs recorded yet.']
-            }
-          />
-        </Panel>
-        <Panel title="Operator Instruction" accent="cyan">
-          <TextList
-            items={
-              instructionResult
-                ? [
-                    `Summary: ${instructionResult.instruction?.summary ?? '-'}`,
-                    `Update Preferences: ${instructionResult.instruction?.should_update_preferences ?? false}`,
-                    `Requires Confirmation: ${instructionResult.instruction?.requires_confirmation ?? false}`,
-                    `Applied: ${instructionResult.applied ? 'yes' : 'no'}`,
-                    `Rationale: ${instructionResult.instruction?.rationale ?? '-'}`,
-                  ]
-                : [
-                    'Type a safe operator instruction.',
-                    'Examples:',
-                    'make the system conservative',
-                    'switch to capital preservation',
-                  ]
-            }
-          />
-        </Panel>
-        <Panel title="Composer" accent="rose">
-          <div className="form-row">
-            <label className="field-label">
-              Mode
-              <select
-                value={instructionMode}
-                onChange={(event) =>
-                  setInstructionMode(event.target.value as 'preview' | 'apply')
-                }
-              >
-                <option value="preview">preview</option>
-                <option value="apply">apply</option>
-              </select>
-            </label>
-          </div>
-          <div className="composer">
-            <textarea
-              value={instructionDraft}
-              onChange={(event) => setInstructionDraft(event.target.value)}
-              placeholder="Make the system more conservative and protective."
-            />
-            <button
-              className="button button--solid"
-              disabled={busy === 'instruction'}
-              onClick={() => void sendInstruction()}
-              type="button"
-            >
-              {busy === 'instruction'
-                ? 'Working...'
-                : instructionMode === 'apply'
-                  ? 'Apply'
-                  : 'Preview'}
-            </button>
-          </div>
-        </Panel>
-      </div>
-    );
-  }, [
-    busy,
-    chatDraft,
-    chatHistory,
-    chatPersona,
-    currentCycle,
-    dashboard,
-    instructionDraft,
-    instructionMode,
-    instructionResult,
-    sendChat,
-    sendInstruction,
-    system,
-    tab,
-  ]);
+  const activeView = dashboard ? (
+    <ActiveView
+      tab={tab}
+      dashboard={dashboard}
+      currentCycle={currentCycle}
+      system={system}
+      chatPersona={chatPersona}
+      chatHistory={chatHistory}
+      chatDraft={chatDraft}
+      instructionDraft={instructionDraft}
+      instructionMode={instructionMode}
+      instructionResult={instructionResult}
+      busy={busy}
+      onChatPersonaChange={setChatPersona}
+      onChatDraftChange={setChatDraft}
+      onSendChat={sendChat}
+      onInstructionDraftChange={setInstructionDraft}
+      onInstructionModeChange={setInstructionMode}
+      onSendInstruction={sendInstruction}
+    />
+  ) : null;
 
   return (
     <div className="shell">
