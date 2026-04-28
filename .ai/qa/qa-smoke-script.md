@@ -23,58 +23,63 @@ The script uses `subprocess` for non-interactive commands and `pexpect` for inte
 From the repository root:
 
 ```bash
-python scripts/qa/smoke_qa.py
+pnpm run qa
 ```
 
 Recommended project environment:
 
 ```bash
 conda activate trader
-python -m pip install -e ".[dev]"
-python scripts/qa/smoke_qa.py
+pnpm run setup
+pnpm run qa
 ```
 
 To include local code-quality checks:
 
 ```bash
-python scripts/qa/smoke_qa.py --include-quality
+pnpm run qa:quality
 ```
 
 That adds:
 
 - `python -m ruff check .`
 - `python -m pytest -q -p no:cacheprovider`
-- `pyright --pythonpath <smoke-python> agentic_trader tests`
+- `pyright --pythonpath <smoke-python> agentic_trader tests scripts`
 
 `pyright` is required for `--include-quality`; if it is missing, the smoke run fails instead of silently skipping the static type check. The smoke harness resolves `pyright` from `PATH`, the active environment, or the Conda base bin, then points it at the same Python interpreter running the smoke script so installed dependencies are checked consistently.
 
 To include one isolated foreground orchestrator cycle:
 
 ```bash
-python scripts/qa/smoke_qa.py --include-runtime-cycle
+poetry run python scripts/qa/smoke_qa.py --include-runtime-cycle
 ```
 
 This runs `agentic-trader launch --continuous --max-cycles 1` in an isolated runtime directory under the smoke artifact folder. It is intentionally opt-in because it requires live market data and a healthy configured LLM.
 The runtime-cycle check uses the product retry policy (`AGENTIC_TRADER_MAX_RETRIES=2`) so it validates the operator-facing runtime rather than a stricter first-response-only LLM diagnostic.
 
-When `--include-sonar` is used together with `--include-quality`, the pytest step also writes a coverage XML report into the run artifact directory and passes it to SonarQube.
+When `--include-sonar` is used together with `--include-quality`, the pytest step also writes a coverage XML report into the run artifact directory and passes it to the selected Sonar target.
 
 To include SonarQube analysis through `pysonar`:
 
 ```bash
-SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-quality --include-sonar
+pnpm run qa:sonar
 ```
 
 Optional Sonar settings:
 
 ```bash
 SONAR_HOST_URL=http://localhost:9000 \
-SONAR_PROJECT_KEY=agentic-trader-dev \
-SONAR_TOKEN=... \
-python scripts/qa/smoke_qa.py --include-sonar
+SONAR_PROJECT_KEY=agentic-trader \
+pnpm run qa:sonar
 ```
 
-The token is read from the environment and is redacted in command artifacts.
+The default smoke target is local Docker SonarQube project `agentic-trader`. For SonarCloud, set `SONAR_HOST_URL=https://sonarcloud.io`, `SONAR_PROJECT_KEY=ogiboy_agentic-trader`, and `SONAR_ORGANIZATION=ogiboy`.
+
+The token is read from `SONAR_TOKEN` or a macOS Keychain service and is redacted in command artifacts. Use `codex-sonarqube-token` for local Docker SonarQube and `codex-sonarcloud-token` for manual SonarCloud uploads. For a full scanner upload outside the smoke harness, use `pnpm run sonar` for local `pysonar`, `pnpm run sonar:js` for local `@sonar/scan`, or `pnpm run sonar:cloud` for SonarCloud.
+
+Use `pnpm run mcp:sonarqube:status` before diagnosing MCP confusion. It reports the local server containers, the Docker MCP client command, and any running `mcp/sonarqube` client containers without printing tokens. Multiple MCP containers usually indicate multiple active editor/agent sessions; they are not additional SonarQube servers.
+
+When Sonar reports issues, treat the scan as a full-codebase review signal. Prioritize vulnerabilities, security hotspots, blocker/critical issues, and correctness bugs before maintainability or formatting cleanup. Accepted findings require a short reason and residual-risk note.
 
 The script intentionally runs the installed `agentic-trader` entrypoint from `PATH` for console-entrypoint checks. If your shell resolves an old entrypoint, the smoke harness should fail and leave evidence showing the resolved path in the summary JSON.
 

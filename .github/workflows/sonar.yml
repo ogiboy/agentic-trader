@@ -1,0 +1,89 @@
+name: SonarCloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, webgui, devdocs, V1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  POETRY_VERSION: '2.3.4'
+  PNPM_VERSION: '10.33.2'
+  SONAR_HOST_URL: https://sonarcloud.io
+  SONAR_ORGANIZATION: ogiboy
+  SONAR_PROJECT_KEY: ogiboy_agentic-trader
+
+jobs:
+  scan:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Poetry
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "poetry==${POETRY_VERSION}"
+
+      - name: Install Python dependencies
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry install --with dev --extras dev
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e # v6.0.3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install Node workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Python coverage
+        run: |
+          mkdir -p .ai/qa/artifacts/sonar
+          poetry run python -m pytest -q -p no:cacheprovider --cov=agentic_trader --cov-report=xml:.ai/qa/artifacts/sonar/coverage.xml
+
+      - name: Run SonarCloud scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: .
+          args: >-
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.python.coverage.reportPaths=.ai/qa/artifacts/sonar/coverage.xml
+
+      - name: Explain skipped SonarCloud scan
+        if: ${{ env.SONAR_TOKEN == '' }}
+        run: |
+          echo "Skipping SonarCloud scan because the SONAR_TOKEN repository secret is not configured."
+          echo "Local Docker SonarQube analysis is run with pnpm run sonar and is not reachable from GitHub-hosted runners."

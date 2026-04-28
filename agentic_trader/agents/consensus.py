@@ -24,9 +24,9 @@ def assess_specialist_consensus(
 ) -> SpecialistConsensus:
     """
     Synthesize specialist inputs into a consensus record that lists which roles support or dissent from the chosen strategy action.
-    
+
     Evaluates regime, coordinator, and risk plans (and optional fundamental and macro assessments) to determine supporting and dissenting specialist roles, collects concise reasons for any disagreements, and produces an alignment summary. Treats a strategy action of "hold" as an immediate defensive consensus.
-    
+
     Parameters:
         coordinator (ResearchCoordinatorBrief): Coordinator brief describing market focus and related metadata.
         regime (RegimeAssessment): Regime assessment containing direction bias used to compare against the strategy action.
@@ -34,7 +34,7 @@ def assess_specialist_consensus(
         risk (RiskPlan): Risk plan whose risk/reward and position sizing influence consensus support.
         fundamental (FundamentalAssessment | None): Optional fundamental analyst assessment; if provided, `overall_bias` determines support vs dissent (a `source` value of `"fallback"` appends a fallback evidence note).
         macro (MacroAssessment | None): Optional macro/news assessment; if provided, `macro_signal` determines support vs dissent (a `source` value of `"fallback"` appends a fallback evidence note).
-    
+
     Returns:
         SpecialistConsensus: A record containing:
             - `alignment_level`: one of `"aligned"`, `"mixed"`, or `"conflicted"`.
@@ -49,7 +49,9 @@ def assess_specialist_consensus(
 
     action = strategy.action
     if action == "hold":
-        reasons.append("Strategy selected hold, so specialist consensus is defensive by default.")
+        reasons.append(
+            "Strategy selected hold, so specialist consensus is defensive by default."
+        )
         return SpecialistConsensus(
             alignment_level="conflicted",
             summary="Specialists converged on a defensive no-trade posture.",
@@ -58,9 +60,8 @@ def assess_specialist_consensus(
             reasons=reasons,
         )
 
-    if (
-        (regime.direction_bias == "long" and action == "buy")
-        or (regime.direction_bias == "short" and action == "sell")
+    if (regime.direction_bias == "long" and action == "buy") or (
+        regime.direction_bias == "short" and action == "sell"
     ):
         supporting_roles.append("regime")
     else:

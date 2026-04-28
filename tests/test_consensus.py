@@ -129,8 +129,14 @@ def test_consensus_does_not_count_unavailable_finance_fallbacks_as_support() -> 
     assert consensus.alignment_level == "aligned"
     assert "fundamental" not in consensus.supporting_roles
     assert "macro" not in consensus.supporting_roles
-    assert any("Fundamental evidence was fallback-generated" in reason for reason in consensus.reasons)
-    assert any("Macro/news evidence was fallback-generated" in reason for reason in consensus.reasons)
+    assert any(
+        "Fundamental evidence was fallback-generated" in reason
+        for reason in consensus.reasons
+    )
+    assert any(
+        "Macro/news evidence was fallback-generated" in reason
+        for reason in consensus.reasons
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +228,10 @@ def test_aligned_consensus_uses_updated_summary_text() -> None:
     consensus = assess_specialist_consensus(coordinator, regime, strategy, risk)
 
     assert consensus.alignment_level == "aligned"
-    assert "Available specialists were aligned before manager synthesis." in consensus.summary
+    assert (
+        "Available specialists were aligned before manager synthesis."
+        in consensus.summary
+    )
 
 
 def test_aligned_consensus_default_reasons_when_no_fallbacks() -> None:
@@ -247,8 +256,12 @@ def test_aligned_consensus_preserves_fallback_notes_in_reasons() -> None:
 
     assert consensus.alignment_level == "aligned"
     # Fallback notes should appear in reasons instead of the default "No specialist disagreements" string
-    assert any("Fundamental evidence was fallback-generated" in r for r in consensus.reasons)
-    assert any("Macro/news evidence was fallback-generated" in r for r in consensus.reasons)
+    assert any(
+        "Fundamental evidence was fallback-generated" in r for r in consensus.reasons
+    )
+    assert any(
+        "Macro/news evidence was fallback-generated" in r for r in consensus.reasons
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -304,7 +317,10 @@ def test_fundamental_cautious_bias_causes_dissent() -> None:
 
     assert "fundamental" in consensus.dissenting_roles
     assert "fundamental" not in consensus.supporting_roles
-    assert any("Fundamental analyst returned cautious evidence." in r for r in consensus.reasons)
+    assert any(
+        "Fundamental analyst returned cautious evidence." in r
+        for r in consensus.reasons
+    )
 
 
 def test_fundamental_avoid_bias_causes_dissent() -> None:
@@ -406,7 +422,9 @@ def test_mixed_consensus_when_exactly_one_dissenter() -> None:
         max_holding_bars=20,
         notes="Constrained risk plan",
     )
-    consensus = assess_specialist_consensus(coordinator, regime, strategy, constrained_risk)
+    consensus = assess_specialist_consensus(
+        coordinator, regime, strategy, constrained_risk
+    )
 
     assert consensus.alignment_level == "mixed"
     assert "risk" in consensus.dissenting_roles

@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
-import { HomePage } from "@/components/home/home-page";
+import type { Metadata } from 'next';
+import { HomePage } from '@/components/home/home-page';
 import {
   docLanguages,
   getDocLanguage,
   getHomeMetadata,
-} from "@/lib/i18n/config";
+} from '@/lib/i18n/config';
 
 type LocalePageProps = {
   params: Promise<{ lang: string }>;

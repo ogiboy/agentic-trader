@@ -25,13 +25,13 @@ def _artifacts(
 ) -> RunArtifacts:
     """
     Constructs a synthetic RunArtifacts object containing a market snapshot and associated coordinator, regime, strategy, risk, manager, execution, and review data for a given symbol.
-    
+
     Parameters:
         symbol (str): Ticker symbol for the snapshot and execution decision.
         close (float): Last close price used to derive indicator values.
         return_5 (float): Five-period return used to populate snapshot return fields.
         regime (RegimeName): Regime label that determines directional fields (e.g., long/buy for "trend_up", short/sell otherwise).
-    
+
     Returns:
         RunArtifacts: A fully populated RunArtifacts instance with deterministic indicator values derived from `close`, snapshot returns derived from `return_5`, and directional/action fields set according to `regime`.
     """

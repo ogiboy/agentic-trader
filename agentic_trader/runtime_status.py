@@ -80,12 +80,12 @@ def _parse_agent_stage_event(event: ServiceEvent) -> AgentStageStatusView | None
 def _parse_timestamp(value: str | None) -> datetime | None:
     """
     Parse an ISO 8601 timestamp string into an aware datetime.
-    
+
     Parses `value` using datetime.fromisoformat. If `value` is None or cannot be parsed, returns `None`. If the parsed datetime has no timezone information, attaches UTC (`timezone.utc`) before returning.
-    
+
     Parameters:
         value (str | None): ISO 8601 timestamp string, or `None`.
-    
+
     Returns:
         datetime | None: A timezone-aware `datetime` (UTC assigned if input was naive), or `None` if input is missing or invalid.
     """
@@ -105,11 +105,11 @@ def _effective_cycle_count(
 ) -> int | None:
     """
     Selects the effective cycle count to use when assembling per-cycle stage information.
-    
+
     Parameters:
         state (ServiceStateSnapshot | None): Optional runtime state whose positive `cycle_count` is preferred.
         stage_events (list[AgentStageStatusView]): Ordered stage events; the first event's `cycle_count` is used as a fallback.
-    
+
     Returns:
         int | None: The chosen cycle count, or `None` if neither the state nor the events provide a value.
     """
@@ -125,11 +125,11 @@ def _effective_current_symbol(
 ) -> str | None:
     """
     Determine the effective current symbol for an agent by preferring the runtime state value and falling back to recent stage events.
-    
+
     Parameters:
         state (ServiceStateSnapshot | None): Optional runtime snapshot whose `current_symbol`, if present, takes precedence.
         stage_events (list[AgentStageStatusView]): Recent per-stage status events; the first event's `symbol` is used as a fallback.
-    
+
     Returns:
         str | None: The chosen symbol string if available, otherwise `None`.
     """
@@ -145,11 +145,11 @@ def _events_for_cycle(
 ) -> list[AgentStageStatusView]:
     """
     Selects stage events that belong to the specified cycle.
-    
+
     Parameters:
         stage_events (list[AgentStageStatusView]): Sequence of parsed stage events to filter.
         cycle_count (int | None): Cycle number to filter by; when `None`, no filtering is applied.
-    
+
     Returns:
         list[AgentStageStatusView]: Events whose `cycle_count` equals `cycle_count`, or all events if `cycle_count` is `None`.
     """
@@ -163,11 +163,11 @@ def _latest_outcome_event(
 ) -> ServiceEvent | None:
     """
     Finds the first terminal outcome ServiceEvent, optionally restricted to a given cycle.
-    
+
     Parameters:
         events (list[ServiceEvent]): Sequence of service events to search in, in chronological order.
         cycle_count (int | None): If provided, only consider events whose `cycle_count` equals this value.
-    
+
     Returns:
         ServiceEvent | None: The first event whose `event_type` is a terminal outcome (as defined in TERMINAL_STATUS_BY_OUTCOME) and that matches `cycle_count` when provided, or `None` if no such event exists.
     """
@@ -188,13 +188,13 @@ def _terminal_override_for_stage(
 ) -> AgentStageStatusView | None:
     """
     Create an override stage status when a started stage is interrupted by a terminal outcome event.
-    
+
     Returns an AgentStageStatusView that mirrors the started stage but with a terminal `status`, a message indicating the stage was interrupted by the outcome event (including the outcome's type and message), `created_at` taken from the outcome event, and the original stage's `cycle_count` and `symbol`. Returns `None` if no override should be produced.
-    
+
     Parameters:
         latest_stage_event: The most recent stage event for the agent (may be None).
         latest_outcome: The most recent terminal outcome ServiceEvent (may be None).
-    
+
     Returns:
         AgentStageStatusView or `None`: The override stage view when the latest stage is currently `"started"` and `latest_outcome.event_type` maps to a terminal status; otherwise `None`.
     """
@@ -226,13 +226,13 @@ def _stage_statuses_for_cycle(
 ) -> list[AgentStageStatusView]:
     """
     Builds the complete per-stage status list for a single cycle in STAGE_ORDER.
-    
+
     Parameters:
         relevant_stage_events (list[AgentStageStatusView]): Stage event snapshots to consider; later entries override earlier ones for the same stage.
         terminal_override (AgentStageStatusView | None): Optional override that, if provided, forces the given stage to the override value.
         cycle_count (int | None): Cycle number to attach to generated pending stage entries when no snapshot exists.
         current_symbol (str | None): Symbol to attach to generated pending stage entries when no snapshot exists.
-    
+
     Returns:
         list[AgentStageStatusView]: A list of stage status views in the order of STAGE_ORDER. For stages without a provided snapshot or override, returns a pending AgentStageStatusView with `status="pending"`, `message=PENDING_STAGE_MESSAGE`, `created_at="-"`, and the supplied `cycle_count` and `current_symbol`.
     """
@@ -266,7 +266,7 @@ def _current_stage(
 ) -> str | None:
     """
     Select the current stage name, preferring a terminal override when present.
-    
+
     Returns:
         str: Stage name from `terminal_override` if provided; otherwise the stage from `latest_stage_event`; `None` if neither is available.
     """
@@ -283,11 +283,11 @@ def _current_stage_status(
 ) -> str | None:
     """
     Determine the effective status for the current stage, applying a terminal override when present.
-    
+
     Parameters:
         terminal_override (AgentStageStatusView | None): If provided, its `status` takes precedence.
         latest_stage_event (AgentStageStatusView | None): Most recent stage event to derive status from when no override exists.
-    
+
     Returns:
         str | None: The effective stage status (maps an event status of `"started"` to `"running"`), or `None` if no status is available.
     """
@@ -306,11 +306,11 @@ def _current_stage_message(
 ) -> str | None:
     """
     Selects the message text for the current stage, preferring a terminal override when present.
-    
+
     Parameters:
         terminal_override (AgentStageStatusView | None): An override stage status whose `message` should take precedence if provided.
         latest_stage_event (AgentStageStatusView | None): The most recent stage event to use when no terminal override exists.
-    
+
     Returns:
         str | None: The chosen message string from `terminal_override` or `latest_stage_event`, or `None` if neither is available.
     """
@@ -324,10 +324,10 @@ def _current_stage_message(
 def is_process_alive(pid: int | None) -> bool:
     """
     Determine whether a process with the given PID is alive.
-    
+
     Parameters:
         pid (int | None): Process ID to probe; if None, considered not alive.
-    
+
     Returns:
         bool: True if the process exists (or exists but cannot be signaled due to permissions), False otherwise.
     """
@@ -412,13 +412,13 @@ def build_agent_activity_view(
 ) -> AgentActivityView:
     """
     Builds an AgentActivityView summarizing an agent's per-stage activity for the effective cycle.
-    
+
     Parses agent stage events from `events`, selects an effective cycle and symbol (preferring state values when present), filters events to that cycle, and computes current/last-completed stage information, a terminal outcome override if applicable, the per-stage statuses for the cycle, and up to eight recent stage events.
-    
+
     Parameters:
         state (ServiceStateSnapshot | None): Optional runtime snapshot used to prefer authoritative cycle_count and current_symbol.
         events (list[ServiceEvent]): Timeline of service events from which agent stage events and terminal outcomes are extracted.
-    
+
     Returns:
         AgentActivityView: View containing:
           - cycle_count and current_symbol for the selected cycle,
@@ -441,9 +441,7 @@ def build_agent_activity_view(
         (event for event in relevant_stage_events if event.status == "completed"), None
     )
     latest_outcome = _latest_outcome_event(events, cycle_count)
-    terminal_override = _terminal_override_for_stage(
-        latest_stage_event, latest_outcome
-    )
+    terminal_override = _terminal_override_for_stage(latest_stage_event, latest_outcome)
     stage_statuses = _stage_statuses_for_cycle(
         relevant_stage_events, terminal_override, cycle_count, current_symbol
     )
@@ -464,8 +462,12 @@ def build_agent_activity_view(
         last_completed_message=(
             last_completed_stage.message if last_completed_stage is not None else None
         ),
-        last_outcome_type=latest_outcome.event_type if latest_outcome is not None else None,
-        last_outcome_message=latest_outcome.message if latest_outcome is not None else None,
+        last_outcome_type=(
+            latest_outcome.event_type if latest_outcome is not None else None
+        ),
+        last_outcome_message=(
+            latest_outcome.message if latest_outcome is not None else None
+        ),
         stage_statuses=tuple(stage_statuses),
         recent_stage_events=tuple(relevant_stage_events[:8]),
     )

@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a scoped improvement without changing the project direction.
+title: 'feat: '
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What operator, developer, or QA problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Keep this practical and V1-safe where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Note simpler or deferred options.
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - V1 polish
+        - V1 blocker
+        - V2 candidate
+        - Docs / repo hygiene
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and runtime impact
+      description: Mention paper/live behavior, data truth, hidden fallbacks, or operator visibility if relevant.

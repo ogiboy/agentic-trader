@@ -29,7 +29,7 @@ Status: completed.
 - [x] add model routing layer to select different models per agent role such as regime, strategy, risk, manager, and explainer
 - [x] ensure deterministic safe-mode diagnostics when no LLM is available without allowing silent trade generation in the strict runtime
 - [x] add runtime guardrails for missing data, tool failures, and low-confidence outputs
-  Notes:
+      Notes:
 - root launcher, strict runtime gate, one-shot mode, continuous mode, background mode, status, logs, and control-room loop are already live
 - unified agent context and role-based model routing are the next major orchestration upgrades
 
@@ -51,7 +51,7 @@ Status: in progress.
 - [ ] prepare a future model/provider menu so Ollama, remote APIs, and agent profiles can be switched from the operator surface
 - [x] introduce memory injection into market context so agents can retrieve historically similar regimes and conditions
 - [x] ensure all external knowledge such as news, events, and macro signals is accessed only via tools rather than being assumed by the model
-  Notes:
+      Notes:
 - operator preferences and curated behavior presets already exist
 - lightweight retrieval from historically similar runs is now injected into agent context
 - multi-timeframe feature enrichment is now part of the market snapshot and already informs fallback coordinator and regime logic
@@ -89,7 +89,7 @@ Status: in progress.
 - [ ] simplify Rich menu navigation so back, close, cancel, and exit controls feel consistent across sections
 - [ ] add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
 - [ ] convert UX audit findings into smallest-safe repair recommendations before deciding whether they are V1 fixes or V2 redesign work
-  Notes:
+      Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
 - a first memory explorer surface is now available from the CLI and TUI
 - persisted hybrid memory retrieval now combines heuristic market similarity with a lightweight vector-style embedding layer
@@ -115,7 +115,7 @@ Status: completed.
 - [x] export run reports for review
 - [x] introduce memory-aware replay mode to reconstruct what the system knew at the time of each decision
 - [x] run ablation tests comparing performance with and without vector memory or a RAG layer
-Notes:
+      Notes:
 - a first walk-forward replay and report export path are now available
 - agent-versus-deterministic baseline comparison is now available
 - a first memory-aware replay surface is now available through `replay-run`, the dashboard snapshot, and the Ink review page
@@ -135,7 +135,7 @@ Status: completed.
 - [x] store fills, open positions, and account state as if the broker were real
 - [x] maintain trade journals so the system can review what it planned, what it executed, and what actually happened
 - [x] persist full agent decision context for each trade including market snapshot, memory inputs, and tool outputs
-Notes:
+      Notes:
 - open positions, fills, account marks, daily risk reports, run reviews, and trade journals are in place
 - portfolio-level gross exposure caps, open-position caps, and cash-aware long entry checks are now enforced in the paper broker
 - richer multi-position capital rules and deeper per-trade context persistence still need expansion
@@ -152,7 +152,7 @@ Status: in progress.
 - [x] allow the operator TUI to attach to a running background service instead of owning the process directly
 - [x] allow a future WebUI to connect to the same daemon runtime over a local port without duplicating orchestration logic
 - [ ] let the runtime optionally supervise the local Ollama service lifecycle, health checks, and operator-visible log tails instead of assuming Ollama was started in a separate terminal
-Notes:
+      Notes:
 - background launch, status, logs, stop requests, and live monitor attach surfaces are already implemented
 - read-only observer surfaces now attach safely through shared status/log contracts without competing for write locks
 - restart controls are now available from the CLI through stored background launch config
@@ -173,7 +173,7 @@ Status: in progress.
 - [x] persist execution intent and outcome metadata for future replay/live-readiness audits
 - [x] add approval gates and kill switches
 - [ ] implement one live broker only after paper results are stable
-Notes:
+      Notes:
 - a broker adapter boundary now sits in front of execution and the paper broker implements the first adapter through `ExecutionIntent -> place_order() -> ExecutionOutcome`
 - simulated-real is intentionally not a live broker; it records non-live simulated metadata while still using local paper-safe persistence
 - runtime surfaces now expose broker backend state, live-request status, and kill-switch status
@@ -200,7 +200,7 @@ Status: in progress.
 - [ ] upgrade vector-style memory from hashed-token pseudo-embeddings to true local-first semantic embeddings with metadata and migration compatibility
 - [ ] improve retrieval ranking with freshness, outcome weighting, regime buckets, and diversity constraints
 - [ ] persist per-stage retrieval explanations so the operator can inspect why a memory influenced a decision
-  Notes:
+      Notes:
 - coordinator, manager, review, specialist roles, and persona-aware operator chat are already present
 - lightweight similarity-based retrieval is now present
 - historical confidence calibration is now present as a downside-aware signal in agent context and manager overrides
@@ -220,7 +220,7 @@ Status: completed.
 - [x] allow the operator to inspect why a manager agent accepted or rejected a specialist recommendation
 - [x] add guardrails so conversational interactions can influence policy only through approved schemas and not free-form hidden side effects
 - [x] introduce memory write permissions and policy-controlled memory mutation rules per agent role
-  Notes:
+      Notes:
 - safe operator instruction parsing and curated preference application already exist
 - persisted run review already exposes coordinator, specialist, manager, execution, and review outputs
 - persisted run traces now capture routed model, full context payload, and per-stage outputs
@@ -256,7 +256,7 @@ Status: in progress.
 - [x] include compact summaries by default and only include bar excerpts when Training mode, low confidence, or diagnostic depth requires it
 - [x] fail closed with a clear operator-facing reason when data is too thin for the configured lookback instead of silently behaving like a short-window run
 - [x] add QA coverage that asserts context-pack fields are present and coherent for representative lookback/interval combinations
-  Notes:
+      Notes:
 - this phase answers the operator question: "Did the system really analyze the configured history?"
 - token pressure should be controlled by separating deterministic summaries from optional raw bar excerpts
 - the pack is now part of snapshot JSON, agent prompt rendering, memory documents, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
@@ -276,7 +276,7 @@ Status: in progress.
 - [ ] expand memory documents with Market Context Pack summaries, explicit success/failure tags, and post-trade review facts
 - [ ] persist stage-level retrieval explanations showing which memories were used, why they were selected, and how strongly they influenced the decision
 - [ ] preserve chat-memory and trade-memory separation through explicit write policies while improving recall quality
-  Notes:
+      Notes:
 - this phase keeps memory useful without making it an opaque hidden policy layer
 - memory vectors now persist provider/model/version/dimension metadata so future true-embedding migrations can distinguish old lightweight vectors from newer semantic vectors
 - legacy `memory_vectors` rows without metadata columns are migrated in place with local-hashing defaults
@@ -293,7 +293,7 @@ Status: completed.
 - [x] persist data as-of timestamps and prevent leakage in training/replay scenarios
 - [x] gate mode transitions through approved schemas so chat or free-form instructions cannot silently mutate execution policy
 - [x] document and surface the checklist for switching from Training to Operation
-  Notes:
+      Notes:
 - this should be a configuration overlay on the existing runtime contracts, not a forked runtime
 - a first runtime mode field now flows through settings, service state migration, status JSON, dashboard snapshots, observer API, Rich status tables, and Ink overview/runtime pages
 - Operation mode now fails before provider access when strict LLM gating is disabled, and all one-shot/background runtime paths still require model readiness before paper execution
@@ -315,7 +315,7 @@ Status: planned.
 - [ ] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, trace, context pack, and QA results under a timestamped artifact directory
 - [ ] keep quality gates tiered: CI-safe CLI/static checks first, local interactive TUI checks second, manual visual recordings third
 - [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
-  Notes:
+      Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
 - smoke QA now includes dashboard and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, and an optional isolated one-cycle runtime check
 - visual QA can now use Computer Use in Codex/Desktop environments, but it remains optional and must be paired with contract/runtime truth checks
@@ -336,7 +336,7 @@ Status: planned.
 - [ ] tie V1 readiness to paper evidence, provider health, source attribution, context-pack explainability, broker health checks, and an explicit no-live-until-approved gate
 - [ ] compare paper operation results against deterministic baselines and memory/no-memory ablations before considering any live adapter
 - [ ] keep live broker work blocked until paper operation has stable QA evidence, context-pack explainability, and reviewable trade journals
-Notes:
+      Notes:
 - this phase is about earning operator trust in continuous paper operation before expanding execution risk
 - the product should feel like an inspectable operator system, not a black-box trading bot
 
@@ -362,7 +362,7 @@ Status: in progress.
 - [ ] implement structured news and macro ingestion from Finnhub, FMP, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
 - [ ] add operator-visible reasoning panels that explain how technical, fundamental, macro, memory, and guard evidence combined
 - [ ] improve risk engine with volatility-based sizing, portfolio exposure limits, sector concentration checks, and macro risk overrides
-Notes:
+      Notes:
 - this phase moves the system from "price plus simple agent reasoning" toward a financially-aware, multi-source decision system
 - agents now consume a compact `DecisionFeatureBundle`; raw noisy data should stay behind feature/provider boundaries
 - the prompt-facing feature bundle is the primary agent input; compact runtime snapshots remain available internally for deterministic fallback and risk math
@@ -385,7 +385,7 @@ Status: planned.
 - [ ] restrict V1 live-readiness scope to US equities until paper evidence, manual approval, and strict safety gates are proven
 - [ ] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
 - [ ] add paper-to-live readiness checklist that compares paper performance, QA evidence, and broker health before enabling any live mode
-Notes:
+      Notes:
 - V1 readiness is Alpaca-first and US-equities-only to limit blast radius
 - V1 does not mean live trading is enabled; it means the system is Alpaca-ready while remaining paper-first with manual approval and strict safety gates
 - `paper` remains the default; `live` remains blocked until the adapter, approval gate, and readiness checks are intentionally implemented
@@ -403,7 +403,7 @@ Status: planned.
 - [ ] add timezone/session awareness for global exchanges and market-specific trading calendars
 - [ ] integrate Turkey-specific KAP disclosures, company disclosures, CBRT-style macro data, inflation, rates, and FX context into the feature layer
 - [ ] add region-specific data QA for global sessions, holidays, delayed feeds, and currency conversion gaps
-Notes:
+      Notes:
 - v2 should reuse the v1 contracts instead of creating a separate global trading runtime
 - global expansion depends on symbol identity, currency/FX accounting, session calendars, and provider-specific QA evidence being mature first
 - IBKR/global support belongs in V2; it should not pull V1 away from the US-only Alpaca paper-first path
@@ -421,7 +421,7 @@ Status: in progress.
 - [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, including JetBrains Mono typography
 - [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
 - [x] resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind issue so local interactive frontend work matches the green lint/build path
-Notes:
+      Notes:
 - `docs/` and `webgui/` should stay visually related, but neither should become a second runtime or a cross-app shared-package experiment before the surfaces stabilize
 - the docs app should stay curated and source-linked rather than mirroring whole repository files blindly
 - `webgui` dev mode now runs on `localhost:3210` with Watchpack polling so browser QA matches the README and avoids file-watch noise in this worktree

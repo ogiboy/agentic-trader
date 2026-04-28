@@ -12,7 +12,7 @@ Use the project environment unless the task says otherwise:
 
 ```bash
 conda activate trader
-python -m pip install -e ".[dev]"
+pnpm run setup
 ```
 
 If the shell cannot find the console entrypoint:
@@ -26,25 +26,30 @@ python -m agentic_trader.cli doctor
 Recommended core verification:
 
 ```bash
-/opt/anaconda3/envs/trader/bin/python -m pytest -q -p no:cacheprovider
+pnpm run check
 ```
+
+This wraps `ruff check .`, `pyright agentic_trader tests scripts`, `python -m pytest -q`, and the Node workspace lint/type/build checks.
 
 Recommended terminal smoke pass:
 
 ```bash
-python scripts/qa/smoke_qa.py
+pnpm run qa
 ```
 
 Recommended terminal + code-quality pass:
 
 ```bash
-python scripts/qa/smoke_qa.py --include-quality
+pnpm run qa:quality
 ```
 
 Optional SonarQube pass:
 
 ```bash
-SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-sonar
+pnpm run sonar:status
+pnpm run mcp:sonarqube:status
+pnpm run sonar
+pnpm run sonar:js
 ```
 
 ## Evidence Directory
@@ -138,7 +143,7 @@ Use for repeatable CLI/Rich menu/Ink interaction.
 Install only if missing:
 
 ```bash
-python -m pip install pexpect
+pnpm run setup
 ```
 
 ### tmux
@@ -182,10 +187,26 @@ Use `ruff`, `pytest`, IDE/Pylance or `pyright`, and SonarQube as complementary s
 python -m ruff check .
 python -m pytest -q -p no:cacheprovider
 pyright
-SONAR_TOKEN=... pysonar --sonar-host-url=http://localhost:9000 --sonar-project-key=agentic-trader-dev --sonar-token="$SONAR_TOKEN"
+pnpm run sonar
 ```
 
-Never hardcode the Sonar token in tracked files. Prefer the `SONAR_TOKEN` environment variable.
+Never hardcode the Sonar token in tracked files. Prefer `SONAR_TOKEN`, or store the local Docker token in macOS Keychain service `codex-sonarqube-token`. `pnpm run sonar` and `pnpm run sonar:js` upload to local project `agentic-trader`. `pnpm run sonar:cloud` uploads to SonarCloud project `ogiboy_agentic-trader` and should use a separate token, preferably Keychain service `codex-sonarcloud-token`. Root `sonar-project.properties` is the local default scanner file; CI overrides project key and organization for SonarCloud. Use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, and `pnpm run mcp:sonarqube:status` to verify Keychain/MCP wiring without printing the token.
+
+Sonar review is repository-wide by default. Do not limit investigation to the last commit unless the task explicitly says so. Review bugs, vulnerabilities, security hotspots, blocker/critical issues, maintainability issues, and scanner suggestions across the intended project key. Prioritize security and correctness first, then high-complexity maintainability findings, then minor style or formatting issues. If a finding is accepted rather than fixed, record the reason and residual risk instead of dismissing it as unimportant.
+
+Sonar topology:
+
+- `sonarqube` and `sonarqube-db` are the local analysis server.
+- `pnpm run sonar` / `pnpm run sonar:js` are scanner uploads into that server.
+- `mcp/sonarqube` containers are MCP clients used by Codex or VS Code to query the server.
+- Multiple running `mcp/sonarqube` containers usually mean multiple active editor/agent sessions, not multiple SonarQube servers. Use `pnpm run mcp:sonarqube:status` before assuming the server or token is broken.
+
+### Release and Build Identity
+
+Use `pnpm run release:preview` to ask `python-semantic-release` what tag the current conventional-commit history implies, and `pnpm run version:plan` to inspect the branch artifact identity.
+
+Stable releases should happen only from `main` and should use strict SemVer tags such as `v0.9.5`.
+Branch builds must not use a fourth SemVer core segment. Use prerelease/build metadata instead: integration branches such as `V1` use `next` artifact identities like `v0.9.6-next.9870+gabc1234`, while feature branches use `beta` identities like `v0.9.6-beta.9870+gabc1234`.
 
 ## Standard QA Workflow
 

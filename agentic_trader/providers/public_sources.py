@@ -30,7 +30,7 @@ class SecEdgarFundamentalProvider:
     def __init__(self, settings: Settings) -> None:
         """
         Initialize the provider with runtime settings.
-        
+
         Parameters:
             settings (Settings): Configuration and credentials used by the provider; stored on `self._settings`.
         """
@@ -39,7 +39,7 @@ class SecEdgarFundamentalProvider:
     def metadata(self) -> ProviderMetadata:
         """
         Provider metadata for the SEC EDGAR fundamentals scaffold.
-        
+
         Returns:
             ProviderMetadata: Metadata with provider_id "sec_edgar_fundamentals", name "SEC EDGAR Fundamentals",
             provider_type "fundamental", role "primary", priority 10, enabled True, requires_network False,
@@ -59,10 +59,10 @@ class SecEdgarFundamentalProvider:
     def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
         """
         Return a scaffolded FundamentalSnapshot indicating ingestion is pending for the given symbol.
-        
+
         Parameters:
             symbol (SymbolIdentity): The symbol identity for which the snapshot is produced.
-        
+
         Returns:
             FundamentalSnapshot: Snapshot with `fx_exposure` set to `"unknown"`, `missing_fields` containing the canonical FUNDAMENTAL_FIELDS, and `attribution` marked as missing with `fetched_at` set to the current UTC ISO timestamp. The attribution `notes` always include `"sec_10k_10q_8k_source"` and `"ingestion_pending"`; if `symbol.region` is not `"US"` an additional note `unsupported_region={region}` is appended.
         """
@@ -94,7 +94,7 @@ class FinnhubFundamentalProvider:
     def __init__(self, settings: Settings) -> None:
         """
         Initialize the provider with runtime settings.
-        
+
         Parameters:
             settings (Settings): Configuration and credentials used by the provider; stored on `self._settings`.
         """
@@ -103,7 +103,7 @@ class FinnhubFundamentalProvider:
     def metadata(self) -> ProviderMetadata:
         """
         Provide metadata describing the Finnhub fundamentals provider configuration.
-        
+
         Returns:
             ProviderMetadata: Metadata with provider_id "finnhub_fundamentals", name "Finnhub Fundamentals",
             provider_type "fundamental", role "fallback", priority 40, boolean `enabled` and `requires_network`
@@ -129,10 +129,10 @@ class FinnhubFundamentalProvider:
     def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
         """
         Return a placeholder FundamentalSnapshot for the given symbol indicating Finnhub enrichment is pending.
-        
+
         Parameters:
             symbol (SymbolIdentity): The identity of the security to describe.
-        
+
         Returns:
             FundamentalSnapshot: Snapshot with:
                 - symbol_identity set to `symbol`
@@ -171,7 +171,7 @@ class FmpFundamentalProvider:
     def __init__(self, settings: Settings) -> None:
         """
         Initialize the provider with runtime settings.
-        
+
         Parameters:
             settings (Settings): Configuration and credentials used by the provider; stored on `self._settings`.
         """
@@ -180,7 +180,7 @@ class FmpFundamentalProvider:
     def metadata(self) -> ProviderMetadata:
         """
         Provider metadata for the Financial Modeling Prep fundamentals adapter.
-        
+
         Returns:
             ProviderMetadata: Metadata describing the provider (provider_id "fmp_fundamentals", name "Financial Modeling Prep Fundamentals", provider_type "fundamental", role "fallback", priority 50). The `enabled` and `requires_network` flags reflect whether an API key is configured. `notes` contains "optional_free_enrichment", either "api_key_configured" or "api_key_missing" depending on configuration, and "ingestion_pending".
         """
@@ -203,10 +203,10 @@ class FmpFundamentalProvider:
     def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
         """
         Produce a FundamentalSnapshot that marks Financial Modeling Prep enrichment as pending for the given symbol.
-        
+
         Parameters:
             symbol (SymbolIdentity): The symbol identity for which the snapshot is produced.
-        
+
         Returns:
             FundamentalSnapshot: Snapshot with `fx_exposure` set to `"unknown"`, `missing_fields` populated from `FUNDAMENTAL_FIELDS`, and `attribution` notes indicating optional enrichment, API key status, and that ingestion is pending.
         """
@@ -240,7 +240,7 @@ class KapDisclosureProvider:
     def __init__(self, settings: Settings) -> None:
         """
         Initialize the provider with runtime settings.
-        
+
         Parameters:
             settings (Settings): Configuration and credentials used by the provider; stored on `self._settings`.
         """
@@ -249,7 +249,7 @@ class KapDisclosureProvider:
     def metadata(self) -> ProviderMetadata:
         """
         Provider metadata for the KAP (Turkey public disclosure) scaffold.
-        
+
         Returns:
             ProviderMetadata: Metadata for the KAP disclosures provider with
             provider_id="kap_disclosures", name="KAP Disclosures", provider_type="disclosure",
@@ -272,13 +272,13 @@ class KapDisclosureProvider:
     ) -> list[DisclosureEvent]:
         """
         Return disclosure events for the given symbol (currently unimplemented and always returns an empty list).
-        
+
         This provider scaffold does not perform any ingestion yet; the function accepts a symbol and a limit but ignores them and yields no disclosure events.
-        
+
         Parameters:
             symbol (SymbolIdentity): Identifier for the security whose disclosures would be requested.
             limit (int): Maximum number of disclosure events to return (currently ignored).
-        
+
         Returns:
             list[DisclosureEvent]: An empty list (no disclosure events).
         """

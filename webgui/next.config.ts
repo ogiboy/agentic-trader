@@ -3,11 +3,12 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const workspaceRoot = dirname(fileURLToPath(import.meta.url));
+const repoRoot = dirname(workspaceRoot);
 
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
-  allowedDevOrigins: ["127.0.0.1", "localhost"],
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
   images: {
     remotePatterns: [
       {
@@ -21,7 +22,7 @@ const nextConfig: NextConfig = {
     ],
   },
   turbopack: {
-    root: workspaceRoot,
+    root: repoRoot,
   },
 };
 

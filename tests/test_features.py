@@ -68,6 +68,11 @@ def test_build_snapshot_computes_higher_timeframe_alignment() -> None:
 
 
 def test_build_snapshot_as_of_tracks_latest_clean_indicator_row() -> None:
+    """
+    Verifies that build_snapshot sets `as_of` to the ISO-formatted timestamp of the latest row with a non-missing indicator.
+
+    The test creates a business-day indexed OHLCV DataFrame, injects a missing `close` on the final row, calls `build_snapshot`, and asserts that `snapshot.as_of` equals the ISO string for the last non-missing index entry.
+    """
     index = pd.date_range("2025-01-01", periods=81, freq="B")
     frame = pd.DataFrame(
         {
@@ -83,13 +88,14 @@ def test_build_snapshot_as_of_tracks_latest_clean_indicator_row() -> None:
 
     snapshot = build_snapshot(frame, symbol="CLEAN", interval="1d", lookback="80d")
 
-    assert snapshot.as_of == index[-2].isoformat()
+    expected_as_of = index.to_list()[-2]
+    assert snapshot.as_of == str(expected_as_of.isoformat())
 
 
 def test_build_snapshot_fails_when_lookback_is_materially_undercovered() -> None:
     """
     Verify build_snapshot raises a ValueError when the requested lookback window is materially undercovered.
-    
+
     Asserts the raised ValueError's message contains the substrings "coverage is too thin" and "Refusing to run agents"; fails the test if no exception is raised.
     """
     frame = pd.DataFrame(
@@ -114,7 +120,7 @@ def test_build_snapshot_fails_when_lookback_is_materially_undercovered() -> None
 def test_build_snapshot_can_keep_undercoverage_for_training_replay() -> None:
     """
     Test that build_snapshot produces a snapshot even when the requested lookback is materially undercovered if lookback coverage enforcement is disabled.
-    
+
     Verifies that calling build_snapshot with enforce_lookback_coverage=False returns a snapshot containing a context_pack and that the context_pack.data_quality_flags includes "low_lookback_coverage".
     """
     frame = pd.DataFrame(

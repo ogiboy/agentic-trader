@@ -16,17 +16,18 @@ T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 _SENSITIVE_PAYLOAD_KEYS = {"thinking", "thought", "thoughts", "reasoning"}
+_NO_TRADE_PHRASE = "no trade"
 
 
 def _coerce_numeric_strings(obj: Any) -> Any:
     """
     Recursively convert strings that represent whole numbers or decimals into int or float values.
-    
+
     Recurses into dicts and lists; for string values, trims whitespace and if the entire string matches the numeric pattern "-?\\d+(?:\\.\\d+)?" it returns an `int` when the string contains only digits (no sign/decimal) and a `float` otherwise. If parsing fails or the value is not a numeric string, the original value is returned unchanged.
-    
+
     Parameters:
         obj (Any): The value (or nested structure) to coerce.
-    
+
     Returns:
         Any: The input with numeric-like strings converted to `int` or `float` where applicable; other values are returned as-is.
     """
@@ -88,11 +89,11 @@ def _set_by_loc(obj: Any, path: tuple[str | int, ...], value: Any) -> bool:
 def _navigate_one(obj: Any, key: str | int) -> Any:
     """
     Retrieve the nested value one level down for a dict or list key, creating a missing dict key as an empty dict.
-    
+
     Parameters:
         obj (Any): The container to navigate; expected to be a dict or list.
         key (str | int): For dicts, a string key (will be created as an empty dict if missing). For lists, an integer index (must be within bounds).
-    
+
     Returns:
         Any: The value at the next level for the given key/index, or `None` if navigation is not possible.
     """
@@ -157,7 +158,10 @@ def _semantic_value_alias(schema_name: str, field_name: str, value: str) -> Any:
     if schema_name == "RegimeAssessment" and field_name == "regime":
         if "no" in compact and "trade" in compact:
             return "no_trade"
-        if any(token in compact for token in ("range", "sideways", "mixed", "chop", "consolidat")):
+        if any(
+            token in compact
+            for token in ("range", "sideways", "mixed", "chop", "consolidat")
+        ):
             return "range"
         if "volatil" in compact:
             return "high_volatility"
@@ -168,23 +172,40 @@ def _semantic_value_alias(schema_name: str, field_name: str, value: str) -> Any:
         if any(token in compact for token in ("bear", "down")):
             return "trend_down"
     if schema_name == "RegimeAssessment" and field_name == "direction_bias":
-        if any(token in compact for token in ("flat", "neutral", "mixed", "sideways", "none", "no trade")):
+        if any(
+            token in compact
+            for token in (
+                "flat",
+                "neutral",
+                "mixed",
+                "sideways",
+                "none",
+                _NO_TRADE_PHRASE,
+            )
+        ):
             return "flat"
         if any(token in compact for token in ("long", "buy", "bull", "up", "positive")):
             return "long"
-        if any(token in compact for token in ("short", "sell", "bear", "down", "negative")):
+        if any(
+            token in compact for token in ("short", "sell", "bear", "down", "negative")
+        ):
             return "short"
     if schema_name in {"StrategyPlan", "ManagerDecision"} and field_name in {
         "action",
         "action_bias",
     }:
-        if any(token in compact for token in ("hold", "flat", "neutral", "none", "no trade")):
+        if any(
+            token in compact
+            for token in ("hold", "flat", "neutral", "none", _NO_TRADE_PHRASE)
+        ):
             return "hold"
         if any(token in compact for token in ("long", "buy", "bull", "up")):
             return "buy"
         if any(token in compact for token in ("short", "sell", "bear", "down")):
             return "sell"
     return value
+
+
 _WRAPPER_KEYS = (
     "coordinator",
     "brief",
@@ -280,7 +301,7 @@ _SCHEMA_VALUE_ALIAS_MAP: dict[str, dict[str, dict[str, Any]]] = {
             "breakout": "breakout_candidate",
             "cautious": "no_trade",
             "wait": "no_trade",
-            "no trade": "no_trade",
+            _NO_TRADE_PHRASE: "no_trade",
         },
         "direction_bias": {
             "bullish": "long",
@@ -356,14 +377,14 @@ def _attempt_sanitize_and_validate(
 ) -> T | None:
     """
     Attempt to coerce and clamp common numeric fields in a dict and retry Pydantic validation.
-    
+
     Examines the errors from a Pydantic ValidationError and, for any error path whose final string key matches a known sanitize rule, applies that rule to mutate `data`. After applying any changes, it coerces numeric-like strings to numbers and attempts to validate into `schema`. If no applicable sanitizations are found or re-validation fails, returns None.
-    
+
     Parameters:
         data (Any): The parsed object to inspect and potentially mutate; function only operates when this is a dict.
         exc (ValidationError): The original Pydantic ValidationError containing `.errors()` to determine failing locations.
         schema (type[T]): The Pydantic model class to validate against after sanitization.
-    
+
     Returns:
         T | None: The validated model instance if sanitization and re-validation succeed, otherwise `None`.
     """
@@ -416,12 +437,12 @@ def _attempt_sanitize_and_validate(
 def _mark_llm_source(parsed: T) -> T:
     """
     Mark a Pydantic model's source as "llm" and clear its fallback reason when present.
-    
+
     If the provided object exposes a `source` attribute, return a copy with `source` set to `"llm"` and `fallback_reason` set to `None`. Otherwise return the original object unchanged.
-    
+
     Parameters:
         parsed: A model or object; typically a Pydantic model instance that may have `source` and `fallback_reason` attributes.
-    
+
     Returns:
         The updated model with `source="llm"` and `fallback_reason=None` if applicable, otherwise the original `parsed`.
     """
@@ -436,16 +457,16 @@ def _mark_llm_source(parsed: T) -> T:
 def _validate_structured_content(content: str, schema: type[T]) -> T:
     """
     Validate a JSON-formatted string and return a validated Pydantic model instance, applying numeric coercion and targeted sanitization when necessary.
-    
+
     Attempts to parse `content` as JSON. If parsing fails, delegates to `schema.model_validate_json(content)` and marks the result as coming from the LLM. If parsing succeeds, coerces numeric-looking strings to numbers, then validates via `schema.model_validate`. On ValidationError, attempts targeted sanitization and re-validation; if sanitization produces a valid model that is returned, otherwise the original ValidationError is re-raised.
-    
+
     Parameters:
         content (str): The raw JSON text returned by the LLM.
         schema (type[T]): The Pydantic model class to validate against.
-    
+
     Returns:
         T: An instance of `schema` validated and possibly sanitized.
-    
+
     Raises:
         pydantic.ValidationError: If validation fails and sanitization does not produce a valid model.
     """
@@ -538,11 +559,11 @@ def _validation_error_summary(exc: ValidationError) -> str:
 def _validation_retry_prompt(prompt: str, content: str) -> str:
     """
     Builds a retry instruction telling the LLM its previous JSON response failed validation and requesting corrected JSON only.
-    
+
     Parameters:
         prompt (str): The original prompt sent to the LLM.
         content (str): The previous LLM response that failed validation.
-    
+
     Returns:
         str: A dedented prompt string that includes the original prompt, a note that the previous response did not validate (including that response), and a directive to "Return corrected JSON only."
     """
@@ -561,10 +582,10 @@ def _validation_retry_prompt(prompt: str, content: str) -> str:
 def _request_issue_retry_prompt(prompt: str) -> str:
     """
     Constructs a retry prompt instructing the model to return a complete JSON object when the previous response was empty or invalid.
-    
+
     Parameters:
         prompt (str): The original prompt to include at the start of the retry message.
-    
+
     Returns:
         str: A dedented string containing the original prompt followed by a short instruction that the previous response was empty, malformed, or invalid and that the model should return a complete JSON object only.
     """
@@ -582,7 +603,7 @@ class LocalLLM:
     def __init__(self, settings: Settings, *, model_name: str | None = None):
         """
         Initialize the LocalLLM with application settings and an optional model override.
-        
+
         Parameters:
             settings (Settings): Configuration and feature flags used to build the underlying LLM provider.
             model_name (str | None): Optional model identifier to use instead of the default routing from settings; when None, the provider's default model is used.
@@ -663,15 +684,15 @@ class LocalLLM:
     ) -> T:
         """
         Request a structured JSON completion from the LLM and validate it against the provided Pydantic schema.
-        
+
         Parameters:
             system_prompt (str): The system-level instructions to include at the start of the prompt.
             user_prompt (str): The user-level request to include in the prompt.
             schema (type[T]): A Pydantic model class used to validate and coerce the returned JSON into an instance of `T`.
-        
+
         Returns:
             T: An instance of the provided Pydantic model populated from the validated LLM JSON response.
-        
+
         Raises:
             RuntimeError: If the LLM repeatedly returns empty, malformed, or non-validating responses and all retry attempts are exhausted; the last underlying exception is chained.
         """
@@ -757,16 +778,16 @@ class LocalLLM:
     ) -> str:
         """
         Send the combined system and user prompts to the configured LLM provider and return the provider's textual response.
-        
+
         The call is retried on transient request or provider errors up to `self.settings.max_retries`. If the provider returns an empty response or all attempts fail, a RuntimeError is raised.
-        
+
         Parameters:
             system_prompt (str): The system-level instructions to include in the prompt.
             user_prompt (str): The user's request to include in the prompt.
-        
+
         Returns:
             str: The LLM's textual response.
-        
+
         Raises:
             RuntimeError: If the LLM returns an empty response or all retry attempts fail.
         """

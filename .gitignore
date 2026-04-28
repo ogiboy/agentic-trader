@@ -15,18 +15,18 @@ __pycache__/
 *.pyc
 /runtime/
 .sonar/
+.scannerwork/
 dist/
 build/
 *.egg-info/
 tui/node_modules/
 tui/dist/
 tui/.env
-build/
-dist/
-*.egg-info/
+/node_modules/
 *.log
 .ai/qa/artifacts/smoke-summary.json
 .ai/qa/artifacts/smoke-*/
+.ai/qa/artifacts/sonar/
 .ai/qa/artifacts/qa-*
 .ai/qa/artifacts/tmp-*
 .ai/qa/artifacts/manual-*
@@ -49,8 +49,8 @@ dist/
 
 # next.js
 */.next/
+**/out/
 /docs/.source/
-/out/
 
 # production
 /build

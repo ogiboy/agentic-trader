@@ -102,7 +102,7 @@ def _snapshot() -> MarketSnapshot:
 def test_default_provider_adapters_conform_to_interfaces() -> None:
     """
     Verify default provider adapter classes implement their expected provider interfaces.
-    
+
     Asserts that the default provider classes instantiate as the corresponding interface types:
     - YahooMarketDataProvider -> MarketDataProvider
     - LocalFundamentalProvider, SecEdgarFundamentalProvider, FinnhubFundamentalProvider, FmpFundamentalProvider -> FundamentalDataProvider
@@ -126,7 +126,7 @@ def test_default_provider_adapters_conform_to_interfaces() -> None:
 def test_canonical_snapshot_preserves_attribution_and_missing_sections() -> None:
     """
     Validate that building a canonical analysis snapshot preserves source attributions, records missing sections, and retains key snapshot metadata.
-    
+
     Asserts that the canonical snapshot for the sample market:
     - has symbol "AAPL";
     - marks the market attribution `source_role` as "inferred";
@@ -155,8 +155,7 @@ def test_canonical_snapshot_preserves_attribution_and_missing_sections() -> None
     assert "fundamentals" in snapshot.missing_sections
     assert "disclosures" in snapshot.missing_sections
     assert any(
-        source.source_name == "sec_edgar"
-        for source in snapshot.source_attributions
+        source.source_name == "sec_edgar" for source in snapshot.source_attributions
     )
     assert any(
         source.source_name == "kap_disclosures"
@@ -185,8 +184,7 @@ def test_decision_bundle_consumes_canonical_snapshot() -> None:
 
     assert bundle.fundamental.data_sources == ["fundamental_provider_unavailable"]
     assert any(
-        source.source_name == "sec_edgar"
-        for source in canonical.source_attributions
+        source.source_name == "sec_edgar" for source in canonical.source_attributions
     )
     assert bundle.macro.news_signals[0].category == "macro_level"
     assert bundle.macro.data_sources[0] == "local_macro_scaffold"
@@ -229,7 +227,7 @@ class _FailingFundamentalProvider:
     def metadata(self) -> ProviderMetadata:
         """
         Metadata describing this fundamental data provider.
-        
+
         @returns ProviderMetadata: The provider's identifier, display name, and capabilities (e.g., supported symbols, data types, and rate/limit hints).
         """
         return LocalFundamentalProvider(_settings()).metadata()
@@ -418,8 +416,8 @@ def test_all_missing_fundamental_providers_return_generic_missing_snapshot() -> 
 
     snapshot, errors, extra_attributions = _first_fundamental_snapshot(
         [
-          _MissingFundamentalProvider("provider_a"),
-          _MissingFundamentalProvider("provider_b"),
+            _MissingFundamentalProvider("provider_a"),
+            _MissingFundamentalProvider("provider_b"),
         ],
         symbol,
     )

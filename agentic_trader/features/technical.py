@@ -1,4 +1,8 @@
-from agentic_trader.schemas import MarketContextHorizon, MarketSnapshot, TechnicalFeatureSet
+from agentic_trader.schemas import (
+    MarketContextHorizon,
+    MarketSnapshot,
+    TechnicalFeatureSet,
+)
 
 CALENDAR_RETURN_WINDOWS = {
     "30d": 20,
@@ -27,7 +31,9 @@ def _nearest_horizon_return(
     )
     if exact is not None:
         return exact.return_pct
-    eligible = [horizon for horizon in candidates if horizon.horizon_bars >= target_bars]
+    eligible = [
+        horizon for horizon in candidates if horizon.horizon_bars >= target_bars
+    ]
     if not eligible:
         return None
     nearest = min(

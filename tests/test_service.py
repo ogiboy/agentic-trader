@@ -30,12 +30,12 @@ from typer.testing import CliRunner
 def _artifacts(symbol: str) -> RunArtifacts:
     """
     Constructs a RunArtifacts object populated with deterministic test data for the given symbol.
-    
+
     Provides a complete, self-contained run result used by tests: a MarketSnapshot and brief/coherent coordinator, regime, strategy, risk, manager, execution, and review sections.
-    
+
     Parameters:
         symbol (str): Ticker symbol placed into the snapshot.symbol and execution.symbol fields.
-    
+
     Returns:
         RunArtifacts: An instance containing populated test data for all run sections (snapshot, coordinator, regime, strategy, risk, manager, execution, review).
     """
@@ -234,7 +234,7 @@ def test_run_service_records_agent_stage_events(
 ) -> None:
     """
     Validates that agent coordinator and manager stage transitions are recorded as service events.
-    
+
     This test patches LLM readiness, replaces `run_once` to emit coordinator and manager progress events via the provided `progress_callback`, and stubs `persist_run`. It runs the service for a single symbol and asserts the database contains `agent_coordinator_started`, `agent_coordinator_completed`, `agent_manager_started`, and `agent_manager_completed` events.
     """
     settings = Settings(
@@ -314,13 +314,13 @@ def test_run_service_skips_missing_market_data_and_continues(
     def _run_once(**kwargs: Any) -> RunArtifacts:
         """
         Return deterministic RunArtifacts for the provided symbol or raise when market data is missing.
-        
+
         Parameters:
             kwargs (dict): Expects a key `"symbol"` with the ticker symbol (str) to generate artifacts for.
-        
+
         Returns:
             RunArtifacts: A fully populated RunArtifacts instance with deterministic mock data for the given symbol.
-        
+
         Raises:
             ValueError: If `"symbol"` is `"AAPL"`, indicating no market data was returned for that symbol.
         """
@@ -351,7 +351,10 @@ def test_run_service_skips_missing_market_data_and_continues(
     assert len(results) == 1
     assert state is not None
     assert state.state == "completed"
-    assert state.last_error == "One or more symbols were skipped because market data was unavailable."
+    assert (
+        state.last_error
+        == "One or more symbols were skipped because market data was unavailable."
+    )
     assert any(event.event_type == "symbol_skipped" for event in events)
 
 
@@ -409,7 +412,10 @@ def test_run_service_remembers_run_level_undercoverage_skips(
     assert state is not None
     assert state.state == "completed"
     assert state.cycle_count == 2
-    assert state.last_error == "One or more symbols were skipped because market data was unavailable."
+    assert (
+        state.last_error
+        == "One or more symbols were skipped because market data was unavailable."
+    )
     assert "skipped symbols" in state.message
     assert any(event.event_type == "symbol_skipped" for event in events)
     assert any(
@@ -474,7 +480,7 @@ def test_start_background_service_records_spawn(
 ) -> None:
     """
     Verify that starting the background service spawns a process and persists the expected service state.
-    
+
     The test stubs subprocess.Popen to return a fake process with pid 4242, calls start_background_service with a configured Settings and service parameters, and asserts that the returned pid and the stored service state reflect the spawn and configuration:
     - pid matches the spawned process
     - state is "starting"
@@ -582,7 +588,7 @@ def test_restart_background_service_uses_last_recorded_config(
 ) -> None:
     """
     Verifies that restart_background_service restarts the service using the last recorded service configuration.
-    
+
     Sets a saved running service state (symbols, interval, lookback, pid, etc.), simulates the previous process as dead, stubs the background start function to return a fixed PID, calls restart_background_service, and asserts the returned PID matches the stubbed start result.
     """
     settings = Settings(

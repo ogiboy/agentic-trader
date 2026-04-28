@@ -62,7 +62,9 @@ class ExecutionIntent(BaseModel):
             data["timestamp"] = created_at
         elif created_at is None and timestamp is not None:
             data["created_at"] = timestamp
-        elif timestamp is not None and created_at is not None and timestamp != created_at:
+        elif (
+            timestamp is not None and created_at is not None and timestamp != created_at
+        ):
             raise ValueError("Execution intent timestamp and created_at must match.")
         return data
 

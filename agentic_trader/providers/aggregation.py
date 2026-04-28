@@ -57,10 +57,10 @@ class ProviderSet:
 def default_provider_set(settings: Settings) -> ProviderSet:
     """
     Builds the default ProviderSet using a local-first ordering for adapters.
-    
+
     Parameters:
         settings (Settings): Configuration passed to provider adapters.
-    
+
     Returns:
         ProviderSet: A ProviderSet with default adapters:
           - market: YahooMarketDataProvider
@@ -126,11 +126,11 @@ def _first_fundamental_snapshot(
 ) -> tuple[FundamentalSnapshot, list[str], list[DataSourceAttribution]]:
     """
     Select the first available fundamental snapshot from a list of providers, collecting provider errors and extra attributions for providers that returned "missing".
-    
+
     Parameters:
         providers (list[FundamentalDataProvider]): Ordered providers to query for fundamental data.
         symbol (SymbolIdentity): Resolved symbol identity used to request fundamental data.
-    
+
     Returns:
         tuple[FundamentalSnapshot, list[str], list[DataSourceAttribution]]:
             - FundamentalSnapshot: The first snapshot whose attribution has a source_role other than "missing", or a synthesized "missing" snapshot if no provider produced a usable snapshot. If only "missing" snapshots were returned, the first missing snapshot is returned.
@@ -146,9 +146,7 @@ def _first_fundamental_snapshot(
             errors.append(f"{provider.metadata().provider_id}: {exc}")
             continue
         if snapshot.attribution.source_role != "missing":
-            return snapshot, errors, [
-                item.attribution for item in missing_snapshots
-            ]
+            return snapshot, errors, [item.attribution for item in missing_snapshots]
         missing_snapshots.append(snapshot)
     if missing_snapshots:
         if len(missing_snapshots) == len(providers):
@@ -226,12 +224,12 @@ def _collect_disclosures(
 ) -> tuple[list[DisclosureEvent], list[str], list[DataSourceAttribution]]:
     """
     Collect disclosures from multiple providers, aggregating results, provider errors, and attributions for providers that returned no disclosures.
-    
+
     Parameters:
         providers (list[DisclosureProvider]): Ordered list of disclosure provider adapters to query.
         symbol (SymbolIdentity): Symbol identity used to request disclosures.
         limit (int): Maximum number of disclosure events to return.
-    
+
     Returns:
         disclosures (list[DisclosureEvent]): Up to `limit` disclosure events aggregated from all providers (preserves provider order).
         errors (list[str]): Error messages for providers that raised exceptions, formatted as "<provider_id>: <error>".
@@ -275,12 +273,12 @@ def _collect_provider_news(
 ) -> tuple[list[NewsEvent], list[str], list[DataSourceAttribution]]:
     """
     Aggregate news events from multiple providers for a given symbol and collect provider-level errors and missing-source attributions.
-    
+
     Parameters:
         providers (list[NewsProvider]): Ordered list of news providers to query.
         symbol (SymbolIdentity): Symbol identity used to scope provider queries.
         limit (int): Maximum number of news events to return (slice applied after aggregation).
-    
+
     Returns:
         tuple[list[NewsEvent], list[str], list[DataSourceAttribution]]:
             events: Aggregated news events from all providers, truncated to `limit`.
@@ -331,7 +329,7 @@ def _attributions(
 ) -> list[DataSourceAttribution]:
     """
     Assemble canonical data source attributions from market, fundamental, macro, and event-level sources into a single ordered list.
-    
+
     Parameters:
         market (DataSourceAttribution): Attribution for the market snapshot.
         fundamental (DataSourceAttribution): Attribution for the fundamental snapshot.
@@ -339,7 +337,7 @@ def _attributions(
         news_events (list[NewsEvent]): News events whose `attribution` values will be included in order.
         disclosures (list[DisclosureEvent]): Disclosure events whose `attribution` values will be included in order.
         extra_attributions (list[DataSourceAttribution] | None): Additional attributions to append, if any.
-    
+
     Returns:
         list[DataSourceAttribution]: Ordered list containing the market, fundamental, and macro attributions followed by attributions extracted from `news_events`, `disclosures`, and `extra_attributions`.
     """
@@ -373,7 +371,7 @@ def build_canonical_analysis_snapshot(
 ) -> CanonicalAnalysisSnapshot:
     """
     Build a canonical analysis snapshot by aggregating market, fundamental, macro, news, and disclosure data from configured providers.
-    
+
     Constructs a CanonicalAnalysisSnapshot for the given runtime MarketSnapshot by:
     - resolving the symbol identity (using optional investment preferences),
     - deriving a canonical market snapshot (respecting an optional lookback),
@@ -382,7 +380,7 @@ def build_canonical_analysis_snapshot(
     - fetching disclosures from configured disclosure providers,
     - assembling source attributions (including empty/missing attributions and aggregation error notes),
     - computing a completeness score and a summary string.
-    
+
     Parameters:
         snapshot (MarketSnapshot): Runtime market snapshot to base the canonical market alignment on.
         settings (Settings): Application settings used to build the default provider set and limits.
@@ -390,7 +388,7 @@ def build_canonical_analysis_snapshot(
         news_items (list[NewsSignal] | None): Optional pre-fetched lightweight news signals to convert instead of calling news providers.
         providers (ProviderSet | None): Optional override of the provider configuration; if omitted, a default provider set is used.
         lookback (str | None): Optional lookback window to apply when deriving the canonical market snapshot; if omitted the snapshot's context_pack lookback is used when available.
-    
+
     Returns:
         CanonicalAnalysisSnapshot: Aggregated canonical snapshot containing market, fundamental, macro, news_events, disclosures, source attributions, missing sections, completeness score, and a human-readable summary.
     """
@@ -424,10 +422,12 @@ def build_canonical_analysis_snapshot(
             symbol_identity,
             limit=settings.news_headline_limit,
         )
-    disclosures, disclosure_errors, empty_disclosure_attributions = _collect_disclosures(
-        provider_set.disclosures,
-        symbol_identity,
-        limit=5,
+    disclosures, disclosure_errors, empty_disclosure_attributions = (
+        _collect_disclosures(
+            provider_set.disclosures,
+            symbol_identity,
+            limit=5,
+        )
     )
 
     missing_sections: list[str] = []

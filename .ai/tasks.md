@@ -14,6 +14,8 @@
 Now:
 
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
+- keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's Poetry-plus-root-pnpm-workspace structure
+- keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
 - capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, including JetBrains Mono typography
 - keep the locale-aware English and Turkish docs trees curated, modular, and synced with runtime reality instead of letting them collapse back into oversized route files or duplicated repo notes
 - keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts while avoiding a broad one-shot CSS rewrite
@@ -24,7 +26,7 @@ Next:
 
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
-- verify the docs GitHub App wiring and discussion category in the target repo so feedback can forward beyond the local mirror consistently
+- verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
 
 ### 1. Financial Intelligence Layer
 
@@ -173,7 +175,7 @@ Desired direction:
 - simplify Rich menu navigation so back, close, cancel, and exit behaviors are consistent and the repeated logo/header does not dominate every output
 - add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
 - turn UX findings into smallest-safe repair recommendations, classified as V1 blocker, V1 polish, or V2 redesign before implementation
-- keep the Web GUI on the same parity path, including production-verifiable visuals and a follow-up fix for the current `next dev` workspace-resolution issue
+- keep the Web GUI on the same parity path, including production-verifiable visuals, browser QA, and route-boundary checks under the root pnpm workspace
 
 ### 9. Per-Trade Context Persistence
 
@@ -254,9 +256,10 @@ The QA docs now exist and should stay in sync with the product.
 Desired direction:
 
 - keep QA scenarios aligned with actual CLI/TUI/runtime commands
-- use `python scripts/qa/smoke_qa.py` for a fast terminal smoke pass before deeper manual QA
-- use `python scripts/qa/smoke_qa.py --include-quality` when code-quality checks should travel with terminal smoke evidence
-- use `python scripts/qa/smoke_qa.py --include-quality --include-sonar` for the full local QA gate; this now emits coverage XML and submits it to SonarQube without writing the token to artifacts
+- use `pnpm run qa` for a fast terminal smoke pass before deeper manual QA
+- use `pnpm run qa:quality` for terminal smoke plus quality checks, `pnpm run sonar` for local pysonar upload, `pnpm run sonar:js` when the local npm scanner path also needs validation, and `pnpm run sonar:cloud` only for an intentional SonarCloud upload; all Sonar paths emit coverage XML and must not write tokens to artifacts
+- use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, and `pnpm run mcp:sonarqube:status` when verifying that editor/MCP Sonar wiring reads from Keychain and points at the intended local server instead of relying on tracked JSON env values
+- when Sonar reports issues, inspect the full codebase/project backlog rather than only the last commit; prioritize vulnerabilities, security hotspots, correctness bugs, blocker/critical issues, then maintainability cleanup, and record any accepted residual risk
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
@@ -268,15 +271,16 @@ Current state:
 - `docs/` now uses Fumadocs plus MDX for setup, architecture, runtime operations, agent pipeline, data/intelligence, operator-surface, memory/review, QA, and contribution pages
 - `docs/` now serves locale-prefixed English and Turkish trees with localized landing, navigation, and feedback copy
 - `docs` and `webgui` share the same shadcn preset result from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`
+- `webgui`, `docs`, and `tui` are now managed by a root pnpm workspace, with Makefile targets as thin aliases rather than a second build system
 - `webgui` still leans on a large legacy global shell layer even though Next.js App Router, Tailwind v4, and shadcn are already present
 
 Desired direction:
 
 - preserve the current `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono, and app-local `components/ui` baseline across both apps
 - keep `docs` curated and source-linked instead of turning it into a second dump of repository files
-- keep docs route files, feedback flows, and content helpers modular whenever splitting improves readability or reviewability
-- keep `docs/.env.example` aligned with the actual GitHub Discussions feedback inputs and use `docs/.env.local` for real secrets
-- verify the docs GitHub App wiring and discussion category in the target repo so feedback can forward beyond the local mirror consistently
+- keep docs route files, static feedback flow, and content helpers modular whenever splitting improves readability or reviewability
+- keep GitHub Pages feedback honest: browser-local issue drafts are allowed, but static docs must not claim filesystem writes or automatic forwarding
+- revisit server-side docs feedback only if the docs surface intentionally moves to a Node-hosted target later
 - migrate `webgui` screen by screen from legacy shell classes toward shadcn primitives and token-driven utility composition
 - avoid introducing new global shell classes when a shadcn primitive plus `cn` or `cva` composition can own the change
 - use QA evidence under `.ai/qa/artifacts/` for reproducible UI/runtime issues
@@ -285,4 +289,4 @@ Desired direction:
 - keep the automated test command in `AGENTS.md` current with the project environment
 - keep the opt-in runtime-cycle smoke check aligned with real product retry behavior so it validates operator-facing runtime reliability rather than a first-response-only LLM diagnostic
 - next coverage priority: add focused tests around storage service-state transitions, Rich menu branches, and Ink/Rich runtime-control paths so Sonar new-code coverage can approach the 80% gate
-- next Sonar cleanup priority: rerun analysis after the complexity cleanup, then address any remaining code smells or security hotspots that Sonar still reports
+- next Sonar cleanup priority: keep local project `agentic-trader` green on new code, review and burn down the full remaining backlog issues/hotspots with a token that has hotspot permissions, and keep SonarCloud project `ogiboy_agentic-trader` as the GitHub-facing history/badge target

@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- CLI/dashboard payloads are schema-loose JSON today */
-import { execFile } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
+import { execFile } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 function isWorkspaceRoot(candidate: string): boolean {
   return (
-    existsSync(resolve(candidate, "pyproject.toml")) &&
-    existsSync(resolve(candidate, "agentic_trader"))
+    existsSync(resolve(candidate, 'pyproject.toml')) &&
+    existsSync(resolve(candidate, 'agentic_trader'))
   );
 }
 
@@ -21,7 +21,7 @@ function findWorkspaceRoot(start: string): null | string {
     if (isWorkspaceRoot(current)) {
       return current;
     }
-    const parent = resolve(current, "..");
+    const parent = resolve(current, '..');
     if (parent === current) {
       return null;
     }
@@ -29,22 +29,19 @@ function findWorkspaceRoot(start: string): null | string {
   }
 }
 
-const workspaceRootCandidates = [
-  process.cwd(),
-  resolve(moduleDir, "../../.."),
-];
+const workspaceRootCandidates = [process.cwd(), resolve(moduleDir, '../../..')];
 const detectedWorkspaceRoot = workspaceRootCandidates
   .map(findWorkspaceRoot)
   .find((candidate): candidate is string => Boolean(candidate));
 
 if (!detectedWorkspaceRoot) {
   throw new Error(
-    `Unable to locate Agentic Trader workspace root from ${workspaceRootCandidates.join(" or ")}. ` +
-      "Start the Web GUI from the repository worktree or set AGENTIC_TRADER_PYTHON/AGENTIC_TRADER_CLI explicitly.",
+    `Unable to locate Agentic Trader workspace root from ${workspaceRootCandidates.join(' or ')}. ` +
+      'Start the Web GUI from the repository worktree or set AGENTIC_TRADER_PYTHON/AGENTIC_TRADER_CLI explicitly.',
   );
 }
 const workspaceRoot = detectedWorkspaceRoot;
-const cliExecutable = process.env.AGENTIC_TRADER_CLI || "agentic-trader";
+const cliExecutable = process.env.AGENTIC_TRADER_CLI || 'agentic-trader';
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 
 type ExecOptions = {
@@ -58,11 +55,14 @@ type ExecOptions = {
  * @returns The Conda environment name from `.codex/environments/environment.toml`, or `null` when the file is missing or does not declare a `conda activate <name>` command.
  */
 function detectManagedCondaEnvName(): null | string {
-  const manifestPath = resolve(workspaceRoot, ".codex/environments/environment.toml");
+  const manifestPath = resolve(
+    workspaceRoot,
+    '.codex/environments/environment.toml',
+  );
   if (!existsSync(manifestPath)) {
     return null;
   }
-  const manifest = readFileSync(manifestPath, "utf-8");
+  const manifest = readFileSync(manifestPath, 'utf-8');
   const match = manifest.match(/conda activate ([^\s'"]+)/);
   return match?.[1] || null;
 }
@@ -79,7 +79,7 @@ function detectManagedCondaEnvName(): null | string {
  */
 function detectManagedPythonExecutable(): null | string {
   if (process.env.VIRTUAL_ENV) {
-    const virtualEnvPython = resolve(process.env.VIRTUAL_ENV, "bin", "python");
+    const virtualEnvPython = resolve(process.env.VIRTUAL_ENV, 'bin', 'python');
     if (existsSync(virtualEnvPython)) {
       return virtualEnvPython;
     }
@@ -88,9 +88,13 @@ function detectManagedPythonExecutable(): null | string {
   if (
     process.env.CONDA_PREFIX &&
     process.env.CONDA_DEFAULT_ENV &&
-    process.env.CONDA_DEFAULT_ENV !== "base"
+    process.env.CONDA_DEFAULT_ENV !== 'base'
   ) {
-    const activeCondaPython = resolve(process.env.CONDA_PREFIX, "bin", "python");
+    const activeCondaPython = resolve(
+      process.env.CONDA_PREFIX,
+      'bin',
+      'python',
+    );
     if (existsSync(activeCondaPython)) {
       return activeCondaPython;
     }
@@ -103,17 +107,23 @@ function detectManagedPythonExecutable(): null | string {
 
   const condaRoots = new Set<string>();
   if (process.env.CONDA_EXE) {
-    condaRoots.add(resolve(dirname(process.env.CONDA_EXE), ".."));
+    condaRoots.add(resolve(dirname(process.env.CONDA_EXE), '..'));
   }
   if (process.env.HOME) {
-    condaRoots.add(resolve(process.env.HOME, "miniconda3"));
-    condaRoots.add(resolve(process.env.HOME, "anaconda3"));
+    condaRoots.add(resolve(process.env.HOME, 'miniconda3'));
+    condaRoots.add(resolve(process.env.HOME, 'anaconda3'));
   }
-  condaRoots.add("/opt/anaconda3");
-  condaRoots.add("/usr/local/anaconda3");
+  condaRoots.add('/opt/anaconda3');
+  condaRoots.add('/usr/local/anaconda3');
 
   for (const condaRoot of condaRoots) {
-    const managedCondaPython = resolve(condaRoot, "envs", managedEnvName, "bin", "python");
+    const managedCondaPython = resolve(
+      condaRoot,
+      'envs',
+      managedEnvName,
+      'bin',
+      'python',
+    );
     if (existsSync(managedCondaPython)) {
       return managedCondaPython;
     }
@@ -132,16 +142,19 @@ function buildAttempts(args: string[]): Array<[string, string[]]> {
   const attempts: Array<[string, string[]]> = [];
   const managedPythonExecutable = detectManagedPythonExecutable();
   if (pythonExecutable) {
-    attempts.push([pythonExecutable, ["-m", "agentic_trader.cli", ...args]]);
+    attempts.push([pythonExecutable, ['-m', 'agentic_trader.cli', ...args]]);
   }
   if (managedPythonExecutable) {
-    attempts.push([managedPythonExecutable, ["-m", "agentic_trader.cli", ...args]]);
+    attempts.push([
+      managedPythonExecutable,
+      ['-m', 'agentic_trader.cli', ...args],
+    ]);
   }
   attempts.push([cliExecutable, args]);
 
   const seen = new Set<string>();
   return attempts.filter(([command, commandArgs]) => {
-    const key = `${command}\u0000${commandArgs.join("\u0000")}`;
+    const key = `${command}\u0000${commandArgs.join('\u0000')}`;
     if (seen.has(key)) {
       return false;
     }
@@ -162,17 +175,17 @@ function defaultSymbolsFromPreferences(preferences: {
 }): string {
   const exchanges = preferences.exchanges || [];
   const regions = preferences.regions || [];
-  if (exchanges.includes("BIST") || regions.includes("TR")) {
-    return "THYAO.IS,GARAN.IS";
+  if (exchanges.includes('BIST') || regions.includes('TR')) {
+    return 'THYAO.IS,GARAN.IS';
   }
   if (
-    exchanges.includes("NASDAQ") ||
-    exchanges.includes("NYSE") ||
-    regions.includes("US")
+    exchanges.includes('NASDAQ') ||
+    exchanges.includes('NYSE') ||
+    regions.includes('US')
   ) {
-    return "AAPL,MSFT";
+    return 'AAPL,MSFT';
   }
-  return "BTC-USD,ETH-USD";
+  return 'BTC-USD,ETH-USD';
 }
 
 /**
@@ -186,7 +199,7 @@ function defaultSingleSymbol(data: Record<string, any>): string {
     data?.status?.state?.current_symbol ||
     data?.tradeContext?.record?.symbol ||
     data?.review?.record?.symbol ||
-    defaultSymbolsFromPreferences(data?.preferences || {}).split(",")[0]
+    defaultSymbolsFromPreferences(data?.preferences || {}).split(',')[0]
   );
 }
 
@@ -199,7 +212,11 @@ function defaultSingleSymbol(data: Record<string, any>): string {
  * @returns The chosen interval string (e.g., `"1d"`) from status, context pack, or the `"1d"` fallback
  */
 function defaultRuntimeInterval(data: Record<string, any>): string {
-  return data?.status?.state?.interval || data?.marketContext?.contextPack?.interval || "1d";
+  return (
+    data?.status?.state?.interval ||
+    data?.marketContext?.contextPack?.interval ||
+    '1d'
+  );
 }
 
 /**
@@ -212,7 +229,7 @@ function defaultRuntimeLookback(data: Record<string, any>): string {
   return (
     data?.status?.state?.lookback ||
     data?.marketContext?.contextPack?.lookback ||
-    "180d"
+    '180d'
   );
 }
 
@@ -263,19 +280,23 @@ export async function execTrader(
         maxBuffer: 8 * 1024 * 1024,
       });
       if (expectJson) {
-        return JSON.parse(stdout || "{}");
+        return JSON.parse(stdout || '{}');
       }
       return { stdout, stderr };
     } catch (error: any) {
       lastError = error;
-      if (error && typeof error === "object" && error.code !== "ENOENT") {
+      if (error && typeof error === 'object' && error.code !== 'ENOENT') {
         const detail = error.stderr || error.stdout || error.message;
-        throw new Error(String(detail).trim() || "Agentic Trader command failed.");
+        throw new Error(
+          String(detail).trim() || 'Agentic Trader command failed.',
+        );
       }
     }
   }
 
-  throw new Error(extractError(lastError || "No Agentic Trader executable was available."));
+  throw new Error(
+    extractError(lastError || 'No Agentic Trader executable was available.'),
+  );
 }
 
 /**
@@ -284,7 +305,7 @@ export async function execTrader(
  * @returns The dashboard data parsed from the CLI's JSON output.
  */
 export async function getDashboardSnapshot(): Promise<any> {
-  return execTrader(["dashboard-snapshot", "--log-limit", "14"], {
+  return execTrader(['dashboard-snapshot', '--log-limit', '14'], {
     expectJson: true,
     timeoutMs: 30_000,
   });
@@ -303,10 +324,10 @@ export async function runRuntimeAction(kind: string): Promise<{
 }> {
   const data = await getDashboardSnapshot();
 
-  if (kind === "start") {
+  if (kind === 'start') {
     if (isTraderRunning(data)) {
       return {
-        message: `Runtime already active with PID ${data?.status?.state?.pid ?? "-"}.`,
+        message: `Runtime already active with PID ${data?.status?.state?.pid ?? '-'}.`,
         dashboard: data,
       };
     }
@@ -315,17 +336,17 @@ export async function runRuntimeAction(kind: string): Promise<{
     const lookback = defaultRuntimeLookback(data);
     await execTrader(
       [
-        "launch",
-        "--symbols",
+        'launch',
+        '--symbols',
         symbols,
-        "--interval",
+        '--interval',
         interval,
-        "--lookback",
+        '--lookback',
         lookback,
-        "--continuous",
-        "--background",
-        "--poll-seconds",
-        "300",
+        '--continuous',
+        '--background',
+        '--poll-seconds',
+        '300',
       ],
       { timeoutMs: 60_000 },
     );
@@ -335,38 +356,38 @@ export async function runRuntimeAction(kind: string): Promise<{
     };
   }
 
-  if (kind === "stop") {
+  if (kind === 'stop') {
     if (!isTraderRunning(data)) {
       return {
-        message: "No managed runtime is currently active.",
+        message: 'No managed runtime is currently active.',
         dashboard: data,
       };
     }
-    await execTrader(["stop-service"], { timeoutMs: 30_000 });
+    await execTrader(['stop-service'], { timeoutMs: 30_000 });
     return {
       message: `Stop requested for PID ${data.status.state.pid}.`,
       dashboard: await getDashboardSnapshot(),
     };
   }
 
-  if (kind === "restart") {
+  if (kind === 'restart') {
     if ((data?.status?.state?.symbols || []).length) {
-      await execTrader(["restart-service"], { timeoutMs: 30_000 });
+      await execTrader(['restart-service'], { timeoutMs: 30_000 });
       return {
-        message: "Background runtime restart requested.",
+        message: 'Background runtime restart requested.',
         dashboard: await getDashboardSnapshot(),
       };
     }
     return {
-      message: "No saved runtime launch config is available yet.",
+      message: 'No saved runtime launch config is available yet.',
       dashboard: data,
     };
   }
 
-  if (kind === "one-shot") {
+  if (kind === 'one-shot') {
     if (isTraderRunning(data)) {
       return {
-        message: `Runtime already active with PID ${data?.status?.state?.pid ?? "-"}. Stop it before running a one-shot cycle.`,
+        message: `Runtime already active with PID ${data?.status?.state?.pid ?? '-'}. Stop it before running a one-shot cycle.`,
         dashboard: data,
       };
     }
@@ -374,7 +395,15 @@ export async function runRuntimeAction(kind: string): Promise<{
     const interval = defaultRuntimeInterval(data);
     const lookback = defaultRuntimeLookback(data);
     await execTrader(
-      ["run", "--symbol", symbol, "--interval", interval, "--lookback", lookback],
+      [
+        'run',
+        '--symbol',
+        symbol,
+        '--interval',
+        interval,
+        '--lookback',
+        lookback,
+      ],
       { timeoutMs: 240_000 },
     );
     return {
@@ -393,10 +422,13 @@ export async function runRuntimeAction(kind: string): Promise<{
  * @param apply - If `true`, apply the instruction; if `false`, perform a non-applying evaluation (dry run).
  * @returns The parsed JSON response produced by the Agentic Trader CLI.
  */
-export async function runInstruction(message: string, apply: boolean): Promise<any> {
-  const args = ["instruct", "--json", "--message", message];
+export async function runInstruction(
+  message: string,
+  apply: boolean,
+): Promise<any> {
+  const args = ['instruct', '--json', '--message', message];
   if (apply) {
-    args.push("--apply");
+    args.push('--apply');
   }
   return execTrader(args, {
     expectJson: true,
@@ -413,7 +445,7 @@ export async function runInstruction(message: string, apply: boolean): Promise<a
  */
 export async function runChat(persona: string, message: string): Promise<any> {
   return execTrader(
-    ["chat", "--json", "--persona", persona, "--message", message],
+    ['chat', '--json', '--persona', persona, '--message', message],
     {
       expectJson: true,
       timeoutMs: 180_000,

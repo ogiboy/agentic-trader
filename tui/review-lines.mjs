@@ -1,5 +1,8 @@
 function renderUnavailableMessage(error) {
-  return ['Unavailable in observer mode.', error || 'The requested view could not read the runtime database.'];
+  return [
+    'Unavailable in observer mode.',
+    error || 'The requested view could not read the runtime database.',
+  ];
 }
 
 export function getFundamentalAssessmentLines(fundamental) {
@@ -35,10 +38,15 @@ export function getCanonicalAnalysisLines(canonicalAnalysis) {
     .slice(0, 8)
     .map((source) => `${source.provider_type}:${source.source_name}`)
     .join(', ');
-  const hiddenSourceCount = Math.max(sourceAttributions.length - sources.length, 0);
-  const hiddenSourceNote = hiddenSourceCount > 0 ? ` (+${hiddenSourceCount} more)` : '';
+  const hiddenSourceCount = Math.max(
+    sourceAttributions.length - sources.length,
+    0,
+  );
+  const hiddenSourceNote =
+    hiddenSourceCount > 0 ? ` (+${hiddenSourceCount} more)` : '';
   const hiddenMissingCount = Math.max(missingSourceItems.length - 8, 0);
-  const hiddenMissingNote = hiddenMissingCount > 0 ? ` (+${hiddenMissingCount} more)` : '';
+  const hiddenMissingNote =
+    hiddenMissingCount > 0 ? ` (+${hiddenMissingCount} more)` : '';
   const sourceLines = sources.map((source) => `Source: ${source}`);
   return [
     `Summary: ${snapshot.summary || '-'}`,

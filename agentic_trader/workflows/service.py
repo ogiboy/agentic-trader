@@ -45,7 +45,7 @@ class _ServiceSymbolOutcome:
 def _stop_requested(db: TradingDatabase) -> bool:
     """
     Check whether a stop of the service has been requested.
-    
+
     Returns:
         True if a stop has been requested via settings or the persisted service state, False otherwise.
     """
@@ -58,12 +58,12 @@ def _stop_requested(db: TradingDatabase) -> bool:
 def _is_nonfatal_symbol_error(exc: Exception) -> bool:
     """
     Determine whether an exception represents a non-fatal symbol-level market-data error.
-    
+
     Inspect the exception message and classify it as non-fatal when it indicates missing or incomplete market data.
-    
+
     Parameters:
         exc (Exception): The exception whose message will be inspected.
-    
+
     Returns:
         bool: `True` if the exception message describes symbol-scoped data absence, invalid market data, or lookback undercoverage; `False` otherwise.
     """
@@ -85,13 +85,13 @@ def _manage_open_position(
 ) -> str | None:
     """
     Close an open position for the given symbol when its position plan indicates an exit and record the closure.
-    
+
     If a non-zero position and a corresponding position plan exist, increments the plan's holding bars, re-evaluates exit conditions against the latest plan and snapshot, and when an exit is required uses the broker to close the position and records a `position_closed` service event.
-    
+
     Parameters:
         artifacts (RunArtifacts): Run artifacts containing the snapshot with the symbol to check.
         cycle_count (int): Current service cycle number to attach to the recorded event.
-    
+
     Returns:
         str | None: The broker order id for the exit if a position was closed, `None` otherwise.
     """
@@ -124,13 +124,13 @@ def _manage_open_position(
 def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
     """
     Ensure the local LLM service is reachable and, if configured, that the required model is available.
-    
+
     Parameters:
         settings (Settings): Application settings. When `settings.runtime_mode == "operation"`, `settings.strict_llm` must be True.
-    
+
     Returns:
         LLMHealthStatus: Health report returned by the local LLM.
-    
+
     Raises:
         RuntimeError: If operation mode is configured without `strict_llm`, if the LLM service is not reachable (message provided by the health check), or if `strict_llm` is True but the required model is unavailable (message provided by the health check).
     """
@@ -149,12 +149,12 @@ def _override_or_next(
 ) -> int:
     """
     Compute the next integer value using an optional override and an increment flag.
-    
+
     Parameters:
         override (int | None): If provided, this value is returned verbatim.
         current (int | None): Current base value; treated as 0 if None.
         increment (bool): If True and `override` is None, return `current` + 1; otherwise return `current`.
-    
+
     Returns:
         int: `override` when not None; otherwise `current` (treated as 0) plus 1 if `increment` is True, or `current` (treated as 0) if False.
     """
@@ -167,9 +167,9 @@ def _override_or_next(
 def _record_cycle_completed_mark(db: TradingDatabase, cycle_count: int) -> None:
     """
     Record an account mark indicating completion of a service cycle.
-    
+
     Writes a mark with source "cycle_completed", a human-readable note "Cycle {cycle_count} completed.", and the provided cycle_count value.
-    
+
     Parameters:
         cycle_count (int): The completed cycle number to record.
     """
@@ -394,9 +394,7 @@ def _record_cycle_nonfatal_summary(
 
 def _completion_message(cycle_count: int, had_nonfatal_failure: bool) -> str:
     if had_nonfatal_failure:
-        return (
-            f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
-        )
+        return f"Orchestrator completed after {cycle_count} cycle(s) with one or more skipped symbols."
     return f"Orchestrator completed after {cycle_count} cycle(s)."
 
 
@@ -534,7 +532,9 @@ def _process_service_symbol(
             cycle_count=cycle_count,
         )
         return _ServiceSymbolOutcome(
-            result=ServiceCycleResult(symbol=symbol, artifacts=artifacts, order_id=order_id),
+            result=ServiceCycleResult(
+                symbol=symbol, artifacts=artifacts, order_id=order_id
+            ),
             stop_requested=True,
         )
 
@@ -634,9 +634,9 @@ def start_background_service(
 ) -> int:
     """
     Spawn the trading service as a background process and record its runtime metadata.
-    
+
     If an earlier recorded service state indicates a stale PID (process not alive), that state is marked recovered before launching. The function upserts a new `starting` service state, inserts a spawn event, and returns the spawned process PID.
-    
+
     Parameters:
         settings (Settings): Runtime and environment configuration.
         symbols (list[str]): Symbols the background service will process.
@@ -648,10 +648,10 @@ def start_background_service(
         workdir (Path | None): Working directory for the spawned process; defaults to current working directory when `None`.
         launch_count_override (int | None): Optional explicit launch count to record; when `None`, an incremented prior launch count is used.
         restart_count_override (int | None): Optional explicit restart count to record; when `None`, the prior restart count is used.
-    
+
     Returns:
         int: PID of the spawned background process.
-    
+
     Raises:
         RuntimeError: If a recorded service state indicates the service is already active (an alive PID).
     """
@@ -766,12 +766,21 @@ def restart_background_service(
 ) -> int:
     db = TradingDatabase(settings)
     state = db.get_service_state()
-    if state is None or not state.symbols or state.interval is None or state.lookback is None:
+    if (
+        state is None
+        or not state.symbols
+        or state.interval is None
+        or state.lookback is None
+    ):
         db.close()
-        raise RuntimeError("No restartable background service configuration is recorded yet.")
+        raise RuntimeError(
+            "No restartable background service configuration is recorded yet."
+        )
     if not state.continuous:
         db.close()
-        raise RuntimeError("Restart is only supported for continuous service configurations.")
+        raise RuntimeError(
+            "Restart is only supported for continuous service configurations."
+        )
 
     if state.pid is not None and is_process_alive(state.pid):
         request_stop(settings)

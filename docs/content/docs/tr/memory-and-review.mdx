@@ -56,7 +56,7 @@ Kalıcı bir karar değiştiğinde doğru kapanış çoğu zaman şudur:
 
 ## Feedback akışının düz anlatımı
 
-Docs feedback her zaman `runtime/docs-feedback.jsonl` dosyasına yerel bir kayıt yazar.
-Eğer docs uygulamasının `docs/.env.local` dosyasında GitHub App bilgileri varsa aynı feedback, ilgili sayfa için GitHub Discussions'a da iletilir.
+GitHub Pages docs build'i repo dosya sistemine yazamaz.
+Bu yüzden feedback widget'ı kısa bir taslağı tarayıcı içinde saklar ve manuel gönderim için hazır doldurulmuş GitHub issue bağlantısı üretir.
 
-Bu “yerel log artı opsiyonel forwarding” modeli bilinçli bir tercih; çünkü GitHub erişilemiyorken bile lokal bir audit trail bırakır.
+İleride Node-hosted bir docs örneği server-side feedback'i yeniden açarsa local auditability açık kalmalı ve external forwarding başarısızken başarı taklidi yapmamalı.

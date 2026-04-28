@@ -42,7 +42,9 @@ MTFAlignment: TypeAlias = Literal["bullish", "bearish", "mixed"]
 TrendVote: TypeAlias = Literal["bullish", "bearish", "mixed", "insufficient"]
 RuntimeMode: TypeAlias = Literal["training", "operation"]
 ExecutionBackend: TypeAlias = Literal["paper", "simulated_real", "live"]
-NewsClassification: TypeAlias = Literal["company_specific", "sector_level", "macro_level"]
+type NewsClassification = Literal[
+    "company_specific", "sector_level", "macro_level"
+]
 AnalysisSignal: TypeAlias = Literal["supportive", "neutral", "cautious", "avoid"]
 DataProviderKind: TypeAlias = Literal[
     "market", "fundamental", "news", "disclosure", "macro"
@@ -437,11 +439,11 @@ class FundamentalAssessment(BaseModel):
     def sync_legacy_fields(self) -> "FundamentalAssessment":
         """
         Synchronize legacy and current field names so both representations remain consistent after model initialization.
-        
+
         Copies values between legacy and new field pairs when only one of each pair was provided, ensuring fields such as `growth_quality`/`revenue_growth_quality`, `balance_sheet_quality`/`debt_quality`, `fx_risk`/`fx_exposure_risk`, `overall_bias`/`overall_signal`, and `red_flags`/`risk_flags` are aligned.
-        
+
         Returns:
-        	self (FundamentalAssessment): The model instance with synchronized fields.
+                self (FundamentalAssessment): The model instance with synchronized fields.
         """
         fields = set(self.model_fields_set)
 

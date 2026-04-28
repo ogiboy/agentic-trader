@@ -1,12 +1,19 @@
-import type { ActionResponse } from "@/components/feedback/schema";
-import type { DocLanguage } from "@/lib/i18n/config";
-import { getFeedbackCopy } from "@/components/feedback/copy";
+import type { ActionResponse } from '@/components/feedback/schema';
+import type { DocLanguage } from '@/lib/i18n/config';
+import { getFeedbackCopy } from '@/components/feedback/copy';
 
 type FeedbackResultProps = {
   locale: DocLanguage;
   result: ActionResponse;
 };
 
+/**
+ * Render a localized feedback message and related details for a feedback action result.
+ *
+ * @param locale - Locale key used to select localized copy
+ * @param result - ActionResponse that determines what is displayed (error message when `ok` is false; on success, a status message selected from forwarding state, optional `githubUrl`, and optional `warning`)
+ * @returns A React element containing the localized feedback: either a single error paragraph when `result.ok` is false, or a success block with a primary message, an optional external link to `result.githubUrl`, and an optional technical warning
+ */
 export function FeedbackResult({
   locale,
   result,
@@ -17,12 +24,12 @@ export function FeedbackResult({
     return <p className="text-destructive">{result.error}</p>;
   }
 
-  const message =
-    result.forwarding === "succeeded"
-      ? copy.successForwarded
-      : result.forwarding === "failed"
-        ? copy.successLocalOnlyFailed
-        : copy.successLocalOnlyDisabled;
+  let message = copy.successLocalOnlyDisabled;
+  if (result.forwarding === 'prepared' || result.forwarding === 'succeeded') {
+    message = copy.successPrepared;
+  } else if (result.forwarding === 'failed') {
+    message = copy.successLocalOnlyFailed;
+  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -34,12 +41,14 @@ export function FeedbackResult({
           rel="noopener noreferrer"
           target="_blank"
         >
-          {copy.openDiscussion}
+          {copy.openIssue}
         </a>
       ) : null}
       {result.warning ? (
         <p className="text-muted-foreground">
-          <span className="font-medium text-foreground">{copy.technicalDetail}:</span>{" "}
+          <span className="font-medium text-foreground">
+            {copy.technicalDetail}:
+          </span>{' '}
           {result.warning}
         </p>
       ) : null}

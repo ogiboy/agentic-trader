@@ -7,12 +7,12 @@ from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessmen
 def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
     """
     Constructs a conservative fallback RegimeAssessment from a MarketSnapshot when the LLM-based classification is unavailable or invalid.
-    
+
     Evaluates snapshot indicators (volatility, moving averages, RSI, multi-timeframe alignment/confidence, and short-term return) to select one of: "high_volatility", "trend_up", "trend_down", "range", or "breakout_candidate". The returned assessment always has source="fallback" and fallback_reason set to the module constant LLM_FALLBACK_REASON.
-    
+
     Parameters:
         snapshot (MarketSnapshot): Market snapshot containing indicators used to decide the fallback regime (expects at least: ema_20, ema_50, last_close, volatility_20, rsi_14, mtf_alignment, mtf_confidence, return_5).
-    
+
     Returns:
         RegimeAssessment: A regime assessment object representing a conservative fallback classification with an appropriate direction_bias, confidence, reasoning, key_risks, source, and fallback_reason.
     """

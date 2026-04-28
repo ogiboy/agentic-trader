@@ -14,7 +14,15 @@ const cliExecutable = process.env.AGENTIC_TRADER_CLI || 'agentic-trader';
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 const once = process.argv.includes('--once');
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
-const pages = ['overview', 'runtime', 'portfolio', 'review', 'memory', 'chat', 'settings'];
+const pages = [
+  'overview',
+  'runtime',
+  'portfolio',
+  'review',
+  'memory',
+  'chat',
+  'settings',
+];
 const personas = [
   'operator_liaison',
   'regime_analyst',
@@ -115,7 +123,11 @@ function defaultSingleSymbol(data) {
  * @returns {string} The resolved interval value, or '1d' if none is present.
  */
 function defaultRuntimeInterval(data) {
-  return data?.status?.state?.interval || data?.marketContext?.contextPack?.interval || '1d';
+  return (
+    data?.status?.state?.interval ||
+    data?.marketContext?.contextPack?.interval ||
+    '1d'
+  );
 }
 
 /**
@@ -124,7 +136,11 @@ function defaultRuntimeInterval(data) {
  * @returns {string} The lookback interval string from runtime state if present, otherwise from the market context pack, otherwise `'180d'`.
  */
 function defaultRuntimeLookback(data) {
-  return data?.status?.state?.lookback || data?.marketContext?.contextPack?.lookback || '180d';
+  return (
+    data?.status?.state?.lookback ||
+    data?.marketContext?.contextPack?.lookback ||
+    '180d'
+  );
 }
 
 /**
@@ -390,7 +406,9 @@ function handleSettingsInput(input, key, handlers) {
     return true;
   }
   if (input === '[') {
-    handlers.setInstructionMode((current) => rotateInstructionMode(current, -1));
+    handlers.setInstructionMode((current) =>
+      rotateInstructionMode(current, -1),
+    );
     return true;
   }
   if (input === ']') {
@@ -731,8 +749,13 @@ function getInstructionResultLines(result) {
   const instruction = result.instruction || {};
   const update = instruction.preference_update || {};
   const updateLines = Object.entries(update)
-    .filter(([, value]) => value !== null && value !== undefined && value !== '')
-    .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join(',') : value}`);
+    .filter(
+      ([, value]) => value !== null && value !== undefined && value !== '',
+    )
+    .map(
+      ([key, value]) =>
+        `${key}=${Array.isArray(value) ? value.join(',') : value}`,
+    );
   return [
     `Summary: ${instruction.summary ?? '-'}`,
     `Update Preferences: ${instruction.should_update_preferences ?? false}`,
@@ -1310,17 +1333,18 @@ function SettingsPage({
     `Intervention: ${preferences.intervention_style}`,
     `Notes: ${preferences.notes || '-'}`,
   ];
-  const preferenceLines = compact && preferences.available !== false
-    ? [
-        `Regions / Exchanges: ${(preferences.regions || []).join(', ') || '-'} / ${(preferences.exchanges || []).join(', ') || '-'}`,
-        `Currencies / Sectors: ${(preferences.currencies || []).join(', ') || '-'} / ${(preferences.sectors || []).join(', ') || '-'}`,
-        `Risk / Style: ${preferences.risk_profile} / ${preferences.trade_style}`,
-        `Behavior / Strictness: ${preferences.behavior_preset} / ${preferences.strictness_preset}`,
-        `Profile / Tone: ${preferences.agent_profile} / ${preferences.agent_tone}`,
-        `Intervention: ${preferences.intervention_style}`,
-        `Notes: ${preferences.notes || '-'}`,
-      ]
-    : rawPreferenceLines;
+  const preferenceLines =
+    compact && preferences.available !== false
+      ? [
+          `Regions / Exchanges: ${(preferences.regions || []).join(', ') || '-'} / ${(preferences.exchanges || []).join(', ') || '-'}`,
+          `Currencies / Sectors: ${(preferences.currencies || []).join(', ') || '-'} / ${(preferences.sectors || []).join(', ') || '-'}`,
+          `Risk / Style: ${preferences.risk_profile} / ${preferences.trade_style}`,
+          `Behavior / Strictness: ${preferences.behavior_preset} / ${preferences.strictness_preset}`,
+          `Profile / Tone: ${preferences.agent_profile} / ${preferences.agent_tone}`,
+          `Intervention: ${preferences.intervention_style}`,
+          `Notes: ${preferences.notes || '-'}`,
+        ]
+      : rawPreferenceLines;
   const recentRunLines = getRecentRunsLines(recentRuns);
   const instructionLines = getInstructionResultLines(instructionResult);
   const composerLines = [
@@ -1338,12 +1362,20 @@ function SettingsPage({
       e(
         Box,
         { width: '50%', paddingRight: 1 },
-        panel('PREFERENCES', preferenceLines.slice(0, compact ? 7 : 12), 'blue'),
+        panel(
+          'PREFERENCES',
+          preferenceLines.slice(0, compact ? 7 : 12),
+          'blue',
+        ),
       ),
       e(
         Box,
         { width: '50%', paddingLeft: 1 },
-        panel('RECENT RUNS', recentRunLines.slice(0, compact ? 5 : 8), 'yellow'),
+        panel(
+          'RECENT RUNS',
+          recentRunLines.slice(0, compact ? 5 : 8),
+          'yellow',
+        ),
       ),
     ),
     e(
@@ -1358,11 +1390,7 @@ function SettingsPage({
     e(
       Box,
       { width: '100%', marginTop: 1 },
-      e(
-        Box,
-        { width: '100%' },
-        panel('COMPOSER', composerLines, 'magenta'),
-      ),
+      e(Box, { width: '100%' }, panel('COMPOSER', composerLines, 'magenta')),
     ),
   );
 }
@@ -1906,7 +1934,10 @@ function InteractiveDashboardApp() {
       prevPage();
       return;
     }
-    if (['1', '2', '3', '4', '5', '6', '7'].includes(input) && !['chat', 'settings'].includes(page)) {
+    if (
+      ['1', '2', '3', '4', '5', '6', '7'].includes(input) &&
+      !['chat', 'settings'].includes(page)
+    ) {
       setPage(pages[Number(input) - 1]);
       return;
     }
@@ -1953,7 +1984,7 @@ function InteractiveDashboardApp() {
  * Uses the dashboard state hook in non-interactive mode and returns the
  * DashboardView element populated with that state (no input wiring or periodic refresh).
  *
- * @returns {import('react').ReactElement} The DashboardView React element showing the current snapshot. 
+ * @returns {import('react').ReactElement} The DashboardView React element showing the current snapshot.
  */
 function StaticDashboardApp() {
   const {

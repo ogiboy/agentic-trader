@@ -1,4 +1,8 @@
-from agentic_trader.schemas import ConfidenceCalibration, MarketSnapshot, TradeJournalEntry
+from agentic_trader.schemas import (
+    ConfidenceCalibration,
+    MarketSnapshot,
+    TradeJournalEntry,
+)
 from agentic_trader.storage.db import TradingDatabase
 
 
@@ -57,7 +61,9 @@ def build_confidence_calibration(
             "Historical results were slightly negative, so a mild confidence haircut is appropriate."
         )
     else:
-        notes.append("Historical results do not require a defensive confidence haircut.")
+        notes.append(
+            "Historical results do not require a defensive confidence haircut."
+        )
 
     return ConfidenceCalibration(
         sample_size=len(matches),

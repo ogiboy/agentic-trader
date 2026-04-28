@@ -107,6 +107,93 @@ app = typer.Typer(
 )
 console = Console()
 
+TUI_PACKAGE_NAME = "agentic-trader-tui"
+
+
+type NodeCommandSet = tuple[list[str], list[str], Path, str]
+
+
+def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
+    """
+    Resolve package-manager install and start command vectors and a working directory for the bundled Ink TUI.
+    
+    Parameters:
+        tui_dir (Path): Path to the bundled TUI directory.
+    
+    Returns:
+        NodeCommandSet | None: A tuple (install_command, start_command, command_cwd, manager_name) where
+            - install_command (list[str]) is the package-manager install command to run,
+            - start_command (list[str]) is the command to start the TUI,
+            - command_cwd (Path) is the directory where the start command should be executed,
+            - manager_name (str) is a short identifier for the chosen package manager/workflow.
+        Returns `None` if no supported Node package manager can be resolved.
+    """
+    repo_root = tui_dir.parent
+    pnpm = shutil.which("pnpm")
+    if pnpm and (repo_root / "pnpm-workspace.yaml").exists():
+        return (
+            [pnpm, "install"],
+            [pnpm, "--filter", TUI_PACKAGE_NAME, "run", "start"],
+            repo_root,
+            "pnpm workspace",
+        )
+    if pnpm and (tui_dir / "pnpm-lock.yaml").exists():
+        return (
+            [pnpm, "install"],
+            [pnpm, "run", "start"],
+            tui_dir,
+            "pnpm",
+        )
+
+    npm = shutil.which("npm")
+    if npm and (tui_dir / "package-lock.json").exists():
+        return (
+            [npm, "install"],
+            [npm, "run", "start"],
+            tui_dir,
+            "npm",
+        )
+    if npm:
+        return (
+            [npm, "install", "--no-package-lock"],
+            [npm, "run", "start"],
+            tui_dir,
+            "npm",
+        )
+
+    yarn = shutil.which("yarn")
+    if yarn and (tui_dir / "yarn.lock").exists():
+        return (
+            [yarn, "install", "--frozen-lockfile"],
+            [yarn, "start"],
+            tui_dir,
+            "yarn",
+        )
+    if yarn:
+        return (
+            [yarn, "install", "--no-lockfile"],
+            [yarn, "start"],
+            tui_dir,
+            "yarn",
+        )
+
+    return None
+
+
+def _tui_dependencies_installed(tui_dir: Path, command_cwd: Path) -> bool:
+    """
+    Check whether TUI-specific Node dependencies appear installed.
+
+    Parameters:
+        tui_dir (Path): Path to the bundled TUI directory.
+        command_cwd (Path): Working directory where the resolved package-manager commands will run; root workspace dependencies alone are not sufficient.
+
+    Returns:
+        bool: `True` only when the TUI package has its own `node_modules` link directory, `False` otherwise.
+    """
+    _ = command_cwd
+    return (tui_dir / "node_modules").exists()
+
 
 def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
     """
@@ -3605,14 +3692,15 @@ def monitor(
 def ink_tui() -> None:
     """
     Launch the Ink-based control room, falling back to the Rich control room when Ink is unavailable.
-    
-    Checks for the bundled `tui` directory and an `npm` executable. If the TUI directory is missing or `npm`
-    is not found, the function invokes the Rich control-room fallback (`run_main_menu`) and returns.
-    On first-run (missing `node_modules`) it runs `npm install` in the TUI directory, then starts the Ink
-    UI with `npm run start`, passing the CLI and Python executable via environment variables.
-    
+
+    Checks for the bundled `tui` directory and a compatible Node package manager. If the TUI directory
+    is missing or no package manager can be resolved, the function invokes the Rich control-room
+    fallback (`run_main_menu`) and returns. On first-run (missing `node_modules`) it installs Ink
+    dependencies through the resolved package manager, then starts the Ink UI with the CLI and Python
+    executable passed through environment variables.
+
     Raises:
-        subprocess.CalledProcessError: If `npm install` or `npm run start` exits with a non-zero status.
+        subprocess.CalledProcessError: If dependency installation or TUI startup exits with a non-zero status.
     """
     tui_dir = Path(__file__).resolve().parent.parent / "tui"
     if not tui_dir.exists():
@@ -3626,28 +3714,28 @@ def ink_tui() -> None:
         run_main_menu()
         return
 
-    npm = shutil.which("npm")
-    if npm is None:
+    node_commands = _resolve_tui_node_commands(tui_dir)
+    if node_commands is None:
         console.print(
             _render_health_panel(
                 "Node Missing",
-                "npm is required to run the Ink control room. Falling back to the Rich control room.",
+                "A Node package manager is required to run the Ink control room. Falling back to the Rich control room.",
                 border_style="yellow",
             )
         )
         run_main_menu()
         return
+    install_command, start_command, command_cwd, package_manager = node_commands
 
-    node_modules = tui_dir / "node_modules"
-    if not node_modules.exists():
+    if not _tui_dependencies_installed(tui_dir, command_cwd):
         console.print(
             _render_health_panel(
                 "Installing TUI Dependencies",
-                "First launch detected. Installing Ink dependencies with npm.",
+                f"First launch detected. Installing Ink dependencies with {package_manager}.",
                 border_style="yellow",
             )
         )
-        subprocess.run([npm, "install"], cwd=tui_dir, check=True)
+        subprocess.run(install_command, cwd=command_cwd, check=True)
 
     cli_exec = shutil.which("agentic-trader") or "agentic-trader"
     env = {
@@ -3655,7 +3743,7 @@ def ink_tui() -> None:
         "AGENTIC_TRADER_CLI": cli_exec,
         "AGENTIC_TRADER_PYTHON": sys.executable,
     }
-    subprocess.run([npm, "run", "start"], cwd=tui_dir, check=True, env=env)
+    subprocess.run(start_command, cwd=command_cwd, check=True, env=env)
 
 
 @app.command("stop-service")

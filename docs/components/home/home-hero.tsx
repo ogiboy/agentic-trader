@@ -1,12 +1,12 @@
-import Link from "next/link";
-import { ChartCandlestick, ShieldCheck, TerminalSquare } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import type { DocLanguage } from "@/lib/i18n/config";
-import type { HomeContent } from "@/lib/home/content/types";
-import { withLanguagePrefix } from "@/lib/i18n/routing";
+import Link from 'next/link';
+import { ChartCandlestick, ShieldCheck, TerminalSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import type { DocLanguage } from '@/lib/i18n/config';
+import type { HomeContent } from '@/lib/home/content/types';
+import { withLanguagePrefix } from '@/lib/i18n/routing';
 
 type HomeHeroProps = {
   locale: DocLanguage;
@@ -33,7 +33,7 @@ export function HomeHero({ locale, content }: Readonly<HomeHeroProps>) {
       </div>
       <div className="mt-8 flex flex-wrap gap-3">
         <Button asChild size="lg">
-          <Link href={withLanguagePrefix(locale, "/docs")}>
+          <Link href={withLanguagePrefix(locale, '/docs')}>
             {content.primaryAction}
           </Link>
         </Button>

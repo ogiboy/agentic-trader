@@ -24,9 +24,9 @@ class _FailingLLM:
     def complete_structured(self, **_kwargs: Any) -> object:
         """
         Simulate an unavailable LLM by always raising a RuntimeError.
-        
+
         This method is used in tests to force code paths that handle an LLM being unreachable or disabled.
-        
+
         Raises:
             RuntimeError: Always raised with the message "LLM unavailable in test".
         """
@@ -37,7 +37,7 @@ class _StaticLLM:
     def __init__(self, assessment: FundamentalAssessment) -> None:
         """
         Initialize the instance with a preset FundamentalAssessment.
-        
+
         Parameters:
             assessment (FundamentalAssessment): The assessment this instance will supply for structured completion requests.
         """
@@ -46,10 +46,10 @@ class _StaticLLM:
     def for_role(self, _role: str) -> "_StaticLLM":
         """
         Return the same _StaticLLM instance regardless of the provided role.
-        
+
         Parameters:
             _role (str): Role identifier (ignored).
-        
+
         Returns:
             _StaticLLM: The same LLM instance (`self`).
         """
@@ -58,9 +58,9 @@ class _StaticLLM:
     def complete_structured(self, **_kwargs: Any) -> FundamentalAssessment:
         """
         Return the preconfigured FundamentalAssessment used by this test LLM.
-        
+
         Any keyword arguments are ignored.
-        
+
         Returns:
             FundamentalAssessment: The stored assessment instance.
         """
@@ -70,9 +70,9 @@ class _StaticLLM:
 def _snapshot() -> MarketSnapshot:
     """
     Builds a deterministic MarketSnapshot for symbol "AAPL" with preset indicator and market fields for use in tests.
-    
+
     The snapshot is dated 2025-06-30 and includes EMA, ATR, RSI, volatility, short- and medium-term returns, volume ratio, multi-timeframe alignment and confidence, and bars_analyzed.
-    
+
     Returns:
         MarketSnapshot: A MarketSnapshot instance populated with the fixed AAPL test values.
     """
@@ -132,13 +132,16 @@ def test_fundamental_agent_falls_back_to_structured_neutral_assessment() -> None
     assert "fundamental_fetch_not_implemented" in assessment.risk_flags
     assert "fundamental_fetch_not_implemented" in assessment.red_flags
     assert assessment.evidence_vs_inference.uncertainty
-    assert assessment.fallback_reason == "Structured fundamental provider data is unavailable."
+    assert (
+        assessment.fallback_reason
+        == "Structured fundamental provider data is unavailable."
+    )
 
 
 def test_fundamental_assessment_schema_exposes_evidence_contract() -> None:
     """
     Verify the FundamentalAssessment JSON schema exposes the required evidence and quality fields.
-    
+
     Asserts that the schema's "properties" includes quality metrics, risk/flag fields, evidence_vs_inference, and overall_bias used by the evidence contract.
     """
     properties = FundamentalAssessment.model_json_schema()["properties"]
@@ -175,7 +178,9 @@ def test_fundamental_agent_is_conservative_with_debt_risk() -> None:
             )
         }
     )
-    cautious_context = context.model_copy(update={"decision_features": cautious_features})
+    cautious_context = context.model_copy(
+        update={"decision_features": cautious_features}
+    )
 
     assessment = assess_fundamentals(
         cast(LocalLLM, _FailingLLM()),
@@ -225,7 +230,10 @@ def test_fundamental_agent_rejects_unsupported_llm_bias() -> None:
             "decision_features": features.model_copy(
                 update={
                     "fundamental": features.fundamental.model_copy(
-                        update={"quality_flags": [], "data_sources": ["provider_fixture"]}
+                        update={
+                            "quality_flags": [],
+                            "data_sources": ["provider_fixture"],
+                        }
                     )
                 }
             )
@@ -252,7 +260,7 @@ def test_fundamental_agent_rejects_unsupported_llm_bias() -> None:
 def test_macro_agent_falls_back_to_structured_neutral_assessment() -> None:
     """
     Verify the macro agent falls back to a structured neutral assessment when structured macro/news data is unavailable.
-    
+
     Asserts that the returned assessment:
     - has source "fallback"
     - sets macro_signal to "neutral"
@@ -270,4 +278,7 @@ def test_macro_agent_falls_back_to_structured_neutral_assessment() -> None:
     assert assessment.source == "fallback"
     assert assessment.macro_signal == "neutral"
     assert "no_structured_news_signals" in assessment.risk_flags
-    assert assessment.fallback_reason == "Structured macro/news provider data is unavailable."
+    assert (
+        assessment.fallback_reason
+        == "Structured macro/news provider data is unavailable."
+    )

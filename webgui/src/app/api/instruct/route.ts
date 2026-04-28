@@ -2,7 +2,9 @@ import {
   getDashboardSnapshot,
   runInstruction,
 } from '../../../lib/agentic-trader';
+import { parseJsonObjectBody } from '../../../lib/http';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SAFE_METHODS_WITHOUT_BROWSER_ORIGIN = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -15,7 +17,9 @@ function isSameOriginRequest(request: Request): boolean {
   }
   const referer = request.headers.get('referer');
   if (!referer) {
-    return SAFE_METHODS_WITHOUT_BROWSER_ORIGIN.has(request.method.toUpperCase());
+    return SAFE_METHODS_WITHOUT_BROWSER_ORIGIN.has(
+      request.method.toUpperCase(),
+    );
   }
   try {
     return new URL(referer).origin === requestOrigin;
@@ -33,28 +37,32 @@ function isSameOriginRequest(request: Request): boolean {
 export async function POST(request: Request) {
   const contentType = request.headers.get('content-type')?.toLowerCase() || '';
   if (!contentType.includes('application/json')) {
-    return Response.json({ error: 'expected application/json' }, { status: 400 });
+    return Response.json(
+      { error: 'expected application/json' },
+      { status: 400 },
+    );
   }
   if (!isSameOriginRequest(request)) {
     return Response.json({ error: 'forbidden origin' }, { status: 403 });
   }
 
-  let body: { message?: string; apply?: boolean };
-  try {
-    body = (await request.json()) as { message?: string; apply?: boolean };
-  } catch {
-    return Response.json({ error: 'invalid json' }, { status: 400 });
+  const parsed = await parseJsonObjectBody(request);
+  if (!parsed.ok) {
+    return parsed.response;
   }
+  const body = parsed.body;
 
   try {
-    if (!body.message?.trim()) {
-      return Response.json(
-        { error: 'missing instruction message' },
-        { status: 400 },
-      );
+    if (
+      typeof body.message !== 'string' ||
+      !body.message.trim() ||
+      (body.apply !== undefined && typeof body.apply !== 'boolean')
+    ) {
+      return Response.json({ error: 'invalid request' }, { status: 400 });
     }
+    const message = body.message.trim();
     const apply = body.apply === true;
-    const result = await runInstruction(body.message, apply);
+    const result = await runInstruction(message, apply);
     const dashboard = await getDashboardSnapshot();
     return Response.json({ result, dashboard });
   } catch (error) {

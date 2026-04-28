@@ -5,14 +5,21 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 ## Baseline Verification
 
 - [ ] Run terminal smoke QA:
-  - `python scripts/qa/smoke_qa.py`
+  - `pnpm run qa`
 - [ ] For code-quality passes, run:
-  - `python scripts/qa/smoke_qa.py --include-quality`
+  - `pnpm run qa:quality`
 - [ ] When SonarQube is available, run:
-  - `SONAR_TOKEN=... python scripts/qa/smoke_qa.py --include-sonar`
+  - `pnpm run sonar:status`
+  - `pnpm run mcp:sonarqube:status`
+  - `pnpm run sonar`
+  - `pnpm run sonar:js` when validating the npm scanner path specifically
+  - `pnpm run sonar:cloud` only when intentionally uploading to SonarCloud
 - [ ] Run the smallest relevant targeted tests.
 - [ ] Run the full suite when feasible:
-  - `/opt/anaconda3/envs/trader/bin/python -m pytest -q -p no:cacheprovider`
+  - `pnpm run check`
+- [ ] For workflow/release changes, preview version identity without mutating files:
+  - `pnpm run release:preview`
+  - `pnpm run version:plan`
 - [ ] Confirm `git status --short` does not contain accidental runtime artifacts.
 - [ ] Confirm smoke artifacts are grouped under a timestamped `.ai/qa/artifacts/smoke-*` directory.
 - [ ] Confirm changed roadmap items are checked or left unchecked accurately.
@@ -25,7 +32,9 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] `ruff check .` passes or findings are triaged.
 - [ ] `pytest -q -p no:cacheprovider` passes or failures are triaged.
 - [ ] `pyright` or IDE/Pylance diagnostics are checked when available.
-- [ ] SonarQube or `pysonar` findings are reviewed when the local Sonar service is available.
+- [ ] SonarQube, `pysonar`, `@sonar/scan`, and SonarCloud findings are reviewed against the intended target/project key.
+- [ ] Sonar findings are triaged across the full codebase, not only the latest commit, and are prioritized as security/correctness, blocker/critical maintainability, then minor cleanup.
+- [ ] Any accepted Sonar finding has a written reason and residual-risk note; no finding is dismissed as "unimportant" without review.
 - [ ] `.sonar/` remains ignored and no Sonar token is written to tracked files or artifacts.
 
 ## CLI
@@ -112,7 +121,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## Web GUI
 
-- [ ] `cd webgui && pnpm dev` serves the local shell on `http://localhost:3210`.
+- [ ] `pnpm dev:webgui` serves the local shell on `http://localhost:3210`.
 - [ ] The Web GUI uses the same dashboard/runtime/chat/instruction truth as CLI, Rich, and Ink.
 - [ ] Browser-visible cards surface section-level errors explicitly instead of collapsing them into empty-state copy.
 - [ ] Route handlers reject malformed JSON or foreign origins for POST actions.
