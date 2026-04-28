@@ -105,14 +105,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: poetry run semantic-release version
-
-      - name: Publish GitHub release
-        if: ${{ steps.release-plan.outputs.will_release == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: poetry run semantic-release publish --tag "${{ steps.release-plan.outputs.tag }}"
+        run: poetry run semantic-release version --no-vcs-release
 
       - name: Dispatch binary packaging
         if: ${{ steps.release-plan.outputs.will_release == 'true' }}
