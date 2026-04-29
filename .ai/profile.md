@@ -12,7 +12,9 @@ A strict, local-first, multi-agent paper trading system for Ollama-class models.
 
 - not a generic chat agent project
 - not an OpenClaw-style external orchestrator
+- not a CrewAI-owned runtime
 - not a live broker system yet
+- not live broker automation hidden behind research or training mode
 - not a report generator pretending to be a trading engine
 
 ## Repository Intent

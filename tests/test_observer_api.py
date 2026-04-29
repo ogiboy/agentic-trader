@@ -25,6 +25,11 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert status_code == 200
     assert broker["backend"] == "paper"
 
+    status_code, research = build_observer_api_payload(settings, path="/research")
+    assert status_code == 200
+    assert research["status"] == "disabled"
+    assert "provider_health" in research
+
 
 def test_observer_api_server_serves_local_http_payloads(tmp_path) -> None:
     settings = Settings(

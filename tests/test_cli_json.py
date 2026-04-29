@@ -55,6 +55,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["run", "-h"],
         ["broker-status", "--help"],
         ["broker-status", "-h"],
+        ["research-status", "--help"],
+        ["research-status", "-h"],
         ["trade-context", "--help"],
         ["trade-context", "-h"],
         ["tui", "--help"],
@@ -701,6 +703,7 @@ def test_dashboard_snapshot_json(
     assert payload["status"]["state"]["current_symbol"] == "AAPL"
     assert payload["supervisor"]["state"]["launch_count"] == 0
     assert payload["broker"]["backend"] == "paper"
+    assert payload["research"]["status"] == "disabled"
     assert payload["logs"][0]["event_type"] == "agent_regime_started"
     assert payload["agentActivity"]["current_stage"] == "regime"
     assert payload["agentActivity"]["current_stage_status"] == "running"
@@ -951,6 +954,31 @@ def test_broker_status_json_reports_execution_guardrails(
     assert payload["live_ready"] is False
 
 
+def test_research_status_json_reports_sidecar_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL,MSFT",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["research-status", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["mode"] == "training"
+    assert payload["enabled"] is True
+    assert payload["status"] == "idle"
+    assert payload["watched_symbols"] == ["AAPL", "MSFT"]
+    assert payload["provider_health"][0]["provider_id"] == "sec_edgar_research"
+
+
 def test_calendar_status_and_dashboard_snapshot_include_calendar(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -1000,6 +1028,8 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
     assert "news" in snapshot_payload
     assert snapshot_payload["news"]["mode"] == "off"
     assert "marketCache" in snapshot_payload
+    assert snapshot_payload["research"]["mode"] == "off"
+    assert snapshot_payload["research"]["enabled"] is False
     assert (
         snapshot_payload["chatHistory"]["entries"][0]["persona"] == "operator_liaison"
     )

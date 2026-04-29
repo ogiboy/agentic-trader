@@ -8,6 +8,13 @@ Reason:
 The project already has a specialist graph, manager layer, memory assembly, storage, replay, and operator surfaces.
 Adding an external orchestrator as the central control plane would duplicate and distort existing architecture.
 
+### Research sidecars are evidence companions, not orchestration owners
+
+Reason:
+The trading runtime already owns staged specialist execution, manager synthesis, guard decisions, broker adapters, persistence, and operator truth.
+The V1.1 research sidecar may collect and normalize external evidence, produce world-state snapshots, and prepare memory-update packets, but it must not submit orders, mutate trading policy, weaken strict runtime gates, or replace the staged graph.
+CrewAI can be useful later for V1.2 deep-dive/evaluation loops, but it stays behind an optional backend boundary and must not become a required core runtime dependency.
+
 ### External AI coding tools are development helpers, not runtime dependencies
 
 Reason:

@@ -49,6 +49,9 @@ Current runtime stages:
 - `agentic_trader/workflows/`
   Higher-level flow composition, replay, backtesting, review, and operator workflows
 
+- `agentic_trader/researchd/`
+  Optional research sidecar contracts for source health, evidence normalization, world-state snapshots, and future CrewAI-backed deep-dive loops. It is a sidecar boundary only and does not own trading runtime orchestration or broker execution.
+
 - `agentic_trader/cli.py`, `main.py`, `agentic_trader/tui.py`
   Operator-facing control surfaces
 
@@ -125,6 +128,8 @@ Good changes fit into one of these buckets:
 - keep financial intelligence behind structured feature/provider boundaries so agents consume summarized technical, fundamental, and macro context instead of raw noisy data
 - keep prompt rendering feature-first when `DecisionFeatureBundle` is attached; compact snapshots may remain internal for deterministic fallback, audit, and risk math
 - keep canonical source attribution and freshness metadata attached whenever external provider data enters runtime or persisted review context
+- keep research sidecars as read-only/local evidence companions that consume or emit structured packets without taking the DuckDB runtime writer role unless a separate sidecar persistence path is explicitly added
+- keep CrewAI or any future crew loop behind an optional adapter boundary; native runtime, replay, QA, and operator surfaces must keep working without it
 - keep V1 scoped to Alpaca-ready US paper-first operation; defer IBKR/global/FX accounting to V2
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - keep `webgui` and `docs` aligned on the current Next.js App Router plus Tailwind v4 plus shadcn baseline while migrating the Web GUI screen by screen instead of through a one-shot CSS rewrite
@@ -133,5 +138,6 @@ Good changes fit into one of these buckets:
 ## Architectural Anti-Goals
 
 - replacing the current runtime with an external orchestration framework
+- letting CrewAI or another sidecar framework replace the staged specialist graph, manager layer, execution guard, or broker adapter boundary
 - building a cloud-first dependency into core trading flow
 - converting the system into a generic assistant shell

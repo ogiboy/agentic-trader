@@ -241,6 +241,7 @@ Status: in progress.
 - keep recurring operator-facing text behind a shared catalog so future localization does not fragment CLI, Rich, Ink, and WebUI surfaces
 - make lookback truth a first-class artifact: every trading decision should expose the data window, context summary, memory inputs, and safety gates that shaped it
 - treat Training vs Operation as a shared runtime mode overlay, not a forked product or separate orchestration path
+- treat research sidecars as optional local evidence companions, not a second trading runtime or a replacement for the staged specialist graph
 - evolve QA from smoke testing into repeatable terminal regression evidence with deterministic CLI JSON checks, pexpect flows, optional tmux/asciinema capture, and human-readable failure reports
 - keep memory local-first, inspectable, and policy-bound even as embeddings become more semantic and retrieval becomes more powerful
 
@@ -389,6 +390,39 @@ Status: planned.
 - V1 readiness is Alpaca-first and US-equities-only to limit blast radius
 - V1 does not mean live trading is enabled; it means the system is Alpaca-ready while remaining paper-first with manual approval and strict safety gates
 - `paper` remains the default; `live` remains blocked until the adapter, approval gate, and readiness checks are intentionally implemented
+
+## V1.1 Research Sidecar - Local Evidence Companion
+
+Status: in progress.
+
+- [x] add a `researchd` module boundary for optional sidecar intelligence without moving the trading runtime into CrewAI or any external orchestration framework
+- [x] add canonical research schemas for raw evidence, macro events, social signals, findings, entity dossiers, world-state snapshots, provider health, and sidecar status
+- [x] add sidecar settings for mode, enablement, backend, symbols, cadence, and per-source limits with safe defaults
+- [x] add SEC EDGAR, KAP, macro, news/event, and social-watchlist provider scaffolds that expose missing ingestion instead of fabricating evidence
+- [x] add `research-status`, dashboard, and observer API visibility for mode, enabled/disabled state, backend, watched symbols, source health, and last update fields
+- [x] keep the initial CrewAI integration as an optional backend boundary rather than a required dependency or runtime replacement
+- [ ] add sidecar persistence for evidence packets, world-state snapshots, and memory-update previews without competing with the active DuckDB runtime writer
+- [ ] wire real official/structured sources first: SEC filings/company facts, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
+- [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
+- [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
+      Notes:
+- V1.1 is a local-first evidence companion for the current runtime, not a re-platforming
+- the sidecar may eventually run beside the daemon, but it must not submit orders, mutate trading policy, or weaken strict runtime gates
+- missing provider data must stay visible as missing; source diversity, staleness, evidence/inference separation, and contradiction tracking are core contracts
+
+## V1.2 Evaluation And Crew Loops - Optional Sidecar Harness
+
+Status: planned.
+
+- [ ] add optional CrewAI Flow/Crew adapters behind the sidecar backend boundary for deep-dive research tasks
+- [ ] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
+- [ ] add evaluation harnesses that compare research packets against later market behavior, paper outcomes, and memory/no-memory ablations
+- [ ] link simulated training trades back to the exact world-state snapshot, evidence packet, prompt context, and sidecar version used
+- [ ] add scenario memory, contradiction files, source-diversity scoring, and freshness/outcome weighting before research packets influence manager confidence
+- [ ] keep native replay, QA, and runtime paths valid when CrewAI is not installed or disabled
+      Notes:
+- CrewAI is useful here as a sidecar research harness, not as the owner of execution, broker state, or runtime orchestration
+- training intelligence loops should improve evaluation and memory quality while Operation remains strict, paper-first, and explicitly gated
 
 ## Phase 18: V2 Global Expansion - IBKR And FX
 

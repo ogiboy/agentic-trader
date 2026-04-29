@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from agentic_trader.schemas import ExecutionBackend, RuntimeMode
+from agentic_trader.schemas import ExecutionBackend, ResearchMode, RuntimeMode
 
 
 class Settings(BaseSettings):
@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     market_data_mode: Literal["live", "prefer_cache", "refresh_cache"] = "live"
     news_mode: Literal["off", "yfinance"] = "off"
     news_headline_limit: int = 5
+    research_mode: ResearchMode = "off"
+    research_sidecar_enabled: bool = False
+    research_sidecar_backend: Literal["noop", "crewai"] = "noop"
+    research_symbols: str = ""
+    research_poll_seconds: int = Field(default=900, ge=60)
+    research_max_events_per_source: int = Field(default=20, ge=1, le=200)
 
     runtime_mode: RuntimeMode = "operation"
     strict_llm: bool = True

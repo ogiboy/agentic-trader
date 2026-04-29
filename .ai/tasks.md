@@ -13,6 +13,9 @@
 
 Now:
 
+- keep the new `researchd` sidecar foundation isolated from the trading runtime: no broker calls, no hidden policy mutation, no raw web/social text in agent prompts, and no CrewAI dependency in the core runtime
+- keep `research-status`, dashboard, and observer API sidecar payloads honest about missing sources, disabled/default state, backend, watched symbols, staleness, and provider health
+- grow V1.1 as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
 - keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's Poetry-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
@@ -24,6 +27,9 @@ Now:
 
 Next:
 
+- add sidecar persistence for raw evidence references, normalized events, findings, entity dossiers, and world-state snapshots without competing with the active DuckDB runtime writer
+- add real official/structured providers behind the sidecar source ladder, starting with SEC EDGAR, KAP, macro series, and news/event feeds; keep missing provider data visible
+- add optional V1.2 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
 - verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed

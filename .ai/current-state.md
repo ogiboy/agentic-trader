@@ -83,6 +83,8 @@ Implemented or substantially present:
 - VS Code and Codex MCP should route through the same local wrapper, which calls `scripts/secrets/run-sonarqube-mcp.sh`; the repo script reads the local SonarQube token from Keychain and exports it only to the Docker MCP process
 - `pnpm run mcp:sonarqube:status` distinguishes the local `sonarqube` server from transient `mcp/sonarqube` client containers and warns when several MCP clients are running
 - Sonar findings are treated as full-codebase review input; security/correctness findings, security hotspots, and blocker/critical maintainability issues are not dismissed without a fix or explicit risk acceptance
+- a first `agentic_trader/researchd/` sidecar foundation now exists with canonical research schemas, sidecar settings, source-health scaffolds for SEC EDGAR, KAP, macro, news/event, and social watchlists, and `research-status` plus dashboard/observer API visibility
+- the research sidecar is disabled by default, uses a no-op backend by default, keeps CrewAI behind an optional adapter boundary, and does not call broker, execution, run persistence, or runtime mode transition code
 
 New production-expansion direction:
 
@@ -91,6 +93,8 @@ New production-expansion direction:
 - market snapshots now carry a structured multi-horizon context pack, and Training/Operation visibility, behavior-specific gates, as-of audit fields, and transition checklists are present
 - memory is currently hybrid and inspectable, and vector metadata is now persisted; true local-first semantic embeddings and richer retrieval explanations are still planned expansions
 - Training and Operation should become first-class runtime modes shown across all surfaces instead of informal workflow concepts
+- V1.1 should grow the research sidecar as a local evidence companion that reconstructs what happened across 30d/90d/180d windows through normalized evidence packets, not raw web text in prompts
+- V1.2 should add optional CrewAI-backed deep-dive/evaluation loops behind the sidecar boundary while native replay, QA, and strict runtime flows remain valid without CrewAI installed
 - QA should grow from smoke coverage into tiered terminal regression evidence with CLI JSON snapshots, pexpect scenarios, optional tmux/asciinema capture, optional Computer Use visual passes, unique artifact directories for parallel runs, and generated failure reports
 
 ## Current Constraints
@@ -102,6 +106,8 @@ New production-expansion direction:
 - true semantic memory is not implemented yet; current vector-style retrieval with explicit metadata should be treated as a migration bridge, not the destination
 - Training vs Operation mode is enforced for the first core boundary: Operation requires strict LLM readiness, while Training diagnostic fallback is limited to evaluation/backtest flows
 - live broker adapters are not implemented or enabled; simulated-real remains local and non-live
+- research sidecar status and schemas are implemented, but real evidence ingestion, sidecar persistence, and memory writes are still future work
+- CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph
 - financial provider interfaces and canonical aggregation are implemented, but real SEC/KAP, transcripts, macro indicators, and richer vendor fetchers are still scaffolds or future providers
 - SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX source names are now explicit scaffold metadata; they are not live ingestors yet
 - Alpaca settings are config-ready for V1 readiness checks, but no Alpaca adapter or live execution path is enabled

@@ -49,6 +49,7 @@ from agentic_trader.runtime_status import (
     RuntimeStatusView,
 )
 from agentic_trader.observer_api import serve_observer_api
+from agentic_trader.researchd.status import build_research_sidecar_state
 from agentic_trader.schemas import (
     ChatPersona,
     CanonicalAnalysisSnapshot,
@@ -2134,6 +2135,67 @@ def runtime_mode_checklist(
     _render_runtime_mode_transition_plan(plan)
 
 
+def _research_sidecar_payload(
+    settings: Settings, *, probe: bool = False
+) -> dict[str, object]:
+    return build_research_sidecar_state(settings, probe=probe).model_dump(mode="json")
+
+
+def _render_research_sidecar_state(payload: dict[str, object]) -> None:
+    table = Table(title="Research Sidecar Status")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("Mode", str(payload["mode"]))
+    table.add_row("Enabled", str(payload["enabled"]))
+    table.add_row("Backend", str(payload["backend"]))
+    table.add_row("Status", str(payload["status"]))
+    table.add_row("Updated At", str(payload["updated_at"]))
+    table.add_row(
+        "Watched Symbols",
+        ", ".join(cast(list[str], payload["watched_symbols"])) or "-",
+    )
+    last_success = payload.get("last_successful_update_at")
+    table.add_row("Last Successful Update", str(last_success or "-"))
+    last_error = payload.get("last_error")
+    table.add_row("Last Error", str(last_error or "-"))
+    console.print(table)
+
+    providers = cast(list[dict[str, object]], payload["provider_health"])
+    provider_table = Table(title="Research Source Health")
+    provider_table.add_column("Provider")
+    provider_table.add_column("Type")
+    provider_table.add_column("Enabled")
+    provider_table.add_column("Freshness")
+    provider_table.add_column("Message")
+    for provider in providers:
+        provider_table.add_row(
+            str(provider["provider_id"]),
+            str(provider["provider_type"]),
+            str(provider["enabled"]),
+            str(provider["freshness"]),
+            str(provider["message"]),
+        )
+    console.print(provider_table)
+
+
+@app.command("research-status")
+def research_status(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    probe: bool = typer.Option(
+        False,
+        "--probe/--no-probe",
+        help="Run one isolated sidecar provider probe before reporting status.",
+    ),
+) -> None:
+    """Show optional research sidecar mode, backend, and source health."""
+    settings = get_settings()
+    payload = _research_sidecar_payload(settings, probe=probe)
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_research_sidecar_state(payload)
+
+
 @app.command()
 def run(
     symbol: str = typer.Option(..., help=HELP_SYMBOL),
@@ -2594,6 +2656,7 @@ def build_dashboard_snapshot_payload(
         "calendar": _calendar_payload(settings),
         "news": _news_payload(settings),
         "marketCache": _market_cache_payload(settings),
+        "research": _research_sidecar_payload(settings),
     }
 
 
@@ -2609,6 +2672,7 @@ def build_observer_api_payload(
     - "/status": returns a detailed runtime status view (runtime_state, live_process, is_stale, age_seconds, status_message, state).
     - "/logs": returns a list of recent service events under the "logs" key.
     - "/broker": returns broker runtime payload.
+    - "/research": returns optional research sidecar mode and provider health.
     - any other path: returns 404 with {"error": "not_found", "path": <requested path>}.
     
     Parameters:
@@ -2641,6 +2705,8 @@ def build_observer_api_payload(
         }
     if path == "/broker":
         return 200, _broker_payload(settings)
+    if path == "/research":
+        return 200, _research_sidecar_payload(settings)
     return 404, {"error": "not_found", "path": path}
 
 
@@ -2667,7 +2733,7 @@ def observer_api_command(
     settings = get_settings()
     console.print(
         Panel(
-            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker",
+            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /research",
             title="Observer API",
             border_style="cyan",
         )
