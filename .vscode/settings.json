@@ -4,5 +4,6 @@
   "sonarlint.connectedMode.project": {
     "connectionId": "local server",
     "projectKey": "agentic-trader"
-  }
+  },
+  "python.terminal.activateEnvInCurrentTerminal": true
 }
