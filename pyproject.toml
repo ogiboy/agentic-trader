@@ -56,6 +56,12 @@ extend-exclude = [
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
+version_variables = [
+  "package.json:version",
+  "webgui/package.json:version",
+  "docs/package.json:version",
+  "tui/package.json:version",
+]
 commit_parser = "conventional"
 tag_format = "v{version}"
 commit_message = "chore(release): v{version}"
