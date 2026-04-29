@@ -5,6 +5,10 @@ from agentic_trader.researchd.orchestrator import (
     ResearchSidecar,
     ResearchSidecarBackend,
 )
+from agentic_trader.researchd.persistence import (
+    persist_research_result,
+    record_from_pipeline_result,
+)
 from agentic_trader.researchd.status import build_research_sidecar_state
 
 __all__ = [
@@ -12,4 +16,6 @@ __all__ = [
     "ResearchSidecar",
     "ResearchSidecarBackend",
     "build_research_sidecar_state",
+    "persist_research_result",
+    "record_from_pipeline_result",
 ]

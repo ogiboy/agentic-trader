@@ -31,6 +31,21 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert "provider_health" in research
 
 
+def test_observer_research_payload_does_not_create_database(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+
+    status_code, research = build_observer_api_payload(settings, path="/research")
+
+    assert status_code == 200
+    assert research["status"] == "disabled"
+    assert "provider_health" in research
+    assert settings.database_path.exists() is False
+
+
 def test_observer_api_server_serves_local_http_payloads(tmp_path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,

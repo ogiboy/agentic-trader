@@ -15,6 +15,19 @@ The trading runtime already owns staged specialist execution, manager synthesis,
 The V1.1 research sidecar may collect and normalize external evidence, produce world-state snapshots, and prepare memory-update packets, but it must not submit orders, mutate trading policy, weaken strict runtime gates, or replace the staged graph.
 CrewAI can be useful later for V1.2 deep-dive/evaluation loops, but it stays behind an optional backend boundary and must not become a required core runtime dependency.
 
+### Research snapshots use the runtime feed before a sidecar database
+
+Reason:
+V1.1 needs sidecar persistence without competing with the active DuckDB runtime writer.
+Research-only commands therefore append `ResearchSnapshotRecord` JSON to the runtime feed and update a latest-snapshot JSON file instead of creating a main `research_snapshots` table.
+A separate sidecar database can be reconsidered only after real provider volume, query needs, and daemon polling behavior justify it.
+
+### CrewAI setup stays isolated until the dependency boundary is proven
+
+Reason:
+CrewAI is available as a useful sidecar harness, but adding it to the root lock would widen the runtime dependency surface before the adapter is implemented.
+The current path is operator-visible setup/status plus an ignored sidecar scaffold, then a JSON/Pydantic handshake behind `ResearchSidecarBackend` when V1.2 begins.
+
 ### External AI coding tools are development helpers, not runtime dependencies
 
 Reason:

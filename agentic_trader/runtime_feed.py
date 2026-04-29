@@ -2,7 +2,12 @@ import json
 from pathlib import Path
 
 from agentic_trader.config import Settings
-from agentic_trader.schemas import ChatHistoryEntry, ServiceEvent, ServiceStateSnapshot
+from agentic_trader.schemas import (
+    ChatHistoryEntry,
+    ResearchSnapshotRecord,
+    ServiceEvent,
+    ServiceStateSnapshot,
+)
 
 
 def service_state_path(settings: Settings) -> Path:
@@ -19,6 +24,14 @@ def stop_request_path(settings: Settings) -> Path:
 
 def chat_history_path(settings: Settings) -> Path:
     return settings.runtime_dir / "chat_history.jsonl"
+
+
+def research_snapshots_path(settings: Settings) -> Path:
+    return settings.runtime_dir / "research_snapshots.jsonl"
+
+
+def research_latest_snapshot_path(settings: Settings) -> Path:
+    return settings.runtime_dir / "research_latest_snapshot.json"
 
 
 def write_service_state(settings: Settings, state: ServiceStateSnapshot) -> None:
@@ -76,6 +89,45 @@ def read_chat_history(settings: Settings, *, limit: int = 20) -> list[ChatHistor
         entries.append(ChatHistoryEntry.model_validate(json.loads(line)))
     entries.reverse()
     return entries
+
+
+def append_research_snapshot(
+    settings: Settings, record: ResearchSnapshotRecord
+) -> None:
+    path = research_snapshots_path(settings)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(record.model_dump_json())
+        handle.write("\n")
+    research_latest_snapshot_path(settings).write_text(
+        record.model_dump_json(indent=2), encoding="utf-8"
+    )
+
+
+def read_research_snapshots(
+    settings: Settings, *, limit: int = 20
+) -> list[ResearchSnapshotRecord]:
+    path = research_snapshots_path(settings)
+    if not path.exists():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    records: list[ResearchSnapshotRecord] = []
+    for line in lines[-limit:]:
+        if not line.strip():
+            continue
+        records.append(ResearchSnapshotRecord.model_validate(json.loads(line)))
+    records.reverse()
+    return records
+
+
+def read_latest_research_snapshot(settings: Settings) -> ResearchSnapshotRecord | None:
+    latest_path = research_latest_snapshot_path(settings)
+    if latest_path.exists():
+        return ResearchSnapshotRecord.model_validate_json(
+            latest_path.read_text(encoding="utf-8")
+        )
+    records = read_research_snapshots(settings, limit=1)
+    return records[0] if records else None
 
 
 def request_stop(settings: Settings) -> None:

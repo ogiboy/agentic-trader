@@ -135,7 +135,7 @@ class NoopResearchBackend:
             social_signals=social_signals,
             memory_update={
                 "status": "not_written",
-                "reason": "sidecar persistence is not enabled in this foundation slice",
+                "reason": "trade memory writes are intentionally disabled for research snapshots",
                 "raw_web_text_injected": False,
             },
         )

@@ -401,7 +401,7 @@ Status: in progress.
 - [x] add SEC EDGAR, KAP, macro, news/event, and social-watchlist provider scaffolds that expose missing ingestion instead of fabricating evidence
 - [x] add `research-status`, dashboard, and observer API visibility for mode, enabled/disabled state, backend, watched symbols, source health, and last update fields
 - [x] keep the initial CrewAI integration as an optional backend boundary rather than a required dependency or runtime replacement
-- [ ] add sidecar persistence for evidence packets, world-state snapshots, and memory-update previews without competing with the active DuckDB runtime writer
+- [x] add file-backed sidecar persistence for raw-evidence references, world-state snapshots, and memory-update previews without opening or competing with the active DuckDB runtime writer
 - [ ] wire real official/structured sources first: SEC filings/company facts, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
 - [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
 - [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
@@ -414,6 +414,7 @@ Status: in progress.
 
 Status: planned.
 
+- [x] add an operator-visible CrewAI setup/status preflight that keeps CrewAI out of the core runtime dependency graph
 - [ ] add optional CrewAI Flow/Crew adapters behind the sidecar backend boundary for deep-dive research tasks
 - [ ] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
 - [ ] add evaluation harnesses that compare research packets against later market behavior, paper outcomes, and memory/no-memory ablations

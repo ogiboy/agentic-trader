@@ -62,6 +62,7 @@ The repository is now a small monorepo-style workspace:
 - Strict paper-trading runtime with model/provider readiness checks
 - Specialist agent pipeline with manager synthesis and execution guardrails
 - DuckDB-backed run records, traces, trade context, journal, and portfolio state
+- Optional research sidecar feed for source health, world-state snapshots, and future CrewAI-backed deep dives without replacing the core runtime
 - Ink TUI, Rich/admin menu, live monitor, and JSON status surfaces
 - Local Web GUI that delegates to the Python runtime instead of replacing it
 - Static-exportable docs site for setup, architecture, QA, and development notes
@@ -152,6 +153,9 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous` | Continuous paper runtime                   |
 | `agentic-trader monitor --refresh-seconds 1`                                           | Attach to runtime status                   |
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
+| `agentic-trader research-status --json`                                                | Inspect optional research sidecar health   |
+| `agentic-trader research-refresh --json`                                               | Run one isolated sidecar snapshot pass     |
+| `agentic-trader research-crewai-setup --json`                                          | Inspect optional CrewAI sidecar readiness  |
 | `agentic-trader review-run`                                                            | Review the latest persisted run            |
 
 ## Web GUI

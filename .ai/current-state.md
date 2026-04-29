@@ -85,6 +85,8 @@ Implemented or substantially present:
 - Sonar findings are treated as full-codebase review input; security/correctness findings, security hotspots, and blocker/critical maintainability issues are not dismissed without a fix or explicit risk acceptance
 - a first `agentic_trader/researchd/` sidecar foundation now exists with canonical research schemas, sidecar settings, source-health scaffolds for SEC EDGAR, KAP, macro, news/event, and social watchlists, and `research-status` plus dashboard/observer API visibility
 - the research sidecar is disabled by default, uses a no-op backend by default, keeps CrewAI behind an optional adapter boundary, and does not call broker, execution, run persistence, or runtime mode transition code
+- `research-refresh` can run one isolated sidecar pass and persist a `ResearchSnapshotRecord` to `runtime/research_snapshots.jsonl` plus `runtime/research_latest_snapshot.json`; `research-status`, dashboard, and observer payloads read this feed without opening DuckDB
+- `research-crewai-setup` reports optional CrewAI CLI/scaffold readiness, but CrewAI is still not imported by core runtime modules or added to the root dependency lock
 
 New production-expansion direction:
 
@@ -106,8 +108,8 @@ New production-expansion direction:
 - true semantic memory is not implemented yet; current vector-style retrieval with explicit metadata should be treated as a migration bridge, not the destination
 - Training vs Operation mode is enforced for the first core boundary: Operation requires strict LLM readiness, while Training diagnostic fallback is limited to evaluation/backtest flows
 - live broker adapters are not implemented or enabled; simulated-real remains local and non-live
-- research sidecar status and schemas are implemented, but real evidence ingestion, sidecar persistence, and memory writes are still future work
-- CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph
+- research sidecar status, schemas, and file-backed snapshot persistence are implemented, but real evidence ingestion, daemon-style polling controls, and trade-memory writes are still future work
+- CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph, and any generated CrewAI scaffold should stay outside the tracked core runtime until intentionally promoted
 - financial provider interfaces and canonical aggregation are implemented, but real SEC/KAP, transcripts, macro indicators, and richer vendor fetchers are still scaffolds or future providers
 - SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX source names are now explicit scaffold metadata; they are not live ingestors yet
 - Alpaca settings are config-ready for V1 readiness checks, but no Alpaca adapter or live execution path is enabled

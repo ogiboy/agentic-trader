@@ -1,10 +1,16 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from agentic_trader.config import Settings
 from agentic_trader.researchd.orchestrator import ResearchSidecar
+from agentic_trader.researchd.persistence import persist_research_result
 from agentic_trader.researchd.providers import (
     default_research_providers,
     provider_health_from_output,
+)
+from agentic_trader.runtime_feed import (
+    read_latest_research_snapshot,
+    read_research_snapshots,
 )
 from agentic_trader.researchd.status import build_research_sidecar_state
 from agentic_trader.schemas import EvidenceInferenceBreakdown, RawEvidenceRecord
@@ -111,3 +117,40 @@ def test_research_provider_health_keeps_missing_sources_visible(tmp_path) -> Non
     assert health.freshness == "missing"
     assert "ingestion_pending" in health.notes
     assert "Provider scaffold is visible" in health.message
+
+
+def test_research_result_persists_to_runtime_feed_without_database(tmp_path) -> None:
+    settings = _settings(
+        tmp_path,
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL",
+    )
+    result = ResearchSidecar(settings).collect_once()
+    now = datetime.now(UTC).isoformat()
+    evidence = RawEvidenceRecord(
+        record_id="raw-sidecar-1",
+        source_kind="news",
+        source_name="example_news",
+        title="Example evidence",
+        symbol="AAPL",
+        observed_at=now,
+        normalized_summary="Normalized evidence summary.",
+    )
+    result = replace(result, raw_evidence=[evidence])
+
+    record = persist_research_result(settings, result)
+    latest = read_latest_research_snapshot(settings)
+    records = read_research_snapshots(settings)
+
+    assert latest is not None
+    assert latest.snapshot_id == record.snapshot_id
+    assert latest.mode == "training"
+    assert latest.state.status == "completed"
+    assert latest.world_state is not None
+    assert record.world_state is not None
+    assert latest.world_state.snapshot_id == record.world_state.snapshot_id
+    assert latest.raw_evidence == [evidence]
+    assert latest.memory_update["status"] == "not_written"
+    assert records[0].snapshot_id == record.snapshot_id
+    assert settings.database_path.exists() is False

@@ -6,7 +6,10 @@ from typer.testing import CliRunner
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
-from agentic_trader.runtime_feed import append_chat_history
+from agentic_trader.runtime_feed import (
+    append_chat_history,
+    research_latest_snapshot_path,
+)
 from agentic_trader.schemas import (
     AgentStageTrace,
     BacktestReport,
@@ -57,6 +60,10 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["broker-status", "-h"],
         ["research-status", "--help"],
         ["research-status", "-h"],
+        ["research-refresh", "--help"],
+        ["research-refresh", "-h"],
+        ["research-crewai-setup", "--help"],
+        ["research-crewai-setup", "-h"],
         ["trade-context", "--help"],
         ["trade-context", "-h"],
         ["tui", "--help"],
@@ -977,6 +984,63 @@ def test_research_status_json_reports_sidecar_state(
     assert payload["status"] == "idle"
     assert payload["watched_symbols"] == ["AAPL", "MSFT"]
     assert payload["provider_health"][0]["provider_id"] == "sec_edgar_research"
+    assert payload["latestSnapshot"]["available"] is False
+    assert settings.database_path.exists() is False
+
+
+def test_research_refresh_json_persists_snapshot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["research-refresh", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["persisted"] is True
+    assert payload["state"]["status"] == "completed"
+    assert payload["record"]["state"]["watched_symbols"] == ["AAPL"]
+    assert research_latest_snapshot_path(settings).exists()
+    assert settings.database_path.exists() is False
+
+    status_result = runner.invoke(app, ["research-status", "--json"])
+    assert status_result.exit_code == 0
+    status_payload = json.loads(status_result.stdout)
+    assert status_payload["latestSnapshot"]["available"] is True
+    assert (
+        status_payload["latestSnapshot"]["record"]["snapshot_id"]
+        == payload["record"]["snapshot_id"]
+    )
+    assert settings.database_path.exists() is False
+
+
+def test_research_crewai_setup_json_reports_optional_boundary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["research-crewai-setup", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["core_dependency"] is False
+    assert "research_sidecar_flow" in payload["flow_dir"]
+    assert any("optional" in note.lower() for note in payload["notes"])
 
 
 def test_calendar_status_and_dashboard_snapshot_include_calendar(

@@ -140,8 +140,7 @@ def provider_health_from_output(output: ResearchProviderOutput) -> ResearchProvi
     freshness = "fresh" if has_payload else "missing"
     source_role = meta.role if has_payload else "missing"
     fetched_at = utc_now_iso() if has_payload else None
-    notes = list(meta.notes)
-    notes.extend(output.missing_reasons)
+    notes = list(dict.fromkeys([*meta.notes, *output.missing_reasons]))
     return ResearchProviderHealth(
         provider_id=meta.provider_id,
         name=meta.name,

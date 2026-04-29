@@ -53,14 +53,14 @@ DataProviderKind: TypeAlias = Literal[
 ]
 DataSourceRole: TypeAlias = Literal["primary", "fallback", "inferred", "missing"]
 FreshnessStatus: TypeAlias = Literal["fresh", "stale", "unknown", "missing"]
-ResearchEvidenceKind: TypeAlias = Literal[
+type ResearchEvidenceKind = Literal[
     "disclosure",
     "news",
     "macro",
     "social",
     "provider_status",
 ]
-ResearchSignalDirection: TypeAlias = Literal[
+type ResearchSignalDirection = Literal[
     "supportive", "neutral", "cautious", "contradictory", "unknown"
 ]
 DisclosureKind: TypeAlias = Literal[
@@ -556,6 +556,19 @@ class ResearchSidecarState(BaseModel):
     watched_symbols: list[str] = Field(default_factory=list)
     provider_health: list[ResearchProviderHealth] = Field(default_factory=list)
     source_health_summary: dict[str, int] = Field(default_factory=dict)
+
+
+class ResearchSnapshotRecord(BaseModel):
+    snapshot_id: str
+    created_at: str
+    mode: ResearchMode
+    backend: str = "noop"
+    status: Literal["disabled", "idle", "running", "completed", "failed"] = "disabled"
+    watched_symbols: list[str] = Field(default_factory=list)
+    raw_evidence: list[RawEvidenceRecord] = Field(default_factory=list)
+    world_state: WorldStateSnapshot | None = None
+    state: ResearchSidecarState
+    memory_update: dict[str, object] = Field(default_factory=dict)
 
 
 class FundamentalAssessment(BaseModel):

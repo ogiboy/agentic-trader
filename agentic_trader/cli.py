@@ -37,6 +37,7 @@ from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.memory.policy import memory_write_policy_snapshot
 from agentic_trader.runtime_feed import (
     append_chat_history,
+    read_latest_research_snapshot,
     read_service_events,
     read_service_state,
     read_chat_history,
@@ -49,6 +50,9 @@ from agentic_trader.runtime_status import (
     RuntimeStatusView,
 )
 from agentic_trader.observer_api import serve_observer_api
+from agentic_trader.researchd.crewai_setup import crewai_setup_status
+from agentic_trader.researchd.orchestrator import ResearchSidecar
+from agentic_trader.researchd.persistence import persist_research_result
 from agentic_trader.researchd.status import build_research_sidecar_state
 from agentic_trader.schemas import (
     ChatPersona,
@@ -2138,7 +2142,30 @@ def runtime_mode_checklist(
 def _research_sidecar_payload(
     settings: Settings, *, probe: bool = False
 ) -> dict[str, object]:
-    return build_research_sidecar_state(settings, probe=probe).model_dump(mode="json")
+    payload = build_research_sidecar_state(settings, probe=probe).model_dump(
+        mode="json"
+    )
+    payload["latestSnapshot"] = _latest_research_snapshot_payload(settings)
+    return payload
+
+
+def _latest_research_snapshot_payload(settings: Settings) -> dict[str, object]:
+    try:
+        record = read_latest_research_snapshot(settings)
+    except Exception as exc:
+        return {
+            "available": False,
+            "error": str(exc),
+        }
+    if record is None:
+        return {
+            "available": False,
+            "error": "no_research_snapshot_recorded",
+        }
+    return {
+        "available": True,
+        "record": record.model_dump(mode="json"),
+    }
 
 
 def _render_research_sidecar_state(payload: dict[str, object]) -> None:
@@ -2194,6 +2221,77 @@ def research_status(
         _emit_json(payload)
         return
     _render_research_sidecar_state(payload)
+
+
+@app.command("research-refresh")
+def research_refresh(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    persist: bool = typer.Option(
+        True,
+        "--persist/--no-persist",
+        help="Persist the sidecar snapshot to the runtime research JSON feed.",
+    ),
+) -> None:
+    """Run one isolated research sidecar pass without touching broker execution."""
+    settings = get_settings()
+    result = ResearchSidecar(settings).collect_once()
+    record_payload: dict[str, object] | None = None
+    if persist:
+        record = persist_research_result(settings, result)
+        record_payload = record.model_dump(mode="json")
+    payload = {
+        "state": result.state.model_dump(mode="json"),
+        "world_state": (
+            result.world_state.model_dump(mode="json")
+            if result.world_state is not None
+            else None
+        ),
+        "memory_update": result.memory_update,
+        "persisted": record_payload is not None,
+        "record": record_payload,
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_research_sidecar_state(result.state.model_dump(mode="json"))
+    if record_payload is not None:
+        console.print(
+            _render_health_panel(
+                "Research Snapshot Persisted",
+                f"Snapshot {record_payload['snapshot_id']} recorded in the research feed.",
+                border_style="green",
+            )
+        )
+
+
+@app.command("research-crewai-setup")
+def research_crewai_setup(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show optional CrewAI setup status for the research sidecar backend."""
+    settings = get_settings()
+    payload = crewai_setup_status(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    table = Table(title="Research CrewAI Setup")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("CLI Available", str(payload["available"]))
+    table.add_row("CLI Path", str(payload["cli_path"] or "-"))
+    table.add_row("Version", str(payload["version"] or "-"))
+    table.add_row("Flow Dir", str(payload["flow_dir"]))
+    table.add_row("Scaffold Exists", str(payload["flow_scaffold_exists"]))
+    table.add_row("Core Dependency", str(payload["core_dependency"]))
+    console.print(table)
+    console.print(
+        Panel(
+            "\n".join(cast(list[str], payload["recommended_commands"])),
+            title="Recommended Commands",
+            border_style="cyan",
+        )
+    )
 
 
 @app.command()
