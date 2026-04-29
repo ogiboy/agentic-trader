@@ -299,6 +299,7 @@ Search should use exported Fumadocs search data, locale routes should remain sta
 Reason:
 The project needs practical solo-maintainer release hygiene without changing the runtime toolchain.
 `python-semantic-release` should read conventional commits on `main`, bump `project.version` in `pyproject.toml`, update `CHANGELOG.md`, and create a `v*` tag without publishing the GitHub Release directly.
+Stable release version stamping should also keep the root, Web GUI, docs, and TUI `package.json` versions aligned with the Python project version so the repo presents one coherent product baseline.
 The binary workflow owns GitHub Release creation so immutable releases can be created with PyInstaller assets attached in one publish step.
 The binary assets are convenience builds for the Python CLI layer; they do not bundle the Web GUI, docs app, Node runtime, Ollama, or external provider services.
 
@@ -306,7 +307,7 @@ Stable release identity and branch build identity are intentionally separate.
 Strict SemVer release tags keep the `MAJOR.MINOR.PATCH` core, such as `v0.9.5`; CI/build counters must not become a fourth core segment like `v0.9.5.9870`.
 Integration branches such as `V1` should use `next` artifact identities, for example `v0.9.6-next.9870+gabc1234`, while feature branches should use `beta` artifact identities such as `v0.9.6-beta.9870+gabc1234`.
 Only `main` should mutate tracked version and changelog files automatically.
-Non-main branch pushes may publish SemVer-compatible prerelease tags/releases for testing, but they should not edit `pyproject.toml` or `CHANGELOG.md`.
+Non-main branch pushes may publish SemVer-compatible prerelease tags/releases for testing, but they should not edit `pyproject.toml`, workspace package versions, or `CHANGELOG.md`.
 The pre-1.0 baseline is `0.9.0`; `allow_zero_version=true` and `major_on_zero=false` keep V1-hardening releases on the 0.x line until the project intentionally declares a stable `1.0.0`.
 
 ### PyInstaller builds should use a tracked CLI spec

@@ -41,7 +41,7 @@ Examples:
 Release automation reads conventional commits on `main`.
 Feature commits create minor releases, fix/perf/docs/build/ci/chore commits create patch releases, and `!` or `BREAKING CHANGE:` marks a major release.
 
-Only `main` mutates `pyproject.toml` and `CHANGELOG.md` automatically. Other branches run a version preview and may publish prerelease tags/releases for test binaries:
+Only `main` mutates `pyproject.toml`, workspace package versions, and `CHANGELOG.md` automatically. Other branches run a version preview and may publish prerelease tags/releases for test binaries:
 
 - `main`: stable SemVer tags such as `v0.9.5`
 - `V1`, `V2`, and similar integration branches: `next` prereleases such as `v0.9.6-next.9870+gabc1234`
