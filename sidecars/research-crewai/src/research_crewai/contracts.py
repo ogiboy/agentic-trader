@@ -59,6 +59,7 @@ class ResearchCrewContractOutput(BaseModel):
     observed_at: str
     watched_symbols: list[str] = Field(default_factory=list)
     summary: str = ""
+    planned_tasks: list[dict[str, Any]] = Field(default_factory=list)
     findings: list[dict[str, Any]] = Field(default_factory=list)
     dossiers: list[dict[str, Any]] = Field(default_factory=list)
     macro_events: list[dict[str, Any]] = Field(default_factory=list)
@@ -67,6 +68,111 @@ class ResearchCrewContractOutput(BaseModel):
     raw_web_text_injected: bool = False
     broker_access: bool = False
     errors: list[str] = Field(default_factory=list)
+
+
+def build_task_plan(request: ResearchCrewRequest) -> list[dict[str, Any]]:
+    """Return deterministic future CrewAI task definitions for the request."""
+    symbols = request.symbols or ["WATCHLIST"]
+    provider_ids = [
+        output.metadata.provider_id for output in request.provider_outputs
+    ]
+    tasks: list[dict[str, Any]] = []
+    for symbol in symbols:
+        subject = symbol.upper()
+        tasks.extend(
+            [
+                {
+                    "task_id": f"company-dossier:{subject}",
+                    "kind": "company_dossier",
+                    "subject": subject,
+                    "description": (
+                        "Build a source-attributed company dossier from normalized "
+                        "provider packets, separating direct evidence, inference, "
+                        "unknowns, and contradictions."
+                    ),
+                    "expected_output": (
+                        "Entity dossier with timeline, current thesis, key findings, "
+                        "contradiction file, source diversity score, and watch-next list."
+                    ),
+                    "requires_llm": True,
+                    "requires_network": False,
+                    "input_provider_ids": provider_ids,
+                    "status": "planned",
+                },
+                {
+                    "task_id": f"timeline-reconstruction:{subject}",
+                    "kind": "timeline_reconstruction",
+                    "subject": subject,
+                    "description": (
+                        "Reconstruct the recent event timeline from normalized evidence "
+                        "records without using raw provider text in trading prompts."
+                    ),
+                    "expected_output": (
+                        "Chronological event list with observed_at timestamps, source "
+                        "attribution, staleness, and uncertainty markers."
+                    ),
+                    "requires_llm": True,
+                    "requires_network": False,
+                    "input_provider_ids": provider_ids,
+                    "status": "planned",
+                },
+                {
+                    "task_id": f"contradiction-check:{subject}",
+                    "kind": "contradiction_check",
+                    "subject": subject,
+                    "description": (
+                        "Compare evidence packets for conflicting claims, stale data, "
+                        "missing sources, and unsupported inferences."
+                    ),
+                    "expected_output": (
+                        "Contradiction report with verified facts, conflicts, unknowns, "
+                        "and confidence impact."
+                    ),
+                    "requires_llm": True,
+                    "requires_network": False,
+                    "input_provider_ids": provider_ids,
+                    "status": "planned",
+                },
+                {
+                    "task_id": f"watch-next:{subject}",
+                    "kind": "watch_next",
+                    "subject": subject,
+                    "description": (
+                        "Identify the next official disclosures, macro releases, news "
+                        "events, or social-watchlist changes that would materially alter "
+                        "the dossier."
+                    ),
+                    "expected_output": (
+                        "Prioritized watch-next checklist with source names, freshness "
+                        "requirements, and trigger rationale."
+                    ),
+                    "requires_llm": True,
+                    "requires_network": False,
+                    "input_provider_ids": provider_ids,
+                    "status": "planned",
+                },
+            ]
+        )
+    tasks.append(
+        {
+            "task_id": "sector-brief:watchlist",
+            "kind": "sector_brief",
+            "subject": ",".join(symbols),
+            "description": (
+                "Synthesize cross-symbol sector and macro context only from normalized "
+                "provider packets and explicit missing-source states."
+            ),
+            "expected_output": (
+                "Sector brief with source diversity, macro channels, shared risks, "
+                "contradictions, and unresolved evidence gaps."
+            ),
+            "requires_llm": True,
+            "requires_network": False,
+            "input_provider_ids": provider_ids,
+            "status": "planned",
+        }
+    )
+    return tasks
 
 
 def build_contract_output(
@@ -90,11 +196,13 @@ def build_contract_output(
         f"missing_sources={missing_count}. "
         "No LLM-backed deep-dive task has run in this scaffold slice."
     )
+    planned_tasks = build_task_plan(request)
     return ResearchCrewContractOutput(
         generated_at=now,
         observed_at=now,
         watched_symbols=request.symbols,
         summary=summary,
+        planned_tasks=planned_tasks,
         memory_update={
             "status": "not_written",
             "reason": (
@@ -102,6 +210,7 @@ def build_contract_output(
                 "remain disabled until explicit policy gates are added."
             ),
             "provider_ids": provider_ids,
+            "planned_tasks": planned_tasks,
             "raw_web_text_injected": False,
             "broker_access": False,
         },

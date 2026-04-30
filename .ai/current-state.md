@@ -90,6 +90,7 @@ Implemented or substantially present:
 - `research-refresh` can run one isolated sidecar pass and persist a `ResearchSnapshotRecord` to `runtime/research_snapshots.jsonl` plus `runtime/research_latest_snapshot.json`; `research-status`, dashboard, and observer payloads read this feed without opening DuckDB
 - `research-crewai-setup` reports the tracked `sidecars/research-crewai/` uv sidecar path, Python version file, lockfile presence, sidecar `.venv` presence, uv availability, and root setup/check/run commands; CrewAI is still not imported by core runtime modules or added to the root dependency lock
 - the CrewAI research backend now uses a subprocess JSON contract through `uv run --locked --no-sync research-crewai-contract` when the sidecar is installed; failures stay visible and do not install dependencies implicitly during runtime
+- the CrewAI sidecar contract now emits deterministic planned deep-dive task definitions for company dossiers, timeline reconstruction, contradiction checks, watch-next lists, and sector briefs without running LLM-backed tasks yet
 
 New production-expansion direction:
 

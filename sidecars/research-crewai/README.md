@@ -38,3 +38,14 @@ The root runtime calls the sidecar through `uv run --locked --no-sync
 research-crewai-contract`, passing one JSON request on stdin and reading one JSON
 response from stdout. This command is deterministic and does not run LLM-backed
 research tasks yet.
+
+The contract now returns planned task definitions for:
+
+- company dossiers
+- timeline reconstruction
+- contradiction checks
+- watch-next lists
+- sector briefs
+
+These plans describe future CrewAI work and are safe to persist as metadata; they
+are not trade-memory writes and they do not execute broker or policy actions.

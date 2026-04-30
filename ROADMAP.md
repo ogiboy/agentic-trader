@@ -422,7 +422,7 @@ Status: planned.
 - [x] add a minimal tracked CrewAI Flow package with Python 3.13 `.python-version`, uv lock/install flow, and root pnpm/Make setup and smoke-check commands
 - [x] add a subprocess JSON contract between the root `ResearchSidecarBackend` and tracked CrewAI sidecar without importing CrewAI in core runtime modules
 - [ ] add optional CrewAI Flow/Crew adapters behind the sidecar backend boundary for deep-dive research tasks
-- [ ] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
+- [x] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
 - [ ] add evaluation harnesses that compare research packets against later market behavior, paper outcomes, and memory/no-memory ablations
 - [ ] link simulated training trades back to the exact world-state snapshot, evidence packet, prompt context, and sidecar version used
 - [ ] add scenario memory, contradiction files, source-diversity scoring, and freshness/outcome weighting before research packets influence manager confidence

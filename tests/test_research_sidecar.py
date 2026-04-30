@@ -118,12 +118,28 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) 
             "observed_at": "2026-01-01T00:00:00+00:00",
             "watched_symbols": ["AAPL"],
             "summary": "Contract accepted scaffold provider packets.",
+            "planned_tasks": [
+                {
+                    "task_id": "company-dossier:AAPL",
+                    "kind": "company_dossier",
+                    "subject": "AAPL",
+                    "status": "planned",
+                }
+            ],
             "findings": [],
             "dossiers": [],
             "macro_events": [],
             "social_signals": [],
             "memory_update": {
                 "status": "not_written",
+                "planned_tasks": [
+                    {
+                        "task_id": "company-dossier:AAPL",
+                        "kind": "company_dossier",
+                        "subject": "AAPL",
+                        "status": "planned",
+                    }
+                ],
                 "raw_web_text_injected": False,
                 "broker_access": False,
             },
@@ -148,6 +164,11 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) 
     assert result.memory_update["contract_version"] == "research-crewai.v1"
     assert result.memory_update["raw_web_text_injected"] is False
     assert result.memory_update["broker_access"] is False
+    planned_tasks = result.memory_update["planned_tasks"]
+    assert isinstance(planned_tasks, list)
+    first_task = planned_tasks[0]
+    assert isinstance(first_task, dict)
+    assert first_task["kind"] == "company_dossier"
     assert captured["command"] == [
         "uv",
         "run",

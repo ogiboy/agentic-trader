@@ -35,7 +35,7 @@ Next:
 - extend the file-backed research snapshot feed when real providers start returning raw evidence references, normalized events, findings, and entity dossiers
 - add real official/structured providers behind the sidecar source ladder, starting with SEC EDGAR, KAP, macro series, and news/event feeds; keep missing provider data visible
 - add optional V1.2 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
-- extend the subprocess JSON contract with focused CrewAI task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
+- turn the planned CrewAI task definitions into executable Flow/Crew steps only after real normalized provider evidence exists and contract tests cover failures
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
 - verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
