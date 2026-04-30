@@ -253,6 +253,15 @@ Reason:
 CrewAI currently requires a narrower Python range than the root package wants to support, and its dependency graph should not become part of the strict trading runtime by accident.
 The repository should therefore keep `sidecars/research-crewai/` as an independent uv project with its own lockfile and smoke checks.
 Root pnpm and Make commands may call into that sidecar for setup, check, and gated runs, but the root project should not add CrewAI to Poetry or adopt a repository-wide uv workspace until there is a proven need.
+Runtime integration should use `uv run --locked --no-sync` against an already-installed sidecar environment so normal trading commands do not silently create or update a CrewAI environment.
+The core Python runtime may spawn the sidecar process and parse its JSON contract, but it must not import CrewAI modules directly.
+
+### Root uv migration is a future simplification track, not an implicit change
+
+Reason:
+Using Conda, Poetry, uv, and multiple Python versions at once is becoming operationally noisy.
+A root uv migration may simplify Python dependency management, but it affects release automation, CI, lockfiles, local setup, and the current minimum-support signal.
+Any migration from Poetry/Conda to root uv therefore needs a separate impact analysis, migration plan, and explicit approval before implementation.
 
 ### Environment templates document targets, local env files own secrets
 

@@ -1,8 +1,10 @@
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+import json
+import subprocess
 
 from agentic_trader.config import Settings
-from agentic_trader.researchd.orchestrator import ResearchSidecar
+from agentic_trader.researchd.orchestrator import CrewAiResearchBackend, ResearchSidecar
 from agentic_trader.researchd.persistence import persist_research_result
 from agentic_trader.researchd.providers import (
     default_research_providers,
@@ -63,7 +65,7 @@ def test_enabled_research_sidecar_uses_scaffolds_without_fake_evidence(tmp_path)
     assert all(item.freshness == "missing" for item in result.state.provider_health)
 
 
-def test_crewai_backend_is_isolated_and_non_runtime(tmp_path) -> None:
+def test_crewai_backend_reports_missing_sidecar_environment(tmp_path) -> None:
     settings = _settings(
         tmp_path,
         research_mode="training",
@@ -71,14 +73,96 @@ def test_crewai_backend_is_isolated_and_non_runtime(tmp_path) -> None:
         research_sidecar_backend="crewai",
         research_symbols="AAPL",
     )
+    backend = CrewAiResearchBackend(flow_dir=tmp_path / "missing", uv_path="uv")
 
-    result = ResearchSidecar(settings).collect_once()
+    result = ResearchSidecar(settings, backend=backend).collect_once()
 
     assert result.state.backend == "crewai"
     assert result.state.status == "failed"
-    assert "not implemented" in str(result.state.last_error)
+    assert "missing" in str(result.state.last_error).lower()
     assert result.world_state is None
     assert result.raw_evidence == []
+    assert result.memory_update["raw_web_text_injected"] is False
+
+
+def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) -> None:
+    settings = _settings(
+        tmp_path,
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_sidecar_backend="crewai",
+        research_symbols="AAPL",
+    )
+    flow_dir = tmp_path / "research-crewai"
+    (flow_dir / ".venv").mkdir(parents=True)
+    (flow_dir / "pyproject.toml").write_text("[project]\nname='fake'\n")
+    captured: dict[str, object] = {}
+
+    def fake_runner(
+        command: list[str],
+        stdin_payload: str,
+        cwd,
+        env: dict[str, str],
+        timeout_seconds: float,
+    ) -> subprocess.CompletedProcess[str]:
+        captured["command"] = command
+        captured["cwd"] = str(cwd)
+        captured["request"] = json.loads(stdin_payload)
+        captured["tracing"] = env.get("CREWAI_TRACING_ENABLED")
+        captured["timeout_seconds"] = timeout_seconds
+        output = {
+            "status": "completed",
+            "backend": "crewai",
+            "contract_version": "research-crewai.v1",
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "observed_at": "2026-01-01T00:00:00+00:00",
+            "watched_symbols": ["AAPL"],
+            "summary": "Contract accepted scaffold provider packets.",
+            "findings": [],
+            "dossiers": [],
+            "macro_events": [],
+            "social_signals": [],
+            "memory_update": {
+                "status": "not_written",
+                "raw_web_text_injected": False,
+                "broker_access": False,
+            },
+            "raw_web_text_injected": False,
+            "broker_access": False,
+        }
+        return subprocess.CompletedProcess(command, 0, json.dumps(output), "")
+
+    backend = CrewAiResearchBackend(
+        flow_dir=flow_dir,
+        uv_path="uv",
+        command_runner=fake_runner,
+    )
+
+    result = ResearchSidecar(settings, backend=backend).collect_once()
+
+    assert result.state.backend == "crewai"
+    assert result.state.status == "completed"
+    assert result.world_state is not None
+    assert result.world_state.summary == "Contract accepted scaffold provider packets."
+    assert result.world_state.watched_symbols == ["AAPL"]
+    assert result.memory_update["contract_version"] == "research-crewai.v1"
+    assert result.memory_update["raw_web_text_injected"] is False
+    assert result.memory_update["broker_access"] is False
+    assert captured["command"] == [
+        "uv",
+        "run",
+        "--locked",
+        "--no-sync",
+        "research-crewai-contract",
+    ]
+    assert captured["cwd"] == str(flow_dir)
+    assert captured["tracing"] == "false"
+    request = captured["request"]
+    assert isinstance(request, dict)
+    assert request["symbols"] == ["AAPL"]
+    provider_outputs = request["provider_outputs"]
+    assert isinstance(provider_outputs, list)
+    assert provider_outputs[0]["metadata"]["provider_id"] == "sec_edgar_research"
 
 
 def test_research_schema_tracks_staleness_and_uncertainty() -> None:

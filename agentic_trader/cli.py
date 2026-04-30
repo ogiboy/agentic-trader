@@ -2284,6 +2284,7 @@ def research_crewai_setup(
     table.add_row("uv Available", str(payload["uv_available"]))
     table.add_row("Flow Dir", str(payload["flow_dir"]))
     table.add_row("Scaffold Exists", str(payload["flow_scaffold_exists"]))
+    table.add_row("Environment Exists", str(payload["environment_exists"]))
     table.add_row("Python Version", str(payload["python_version"] or "-"))
     table.add_row("Lockfile Exists", str(payload["lockfile_exists"]))
     table.add_row("Core Dependency", str(payload["core_dependency"]))

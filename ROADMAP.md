@@ -244,6 +244,7 @@ Status: in progress.
 - treat research sidecars as optional local evidence companions, not a second trading runtime or a replacement for the staged specialist graph
 - keep the root runtime on the Conda + Poetry path with Python 3.13 as the daily developer default while preserving `>=3.12,<3.15` package support until CI broadens the matrix
 - keep optional CrewAI work in a tracked but isolated uv sidecar instead of adding CrewAI to the root Poetry lock or turning the repository into a uv workspace
+- evaluate a future root uv migration as a simplification track, but keep it plan-and-approval gated before replacing Poetry/Conda in the root runtime
 - evolve QA from smoke testing into repeatable terminal regression evidence with deterministic CLI JSON checks, pexpect flows, optional tmux/asciinema capture, and human-readable failure reports
 - keep memory local-first, inspectable, and policy-bound even as embeddings become more semantic and retrieval becomes more powerful
 
@@ -419,6 +420,7 @@ Status: planned.
 
 - [x] add an operator-visible CrewAI setup/status preflight that keeps CrewAI out of the core runtime dependency graph
 - [x] add a minimal tracked CrewAI Flow package with Python 3.13 `.python-version`, uv lock/install flow, and root pnpm/Make setup and smoke-check commands
+- [x] add a subprocess JSON contract between the root `ResearchSidecarBackend` and tracked CrewAI sidecar without importing CrewAI in core runtime modules
 - [ ] add optional CrewAI Flow/Crew adapters behind the sidecar backend boundary for deep-dive research tasks
 - [ ] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
 - [ ] add evaluation harnesses that compare research packets against later market behavior, paper outcomes, and memory/no-memory ablations

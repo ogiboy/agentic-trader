@@ -7,6 +7,7 @@ script = '''
 eval "$(conda shell.zsh hook)"
 conda activate trader
 pnpm run setup
+pnpm run setup:research-crewai
 '''
 
 [[actions]]
@@ -16,6 +17,7 @@ command = '''
 eval "$(conda shell.zsh hook)"
 conda activate trader
 pnpm run setup
+pnpm run setup:research-crewai
 '''
 
 [[actions]]
@@ -33,6 +35,24 @@ command = '''
 eval "$(conda shell.zsh hook)"
 conda activate trader
 pnpm install:python
+'''
+
+[[actions]]
+name = "setup research crewai sidecar"
+icon = "tool"
+command = '''
+pnpm run setup:research-crewai
+pnpm run check:research-crewai
+'''
+
+[[actions]]
+name = "check workspace"
+icon = "check"
+command = '''
+eval "$(conda shell.zsh hook)"
+conda activate trader
+pnpm run check
+pnpm run check:research-crewai
 '''
 
 [[actions]]

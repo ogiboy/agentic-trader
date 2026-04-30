@@ -41,6 +41,7 @@ def crewai_setup_status(settings: Settings) -> dict[str, object]:
         "version": version,
         "flow_dir": str(flow_dir),
         "flow_scaffold_exists": (flow_dir / "pyproject.toml").exists(),
+        "environment_exists": (flow_dir / ".venv").exists(),
         "python_version": (
             python_version_file.read_text(encoding="utf-8").strip()
             if python_version_file.exists()
@@ -56,6 +57,7 @@ def crewai_setup_status(settings: Settings) -> dict[str, object]:
         "notes": [
             "CrewAI stays optional and isolated behind researchd backend boundaries.",
             "The tracked CrewAI sidecar lives in sidecars/research-crewai with its own uv environment.",
+            "The core runtime calls the sidecar through a subprocess JSON contract only after setup.",
             "Do not import CrewAI from core trading runtime modules.",
         ],
     }

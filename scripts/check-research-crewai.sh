@@ -13,4 +13,5 @@ cd "${SIDECAR_DIR}"
 uv sync --locked
 uv run --locked python -m compileall -q src
 uv run --locked research-crewai-check
+printf '%s\n' '{"mode":"training","symbols":["AAPL"],"provider_outputs":[]}' | uv run --locked --no-sync research-crewai-contract
 uv run --locked python -c 'import sys; print(f"python={sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")'

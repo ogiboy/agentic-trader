@@ -6,6 +6,8 @@ from importlib.metadata import version
 from crewai.flow import Flow, start
 from pydantic import BaseModel, Field
 
+from research_crewai.contracts import ResearchCrewRequest, build_contract_output
+
 
 class ResearchCrewState(BaseModel):
     """State contract for the placeholder research CrewAI Flow."""
@@ -32,7 +34,7 @@ class ResearchCrewFlow(Flow[ResearchCrewState]):
 
     @start()
     def prepare_contract(self) -> dict[str, object]:
-        payload = self.state.model_dump(mode="json")
+        payload = build_contract_output(ResearchCrewRequest()).model_dump(mode="json")
         print(json.dumps(payload, indent=2))
         return payload
 

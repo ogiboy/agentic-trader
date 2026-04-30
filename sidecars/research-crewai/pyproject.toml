@@ -11,6 +11,7 @@ dependencies = [
 [project.scripts]
 research-crewai = "research_crewai.main:kickoff"
 research-crewai-check = "research_crewai.main:check"
+research-crewai-contract = "research_crewai.contracts:contract_cli"
 
 [build-system]
 requires = ["hatchling"]

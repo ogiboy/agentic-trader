@@ -1040,6 +1040,7 @@ def test_research_crewai_setup_json_reports_optional_boundary(
     payload = json.loads(result.stdout)
     assert payload["core_dependency"] is False
     assert payload["flow_dir"].endswith("sidecars/research-crewai")
+    assert "environment_exists" in payload
     assert payload["python_version"] == "3.13"
     assert "pnpm run setup:research-crewai" in payload["recommended_commands"]
     assert any("optional" in note.lower() for note in payload["notes"])

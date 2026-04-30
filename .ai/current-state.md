@@ -88,7 +88,8 @@ Implemented or substantially present:
 - a first `agentic_trader/researchd/` sidecar foundation now exists with canonical research schemas, sidecar settings, source-health scaffolds for SEC EDGAR, KAP, macro, news/event, and social watchlists, and `research-status` plus dashboard/observer API visibility
 - the research sidecar is disabled by default, uses a no-op backend by default, keeps CrewAI behind an optional adapter boundary, and does not call broker, execution, run persistence, or runtime mode transition code
 - `research-refresh` can run one isolated sidecar pass and persist a `ResearchSnapshotRecord` to `runtime/research_snapshots.jsonl` plus `runtime/research_latest_snapshot.json`; `research-status`, dashboard, and observer payloads read this feed without opening DuckDB
-- `research-crewai-setup` reports the tracked `sidecars/research-crewai/` uv sidecar path, Python version file, lockfile presence, uv availability, and root setup/check/run commands; CrewAI is still not imported by core runtime modules or added to the root dependency lock
+- `research-crewai-setup` reports the tracked `sidecars/research-crewai/` uv sidecar path, Python version file, lockfile presence, sidecar `.venv` presence, uv availability, and root setup/check/run commands; CrewAI is still not imported by core runtime modules or added to the root dependency lock
+- the CrewAI research backend now uses a subprocess JSON contract through `uv run --locked --no-sync research-crewai-contract` when the sidecar is installed; failures stay visible and do not install dependencies implicitly during runtime
 
 New production-expansion direction:
 
@@ -129,6 +130,7 @@ New production-expansion direction:
 - Web GUI review, portfolio, risk, journal, and memory panels now surface section-level unavailability errors explicitly instead of collapsing them into generic empty states
 - `docs` now builds and lints with the new Fumadocs shell and is prepared for GitHub Pages static export, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
 - root `pnpm check` and `make check` are now the intended static/build validation entrypoints; use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA, and focused `pnpm --filter ...`, Poetry, or `pnpm run check:research-crewai` commands when narrowing a failure
+- `.codex/environments/environment.toml` setup and check actions now include the tracked CrewAI sidecar setup/check commands so Codex workspace actions do not drift from README and root pnpm scripts
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture

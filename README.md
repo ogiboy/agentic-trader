@@ -129,7 +129,9 @@ pnpm start:tui
 
 CrewAI is tracked as an isolated uv-managed sidecar under
 `sidecars/research-crewai/`. It is not a root Poetry dependency and the core
-runtime does not import it.
+runtime does not import it. When the research backend is set to `crewai`, the
+root process calls the sidecar through a subprocess JSON contract after the
+sidecar environment has been installed.
 
 ```bash
 pnpm run setup:research-crewai
