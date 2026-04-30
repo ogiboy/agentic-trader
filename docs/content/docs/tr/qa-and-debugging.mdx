@@ -1,0 +1,85 @@
+---
+title: QA ve Debugging
+description: Operatöre görünen değişiklikleri hedefli testler, smoke QA ve runtime kanıtı ile doğrula.
+---
+
+## Temel otomatik kontroller
+
+Hedefli kontrollerle başla:
+
+```bash
+python -m ruff check .
+python -m pytest -q -p no:cacheprovider
+pnpm run qa
+```
+
+Docs uygulaması için:
+
+```bash
+pnpm --filter docs run lint
+pnpm --filter docs run build
+```
+
+## Sonar hedefleri
+
+Local SonarQube ile SonarCloud'u ayrı tut:
+
+| Hedef | Project key | Komut |
+| --- | --- | --- |
+| Local SonarQube Community Build | `agentic-trader` | `pnpm run sonar` |
+| Local npm scanner yolu | `agentic-trader` | `pnpm run sonar:js` |
+| SonarCloud | `ogiboy_agentic-trader` | `pnpm run sonar:cloud` |
+
+Local hedef Docker tabanlı branch analizi, Codex/MCP incelemesi ve geliştirici QA için kullanılır. SonarCloud ise GitHub badge'i ve CI geçmişi için kalır.
+
+Token'lar tracked dosyalara yazılmamalı. Tek seferlik shell için `SONAR_TOKEN`, local Docker SonarQube için macOS Keychain `codex-sonarqube-token`, manuel SonarCloud upload için `codex-sonarcloud-token` kullan.
+
+Editor MCP bağlantısı için `scripts/secrets/run-sonarqube-mcp.sh` kullan. Script token'ı Keychain'den okur ve yalnızca Docker MCP process'ine verir; VS Code `mcp.json` içinde ham token tutmaya gerek kalmaz.
+
+Local `sonarqube` server konteyneri ile geçici `mcp/sonarqube` client konteynerlerini ayırmak için `pnpm run mcp:sonarqube:status` kullan. Birden fazla MCP konteyneri çoğu zaman birden fazla aktif editor veya agent oturumu anlamına gelir; birden fazla SonarQube server anlamına gelmez.
+
+Sonar issue ürettiğinde sadece son commit'e bakma. Tüm proje backlog'unu incele; vulnerability, security hotspot, correctness bug, blocker/critical issue ve ardından maintainability cleanup sırasıyla önceliklendir. Kabul edilen bulgular için kısa gerekçe ve residual risk notu bırak.
+
+## Smoke QA neden önemli
+
+Bu repo gerçek operatör yüzeylerine sahip.
+Unit test yeşil olsa bile CLI, Ink, Rich, observer ve Web GUI runtime truth konusunda anlaşmıyorsa iş bitmiş sayılmaz.
+
+## Tercih edilen kanıt sırası
+
+1. hedefli testler
+2. CLI ya da observer contract çıktısı
+3. smoke QA artefact'leri
+4. etkileşim önemliyse tmux ya da asciinema kaydı
+5. görsel doğrulama için tarayıcı ya da Computer Use kontrolü
+
+## Runtime-first debugging kuralı
+
+Bir davranış yanlış görünüyorsa:
+
+- UI'ye güvenmeden önce runtime artefact'lerini incele
+- arka plan trafiğine bakıp sağlık varsaymadan önce logları incele
+- prompt'a dokunmadan önce persist edilmiş context ve review artefact'lerini incele
+
+## Docs'e özel QA kontrol listesi
+
+Docs işini PR-ready saymadan önce:
+
+- her iki locale için routing çalışıyor mu kontrol et
+- search hâlâ anlamlı sonuç veriyor mu bak
+- feedback copy tarayıcıda tutulan yerel taslak ile manuel GitHub issue bağlantısını açık anlatıyor mu doğrula
+- sayfa yapısı okunabilir mi, aşırı yüklenmiş mi bak
+- değişen varsayımların `.ai` notlarına işlendiğini doğrula
+
+## Manuel QA fikirleri
+
+- `/en/docs` ve `/tr/docs` sayfalarını aç
+- her locale içinde en az bir derin sayfayı aç
+- sidebar, search ve feedback UI doğru render oluyor mu bak
+- JetBrains Mono ve tema token'ları hâlâ uygulanıyor mu kontrol et
+
+## İyi kapanış sorusu
+
+PR açmadan önce şunu sor:
+
+“Bu branch sonraki katkı vereni gerçekten hızlandırıyor mu, yoksa yalnızca bu diff'i geçiriyor mu?”

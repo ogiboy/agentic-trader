@@ -87,8 +87,7 @@ def _render_canonical_snapshot_summary(context: AgentContext) -> str:
             (
                 "Market: "
                 f"rows={canonical.market.rows} "
-                f"window={canonical.market.window_start or '-'}..{canonical.market.window_end or '-'} "
-                f"last_close={canonical.market.last_close}"
+                f"window={canonical.market.window_start or '-'}..{canonical.market.window_end or '-'}"
             ),
             (
                 "Fundamental: "
@@ -110,7 +109,15 @@ def _render_canonical_snapshot_summary(context: AgentContext) -> str:
 
 
 def _render_decision_feature_summary(context: AgentContext) -> str:
-    """Render the decision feature bundle as a compact prompt-facing summary."""
+    """
+    Render the decision feature bundle into a compact, labeled summary suitable for inclusion in a prompt.
+
+    Parameters:
+        context (AgentContext): Agent context whose `decision_features` will be rendered.
+
+    Returns:
+        str: A newline-delimited summary containing symbol identity, technical metrics and summary, fundamental metrics, fundamental provenance and summary, and macro metrics and summary; or the literal string "No decision feature bundle is attached." when `decision_features` is None.
+    """
     features = context.decision_features
     if features is None:
         return "No decision feature bundle is attached."
@@ -129,14 +136,26 @@ def _render_decision_feature_summary(context: AgentContext) -> str:
             (
                 "Technical: "
                 f"trend={technical.trend_classification} "
+                f"price_anchor={technical.price_anchor} "
                 f"volatility_20={technical.volatility_20} "
                 f"support={technical.support} resistance={technical.resistance} "
+                f"quality_flags={','.join(technical.data_quality_flags) or 'none'} "
                 f"returns={technical.returns_by_window}"
             ),
             f"Technical summary: {technical.context_summary}",
             (
-                "Fundamental: "
+                "Fundamental metrics: "
+                f"revenue_growth={fundamental.revenue_growth} "
+                f"profitability_stability={fundamental.profitability_stability} "
+                f"cash_flow_alignment={fundamental.cash_flow_alignment} "
+                f"debt_risk={fundamental.debt_risk} "
+                f"reinvestment_potential={fundamental.reinvestment_potential}"
+            ),
+            (
+                "Fundamental source: "
+                f"as_of={fundamental.as_of} "
                 f"fx_exposure={fundamental.fx_exposure} "
+                f"sources={','.join(fundamental.data_sources) or 'none'} "
                 f"flags={','.join(fundamental.quality_flags) or 'none'}"
             ),
             f"Fundamental summary: {fundamental.summary}",
@@ -179,7 +198,9 @@ def build_agent_context(
         f"market_session: venue={market_session.venue} state={market_session.session_state} tradable_now={market_session.tradable_now} note={market_session.note}"
     ]
     news_items = (
-        fetch_news_brief(snapshot.symbol, settings) if news_items is None else news_items
+        fetch_news_brief(snapshot.symbol, settings)
+        if news_items is None
+        else news_items
     )
     if settings.news_mode == "off":
         rendered_tool_outputs.append("news_tool: disabled")
@@ -236,12 +257,16 @@ def build_agent_context(
 def render_agent_context(context: AgentContext, *, task: str) -> str:
     """
     Render an AgentContext into a newline-delimited prompt string with labeled sections.
-    
-    The output contains labeled blocks including: Role, Routed Model, Task, Market Context Pack (serialized if present, otherwise a fixed message), Market Snapshot (serialized excluding the `context_pack` field), Operator Preferences, Portfolio Snapshot, and optional sections for Market Session, Runtime State, Recent Runs, Trade Memory, Retrieved Similar Memories, Confidence Calibration, Shared Memory Bus, Tool Outputs, and Upstream Context.
-    
+
+    The output contains labeled blocks including: Role, Routed Model, Task,
+    feature input when attached, Operator Preferences, Portfolio Snapshot, and
+    optional sections for Market Session, Runtime State, Recent Runs, Trade
+    Memory, Retrieved Similar Memories, Confidence Calibration, Shared Memory
+    Bus, Tool Outputs, and Upstream Context.
+
     Parameters:
         task (str): The task text placed under the "Task:" header.
-    
+
     Returns:
         str: The assembled prompt string containing the labeled sections.
     """
@@ -250,16 +275,6 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         f"Routed Model: {context.model_name}",
         "Task:",
         task,
-        "",
-        "Market Context Pack:",
-        (
-            context.snapshot.context_pack.model_dump_json(indent=2)
-            if context.snapshot.context_pack is not None
-            else "No persisted market context pack is attached."
-        ),
-        "",
-        "Market Snapshot:",
-        context.snapshot.model_dump_json(indent=2, exclude={"context_pack"}),
         "",
         "Operator Preferences:",
         context.preferences.model_dump_json(indent=2),
@@ -272,8 +287,23 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         sections.extend(
             [
                 "",
-                "Decision Feature Summary:",
+                "Feature Input:",
                 _render_decision_feature_summary(context),
+            ]
+        )
+    else:
+        sections.extend(
+            [
+                "",
+                "Market Context Pack:",
+                (
+                    context.snapshot.context_pack.model_dump_json(indent=2)
+                    if context.snapshot.context_pack is not None
+                    else "No persisted market context pack is attached."
+                ),
+                "",
+                "Market Snapshot:",
+                context.snapshot.model_dump_json(indent=2, exclude={"context_pack"}),
             ]
         )
 

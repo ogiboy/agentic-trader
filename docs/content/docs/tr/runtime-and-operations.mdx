@@ -1,0 +1,64 @@
+---
+title: Runtime ve Operasyon
+description: Tek seferlik çalıştırma, service mode, health görünürlüğü ve bütün yüzeylerin paylaşması gereken operasyonel gerçek.
+---
+
+## Runtime entrypoint'leri
+
+- `main.py` ve `agentic_trader.cli:app` aynı komut yüzeyini açar
+- `agentic_trader/workflows/run_once.py` tek strict cycle'ın sahibidir
+- `agentic_trader/workflows/service.py` sürekli ve arka plan orkestrasyonunu taşır
+- observer ve UI yüzeyleri, state uydurmak yerine shared runtime truth okumalıdır
+
+## Runtime modları
+
+Proje zaten farklı niyetleri ayırıyor:
+
+- `operation`: strict, paper-first ve readiness-sensitive
+- `training`: replay ve evaluation odaklı, diagnostik esnekliği biraz daha fazla
+
+Detaylar değişebilir; ama docs ve UI copy bu operasyonel farklara saygı duymalıdır.
+
+## Operatörün görmesi gerekenler
+
+Bir yüzey runtime state gösterdiğini iddia ediyorsa en azından şunları gösterebilmelidir:
+
+- process identity ya da service status
+- heartbeat truth
+- current symbol ya da görev
+- stage ya da cycle count
+- son stdout ve stderr logları
+- model veya provider readiness kanıtı
+- gerekiyorsa stop ve failure state
+
+## Ollama yönü
+
+Bugün runtime çoğu zaman model servisinin zaten çalıştığını varsayıyor.
+İstenen sonraki adım, Ollama'yı mevcut daemon ve log yüzeyleri üzerinden isteğe bağlı biçimde yönetebilmek.
+
+Bu gelecek işinin içinde şunlar olmalı:
+
+- açık start ve stop hook'ları
+- health check'ler
+- log tail'leri
+- “idle”, “busy” ve “broken” hâlleri arasında görünür ayrım
+
+## Model trafiğinden ne çıkarılmamalı
+
+Ollama'ya tekrarlı istekler gitmesi runtime'ın sağlıklı olduğu anlamına otomatik olarak gelmez.
+Bir cycle takılmış görünüyorsa şunları incele:
+
+- runtime status
+- stop request state
+- son service event'leri
+- model health
+- runtime katmanında kaydedilmiş gerçek hata
+
+## Olay müdahale listesi
+
+Operator davranışı yanlış görünüyorsa:
+
+1. önce runtime artefact'lerini incele
+2. UI state ile runtime state'i karşılaştır
+3. son hata ve son log tail'ini incele
+4. ancak ondan sonra bug'ın UI, orkestrasyon ya da provider katmanında olduğuna karar ver

@@ -77,7 +77,7 @@ class ServiceStateUpdate:
 def _str_or_none(value: Any) -> str | None:
     """
     Return the string representation of value, or None when value is None.
-    
+
     Returns:
         `str` if `value` is not `None`, `None` otherwise.
     """
@@ -87,10 +87,10 @@ def _str_or_none(value: Any) -> str | None:
 def _int_or_none(value: Any) -> int | None:
     """
     Convert a value to an integer when present.
-    
+
     Parameters:
         value (Any): The input to convert; if `None`, no conversion is performed.
-    
+
     Returns:
         int if value is not None, `None` otherwise.
     """
@@ -100,11 +100,11 @@ def _int_or_none(value: Any) -> int | None:
 def _bool_or_default(value: Any, default: bool) -> bool:
     """
     Resolve a boolean from an input, falling back to a provided default when the input is None.
-    
+
     Parameters:
         value (Any): The input to convert to bool; if `None`, the `default` is used instead.
         default (bool): The boolean value returned when `value` is `None`.
-    
+
     Returns:
         bool: `bool(value)` if `value` is not `None`, otherwise `default`.
     """
@@ -114,12 +114,12 @@ def _bool_or_default(value: Any, default: bool) -> bool:
 def _resolve_value[T](new_value: T | None, existing_value: T | None, default: T) -> T:
     """
     Choose a resolved value from `new_value`, `existing_value`, or `default`.
-    
+
     Parameters:
         new_value (T | None): Preferred value; used if not `None`.
         existing_value (T | None): Fallback value; used if `new_value` is `None` and this is not `None`.
         default (T): Final fallback returned if both `new_value` and `existing_value` are `None`.
-    
+
     Returns:
         T: `new_value` if it is not `None`, otherwise `existing_value` if it is not `None`, otherwise `default`.
     """
@@ -130,14 +130,16 @@ def _resolve_value[T](new_value: T | None, existing_value: T | None, default: T)
     return default
 
 
-def _resolve_optional_value[T](new_value: T | None, existing_value: T | None) -> T | None:
+def _resolve_optional_value[T](
+    new_value: T | None, existing_value: T | None
+) -> T | None:
     """
     Selects a value between a new candidate and an existing fallback, preferring the new when present.
-    
+
     Parameters:
         new_value (T | None): Candidate value to use if not `None`.
         existing_value (T | None): Fallback value returned when `new_value` is `None`.
-    
+
     Returns:
         `new_value` if it is not `None`, otherwise `existing_value` (which may be `None`).
     """
@@ -149,11 +151,11 @@ def _resolve_symbols(
 ) -> list[str]:
     """
     Selects the symbols list to use for a service state update.
-    
+
     Parameters:
         symbols (list[str] | None): Explicit symbols provided for the update; if not None, these are used.
         existing (ServiceStateSnapshot | None): Existing service state to fall back to when `symbols` is None.
-    
+
     Returns:
         list[str]: The resolved symbols list — `symbols` if provided, otherwise `existing.symbols` if `existing` is present, otherwise an empty list.
     """
@@ -169,14 +171,14 @@ def _resolve_terminal_state(
 ) -> tuple[str | None, str | None]:
     """
     Determine the terminal state and timestamp to record when updating a service's state.
-    
+
     If the provided `state` is in TERMINAL_SERVICE_STATES, returns `(state, now)`. Otherwise, if an existing snapshot is provided, returns its `last_terminal_state` and `last_terminal_at`; if no existing snapshot is available, returns `(None, None)`.
-    
+
     Parameters:
         state: The new service state string being applied.
         existing: The prior ServiceStateSnapshot for the service, or `None` if none exists.
         now: ISO-8601 timestamp string representing the current time used when marking a terminal state.
-    
+
     Returns:
         A tuple `(last_terminal_state, last_terminal_at)` where `last_terminal_state` is the terminal state string or `None`, and `last_terminal_at` is the timestamp string when that terminal state was recorded or `None`.
     """
@@ -208,17 +210,17 @@ def _int_or_default(value: Any, default: int) -> int:
 def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
     """
     Convert a database row tuple into a ServiceStateSnapshot.
-    
+
     The input `row` is expected to follow the service_state table column order:
     (service_name, state, runtime_mode, updated_at, started_at, last_heartbeat_at, continuous,
      poll_seconds, cycle_count, symbols_json, interval, lookback, max_cycles,
      current_symbol, last_error, pid, stop_requested, background_mode,
      launch_count, restart_count, last_terminal_state, last_terminal_at,
      stdout_log_path, stderr_log_path, message).
-    
+
     Parameters:
         row (tuple[Any, ...]): A database row tuple matching the columns above. `symbols_json` may be None or a JSON string.
-    
+
     Unknown state strings are normalized to "stopped" so stale or manually
     edited runtime rows cannot break observer/status surfaces. The current
     schema already accepts the transitional "stopping" state.
@@ -269,7 +271,7 @@ class TradingDatabase:
     def _init_schema(self) -> None:
         """
         Create and migrate the database schema and ensure required seed rows exist.
-        
+
         Creates any missing application tables and performs lightweight migrations for evolving schemas
         (e.g., adding columns to `service_state` and `memory_vectors` when introduced in newer versions).
         After schema creation/migration, ensures a `paper` account row exists in `account_state` (inserting it
@@ -484,9 +486,13 @@ class TradingDatabase:
                 "alter table service_state add column runtime_mode varchar default 'operation'"
             )
         if "stop_requested" not in service_columns:
-            self.conn.execute("alter table service_state add column stop_requested boolean")
+            self.conn.execute(
+                "alter table service_state add column stop_requested boolean"
+            )
         if "symbols_json" not in service_columns:
-            self.conn.execute("alter table service_state add column symbols_json varchar")
+            self.conn.execute(
+                "alter table service_state add column symbols_json varchar"
+            )
         if "interval" not in service_columns:
             self.conn.execute("alter table service_state add column interval varchar")
         if "lookback" not in service_columns:
@@ -494,11 +500,17 @@ class TradingDatabase:
         if "max_cycles" not in service_columns:
             self.conn.execute("alter table service_state add column max_cycles integer")
         if "background_mode" not in service_columns:
-            self.conn.execute("alter table service_state add column background_mode boolean")
+            self.conn.execute(
+                "alter table service_state add column background_mode boolean"
+            )
         if "launch_count" not in service_columns:
-            self.conn.execute("alter table service_state add column launch_count integer")
+            self.conn.execute(
+                "alter table service_state add column launch_count integer"
+            )
         if "restart_count" not in service_columns:
-            self.conn.execute("alter table service_state add column restart_count integer")
+            self.conn.execute(
+                "alter table service_state add column restart_count integer"
+            )
         if "last_terminal_state" not in service_columns:
             self.conn.execute(
                 "alter table service_state add column last_terminal_state varchar"
@@ -785,9 +797,9 @@ class TradingDatabase:
     ) -> None:
         """
         Persist embedding and document data for a run into the memory_vectors table, inserting a new row or updating an existing one by run_id.
-        
+
         This call enforces memory write authorization, computes embedding metadata and artifact embeddings, and stores provider/model metadata, embedding dimensions, embedding JSON, and a plain-text document for the given run. If created_at is not provided, the current UTC ISO timestamp is used.
-        
+
         Parameters:
             run_id (str): Unique identifier for the run whose memory vector is being stored.
             artifacts (RunArtifacts): Run artifacts used to build the embedding and document payloads.
@@ -881,7 +893,7 @@ class TradingDatabase:
     def list_chat_history(self, limit: int = 20) -> list[ChatHistoryEntry]:
         """
         Return the most recent operator chat history entries, ordered newest first.
-        
+
         Returns:
             list[ChatHistoryEntry]: A list of chat history entries (most recent first), each containing
             `entry_id`, `created_at`, `persona`, `user_message`, and `response_text`.
@@ -1051,17 +1063,16 @@ class TradingDatabase:
         execution_outcome: ExecutionOutcome | None = None,
     ) -> None:
         """
-        Persist a trade context assembled from a run's artifacts into the `trade_contexts` table.
-        
-        Builds a TradeContextRecord from `artifacts` and `run_id`, extracting:
-        - routed model names per trace,
-        - up to five entries each of `retrieved_memories`, `tool_outputs`, and `shared_memory_bus` summaries per trace (skips traces with invalid JSON or non-dict context),
-        and includes market snapshot, context pack, manager/execution/review fields. The constructed record is serialized to JSON and upserted by `trade_id` into the `trade_contexts` table.
-        
+        Persist a consolidated trade context for a given trade into the `trade_contexts` table.
+
+        Builds a TradeContextRecord from the provided `artifacts` and optional execution metadata, extracts routed model names and up to five items per trace for `retrieved_memories`, `tool_outputs`, and `shared_memory_bus` summaries (skipping traces with invalid or non-dict context), includes market snapshot, decision and review data, and the artifact-provided `fundamental_assessment` and `fundamental_summary`. The resulting record is serialized to JSON and upserted by `trade_id` into the `trade_contexts` table.
+
         Parameters:
-            trade_id (str): Identifier for the trade context (used as the upsert key).
+            trade_id (str): Identifier used as the upsert key for the persisted trade context.
             run_id (str | None): Optional run identifier associated with this context.
-            artifacts (RunArtifacts): Run artifacts containing `agent_traces`, `snapshot`, and manager/execution/review data.
+            artifacts (RunArtifacts): Run artifacts containing agent traces, snapshots, decision features, and manager/review/execution data.
+            execution_intent (ExecutionIntent | None): Optional execution intent; its backend/adapter and JSON form are included when present.
+            execution_outcome (ExecutionOutcome | None): Optional execution outcome; its adapter, status, rejection reason, simulated metadata, and JSON form are included when present.
         """
         routed_models: dict[str, str] = {}
         retrieved_memory_summary: dict[str, list[str]] = {}
@@ -1105,6 +1116,7 @@ class TradingDatabase:
             tool_outputs=tool_outputs,
             shared_memory_summary=shared_memory_summary,
             consensus=artifacts.consensus,
+            fundamental_assessment=artifacts.fundamental,
             fundamental_summary=artifacts.fundamental.summary,
             macro_summary=artifacts.macro.summary,
             manager_rationale=artifacts.manager.rationale,
@@ -1296,10 +1308,10 @@ class TradingDatabase:
     def list_trade_journal(self, limit: int = 20) -> list[TradeJournalEntry]:
         """
         List recent trade journal entries ordered by most recent opening time.
-        
+
         Parameters:
             limit (int): Maximum number of entries to return (default 20).
-        
+
         Returns:
             list[TradeJournalEntry]: Entries ordered by `opened_at` descending, up to `limit` records.
         """
@@ -1450,9 +1462,9 @@ class TradingDatabase:
     ) -> None:
         """
         Update or insert the persisted runtime snapshot for a named service.
-        
+
         Merges provided fields with any existing stored snapshot (preserving omitted values), resolves runtime-mode and other defaults, updates terminal-state markers when the new state is terminal, ensures `started_at` is set when appropriate, writes the resolved row into the database, and emits a mirrored ServiceStateSnapshot via write_service_state.
-        
+
         Parameters:
             runtime_mode: If provided, sets the service's runtime mode; if `None`, preserves the existing runtime mode or falls back to settings.
             symbols: If provided, replaces the stored symbol list; if `None`, preserves existing symbols (or `[]` when no existing snapshot).
@@ -1461,7 +1473,9 @@ class TradingDatabase:
         if update is None:
             update = ServiceStateUpdate(**fields)
         elif fields:
-            raise TypeError("Pass either ServiceStateUpdate or keyword fields, not both.")
+            raise TypeError(
+                "Pass either ServiceStateUpdate or keyword fields, not both."
+            )
 
         now = datetime.now(timezone.utc).isoformat()
         existing = self.get_service_state(update.service_name)
@@ -1500,10 +1514,14 @@ class TradingDatabase:
             False,
         )
         resolved_launch_count = _resolve_value(
-            update.launch_count, existing.launch_count if existing is not None else None, 0
+            update.launch_count,
+            existing.launch_count if existing is not None else None,
+            0,
         )
         resolved_restart_count = _resolve_value(
-            update.restart_count, existing.restart_count if existing is not None else None, 0
+            update.restart_count,
+            existing.restart_count if existing is not None else None,
+            0,
         )
         resolved_stdout_log_path = _resolve_optional_value(
             update.stdout_log_path,
@@ -1617,10 +1635,10 @@ class TradingDatabase:
     ) -> ServiceStateSnapshot | None:
         """
         Retrieve the persisted service state snapshot for the named service.
-        
+
         Parameters:
             service_name (str): Service identifier to fetch (defaults to "orchestrator").
-        
+
         Returns:
             ServiceStateSnapshot | None: The service's snapshot if present, or `None` when no persisted state exists.
         """
@@ -1643,9 +1661,9 @@ class TradingDatabase:
     def request_stop_service(self, service_name: str = "orchestrator") -> None:
         """
         Mark the named service as stopping and persist the updated service snapshot.
-        
+
         Updates the service record to request a stop (sets stop_requested to true, sets state to "stopping", updates timestamps and message) and, if a service snapshot exists after the update, writes that snapshot via write_service_state.
-        
+
         Parameters:
             service_name (str): The service to request stop for (defaults to "orchestrator").
         """
@@ -1728,11 +1746,11 @@ class TradingDatabase:
     ) -> list[ServiceEvent]:
         """
         Fetch recent service events for the given service, ordered newest first.
-        
+
         Parameters:
             limit (int): Maximum number of events to return.
             service_name (str): Service name to filter events by.
-        
+
         Returns:
             list[ServiceEvent]: List of service events for the service, ordered by created_at descending and limited by `limit`.
         """
@@ -1887,9 +1905,9 @@ class TradingDatabase:
     def get_position_plan(self, symbol: str) -> PositionPlanSnapshot | None:
         """
         Retrieve the stored position plan for the given trading symbol.
-        
+
         Numeric fields are converted to floats/ints and timestamp fields to strings when constructing the returned snapshot.
-        
+
         Returns:
             PositionPlanSnapshot for the symbol, or `None` if no plan exists.
         """
@@ -1919,10 +1937,10 @@ class TradingDatabase:
     def list_position_plans(self) -> list[PositionPlanSnapshot]:
         """
         Return all saved position plans ordered by symbol.
-        
+
         Each entry is a PositionPlanSnapshot containing symbol, side, entry_price, stop_loss,
         take_profit, max_holding_bars, holding_bars, invalidation_logic, and updated_at.
-        
+
         Returns:
             list[PositionPlanSnapshot]: Position plans ordered by symbol.
         """

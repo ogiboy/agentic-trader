@@ -190,20 +190,28 @@ class SimulatedRealBrokerAdapter:
                 }
             )
 
-        fill_ratio = self._fill_ratio(rng) if intent.approved and intent.side != "hold" else 1.0
+        fill_ratio = (
+            self._fill_ratio(rng) if intent.approved and intent.side != "hold" else 1.0
+        )
         simulated_intent = intent.model_copy(
             update={
                 "adapter_name": self.backend_name,
                 "execution_backend": "simulated_real",
-                "reference_price": self._simulated_price(intent, rng)
-                if intent.side != "hold"
-                else intent.reference_price,
-                "quantity": intent.quantity * fill_ratio
-                if intent.quantity is not None
-                else None,
-                "notional": intent.notional * fill_ratio
-                if intent.notional is not None
-                else None,
+                "reference_price": (
+                    self._simulated_price(intent, rng)
+                    if intent.side != "hold"
+                    else intent.reference_price
+                ),
+                "quantity": (
+                    intent.quantity * fill_ratio
+                    if intent.quantity is not None
+                    else None
+                ),
+                "notional": (
+                    intent.notional * fill_ratio
+                    if intent.notional is not None
+                    else None
+                ),
                 "backend_metadata": {
                     **intent.backend_metadata,
                     "simulated_fill_ratio": fill_ratio,
@@ -341,13 +349,17 @@ def broker_runtime_payload(settings: Settings) -> dict[str, object]:
         message = "Paper broker adapter is active."
     elif backend == "simulated_real":
         state = "simulated"
-        message = "Simulated-real broker scaffold is active; live trading remains disabled."
+        message = (
+            "Simulated-real broker scaffold is active; live trading remains disabled."
+        )
     elif not settings.live_execution_enabled:
         state = "blocked"
         message = "Live backend requested but live execution is disabled."
     else:
         state = "pending_live_adapter"
-        message = "Live backend requested but no live broker adapter is implemented yet."
+        message = (
+            "Live backend requested but no live broker adapter is implemented yet."
+        )
     return {
         "backend": backend,
         "adapter_name": backend,

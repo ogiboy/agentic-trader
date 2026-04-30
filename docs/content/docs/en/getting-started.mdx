@@ -1,0 +1,134 @@
+---
+title: Getting Started
+description: Install the repo, validate local readiness, and bring up the main operator surfaces.
+---
+
+## Baseline toolchain
+
+The repository currently assumes a Python plus Node workflow.
+The Python runtime still owns the actual trading logic, while `webgui/`, `docs/`, and `tui/` are managed from the root pnpm workspace.
+
+Recommended baseline:
+
+- Python 3.14.x through Conda or another managed interpreter
+- Poetry for Python dependency management
+- Node 20+ and `pnpm`
+- Optional: `tmux`, `asciinema`, and browser tooling for QA
+- Optional: Ollama if you are using the default local model path
+
+## Install the Python runtime
+
+```bash
+conda create -n trader python=3.14 poetry
+conda activate trader
+poetry env use "$CONDA_PREFIX/bin/python"
+poetry install --with dev --extras dev
+```
+
+Install the Node workspace from the repository root:
+
+```bash
+pnpm install
+pnpm approve-builds --all
+```
+
+After the Conda environment is active, use either shortcut:
+
+```bash
+pnpm run setup
+# or
+make setup
+```
+
+## Validate the environment before opening UIs
+
+Start with the smallest trust check:
+
+```bash
+python main.py doctor
+```
+
+If you rely on the installed CLI entrypoint, validate that too:
+
+```bash
+agentic-trader doctor
+```
+
+Do this before debugging the Web GUI or Ink TUI.
+If `doctor` is already wrong, the UI is usually reflecting a real lower-layer problem.
+
+## Configure environment files
+
+The project follows an example-plus-local-override pattern.
+
+- Root runtime settings should live in `.env.local`.
+- Keep tracked examples in `.env.example`.
+- The GitHub Pages docs build does not need `docs/.env.local`.
+
+Docs feedback on Pages prepares a browser-local GitHub issue draft.
+If a future Node-hosted docs instance re-enables server-side forwarding, keep its credentials in `docs/.env.local` and never in tracked config.
+
+## Local model setup
+
+The repo is still Ollama-oriented by default, but the direction is becoming more provider-aware.
+Typical local model settings look like this:
+
+```bash
+export AGENTIC_TRADER_MODEL_NAME=qwen3:8b
+export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
+```
+
+Do not treat raw Ollama traffic as proof that the system is healthy.
+Model reachability, runtime readiness, and recent logs should agree.
+
+## Bring up the main surfaces
+
+Run one strict cycle:
+
+```bash
+python main.py run --symbol AAPL --interval 1d --lookback 180d
+```
+
+Open the Ink control room:
+
+```bash
+agentic-trader
+```
+
+Run the Web GUI:
+
+```bash
+pnpm dev:webgui
+```
+
+Run the docs site locally:
+
+```bash
+pnpm dev:docs
+```
+
+Run the Ink TUI directly:
+
+```bash
+pnpm start:tui
+```
+
+## First things to inspect when something feels wrong
+
+- `doctor` output
+- runtime status in the CLI or observer surface
+- recent runtime logs
+- model service readiness
+- environment file differences between the repo root and nested apps
+
+## Near-term onboarding direction
+
+The intended V1 hardening path is:
+
+1. platform-aware prerequisite detection
+2. optional provider and model setup
+3. environment creation and dependency install
+4. readiness validation
+5. automatic launch into the Web GUI and docs surface
+
+That future flow should reduce setup friction without hiding failures.

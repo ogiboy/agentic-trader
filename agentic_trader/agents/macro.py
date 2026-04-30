@@ -4,7 +4,9 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import AgentContext, MacroAssessment, MarketSnapshot
 
 
-MACRO_PROVIDER_UNAVAILABLE_REASON = "Structured macro/news provider data is unavailable."
+MACRO_PROVIDER_UNAVAILABLE_REASON = (
+    "Structured macro/news provider data is unavailable."
+)
 
 
 def _fallback_macro(
@@ -41,21 +43,29 @@ def _has_structured_macro_evidence(context: AgentContext | None) -> bool:
     non_evidence_sources = {
         "local_macro_scaffold",
         "finnhub_configured",
+        "fmp_configured",
         "polygon_configured",
         "massive_configured",
         "news_disabled",
         "news_yfinance",
         "sec_future_source",
+        "sec_10k_10q_8k_future_source",
+        "earnings_transcripts_future_source",
         "macro_indicators_future_source",
         "kap_future_source",
+        "company_disclosures_future_source",
         "cbrt_future_source",
+        "turkey_macro_data_future_source",
+        "fx_rates_future_source",
         "rates_inflation_pending",
         "turkey_inflation_fx_pending",
     }
     has_provider = any(
         source not in non_evidence_sources for source in macro.data_sources
     )
-    has_scores = macro.sector_risk_score is not None or macro.political_risk_score is not None
+    has_scores = (
+        macro.sector_risk_score is not None or macro.political_risk_score is not None
+    )
     return has_news or has_provider or has_scores
 
 

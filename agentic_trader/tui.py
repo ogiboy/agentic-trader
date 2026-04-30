@@ -17,6 +17,7 @@ from agentic_trader.agents.operator_chat import (
     interpret_operator_instruction,
 )
 from agentic_trader.config import Settings, get_settings
+from agentic_trader.engine.broker import broker_runtime_payload
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
@@ -66,10 +67,10 @@ console = Console()
 def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
     """
     Open a TradingDatabase configured from the provided Settings.
-    
+
     Parameters:
         read_only (bool): If true, open the database in read-only mode; otherwise open for read/write.
-    
+
     Returns:
         TradingDatabase: Database instance initialized with the given settings and read-only flag.
     """
@@ -79,10 +80,10 @@ def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
 def _style_key(text: str) -> str:
     """
     Wrap the given text in Rich markup using the STYLE_KEY_COLUMN tag.
-    
+
     Parameters:
         text (str): The string to wrap.
-    
+
     Returns:
         str: The input string wrapped with opening and closing `[STYLE_KEY_COLUMN]` tags.
     """
@@ -92,7 +93,7 @@ def _style_key(text: str) -> str:
 def _banner() -> Panel:
     """
     Create the banner panel used as the Agentic Trader control room header.
-    
+
     Returns:
         Panel: A rich Panel containing the banner renderable; uses a compact single-line banner when the console is narrow and an ASCII-art header with a subtitle for wider consoles.
     """
@@ -122,7 +123,7 @@ def _banner() -> Panel:
 def _exit_cleanly() -> None:
     """
     Print a blue-bordered "Exit" panel indicating the control room closed cleanly.
-    
+
     This helper writes a short informational panel ("Control room closed cleanly.") to the console.
     """
     console.print(
@@ -133,10 +134,10 @@ def _exit_cleanly() -> None:
 def _split_csv(value: str) -> list[str]:
     """
     Parse a comma-separated string into a list of trimmed, uppercased tokens.
-    
+
     Parameters:
         value (str): Comma-separated input string.
-    
+
     Returns:
         list[str]: Tokens from `value` with surrounding whitespace removed, converted to uppercase, and with empty segments omitted.
     """
@@ -165,9 +166,9 @@ def _render_preferences(preferences: InvestmentPreferences) -> Table:
 def _render_recent_runs(db: TradingDatabase) -> None:
     """
     Render a table of the most recent runs from the trading database to the console.
-    
+
     If no runs exist, prints a yellow panel titled with the recent runs title indicating that no runs have been recorded.
-    
+
     Parameters:
         db (TradingDatabase): Database instance used to fetch recent runs (fetches up to 8 entries).
     """
@@ -180,7 +181,9 @@ def _render_recent_runs(db: TradingDatabase) -> None:
     table.add_column("Approved")
     if not runs:
         console.print(
-            Panel("No runs recorded yet.", title=TITLE_RECENT_RUNS, border_style="yellow")
+            Panel(
+                "No runs recorded yet.", title=TITLE_RECENT_RUNS, border_style="yellow"
+            )
         )
         return
     for run_id, created_at, symbol, interval, approved in runs:
@@ -191,7 +194,7 @@ def _render_recent_runs(db: TradingDatabase) -> None:
 def _recent_runs_table(db: TradingDatabase) -> Table:
     """
     Builds a Rich Table listing recent runs for display.
-    
+
     Returns:
         Table: A `rich.table.Table` titled by TITLE_RECENT_RUNS with columns
         "Run ID", "Created", "Symbol", "Interval", and "Approved". Each row
@@ -252,7 +255,11 @@ def _risk_report_table(db: TradingDatabase) -> Table:
 def _safe_open_read_db(settings: Settings) -> TradingDatabase | None:
     state = read_service_state(settings)
     view = build_runtime_status_view(state)
-    if view.live_process and view.last_recorded_state in {"starting", "running", "stopping"}:
+    if view.live_process and view.last_recorded_state in {
+        "starting",
+        "running",
+        "stopping",
+    }:
         return None
     try:
         return TradingDatabase(settings, read_only=True)
@@ -263,11 +270,11 @@ def _safe_open_read_db(settings: Settings) -> TradingDatabase | None:
 def _observer_mode_panel(feature: str, error: str | None = None) -> Panel:
     """
     Render a yellow "observer mode" panel indicating a feature is unavailable because the runtime writer owns the database.
-    
+
     Parameters:
         feature (str): The name or short description of the unavailable feature to display.
         error (str | None): Optional additional error or diagnostic text to include in the panel body.
-    
+
     Returns:
         Panel: A Rich Panel titled with LABEL_OBSERVER_MODE containing the message about unavailability, optionally followed by the provided error text; the panel uses a yellow border style.
     """
@@ -280,7 +287,7 @@ def _observer_mode_panel(feature: str, error: str | None = None) -> Panel:
 def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     """
     Render the runtime status view: either a detailed status table or a placeholder panel when no state is available.
-    
+
     Parameters:
         state (ServiceStateSnapshot | None): The latest service state snapshot to display. If `None` or if the snapshot contains no recorded state, a yellow panel indicating "No runtime state recorded yet." is printed instead of the table.
     """
@@ -326,7 +333,7 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
 def _render_runtime_events(events: list[ServiceEvent]) -> None:
     """
     Render a list of runtime service events to the console as a table or a notice when no events exist.
-    
+
     Parameters:
         events (list[ServiceEvent]): Iterable of service event records to display. If empty, a notice panel indicating no recorded events is printed.
     """
@@ -359,11 +366,11 @@ def _render_runtime_events(events: list[ServiceEvent]) -> None:
 def _runtime_events_table(events: list[ServiceEvent]) -> Table:
     """
     Builds a rich Table representing runtime service events.
-    
+
     Parameters:
         events (list[ServiceEvent]): Sequence of service event records to display. Each record is expected to provide
             `created_at`, `level`, `event_type`, `cycle_count`, and `symbol`.
-    
+
     Returns:
         Table: A rich Table with the columns "Created", "Level", "Type", "Cycle", and "Symbol". If `events` is empty,
         the table contains a single placeholder row of "-" values; otherwise each event produces one populated row.
@@ -440,10 +447,10 @@ def _current_activity_panel(
 def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     """
     Builds a rich Table summarizing the current runtime service status.
-    
+
     Parameters:
         state (ServiceStateSnapshot | None): Latest runtime service snapshot or None when no state is recorded.
-    
+
     Returns:
         Table: A Rich Table with keys and values for runtime properties (runtime state, live process, last recorded state, timestamps, counters, flags, PID, messages, and errors).
     """
@@ -488,13 +495,13 @@ def _system_status_table(
 ) -> Table:
     """
     Builds a summary key/value table of runtime, model, LLM health, and (when available) the latest order.
-    
+
     Parameters:
         settings: Application settings used to read runtime directory, mode, model name, base URL, and strict-LLM flag.
         db: Trading database instance or `None`. When provided, the table will include a "Latest Order" row; when `None`, that row is omitted.
         runtime_state: Optional live service state used to prefer the active runtime mode over settings defaults.
         health: Optional precomputed LLM health snapshot. If omitted, a fresh health check is performed.
-    
+
     Returns:
         Table: A Rich Table titled "System Status" containing rows for:
             - Runtime Dir
@@ -514,7 +521,11 @@ def _system_status_table(
     table.add_row("Runtime Dir", str(settings.runtime_dir))
     table.add_row(
         "Runtime Mode",
-        runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode,
+        (
+            runtime_state.runtime_mode
+            if runtime_state is not None
+            else settings.runtime_mode
+        ),
     )
     table.add_row("Model", settings.model_name)
     table.add_row("Base URL", settings.base_url)
@@ -533,10 +544,10 @@ def _system_status_table(
 def _portfolio_renderable(db: TradingDatabase) -> Group:
     """
     Builds a renderable containing a portfolio summary and positions table.
-    
+
     Parameters:
         db (TradingDatabase): Database instance used to retrieve the account snapshot and current positions.
-    
+
     Returns:
         rich.console.Group: A Group with a "Portfolio" summary table (cash, market value, equity, PnL, open positions)
         followed by a "Positions" table listing symbol, quantity, prices, market value, and unrealized PnL.
@@ -583,14 +594,14 @@ def build_monitor_renderable(
 ) -> Group:
     """
     Assembles the live-monitor UI as a Rich Group of panels and tables.
-    
+
     Attempts a safe read-only database open when `db` is None; database-backed panels show actual data when a readable DB is available and show observer-mode placeholders otherwise.
-    
+
     Parameters:
         settings (Settings): Application settings used to read runtime state and events.
         db (TradingDatabase | None): Optional database connection. If None, a safe read-only open is attempted and panels that require DB data will fall back to observer-mode when unavailable.
         health (LLMHealthStatus | None): Optional cached LLM health information to display in the system status panel; when omitted the system status panel may perform its own health check.
-    
+
     Returns:
         Group: A rich.Group containing the assembled header, activity panels, runtime/system status, preferences/portfolio, recent runs/trade journal, runtime events, and risk report.
     """
@@ -673,9 +684,9 @@ def run_live_monitor(
 ) -> None:
     """
     Launch a live terminal monitor that renders runtime, portfolio, and system views and updates periodically.
-    
+
     Runs a rich Live rendering loop that refreshes the UI every `refresh_seconds`, polling LLM health approximately every 30 seconds and updating the display accordingly. The monitor uses `settings` to build views and, if provided, reads DB-backed panels from `db`. The loop continues until interrupted (KeyboardInterrupt).
-    
+
     Parameters:
         settings (Settings): Application settings used to build monitor renderables and perform health checks.
         db (TradingDatabase | None): Optional read-only database used to populate portfolio and run/event panels; when None a safe read attempt may be performed internally.
@@ -705,7 +716,7 @@ def run_live_monitor(
 def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     """
     Render the system and runtime overview panels to the console, including status, current activity, preferences or observer-mode placeholders, and recent runtime events.
-    
+
     Parameters:
         settings (Settings): Application settings used to populate system status and to read runtime/service state.
         db (TradingDatabase | None): If provided, DB-backed panels (preferences and recent runs) are rendered; if `None`, observer-mode placeholders are shown.
@@ -719,7 +730,11 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     status.add_row("Database", str(settings.database_path))
     status.add_row(
         "Runtime Mode",
-        runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode,
+        (
+            runtime_state.runtime_mode
+            if runtime_state is not None
+            else settings.runtime_mode
+        ),
     )
     status.add_row("Model", settings.model_name)
     status.add_row("Base URL", settings.base_url)
@@ -729,9 +744,7 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     console.print(status)
     _render_runtime_state(runtime_state)
     console.print(
-        _current_activity_panel(
-            runtime_state, read_service_events(settings, limit=12)
-        )
+        _current_activity_panel(runtime_state, read_service_events(settings, limit=12))
     )
     if db is None:
         console.print(_observer_mode_panel("Preferences and portfolio-backed views"))
@@ -741,7 +754,51 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     _render_runtime_events(read_service_events(settings, limit=6))
 
 
+def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> None:
+    """
+    Render a compact system snapshot table showing runtime state, model, LLM readiness, broker status, kill-switch state, and whether database views are readable.
+
+    Parameters:
+        settings (Settings): Application settings used to read runtime and broker state and to evaluate LLM health.
+        db (TradingDatabase | None): Open read-capable database instance; when None the UI marks DB views as observer-only.
+    """
+    health = LocalLLM(settings).health_check()
+    runtime_state = read_service_state(settings)
+    runtime_view = build_runtime_status_view(runtime_state)
+    broker = broker_runtime_payload(settings)
+    table = Table(title="AGENTIC TRADER // System Snapshot", expand=True)
+    table.add_column("Key", style="cyan")
+    table.add_column("Value")
+    table.add_row(
+        "Runtime",
+        f"{runtime_view.runtime_state} / {runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode}",
+    )
+    table.add_row("Model", settings.model_name)
+    table.add_row(
+        "LLM Ready",
+        "yes" if health.service_reachable and health.model_available else "no",
+    )
+    table.add_row(
+        "Broker",
+        f"{broker['backend']} / {broker['state']}",
+    )
+    table.add_row(
+        "Kill Switch",
+        "yes" if broker["kill_switch_active"] else "no",
+    )
+    table.add_row(
+        "DB Views",
+        "readable" if db is not None else LABEL_OBSERVER_MODE,
+    )
+    console.print(table)
+
+
 def _configure_preferences(db: TradingDatabase) -> None:
+    """
+    Interactively prompt the operator to review and update investment preferences and persist the changes.
+
+    Displays the current preferences, prompts for each preference field (list fields accept comma-separated values; choice fields present fixed options), preserves existing list values when the input is empty, builds an InvestmentPreferences object from the responses, and saves it to the provided TradingDatabase.
+    """
     current = db.load_preferences()
     console.print(_render_preferences(current))
     regions = Prompt.ask(
@@ -814,9 +871,9 @@ def _configure_preferences(db: TradingDatabase) -> None:
 def _show_portfolio(db: TradingDatabase) -> None:
     """
     Render and print the current portfolio summary, positions table, and risk report to the console.
-    
+
     Prints a compact summary of cash, market value, equity, realized/unrealized PnL, and number of open positions, followed by a detailed positions table. If there are no open positions, prints a titled placeholder instead of the positions table. Finally, prints the risk report for the account.
-    
+
     Parameters:
         db (TradingDatabase): Database instance used to retrieve the account snapshot, open positions, and risk report.
     """
@@ -868,7 +925,7 @@ def _show_risk_report(db: TradingDatabase) -> None:
 def _show_latest_run_review(db: TradingDatabase) -> None:
     """
     Show the latest persisted run review in a formatted panel or a notice if no runs exist.
-    
+
     When a latest run record is present, print a cyan-titled panel containing the run's artifacts as pretty-printed JSON and the run id; if no record exists, print a yellow-titled panel stating that no persisted runs are available to review.
     """
     record = db.latest_run()
@@ -917,7 +974,7 @@ def _memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
 def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
     """
     Launch an interactive memory explorer that prompts for symbol, interval, lookback, and match limit, then prints a table of similar historical memories.
-    
+
     Parameters:
         _settings (Settings): Unused in this view; kept for API symmetry.
         db (TradingDatabase): Database used to retrieve and rank matching memories; results are printed to the console.
@@ -927,7 +984,9 @@ def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
     lookback = Prompt.ask("Lookback", default="180d")
     limit = IntPrompt.ask("Matches", default=5)
     frame = fetch_ohlcv(symbol, interval=interval, lookback=lookback)
-    snapshot = build_snapshot(frame, symbol=symbol, interval=interval, lookback=lookback)
+    snapshot = build_snapshot(
+        frame, symbol=symbol, interval=interval, lookback=lookback
+    )
     matches = retrieve_similar_memories(db, snapshot, limit=limit)
 
     console.print(_memory_explorer_table(matches))
@@ -1056,7 +1115,7 @@ def _strict_one_shot(
 ) -> None:
     """
     Execute a single strict agent trading cycle for each given symbol and persist and display the resulting run artifacts.
-    
+
     Parameters:
         settings (Settings): Application settings and environment configuration.
         symbols (Sequence[str]): Symbols to run the cycle for.
@@ -1279,7 +1338,7 @@ def _runtime_menu(settings: Settings) -> None:
 def _operator_menu(settings: Settings) -> None:
     """
     Present an interactive Operator Desk menu that lets the operator open a chat session or parse/apply an instruction.
-    
+
     Displays a simple menu with choices to (1) open operator chat, (2) parse operator instruction, or (3) go back. Opening chat attempts to read the database in safe/read-only mode and shows an observer-mode notice if the runtime writer prevents DB access; parsing an instruction requires a writable DB and shows an observer-mode notice on failure to open the DB. The menu loop continues until the user selects "Back".
     Parameters:
         settings (Settings): Application settings used to access the trading database and LLM configuration.
@@ -1322,7 +1381,7 @@ def _operator_menu(settings: Settings) -> None:
 def _portfolio_menu(settings: Settings) -> None:
     """
     Present an interactive "Portfolio and Risk" menu, allowing the operator to view portfolio, trade journal, or daily risk reports.
-    
+
     Displays a menu of actions, attempts to open a read-only database for views that require persisted data, shows an observer-mode notice when a readable database is unavailable, closes the database after each view, and returns to the caller when the user selects "Back".
     """
     while True:
@@ -1335,7 +1394,9 @@ def _portfolio_menu(settings: Settings) -> None:
         table.add_row("3", "Show daily risk report")
         table.add_row("4", "Back")
         console.print(table)
-        choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4"], default="1")
+        choice = Prompt.ask(
+            PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4"], default="1"
+        )
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
@@ -1371,9 +1432,9 @@ def _portfolio_menu(settings: Settings) -> None:
 def _research_menu(settings: Settings) -> None:
     """
     Display the Research and Memory menu and handle user selections.
-    
+
     Prompts the operator to choose between opening the memory explorer, viewing recent runs (with a short runtime events list), or returning to the previous menu. When a readable database is required, the function attempts a safe read-only open and shows an observer-mode panel if the runtime writer prevents access. Any opened database is closed before continuing. The function loops until the user selects "Back".
-    
+
     Parameters:
         settings (Settings): Application settings used to locate and open the trading database and service state.
     """
@@ -1415,9 +1476,9 @@ def _research_menu(settings: Settings) -> None:
 def _review_menu(settings: Settings) -> None:
     """
     Present an interactive "Review and Trace" menu allowing inspection of the latest persisted run review or its trace.
-    
+
     Displays a 3-option menu, opens a read-only database when available, and shows an observer-mode panel when the runtime writer prevents safe reads. Choosing "Inspect latest run review" or "Inspect latest run trace" will open the DB, render the corresponding view, and always close the DB afterward. Selecting "Back" exits the menu.
-    
+
     Parameters:
         settings (Settings): Application settings used to locate and open the trading database and to configure UI behavior.
     """
@@ -1457,7 +1518,7 @@ def _review_menu(settings: Settings) -> None:
 def run_main_menu() -> None:
     """
     Run the interactive terminal control-room loop for the Agentic Trader UI.
-    
+
     Displays the system banner and status, presents the main menu, dispatches to sub-menus (preferences, runtime control, operator desk, portfolio/risk, research/memory, review/trace), and manages opening/closing the trading database as needed. Handles EOF and interrupt signals to exit cleanly and reports action errors to the user.
     """
     settings = get_settings()
@@ -1468,7 +1529,10 @@ def run_main_menu() -> None:
         console.print(_banner())
         db = _safe_open_read_db(settings)
         try:
-            _render_status(settings, db)
+            if console.height < 40:
+                _render_compact_status(settings, db)
+            else:
+                _render_status(settings, db)
         finally:
             if db is not None:
                 db.close()

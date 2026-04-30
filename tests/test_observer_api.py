@@ -25,6 +25,26 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert status_code == 200
     assert broker["backend"] == "paper"
 
+    status_code, research = build_observer_api_payload(settings, path="/research")
+    assert status_code == 200
+    assert research["status"] == "disabled"
+    assert "provider_health" in research
+
+
+def test_observer_research_payload_does_not_create_database(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+
+    status_code, research = build_observer_api_payload(settings, path="/research")
+
+    assert status_code == 200
+    assert research["status"] == "disabled"
+    assert "provider_health" in research
+    assert settings.database_path.exists() is False
+
 
 def test_observer_api_server_serves_local_http_payloads(tmp_path) -> None:
     settings = Settings(
@@ -36,7 +56,9 @@ def test_observer_api_server_serves_local_http_payloads(tmp_path) -> None:
     server = create_observer_server(
         host="127.0.0.1",
         port=0,
-        resolver=lambda path: build_observer_api_payload(settings, path=path, log_limit=5),
+        resolver=lambda path: build_observer_api_payload(
+            settings, path=path, log_limit=5
+        ),
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

@@ -1,9 +1,13 @@
+import json
+import subprocess
 from pathlib import Path
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
+from agentic_trader.providers import build_canonical_analysis_snapshot
 from agentic_trader.schemas import (
     AgentStageTrace,
+    CanonicalAnalysisSnapshot,
     ExecutionDecision,
     ManagerDecision,
     MarketSnapshot,
@@ -18,7 +22,20 @@ from agentic_trader.workflows.run_once import persist_run
 from typer.testing import CliRunner
 
 
-def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
+def _artifacts(
+    symbol: str = "AAPL",
+    canonical_snapshot: CanonicalAnalysisSnapshot | None = None,
+) -> RunArtifacts:
+    """
+    Create a RunArtifacts test fixture populated with a MarketSnapshot and related analysis/decision objects.
+
+    Parameters:
+        symbol (str): Ticker symbol to use in the snapshot (default "AAPL").
+        canonical_snapshot (CanonicalAnalysisSnapshot | None): Optional canonical analysis snapshot to attach to the returned RunArtifacts.
+
+    Returns:
+        RunArtifacts: A RunArtifacts instance with a MarketSnapshot (hardcoded indicators and bars_analyzed=120), coordinator, regime, strategy, risk, manager, execution, review, and a single agent trace. The provided canonical_snapshot is stored on the returned object when supplied.
+    """
     return RunArtifacts(
         snapshot=MarketSnapshot(
             symbol=symbol,
@@ -34,6 +51,7 @@ def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
             volume_ratio_20=1.1,
             bars_analyzed=120,
         ),
+        canonical_snapshot=canonical_snapshot,
         coordinator=ResearchCoordinatorBrief(
             market_focus="trend_following",
             priority_signals=["trend_alignment"],
@@ -122,8 +140,123 @@ def test_review_run_and_export_report_commands(tmp_path: Path) -> None:
     assert review_result.exit_code == 0
     assert trace_result.exit_code == 0
     assert "Run Review" in review_result.output
+    assert "Fundamental" in review_result.output
     assert "Agent Trace" in trace_result.output
     assert export_result.exit_code == 0
     assert export_path.exists()
+    assert "## Fundamental" in export_path.read_text(encoding="utf-8")
     assert "## Manager" in export_path.read_text(encoding="utf-8")
     assert "## Manager Conflicts" in export_path.read_text(encoding="utf-8")
+
+
+def test_trade_context_surfaces_canonical_analysis(tmp_path: Path) -> None:
+    """
+    Verifies that the `trade-context` CLI command displays the canonical analysis and its expected subsections.
+
+    Asserts that invoking `trade-context` with a persisted run containing a canonical analysis snapshot exits successfully and that the output contains the "Canonical Analysis" header, "Missing Sections", and the specific subsection keys: "fundamentals", "sec_edgar", and "local_macro_scaffold".
+
+    Parameters:
+        tmp_path (Path): Temporary directory provided by pytest used as the runtime directory and database location for the test.
+    """
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        news_mode="off",
+    )
+    settings.ensure_directories()
+    base_artifacts = _artifacts()
+    canonical = build_canonical_analysis_snapshot(
+        base_artifacts.snapshot,
+        settings=settings,
+        news_items=[],
+    )
+    persist_run(settings=settings, artifacts=_artifacts(canonical_snapshot=canonical))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["trade-context"],
+        env={
+            "AGENTIC_TRADER_RUNTIME_DIR": str(tmp_path),
+            "AGENTIC_TRADER_DATABASE_PATH": str(tmp_path / "agentic_trader.duckdb"),
+            "AGENTIC_TRADER_NEWS_MODE": "off",
+        },
+    )
+
+    assert result.exit_code == 0
+    assert "Canonical Analysis" in result.output
+    assert "Missing Sections" in result.output
+    assert "fundamentals" in result.output
+    assert "sec_edgar" in result.output
+    assert "local_macro_scaffold" in result.output
+
+
+def test_ink_review_surfaces_fundamental_truth() -> None:
+    script = """
+import { getFundamentalAssessmentLines } from './tui/review-lines.mjs';
+const lines = getFundamentalAssessmentLines({
+  overall_bias: 'supportive',
+  risk_flags: ['high_debt_risk'],
+  evidence_vs_inference: {
+    evidence: ['revenue_growth=0.12'],
+    inference: ['growth is broad-based'],
+    uncertainty: ['provider lag possible'],
+  },
+});
+console.log(JSON.stringify(lines));
+"""
+    proc = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=Path.cwd(),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    lines = json.loads(proc.stdout)
+
+    assert lines == [
+        "Fundamental Bias: supportive",
+        "Fundamental Red Flags: high_debt_risk",
+        "Fundamental Evidence: revenue_growth=0.12",
+        "Fundamental Inference: growth is broad-based",
+        "Fundamental Uncertainty: provider lag possible",
+    ]
+
+
+def test_ink_review_reads_canonical_analysis_snapshot() -> None:
+    script = """
+import { getCanonicalAnalysisLines } from './tui/review-lines.mjs';
+const lines = getCanonicalAnalysisLines({
+  snapshot: {
+    summary: 'Canonical summary',
+    completeness_score: 0.75,
+    missing_sections: ['fundamentals'],
+    market: { attribution: { source_name: 'polygon' } },
+    fundamental: { attribution: { source_name: 'sec_edgar' } },
+    macro: { attribution: { source_name: 'local_macro_scaffold' } },
+    news_events: [{}, {}],
+    disclosures: [{}],
+    source_attributions: [
+      { provider_type: 'market', source_name: 'polygon', source_role: 'primary', freshness: 'fresh' },
+      { provider_type: 'fundamental', source_name: 'sec_edgar', source_role: 'missing', freshness: 'missing' },
+    ],
+  },
+});
+console.log(JSON.stringify(lines));
+"""
+    proc = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=Path.cwd(),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    lines = json.loads(proc.stdout)
+
+    assert "Summary: Canonical summary" in lines
+    assert "Completeness: 0.75" in lines
+    assert "Missing: fundamentals" in lines
+    assert "Fundamental Source: sec_edgar" in lines
+    assert "Macro Source: local_macro_scaffold" in lines
+    assert "Missing Sources: fundamental:sec_edgar" in lines
+    assert "Sources Shown: 2/2" in lines

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -127,6 +128,32 @@ def test_execution_intent_creation_and_validation(tmp_path: Path) -> None:
     assert intent.source_run_id == "run-test"
     assert intent.invalidation_condition == "Exit on close below EMA20."
     assert intent.backend_metadata["position_size_pct"] == pytest.approx(0.1)
+    assert intent.timestamp == intent.created_at
+
+    legacy_timestamp = "2026-01-01T00:00:00+00:00"
+    legacy_intent = ExecutionIntent(
+        symbol="AAPL",
+        side="hold",
+        reference_price=100.0,
+        confidence=0.2,
+        thesis="Legacy payload.",
+        approved=False,
+        created_at=legacy_timestamp,
+    )
+    assert legacy_intent.timestamp == legacy_timestamp
+    assert legacy_intent.created_at == legacy_timestamp
+
+    with pytest.raises(ValueError, match="timestamp and created_at"):
+        ExecutionIntent(
+            symbol="AAPL",
+            side="hold",
+            reference_price=100.0,
+            confidence=0.2,
+            thesis="Conflicting audit timestamps.",
+            approved=False,
+            timestamp="2026-01-01T00:00:00+00:00",
+            created_at="2026-01-01T00:01:00+00:00",
+        )
 
     with pytest.raises(ValueError, match="quantity or notional"):
         ExecutionIntent(
@@ -163,7 +190,9 @@ def test_paper_adapter_places_order_and_reports_health(tmp_path: Path) -> None:
     db.close()
 
 
-def test_simulated_real_adapter_is_non_live_and_records_metadata(tmp_path: Path) -> None:
+def test_simulated_real_adapter_is_non_live_and_records_metadata(
+    tmp_path: Path,
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -227,9 +256,51 @@ def test_persist_run_records_execution_context(tmp_path: Path) -> None:
     assert execution_record["order_id"] == order_id
     assert execution_record["execution_backend"] == "paper"
     assert execution_record["status"] == "filled"
+    intent = cast(dict[str, object], execution_record["intent"])
+    outcome = cast(dict[str, object], execution_record["outcome"])
+    assert intent["timestamp"] == intent["created_at"]
+    assert outcome["status"] == "filled"
     assert trade_context is not None
     assert trade_context.execution_backend == "paper"
     assert trade_context.execution_outcome_status == "filled"
     assert trade_context.execution_intent is not None
     assert trade_context.execution_intent["source_run_id"] == execution_record["run_id"]
+    db.close()
+
+
+def test_persist_run_records_rejected_execution_metadata(tmp_path: Path) -> None:
+    """
+    Verify that persisting a run with a rejected execution stores rejection metadata in the database.
+
+    Asserts that an execution record exists with `execution_backend == "paper"`, `status == "rejected"`, and `rejection_reason` set; that the `outcome` dictionary also contains the `rejection_reason`; and that the persisted trade context records `execution_outcome_status == "rejected"` and `execution_rejection_reason` equal to the rejection reason.
+    """
+    settings = _settings(tmp_path)
+    rejection_reason = "Execution guard rejected the trade."
+    artifacts = _artifacts().model_copy(
+        update={
+            "execution": _decision().model_copy(
+                update={
+                    "approved": False,
+                    "confidence": 0.2,
+                    "rationale": rejection_reason,
+                }
+            )
+        }
+    )
+
+    persist_run(settings=settings, artifacts=artifacts)
+
+    db = TradingDatabase(settings)
+    execution_record = db.latest_execution_record()
+    trade_context = db.latest_trade_context()
+
+    assert execution_record is not None
+    assert execution_record["execution_backend"] == "paper"
+    assert execution_record["status"] == "rejected"
+    assert execution_record["rejection_reason"] == rejection_reason
+    outcome = cast(dict[str, object], execution_record["outcome"])
+    assert outcome["rejection_reason"] == rejection_reason
+    assert trade_context is not None
+    assert trade_context.execution_outcome_status == "rejected"
+    assert trade_context.execution_rejection_reason == rejection_reason
     db.close()

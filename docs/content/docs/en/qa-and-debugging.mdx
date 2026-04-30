@@ -1,0 +1,85 @@
+---
+title: QA And Debugging
+description: Validate operator-facing changes with targeted tests, smoke QA, and runtime evidence.
+---
+
+## Baseline automated checks
+
+Start with focused checks:
+
+```bash
+python -m ruff check .
+python -m pytest -q -p no:cacheprovider
+pnpm run qa
+```
+
+For the docs app:
+
+```bash
+pnpm --filter docs run lint
+pnpm --filter docs run build
+```
+
+## Sonar targets
+
+Keep local SonarQube and SonarCloud separate:
+
+| Target | Project key | Command |
+| --- | --- | --- |
+| Local SonarQube Community Build | `agentic-trader` | `pnpm run sonar` |
+| Local npm scanner path | `agentic-trader` | `pnpm run sonar:js` |
+| SonarCloud | `ogiboy_agentic-trader` | `pnpm run sonar:cloud` |
+
+The local target is for Docker-backed branch analysis, Codex/MCP inspection, and developer QA. SonarCloud remains the GitHub-facing target for public badges and CI history.
+
+Tokens must stay out of tracked files. Use `SONAR_TOKEN` for one-off shells, `codex-sonarqube-token` in macOS Keychain for local Docker SonarQube, and `codex-sonarcloud-token` for manual SonarCloud uploads.
+
+For editor MCP wiring, use `scripts/secrets/run-sonarqube-mcp.sh`. It reads the token from Keychain and exports it only to the Docker MCP process, so VS Code `mcp.json` does not need a raw token.
+
+Use `pnpm run mcp:sonarqube:status` to distinguish the local `sonarqube` server from transient `mcp/sonarqube` client containers. Multiple MCP containers usually mean multiple active editor or agent sessions, not multiple SonarQube servers.
+
+When Sonar reports issues, review the full project backlog rather than only the latest commit. Prioritize vulnerabilities, security hotspots, correctness bugs, blocker/critical issues, and then maintainability cleanup. Accepted findings need a short reason and residual-risk note.
+
+## Why smoke QA matters
+
+This repo has real operator surfaces.
+A passing unit test is not enough if the CLI, Ink, Rich, observer, or Web GUI disagree about runtime truth.
+
+## Preferred evidence stack
+
+1. targeted tests
+2. CLI or observer contract output
+3. smoke QA artifacts
+4. tmux or asciinema capture when interaction matters
+5. browser or Computer Use checks for visual confirmation
+
+## Runtime-first debugging rule
+
+When behavior looks wrong:
+
+- inspect runtime artifacts before assuming the UI is right
+- inspect logs before inferring health from background traffic
+- inspect persisted context and review artifacts before changing prompts
+
+## Docs-specific QA checklist
+
+Before treating docs work as PR-ready:
+
+- confirm routing works for both locales
+- confirm search still returns useful results
+- confirm feedback copy explains the browser-local draft and manual GitHub issue link
+- confirm page structure is readable and not overloaded
+- confirm changed assumptions were written back into `.ai` notes
+
+## Manual QA ideas
+
+- open `/en/docs` and `/tr/docs`
+- open at least one deep page in each locale
+- confirm sidebar, search, and feedback UI render correctly
+- confirm JetBrains Mono and theme tokens still apply
+
+## Good final question
+
+Before opening a PR, ask:
+
+“Does this branch make the next contributor faster, or did it only make the current diff pass?”

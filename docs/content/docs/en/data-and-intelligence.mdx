@@ -1,0 +1,60 @@
+---
+title: Data And Intelligence
+description: Canonical snapshots, feature bundles, provider truth, and the boundary between evidence and reasoning.
+---
+
+## Data posture
+
+Raw provider payloads are not reliable enough to become agent truth directly.
+Providers disagree, fields are missing, freshness varies, and textual summaries can hide important gaps.
+
+The repo direction is to normalize external data into typed contracts before handing it to the model layer.
+
+## Key contracts
+
+- `CanonicalAnalysisSnapshot`
+- `DecisionFeatureBundle`
+- `MarketContextPack`
+- provider-specific fundamental or news snapshots before canonical merge
+
+## Why this matters
+
+The model should not be asked to infer unstated finance truth from vague strings.
+It should receive:
+
+- structured summaries
+- missing-field visibility
+- freshness context
+- source attribution
+- explicit risk flags
+
+## Provider aggregation rules
+
+Good aggregation in this repo means:
+
+- prefer canonical output over provider-specific string parsing
+- keep missing provider evidence visible
+- preserve source attributions
+- degrade confidence when the evidence layer is thin
+- keep generic fallbacks clearly labeled as fallbacks
+
+## Feature preparation
+
+The feature layer is where the repo turns mixed market, provider, and runtime signals into a compact decision context.
+If this layer is missing or incomplete, downstream confidence should reflect that.
+
+That is why missing `context` or missing `decision_features` should be treated as a real provider or evidence gap rather than a cosmetic omission.
+
+## Review and persistence tie-in
+
+These structured artifacts are not only for live reasoning.
+They also matter for:
+
+- review surfaces
+- QA
+- replay
+- debugging disagreement between providers and agents
+
+## Safe mental model
+
+Think of the model as a reasoning layer sitting on top of typed evidence, not as the place where missing market truth gets invented.

@@ -148,7 +148,9 @@ def market_snapshot_from_runtime_snapshot(
         rows=rows,
         columns=["runtime_indicators", "market_context_pack"],
         window_start=context_pack.window_start if context_pack is not None else None,
-        window_end=context_pack.window_end if context_pack is not None else snapshot.as_of,
+        window_end=(
+            context_pack.window_end if context_pack is not None else snapshot.as_of
+        ),
         last_close=snapshot.last_close,
         attribution=attribution,
         missing_fields=[] if context_pack is not None else ["market_context_pack"],

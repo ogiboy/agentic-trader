@@ -532,7 +532,7 @@ def _run_backtest_with_provider(
 ) -> BacktestReport:
     """
     Run a walk-forward backtest over historical OHLCV bars using a supplied artifact provider to produce trading decisions, sizing, and risk parameters.
-    
+
     Parameters:
         settings (Settings): Backtest configuration including `default_cash` and `allow_short`.
         symbol (str): Instrument identifier for reporting and snapshots.
@@ -541,10 +541,10 @@ def _run_backtest_with_provider(
         warmup_bars (int): Number of initial bars used to warm up indicators; trading begins at index `warmup_bars`.
         frame (pd.DataFrame): Historical OHLCV data with a sequential index; must contain more than `warmup_bars` rows.
         artifact_provider (Callable[[MarketSnapshot], RunArtifacts]): Function that, given a per-bar MarketSnapshot, returns strategy, risk, and execution artifacts used to decide entries and exits.
-    
+
     Returns:
         BacktestReport: Aggregated results including symbol/interval/lookback, timestamp bounds (`data_start_at`, `data_end_at`, `first_decision_at`, `last_decision_at`), cycle and trade counts, win rate, expectancy, total return percent, max drawdown percent, exposure percent, fallback cycle count, starting and ending equity, and the full list of trade records.
-    
+
     Raises:
         ValueError: If `frame` contains fewer than or equal to `warmup_bars` rows.
     """

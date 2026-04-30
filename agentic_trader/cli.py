@@ -37,6 +37,7 @@ from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.memory.policy import memory_write_policy_snapshot
 from agentic_trader.runtime_feed import (
     append_chat_history,
+    read_latest_research_snapshot,
     read_service_events,
     read_service_state,
     read_chat_history,
@@ -49,8 +50,13 @@ from agentic_trader.runtime_status import (
     RuntimeStatusView,
 )
 from agentic_trader.observer_api import serve_observer_api
+from agentic_trader.researchd.crewai_setup import crewai_setup_status
+from agentic_trader.researchd.orchestrator import ResearchSidecar
+from agentic_trader.researchd.persistence import persist_research_result
+from agentic_trader.researchd.status import build_research_sidecar_state
 from agentic_trader.schemas import (
     ChatPersona,
+    CanonicalAnalysisSnapshot,
     DailyRiskReport,
     HistoricalMemoryMatch,
     InvestmentPreferences,
@@ -99,8 +105,99 @@ from agentic_trader.workflows.service import (
     start_background_service,
 )
 
-app = typer.Typer(help="Agentic Trader CLI", invoke_without_command=True)
+app = typer.Typer(
+    help="Agentic Trader CLI",
+    invoke_without_command=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 console = Console()
+
+TUI_PACKAGE_NAME = "agentic-trader-tui"
+
+
+type NodeCommandSet = tuple[list[str], list[str], Path, str]
+
+
+def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
+    """
+    Resolve package-manager install and start command vectors and a working directory for the bundled Ink TUI.
+    
+    Parameters:
+        tui_dir (Path): Path to the bundled TUI directory.
+    
+    Returns:
+        NodeCommandSet | None: A tuple (install_command, start_command, command_cwd, manager_name) where
+            - install_command (list[str]) is the package-manager install command to run,
+            - start_command (list[str]) is the command to start the TUI,
+            - command_cwd (Path) is the directory where the start command should be executed,
+            - manager_name (str) is a short identifier for the chosen package manager/workflow.
+        Returns `None` if no supported Node package manager can be resolved.
+    """
+    repo_root = tui_dir.parent
+    pnpm = shutil.which("pnpm")
+    if pnpm and (repo_root / "pnpm-workspace.yaml").exists():
+        return (
+            [pnpm, "install"],
+            [pnpm, "--filter", TUI_PACKAGE_NAME, "run", "start"],
+            repo_root,
+            "pnpm workspace",
+        )
+    if pnpm and (tui_dir / "pnpm-lock.yaml").exists():
+        return (
+            [pnpm, "install"],
+            [pnpm, "run", "start"],
+            tui_dir,
+            "pnpm",
+        )
+
+    npm = shutil.which("npm")
+    if npm and (tui_dir / "package-lock.json").exists():
+        return (
+            [npm, "install"],
+            [npm, "run", "start"],
+            tui_dir,
+            "npm",
+        )
+    if npm:
+        return (
+            [npm, "install", "--no-package-lock"],
+            [npm, "run", "start"],
+            tui_dir,
+            "npm",
+        )
+
+    yarn = shutil.which("yarn")
+    if yarn and (tui_dir / "yarn.lock").exists():
+        return (
+            [yarn, "install", "--frozen-lockfile"],
+            [yarn, "start"],
+            tui_dir,
+            "yarn",
+        )
+    if yarn:
+        return (
+            [yarn, "install", "--no-lockfile"],
+            [yarn, "start"],
+            tui_dir,
+            "yarn",
+        )
+
+    return None
+
+
+def _tui_dependencies_installed(tui_dir: Path, command_cwd: Path) -> bool:
+    """
+    Check whether TUI-specific Node dependencies appear installed.
+
+    Parameters:
+        tui_dir (Path): Path to the bundled TUI directory.
+        command_cwd (Path): Working directory where the resolved package-manager commands will run; root workspace dependencies alone are not sufficient.
+
+    Returns:
+        bool: `True` only when the TUI package has its own `node_modules` link directory, `False` otherwise.
+    """
+    _ = command_cwd
+    return (tui_dir / "node_modules").exists()
 
 
 def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
@@ -465,6 +562,14 @@ def _render_run_review(record: RunRecord) -> None:
         record.artifacts.coordinator.summary,
     )
     analysis.add_row(
+        "Fundamental",
+        record.artifacts.fundamental.overall_bias,
+        (
+            f"{record.artifacts.fundamental.summary} | "
+            f"red_flags={', '.join(record.artifacts.fundamental.red_flags) or '-'}"
+        ),
+    )
+    analysis.add_row(
         "Regime", record.artifacts.regime.regime, record.artifacts.regime.reasoning
     )
     analysis.add_row(
@@ -513,6 +618,20 @@ def _render_run_review(record: RunRecord) -> None:
 
 
 def _render_run_markdown(record: RunRecord) -> str:
+    """
+    Builds a Markdown-formatted run review document from a persisted RunRecord.
+    
+    Generates a human-readable Markdown summary that includes metadata, coordinator,
+    fundamental analysis, regime, strategy, risk, consensus, manager decisions and
+    conflicts, execution details, and reviewer notes derived from the record's
+    artifacts.
+    
+    Parameters:
+        record (RunRecord): Persisted run record containing artifacts to serialize.
+    
+    Returns:
+        markdown (str): A Markdown document string summarizing the run review.
+    """
     artifacts = record.artifacts
     lines = [
         f"# Run Review: {record.run_id}",
@@ -526,6 +645,23 @@ def _render_run_markdown(record: RunRecord) -> str:
         "## Coordinator",
         f"- Focus: {artifacts.coordinator.market_focus}",
         f"- Summary: {artifacts.coordinator.summary}",
+        "",
+        "## Fundamental",
+        f"- Overall Bias: {artifacts.fundamental.overall_bias}",
+        f"- Growth Quality: {artifacts.fundamental.growth_quality}",
+        f"- Profitability Quality: {artifacts.fundamental.profitability_quality}",
+        f"- Cash Flow Quality: {artifacts.fundamental.cash_flow_quality}",
+        f"- Balance Sheet Quality: {artifacts.fundamental.balance_sheet_quality}",
+        f"- FX Risk: {artifacts.fundamental.fx_risk}",
+        f"- Business Quality: {artifacts.fundamental.business_quality}",
+        f"- Macro Fit: {artifacts.fundamental.macro_fit}",
+        f"- Forward Outlook: {artifacts.fundamental.forward_outlook}",
+        f"- Red Flags: {', '.join(artifacts.fundamental.red_flags) or '-'}",
+        f"- Strengths: {', '.join(artifacts.fundamental.strengths) or '-'}",
+        f"- Evidence: {', '.join(artifacts.fundamental.evidence_vs_inference.evidence) or '-'}",
+        f"- Inference: {', '.join(artifacts.fundamental.evidence_vs_inference.inference) or '-'}",
+        f"- Uncertainty: {', '.join(artifacts.fundamental.evidence_vs_inference.uncertainty) or '-'}",
+        f"- Summary: {artifacts.fundamental.summary}",
         "",
         "## Regime",
         f"- Regime: {artifacts.regime.regime}",
@@ -991,6 +1127,18 @@ def _preferences_payload(settings: Settings) -> dict[str, object]:
 
 
 def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
+    """
+    Builds a JSON-serializable payload containing recent trade journal entries.
+    
+    Parameters:
+        limit (int): Maximum number of journal entries to include, ordered from newest to oldest.
+    
+    Returns:
+        dict: A payload with:
+            - `available` (bool): `True` when the database read succeeded, `False` on error.
+            - `error` (str | None): Error message when `available` is `False`, otherwise `None`.
+            - `entries` (list[dict]): List of journal entries serialized with `model_dump(mode="json")`.
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -999,7 +1147,7 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
             db.close()
         available = True
         error = None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         entries = []
         available = False
         error = str(exc)
@@ -1007,6 +1155,53 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
         "available": available,
         "error": error,
         "entries": [entry.model_dump(mode="json") for entry in entries],
+    }
+
+
+def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]:
+    """
+    Builds a JSON-serializable payload of recent run metadata for CLI/observer consumption.
+    
+    Parameters:
+        settings (Settings): Application settings used to open the database.
+        limit (int): Maximum number of recent runs to include.
+    
+    Returns:
+        dict: A mapping with keys:
+            - `available` (bool): `True` when runs were loaded successfully, `False` on error.
+            - `error` (str | None): Error message when `available` is `False`, otherwise `None`.
+            - `runs` (list[dict]): List of run summaries. Each entry contains:
+                - `run_id` (str): Persisted run identifier.
+                - `created_at` (str): Run creation timestamp.
+                - `symbol` (str): Traded symbol for the run.
+                - `interval` (str): Market interval used for the run.
+                - `approved` (bool): Whether the run/execution was approved.
+    """
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            runs = db.list_recent_runs(limit=limit)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+        runs = []
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "runs": [
+            {
+                "run_id": run_id,
+                "created_at": created_at,
+                "symbol": symbol,
+                "interval": interval,
+                "approved": approved,
+            }
+            for run_id, created_at, symbol, interval, approved in runs
+        ],
     }
 
 
@@ -1152,7 +1347,15 @@ def _market_context_payload(settings: Settings) -> dict[str, object]:
 
 
 def _canonical_analysis_payload(settings: Settings) -> dict[str, object]:
-    """Return the latest canonical provider aggregation snapshot when persisted."""
+    """
+    Retrieve the most recently persisted canonical provider aggregation snapshot, if any.
+    
+    Returns:
+        dict: A payload with keys:
+            - available (bool): `True` if a canonical snapshot was found, `False` otherwise.
+            - error (str | None): An error message when unavailable or on failure; `None` when `available` is `True`.
+            - snapshot (dict | None): The canonical snapshot serialized to a JSON-compatible dict when available, otherwise `None`.
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -1186,21 +1389,59 @@ def _canonical_analysis_payload(settings: Settings) -> dict[str, object]:
     }
 
 
+def _canonical_analysis_lines(
+    canonical_snapshot: CanonicalAnalysisSnapshot | None,
+) -> list[str]:
+    """
+    Builds a list of human-readable lines summarizing a canonical analysis snapshot for terminal display.
+    
+    Parameters:
+        canonical_snapshot (CanonicalAnalysisSnapshot | None): The canonical analysis snapshot to summarize; pass None when no snapshot is attached.
+    
+    Returns:
+        list[str]: Ordered lines suitable for printing or panel rendering. If `canonical_snapshot` is None, returns a single-line message indicating no snapshot is attached.
+    """
+    if canonical_snapshot is None:
+        return ["No canonical analysis snapshot is attached to this trade context."]
+    source_lines = [
+        f"{item.provider_type}:{item.source_name} role={item.source_role} freshness={item.freshness}"
+        for item in canonical_snapshot.source_attributions
+    ]
+    return [
+        f"Summary: {canonical_snapshot.summary or '-'}",
+        f"Completeness: {canonical_snapshot.completeness_score:.2f}",
+        f"Missing Sections: {', '.join(canonical_snapshot.missing_sections) or '-'}",
+        (
+            "Primary Sources: "
+            f"market={canonical_snapshot.market.attribution.source_name} | "
+            f"fundamental={canonical_snapshot.fundamental.attribution.source_name} | "
+            f"macro={canonical_snapshot.macro.attribution.source_name}"
+        ),
+        (
+            "Event Counts: "
+            f"news={len(canonical_snapshot.news_events)} | "
+            f"disclosures={len(canonical_snapshot.disclosures)}"
+        ),
+        "Sources:",
+        *(source_lines or ["-"]),
+    ]
+
+
 def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
     """
-    Builds a read-only supervisor payload describing the orchestrator runtime and recent log tails.
+    Builds a JSON-serializable supervisor payload describing the orchestrator runtime status, recent log tails, and the serialized service state.
     
     Parameters:
         settings (Settings): Application settings used to locate persisted service state and log files.
     
     Returns:
-        dict[str, object]: A JSON-serializable dictionary with the following keys:
-            - runtime_state: A short runtime status identifier for the service view.
+        dict[str, object]: Dictionary with the following keys:
+            - runtime_state: Short runtime status identifier for the service view.
             - live_process: Metadata for the running service process, or `None` if not running.
             - is_stale: `true` if the last heartbeat is considered stale, `false` otherwise.
             - age_seconds: Age of the last heartbeat in seconds, or `None` if unavailable.
             - status_message: Human-readable status message for the runtime view.
-            - state: Serialized snapshot of the full service state, or `None` if unavailable.
+            - state: Serialized snapshot of the full service state as JSON-compatible dict, or `None` if unavailable.
             - stdout_tail: List of last lines from the service stdout log (empty list if unavailable).
             - stderr_tail: List of last lines from the service stderr log (empty list if unavailable).
     """
@@ -1898,6 +2139,161 @@ def runtime_mode_checklist(
     _render_runtime_mode_transition_plan(plan)
 
 
+def _research_sidecar_payload(
+    settings: Settings, *, probe: bool = False
+) -> dict[str, object]:
+    payload = build_research_sidecar_state(settings, probe=probe).model_dump(
+        mode="json"
+    )
+    payload["latestSnapshot"] = _latest_research_snapshot_payload(settings)
+    return payload
+
+
+def _latest_research_snapshot_payload(settings: Settings) -> dict[str, object]:
+    try:
+        record = read_latest_research_snapshot(settings)
+    except Exception as exc:
+        return {
+            "available": False,
+            "error": str(exc),
+        }
+    if record is None:
+        return {
+            "available": False,
+            "error": "no_research_snapshot_recorded",
+        }
+    return {
+        "available": True,
+        "record": record.model_dump(mode="json"),
+    }
+
+
+def _render_research_sidecar_state(payload: dict[str, object]) -> None:
+    table = Table(title="Research Sidecar Status")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("Mode", str(payload["mode"]))
+    table.add_row("Enabled", str(payload["enabled"]))
+    table.add_row("Backend", str(payload["backend"]))
+    table.add_row("Status", str(payload["status"]))
+    table.add_row("Updated At", str(payload["updated_at"]))
+    table.add_row(
+        "Watched Symbols",
+        ", ".join(cast(list[str], payload["watched_symbols"])) or "-",
+    )
+    last_success = payload.get("last_successful_update_at")
+    table.add_row("Last Successful Update", str(last_success or "-"))
+    last_error = payload.get("last_error")
+    table.add_row("Last Error", str(last_error or "-"))
+    console.print(table)
+
+    providers = cast(list[dict[str, object]], payload["provider_health"])
+    provider_table = Table(title="Research Source Health")
+    provider_table.add_column("Provider")
+    provider_table.add_column("Type")
+    provider_table.add_column("Enabled")
+    provider_table.add_column("Freshness")
+    provider_table.add_column("Message")
+    for provider in providers:
+        provider_table.add_row(
+            str(provider["provider_id"]),
+            str(provider["provider_type"]),
+            str(provider["enabled"]),
+            str(provider["freshness"]),
+            str(provider["message"]),
+        )
+    console.print(provider_table)
+
+
+@app.command("research-status")
+def research_status(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    probe: bool = typer.Option(
+        False,
+        "--probe/--no-probe",
+        help="Run one isolated sidecar provider probe before reporting status.",
+    ),
+) -> None:
+    """Show optional research sidecar mode, backend, and source health."""
+    settings = get_settings()
+    payload = _research_sidecar_payload(settings, probe=probe)
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_research_sidecar_state(payload)
+
+
+@app.command("research-refresh")
+def research_refresh(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    persist: bool = typer.Option(
+        True,
+        "--persist/--no-persist",
+        help="Persist the sidecar snapshot to the runtime research JSON feed.",
+    ),
+) -> None:
+    """Run one isolated research sidecar pass without touching broker execution."""
+    settings = get_settings()
+    result = ResearchSidecar(settings).collect_once()
+    record_payload: dict[str, object] | None = None
+    if persist:
+        record = persist_research_result(settings, result)
+        record_payload = record.model_dump(mode="json")
+    payload = {
+        "state": result.state.model_dump(mode="json"),
+        "world_state": (
+            result.world_state.model_dump(mode="json")
+            if result.world_state is not None
+            else None
+        ),
+        "memory_update": result.memory_update,
+        "persisted": record_payload is not None,
+        "record": record_payload,
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_research_sidecar_state(result.state.model_dump(mode="json"))
+    if record_payload is not None:
+        console.print(
+            _render_health_panel(
+                "Research Snapshot Persisted",
+                f"Snapshot {record_payload['snapshot_id']} recorded in the research feed.",
+                border_style="green",
+            )
+        )
+
+
+@app.command("research-crewai-setup")
+def research_crewai_setup(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show optional CrewAI setup status for the research sidecar backend."""
+    settings = get_settings()
+    payload = crewai_setup_status(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    table = Table(title="Research CrewAI Setup")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("CLI Available", str(payload["available"]))
+    table.add_row("CLI Path", str(payload["cli_path"] or "-"))
+    table.add_row("Version", str(payload["version"] or "-"))
+    table.add_row("Flow Dir", str(payload["flow_dir"]))
+    table.add_row("Scaffold Exists", str(payload["flow_scaffold_exists"]))
+    table.add_row("Core Dependency", str(payload["core_dependency"]))
+    console.print(table)
+    console.print(
+        Panel(
+            "\n".join(cast(list[str], payload["recommended_commands"])),
+            title="Recommended Commands",
+            border_style="cyan",
+        )
+    )
+
+
 @app.command()
 def run(
     symbol: str = typer.Option(..., help=HELP_SYMBOL),
@@ -2253,16 +2649,16 @@ def build_dashboard_snapshot_payload(
     settings: Settings, *, log_limit: int = 14
 ) -> dict[str, object]:
     """
-    Assembles a dashboard snapshot containing runtime, service, agent activity, and persisted payloads for the observer API.
+    Assembles a JSON-serializable dashboard snapshot containing runtime, service, agent activity, and persisted payloads for the observer API.
     
-    Aggregates health and configuration (doctor), runtime state (status), supervisor and broker payloads, recent service events, agent activity summaries, and read-only payloads such as portfolio, preferences, journal, risk report, run review/trace/replay, market and memory inspection, chat history, calendar, news, and market cache.
+    Builds health/doctor info, runtime status, supervisor and broker payloads, recent service events and agent activity summary, and a collection of read-only payloads (portfolio, preferences, recent runs, journal, risk report, run review/trace/replay, trade/market context, canonical analysis, memory inspection, retrieval inspection, memory policy, chat history, calendar, news, and market cache).
     
     Parameters:
-        settings (Settings): Application settings and paths used to read service state, query the database, and call helper payload builders.
+        settings (Settings): Application settings used to read service state, access the database, and resolve runtime paths.
         log_limit (int): Maximum number of recent service events to include in the `logs` section (default 14).
     
     Returns:
-        dict[str, object]: JSON-serializable snapshot payload keyed by sections (e.g., `doctor`, `status`, `supervisor`, `broker`, `logs`, `agentActivity`, `portfolio`, `preferences`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, `marketCache`).
+        dict[str, object]: A JSON-serializable snapshot keyed by sections including (but not limited to) `doctor`, `status`, `supervisor`, `broker`, `logs`, `agentActivity`, `portfolio`, `preferences`, `recentRuns`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `canonicalAnalysis`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, and `marketCache`.
     """
     llm = LocalLLM(settings)
     health = llm.health_check()
@@ -2340,6 +2736,7 @@ def build_dashboard_snapshot_payload(
         },
         "portfolio": _portfolio_payload(settings),
         "preferences": _preferences_payload(settings),
+        "recentRuns": _recent_runs_payload(settings, limit=8),
         "journal": _journal_payload(settings, limit=8),
         "riskReport": _risk_report_payload(settings),
         "review": _run_record_payload(settings),
@@ -2357,6 +2754,7 @@ def build_dashboard_snapshot_payload(
         "calendar": _calendar_payload(settings),
         "news": _news_payload(settings),
         "marketCache": _market_cache_payload(settings),
+        "research": _research_sidecar_payload(settings),
     }
 
 
@@ -2372,6 +2770,7 @@ def build_observer_api_payload(
     - "/status": returns a detailed runtime status view (runtime_state, live_process, is_stale, age_seconds, status_message, state).
     - "/logs": returns a list of recent service events under the "logs" key.
     - "/broker": returns broker runtime payload.
+    - "/research": returns optional research sidecar mode and provider health.
     - any other path: returns 404 with {"error": "not_found", "path": <requested path>}.
     
     Parameters:
@@ -2404,6 +2803,8 @@ def build_observer_api_payload(
         }
     if path == "/broker":
         return 200, _broker_payload(settings)
+    if path == "/research":
+        return 200, _research_sidecar_payload(settings)
     return 404, {"error": "not_found", "path": path}
 
 
@@ -2430,7 +2831,7 @@ def observer_api_command(
     settings = get_settings()
     console.print(
         Panel(
-            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker",
+            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /research",
             title="Observer API",
             border_style="cyan",
         )
@@ -2854,6 +3255,10 @@ def trade_context(
     summary.add_row("Consensus", record.consensus.alignment_level)
     summary.add_row("Manager Rationale", record.manager_rationale)
     summary.add_row("Execution Rationale", record.execution_rationale)
+    summary.add_row("Execution Backend", record.execution_backend or "-")
+    summary.add_row("Execution Adapter", record.execution_adapter or "-")
+    summary.add_row("Execution Outcome", record.execution_outcome_status or "-")
+    summary.add_row("Rejection Reason", record.execution_rejection_reason or "-")
     summary.add_row("Review Summary", record.review_summary)
     console.print(summary)
 
@@ -2878,6 +3283,13 @@ def trade_context(
             "\n".join(context_lines),
             title="Context Summary",
             border_style="cyan",
+        )
+    )
+    console.print(
+        Panel(
+            "\n".join(_canonical_analysis_lines(record.canonical_snapshot)),
+            title="Canonical Analysis",
+            border_style="blue",
         )
     )
 
@@ -3371,29 +3783,61 @@ def instruct(
     apply: bool = typer.Option(
         False, help="Apply the parsed preference update if one is proposed."
     ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Interpret a safe operator instruction and optionally apply it."""
+    """
+    Interpret an operator instruction and optionally apply any parsed preference update.
+    
+    Processes a natural-language operator instruction using the configured LLM and the trading
+    database. If the parsed instruction proposes a preference update and `apply` is True,
+    the update is persisted to the database. When `json_output` is True, emits a JSON object
+    with keys `instruction` (the interpreted instruction), `applied` (true if an update was
+    persisted), and `updated_preferences` (the new preferences or `null`). Otherwise the
+    instruction is rendered to the console and any updated preferences are displayed.
+    The database connection opened for this operation is closed before the function exits.
+    
+    Parameters:
+        message (str): Natural-language operator instruction to interpret.
+        apply (bool): If True, persist the parsed preference update when one is proposed.
+        json_output (bool): If True, emit a JSON payload instead of rendering console output.
+    """
     settings = get_settings()
     ensure_llm_ready(settings)
     db = TradingDatabase(settings)
-    llm = LocalLLM(settings)
-    instruction = interpret_operator_instruction(
-        llm=llm,
-        db=db,
-        settings=settings,
-        user_message=message,
-        allow_fallback=True,
-    )
-    _render_instruction(instruction)
-    if apply and instruction.should_update_preferences:
-        updated = apply_preference_update(db, instruction.preference_update)
-        console.print(
-            Panel(
-                updated.model_dump_json(indent=2),
-                title="Updated Preferences",
-                border_style="green",
-            )
+    try:
+        llm = LocalLLM(settings)
+        instruction = interpret_operator_instruction(
+            llm=llm,
+            db=db,
+            settings=settings,
+            user_message=message,
+            allow_fallback=True,
         )
+        updated: InvestmentPreferences | None = None
+        if apply and instruction.should_update_preferences:
+            updated = apply_preference_update(db, instruction.preference_update)
+        if json_output:
+            _emit_json(
+                {
+                    "instruction": instruction.model_dump(mode="json"),
+                    "applied": updated is not None,
+                    "updated_preferences": (
+                        updated.model_dump(mode="json") if updated is not None else None
+                    ),
+                }
+            )
+            return
+        _render_instruction(instruction)
+        if updated is not None:
+            console.print(
+                Panel(
+                    updated.model_dump_json(indent=2),
+                    title="Updated Preferences",
+                    border_style="green",
+                )
+            )
+    finally:
+        db.close()
 
 
 @app.command()
@@ -3412,14 +3856,15 @@ def monitor(
 def ink_tui() -> None:
     """
     Launch the Ink-based control room, falling back to the Rich control room when Ink is unavailable.
-    
-    Checks for the bundled `tui` directory and an `npm` executable. If the TUI directory is missing or `npm`
-    is not found, the function invokes the Rich control-room fallback (`run_main_menu`) and returns.
-    On first-run (missing `node_modules`) it runs `npm install` in the TUI directory, then starts the Ink
-    UI with `npm run start`, passing the CLI and Python executable via environment variables.
-    
+
+    Checks for the bundled `tui` directory and a compatible Node package manager. If the TUI directory
+    is missing or no package manager can be resolved, the function invokes the Rich control-room
+    fallback (`run_main_menu`) and returns. On first-run (missing `node_modules`) it installs Ink
+    dependencies through the resolved package manager, then starts the Ink UI with the CLI and Python
+    executable passed through environment variables.
+
     Raises:
-        subprocess.CalledProcessError: If `npm install` or `npm run start` exits with a non-zero status.
+        subprocess.CalledProcessError: If dependency installation or TUI startup exits with a non-zero status.
     """
     tui_dir = Path(__file__).resolve().parent.parent / "tui"
     if not tui_dir.exists():
@@ -3433,28 +3878,28 @@ def ink_tui() -> None:
         run_main_menu()
         return
 
-    npm = shutil.which("npm")
-    if npm is None:
+    node_commands = _resolve_tui_node_commands(tui_dir)
+    if node_commands is None:
         console.print(
             _render_health_panel(
                 "Node Missing",
-                "npm is required to run the Ink control room. Falling back to the Rich control room.",
+                "A Node package manager is required to run the Ink control room. Falling back to the Rich control room.",
                 border_style="yellow",
             )
         )
         run_main_menu()
         return
+    install_command, start_command, command_cwd, package_manager = node_commands
 
-    node_modules = tui_dir / "node_modules"
-    if not node_modules.exists():
+    if not _tui_dependencies_installed(tui_dir, command_cwd):
         console.print(
             _render_health_panel(
                 "Installing TUI Dependencies",
-                "First launch detected. Installing Ink dependencies with npm.",
+                f"First launch detected. Installing Ink dependencies with {package_manager}.",
                 border_style="yellow",
             )
         )
-        subprocess.run([npm, "install"], cwd=tui_dir, check=True)
+        subprocess.run(install_command, cwd=command_cwd, check=True)
 
     cli_exec = shutil.which("agentic-trader") or "agentic-trader"
     env = {
@@ -3462,7 +3907,7 @@ def ink_tui() -> None:
         "AGENTIC_TRADER_CLI": cli_exec,
         "AGENTIC_TRADER_PYTHON": sys.executable,
     }
-    subprocess.run([npm, "run", "start"], cwd=tui_dir, check=True, env=env)
+    subprocess.run(start_command, cwd=command_cwd, check=True, env=env)
 
 
 @app.command("stop-service")

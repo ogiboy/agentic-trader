@@ -1,0 +1,293 @@
+name: Binaries
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional release tag to build and attach assets for, for example v0.2.0'
+        required: false
+        type: string
+      channel:
+        description: 'Override artifact channel for manual branch builds'
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - stable
+          - next
+          - beta
+
+permissions:
+  contents: write
+
+concurrency:
+  group: binaries-${{ github.ref }}-${{ github.event.inputs.tag || 'branch' }}
+  cancel-in-progress: false
+
+env:
+  POETRY_VERSION: '2.3.4'
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    outputs:
+      artifact_version: ${{ steps.release-target.outputs.artifact_version }}
+      branch: ${{ steps.release-target.outputs.branch }}
+      channel: ${{ steps.release-target.outputs.channel }}
+      is_stable: ${{ steps.release-target.outputs.is_stable }}
+      publish_to_release: ${{ steps.release-target.outputs.publish_to_release }}
+      release_ref: ${{ steps.release-target.outputs.release_ref }}
+      release_tag: ${{ steps.release-target.outputs.release_tag }}
+      short_sha: ${{ steps.release-target.outputs.short_sha }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS Apple Silicon
+            asset_suffix: macos-arm64
+            extension: ''
+          - os: windows-latest
+            label: Windows
+            asset_suffix: windows-x64
+            extension: '.exe'
+
+    steps:
+      - name: Resolve checkout ref
+        id: ref
+        shell: bash
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          release_ref=""
+          checkout_ref="${GITHUB_REF_NAME}"
+          ref_name="${GITHUB_REF_NAME}"
+
+          if [ -n "${INPUT_TAG}" ]; then
+            release_ref="${INPUT_TAG}"
+            checkout_ref="${INPUT_TAG}"
+            ref_name="${INPUT_TAG}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            release_ref="${GITHUB_REF_NAME}"
+          fi
+
+          echo "checkout_ref=${checkout_ref}" >> "$GITHUB_OUTPUT"
+          echo "release_ref=${release_ref}" >> "$GITHUB_OUTPUT"
+          echo "ref_name=${ref_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.ref.outputs.checkout_ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Poetry
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "poetry==${POETRY_VERSION}"
+
+      - name: Install packaging dependencies
+        shell: bash
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry install --with dev --extras dev
+
+      - name: Detect semantic tag candidate
+        id: semantic
+        shell: bash
+        env:
+          RELEASE_REF: ${{ steps.ref.outputs.release_ref }}
+        run: |
+          set -euo pipefail
+          tag="${RELEASE_REF}"
+          if [ -z "$tag" ]; then
+            set +e
+            tag="$(
+              poetry run semantic-release --noop version --print-tag 2>/tmp/semantic-release-preview.log \
+                | grep -E '^v[0-9]+(\.[0-9]+){2}([-.+][0-9A-Za-z.-]+)?$' \
+                | tail -n 1
+            )"
+            set -e
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute artifact version
+        id: plan
+        shell: bash
+        env:
+          RELEASE_REF: ${{ steps.ref.outputs.release_ref }}
+          REF_NAME: ${{ steps.ref.outputs.ref_name }}
+          SEMANTIC_TAG: ${{ steps.semantic.outputs.tag }}
+          CHANNEL: ${{ github.event.inputs.channel }}
+        run: |
+          set -euo pipefail
+          args=(
+            --semantic-tag "$SEMANTIC_TAG"
+            --release-ref "$RELEASE_REF"
+            --ref-name "$REF_NAME"
+            --format github
+          )
+          if [ -n "${CHANNEL}" ] && [ "${CHANNEL}" != "auto" ]; then
+            args+=(--channel "$CHANNEL")
+          fi
+          python scripts/release/version_plan.py "${args[@]}"
+
+      - name: Resolve release target
+        id: release-target
+        shell: bash
+        env:
+          ARTIFACT_VERSION: ${{ steps.plan.outputs.artifact_version }}
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          CHANNEL: ${{ steps.plan.outputs.channel }}
+          IS_STABLE: ${{ steps.plan.outputs.is_stable }}
+          RELEASE_REF: ${{ steps.plan.outputs.release_ref }}
+          SHORT_SHA: ${{ steps.plan.outputs.short_sha }}
+          ATTACH_TO_RELEASE: ${{ steps.plan.outputs.attach_to_release }}
+        run: |
+          set -euo pipefail
+          publish_to_release=false
+          if [ "${ATTACH_TO_RELEASE}" = "true" ]; then
+            publish_to_release=true
+          elif [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_TYPE}" = "branch" ] && [ "${IS_STABLE}" != "true" ]; then
+            publish_to_release=true
+          fi
+
+          echo "artifact_version=${ARTIFACT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
+          echo "is_stable=${IS_STABLE}" >> "$GITHUB_OUTPUT"
+          echo "publish_to_release=${publish_to_release}" >> "$GITHUB_OUTPUT"
+          echo "release_ref=${RELEASE_REF}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_REF:-$ARTIFACT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build CLI binary
+        shell: bash
+        run: poetry run pyinstaller --clean --noconfirm agentic-trader.spec
+
+      - name: Smoke-test CLI binary
+        shell: bash
+        run: './dist/agentic-trader${{ matrix.extension }} doctor --json'
+
+      - name: Package binary asset
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          asset_base="agentic-trader-${{ matrix.asset_suffix }}-${{ steps.plan.outputs.artifact_version }}"
+          binary="dist/agentic-trader${{ matrix.extension }}"
+          staged="release/${asset_base}${{ matrix.extension }}"
+          cp "$binary" "$staged"
+
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            archive="release/${asset_base}.zip"
+            7z a "$archive" "$staged"
+          else
+            archive="release/${asset_base}.tar.gz"
+            tar -czf "$archive" -C release "$(basename "$staged")"
+          fi
+
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.asset_suffix }}-${{ steps.plan.outputs.artifact_version }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ needs.build.outputs.publish_to_release == 'true' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download packaged binary artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: '*-${{ needs.build.outputs.artifact_version }}'
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish release with assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.build.outputs.release_tag }}
+          RELEASE_REF: ${{ needs.build.outputs.release_ref }}
+          CHANNEL: ${{ needs.build.outputs.channel }}
+          BRANCH: ${{ needs.build.outputs.branch }}
+          SHORT_SHA: ${{ needs.build.outputs.short_sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=(release-assets/*)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release assets were downloaded." >&2
+            exit 1
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            asset_count="$(gh release view "$TAG" --json assets --jq '.assets | length')"
+            if [ "$asset_count" -gt 0 ]; then
+              echo "Release ${TAG} already exists with ${asset_count} asset(s); skipping publish."
+              exit 0
+            fi
+            echo "Release ${TAG} already exists without assets; immutable releases cannot be repaired automatically." >&2
+            exit 1
+          fi
+
+          notes="$(mktemp)"
+          if [ -n "${RELEASE_REF}" ]; then
+            cat > "$notes" <<EOF
+          Stable release build for \`${TAG}\`.
+
+          - Workflow run: ${RUN_URL}
+          EOF
+            gh release create "$TAG" "${assets[@]}" \
+              --verify-tag \
+              --title "Agentic Trader ${TAG}" \
+              --notes-file "$notes"
+          else
+            cat > "$notes" <<EOF
+          Automated ${CHANNEL} preview build for \`${BRANCH}\`.
+
+          - Channel: \`${CHANNEL}\`
+          - Commit: \`${SHORT_SHA}\`
+          - Workflow run: ${RUN_URL}
+
+          This prerelease is intended for branch testing. Stable releases are produced from \`main\`.
+          EOF
+            gh release create "$TAG" "${assets[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "Agentic Trader ${TAG}" \
+              --notes-file "$notes" \
+              --prerelease \
+              --latest=false
+          fi

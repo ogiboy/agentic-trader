@@ -55,7 +55,7 @@ def test_run_from_snapshot_propagates_shared_memory_bus(
     monkeypatch.setattr(
         "agentic_trader.workflows.run_once.assess_fundamentals",
         lambda *args, **kwargs: FundamentalAssessment(
-            overall_signal="neutral",
+            overall_bias="neutral",
             confidence=0.5,
             summary="Fundamental summary",
         ),

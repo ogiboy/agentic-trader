@@ -18,10 +18,12 @@
 - Do not introduce silent cloud dependence
 - Do not weaken strict runtime gating
 - Do not let operator chat history bleed into execution-time context assembly
+- Do not let research sidecars or CrewAI loops become hidden execution, policy mutation, or raw web-text prompt injection paths
 
 ## Current Architectural Direction
 
 - extend current memory rather than replacing it
+- add research sidecar memory inputs as normalized, source-attributed packets only
 - add provider adapters rather than changing agent workflow semantics
 - keep operator-facing inspection strong
 - keep runtime behavior replayable and reviewable

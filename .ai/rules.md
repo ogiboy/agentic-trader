@@ -13,6 +13,7 @@
 - Never allow silent trade generation when the runtime should be diagnostic-only
 - Keep operator-visible status accurate
 - Keep paper-trading behavior safe and conservative
+- Sidecars must not submit orders, mutate policy, overwrite runtime service state, or hide missing/fallback provider data
 
 ## Agent Rules
 

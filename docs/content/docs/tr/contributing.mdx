@@ -1,0 +1,77 @@
+---
+title: Katkı Vermek
+description: Çalışma tarzı, branch hijyeni ve değişiklikleri güvenli ve okunabilir tutan beklentiler.
+---
+
+## Çalışma tarzı
+
+Bu repo şunları tercih eder:
+
+- kodlamadan önce okumak
+- küçük ve hedefli diff'ler
+- açık sahiplik sınırları
+- minimum abstraction
+- görünür fail durumları
+
+## En önemli katkı kuralları
+
+- Çalışan sistemleri gelişigüzel yeniden yazmayın.
+- Spekülatif yeniden mimari yerine eklemeli hardening yap.
+- Proje yönü açıkça değişmeden local-first ve paper-first varsayımlarını koru.
+- Frontend kabuklarını Python runtime etrafında ince tut.
+
+## Önerilen katkı akışı
+
+1. en küçük sahip modülü oku
+2. eşleşen docs ve `.ai` notlarını oku
+3. minimum ama gerçek faydalı değişikliği yap
+4. önce hedefli testleri çalıştır
+5. davranış değiştiyse daha geniş doğrulamaya çık
+6. varsayımlar değiştiyse docs ve `.ai` notlarını da güncelle
+
+## Commit tarzı
+
+Conventional commit tarzı tercih edilir; çünkü release otomasyonu ve tarihçe daha okunabilir kalır.
+Örnekler:
+
+- `feat: add locale-aware docs routing`
+- `docs: expand runtime and onboarding guidance`
+- `fix: clarify docs feedback forwarding state`
+
+Release otomasyonu `main` üzerindeki conventional commit'leri okur.
+Feature commit'leri minor release, fix/perf/docs/build/ci/chore commit'leri patch release üretir; `!` veya `BREAKING CHANGE:` major release anlamına gelir.
+
+Sadece `main` otomatik olarak `pyproject.toml`, workspace package sürümleri ve `CHANGELOG.md` değiştirir. Diğer branch'ler version preview çalıştırır ve test binary'leri için prerelease tag/release kayıtları yayınlayabilir:
+
+- `main`: `v0.9.5` gibi stabil SemVer tag'leri
+- `V1`, `V2` gibi integration branch'leri: `v0.9.6-next.9870+gabc1234` gibi `next` prerelease'leri
+- feature branch'leri: `v0.9.6-beta.9870+gabc1234` gibi `beta` prerelease'leri
+
+`v0.9.5.9870` gibi dördüncü SemVer core segment kullanma; CI build kimliği prerelease ya da build metadata içinde yaşamalı.
+
+## CI ve release kontrolleri
+
+Pull request'ler ve korunan branch'lerde şu kontroller yeşil kalmalı:
+
+- Python core: Poetry install, Ruff, Pyright, Pytest ve PyInstaller smoke build
+- Web GUI: pnpm workspace install, lint, typecheck ve production build
+- Docs: pnpm workspace install, lint, typecheck ve static export
+- TUI: pnpm workspace install ve Ink entrypoint syntax check
+- Version Check: semantic-release preview ve SemVer uyumlu branch artifact kimliği
+- Binaries: branch testleri için macOS ve Windows PyInstaller artifact'leri; `v*` tag'lerinde stabil GitHub Release'e, branch push'larında prerelease GitHub Release'e eklenir
+
+## Docs güncellemesi ne zaman işin parçasıdır
+
+Şu durumlarda docs aynı branch içinde güncellenmeli:
+
+- komut ya da workflow değiştiyse
+- frontend ile runtime sınırı değiştiyse
+- yeni bir guardrail ya da tasarım kuralı geldiyse
+- onboarding beklentileri hareket ettiyse
+
+## Bu repo için iyi PR neye benzer
+
+- diff odaklı kalır
+- operatöre görünen davranış doğrulanır
+- docs implementasyonla eşleşir
+- gelecek katkı veren aynı kuralı yeniden keşfetmek zorunda kalmaz

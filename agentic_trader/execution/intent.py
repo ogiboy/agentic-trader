@@ -29,7 +29,8 @@ class ExecutionIntent(BaseModel):
     """Broker-facing intent derived from agent decisions and guard output."""
 
     intent_id: str = Field(default_factory=lambda: f"intent-{uuid4().hex[:12]}")
-    created_at: str = Field(default_factory=_utc_now)
+    timestamp: str = Field(default_factory=_utc_now)
+    created_at: str | None = None
     symbol: str
     side: ExecutionSide
     order_type: OrderType = "market"
@@ -50,9 +51,29 @@ class ExecutionIntent(BaseModel):
     adapter_name: str = "paper"
     backend_metadata: dict[str, object] = Field(default_factory=dict)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _sync_timestamp_fields(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        timestamp = data.get("timestamp")
+        created_at = data.get("created_at")
+        if timestamp is None and created_at is not None:
+            data["timestamp"] = created_at
+        elif created_at is None and timestamp is not None:
+            data["created_at"] = timestamp
+        elif (
+            timestamp is not None and created_at is not None and timestamp != created_at
+        ):
+            raise ValueError("Execution intent timestamp and created_at must match.")
+        return data
+
     @model_validator(mode="after")
     def _require_size_for_approved_trade(self) -> Self:
-        if self.approved and self.side != "hold" and self.quantity is None and self.notional is None:
+        if self.created_at is None:
+            self.created_at = self.timestamp
+        missing_size = self.quantity is None and self.notional is None
+        if self.approved and self.side != "hold" and missing_size:
             raise ValueError("Approved execution intents require quantity or notional.")
         return self
 

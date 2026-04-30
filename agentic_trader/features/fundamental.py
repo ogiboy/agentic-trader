@@ -1,13 +1,19 @@
 from datetime import UTC, datetime
 
 from agentic_trader.config import Settings
-from agentic_trader.schemas import FundamentalFeatureSet, FundamentalSnapshot, SymbolIdentity
+from agentic_trader.schemas import (
+    FundamentalFeatureSet,
+    FundamentalSnapshot,
+    SymbolIdentity,
+)
 
 
 def _configured_fundamental_sources(settings: Settings) -> list[str]:
     sources: list[str] = []
     if settings.finnhub_api_key:
         sources.append("finnhub_configured")
+    if settings.fmp_api_key:
+        sources.append("fmp_configured")
     if settings.polygon_api_key:
         sources.append("polygon_configured")
     if settings.massive_api_key:
@@ -54,11 +60,33 @@ def get_fundamental_features(
     if not sources:
         quality_flags.append("fundamental_provider_not_configured")
     if symbol_identity.region == "TR":
-        sources.append("kap_future_source")
-        quality_flags.append("kap_ingestion_pending")
+        sources.extend(
+            [
+                "kap_future_source",
+                "company_disclosures_future_source",
+                "turkey_financials_future_source",
+            ]
+        )
+        quality_flags.extend(
+            [
+                "kap_ingestion_pending",
+                "company_disclosure_ingestion_pending",
+                "turkey_financials_ingestion_pending",
+            ]
+        )
     else:
-        sources.append("sec_filings_future_source")
-        quality_flags.append("sec_ingestion_pending")
+        sources.extend(
+            [
+                "sec_10k_10q_8k_future_source",
+                "earnings_transcripts_future_source",
+            ]
+        )
+        quality_flags.extend(
+            [
+                "sec_ingestion_pending",
+                "earnings_transcript_ingestion_pending",
+            ]
+        )
 
     return FundamentalFeatureSet(
         symbol=symbol_identity.symbol,

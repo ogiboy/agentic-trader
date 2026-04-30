@@ -1,10 +1,10 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from agentic_trader.schemas import ExecutionBackend, RuntimeMode
+from agentic_trader.schemas import ExecutionBackend, ResearchMode, RuntimeMode
 
 
 class Settings(BaseSettings):
@@ -13,10 +13,17 @@ class Settings(BaseSettings):
         env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     llm_provider: Literal["ollama"] = "ollama"
-    model_name: str = "qwen3:8b"
+    model_name: str = Field(
+        default="qwen3:8b",
+        validation_alias=AliasChoices(
+            "AGENTIC_TRADER_MODEL_NAME",
+            "AGENTIC_TRADER_MODEL",
+        ),
+    )
     coordinator_model_name: str | None = None
     regime_model_name: str | None = None
     strategy_model_name: str | None = None
@@ -40,11 +47,22 @@ class Settings(BaseSettings):
         default_factory=lambda: Path("runtime") / "market_snapshots"
     )
     finnhub_api_key: str | None = None
+    fmp_api_key: str | None = None
     polygon_api_key: str | None = None
     massive_api_key: str | None = None
+    alpaca_api_key: str | None = None
+    alpaca_secret_key: str | None = None
+    alpaca_base_url: str = "https://paper-api.alpaca.markets/v2"
+    alpaca_data_feed: str = "iex"
     market_data_mode: Literal["live", "prefer_cache", "refresh_cache"] = "live"
     news_mode: Literal["off", "yfinance"] = "off"
     news_headline_limit: int = 5
+    research_mode: ResearchMode = "off"
+    research_sidecar_enabled: bool = False
+    research_sidecar_backend: Literal["noop", "crewai"] = "noop"
+    research_symbols: str = ""
+    research_poll_seconds: int = Field(default=900, ge=60)
+    research_max_events_per_source: int = Field(default=20, ge=1, le=200)
 
     runtime_mode: RuntimeMode = "operation"
     strict_llm: bool = True

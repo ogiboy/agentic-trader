@@ -21,13 +21,13 @@ def _normalize(values: list[float]) -> list[float]:
 def embed_text(text: str, *, dimensions: int = VECTOR_DIMENSIONS) -> list[float]:
     """
     Create a deterministic fixed-size embedding vector for the given text using a local hashing scheme.
-    
+
     The function converts the input text to tokens, derives a consistent numeric contribution from each token, accumulates those contributions into a vector of length `dimensions`, and returns the vector normalized to unit length (unless the vector norm is zero). Empty or token-less input yields a zero vector of the requested dimensionality.
-    
+
     Parameters:
         text (str): Input text to embed.
         dimensions (int): Length of the output embedding vector.
-    
+
     Returns:
         list[float]: A normalized embedding vector of length `dimensions`. If the input contains no tokens, returns a zero vector of the same length.
     """
@@ -47,7 +47,7 @@ def embed_text(text: str, *, dimensions: int = VECTOR_DIMENSIONS) -> list[float]
 def embedding_metadata() -> dict[str, str | int]:
     """
     Describe the local embedding provider, model, version, and vector dimensions.
-    
+
     Returns:
         metadata (dict[str, str | int]): Mapping with keys "provider", "model_name", "model_version", and "dimensions".
     """
@@ -62,7 +62,7 @@ def embedding_metadata() -> dict[str, str | int]:
 def cosine_similarity(left: list[float], right: list[float]) -> float:
     """
     Compute the cosine similarity between two equal-length vectors.
-    
+
     Returns:
         float: Cosine similarity clamped to the range [0.0, 1.0]. Returns 0.0 if either vector is empty or if their lengths differ.
     """
@@ -74,10 +74,10 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
 def snapshot_memory_text(snapshot: MarketSnapshot) -> str:
     """
     Builds a single-line, space-separated textual representation of a market snapshot.
-    
+
     Parameters:
         snapshot (MarketSnapshot): Snapshot to serialize into a compact text form.
-    
+
     Returns:
         str: Space-separated string containing snapshot fields in order:
             symbol, interval, `mtf:<mtf_alignment>`, `htf:<higher_timeframe>`,
@@ -117,13 +117,15 @@ def snapshot_memory_text(snapshot: MarketSnapshot) -> str:
 
 def build_memory_document(artifacts: RunArtifacts) -> str:
     """
-    Constructs a single textual memory document representing a run's artifacts.
-    
+    Construct a single textual memory document representing a run's artifacts.
+
+    The document begins with the single-line snapshot text from `snapshot_memory_text(snapshot)` followed by key artifact fields joined with " | ". Always-included fields (in order) are: `regime`, `direction`, `strategy`, `action`, `fundamental` (using `fundamental.overall_bias`), `macro`, `manager`, `review`, and `warnings` (comma-joined or `'none'` when empty). If present, `decision_features` appends `symbol_identity` (`region:exchange:currency`), `technical_trend`, `fundamental_flags` (comma-joined or `'none'`), and `macro_news_count`. If present, `canonical_snapshot` appends `canonical_completeness` (two decimals), `canonical_missing` (comma-joined or `'none'`), and `canonical_sources` (comma-joined source names or `'none'`).
+
     Parameters:
-        artifacts (RunArtifacts): Collected run artifacts including snapshot, regime, strategy, manager, and review data.
-    
+        artifacts (RunArtifacts): Collected run artifacts used to build the document.
+
     Returns:
-        memory_document (str): A single string combining the snapshot text and key artifact fields: `regime`, `direction`, `strategy`, `action`, `manager`, `review` summary, and `warnings` (comma-separated or `'none'` when empty). Fields are separated by " | ".
+        memory_document (str): A single " | "-separated string containing the snapshot text and the listed artifact fields.
     """
     snapshot = artifacts.snapshot
     parts = [
@@ -132,7 +134,7 @@ def build_memory_document(artifacts: RunArtifacts) -> str:
         f"direction:{artifacts.regime.direction_bias}",
         f"strategy:{artifacts.strategy.strategy_family}",
         f"action:{artifacts.strategy.action}",
-        f"fundamental:{artifacts.fundamental.overall_signal}",
+        f"fundamental:{artifacts.fundamental.overall_bias}",
         f"macro:{artifacts.macro.macro_signal}",
         f"manager:{artifacts.manager.action_bias}",
         f"review:{artifacts.review.summary}",

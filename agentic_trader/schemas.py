@@ -1,6 +1,7 @@
+from datetime import UTC, datetime
 from typing import Literal, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 RiskProfile: TypeAlias = Literal["conservative", "balanced", "aggressive"]
 TradeStyle: TypeAlias = Literal["swing", "position", "intraday"]
@@ -41,14 +42,27 @@ MarketSessionState: TypeAlias = Literal["open", "closed", "always_open", "weeken
 MTFAlignment: TypeAlias = Literal["bullish", "bearish", "mixed"]
 TrendVote: TypeAlias = Literal["bullish", "bearish", "mixed", "insufficient"]
 RuntimeMode: TypeAlias = Literal["training", "operation"]
+ResearchMode: TypeAlias = Literal["off", "training", "live_prep"]
 ExecutionBackend: TypeAlias = Literal["paper", "simulated_real", "live"]
-NewsClassification: TypeAlias = Literal["company_specific", "sector_level", "macro_level"]
+type NewsClassification = Literal[
+    "company_specific", "sector_level", "macro_level"
+]
 AnalysisSignal: TypeAlias = Literal["supportive", "neutral", "cautious", "avoid"]
 DataProviderKind: TypeAlias = Literal[
-    "market", "fundamental", "news", "disclosure", "macro"
+    "market", "fundamental", "news", "disclosure", "macro", "social"
 ]
 DataSourceRole: TypeAlias = Literal["primary", "fallback", "inferred", "missing"]
 FreshnessStatus: TypeAlias = Literal["fresh", "stale", "unknown", "missing"]
+type ResearchEvidenceKind = Literal[
+    "disclosure",
+    "news",
+    "macro",
+    "social",
+    "provider_status",
+]
+type ResearchSignalDirection = Literal[
+    "supportive", "neutral", "cautious", "contradictory", "unknown"
+]
 DisclosureKind: TypeAlias = Literal[
     "sec_filing",
     "kap_disclosure",
@@ -243,6 +257,7 @@ class TechnicalFeatureSet(BaseModel):
     symbol: str
     interval: str
     as_of: str | None = None
+    price_anchor: float | None = None
     returns_by_window: dict[str, float | None] = Field(default_factory=dict)
     volatility_20: float | None = None
     max_drawdown_pct: float | None = None
@@ -343,6 +358,12 @@ class FundamentalSnapshot(BaseModel):
     summary: str = ""
 
 
+class EvidenceInferenceBreakdown(BaseModel):
+    evidence: list[str] = Field(default_factory=list)
+    inference: list[str] = Field(default_factory=list)
+    uncertainty: list[str] = Field(default_factory=list)
+
+
 class NewsEvent(BaseModel):
     symbol: str
     title: str
@@ -353,6 +374,13 @@ class NewsEvent(BaseModel):
     relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
     url: str | None = None
     attribution: DataSourceAttribution
+    observed_at: str | None = None
+    last_verified_at: str | None = None
+    stale_after: str | None = None
+    evidence_vs_inference: EvidenceInferenceBreakdown = Field(
+        default_factory=EvidenceInferenceBreakdown
+    )
+    missing_fields: list[str] = Field(default_factory=list)
 
 
 class DisclosureEvent(BaseModel):
@@ -364,6 +392,13 @@ class DisclosureEvent(BaseModel):
     summary: str = ""
     url: str | None = None
     attribution: DataSourceAttribution
+    observed_at: str | None = None
+    last_verified_at: str | None = None
+    stale_after: str | None = None
+    evidence_vs_inference: EvidenceInferenceBreakdown = Field(
+        default_factory=EvidenceInferenceBreakdown
+    )
+    missing_fields: list[str] = Field(default_factory=list)
 
 
 class MacroSnapshot(BaseModel):
@@ -400,10 +435,158 @@ class DecisionFeatureBundle(BaseModel):
     macro: MacroContext
 
 
+class ResearchTimedRecord(BaseModel):
+    source_attributions: list[DataSourceAttribution] = Field(default_factory=list)
+    observed_at: str
+    last_verified_at: str | None = None
+    stale_after: str | None = None
+    evidence_vs_inference: EvidenceInferenceBreakdown = Field(
+        default_factory=EvidenceInferenceBreakdown
+    )
+    missing_fields: list[str] = Field(default_factory=list)
+
+    def is_stale(self, reference_time: str | None = None) -> bool:
+        if self.stale_after is None:
+            return False
+        stale_after = datetime.fromisoformat(self.stale_after.replace("Z", "+00:00"))
+        reference = (
+            datetime.fromisoformat(reference_time.replace("Z", "+00:00"))
+            if reference_time
+            else datetime.now(UTC)
+        )
+        return stale_after <= reference
+
+
+class RawEvidenceRecord(ResearchTimedRecord):
+    record_id: str
+    source_kind: ResearchEvidenceKind
+    source_name: str
+    title: str
+    symbol: str | None = None
+    entity_name: str | None = None
+    region: str | None = None
+    url: str | None = None
+    normalized_summary: str = ""
+    source_payload_ref: str | None = None
+
+
+class MacroEvent(ResearchTimedRecord):
+    event_id: str
+    region: str
+    currency: str | None = None
+    title: str
+    summary: str = ""
+    direction: ResearchSignalDirection = "unknown"
+    affected_channels: list[str] = Field(default_factory=list)
+
+
+class SocialSignal(ResearchTimedRecord):
+    signal_id: str
+    platform: str
+    query: str
+    symbol: str | None = None
+    entity_name: str | None = None
+    summary: str = ""
+    direction: ResearchSignalDirection = "unknown"
+    relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    source_count: int = Field(default=0, ge=0)
+
+
+class ResearchFinding(ResearchTimedRecord):
+    finding_id: str
+    subject: str
+    title: str
+    thesis: str = ""
+    verified_facts: list[str] = Field(default_factory=list)
+    inferences: list[str] = Field(default_factory=list)
+    unknowns: list[str] = Field(default_factory=list)
+    contradictions: list[str] = Field(default_factory=list)
+    market_channels: list[str] = Field(default_factory=list)
+    horizon: str = "unknown"
+    watch_next: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class EntityDossier(ResearchTimedRecord):
+    entity_id: str
+    entity_name: str
+    symbol: str | None = None
+    region: str | None = None
+    timeline: list[str] = Field(default_factory=list)
+    current_thesis: str = ""
+    key_findings: list[ResearchFinding] = Field(default_factory=list)
+    contradiction_file: list[str] = Field(default_factory=list)
+    source_diversity_score: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class WorldStateSnapshot(ResearchTimedRecord):
+    snapshot_id: str
+    mode: ResearchMode = "off"
+    generated_at: str
+    watched_symbols: list[str] = Field(default_factory=list)
+    entity_dossiers: list[EntityDossier] = Field(default_factory=list)
+    macro_events: list[MacroEvent] = Field(default_factory=list)
+    social_signals: list[SocialSignal] = Field(default_factory=list)
+    findings: list[ResearchFinding] = Field(default_factory=list)
+    summary: str = ""
+
+
+class ResearchProviderHealth(BaseModel):
+    provider_id: str
+    name: str
+    provider_type: DataProviderKind
+    enabled: bool
+    requires_network: bool = False
+    source_role: DataSourceRole
+    freshness: FreshnessStatus = "unknown"
+    last_successful_update_at: str | None = None
+    message: str = ""
+    notes: list[str] = Field(default_factory=list)
+
+
+class ResearchSidecarState(BaseModel):
+    mode: ResearchMode = "off"
+    enabled: bool = False
+    backend: str = "noop"
+    status: Literal["disabled", "idle", "running", "completed", "failed"] = "disabled"
+    updated_at: str
+    last_started_at: str | None = None
+    last_successful_update_at: str | None = None
+    last_error: str | None = None
+    watched_symbols: list[str] = Field(default_factory=list)
+    provider_health: list[ResearchProviderHealth] = Field(default_factory=list)
+    source_health_summary: dict[str, int] = Field(default_factory=dict)
+
+
+class ResearchSnapshotRecord(BaseModel):
+    snapshot_id: str
+    created_at: str
+    mode: ResearchMode
+    backend: str = "noop"
+    status: Literal["disabled", "idle", "running", "completed", "failed"] = "disabled"
+    watched_symbols: list[str] = Field(default_factory=list)
+    raw_evidence: list[RawEvidenceRecord] = Field(default_factory=list)
+    world_state: WorldStateSnapshot | None = None
+    state: ResearchSidecarState
+    memory_update: dict[str, object] = Field(default_factory=dict)
+
+
 class FundamentalAssessment(BaseModel):
-    revenue_growth_quality: AnalysisSignal = "neutral"
+    growth_quality: AnalysisSignal = "neutral"
     profitability_quality: AnalysisSignal = "neutral"
     cash_flow_quality: AnalysisSignal = "neutral"
+    balance_sheet_quality: AnalysisSignal = "neutral"
+    fx_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
+    business_quality: AnalysisSignal = "neutral"
+    macro_fit: AnalysisSignal = "neutral"
+    forward_outlook: AnalysisSignal = "neutral"
+    red_flags: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    evidence_vs_inference: EvidenceInferenceBreakdown = Field(
+        default_factory=EvidenceInferenceBreakdown
+    )
+    overall_bias: AnalysisSignal = "neutral"
+    revenue_growth_quality: AnalysisSignal = "neutral"
     debt_quality: AnalysisSignal = "neutral"
     fx_exposure_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
     reinvestment_quality: AnalysisSignal = "neutral"
@@ -413,6 +596,43 @@ class FundamentalAssessment(BaseModel):
     risk_flags: list[str] = Field(default_factory=list)
     source: Literal["llm", "fallback"] = "fallback"
     fallback_reason: str | None = None
+
+    @model_validator(mode="after")
+    def sync_legacy_fields(self) -> "FundamentalAssessment":
+        """
+        Synchronize legacy and current field names so both representations remain consistent after model initialization.
+
+        Copies values between legacy and new field pairs when only one of each pair was provided, ensuring fields such as `growth_quality`/`revenue_growth_quality`, `balance_sheet_quality`/`debt_quality`, `fx_risk`/`fx_exposure_risk`, `overall_bias`/`overall_signal`, and `red_flags`/`risk_flags` are aligned.
+
+        Returns:
+                self (FundamentalAssessment): The model instance with synchronized fields.
+        """
+        fields = set(self.model_fields_set)
+
+        def _sync_pair(current: str, legacy: str) -> None:
+            current_present = current in fields
+            legacy_present = legacy in fields
+            current_value = getattr(self, current)
+            legacy_value = getattr(self, legacy)
+
+            def _copy_mutable(value: object) -> object:
+                return list(value) if isinstance(value, list) else value
+
+            if current_present and legacy_present and current_value != legacy_value:
+                raise ValueError(
+                    f"Conflicting fundamental assessment fields: {current} != {legacy}."
+                )
+            if not current_present and legacy_present:
+                setattr(self, current, _copy_mutable(legacy_value))
+            elif not legacy_present and current_present:
+                setattr(self, legacy, _copy_mutable(current_value))
+
+        _sync_pair("growth_quality", "revenue_growth_quality")
+        _sync_pair("balance_sheet_quality", "debt_quality")
+        _sync_pair("fx_risk", "fx_exposure_risk")
+        _sync_pair("overall_bias", "overall_signal")
+        _sync_pair("red_flags", "risk_flags")
+        return self
 
 
 class MacroAssessment(BaseModel):
@@ -661,6 +881,9 @@ class TradeContextRecord(BaseModel):
     tool_outputs: dict[str, list[str]] = Field(default_factory=dict)
     shared_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
     consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
+    fundamental_assessment: FundamentalAssessment = Field(
+        default_factory=FundamentalAssessment
+    )
     fundamental_summary: str = ""
     macro_summary: str = ""
     manager_rationale: str = ""

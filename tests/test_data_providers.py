@@ -5,7 +5,14 @@ from agentic_trader.features import build_decision_feature_bundle
 from agentic_trader.providers import (
     ProviderSet,
     build_canonical_analysis_snapshot,
+    default_provider_set,
 )
+from agentic_trader.providers.aggregation import (
+    _collect_disclosures,
+    _collect_provider_news,
+    _first_fundamental_snapshot,
+)
+from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
 from agentic_trader.providers.interfaces import (
     DisclosureProvider,
     FundamentalDataProvider,
@@ -17,6 +24,12 @@ from agentic_trader.providers.local import (
     LocalDisclosureProvider,
     LocalFundamentalProvider,
     LocalMacroProvider,
+)
+from agentic_trader.providers.public_sources import (
+    FinnhubFundamentalProvider,
+    FmpFundamentalProvider,
+    KapDisclosureProvider,
+    SecEdgarFundamentalProvider,
 )
 from agentic_trader.providers.yahoo import YahooMarketDataProvider, YahooNewsProvider
 from agentic_trader.schemas import (
@@ -87,16 +100,41 @@ def _snapshot() -> MarketSnapshot:
 
 
 def test_default_provider_adapters_conform_to_interfaces() -> None:
+    """
+    Verify default provider adapter classes implement their expected provider interfaces.
+
+    Asserts that the default provider classes instantiate as the corresponding interface types:
+    - YahooMarketDataProvider -> MarketDataProvider
+    - LocalFundamentalProvider, SecEdgarFundamentalProvider, FinnhubFundamentalProvider, FmpFundamentalProvider -> FundamentalDataProvider
+    - YahooNewsProvider -> NewsProvider
+    - LocalDisclosureProvider, KapDisclosureProvider -> DisclosureProvider
+    - LocalMacroProvider -> MacroDataProvider
+    """
     settings = _settings()
 
     assert isinstance(YahooMarketDataProvider(settings), MarketDataProvider)
     assert isinstance(LocalFundamentalProvider(settings), FundamentalDataProvider)
+    assert isinstance(SecEdgarFundamentalProvider(settings), FundamentalDataProvider)
+    assert isinstance(FinnhubFundamentalProvider(settings), FundamentalDataProvider)
+    assert isinstance(FmpFundamentalProvider(settings), FundamentalDataProvider)
     assert isinstance(YahooNewsProvider(settings), NewsProvider)
     assert isinstance(LocalDisclosureProvider(settings), DisclosureProvider)
+    assert isinstance(KapDisclosureProvider(settings), DisclosureProvider)
     assert isinstance(LocalMacroProvider(settings), MacroDataProvider)
 
 
 def test_canonical_snapshot_preserves_attribution_and_missing_sections() -> None:
+    """
+    Validate that building a canonical analysis snapshot preserves source attributions, records missing sections, and retains key snapshot metadata.
+
+    Asserts that the canonical snapshot for the sample market:
+    - has symbol "AAPL";
+    - marks the market attribution `source_role` as "inferred";
+    - contains 120 market rows;
+    - classifies the first news event as "company_specific";
+    - lists "fundamentals" and "disclosures" in `missing_sections`;
+    - includes sources named "sec_edgar" and "kap_disclosures" in `source_attributions`.
+    """
     snapshot = build_canonical_analysis_snapshot(
         _snapshot(),
         settings=_settings(),
@@ -117,7 +155,10 @@ def test_canonical_snapshot_preserves_attribution_and_missing_sections() -> None
     assert "fundamentals" in snapshot.missing_sections
     assert "disclosures" in snapshot.missing_sections
     assert any(
-        source.source_name == "local_fundamental_scaffold"
+        source.source_name == "sec_edgar" for source in snapshot.source_attributions
+    )
+    assert any(
+        source.source_name == "kap_disclosures"
         for source in snapshot.source_attributions
     )
 
@@ -141,13 +182,54 @@ def test_decision_bundle_consumes_canonical_snapshot() -> None:
         canonical_snapshot=canonical,
     )
 
-    assert "local_fundamental_scaffold" in bundle.fundamental.data_sources
+    assert bundle.fundamental.data_sources == ["fundamental_provider_unavailable"]
+    assert any(
+        source.source_name == "sec_edgar" for source in canonical.source_attributions
+    )
     assert bundle.macro.news_signals[0].category == "macro_level"
     assert bundle.macro.data_sources[0] == "local_macro_scaffold"
 
 
+def test_default_provider_ladder_names_public_sources() -> None:
+    default_set = default_provider_set(_settings())
+
+    assert [item.metadata().provider_id for item in default_set.market] == [
+        "yahoo_market"
+    ]
+    assert [item.metadata().provider_id for item in default_set.fundamental] == [
+        "sec_edgar_fundamentals",
+        "finnhub_fundamentals",
+        "fmp_fundamentals",
+        "local_fundamental_scaffold",
+    ]
+    assert [item.metadata().provider_id for item in default_set.disclosures] == [
+        "kap_disclosures",
+        "local_disclosure_scaffold",
+    ]
+
+
+def test_empty_provider_outputs_are_visible_in_canonical_attribution() -> None:
+    canonical = build_canonical_analysis_snapshot(
+        _snapshot(),
+        settings=_settings(),
+        news_items=None,
+    )
+
+    source_names = {source.source_name for source in canonical.source_attributions}
+
+    assert "news" in canonical.missing_sections
+    assert "disclosures" in canonical.missing_sections
+    assert "yahoo_news" in source_names
+    assert "kap_disclosures" in source_names
+
+
 class _FailingFundamentalProvider:
     def metadata(self) -> ProviderMetadata:
+        """
+        Metadata describing this fundamental data provider.
+
+        @returns ProviderMetadata: The provider's identifier, display name, and capabilities (e.g., supported symbols, data types, and rate/limit hints).
+        """
         return LocalFundamentalProvider(_settings()).metadata()
 
     def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
@@ -280,3 +362,94 @@ def test_trade_context_persists_canonical_snapshot(tmp_path: Path) -> None:
     assert record is not None
     assert record.canonical_snapshot is not None
     assert record.canonical_snapshot.symbol_identity.symbol == "AAPL"
+
+
+class _MissingFundamentalProvider:
+    def __init__(self, provider_id: str) -> None:
+        self._provider_id = provider_id
+
+    def metadata(self) -> ProviderMetadata:
+        return metadata(
+            provider_id=self._provider_id,
+            name=self._provider_id,
+            provider_type="fundamental",
+            role="missing",
+        )
+
+    def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
+        return FundamentalSnapshot(
+            symbol_identity=symbol,
+            attribution=source_attribution(
+                source_name=self._provider_id,
+                provider_type="fundamental",
+                source_role="missing",
+                fetched_at=utc_now_iso(),
+                freshness="missing",
+            ),
+            missing_fields=["fundamental_snapshot"],
+            summary=f"{self._provider_id} missing fundamentals.",
+        )
+
+
+class _MetadataFailingDisclosureProvider:
+    def metadata(self) -> ProviderMetadata:
+        raise RuntimeError("metadata offline")
+
+    def get_disclosures(
+        self, symbol: SymbolIdentity, *, limit: int
+    ) -> list[DisclosureEvent]:
+        _ = (symbol, limit)
+        raise AssertionError("get_disclosures should not be called")
+
+
+class _MetadataFailingNewsProvider:
+    def metadata(self) -> ProviderMetadata:
+        raise RuntimeError("metadata offline")
+
+    def get_news(self, symbol: SymbolIdentity, *, limit: int) -> list[NewsEvent]:
+        _ = (symbol, limit)
+        raise AssertionError("get_news should not be called")
+
+
+def test_all_missing_fundamental_providers_return_generic_missing_snapshot() -> None:
+    symbol = SymbolIdentity(symbol="AAPL")
+
+    snapshot, errors, extra_attributions = _first_fundamental_snapshot(
+        [
+            _MissingFundamentalProvider("provider_a"),
+            _MissingFundamentalProvider("provider_b"),
+        ],
+        symbol,
+    )
+
+    assert snapshot.attribution.source_name == "fundamental_provider_unavailable"
+    assert snapshot.summary == "No fundamental provider produced a snapshot."
+    assert errors == []
+    assert {item.source_name for item in extra_attributions} == {
+        "provider_a",
+        "provider_b",
+    }
+
+
+def test_collect_disclosures_records_metadata_failures_without_aborting() -> None:
+    disclosures, errors, empty_attributions = _collect_disclosures(
+        [_MetadataFailingDisclosureProvider(), LocalDisclosureProvider(_settings())],
+        SymbolIdentity(symbol="AAPL"),
+        limit=5,
+    )
+
+    assert disclosures == []
+    assert any("metadata failed" in error for error in errors)
+    assert empty_attributions
+
+
+def test_collect_provider_news_records_metadata_failures_without_aborting() -> None:
+    events, errors, empty_attributions = _collect_provider_news(
+        [_MetadataFailingNewsProvider(), YahooNewsProvider(_settings())],
+        SymbolIdentity(symbol="AAPL"),
+        limit=5,
+    )
+
+    assert events == []
+    assert any("metadata failed" in error for error in errors)
+    assert empty_attributions

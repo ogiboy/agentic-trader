@@ -29,7 +29,7 @@ Current runtime stages:
   Market data loading, feature preparation, and calendar/session context
 
 - `agentic_trader/features/`
-  Structured decision-feature generation across symbol identity, technical summaries, fundamental placeholders, and macro/news context
+  Structured decision-feature generation across symbol identity, 30d/90d/180d technical summaries, fundamental placeholders, and macro/news context
 
 - `agentic_trader/providers/`
   Data provider interfaces and canonical aggregation for market, fundamental, news, disclosure, and macro context. Provider payloads normalize into `CanonicalAnalysisSnapshot` before features, agents, memory, persistence, or UI contracts consume them.
@@ -49,6 +49,9 @@ Current runtime stages:
 - `agentic_trader/workflows/`
   Higher-level flow composition, replay, backtesting, review, and operator workflows
 
+- `agentic_trader/researchd/`
+  Optional research sidecar contracts for source health, evidence normalization, file-backed world-state snapshots, and future CrewAI-backed deep-dive loops. It is a sidecar boundary only and does not own trading runtime orchestration, broker execution, or the main DuckDB writer.
+
 - `agentic_trader/cli.py`, `main.py`, `agentic_trader/tui.py`
   Operator-facing control surfaces
 
@@ -61,8 +64,17 @@ Current runtime stages:
 - `agentic_trader/observer_api.py`
   Local HTTP observer surface that exposes the same read-only runtime contracts for future WebUI attach flows
 
+- `webgui/`
+  Next.js App Router local operator shell. It must stay thin, local-first, and delegated to the existing dashboard/runtime/chat/instruction contracts rather than becoming a second runtime.
+
+- `docs/`
+  Fumadocs-based Next.js developer docs site. It documents the existing repository truth through curated MDX pages and should share the same frontend baseline without importing runtime logic.
+
 - `.ai/qa/`
   Product-specific QA workflow, checklist, runbook, scenarios, and optional evidence artifacts for validating operator-facing behavior
+
+- `.ai/agents/`
+  Development-only role guidance for planning, implementation, review, QA, and data architecture collaboration. These documents do not define runtime agents and must not bypass the in-repo specialist graph.
 
 ## Configuration Reality
 
@@ -73,6 +85,7 @@ The runtime already supports:
 - strict LLM availability checks
 - market data cache directories
 - news mode controls
+- financial data provider readiness keys such as Finnhub, FMP, Polygon/Massive, and settings-only Alpaca paper readiness fields
 - portfolio and risk limits
 
 ## Memory Reality
@@ -113,12 +126,18 @@ Good changes fit into one of these buckets:
 - keep future live broker work behind the adapter boundary and explicit execution safety gates
 - keep broker submissions flowing through `ExecutionIntent -> BrokerAdapter.place_order() -> ExecutionOutcome` so paper, simulated-real, and future live adapters share one auditable contract
 - keep financial intelligence behind structured feature/provider boundaries so agents consume summarized technical, fundamental, and macro context instead of raw noisy data
+- keep prompt rendering feature-first when `DecisionFeatureBundle` is attached; compact snapshots may remain internal for deterministic fallback, audit, and risk math
 - keep canonical source attribution and freshness metadata attached whenever external provider data enters runtime or persisted review context
+- keep research sidecars as local evidence companions that consume or emit structured packets through `runtime_feed` JSON snapshots without taking the DuckDB runtime writer role
+- keep CrewAI or any future crew loop behind an optional adapter boundary; native runtime, replay, QA, and operator surfaces must keep working without it
+- keep V1 scoped to Alpaca-ready US paper-first operation; defer IBKR/global/FX accounting to V2
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
+- keep `webgui` and `docs` aligned on the current Next.js App Router plus Tailwind v4 plus shadcn baseline while migrating the Web GUI screen by screen instead of through a one-shot CSS rewrite
 - improve replay and backtest fidelity
 
 ## Architectural Anti-Goals
 
 - replacing the current runtime with an external orchestration framework
+- letting CrewAI or another sidecar framework replace the staged specialist graph, manager layer, execution guard, or broker adapter boundary
 - building a cloud-first dependency into core trading flow
 - converting the system into a generic assistant shell

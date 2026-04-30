@@ -43,14 +43,30 @@ def _configured_macro_sources(settings: Settings, region: str) -> list[str]:
         sources.append(f"news_{settings.news_mode}")
     if settings.finnhub_api_key:
         sources.append("finnhub_configured")
+    if settings.fmp_api_key:
+        sources.append("fmp_configured")
     if settings.polygon_api_key:
         sources.append("polygon_configured")
     if settings.massive_api_key:
         sources.append("massive_configured")
     if region == "TR":
-        sources.extend(["kap_future_source", "cbrt_future_source"])
+        sources.extend(
+            [
+                "kap_future_source",
+                "company_disclosures_future_source",
+                "cbrt_future_source",
+                "turkey_macro_data_future_source",
+                "fx_rates_future_source",
+            ]
+        )
     else:
-        sources.extend(["sec_future_source", "macro_indicators_future_source"])
+        sources.extend(
+            [
+                "sec_10k_10q_8k_future_source",
+                "earnings_transcripts_future_source",
+                "macro_indicators_future_source",
+            ]
+        )
     return sources
 
 
@@ -115,7 +131,10 @@ def get_macro_context(
         ]
     sources = _configured_macro_sources(settings, symbol_identity.region)
     if macro_snapshot is not None:
-        sources = [macro_snapshot.attribution.source_name, *macro_snapshot.attribution.notes]
+        sources = [
+            macro_snapshot.attribution.source_name,
+            *macro_snapshot.attribution.notes,
+        ]
     if not news_signals and settings.news_mode == "off":
         sources.append("news_disabled")
 
@@ -132,11 +151,19 @@ def get_macro_context(
             if macro_snapshot is not None
             else datetime.now(UTC).isoformat()
         ),
-        region=macro_snapshot.region if macro_snapshot is not None else symbol_identity.region,
-        currency=(
-            macro_snapshot.currency if macro_snapshot is not None else symbol_identity.currency
+        region=(
+            macro_snapshot.region
+            if macro_snapshot is not None
+            else symbol_identity.region
         ),
-        rates_bias=macro_snapshot.rates_bias if macro_snapshot is not None else "unknown",
+        currency=(
+            macro_snapshot.currency
+            if macro_snapshot is not None
+            else symbol_identity.currency
+        ),
+        rates_bias=(
+            macro_snapshot.rates_bias if macro_snapshot is not None else "unknown"
+        ),
         inflation_bias=(
             macro_snapshot.inflation_bias if macro_snapshot is not None else "unknown"
         ),

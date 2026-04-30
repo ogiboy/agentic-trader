@@ -12,7 +12,9 @@ A strict, local-first, multi-agent paper trading system for Ollama-class models.
 
 - not a generic chat agent project
 - not an OpenClaw-style external orchestrator
+- not a CrewAI-owned runtime
 - not a live broker system yet
+- not live broker automation hidden behind research or training mode
 - not a report generator pretending to be a trading engine
 
 ## Repository Intent
@@ -45,6 +47,16 @@ They must not redefine the architecture of this repository.
 - architecture-aware edits
 - minimal breakage
 - strong operator visibility
+
+## Frontend Posture
+
+- Next.js App Router for web-facing shells
+- Tailwind v4 plus CSS-variable tokens as the theming baseline
+- shadcn source components instead of opaque third-party UI abstractions
+- keep the shared `docs/` plus `webgui/` typography baseline on JetBrains Mono unless an explicit design decision replaces it
+- thin route handlers that delegate to existing runtime contracts
+- no second runtime or web-only truth model
+- incremental migration when legacy CSS and new primitives temporarily coexist
 
 ## Quality Bar
 

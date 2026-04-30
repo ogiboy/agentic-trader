@@ -4,13 +4,13 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "agentic-trader"
-version = "0.1.0"
+version = "0.9.0"
 description = "A guardrailed multi-agent paper trading system built around local LLMs."
 authors = [
     {name = "Oğuzcan Toptaş",email = "oguzcantoptas@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12,<4.0.0"
+requires-python = ">=3.12,<4.0.0,<3.15"
 dependencies = [
   "duckdb>=1.2.2",
   "httpx>=0.28.1",
@@ -39,3 +39,65 @@ agentic-trader = "agentic_trader.cli:app"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+addopts = "-p no:cacheprovider"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+extend-exclude = [
+  "build",
+  "dist",
+  "runtime",
+  ".ai/qa/artifacts",
+  "docs",
+  "webgui",
+  "tui/node_modules",
+]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variables = [
+  "package.json:version",
+  "webgui/package.json:version",
+  "docs/package.json:version",
+  "tui/package.json:version",
+]
+commit_parser = "conventional"
+tag_format = "v{version}"
+commit_message = "chore(release): v{version}"
+build_command = "poetry build"
+dist_path = "dist/"
+upload_to_vcs_release = true
+allow_zero_version = true
+major_on_zero = false
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.branches.next]
+match = "[Vv][0-9]+"
+prerelease = true
+prerelease_token = "next"
+
+[tool.semantic_release.branches.beta]
+match = "^(?!main$|[Vv][0-9]+$).+"
+prerelease = true
+prerelease_token = "beta"
+
+[tool.semantic_release.commit_parser_options]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf", "docs", "build", "ci", "chore"]
+parse_squash_commits = true
+ignore_merge_commits = true
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
+output_format = "md"
+
+[dependency-groups]
+dev = [
+    "pyinstaller (>=6.20.0,<7.0.0)",
+    "pysonar (>=1.4.0.4676,<2.0.0)",
+    "python-semantic-release (>=10.0.0,<11.0.0)"
+]

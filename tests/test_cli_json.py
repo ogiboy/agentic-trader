@@ -6,7 +6,10 @@ from typer.testing import CliRunner
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
-from agentic_trader.runtime_feed import append_chat_history
+from agentic_trader.runtime_feed import (
+    append_chat_history,
+    research_latest_snapshot_path,
+)
 from agentic_trader.schemas import (
     AgentStageTrace,
     BacktestReport,
@@ -15,6 +18,8 @@ from agentic_trader.schemas import (
     LLMHealthStatus,
     ManagerDecision,
     MarketSnapshot,
+    OperatorInstruction,
+    PreferenceUpdate,
     RegimeAssessment,
     ResearchCoordinatorBrief,
     ReviewNote,
@@ -29,22 +34,56 @@ from agentic_trader.workflows.run_once import persist_run
 def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
     """
     Raise a RuntimeError to simulate a database lock.
-    
+
     This helper always raises RuntimeError("db locked") and is intended for use in tests to emulate a locked or unavailable database.
-    
+
     Raises:
         RuntimeError: with the message "db locked".
     """
     raise RuntimeError("db locked")
 
 
+def test_cli_help_supports_short_and_long_forms() -> None:
+    """
+    Verifies that CLI commands accept both short (-h) and long (--help) help options.
+
+    Asserts each tested subcommand exits with code 0 and its help output contains the "Usage:" header.
+    """
+    runner = CliRunner()
+
+    for args in (
+        ["--help"],
+        ["-h"],
+        ["run", "--help"],
+        ["run", "-h"],
+        ["broker-status", "--help"],
+        ["broker-status", "-h"],
+        ["research-status", "--help"],
+        ["research-status", "-h"],
+        ["research-refresh", "--help"],
+        ["research-refresh", "-h"],
+        ["research-crewai-setup", "--help"],
+        ["research-crewai-setup", "-h"],
+        ["trade-context", "--help"],
+        ["trade-context", "-h"],
+        ["tui", "--help"],
+        ["tui", "-h"],
+        ["menu", "--help"],
+        ["menu", "-h"],
+    ):
+        result = runner.invoke(app, args)
+
+        assert result.exit_code == 0
+        assert "Usage:" in result.stdout
+
+
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
     """
     Builds a fully populated RunArtifacts instance with realistic sample data for use in tests.
-    
+
     Parameters:
         symbol (str): Ticker symbol to apply to the snapshot and execution sections (defaults to "AAPL").
-    
+
     Returns:
         RunArtifacts: An object containing a MarketSnapshot, ResearchCoordinatorBrief, RegimeAssessment,
         StrategyPlan, RiskPlan, ManagerDecision, ExecutionDecision, ReviewNote, and a single AgentStageTrace
@@ -160,7 +199,7 @@ def test_status_preferences_and_portfolio_json(
 ) -> None:
     """
     Verify status, preferences, and portfolio CLI JSON outputs reflect a completed service state and default settings.
-    
+
     Sets up a temporary Settings and TradingDatabase with a service state of "completed", runs the CLI commands `status --json`, `preferences --json`, and `portfolio --json`, and asserts:
     - the runtime is reported as inactive and the service state is "completed";
     - the preferences report a "balanced" risk profile;
@@ -209,7 +248,7 @@ def test_status_preferences_and_portfolio_json(
 def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     Verify the CLI `doctor --json` and `logs --json` outputs reflect LLM health and recent service/order records.
-    
+
     Sets up a temporary Settings and monkeypatches the CLI to report a healthy LocalLLM, inserts a service event and an order into the test database, then invokes the `doctor` and `logs` CLI commands and asserts:
     - the doctor payload reports the provider reachable and model available,
     - the doctor payload contains `runtime_mode == "operation"`,
@@ -392,7 +431,7 @@ def test_preferences_and_portfolio_json_survive_db_lock(
 ) -> None:
     """
     Ensures preferences and portfolio CLI JSON commands handle a locked database and return fallback responses.
-    
+
     Monkeypatches the CLI settings and replaces the database opener with a function that raises RuntimeError("db locked"), then invokes the `preferences --json` and `portfolio --json` commands and asserts both exit successfully with `available == False` and expected fallback values (`risk_profile == "balanced"`, `positions == []`).
     """
     settings = Settings(
@@ -461,7 +500,7 @@ def test_journal_risk_review_and_trace_json(
 def test_chat_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     Integration test that verifies the CLI 'chat' command returns the expected JSON for a persona message.
-    
+
     Mocks CLI settings and LLM/chat dependencies, invokes `chat --json --persona operator_liaison --message status?`, and asserts the returned JSON contains the requested `persona`, `message`, and the `response` value.
     """
     settings = Settings(
@@ -492,7 +531,7 @@ def test_training_backtest_allows_diagnostic_fallback(
 ) -> None:
     """
     Verifies that running the backtest CLI in training mode falls back to a diagnostic execution when the LLM gate fails.
-    
+
     Runs the `backtest` command with training runtime_mode while mocking `ensure_llm_ready` to raise `RuntimeError("model unavailable")` and stubbing the backtest runner to capture the `allow_fallback` flag. Asserts the CLI exits successfully, that the backtest was invoked with `allow_fallback == True`, and that stdout contains the phrase "Training Diagnostic Mode".
     """
     settings = Settings(
@@ -507,7 +546,7 @@ def test_training_backtest_allows_diagnostic_fallback(
     def _blocked_llm(_settings: Settings) -> None:
         """
         Always raises a RuntimeError indicating the LLM model is unavailable.
-        
+
         Raises:
             RuntimeError: with message "model unavailable".
         """
@@ -516,7 +555,7 @@ def test_training_backtest_allows_diagnostic_fallback(
     def _backtest(**kwargs: object) -> BacktestReport:
         """
         Test stub that constructs a deterministic BacktestReport for the given run parameters and records whether fallback was allowed.
-        
+
         Parameters:
             kwargs: Expected keys:
                 - symbol (str): Ticker symbol for the backtest.
@@ -524,7 +563,7 @@ def test_training_backtest_allows_diagnostic_fallback(
                 - lookback (str): Lookback window descriptor (e.g., "180d").
                 - warmup_bars (int): Number of warmup bars; must be an int.
                 - allow_fallback (bool): Whether diagnostic fallback was permitted; recorded to `captured["allow_fallback"]`.
-        
+
         Returns:
             BacktestReport: A report populated with the provided identifiers, the given warmup_bars, deterministic zeroed metrics, and starting/ending equity of 100000.0.
         """
@@ -576,7 +615,7 @@ def test_operation_backtest_blocks_when_llm_gate_fails(
 ) -> None:
     """
     Verifies that running backtest in "operation" runtime mode fails when the LLM readiness gate raises an error.
-    
+
     Invokes the CLI backtest command with a mocked settings object whose runtime_mode is "operation" and a patched `ensure_llm_ready` that raises RuntimeError("model unavailable"), then asserts the command exits with a non-zero code and that the raised exception contains "model unavailable".
     """
     settings = Settings(
@@ -590,7 +629,7 @@ def test_operation_backtest_blocks_when_llm_gate_fails(
     def _blocked_llm(_settings: Settings) -> None:
         """
         Always raises a RuntimeError indicating the LLM model is unavailable.
-        
+
         Raises:
             RuntimeError: with message "model unavailable".
         """
@@ -607,6 +646,20 @@ def test_operation_backtest_blocks_when_llm_gate_fails(
 def test_dashboard_snapshot_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Validates that the `dashboard-snapshot` CLI JSON aggregates persisted run artifacts, service state, LLM health, logs, portfolio, UI sections, and replay snapshot.
+
+    Asserts that the payload includes:
+    - doctor health indicating the LLM provider is reachable and runtime mode is `"operation"`.
+    - status reflecting runtime mode `"operation"` and `current_symbol == "AAPL"`.
+    - supervisor and broker summaries (launch count and backend).
+    - recent log entries including an `"agent_regime_started"` event.
+    - agent activity showing `current_stage == "regime"` with status `"running"`.
+    - portfolio availability (`available is True`).
+    - presence of UI sections: `memoryExplorer`, `retrievalInspection`, and `recentRuns` with the first recent run symbol `"AAPL"`.
+    - trade and market context with `tradeContext.record.symbol == "AAPL"`.
+    - replay availability and that the replay snapshot's `mtf_alignment == "bullish"`.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -657,12 +710,15 @@ def test_dashboard_snapshot_json(
     assert payload["status"]["state"]["current_symbol"] == "AAPL"
     assert payload["supervisor"]["state"]["launch_count"] == 0
     assert payload["broker"]["backend"] == "paper"
+    assert payload["research"]["status"] == "disabled"
     assert payload["logs"][0]["event_type"] == "agent_regime_started"
     assert payload["agentActivity"]["current_stage"] == "regime"
     assert payload["agentActivity"]["current_stage_status"] == "running"
     assert payload["portfolio"]["available"] is True
     assert "memoryExplorer" in payload
     assert "retrievalInspection" in payload
+    assert "recentRuns" in payload
+    assert payload["recentRuns"]["runs"][0]["symbol"] == "AAPL"
     assert "tradeContext" in payload
     assert "marketContext" in payload
     assert payload["tradeContext"]["record"]["symbol"] == "AAPL"
@@ -670,9 +726,61 @@ def test_dashboard_snapshot_json(
     assert payload["replay"]["replay"]["snapshot"]["mtf_alignment"] == "bullish"
 
 
+def test_instruct_json_reports_instruction_and_applied_preferences(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", lambda _settings: None)
+    monkeypatch.setattr(
+        "agentic_trader.cli.interpret_operator_instruction",
+        lambda **_kwargs: OperatorInstruction(
+            summary="Move to a more conservative profile.",
+            should_update_preferences=True,
+            preference_update=PreferenceUpdate(
+                risk_profile="conservative",
+                behavior_preset="capital_preservation",
+            ),
+            requires_confirmation=False,
+            rationale="Structured test instruction.",
+        ),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "instruct",
+            "--message",
+            "be conservative",
+            "--apply",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["instruction"]["summary"] == "Move to a more conservative profile."
+    assert payload["instruction"]["should_update_preferences"] is True
+    assert payload["applied"] is True
+    assert payload["updated_preferences"]["risk_profile"] == "conservative"
+    assert payload["updated_preferences"]["behavior_preset"] == "capital_preservation"
+
+
 def test_memory_explorer_and_retrieval_inspection_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Validates JSON availability semantics for `memory-explorer` and `retrieval-inspection` CLI commands when no persisted run exists.
+
+    Sets up temporary settings and an empty TradingDatabase, then invokes the CLI:
+    - `memory-explorer --json` must exit successfully with `"available": false`.
+    - `retrieval-inspection --json` must exit successfully with `"available": true` and an empty `stages` list.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -731,6 +839,14 @@ def test_replay_run_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
 
 
 def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Verifies the CLI JSON output of the `trade-context` command reflects a persisted run's execution and fundamental assessment.
+
+    Persists a run for symbol "NVDA", invokes `trade-context --json`, and asserts the payload is available and contains:
+    - the persisted record's symbol and execution rationale,
+    - fundamental assessment with `overall_bias == "neutral"` and an `evidence_vs_inference` field,
+    - execution fields `execution_backend`, `execution_adapter`, and `execution_outcome_status` set to `"paper"`, `"paper"`, and `"filled"` respectively.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -747,6 +863,34 @@ def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert payload["available"] is True
     assert payload["record"]["symbol"] == "NVDA"
     assert payload["record"]["execution_rationale"] == "Execution approved."
+    assert payload["record"]["fundamental_assessment"]["overall_bias"] == "neutral"
+    assert "evidence_vs_inference" in payload["record"]["fundamental_assessment"]
+    assert payload["record"]["execution_backend"] == "paper"
+    assert payload["record"]["execution_adapter"] == "paper"
+    assert payload["record"]["execution_outcome_status"] == "filled"
+
+
+def test_trade_context_human_output_shows_execution_outcome(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    persist_run(settings=settings, artifacts=_artifacts("NVDA"))
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["trade-context"])
+    assert result.exit_code == 0
+    assert "Execution Backend" in result.stdout
+    assert "Execution Adapter" in result.stdout
+    assert "Execution Outcome" in result.stdout
+    assert "Rejection Reason" in result.stdout
+    assert "paper" in result.stdout
+    assert "filled" in result.stdout
 
 
 def test_supervisor_status_json_includes_log_tails(
@@ -817,6 +961,88 @@ def test_broker_status_json_reports_execution_guardrails(
     assert payload["live_ready"] is False
 
 
+def test_research_status_json_reports_sidecar_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL,MSFT",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["research-status", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["mode"] == "training"
+    assert payload["enabled"] is True
+    assert payload["status"] == "idle"
+    assert payload["watched_symbols"] == ["AAPL", "MSFT"]
+    assert payload["provider_health"][0]["provider_id"] == "sec_edgar_research"
+    assert payload["latestSnapshot"]["available"] is False
+    assert settings.database_path.exists() is False
+
+
+def test_research_refresh_json_persists_snapshot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["research-refresh", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["persisted"] is True
+    assert payload["state"]["status"] == "completed"
+    assert payload["record"]["state"]["watched_symbols"] == ["AAPL"]
+    assert research_latest_snapshot_path(settings).exists()
+    assert settings.database_path.exists() is False
+
+    status_result = runner.invoke(app, ["research-status", "--json"])
+    assert status_result.exit_code == 0
+    status_payload = json.loads(status_result.stdout)
+    assert status_payload["latestSnapshot"]["available"] is True
+    assert (
+        status_payload["latestSnapshot"]["record"]["snapshot_id"]
+        == payload["record"]["snapshot_id"]
+    )
+    assert settings.database_path.exists() is False
+
+
+def test_research_crewai_setup_json_reports_optional_boundary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["research-crewai-setup", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["core_dependency"] is False
+    assert "research_sidecar_flow" in payload["flow_dir"]
+    assert any("optional" in note.lower() for note in payload["notes"])
+
+
 def test_calendar_status_and_dashboard_snapshot_include_calendar(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -866,6 +1092,8 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
     assert "news" in snapshot_payload
     assert snapshot_payload["news"]["mode"] == "off"
     assert "marketCache" in snapshot_payload
+    assert snapshot_payload["research"]["mode"] == "off"
+    assert snapshot_payload["research"]["enabled"] is False
     assert (
         snapshot_payload["chatHistory"]["entries"][0]["persona"] == "operator_liaison"
     )
@@ -874,7 +1102,7 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
 def test_market_cache_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     Verify that the `market-cache` CLI command reports available market snapshot files and their filenames.
-    
+
     Creates a single snapshot CSV in the configured market_data_cache_dir, invokes `market-cache --json`, and asserts the JSON `count` is 1 and the first entry's `filename` matches the created file.
     """
     settings = Settings(

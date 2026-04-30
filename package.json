@@ -1,0 +1,53 @@
+{
+  "name": "agentic-trader-workspace",
+  "version": "0.9.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "setup": "pnpm install && pnpm approve-builds --all && pnpm install:python",
+    "install:python": "scripts/install-python.sh",
+    "install:node": "pnpm install",
+    "check": "pnpm run check:python && pnpm run check:node",
+    "check:python": "scripts/check-python.sh",
+    "check:node": "pnpm run lint && pnpm run typecheck && pnpm run build",
+    "lint": "pnpm --filter webgui run lint && pnpm --filter docs run lint",
+    "typecheck": "pnpm --filter webgui run typecheck && pnpm --filter docs run typecheck",
+    "build": "pnpm run build:webgui && pnpm run build:docs && pnpm run check:tui",
+    "build:webgui": "pnpm --filter webgui run build",
+    "build:docs": "pnpm --filter docs run build",
+    "build:docs:pages": "GITHUB_PAGES=true pnpm --filter docs run build",
+    "check:tui": "pnpm --filter agentic-trader-tui exec node --check index.mjs",
+    "qa": "poetry run python scripts/qa/smoke_qa.py",
+    "qa:quality": "poetry run python scripts/qa/smoke_qa.py --include-quality",
+    "qa:sonar": "poetry run python scripts/qa/smoke_qa.py --include-quality --include-sonar",
+    "version:plan": "scripts/release/preview_version_plan.sh",
+    "release:preview": "poetry run semantic-release --noop version --print-tag",
+    "sonar": "pnpm run sonar:local",
+    "sonar:install": "scripts/sonarqube/install-tools.sh",
+    "sonar:start": "scripts/sonarqube/start-local.sh",
+    "sonar:stop": "scripts/sonarqube/stop-local.sh",
+    "sonar:status": "scripts/sonarqube/status-local.sh",
+    "sonar:local": "pnpm run sonar:local:py",
+    "sonar:local:py": "scripts/qa/run_sonar_scan.sh pysonar",
+    "sonar:local:js": "scripts/qa/run_sonar_scan.sh npm",
+    "sonar:py": "pnpm run sonar:local:py",
+    "sonar:js": "pnpm run sonar:local:js",
+    "sonar:cloud": "SONAR_HOST_URL=https://sonarcloud.io SONAR_PROJECT_KEY=ogiboy_agentic-trader SONAR_ORGANIZATION=ogiboy SONAR_TOKEN_KEYCHAIN_SERVICE=codex-sonarcloud-token scripts/qa/run_sonar_scan.sh npm",
+    "sonar:cloud:py": "SONAR_HOST_URL=https://sonarcloud.io SONAR_PROJECT_KEY=ogiboy_agentic-trader SONAR_ORGANIZATION=ogiboy SONAR_TOKEN_KEYCHAIN_SERVICE=codex-sonarcloud-token scripts/qa/run_sonar_scan.sh pysonar",
+    "secret:sonar:check": "scripts/secrets/keychain-get.sh --check codex-sonarqube-token",
+    "secret:sonarcloud:check": "scripts/secrets/keychain-get.sh --check codex-sonarcloud-token",
+    "mcp:sonarqube:dry-run": "SONARQUBE_MCP_DRY_RUN=1 scripts/secrets/run-sonarqube-mcp.sh",
+    "mcp:sonarqube:status": "scripts/secrets/check-sonarqube-mcp.sh",
+    "mcp:sonarqube:install-wrapper": "scripts/secrets/install-sonarqube-mcp-wrapper.sh",
+    "dev:webgui": "pnpm --filter webgui run dev",
+    "dev:docs": "pnpm --filter docs run dev",
+    "start:tui": "pnpm --filter agentic-trader-tui run start",
+    "clean": "rm -rf .pytest_cache .ruff_cache build dist *.egg-info docs/.next docs/out docs/.source webgui/.next webgui/out tui/dist"
+  },
+  "devDependencies": {
+    "@sonar/scan": "^4.3.6"
+  }
+}
