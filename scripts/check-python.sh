@@ -1,11 +1,6 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ -d ".venv" ]; then
-	unset CONDA_DEFAULT_ENV CONDA_PREFIX CONDA_PREFIX_1 CONDA_PROMPT_MODIFIER CONDA_SHLVL || true
-	export POETRY_VIRTUALENVS_IN_PROJECT=true
-fi
-
 PYRIGHT_TARGETS="agentic_trader tests scripts"
 PYTHON_EXEC="$(poetry run python -c 'import sys; print(sys.executable)')"
 CONDA_PYRIGHT=""

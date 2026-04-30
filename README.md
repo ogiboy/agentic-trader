@@ -74,11 +74,17 @@ The repository is now a small monorepo-style workspace:
 ### Python / Poetry From Source
 
 ```bash
-conda create -n trader python=3.14 poetry
+conda create -n trader python=3.13 poetry
 conda activate trader
-poetry env use "$CONDA_PREFIX/bin/python"
-poetry install --with dev --extras dev
+pnpm run install:python
 ```
+
+Daily source development now defaults to Python 3.13 inside the active `trader`
+Conda environment. The root package still declares `>=3.12,<3.15` support so CI
+can keep exercising the current minimum version signal, but local installs should
+not drift onto the system Python. `scripts/install-python.sh` uses the active
+Conda interpreter, or an explicitly created local `.venv`, and exits with a
+visible error when neither is present.
 
 Copy `.env.example` to a local ignored env file only when you need provider/model overrides. Do not put secrets in tracked files.
 
@@ -118,6 +124,21 @@ pnpm dev:docs
 ```bash
 pnpm start:tui
 ```
+
+### Optional CrewAI Research Sidecar
+
+CrewAI is tracked as an isolated uv-managed sidecar under
+`sidecars/research-crewai/`. It is not a root Poetry dependency and the core
+runtime does not import it.
+
+```bash
+pnpm run setup:research-crewai
+pnpm run check:research-crewai
+```
+
+`pnpm run run:research-crewai` is intentionally gated. It exits with a clear
+message unless `OPENAI_API_KEY` is present in the shell, present in the sidecar's
+ignored `.env`, or the local no-op flag is set for scaffold validation.
 
 ### Optional Release Binary
 
@@ -182,6 +203,8 @@ This repo favors small, inspectable changes over broad rewrites. Keep Python run
 pnpm check
 make check
 pnpm run qa:quality
+pnpm run setup:research-crewai
+pnpm run check:research-crewai
 pnpm run version:plan
 pnpm run release:preview
 pnpm run sonar:status
@@ -204,7 +227,7 @@ Use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, or `pnpm ru
 
 GitHub Actions needs only `SONAR_TOKEN` as a repository secret for SonarCloud. Docs deployment uses GitHub Pages permissions, releases/binaries use the built-in `GITHUB_TOKEN`, and local Docker SonarQube tokens should stay on the developer machine.
 
-Conda selects the Python interpreter, Poetry owns Python dependency locking and installs, and pnpm owns JavaScript workspace dependencies. These managers intentionally stay separate below the root command surface.
+Conda selects the root Python interpreter, Poetry owns root Python dependency locking and installs, uv owns the tracked CrewAI sidecar environment, and pnpm owns JavaScript workspace dependencies plus the shared command surface. These managers intentionally stay separate below the root scripts so CrewAI can evolve without widening the core runtime dependency lock.
 
 Commit messages should follow conventional commits so release automation can infer version bumps:
 

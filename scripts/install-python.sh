@@ -4,20 +4,20 @@ set -eu
 if [ -n "${CONDA_PREFIX:-}" ] && [ -x "${CONDA_PREFIX}/bin/python" ]; then
 	PYTHON_BIN="${CONDA_PREFIX}/bin/python"
 elif [ -x ".venv/bin/python" ]; then
-	PYTHON_BIN=".venv/bin/python"
-elif command -v python3 >/dev/null 2>&1; then
-	PYTHON_BIN="$(command -v python3)"
-elif command -v python >/dev/null 2>&1; then
-	PYTHON_BIN="$(command -v python)"
+	PYTHON_BIN="$(pwd)/.venv/bin/python"
 else
-	echo "Python is required before installing Poetry dependencies." >&2
+	echo "Activate the 'trader' Conda env or create a local .venv before installing Python dependencies." >&2
 	exit 1
 fi
 
-if [ -n "${CONDA_PREFIX:-}" ] || [ -d ".venv" ]; then
-	unset CONDA_DEFAULT_ENV CONDA_PREFIX CONDA_PREFIX_1 CONDA_PROMPT_MODIFIER CONDA_SHLVL || true
-	export POETRY_VIRTUALENVS_IN_PROJECT=true
-	poetry env use "${PYTHON_BIN}" >/dev/null
-fi
+PYTHON_MINOR="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+case "${PYTHON_MINOR}" in
+	3.12|3.13|3.14) ;;
+	*)
+		echo "Agentic Trader root runtime supports Python >=3.12,<3.15; got ${PYTHON_MINOR} at ${PYTHON_BIN}." >&2
+		exit 1
+		;;
+esac
 
+poetry env use "${PYTHON_BIN}" >/dev/null
 poetry install --with dev --extras dev

@@ -1,0 +1,20 @@
+[project]
+name = "research-crewai"
+version = "0.1.0"
+description = "Tracked CrewAI research sidecar for Agentic Trader."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "crewai==1.14.3",
+  "pydantic>=2.11.0",
+]
+
+[project.scripts]
+research-crewai = "research_crewai.main:kickoff"
+research-crewai-check = "research_crewai.main:check"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "flow"

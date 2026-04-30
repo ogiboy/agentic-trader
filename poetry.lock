@@ -2545,5 +2545,5 @@ dev = ["pexpect", "pyright", "pytest", "pytest-cov", "ruff"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.12,<4.0.0,<3.15"
-content-hash = "76caa43238d6876ba04f91e8c79f341c3fec115b47aa3f62fa66496626f772ae"
+python-versions = ">=3.12,<3.15"
+content-hash = "41cb1fd31c7916a4952aa86c2e87e9e8eceb47df4d4b1d56e81cd5e5f139ecaf"

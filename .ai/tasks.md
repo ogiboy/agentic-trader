@@ -16,6 +16,8 @@ Now:
 - keep the new `researchd` sidecar foundation isolated from the trading runtime: no broker calls, no hidden policy mutation, no raw web/social text in agent prompts, and no CrewAI dependency in the core runtime
 - keep `research-status`, dashboard, and observer API sidecar payloads honest about missing sources, disabled/default state, backend, watched symbols, staleness, and provider health
 - keep `research-refresh` snapshot persistence on the runtime JSON feed until query needs justify a separate sidecar database; research-only commands should not create or open the main DuckDB file
+- keep root environment setup boring and explicit: activate the `trader` Conda environment with Python 3.13, let Poetry install into that interpreter, and do not create hidden or forced duplicate virtualenvs
+- keep `sidecars/research-crewai/` as a tracked but isolated uv project; root `pnpm check` should stay focused on the core runtime until the sidecar is mature enough for a separate CI job
 - grow V1.1 as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
 - keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's Poetry-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
@@ -31,6 +33,7 @@ Next:
 - extend the file-backed research snapshot feed when real providers start returning raw evidence references, normalized events, findings, and entity dossiers
 - add real official/structured providers behind the sidecar source ladder, starting with SEC EDGAR, KAP, macro series, and news/event feeds; keep missing provider data visible
 - add optional V1.2 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
+- add a subprocess/JSON handshake between `ResearchSidecarBackend` and the tracked CrewAI sidecar only after the scaffold, env policy, and snapshot contracts are stable
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
 - verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
@@ -210,7 +213,7 @@ Desired direction:
 - reuse the shared UI text catalog for recurring CLI, Rich, Ink, and future WebUI labels
 - defer full localization until operator flows stabilize, but avoid adding new scattered duplicate labels
 - keep pyright, ruff, pytest, and smoke QA green as surface contracts evolve
-- keep `pyproject.toml` and `poetry.lock` in sync when Python dependencies change; use Poetry for add/remove/lock operations rather than ad hoc pip installs
+- keep root `pyproject.toml` and `poetry.lock` in sync when Python dependencies change; use Poetry for root add/remove/lock operations rather than ad hoc pip installs, and use uv commands only inside tracked sidecar projects such as `sidecars/research-crewai/`
 
 ### 11. Future External Provider Readiness
 

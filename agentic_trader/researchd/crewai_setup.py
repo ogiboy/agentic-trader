@@ -8,13 +8,15 @@ from agentic_trader.config import Settings
 
 
 def default_crewai_flow_dir(settings: Settings) -> Path:
-    """Return the ignored runtime path used for optional CrewAI scaffolds."""
-    return settings.runtime_dir / "researchd" / "research_sidecar_flow"
+    """Return the tracked sidecar path used for optional CrewAI development."""
+    _ = settings
+    return Path(__file__).resolve().parents[2] / "sidecars" / "research-crewai"
 
 
 def crewai_setup_status(settings: Settings) -> dict[str, object]:
     """Report optional CrewAI CLI/setup state without importing CrewAI."""
     cli_path = shutil.which("crewai")
+    uv_path = shutil.which("uv")
     version: str | None = None
     if cli_path:
         try:
@@ -30,22 +32,30 @@ def crewai_setup_status(settings: Settings) -> dict[str, object]:
             version = f"version_check_failed: {exc}"
 
     flow_dir = default_crewai_flow_dir(settings)
+    python_version_file = flow_dir / ".python-version"
     return {
         "available": cli_path is not None,
         "cli_path": cli_path,
+        "uv_available": uv_path is not None,
+        "uv_path": uv_path,
         "version": version,
         "flow_dir": str(flow_dir),
         "flow_scaffold_exists": (flow_dir / "pyproject.toml").exists(),
+        "python_version": (
+            python_version_file.read_text(encoding="utf-8").strip()
+            if python_version_file.exists()
+            else None
+        ),
+        "lockfile_exists": (flow_dir / "uv.lock").exists(),
         "core_dependency": False,
         "recommended_commands": [
-            "crewai create flow research_sidecar_flow --skip_provider",
-            "cd runtime/researchd/research_sidecar_flow",
-            "crewai install",
-            "crewai run",
+            "pnpm run setup:research-crewai",
+            "pnpm run check:research-crewai",
+            "AGENTIC_TRADER_ALLOW_CREWAI_NOOP=1 pnpm run run:research-crewai",
         ],
         "notes": [
             "CrewAI stays optional and isolated behind researchd backend boundaries.",
-            "Scaffolded CrewAI projects belong under ignored runtime/researchd/ until promoted intentionally.",
+            "The tracked CrewAI sidecar lives in sidecars/research-crewai with its own uv environment.",
             "Do not import CrewAI from core trading runtime modules.",
         ],
     }

@@ -26,7 +26,8 @@ A separate sidecar database can be reconsidered only after real provider volume,
 
 Reason:
 CrewAI is available as a useful sidecar harness, but adding it to the root lock would widen the runtime dependency surface before the adapter is implemented.
-The current path is operator-visible setup/status plus an ignored sidecar scaffold, then a JSON/Pydantic handshake behind `ResearchSidecarBackend` when V1.2 begins.
+The current path is operator-visible setup/status plus a tracked uv-managed sidecar under `sidecars/research-crewai/`, then a JSON/Pydantic handshake behind `ResearchSidecarBackend` when V1.2 begins.
+The sidecar can own its CrewAI dependency, Python 3.13 `.python-version`, and `uv.lock`; the root runtime must keep working when that sidecar is not installed.
 
 ### External AI coding tools are development helpers, not runtime dependencies
 
@@ -235,6 +236,8 @@ Reason:
 The project is expected to run consistently on multiple machines, but Conda and ad hoc pip installs do not update repository manifests automatically.
 `pyproject.toml` remains the direct dependency manifest and `poetry.lock` is now the committed resolver output.
 Conda stays useful for selecting the Python interpreter and native environment, while Poetry owns Python package add, remove, lock, and install synchronization.
+The daily root development default is Python 3.13 in the active `trader` Conda environment, while the root support range remains `>=3.12,<3.15` until CI expands the supported matrix.
+The install script should fail when neither an active Conda env nor an explicit local `.venv` exists, rather than installing into an ambiguous system Python or forcing a second Poetry-managed `.venv` inside an active Conda session.
 
 ### JavaScript surfaces should share a root pnpm workspace
 
@@ -243,6 +246,13 @@ Reason:
 A root pnpm workspace keeps Node dependency locking, CI cache keys, setup, build, and local start commands in one place without merging Python and JavaScript dependency ownership.
 Poetry remains the Python truth, while root `package.json` scripts and thin Makefile aliases provide the human-facing command surface.
 The Makefile must stay an alias layer over pnpm and Poetry commands rather than becoming a second build system.
+
+### CrewAI sidecar uses uv without turning the repo into a uv workspace
+
+Reason:
+CrewAI currently requires a narrower Python range than the root package wants to support, and its dependency graph should not become part of the strict trading runtime by accident.
+The repository should therefore keep `sidecars/research-crewai/` as an independent uv project with its own lockfile and smoke checks.
+Root pnpm and Make commands may call into that sidecar for setup, check, and gated runs, but the root project should not add CrewAI to Poetry or adopt a repository-wide uv workspace until there is a proven need.
 
 ### Environment templates document targets, local env files own secrets
 

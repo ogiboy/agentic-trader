@@ -68,6 +68,8 @@ Implemented or substantially present:
 - Ink settings now covers the remaining V1 parity gap for preference visibility, recent runs, and safe operator-instruction editing in a resize-safer compact layout, and smoke QA verifies that page switch through tmux in a 110x30 terminal
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
 - Python dependency resolution now uses a committed `poetry.lock` file generated from `pyproject.toml`; Conda remains the recommended Python environment layer while Poetry owns package locking and install synchronization
+- root daily development now defaults to Python 3.13 in the active `trader` Conda environment, while the package support range remains `>=3.12,<3.15` until CI expands beyond the current minimum-version signal
+- `scripts/install-python.sh` now targets the active Conda interpreter or an explicit local `.venv` and fails visibly instead of silently installing into a system Python or forcing a second nested Poetry environment
 - the Ink TUI is now a pnpm workspace package, and the Python CLI launcher resolves a compatible Node package manager instead of requiring npm specifically
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
 - the initial Web GUI development flow now enables Watchpack polling in `webgui` dev mode on port `3210`, avoiding file-watch limit noise in larger local worktree setups while matching the README/browser QA contract
@@ -86,7 +88,7 @@ Implemented or substantially present:
 - a first `agentic_trader/researchd/` sidecar foundation now exists with canonical research schemas, sidecar settings, source-health scaffolds for SEC EDGAR, KAP, macro, news/event, and social watchlists, and `research-status` plus dashboard/observer API visibility
 - the research sidecar is disabled by default, uses a no-op backend by default, keeps CrewAI behind an optional adapter boundary, and does not call broker, execution, run persistence, or runtime mode transition code
 - `research-refresh` can run one isolated sidecar pass and persist a `ResearchSnapshotRecord` to `runtime/research_snapshots.jsonl` plus `runtime/research_latest_snapshot.json`; `research-status`, dashboard, and observer payloads read this feed without opening DuckDB
-- `research-crewai-setup` reports optional CrewAI CLI/scaffold readiness, but CrewAI is still not imported by core runtime modules or added to the root dependency lock
+- `research-crewai-setup` reports the tracked `sidecars/research-crewai/` uv sidecar path, Python version file, lockfile presence, uv availability, and root setup/check/run commands; CrewAI is still not imported by core runtime modules or added to the root dependency lock
 
 New production-expansion direction:
 
@@ -109,7 +111,7 @@ New production-expansion direction:
 - Training vs Operation mode is enforced for the first core boundary: Operation requires strict LLM readiness, while Training diagnostic fallback is limited to evaluation/backtest flows
 - live broker adapters are not implemented or enabled; simulated-real remains local and non-live
 - research sidecar status, schemas, and file-backed snapshot persistence are implemented, but real evidence ingestion, daemon-style polling controls, and trade-memory writes are still future work
-- CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph, and any generated CrewAI scaffold should stay outside the tracked core runtime until intentionally promoted
+- CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph. The tracked scaffold now lives under `sidecars/research-crewai/`, outside `agentic_trader/`, with uv owning its own environment.
 - financial provider interfaces and canonical aggregation are implemented, but real SEC/KAP, transcripts, macro indicators, and richer vendor fetchers are still scaffolds or future providers
 - SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX source names are now explicit scaffold metadata; they are not live ingestors yet
 - Alpaca settings are config-ready for V1 readiness checks, but no Alpaca adapter or live execution path is enabled
@@ -126,7 +128,7 @@ New production-expansion direction:
 - `webgui` lint, typecheck, production build, and the local `pnpm dev:webgui` flow on `localhost:3210` are now green in this worktree
 - Web GUI review, portfolio, risk, journal, and memory panels now surface section-level unavailability errors explicitly instead of collapsing them into generic empty states
 - `docs` now builds and lints with the new Fumadocs shell and is prepared for GitHub Pages static export, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
-- root `pnpm check` and `make check` are now the intended static/build validation entrypoints; use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA, and focused `pnpm --filter ...` or Poetry commands when narrowing a failure
+- root `pnpm check` and `make check` are now the intended static/build validation entrypoints; use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA, and focused `pnpm --filter ...`, Poetry, or `pnpm run check:research-crewai` commands when narrowing a failure
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture

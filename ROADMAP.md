@@ -242,6 +242,8 @@ Status: in progress.
 - make lookback truth a first-class artifact: every trading decision should expose the data window, context summary, memory inputs, and safety gates that shaped it
 - treat Training vs Operation as a shared runtime mode overlay, not a forked product or separate orchestration path
 - treat research sidecars as optional local evidence companions, not a second trading runtime or a replacement for the staged specialist graph
+- keep the root runtime on the Conda + Poetry path with Python 3.13 as the daily developer default while preserving `>=3.12,<3.15` package support until CI broadens the matrix
+- keep optional CrewAI work in a tracked but isolated uv sidecar instead of adding CrewAI to the root Poetry lock or turning the repository into a uv workspace
 - evolve QA from smoke testing into repeatable terminal regression evidence with deterministic CLI JSON checks, pexpect flows, optional tmux/asciinema capture, and human-readable failure reports
 - keep memory local-first, inspectable, and policy-bound even as embeddings become more semantic and retrieval becomes more powerful
 
@@ -402,6 +404,7 @@ Status: in progress.
 - [x] add `research-status`, dashboard, and observer API visibility for mode, enabled/disabled state, backend, watched symbols, source health, and last update fields
 - [x] keep the initial CrewAI integration as an optional backend boundary rather than a required dependency or runtime replacement
 - [x] add file-backed sidecar persistence for raw-evidence references, world-state snapshots, and memory-update previews without opening or competing with the active DuckDB runtime writer
+- [x] move CrewAI scaffolding into a tracked uv-managed sidecar at `sidecars/research-crewai/` while keeping it outside the root Poetry dependency graph
 - [ ] wire real official/structured sources first: SEC filings/company facts, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
 - [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
 - [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
@@ -415,6 +418,7 @@ Status: in progress.
 Status: planned.
 
 - [x] add an operator-visible CrewAI setup/status preflight that keeps CrewAI out of the core runtime dependency graph
+- [x] add a minimal tracked CrewAI Flow package with Python 3.13 `.python-version`, uv lock/install flow, and root pnpm/Make setup and smoke-check commands
 - [ ] add optional CrewAI Flow/Crew adapters behind the sidecar backend boundary for deep-dive research tasks
 - [ ] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
 - [ ] add evaluation harnesses that compare research packets against later market behavior, paper outcomes, and memory/no-memory ablations
@@ -423,6 +427,7 @@ Status: planned.
 - [ ] keep native replay, QA, and runtime paths valid when CrewAI is not installed or disabled
       Notes:
 - CrewAI is useful here as a sidecar research harness, not as the owner of execution, broker state, or runtime orchestration
+- the tracked sidecar is intentionally isolated: uv owns its environment, root Poetry remains the core runtime lock, and native runtime/replay/QA must keep working when the sidecar is not installed
 - training intelligence loops should improve evaluation and memory quality while Operation remains strict, paper-first, and explicitly gated
 
 ## Phase 18: V2 Global Expansion - IBKR And FX
