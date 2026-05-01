@@ -70,6 +70,7 @@ Implemented or substantially present:
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, deeper Rich submenu navigation, read-only JSON surfaces, optional one-cycle runtime checks, optional quality gates, coverage XML, SonarQube submission, and a human-readable `qa-report.md`
 - `evidence-bundle` now creates a read-only V1 QA bundle under `.ai/qa/artifacts/` with dashboard, status, broker, provider diagnostics, V1 readiness, supervisor, logs, runtime-mode checklist, research status, manifest, and latest smoke summary/report when available
 - `hardware-profile` now records CPU, memory, accelerator hints, configured model size, and safe local parallelism/token recommendations before long paper-operation runs; evidence bundles include this profile
+- `operator-workflow` now exposes the canonical V1 review sequence as a read-only CLI/JSON payload: doctor, hardware profile, provider diagnostics, V1 readiness, smoke QA, optional one-cycle run, review/trace/context, evidence bundle, then background paper operation
 - Ink settings now covers the remaining V1 parity gap for preference visibility, recent runs, and safe operator-instruction editing in a resize-safer compact layout, and smoke QA verifies that page switch through tmux in a 110x30 terminal
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
 - Python dependency resolution now uses a committed root `uv.lock` file generated from `pyproject.toml`; uv owns root package locking, environment sync, command execution, and builds while local daily development pins Python 3.13 through `.python-version`
@@ -129,7 +130,7 @@ New production-expansion direction:
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy
 - Ink TUI is the primary operator surface, but broader htop-like control affordances, full resize-proofing across every page, and visual refinement are still open
-- runtime performance is currently controlled mostly through static settings; hardware-aware profiles for safe concurrency, token budgets, model routing, and memory use are a planned next step
+- runtime performance is currently controlled mostly through static settings; `hardware-profile` now gives operator guidance, but automatic hardware-aware runtime tuning for concurrency, model routing, token budgets, and memory use is still a planned next step
 - DB-backed review surfaces may intentionally fall back to observer mode while the runtime writer is active
 - background runtime supervision now has a sidecar-friendly status and log contract that UI surfaces can read without competing for the writer connection
 - behavior-changing work should use the QA docs when it affects operator surfaces or runtime behavior

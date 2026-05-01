@@ -3077,6 +3077,122 @@ def build_hardware_profile_payload(settings: Settings) -> dict[str, object]:
     }
 
 
+def build_operator_workflow_payload(settings: Settings) -> dict[str, object]:
+    """Return the canonical V1 operator review workflow without executing it."""
+    steps = [
+        {
+            "order": 1,
+            "name": "environment_doctor",
+            "command": "agentic-trader doctor",
+            "purpose": "Verify model, runtime directory, database path, and basic provider reachability.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 2,
+            "name": "hardware_profile",
+            "command": "agentic-trader hardware-profile",
+            "purpose": "Inspect local CPU, memory, accelerator hints, model size, and safe parallelism recommendations.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 3,
+            "name": "provider_diagnostics",
+            "command": "agentic-trader provider-diagnostics",
+            "purpose": "Inspect source ladder, API-key readiness, and fallback warnings without leaking secrets.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 4,
+            "name": "v1_readiness",
+            "command": "agentic-trader v1-readiness --provider-check",
+            "purpose": "Verify paper-operation gates and Alpaca external-paper readiness before longer operation.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 5,
+            "name": "fast_smoke",
+            "command": "pnpm run qa",
+            "purpose": "Run CLI/Rich/Ink smoke QA and produce smoke-summary.json plus qa-report.md.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 6,
+            "name": "one_cycle",
+            "command": "pnpm run qa -- --include-runtime-cycle --runtime-symbol AAPL --runtime-interval 1d --runtime-lookback 180d",
+            "purpose": "Optionally prove one strict foreground agent cycle with isolated runtime storage.",
+            "required_before_long_run": False,
+        },
+        {
+            "order": 7,
+            "name": "review_outputs",
+            "command": "agentic-trader review-run && agentic-trader trace-run && agentic-trader trade-context",
+            "purpose": "Inspect decision, stage trace, context pack, broker outcome, and reviewable rationale.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 8,
+            "name": "evidence_bundle",
+            "command": "agentic-trader evidence-bundle",
+            "purpose": "Package shared runtime truth, readiness payloads, logs, hardware profile, and latest smoke report.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 9,
+            "name": "background_paper_operation",
+            "command": "agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous --background",
+            "purpose": "Start longer paper operation only after the readiness and evidence steps are understood.",
+            "required_before_long_run": False,
+        },
+    ]
+    return {
+        "workflow_version": "operator-workflow.v1",
+        "runtime_mode": settings.runtime_mode,
+        "execution_backend": settings.execution_backend,
+        "live_execution_enabled": settings.live_execution_enabled,
+        "kill_switch_active": settings.execution_kill_switch_active,
+        "paper_first": settings.execution_backend == "paper"
+        and not settings.live_execution_enabled,
+        "steps": steps,
+        "safety_notes": [
+            "This workflow is descriptive and does not execute runtime actions.",
+            "Live execution remains blocked until explicitly approved and implemented.",
+            "Paper evidence and operator review should precede any longer background run.",
+        ],
+    }
+
+
+@app.command("operator-workflow")
+def operator_workflow_command(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show the canonical V1 operator review workflow without executing it."""
+    settings = get_settings()
+    payload = build_operator_workflow_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+    table = Table(title="V1 Operator Workflow")
+    table.add_column("#", style="cyan")
+    table.add_column("Step")
+    table.add_column("Command")
+    table.add_column("Purpose")
+    for step in cast(list[dict[str, object]], payload["steps"]):
+        table.add_row(
+            str(step["order"]),
+            str(step["name"]),
+            str(step["command"]),
+            str(step["purpose"]),
+        )
+    console.print(
+        Panel(
+            "Read-only workflow guide. Review readiness and evidence before long paper operation.",
+            title="Operator Workflow",
+            border_style="cyan",
+        )
+    )
+    console.print(table)
+
+
 @app.command("hardware-profile")
 def hardware_profile_command(
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
@@ -3167,6 +3283,11 @@ def build_evidence_bundle(
         bundle_dir,
         "runtime-mode-operation-checklist.json",
         operation_plan.model_dump(mode="json"),
+    )
+    files["operator_workflow"] = _write_bundle_json(
+        bundle_dir,
+        "operator-workflow.json",
+        build_operator_workflow_payload(settings),
     )
     files["research"] = _write_bundle_json(
         bundle_dir,

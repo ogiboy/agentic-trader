@@ -39,6 +39,7 @@ pnpm run qa
 Recommended V1 evidence bundle:
 
 ```bash
+agentic-trader operator-workflow
 agentic-trader evidence-bundle
 ```
 
@@ -234,6 +235,7 @@ Core:
 
 ```bash
 agentic-trader doctor
+agentic-trader operator-workflow
 agentic-trader hardware-profile
 agentic-trader provider-diagnostics
 agentic-trader v1-readiness

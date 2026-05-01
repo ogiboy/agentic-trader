@@ -338,9 +338,9 @@ Status: in progress.
 
 ## Phase 15: Production-Like Paper Operations
 
-Status: planned.
+Status: in progress.
 
-- [ ] define a canonical operator workflow: doctor, broker status, dashboard snapshot, Training review, one strict cycle, trace review, then background paper operation
+- [x] define a canonical operator workflow: doctor, hardware profile, provider diagnostics, V1 readiness, smoke QA, one strict cycle, trace review, evidence bundle, then background paper operation
 - [ ] harden daemon lifecycle semantics for stale PIDs, stop requests, restarts, log tails, and terminal outcomes
 - [ ] add runtime performance profiles that tune concurrent agents, model routing, token budgets, request timeouts, and memory limits based on local hardware class
 - [x] add a hardware capability probe that records CPU, RAM, GPU/accelerator, model size, and safe parallelism recommendations before starting long-running operation

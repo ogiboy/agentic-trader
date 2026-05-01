@@ -66,6 +66,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["evidence-bundle", "-h"],
         ["hardware-profile", "--help"],
         ["hardware-profile", "-h"],
+        ["operator-workflow", "--help"],
+        ["operator-workflow", "-h"],
         ["research-status", "--help"],
         ["research-status", "-h"],
         ["research-refresh", "--help"],
@@ -791,6 +793,7 @@ def test_evidence_bundle_json_creates_read_only_artifacts(
         "supervisor",
         "logs",
         "runtime_mode_operation",
+        "operator_workflow",
         "research",
         "hardware_profile",
         "manifest",
@@ -832,6 +835,30 @@ def test_hardware_profile_json_reports_recommendations(
     assert payload["configured_runtime"]["estimated_model_size_b"] == 8.0
     assert payload["recommendations"]["safe_parallel_agents"] == 2
     assert payload["recommendations"]["profile"] == "standard-local"
+
+
+def test_operator_workflow_json_reports_v1_sequence(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+        live_execution_enabled=False,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    result = CliRunner().invoke(app, ["operator-workflow", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["workflow_version"] == "operator-workflow.v1"
+    assert payload["paper_first"] is True
+    commands = [step["command"] for step in payload["steps"]]
+    assert "agentic-trader doctor" in commands
+    assert "agentic-trader v1-readiness --provider-check" in commands
+    assert "agentic-trader evidence-bundle" in commands
 
 
 def test_instruct_json_reports_instruction_and_applied_preferences(
