@@ -124,6 +124,43 @@ def _current_git_branch() -> str | None:
     return branch
 
 
+def _current_git_commit() -> str | None:
+    """Return the current short Git commit when available."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except Exception:
+        return None
+    commit = proc.stdout.strip()
+    if proc.returncode != 0 or not commit:
+        return None
+    return commit
+
+
+def _git_worktree_dirty() -> bool | None:
+    """Return whether Git sees tracked or untracked worktree changes."""
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--short", "--untracked-files=all"],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    return bool(proc.stdout.strip())
+
+
 def _redact_sensitive_text(text: str, sensitive_values: tuple[str, ...]) -> str:
     """
     Redact occurrences of sensitive substrings in a text string.
@@ -1265,6 +1302,73 @@ def _write_summary(context: SmokeContext, results: list[CheckResult]) -> Path:
     return summary_path
 
 
+def _status_label(passed: bool) -> str:
+    return "PASS" if passed else "FAIL"
+
+
+def _dirty_label(value: bool | None) -> str:
+    if value is None:
+        return "unknown"
+    return "yes" if value else "no"
+
+
+def _write_report(
+    context: SmokeContext, results: list[CheckResult], summary_path: Path
+) -> Path:
+    """Write a compact Markdown QA report next to the JSON smoke summary."""
+    report_path = context.artifacts_dir / "qa-report.md"
+    failed = [result for result in results if not result.passed]
+    branch = _current_git_branch() or "detached"
+    commit = _current_git_commit() or "unknown"
+    dirty = _git_worktree_dirty()
+    agentic_path = _resolve_agentic_trader_executable() or "not found"
+    generated_at = datetime.now().astimezone().isoformat(timespec="seconds")
+
+    lines = [
+        "# QA Smoke Report",
+        "",
+        f"- Generated: {generated_at}",
+        f"- Repo: `{REPO_ROOT}`",
+        f"- Branch: `{branch}`",
+        f"- Commit: `{commit}`",
+        f"- Worktree dirty: `{_dirty_label(dirty)}`",
+        f"- Python: `{SMOKE_PYTHON}`",
+        f"- Agentic Trader: `{agentic_path}`",
+        f"- Summary JSON: `{summary_path}`",
+        f"- Result: `{_status_label(not failed)}`",
+        f"- Checks: `{len(results) - len(failed)} passed / {len(failed)} failed / {len(results)} total`",
+        "",
+        "## Checks",
+        "",
+        "| Status | Check | Details | Artifact |",
+        "| --- | --- | --- | --- |",
+    ]
+    for result in results:
+        artifact = f"`{result.artifact}`" if result.artifact else "-"
+        details = result.details.replace("|", "\\|")
+        lines.append(
+            f"| {_status_label(result.passed)} | `{result.name}` | {details} | {artifact} |"
+        )
+
+    lines.extend(["", "## Triage"])
+    if failed:
+        lines.append("")
+        for result in failed:
+            artifact = f" Artifact: `{result.artifact}`." if result.artifact else ""
+            lines.append(f"- `{result.name}` failed: {result.details}.{artifact}")
+    else:
+        lines.extend(
+            [
+                "",
+                "- No smoke failures were detected.",
+                "- Cross-check any visual/operator claims against the artifacts before promoting a run as release evidence.",
+            ]
+        )
+
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return report_path
+
+
 def _run_id() -> str:
     """
     Produce a timestamp string used as a unique run identifier.
@@ -1750,6 +1854,7 @@ def main() -> int:
         results.append(_sonar_check(context, args))
 
     summary_path = _write_summary(context, results)
+    report_path = _write_report(context, results, summary_path)
     failed = [result for result in results if not result.passed]
 
     print("\nQA Smoke Summary")
@@ -1760,6 +1865,7 @@ def main() -> int:
         if result.artifact is not None:
             print(f"  artifact: {result.artifact}")
     print(f"\nSummary file: {summary_path}")
+    print(f"Report file: {report_path}")
 
     return 1 if failed else 0
 

@@ -66,10 +66,13 @@ Automated smoke QA writes each run into a timestamped subdirectory:
 ```
 
 Parallel smoke runs may append a numeric suffix such as `-2`; keep each run directory intact so evidence remains traceable.
+Each run also writes `smoke-summary.json` for machines and `qa-report.md` for
+human review.
 
 Suggested files:
 
 - `run.log`
+- `qa-report.md`
 - `tui-pane.txt`
 - `rich-menu-pane.txt`
 - `observer-api.json`

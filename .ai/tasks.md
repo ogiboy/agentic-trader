@@ -140,6 +140,7 @@ Desired direction:
 - use fixed terminal size and stable artifact naming
 - capture JSON snapshots, service events, broker state, context-pack excerpts, keypress transcripts, and generated failure reports
 - fail smoke evidence when raw provider output or LLM retry diagnostics leak into operator-facing terminal output
+- keep generated `qa-report.md` summaries in every smoke artifact directory so agents can inspect pass/fail evidence without reconstructing it from JSON first
 - keep the one-cycle runtime check as an explicit opt-in tier because it needs live market data and a healthy local model
 - add optional tmux pane dumps and asciinema recordings for visual TUI regressions
 - keep a tmux-driven compact-terminal Ink settings navigation check in smoke QA so Rich/TUI parity does not silently regress

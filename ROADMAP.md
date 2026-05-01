@@ -326,13 +326,13 @@ Status: in progress.
 - [ ] expand captured keypress transcripts, service events, and context-pack excerpts across every `.ai/qa/qa-scenarios.md` scenario
 - [ ] use Computer Use for visual CLI/Rich/Ink inspection when available, with pexpect, tmux, asciinema, and text artifacts as the fallback path
 - [ ] optionally capture tmux pane dumps and asciinema recordings for Ink and Rich visual regressions
-- [ ] generate a human-readable `qa-report.md` from structured check results when failures occur
+- [x] generate a human-readable `qa-report.md` from structured check results for each smoke run
 - [ ] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, trace, context pack, and QA results under a timestamped artifact directory
 - [ ] keep quality gates tiered: CI-safe CLI/static checks first, local interactive TUI checks second, manual visual recordings third
 - [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
       Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
-- smoke QA now includes dashboard, provider diagnostics, V1 readiness, broker health, and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, and an optional isolated one-cycle runtime check
+- smoke QA now includes dashboard, provider diagnostics, V1 readiness, broker health, and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, a generated `qa-report.md`, and an optional isolated one-cycle runtime check
 - visual QA can now use Computer Use in Codex/Desktop environments, but it remains optional and must be paired with contract/runtime truth checks
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
