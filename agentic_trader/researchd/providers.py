@@ -129,14 +129,9 @@ class SecEdgarSubmissionsProvider:
         self._user_agent = (settings.research_sec_edgar_user_agent or "").strip()
         self._timeout = min(max(settings.request_timeout_seconds, 1.0), 30.0)
         self._fetcher = fetcher or _fetch_json
-        configuration_note = (
-            "sec_provider_disabled"
-            if not self._enabled
-            else (
-                "sec_user_agent_configured"
-                if self._user_agent
-                else "sec_user_agent_missing"
-            )
+        configuration_note = _sec_configuration_note(
+            enabled=self._enabled,
+            user_agent=self._user_agent,
         )
         self._metadata = metadata(
             provider_id="sec_edgar_research",
@@ -337,6 +332,14 @@ def _safe_error_note(exc: BaseException) -> str:
     return f"provider_error:{type(exc).__name__}"
 
 
+def _sec_configuration_note(*, enabled: bool, user_agent: str) -> str:
+    if not enabled:
+        return "sec_provider_disabled"
+    if user_agent:
+        return "sec_user_agent_configured"
+    return "sec_user_agent_missing"
+
+
 def _sec_ticker_index(payload: dict[str, Any]) -> dict[str, _SecTickerMatch]:
     index: dict[str, _SecTickerMatch] = {}
     for value in payload.values():
@@ -366,8 +369,7 @@ def _records_from_submissions(
 ) -> list[RawEvidenceRecord]:
     if limit <= 0:
         return []
-    filings = payload.get("filings")
-    recent = filings.get("recent") if isinstance(filings, dict) else None
+    recent = _recent_filings(payload)
     if not isinstance(recent, dict):
         return []
 
@@ -382,92 +384,151 @@ def _records_from_submissions(
     records: list[RawEvidenceRecord] = []
 
     for index, accession_value in enumerate(accessions):
-        accession = _string_value(accession_value)
-        form = _string_at(forms, index)
-        if not accession or form not in SEC_RESEARCH_FORMS:
+        record = _record_from_submission_row(
+            provider=provider,
+            symbol=symbol,
+            match=match,
+            accession_value=accession_value,
+            forms=forms,
+            filing_dates=filing_dates,
+            report_dates=report_dates,
+            primary_documents=primary_documents,
+            primary_descriptions=primary_descriptions,
+            index=index,
+            fetched_at=fetched_at,
+            entity_name=entity_name,
+        )
+        if record is None:
             continue
-
-        filing_date = _string_at(filing_dates, index)
-        report_date = _string_at(report_dates, index)
-        primary_document = _string_at(primary_documents, index)
-        primary_description = _string_at(primary_descriptions, index)
-        observed_at = filing_date or fetched_at
-        missing_fields = []
-        if not report_date:
-            missing_fields.append("report_date")
-        if not primary_document:
-            missing_fields.append("primary_document")
-        url = _sec_archive_url(
-            cik=match.cik,
-            accession=accession,
-            primary_document=primary_document,
-        )
-        if url is None:
-            missing_fields.append("url")
-
-        records.append(
-            RawEvidenceRecord(
-                record_id=f"sec:{symbol}:{accession}",
-                source_kind="disclosure",
-                source_name=provider.provider_id,
-                title=f"{symbol} {form} filed {filing_date or 'unknown date'}",
-                symbol=symbol,
-                entity_name=entity_name,
-                region="US",
-                url=url,
-                observed_at=observed_at,
-                last_verified_at=fetched_at,
-                normalized_summary=(
-                    f"SEC EDGAR submissions API reports {entity_name} filed "
-                    f"{form} accession {accession} on {filing_date or 'unknown date'}"
-                    f" for report date {report_date or 'unknown'}."
-                ),
-                source_payload_ref=f"sec-submissions://CIK{match.cik}/{accession}",
-                source_attributions=[
-                    source_attribution(
-                        source_name=provider.provider_id,
-                        provider_type=provider.provider_type,
-                        source_role=provider.role,
-                        fetched_at=fetched_at,
-                        freshness="fresh",
-                        confidence=0.95,
-                        completeness=0.85 if not missing_fields else 0.7,
-                        notes=[
-                            "sec_submissions_api",
-                            f"cik={match.cik}",
-                            f"form={form}",
-                            (
-                                f"primary_doc_description={primary_description}"
-                                if primary_description
-                                else "primary_doc_description_missing"
-                            ),
-                        ],
-                    )
-                ],
-                evidence_vs_inference=EvidenceInferenceBreakdown(
-                    evidence=[
-                        (
-                            f"SEC ticker mapping associates {symbol} with "
-                            f"CIK {match.cik}."
-                        ),
-                        (
-                            f"SEC submissions metadata lists accession "
-                            f"{accession} as form {form} filed on "
-                            f"{filing_date or 'unknown date'}."
-                        ),
-                    ],
-                    inference=[],
-                    uncertainty=[
-                        "Filing text and XBRL facts were not downloaded or parsed in this pass."
-                    ],
-                ),
-                missing_fields=missing_fields,
-            )
-        )
+        records.append(record)
         if len(records) >= limit:
             break
 
     return records
+
+
+def _recent_filings(payload: dict[str, Any]) -> dict[str, Any] | None:
+    filings = payload.get("filings")
+    if not isinstance(filings, dict):
+        return None
+    recent = filings.get("recent")
+    return recent if isinstance(recent, dict) else None
+
+
+def _record_from_submission_row(
+    *,
+    provider: ProviderMetadata,
+    symbol: str,
+    match: _SecTickerMatch,
+    accession_value: object,
+    forms: list[object],
+    filing_dates: list[object],
+    report_dates: list[object],
+    primary_documents: list[object],
+    primary_descriptions: list[object],
+    index: int,
+    fetched_at: str,
+    entity_name: str,
+) -> RawEvidenceRecord | None:
+    accession = _string_value(accession_value)
+    form = _string_at(forms, index)
+    if not accession or form not in SEC_RESEARCH_FORMS:
+        return None
+
+    filing_date = _string_at(filing_dates, index)
+    report_date = _string_at(report_dates, index)
+    primary_document = _string_at(primary_documents, index)
+    primary_description = _string_at(primary_descriptions, index)
+    observed_at = filing_date or fetched_at
+    missing_fields = _sec_missing_fields(
+        cik=match.cik,
+        accession=accession,
+        report_date=report_date,
+        primary_document=primary_document,
+    )
+    url = _sec_archive_url(
+        cik=match.cik,
+        accession=accession,
+        primary_document=primary_document,
+    )
+    filing_label = filing_date or "unknown date"
+
+    return RawEvidenceRecord(
+        record_id=f"sec:{symbol}:{accession}",
+        source_kind="disclosure",
+        source_name=provider.provider_id,
+        title=f"{symbol} {form} filed {filing_label}",
+        symbol=symbol,
+        entity_name=entity_name,
+        region="US",
+        url=url,
+        observed_at=observed_at,
+        last_verified_at=fetched_at,
+        normalized_summary=(
+            f"SEC EDGAR submissions API reports {entity_name} filed "
+            f"{form} accession {accession} on {filing_label}"
+            f" for report date {report_date or 'unknown'}."
+        ),
+        source_payload_ref=f"sec-submissions://CIK{match.cik}/{accession}",
+        source_attributions=[
+            source_attribution(
+                source_name=provider.provider_id,
+                provider_type=provider.provider_type,
+                source_role=provider.role,
+                fetched_at=fetched_at,
+                freshness="fresh",
+                confidence=0.95,
+                completeness=0.85 if not missing_fields else 0.7,
+                notes=[
+                    "sec_submissions_api",
+                    f"cik={match.cik}",
+                    f"form={form}",
+                    _primary_document_note(primary_description),
+                ],
+            )
+        ],
+        evidence_vs_inference=EvidenceInferenceBreakdown(
+            evidence=[
+                f"SEC ticker mapping associates {symbol} with CIK {match.cik}.",
+                (
+                    f"SEC submissions metadata lists accession {accession} "
+                    f"as form {form} filed on {filing_label}."
+                ),
+            ],
+            inference=[],
+            uncertainty=[
+                "Filing text and XBRL facts were not downloaded or parsed in this pass."
+            ],
+        ),
+        missing_fields=missing_fields,
+    )
+
+
+def _sec_missing_fields(
+    *,
+    cik: str,
+    accession: str,
+    report_date: str,
+    primary_document: str,
+) -> list[str]:
+    missing_fields = []
+    if not report_date:
+        missing_fields.append("report_date")
+    if not primary_document:
+        missing_fields.append("primary_document")
+    if _sec_archive_url(
+        cik=cik,
+        accession=accession,
+        primary_document=primary_document,
+    ) is None:
+        missing_fields.append("url")
+    return missing_fields
+
+
+def _primary_document_note(primary_description: str) -> str:
+    if primary_description:
+        return f"primary_doc_description={primary_description}"
+    return "primary_doc_description_missing"
 
 
 def _list_value(value: object) -> list[object]:

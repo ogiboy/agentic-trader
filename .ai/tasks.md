@@ -40,6 +40,8 @@ Next:
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
 - verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
+- after the release workflow lands, verify that the first missing baseline tag dispatch creates `v0.9.0`, runs binary packaging from that tag, and publishes the GitHub Release instead of relying on a direct `main` binary push
+- keep an eye on local MCP hygiene: several `mcp/sonarqube` client containers can be active at once, and stale clients should be stopped only after confirming no current Codex/VS Code session depends on them
 
 ### 1. Financial Intelligence Layer
 

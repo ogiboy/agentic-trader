@@ -10,9 +10,19 @@
     ".sonar",
     "tui/node_modules",
     "tui/dist",
+    "webgui/node_modules",
+    "webgui/dist",
+    "docs/node_modules",
+    "docs/dist",
     "**/node_modules",
     "**/__pycache__",
-    "**/.*"
+    "**/.*",
+    "**/venv",
+    "**/env",
+    "**/envs",
+    "**/.env",
+    "**/.venv",
+    "node_modules"
   ],
   "pythonVersion": "3.13",
   "typeCheckingMode": "standard"
