@@ -22,11 +22,18 @@ V1.1 needs sidecar persistence without competing with the active DuckDB runtime 
 Research-only commands therefore append `ResearchSnapshotRecord` JSON to the runtime feed and update a latest-snapshot JSON file instead of creating a main `research_snapshots` table.
 A separate sidecar database can be reconsidered only after real provider volume, query needs, and daemon polling behavior justify it.
 
+### SEC EDGAR ingestion is opt-in and metadata-first
+
+Reason:
+The first live research source should be official, structured, and easy to audit without pulling raw filings into prompts.
+SEC EDGAR submissions metadata can produce source-attributed filing evidence for watched US symbols, but it must remain disabled by default, require an identifying User-Agent, respect fair-access expectations, and surface missing/network/user-agent failures instead of silently falling back.
+This provider does not parse full filing text, XBRL company facts, or trading policy; it only writes normalized research evidence packets for sidecar snapshots.
+
 ### CrewAI setup stays isolated until the dependency boundary is proven
 
 Reason:
 CrewAI is available as a useful sidecar harness, but adding it to the root lock would widen the runtime dependency surface before the adapter is implemented.
-The current path is operator-visible setup/status plus a tracked uv-managed sidecar under `sidecars/research-crewai/`, then a JSON/Pydantic handshake behind `ResearchSidecarBackend` when V1.2 begins.
+The current path is operator-visible setup/status plus a tracked uv-managed CrewAI Flow sidecar under `sidecars/research_flow/`, then a JSON/Pydantic handshake behind `ResearchSidecarBackend` when V1.2 begins.
 The sidecar can own its CrewAI dependency, Python 3.13 `.python-version`, and `uv.lock`; the root runtime must keep working when that sidecar is not installed.
 
 ### External AI coding tools are development helpers, not runtime dependencies
@@ -69,7 +76,7 @@ The web shell should call the same CLI/dashboard/runtime/chat/instruction contra
 
 Reason:
 The Web GUI shells out to the existing runtime contracts, but relying on whichever `agentic-trader` entrypoint happens to be first on `PATH` can drift onto a stale global install in worktree-heavy setups.
-The route layer should therefore prefer an explicit `AGENTIC_TRADER_PYTHON`, then the repo-managed Conda environment when it can be resolved locally, and only then fall back to the PATH CLI.
+The route layer should therefore prefer an explicit `AGENTIC_TRADER_PYTHON`, then the active virtualenv or repo-managed uv `.venv`, then legacy Conda when it can be resolved locally, and only then fall back to the PATH CLI.
 This keeps browser QA and local operator workflows attached to the same code the worktree is editing without inventing a web-only runtime.
 
 ### Operator chat memory must remain separate from trading memory
@@ -230,38 +237,38 @@ The execution boundary is ready for future broker adapters, but V1 should remain
 Alpaca readiness belongs to V1 as US-equities-only preparation with manual approval, paper defaults, strict safety gates, kill switch, and broker/readiness health checks.
 Interactive Brokers, global markets, multi-currency account state, FX conversion assumptions, and region-specific market QA belong in V2 so V1 does not become a broad multi-broker production rewrite.
 
-### Python dependencies should be locked with Poetry
+### Python dependencies should be locked with uv
 
 Reason:
-The project is expected to run consistently on multiple machines, but Conda and ad hoc pip installs do not update repository manifests automatically.
-`pyproject.toml` remains the direct dependency manifest and `poetry.lock` is now the committed resolver output.
-Conda stays useful for selecting the Python interpreter and native environment, while Poetry owns Python package add, remove, lock, and install synchronization.
-The daily root development default is Python 3.13 in the active `trader` Conda environment, while the root support range remains `>=3.12,<3.15` until CI expands the supported matrix.
-The install script should fail when neither an active Conda env nor an explicit local `.venv` exists, rather than installing into an ambiguous system Python or forcing a second Poetry-managed `.venv` inside an active Conda session.
+The project is expected to run consistently on multiple machines, but Conda, Poetry, uv sidecars, and ad hoc pip installs created too many overlapping Python ownership layers.
+`pyproject.toml` remains the direct dependency manifest and root `uv.lock` is now the committed resolver output.
+uv owns root package add, remove, lock, sync, run, and build commands; daily root development defaults to Python 3.13 in the root `.venv`, while CI can still sync against Python 3.12 for the current minimum-support signal.
+Poetry is no longer a root package-management requirement.
 
 ### JavaScript surfaces should share a root pnpm workspace
 
 Reason:
 `webgui/`, `docs/`, and the Ink `tui/` are separate UI surfaces, but they should not each own independent package-manager islands.
 A root pnpm workspace keeps Node dependency locking, CI cache keys, setup, build, and local start commands in one place without merging Python and JavaScript dependency ownership.
-Poetry remains the Python truth, while root `package.json` scripts and thin Makefile aliases provide the human-facing command surface.
-The Makefile must stay an alias layer over pnpm and Poetry commands rather than becoming a second build system.
+uv remains the Python truth, while root `package.json` scripts and thin Makefile aliases provide the human-facing command surface.
+The Makefile must stay an alias layer over pnpm and uv commands rather than becoming a second build system.
 
-### CrewAI sidecar uses uv without turning the repo into a uv workspace
+### CrewAI Flow sidecar uses uv without turning the repo into a uv workspace
 
 Reason:
 CrewAI currently requires a narrower Python range than the root package wants to support, and its dependency graph should not become part of the strict trading runtime by accident.
-The repository should therefore keep `sidecars/research-crewai/` as an independent uv project with its own lockfile and smoke checks.
-Root pnpm and Make commands may call into that sidecar for setup, check, and gated runs, but the root project should not add CrewAI to Poetry or adopt a repository-wide uv workspace until there is a proven need.
+The repository should therefore keep `sidecars/research_flow/` as an independent uv project with its own lockfile and smoke checks.
+Root pnpm and Make commands may call into that sidecar for setup, check, and gated runs, but the root project should not add CrewAI to the root dependency graph or adopt a repository-wide uv workspace until there is a proven need.
 Runtime integration should use `uv run --locked --no-sync` against an already-installed sidecar environment so normal trading commands do not silently create or update a CrewAI environment.
 The core Python runtime may spawn the sidecar process and parse its JSON contract, but it must not import CrewAI modules directly.
+The sidecar pyproject version is synced with the root application version through semantic-release `version_toml`, while its Python pin remains `3.13` to stay under CrewAI's current `<3.14` support boundary.
 
-### Root uv migration is a future simplification track, not an implicit change
+### Root uv migration replaces Poetry but not the project runtime architecture
 
 Reason:
-Using Conda, Poetry, uv, and multiple Python versions at once is becoming operationally noisy.
-A root uv migration may simplify Python dependency management, but it affects release automation, CI, lockfiles, local setup, and the current minimum-support signal.
-Any migration from Poetry/Conda to root uv therefore needs a separate impact analysis, migration plan, and explicit approval before implementation.
+Using Conda, Poetry, uv sidecars, and multiple Python versions at once became operationally noisy.
+The root now uses uv for dependency resolution, environment sync, command execution, and package builds, while pnpm remains the JavaScript workspace owner and the CrewAI Flow sidecar keeps its own isolated uv lock.
+This changes developer environment management only; it does not replace the staged specialist runtime, broker adapter boundary, memory rules, or paper-first safety gates.
 
 ### Environment templates document targets, local env files own secrets
 

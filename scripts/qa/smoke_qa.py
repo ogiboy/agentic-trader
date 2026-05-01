@@ -191,7 +191,7 @@ def _resolve_sonar_token() -> str | None:
 
 def _resolve_managed_conda_env_name() -> str | None:
     """
-    Get the Conda environment name declared in the repository's Codex environment manifest.
+    Get the legacy Conda environment name declared in the repository's Codex environment manifest.
 
     Reads .codex/environments/environment.toml and returns the first token following the first occurrence of the literal "conda activate ". Quotes around the name are stripped.
 
@@ -221,9 +221,10 @@ def _resolve_smoke_python() -> str:
     Preference order:
     1. explicit `AGENTIC_TRADER_PYTHON`
     2. active virtualenv
-    3. active non-base Conda env
-    4. repo-managed Conda env from `.codex/environments/environment.toml`
-    5. current interpreter as a final fallback
+    3. repo-managed uv `.venv`
+    4. active non-base Conda env
+    5. legacy repo-managed Conda env from `.codex/environments/environment.toml`
+    6. current interpreter as a final fallback
     """
     candidates: list[Path] = []
 
@@ -234,6 +235,8 @@ def _resolve_smoke_python() -> str:
     virtual_env = os.environ.get("VIRTUAL_ENV")
     if virtual_env:
         candidates.append(Path(virtual_env) / "bin" / "python")
+
+    candidates.append(REPO_ROOT / ".venv" / "bin" / "python")
 
     conda_prefix = os.environ.get("CONDA_PREFIX")
     conda_default_env = os.environ.get("CONDA_DEFAULT_ENV")
@@ -270,7 +273,7 @@ SMOKE_PYTHON = _resolve_smoke_python()
 
 def _resolve_agentic_trader_executable() -> str | None:
     """
-    Locate the `agentic-trader` executable, preferring a copy next to the running Python interpreter, then in the active conda environment's bin directory, and finally on the system PATH.
+    Locate the `agentic-trader` executable, preferring a copy next to the running Python interpreter, then in the active Conda environment's bin directory, and finally on the system PATH.
 
     Returns:
         The filesystem path to an executable `agentic-trader` as a string if one is found and executable, or `None` if no suitable executable is found.

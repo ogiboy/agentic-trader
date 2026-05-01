@@ -154,7 +154,7 @@ class NoopResearchBackend:
 
 
 class CrewAiResearchBackend:
-    """Subprocess boundary for the tracked uv-managed CrewAI sidecar."""
+    """Subprocess boundary for the tracked uv-managed CrewAI Flow sidecar."""
 
     name = "crewai"
 
@@ -187,7 +187,7 @@ class CrewAiResearchBackend:
                 symbols=symbols,
                 provider_outputs=provider_outputs,
                 now=now,
-                message="uv is required before the CrewAI sidecar can run.",
+                message="uv is required before the CrewAI Flow sidecar can run.",
             )
         if not (flow_dir / "pyproject.toml").exists():
             return self._failed_result(
@@ -195,7 +195,7 @@ class CrewAiResearchBackend:
                 symbols=symbols,
                 provider_outputs=provider_outputs,
                 now=now,
-                message=f"CrewAI sidecar project is missing at {flow_dir}.",
+                message=f"CrewAI Flow sidecar project is missing at {flow_dir}.",
             )
         if not (flow_dir / ".venv").exists():
             return self._failed_result(
@@ -204,8 +204,8 @@ class CrewAiResearchBackend:
                 provider_outputs=provider_outputs,
                 now=now,
                 message=(
-                    "CrewAI sidecar environment is not installed. "
-                    "Run 'pnpm run setup:research-crewai' first."
+                    "CrewAI Flow sidecar environment is not installed. "
+                    "Run 'pnpm run setup:research-flow' first."
                 ),
             )
 
@@ -224,7 +224,7 @@ class CrewAiResearchBackend:
             "run",
             "--locked",
             "--no-sync",
-            "research-crewai-contract",
+            "research-flow-contract",
         ]
         try:
             completed = self.command_runner(
@@ -240,7 +240,7 @@ class CrewAiResearchBackend:
                 symbols=symbols,
                 provider_outputs=provider_outputs,
                 now=now,
-                message="CrewAI sidecar contract timed out.",
+                message="CrewAI Flow sidecar contract timed out.",
             )
         except Exception as exc:
             return self._failed_result(
@@ -248,7 +248,7 @@ class CrewAiResearchBackend:
                 symbols=symbols,
                 provider_outputs=provider_outputs,
                 now=now,
-                message=f"CrewAI sidecar contract failed to start: {exc}",
+                message=f"CrewAI Flow sidecar contract failed to start: {exc}",
             )
 
         contract_payload = self._contract_payload_from_process(completed)
@@ -259,7 +259,7 @@ class CrewAiResearchBackend:
                 provider_outputs=provider_outputs,
                 now=now,
                 message=(
-                    "CrewAI sidecar returned non-JSON output. "
+                    "CrewAI Flow sidecar returned non-JSON output. "
                     f"stdout={self._trim(completed.stdout)} "
                     f"stderr={self._trim(completed.stderr)}"
                 ),
@@ -274,7 +274,7 @@ class CrewAiResearchBackend:
                 message=(
                     "; ".join(str(item) for item in errors)
                     if isinstance(errors, list) and errors
-                    else "CrewAI sidecar contract returned a failed status."
+                    else "CrewAI Flow sidecar contract returned a failed status."
                 ),
             )
 

@@ -32,12 +32,12 @@ Implemented or substantially present:
 - a local observer API can now expose runtime contracts over HTTP for future WebUI attach flows
 - a first local Web GUI now exists under `webgui/`; it uses a Next.js shell plus server-side route handlers that call the existing CLI/dashboard/runtime/chat/instruction contracts instead of adding a second runtime
 - the Web GUI now also validates persona/runtime inputs at the route boundary, rejects cross-origin or malformed POST bodies, uses a sequence guard to prevent stale dashboard polls from overwriting newer state, and uses Next metadata/icon wiring plus `next/image` on the operator hero surface
-- the Web GUI command runner now prefers an explicit `AGENTIC_TRADER_PYTHON` or the repo-managed Conda environment before falling back to the PATH `agentic-trader` entrypoint, which keeps the browser shell attached to the current worktree more reliably
+- the Web GUI command runner now prefers an explicit `AGENTIC_TRADER_PYTHON`, an active virtualenv, or the repo-managed uv `.venv` before falling back to legacy Conda/PATH entrypoints, which keeps the browser shell attached to the current worktree more reliably
 - the repository now also ships a Fumadocs-based `docs/` app with curated MDX pages for onboarding, architecture, agent pipeline, runtime operations, operator surfaces, frontend guidance, memory/review, QA, and contribution workflow, turning the existing docs scaffold into the canonical developer-docs starting point
 - the docs app now uses locale-prefixed English and Turkish routes (`/en/...` and `/tr/...`) with localized page trees, localized feedback copy, and a modular frontend split across home, feedback, layout, i18n, and content helpers instead of one overloaded docs page file
 - the docs app is now configured for GitHub Pages static export with a project base path, static Fumadocs search data, and a feedback widget that prepares browser-local GitHub issue drafts instead of relying on Server Actions or filesystem writes
 - the repository now has GitHub Actions workflow scaffolding for Python/Web GUI/docs CI, semantic-release versioning with synchronized Python/root/workspace package versions on stable releases, SemVer-compatible branch version previews, stable release changelog/tag creation, prerelease branch GitHub Releases for test binaries, PyInstaller macOS/Windows binaries, and GitHub Pages docs deployment
-- JavaScript dependency management is now consolidated at the repository root with a pnpm workspace for `webgui/`, `docs/`, and `tui/`; root `package.json` scripts plus thin Makefile aliases provide shared setup, check, build, and local app entrypoints while Poetry remains the Python dependency owner
+- JavaScript dependency management is now consolidated at the repository root with a pnpm workspace for `webgui/`, `docs/`, and `tui/`; root `package.json` scripts plus thin Makefile aliases provide shared setup, check, build, and local app entrypoints while uv owns Python locking, sync, command execution, and builds
 - `docs/` and `webgui/` currently share the resolved shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`, which today means `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono typography, and app-local `components/ui`
 - `webgui` remains mid-migration: its route handlers and some primitives follow the new frontend baseline, but much of the live shell still relies on legacy global classes in `src/app/globals.css`
 - tool-driven news context surfaces
@@ -67,9 +67,9 @@ Implemented or substantially present:
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, deeper Rich submenu navigation, read-only JSON surfaces, optional one-cycle runtime checks, optional quality gates, coverage XML, and SonarQube submission
 - Ink settings now covers the remaining V1 parity gap for preference visibility, recent runs, and safe operator-instruction editing in a resize-safer compact layout, and smoke QA verifies that page switch through tmux in a 110x30 terminal
 - pyright is now configured as a first-class static check for repository source, tests, and QA scripts
-- Python dependency resolution now uses a committed `poetry.lock` file generated from `pyproject.toml`; Conda remains the recommended Python environment layer while Poetry owns package locking and install synchronization
-- root daily development now defaults to Python 3.13 in the active `trader` Conda environment, while the package support range remains `>=3.12,<3.15` until CI expands beyond the current minimum-version signal
-- `scripts/install-python.sh` now targets the active Conda interpreter or an explicit local `.venv` and fails visibly instead of silently installing into a system Python or forcing a second nested Poetry environment
+- Python dependency resolution now uses a committed root `uv.lock` file generated from `pyproject.toml`; uv owns root package locking, environment sync, command execution, and builds while local daily development pins Python 3.13 through `.python-version`
+- root daily development now defaults to Python 3.13 in the repo-managed uv `.venv`, while the package support range remains `>=3.12,<3.15` until CI expands beyond the current minimum-version signal
+- `scripts/install-python.sh` now runs `uv sync --locked --python 3.13 --all-extras --group dev`, creating or updating the root `.venv` visibly instead of silently installing into a system Python or relying on Conda activation
 - the Ink TUI is now a pnpm workspace package, and the Python CLI launcher resolves a compatible Node package manager instead of requiring npm specifically
 - recurring operator-facing labels and prompts now flow through a lightweight shared UI text catalog, giving future CLI, Rich, Ink, and WebUI localization a safer boundary
 - the initial Web GUI development flow now enables Watchpack polling in `webgui` dev mode on port `3210`, avoiding file-watch limit noise in larger local worktree setups while matching the README/browser QA contract
@@ -88,9 +88,10 @@ Implemented or substantially present:
 - a first `agentic_trader/researchd/` sidecar foundation now exists with canonical research schemas, sidecar settings, source-health scaffolds for SEC EDGAR, KAP, macro, news/event, and social watchlists, and `research-status` plus dashboard/observer API visibility
 - the research sidecar is disabled by default, uses a no-op backend by default, keeps CrewAI behind an optional adapter boundary, and does not call broker, execution, run persistence, or runtime mode transition code
 - `research-refresh` can run one isolated sidecar pass and persist a `ResearchSnapshotRecord` to `runtime/research_snapshots.jsonl` plus `runtime/research_latest_snapshot.json`; `research-status`, dashboard, and observer payloads read this feed without opening DuckDB
-- `research-crewai-setup` reports the tracked `sidecars/research-crewai/` uv sidecar path, Python version file, lockfile presence, sidecar `.venv` presence, uv availability, and root setup/check/run commands; CrewAI is still not imported by core runtime modules or added to the root dependency lock
-- the CrewAI research backend now uses a subprocess JSON contract through `uv run --locked --no-sync research-crewai-contract` when the sidecar is installed; failures stay visible and do not install dependencies implicitly during runtime
-- the CrewAI sidecar contract now emits deterministic planned deep-dive task definitions for company dossiers, timeline reconstruction, contradiction checks, watch-next lists, and sector briefs without running LLM-backed tasks yet
+- `research-flow-setup` reports the tracked `sidecars/research_flow/` uv sidecar path, Python version file, lockfile presence, sidecar `.venv` presence, uv availability, and root setup/check/run commands; CrewAI is still not imported by core runtime modules or added to the root dependency lock
+- the CrewAI research backend now uses a subprocess JSON contract through `uv run --locked --no-sync research-flow-contract` when the sidecar is installed; failures stay visible and do not install dependencies implicitly during runtime
+- the CrewAI Flow sidecar contract now emits deterministic planned deep-dive task definitions for company dossiers, timeline reconstruction, contradiction checks, watch-next lists, and sector briefs without running LLM-backed tasks yet
+- SEC EDGAR research can now be enabled explicitly through `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true` plus `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT`; when configured, it reads official submissions metadata and normalizes recent 10-K/10-Q/8-K-style filings into source-attributed research evidence without downloading raw filing text
 
 New production-expansion direction:
 
@@ -112,10 +113,10 @@ New production-expansion direction:
 - true semantic memory is not implemented yet; current vector-style retrieval with explicit metadata should be treated as a migration bridge, not the destination
 - Training vs Operation mode is enforced for the first core boundary: Operation requires strict LLM readiness, while Training diagnostic fallback is limited to evaluation/backtest flows
 - live broker adapters are not implemented or enabled; simulated-real remains local and non-live
-- research sidecar status, schemas, and file-backed snapshot persistence are implemented, but real evidence ingestion, daemon-style polling controls, and trade-memory writes are still future work
-- CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph. The tracked scaffold now lives under `sidecars/research-crewai/`, outside `agentic_trader/`, with uv owning its own environment.
+- research sidecar status, schemas, and file-backed snapshot persistence are implemented; SEC EDGAR submissions metadata is the first opt-in live source, while broader evidence ingestion, daemon-style polling controls, and trade-memory writes are still future work
+- CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph. The tracked Flow scaffold now lives under `sidecars/research_flow/`, outside `agentic_trader/`, with uv owning its own environment and sidecar package version aligned to the root app version.
 - financial provider interfaces and canonical aggregation are implemented, but real SEC/KAP, transcripts, macro indicators, and richer vendor fetchers are still scaffolds or future providers
-- SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX source names are now explicit scaffold metadata; they are not live ingestors yet
+- SEC 10-K/10-Q/8-K-style filings now have a first metadata-only submissions ingestor when explicitly enabled; earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX source names remain explicit scaffold metadata rather than live ingestors
 - Alpaca settings are config-ready for V1 readiness checks, but no Alpaca adapter or live execution path is enabled
 - fundamental and macro/news agents currently return structured neutral fallback when only scaffold provider data exists; this is intentional until real provider evidence is present
 - external provider support should be additive and adapter-based, not invasive
@@ -130,8 +131,8 @@ New production-expansion direction:
 - `webgui` lint, typecheck, production build, and the local `pnpm dev:webgui` flow on `localhost:3210` are now green in this worktree
 - Web GUI review, portfolio, risk, journal, and memory panels now surface section-level unavailability errors explicitly instead of collapsing them into generic empty states
 - `docs` now builds and lints with the new Fumadocs shell and is prepared for GitHub Pages static export, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
-- root `pnpm check` and `make check` are now the intended static/build validation entrypoints; use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA, and focused `pnpm --filter ...`, Poetry, or `pnpm run check:research-crewai` commands when narrowing a failure
-- `.codex/environments/environment.toml` setup and check actions now include the tracked CrewAI sidecar setup/check commands so Codex workspace actions do not drift from README and root pnpm scripts
+- root `pnpm check` and `make check` are now the intended static/build validation entrypoints; use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA, and focused `pnpm --filter ...`, `uv run ...`, or `pnpm run check:research-flow` commands when narrowing a failure
+- `.codex/environments/environment.toml` setup and check actions now include the tracked CrewAI Flow sidecar setup/check commands so Codex workspace actions do not drift from README and root pnpm scripts
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture

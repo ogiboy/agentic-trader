@@ -62,6 +62,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["research-status", "-h"],
         ["research-refresh", "--help"],
         ["research-refresh", "-h"],
+        ["research-flow-setup", "--help"],
+        ["research-flow-setup", "-h"],
         ["research-crewai-setup", "--help"],
         ["research-crewai-setup", "-h"],
         ["trade-context", "--help"],
@@ -1023,7 +1025,30 @@ def test_research_refresh_json_persists_snapshot(
     assert settings.database_path.exists() is False
 
 
-def test_research_crewai_setup_json_reports_optional_boundary(
+def test_research_flow_setup_json_reports_optional_boundary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["research-flow-setup", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["core_dependency"] is False
+    assert payload["flow_dir"].endswith("sidecars/research_flow")
+    assert "environment_exists" in payload
+    assert payload["python_version"] == "3.13"
+    assert "pnpm run setup:research-flow" in payload["recommended_commands"]
+    assert any("optional" in note.lower() for note in payload["notes"])
+
+
+def test_research_crewai_setup_alias_still_reports_optional_boundary(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
@@ -1038,12 +1063,7 @@ def test_research_crewai_setup_json_reports_optional_boundary(
 
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert payload["core_dependency"] is False
-    assert payload["flow_dir"].endswith("sidecars/research-crewai")
-    assert "environment_exists" in payload
-    assert payload["python_version"] == "3.13"
-    assert "pnpm run setup:research-crewai" in payload["recommended_commands"]
-    assert any("optional" in note.lower() for note in payload["notes"])
+    assert payload["flow_dir"].endswith("sidecars/research_flow")
 
 
 def test_calendar_status_and_dashboard_snapshot_include_calendar(

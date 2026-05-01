@@ -1,23 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ -n "${CONDA_PREFIX:-}" ] && [ -x "${CONDA_PREFIX}/bin/python" ]; then
-	PYTHON_BIN="${CONDA_PREFIX}/bin/python"
-elif [ -x ".venv/bin/python" ]; then
-	PYTHON_BIN="$(pwd)/.venv/bin/python"
-else
-	echo "Activate the 'trader' Conda env or create a local .venv before installing Python dependencies." >&2
+if ! command -v uv >/dev/null 2>&1; then
+	echo "uv is required for Agentic Trader Python setup. Install uv before running pnpm run install:python." >&2
 	exit 1
 fi
 
-PYTHON_MINOR="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-case "${PYTHON_MINOR}" in
-	3.12|3.13|3.14) ;;
-	*)
-		echo "Agentic Trader root runtime supports Python >=3.12,<3.15; got ${PYTHON_MINOR} at ${PYTHON_BIN}." >&2
-		exit 1
-		;;
-esac
-
-poetry env use "${PYTHON_BIN}" >/dev/null
-poetry install --with dev --extras dev
+# Local daily development is pinned to Python 3.13. The package metadata keeps
+# a wider supported range, and CI can still sync against the minimum version.
+uv sync --locked --python 3.13 --all-extras --group dev

@@ -53,7 +53,7 @@ Do not use a fourth SemVer core segment like `v0.9.5.9870`; CI build identity be
 
 Pull requests and protected branches should keep these checks green:
 
-- Python core: Poetry install, Ruff, Pyright, Pytest, and a PyInstaller smoke build
+- Python core: uv sync, Ruff, Pyright, Pytest, and a PyInstaller smoke build
 - Web GUI: pnpm workspace install, lint, typecheck, and production build
 - Docs: pnpm workspace install, lint, typecheck, and static export
 - TUI: pnpm workspace install and Ink entrypoint syntax check

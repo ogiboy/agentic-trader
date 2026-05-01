@@ -71,20 +71,18 @@ The repository is now a small monorepo-style workspace:
 
 ## Installation
 
-### Python / Poetry From Source
+### Python / uv From Source
 
 ```bash
-conda create -n trader python=3.13 poetry
-conda activate trader
+uv python install 3.13
 pnpm run install:python
 ```
 
-Daily source development now defaults to Python 3.13 inside the active `trader`
-Conda environment. The root package still declares `>=3.12,<3.15` support so CI
-can keep exercising the current minimum version signal, but local installs should
-not drift onto the system Python. `scripts/install-python.sh` uses the active
-Conda interpreter, or an explicitly created local `.venv`, and exits with a
-visible error when neither is present.
+Daily source development now defaults to uv-managed Python 3.13 in the root
+`.venv`. The root package still declares `>=3.12,<3.15` support so CI can keep
+exercising the current minimum version signal, but local installs should not
+drift onto the system Python. `scripts/install-python.sh` runs
+`uv sync --locked --python 3.13 --all-extras --group dev`.
 
 Copy `.env.example` to a local ignored env file only when you need provider/model overrides. Do not put secrets in tracked files.
 
@@ -97,7 +95,7 @@ pnpm install
 pnpm approve-builds --all
 ```
 
-For one-command setup after activating the Conda environment, use:
+For one-command workspace setup, use:
 
 ```bash
 pnpm run setup
@@ -125,22 +123,40 @@ pnpm dev:docs
 pnpm start:tui
 ```
 
-### Optional CrewAI Research Sidecar
+### Optional CrewAI Research Flow Sidecar
 
-CrewAI is tracked as an isolated uv-managed sidecar under
-`sidecars/research-crewai/`. It is not a root Poetry dependency and the core
-runtime does not import it. When the research backend is set to `crewai`, the
-root process calls the sidecar through a subprocess JSON contract after the
-sidecar environment has been installed.
+CrewAI is tracked as an isolated uv-managed Flow sidecar under
+`sidecars/research_flow/`. It is not a root dependency and the core runtime does
+not import it. When the research backend is set to `crewai`, the root process
+calls the Flow sidecar through a subprocess JSON contract after the sidecar
+environment has been installed.
 
 ```bash
-pnpm run setup:research-crewai
-pnpm run check:research-crewai
+pnpm run setup:research-flow
+pnpm run check:research-flow
 ```
 
-`pnpm run run:research-crewai` is intentionally gated. It exits with a clear
+`pnpm run run:research-flow` is intentionally gated. It exits with a clear
 message unless `OPENAI_API_KEY` is present in the shell, present in the sidecar's
 ignored `.env`, or the local no-op flag is set for scaffold validation.
+
+### Optional SEC EDGAR Research Source
+
+The research sidecar can read recent SEC submissions metadata from the official
+EDGAR JSON APIs, but it is off by default. Enable it only from an ignored local
+env file and include an identifying SEC User-Agent/contact string:
+
+```bash
+AGENTIC_TRADER_RESEARCH_MODE=training
+AGENTIC_TRADER_RESEARCH_SIDECAR_ENABLED=true
+AGENTIC_TRADER_RESEARCH_SYMBOLS=AAPL,MSFT
+AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true
+AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT="Agentic Trader local contact@example.com"
+```
+
+This first provider normalizes recent filing metadata into source-attributed
+research evidence. It does not download full filing text or XBRL facts yet, and
+it does not write directly into trading memory.
 
 ### Optional Release Binary
 
@@ -178,7 +194,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
 | `agentic-trader research-status --json`                                                | Inspect optional research sidecar health   |
 | `agentic-trader research-refresh --json`                                               | Run one isolated sidecar snapshot pass     |
-| `agentic-trader research-crewai-setup --json`                                          | Inspect optional CrewAI sidecar readiness  |
+| `agentic-trader research-flow-setup --json`                                            | Inspect optional CrewAI Flow sidecar readiness |
 | `agentic-trader review-run`                                                            | Review the latest persisted run            |
 
 ## Web GUI
@@ -205,8 +221,8 @@ This repo favors small, inspectable changes over broad rewrites. Keep Python run
 pnpm check
 make check
 pnpm run qa:quality
-pnpm run setup:research-crewai
-pnpm run check:research-crewai
+pnpm run setup:research-flow
+pnpm run check:research-flow
 pnpm run version:plan
 pnpm run release:preview
 pnpm run sonar:status
@@ -229,7 +245,7 @@ Use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, or `pnpm ru
 
 GitHub Actions needs only `SONAR_TOKEN` as a repository secret for SonarCloud. Docs deployment uses GitHub Pages permissions, releases/binaries use the built-in `GITHUB_TOKEN`, and local Docker SonarQube tokens should stay on the developer machine.
 
-Conda selects the root Python interpreter, Poetry owns root Python dependency locking and installs, uv owns the tracked CrewAI sidecar environment, and pnpm owns JavaScript workspace dependencies plus the shared command surface. These managers intentionally stay separate below the root scripts so CrewAI can evolve without widening the core runtime dependency lock.
+uv selects and syncs the root Python interpreter from `.python-version`, owns root dependency locking, command execution, and builds, while the tracked CrewAI Flow sidecar owns its own nested `uv.lock`. pnpm owns JavaScript workspace dependencies plus the shared command surface. The two uv projects intentionally stay separate below the root scripts so CrewAI can evolve without widening the core runtime dependency graph.
 
 Commit messages should follow conventional commits so release automation can infer version bumps:
 
@@ -250,7 +266,7 @@ rm -rf runtime docs/.next docs/out webgui/.next webgui/out
 rm -rf docs/node_modules webgui/node_modules tui/node_modules
 ```
 
-If Poetry was pointed at a Conda env, remove the env from Conda separately:
+If an older Poetry/Conda setup is still present, remove it separately:
 
 ```bash
 conda remove -n trader --all

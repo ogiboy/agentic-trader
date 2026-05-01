@@ -11,7 +11,6 @@ This QA layer observes and reports. It does not fix code during the QA pass.
 Use the project environment unless the task says otherwise:
 
 ```bash
-conda activate trader
 pnpm run setup
 ```
 

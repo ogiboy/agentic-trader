@@ -7,6 +7,7 @@ from agentic_trader.config import Settings
 from agentic_trader.researchd.orchestrator import CrewAiResearchBackend, ResearchSidecar
 from agentic_trader.researchd.persistence import persist_research_result
 from agentic_trader.researchd.providers import (
+    SecEdgarSubmissionsProvider,
     default_research_providers,
     provider_health_from_output,
 )
@@ -93,7 +94,7 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) 
         research_sidecar_backend="crewai",
         research_symbols="AAPL",
     )
-    flow_dir = tmp_path / "research-crewai"
+    flow_dir = tmp_path / "research_flow"
     (flow_dir / ".venv").mkdir(parents=True)
     (flow_dir / "pyproject.toml").write_text("[project]\nname='fake'\n")
     captured: dict[str, object] = {}
@@ -113,7 +114,7 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) 
         output = {
             "status": "completed",
             "backend": "crewai",
-            "contract_version": "research-crewai.v1",
+            "contract_version": "research-flow.v1",
             "generated_at": "2026-01-01T00:00:00+00:00",
             "observed_at": "2026-01-01T00:00:00+00:00",
             "watched_symbols": ["AAPL"],
@@ -161,7 +162,7 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) 
     assert result.world_state is not None
     assert result.world_state.summary == "Contract accepted scaffold provider packets."
     assert result.world_state.watched_symbols == ["AAPL"]
-    assert result.memory_update["contract_version"] == "research-crewai.v1"
+    assert result.memory_update["contract_version"] == "research-flow.v1"
     assert result.memory_update["raw_web_text_injected"] is False
     assert result.memory_update["broker_access"] is False
     planned_tasks = result.memory_update["planned_tasks"]
@@ -174,7 +175,7 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) 
         "run",
         "--locked",
         "--no-sync",
-        "research-crewai-contract",
+        "research-flow-contract",
     ]
     assert captured["cwd"] == str(flow_dir)
     assert captured["tracing"] == "false"
@@ -218,10 +219,114 @@ def test_research_provider_health_keeps_missing_sources_visible(tmp_path) -> Non
     health = provider_health_from_output(output)
 
     assert health.provider_id == "sec_edgar_research"
+    assert health.enabled is False
     assert health.source_role == "missing"
     assert health.freshness == "missing"
-    assert "ingestion_pending" in health.notes
-    assert "Provider scaffold is visible" in health.message
+    assert "provider_disabled" in health.notes
+    assert "Provider is disabled by configuration" in health.message
+
+
+def test_sec_edgar_provider_requires_explicit_user_agent(tmp_path) -> None:
+    settings = _settings(tmp_path, research_sec_edgar_enabled=True)
+
+    def forbidden_fetcher(url, headers, timeout_seconds):
+        _ = (url, headers, timeout_seconds)
+        raise AssertionError("SEC provider should not fetch without a User-Agent")
+
+    provider = SecEdgarSubmissionsProvider(
+        settings=settings,
+        fetcher=forbidden_fetcher,
+    )
+
+    output = provider.collect(symbols=["AAPL"], limit=5)
+    health = provider_health_from_output(output)
+
+    assert output.raw_evidence == []
+    assert output.missing_reasons == ["sec_user_agent_missing"]
+    assert health.enabled is True
+    assert health.requires_network is True
+    assert "required SEC User-Agent" in health.message
+
+
+def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(tmp_path) -> None:
+    settings = _settings(
+        tmp_path,
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+        request_timeout_seconds=999,
+    )
+    calls: list[str] = []
+
+    def fake_fetcher(url, headers, timeout_seconds):
+        calls.append(url)
+        assert headers["User-Agent"] == "Agentic Trader test contact@example.com"
+        assert headers["Accept"] == "application/json"
+        assert timeout_seconds == 30.0
+        if url == "https://www.sec.gov/files/company_tickers.json":
+            return {
+                "0": {
+                    "cik_str": 320193,
+                    "ticker": "AAPL",
+                    "title": "Apple Inc.",
+                }
+            }
+        if url == "https://data.sec.gov/submissions/CIK0000320193.json":
+            return {
+                "name": "Apple Inc.",
+                "filings": {
+                    "recent": {
+                        "accessionNumber": [
+                            "0000320193-24-000100",
+                            "0000320193-24-000123",
+                        ],
+                        "filingDate": ["2024-10-01", "2024-11-01"],
+                        "reportDate": ["2024-09-01", "2024-09-28"],
+                        "form": ["S-8", "10-K"],
+                        "primaryDocument": [
+                            "aapl-s8.htm",
+                            "aapl-20240928.htm",
+                        ],
+                        "primaryDocDescription": ["S-8", "10-K"],
+                    }
+                },
+            }
+        raise AssertionError(f"unexpected SEC URL: {url}")
+
+    provider = SecEdgarSubmissionsProvider(settings=settings, fetcher=fake_fetcher)
+
+    output = provider.collect(symbols=["aapl", "MISSING"], limit=5)
+    health = provider_health_from_output(output)
+
+    assert calls == [
+        "https://www.sec.gov/files/company_tickers.json",
+        "https://data.sec.gov/submissions/CIK0000320193.json",
+    ]
+    assert output.missing_reasons == ["sec_cik_missing:MISSING"]
+    assert len(output.raw_evidence) == 1
+    record = output.raw_evidence[0]
+    assert record.record_id == "sec:AAPL:0000320193-24-000123"
+    assert record.source_kind == "disclosure"
+    assert record.source_name == "sec_edgar_research"
+    assert record.title == "AAPL 10-K filed 2024-11-01"
+    assert record.symbol == "AAPL"
+    assert record.entity_name == "Apple Inc."
+    assert record.region == "US"
+    assert (
+        record.url
+        == "https://www.sec.gov/Archives/edgar/data/320193/"
+        "000032019324000123/aapl-20240928.htm"
+    )
+    assert record.source_payload_ref == "sec-submissions://CIK0000320193/0000320193-24-000123"
+    assert "Filing text and XBRL facts were not downloaded" in (
+        record.evidence_vs_inference.uncertainty[0]
+    )
+    assert record.evidence_vs_inference.inference == []
+    assert record.source_attributions[0].confidence == 0.95
+    assert "form=10-K" in record.source_attributions[0].notes
+    assert record.missing_fields == []
+    assert health.freshness == "fresh"
+    assert health.last_successful_update_at is not None
+    assert "Provider returned normalized research evidence" in health.message
 
 
 def test_research_result_persists_to_runtime_feed_without_database(tmp_path) -> None:

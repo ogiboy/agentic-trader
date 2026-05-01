@@ -10,7 +10,7 @@ from agentic_trader.config import Settings
 def default_crewai_flow_dir(settings: Settings) -> Path:
     """Return the tracked sidecar path used for optional CrewAI development."""
     _ = settings
-    return Path(__file__).resolve().parents[2] / "sidecars" / "research-crewai"
+    return Path(__file__).resolve().parents[2] / "sidecars" / "research_flow"
 
 
 def crewai_setup_status(settings: Settings) -> dict[str, object]:
@@ -50,14 +50,14 @@ def crewai_setup_status(settings: Settings) -> dict[str, object]:
         "lockfile_exists": (flow_dir / "uv.lock").exists(),
         "core_dependency": False,
         "recommended_commands": [
-            "pnpm run setup:research-crewai",
-            "pnpm run check:research-crewai",
-            "AGENTIC_TRADER_ALLOW_CREWAI_NOOP=1 pnpm run run:research-crewai",
+            "pnpm run setup:research-flow",
+            "pnpm run check:research-flow",
+            "AGENTIC_TRADER_ALLOW_CREWAI_NOOP=1 pnpm run run:research-flow",
         ],
         "notes": [
             "CrewAI stays optional and isolated behind researchd backend boundaries.",
-            "The tracked CrewAI sidecar lives in sidecars/research-crewai with its own uv environment.",
-            "The core runtime calls the sidecar through a subprocess JSON contract only after setup.",
+            "The tracked CrewAI Flow sidecar lives in sidecars/research_flow with its own uv environment.",
+            "The core runtime calls the Flow sidecar through a subprocess JSON contract only after setup.",
             "Do not import CrewAI from core trading runtime modules.",
         ],
     }

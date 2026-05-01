@@ -2264,18 +2264,9 @@ def research_refresh(
         )
 
 
-@app.command("research-crewai-setup")
-def research_crewai_setup(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show optional CrewAI setup status for the research sidecar backend."""
-    settings = get_settings()
-    payload = crewai_setup_status(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-
-    table = Table(title="Research CrewAI Setup")
+def _render_research_flow_setup(payload: dict[str, object]) -> None:
+    """Render optional CrewAI Flow setup state."""
+    table = Table(title="Research CrewAI Flow Setup")
     table.add_column("Field")
     table.add_column("Value")
     table.add_row("CLI Available", str(payload["available"]))
@@ -2296,6 +2287,32 @@ def research_crewai_setup(
             border_style="cyan",
         )
     )
+
+
+@app.command("research-flow-setup")
+def research_flow_setup(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show optional CrewAI Flow setup status for the research sidecar backend."""
+    settings = get_settings()
+    payload = crewai_setup_status(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_research_flow_setup(payload)
+
+
+@app.command("research-crewai-setup")
+def research_crewai_setup(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Compatibility alias for `research-flow-setup`."""
+    settings = get_settings()
+    payload = crewai_setup_status(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_research_flow_setup(payload)
 
 
 @app.command()

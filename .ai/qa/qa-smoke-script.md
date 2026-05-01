@@ -29,7 +29,6 @@ pnpm run qa
 Recommended project environment:
 
 ```bash
-conda activate trader
 pnpm run setup
 pnpm run qa
 ```
@@ -46,12 +45,12 @@ That adds:
 - `python -m pytest -q -p no:cacheprovider`
 - `pyright --pythonpath <smoke-python> agentic_trader tests scripts`
 
-`pyright` is required for `--include-quality`; if it is missing, the smoke run fails instead of silently skipping the static type check. The smoke harness resolves `pyright` from `PATH`, the active environment, or the Conda base bin, then points it at the same Python interpreter running the smoke script so installed dependencies are checked consistently.
+`pyright` is required for `--include-quality`; if it is missing, the smoke run fails instead of silently skipping the static type check. The smoke harness resolves `pyright` from `PATH`, the active environment, the repo uv `.venv`, or legacy Conda locations, then points it at the same Python interpreter running the smoke script so installed dependencies are checked consistently.
 
 To include one isolated foreground orchestrator cycle:
 
 ```bash
-poetry run python scripts/qa/smoke_qa.py --include-runtime-cycle
+uv run --locked --all-extras --group dev python scripts/qa/smoke_qa.py --include-runtime-cycle
 ```
 
 This runs `agentic-trader launch --continuous --max-cycles 1` in an isolated runtime directory under the smoke artifact folder. It is intentionally opt-in because it requires live market data and a healthy configured LLM.

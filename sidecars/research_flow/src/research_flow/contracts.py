@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+CONTRACT_VERSION = "research-flow.v1"
+
 
 def utc_now_iso() -> str:
     """Return an ISO timestamp in UTC for sidecar contract metadata."""
@@ -39,8 +41,8 @@ class ResearchProviderOutputInput(BaseModel):
     missing_reasons: list[str] = Field(default_factory=list)
 
 
-class ResearchCrewRequest(BaseModel):
-    """Input contract sent by the root runtime to the tracked CrewAI sidecar."""
+class ResearchFlowRequest(BaseModel):
+    """Input contract sent by the root runtime to the tracked CrewAI Flow."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -49,12 +51,12 @@ class ResearchCrewRequest(BaseModel):
     provider_outputs: list[ResearchProviderOutputInput] = Field(default_factory=list)
 
 
-class ResearchCrewContractOutput(BaseModel):
+class ResearchFlowContractOutput(BaseModel):
     """Pure JSON output contract returned to the root researchd backend."""
 
     status: Literal["completed", "failed"] = "completed"
     backend: str = "crewai"
-    contract_version: str = "research-crewai.v1"
+    contract_version: str = CONTRACT_VERSION
     generated_at: str
     observed_at: str
     watched_symbols: list[str] = Field(default_factory=list)
@@ -70,12 +72,10 @@ class ResearchCrewContractOutput(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
-def build_task_plan(request: ResearchCrewRequest) -> list[dict[str, Any]]:
-    """Return deterministic future CrewAI task definitions for the request."""
+def build_task_plan(request: ResearchFlowRequest) -> list[dict[str, Any]]:
+    """Return deterministic future CrewAI Flow task definitions for the request."""
     symbols = request.symbols or ["WATCHLIST"]
-    provider_ids = [
-        output.metadata.provider_id for output in request.provider_outputs
-    ]
+    provider_ids = [output.metadata.provider_id for output in request.provider_outputs]
     tasks: list[dict[str, Any]] = []
     for symbol in symbols:
         subject = symbol.upper()
@@ -175,29 +175,23 @@ def build_task_plan(request: ResearchCrewRequest) -> list[dict[str, Any]]:
     return tasks
 
 
-def build_contract_output(
-    request: ResearchCrewRequest,
-) -> ResearchCrewContractOutput:
+def build_contract_output(request: ResearchFlowRequest) -> ResearchFlowContractOutput:
     """Build the deterministic sidecar contract without running LLM-backed tasks."""
     now = utc_now_iso()
-    provider_ids = [
-        output.metadata.provider_id for output in request.provider_outputs
-    ]
+    provider_ids = [output.metadata.provider_id for output in request.provider_outputs]
     missing_count = sum(1 for output in request.provider_outputs if output.missing_reasons)
     payload_count = sum(
-        len(output.raw_evidence)
-        + len(output.macro_events)
-        + len(output.social_signals)
+        len(output.raw_evidence) + len(output.macro_events) + len(output.social_signals)
         for output in request.provider_outputs
     )
     summary = (
-        "CrewAI sidecar contract accepted normalized provider packets. "
+        "CrewAI Flow sidecar contract accepted normalized provider packets. "
         f"providers={len(provider_ids)} payload_items={payload_count} "
         f"missing_sources={missing_count}. "
         "No LLM-backed deep-dive task has run in this scaffold slice."
     )
     planned_tasks = build_task_plan(request)
-    return ResearchCrewContractOutput(
+    return ResearchFlowContractOutput(
         generated_at=now,
         observed_at=now,
         watched_symbols=request.symbols,
@@ -206,31 +200,33 @@ def build_contract_output(
         memory_update={
             "status": "not_written",
             "reason": (
-                "CrewAI sidecar contract is validated, but trade-memory writes "
+                "CrewAI Flow sidecar contract is validated, but trade-memory writes "
                 "remain disabled until explicit policy gates are added."
             ),
             "provider_ids": provider_ids,
             "planned_tasks": planned_tasks,
             "raw_web_text_injected": False,
             "broker_access": False,
+            "contract_version": CONTRACT_VERSION,
         },
         raw_web_text_injected=False,
         broker_access=False,
     )
 
 
-def _failure_output(message: str) -> ResearchCrewContractOutput:
+def _failure_output(message: str) -> ResearchFlowContractOutput:
     now = utc_now_iso()
-    return ResearchCrewContractOutput(
+    return ResearchFlowContractOutput(
         status="failed",
         generated_at=now,
         observed_at=now,
-        summary="CrewAI sidecar contract validation failed.",
+        summary="CrewAI Flow sidecar contract validation failed.",
         memory_update={
             "status": "not_written",
             "reason": "contract_validation_failed",
             "raw_web_text_injected": False,
             "broker_access": False,
+            "contract_version": CONTRACT_VERSION,
         },
         errors=[message],
     )
@@ -241,7 +237,7 @@ def contract_cli() -> None:
     raw_payload = sys.stdin.read().strip()
     try:
         request_payload = json.loads(raw_payload) if raw_payload else {}
-        request = ResearchCrewRequest.model_validate(request_payload)
+        request = ResearchFlowRequest.model_validate(request_payload)
         output = build_contract_output(request)
     except (json.JSONDecodeError, ValidationError) as exc:
         output = _failure_output(str(exc))

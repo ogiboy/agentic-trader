@@ -12,7 +12,7 @@ permissions:
   pull-requests: read
 
 env:
-  POETRY_VERSION: '2.3.4'
+  UV_VERSION: '0.11.8'
   PNPM_VERSION: '10.33.2'
   SONAR_HOST_URL: https://sonarcloud.io
   SONAR_ORGANIZATION: ogiboy
@@ -35,17 +35,15 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
 
-      - name: Install Poetry
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install "poetry==${POETRY_VERSION}"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
 
       - name: Install Python dependencies
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --with dev --extras dev
+        run: uv sync --locked --python 3.12 --all-extras --group dev
 
       - name: Set up pnpm
         uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e # v6.0.3
@@ -65,7 +63,7 @@ jobs:
       - name: Generate Python coverage
         run: |
           mkdir -p .ai/qa/artifacts/sonar
-          poetry run python -m pytest -q -p no:cacheprovider --cov=agentic_trader --cov-report=xml:.ai/qa/artifacts/sonar/coverage.xml
+          uv run --locked --no-sync python -m pytest -q -p no:cacheprovider --cov=agentic_trader --cov-report=xml:.ai/qa/artifacts/sonar/coverage.xml
 
       - name: Run SonarCloud scan
         if: ${{ env.SONAR_TOKEN != '' }}

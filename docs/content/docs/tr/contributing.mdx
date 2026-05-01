@@ -53,7 +53,7 @@ Sadece `main` otomatik olarak `pyproject.toml`, workspace package sürümleri ve
 
 Pull request'ler ve korunan branch'lerde şu kontroller yeşil kalmalı:
 
-- Python core: Poetry install, Ruff, Pyright, Pytest ve PyInstaller smoke build
+- Python core: uv sync, Ruff, Pyright, Pytest ve PyInstaller smoke build
 - Web GUI: pnpm workspace install, lint, typecheck ve production build
 - Docs: pnpm workspace install, lint, typecheck ve static export
 - TUI: pnpm workspace install ve Ink entrypoint syntax check
