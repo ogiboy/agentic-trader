@@ -16,10 +16,15 @@ Now:
 - keep the new `researchd` sidecar foundation isolated from the trading runtime: no broker calls, no hidden policy mutation, no raw web/social text in agent prompts, and no CrewAI dependency in the core runtime
 - keep `research-status`, dashboard, and observer API sidecar payloads honest about missing sources, disabled/default state, backend, watched symbols, staleness, and provider health
 - keep `research-refresh` snapshot persistence on the runtime JSON feed until query needs justify a separate sidecar database; research-only commands should not create or open the main DuckDB file
+- keep root environment setup boring and explicit: root uv owns Python 3.13 `.venv` creation, dependency sync, checks, QA, release previews, and builds; Conda/Poetry are legacy fallback knowledge, not the default path
+- keep `sidecars/research_flow/` as a tracked but isolated CrewAI Flow uv project; root `pnpm check` should stay focused on the core runtime until the sidecar is mature enough for a separate CI job
+- keep the CrewAI subprocess contract deterministic and no-sync at runtime: setup/check commands may run `uv sync`, but runtime backend calls should only use an already-installed sidecar environment
 - grow V1.1 as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
-- keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's Poetry-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
+- keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's uv-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
+- keep the root uv migration boring and complete: root `uv.lock`, `.python-version`, install/check/qa/release scripts, CI workflows, docs, and `.codex` environment actions must stay aligned
+- keep the SEC EDGAR submissions provider opt-in and fair-access-aware: no network fetch without `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true`, a configured SEC User-Agent, and watched symbols
 - capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, including JetBrains Mono typography
 - keep the locale-aware English and Turkish docs trees curated, modular, and synced with runtime reality instead of letting them collapse back into oversized route files or duplicated repo notes
 - keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts while avoiding a broad one-shot CSS rewrite
@@ -29,11 +34,14 @@ Now:
 Next:
 
 - extend the file-backed research snapshot feed when real providers start returning raw evidence references, normalized events, findings, and entity dossiers
-- add real official/structured providers behind the sidecar source ladder, starting with SEC EDGAR, KAP, macro series, and news/event feeds; keep missing provider data visible
+- extend real official/structured providers behind the sidecar source ladder: SEC EDGAR submissions metadata is first, next are SEC company facts/full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
 - add optional V1.2 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
+- turn the planned CrewAI task definitions into executable Flow/Crew steps only after real normalized provider evidence exists and contract tests cover failures
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
 - verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
+- after the release workflow lands, verify that the first missing baseline tag dispatch creates `v0.9.0`, runs binary packaging from that tag, and publishes the GitHub Release instead of relying on a direct `main` binary push
+- keep an eye on local MCP hygiene: several `mcp/sonarqube` client containers can be active at once, and stale clients should be stopped only after confirming no current Codex/VS Code session depends on them
 
 ### 1. Financial Intelligence Layer
 
@@ -51,12 +59,12 @@ Current state:
 - fundamental assessment output now separates direct evidence, inference, and uncertainty across growth, profitability, cash flow, balance sheet, FX, business quality, macro fit, and forward outlook
 - feature-first prompts now expose the underlying fundamental metrics, and Ink review/trade-context surfaces show fundamental bias, red flags, evidence, inference, and uncertainty
 - trade context and memory documents now persist canonical analysis snapshots, decision features, and fundamental/macro summaries
-- Finnhub, FMP, Polygon/Massive, SEC, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
+- SEC EDGAR submissions metadata is the first opt-in live research source; SEC company facts/full filing parsing plus Finnhub, FMP, Polygon/Massive, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
 
 Next desired shape:
 
 - implement real provider-backed fundamental fetchers behind the canonical provider interfaces without placing secrets in tracked files or QA artifacts
-- add structured SEC, transcript, insider, macro, KAP, CBRT, inflation, and FX ingestion
+- expand structured SEC ingestion from submissions metadata into company facts, filing text references, transcript links, insider/context packets, then add macro, KAP, CBRT, inflation, and FX ingestion
 - keep Yahoo as a degraded fallback only once richer market/news providers are available
 - surface technical/fundamental/macro/memory/guard evidence side by side in operator review surfaces
 - strengthen risk with volatility sizing, sector concentration, portfolio exposure, and macro override checks
@@ -210,7 +218,7 @@ Desired direction:
 - reuse the shared UI text catalog for recurring CLI, Rich, Ink, and future WebUI labels
 - defer full localization until operator flows stabilize, but avoid adding new scattered duplicate labels
 - keep pyright, ruff, pytest, and smoke QA green as surface contracts evolve
-- keep `pyproject.toml` and `poetry.lock` in sync when Python dependencies change; use Poetry for add/remove/lock operations rather than ad hoc pip installs
+- keep root `pyproject.toml` and `uv.lock` in sync when Python dependencies change; use uv for root add/remove/lock/sync/build operations rather than ad hoc pip installs, and keep the CrewAI Flow sidecar's `sidecars/research_flow/uv.lock` independent
 
 ### 11. Future External Provider Readiness
 

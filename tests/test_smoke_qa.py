@@ -67,7 +67,26 @@ def test_run_ink_settings_navigation_reports_tmux_session_failures(
     assert "tmux new-session failed" in result.details
 
 
-def test_resolve_smoke_python_prefers_repo_managed_conda_env(
+def test_resolve_smoke_python_prefers_repo_uv_venv(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    python_path = repo_root / ".venv" / "bin" / "python"
+    python_path.parent.mkdir(parents=True)
+    python_path.write_text("#!/bin/sh\n", encoding="utf-8")
+    python_path.chmod(0o755)
+
+    monkeypatch.setattr(smoke_qa, "REPO_ROOT", repo_root)
+    monkeypatch.delenv("AGENTIC_TRADER_PYTHON", raising=False)
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    monkeypatch.delenv("CONDA_PREFIX", raising=False)
+    monkeypatch.delenv("CONDA_DEFAULT_ENV", raising=False)
+    monkeypatch.delenv("CONDA_EXE", raising=False)
+
+    assert smoke_qa._resolve_smoke_python() == str(python_path)
+
+
+def test_resolve_smoke_python_falls_back_to_legacy_repo_managed_conda_env(
     tmp_path: Path, monkeypatch
 ) -> None:
     repo_root = tmp_path / "repo"

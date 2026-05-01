@@ -2264,25 +2264,20 @@ def research_refresh(
         )
 
 
-@app.command("research-crewai-setup")
-def research_crewai_setup(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show optional CrewAI setup status for the research sidecar backend."""
-    settings = get_settings()
-    payload = crewai_setup_status(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-
-    table = Table(title="Research CrewAI Setup")
+def _render_research_flow_setup(payload: dict[str, object]) -> None:
+    """Render optional CrewAI Flow setup state."""
+    table = Table(title="Research CrewAI Flow Setup")
     table.add_column("Field")
     table.add_column("Value")
     table.add_row("CLI Available", str(payload["available"]))
     table.add_row("CLI Path", str(payload["cli_path"] or "-"))
     table.add_row("Version", str(payload["version"] or "-"))
+    table.add_row("uv Available", str(payload["uv_available"]))
     table.add_row("Flow Dir", str(payload["flow_dir"]))
     table.add_row("Scaffold Exists", str(payload["flow_scaffold_exists"]))
+    table.add_row("Environment Exists", str(payload["environment_exists"]))
+    table.add_row("Python Version", str(payload["python_version"] or "-"))
+    table.add_row("Lockfile Exists", str(payload["lockfile_exists"]))
     table.add_row("Core Dependency", str(payload["core_dependency"]))
     console.print(table)
     console.print(
@@ -2292,6 +2287,32 @@ def research_crewai_setup(
             border_style="cyan",
         )
     )
+
+
+@app.command("research-flow-setup")
+def research_flow_setup(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show optional CrewAI Flow setup status for the research sidecar backend."""
+    settings = get_settings()
+    payload = crewai_setup_status(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_research_flow_setup(payload)
+
+
+@app.command("research-crewai-setup")
+def research_crewai_setup(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Compatibility alias for `research-flow-setup`."""
+    settings = get_settings()
+    payload = crewai_setup_status(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_research_flow_setup(payload)
 
 
 @app.command()

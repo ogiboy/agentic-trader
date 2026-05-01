@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     research_symbols: str = ""
     research_poll_seconds: int = Field(default=900, ge=60)
     research_max_events_per_source: int = Field(default=20, ge=1, le=200)
+    research_sec_edgar_enabled: bool = False
+    research_sec_edgar_user_agent: str | None = None
 
     runtime_mode: RuntimeMode = "operation"
     strict_llm: bool = True

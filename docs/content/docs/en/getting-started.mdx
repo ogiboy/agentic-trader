@@ -10,8 +10,8 @@ The Python runtime still owns the actual trading logic, while `webgui/`, `docs/`
 
 Recommended baseline:
 
-- Python 3.14.x through Conda or another managed interpreter
-- Poetry for Python dependency management
+- Python 3.13.x through uv-managed `.venv`
+- uv for Python dependency management
 - Node 20+ and `pnpm`
 - Optional: `tmux`, `asciinema`, and browser tooling for QA
 - Optional: Ollama if you are using the default local model path
@@ -19,10 +19,8 @@ Recommended baseline:
 ## Install the Python runtime
 
 ```bash
-conda create -n trader python=3.14 poetry
-conda activate trader
-poetry env use "$CONDA_PREFIX/bin/python"
-poetry install --with dev --extras dev
+uv python install 3.13
+pnpm run install:python
 ```
 
 Install the Node workspace from the repository root:
@@ -32,7 +30,7 @@ pnpm install
 pnpm approve-builds --all
 ```
 
-After the Conda environment is active, use either shortcut:
+After uv is available, use either shortcut:
 
 ```bash
 pnpm run setup

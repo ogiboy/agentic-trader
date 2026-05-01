@@ -10,8 +10,8 @@ Asıl trading logic hâlâ Python runtime içinde; `webgui/`, `docs/` ve `tui/` 
 
 Önerilen temel kurulum:
 
-- Conda ya da benzeri yönetilen bir yorumlayıcı üzerinden Python 3.14.x
-- Python bağımlılık yönetimi için Poetry
+- uv-managed `.venv` üzerinden Python 3.13.x
+- Python bağımlılık yönetimi için uv
 - Node 20+ ve `pnpm`
 - İsteğe bağlı olarak `tmux`, `asciinema` ve QA için tarayıcı araçları
 - Varsayılan lokal model yolunu kullanıyorsan isteğe bağlı Ollama
@@ -19,10 +19,8 @@ Asıl trading logic hâlâ Python runtime içinde; `webgui/`, `docs/` ve `tui/` 
 ## Python runtime'ı kur
 
 ```bash
-conda create -n trader python=3.14 poetry
-conda activate trader
-poetry env use "$CONDA_PREFIX/bin/python"
-poetry install --with dev --extras dev
+uv python install 3.13
+pnpm run install:python
 ```
 
 Node workspace'i repo root'undan kur:
@@ -32,7 +30,7 @@ pnpm install
 pnpm approve-builds --all
 ```
 
-Conda ortamı aktifken aşağıdaki kısayollardan birini kullan:
+uv hazır olduktan sonra aşağıdaki kısayollardan birini kullan:
 
 ```bash
 pnpm run setup

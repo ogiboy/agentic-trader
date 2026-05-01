@@ -1,11 +1,14 @@
-"""Provider scaffolds for the optional research sidecar.
+"""Providers for the optional research sidecar.
 
-These providers expose source readiness and missing-data truth. They do not
-fetch remote sources yet, and they never return fabricated research events.
+Providers expose source readiness and missing-data truth. Real network-backed
+providers must stay opt-in, source-attributed, and free of fabricated events.
 """
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+
+import httpx
 
 from agentic_trader.config import Settings
 from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
@@ -17,7 +20,32 @@ from agentic_trader.schemas import (
     RawEvidenceRecord,
     ResearchProviderHealth,
     SocialSignal,
+    EvidenceInferenceBreakdown,
 )
+
+
+SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
+SEC_SUBMISSIONS_URL_TEMPLATE = "https://data.sec.gov/submissions/CIK{cik}.json"
+SEC_ARCHIVES_URL_TEMPLATE = (
+    "https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{primary_document}"
+)
+SEC_RESEARCH_FORMS = frozenset(
+    {
+        "10-K",
+        "10-K/A",
+        "10-Q",
+        "10-Q/A",
+        "8-K",
+        "8-K/A",
+        "20-F",
+        "20-F/A",
+        "40-F",
+        "40-F/A",
+        "6-K",
+        "6-K/A",
+    }
+)
+JsonFetcher = Callable[[str, Mapping[str, str], float], dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -81,18 +109,134 @@ class ScaffoldResearchProvider:
         )
 
 
-def default_research_providers(settings: Settings) -> list[ResearchEvidenceProvider]:
-    """Return the local-first research source ladder for the sidecar."""
-    social_configured = bool(settings.research_symbols)
-    return [
-        ScaffoldResearchProvider(
+@dataclass(frozen=True)
+class _SecTickerMatch:
+    symbol: str
+    cik: str
+    entity_name: str
+
+
+class SecEdgarSubmissionsProvider:
+    """Opt-in SEC EDGAR submissions provider for normalized filing evidence."""
+
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        fetcher: JsonFetcher | None = None,
+    ) -> None:
+        self._enabled = settings.research_sec_edgar_enabled
+        self._user_agent = (settings.research_sec_edgar_user_agent or "").strip()
+        self._timeout = min(max(settings.request_timeout_seconds, 1.0), 30.0)
+        self._fetcher = fetcher or _fetch_json
+        configuration_note = _sec_configuration_note(
+            enabled=self._enabled,
+            user_agent=self._user_agent,
+        )
+        self._metadata = metadata(
             provider_id="sec_edgar_research",
             name="SEC EDGAR Research",
             provider_type="disclosure",
             role="primary",
             priority=10,
-            notes=["sec_10k_10q_8k_source", "official_disclosure_source"],
-        ),
+            enabled=self._enabled,
+            requires_network=self._enabled,
+            notes=[
+                "sec_10k_10q_8k_source",
+                "official_disclosure_source",
+                "sec_submissions_api",
+                configuration_note,
+            ],
+        )
+
+    def metadata(self) -> ProviderMetadata:
+        return self._metadata
+
+    def collect(self, *, symbols: list[str], limit: int) -> ResearchProviderOutput:
+        if not self._enabled:
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["provider_disabled"],
+            )
+        if not self._user_agent:
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["sec_user_agent_missing"],
+            )
+
+        watched_symbols = [_normalize_symbol(symbol) for symbol in symbols]
+        watched_symbols = [symbol for symbol in watched_symbols if symbol]
+        if not watched_symbols:
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["watchlist_missing"],
+            )
+
+        safe_limit = max(1, limit)
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": self._user_agent,
+        }
+        missing_reasons: list[str] = []
+        try:
+            ticker_payload = self._fetcher(
+                SEC_COMPANY_TICKERS_URL,
+                headers,
+                self._timeout,
+            )
+        except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["sec_ticker_lookup_failed", _safe_error_note(exc)],
+            )
+
+        ticker_index = _sec_ticker_index(ticker_payload)
+        records: list[RawEvidenceRecord] = []
+        for symbol in watched_symbols:
+            match = ticker_index.get(symbol)
+            if match is None:
+                missing_reasons.append(f"sec_cik_missing:{symbol}")
+                continue
+            try:
+                submissions_payload = self._fetcher(
+                    SEC_SUBMISSIONS_URL_TEMPLATE.format(cik=match.cik),
+                    headers,
+                    self._timeout,
+                )
+            except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
+                missing_reasons.extend(
+                    [
+                        f"sec_submissions_fetch_failed:{symbol}",
+                        _safe_error_note(exc),
+                    ]
+                )
+                continue
+
+            symbol_records = _records_from_submissions(
+                provider=self._metadata,
+                symbol=symbol,
+                match=match,
+                payload=submissions_payload,
+                limit=safe_limit - len(records),
+            )
+            if not symbol_records:
+                missing_reasons.append(f"sec_target_filings_missing:{symbol}")
+            records.extend(symbol_records)
+            if len(records) >= safe_limit:
+                break
+
+        return ResearchProviderOutput(
+            metadata=self._metadata,
+            raw_evidence=records,
+            missing_reasons=list(dict.fromkeys(missing_reasons)),
+        )
+
+
+def default_research_providers(settings: Settings) -> list[ResearchEvidenceProvider]:
+    """Return the local-first research source ladder for the sidecar."""
+    social_configured = bool(settings.research_symbols)
+    return [
+        SecEdgarSubmissionsProvider(settings=settings),
         ScaffoldResearchProvider(
             provider_id="kap_research",
             name="KAP Research",
@@ -150,11 +294,7 @@ def provider_health_from_output(output: ResearchProviderOutput) -> ResearchProvi
         source_role=source_role,
         freshness=freshness,
         last_successful_update_at=fetched_at,
-        message=(
-            "Provider returned normalized research evidence."
-            if has_payload
-            else "Provider scaffold is visible, but ingestion is not implemented yet."
-        ),
+        message=_provider_health_message(has_payload=has_payload, notes=notes),
         notes=notes,
     )
 
@@ -169,3 +309,268 @@ def missing_attribution(provider: ProviderMetadata):
         freshness="missing",
         notes=[*provider.notes, "no_research_payload_returned"],
     )
+
+
+def _fetch_json(
+    url: str,
+    headers: Mapping[str, str],
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    response = httpx.get(url, headers=dict(headers), timeout=timeout_seconds)
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("json_payload_not_object")
+    return payload
+
+
+def _normalize_symbol(symbol: str) -> str:
+    return symbol.strip().upper()
+
+
+def _safe_error_note(exc: BaseException) -> str:
+    return f"provider_error:{type(exc).__name__}"
+
+
+def _sec_configuration_note(*, enabled: bool, user_agent: str) -> str:
+    if not enabled:
+        return "sec_provider_disabled"
+    if user_agent:
+        return "sec_user_agent_configured"
+    return "sec_user_agent_missing"
+
+
+def _sec_ticker_index(payload: dict[str, Any]) -> dict[str, _SecTickerMatch]:
+    index: dict[str, _SecTickerMatch] = {}
+    for value in payload.values():
+        if not isinstance(value, dict):
+            continue
+        ticker = str(value.get("ticker") or "").strip().upper()
+        cik_value = value.get("cik_str")
+        entity_name = str(value.get("title") or ticker).strip()
+        if not ticker or cik_value is None:
+            continue
+        cik = str(cik_value).zfill(10)
+        index[ticker] = _SecTickerMatch(
+            symbol=ticker,
+            cik=cik,
+            entity_name=entity_name,
+        )
+    return index
+
+
+def _records_from_submissions(
+    *,
+    provider: ProviderMetadata,
+    symbol: str,
+    match: _SecTickerMatch,
+    payload: dict[str, Any],
+    limit: int,
+) -> list[RawEvidenceRecord]:
+    if limit <= 0:
+        return []
+    recent = _recent_filings(payload)
+    if not isinstance(recent, dict):
+        return []
+
+    accessions = _list_value(recent.get("accessionNumber"))
+    forms = _list_value(recent.get("form"))
+    filing_dates = _list_value(recent.get("filingDate"))
+    report_dates = _list_value(recent.get("reportDate"))
+    primary_documents = _list_value(recent.get("primaryDocument"))
+    primary_descriptions = _list_value(recent.get("primaryDocDescription"))
+    fetched_at = utc_now_iso()
+    entity_name = str(payload.get("name") or match.entity_name).strip()
+    records: list[RawEvidenceRecord] = []
+
+    for index, accession_value in enumerate(accessions):
+        record = _record_from_submission_row(
+            provider=provider,
+            symbol=symbol,
+            match=match,
+            accession_value=accession_value,
+            forms=forms,
+            filing_dates=filing_dates,
+            report_dates=report_dates,
+            primary_documents=primary_documents,
+            primary_descriptions=primary_descriptions,
+            index=index,
+            fetched_at=fetched_at,
+            entity_name=entity_name,
+        )
+        if record is None:
+            continue
+        records.append(record)
+        if len(records) >= limit:
+            break
+
+    return records
+
+
+def _recent_filings(payload: dict[str, Any]) -> dict[str, Any] | None:
+    filings = payload.get("filings")
+    if not isinstance(filings, dict):
+        return None
+    recent = filings.get("recent")
+    return recent if isinstance(recent, dict) else None
+
+
+def _record_from_submission_row(
+    *,
+    provider: ProviderMetadata,
+    symbol: str,
+    match: _SecTickerMatch,
+    accession_value: object,
+    forms: list[object],
+    filing_dates: list[object],
+    report_dates: list[object],
+    primary_documents: list[object],
+    primary_descriptions: list[object],
+    index: int,
+    fetched_at: str,
+    entity_name: str,
+) -> RawEvidenceRecord | None:
+    accession = _string_value(accession_value)
+    form = _string_at(forms, index)
+    if not accession or form not in SEC_RESEARCH_FORMS:
+        return None
+
+    filing_date = _string_at(filing_dates, index)
+    report_date = _string_at(report_dates, index)
+    primary_document = _string_at(primary_documents, index)
+    primary_description = _string_at(primary_descriptions, index)
+    observed_at = filing_date or fetched_at
+    missing_fields = _sec_missing_fields(
+        cik=match.cik,
+        accession=accession,
+        report_date=report_date,
+        primary_document=primary_document,
+    )
+    url = _sec_archive_url(
+        cik=match.cik,
+        accession=accession,
+        primary_document=primary_document,
+    )
+    filing_label = filing_date or "unknown date"
+
+    return RawEvidenceRecord(
+        record_id=f"sec:{symbol}:{accession}",
+        source_kind="disclosure",
+        source_name=provider.provider_id,
+        title=f"{symbol} {form} filed {filing_label}",
+        symbol=symbol,
+        entity_name=entity_name,
+        region="US",
+        url=url,
+        observed_at=observed_at,
+        last_verified_at=fetched_at,
+        normalized_summary=(
+            f"SEC EDGAR submissions API reports {entity_name} filed "
+            f"{form} accession {accession} on {filing_label}"
+            f" for report date {report_date or 'unknown'}."
+        ),
+        source_payload_ref=f"sec-submissions://CIK{match.cik}/{accession}",
+        source_attributions=[
+            source_attribution(
+                source_name=provider.provider_id,
+                provider_type=provider.provider_type,
+                source_role=provider.role,
+                fetched_at=fetched_at,
+                freshness="fresh",
+                confidence=0.95,
+                completeness=0.85 if not missing_fields else 0.7,
+                notes=[
+                    "sec_submissions_api",
+                    f"cik={match.cik}",
+                    f"form={form}",
+                    _primary_document_note(primary_description),
+                ],
+            )
+        ],
+        evidence_vs_inference=EvidenceInferenceBreakdown(
+            evidence=[
+                f"SEC ticker mapping associates {symbol} with CIK {match.cik}.",
+                (
+                    f"SEC submissions metadata lists accession {accession} "
+                    f"as form {form} filed on {filing_label}."
+                ),
+            ],
+            inference=[],
+            uncertainty=[
+                "Filing text and XBRL facts were not downloaded or parsed in this pass."
+            ],
+        ),
+        missing_fields=missing_fields,
+    )
+
+
+def _sec_missing_fields(
+    *,
+    cik: str,
+    accession: str,
+    report_date: str,
+    primary_document: str,
+) -> list[str]:
+    missing_fields = []
+    if not report_date:
+        missing_fields.append("report_date")
+    if not primary_document:
+        missing_fields.append("primary_document")
+    if _sec_archive_url(
+        cik=cik,
+        accession=accession,
+        primary_document=primary_document,
+    ) is None:
+        missing_fields.append("url")
+    return missing_fields
+
+
+def _primary_document_note(primary_description: str) -> str:
+    if primary_description:
+        return f"primary_doc_description={primary_description}"
+    return "primary_doc_description_missing"
+
+
+def _list_value(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
+def _string_value(value: object) -> str:
+    return str(value).strip() if value is not None else ""
+
+
+def _string_at(values: list[object], index: int) -> str:
+    if index >= len(values):
+        return ""
+    return _string_value(values[index])
+
+
+def _sec_archive_url(
+    *,
+    cik: str,
+    accession: str,
+    primary_document: str,
+) -> str | None:
+    if not accession or not primary_document:
+        return None
+    compact_accession = accession.replace("-", "")
+    cik_for_archive = str(int(cik))
+    return SEC_ARCHIVES_URL_TEMPLATE.format(
+        cik=cik_for_archive,
+        accession=compact_accession,
+        primary_document=primary_document,
+    )
+
+
+def _provider_health_message(*, has_payload: bool, notes: list[str]) -> str:
+    if has_payload:
+        return "Provider returned normalized research evidence."
+    if "provider_disabled" in notes:
+        return "Provider is disabled by configuration."
+    if "sec_user_agent_missing" in notes:
+        return "Provider is configured but missing the required SEC User-Agent."
+    if any(note.startswith("provider_error:") for note in notes):
+        return "Provider failed to return normalized research evidence."
+    if "ingestion_pending" in notes:
+        return "Provider scaffold is visible, but ingestion is not implemented yet."
+    return "Provider returned no normalized research evidence."

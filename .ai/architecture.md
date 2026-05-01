@@ -50,7 +50,10 @@ Current runtime stages:
   Higher-level flow composition, replay, backtesting, review, and operator workflows
 
 - `agentic_trader/researchd/`
-  Optional research sidecar contracts for source health, evidence normalization, file-backed world-state snapshots, and future CrewAI-backed deep-dive loops. It is a sidecar boundary only and does not own trading runtime orchestration, broker execution, or the main DuckDB writer.
+  Optional research sidecar contracts for source health, evidence normalization, opt-in SEC EDGAR submissions metadata ingestion, file-backed world-state snapshots, and future CrewAI-backed deep-dive loops. It is a sidecar boundary only and does not own trading runtime orchestration, broker execution, or the main DuckDB writer.
+
+- `sidecars/research_flow/`
+  Tracked but isolated CrewAI Flow sidecar package. uv owns its Python 3.13 environment and lockfile; the root runtime reports setup/readiness and may call its pure JSON contract through subprocess, but must not import this package directly.
 
 - `agentic_trader/cli.py`, `main.py`, `agentic_trader/tui.py`
   Operator-facing control surfaces
@@ -129,7 +132,8 @@ Good changes fit into one of these buckets:
 - keep prompt rendering feature-first when `DecisionFeatureBundle` is attached; compact snapshots may remain internal for deterministic fallback, audit, and risk math
 - keep canonical source attribution and freshness metadata attached whenever external provider data enters runtime or persisted review context
 - keep research sidecars as local evidence companions that consume or emit structured packets through `runtime_feed` JSON snapshots without taking the DuckDB runtime writer role
-- keep CrewAI or any future crew loop behind an optional adapter boundary; native runtime, replay, QA, and operator surfaces must keep working without it
+- keep official research providers explicit and opt-in; SEC EDGAR submissions metadata is allowed only with watched symbols and a configured User-Agent, and full filing/XBRL parsing remains a separate future provider layer
+- keep CrewAI or any future crew loop behind an optional adapter boundary; native runtime, replay, QA, and operator surfaces must keep working without it, and the tracked uv sidecar must communicate through subprocess JSON contracts rather than direct broker/runtime imports
 - keep V1 scoped to Alpaca-ready US paper-first operation; defer IBKR/global/FX accounting to V2
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - keep `webgui` and `docs` aligned on the current Next.js App Router plus Tailwind v4 plus shadcn baseline while migrating the Web GUI screen by screen instead of through a one-shot CSS rewrite

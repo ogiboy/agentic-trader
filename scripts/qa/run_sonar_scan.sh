@@ -59,7 +59,7 @@ run_coverage() {
 	fi
 
 	echo "Writing Python coverage XML to ${COVERAGE_XML}"
-	poetry run python -m pytest -q -p no:cacheprovider \
+	uv run --locked --all-extras --group dev python -m pytest -q -p no:cacheprovider \
 		--cov=agentic_trader \
 		--cov-report="xml:${COVERAGE_XML}" 2>&1 | tee "${COVERAGE_LOG}"
 	return 0
@@ -68,14 +68,14 @@ run_coverage() {
 # run_pysonar runs the Python Sonar scanner (`pysonar`) with project and environment-derived arguments and dispatches execution through `redacted_runner`. It fails and exits with status 1 if no usable `pysonar` executable is found; when present, it includes the coverage XML, organization, region, and branch parameters only if those environment variables/files are set.
 run_pysonar() {
 	local -a command=()
-	if poetry run sh -c 'command -v pysonar >/dev/null 2>&1'; then
-		command=(poetry run pysonar)
+	if uv run --locked --all-extras --group dev sh -c 'command -v pysonar >/dev/null 2>&1'; then
+		command=(uv run --locked --all-extras --group dev pysonar)
 	elif command -v pysonar >/dev/null 2>&1; then
 		command=(pysonar)
 	elif [[ -x /Library/Frameworks/Python.framework/Versions/3.12/bin/pysonar ]]; then
 		command=(/Library/Frameworks/Python.framework/Versions/3.12/bin/pysonar)
 	else
-		echo "pysonar is required. Run 'poetry install --with dev --extras dev' or install pysonar." >&2
+		echo "pysonar is required. Run 'pnpm run install:python' or install pysonar." >&2
 		exit 1
 	fi
 

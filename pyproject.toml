@@ -1,6 +1,6 @@
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.28.0,<2.0.0"]
+build-backend = "hatchling.build"
 
 [project]
 name = "agentic-trader"
@@ -10,7 +10,7 @@ authors = [
     {name = "Oğuzcan Toptaş",email = "oguzcantoptas@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12,<4.0.0,<3.15"
+requires-python = ">=3.12,<3.15"
 dependencies = [
   "duckdb>=1.2.2",
   "httpx>=0.28.1",
@@ -20,8 +20,8 @@ dependencies = [
   "rich>=14.0.0",
   "typer>=0.15.2",
   "yfinance>=0.2.58",
-  "alpaca-py (>=0.43.2,<0.44.0)",
-  "massive (>=2.5.0,<3.0.0)",
+  "alpaca-py>=0.43.2,<0.44.0",
+  "massive>=2.5.0,<3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -50,12 +50,16 @@ extend-exclude = [
   "runtime",
   ".ai/qa/artifacts",
   "docs",
+  "sidecars",
   "webgui",
   "tui/node_modules",
 ]
 
 [tool.semantic_release]
-version_toml = ["pyproject.toml:project.version"]
+version_toml = [
+  "pyproject.toml:project.version",
+  "sidecars/research_flow/pyproject.toml:project.version",
+]
 version_variables = [
   "package.json:version",
   "webgui/package.json:version",
@@ -65,7 +69,7 @@ version_variables = [
 commit_parser = "conventional"
 tag_format = "v{version}"
 commit_message = "chore(release): v{version}"
-build_command = "poetry build"
+build_command = "uv build"
 dist_path = "dist/"
 upload_to_vcs_release = true
 allow_zero_version = true
@@ -97,7 +101,7 @@ output_format = "md"
 
 [dependency-groups]
 dev = [
-    "pyinstaller (>=6.20.0,<7.0.0)",
-    "pysonar (>=1.4.0.4676,<2.0.0)",
-    "python-semantic-release (>=10.0.0,<11.0.0)"
+    "pyinstaller>=6.20.0,<7.0.0",
+    "pysonar>=1.4.0.4676,<2.0.0",
+    "python-semantic-release>=10.0.0,<11.0.0"
 ]

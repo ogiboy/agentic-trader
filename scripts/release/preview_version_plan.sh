@@ -6,7 +6,7 @@ trap 'rm -f "${stderr_log}"' EXIT
 
 set +e
 tag="$(
-  poetry run semantic-release --noop version --print-tag 2>"${stderr_log}" \
+  uv run --locked --all-extras --group dev semantic-release --noop version --print-tag 2>"${stderr_log}" \
     | grep -E '^v[0-9]+(\.[0-9]+){2}([-.+][0-9A-Za-z.-]+)?$' \
     | tail -n 1
 )"
@@ -17,4 +17,4 @@ if [[ "$status" -ne 0 ]]; then
   tag=""
 fi
 
-python scripts/release/version_plan.py --semantic-tag "$tag" --format summary
+uv run --locked --all-extras --group dev python scripts/release/version_plan.py --semantic-tag "$tag" --format summary

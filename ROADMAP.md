@@ -242,6 +242,9 @@ Status: in progress.
 - make lookback truth a first-class artifact: every trading decision should expose the data window, context summary, memory inputs, and safety gates that shaped it
 - treat Training vs Operation as a shared runtime mode overlay, not a forked product or separate orchestration path
 - treat research sidecars as optional local evidence companions, not a second trading runtime or a replacement for the staged specialist graph
+- keep the root runtime on uv with Python 3.13 as the daily developer default while preserving `>=3.12,<3.15` package support until CI broadens the matrix
+- keep optional CrewAI Flow work in a tracked but isolated uv sidecar instead of adding CrewAI to the root dependency graph or turning the repository into a repo-wide uv workspace
+- keep Conda/Poetry references as legacy fallback knowledge only; active setup, checks, QA, release, and CI should use root uv commands
 - evolve QA from smoke testing into repeatable terminal regression evidence with deterministic CLI JSON checks, pexpect flows, optional tmux/asciinema capture, and human-readable failure reports
 - keep memory local-first, inspectable, and policy-bound even as embeddings become more semantic and retrieval becomes more powerful
 
@@ -402,12 +405,15 @@ Status: in progress.
 - [x] add `research-status`, dashboard, and observer API visibility for mode, enabled/disabled state, backend, watched symbols, source health, and last update fields
 - [x] keep the initial CrewAI integration as an optional backend boundary rather than a required dependency or runtime replacement
 - [x] add file-backed sidecar persistence for raw-evidence references, world-state snapshots, and memory-update previews without opening or competing with the active DuckDB runtime writer
-- [ ] wire real official/structured sources first: SEC filings/company facts, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
+- [x] move CrewAI Flow scaffolding into a tracked uv-managed sidecar at `sidecars/research_flow/` while keeping it outside the root dependency graph
+- [x] add a first opt-in official SEC EDGAR submissions metadata provider with User-Agent gating and normalized filing evidence
+- [ ] wire remaining real official/structured sources: SEC company facts/full filing parsing, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
 - [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
 - [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
       Notes:
 - V1.1 is a local-first evidence companion for the current runtime, not a re-platforming
 - the sidecar may eventually run beside the daemon, but it must not submit orders, mutate trading policy, or weaken strict runtime gates
+- SEC EDGAR submissions ingestion is metadata-first and disabled by default; full filing text, XBRL facts, and downstream memory writes remain separate planned steps
 - missing provider data must stay visible as missing; source diversity, staleness, evidence/inference separation, and contradiction tracking are core contracts
 
 ## V1.2 Evaluation And Crew Loops - Optional Sidecar Harness
@@ -415,14 +421,17 @@ Status: in progress.
 Status: planned.
 
 - [x] add an operator-visible CrewAI setup/status preflight that keeps CrewAI out of the core runtime dependency graph
+- [x] add a minimal tracked CrewAI Flow package with Python 3.13 `.python-version`, root-version-aligned pyproject metadata, uv lock/install flow, and root pnpm/Make setup and smoke-check commands
+- [x] add a subprocess JSON contract between the root `ResearchSidecarBackend` and tracked CrewAI Flow sidecar without importing CrewAI in core runtime modules
 - [ ] add optional CrewAI Flow/Crew adapters behind the sidecar backend boundary for deep-dive research tasks
-- [ ] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
+- [x] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
 - [ ] add evaluation harnesses that compare research packets against later market behavior, paper outcomes, and memory/no-memory ablations
 - [ ] link simulated training trades back to the exact world-state snapshot, evidence packet, prompt context, and sidecar version used
 - [ ] add scenario memory, contradiction files, source-diversity scoring, and freshness/outcome weighting before research packets influence manager confidence
 - [ ] keep native replay, QA, and runtime paths valid when CrewAI is not installed or disabled
       Notes:
 - CrewAI is useful here as a sidecar research harness, not as the owner of execution, broker state, or runtime orchestration
+- the tracked sidecar is intentionally isolated: uv owns `sidecars/research_flow/`, root uv owns the core runtime lock, and native runtime/replay/QA must keep working when the sidecar is not installed
 - training intelligence loops should improve evaluation and memory quality while Operation remains strict, paper-first, and explicitly gated
 
 ## Phase 18: V2 Global Expansion - IBKR And FX

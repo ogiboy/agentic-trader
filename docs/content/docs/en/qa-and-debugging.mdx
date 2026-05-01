@@ -8,8 +8,8 @@ description: Validate operator-facing changes with targeted tests, smoke QA, and
 Start with focused checks:
 
 ```bash
-python -m ruff check .
-python -m pytest -q -p no:cacheprovider
+pnpm run check:python
+pnpm run check:research-flow
 pnpm run qa
 ```
 
