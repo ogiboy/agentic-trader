@@ -17,6 +17,10 @@ from agentic_trader.agents.operator_chat import (
     interpret_operator_instruction,
 )
 from agentic_trader.config import Settings, get_settings
+from agentic_trader.diagnostics import (
+    provider_diagnostics_payload,
+    v1_readiness_payload,
+)
 from agentic_trader.engine.broker import broker_runtime_payload
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
@@ -766,6 +770,10 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
     runtime_state = read_service_state(settings)
     runtime_view = build_runtime_status_view(runtime_state)
     broker = broker_runtime_payload(settings)
+    provider = provider_diagnostics_payload(settings)
+    readiness = v1_readiness_payload(settings, check_provider=False)
+    paper = cast(dict[str, object], readiness.get("paper_operations", {}))
+    alpaca = cast(dict[str, object], readiness.get("alpaca_paper", {}))
     table = Table(title="AGENTIC TRADER // System Snapshot", expand=True)
     table.add_column("Key", style="cyan")
     table.add_column("Value")
@@ -783,6 +791,19 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
         f"{broker['backend']} / {broker['state']}",
     )
     table.add_row(
+        "V1 Paper Ready",
+        "yes" if paper.get("allowed") else "no",
+    )
+    table.add_row(
+        "Alpaca Paper Ready",
+        "yes" if alpaca.get("ready") else "no",
+    )
+    warnings = provider.get("warnings", [])
+    table.add_row(
+        "Provider Warnings",
+        str(len(warnings)) if isinstance(warnings, list) else "-",
+    )
+    table.add_row(
         "Kill Switch",
         "yes" if broker["kill_switch_active"] else "no",
     )
@@ -791,6 +812,135 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
         "readable" if db is not None else LABEL_OBSERVER_MODE,
     )
     console.print(table)
+
+
+def _render_broker_status(settings: Settings) -> None:
+    payload = broker_runtime_payload(settings)
+    table = Table(title="Broker Status")
+    table.add_column("Field", style=STYLE_KEY_COLUMN)
+    table.add_column("Value")
+    for key in (
+        "backend",
+        "adapter_name",
+        "state",
+        "execution_mode",
+        "external_paper",
+        "live_execution_enabled",
+        "kill_switch_active",
+        "live_requested",
+        "live_ready",
+        "alpaca_paper_trading_enabled",
+        "alpaca_paper_endpoint",
+        "alpaca_data_feed",
+        "alpaca_credentials_configured",
+        "message",
+    ):
+        table.add_row(key.replace("_", " ").title(), str(payload.get(key, "-")))
+    healthcheck = payload.get("healthcheck")
+    if isinstance(healthcheck, dict):
+        table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
+        blockers = healthcheck.get("blocking_reasons")
+        if isinstance(blockers, list):
+            table.add_row("Blocking Reasons", ", ".join(str(item) for item in blockers) or "-")
+    console.print(table)
+
+
+def _render_provider_diagnostics(settings: Settings) -> None:
+    payload = provider_diagnostics_payload(settings)
+    summary = Table(title="Provider Diagnostics")
+    summary.add_column("Field", style=STYLE_KEY_COLUMN)
+    summary.add_column("Value")
+    llm = payload.get("llm", {})
+    market = payload.get("market_data", {})
+    news = payload.get("news", {})
+    alpaca = payload.get("alpaca", {})
+    if isinstance(llm, dict):
+        summary.add_row("LLM Provider", str(llm.get("provider", "-")))
+        summary.add_row("Default Model", str(llm.get("default_model", "-")))
+        summary.add_row("Base URL", str(llm.get("base_url", "-")))
+    if isinstance(market, dict):
+        summary.add_row("Market Provider", str(market.get("selected_provider", "-")))
+        summary.add_row("Market Role", str(market.get("selected_role", "-")))
+    if isinstance(news, dict):
+        summary.add_row("News Mode", str(news.get("mode", "-")))
+    if isinstance(alpaca, dict):
+        summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
+        summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
+        summary.add_row(
+            "Alpaca Credentials",
+            "configured" if alpaca.get("credentials_configured") else "missing",
+        )
+    console.print(summary)
+
+    warnings = payload.get("warnings", [])
+    if isinstance(warnings, list) and warnings:
+        console.print(
+            Panel(
+                "\n".join(str(warning) for warning in warnings),
+                title="Provider Warnings",
+                border_style="yellow",
+            )
+        )
+
+    table = Table(title="Provider Source Ladder")
+    table.add_column("Provider", style=STYLE_KEY_COLUMN)
+    table.add_column("Type")
+    table.add_column("Role")
+    table.add_column("Enabled")
+    table.add_column("API Key")
+    table.add_column("Freshness")
+    providers = payload.get("providers", [])
+    if isinstance(providers, list):
+        for row in providers:
+            if not isinstance(row, dict):
+                continue
+            table.add_row(
+                str(row.get("provider_id", "-")),
+                str(row.get("provider_type", "-")),
+                str(row.get("role", "-")),
+                str(row.get("enabled", False)),
+                str(row.get("api_key_ready", "-")),
+                str(row.get("freshness", "-")),
+            )
+    console.print(table)
+
+
+def _render_readiness_table(title: str, payload: dict[str, object]) -> None:
+    table = Table(title=title)
+    table.add_column("Check", style=STYLE_KEY_COLUMN)
+    table.add_column("State")
+    table.add_column("Blocking")
+    table.add_column("Details")
+    checks = payload.get("checks", [])
+    if isinstance(checks, list):
+        for item in checks:
+            if not isinstance(item, dict):
+                continue
+            table.add_row(
+                str(item.get("name", "-")),
+                "[green]pass[/green]" if item.get("passed") else "[red]fail[/red]",
+                str(item.get("blocking", True)),
+                str(item.get("details", "")),
+            )
+    console.print(table)
+
+
+def _render_v1_readiness(settings: Settings) -> None:
+    payload = v1_readiness_payload(settings, check_provider=False)
+    paper = payload.get("paper_operations", {})
+    alpaca = payload.get("alpaca_paper", {})
+    paper_allowed = isinstance(paper, dict) and bool(paper.get("allowed"))
+    console.print(
+        Panel(
+            str(payload.get("summary", "V1 readiness status unavailable.")),
+            title="V1 Readiness",
+            border_style="green" if paper_allowed else "yellow",
+        )
+    )
+    if isinstance(paper, dict):
+        _render_readiness_table("Paper Operation Checks", paper)
+    if isinstance(alpaca, dict):
+        _render_readiness_table("Alpaca Paper Checks", alpaca)
 
 
 def _configure_preferences(db: TradingDatabase) -> None:
@@ -1214,7 +1364,10 @@ def _runtime_control_table() -> Table:
     table.add_row("3", "Start orchestrator service")
     table.add_row("4", "Request orchestrator stop")
     table.add_row("5", "Open live monitor")
-    table.add_row("6", "Back")
+    table.add_row("6", "Provider diagnostics")
+    table.add_row("7", "V1 readiness gates")
+    table.add_row("8", "Broker status")
+    table.add_row("9", "Back")
     return table
 
 
@@ -1311,6 +1464,18 @@ def _runtime_monitor_action(settings: Settings) -> None:
     run_live_monitor(settings, refresh_seconds=refresh_seconds)
 
 
+def _provider_diagnostics_action(settings: Settings) -> None:
+    _render_provider_diagnostics(settings)
+
+
+def _v1_readiness_action(settings: Settings) -> None:
+    _render_v1_readiness(settings)
+
+
+def _broker_status_action(settings: Settings) -> None:
+    _render_broker_status(settings)
+
+
 def _runtime_menu(settings: Settings) -> None:
     """
     Present an interactive runtime control menu for managing the orchestrator, one-shot cycles, and monitoring.
@@ -1321,15 +1486,20 @@ def _runtime_menu(settings: Settings) -> None:
         "3": _runtime_launch_action,
         "4": _runtime_stop_action,
         "5": _runtime_monitor_action,
+        "6": _provider_diagnostics_action,
+        "7": _v1_readiness_action,
+        "8": _broker_status_action,
     }
     while True:
         console.clear()
         console.print(_banner())
         console.print(_runtime_control_table())
         choice = Prompt.ask(
-            PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4", "5", "6"], default="1"
+            PROMPT_SELECT_ACTION,
+            choices=["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            default="1",
         )
-        if choice == "6":
+        if choice == "9":
             return
         actions[choice](settings)
         Prompt.ask(PROMPT_CONTINUE, default="")

@@ -116,11 +116,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: uv run --locked --no-sync semantic-release version --no-vcs-release
 
-      - name: Create baseline tag
+      - name: Create baseline changelog and tag
         if: ${{ steps.release-plan.outputs.will_release == 'true' && steps.release-plan.outputs.baseline_release == 'true' }}
         run: |
           set -euo pipefail
           tag="${{ steps.release-plan.outputs.tag }}"
+          uv run --locked --no-sync python scripts/release/bootstrap_changelog.py --version "$tag"
+          git add CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): ${tag}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
           if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
             echo "Tag ${tag} already exists locally; skipping baseline tag creation."
             exit 0

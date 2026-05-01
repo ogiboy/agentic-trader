@@ -54,6 +54,7 @@ Implemented or substantially present:
 - provider interfaces now exist for market, fundamental, news, disclosure, and macro data; provider outputs are normalized into canonical analysis snapshots before feature generation
 - SEC EDGAR, Finnhub, FMP, and KAP now have explicit provider scaffold adapters in the canonical provider set; they do not fetch live data yet, but missing outputs are represented as source attribution instead of disappearing silently
 - `provider-diagnostics` now exposes model routing, selected market fallback, API-key readiness, provider source ladder, freshness/completeness placeholders, and explicit Yahoo fallback warnings without leaking secrets or fetching network data
+- provider diagnostics, V1 readiness, and broker health now flow into the shared dashboard snapshot, observer API endpoints, Rich runtime menu, Ink overview/runtime pages, and Web GUI overview so operator surfaces do not have to shell out separately or invent readiness truth
 - the staged graph now includes fundamental and macro/news analyst roles before regime/strategy/risk, and manager synthesis receives those structured outputs
 - prompt rendering now uses the `DecisionFeatureBundle` as the primary agent input when it is attached; raw compact snapshots remain available only for compatibility and deterministic fallback paths
 - feature-first prompts now keep technical data-quality flags visible, and fallback-generated fundamental/macro assessments are not counted as consensus support
@@ -138,6 +139,7 @@ New production-expansion direction:
 - root `pnpm check` and `make check` are now the intended static/build validation entrypoints; use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA, and focused `pnpm --filter ...`, `uv run ...`, or `pnpm run check:research-flow` commands when narrowing a failure
 - `.codex/environments/environment.toml` setup and check actions now include the tracked CrewAI Flow sidecar setup/check commands so Codex workspace actions do not drift from README and root pnpm scripts
 - release binary uploads should be validated through the release workflow/tag-dispatch path; direct `main` branch binary workflow runs may upload artifacts while intentionally skipping GitHub Release publication
+- the stable release workflow now creates a baseline changelog section before the one-time pre-1.0 baseline tag when semantic-release's discovered candidate is below the tracked `0.9.0` baseline, so `main` does not end up with a release tag and an empty `CHANGELOG.md`
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture

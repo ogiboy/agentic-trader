@@ -32,6 +32,7 @@ Now:
 - keep the Web GUI command runner attached to the current worktree/runtime environment so browser QA does not silently drift onto a stale PATH-installed CLI
 - design the Ollama-management path as an extension of the existing daemon/log/status surfaces so the app can eventually start, stop, inspect, and expose model-service logs without creating a parallel supervisor
 - use `provider-diagnostics` and `v1-readiness` as the V1 operator gate before longer paper-operation runs or Alpaca paper-readiness checks; the default remains local paper, and `alpaca_paper` requires explicit credentials plus enablement
+- keep shared dashboard, observer API, Rich, Ink, and Web GUI readiness displays in parity with `provider-diagnostics`, `v1-readiness`, and `broker-status`
 
 Next:
 
@@ -42,7 +43,7 @@ Next:
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
 - verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
-- after the release workflow lands, verify that the first missing baseline tag dispatch creates `v0.9.0`, runs binary packaging from that tag, and publishes the GitHub Release instead of relying on a direct `main` binary push
+- after the release workflow lands, verify that the first missing baseline tag dispatch creates a `CHANGELOG.md` baseline section, creates `v0.9.0`, runs binary packaging from that tag, and publishes the GitHub Release instead of relying on a direct `main` binary push
 - keep exercising `alpaca_paper` only as external paper readiness until paper evidence, operator approval, and live adapter scope are explicitly reviewed
 - keep an eye on local MCP hygiene: several `mcp/sonarqube` client containers can be active at once, and stale clients should be stopped only after confirming no current Codex/VS Code session depends on them
 
@@ -281,6 +282,7 @@ Desired direction:
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
 - add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
+- keep the dashboard contract smoke check aligned with provider diagnostics, V1 readiness, broker health, and external-paper fields consumed by Ink, Rich, Web GUI, and observer endpoints
 
 ### 15. Docs And Frontend System
 

@@ -1,5 +1,6 @@
 import json
 import threading
+from typing import cast
 from urllib.request import urlopen
 
 from agentic_trader.cli import build_observer_api_payload
@@ -20,10 +21,24 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert status_code == 200
     assert "doctor" in dashboard
     assert "broker" in dashboard
+    assert "providerDiagnostics" in dashboard
+    assert "v1Readiness" in dashboard
 
     status_code, broker = build_observer_api_payload(settings, path="/broker")
     assert status_code == 200
     assert broker["backend"] == "paper"
+
+    status_code, provider = build_observer_api_payload(
+        settings, path="/provider-diagnostics"
+    )
+    assert status_code == 200
+    market_data = cast(dict[str, object], provider["market_data"])
+    assert market_data["selected_provider"] == "yahoo_market"
+
+    status_code, readiness = build_observer_api_payload(settings, path="/v1-readiness")
+    assert status_code == 200
+    paper_operations = cast(dict[str, object], readiness["paper_operations"])
+    assert paper_operations["allowed"] is False
 
     status_code, research = build_observer_api_payload(settings, path="/research")
     assert status_code == 200

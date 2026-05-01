@@ -518,7 +518,8 @@ def run_dashboard_contract_check(
 
     This lightweight contract check intentionally tolerates an empty runtime
     database, but it fails if the dashboard payload drops the runtime-mode or
-    market-context sections that newer CLI, Ink, and observer surfaces consume.
+    market-context, provider diagnostics, or V1 readiness sections that newer
+    CLI, Ink, Web GUI, and observer surfaces consume.
     """
     name = "dashboard_contract"
     artifact = _artifact_path(context, name)
@@ -571,6 +572,30 @@ def run_dashboard_contract_check(
         issues.append("recentRuns section missing")
     elif "runs" not in payload["recentRuns"]:
         issues.append("recentRuns.runs missing")
+    if not isinstance(payload.get("providerDiagnostics"), dict):
+        issues.append("providerDiagnostics section missing")
+    else:
+        provider_diagnostics = payload["providerDiagnostics"]
+        if not isinstance(provider_diagnostics.get("warnings"), list):
+            issues.append("providerDiagnostics.warnings missing")
+        if not isinstance(provider_diagnostics.get("providers"), list):
+            issues.append("providerDiagnostics.providers missing")
+    if not isinstance(payload.get("v1Readiness"), dict):
+        issues.append("v1Readiness section missing")
+    else:
+        v1_readiness = payload["v1Readiness"]
+        if not isinstance(v1_readiness.get("paper_operations"), dict):
+            issues.append("v1Readiness.paper_operations missing")
+        if not isinstance(v1_readiness.get("alpaca_paper"), dict):
+            issues.append("v1Readiness.alpaca_paper missing")
+    if not isinstance(payload.get("broker"), dict):
+        issues.append("broker section missing")
+    else:
+        broker = payload["broker"]
+        if "external_paper" not in broker:
+            issues.append("broker.external_paper missing")
+        if not isinstance(broker.get("healthcheck"), dict):
+            issues.append("broker.healthcheck missing")
 
     _write_artifact(
         artifact,

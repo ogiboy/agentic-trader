@@ -247,9 +247,11 @@ both local paper and `live`: it can use Alpaca paper endpoints for US equities
 only, but only when credentials, the paper endpoint, and
 `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true` are explicit.
 `v1-readiness`, `provider-diagnostics`, and `broker-status` are the operator
-surfaces for seeing whether those gates are satisfied. The generic `live`
-backend still fails closed until a real live adapter, manual approval gate, and
-paper-operation evidence are intentionally implemented.
+surfaces for seeing whether those gates are satisfied, and their network-free
+payloads should also travel through dashboard, observer, Rich, Ink, and Web GUI
+surfaces. The generic `live` backend still fails closed until a real live
+adapter, manual approval gate, and paper-operation evidence are intentionally
+implemented.
 
 ### Python dependencies should be locked with uv
 
@@ -362,7 +364,7 @@ The project needs practical solo-maintainer release hygiene without changing the
 Stable release version stamping should also keep the root, Web GUI, docs, and TUI `package.json` versions aligned with the Python project version so the repo presents one coherent product baseline.
 The binary workflow owns GitHub Release creation so immutable releases can be created with PyInstaller assets attached in one publish step.
 The binary assets are convenience builds for the Python CLI layer; they do not bundle the Web GUI, docs app, Node runtime, Ollama, or external provider services.
-If semantic-release previews a tag below the tracked pre-1.0 baseline and that baseline tag does not exist yet, the release workflow should create the baseline tag once and dispatch binary packaging with that tag. Plain `main` branch binary pushes may still upload workflow artifacts without publishing a GitHub Release; release publishing should happen from a tag/dispatch path.
+If semantic-release previews a tag below the tracked pre-1.0 baseline and that baseline tag does not exist yet, the release workflow should create a baseline changelog section, create the baseline tag once, and dispatch binary packaging with that tag. Plain `main` branch binary pushes may still upload workflow artifacts without publishing a GitHub Release; release publishing should happen from a tag/dispatch path.
 
 Stable release identity and branch build identity are intentionally separate.
 Strict SemVer release tags keep the `MAJOR.MINOR.PATCH` core, such as `v0.9.5`; CI/build counters must not become a fourth core segment like `v0.9.5.9870`.

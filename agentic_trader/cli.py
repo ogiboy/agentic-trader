@@ -2896,6 +2896,8 @@ def build_dashboard_snapshot_payload(
         "news": _news_payload(settings),
         "marketCache": _market_cache_payload(settings),
         "research": _research_sidecar_payload(settings),
+        "providerDiagnostics": provider_diagnostics_payload(settings),
+        "v1Readiness": v1_readiness_payload(settings, check_provider=False),
     }
 
 
@@ -2911,6 +2913,8 @@ def build_observer_api_payload(
     - "/status": returns a detailed runtime status view (runtime_state, live_process, is_stale, age_seconds, status_message, state).
     - "/logs": returns a list of recent service events under the "logs" key.
     - "/broker": returns broker runtime payload.
+    - "/provider-diagnostics": returns network-free provider/source readiness.
+    - "/v1-readiness": returns V1 paper-operation and Alpaca paper-readiness gates.
     - "/research": returns optional research sidecar mode and provider health.
     - any other path: returns 404 with {"error": "not_found", "path": <requested path>}.
     
@@ -2944,6 +2948,10 @@ def build_observer_api_payload(
         }
     if path == "/broker":
         return 200, _broker_payload(settings)
+    if path == "/provider-diagnostics":
+        return 200, provider_diagnostics_payload(settings)
+    if path == "/v1-readiness":
+        return 200, v1_readiness_payload(settings, check_provider=False)
     if path == "/research":
         return 200, _research_sidecar_payload(settings)
     return 404, {"error": "not_found", "path": path}
@@ -2972,7 +2980,7 @@ def observer_api_command(
     settings = get_settings()
     console.print(
         Panel(
-            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /research",
+            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /provider-diagnostics\n- /v1-readiness\n- /research",
             title="Observer API",
             border_style="cyan",
         )

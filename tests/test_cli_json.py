@@ -716,6 +716,12 @@ def test_dashboard_snapshot_json(
     assert payload["status"]["state"]["current_symbol"] == "AAPL"
     assert payload["supervisor"]["state"]["launch_count"] == 0
     assert payload["broker"]["backend"] == "paper"
+    assert payload["broker"]["external_paper"] is False
+    assert "healthcheck" in payload["broker"]
+    assert payload["providerDiagnostics"]["market_data"]["selected_provider"] == "yahoo_market"
+    assert isinstance(payload["providerDiagnostics"]["warnings"], list)
+    assert payload["v1Readiness"]["paper_operations"]["allowed"] is False
+    assert payload["v1Readiness"]["alpaca_paper"]["ready"] is False
     assert payload["research"]["status"] == "disabled"
     assert payload["logs"][0]["event_type"] == "agent_regime_started"
     assert payload["agentActivity"]["current_stage"] == "regime"

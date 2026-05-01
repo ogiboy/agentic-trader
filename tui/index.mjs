@@ -802,6 +802,49 @@ function renderLinesFallback(title, available, error, fallback) {
   return null;
 }
 
+function failedCheckNames(section) {
+  const failed = (section?.checks || [])
+    .filter((item) => item.blocking !== false && !item.passed)
+    .map((item) => item.name)
+    .slice(0, 3);
+  return failed.length ? failed.join(', ') : '-';
+}
+
+function readinessLines(data) {
+  const readiness = data.v1Readiness || {};
+  const broker = data.broker || {};
+  const paper = readiness.paper_operations || {};
+  const alpaca = readiness.alpaca_paper || {};
+  return [
+    `Paper Allowed: ${paper.allowed ? 'yes' : 'no'}`,
+    `Paper Blockers: ${failedCheckNames(paper)}`,
+    `Alpaca Paper Ready: ${alpaca.ready ? 'yes' : 'no'}`,
+    `Alpaca Blockers: ${failedCheckNames(alpaca)}`,
+    `Backend: ${broker.backend ?? '-'}`,
+    `External Paper: ${broker.external_paper ? 'yes' : 'no'}`,
+    `Kill Switch: ${broker.kill_switch_active ? 'active' : 'inactive'}`,
+    `Broker Health: ${broker.healthcheck?.message ?? broker.message ?? '-'}`,
+  ];
+}
+
+function providerLines(data) {
+  const diagnostics = data.providerDiagnostics || {};
+  const market = diagnostics.market_data || {};
+  const keys = diagnostics.configured_keys || {};
+  const warnings = Array.isArray(diagnostics.warnings)
+    ? diagnostics.warnings
+    : [];
+  return [
+    `Market Provider: ${market.selected_provider ?? '-'}`,
+    `Market Role: ${market.selected_role ?? '-'}`,
+    `News Mode: ${diagnostics.news?.mode ?? '-'}`,
+    `Finnhub Key: ${keys.finnhub ? 'configured' : 'missing'}`,
+    `FMP Key: ${keys.fmp ? 'configured' : 'missing'}`,
+    `Alpaca Key: ${keys.alpaca ? 'configured' : 'missing'}`,
+    ...(warnings.length ? warnings.slice(0, 2) : ['No provider warnings.']),
+  ];
+}
+
 /**
  * Render the Overview dashboard page showing runtime status, system information, and recent agent activity.
  * @param {object} props
@@ -862,6 +905,8 @@ function OverviewPage({ data, compact = false }) {
         `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
         `Broker Backend: ${broker?.backend ?? '-'}`,
         `Broker State: ${broker?.state ?? '-'}`,
+        `V1 Paper Ready: ${data.v1Readiness?.paper_operations?.allowed ? 'yes' : 'no'}`,
+        `Alpaca Paper Ready: ${data.v1Readiness?.alpaca_paper?.ready ? 'yes' : 'no'}`,
         `Market Session: ${formatMarketSession(calendar.session)}`,
       ]
     : [
@@ -874,6 +919,10 @@ function OverviewPage({ data, compact = false }) {
         `Database: ${doctor.database}`,
         `Broker Backend: ${broker?.backend ?? '-'}`,
         `Broker State: ${broker?.state ?? '-'}`,
+        `Broker Health: ${broker?.healthcheck?.message ?? broker?.message ?? '-'}`,
+        `V1 Paper Ready: ${data.v1Readiness?.paper_operations?.allowed ? 'yes' : 'no'}`,
+        `Alpaca Paper Ready: ${data.v1Readiness?.alpaca_paper?.ready ? 'yes' : 'no'}`,
+        `Provider Warnings: ${(data.providerDiagnostics?.warnings || []).length}`,
         `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
         `Market Session: ${formatMarketSession(calendar.session)}`,
         `News Tool: ${data.news?.mode ?? 'off'}`,
@@ -903,6 +952,20 @@ function OverviewPage({ data, compact = false }) {
           systemLines,
           doctor.ollama_reachable && doctor.model_available ? 'green' : 'red',
         ),
+      ),
+    ),
+    e(
+      Box,
+      { width: '100%', marginTop: 1 },
+      e(
+        Box,
+        { width: '50%', paddingRight: 1 },
+        panel('READINESS GATES', readinessLines(data), 'red'),
+      ),
+      e(
+        Box,
+        { width: '50%', paddingLeft: 1 },
+        panel('PROVIDER WARNINGS', providerLines(data), 'yellow'),
       ),
     ),
     e(
@@ -987,7 +1050,10 @@ function RuntimePage({ data }) {
             `Last Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
             `Broker Backend: ${broker?.backend ?? '-'}`,
             `Broker State: ${broker?.state ?? '-'}`,
+            `External Paper: ${broker?.external_paper ?? false}`,
             `Kill Switch: ${broker?.kill_switch_active ?? false}`,
+            `V1 Paper Ready: ${data.v1Readiness?.paper_operations?.allowed ? 'yes' : 'no'}`,
+            `Alpaca Paper Ready: ${data.v1Readiness?.alpaca_paper?.ready ? 'yes' : 'no'}`,
             `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
             `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
             `Market Session: ${formatMarketSessionWithTradable(calendar.session)}`,
@@ -1017,6 +1083,8 @@ function RuntimePage({ data }) {
             '',
             `Latest Review Available: ${data.review.available !== false && reviewRecord ? 'yes' : 'no'}`,
             `Latest Review Summary: ${recentSummary}`,
+            '',
+            ...readinessLines(data),
             '',
             ...getSupervisorLogLines(supervisor),
           ],

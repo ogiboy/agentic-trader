@@ -329,6 +329,49 @@ function JsonPreview({ value }: Readonly<{ value: unknown }>) {
   return <pre className="json-preview">{JSON.stringify(value, null, 2)}</pre>;
 }
 
+function failedCheckNames(section: Record<string, any> | undefined): string {
+  const failed = (section?.checks || [])
+    .filter((item: Record<string, any>) => item.blocking !== false && !item.passed)
+    .map((item: Record<string, any>) => item.name)
+    .slice(0, 3);
+  return failed.length ? failed.join(', ') : '-';
+}
+
+function readinessLines(dashboard: DashboardData): string[] {
+  const readiness = dashboard.v1Readiness || {};
+  const broker = dashboard.broker || {};
+  const paper = readiness.paper_operations || {};
+  const alpaca = readiness.alpaca_paper || {};
+  return [
+    `Paper Operation Allowed: ${paper.allowed ? 'yes' : 'no'}`,
+    `Paper Blockers: ${failedCheckNames(paper)}`,
+    `Alpaca Paper Ready: ${alpaca.ready ? 'yes' : 'no'}`,
+    `Alpaca Blockers: ${failedCheckNames(alpaca)}`,
+    `Backend: ${broker.backend ?? '-'}`,
+    `External Paper: ${broker.external_paper ? 'yes' : 'no'}`,
+    `Kill Switch: ${broker.kill_switch_active ? 'active' : 'inactive'}`,
+    `Broker Health: ${broker.healthcheck?.message ?? broker.message ?? '-'}`,
+  ];
+}
+
+function providerWarningLines(dashboard: DashboardData): string[] {
+  const diagnostics = dashboard.providerDiagnostics || {};
+  const market = diagnostics.market_data || {};
+  const keys = diagnostics.configured_keys || {};
+  const warnings = Array.isArray(diagnostics.warnings)
+    ? diagnostics.warnings
+    : [];
+  return [
+    `Market Provider: ${market.selected_provider ?? '-'}`,
+    `Market Role: ${market.selected_role ?? '-'}`,
+    `News Mode: ${diagnostics.news?.mode ?? '-'}`,
+    `Finnhub Key: ${keys.finnhub ? 'configured' : 'missing'}`,
+    `FMP Key: ${keys.fmp ? 'configured' : 'missing'}`,
+    `Alpaca Key: ${keys.alpaca ? 'configured' : 'missing'}`,
+    ...(warnings.length ? warnings.slice(0, 3) : ['No provider warnings.']),
+  ];
+}
+
 function OverviewView({
   dashboard,
   currentCycle,
@@ -382,6 +425,15 @@ function OverviewView({
         </Panel>
         <Panel title="System" accent="cyan">
           <KeyValueList items={system} />
+        </Panel>
+      </div>
+
+      <div className="grid grid--2">
+        <Panel title="Readiness Gates" accent="rose">
+          <TextList items={readinessLines(dashboard)} />
+        </Panel>
+        <Panel title="Provider Warnings" accent="amber">
+          <TextList items={providerWarningLines(dashboard)} />
         </Panel>
       </div>
 

@@ -318,11 +318,12 @@ Status: completed.
 
 ## Phase 14: Terminal Regression QA And Evidence Bundles
 
-Status: planned.
+Status: in progress.
 
 - [x] expand `scripts/qa/smoke_qa.py` into a tiered terminal regression harness while keeping the fast smoke path lightweight (fast smoke plus optional quality, Sonar, and runtime-cycle tiers)
 - [ ] map `.ai/qa/qa-scenarios.md` scenarios to deterministic pexpect flows with fixed terminal size, environment, and artifact naming
-- [ ] capture CLI JSON snapshots, status payloads, broker state, service events, context-pack excerpts, and keypress transcripts for each scenario
+- [x] capture core CLI JSON snapshots, status payloads, broker state, provider diagnostics, V1 readiness, and dashboard contract sections in fast smoke QA
+- [ ] expand captured keypress transcripts, service events, and context-pack excerpts across every `.ai/qa/qa-scenarios.md` scenario
 - [ ] use Computer Use for visual CLI/Rich/Ink inspection when available, with pexpect, tmux, asciinema, and text artifacts as the fallback path
 - [ ] optionally capture tmux pane dumps and asciinema recordings for Ink and Rich visual regressions
 - [ ] generate a human-readable `qa-report.md` from structured check results when failures occur
@@ -331,7 +332,7 @@ Status: planned.
 - [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
       Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
-- smoke QA now includes dashboard and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, and an optional isolated one-cycle runtime check
+- smoke QA now includes dashboard, provider diagnostics, V1 readiness, broker health, and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, and an optional isolated one-cycle runtime check
 - visual QA can now use Computer Use in Codex/Desktop environments, but it remains optional and must be paired with contract/runtime truth checks
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
@@ -346,13 +347,14 @@ Status: planned.
 - [ ] make live monitor stage progress show agent stage, current symbol, data context, last tool usage, current model call, terminal outcome, and safety gate result
 - [ ] redesign the Ink control room toward an htop-like operator console with stable panes, visible controls, resize-safe layout, and less scrollback noise
 - [ ] reduce Rich/admin visual density or keep it as a compact fallback surface once Ink reaches full operational parity
-- [ ] add a paper-operations readiness checklist that must pass before longer continuous runs
+- [x] add a paper-operations readiness checklist that must pass before longer continuous runs
 - [ ] tie V1 readiness to paper evidence, provider health, source attribution, context-pack explainability, broker health checks, and an explicit no-live-until-approved gate
 - [ ] compare paper operation results against deterministic baselines and memory/no-memory ablations before considering any live adapter
 - [ ] keep live broker work blocked until paper operation has stable QA evidence, context-pack explainability, and reviewable trade journals
       Notes:
 - this phase is about earning operator trust in continuous paper operation before expanding execution risk
 - the product should feel like an inspectable operator system, not a black-box trading bot
+- `v1-readiness` is now the first paper-operations checklist and is visible through CLI, dashboard, observer API, Rich, Ink, and Web GUI surfaces; deeper paper-evidence scoring is still open
 
 ## Phase 16: Financial Intelligence Layer
 
@@ -387,7 +389,7 @@ Status: in progress.
 
 ## Phase 17: V1 Alpaca Readiness - US Paper First
 
-Status: planned.
+Status: completed.
 
 - [x] add settings-only Alpaca paper credentials/feed fields so env readiness can be checked without enabling live trading
 - [x] add an Alpaca adapter behind the existing broker adapter contract for US equities only
@@ -403,7 +405,7 @@ Status: planned.
 - V1 readiness is Alpaca-first and US-equities-only to limit blast radius
 - V1 does not mean live trading is enabled; it means the system is Alpaca-ready while remaining paper-first with manual approval and strict safety gates
 - `paper` remains the default; `alpaca_paper` is an explicit external-paper backend gated by credentials, paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`
-- `live` remains blocked; V1 readiness is expressed through `v1-readiness`, `broker-status`, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden live brokerage
+- `live` remains blocked; V1 readiness is expressed through `v1-readiness`, `provider-diagnostics`, `broker-status`, dashboard/observer payloads, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden live brokerage
 
 ## V1.1 Research Sidecar - Local Evidence Companion
 
