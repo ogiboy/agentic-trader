@@ -45,6 +45,12 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert research["status"] == "disabled"
     assert "provider_health" in research
 
+    status_code, supervisor = build_observer_api_payload(settings, path="/supervisor")
+    assert status_code == 200
+    assert "runtime_state" in supervisor
+    assert "stdout_tail" in supervisor
+    assert "stderr_tail" in supervisor
+
 
 def test_observer_research_payload_does_not_create_database(tmp_path) -> None:
     settings = Settings(

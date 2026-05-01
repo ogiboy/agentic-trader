@@ -28,6 +28,10 @@ Also read the shared repository context listed in `.ai/agents/README.md`.
 - Pull in `.ai/agents/operator-ux.md` when the task involves visual layout,
   command clarity, menu navigation, resize behavior, or finance/accounting
   readability.
+- Pull in `.ai/agents/finance-ops.md` when the task changes broker, account,
+  PnL, exposure, order lifecycle, or execution audit behavior.
+- Pull in `.ai/agents/product-docs.md` when a feature should be explained to an
+  end user or operator, not only to a contributor.
 - Distinguish product defects from polish issues.
 - Report exact commands, expected behavior, actual behavior, and evidence.
 
@@ -50,6 +54,13 @@ Also read the shared repository context listed in `.ai/agents/README.md`.
 - Use Scenario 8 for broker safety gate and live-block visibility.
 - Use Scenario 9 for observer API parity.
 - Use Scenario 10 or 11 for memory, chat, and governance behavior.
+- Before accepting a "paper operation is ready" claim, capture or verify
+  `broker-status --json`, `v1-readiness --json`, `provider-diagnostics --json`,
+  the latest review/trade context when available, and the evidence-bundle
+  manifest.
+- Include negative QA when financial truth changes: kill switch on, live blocked,
+  missing provider evidence, stale account mark, rejected order, no fill, and
+  simulated or partial fill status.
 
 ## Report Format
 

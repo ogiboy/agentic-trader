@@ -9,6 +9,7 @@ It checks:
 - `agentic-trader doctor`
 - `agentic-trader dashboard-snapshot`
 - dashboard contract fields consumed by operator surfaces, including runtime mode and market context sections
+- deterministic market-context edge cases for partial daily windows, intraday provider limits, non-datetime indexes, higher-timeframe fallback, and Training replay undercoverage flags
 - read-only JSON status surfaces such as `status`, `broker-status`, `supervisor-status`, `logs`, `preferences`, `portfolio`, and `memory-policy`
 - primary Ink entry through `agentic-trader`
 - root launcher entry through `python main.py`
@@ -97,6 +98,7 @@ Current files include:
 - `doctor.log`
 - `dashboard_snapshot.log`
 - `dashboard_contract.log`
+- `market_context_edge_cases.log`
 - `runtime_mode_checklist_json.log`
 - `main_entrypoint_tui.log`
 - `python_main_tui.log`
@@ -119,7 +121,7 @@ The JSON summary includes each check name, pass/fail status, details, artifact p
 This first version is intentionally conservative. It does not yet:
 
 - start, monitor, stop, or restart the background daemon
-- validate observer API endpoints
+- validate every observer API endpoint through a running HTTP server
 - exercise every Ink hotkey or Rich submenu
 - inspect paper portfolio consistency after a trade cycle
 - record tmux panes, asciinema sessions, or screenshots automatically

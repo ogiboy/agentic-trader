@@ -270,13 +270,15 @@ Status: in progress.
 - [x] include compact summaries by default and only include bar excerpts when Training mode, low confidence, or diagnostic depth requires it
 - [x] fail closed with a clear operator-facing reason when data is too thin for the configured lookback instead of silently behaving like a short-window run
 - [x] add QA coverage that asserts context-pack fields are present and coherent for representative lookback/interval combinations
+- [x] add deterministic V1 edge-case coverage for partial Yahoo-style windows, intraday provider limits, non-datetime indexes, higher-timeframe fallbacks, and Training replay undercoverage visibility
       Notes:
 - this phase answers the operator question: "Did the system really analyze the configured history?"
 - token pressure should be controlled by separating deterministic summaries from optional raw bar excerpts
 - the pack is now part of snapshot JSON, agent prompt rendering, memory documents, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
 - under-covered operation/runtime windows now stop before agent execution when expected coverage falls below the safety threshold
 - training replay can intentionally keep growing-window undercoverage as an explicit context-pack flag instead of treating it as production-ready coverage
-- remaining work is adding broader QA scenarios around provider-specific interval edge cases, including Alpaca IEX versus SIP/delayed feeds, Yahoo fallback coverage gaps, IBKR session/calendar edge cases, and FX/global market data windows
+- V1 smoke QA now includes a network-free market-context edge-case contract so release evidence proves both Operation fail-closed behavior and Training replay visibility without requiring live providers
+- broader live-provider interval scenarios such as Alpaca IEX versus SIP/delayed feeds, IBKR session/calendar edge cases, and FX/global market data windows belong to V1.1/V2 unless they are moved back into the V1 boundary
 
 ## Phase 12: Semantic Memory And Retrieval Quality
 
@@ -329,10 +331,10 @@ Status: in progress.
 - [x] generate a human-readable `qa-report.md` from structured check results for each smoke run
 - [x] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, readiness, broker state, observer-compatible payloads, and QA results under a timestamped artifact directory
 - [ ] keep quality gates tiered: CI-safe CLI/static checks first, local interactive TUI checks second, manual visual recordings third
-- [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
+- [ ] include daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
       Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
-- smoke QA now includes dashboard, provider diagnostics, V1 readiness, broker health, and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, a generated `qa-report.md`, and an optional isolated one-cycle runtime check
+- smoke QA now includes dashboard, provider diagnostics, V1 readiness, broker health, runtime-mode checklist, deterministic market-context edge-case checks, deep Rich-menu navigation, raw terminal-noise detection, a generated `qa-report.md`, and an optional isolated one-cycle runtime check
 - visual QA can now use Computer Use in Codex/Desktop environments, but it remains optional and must be paired with contract/runtime truth checks
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
@@ -341,7 +343,7 @@ Status: in progress.
 Status: in progress.
 
 - [x] define a canonical operator workflow: doctor, hardware profile, provider diagnostics, V1 readiness, smoke QA, one strict cycle, trace review, evidence bundle, then background paper operation
-- [ ] harden daemon lifecycle semantics for stale PIDs, stop requests, restarts, log tails, and terminal outcomes
+- [x] harden daemon lifecycle semantics for stale PIDs, stop requests, restarts, log tails, and terminal outcomes
 - [ ] add runtime performance profiles that tune concurrent agents, model routing, token budgets, request timeouts, and memory limits based on local hardware class
 - [x] add a hardware capability probe that records CPU, RAM, GPU/accelerator, model size, and safe parallelism recommendations before starting long-running operation
 - [ ] make live monitor stage progress show agent stage, current symbol, data context, last tool usage, current model call, terminal outcome, and safety gate result
@@ -355,6 +357,7 @@ Status: in progress.
 - this phase is about earning operator trust in continuous paper operation before expanding execution risk
 - the product should feel like an inspectable operator system, not a black-box trading bot
 - `v1-readiness` is now the first paper-operations checklist and is visible through CLI, dashboard, observer API, Rich, Ink, and Web GUI surfaces; deeper paper-evidence scoring is still open
+- daemon lifecycle now records blocked runtime gates, recovers dead PID state through `stop-service`, treats stale live-heartbeat PID state as unsafe to double-launch, honors stop requests during cycle sleeps and after skipped symbols, exposes supervisor log tails through observer-compatible payloads, and filters live monitor stage rows to the active cycle
 
 ## Phase 16: Financial Intelligence Layer
 
@@ -472,7 +475,9 @@ Status: in progress.
 - [x] refresh developer orientation notes and keep README links pointed at the current code-map instead of stale `docs/dev/*` paths
 - [x] activate the existing `docs/` app as a Fumadocs-based local documentation site for setup, architecture, runtime, data/execution, operator surfaces, and QA
 - [x] expand docs with project-state, bootstrap, and frontend-system pages without duplicating repository truth
+- [x] reframe the docs entrypoint, project state, getting started, operator surfaces, and memory/review pages as an operator-first guide rather than a contributor-only manual
 - [ ] expand docs with contributing and deeper reference pages without duplicating repository truth
+- [ ] add feature deep dives for paper operation, broker/account truth, memory/review evidence, research sidecar, runtime modes, and evidence bundles
 - [ ] add a cross-platform bootstrap flow for macOS, Linux, and Windows that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and opens the Web GUI
 - [ ] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
 - [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, including JetBrains Mono typography
@@ -481,5 +486,6 @@ Status: in progress.
       Notes:
 - `docs/` and `webgui/` should stay visually related, but neither should become a second runtime or a cross-app shared-package experiment before the surfaces stabilize
 - the docs app should stay curated and source-linked rather than mirroring whole repository files blindly
+- operator-facing docs should distinguish trading memory/review evidence from contributor `.ai` notes, and should explain V1 paper/live/broker boundaries before package ownership details
 - `webgui` dev mode now runs on `localhost:3210` with Watchpack polling so browser QA matches the README and avoids file-watch noise in this worktree
 - app-managed Ollama and bootstrap work should plug into the existing daemon/log/status surfaces rather than inventing separate setup helpers with hidden runtime state

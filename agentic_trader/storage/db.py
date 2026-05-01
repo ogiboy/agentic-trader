@@ -66,6 +66,7 @@ class ServiceStateUpdate:
     current_symbol: str | None = None
     last_error: str | None = None
     pid: int | None = None
+    clear_pid: bool = False
     stop_requested: bool | None = None
     background_mode: bool | None = None
     launch_count: int | None = None
@@ -1490,8 +1491,12 @@ class TradingDatabase:
         started_at = existing.started_at if existing is not None else None
         if update.state == "starting" or started_at is None:
             started_at = now
-        resolved_pid = _resolve_optional_value(
-            update.pid, existing.pid if existing is not None else None
+        resolved_pid = (
+            None
+            if update.clear_pid
+            else _resolve_optional_value(
+                update.pid, existing.pid if existing is not None else None
+            )
         )
         resolved_stop_requested = _resolve_value(
             update.stop_requested,

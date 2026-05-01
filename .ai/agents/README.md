@@ -39,6 +39,8 @@ For `webgui/` or `docs/` work, also read the local app guidance:
 - `qa.md`: validates the operator experience and records reproducible evidence.
 - `operator-ux.md`: reviews CLI/Rich/Ink UX, visual design, resize behavior, and finance/accounting readability.
 - `data.md`: protects provider, canonical data, freshness, and attribution boundaries.
+- `product-docs.md`: keeps docs useful to operators first, with contributor notes only where they help.
+- `finance-ops.md`: reviews broker, account, portfolio, PnL, exposure, and audit truth through a trading-desk lens.
 
 ## Hand-Off Rules
 
@@ -49,6 +51,8 @@ For `webgui/` or `docs/` work, also read the local app guidance:
 - QA output should use Computer Use for visual CLI/Rich/Ink inspection when available, then fall back to pexpect, tmux, asciinema, and text artifacts when it is not.
 - Operator UX output should include viewport, operator lens, evidence, and the smallest simplification or repair recommendation that would improve V1 usability.
 - Data output should keep raw provider payloads behind canonical contracts.
+- Product docs output should translate internal contracts into operator workflows, concepts, and feature deep dives before contributor implementation notes.
+- Finance ops output should reconcile broker/account claims against adapter payloads, persisted records, dashboard/observer truth, and evidence bundles.
 
 ## Release / Version Handoff
 
@@ -76,3 +80,4 @@ For `webgui/` or `docs/` work, also read the local app guidance:
 - Storage changes should be additive and replay/audit friendly.
 - CLI, Rich, Ink, observer API, and storage should expose the same underlying truth.
 - `webgui` and `docs` should preserve the current shadcn/Tailwind baseline unless an explicit design-system decision changes it.
+- Docs should not describe project `.ai` memory as if it were the product's trading memory; operator-facing pages must distinguish decision history, review evidence, and contributor notes.

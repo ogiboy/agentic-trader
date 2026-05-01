@@ -1,42 +1,59 @@
 ---
-title: Geliştirici Dokümanları
-description: Kurulum, mimari, runtime gerçeği ve Agentic Trader'ı denetlenebilir tutan kurallarla başlamak için ilk durak.
+title: Agentic Trader Rehberi
+description: Agentic Trader'ı kurmak, hazır oluşu kontrol etmek, paper cycle çalıştırmak ve sonuçları incelemek için ilk durak.
 ---
 
-## Bu docs yüzeyi ne için var
+## Agentic Trader nedir
 
-Agentic Trader zaten gerçek bir local runtime'a, gerçek bir kalıcılık katmanına ve gerçek operatör yüzeylerine sahip.
-Bu docs sitesinin görevi, o sistemi daha kolay gezilebilir hâle getirmek; ikinci bir mimari icat etmek değil.
+Agentic Trader local-first çalışan bir trading araştırma ve paper-operation
+sistemidir. Market context, specialist analizleri, memory/review kanıtı, broker
+durumu ve operatör kontrollerini tek bir denetlenebilir runtime içinde toplar.
 
-Bu dokümanlar özellikle şu sorular için var:
+Mevcut V1 duruşu bilinçli olarak temkinlidir:
 
-- Bu davranışın sahibi hangi paket?
-- Bu ekran shared runtime truth'u mu okuyor, yoksa kendi lokal state'ini mi uyduruyor?
-- Kurulum, QA, feedback ve review beklentileri nerede yaşamalı?
-- Bir davranış değiştiğinde hangi repo notları güncellenmeli?
+- varsayılan mod paper trading'dir
+- live execution blokludur
+- readiness gate'leri açık olmalıdır
+- eksik provider, broker veya model kanıtı görünür kalmalıdır
+- her operatör yüzeyi aynı runtime gerçeğini anlatmalıdır
 
-## Role göre okuma yolları
+Bu rehberi sistemi bugün ne yapabildiğini anlamak, güvenli çalıştırmak ve bir
+kararı bir sonraki karara güvenmeden önce incelemek için kullan.
 
-### Eğer projeye yeni giriyorsan
+## Operatör görevine göre okuma yolları
 
-1. [Getting Started](/tr/docs/getting-started) ile başla.
-2. Ortamı `doctor` ile doğrula.
-3. Runtime davranışını değiştirmeden önce ana operatör yüzeylerini aç.
-4. Depoda şu an neyin zaten doğru olduğunu görmek için [Project State](/tr/docs/project-state) sayfasını oku.
+### İlk kurulum
 
-### Eğer runtime davranışını değiştiriyorsan
+1. [Başlangıç](/tr/docs/getting-started) sayfasını oku.
+2. `doctor`, `provider-diagnostics` ve `v1-readiness` kontrollerini çalıştır.
+3. Ink control room ya da Web GUI'yi alt katman kontrolleri uyumlu olduktan sonra aç.
 
-1. [Architecture](/tr/docs/architecture) sayfasını oku.
-2. [Agent Pipeline](/tr/docs/agent-pipeline) sayfasını oku.
-3. [Runtime And Operations](/tr/docs/runtime-and-operations) sayfasını oku.
-4. Kapanışta [QA And Debugging](/tr/docs/qa-and-debugging) sayfasına dön.
+### Paper cycle öncesi
 
-### Eğer docs veya frontend yüzeylerine dokunuyorsan
+1. [Runtime And Operations](/tr/docs/runtime-and-operations) sayfasını oku.
+2. Provider, model, broker ve runtime-mode hazır oluşunu kontrol et.
+3. Roadmap açıkça başka bir şey söylemedikçe koşuyu paper-only tut.
 
-1. [Operator Surfaces](/tr/docs/operator-surfaces) sayfasını oku.
-2. [Frontend System](/tr/docs/frontend-system) sayfasını oku.
-3. [Memory And Review](/tr/docs/memory-and-review) sayfasını oku.
-4. İlgili docs sayfasıyla birlikte `.ai/current-state.md`, `.ai/tasks.md` ve `.ai/decisions.md` dosyalarını da güncelle.
+### Ne olduğunu inceleme
+
+1. [Hafıza ve Review](/tr/docs/memory-and-review) sayfasını oku.
+2. Review snapshot, market context, broker durumu, loglar ve evidence bundle'ı incele.
+3. Eksik veya stale kanıtı kozmetik uyarı değil, gerçek sinyal olarak değerlendir.
+
+### Kafa karıştıran durumları çözme
+
+1. [QA And Debugging](/tr/docs/qa-and-debugging) sayfasını oku.
+2. CLI JSON, observer API, Rich/Ink/Web GUI durumu ve persist edilmiş kayıtları karşılaştır.
+3. Tek bir UI banner'ının söylediğinden çok runtime kanıtına güven.
+
+## Katkı verenler için yol
+
+Kod değiştiriyorsan operatör yolundan sonra şunları oku:
+
+1. [Architecture](/tr/docs/architecture)
+2. [Agent Pipeline](/tr/docs/agent-pipeline)
+3. [Operator Surfaces](/tr/docs/operator-surfaces)
+4. [Frontend System](/tr/docs/frontend-system)
 
 ## Temel vazgeçilmezler
 
@@ -46,29 +63,23 @@ Bu dokümanlar özellikle şu sorular için var:
 - CLI, Rich, Ink, observer API ve Web GUI aynı runtime state'i anlatmalı.
 - Docs uygulaması ve Web GUI mevcut runtime'ın etrafındaki kabuklardır; onun yerine geçmezler.
 
-## Açık tutulması faydalı dosyalar
+## Bu rehber neyi açıklamalı
 
-- `README.md`
-- `ROADMAP.md`
-- `.ai/architecture.md`
-- `.ai/current-state.md`
-- `.ai/tasks.md`
-- `.ai/decisions.md`
-- `.ai/qa/qa-checklist.md`
-- `.ai/qa/qa-scenarios.md`
+Bu docs sitesi önce operatör sorularına cevap vermeli:
 
-## Bu docs yüzeyinin şu anki odağı
+- Agentic Trader bugün ne yapabilir?
+- Hangi moddayım: training, lokal paper, external paper readiness, yoksa blocked live?
+- Sistem gerçekte hangi veriyi gördü?
+- Bir aksiyonu neden approve, block, hold veya reject etti?
+- Broker/account, runtime, memory ve review gerçeğini nereden doğrulayabilirim?
 
-Bu docs alanı şu anda aynı anda dört iş yapıyor:
+Katkı veren notları sistemin bakımına yardım ettiği yerde kalmalı, ama ürün
+anlatısının ve operasyonel risklerin önüne geçmemeli.
 
-- mevcut runtime'ı dürüst biçimde belgelemek
-- daha geniş V1 itmesi öncesinde onboarding beklentilerini sertleştirmek
-- `docs/` ile `webgui/` arasındaki frontend hizasını korumak
-- proje hafızasını canlı tutarak katkı verenlerin aynı sınırları tekrar tekrar keşfetmesini önlemek
+## Katkı bakım sözleşmesi
 
-## Docs bakım sözleşmesi
-
-Bir değişiklik runtime davranışını, ürün yönünü veya geliştirici workflow varsayımlarını etkiliyorsa aynı branch içinde şunları birlikte güncelle:
+Bir değişiklik runtime davranışını, ürün yönünü, operatör workflow'unu veya
+geliştirici varsayımlarını etkiliyorsa aynı branch içinde şunları birlikte güncelle:
 
 - etkilenen docs sayfası
 - `.ai/current-state.md`

@@ -39,6 +39,13 @@ diff, also read the relevant QA checklist/scenario.
 - Operator chat cannot silently mutate execution policy.
 - New provider/data flows preserve source attribution and freshness.
 - Documentation updates match the actual code, not desired future state.
+- Docs use operator-facing product language first and reserve internal `.ai`
+  memory, package ownership, and branch posture details for contributor notes.
+- Portfolio/account marks, fills, execution outcomes, journal rows, dashboard,
+  observer, Rich, Ink, Web GUI, and evidence bundles agree on the same
+  account/run snapshot when a change claims financial truth.
+- Claims about market context, broker state, PnL, exposure, or source quality
+  carry source, timestamp, completeness, stale/degraded, or unavailable state.
 - Stable app version edits are limited to the release automation path on `main`.
 - Non-main branch work uses `pnpm run version:plan` for build identity and does
   not hand-edit `pyproject.toml`, workspace `package.json` files, or

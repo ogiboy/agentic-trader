@@ -42,6 +42,11 @@ Aynı network-free readiness truth artık `dashboard-snapshot`, observer API
 (`/provider-diagnostics` ve `/v1-readiness`), Rich runtime menüsü, Ink
 overview/runtime sayfaları ve Web GUI overview içinde de görünür.
 
+Daemon supervision truth `agentic-trader supervisor-status --json` ve observer
+`/supervisor` endpoint'i üzerinden de okunur. Bu payload ikinci bir
+orkestratör başlatmadan runtime state, heartbeat/staleness, persist edilmiş
+service state ve stdout/stderr log tail'lerini taşır.
+
 ## Ollama yönü
 
 Bugün runtime çoğu zaman model servisinin zaten çalıştığını varsayıyor.

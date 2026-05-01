@@ -20,7 +20,8 @@ Now:
 - keep `sidecars/research_flow/` as a tracked but isolated CrewAI Flow uv project; root `pnpm check` should stay focused on the core runtime until the sidecar is mature enough for a separate CI job
 - keep the CrewAI subprocess contract deterministic and no-sync at runtime: setup/check commands may run `uv sync`, but runtime backend calls should only use an already-installed sidecar environment
 - grow V1.1 as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
-- keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
+- keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` while making it the operator-first product guide, not only a developer entrypoint
+- keep docs language clear about the difference between product trading memory/review evidence and contributor `.ai` project notes
 - keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's uv-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
 - keep development-agent handoffs honest about version ownership before push: stable versions move through `pyproject.toml` plus semantic-release into `agentic_trader/__init__.py`, package manifests, and sidecar metadata; branch builds use `pnpm run version:plan`, and manual version edits need an explicit decision note
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
@@ -33,6 +34,7 @@ Now:
 - design the Ollama-management path as an extension of the existing daemon/log/status surfaces so the app can eventually start, stop, inspect, and expose model-service logs without creating a parallel supervisor
 - use `provider-diagnostics` and `v1-readiness` as the V1 operator gate before longer paper-operation runs or Alpaca paper-readiness checks; the default remains local paper, and `alpaca_paper` requires explicit credentials plus enablement
 - keep shared dashboard, observer API, Rich, Ink, and Web GUI readiness displays in parity with `provider-diagnostics`, `v1-readiness`, and `broker-status`
+- use `.ai/agents/product-docs.md` for docs/product explanation work and `.ai/agents/finance-ops.md` for broker/accounting/PnL/exposure changes; both are development-only roles, not runtime orchestration
 
 Next:
 
@@ -45,6 +47,7 @@ Next:
 - verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
 - after the release workflow lands, verify that the first missing baseline tag dispatch creates a `CHANGELOG.md` baseline section, creates `v0.9.0`, runs binary packaging from that tag, and publishes the GitHub Release instead of relying on a direct `main` binary push
 - keep exercising `alpaca_paper` only as external paper readiness until paper evidence, operator approval, and live adapter scope are explicitly reviewed
+- expand docs feature deep dives for paper operation, broker/account truth, memory/review, research sidecar, runtime modes, and evidence bundles with user-facing examples before adding more contributor-only pages
 - keep an eye on local MCP hygiene: several `mcp/sonarqube` client containers can be active at once, and stale clients should be stopped only after confirming no current Codex/VS Code session depends on them
 
 ### 1. Financial Intelligence Layer
@@ -88,7 +91,7 @@ Current state:
 
 Next desired shape:
 
-- add provider-specific QA cases for partial yfinance windows, intraday provider limits, non-datetime indexes, and higher-timeframe fallbacks
+- keep provider-specific QA cases for partial yfinance windows, intraday provider limits, non-datetime indexes, and higher-timeframe fallbacks in both unit coverage and smoke evidence
 - add compact context-pack rendering to any remaining Rich/admin paths that do not already show the raw persisted run artifact
 - connect future Training/Operation mode to context-pack verbosity and bar excerpt rules
 
@@ -284,7 +287,7 @@ Desired direction:
 - use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, and `pnpm run mcp:sonarqube:status` when verifying that editor/MCP Sonar wiring reads from Keychain and points at the intended local server instead of relying on tracked JSON env values
 - when Sonar reports issues, inspect the full codebase/project backlog rather than only the last commit; prioritize vulnerabilities, security hotspots, correctness bugs, blocker/critical issues, then maintainability cleanup, and record any accepted residual risk
 - add a scenario whenever a new operator-facing surface or safety gate is introduced
-- add lookback/context-pack and Training/Operation mode scenarios before treating production-like paper operation as stable
+- keep lookback/context-pack and Training/Operation mode scenarios in smoke evidence before treating production-like paper operation as stable
 - keep the dashboard contract smoke check aligned with new runtime mode and market context fields consumed by Ink, Rich, CLI, and future WebUI surfaces
 - keep the dashboard contract smoke check aligned with provider diagnostics, V1 readiness, broker health, and external-paper fields consumed by Ink, Rich, Web GUI, and observer endpoints
 

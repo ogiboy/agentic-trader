@@ -1,9 +1,20 @@
 ---
 title: Getting Started
-description: Install the repo, validate local readiness, and bring up the main operator surfaces.
+description: Install the local runtime, verify readiness, and open the control surfaces without hiding failures.
 ---
 
-## Baseline toolchain
+## The first-run goal
+
+The first successful setup should prove three things before any paper cycle:
+
+- the local Python runtime can start
+- provider, model, broker, and runtime-mode readiness are visible
+- the operator surfaces reflect lower-layer truth instead of inventing state
+
+Start with the checks below. If one fails, fix that layer before trusting the
+Web GUI, Ink TUI, or any background service.
+
+## Source install requirements
 
 The repository currently assumes a Python plus Node workflow.
 The Python runtime still owns the actual trading logic, while `webgui/`, `docs/`, and `tui/` are managed from the root pnpm workspace.
@@ -38,9 +49,9 @@ pnpm run setup
 make setup
 ```
 
-## Validate the environment before opening UIs
+## Check readiness before trading
 
-Start with the smallest trust check:
+Run these checks before a paper cycle:
 
 ```bash
 python main.py doctor
@@ -61,6 +72,16 @@ fallback warnings without fetching secrets or pretending missing evidence is
 complete. `v1-readiness` shows whether local paper operation and Alpaca paper
 readiness gates are satisfied; add `--provider-check` when you intentionally
 want it to call the configured model service.
+
+## What readiness means
+
+| Check | Operator question it answers |
+| --- | --- |
+| `doctor` | Can the local runtime start with the expected environment? |
+| `provider-diagnostics --json` | Which data/model providers are configured, missing, or degraded? |
+| `v1-readiness --json` | Is local paper operation ready, and is external Alpaca paper still gated? |
+| `broker-status --json` | Which backend is active, and are live/paper safeguards visible? |
+| `supervisor-status --json` | Is the daemon blocked, running, stale, stopped, or failed? |
 
 ## Configure environment files
 
@@ -86,13 +107,18 @@ export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
 Do not treat raw Ollama traffic as proof that the system is healthy.
 Model reachability, runtime readiness, and recent logs should agree.
 
-## Bring up the main surfaces
+## Run one safe paper cycle
 
 Run one strict cycle:
 
 ```bash
 python main.py run --symbol AAPL --interval 1d --lookback 180d
 ```
+
+Then inspect the review output, dashboard/status JSON, and any evidence bundle
+before treating the run as a trustworthy example.
+
+## Bring up the main surfaces
 
 Open the Ink control room:
 
@@ -118,12 +144,17 @@ Run the Ink TUI directly:
 pnpm start:tui
 ```
 
-## First things to inspect when something feels wrong
+## First places to inspect when something feels wrong
 
 - `doctor` output
+- `provider-diagnostics --json`
+- `v1-readiness --json`
+- `broker-status --json`
+- `supervisor-status --json`
 - runtime status in the CLI or observer surface
 - recent runtime logs
 - model service readiness
+- latest review or trade context
 - environment file differences between the repo root and nested apps
 
 ## Near-term onboarding direction

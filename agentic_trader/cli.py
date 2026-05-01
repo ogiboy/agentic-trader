@@ -3393,6 +3393,7 @@ def build_observer_api_payload(
     - "/health": returns service name, basic OK flag, and the runtime status sub-object.
     - "/status": returns a detailed runtime status view (runtime_state, live_process, is_stale, age_seconds, status_message, state).
     - "/logs": returns a list of recent service events under the "logs" key.
+    - "/supervisor": returns supervisor status plus stdout/stderr log tails.
     - "/broker": returns broker runtime payload.
     - "/provider-diagnostics": returns network-free provider/source readiness.
     - "/v1-readiness": returns V1 paper-operation and Alpaca paper-readiness gates.
@@ -3427,6 +3428,8 @@ def build_observer_api_payload(
                 for event in read_service_events(settings, limit=log_limit)
             ]
         }
+    if path == "/supervisor":
+        return 200, _service_supervisor_payload(settings)
     if path == "/broker":
         return 200, _broker_payload(settings)
     if path == "/provider-diagnostics":
@@ -4557,10 +4560,37 @@ def stop_service(
         )
         raise typer.Exit(code=0)
     if not is_process_alive(state.pid):
+        db = TradingDatabase(settings)
+        try:
+            db.upsert_service_state(
+                state="stopped",
+                continuous=state.continuous,
+                poll_seconds=state.poll_seconds,
+                cycle_count=state.cycle_count,
+                symbols=state.symbols,
+                interval=state.interval,
+                lookback=state.lookback,
+                max_cycles=state.max_cycles,
+                current_symbol=None,
+                message=f"Recovered stale runtime state from dead PID {state.pid}.",
+                last_error=state.last_error,
+                pid=None,
+                clear_pid=True,
+                stop_requested=False,
+            )
+            db.insert_service_event(
+                level="warning",
+                event_type="stale_service_recovered",
+                message=f"Recovered stale runtime state from dead PID {state.pid}.",
+                cycle_count=state.cycle_count if state.cycle_count > 0 else None,
+                symbol=state.current_symbol,
+            )
+        finally:
+            db.close()
         console.print(
             _render_health_panel(
-                "Stale State Cleared",
-                f"Dead PID {state.pid} is no longer alive. The next service start will recover the stale runtime state automatically.",
+                "Stale State Recovered",
+                f"Dead PID {state.pid} is no longer alive. Runtime state was marked stopped and the stale PID was cleared.",
                 border_style="yellow",
             )
         )

@@ -98,6 +98,23 @@ def test_write_report_summarizes_pass_and_failure_results(
     assert "`dashboard` failed: contract missing." in report
 
 
+def test_market_context_edge_case_check_records_v1_context_contract(
+    tmp_path: Path,
+) -> None:
+    result = smoke_qa.run_market_context_edge_case_check(
+        smoke_qa.SmokeContext(artifacts_dir=tmp_path)
+    )
+
+    assert result.passed
+    assert result.details == "context_edge_cases_ok"
+    assert result.artifact is not None
+    artifact = Path(result.artifact).read_text(encoding="utf-8")
+    assert "partial_lookback_coverage" in artifact
+    assert "low_lookback_coverage" in artifact
+    assert "higher_timeframe_fallback" in artifact
+    assert "coverage is too thin" in artifact
+
+
 def test_resolve_smoke_python_prefers_repo_uv_venv(
     tmp_path: Path, monkeypatch
 ) -> None:

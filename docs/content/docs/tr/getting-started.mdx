@@ -1,9 +1,20 @@
 ---
 title: Başlangıç
-description: Depoyu kur, lokal hazır oluşu doğrula ve ana operatör yüzeylerini aç.
+description: Lokal runtime'ı kur, hazır oluşu doğrula ve kontrol yüzeylerini hata gizlemeden aç.
 ---
 
-## Temel toolchain
+## İlk başarılı kurulumun amacı
+
+İlk başarılı kurulum, herhangi bir paper cycle öncesinde üç şeyi kanıtlamalı:
+
+- lokal Python runtime başlayabiliyor
+- provider, model, broker ve runtime-mode hazır oluşu görünür
+- operatör yüzeyleri alt katman gerçeğini yansıtıyor, kendi state'ini uydurmuyor
+
+Aşağıdaki kontrollerle başla. Biri başarısızsa Web GUI, Ink TUI ya da background
+service'e güvenmeden önce o katmanı düzelt.
+
+## Kaynaktan kurulum gereksinimleri
 
 Depo şu anda Python artı Node workflow'u varsayıyor.
 Asıl trading logic hâlâ Python runtime içinde; `webgui/`, `docs/` ve `tui/` root pnpm workspace üzerinden yönetiliyor.
@@ -38,9 +49,9 @@ pnpm run setup
 make setup
 ```
 
-## UI açmadan önce ortamı doğrula
+## Trading öncesi hazır oluşu kontrol et
 
-En küçük güven kontrolüyle başla:
+Bir paper cycle öncesinde bu kontrolleri çalıştır:
 
 ```bash
 python main.py doctor
@@ -61,6 +72,16 @@ uyarılarını secret yazmadan ya da eksik evidence'ı tamam sanmadan gösterir.
 `v1-readiness` lokal paper operation ve Alpaca paper readiness kapılarının geçip
 geçmediğini gösterir; özellikle model servisini de çağırmak istiyorsan
 `--provider-check` ekle.
+
+## Readiness ne anlama gelir
+
+| Kontrol | Cevapladığı operatör sorusu |
+| --- | --- |
+| `doctor` | Lokal runtime beklenen ortamla başlayabiliyor mu? |
+| `provider-diagnostics --json` | Hangi data/model provider'ları hazır, eksik veya degraded? |
+| `v1-readiness --json` | Lokal paper operation hazır mı, external Alpaca paper hâlâ gate arkasında mı? |
+| `broker-status --json` | Hangi backend aktif, live/paper güvenlikleri görünür mü? |
+| `supervisor-status --json` | Daemon blocked, running, stale, stopped veya failed durumda mı? |
 
 ## Ortam dosyalarını yapılandır
 
@@ -86,13 +107,18 @@ export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
 Sadece Ollama trafiğini görmeyi sistemin sağlıklı olduğunun kanıtı sayma.
 Model erişimi, runtime ready oluşu ve son loglar birbiriyle uyumlu olmalı.
 
-## Ana yüzeyleri ayağa kaldır
+## Tek bir güvenli paper cycle çalıştır
 
 Tek bir strict cycle çalıştır:
 
 ```bash
 python main.py run --symbol AAPL --interval 1d --lookback 180d
 ```
+
+Sonrasında bu koşuyu güvenilir bir örnek saymadan önce review çıktısını,
+dashboard/status JSON'u ve varsa evidence bundle'ı incele.
+
+## Ana yüzeyleri ayağa kaldır
 
 Ink control room'u aç:
 
@@ -121,9 +147,14 @@ pnpm start:tui
 ## Bir şey ters hissedildiğinde önce bakılacak yerler
 
 - `doctor` çıktısı
+- `provider-diagnostics --json`
+- `v1-readiness --json`
+- `broker-status --json`
+- `supervisor-status --json`
 - CLI ya da observer yüzeyindeki runtime durumu
 - son runtime logları
 - model servisinin hazır oluşu
+- son review veya trade context
 - root repo ile iç içe Next uygulamaları arasındaki environment farkları
 
 ## Yakın dönem onboarding yönü

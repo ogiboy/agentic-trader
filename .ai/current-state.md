@@ -33,7 +33,7 @@ Implemented or substantially present:
 - a first local Web GUI now exists under `webgui/`; it uses a Next.js shell plus server-side route handlers that call the existing CLI/dashboard/runtime/chat/instruction contracts instead of adding a second runtime
 - the Web GUI now also validates persona/runtime inputs at the route boundary, rejects cross-origin or malformed POST bodies, uses a sequence guard to prevent stale dashboard polls from overwriting newer state, and uses Next metadata/icon wiring plus `next/image` on the operator hero surface
 - the Web GUI command runner now prefers an explicit `AGENTIC_TRADER_PYTHON`, an active virtualenv, or the repo-managed uv `.venv` before falling back to legacy Conda/PATH entrypoints, which keeps the browser shell attached to the current worktree more reliably
-- the repository now also ships a Fumadocs-based `docs/` app with curated MDX pages for onboarding, architecture, agent pipeline, runtime operations, operator surfaces, frontend guidance, memory/review, QA, and contribution workflow, turning the existing docs scaffold into the canonical developer-docs starting point
+- the repository now also ships a Fumadocs-based `docs/` app with curated MDX pages for onboarding, architecture, agent pipeline, runtime operations, operator surfaces, frontend guidance, memory/review, QA, and contribution workflow, turning the existing docs scaffold into the canonical operator guide plus contributor-notes starting point
 - the docs app now uses locale-prefixed English and Turkish routes (`/en/...` and `/tr/...`) with localized page trees, localized feedback copy, and a modular frontend split across home, feedback, layout, i18n, and content helpers instead of one overloaded docs page file
 - the docs app is now configured for GitHub Pages static export with a project base path, static Fumadocs search data, and a feedback widget that prepares browser-local GitHub issue drafts instead of relying on Server Actions or filesystem writes
 - the repository now has GitHub Actions workflow scaffolding for Python/Web GUI/docs CI, semantic-release versioning with synchronized Python/root/workspace package versions on stable releases, SemVer-compatible branch version previews, stable release changelog/tag creation, prerelease branch GitHub Releases for test binaries, PyInstaller macOS/Windows binaries, and GitHub Pages docs deployment
@@ -66,7 +66,7 @@ Implemented or substantially present:
 - QA workflow docs now define product-specific checklist, runbook, scenarios, and evidence conventions for CLI, Rich, Ink, daemon, observer API, memory, governance, and paper broker validation
 - QA workflow docs now treat pexpect, tmux, asciinema, text, and JSON evidence as the baseline contract for CLI/Rich/Ink operator surfaces, while re-adding a Computer Use visual pass whenever the environment exposes it
 - `.ai/agents/operator-ux.md` now defines a development-only reviewer for visual design, CLI ergonomics, terminal resize behavior, menu navigation, and finance/accounting readability
-- `.ai/agents/` now defines development-only collaboration roles for planning, implementation, review, QA, and data architecture; these are guidance documents and not runtime agents or a new orchestration layer
+- `.ai/agents/` now defines development-only collaboration roles for planning, implementation, review, QA, data architecture, product docs, operator UX, and finance operations; these are guidance documents and not runtime agents or a new orchestration layer
 - a terminal smoke harness now captures timestamped evidence for the installed CLI, primary Ink entrypoint, root launcher, Rich menu, deeper Rich submenu navigation, read-only JSON surfaces, optional one-cycle runtime checks, optional quality gates, coverage XML, SonarQube submission, and a human-readable `qa-report.md`
 - `evidence-bundle` now creates a read-only V1 QA bundle under `.ai/qa/artifacts/` with dashboard, status, broker, provider diagnostics, V1 readiness, supervisor, logs, runtime-mode checklist, research status, manifest, and latest smoke summary/report when available
 - `hardware-profile` now records CPU, memory, accelerator hints, configured model size, and safe local parallelism/token recommendations before long paper-operation runs; evidence bundles include this profile
@@ -103,7 +103,7 @@ Implemented or substantially present:
 
 New production-expansion direction:
 
-- the main operator-trust gap is no longer the absence of a lookback artifact; the next gap is adding provider-specific QA around the new fail-closed context-pack semantics
+- the main operator-trust gap is no longer the absence of a lookback artifact; V1 now has deterministic provider-edge QA for fail-closed context-pack semantics, while live-provider Alpaca feed nuances and global/FX market calendars stay outside the V1 blocker boundary
 - the next decision-quality gap is replacing placeholder fundamental/macro inputs with structured provider-backed data while keeping raw noisy text out of agent prompts
 - market snapshots now carry a structured multi-horizon context pack, and Training/Operation visibility, behavior-specific gates, as-of audit fields, and transition checklists are present
 - memory is currently hybrid and inspectable, and vector metadata is now persisted; true local-first semantic embeddings and richer retrieval explanations are still planned expansions
@@ -117,7 +117,7 @@ New production-expansion direction:
 - paper trading only
 - local-first assumptions should remain primary
 - memory layer is still lightweight compared with a richer future retrieval and policy layer
-- lookback analysis has a first operator-verifiable fail-closed contract for operation/runtime flows; training replay can preserve growing-window undercoverage as an explicit context flag, but provider-limit edge cases still need broader QA coverage
+- lookback analysis has an operator-verifiable fail-closed contract for operation/runtime flows; training replay can preserve growing-window undercoverage as an explicit context flag, and smoke QA now covers partial daily windows, intraday provider limits, non-datetime indexes, and higher-timeframe fallbacks without fetching live providers
 - true semantic memory is not implemented yet; current vector-style retrieval with explicit metadata should be treated as a migration bridge, not the destination
 - Training vs Operation mode is enforced for the first core boundary: Operation requires strict LLM readiness, while Training diagnostic fallback is limited to evaluation/backtest flows
 - live broker adapters are not implemented or enabled; simulated-real remains local and non-live
@@ -129,6 +129,7 @@ New production-expansion direction:
 - fundamental and macro/news agents currently return structured neutral fallback when only scaffold provider data exists; this is intentional until real provider evidence is present
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy
+- daemon lifecycle is safer around blocked runtime gates, stale/dead PIDs, stop requests during cycle sleeps, skipped-symbol stops, supervisor log-tail parity, and monitor stage-cycle filtering
 - Ink TUI is the primary operator surface, but broader htop-like control affordances, full resize-proofing across every page, and visual refinement are still open
 - runtime performance is currently controlled mostly through static settings; `hardware-profile` now gives operator guidance, but automatic hardware-aware runtime tuning for concurrency, model routing, token budgets, and memory use is still a planned next step
 - DB-backed review surfaces may intentionally fall back to observer mode while the runtime writer is active
@@ -139,6 +140,8 @@ New production-expansion direction:
 - `webgui` lint, typecheck, production build, and the local `pnpm dev:webgui` flow on `localhost:3210` are now green in this worktree
 - Web GUI review, portfolio, risk, journal, and memory panels now surface section-level unavailability errors explicitly instead of collapsing them into generic empty states
 - `docs` now builds and lints with the new Fumadocs shell and is prepared for GitHub Pages static export, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
+- the docs surface is being reframed as an operator-first guide: it should explain what Agentic Trader does, how to run paper cycles safely, how to inspect memory/review/broker evidence, and where V1 boundaries are before contributor-only package ownership details
+- docs language now distinguishes product trading memory and review evidence from contributor `.ai` project notes so end users do not confuse repo-maintenance memory with runtime decision memory
 - root `pnpm check` and `make check` are now the intended static/build validation entrypoints; use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA, and focused `pnpm --filter ...`, `uv run ...`, or `pnpm run check:research-flow` commands when narrowing a failure
 - `.codex/environments/environment.toml` setup and check actions now include the tracked CrewAI Flow sidecar setup/check commands so Codex workspace actions do not drift from README and root pnpm scripts
 - release binary uploads should be validated through the release workflow/tag-dispatch path; direct `main` branch binary workflow runs may upload artifacts while intentionally skipping GitHub Release publication
@@ -154,4 +157,4 @@ The codebase should be treated as:
 - already opinionated
 - ready for targeted extension, not a rewrite
 - dependent on keeping `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` in sync with meaningful architecture changes
-- now in a V1-hardening phase that includes optional app-managed Ollama supervision, provider-aware bootstrap work, and expanding the new Fumadocs developer docs without replacing the existing runtime shape
+- now in a V1-hardening phase that includes optional app-managed Ollama supervision, provider-aware bootstrap work, and expanding the new Fumadocs operator guide without replacing the existing runtime shape

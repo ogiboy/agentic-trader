@@ -58,6 +58,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] `agentic-trader v1-readiness --json` reports paper-operation gates and
   Alpaca paper-readiness gates before longer operation or external paper checks.
 - [ ] `agentic-trader supervisor-status` reports daemon metadata and log tails without requiring the DuckDB writer lock.
+- [ ] Observer-compatible supervisor payloads expose the same daemon metadata and log-tail truth.
 - [ ] `agentic-trader dashboard-snapshot` contains the same truth consumed by Ink.
 
 ## Ink TUI
@@ -124,7 +125,7 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 ## Observer API / Future WebUI
 
 - [ ] `observer-api` exposes read-only local endpoints only.
-- [ ] `/health`, `/dashboard`, `/status`, `/logs`, and `/broker` return valid JSON.
+- [ ] `/health`, `/dashboard`, `/status`, `/logs`, `/supervisor`, and `/broker` return valid JSON.
 - [ ] Observer API does not duplicate orchestration logic.
 - [ ] Web-facing payloads match dashboard/CLI contracts.
 

@@ -399,12 +399,14 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
     return table
 
 
-def _agent_activity_table(events: list[ServiceEvent]) -> Table:
+def _agent_activity_table(
+    state: ServiceStateSnapshot | None, events: list[ServiceEvent]
+) -> Table:
     table = Table(title="Live Agent Activity")
     table.add_column("Stage")
     table.add_column("Status")
     table.add_column("Message")
-    activity = build_agent_activity_view(None, events)
+    activity = build_agent_activity_view(state, events)
     if not activity.stage_statuses:
         table.add_row("-", "-", "No live agent stage events yet.")
         return table
@@ -620,7 +622,10 @@ def build_monitor_renderable(
     top = Columns(
         [
             _current_activity_panel(runtime_state, events),
-            Panel(_agent_activity_table(events), border_style="bright_magenta"),
+            Panel(
+                _agent_activity_table(runtime_state, events),
+                border_style="bright_magenta",
+            ),
         ],
         equal=True,
         expand=True,

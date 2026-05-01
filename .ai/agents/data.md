@@ -27,8 +27,14 @@ For provider or context changes, inspect the current surfaces under:
 - Normalize provider payloads into canonical internal contracts.
 - Preserve provider name, freshness, completeness, missing sections, and
   attribution metadata.
+- Treat broker and account payloads as financial evidence too: preserve backend,
+  adapter, mark timestamp, quote timestamp, fill timestamp, quantity, average
+  price, fee/commission placeholders, slippage/spread metadata, and rejection
+  source when those fields are available.
 - Keep raw noisy documents out of agent prompts by default.
 - Make data gaps explicit instead of letting models infer missing facts.
+- Never let a model infer account state from trade intent; account state must
+  come from broker/accounting contracts or be marked unavailable.
 - Keep API keys in ignored local env files and out of prompts, logs, tests, and
   QA artifacts.
 - Design for SEC EDGAR, KAP, macro indicators, transcripts, and vendor APIs
@@ -41,6 +47,8 @@ For provider or context changes, inspect the current surfaces under:
 - Do not silently backfill missing fundamentals or macro facts with model guesses.
 - Do not make provider failures look like neutral evidence unless the payload
   explicitly records missing data.
+- Do not make missing broker/account fields look like neutral evidence; they
+  should reduce operator confidence or block claims that need them.
 - Do not couple agent schemas to vendor-specific response shapes.
 
 ## Data Design Checklist

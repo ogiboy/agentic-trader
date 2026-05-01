@@ -652,6 +652,136 @@ def run_dashboard_contract_check(
     )
 
 
+def run_market_context_edge_case_check(context: SmokeContext) -> CheckResult:
+    """
+    Validate deterministic Market Context Pack edge cases used by V1 readiness.
+
+    This intentionally avoids network and LLM calls. It protects the operator
+    contract that operation windows fail closed when materially under-covered,
+    while training-style snapshot generation can preserve undercoverage as a
+    visible quality flag for replay/evaluation.
+    """
+    name = "market_context_edge_cases"
+    artifact = _artifact_path(context, name)
+    issues: list[str] = []
+    observations: dict[str, object] = {}
+
+    try:
+        import pandas as pd
+
+        from agentic_trader.market.features import build_snapshot
+
+        def ohlcv_frame(periods: int, *, index: pd.Index | None = None) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    "open": [100 + i for i in range(periods)],
+                    "high": [101 + i for i in range(periods)],
+                    "low": [99 + i for i in range(periods)],
+                    "close": [100 + i for i in range(periods)],
+                    "volume": [1_000 + (i * 10) for i in range(periods)],
+                },
+                index=index,
+            )
+
+        partial_frame = ohlcv_frame(
+            80, index=pd.date_range("2025-01-01", periods=80, freq="B")
+        )
+        partial_snapshot = build_snapshot(
+            partial_frame, symbol="PARTIAL", interval="1d", lookback="180d"
+        )
+        partial_pack = partial_snapshot.context_pack
+        observations["partial_daily"] = (
+            partial_pack.model_dump(mode="json") if partial_pack is not None else None
+        )
+        if partial_pack is None:
+            issues.append("partial daily context pack missing")
+        elif "partial_lookback_coverage" not in partial_pack.data_quality_flags:
+            issues.append("partial daily window did not mark partial_lookback_coverage")
+
+        intraday_frame = ohlcv_frame(
+            120, index=pd.date_range("2025-01-01 09:30", periods=120, freq="h")
+        )
+        try:
+            build_snapshot(
+                intraday_frame, symbol="INTRADAY", interval="1h", lookback="180d"
+            )
+        except ValueError as exc:
+            observations["intraday_operation_block"] = str(exc)
+            if "coverage is too thin" not in str(exc):
+                issues.append("intraday operation block did not explain thin coverage")
+        else:
+            issues.append("intraday provider-limit window did not fail closed")
+
+        replay_snapshot = build_snapshot(
+            intraday_frame,
+            symbol="TRAIN",
+            interval="1h",
+            lookback="180d",
+            enforce_lookback_coverage=False,
+        )
+        replay_pack = replay_snapshot.context_pack
+        observations["intraday_training"] = (
+            replay_pack.model_dump(mode="json") if replay_pack is not None else None
+        )
+        if replay_pack is None:
+            issues.append("training replay context pack missing")
+        elif "low_lookback_coverage" not in replay_pack.data_quality_flags:
+            issues.append("training replay did not preserve low_lookback_coverage")
+
+        range_snapshot = build_snapshot(
+            ohlcv_frame(80), symbol="RANGE", interval="1d", lookback="90d"
+        )
+        range_pack = range_snapshot.context_pack
+        observations["non_datetime_index"] = (
+            range_pack.model_dump(mode="json") if range_pack is not None else None
+        )
+        if range_pack is None:
+            issues.append("non-datetime context pack missing")
+        elif "higher_timeframe_fallback" not in range_pack.data_quality_flags:
+            issues.append("non-datetime index did not mark higher_timeframe_fallback")
+
+        short_htf_snapshot = build_snapshot(
+            ohlcv_frame(
+                80, index=pd.date_range("2025-01-01", periods=80, freq="B")
+            ),
+            symbol="SHORTHTF",
+            interval="1d",
+            lookback="90d",
+        )
+        short_htf_pack = short_htf_snapshot.context_pack
+        observations["short_higher_timeframe"] = (
+            short_htf_pack.model_dump(mode="json")
+            if short_htf_pack is not None
+            else None
+        )
+        if short_htf_pack is None:
+            issues.append("short higher-timeframe context pack missing")
+        elif "higher_timeframe_fallback" not in short_htf_pack.data_quality_flags:
+            issues.append(
+                "short higher-timeframe window did not mark higher_timeframe_fallback"
+            )
+    except Exception as exc:
+        issues.append(f"exception={exc}")
+
+    _write_artifact(
+        artifact,
+        json.dumps(
+            {
+                "issues": issues,
+                "observations": observations,
+            },
+            indent=2,
+            default=str,
+        ),
+    )
+    return CheckResult(
+        name=name,
+        passed=not issues,
+        details="context_edge_cases_ok" if not issues else "; ".join(issues),
+        artifact=str(artifact),
+    )
+
+
 def _spawn_env() -> dict[str, str]:
     """
     Provide an environment dictionary for spawning interactive child processes, ensuring a default terminal type.
@@ -1560,6 +1690,7 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
                     context,
                     [agentic_trader_executable, "dashboard-snapshot"],
                 ),
+                run_market_context_edge_case_check(context),
                 run_command_capture(
                     context,
                     "runtime_mode_checklist_json",

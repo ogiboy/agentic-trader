@@ -42,6 +42,11 @@ The same network-free readiness truth is also part of `dashboard-snapshot`, the
 observer API (`/provider-diagnostics` and `/v1-readiness`), Rich runtime menu,
 Ink overview/runtime pages, and the Web GUI overview.
 
+Daemon supervision truth is available through `agentic-trader supervisor-status
+--json` and the observer `/supervisor` endpoint. That payload includes runtime
+state, heartbeat/staleness, persisted service state, and stdout/stderr log
+tails without starting a second orchestrator.
+
 ## Ollama direction
 
 Today the runtime usually assumes the model service is already running.

@@ -38,6 +38,13 @@ Review the product like three people at once:
   equity, positions, exposure, and PnL
 - whether financial numbers show labels, units, currency, sign, precision, and
   context clearly enough for review
+- whether broker/account labels clearly separate approved, submitted, filled,
+  rejected, blocked, simulated, and partially filled states
+- whether cash, equity, PnL, and exposure values come from the same snapshot time
+  and make stale or degraded state visible
+- whether every operator-facing financial claim can be cross-checked through
+  `broker-status --json`, dashboard/observer payloads, persisted review records,
+  or an evidence bundle
 
 ## Quality And Repair Loop
 

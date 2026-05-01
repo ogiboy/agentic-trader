@@ -71,6 +71,7 @@ Expected:
   readiness marked unchecked unless `--provider-check` is used
 - evidence bundle writes dashboard/status/broker/provider/readiness/log artifacts
   plus a manifest under `.ai/qa/artifacts/` without mutating runtime state
+- supervisor status exposes daemon metadata and log tails without requiring the runtime writer lock
 - broker payload reports `paper` unless environment variables override it
 
 ## Scenario 2: Primary Ink Control Room
@@ -248,6 +249,7 @@ curl -s http://127.0.0.1:8765/health
 curl -s http://127.0.0.1:8765/dashboard
 curl -s http://127.0.0.1:8765/status
 curl -s http://127.0.0.1:8765/logs
+curl -s http://127.0.0.1:8765/supervisor
 curl -s http://127.0.0.1:8765/broker
 curl -s http://127.0.0.1:8765/provider-diagnostics
 curl -s http://127.0.0.1:8765/v1-readiness
@@ -257,7 +259,8 @@ Expected:
 
 - every endpoint returns JSON
 - observer API is read-only
-- payloads match dashboard/status/log/broker CLI truth
+- supervisor payload includes daemon status and stdout/stderr log tails
+- payloads match dashboard/status/log/supervisor/broker CLI truth
 
 ## Scenario 10: Local Web GUI
 

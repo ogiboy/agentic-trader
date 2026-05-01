@@ -42,6 +42,21 @@ Reason:
 ChatGPT, Codex, and similar tools may help plan and implement changes, but they should not become assumptions inside the trading runtime.
 The `.ai/agents/` role pack documents development workflows for planner, implementer, reviewer, QA, and data-focused helpers only; it must not be interpreted as a runtime agent platform or external orchestration dependency.
 
+### Operator-facing docs should explain the product before the repo
+
+Reason:
+Agentic Trader is now mature enough that docs cannot only speak to developers and AI agents.
+The docs site should first help an operator understand what the system does, how to run paper cycles safely, how to inspect decisions, and where V1 boundaries are.
+Contributor notes, `.ai` project memory, package ownership, and branch posture still matter, but they should appear as maintenance context rather than the primary product story.
+Docs must distinguish product trading memory and review evidence from contributor `.ai` notes so users do not confuse repo-maintenance state with runtime decision memory.
+
+### Operator-facing finance truth must be reconciled evidence, not UI copy
+
+Reason:
+Paper-operation trust depends on account marks, fills, PnL, exposure, broker backend, source attribution, and timestamps agreeing across runtime, storage, and operator surfaces.
+Agents reviewing changes must treat finance/accounting claims like desk evidence: traceable, timestamped, source-attributed, and explicit about missing, stale, degraded, simulated, or blocked data.
+No UI, model response, or docs page should infer broker/account state from trade intent or make missing account evidence look neutral.
+
 ### Provider expansion should happen through adapters
 
 Reason:
@@ -135,6 +150,14 @@ Fetching a long market window is not enough if the agent context and operator su
 The next input layer should persist a Market Context Pack with multi-horizon summaries, data sufficiency, anomaly flags, and window coverage so every run can prove what history was actually considered.
 If expected coverage is materially too low in operation/runtime flows, the system should fail before agent execution instead of silently treating an under-covered provider response as a valid long-window decision.
 Training replay is allowed to use growing windows, but undercoverage must remain visible as context rather than being confused with production-ready coverage.
+V1 release evidence should include deterministic edge cases for partial daily windows, intraday provider limits, non-datetime indexes, and higher-timeframe fallbacks so this contract is tested without requiring live provider availability.
+
+### Daemon lifecycle must leave an auditable terminal state
+
+Reason:
+Background operation is only trustworthy if every blocked, stopped, stale, or failed path is visible to the operator.
+LLM readiness failures must record a `blocked` service state before exiting; stop requests must be honored during cycle sleeps and after skipped symbols; dead PID recovery must clear the stale PID instead of only promising a later cleanup; and live-but-stale heartbeat state must not allow a second hidden background launch.
+Supervisor/log-tail payloads should remain available through CLI and observer-compatible surfaces so Web GUI and QA evidence do not need a separate runtime truth path.
 
 ### Training and Operation should be runtime modes, not separate products
 

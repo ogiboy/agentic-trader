@@ -1,26 +1,52 @@
 ---
 title: Memory And Review
-description: How project memory, review artifacts, and docs updates stay aligned with runtime reality.
+description: How trading memory, review evidence, and contributor notes stay separate and inspectable.
 ---
 
-## What “memory” means in this repo
+## What memory means to an operator
 
-Memory here is not only model memory.
-It also includes:
+For an operator, memory means the evidence that helps explain a decision:
+
+- prior runs that were retrieved as similar context
+- market context packs and data-quality flags
+- specialist and manager outputs
+- broker/account state used during review
+- persisted traces, trade context, and review snapshots
+- source attribution, freshness, and missing-evidence notes
+
+Memory is inspection support.
+It is not hidden permission to trade, and it should not silently mutate broker,
+risk, or runtime policy.
+
+## Review evidence
+
+When a result looks suspicious, review evidence in this order:
+
+1. provider and market artifacts, including `as_of`, freshness, completeness,
+   and fallback state
+2. runtime state, supervisor state, and logs
+3. broker/account status, execution outcome, and rejection reason
+4. specialist and manager outputs
+5. persisted review snapshots and UI behavior
+
+Do not jump from "the answer feels wrong" straight to "the prompt must be
+rewritten". First verify what data, state, and evidence the system actually saw.
+
+## Trading memory versus contributor notes
+
+Agentic Trader also has contributor-facing repo memory. That includes:
 
 - `.ai/current-state.md`
 - `.ai/tasks.md`
 - `.ai/decisions.md`
-- runtime review artifacts
-- persisted traces and context packs
+- `.ai/qa/*`
 - docs pages that explain current working assumptions
 
-## Why this matters
+Those files help maintainers keep the project aligned. They are not the same as
+the product's trading memory, similar-run retrieval, or review evidence shown to
+an operator.
 
-A repo this size becomes harder to maintain if implementation, docs, and working assumptions drift apart.
-The fastest way to make future work slower is to leave behind stale project memory.
-
-## When to update repo memory
+## When contributor notes should change
 
 Update `.ai` notes when a change affects:
 
@@ -31,21 +57,10 @@ Update `.ai` notes when a change affects:
 - QA expectations
 - safety boundaries
 
-## Review posture
-
-When reviewing a suspicious result, prefer inspectable evidence:
-
-1. typed provider or market artifacts
-2. runtime state and logs
-3. specialist and manager outputs
-4. persisted review snapshots
-5. UI behavior
-
-Do not jump straight from “the answer feels wrong” to “the prompt must be rewritten”.
-
 ## Docs responsibility
 
-This docs site is part of project memory.
+This docs site is part of the contributor-maintained knowledge base, but it
+should be written for operators first.
 Whenever a durable decision changes, the right follow-up is usually:
 
 - update the implementation
@@ -53,6 +68,9 @@ Whenever a durable decision changes, the right follow-up is usually:
 - update `.ai/current-state.md`
 - update `.ai/decisions.md`
 - update `.ai/tasks.md` if work remains
+
+The key wording rule: describe product memory as decision/review evidence, and
+describe `.ai` files as contributor notes.
 
 ## Feedback flow in plain language
 

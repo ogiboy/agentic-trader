@@ -303,6 +303,7 @@ agentic-trader observer-api --host 127.0.0.1 --port 8765
 curl -s http://127.0.0.1:8765/health
 curl -s http://127.0.0.1:8765/dashboard
 curl -s http://127.0.0.1:8765/broker
+curl -s http://127.0.0.1:8765/supervisor
 ```
 
 ## Failure Triage

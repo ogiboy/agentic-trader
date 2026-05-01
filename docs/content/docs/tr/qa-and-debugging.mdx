@@ -18,6 +18,10 @@ V1 readiness, broker health, external-paper state, runtime mode ve Market
 Context Pack bölümlerinin bulunduğunu doğrular; Ink/Web/observer yüzeyleri bu
 alanları tüketmeden önce drift yakalanır.
 
+Ayrıca partial daily window, intraday provider limitleri, non-datetime index,
+higher-timeframe fallback ve Training replay undercoverage flag'leri için
+deterministik market-context edge-case kontrolü çalıştırır.
+
 İncelenebilir yerel evidence paketi için:
 
 ```bash
@@ -27,8 +31,8 @@ agentic-trader evidence-bundle
 
 Bu paket read-only çalışır ve dashboard, status, broker, provider diagnostics,
 V1 readiness, runtime logları, runtime-mode checklist, research status, hardware
-profile, operator workflow, manifest ve varsa son smoke summary/report
-dosyalarını içerir.
+profile, supervisor log tail'leri, operator workflow, manifest ve varsa son
+smoke summary/report dosyalarını içerir.
 
 Docs uygulaması için:
 

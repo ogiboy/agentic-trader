@@ -188,12 +188,16 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | Command                                                                                | Notes                                      |
 | -------------------------------------------------------------------------------------- | ------------------------------------------ |
 | `agentic-trader doctor`                                                                | Human-readable environment check           |
+| `agentic-trader operator-workflow`                                                     | Show the canonical V1 review order         |
+| `agentic-trader hardware-profile --json`                                               | Inspect local hardware/runtime sizing hints |
 | `agentic-trader run --symbol AAPL --interval 1d --lookback 180d`                       | One paper cycle with strict gates          |
 | `agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous` | Continuous paper runtime                   |
 | `agentic-trader monitor --refresh-seconds 1`                                           | Attach to runtime status                   |
+| `agentic-trader supervisor-status --json`                                              | Inspect daemon state and log tails         |
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
 | `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
 | `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks |
+| `agentic-trader evidence-bundle --json`                                                | Package read-only QA/release evidence      |
 | `agentic-trader research-status --json`                                                | Inspect optional research sidecar health   |
 | `agentic-trader research-refresh --json`                                               | Run one isolated sidecar snapshot pass     |
 | `agentic-trader research-flow-setup --json`                                            | Inspect optional CrewAI Flow sidecar readiness |
