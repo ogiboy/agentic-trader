@@ -36,6 +36,12 @@ Recommended terminal smoke pass:
 pnpm run qa
 ```
 
+Recommended V1 evidence bundle:
+
+```bash
+agentic-trader evidence-bundle
+```
+
 Recommended terminal + code-quality pass:
 
 ```bash
@@ -230,6 +236,7 @@ Core:
 agentic-trader doctor
 agentic-trader provider-diagnostics
 agentic-trader v1-readiness
+agentic-trader evidence-bundle
 agentic-trader dashboard-snapshot
 agentic-trader broker-status
 agentic-trader supervisor-status

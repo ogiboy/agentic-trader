@@ -117,6 +117,8 @@ app = typer.Typer(
 console = Console()
 
 TUI_PACKAGE_NAME = "agentic-trader-tui"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
 
 
 type NodeCommandSet = tuple[list[str], list[str], Path, str]
@@ -2899,6 +2901,190 @@ def build_dashboard_snapshot_payload(
         "providerDiagnostics": provider_diagnostics_payload(settings),
         "v1Readiness": v1_readiness_payload(settings, check_provider=False),
     }
+
+
+def _claim_timestamped_dir(root: Path, label: str) -> Path:
+    """Create a unique artifact directory using label or label-N."""
+    root.mkdir(parents=True, exist_ok=True)
+    for attempt in range(1, 1000):
+        suffix = "" if attempt == 1 else f"-{attempt}"
+        candidate = root / f"{label}{suffix}"
+        try:
+            candidate.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            continue
+        return candidate
+    msg = f"Unable to create a unique artifact directory for {label!r}"
+    raise RuntimeError(msg)
+
+
+def _write_bundle_json(bundle_dir: Path, filename: str, payload: object) -> str:
+    path = bundle_dir / filename
+    path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    return str(path)
+
+
+def _latest_smoke_artifact_dir(artifacts_root: Path) -> Path | None:
+    if not artifacts_root.exists():
+        return None
+    candidates = [
+        path
+        for path in artifacts_root.glob("smoke-*")
+        if path.is_dir() and (path / "smoke-summary.json").exists()
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def build_evidence_bundle(
+    settings: Settings,
+    *,
+    output_dir: Path | None = None,
+    label: str | None = None,
+    log_limit: int = 20,
+    include_latest_smoke: bool = True,
+) -> dict[str, object]:
+    """Create a read-only QA evidence bundle from shared runtime contracts."""
+    artifacts_root = output_dir.expanduser() if output_dir is not None else QA_ARTIFACTS_ROOT
+    if not artifacts_root.is_absolute():
+        artifacts_root = PROJECT_ROOT / artifacts_root
+    run_label = label or f"evidence-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    bundle_dir = _claim_timestamped_dir(artifacts_root, run_label)
+
+    state = read_service_state(settings)
+    status_view = build_runtime_status_view(state)
+    operation_plan = _runtime_mode_transition_plan(
+        settings, target_mode="operation", check_provider=False
+    )
+    events = read_service_events(settings, limit=log_limit)
+    files: dict[str, str] = {}
+    files["dashboard"] = _write_bundle_json(
+        bundle_dir,
+        "dashboard-snapshot.json",
+        build_dashboard_snapshot_payload(settings, log_limit=log_limit),
+    )
+    files["status"] = _write_bundle_json(
+        bundle_dir,
+        "status.json",
+        _runtime_status_payload(status_view, settings),
+    )
+    files["broker"] = _write_bundle_json(
+        bundle_dir,
+        "broker-status.json",
+        _broker_payload(settings),
+    )
+    files["provider_diagnostics"] = _write_bundle_json(
+        bundle_dir,
+        "provider-diagnostics.json",
+        provider_diagnostics_payload(settings),
+    )
+    files["v1_readiness"] = _write_bundle_json(
+        bundle_dir,
+        "v1-readiness.json",
+        v1_readiness_payload(settings, check_provider=False),
+    )
+    files["supervisor"] = _write_bundle_json(
+        bundle_dir,
+        "supervisor-status.json",
+        _service_supervisor_payload(settings),
+    )
+    files["logs"] = _write_bundle_json(
+        bundle_dir,
+        "logs.json",
+        {"logs": [event.model_dump(mode="json") for event in events]},
+    )
+    files["runtime_mode_operation"] = _write_bundle_json(
+        bundle_dir,
+        "runtime-mode-operation-checklist.json",
+        operation_plan.model_dump(mode="json"),
+    )
+    files["research"] = _write_bundle_json(
+        bundle_dir,
+        "research-status.json",
+        _research_sidecar_payload(settings),
+    )
+
+    latest_smoke_dir: Path | None = None
+    if include_latest_smoke:
+        latest_smoke_dir = _latest_smoke_artifact_dir(artifacts_root)
+        if latest_smoke_dir is not None:
+            for source_name, target_name, key in (
+                ("smoke-summary.json", "latest-smoke-summary.json", "latest_smoke_summary"),
+                ("qa-report.md", "latest-qa-report.md", "latest_qa_report"),
+            ):
+                source = latest_smoke_dir / source_name
+                if source.exists():
+                    target = bundle_dir / target_name
+                    shutil.copyfile(source, target)
+                    files[key] = str(target)
+
+    manifest: dict[str, object] = {
+        "bundle_version": "qa-evidence.v1",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "bundle_dir": str(bundle_dir),
+        "runtime_dir": str(settings.runtime_dir),
+        "database_path": str(settings.database_path),
+        "log_limit": log_limit,
+        "latest_smoke_dir": str(latest_smoke_dir) if latest_smoke_dir else None,
+        "files": files,
+    }
+    manifest_path = bundle_dir / "manifest.json"
+    files["manifest"] = str(manifest_path)
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, default=str), encoding="utf-8"
+    )
+    return manifest
+
+
+@app.command("evidence-bundle")
+def evidence_bundle_command(
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        help="Artifact root. Defaults to .ai/qa/artifacts.",
+    ),
+    label: str | None = typer.Option(
+        None,
+        "--label",
+        help="Bundle directory label. Defaults to evidence-YYYYMMDD-HHMMSS.",
+    ),
+    log_limit: int = typer.Option(
+        20, min=1, max=200, help="Maximum number of runtime events to include."
+    ),
+    include_latest_smoke: bool = typer.Option(
+        True,
+        "--include-latest-smoke/--no-latest-smoke",
+        help="Copy the latest smoke summary/report into the bundle when available.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Collect read-only runtime, broker, readiness, and QA evidence into a bundle."""
+    settings = get_settings()
+    manifest = build_evidence_bundle(
+        settings,
+        output_dir=output_dir,
+        label=label,
+        log_limit=log_limit,
+        include_latest_smoke=include_latest_smoke,
+    )
+    if json_output:
+        _emit_json(manifest)
+        return
+    files = cast(dict[str, str], manifest["files"])
+    table = Table(title="QA Evidence Bundle")
+    table.add_column("Artifact", style="cyan")
+    table.add_column("Path")
+    for key, path in files.items():
+        table.add_row(key, path)
+    console.print(
+        Panel(
+            f"Bundle written to {manifest['bundle_dir']}",
+            title="Evidence Bundle",
+            border_style="green",
+        )
+    )
+    console.print(table)
 
 
 def build_observer_api_payload(

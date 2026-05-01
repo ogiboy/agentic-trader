@@ -49,6 +49,7 @@ Steps:
 agentic-trader doctor
 agentic-trader provider-diagnostics --json
 agentic-trader v1-readiness --json
+agentic-trader evidence-bundle --json
 agentic-trader dashboard-snapshot > .ai/qa/artifacts/dashboard.json
 python main.py doctor
 ```
@@ -62,6 +63,8 @@ Expected:
   readiness without printing secret values
 - V1 readiness reports paper-operation and Alpaca paper checks, with provider
   readiness marked unchecked unless `--provider-check` is used
+- evidence bundle writes dashboard/status/broker/provider/readiness/log artifacts
+  plus a manifest under `.ai/qa/artifacts/` without mutating runtime state
 - broker payload reports `paper` unless environment variables override it
 
 ## Scenario 2: Primary Ink Control Room
@@ -240,6 +243,8 @@ curl -s http://127.0.0.1:8765/dashboard
 curl -s http://127.0.0.1:8765/status
 curl -s http://127.0.0.1:8765/logs
 curl -s http://127.0.0.1:8765/broker
+curl -s http://127.0.0.1:8765/provider-diagnostics
+curl -s http://127.0.0.1:8765/v1-readiness
 ```
 
 Expected:

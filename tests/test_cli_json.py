@@ -62,6 +62,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["provider-diagnostics", "-h"],
         ["v1-readiness", "--help"],
         ["v1-readiness", "-h"],
+        ["evidence-bundle", "--help"],
+        ["evidence-bundle", "-h"],
         ["research-status", "--help"],
         ["research-status", "-h"],
         ["research-refresh", "--help"],
@@ -736,6 +738,67 @@ def test_dashboard_snapshot_json(
     assert payload["tradeContext"]["record"]["symbol"] == "AAPL"
     assert payload["replay"]["available"] is True
     assert payload["replay"]["replay"]["snapshot"]["mtf_alignment"] == "bullish"
+
+
+def test_evidence_bundle_json_creates_read_only_artifacts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path / "runtime",
+        database_path=tmp_path / "runtime" / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.cli.LocalLLM.health_check",
+        lambda self: LLMHealthStatus(
+            provider="ollama",
+            base_url=self.settings.base_url,
+            model_name=self.settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ready",
+        ),
+    )
+
+    artifacts_root = tmp_path / "artifacts"
+    result = CliRunner().invoke(
+        app,
+        [
+            "evidence-bundle",
+            "--output-dir",
+            str(artifacts_root),
+            "--label",
+            "evidence-test",
+            "--no-latest-smoke",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    manifest = json.loads(result.stdout)
+    bundle_dir = Path(manifest["bundle_dir"])
+    assert bundle_dir == artifacts_root / "evidence-test"
+    files = manifest["files"]
+    for key in (
+        "dashboard",
+        "status",
+        "broker",
+        "provider_diagnostics",
+        "v1_readiness",
+        "supervisor",
+        "logs",
+        "runtime_mode_operation",
+        "research",
+        "manifest",
+    ):
+        assert Path(files[key]).exists()
+
+    dashboard = json.loads(Path(files["dashboard"]).read_text(encoding="utf-8"))
+    assert "providerDiagnostics" in dashboard
+    assert "v1Readiness" in dashboard
+    broker = json.loads(Path(files["broker"]).read_text(encoding="utf-8"))
+    assert broker["backend"] == "paper"
 
 
 def test_instruct_json_reports_instruction_and_applied_preferences(

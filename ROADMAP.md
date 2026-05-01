@@ -327,7 +327,7 @@ Status: in progress.
 - [ ] use Computer Use for visual CLI/Rich/Ink inspection when available, with pexpect, tmux, asciinema, and text artifacts as the fallback path
 - [ ] optionally capture tmux pane dumps and asciinema recordings for Ink and Rich visual regressions
 - [x] generate a human-readable `qa-report.md` from structured check results for each smoke run
-- [ ] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, trace, context pack, and QA results under a timestamped artifact directory
+- [x] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, readiness, broker state, observer-compatible payloads, and QA results under a timestamped artifact directory
 - [ ] keep quality gates tiered: CI-safe CLI/static checks first, local interactive TUI checks second, manual visual recordings third
 - [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
       Notes:
