@@ -234,6 +234,7 @@ Core:
 
 ```bash
 agentic-trader doctor
+agentic-trader hardware-profile
 agentic-trader provider-diagnostics
 agentic-trader v1-readiness
 agentic-trader evidence-bundle

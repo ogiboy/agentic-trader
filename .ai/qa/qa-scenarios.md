@@ -47,6 +47,7 @@ Steps:
 
 ```bash
 agentic-trader doctor
+agentic-trader hardware-profile --json
 agentic-trader provider-diagnostics --json
 agentic-trader v1-readiness --json
 agentic-trader evidence-bundle --json
@@ -59,6 +60,8 @@ Expected:
 - commands exit cleanly
 - dashboard JSON is valid
 - doctor reports model/base URL/runtime/database
+- hardware profile reports CPU, memory, accelerator hints, configured model size,
+  and safe parallelism recommendations without applying hidden overrides
 - provider diagnostics reports source ladder, fallback warnings, and API-key
   readiness without printing secret values
 - V1 readiness reports paper-operation and Alpaca paper checks, with provider

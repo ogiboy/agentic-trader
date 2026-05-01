@@ -64,6 +64,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["v1-readiness", "-h"],
         ["evidence-bundle", "--help"],
         ["evidence-bundle", "-h"],
+        ["hardware-profile", "--help"],
+        ["hardware-profile", "-h"],
         ["research-status", "--help"],
         ["research-status", "-h"],
         ["research-refresh", "--help"],
@@ -790,6 +792,7 @@ def test_evidence_bundle_json_creates_read_only_artifacts(
         "logs",
         "runtime_mode_operation",
         "research",
+        "hardware_profile",
         "manifest",
     ):
         assert Path(files[key]).exists()
@@ -799,6 +802,36 @@ def test_evidence_bundle_json_creates_read_only_artifacts(
     assert "v1Readiness" in dashboard
     broker = json.loads(Path(files["broker"]).read_text(encoding="utf-8"))
     assert broker["backend"] == "paper"
+
+
+def test_hardware_profile_json_reports_recommendations(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        model_name="qwen3:8b",
+        max_output_tokens=4096,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr("agentic_trader.cli.os.cpu_count", lambda: 8)
+    monkeypatch.setattr("agentic_trader.cli._total_memory_bytes", lambda: 32 * 1024**3)
+    monkeypatch.setattr(
+        "agentic_trader.cli._accelerator_payload",
+        lambda: {"type": "test", "detail": "deterministic"},
+    )
+
+    result = CliRunner().invoke(app, ["hardware-profile", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["hardware"]["cpu_count"] == 8
+    assert payload["hardware"]["memory_gb"] == 32.0
+    assert payload["hardware"]["accelerator"]["type"] == "test"
+    assert payload["configured_runtime"]["estimated_model_size_b"] == 8.0
+    assert payload["recommendations"]["safe_parallel_agents"] == 2
+    assert payload["recommendations"]["profile"] == "standard-local"
 
 
 def test_instruct_json_reports_instruction_and_applied_preferences(

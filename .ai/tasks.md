@@ -142,6 +142,7 @@ Desired direction:
 - fail smoke evidence when raw provider output or LLM retry diagnostics leak into operator-facing terminal output
 - keep generated `qa-report.md` summaries in every smoke artifact directory so agents can inspect pass/fail evidence without reconstructing it from JSON first
 - use `agentic-trader evidence-bundle` before V1 release review to package dashboard, status, broker, provider diagnostics, V1 readiness, logs, runtime-mode checklist, research status, and the latest smoke report into one timestamped evidence directory
+- use `agentic-trader hardware-profile` before long paper-operation sessions; treat recommendations as operator hints and keep actual runtime overrides explicit
 - keep the one-cycle runtime check as an explicit opt-in tier because it needs live market data and a healthy local model
 - add optional tmux pane dumps and asciinema recordings for visual TUI regressions
 - keep a tmux-driven compact-terminal Ink settings navigation check in smoke QA so Rich/TUI parity does not silently regress

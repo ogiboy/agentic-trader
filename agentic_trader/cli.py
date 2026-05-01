@@ -1,4 +1,6 @@
 import os
+import platform
+import re
 import signal
 import shutil
 import subprocess
@@ -2937,6 +2939,173 @@ def _latest_smoke_artifact_dir(artifacts_root: Path) -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
+def _run_probe_command(command: list[str], *, timeout: float = 2.0) -> str | None:
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=PROJECT_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    output = proc.stdout.strip()
+    return output or None
+
+
+def _total_memory_bytes() -> int | None:
+    if sys.platform == "darwin":
+        output = _run_probe_command(["sysctl", "-n", "hw.memsize"])
+        if output and output.isdigit():
+            return int(output)
+    try:
+        pages = os.sysconf("SC_PHYS_PAGES")
+        page_size = os.sysconf("SC_PAGE_SIZE")
+    except (AttributeError, OSError, ValueError):
+        pages = page_size = None
+    if (
+        isinstance(pages, int)
+        and isinstance(page_size, int)
+        and pages > 0
+        and page_size > 0
+    ):
+        return pages * page_size
+    meminfo = Path("/proc/meminfo")
+    if meminfo.exists():
+        try:
+            for line in meminfo.read_text(encoding="utf-8").splitlines():
+                if line.startswith("MemTotal:"):
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        return int(parts[1]) * 1024
+        except OSError:
+            return None
+    return None
+
+
+def _model_size_billions(model_name: str) -> float | None:
+    match = re.search(r"(?P<size>\d+(?:\.\d+)?)\s*b\b", model_name.lower())
+    if not match:
+        return None
+    return float(match.group("size"))
+
+
+def _accelerator_payload() -> dict[str, object]:
+    if sys.platform == "darwin" and platform.machine().lower() == "arm64":
+        return {
+            "type": "apple_silicon",
+            "detail": "Apple Silicon unified-memory accelerator available to supported local runtimes.",
+        }
+    if shutil.which("nvidia-smi"):
+        output = _run_probe_command(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,memory.total",
+                "--format=csv,noheader",
+            ]
+        )
+        if output:
+            return {"type": "nvidia", "detail": output.splitlines()}
+    return {
+        "type": "unknown",
+        "detail": "No accelerator probe succeeded with stdlib-safe local checks.",
+    }
+
+
+def _recommended_parallel_agents(
+    cpu_count: int, memory_gb: float | None, model_b: float | None
+) -> int:
+    cpu_floor = max(1, cpu_count // 4)
+    if memory_gb is None:
+        recommended = min(2, cpu_floor)
+    elif memory_gb < 24:
+        recommended = 1
+    elif memory_gb < 48:
+        recommended = min(2, cpu_floor)
+    else:
+        recommended = min(4, cpu_floor)
+    if model_b is not None and model_b >= 13 and (memory_gb is None or memory_gb < 48):
+        recommended = 1
+    return max(1, recommended)
+
+
+def build_hardware_profile_payload(settings: Settings) -> dict[str, object]:
+    """Build a local, read-only hardware/runtime capacity snapshot."""
+    cpu_count = os.cpu_count() or 1
+    memory_bytes = _total_memory_bytes()
+    memory_gb = round(memory_bytes / (1024**3), 2) if memory_bytes else None
+    model_b = _model_size_billions(settings.model_name)
+    safe_parallel_agents = _recommended_parallel_agents(cpu_count, memory_gb, model_b)
+    constrained = safe_parallel_agents == 1
+    return {
+        "platform": {
+            "system": platform.system(),
+            "release": platform.release(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "python": sys.version.split()[0],
+        },
+        "hardware": {
+            "cpu_count": cpu_count,
+            "memory_bytes": memory_bytes,
+            "memory_gb": memory_gb,
+            "accelerator": _accelerator_payload(),
+        },
+        "configured_runtime": {
+            "model_name": settings.model_name,
+            "estimated_model_size_b": model_b,
+            "max_output_tokens": settings.max_output_tokens,
+            "request_timeout_seconds": settings.request_timeout_seconds,
+            "max_retries": settings.max_retries,
+        },
+        "recommendations": {
+            "safe_parallel_agents": safe_parallel_agents,
+            "max_output_tokens": min(settings.max_output_tokens, 2048)
+            if constrained
+            else settings.max_output_tokens,
+            "request_timeout_seconds": max(settings.request_timeout_seconds, 180.0),
+            "profile": "constrained-local" if constrained else "standard-local",
+        },
+        "notes": [
+            "This is an operator hint, not an automatic runtime override.",
+            "Use the lower of configured and recommended limits before long paper-operation runs.",
+        ],
+    }
+
+
+@app.command("hardware-profile")
+def hardware_profile_command(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show local hardware and model-capacity hints before long paper runs."""
+    settings = get_settings()
+    payload = build_hardware_profile_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    hardware = cast(dict[str, object], payload["hardware"])
+    configured = cast(dict[str, object], payload["configured_runtime"])
+    recommendations = cast(dict[str, object], payload["recommendations"])
+    table = Table(title="Hardware Profile")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value")
+    table.add_row("CPU Count", str(hardware["cpu_count"]))
+    table.add_row("Memory GB", str(hardware["memory_gb"]))
+    accelerator = cast(dict[str, object], hardware["accelerator"])
+    table.add_row("Accelerator", str(accelerator.get("type", "unknown")))
+    table.add_row("Model", str(configured["model_name"]))
+    table.add_row("Estimated Model Size", str(configured["estimated_model_size_b"]))
+    table.add_row("Safe Parallel Agents", str(recommendations["safe_parallel_agents"]))
+    table.add_row("Token Hint", str(recommendations["max_output_tokens"]))
+    table.add_row("Profile", str(recommendations["profile"]))
+    console.print(table)
+
+
 def build_evidence_bundle(
     settings: Settings,
     *,
@@ -3003,6 +3172,11 @@ def build_evidence_bundle(
         bundle_dir,
         "research-status.json",
         _research_sidecar_payload(settings),
+    )
+    files["hardware_profile"] = _write_bundle_json(
+        bundle_dir,
+        "hardware-profile.json",
+        build_hardware_profile_payload(settings),
     )
 
     latest_smoke_dir: Path | None = None
