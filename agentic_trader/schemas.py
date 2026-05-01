@@ -43,7 +43,7 @@ MTFAlignment: TypeAlias = Literal["bullish", "bearish", "mixed"]
 TrendVote: TypeAlias = Literal["bullish", "bearish", "mixed", "insufficient"]
 RuntimeMode: TypeAlias = Literal["training", "operation"]
 ResearchMode: TypeAlias = Literal["off", "training", "live_prep"]
-ExecutionBackend: TypeAlias = Literal["paper", "simulated_real", "live"]
+ExecutionBackend: TypeAlias = Literal["paper", "simulated_real", "alpaca_paper", "live"]
 type NewsClassification = Literal[
     "company_specific", "sector_level", "macro_level"
 ]

@@ -24,6 +24,10 @@ work, read the applicable QA scenario before finishing.
 - Add or update focused tests for changed behavior.
 - Update `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` when the
   change alters architecture, workflow, runtime contracts, or future assumptions.
+- When work touches release automation, package manifests, branch publishing, or
+  app identity, verify the version contract before push: stable releases flow
+  from `pyproject.toml` through semantic-release, while branch builds use
+  `pnpm run version:plan` without mutating stable version files.
 - Report validation honestly, including skipped checks and why they were skipped.
 
 ## Implementation Guardrails
@@ -42,8 +46,10 @@ Run the smallest relevant checks first, then broaden when feasible:
 
 1. Targeted unit tests for changed modules.
 2. `python -m ruff check .`
-3. `pnpm run check`
-4. A relevant `.ai/qa/qa-scenarios.md` manual or CLI pass for operator/runtime
+3. `pnpm run version:plan` and `pnpm run release:preview` for release/version
+   changes.
+4. `pnpm run check`
+5. A relevant `.ai/qa/qa-scenarios.md` manual or CLI pass for operator/runtime
    behavior.
 
 If `pyright`, Poetry, Node, Ollama, or UI dependencies are missing, say so

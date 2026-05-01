@@ -31,6 +31,13 @@ Bir yüzey runtime state gösterdiğini iddia ediyorsa en azından şunları gö
 - model veya provider readiness kanıtı
 - gerekiyorsa stop ve failure state
 
+`agentic-trader provider-diagnostics --json`, model routing'i, source ladder'ı,
+degraded Yahoo fallback uyarısını ve API-key hazır oluşunu network fetch
+yapmadan gösterir. Daha uzun paper operation ya da Alpaca paper kontrolünden
+önce `agentic-trader v1-readiness --json` çalıştır. Varsayılan backend hâlâ
+lokal `paper`; `alpaca_paper` yalnızca external paper içindir ve credential,
+paper endpoint ve açık enablement ister. `live` hâlâ blokludur.
+
 ## Ollama yönü
 
 Bugün runtime çoğu zaman model servisinin zaten çalıştığını varsayıyor.

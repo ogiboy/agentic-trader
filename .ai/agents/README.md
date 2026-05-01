@@ -50,6 +50,23 @@ For `webgui/` or `docs/` work, also read the local app guidance:
 - Operator UX output should include viewport, operator lens, evidence, and the smallest simplification or repair recommendation that would improve V1 usability.
 - Data output should keep raw provider payloads behind canonical contracts.
 
+## Release / Version Handoff
+
+- Treat `pyproject.toml` as the canonical stable application version source.
+- On stable release work, verify semantic-release version stamping keeps
+  `pyproject.toml`, `agentic_trader/__init__.py`, root `package.json`,
+  `webgui/package.json`, `docs/package.json`, `tui/package.json`, and
+  `sidecars/research_flow/pyproject.toml` aligned through the configured release
+  automation.
+- On non-main feature or V1 branch pushes, do not hand-edit stable version files
+  or `CHANGELOG.md` just to identify a branch build. Use the SemVer-compatible
+  branch artifact identity from `pnpm run version:plan`.
+- Before pushing release, CI, binary, or package-metadata changes, run or record
+  why you skipped `pnpm run version:plan` and `pnpm run release:preview`.
+- If a version file must be changed manually, document the reason in
+  `.ai/decisions.md` and make sure all product package manifests agree before
+  pushing.
+
 ## Non-Negotiables
 
 - Paper remains the default execution backend.

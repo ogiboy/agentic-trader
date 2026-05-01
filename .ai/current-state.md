@@ -47,11 +47,13 @@ Implemented or substantially present:
 - broker adapter boundary with paper backend, safe live gating, and execution kill-switch semantics
 - canonical execution intent and outcome contracts now sit between guard output and broker adapters; the intent carries explicit timestamp/created-at audit fields, and paper execution uses the adapter path while preserving existing fills, positions, journals, and account marks
 - a simulated-real adapter scaffold exists for non-live execution rehearsal with slippage, spread, drift, latency metadata, rejection hooks, partial-fill shape, and explicit simulated/non-live status
+- an explicit `alpaca_paper` backend now exists behind the broker adapter boundary for US-equities-only external paper readiness; it uses Alpaca paper endpoints, requires credentials plus `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`, and keeps `live` execution blocked
 - execution intent and adapter outcome metadata are persisted and surfaced in trade-context review views so future live integration can be replayed and audited before any real broker is enabled
 - structured financial feature contracts now exist for symbol identity, technical summaries, fundamental placeholders, and macro/news context
 - technical decision features now expose V1-friendly 30d, 90d, and 180d return windows on top of the existing bar-horizon context, plus a compact price anchor for risk math
 - provider interfaces now exist for market, fundamental, news, disclosure, and macro data; provider outputs are normalized into canonical analysis snapshots before feature generation
 - SEC EDGAR, Finnhub, FMP, and KAP now have explicit provider scaffold adapters in the canonical provider set; they do not fetch live data yet, but missing outputs are represented as source attribution instead of disappearing silently
+- `provider-diagnostics` now exposes model routing, selected market fallback, API-key readiness, provider source ladder, freshness/completeness placeholders, and explicit Yahoo fallback warnings without leaking secrets or fetching network data
 - the staged graph now includes fundamental and macro/news analyst roles before regime/strategy/risk, and manager synthesis receives those structured outputs
 - prompt rendering now uses the `DecisionFeatureBundle` as the primary agent input when it is attached; raw compact snapshots remain available only for compatibility and deterministic fallback paths
 - feature-first prompts now keep technical data-quality flags visible, and fallback-generated fundamental/macro assessments are not counted as consensus support
@@ -79,6 +81,7 @@ Implemented or substantially present:
 - Operation mode now requires strict LLM gating and provider/model readiness before any one-shot, launch, or service runtime can execute; Training mode can use diagnostic fallback only inside backtest/evaluation paths
 - Market snapshots now carry `as_of`, and backtest reports persist data-window plus first/last decision timestamps so replay decisions can be audited for future-data leakage
 - `runtime-mode-checklist` now surfaces a schema-backed transition plan; mode changes remain explicit configuration actions and cannot be silently applied through chat/free-form instruction parsing
+- `v1-readiness` now surfaces paper-operation gates and Alpaca paper-readiness gates before longer runs or external paper checks, with optional provider/model health checking behind `--provider-check`
 - memory vectors now persist embedding provider, model, version, and dimensionality metadata beside the existing lightweight local-hashing vectors, and legacy rows migrate with local-hashing defaults
 - Sonar is split into two explicit targets: local Docker SonarQube Community Build uses project `agentic-trader` through root `sonar-project.properties`, while GitHub-hosted CI and public badges use SonarCloud project `ogiboy_agentic-trader`
 - local `pnpm run sonar` uses `pysonar`, local `pnpm run sonar:js` uses `@sonar/scan`, and manual `pnpm run sonar:cloud` uses the npm scanner with SonarCloud organization `ogiboy`; tokens must come from `SONAR_TOKEN` or separate macOS Keychain services (`codex-sonarqube-token` for local, `codex-sonarcloud-token` for cloud)
@@ -118,7 +121,7 @@ New production-expansion direction:
 - CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph. The tracked Flow scaffold now lives under `sidecars/research_flow/`, outside `agentic_trader/`, with uv owning its own environment and sidecar package version aligned to the root app version.
 - financial provider interfaces and canonical aggregation are implemented, but real SEC/KAP, transcripts, macro indicators, and richer vendor fetchers are still scaffolds or future providers
 - SEC 10-K/10-Q/8-K-style filings now have a first metadata-only submissions ingestor when explicitly enabled; earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX source names remain explicit scaffold metadata rather than live ingestors
-- Alpaca settings are config-ready for V1 readiness checks, but no Alpaca adapter or live execution path is enabled
+- Alpaca settings and the `alpaca_paper` broker adapter are config-ready for V1 external paper readiness checks, but the backend is off unless explicitly enabled and live execution remains blocked
 - fundamental and macro/news agents currently return structured neutral fallback when only scaffold provider data exists; this is intentional until real provider evidence is present
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy

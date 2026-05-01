@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     alpaca_secret_key: str | None = None
     alpaca_base_url: str = "https://paper-api.alpaca.markets/v2"
     alpaca_data_feed: str = "iex"
+    alpaca_paper_trading_enabled: bool = False
     market_data_mode: Literal["live", "prefer_cache", "refresh_cache"] = "live"
     news_mode: Literal["off", "yfinance"] = "off"
     news_headline_limit: int = 5

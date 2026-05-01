@@ -237,6 +237,20 @@ The execution boundary is ready for future broker adapters, but V1 should remain
 Alpaca readiness belongs to V1 as US-equities-only preparation with manual approval, paper defaults, strict safety gates, kill switch, and broker/readiness health checks.
 Interactive Brokers, global markets, multi-currency account state, FX conversion assumptions, and region-specific market QA belong in V2 so V1 does not become a broad multi-broker production rewrite.
 
+### Alpaca paper is an explicit external-paper backend
+
+Reason:
+V1 needs real Alpaca readiness without making external broker submission a
+hidden default. The local `paper` backend remains the default and continues to
+own local portfolio simulation. The `alpaca_paper` backend is separate from
+both local paper and `live`: it can use Alpaca paper endpoints for US equities
+only, but only when credentials, the paper endpoint, and
+`AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true` are explicit.
+`v1-readiness`, `provider-diagnostics`, and `broker-status` are the operator
+surfaces for seeing whether those gates are satisfied. The generic `live`
+backend still fails closed until a real live adapter, manual approval gate, and
+paper-operation evidence are intentionally implemented.
+
 ### Python dependencies should be locked with uv
 
 Reason:
@@ -356,6 +370,22 @@ Integration branches such as `V1` should use `next` artifact identities, for exa
 Only `main` should mutate tracked version and changelog files automatically.
 Non-main branch pushes may publish SemVer-compatible prerelease tags/releases for testing, but they should not edit `pyproject.toml`, workspace package versions, or `CHANGELOG.md`.
 The pre-1.0 baseline is `0.9.0`; `allow_zero_version=true` and `major_on_zero=false` keep V1-hardening releases on the 0.x line until the project intentionally declares a stable `1.0.0`.
+
+### Development agents must verify version identity before publishing
+
+Reason:
+Branch publishing and stable release publishing now have different version
+ownership rules. Stable app versions are owned by `pyproject.toml` plus
+semantic-release on `main`, and the release config stamps
+`agentic_trader/__init__.py`, the workspace package manifests, and the CrewAI
+Flow sidecar version. Feature and V1 branch pushes should use
+`pnpm run version:plan` for SemVer-compatible artifact identity without
+hand-editing stable version files or `CHANGELOG.md`.
+Any exception that manually changes `pyproject.toml`,
+`agentic_trader/__init__.py`, root/workspace `package.json` files,
+`sidecars/research_flow/pyproject.toml`, or `CHANGELOG.md` must be documented
+with the reason and validated with `pnpm run version:plan` and
+`pnpm run release:preview` before push.
 
 ### PyInstaller builds should use a tracked CLI spec
 

@@ -44,6 +44,8 @@ En küçük güven kontrolüyle başla:
 
 ```bash
 python main.py doctor
+agentic-trader provider-diagnostics --json
+agentic-trader v1-readiness --json
 ```
 
 Kurulu CLI entrypoint'ine güveniyorsan onu da doğrula:
@@ -54,6 +56,11 @@ agentic-trader doctor
 
 Bunu Web GUI ya da Ink TUI debug etmeden önce yap.
 `doctor` zaten yanlışsa UI çoğu zaman alt katmandaki gerçek problemi sadece yansıtıyordur.
+`provider-diagnostics` mevcut source ladder'ı, API-key hazır oluşunu ve fallback
+uyarılarını secret yazmadan ya da eksik evidence'ı tamam sanmadan gösterir.
+`v1-readiness` lokal paper operation ve Alpaca paper readiness kapılarının geçip
+geçmediğini gösterir; özellikle model servisini de çağırmak istiyorsan
+`--provider-check` ekle.
 
 ## Ortam dosyalarını yapılandır
 

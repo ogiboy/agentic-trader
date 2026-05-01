@@ -1457,6 +1457,18 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
                 ),
                 run_command_capture(
                     context,
+                    "provider_diagnostics_json",
+                    [agentic_trader_executable, "provider-diagnostics", "--json"],
+                    require_json_stdout=True,
+                ),
+                run_command_capture(
+                    context,
+                    "v1_readiness_json",
+                    [agentic_trader_executable, "v1-readiness", "--json"],
+                    require_json_stdout=True,
+                ),
+                run_command_capture(
+                    context,
                     "supervisor_status_json",
                     [agentic_trader_executable, "supervisor-status", "--json"],
                     require_json_stdout=True,

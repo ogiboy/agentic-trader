@@ -58,6 +58,10 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["run", "-h"],
         ["broker-status", "--help"],
         ["broker-status", "-h"],
+        ["provider-diagnostics", "--help"],
+        ["provider-diagnostics", "-h"],
+        ["v1-readiness", "--help"],
+        ["v1-readiness", "-h"],
         ["research-status", "--help"],
         ["research-status", "-h"],
         ["research-refresh", "--help"],
@@ -1166,3 +1170,55 @@ def test_news_brief_json_defaults_to_tool_only_disabled(
     assert payload["mode"] == "off"
     assert payload["symbol"] == "AAPL"
     assert payload["headlines"] == []
+
+
+def test_provider_diagnostics_json_reports_source_ladder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        news_mode="off",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["provider-diagnostics", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["market_data"]["selected_provider"] == "yahoo_market"
+    assert payload["market_data"]["selected_role"] == "fallback"
+    assert payload["configured_keys"]["alpaca"] is False
+    assert any(
+        provider["provider_id"] == "sec_edgar_fundamentals"
+        for provider in payload["providers"]
+    )
+    assert payload["warnings"]
+
+
+def test_v1_readiness_json_reports_paper_and_alpaca_sections(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+        live_execution_enabled=False,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["v1-readiness", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["paper_operations"]["allowed"] is False
+    assert payload["alpaca_paper"]["ready"] is False
+    assert payload["broker"]["backend"] == "paper"
+    assert any(
+        check["name"] == "llm_provider_ready" and check["passed"] is False
+        for check in payload["paper_operations"]["checks"]
+    )

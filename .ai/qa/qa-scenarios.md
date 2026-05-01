@@ -47,6 +47,8 @@ Steps:
 
 ```bash
 agentic-trader doctor
+agentic-trader provider-diagnostics --json
+agentic-trader v1-readiness --json
 agentic-trader dashboard-snapshot > .ai/qa/artifacts/dashboard.json
 python main.py doctor
 ```
@@ -56,6 +58,10 @@ Expected:
 - commands exit cleanly
 - dashboard JSON is valid
 - doctor reports model/base URL/runtime/database
+- provider diagnostics reports source ladder, fallback warnings, and API-key
+  readiness without printing secret values
+- V1 readiness reports paper-operation and Alpaca paper checks, with provider
+  readiness marked unchecked unless `--provider-check` is used
 - broker payload reports `paper` unless environment variables override it
 
 ## Scenario 2: Primary Ink Control Room
@@ -206,6 +212,7 @@ Steps:
 ```bash
 agentic-trader broker-status
 AGENTIC_TRADER_EXECUTION_BACKEND=simulated_real agentic-trader broker-status
+AGENTIC_TRADER_EXECUTION_BACKEND=alpaca_paper agentic-trader broker-status
 AGENTIC_TRADER_EXECUTION_BACKEND=live AGENTIC_TRADER_LIVE_EXECUTION_ENABLED=false agentic-trader broker-status
 AGENTIC_TRADER_EXECUTION_KILL_SWITCH_ACTIVE=true agentic-trader broker-status
 ```
@@ -214,6 +221,8 @@ Expected:
 
 - default backend is `paper`
 - `simulated_real` is clearly labeled simulated and non-live
+- `alpaca_paper` is clearly labeled external paper and blocked until explicit
+  enablement, paper endpoint, and credentials are configured
 - requested live backend is blocked without enablement
 - kill switch is visible
 - no command claims a live adapter exists

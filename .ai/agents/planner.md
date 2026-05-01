@@ -26,6 +26,10 @@ also read:
 - Identify the exact user goal and the smallest meaningful deliverable.
 - Describe the relevant current architecture before proposing changes.
 - Separate V1-safe work from V2 or live-trading readiness work.
+- Separate stable release version changes from branch build identity. Stable
+  app versions move through `pyproject.toml` plus semantic-release on `main`;
+  feature/V1 branch pushes should plan `pnpm run version:plan` evidence instead
+  of manual package-version bumps.
 - Prefer additive changes to existing contracts over parallel systems.
 - Call out migration, storage, replay, and operator-surface risks.
 - Name the likely files and tests before implementation starts.

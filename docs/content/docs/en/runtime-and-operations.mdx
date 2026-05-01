@@ -31,6 +31,13 @@ If a surface claims to show runtime state, it should be able to surface:
 - model or provider readiness evidence
 - stop and failure state when applicable
 
+Use `agentic-trader provider-diagnostics --json` for a network-free view of the
+configured model routing, source ladder, degraded Yahoo fallback warning, and
+API-key readiness. Use `agentic-trader v1-readiness --json` before longer paper
+operation or Alpaca paper checks. The default backend remains local `paper`;
+`alpaca_paper` is external paper only and requires credentials, the paper
+endpoint, and explicit enablement. `live` remains blocked.
+
 ## Ollama direction
 
 Today the runtime usually assumes the model service is already running.

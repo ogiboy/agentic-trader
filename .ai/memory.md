@@ -14,6 +14,8 @@
 - The tracked CrewAI Flow project lives under `sidecars/research_flow/` and uses uv independently of the root uv environment
 - The root runtime may call the CrewAI Flow sidecar only through a subprocess JSON contract; it should not import CrewAI directly
 - SEC EDGAR submissions metadata is the first opt-in live research source, gated by `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED` and `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT`
+- Stable app versions are owned by `pyproject.toml` and semantic-release; branch pushes should use `pnpm run version:plan` rather than manual package-version bumps, and `agentic_trader/__init__.py` must stay stamped with the same stable app version
+- `alpaca_paper` is an explicit external-paper backend, not the default local paper backend and not live trading
 
 ## Important Constraints
 
@@ -26,6 +28,7 @@
 - Do not add CrewAI to the root dependency graph unless the sidecar boundary is intentionally redesigned
 - Do not let runtime commands implicitly sync or upgrade the sidecar environment; setup/check commands own uv sync
 - Do not fetch SEC EDGAR or any future external research source without explicit provider enablement and required contact/credential configuration
+- Do not submit external Alpaca paper orders unless `AGENTIC_TRADER_EXECUTION_BACKEND=alpaca_paper`, credentials, the paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true` are all explicit
 
 ## Current Architectural Direction
 

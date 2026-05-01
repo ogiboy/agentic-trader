@@ -41,7 +41,7 @@ Current runtime stages:
   DuckDB persistence for runs, fills, positions, journals, trade contexts, traces, and reports
 
 - `agentic_trader/engine/`
-  Runtime execution and orchestration mechanics, including the broker adapter boundary and the paper broker implementation
+  Runtime execution and orchestration mechanics, including the broker adapter boundary, the local paper broker implementation, the simulated-real rehearsal adapter, and the opt-in Alpaca external-paper adapter
 
 - `agentic_trader/execution/`
   Broker-facing execution contracts such as `ExecutionIntent`, `ExecutionOutcome`, health summaries, and translation helpers between guard decisions and adapter submissions
@@ -128,6 +128,7 @@ Good changes fit into one of these buckets:
 - keep daemon supervision metadata readable through sidecar contracts and not only through the database writer
 - keep future live broker work behind the adapter boundary and explicit execution safety gates
 - keep broker submissions flowing through `ExecutionIntent -> BrokerAdapter.place_order() -> ExecutionOutcome` so paper, simulated-real, and future live adapters share one auditable contract
+- keep `alpaca_paper` explicitly separate from local `paper` and from blocked `live`; it may submit external paper orders only when the operator configures credentials, paper endpoint, and explicit enablement
 - keep financial intelligence behind structured feature/provider boundaries so agents consume summarized technical, fundamental, and macro context instead of raw noisy data
 - keep prompt rendering feature-first when `DecisionFeatureBundle` is attached; compact snapshots may remain internal for deterministic fallback, audit, and risk math
 - keep canonical source attribution and freshness metadata attached whenever external provider data enters runtime or persisted review context

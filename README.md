@@ -192,6 +192,8 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous` | Continuous paper runtime                   |
 | `agentic-trader monitor --refresh-seconds 1`                                           | Attach to runtime status                   |
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
+| `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
+| `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks |
 | `agentic-trader research-status --json`                                                | Inspect optional research sidecar health   |
 | `agentic-trader research-refresh --json`                                               | Run one isolated sidecar snapshot pass     |
 | `agentic-trader research-flow-setup --json`                                            | Inspect optional CrewAI Flow sidecar readiness |

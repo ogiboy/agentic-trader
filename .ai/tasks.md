@@ -22,6 +22,7 @@ Now:
 - grow V1.1 as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` so it stays the canonical developer entrypoint
 - keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's uv-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
+- keep development-agent handoffs honest about version ownership before push: stable versions move through `pyproject.toml` plus semantic-release into `agentic_trader/__init__.py`, package manifests, and sidecar metadata; branch builds use `pnpm run version:plan`, and manual version edits need an explicit decision note
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
 - keep the root uv migration boring and complete: root `uv.lock`, `.python-version`, install/check/qa/release scripts, CI workflows, docs, and `.codex` environment actions must stay aligned
 - keep the SEC EDGAR submissions provider opt-in and fair-access-aware: no network fetch without `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true`, a configured SEC User-Agent, and watched symbols
@@ -30,6 +31,7 @@ Now:
 - keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts while avoiding a broad one-shot CSS rewrite
 - keep the Web GUI command runner attached to the current worktree/runtime environment so browser QA does not silently drift onto a stale PATH-installed CLI
 - design the Ollama-management path as an extension of the existing daemon/log/status surfaces so the app can eventually start, stop, inspect, and expose model-service logs without creating a parallel supervisor
+- use `provider-diagnostics` and `v1-readiness` as the V1 operator gate before longer paper-operation runs or Alpaca paper-readiness checks; the default remains local paper, and `alpaca_paper` requires explicit credentials plus enablement
 
 Next:
 
@@ -41,6 +43,7 @@ Next:
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
 - verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
 - after the release workflow lands, verify that the first missing baseline tag dispatch creates `v0.9.0`, runs binary packaging from that tag, and publishes the GitHub Release instead of relying on a direct `main` binary push
+- keep exercising `alpaca_paper` only as external paper readiness until paper evidence, operator approval, and live adapter scope are explicitly reviewed
 - keep an eye on local MCP hygiene: several `mcp/sonarqube` client containers can be active at once, and stale clients should be stopped only after confirming no current Codex/VS Code session depends on them
 
 ### 1. Financial Intelligence Layer

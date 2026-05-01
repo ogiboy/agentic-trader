@@ -24,6 +24,10 @@ diff, also read the relevant QA checklist/scenario.
    agree with the same backend contracts.
 5. Test gaps: changed behavior should have targeted tests and an appropriate
    validation path.
+6. Release/version drift: package manifests, `pyproject.toml`, sidecar
+   `pyproject.toml`, changelog, branch build identity, and binary-release
+   workflows should agree with the repo's semantic-release contract before any
+   push that claims a product version change.
 
 ## What To Check
 
@@ -35,6 +39,10 @@ diff, also read the relevant QA checklist/scenario.
 - Operator chat cannot silently mutate execution policy.
 - New provider/data flows preserve source attribution and freshness.
 - Documentation updates match the actual code, not desired future state.
+- Stable app version edits are limited to the release automation path on `main`.
+- Non-main branch work uses `pnpm run version:plan` for build identity and does
+  not hand-edit `pyproject.toml`, workspace `package.json` files, or
+  `CHANGELOG.md` unless a documented release exception requires it.
 
 ## Output Format
 

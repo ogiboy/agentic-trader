@@ -61,6 +61,7 @@ version_toml = [
   "sidecars/research_flow/pyproject.toml:project.version",
 ]
 version_variables = [
+  "agentic_trader/__init__.py:__version__",
   "package.json:version",
   "webgui/package.json:version",
   "docs/package.json:version",

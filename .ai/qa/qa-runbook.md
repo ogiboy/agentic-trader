@@ -225,6 +225,8 @@ Core:
 
 ```bash
 agentic-trader doctor
+agentic-trader provider-diagnostics
+agentic-trader v1-readiness
 agentic-trader dashboard-snapshot
 agentic-trader broker-status
 agentic-trader supervisor-status

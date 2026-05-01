@@ -44,6 +44,8 @@ Start with the smallest trust check:
 
 ```bash
 python main.py doctor
+agentic-trader provider-diagnostics --json
+agentic-trader v1-readiness --json
 ```
 
 If you rely on the installed CLI entrypoint, validate that too:
@@ -54,6 +56,11 @@ agentic-trader doctor
 
 Do this before debugging the Web GUI or Ink TUI.
 If `doctor` is already wrong, the UI is usually reflecting a real lower-layer problem.
+`provider-diagnostics` shows the current source ladder, API-key readiness, and
+fallback warnings without fetching secrets or pretending missing evidence is
+complete. `v1-readiness` shows whether local paper operation and Alpaca paper
+readiness gates are satisfied; add `--provider-check` when you intentionally
+want it to call the configured model service.
 
 ## Configure environment files
 

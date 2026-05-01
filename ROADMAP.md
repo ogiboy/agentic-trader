@@ -4,6 +4,15 @@ Product name: `Agentic Trader`
 
 This roadmap is both a build plan and a progress ledger. Status values reflect the current codebase, not only the intended destination.
 
+## V1 Completion Boundary
+
+V1 readiness means local paper operation is inspectable, strict, and testable;
+Alpaca is ready for explicit external paper checks; source/provider gaps are
+visible; and live execution remains blocked. Open V1.1/V1.2/V2 items such as
+deeper research ingestion, CrewAI deep-dive execution, true semantic embeddings,
+IBKR/global/FX, app-managed Ollama supervision, and actual live brokerage are
+not V1 blockers unless a later decision moves them back into V1 scope.
+
 ## Phase 1: Guardrailed Core
 
 Status: completed in the initial scaffold.
@@ -42,8 +51,8 @@ Status: in progress.
 - [x] introduce a persisted Market Context Pack so `lookback` becomes operator-verifiable rather than only implied by latest-row indicators
 - [x] add multi-horizon context summaries for returns, volatility, drawdown, trend alignment, range structure, data sufficiency, and anomalies
 - [x] expose bars expected, bars analyzed, window coverage, cache provenance, and interval semantics in CLI, TUI, dashboard, review, and observer surfaces
-- [ ] add optional news and event feeds
-- [ ] add source/provider diagnostics for selected source, fallback reason, freshness, completeness, API-key readiness, rate-limit or degraded-mode state, and explicit Yahoo fallback warnings
+- [x] add optional news and event feeds
+- [x] add source/provider diagnostics for selected source, fallback reason, freshness, completeness, API-key readiness, rate-limit or degraded-mode state, and explicit Yahoo fallback warnings
 - [x] add cached data snapshots for repeatable tests
 - [x] let the user choose regions, exchanges, currencies, sectors, and default strategy posture
 - [x] let the user define portfolio preferences from the TUI instead of editing files
@@ -58,6 +67,7 @@ Status: in progress.
 - a first market-session heuristic is now available through the CLI, dashboard snapshot, Ink control room, and agent context tool outputs
 - repeatable market snapshot cache management is now available through the CLI and dashboard snapshot
 - a first optional news tool contract now exists and only enters agent context through explicit tool outputs
+- `provider-diagnostics` now exposes the current source ladder, model routing, API-key readiness, freshness/completeness placeholders, and explicit Yahoo fallback warnings without fetching network data or leaking secrets
 - a first Market Context Pack now makes the full lookback window visible, persisted, and reviewable through run artifacts, trade context, dashboard JSON, observer API, and Ink review surfaces
 - richer calendar awareness and tool-driven external context are still open
 
@@ -380,19 +390,20 @@ Status: in progress.
 Status: planned.
 
 - [x] add settings-only Alpaca paper credentials/feed fields so env readiness can be checked without enabling live trading
-- [ ] add an Alpaca adapter behind the existing broker adapter contract for US equities only
-- [ ] default to Alpaca paper endpoints and IEX-class data assumptions unless the operator explicitly configures otherwise
-- [ ] keep paper, simulated-real, and live backends explicitly separated in settings, status, persistence, and operator UI
-- [ ] require manual approval before any live execution path can submit an order
-- [ ] enforce strict risk caps, kill switch, and unsupported-backend failures before live adapter activation
-- [ ] add account, order, position, and feed health checks before any Alpaca live-readiness banner can pass
-- [ ] restrict V1 live-readiness scope to US equities until paper evidence, manual approval, and strict safety gates are proven
-- [ ] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
-- [ ] add paper-to-live readiness checklist that compares paper performance, QA evidence, and broker health before enabling any live mode
+- [x] add an Alpaca adapter behind the existing broker adapter contract for US equities only
+- [x] default to Alpaca paper endpoints and IEX-class data assumptions unless the operator explicitly configures otherwise
+- [x] keep paper, simulated-real, Alpaca external paper, and live backends explicitly separated in settings, status, persistence, and operator UI
+- [x] require manual approval before any live execution path can submit an order
+- [x] enforce strict risk caps, kill switch, and unsupported-backend failures before live adapter activation
+- [x] add account, order, position, and feed health checks before any Alpaca live-readiness banner can pass
+- [x] restrict V1 live-readiness scope to US equities until paper evidence, manual approval, and strict safety gates are proven
+- [x] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
+- [x] add paper-to-live readiness checklist that compares paper performance, QA evidence, and broker health before enabling any live mode
       Notes:
 - V1 readiness is Alpaca-first and US-equities-only to limit blast radius
 - V1 does not mean live trading is enabled; it means the system is Alpaca-ready while remaining paper-first with manual approval and strict safety gates
-- `paper` remains the default; `live` remains blocked until the adapter, approval gate, and readiness checks are intentionally implemented
+- `paper` remains the default; `alpaca_paper` is an explicit external-paper backend gated by credentials, paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`
+- `live` remains blocked; V1 readiness is expressed through `v1-readiness`, `broker-status`, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden live brokerage
 
 ## V1.1 Research Sidecar - Local Evidence Companion
 

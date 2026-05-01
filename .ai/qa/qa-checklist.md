@@ -20,6 +20,10 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] For workflow/release changes, preview version identity without mutating files:
   - `pnpm run release:preview`
   - `pnpm run version:plan`
+- [ ] Before pushing release/version/package metadata work, confirm agents did not
+  manually drift `pyproject.toml`, `agentic_trader/__init__.py`, workspace
+  `package.json` files, `sidecars/research_flow/pyproject.toml`, or
+  `CHANGELOG.md` outside the documented semantic-release path.
 - [ ] Confirm `git status --short` does not contain accidental runtime artifacts.
 - [ ] Confirm smoke artifacts are grouped under a timestamped `.ai/qa/artifacts/smoke-*` directory.
 - [ ] Confirm changed roadmap items are checked or left unchecked accurately.
@@ -48,6 +52,11 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] `--json` output is valid JSON where supported.
 - [ ] Human-readable output is concise and does not hide critical runtime state.
 - [ ] `agentic-trader broker-status` reports paper/live/kill-switch truth accurately.
+- [ ] `agentic-trader provider-diagnostics --json` reports selected source,
+  fallback/degraded-mode warnings, freshness/completeness placeholders, and
+  API-key readiness without leaking secret values.
+- [ ] `agentic-trader v1-readiness --json` reports paper-operation gates and
+  Alpaca paper-readiness gates before longer operation or external paper checks.
 - [ ] `agentic-trader supervisor-status` reports daemon metadata and log tails without requiring the DuckDB writer lock.
 - [ ] `agentic-trader dashboard-snapshot` contains the same truth consumed by Ink.
 

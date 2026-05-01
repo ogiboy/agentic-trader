@@ -17,6 +17,10 @@ from rich.table import Table
 from rich.text import Text
 
 from agentic_trader.config import get_settings, Settings
+from agentic_trader.diagnostics import (
+    provider_diagnostics_payload,
+    v1_readiness_payload,
+)
 from agentic_trader.engine.broker import broker_runtime_payload
 from agentic_trader.agents.operator_chat import (
     apply_preference_update,
@@ -2631,6 +2635,122 @@ def broker_status(
     if isinstance(healthcheck, dict):
         table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
     console.print(table)
+
+
+def _render_readiness_checks(title: str, payload: dict[str, object]) -> None:
+    checks = payload.get("checks", [])
+    table = Table(title=title)
+    table.add_column("Check")
+    table.add_column("State")
+    table.add_column("Blocking")
+    table.add_column("Details")
+    if isinstance(checks, list):
+        for item in checks:
+            if not isinstance(item, dict):
+                continue
+            passed = bool(item.get("passed"))
+            table.add_row(
+                str(item.get("name", "-")),
+                "[green]pass[/green]" if passed else "[red]fail[/red]",
+                str(item.get("blocking", True)),
+                str(item.get("details", "")),
+            )
+    console.print(table)
+
+
+@app.command("provider-diagnostics")
+def provider_diagnostics(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
+) -> None:
+    """Show configured model, market, research, and data-provider readiness."""
+    settings = get_settings()
+    payload = provider_diagnostics_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    summary = Table(title="Provider Diagnostics")
+    summary.add_column("Field")
+    summary.add_column("Value")
+    llm = payload.get("llm", {})
+    market_data = payload.get("market_data", {})
+    news = payload.get("news", {})
+    alpaca = payload.get("alpaca", {})
+    if isinstance(llm, dict):
+        summary.add_row("LLM Provider", str(llm.get("provider", "-")))
+        summary.add_row("Default Model", str(llm.get("default_model", "-")))
+        summary.add_row("Base URL", str(llm.get("base_url", "-")))
+    if isinstance(market_data, dict):
+        summary.add_row(
+            "Market Provider", str(market_data.get("selected_provider", "-"))
+        )
+        summary.add_row("Market Role", str(market_data.get("selected_role", "-")))
+    if isinstance(news, dict):
+        summary.add_row("News Mode", str(news.get("mode", "-")))
+    if isinstance(alpaca, dict):
+        summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
+        summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
+        summary.add_row(
+            "Alpaca Credentials Configured",
+            str(alpaca.get("credentials_configured", False)),
+        )
+    console.print(summary)
+
+    provider_table = Table(title="Provider Source Ladder")
+    provider_table.add_column("Provider")
+    provider_table.add_column("Type")
+    provider_table.add_column("Role")
+    provider_table.add_column("Enabled")
+    provider_table.add_column("API Key")
+    provider_table.add_column("Freshness")
+    provider_table.add_column("Notes")
+    providers = payload.get("providers", [])
+    if isinstance(providers, list):
+        for row in providers:
+            if not isinstance(row, dict):
+                continue
+            provider_table.add_row(
+                str(row.get("provider_id", "-")),
+                str(row.get("provider_type", "-")),
+                str(row.get("role", "-")),
+                str(row.get("enabled", False)),
+                str(row.get("api_key_ready", "-")),
+                str(row.get("freshness", "-")),
+                ", ".join(str(note) for note in row.get("notes", [])),
+            )
+    console.print(provider_table)
+
+
+@app.command("v1-readiness")
+def v1_readiness(
+    check_provider: bool = typer.Option(
+        False,
+        "--provider-check/--skip-provider-check",
+        help="Check local model/provider readiness; may call the configured LLM service.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show the V1 paper-operation and Alpaca paper-readiness checklist."""
+    settings = get_settings()
+    payload = v1_readiness_payload(settings, check_provider=check_provider)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    paper = payload.get("paper_operations", {})
+    alpaca = payload.get("alpaca_paper", {})
+    paper_allowed = isinstance(paper, dict) and bool(paper.get("allowed"))
+    console.print(
+        Panel(
+            str(payload.get("summary", "V1 readiness status unavailable.")),
+            title="V1 Readiness",
+            border_style="green" if paper_allowed else "yellow",
+        )
+    )
+    if isinstance(paper, dict):
+        _render_readiness_checks("Paper Operation Checks", paper)
+    if isinstance(alpaca, dict):
+        _render_readiness_checks("Alpaca Paper Checks", alpaca)
 
 
 @app.command()
