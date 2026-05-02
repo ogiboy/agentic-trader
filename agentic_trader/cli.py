@@ -121,6 +121,7 @@ console = Console()
 TUI_PACKAGE_NAME = "agentic-trader-tui"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
+HELP_RUNTIME_EVENT_LIMIT = "Maximum number of runtime events to include."
 
 
 type NodeCommandSet = tuple[list[str], list[str], Path, str]
@@ -641,6 +642,8 @@ def _render_run_markdown(record: RunRecord) -> str:
         markdown (str): A Markdown document string summarizing the run review.
     """
     artifacts = record.artifacts
+    fundamental_evidence = artifacts.fundamental.evidence_vs_inference
+    manager_resolution_notes = _manager_resolution_notes(artifacts)
     lines = [
         f"# Run Review: {record.run_id}",
         "",
@@ -664,11 +667,11 @@ def _render_run_markdown(record: RunRecord) -> str:
         f"- Business Quality: {artifacts.fundamental.business_quality}",
         f"- Macro Fit: {artifacts.fundamental.macro_fit}",
         f"- Forward Outlook: {artifacts.fundamental.forward_outlook}",
-        f"- Red Flags: {', '.join(artifacts.fundamental.red_flags) or '-'}",
-        f"- Strengths: {', '.join(artifacts.fundamental.strengths) or '-'}",
-        f"- Evidence: {', '.join(artifacts.fundamental.evidence_vs_inference.evidence) or '-'}",
-        f"- Inference: {', '.join(artifacts.fundamental.evidence_vs_inference.inference) or '-'}",
-        f"- Uncertainty: {', '.join(artifacts.fundamental.evidence_vs_inference.uncertainty) or '-'}",
+        f"- Red Flags: {_join_or_dash(artifacts.fundamental.red_flags)}",
+        f"- Strengths: {_join_or_dash(artifacts.fundamental.strengths)}",
+        f"- Evidence: {_join_or_dash(fundamental_evidence.evidence)}",
+        f"- Inference: {_join_or_dash(fundamental_evidence.inference)}",
+        f"- Uncertainty: {_join_or_dash(fundamental_evidence.uncertainty)}",
         f"- Summary: {artifacts.fundamental.summary}",
         "",
         "## Regime",
@@ -690,10 +693,10 @@ def _render_run_markdown(record: RunRecord) -> str:
         "",
         "## Consensus",
         f"- Alignment: {artifacts.consensus.alignment_level}",
-        f"- Summary: {artifacts.consensus.summary or '-'}",
-        f"- Supporting Roles: {', '.join(artifacts.consensus.supporting_roles) or '-'}",
-        f"- Dissenting Roles: {', '.join(artifacts.consensus.dissenting_roles) or '-'}",
-        f"- Reasons: {', '.join(artifacts.consensus.reasons) or '-'}",
+        f"- Summary: {_value_or_dash(artifacts.consensus.summary)}",
+        f"- Supporting Roles: {_join_or_dash(artifacts.consensus.supporting_roles)}",
+        f"- Dissenting Roles: {_join_or_dash(artifacts.consensus.dissenting_roles)}",
+        f"- Reasons: {_join_or_dash(artifacts.consensus.reasons)}",
         "",
         "## Manager",
         f"- Action Bias: {artifacts.manager.action_bias}",
@@ -717,10 +720,9 @@ def _render_run_markdown(record: RunRecord) -> str:
         [
             "",
             "## Manager Resolution Notes",
-            *(
-                [f"- {note}" for note in _manager_resolution_notes(artifacts)]
-                if _manager_resolution_notes(artifacts)
-                else ["- No additional manager resolution notes."]
+            *_markdown_bullets(
+                manager_resolution_notes,
+                fallback="No additional manager resolution notes.",
             ),
             "",
             "## Execution",
@@ -731,13 +733,27 @@ def _render_run_markdown(record: RunRecord) -> str:
             "",
             "## Review",
             f"- Summary: {artifacts.review.summary}",
-            f"- Strengths: {', '.join(artifacts.review.strengths) or '-'}",
-            f"- Warnings: {', '.join(artifacts.review.warnings) or '-'}",
-            f"- Next Checks: {', '.join(artifacts.review.next_checks) or '-'}",
+            f"- Strengths: {_join_or_dash(artifacts.review.strengths)}",
+            f"- Warnings: {_join_or_dash(artifacts.review.warnings)}",
+            f"- Next Checks: {_join_or_dash(artifacts.review.next_checks)}",
             "",
         ]
     )
     return "\n".join(lines)
+
+
+def _value_or_dash(value: object) -> str:
+    return str(value) if value else "-"
+
+
+def _join_or_dash(values: list[str] | tuple[str, ...]) -> str:
+    return ", ".join(values) if values else "-"
+
+
+def _markdown_bullets(values: list[str], *, fallback: str) -> list[str]:
+    if not values:
+        return [f"- {fallback}"]
+    return [f"- {value}" for value in values]
 
 
 def _manager_override_notes(artifacts: RunArtifacts) -> list[str]:
@@ -1481,6 +1497,117 @@ def _broker_payload(settings: Settings) -> dict[str, object]:
         dict: A dictionary containing broker runtime metadata and safety gate flags.
     """
     return broker_runtime_payload(settings)
+
+
+def _finance_check(
+    name: str, passed: bool, details: str, *, blocking: bool = True
+) -> dict[str, object]:
+    return {
+        "name": name,
+        "passed": passed,
+        "details": details,
+        "blocking": blocking,
+    }
+
+
+def _finance_ops_payload(settings: Settings) -> dict[str, object]:
+    """Build a read-only trading-desk view of broker, account, PnL, and evidence truth."""
+    broker = _broker_payload(settings)
+    portfolio = _portfolio_payload(settings)
+    risk_report = _risk_report_payload(settings)
+    readiness = v1_readiness_payload(settings, check_provider=False)
+    snapshot = portfolio.get("snapshot") if isinstance(portfolio, dict) else None
+    checks = [
+        _finance_check(
+            "paper_or_external_paper_only",
+            settings.execution_backend in {"paper", "alpaca_paper"}
+            and not settings.live_execution_enabled,
+            f"backend={settings.execution_backend} live_execution_enabled={settings.live_execution_enabled}",
+        ),
+        _finance_check(
+            "broker_health_visible",
+            isinstance(broker.get("healthcheck"), dict),
+            str(broker.get("message", "")),
+        ),
+        _finance_check(
+            "account_snapshot_visible",
+            bool(portfolio.get("available")) and isinstance(snapshot, dict),
+            str(portfolio.get("error") or "account snapshot available"),
+        ),
+        _finance_check(
+            "pnl_and_exposure_fields_visible",
+            _finance_snapshot_fields_visible(snapshot),
+            "cash/equity/PnL/position fields are present on the portfolio snapshot.",
+        ),
+        _finance_check(
+            "risk_report_visible",
+            bool(risk_report.get("available")) and risk_report.get("report") is not None,
+            str(risk_report.get("error") or "daily risk report available"),
+            blocking=False,
+        ),
+        _finance_check(
+            "paper_evidence_visible",
+            isinstance(readiness.get("paper_evidence"), dict),
+            "v1-readiness exposes source attribution, context-pack, review artifact, and no-live evidence.",
+        ),
+    ]
+    blocking_passed = all(
+        bool(check["passed"]) for check in checks if bool(check.get("blocking", True))
+    )
+    return {
+        "ready": blocking_passed,
+        "mode": settings.runtime_mode,
+        "backend": settings.execution_backend,
+        "checks": checks,
+        "broker": broker,
+        "portfolio": portfolio,
+        "riskReport": risk_report,
+        "paperEvidence": readiness.get("paper_evidence"),
+        "summary": (
+            "Finance operations checks have the broker/account/evidence truth needed for local paper review."
+            if blocking_passed
+            else "Finance operations checks are missing broker/account/evidence truth."
+        ),
+    }
+
+
+def _finance_snapshot_fields_visible(snapshot: object) -> bool:
+    if not isinstance(snapshot, dict):
+        return False
+    required_fields = {
+        "cash",
+        "equity",
+        "realized_pnl",
+        "unrealized_pnl",
+        "open_positions",
+    }
+    return required_fields.issubset(snapshot)
+
+
+def _render_finance_ops(payload: dict[str, object]) -> None:
+    checks = payload.get("checks", [])
+    console.print(
+        Panel(
+            str(payload.get("summary", "Finance operations status unavailable.")),
+            title="Finance Operations",
+            border_style="green" if payload.get("ready") else "yellow",
+        )
+    )
+    table = Table(title="Finance Operations Checks")
+    table.add_column("Check")
+    table.add_column("State")
+    table.add_column("Blocking")
+    table.add_column("Details")
+    if isinstance(checks, list):
+        for check in checks:
+            if isinstance(check, dict):
+                table.add_row(
+                    str(check.get("name", "-")),
+                    "[green]pass[/green]" if check.get("passed") else "[red]fail[/red]",
+                    str(check.get("blocking", True)),
+                    str(check.get("details", "")),
+                )
+    console.print(table)
 
 
 def _training_backtest_allow_fallback(settings: Settings) -> bool:
@@ -2757,6 +2884,19 @@ def v1_readiness(
         _render_readiness_checks("Alpaca Paper Checks", alpaca)
 
 
+@app.command("finance-ops")
+def finance_ops(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show read-only broker/account/PnL/exposure/evidence checks for paper operation."""
+    settings = get_settings()
+    payload = _finance_ops_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_finance_ops(payload)
+
+
 @app.command()
 def logs(
     limit: int = typer.Option(
@@ -2782,7 +2922,7 @@ def logs(
 @app.command("dashboard-snapshot")
 def dashboard_snapshot(
     log_limit: int = typer.Option(
-        14, min=1, max=100, help="Maximum number of runtime events to include."
+        14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT
     ),
 ) -> None:
     """Emit the full Ink dashboard snapshot as a single JSON payload."""
@@ -2845,6 +2985,7 @@ def build_dashboard_snapshot_payload(
         "status": status_payload,
         "supervisor": _service_supervisor_payload(settings),
         "broker": _broker_payload(settings),
+        "financeOps": _finance_ops_payload(settings),
         "logs": [event.model_dump(mode="json") for event in events],
         "agentActivity": {
             "cycle_count": activity.cycle_count,
@@ -2962,6 +3103,13 @@ def _total_memory_bytes() -> int | None:
         output = _run_probe_command(["sysctl", "-n", "hw.memsize"])
         if output and output.isdigit():
             return int(output)
+    sysconf_total = _sysconf_total_memory_bytes()
+    if sysconf_total is not None:
+        return sysconf_total
+    return _linux_meminfo_total_memory_bytes()
+
+
+def _sysconf_total_memory_bytes() -> int | None:
     try:
         pages = os.sysconf("SC_PHYS_PAGES")
         page_size = os.sysconf("SC_PAGE_SIZE")
@@ -2974,16 +3122,30 @@ def _total_memory_bytes() -> int | None:
         and page_size > 0
     ):
         return pages * page_size
+    return None
+
+
+def _linux_meminfo_total_memory_bytes() -> int | None:
     meminfo = Path("/proc/meminfo")
-    if meminfo.exists():
-        try:
-            for line in meminfo.read_text(encoding="utf-8").splitlines():
-                if line.startswith("MemTotal:"):
-                    parts = line.split()
-                    if len(parts) >= 2 and parts[1].isdigit():
-                        return int(parts[1]) * 1024
-        except OSError:
-            return None
+    if not meminfo.exists():
+        return None
+    try:
+        lines = meminfo.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        total = _parse_memtotal_line(line)
+        if total is not None:
+            return total
+    return None
+
+
+def _parse_memtotal_line(line: str) -> int | None:
+    if not line.startswith("MemTotal:"):
+        return None
+    parts = line.split()
+    if len(parts) >= 2 and parts[1].isdigit():
+        return int(parts[1]) * 1024
     return None
 
 
@@ -3259,6 +3421,11 @@ def build_evidence_bundle(
         "broker-status.json",
         _broker_payload(settings),
     )
+    files["finance_ops"] = _write_bundle_json(
+        bundle_dir,
+        "finance-ops.json",
+        _finance_ops_payload(settings),
+    )
     files["provider_diagnostics"] = _write_bundle_json(
         bundle_dir,
         "provider-diagnostics.json",
@@ -3345,7 +3512,7 @@ def evidence_bundle_command(
         help="Bundle directory label. Defaults to evidence-YYYYMMDD-HHMMSS.",
     ),
     log_limit: int = typer.Option(
-        20, min=1, max=200, help="Maximum number of runtime events to include."
+        20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT
     ),
     include_latest_smoke: bool = typer.Option(
         True,
@@ -3395,6 +3562,7 @@ def build_observer_api_payload(
     - "/logs": returns a list of recent service events under the "logs" key.
     - "/supervisor": returns supervisor status plus stdout/stderr log tails.
     - "/broker": returns broker runtime payload.
+    - "/finance-ops": returns read-only broker/account/PnL/evidence checks.
     - "/provider-diagnostics": returns network-free provider/source readiness.
     - "/v1-readiness": returns V1 paper-operation and Alpaca paper-readiness gates.
     - "/research": returns optional research sidecar mode and provider health.
@@ -3432,6 +3600,8 @@ def build_observer_api_payload(
         return 200, _service_supervisor_payload(settings)
     if path == "/broker":
         return 200, _broker_payload(settings)
+    if path == "/finance-ops":
+        return 200, _finance_ops_payload(settings)
     if path == "/provider-diagnostics":
         return 200, provider_diagnostics_payload(settings)
     if path == "/v1-readiness":
@@ -3450,7 +3620,7 @@ def observer_api_command(
         8765, min=1, max=65535, help="Bind port for the local observer API."
     ),
     log_limit: int = typer.Option(
-        14, min=1, max=100, help="Maximum number of runtime events to include."
+        14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT
     ),
 ) -> None:
     """
@@ -3464,7 +3634,7 @@ def observer_api_command(
     settings = get_settings()
     console.print(
         Panel(
-            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /provider-diagnostics\n- /v1-readiness\n- /research",
+            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /finance-ops\n- /provider-diagnostics\n- /v1-readiness\n- /research",
             title="Observer API",
             border_style="cyan",
         )
@@ -3852,14 +4022,27 @@ def trade_context(
     """
     settings = get_settings()
     payload = _trade_context_payload(settings, trade_id=trade_id)
-    record = (
-        TradeContextRecord.model_validate(payload["record"])
-        if payload["record"] is not None
-        else None
-    )
+    record = _trade_context_record_from_payload(payload)
     if json_output:
         _emit_json(payload)
         return
+    if _render_unavailable_trade_context(payload, record):
+        raise typer.Exit(code=0)
+    assert record is not None
+    _render_trade_context(record)
+
+
+def _trade_context_record_from_payload(
+    payload: dict[str, object],
+) -> TradeContextRecord | None:
+    if payload["record"] is None:
+        return None
+    return TradeContextRecord.model_validate(payload["record"])
+
+
+def _render_unavailable_trade_context(
+    payload: dict[str, object], record: TradeContextRecord | None
+) -> bool:
     if not payload["available"]:
         console.print(
             Panel(
@@ -3868,7 +4051,7 @@ def trade_context(
                 border_style="yellow",
             )
         )
-        raise typer.Exit(code=0)
+        return True
     if record is None:
         console.print(
             Panel(
@@ -3877,21 +4060,24 @@ def trade_context(
                 border_style="yellow",
             )
         )
-        raise typer.Exit(code=0)
+        return True
+    return False
 
+
+def _render_trade_context(record: TradeContextRecord) -> None:
     summary = Table(title=f"Trade Context / {record.trade_id}")
     summary.add_column("Field")
     summary.add_column("Value")
     summary.add_row("Created", record.created_at)
-    summary.add_row("Run ID", record.run_id or "-")
+    summary.add_row("Run ID", _value_or_dash(record.run_id))
     summary.add_row("Symbol", record.symbol)
     summary.add_row("Consensus", record.consensus.alignment_level)
     summary.add_row("Manager Rationale", record.manager_rationale)
     summary.add_row("Execution Rationale", record.execution_rationale)
-    summary.add_row("Execution Backend", record.execution_backend or "-")
-    summary.add_row("Execution Adapter", record.execution_adapter or "-")
-    summary.add_row("Execution Outcome", record.execution_outcome_status or "-")
-    summary.add_row("Rejection Reason", record.execution_rejection_reason or "-")
+    summary.add_row("Execution Backend", _value_or_dash(record.execution_backend))
+    summary.add_row("Execution Adapter", _value_or_dash(record.execution_adapter))
+    summary.add_row("Execution Outcome", _value_or_dash(record.execution_outcome_status))
+    summary.add_row("Rejection Reason", _value_or_dash(record.execution_rejection_reason))
     summary.add_row("Review Summary", record.review_summary)
     console.print(summary)
 
@@ -3906,10 +4092,10 @@ def trade_context(
     console.print(routed_models)
 
     context_lines = [
-        f"Retrieved Memory Roles: {', '.join(sorted(record.retrieved_memory_summary)) or '-'}",
-        f"Tool Output Roles: {', '.join(sorted(record.tool_outputs)) or '-'}",
-        f"Shared Bus Roles: {', '.join(sorted(record.shared_memory_summary)) or '-'}",
-        f"Review Warnings: {', '.join(record.review_warnings) or '-'}",
+        f"Retrieved Memory Roles: {_join_or_dash(sorted(record.retrieved_memory_summary))}",
+        f"Tool Output Roles: {_join_or_dash(sorted(record.tool_outputs))}",
+        f"Shared Bus Roles: {_join_or_dash(sorted(record.shared_memory_summary))}",
+        f"Review Warnings: {_join_or_dash(record.review_warnings)}",
     ]
     console.print(
         Panel(

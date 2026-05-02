@@ -50,12 +50,33 @@ The docs site should first help an operator understand what the system does, how
 Contributor notes, `.ai` project memory, package ownership, and branch posture still matter, but they should appear as maintenance context rather than the primary product story.
 Docs must distinguish product trading memory and review evidence from contributor `.ai` notes so users do not confuse repo-maintenance state with runtime decision memory.
 
+### Frontend typography must be bundled and local-first
+
+Reason:
+The Web GUI and docs site should preserve the JetBrains Mono visual direction without relying on build-time Google Fonts fetches.
+Both Next.js apps therefore load the bundled JetBrains Mono variable font files from app-local `fonts/` directories through `next/font/local`.
+Future typography changes should keep this local-font contract unless a deliberate design decision replaces it.
+
+### Setup verifies workspace dependencies while clean stays explicit
+
+Reason:
+The root pnpm workspace should not leave operators guessing whether `webgui`, `docs`, or `tui` dependencies were installed.
+`pnpm run setup` and `make setup` now run a node workspace setup script that installs the workspace, approves allowed builds, and checks expected dependency directories before Python sync.
+Normal `clean` remains artifact/cache-only to avoid unexpectedly deleting large installs, while `clean:deps` and `clean:all` make dependency removal intentional.
+
 ### Operator-facing finance truth must be reconciled evidence, not UI copy
 
 Reason:
 Paper-operation trust depends on account marks, fills, PnL, exposure, broker backend, source attribution, and timestamps agreeing across runtime, storage, and operator surfaces.
 Agents reviewing changes must treat finance/accounting claims like desk evidence: traceable, timestamped, source-attributed, and explicit about missing, stale, degraded, simulated, or blocked data.
 No UI, model response, or docs page should infer broker/account state from trade intent or make missing account evidence look neutral.
+
+### Finance operations checks are native read-only runtime surfaces
+
+Reason:
+The project needs a Wall-Street/accounting/broker lens inside the actual application, not only developer guidance.
+The first V1-safe implementation is a read-only `finance-ops` payload that reconciles broker backend, account snapshot, PnL fields, risk report availability, paper evidence, and live-block state across CLI, dashboard, observer API, and evidence bundles.
+It must not submit orders, mutate settings, bypass approval gates, or become a hidden execution path.
 
 ### Provider expansion should happen through adapters
 
@@ -313,6 +334,13 @@ This changes developer environment management only; it does not replace the stag
 
 Reason:
 Tracked `.env.example` files are templates only; real runtime and provider overrides belong in ignored `.env.local` files or GitHub repository secrets.
+
+### Product-impacting branch pushes bump tracked version metadata
+
+Reason:
+Branch artifact identity from `pnpm run version:plan` is useful, but the project owner expects pushed product work to also advance the visible application version in tracked metadata.
+When a feature/V1 branch push changes runtime behavior, operator surfaces, docs, sidecars, setup, or workflow contracts, agents should bump the patch version consistently across `pyproject.toml`, `agentic_trader/__init__.py`, root/workspace `package.json` files, `sidecars/research_flow/pyproject.toml`, and lockfile metadata before pushing.
+`CHANGELOG.md` remains release-flow owned unless the user explicitly asks for a changelog update.
 The Python runtime loads root `.env` and `.env.local` through Pydantic settings, so root API keys and model/runtime overrides should stay at the repository root.
 The Web GUI may run without `webgui/.env.local` because it auto-detects the worktree and managed Python runtime; that app-local env file should only override command execution details.
 The docs app should keep local `GITHUB_PAGES=false`; GitHub Actions and `pnpm build:docs:pages` set `GITHUB_PAGES=true` at build time so Pages gets the `/agentic-trader` base path without committing production env files.
@@ -350,7 +378,7 @@ Reason:
 Both `docs/` and `webgui/` were initialized from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`.
 Future component additions should preserve the resolved baseline that command produced today: `radix-lyra`, `olive`, `lucide`, Tailwind v4, CSS-variable theming, and app-local `components/ui`.
 If the design system changes later, it should be an explicit decision rather than accidental drift from one surface to another.
-JetBrains Mono is also part of that shared baseline for the current docs plus Web GUI typography direction.
+Typography should stay visually close to the JetBrains Mono direction but must use a local-first monospace stack so production builds do not depend on fetching Google Fonts.
 
 ### Web GUI CSS migration should be incremental
 

@@ -57,6 +57,7 @@ Bir paper cycle öncesinde bu kontrolleri çalıştır:
 python main.py doctor
 agentic-trader provider-diagnostics --json
 agentic-trader v1-readiness --json
+agentic-trader finance-ops --json
 ```
 
 Kurulu CLI entrypoint'ine güveniyorsan onu da doğrula:
@@ -79,8 +80,9 @@ geçmediğini gösterir; özellikle model servisini de çağırmak istiyorsan
 | --- | --- |
 | `doctor` | Lokal runtime beklenen ortamla başlayabiliyor mu? |
 | `provider-diagnostics --json` | Hangi data/model provider'ları hazır, eksik veya degraded? |
-| `v1-readiness --json` | Lokal paper operation hazır mı, external Alpaca paper hâlâ gate arkasında mı? |
+| `v1-readiness --json` | Lokal paper operation hazır mı, evidence/review context görünür mü, external Alpaca paper hâlâ gate arkasında mı? |
 | `broker-status --json` | Hangi backend aktif, live/paper güvenlikleri görünür mü? |
+| `finance-ops --json` | Broker, account, PnL, exposure, risk ve evidence kontrolleri paper review için uyumlu mu? |
 | `supervisor-status --json` | Daemon blocked, running, stale, stopped veya failed durumda mı? |
 
 ## Ortam dosyalarını yapılandır
@@ -150,6 +152,7 @@ pnpm start:tui
 - `provider-diagnostics --json`
 - `v1-readiness --json`
 - `broker-status --json`
+- `finance-ops --json`
 - `supervisor-status --json`
 - CLI ya da observer yüzeyindeki runtime durumu
 - son runtime logları

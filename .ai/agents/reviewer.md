@@ -46,10 +46,10 @@ diff, also read the relevant QA checklist/scenario.
   account/run snapshot when a change claims financial truth.
 - Claims about market context, broker state, PnL, exposure, or source quality
   carry source, timestamp, completeness, stale/degraded, or unavailable state.
-- Stable app version edits are limited to the release automation path on `main`.
-- Non-main branch work uses `pnpm run version:plan` for build identity and does
-  not hand-edit `pyproject.toml`, workspace `package.json` files, or
-  `CHANGELOG.md` unless a documented release exception requires it.
+- Product-impacting feature branch work must bump the tracked app patch version
+  consistently across Python, workspace package manifests, sidecar metadata, and
+  lockfile metadata before push, then run `pnpm run version:plan` for artifact
+  identity. `CHANGELOG.md` stays release-flow owned unless explicitly requested.
 
 ## Output Format
 

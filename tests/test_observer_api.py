@@ -21,12 +21,18 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert status_code == 200
     assert "doctor" in dashboard
     assert "broker" in dashboard
+    assert "financeOps" in dashboard
     assert "providerDiagnostics" in dashboard
     assert "v1Readiness" in dashboard
 
     status_code, broker = build_observer_api_payload(settings, path="/broker")
     assert status_code == 200
     assert broker["backend"] == "paper"
+
+    status_code, finance_ops = build_observer_api_payload(settings, path="/finance-ops")
+    assert status_code == 200
+    assert finance_ops["backend"] == "paper"
+    assert "checks" in finance_ops
 
     status_code, provider = build_observer_api_payload(
         settings, path="/provider-diagnostics"

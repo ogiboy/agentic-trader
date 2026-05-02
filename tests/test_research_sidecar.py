@@ -3,6 +3,8 @@ from datetime import UTC, datetime, timedelta
 import json
 import subprocess
 
+import pytest
+
 from agentic_trader.config import Settings
 from agentic_trader.researchd.orchestrator import CrewAiResearchBackend, ResearchSidecar
 from agentic_trader.researchd.persistence import persist_research_result
@@ -261,7 +263,7 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(tmp_path)
         calls.append(url)
         assert headers["User-Agent"] == "Agentic Trader test contact@example.com"
         assert headers["Accept"] == "application/json"
-        assert timeout_seconds == 30.0
+        assert timeout_seconds == pytest.approx(30.0)
         if url == "https://www.sec.gov/files/company_tickers.json":
             return {
                 "0": {
@@ -321,7 +323,7 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(tmp_path)
         record.evidence_vs_inference.uncertainty[0]
     )
     assert record.evidence_vs_inference.inference == []
-    assert record.source_attributions[0].confidence == 0.95
+    assert record.source_attributions[0].confidence == pytest.approx(0.95)
     assert "form=10-K" in record.source_attributions[0].notes
     assert record.missing_fields == []
     assert health.freshness == "fresh"

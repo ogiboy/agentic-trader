@@ -38,7 +38,8 @@ Implemented or substantially present:
 - the docs app is now configured for GitHub Pages static export with a project base path, static Fumadocs search data, and a feedback widget that prepares browser-local GitHub issue drafts instead of relying on Server Actions or filesystem writes
 - the repository now has GitHub Actions workflow scaffolding for Python/Web GUI/docs CI, semantic-release versioning with synchronized Python/root/workspace package versions on stable releases, SemVer-compatible branch version previews, stable release changelog/tag creation, prerelease branch GitHub Releases for test binaries, PyInstaller macOS/Windows binaries, and GitHub Pages docs deployment
 - JavaScript dependency management is now consolidated at the repository root with a pnpm workspace for `webgui/`, `docs/`, and `tui/`; root `package.json` scripts plus thin Makefile aliases provide shared setup, check, build, and local app entrypoints while uv owns Python locking, sync, command execution, and builds
-- `docs/` and `webgui/` currently share the resolved shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`, which today means `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono typography, and app-local `components/ui`
+- `docs/` and `webgui/` currently share the resolved shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next`, which today means `radix-lyra`, `olive`, `lucide`, Tailwind v4, a local-first monospace typography stack, and app-local `components/ui`
+- `docs/` and `webgui/` now load bundled JetBrains Mono variable fonts through `next/font/local` from app-local `fonts/` directories, preserving the intended look without build-time Google Fonts/network fetches
 - `webgui` remains mid-migration: its route handlers and some primitives follow the new frontend baseline, but much of the live shell still relies on legacy global classes in `src/app/globals.css`
 - tool-driven news context surfaces
 - operator chat history persisted separately from trading memory
@@ -86,6 +87,8 @@ Implemented or substantially present:
 - Market snapshots now carry `as_of`, and backtest reports persist data-window plus first/last decision timestamps so replay decisions can be audited for future-data leakage
 - `runtime-mode-checklist` now surfaces a schema-backed transition plan; mode changes remain explicit configuration actions and cannot be silently applied through chat/free-form instruction parsing
 - `v1-readiness` now surfaces paper-operation gates and Alpaca paper-readiness gates before longer runs or external paper checks, with optional provider/model health checking behind `--provider-check`
+- `v1-readiness` now also carries a `paper_evidence` section that ties V1 readiness to provider source-ladder visibility, source attribution, Market Context Pack explainability fields, review/evidence-bundle artifacts, broker health, and the no-live-until-approved gate
+- `finance-ops` now exposes a read-only trading-desk payload that reconciles broker backend, account snapshot, PnL fields, risk report availability, paper evidence, and live-block state without gaining execution authority
 - memory vectors now persist embedding provider, model, version, and dimensionality metadata beside the existing lightweight local-hashing vectors, and legacy rows migrate with local-hashing defaults
 - Sonar is split into two explicit targets: local Docker SonarQube Community Build uses project `agentic-trader` through root `sonar-project.properties`, while GitHub-hosted CI and public badges use SonarCloud project `ogiboy_agentic-trader`
 - local `pnpm run sonar` uses `pysonar`, local `pnpm run sonar:js` uses `@sonar/scan`, and manual `pnpm run sonar:cloud` uses the npm scanner with SonarCloud organization `ogiboy`; tokens must come from `SONAR_TOKEN` or separate macOS Keychain services (`codex-sonarqube-token` for local, `codex-sonarcloud-token` for cloud)
@@ -144,8 +147,10 @@ New production-expansion direction:
 - docs language now distinguishes product trading memory and review evidence from contributor `.ai` project notes so end users do not confuse repo-maintenance memory with runtime decision memory
 - root `pnpm check` and `make check` are now the intended static/build validation entrypoints; use `pnpm run qa` or `pnpm run qa:quality` for terminal smoke QA, and focused `pnpm --filter ...`, `uv run ...`, or `pnpm run check:research-flow` commands when narrowing a failure
 - `.codex/environments/environment.toml` setup and check actions now include the tracked CrewAI Flow sidecar setup/check commands so Codex workspace actions do not drift from README and root pnpm scripts
+- root `pnpm run setup` and `make setup` now install and verify root, `webgui`, `docs`, and `tui` node workspace dependencies before syncing Python; `clean` removes artifacts only, while `clean:deps` and `clean:all` explicitly remove installed dependencies
 - release binary uploads should be validated through the release workflow/tag-dispatch path; direct `main` branch binary workflow runs may upload artifacts while intentionally skipping GitHub Release publication
 - the stable release workflow now creates a baseline changelog section before the one-time pre-1.0 baseline tag when semantic-release's discovered candidate is below the tracked `0.9.0` baseline, so `main` does not end up with a release tag and an empty `CHANGELOG.md`
+- product-impacting feature/V1 branch pushes now carry an explicit tracked patch-version bump in Python, workspace package manifests, sidecar metadata, and lockfile metadata before push; `pnpm run version:plan` still records the branch artifact identity, and `CHANGELOG.md` remains release-flow owned unless explicitly requested
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture

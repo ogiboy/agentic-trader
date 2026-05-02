@@ -77,7 +77,7 @@ export const homeContentEn: HomeContent = {
       href: '/docs/frontend-system',
       title: 'Frontend System',
       description:
-        'Keep `docs` and `webgui` aligned on the shared shadcn preset, JetBrains Mono typography, and modular file organization.',
+        'Keep `docs` and `webgui` aligned on the shared shadcn preset, local-first monospace typography, and modular file organization.',
       badge: 'Frontend',
     },
     {

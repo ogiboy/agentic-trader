@@ -57,14 +57,15 @@ def test_version_plan_floors_below_baseline_stable_candidate() -> None:
 
 def test_version_plan_marks_explicit_release_ref_for_attachment() -> None:
     version_plan = _load_version_plan()
+    release_ref = f"v{version_plan._read_project_version()}"
 
     plan = version_plan.build_plan(
-        _args(semantic_tag=None, release_ref="v0.9.0", ref_name="v0.9.0")
+        _args(semantic_tag=None, release_ref=release_ref, ref_name=release_ref)
     )
 
     assert plan.channel == "stable"
-    assert plan.release_ref == "v0.9.0"
-    assert plan.artifact_version == "v0.9.0"
+    assert plan.release_ref == release_ref
+    assert plan.artifact_version == release_ref
     assert plan.attach_to_release is True
 
 

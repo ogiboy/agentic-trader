@@ -63,7 +63,7 @@ function detectManagedCondaEnvName(): null | string {
     return null;
   }
   const manifest = readFileSync(manifestPath, 'utf-8');
-  const match = manifest.match(/conda activate ([^\s'"]+)/);
+  const match = /conda activate ([^\s'"]+)/.exec(manifest);
   return match?.[1] || null;
 }
 

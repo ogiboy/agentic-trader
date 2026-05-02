@@ -1,11 +1,12 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai webgui docs tui clean
+.PHONY: help setup setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai webgui docs tui clean clean-deps clean-all
 
 help:
 	@printf '%s\n' \
 		'Agentic Trader aliases:' \
 		'  make setup        install Python and Node dependencies' \
+		'  make setup-node   install and verify root/webgui/docs/tui Node deps' \
 		'  make setup-research-flow install CrewAI Flow sidecar dependencies' \
 		'  make check        run Python and Node checks' \
 		'  make check-research-flow run CrewAI Flow sidecar smoke checks' \
@@ -16,10 +17,15 @@ help:
 		'  make webgui       start Web GUI dev server' \
 		'  make docs         start docs dev server' \
 		'  make tui          start terminal UI' \
-		'  make clean        remove local build/test artifacts'
+		'  make clean        remove local build/test artifacts' \
+		'  make clean-deps   remove installed dependency directories' \
+		'  make clean-all    remove artifacts and installed dependencies'
 
 setup:
 	pnpm run setup
+
+setup-node:
+	pnpm run setup:node
 
 setup-research-flow:
 	pnpm run setup:research-flow
@@ -113,3 +119,9 @@ tui:
 
 clean:
 	pnpm run clean
+
+clean-deps:
+	pnpm run clean:deps
+
+clean-all:
+	pnpm run clean:all

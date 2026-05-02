@@ -57,6 +57,7 @@ Run these checks before a paper cycle:
 python main.py doctor
 agentic-trader provider-diagnostics --json
 agentic-trader v1-readiness --json
+agentic-trader finance-ops --json
 ```
 
 If you rely on the installed CLI entrypoint, validate that too:
@@ -79,8 +80,9 @@ want it to call the configured model service.
 | --- | --- |
 | `doctor` | Can the local runtime start with the expected environment? |
 | `provider-diagnostics --json` | Which data/model providers are configured, missing, or degraded? |
-| `v1-readiness --json` | Is local paper operation ready, and is external Alpaca paper still gated? |
+| `v1-readiness --json` | Is local paper operation ready, is evidence/review context visible, and is external Alpaca paper still gated? |
 | `broker-status --json` | Which backend is active, and are live/paper safeguards visible? |
+| `finance-ops --json` | Do broker, account, PnL, exposure, risk, and evidence checks agree for paper review? |
 | `supervisor-status --json` | Is the daemon blocked, running, stale, stopped, or failed? |
 
 ## Configure environment files
@@ -150,6 +152,7 @@ pnpm start:tui
 - `provider-diagnostics --json`
 - `v1-readiness --json`
 - `broker-status --json`
+- `finance-ops --json`
 - `supervisor-status --json`
 - runtime status in the CLI or observer surface
 - recent runtime logs

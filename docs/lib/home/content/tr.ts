@@ -77,7 +77,7 @@ export const homeContentTr: HomeContent = {
       href: '/docs/frontend-system',
       title: 'Frontend Sistemi',
       description:
-        "`docs` ile `webgui`yi paylaşılan shadcn preset'i, JetBrains Mono tipografi ve modüler dosya organizasyonu üzerinden hizalı tut.",
+        "`docs` ile `webgui`yi paylaşılan shadcn preset'i, local-first monospace tipografi ve modüler dosya organizasyonu üzerinden hizalı tut.",
       badge: 'Frontend',
     },
     {

@@ -62,9 +62,15 @@ For `webgui/` or `docs/` work, also read the local app guidance:
   `webgui/package.json`, `docs/package.json`, `tui/package.json`, and
   `sidecars/research_flow/pyproject.toml` aligned through the configured release
   automation.
-- On non-main feature or V1 branch pushes, do not hand-edit stable version files
-  or `CHANGELOG.md` just to identify a branch build. Use the SemVer-compatible
-  branch artifact identity from `pnpm run version:plan`.
+- On non-main feature or V1 branch pushes that carry product-impacting code,
+  operator-surface, docs, sidecar, or workflow changes, bump the tracked app
+  patch version consistently before pushing: `pyproject.toml`,
+  `agentic_trader/__init__.py`, root `package.json`, `webgui/package.json`,
+  `docs/package.json`, `tui/package.json`, `sidecars/research_flow/pyproject.toml`,
+  and the matching lockfile metadata. Still run `pnpm run version:plan` so the
+  branch artifact identity is visible.
+- Do not edit `CHANGELOG.md` on feature branches unless the task is explicitly a
+  release/changelog task; changelog generation remains release-flow owned.
 - Before pushing release, CI, binary, or package-metadata changes, run or record
   why you skipped `pnpm run version:plan` and `pnpm run release:preview`.
 - If a version file must be changed manually, document the reason in

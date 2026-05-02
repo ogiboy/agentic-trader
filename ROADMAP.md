@@ -97,7 +97,8 @@ Status: in progress.
 - [ ] run a designer-style visual audit for Ink and Rich surfaces, including first-launch logo fit, resize behavior, visual density, and hotkey visibility
 - [ ] run a CLI ergonomics audit for `--help`, `-h`, examples, option naming, and short/long flag consistency
 - [ ] simplify Rich menu navigation so back, close, cancel, and exit controls feel consistent across sections
-- [ ] add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
+- [x] add a first finance/accounting read-only check for cash, equity, PnL, exposure, positions, backend, adapter, runtime mode, risk report availability, and live-block evidence
+- [ ] deepen finance/accounting readability across every CLI/Rich/Ink/Web GUI display for currency, mark timestamp, stale state, fees, slippage, and rejection labels
 - [ ] convert UX audit findings into smallest-safe repair recommendations before deciding whether they are V1 fixes or V2 redesign work
       Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
@@ -350,13 +351,14 @@ Status: in progress.
 - [ ] redesign the Ink control room toward an htop-like operator console with stable panes, visible controls, resize-safe layout, and less scrollback noise
 - [ ] reduce Rich/admin visual density or keep it as a compact fallback surface once Ink reaches full operational parity
 - [x] add a paper-operations readiness checklist that must pass before longer continuous runs
-- [ ] tie V1 readiness to paper evidence, provider health, source attribution, context-pack explainability, broker health checks, and an explicit no-live-until-approved gate
+- [x] tie V1 readiness to paper evidence, provider health, source attribution, context-pack explainability, broker health checks, and an explicit no-live-until-approved gate
+- [x] add a native read-only `finance-ops` trading-desk payload across CLI, dashboard, observer API, and evidence bundles for broker/account/PnL/exposure/risk/evidence reconciliation
 - [ ] compare paper operation results against deterministic baselines and memory/no-memory ablations before considering any live adapter
 - [ ] keep live broker work blocked until paper operation has stable QA evidence, context-pack explainability, and reviewable trade journals
       Notes:
 - this phase is about earning operator trust in continuous paper operation before expanding execution risk
 - the product should feel like an inspectable operator system, not a black-box trading bot
-- `v1-readiness` is now the first paper-operations checklist and is visible through CLI, dashboard, observer API, Rich, Ink, and Web GUI surfaces; deeper paper-evidence scoring is still open
+- `v1-readiness` is now the first paper-operations checklist and is visible through CLI, dashboard, observer API, Rich, Ink, and Web GUI surfaces; it also reports paper evidence expectations, source-ladder visibility, context-pack explainability fields, review/evidence-bundle artifacts, and the explicit no-live-until-approved gate
 - daemon lifecycle now records blocked runtime gates, recovers dead PID state through `stop-service`, treats stale live-heartbeat PID state as unsafe to double-launch, honors stop requests during cycle sleeps and after skipped symbols, exposes supervisor log tails through observer-compatible payloads, and filters live monitor stage rows to the active cycle
 
 ## Phase 16: Financial Intelligence Layer
@@ -480,7 +482,7 @@ Status: in progress.
 - [ ] add feature deep dives for paper operation, broker/account truth, memory/review evidence, research sidecar, runtime modes, and evidence bundles
 - [ ] add a cross-platform bootstrap flow for macOS, Linux, and Windows that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and opens the Web GUI
 - [ ] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
-- [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, including JetBrains Mono typography
+- [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, using a local-first monospace typography stack without build-time Google Fonts fetches
 - [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
 - [x] resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind issue so local interactive frontend work matches the green lint/build path
       Notes:

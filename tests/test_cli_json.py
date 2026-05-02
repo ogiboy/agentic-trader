@@ -58,6 +58,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["run", "-h"],
         ["broker-status", "--help"],
         ["broker-status", "-h"],
+        ["finance-ops", "--help"],
+        ["finance-ops", "-h"],
         ["provider-diagnostics", "--help"],
         ["provider-diagnostics", "-h"],
         ["v1-readiness", "--help"],
@@ -830,9 +832,9 @@ def test_hardware_profile_json_reports_recommendations(
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["hardware"]["cpu_count"] == 8
-    assert payload["hardware"]["memory_gb"] == 32.0
+    assert payload["hardware"]["memory_gb"] == pytest.approx(32.0)
     assert payload["hardware"]["accelerator"]["type"] == "test"
-    assert payload["configured_runtime"]["estimated_model_size_b"] == 8.0
+    assert payload["configured_runtime"]["estimated_model_size_b"] == pytest.approx(8.0)
     assert payload["recommendations"]["safe_parallel_agents"] == 2
     assert payload["recommendations"]["profile"] == "standard-local"
 
@@ -1345,9 +1347,42 @@ def test_v1_readiness_json_reports_paper_and_alpaca_sections(
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["paper_operations"]["allowed"] is False
+    assert payload["paper_evidence"]["ready"] is True
     assert payload["alpaca_paper"]["ready"] is False
     assert payload["broker"]["backend"] == "paper"
+    assert "evidence_bundle" in payload["paper_evidence"]["review_artifacts"]
+    assert "coverage" in payload["paper_evidence"]["context_pack"]["required_fields"]
     assert any(
         check["name"] == "llm_provider_ready" and check["passed"] is False
         for check in payload["paper_operations"]["checks"]
+    )
+    assert any(
+        check["name"] == "no_live_until_approved_gate" and check["passed"] is True
+        for check in payload["paper_operations"]["checks"]
+    )
+
+
+def test_finance_ops_json_reports_read_only_desk_checks(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+        live_execution_enabled=False,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    result = CliRunner().invoke(app, ["finance-ops", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["backend"] == "paper"
+    assert payload["broker"]["backend"] == "paper"
+    assert payload["portfolio"]["available"] is True
+    assert isinstance(payload["paperEvidence"], dict)
+    assert any(
+        check["name"] == "paper_or_external_paper_only" and check["passed"] is True
+        for check in payload["checks"]
     )

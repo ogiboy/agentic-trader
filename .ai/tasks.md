@@ -23,16 +23,19 @@ Now:
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` while making it the operator-first product guide, not only a developer entrypoint
 - keep docs language clear about the difference between product trading memory/review evidence and contributor `.ai` project notes
 - keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's uv-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
-- keep development-agent handoffs honest about version ownership before push: stable versions move through `pyproject.toml` plus semantic-release into `agentic_trader/__init__.py`, package manifests, and sidecar metadata; branch builds use `pnpm run version:plan`, and manual version edits need an explicit decision note
+- keep development-agent handoffs honest about version ownership before push: product-impacting branch pushes should bump the tracked app patch version consistently across Python, workspace package manifests, sidecar metadata, and lockfile metadata, then run `pnpm run version:plan`; `CHANGELOG.md` remains release-flow owned unless explicitly requested
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
+- keep local setup/cleanup semantics explicit: `setup` must install and verify root/webgui/docs/tui node workspace deps, `clean` should remain artifact-only, and dependency removal should go through explicit `clean:deps` or `clean:all`
 - keep the root uv migration boring and complete: root `uv.lock`, `.python-version`, install/check/qa/release scripts, CI workflows, docs, and `.codex` environment actions must stay aligned
 - keep the SEC EDGAR submissions provider opt-in and fair-access-aware: no network fetch without `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true`, a configured SEC User-Agent, and watched symbols
-- capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, including JetBrains Mono typography
+- capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, using local-first monospace typography without build-time Google Fonts fetches
+- keep bundled `next/font/local` JetBrains Mono wiring in both Next apps when typography changes; do not reintroduce `next/font/google` or build-time font downloads
 - keep the locale-aware English and Turkish docs trees curated, modular, and synced with runtime reality instead of letting them collapse back into oversized route files or duplicated repo notes
 - keep the Web GUI route boundary, dashboard polling, and review surfaces aligned with the CLI/TUI contracts while avoiding a broad one-shot CSS rewrite
 - keep the Web GUI command runner attached to the current worktree/runtime environment so browser QA does not silently drift onto a stale PATH-installed CLI
 - design the Ollama-management path as an extension of the existing daemon/log/status surfaces so the app can eventually start, stop, inspect, and expose model-service logs without creating a parallel supervisor
-- use `provider-diagnostics` and `v1-readiness` as the V1 operator gate before longer paper-operation runs or Alpaca paper-readiness checks; the default remains local paper, and `alpaca_paper` requires explicit credentials plus enablement
+- use `provider-diagnostics` and `v1-readiness` as the V1 operator gate before longer paper-operation runs or Alpaca paper-readiness checks; `v1-readiness.paper_evidence` must keep source attribution, context-pack explainability, review artifacts, broker health, and no-live-until-approved state visible
+- use `finance-ops` as the native read-only trading-desk check for broker/account/PnL/exposure/risk/evidence truth; do not turn it into an execution path
 - keep shared dashboard, observer API, Rich, Ink, and Web GUI readiness displays in parity with `provider-diagnostics`, `v1-readiness`, and `broker-status`
 - use `.ai/agents/product-docs.md` for docs/product explanation work and `.ai/agents/finance-ops.md` for broker/accounting/PnL/exposure changes; both are development-only roles, not runtime orchestration
 
@@ -303,7 +306,7 @@ Current state:
 
 Desired direction:
 
-- preserve the current `radix-lyra`, `olive`, `lucide`, Tailwind v4, JetBrains Mono, and app-local `components/ui` baseline across both apps
+- preserve the current `radix-lyra`, `olive`, `lucide`, Tailwind v4, local-first monospace, and app-local `components/ui` baseline across both apps
 - keep `docs` curated and source-linked instead of turning it into a second dump of repository files
 - keep docs route files, static feedback flow, and content helpers modular whenever splitting improves readability or reviewability
 - keep GitHub Pages feedback honest: browser-local issue drafts are allowed, but static docs must not claim filesystem writes or automatic forwarding

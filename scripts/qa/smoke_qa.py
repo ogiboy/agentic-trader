@@ -38,6 +38,8 @@ TUI_READY_PATTERNS = (
     r"Select action",
     r"Overview",
 )
+PROMPT_SELECT_ACTION = "Select action"
+PROMPT_PRESS_ENTER = "Press Enter to continue"
 DEFAULT_SONAR_HOST_URL = "http://localhost:9000"
 DEFAULT_SONAR_PROJECT_KEY = "agentic-trader"
 DEFAULT_SONAR_ORGANIZATION = ""
@@ -455,8 +457,40 @@ def run_command_capture(
     """
     artifact = _artifact_path(context, name)
     display_command = display or _command_display(command)
+    proc_or_result = _run_capture_process(
+        command,
+        artifact=artifact,
+        display_command=display_command,
+        timeout=timeout,
+        env_overrides=env_overrides,
+        sensitive_values=sensitive_values,
+        name=name,
+    )
+    if isinstance(proc_or_result, CheckResult):
+        return proc_or_result
+
+    return _capture_process_result(
+        proc_or_result,
+        name=name,
+        artifact=artifact,
+        display_command=display_command,
+        require_json_stdout=require_json_stdout,
+        sensitive_values=sensitive_values,
+    )
+
+
+def _run_capture_process(
+    command: list[str],
+    *,
+    artifact: Path,
+    display_command: str,
+    timeout: int,
+    env_overrides: dict[str, str] | None,
+    sensitive_values: tuple[str, ...],
+    name: str,
+) -> subprocess.CompletedProcess[str] | CheckResult:
     try:
-        proc = subprocess.run(
+        return subprocess.run(
             command,
             cwd=REPO_ROOT,
             env={**os.environ, **env_overrides} if env_overrides is not None else None,
@@ -466,29 +500,13 @@ def run_command_capture(
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or ""
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode("utf-8", errors="replace")
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode("utf-8", errors="replace")
-        stdout = _redact_sensitive_text(stdout, sensitive_values)
-        stderr = _redact_sensitive_text(stderr, sensitive_values)
-        exception_text = _redact_sensitive_text(str(exc), sensitive_values)
-        _write_artifact(
-            artifact,
-            f"$ {display_command}\n"
-            f"cwd: {REPO_ROOT}\n"
-            f"timeout: {timeout}\n\n"
-            f"STDOUT:\n{stdout}\n\n"
-            f"STDERR:\n{stderr}\n\n"
-            f"EXCEPTION:\n{exception_text}\n",
-        )
-        return CheckResult(
+        return _timeout_capture_result(
+            exc,
             name=name,
-            passed=False,
-            details=f"timeout_after={timeout}s",
-            artifact=str(artifact),
+            artifact=artifact,
+            display_command=display_command,
+            timeout=timeout,
+            sensitive_values=sensitive_values,
         )
     except Exception as exc:
         exception_text = _redact_sensitive_text(str(exc), sensitive_values)
@@ -502,14 +520,58 @@ def run_command_capture(
             artifact=str(artifact),
         )
 
+
+def _timeout_capture_result(
+    exc: subprocess.TimeoutExpired,
+    *,
+    name: str,
+    artifact: Path,
+    display_command: str,
+    timeout: int,
+    sensitive_values: tuple[str, ...],
+) -> CheckResult:
+    stdout = _decode_timeout_stream(exc.stdout)
+    stderr = _decode_timeout_stream(exc.stderr)
+    stdout = _redact_sensitive_text(stdout, sensitive_values)
+    stderr = _redact_sensitive_text(stderr, sensitive_values)
+    exception_text = _redact_sensitive_text(str(exc), sensitive_values)
+    _write_artifact(
+        artifact,
+        f"$ {display_command}\n"
+        f"cwd: {REPO_ROOT}\n"
+        f"timeout: {timeout}\n\n"
+        f"STDOUT:\n{stdout}\n\n"
+        f"STDERR:\n{stderr}\n\n"
+        f"EXCEPTION:\n{exception_text}\n",
+    )
+    return CheckResult(
+        name=name,
+        passed=False,
+        details=f"timeout_after={timeout}s",
+        artifact=str(artifact),
+    )
+
+
+def _decode_timeout_stream(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
+def _capture_process_result(
+    proc: subprocess.CompletedProcess[str],
+    *,
+    name: str,
+    artifact: Path,
+    display_command: str,
+    require_json_stdout: bool,
+    sensitive_values: tuple[str, ...],
+) -> CheckResult:
     stdout = proc.stdout or ""
     stderr = proc.stderr or ""
-    json_error: str | None = None
-    if require_json_stdout:
-        try:
-            json.loads(stdout)
-        except json.JSONDecodeError as exc:
-            json_error = str(exc)
+    json_error = _json_stdout_error(stdout) if require_json_stdout else None
     artifact_stdout = _redact_sensitive_text(stdout, sensitive_values)
     artifact_stderr = _redact_sensitive_text(stderr, sensitive_values)
 
@@ -547,6 +609,14 @@ def run_command_capture(
     )
 
 
+def _json_stdout_error(stdout: str) -> str | None:
+    try:
+        json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        return str(exc)
+    return None
+
+
 def run_dashboard_contract_check(
     context: SmokeContext, command: list[str], *, timeout: int = 30
 ) -> CheckResult:
@@ -581,58 +651,7 @@ def run_dashboard_contract_check(
             artifact=str(artifact),
         )
 
-    if proc.returncode != 0:
-        issues.append(f"exit_code={proc.returncode}")
-    if not isinstance(payload.get("doctor"), dict):
-        issues.append("missing doctor object")
-    elif "runtime_mode" not in payload["doctor"]:
-        issues.append("doctor.runtime_mode missing")
-    if not isinstance(payload.get("status"), dict):
-        issues.append("missing status object")
-    elif "runtime_mode" not in payload["status"]:
-        issues.append("status.runtime_mode missing")
-    if not isinstance(payload.get("marketContext"), dict):
-        issues.append("marketContext section missing")
-    else:
-        market_context = payload["marketContext"]
-        if "contextPack" not in market_context:
-            issues.append("marketContext.contextPack missing")
-        else:
-            context_pack = market_context["contextPack"]
-            if context_pack is not None and not isinstance(context_pack, dict):
-                issues.append("marketContext.contextPack has unexpected type")
-            elif isinstance(context_pack, dict):
-                for field in ("summary", "bars_analyzed", "horizons"):
-                    if field not in context_pack:
-                        issues.append(f"marketContext.contextPack.{field} missing")
-    if not isinstance(payload.get("recentRuns"), dict):
-        issues.append("recentRuns section missing")
-    elif "runs" not in payload["recentRuns"]:
-        issues.append("recentRuns.runs missing")
-    if not isinstance(payload.get("providerDiagnostics"), dict):
-        issues.append("providerDiagnostics section missing")
-    else:
-        provider_diagnostics = payload["providerDiagnostics"]
-        if not isinstance(provider_diagnostics.get("warnings"), list):
-            issues.append("providerDiagnostics.warnings missing")
-        if not isinstance(provider_diagnostics.get("providers"), list):
-            issues.append("providerDiagnostics.providers missing")
-    if not isinstance(payload.get("v1Readiness"), dict):
-        issues.append("v1Readiness section missing")
-    else:
-        v1_readiness = payload["v1Readiness"]
-        if not isinstance(v1_readiness.get("paper_operations"), dict):
-            issues.append("v1Readiness.paper_operations missing")
-        if not isinstance(v1_readiness.get("alpaca_paper"), dict):
-            issues.append("v1Readiness.alpaca_paper missing")
-    if not isinstance(payload.get("broker"), dict):
-        issues.append("broker section missing")
-    else:
-        broker = payload["broker"]
-        if "external_paper" not in broker:
-            issues.append("broker.external_paper missing")
-        if not isinstance(broker.get("healthcheck"), dict):
-            issues.append("broker.healthcheck missing")
+    issues.extend(_dashboard_contract_issues(payload, proc.returncode))
 
     _write_artifact(
         artifact,
@@ -652,6 +671,115 @@ def run_dashboard_contract_check(
     )
 
 
+def _dashboard_contract_issues(
+    payload: dict[str, object], returncode: int
+) -> list[str]:
+    issues: list[str] = []
+    if returncode != 0:
+        issues.append(f"exit_code={returncode}")
+    _require_dict_field(payload, "doctor", issues, required_keys=("runtime_mode",))
+    _require_dict_field(payload, "status", issues, required_keys=("runtime_mode",))
+    _validate_market_context_section(payload, issues)
+    _require_dict_field(payload, "recentRuns", issues, required_keys=("runs",))
+    _validate_provider_diagnostics_section(payload, issues)
+    _validate_v1_readiness_section(payload, issues)
+    _validate_finance_ops_section(payload, issues)
+    _validate_broker_section(payload, issues)
+    return issues
+
+
+def _require_dict_field(
+    payload: dict[str, object],
+    key: str,
+    issues: list[str],
+    *,
+    required_keys: tuple[str, ...] = (),
+) -> dict[str, object] | None:
+    value = payload.get(key)
+    if not isinstance(value, dict):
+        issues.append(f"{key} section missing")
+        return None
+    for required_key in required_keys:
+        if required_key not in value:
+            issues.append(f"{key}.{required_key} missing")
+    return value
+
+
+def _validate_market_context_section(
+    payload: dict[str, object], issues: list[str]
+) -> None:
+    market_context = _require_dict_field(payload, "marketContext", issues)
+    if market_context is None:
+        return
+    if "contextPack" not in market_context:
+        issues.append("marketContext.contextPack missing")
+        return
+    context_pack = market_context["contextPack"]
+    if context_pack is None:
+        return
+    if not isinstance(context_pack, dict):
+        issues.append("marketContext.contextPack has unexpected type")
+        return
+    for field in ("summary", "bars_analyzed", "horizons"):
+        if field not in context_pack:
+            issues.append(f"marketContext.contextPack.{field} missing")
+
+
+def _validate_provider_diagnostics_section(
+    payload: dict[str, object], issues: list[str]
+) -> None:
+    provider_diagnostics = _require_dict_field(payload, "providerDiagnostics", issues)
+    if provider_diagnostics is None:
+        return
+    if not isinstance(provider_diagnostics.get("warnings"), list):
+        issues.append("providerDiagnostics.warnings missing")
+    if not isinstance(provider_diagnostics.get("providers"), list):
+        issues.append("providerDiagnostics.providers missing")
+
+
+def _validate_v1_readiness_section(
+    payload: dict[str, object], issues: list[str]
+) -> None:
+    v1_readiness = _require_dict_field(payload, "v1Readiness", issues)
+    if v1_readiness is None:
+        return
+    if not isinstance(v1_readiness.get("paper_operations"), dict):
+        issues.append("v1Readiness.paper_operations missing")
+    paper_evidence = v1_readiness.get("paper_evidence")
+    if not isinstance(paper_evidence, dict):
+        issues.append("v1Readiness.paper_evidence missing")
+    elif "evidence_bundle" not in paper_evidence.get("review_artifacts", []):
+        issues.append("v1Readiness.paper_evidence.review_artifacts incomplete")
+    if not isinstance(v1_readiness.get("alpaca_paper"), dict):
+        issues.append("v1Readiness.alpaca_paper missing")
+
+
+def _validate_broker_section(payload: dict[str, object], issues: list[str]) -> None:
+    broker = _require_dict_field(payload, "broker", issues)
+    if broker is None:
+        return
+    if "external_paper" not in broker:
+        issues.append("broker.external_paper missing")
+    if not isinstance(broker.get("healthcheck"), dict):
+        issues.append("broker.healthcheck missing")
+
+
+def _validate_finance_ops_section(
+    payload: dict[str, object], issues: list[str]
+) -> None:
+    finance_ops = _require_dict_field(payload, "financeOps", issues)
+    if finance_ops is None:
+        return
+    if not isinstance(finance_ops.get("checks"), list):
+        issues.append("financeOps.checks missing")
+    if not isinstance(finance_ops.get("broker"), dict):
+        issues.append("financeOps.broker missing")
+    if not isinstance(finance_ops.get("portfolio"), dict):
+        issues.append("financeOps.portfolio missing")
+    if not isinstance(finance_ops.get("paperEvidence"), dict):
+        issues.append("financeOps.paperEvidence missing")
+
+
 def run_market_context_edge_case_check(context: SmokeContext) -> CheckResult:
     """
     Validate deterministic Market Context Pack edge cases used by V1 readiness.
@@ -663,105 +791,7 @@ def run_market_context_edge_case_check(context: SmokeContext) -> CheckResult:
     """
     name = "market_context_edge_cases"
     artifact = _artifact_path(context, name)
-    issues: list[str] = []
-    observations: dict[str, object] = {}
-
-    try:
-        import pandas as pd
-
-        from agentic_trader.market.features import build_snapshot
-
-        def ohlcv_frame(periods: int, *, index: pd.Index | None = None) -> pd.DataFrame:
-            return pd.DataFrame(
-                {
-                    "open": [100 + i for i in range(periods)],
-                    "high": [101 + i for i in range(periods)],
-                    "low": [99 + i for i in range(periods)],
-                    "close": [100 + i for i in range(periods)],
-                    "volume": [1_000 + (i * 10) for i in range(periods)],
-                },
-                index=index,
-            )
-
-        partial_frame = ohlcv_frame(
-            80, index=pd.date_range("2025-01-01", periods=80, freq="B")
-        )
-        partial_snapshot = build_snapshot(
-            partial_frame, symbol="PARTIAL", interval="1d", lookback="180d"
-        )
-        partial_pack = partial_snapshot.context_pack
-        observations["partial_daily"] = (
-            partial_pack.model_dump(mode="json") if partial_pack is not None else None
-        )
-        if partial_pack is None:
-            issues.append("partial daily context pack missing")
-        elif "partial_lookback_coverage" not in partial_pack.data_quality_flags:
-            issues.append("partial daily window did not mark partial_lookback_coverage")
-
-        intraday_frame = ohlcv_frame(
-            120, index=pd.date_range("2025-01-01 09:30", periods=120, freq="h")
-        )
-        try:
-            build_snapshot(
-                intraday_frame, symbol="INTRADAY", interval="1h", lookback="180d"
-            )
-        except ValueError as exc:
-            observations["intraday_operation_block"] = str(exc)
-            if "coverage is too thin" not in str(exc):
-                issues.append("intraday operation block did not explain thin coverage")
-        else:
-            issues.append("intraday provider-limit window did not fail closed")
-
-        replay_snapshot = build_snapshot(
-            intraday_frame,
-            symbol="TRAIN",
-            interval="1h",
-            lookback="180d",
-            enforce_lookback_coverage=False,
-        )
-        replay_pack = replay_snapshot.context_pack
-        observations["intraday_training"] = (
-            replay_pack.model_dump(mode="json") if replay_pack is not None else None
-        )
-        if replay_pack is None:
-            issues.append("training replay context pack missing")
-        elif "low_lookback_coverage" not in replay_pack.data_quality_flags:
-            issues.append("training replay did not preserve low_lookback_coverage")
-
-        range_snapshot = build_snapshot(
-            ohlcv_frame(80), symbol="RANGE", interval="1d", lookback="90d"
-        )
-        range_pack = range_snapshot.context_pack
-        observations["non_datetime_index"] = (
-            range_pack.model_dump(mode="json") if range_pack is not None else None
-        )
-        if range_pack is None:
-            issues.append("non-datetime context pack missing")
-        elif "higher_timeframe_fallback" not in range_pack.data_quality_flags:
-            issues.append("non-datetime index did not mark higher_timeframe_fallback")
-
-        short_htf_snapshot = build_snapshot(
-            ohlcv_frame(
-                80, index=pd.date_range("2025-01-01", periods=80, freq="B")
-            ),
-            symbol="SHORTHTF",
-            interval="1d",
-            lookback="90d",
-        )
-        short_htf_pack = short_htf_snapshot.context_pack
-        observations["short_higher_timeframe"] = (
-            short_htf_pack.model_dump(mode="json")
-            if short_htf_pack is not None
-            else None
-        )
-        if short_htf_pack is None:
-            issues.append("short higher-timeframe context pack missing")
-        elif "higher_timeframe_fallback" not in short_htf_pack.data_quality_flags:
-            issues.append(
-                "short higher-timeframe window did not mark higher_timeframe_fallback"
-            )
-    except Exception as exc:
-        issues.append(f"exception={exc}")
+    issues, observations = _market_context_edge_case_results()
 
     _write_artifact(
         artifact,
@@ -779,6 +809,160 @@ def run_market_context_edge_case_check(context: SmokeContext) -> CheckResult:
         passed=not issues,
         details="context_edge_cases_ok" if not issues else "; ".join(issues),
         artifact=str(artifact),
+    )
+
+
+def _market_context_edge_case_results() -> tuple[list[str], dict[str, object]]:
+    issues: list[str] = []
+    observations: dict[str, object] = {}
+    try:
+        _check_partial_daily_window(issues, observations)
+        intraday_frame = _intraday_edge_case_frame()
+        _check_intraday_fail_closed(intraday_frame, issues, observations)
+        _check_training_replay_undercoverage(intraday_frame, issues, observations)
+        _check_higher_timeframe_fallbacks(issues, observations)
+    except Exception as exc:
+        issues.append(f"exception={exc}")
+    return issues, observations
+
+
+def _qa_ohlcv_frame(
+    periods: int, *, index: Any | None = None
+) -> Any:
+    import pandas as pd
+
+    return pd.DataFrame(
+        {
+            "open": [100 + i for i in range(periods)],
+            "high": [101 + i for i in range(periods)],
+            "low": [99 + i for i in range(periods)],
+            "close": [100 + i for i in range(periods)],
+            "volume": [1_000 + (i * 10) for i in range(periods)],
+        },
+        index=index,
+    )
+
+
+def _intraday_edge_case_frame() -> Any:
+    import pandas as pd
+
+    return _qa_ohlcv_frame(
+        120, index=pd.date_range("2025-01-01 09:30", periods=120, freq="h")
+    )
+
+
+def _pack_payload(pack: Any | None) -> object:
+    return pack.model_dump(mode="json") if pack is not None else None
+
+
+def _require_context_flag(
+    pack: Any | None,
+    flag: str,
+    issues: list[str],
+    *,
+    missing_pack: str,
+    missing_flag: str,
+) -> None:
+    if pack is None:
+        issues.append(missing_pack)
+    elif flag not in pack.data_quality_flags:
+        issues.append(missing_flag)
+
+
+def _check_partial_daily_window(
+    issues: list[str], observations: dict[str, object]
+) -> None:
+    import pandas as pd
+
+    from agentic_trader.market.features import build_snapshot
+
+    partial_frame = _qa_ohlcv_frame(
+        80, index=pd.date_range("2025-01-01", periods=80, freq="B")
+    )
+    partial_snapshot = build_snapshot(
+        partial_frame, symbol="PARTIAL", interval="1d", lookback="180d"
+    )
+    partial_pack = partial_snapshot.context_pack
+    observations["partial_daily"] = _pack_payload(partial_pack)
+    _require_context_flag(
+        partial_pack,
+        "partial_lookback_coverage",
+        issues,
+        missing_pack="partial daily context pack missing",
+        missing_flag="partial daily window did not mark partial_lookback_coverage",
+    )
+
+
+def _check_intraday_fail_closed(
+    intraday_frame: Any, issues: list[str], observations: dict[str, object]
+) -> None:
+    from agentic_trader.market.features import build_snapshot
+
+    try:
+        build_snapshot(intraday_frame, symbol="INTRADAY", interval="1h", lookback="180d")
+    except ValueError as exc:
+        observations["intraday_operation_block"] = str(exc)
+        if "coverage is too thin" not in str(exc):
+            issues.append("intraday operation block did not explain thin coverage")
+        return
+    issues.append("intraday provider-limit window did not fail closed")
+
+
+def _check_training_replay_undercoverage(
+    intraday_frame: Any, issues: list[str], observations: dict[str, object]
+) -> None:
+    from agentic_trader.market.features import build_snapshot
+
+    replay_snapshot = build_snapshot(
+        intraday_frame,
+        symbol="TRAIN",
+        interval="1h",
+        lookback="180d",
+        enforce_lookback_coverage=False,
+    )
+    replay_pack = replay_snapshot.context_pack
+    observations["intraday_training"] = _pack_payload(replay_pack)
+    _require_context_flag(
+        replay_pack,
+        "low_lookback_coverage",
+        issues,
+        missing_pack="training replay context pack missing",
+        missing_flag="training replay did not preserve low_lookback_coverage",
+    )
+
+
+def _check_higher_timeframe_fallbacks(
+    issues: list[str], observations: dict[str, object]
+) -> None:
+    import pandas as pd
+
+    from agentic_trader.market.features import build_snapshot
+
+    range_pack = build_snapshot(
+        _qa_ohlcv_frame(80), symbol="RANGE", interval="1d", lookback="90d"
+    ).context_pack
+    observations["non_datetime_index"] = _pack_payload(range_pack)
+    _require_context_flag(
+        range_pack,
+        "higher_timeframe_fallback",
+        issues,
+        missing_pack="non-datetime context pack missing",
+        missing_flag="non-datetime index did not mark higher_timeframe_fallback",
+    )
+
+    short_htf_pack = build_snapshot(
+        _qa_ohlcv_frame(80, index=pd.date_range("2025-01-01", periods=80, freq="B")),
+        symbol="SHORTHTF",
+        interval="1d",
+        lookback="90d",
+    ).context_pack
+    observations["short_higher_timeframe"] = _pack_payload(short_htf_pack)
+    _require_context_flag(
+        short_htf_pack,
+        "higher_timeframe_fallback",
+        issues,
+        missing_pack="short higher-timeframe context pack missing",
+        missing_flag="short higher-timeframe window did not mark higher_timeframe_fallback",
     )
 
 
@@ -1137,71 +1321,15 @@ def run_ink_settings_navigation(
     issues: list[str] = []
 
     try:
-        launch_proc = subprocess.run(
-            [
-                tmux_path,
-                "new-session",
-                "-d",
-                "-s",
-                session_name,
-                "-x",
-                "110",
-                "-y",
-                "30",
-                launch_command,
-            ],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            check=True,
-        )
-        if launch_proc.stderr:
-            issues.append(f"tmux new-session stderr: {launch_proc.stderr.strip()}")
-
-        ready_deadline = time.monotonic() + timeout
-        while time.monotonic() < ready_deadline:
-            overview_capture = _tmux_capture_pane(
-                tmux_path, session_name, timeout=timeout
-            )
-            if (
-                "AGENTIC TRADER // INK CONTROL ROOM" in overview_capture
-                and "page " in overview_capture
-                and "Last refresh:" in overview_capture
-            ):
-                break
-            time.sleep(0.5)
-        else:
+        _start_tmux_session(tmux_path, session_name, launch_command, timeout, issues)
+        overview_capture = _wait_for_ink_overview(tmux_path, session_name, timeout)
+        if not _ink_overview_ready(overview_capture):
             issues.append("ink overview did not render in tmux")
-
         if not issues:
-            subprocess.run(
-                [tmux_path, "send-keys", "-t", f"{session_name}:0.0", "7"],
-                cwd=REPO_ROOT,
-                text=True,
-                capture_output=True,
-                timeout=timeout,
-                check=False,
+            settings_capture = _open_and_capture_ink_settings(
+                tmux_path, session_name, timeout, issues
             )
-            settings_deadline = time.monotonic() + timeout
-            while time.monotonic() < settings_deadline:
-                settings_capture = _tmux_capture_pane(
-                    tmux_path, session_name, timeout=timeout
-                )
-                current_issues = _ink_settings_capture_issues(settings_capture)
-                if not current_issues:
-                    break
-                time.sleep(0.5)
-            else:
-                issues.extend(_ink_settings_capture_issues(settings_capture))
-            subprocess.run(
-                [tmux_path, "send-keys", "-t", f"{session_name}:0.0", "q"],
-                cwd=REPO_ROOT,
-                text=True,
-                capture_output=True,
-                timeout=timeout,
-                check=False,
-            )
+            _send_tmux_key(tmux_path, session_name, "q", timeout=timeout)
             time.sleep(1.0)
     except subprocess.CalledProcessError as exc:
         stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else str(exc.stderr)
@@ -1234,6 +1362,89 @@ def run_ink_settings_navigation(
         details="tmux_settings_navigation_ok" if not issues else "; ".join(issues),
         artifact=str(artifact),
     )
+
+
+def _start_tmux_session(
+    tmux_path: str,
+    session_name: str,
+    launch_command: str,
+    timeout: int,
+    issues: list[str],
+) -> None:
+    launch_proc = subprocess.run(
+        [
+            tmux_path,
+            "new-session",
+            "-d",
+            "-s",
+            session_name,
+            "-x",
+            "110",
+            "-y",
+            "30",
+            launch_command,
+        ],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+        check=True,
+    )
+    if launch_proc.stderr:
+        issues.append(f"tmux new-session stderr: {launch_proc.stderr.strip()}")
+
+
+def _wait_for_ink_overview(
+    tmux_path: str, session_name: str, timeout: int
+) -> str:
+    capture = ""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        capture = _tmux_capture_pane(tmux_path, session_name, timeout=timeout)
+        if _ink_overview_ready(capture):
+            return capture
+        time.sleep(0.5)
+    return capture
+
+
+def _ink_overview_ready(capture: str) -> bool:
+    return (
+        "AGENTIC TRADER // INK CONTROL ROOM" in capture
+        and "page " in capture
+        and "Last refresh:" in capture
+    )
+
+
+def _send_tmux_key(
+    tmux_path: str, session_name: str, key: str, *, timeout: int
+) -> None:
+    subprocess.run(
+        [tmux_path, "send-keys", "-t", f"{session_name}:0.0", key],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def _open_and_capture_ink_settings(
+    tmux_path: str,
+    session_name: str,
+    timeout: int,
+    issues: list[str],
+) -> str:
+    _send_tmux_key(tmux_path, session_name, "7", timeout=timeout)
+    capture = ""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        capture = _tmux_capture_pane(tmux_path, session_name, timeout=timeout)
+        current_issues = _ink_settings_capture_issues(capture)
+        if not current_issues:
+            return capture
+        time.sleep(0.5)
+    issues.extend(_ink_settings_capture_issues(capture))
+    return capture
 
 
 def run_rich_menu_deep_navigation(
@@ -1274,38 +1485,38 @@ def run_rich_menu_deep_navigation(
         child.logfile_read = log
         _wait_for_tui_ready(child, timeout=timeout)
 
-        child.expect("Select action", timeout=timeout)
+        child.expect(PROMPT_SELECT_ACTION, timeout=timeout)
         child.sendline("6")
         child.expect("Review And Trace", timeout=timeout)
         child.sendline("3")
-        child.expect("Press Enter to continue", timeout=timeout)
+        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
         child.sendline("")
 
-        child.expect("Select action", timeout=timeout)
+        child.expect(PROMPT_SELECT_ACTION, timeout=timeout)
         child.sendline("5")
         child.expect("Research And Memory", timeout=timeout)
         child.sendline("2")
         child.expect("Runtime Events|Recent Runs", timeout=timeout)
-        child.expect("Press Enter to continue", timeout=timeout)
+        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
         child.sendline("")
         child.expect("Research And Memory", timeout=timeout)
         child.sendline("3")
-        child.expect("Press Enter to continue", timeout=timeout)
+        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
         child.sendline("")
 
-        child.expect("Select action", timeout=timeout)
+        child.expect(PROMPT_SELECT_ACTION, timeout=timeout)
         child.sendline("4")
         child.expect("Portfolio And Risk", timeout=timeout)
         child.sendline("1")
         child.expect("Portfolio", timeout=timeout)
-        child.expect("Press Enter to continue", timeout=timeout)
+        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
         child.sendline("")
         child.expect("Portfolio And Risk", timeout=timeout)
         child.sendline("4")
-        child.expect("Press Enter to continue", timeout=timeout)
+        child.expect(PROMPT_PRESS_ENTER, timeout=timeout)
         child.sendline("")
 
-        child.expect("Select action", timeout=timeout)
+        child.expect(PROMPT_SELECT_ACTION, timeout=timeout)
         child.sendline("7")
         _drain_child(child, EXIT_WAIT_SECONDS)
         exit_method = "scripted_navigation"
@@ -1713,6 +1924,12 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
                     context,
                     "broker_status_json",
                     [agentic_trader_executable, "broker-status", "--json"],
+                    require_json_stdout=True,
+                ),
+                run_command_capture(
+                    context,
+                    "finance_ops_json",
+                    [agentic_trader_executable, "finance-ops", "--json"],
                     require_json_stdout=True,
                 ),
                 run_command_capture(

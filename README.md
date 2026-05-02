@@ -103,6 +103,11 @@ pnpm run setup
 make setup
 ```
 
+`setup` installs the root pnpm workspace and verifies that `webgui/`, `docs/`,
+and `tui/` each have their workspace `node_modules` links before syncing the
+root uv Python environment. If you only need the JavaScript side, run
+`pnpm run setup:node` or `make setup-node`.
+
 ### Optional Web GUI
 
 ```bash
@@ -195,6 +200,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader monitor --refresh-seconds 1`                                           | Attach to runtime status                   |
 | `agentic-trader supervisor-status --json`                                              | Inspect daemon state and log tails         |
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
+| `agentic-trader finance-ops --json`                                                    | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check |
 | `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
 | `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks |
 | `agentic-trader evidence-bundle --json`                                                | Package read-only QA/release evidence      |
@@ -266,10 +272,21 @@ Commit messages should follow conventional commits so release automation can inf
 
 ## Uninstall / Cleanup
 
+Normal cleanup removes build/test/cache artifacts but keeps installed
+dependencies:
+
 ```bash
-rm -rf .venv .conda-env .pytest_cache .ruff_cache build dist *.egg-info
-rm -rf runtime docs/.next docs/out webgui/.next webgui/out
-rm -rf docs/node_modules webgui/node_modules tui/node_modules
+pnpm run clean
+# or
+make clean
+```
+
+Remove dependency installs explicitly when you want a fresh setup:
+
+```bash
+pnpm run clean:deps
+# or remove artifacts and dependencies together:
+pnpm run clean:all
 ```
 
 If an older Poetry/Conda setup is still present, remove it separately:
