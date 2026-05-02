@@ -336,6 +336,7 @@ Status: in progress.
       Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
 - smoke QA now includes dashboard, provider diagnostics, V1 readiness, broker health, runtime-mode checklist, deterministic market-context edge-case checks, deep Rich-menu navigation, raw terminal-noise detection, a generated `qa-report.md`, and an optional isolated one-cycle runtime check
+- smoke QA now also includes a CLI help contract for key operator commands so `--help`/`-h` output stays concise and does not leak implementation-oriented docstring sections
 - visual QA can now use Computer Use in Codex/Desktop environments, but it remains optional and must be paired with contract/runtime truth checks
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
@@ -360,6 +361,7 @@ Status: in progress.
 - the product should feel like an inspectable operator system, not a black-box trading bot
 - `v1-readiness` is now the first paper-operations checklist and is visible through CLI, dashboard, observer API, Rich, Ink, and Web GUI surfaces; it also reports paper evidence expectations, source-ladder visibility, context-pack explainability fields, review/evidence-bundle artifacts, and the explicit no-live-until-approved gate
 - daemon lifecycle now records blocked runtime gates, recovers dead PID state through `stop-service`, treats stale live-heartbeat PID state as unsafe to double-launch, honors stop requests during cycle sleeps and after skipped symbols, exposes supervisor log tails through observer-compatible payloads, and filters live monitor stage rows to the active cycle
+- live monitor Current Cycle output now keeps data context, runtime mode, broker backend/state, kill-switch state, and V1 paper gate visible beside stage progress
 
 ## Phase 16: Financial Intelligence Layer
 

@@ -439,6 +439,7 @@ Manual negative checks:
 
 ```bash
 agentic-trader observer-api --host 0.0.0.0 --port 8765
+agentic-trader observer-api --host '' --port 8765
 curl -i http://127.0.0.1:8765/health
 curl -i -H "X-Agentic-Trader-Observer-Token: local-token" http://127.0.0.1:8765/health
 curl -i -H "Origin: http://evil.local" -H "Content-Type: application/json" --data '{"kind":"restart"}' http://localhost:3210/api/runtime
@@ -446,7 +447,7 @@ curl -i -H "Origin: http://evil.local" -H "Content-Type: application/json" --dat
 
 Expected:
 
-- non-loopback observer bind is rejected by default
+- non-loopback and empty observer binds are rejected by default
 - token-protected observer endpoint returns `401` without the token and JSON with the token
 - observer responses include `Cache-Control: no-store` and browser hardening headers
 - Web GUI mutating routes reject foreign origins and oversized/malformed JSON

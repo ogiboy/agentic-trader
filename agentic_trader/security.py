@@ -97,7 +97,9 @@ def open_private_append_binary(path: Path) -> IO[bytes]:
 def is_loopback_host(host: str) -> bool:
     """Return whether a bind or request host is local-loopback only."""
     normalized = host.strip().strip("[]").lower()
-    if normalized in {"localhost", ""} or normalized.endswith(".localhost"):
+    if not normalized:
+        return False
+    if normalized == "localhost" or normalized.endswith(".localhost"):
         return True
     try:
         return ipaddress.ip_address(normalized).is_loopback

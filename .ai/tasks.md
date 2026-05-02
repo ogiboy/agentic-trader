@@ -28,6 +28,7 @@ Now:
 - keep local setup/cleanup semantics explicit: `setup` must install and verify root/webgui/docs/tui node workspace deps, `clean` should remain artifact-only, and dependency removal should go through explicit `clean:deps` or `clean:all`
 - keep the root uv migration boring and complete: root `uv.lock`, `.python-version`, install/check/qa/release scripts, CI workflows, docs, and `.codex` environment actions must stay aligned
 - keep security posture checks in the normal V1 loop: Web GUI routes need same-origin plus optional token/body-cap/cooldown validation, observer API must remain loopback-first, and runtime/QA artifacts must be treated as sensitive local evidence
+- include empty observer bind hosts in the security posture loop; `--host ''` must stay blocked because it binds like an all-interface listener in Python's HTTP server stack
 - keep secret redaction tests alongside provider, sidecar, supervisor, and Web-facing changes; fake keys in errors, logs, or provider notes must never reach JSON payloads, docs evidence, or QA artifacts unmasked
 - keep `.ai/security/threat-model.md`, docs security posture pages, and `.ai/qa/qa-scenarios.md` aligned whenever a new operator surface, provider, sidecar, CI/CD artifact, or runtime artifact is added
 - keep the SEC EDGAR submissions provider opt-in and fair-access-aware: no network fetch without `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true`, a configured SEC User-Agent, and watched symbols
@@ -176,6 +177,7 @@ Desired shape:
 - quieter Rich/admin fallback with fewer always-on panels and clearer drill-down pages
 - cleaner runtime attach / restart / stop workflows
 - clearer live visibility into stage progress, context-pack usage, model calls, tool usage, safety gates, and runtime outcomes
+- keep expanding live-monitor stage context carefully: data window, runtime mode, broker/safety gates, and terminal outcomes are visible now; current model/tool-call detail should come from structured events or persisted traces rather than guessed UI text
 - observer-safe review and memory surfaces while the writer owns DuckDB
 - use `.ai/qa/qa-scenarios.md` for manual validation of daemon, monitor, and control-room changes
 
@@ -204,6 +206,7 @@ Desired direction:
 - run designer-style visual audits with pexpect/tmux/asciinema first, and add Computer Use screenshots when visual evidence is necessary or text captures are insufficient
 - define an indirect terminal-visual review path that cross-checks tmux/asciinema captures with dashboard, broker, and observer JSON when a direct terminal session is not available
 - run a CLI ergonomics audit for `--help`, `-h`, command examples, option naming, and short/long flag consistency
+- keep the automated CLI help contract in smoke QA green so key operator commands stay concise and do not expose implementation-style docstring sections
 - simplify Rich menu navigation so back, close, cancel, and exit behaviors are consistent and the repeated logo/header does not dominate every output
 - add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
 - turn UX findings into smallest-safe repair recommendations, classified as V1 blocker, V1 polish, or V2 redesign before implementation

@@ -49,6 +49,18 @@ DEFAULT_SONAR_SOURCES = (
 )
 DEFAULT_SONAR_TESTS = "tests"
 DEFAULT_SONAR_TOKEN_KEYCHAIN_SERVICE = "codex-sonarqube-token"
+HELP_COMMANDS = (
+    ("top_help", ["--help"]),
+    ("top_short_help", ["-h"]),
+    ("run_help", ["run", "--help"]),
+    ("launch_help", ["launch", "--help"]),
+    ("broker_status_help", ["broker-status", "--help"]),
+    ("trade_context_help", ["trade-context", "--help"]),
+    ("tui_help", ["tui", "--help"]),
+    ("menu_help", ["menu", "--help"]),
+    ("observer_api_help", ["observer-api", "--help"]),
+)
+HELP_INTERNAL_MARKERS = ("Parameters:", "Raises:", "Returns:")
 
 
 @dataclass(frozen=True)
@@ -605,6 +617,130 @@ def _capture_process_result(
         name=name,
         passed=passed,
         details=details,
+        artifact=str(artifact),
+    )
+
+
+def run_expected_failure_capture(
+    context: SmokeContext,
+    name: str,
+    command: list[str],
+    *,
+    expected_text: str,
+    timeout: int = 30,
+    expected_exit_codes: tuple[int, ...] = (1, 2),
+    display: str | None = None,
+) -> CheckResult:
+    """Run a negative-path command and pass only when it fails safely."""
+    artifact = _artifact_path(context, name)
+    display_command = display or _command_display(command)
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return _timeout_capture_result(
+            exc,
+            name=name,
+            artifact=artifact,
+            display_command=display_command,
+            timeout=timeout,
+            sensitive_values=(),
+        )
+    except Exception as exc:
+        _write_artifact(artifact, f"$ {display_command}\n\nEXCEPTION:\n{exc}\n")
+        return CheckResult(
+            name=name,
+            passed=False,
+            details=f"exception={exc}",
+            artifact=str(artifact),
+        )
+
+    combined_output = f"{proc.stdout}\n{proc.stderr}"
+    passed = (
+        proc.returncode in expected_exit_codes
+        and expected_text in combined_output
+        and not _output_has_traceback(combined_output)
+    )
+    _write_artifact(
+        artifact,
+        (
+            f"$ {display_command}\n"
+            f"cwd: {REPO_ROOT}\n"
+            f"expected_exit_codes: {expected_exit_codes}\n"
+            f"expected_text: {expected_text}\n"
+            f"exit_code: {proc.returncode}\n\n"
+            f"STDOUT:\n{proc.stdout}\n\n"
+            f"STDERR:\n{proc.stderr}"
+        ),
+    )
+    details = f"exit_code={proc.returncode}"
+    if expected_text not in combined_output:
+        details += "; expected_text_missing"
+    if proc.returncode not in expected_exit_codes:
+        details += "; unexpected_exit_code"
+    return CheckResult(
+        name=name,
+        passed=passed,
+        details=details,
+        artifact=str(artifact),
+    )
+
+
+def run_cli_help_contract_check(
+    context: SmokeContext, agentic_trader_executable: str
+) -> CheckResult:
+    """Verify key operator help screens stay concise and user-facing."""
+    name = "cli_help_contract"
+    artifact = _artifact_path(context, name)
+    issues: list[str] = []
+    output_sections: list[str] = []
+
+    for check_name, args in HELP_COMMANDS:
+        command = [agentic_trader_executable, *args]
+        display_command = _command_display(command)
+        try:
+            proc = subprocess.run(
+                command,
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+        except Exception as exc:
+            issues.append(f"{check_name}: exception={exc}")
+            output_sections.append(f"$ {display_command}\nEXCEPTION:\n{exc}")
+            continue
+
+        combined_output = f"{proc.stdout}\n{proc.stderr}"
+        output_sections.append(
+            f"$ {display_command}\nexit_code: {proc.returncode}\n\n{combined_output}"
+        )
+        if proc.returncode != 0:
+            issues.append(f"{check_name}: exit_code={proc.returncode}")
+        if "Usage:" not in combined_output:
+            issues.append(f"{check_name}: missing Usage")
+        for marker in HELP_INTERNAL_MARKERS:
+            if marker in combined_output:
+                issues.append(f"{check_name}: internal marker {marker}")
+        if _output_has_traceback(combined_output):
+            issues.append(f"{check_name}: traceback")
+
+    _write_artifact(
+        artifact,
+        f"issues: {json.dumps(issues, indent=2)}\n\n"
+        + "\n\n---\n\n".join(output_sections),
+    )
+    return CheckResult(
+        name=name,
+        passed=not issues,
+        details="help_contract_ok" if not issues else "; ".join(issues),
         artifact=str(artifact),
     )
 
@@ -1901,6 +2037,7 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
                     context,
                     [agentic_trader_executable, "dashboard-snapshot"],
                 ),
+                run_cli_help_contract_check(context, agentic_trader_executable),
                 run_market_context_edge_case_check(context),
                 run_command_capture(
                     context,
@@ -1913,6 +2050,19 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
                         "--skip-provider-check",
                     ],
                     require_json_stdout=True,
+                ),
+                run_expected_failure_capture(
+                    context,
+                    "observer_api_empty_host_blocked",
+                    [
+                        agentic_trader_executable,
+                        "observer-api",
+                        "--host",
+                        "",
+                        "--port",
+                        "8765",
+                    ],
+                    expected_text="Observer API is local-only by default.",
                 ),
                 run_command_capture(
                     context,

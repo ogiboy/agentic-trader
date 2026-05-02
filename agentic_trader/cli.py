@@ -2456,17 +2456,7 @@ def run(
     interval: str = typer.Option("1d", help=HELP_INTERVAL),
     lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
 ) -> None:
-    """
-    Run a single agent cycle using the configured LLM and record the resulting paper order.
-    
-    Parameters:
-        symbol (str): Trading symbol to evaluate.
-        interval (str): Candlestick interval to use (e.g., "1d", "1h").
-        lookback (str): Historical lookback window to build the market snapshot (e.g., "180d").
-    
-    Raises:
-        typer.Exit: Exits with code 1 if the run fails.
-    """
+    """Run one strict paper cycle and record its reviewable decision evidence."""
     settings = get_settings()
     try:
         ensure_llm_ready(settings)
@@ -2508,24 +2498,7 @@ def launch(
         False, help="Spawn the orchestrator as a background service."
     ),
 ) -> None:
-    """
-    Start the agent orchestrator using the provided symbols and runtime options.
-    
-    This command launches the trading orchestrator either in the foreground (runs until completion or stopped) or as a background service (daemon). It validates the provided symbols and runtime flags, then either starts a background service or runs the service loop and renders the latest execution result.
-    
-    Parameters:
-        symbols (str): Comma-separated symbols (e.g., "AAPL,MSFT,BTC-USD").
-        interval (str): OHLCV interval to use for market data (e.g., "1d").
-        lookback (str): Historical lookback window (e.g., "180d").
-        poll_seconds (int): Sleep interval between cycles when running continuously.
-        continuous (bool): If true, keep the orchestrator running across cycles.
-        max_cycles (int | None): Optional cap on the number of cycles when running continuously.
-        background (bool): If true, spawn the orchestrator as a background service (requires --continuous).
-    
-    Raises:
-        typer.BadParameter: If no symbols are provided or if background is requested without --continuous.
-        typer.Exit: Exits with code 1 on runtime errors encountered during launch.
-    """
+    """Start a foreground or managed background paper-runtime loop."""
     settings = get_settings()
     symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
     if not symbol_list:
@@ -3650,14 +3623,7 @@ def observer_api_command(
         ),
     ),
 ) -> None:
-    """
-    Start a local, read-only HTTP observer API exposing runtime and diagnostic endpoints.
-    
-    Parameters:
-    	host (str): Bind address for the observer API.
-    	port (int): TCP port to bind the observer API (1–65535).
-    	log_limit (int): Maximum number of recent runtime events to include in responses.
-    """
+    """Start the local read-only observer API with loopback-first safety gates."""
     settings = get_settings()
     nonlocal_bind = not is_loopback_host(host)
     if nonlocal_bind and (
@@ -4060,17 +4026,7 @@ def trade_context(
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """
-    Display the persisted market, memory, and reasoning context for a trade.
-    
-    When `json_output` is true, emits the raw payload as JSON. Otherwise renders human-readable panels:
-    a summary table, routed-models table, and a context-summary panel. If the datastore is temporarily
-    unavailable or no trade context exists, prints a warning panel and exits with code 0.
-    
-    Parameters:
-        trade_id (str | None): Trade identifier to inspect. If omitted, the latest recorded trade context is used.
-        json_output (bool): If true, output the underlying payload as JSON instead of rendering panels.
-    """
+    """Inspect persisted market, memory, model-routing, and rationale evidence."""
     settings = get_settings()
     payload = _trade_context_payload(settings, trade_id=trade_id)
     record = _trade_context_record_from_payload(payload)
@@ -4724,18 +4680,7 @@ def monitor(
 
 @app.command("tui")
 def ink_tui() -> None:
-    """
-    Launch the Ink-based control room, falling back to the Rich control room when Ink is unavailable.
-
-    Checks for the bundled `tui` directory and a compatible Node package manager. If the TUI directory
-    is missing or no package manager can be resolved, the function invokes the Rich control-room
-    fallback (`run_main_menu`) and returns. On first-run (missing `node_modules`) it installs Ink
-    dependencies through the resolved package manager, then starts the Ink UI with the CLI and Python
-    executable passed through environment variables.
-
-    Raises:
-        subprocess.CalledProcessError: If dependency installation or TUI startup exits with a non-zero status.
-    """
+    """Open the primary Ink control room, with Rich fallback if needed."""
     tui_dir = Path(__file__).resolve().parent.parent / "tui"
     if not tui_dir.exists():
         console.print(

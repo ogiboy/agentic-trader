@@ -3,6 +3,7 @@ import stat
 from agentic_trader.security import (
     append_private_text,
     ensure_private_directory,
+    is_loopback_host,
     redact_sensitive_text,
     write_private_text,
 )
@@ -38,3 +39,11 @@ def test_private_runtime_artifact_helpers_use_owner_only_modes(tmp_path) -> None
     assert path.read_text(encoding="utf-8") == "first\nsecond\n"
     assert stat.S_IMODE(directory.stat().st_mode) == 0o700
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_loopback_host_rejects_empty_all_interface_bind() -> None:
+    assert is_loopback_host("") is False
+    assert is_loopback_host("   ") is False
+    assert is_loopback_host("localhost") is True
+    assert is_loopback_host("127.0.0.1") is True
+    assert is_loopback_host("0.0.0.0") is False

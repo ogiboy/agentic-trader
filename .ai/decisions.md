@@ -107,6 +107,9 @@ payloads, and redact subprocess/provider errors before returning them to
 operator surfaces.
 These controls harden the local shell without creating a second runtime or
 weakening paper-first execution gates.
+An empty observer host is not local-safe: Python's HTTP server binds `host=""`
+as an all-interface listener, so empty/blank hosts must be classified as
+non-loopback and covered by negative tests plus smoke QA.
 
 ### Runtime and QA artifacts are sensitive local evidence
 
@@ -165,6 +168,9 @@ Reason:
 The installed `agentic-trader` command, `python main.py`, Ink TUI, and Rich menu can drift independently from unit tests.
 A small pexpect-based smoke harness should exercise the actual terminal surfaces, leave timestamped text artifacts, and fail loudly when the operator's PATH resolves a stale entrypoint.
 Quality gates such as ruff, pytest, pyright, and SonarQube should be attached as optional QA checks without hardcoding tokens or changing the trading runtime.
+The same smoke layer should protect operator help text: key CLI help screens must
+remain concise, support `--help`/`-h`, and avoid leaking implementation-style
+docstring sections such as `Parameters:` or `Raises:`.
 
 ### Sonar: explicit local and SonarCloud targets
 

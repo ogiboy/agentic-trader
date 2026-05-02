@@ -116,6 +116,18 @@ def test_observer_api_rejects_nonlocal_bind_by_default() -> None:
         raise AssertionError("non-loopback observer bind should be rejected")
 
 
+def test_observer_api_rejects_empty_bind_host_by_default() -> None:
+    def resolver(path: str) -> tuple[int, dict[str, object]]:
+        return 200, {"path": path}
+
+    try:
+        create_observer_server(host="", port=0, resolver=resolver)
+    except ValueError as exc:
+        assert "local-only" in str(exc)
+    else:
+        raise AssertionError("empty observer bind host should be rejected")
+
+
 def test_observer_api_supports_optional_local_token(tmp_path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,

@@ -416,14 +416,20 @@ def _agent_activity_table(
 
 
 def _current_activity_panel(
-    state: ServiceStateSnapshot | None, events: list[ServiceEvent]
+    settings: Settings, state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Panel:
     view = build_runtime_status_view(state)
     activity = build_agent_activity_view(state, events)
+    broker = broker_runtime_payload(settings)
+    readiness = v1_readiness_payload(settings, check_provider=False)
+    paper_operations = cast(dict[str, object], readiness.get("paper_operations", {}))
     lines = [
         f"Runtime: {view.runtime_state}",
+        f"Runtime Mode: {state.runtime_mode if state is not None else settings.runtime_mode}",
+        f"Watched Symbols: {', '.join(state.symbols) if state is not None and state.symbols else '-'}",
         f"Current Symbol: {view.state.current_symbol if view.state is not None and view.state.current_symbol else '-'}",
         f"Cycle: {view.state.cycle_count if view.state is not None else '-'}",
+        f"Interval / Lookback: {state.interval if state is not None and state.interval else '-'} / {state.lookback if state is not None and state.lookback else '-'}",
         f"Current Note: {view.state.message if view.state is not None and view.state.message else '-'}",
         "",
         f"Current Stage: {activity.current_stage or '-'}",
@@ -431,6 +437,11 @@ def _current_activity_panel(
         f"Stage Message: {activity.current_stage_message or 'No agent activity recorded yet.'}",
         f"Last Completed Stage: {activity.last_completed_stage or '-'}",
         f"Completed Note: {activity.last_completed_message or '-'}",
+        "",
+        f"Broker Backend: {broker.get('backend', '-')}",
+        f"Broker State: {broker.get('state', '-')}",
+        f"Kill Switch: {'active' if broker.get('kill_switch_active') else 'inactive'}",
+        f"V1 Paper Gate: {'allowed' if paper_operations.get('allowed') else 'blocked'}",
     ]
     if activity.last_outcome_message is not None:
         lines.extend(
@@ -621,7 +632,7 @@ def build_monitor_renderable(
     )
     top = Columns(
         [
-            _current_activity_panel(runtime_state, events),
+            _current_activity_panel(settings, runtime_state, events),
             Panel(
                 _agent_activity_table(runtime_state, events),
                 border_style="bright_magenta",
@@ -753,7 +764,9 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     console.print(status)
     _render_runtime_state(runtime_state)
     console.print(
-        _current_activity_panel(runtime_state, read_service_events(settings, limit=12))
+        _current_activity_panel(
+            settings, runtime_state, read_service_events(settings, limit=12)
+        )
     )
     if db is None:
         console.print(_observer_mode_panel("Preferences and portfolio-backed views"))
