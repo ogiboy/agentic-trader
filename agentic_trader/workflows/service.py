@@ -13,6 +13,7 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.runtime_feed import clear_stop_request, request_stop, stop_requested
 from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
 from agentic_trader.schemas import LLMHealthStatus, RunArtifacts
+from agentic_trader.security import open_private_append_binary
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run, run_once
 
@@ -74,6 +75,17 @@ def _is_nonfatal_symbol_error(exc: Exception) -> bool:
         or "coverage is too thin" in message
         or "Refusing to run agents" in message
     )
+
+
+def terminate_service_process(pid: int | None) -> bool:
+    """Best-effort SIGTERM for a recorded service PID after safety checks."""
+    if pid is None or pid <= 1 or not is_process_alive(pid):
+        return False
+    try:
+        os.kill(pid, signal.SIGTERM)  # NOSONAR - guarded service PID, no user input.
+    except OSError:
+        return False
+    return True
 
 
 def _manage_open_position(
@@ -787,8 +799,8 @@ def start_background_service(
         command.extend(["--max-cycles", str(max_cycles)])
 
     with (
-        open(stdout_path, "ab") as stdout_handle,
-        open(stderr_path, "ab") as stderr_handle,
+        open_private_append_binary(stdout_path) as stdout_handle,
+        open_private_append_binary(stderr_path) as stderr_handle,
     ):
         process = subprocess.Popen(
             command,
@@ -857,10 +869,7 @@ def restart_background_service(
         while time.time() < deadline and is_process_alive(state.pid):
             time.sleep(0.2)
         if is_process_alive(state.pid):
-            try:
-                os.kill(state.pid, signal.SIGTERM)
-            except OSError:
-                pass
+            terminate_service_process(state.pid)
     restart_count = state.restart_count + 1
     launch_count = state.launch_count + 1
     db.close()

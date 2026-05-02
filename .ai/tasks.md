@@ -27,6 +27,9 @@ Now:
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
 - keep local setup/cleanup semantics explicit: `setup` must install and verify root/webgui/docs/tui node workspace deps, `clean` should remain artifact-only, and dependency removal should go through explicit `clean:deps` or `clean:all`
 - keep the root uv migration boring and complete: root `uv.lock`, `.python-version`, install/check/qa/release scripts, CI workflows, docs, and `.codex` environment actions must stay aligned
+- keep security posture checks in the normal V1 loop: Web GUI routes need same-origin plus optional token/body-cap/cooldown validation, observer API must remain loopback-first, and runtime/QA artifacts must be treated as sensitive local evidence
+- keep secret redaction tests alongside provider, sidecar, supervisor, and Web-facing changes; fake keys in errors, logs, or provider notes must never reach JSON payloads, docs evidence, or QA artifacts unmasked
+- keep `.ai/security/threat-model.md`, docs security posture pages, and `.ai/qa/qa-scenarios.md` aligned whenever a new operator surface, provider, sidecar, CI/CD artifact, or runtime artifact is added
 - keep the SEC EDGAR submissions provider opt-in and fair-access-aware: no network fetch without `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true`, a configured SEC User-Agent, and watched symbols
 - capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, using local-first monospace typography without build-time Google Fonts fetches
 - keep bundled `next/font/local` JetBrains Mono wiring in both Next apps when typography changes; do not reintroduce `next/font/google` or build-time font downloads

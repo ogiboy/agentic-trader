@@ -27,11 +27,14 @@ Implemented or substantially present:
 - control room / monitor / TUI surfaces
 - derived agent-activity summaries across the control-room surfaces
 - daemon supervision metadata including launch counts, restart counts, terminal states, and stdout or stderr log tails
+- supervisor stdout/stderr log tails are redacted before CLI/observer/Web-facing payloads so provider, LLM, or subprocess failures do not echo key-like values or bearer tokens to operator surfaces
 - operator chat and safe instruction parsing
 - Ink chat now includes side-by-side live agent activity and reasoning/tool context instead of a transcript-only view
 - a local observer API can now expose runtime contracts over HTTP for future WebUI attach flows
+- the observer API remains read-only and local-first: non-loopback binds are rejected by default, intentional nonlocal binds require `--allow-nonlocal` plus `AGENTIC_TRADER_OBSERVER_API_TOKEN`, and responses include no-store/browser hardening headers
 - a first local Web GUI now exists under `webgui/`; it uses a Next.js shell plus server-side route handlers that call the existing CLI/dashboard/runtime/chat/instruction contracts instead of adding a second runtime
 - the Web GUI now also validates persona/runtime inputs at the route boundary, rejects cross-origin or malformed POST bodies, uses a sequence guard to prevent stale dashboard polls from overwriting newer state, and uses Next metadata/icon wiring plus `next/image` on the operator hero surface
+- the Web GUI route boundary now also has loopback-only unauthenticated access, optional `AGENTIC_TRADER_WEBGUI_TOKEN`, JSON body caps, single-flight/cooldown guards for expensive runtime/chat/instruction actions, and redacted operator-facing subprocess errors
 - the Web GUI command runner now prefers an explicit `AGENTIC_TRADER_PYTHON`, an active virtualenv, or the repo-managed uv `.venv` before falling back to legacy Conda/PATH entrypoints, which keeps the browser shell attached to the current worktree more reliably
 - the repository now also ships a Fumadocs-based `docs/` app with curated MDX pages for onboarding, architecture, agent pipeline, runtime operations, operator surfaces, frontend guidance, memory/review, QA, and contribution workflow, turning the existing docs scaffold into the canonical operator guide plus contributor-notes starting point
 - the docs app now uses locale-prefixed English and Turkish routes (`/en/...` and `/tr/...`) with localized page trees, localized feedback copy, and a modular frontend split across home, feedback, layout, i18n, and content helpers instead of one overloaded docs page file
@@ -99,8 +102,10 @@ Implemented or substantially present:
 - a first `agentic_trader/researchd/` sidecar foundation now exists with canonical research schemas, sidecar settings, source-health scaffolds for SEC EDGAR, KAP, macro, news/event, and social watchlists, and `research-status` plus dashboard/observer API visibility
 - the research sidecar is disabled by default, uses a no-op backend by default, keeps CrewAI behind an optional adapter boundary, and does not call broker, execution, run persistence, or runtime mode transition code
 - `research-refresh` can run one isolated sidecar pass and persist a `ResearchSnapshotRecord` to `runtime/research_snapshots.jsonl` plus `runtime/research_latest_snapshot.json`; `research-status`, dashboard, and observer payloads read this feed without opening DuckDB
+- runtime feed and research snapshot writes now prefer owner-only local file permissions, keeping `runtime/` evidence safer on shared developer machines without changing the file-backed contract
 - `research-flow-setup` reports the tracked `sidecars/research_flow/` uv sidecar path, Python version file, lockfile presence, sidecar `.venv` presence, uv availability, and root setup/check/run commands; CrewAI is still not imported by core runtime modules or added to the root dependency lock
 - the CrewAI research backend now uses a subprocess JSON contract through `uv run --locked --no-sync research-flow-contract` when the sidecar is installed; failures stay visible and do not install dependencies implicitly during runtime
+- the CrewAI research backend now starts with a narrowed subprocess environment, keeps broker/runtime secrets out of the sidecar by default, and redacts non-JSON stdout/stderr failures before they reach research status or persisted error fields
 - the CrewAI Flow sidecar contract now emits deterministic planned deep-dive task definitions for company dossiers, timeline reconstruction, contradiction checks, watch-next lists, and sector briefs without running LLM-backed tasks yet
 - SEC EDGAR research can now be enabled explicitly through `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true` plus `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT`; when configured, it reads official submissions metadata and normalizes recent 10-K/10-Q/8-K-style filings into source-attributed research evidence without downloading raw filing text
 

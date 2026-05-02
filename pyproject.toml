@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentic-trader"
-version = "0.9.1"
+version = "0.9.2"
 description = "A guardrailed multi-agent paper trading system built around local LLMs."
 authors = [
     {name = "Oğuzcan Toptaş",email = "oguzcantoptas@gmail.com"}

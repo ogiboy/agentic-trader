@@ -96,6 +96,29 @@ Reason:
 The project's identity, safety model, and cost profile depend on local-first operation.
 Future remote providers may be supported, but they should remain optional and explicit.
 
+### Local observer and Web surfaces are security boundaries, not convenience shortcuts
+
+Reason:
+The observer API and Web GUI expose real runtime, broker, provider, research, and
+log truth even when they are read-only or paper-first.
+They should therefore remain loopback-first by default, require explicit tokens
+before intentional nonlocal exposure, reject foreign origins and oversized
+payloads, and redact subprocess/provider errors before returning them to
+operator surfaces.
+These controls harden the local shell without creating a second runtime or
+weakening paper-first execution gates.
+
+### Runtime and QA artifacts are sensitive local evidence
+
+Reason:
+`runtime/` and `.ai/qa/artifacts/` can include account snapshots, paper fills,
+provider diagnostics, research snapshots, model/provider errors, and evidence
+bundles.
+They are ignored by git but still sensitive on shared machines, so writers
+should prefer owner-only file modes and all surfaced log tails or provider notes
+must pass through central secret redaction before becoming CLI, observer, Web,
+or QA output.
+
 ### CLI, monitor, and TUI should read from the same contracts
 
 Reason:

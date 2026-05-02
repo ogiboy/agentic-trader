@@ -5,6 +5,7 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from agentic_trader.schemas import ExecutionBackend, ResearchMode, RuntimeMode
+from agentic_trader.security import ensure_private_directory
 
 
 class Settings(BaseSettings):
@@ -87,11 +88,12 @@ class Settings(BaseSettings):
     max_open_positions: int = 5
     min_risk_reward: float = 1.5
     default_cash: float = 100_000.0
+    observer_api_token: str | None = None
 
     def ensure_directories(self) -> None:
-        self.runtime_dir.mkdir(parents=True, exist_ok=True)
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
-        self.market_data_cache_dir.mkdir(parents=True, exist_ok=True)
+        ensure_private_directory(self.runtime_dir)
+        ensure_private_directory(self.database_path.parent)
+        ensure_private_directory(self.market_data_cache_dir)
 
     def model_for_role(self, role: str) -> str:
         mapping = {

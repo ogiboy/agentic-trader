@@ -77,12 +77,14 @@ def test_write_report_summarizes_pass_and_failure_results(
         smoke_qa.CheckResult("dashboard", False, "contract missing", "dashboard.log"),
     ]
     monkeypatch.setattr(smoke_qa, "REPO_ROOT", tmp_path)
-    monkeypatch.setattr(smoke_qa, "SMOKE_PYTHON", "/tmp/python")
+    monkeypatch.setattr(smoke_qa, "SMOKE_PYTHON", str(tmp_path / "python"))
     monkeypatch.setattr(smoke_qa, "_current_git_branch", lambda: "feature/test")
     monkeypatch.setattr(smoke_qa, "_current_git_commit", lambda: "abc1234")
     monkeypatch.setattr(smoke_qa, "_git_worktree_dirty", lambda: True)
     monkeypatch.setattr(
-        smoke_qa, "_resolve_agentic_trader_executable", lambda: "/tmp/agentic-trader"
+        smoke_qa,
+        "_resolve_agentic_trader_executable",
+        lambda: str(tmp_path / "agentic-trader"),
     )
 
     summary_path = smoke_qa._write_summary(context, results)
