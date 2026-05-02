@@ -1,7 +1,8 @@
 import json
 import threading
 from typing import cast
-from urllib.request import urlopen
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 from agentic_trader.cli import build_observer_api_payload
 from agentic_trader.config import Settings
@@ -97,6 +98,63 @@ def test_observer_api_server_serves_local_http_payloads(tmp_path) -> None:
             payload = json.loads(response.read().decode("utf-8"))
         assert payload["ok"] is True
         assert "runtime" in payload
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_observer_api_rejects_nonlocal_bind_by_default() -> None:
+    def resolver(path: str) -> tuple[int, dict[str, object]]:
+        return 200, {"path": path}
+
+    try:
+        create_observer_server(host="0.0.0.0", port=0, resolver=resolver)
+    except ValueError as exc:
+        assert "local-only" in str(exc)
+    else:
+        raise AssertionError("non-loopback observer bind should be rejected")
+
+
+def test_observer_api_supports_optional_local_token(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+
+    server = create_observer_server(
+        host="127.0.0.1",
+        port=0,
+        resolver=lambda path: build_observer_api_payload(
+            settings, path=path, log_limit=5
+        ),
+        token="observer-secret",
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    address = server.server_address
+    host = str(address[0])
+    port = int(address[1])
+    try:
+        try:
+            with urlopen(f"http://{host}:{port}/health", timeout=2):
+                pass
+        except HTTPError as exc:
+            assert exc.code == 401
+        else:
+            raise AssertionError("observer token should be required")
+
+        request = Request(
+            f"http://{host}:{port}/health?ignored=true",
+            headers={"X-Agentic-Trader-Observer-Token": "observer-secret"},
+        )
+        with urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            headers = response.headers
+        assert payload["ok"] is True
+        assert headers["X-Content-Type-Options"] == "nosniff"
+        assert headers["Referrer-Policy"] == "no-referrer"
     finally:
         server.shutdown()
         server.server_close()

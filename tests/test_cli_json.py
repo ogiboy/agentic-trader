@@ -1040,8 +1040,11 @@ def test_supervisor_status_json_includes_log_tails(
     settings.ensure_directories()
     stdout_path = tmp_path / "service.out.log"
     stderr_path = tmp_path / "service.err.log"
-    stdout_path.write_text("line-1\nline-2\n", encoding="utf-8")
-    stderr_path.write_text("err-1\n", encoding="utf-8")
+    stdout_path.write_text(
+        "line-1\nAGENTIC_TRADER_ALPACA_SECRET_KEY=secret-value\nline-2\n",
+        encoding="utf-8",
+    )
+    stderr_path.write_text("err-1\nAuthorization: Bearer abc.def\n", encoding="utf-8")
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
 
     db = TradingDatabase(settings)
@@ -1068,7 +1071,8 @@ def test_supervisor_status_json_includes_log_tails(
     assert payload["state"]["launch_count"] == 2
     assert payload["state"]["restart_count"] == 1
     assert payload["stdout_tail"][-1] == "line-2"
-    assert payload["stderr_tail"][-1] == "err-1"
+    assert payload["stderr_tail"][-1] == "Authorization: Bearer <redacted>"
+    assert "secret-value" not in result.stdout
 
     human_result = runner.invoke(app, ["supervisor-status"])
     assert human_result.exit_code == 0

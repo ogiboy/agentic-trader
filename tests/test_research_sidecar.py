@@ -88,7 +88,11 @@ def test_crewai_backend_reports_missing_sidecar_environment(tmp_path) -> None:
     assert result.memory_update["raw_web_text_injected"] is False
 
 
-def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) -> None:
+def test_crewai_backend_uses_subprocess_contract_without_core_imports(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "broker-secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "model-secret")
     settings = _settings(
         tmp_path,
         research_mode="training",
@@ -112,6 +116,8 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) 
         captured["cwd"] = str(cwd)
         captured["request"] = json.loads(stdin_payload)
         captured["tracing"] = env.get("CREWAI_TRACING_ENABLED")
+        captured["broker_secret"] = env.get("AGENTIC_TRADER_ALPACA_SECRET_KEY")
+        captured["model_secret"] = env.get("OPENAI_API_KEY")
         captured["timeout_seconds"] = timeout_seconds
         output = {
             "status": "completed",
@@ -181,12 +187,59 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(tmp_path) 
     ]
     assert captured["cwd"] == str(flow_dir)
     assert captured["tracing"] == "false"
+    assert captured["broker_secret"] is None
+    assert captured["model_secret"] == "model-secret"
     request = captured["request"]
     assert isinstance(request, dict)
     assert request["symbols"] == ["AAPL"]
     provider_outputs = request["provider_outputs"]
     assert isinstance(provider_outputs, list)
     assert provider_outputs[0]["metadata"]["provider_id"] == "sec_edgar_research"
+
+
+def test_crewai_backend_redacts_non_json_process_output(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "secret-openai")
+    settings = _settings(
+        tmp_path,
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_sidecar_backend="crewai",
+        research_symbols="AAPL",
+    )
+    flow_dir = tmp_path / "research_flow"
+    (flow_dir / ".venv").mkdir(parents=True)
+    (flow_dir / "pyproject.toml").write_text("[project]\nname='fake'\n")
+
+    def fake_runner(
+        command: list[str],
+        stdin_payload: str,
+        cwd,
+        env: dict[str, str],
+        timeout_seconds: float,
+    ) -> subprocess.CompletedProcess[str]:
+        _ = (stdin_payload, cwd, env, timeout_seconds)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            "OPENAI_API_KEY=secret-openai",
+            "Authorization: Bearer abc.def",
+        )
+
+    backend = CrewAiResearchBackend(
+        flow_dir=flow_dir,
+        uv_path="uv",
+        command_runner=fake_runner,
+    )
+
+    result = ResearchSidecar(settings, backend=backend).collect_once()
+
+    assert result.state.status == "failed"
+    assert result.state.last_error is not None
+    assert "secret-openai" not in result.state.last_error
+    assert "abc.def" not in result.state.last_error
+    assert "<redacted>" in result.state.last_error
 
 
 def test_research_schema_tracks_staleness_and_uncertainty() -> None:

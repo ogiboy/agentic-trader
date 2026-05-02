@@ -41,6 +41,16 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] Any accepted Sonar finding has a written reason and residual-risk note; no finding is dismissed as "unimportant" without review.
 - [ ] `.sonar/` remains ignored and no Sonar token is written to tracked files or artifacts.
 
+## Security Posture
+
+- [ ] Web GUI mutating routes reject foreign origins, malformed JSON, oversized bodies, missing/invalid token when `AGENTIC_TRADER_WEBGUI_TOKEN` is set, and rapid repeated runtime/chat/instruction calls.
+- [ ] Observer API keeps loopback-only as the default and rejects non-loopback binds unless `--allow-nonlocal` and `AGENTIC_TRADER_OBSERVER_API_TOKEN` are both used.
+- [ ] Supervisor log tails, sidecar subprocess failures, provider exception notes, and Web error responses redact fake `*_KEY`, `*_SECRET`, `TOKEN`, and `Authorization: Bearer ...` values.
+- [ ] `runtime/` feed/log writes and research snapshots prefer owner-only file permissions where the local filesystem supports them.
+- [ ] Research sidecars do not inherit broker/runtime credentials unless a future explicit allowlist says so.
+- [ ] Artifact bundles and smoke reports do not contain `.env`, real provider keys, bearer tokens, raw provider payloads, or unredacted subprocess stderr.
+- [ ] Dependency/security scan findings are triaged as runtime/security risk, not auto-upgraded blindly.
+
 ## CLI
 
 - [ ] Commands exit cleanly with code `0` for successful paths.

@@ -25,6 +25,7 @@ from agentic_trader.researchd.providers import (
     missing_attribution,
     provider_health_from_output,
 )
+from agentic_trader.security import redact_sensitive_text
 from agentic_trader.schemas import (
     EntityDossier,
     MacroEvent,
@@ -40,6 +41,43 @@ ContractRunner = Callable[
     [list[str], str, Path, dict[str, str], float],
     subprocess.CompletedProcess[str],
 ]
+
+_SHELL_ENV_ALLOWLIST = {
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "PATH",
+    "PYTHONUTF8",
+    "REQUESTS_CA_BUNDLE",
+    "SSL_CERT_FILE",
+    "TEMP",
+    "TERM",
+    "TMP",
+    "TMPDIR",
+    "UV_CACHE_DIR",
+    "UV_PYTHON",
+    "VIRTUAL_ENV",
+}
+_MODEL_ENV_PREFIXES = (
+    "ANTHROPIC_",
+    "CREWAI_",
+    "GEMINI_",
+    "GOOGLE_",
+    "GROQ_",
+    "LITELLM_",
+    "MISTRAL_",
+    "OPENAI_",
+)
+
+
+def _sidecar_process_env() -> dict[str, str]:
+    """Build a narrow sidecar environment without broker/runtime secrets."""
+    env: dict[str, str] = {}
+    for key, value in os.environ.items():
+        if key in _SHELL_ENV_ALLOWLIST or key.startswith(_MODEL_ENV_PREFIXES):
+            env[key] = value
+    env["CREWAI_TRACING_ENABLED"] = "false"
+    return env
 
 
 def utc_now_iso() -> str:
@@ -217,8 +255,7 @@ class CrewAiResearchBackend:
                 for output in provider_outputs
             ],
         }
-        env = os.environ.copy()
-        env.setdefault("CREWAI_TRACING_ENABLED", "false")
+        env = _sidecar_process_env()
         command = [
             uv_path,
             "run",
@@ -248,7 +285,10 @@ class CrewAiResearchBackend:
                 symbols=symbols,
                 provider_outputs=provider_outputs,
                 now=now,
-                message=f"CrewAI Flow sidecar contract failed to start: {exc}",
+                message=(
+                    "CrewAI Flow sidecar contract failed to start: "
+                    f"{redact_sensitive_text(exc, max_length=240)}"
+                ),
             )
 
         contract_payload = self._contract_payload_from_process(completed)
@@ -260,8 +300,8 @@ class CrewAiResearchBackend:
                 now=now,
                 message=(
                     "CrewAI Flow sidecar returned non-JSON output. "
-                    f"stdout={self._trim(completed.stdout)} "
-                    f"stderr={self._trim(completed.stderr)}"
+                    f"stdout={redact_sensitive_text(self._trim(completed.stdout), max_length=500)} "
+                    f"stderr={redact_sensitive_text(self._trim(completed.stderr), max_length=500)}"
                 ),
             )
         if completed.returncode != 0 or contract_payload.get("status") != "completed":

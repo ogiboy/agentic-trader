@@ -41,6 +41,7 @@ from agentic_trader.schemas import (
     NewsSignal,
     SymbolIdentity,
 )
+from agentic_trader.security import safe_exception_note
 
 
 @dataclass
@@ -143,7 +144,7 @@ def _first_fundamental_snapshot(
         try:
             snapshot = provider.get_fundamental_data(symbol)
         except Exception as exc:
-            errors.append(f"{provider.metadata().provider_id}: {exc}")
+            errors.append(safe_exception_note(provider.metadata().provider_id, exc))
             continue
         if snapshot.attribution.source_role != "missing":
             return snapshot, errors, [item.attribution for item in missing_snapshots]
@@ -199,7 +200,7 @@ def _first_macro_snapshot(
         try:
             return provider.get_macro_context(symbol), errors
         except Exception as exc:
-            errors.append(f"{provider.metadata().provider_id}: {exc}")
+            errors.append(safe_exception_note(provider.metadata().provider_id, exc))
     return (
         MacroSnapshot(
             region=symbol.region,
@@ -243,12 +244,12 @@ def _collect_disclosures(
             provider_metadata = provider.metadata()
         except Exception as exc:
             provider_name = type(provider).__name__
-            errors.append(f"{provider_name}: metadata failed: {exc}")
+            errors.append(safe_exception_note(f"{provider_name}: metadata failed", exc))
             continue
         try:
             provider_disclosures = provider.get_disclosures(symbol, limit=limit)
         except Exception as exc:
-            errors.append(f"{provider_metadata.provider_id}: {exc}")
+            errors.append(safe_exception_note(provider_metadata.provider_id, exc))
             continue
         disclosures.extend(provider_disclosures)
         if not provider_disclosures:
@@ -293,12 +294,12 @@ def _collect_provider_news(
             provider_metadata = provider.metadata()
         except Exception as exc:
             provider_name = type(provider).__name__
-            errors.append(f"{provider_name}: metadata failed: {exc}")
+            errors.append(safe_exception_note(f"{provider_name}: metadata failed", exc))
             continue
         try:
             provider_events = provider.get_news(symbol, limit=limit)
         except Exception as exc:
-            errors.append(f"{provider_metadata.provider_id}: {exc}")
+            errors.append(safe_exception_note(provider_metadata.provider_id, exc))
             continue
         events.extend(provider_events)
         if not provider_events:

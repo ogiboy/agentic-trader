@@ -1,30 +1,16 @@
 import { runChat } from '../../../lib/agentic-trader';
 import { isChatPersona } from '../../../lib/chat-personas';
-import { parseJsonObjectBody } from '../../../lib/http';
+import {
+  beginRequestGuard,
+  parseJsonObjectBody,
+  redactAndCapText,
+  rejectUnsafeWebguiRequest,
+} from '../../../lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SAFE_METHODS_WITHOUT_BROWSER_ORIGIN = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-function isSameOriginRequest(request: Request): boolean {
-  const requestOrigin = new URL(request.url).origin;
-  const origin = request.headers.get('origin');
-  if (origin) {
-    return origin === requestOrigin;
-  }
-  const referer = request.headers.get('referer');
-  if (!referer) {
-    return SAFE_METHODS_WITHOUT_BROWSER_ORIGIN.has(
-      request.method.toUpperCase(),
-    );
-  }
-  try {
-    return new URL(referer).origin === requestOrigin;
-  } catch {
-    return false;
-  }
-}
+const MAX_CHAT_MESSAGE_LENGTH = 6_000;
 
 /**
  * Handle same-origin JSON POST requests that run an operator chat workflow.
@@ -33,18 +19,14 @@ function isSameOriginRequest(request: Request): boolean {
  * @returns A Response whose JSON is the chat result on success; malformed content type, bad JSON, foreign origins, invalid persona values, or missing messages return structured 4xx JSON errors
  */
 export async function POST(request: Request) {
-  const contentType = request.headers.get('content-type')?.toLowerCase() || '';
-  if (!contentType.includes('application/json')) {
-    return Response.json(
-      { error: 'expected application/json' },
-      { status: 400 },
-    );
-  }
-  if (!isSameOriginRequest(request)) {
-    return Response.json({ error: 'forbidden origin' }, { status: 403 });
+  const unsafeResponse = rejectUnsafeWebguiRequest(request, {
+    requireJson: true,
+  });
+  if (unsafeResponse) {
+    return unsafeResponse;
   }
 
-  const parsed = await parseJsonObjectBody(request);
+  const parsed = await parseJsonObjectBody(request, { maxBytes: 16 * 1024 });
   if (!parsed.ok) {
     return parsed.response;
   }
@@ -58,15 +40,30 @@ export async function POST(request: Request) {
     if (!message) {
       return Response.json({ error: 'missing chat message' }, { status: 400 });
     }
+    if (message.length > MAX_CHAT_MESSAGE_LENGTH) {
+      return Response.json({ error: 'chat message too large' }, { status: 413 });
+    }
     const persona = body.persona;
     if (persona !== undefined && !isChatPersona(persona)) {
       return Response.json({ error: 'invalid persona' }, { status: 400 });
     }
-    const result = await runChat(persona ?? 'operator_liaison', message);
-    return Response.json(result);
+    const guard = beginRequestGuard({
+      key: 'chat',
+      cooldownMs: 1_500,
+      singleFlight: true,
+    });
+    if (!guard.ok) {
+      return guard.response;
+    }
+    try {
+      const result = await runChat(persona ?? 'operator_liaison', message);
+      return Response.json(result);
+    } finally {
+      guard.release();
+    }
   } catch (error) {
     return Response.json(
-      { error: error instanceof Error ? error.message : String(error) },
+      { error: redactAndCapText(error) },
       { status: 500 },
     );
   }

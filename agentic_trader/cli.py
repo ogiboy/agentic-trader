@@ -1,7 +1,5 @@
 import os
 import platform
-import re
-import signal
 import shutil
 import subprocess
 import sys
@@ -60,6 +58,7 @@ from agentic_trader.researchd.crewai_setup import crewai_setup_status
 from agentic_trader.researchd.orchestrator import ResearchSidecar
 from agentic_trader.researchd.persistence import persist_research_result
 from agentic_trader.researchd.status import build_research_sidecar_state
+from agentic_trader.security import is_loopback_host, redact_sensitive_text
 from agentic_trader.schemas import (
     ChatPersona,
     CanonicalAnalysisSnapshot,
@@ -109,6 +108,7 @@ from agentic_trader.workflows.service import (
     restart_background_service,
     run_service,
     start_background_service,
+    terminate_service_process,
 )
 
 app = typer.Typer(
@@ -225,7 +225,7 @@ def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
     if path is None or not path.exists():
         return []
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    return lines[-limit:]
+    return [redact_sensitive_text(line, max_length=1_000) for line in lines[-limit:]]
 
 
 def _format_latest_order(order: OrderRow | None) -> str:
@@ -3150,10 +3150,29 @@ def _parse_memtotal_line(line: str) -> int | None:
 
 
 def _model_size_billions(model_name: str) -> float | None:
-    match = re.search(r"(?P<size>\d+(?:\.\d+)?)\s*b\b", model_name.lower())
-    if not match:
-        return None
-    return float(match.group("size"))
+    normalized = model_name.lower()
+    for index, char in enumerate(normalized):
+        if char != "b":
+            continue
+        next_char = normalized[index + 1] if index + 1 < len(normalized) else ""
+        if next_char.isalnum():
+            continue
+        cursor = index - 1
+        while cursor >= 0 and normalized[cursor].isspace():
+            cursor -= 1
+        end = cursor + 1
+        while cursor >= 0 and (
+            normalized[cursor].isdigit() or normalized[cursor] == "."
+        ):
+            cursor -= 1
+        token = normalized[cursor + 1 : end]
+        if not token or token.startswith(".") or token.endswith("."):
+            continue
+        try:
+            return float(token)
+        except ValueError:
+            continue
+    return None
 
 
 def _accelerator_payload() -> dict[str, object]:
@@ -3622,6 +3641,14 @@ def observer_api_command(
     log_limit: int = typer.Option(
         14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT
     ),
+    allow_nonlocal: bool = typer.Option(
+        False,
+        "--allow-nonlocal",
+        help=(
+            "Allow binding the observer API to a non-loopback host. "
+            "Requires AGENTIC_TRADER_OBSERVER_API_TOKEN."
+        ),
+    ),
 ) -> None:
     """
     Start a local, read-only HTTP observer API exposing runtime and diagnostic endpoints.
@@ -3632,6 +3659,22 @@ def observer_api_command(
     	log_limit (int): Maximum number of recent runtime events to include in responses.
     """
     settings = get_settings()
+    nonlocal_bind = not is_loopback_host(host)
+    if nonlocal_bind and (
+        not allow_nonlocal or not settings.observer_api_token
+    ):
+        console.print(
+            Panel(
+                (
+                    "Observer API is local-only by default. Use a loopback host "
+                    "or set AGENTIC_TRADER_OBSERVER_API_TOKEN and pass "
+                    "--allow-nonlocal for an intentional nonlocal read-only bind."
+                ),
+                title="Observer API Blocked",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=2)
     console.print(
         Panel(
             f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /finance-ops\n- /provider-diagnostics\n- /v1-readiness\n- /research",
@@ -3639,13 +3682,21 @@ def observer_api_command(
             border_style="cyan",
         )
     )
-    serve_observer_api(
-        host=host,
-        port=port,
-        resolver=lambda path: build_observer_api_payload(
-            settings, path=path, log_limit=log_limit
-        ),
-    )
+    try:
+        serve_observer_api(
+            host=host,
+            port=port,
+            resolver=lambda path: build_observer_api_payload(
+                settings, path=path, log_limit=log_limit
+            ),
+            allow_nonlocal=allow_nonlocal,
+            token=settings.observer_api_token,
+        )
+    except ValueError as exc:
+        console.print(
+            Panel(str(exc), title="Observer API Blocked", border_style="red")
+        )
+        raise typer.Exit(code=2) from exc
 
 
 @app.command("calendar-status")
@@ -4792,7 +4843,7 @@ def stop_service(
     except Exception:
         pass
     if force:
-        os.kill(state.pid, signal.SIGTERM)
+        terminate_service_process(state.pid)
     console.print(
         _render_health_panel(
             "Stop Requested",

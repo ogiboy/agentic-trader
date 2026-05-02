@@ -1,5 +1,10 @@
 import { runRuntimeAction } from '../../../lib/agentic-trader';
-import { parseJsonObjectBody } from '../../../lib/http';
+import {
+  beginRequestGuard,
+  parseJsonObjectBody,
+  redactAndCapText,
+  rejectUnsafeWebguiRequest,
+} from '../../../lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,25 +15,12 @@ const SUPPORTED_RUNTIME_ACTIONS = new Set([
   'restart',
   'one-shot',
 ]);
-const SAFE_METHODS_WITHOUT_BROWSER_ORIGIN = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-function isSameOriginRequest(request: Request): boolean {
-  const requestOrigin = new URL(request.url).origin;
-  const origin = request.headers.get('origin');
-  if (origin) {
-    return origin === requestOrigin;
+function runtimeActionCooldownMs(kind: string): number {
+  if (kind === 'stop') {
+    return 1_000;
   }
-  const referer = request.headers.get('referer');
-  if (!referer) {
-    return SAFE_METHODS_WITHOUT_BROWSER_ORIGIN.has(
-      request.method.toUpperCase(),
-    );
-  }
-  try {
-    return new URL(referer).origin === requestOrigin;
-  } catch {
-    return false;
-  }
+  return 5_000;
 }
 
 /**
@@ -44,18 +36,14 @@ function isSameOriginRequest(request: Request): boolean {
  *          - `{ error: <message> }` (500) on unexpected internal errors.
  */
 export async function POST(request: Request) {
-  const contentType = request.headers.get('content-type')?.toLowerCase() || '';
-  if (!contentType.includes('application/json')) {
-    return Response.json(
-      { error: 'expected application/json' },
-      { status: 400 },
-    );
-  }
-  if (!isSameOriginRequest(request)) {
-    return Response.json({ error: 'forbidden origin' }, { status: 403 });
+  const unsafeResponse = rejectUnsafeWebguiRequest(request, {
+    requireJson: true,
+  });
+  if (unsafeResponse) {
+    return unsafeResponse;
   }
 
-  const parsed = await parseJsonObjectBody(request);
+  const parsed = await parseJsonObjectBody(request, { maxBytes: 8 * 1024 });
   if (!parsed.ok) {
     return parsed.response;
   }
@@ -71,11 +59,23 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const result = await runRuntimeAction(body.kind);
-    return Response.json(result);
+    const guard = beginRequestGuard({
+      key: 'runtime',
+      cooldownMs: runtimeActionCooldownMs(body.kind),
+      singleFlight: true,
+    });
+    if (!guard.ok) {
+      return guard.response;
+    }
+    try {
+      const result = await runRuntimeAction(body.kind);
+      return Response.json(result);
+    } finally {
+      guard.release();
+    }
   } catch (error) {
     return Response.json(
-      { error: error instanceof Error ? error.message : String(error) },
+      { error: redactAndCapText(error) },
       { status: 500 },
     );
   }
