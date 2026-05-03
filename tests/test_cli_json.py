@@ -1386,6 +1386,10 @@ def test_finance_ops_json_reports_read_only_desk_checks(
     assert payload["broker"]["backend"] == "paper"
     assert payload["portfolio"]["available"] is True
     assert isinstance(payload["paperEvidence"], dict)
+    assert payload["accounting"]["currency"] == "USD"
+    assert payload["accounting"]["mark_status"] == "mark_time_unavailable"
+    assert payload["accounting"]["cost_model"]["fees"] == "not modeled"
+    assert payload["portfolio"]["accounting"]["currency"] == "USD"
     assert any(
         check["name"] == "paper_or_external_paper_only" and check["passed"] is True
         for check in payload["checks"]

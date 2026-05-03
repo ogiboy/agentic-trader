@@ -2,14 +2,14 @@ import type { HomeContent } from '@/lib/home/content/types';
 
 export const homeContentTr: HomeContent = {
   badges: [
-    { label: 'Geliştirici Dokümanları', variant: 'secondary' },
+    { label: 'Operatör Rehberi', variant: 'secondary' },
     { label: 'Fumadocs + MDX', variant: 'outline' },
-    { label: 'Local-first', variant: 'outline' },
+    { label: 'Yerel öncelikli', variant: 'outline' },
   ],
-  heroTitle: 'Operatörün gördüğü runtime gerçeğiyle aynı yerden geliştir.',
+  heroTitle: 'Kanıtını görebildiğin paper trading operasyonu.',
   heroDescription:
-    'Agentic Trader ikinci derece bir sohbet demosu değil. Bu docs yüzeyi; inspect edilebilir depolama, açık güvenlik kapıları ve CLI, Ink, observer API ile Web GUI arasında paylaşılan sözleşmeler üzerine kurulu paper-first bir trading runtime için geliştirici yüzeyidir.',
-  primaryAction: 'Dokümanları oku',
+    'Agentic Trader yerel öncelikli bir paper trading kontrol odasıdır. Bu rehber operatörün runtime hazırlığını yapmasına, katı paper cycle çalıştırmasına, broker/account kanıtını incelemesine ve live execution neden açık onay olmadan kapalı kaldığını anlamasına yardım eder.',
+  primaryAction: 'Rehberi aç',
   secondaryAction: {
     href: '/docs/getting-started',
     label: 'Hızlı başlangıcı aç',
@@ -21,7 +21,7 @@ export const homeContentTr: HomeContent = {
     },
     safety: {
       title: 'Güvenlik kapılı',
-      body: 'Paper execution, strict LLM gating, provider görünürlüğü ve sessiz runtime fallback yokluğu vazgeçilmezdir.',
+      body: 'Paper execution, katı LLM kapıları, provider görünürlüğü ve sessiz runtime fallback olmaması vazgeçilmezdir.',
     },
     surface: {
       title: 'Çoklu yüzey',
@@ -35,7 +35,7 @@ export const homeContentTr: HomeContent = {
     },
     {
       icon: 'layout',
-      text: '`webgui` ince bir local kabuk olarak kalırken `docs` kanonik geliştirici yüzeyi olmalı.',
+      text: '`webgui` ince bir yerel kabuk olarak kalırken `docs` önce operatör rehberi, sonra katkıcı notları olmalı.',
     },
     {
       icon: 'inspect',
@@ -43,7 +43,7 @@ export const homeContentTr: HomeContent = {
     },
   ],
   guardrail:
-    'Web GUI ve docs sitesi geliştirici/operatör yüzeyleridir. Orkestrasyon sahipliği almazlar; Python runtime sözleşmeleri kaynak gerçektir.',
+    'Web GUI ve docs sitesi operatör/katkıcı yüzeyleridir. Orkestrasyon sahipliği almazlar; Python runtime sözleşmeleri kaynak gerçektir.',
   entryPoints: [
     {
       href: '/docs/getting-started',
@@ -82,9 +82,9 @@ export const homeContentTr: HomeContent = {
     },
     {
       href: '/docs/memory-and-review',
-      title: 'Hafıza ve Review',
+      title: 'Karar Kanıtı ve Review',
       description:
-        "Docs, `.ai` notları, feedback taslakları ve review artefact'lerinin runtime gerçeğiyle nasıl hizalı kaldığını gör.",
+        'Benzer geçmiş koşuları, trade context, manager review ve evidence bundle çıktılarını ürün hafızası ile katkıcı notlarını karıştırmadan incele.',
       badge: 'Süreklilik',
     },
     {

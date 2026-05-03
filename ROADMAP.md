@@ -8,10 +8,11 @@ This roadmap is both a build plan and a progress ledger. Status values reflect t
 
 V1 readiness means local paper operation is inspectable, strict, and testable;
 Alpaca is ready for explicit external paper checks; source/provider gaps are
-visible; and live execution remains blocked. Open V1.1/V1.2/V2 items such as
-deeper research ingestion, CrewAI deep-dive execution, true semantic embeddings,
-IBKR/global/FX, app-managed Ollama supervision, and actual live brokerage are
-not V1 blockers unless a later decision moves them back into V1 scope.
+visible; and live execution remains blocked. Former V1.1/V1.2 research,
+CrewAI-sidecar, evaluation, and memory-quality loops now belong to the V1
+completion track so V1 ends with a stronger evidence companion rather than only
+a runtime shell. V2 still starts at IBKR/global/FX expansion, multi-currency live
+accounting, and actual live brokerage.
 
 ## Phase 1: Guardrailed Core
 
@@ -98,7 +99,7 @@ Status: in progress.
 - [ ] run a CLI ergonomics audit for `--help`, `-h`, examples, option naming, and short/long flag consistency
 - [ ] simplify Rich menu navigation so back, close, cancel, and exit controls feel consistent across sections
 - [x] add a first finance/accounting read-only check for cash, equity, PnL, exposure, positions, backend, adapter, runtime mode, risk report availability, and live-block evidence
-- [ ] deepen finance/accounting readability across every CLI/Rich/Ink/Web GUI display for currency, mark timestamp, stale state, fees, slippage, and rejection labels
+- [x] deepen finance/accounting readability across CLI/Rich/Ink/Web GUI displays for currency, mark timestamp/source/status, fee/slippage assumptions, and rejection-evidence labels
 - [ ] convert UX audit findings into smallest-safe repair recommendations before deciding whether they are V1 fixes or V2 redesign work
       Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
@@ -114,6 +115,7 @@ Status: in progress.
 - the Ink overview and review pages now surface context-pack summaries, lookback coverage, quality flags, anomalies, and horizon votes from the Python dashboard contract
 - the next operator trust upgrade is adding a Training/Operation mode banner and deeper retrieval explanations beside the context pack
 - richer trace inspection and deeper Ink feature parity are still open
+- finance/accounting surfaces now use shared payload truth for currency, paper mark context, cost assumptions, and rejection-evidence wording instead of display-only guesses
 - full multi-language support should wait until operator flows stabilize, then build on the shared text catalog instead of scattering strings per surface
 
 ## Phase 5: Backtesting
@@ -279,7 +281,7 @@ Status: in progress.
 - under-covered operation/runtime windows now stop before agent execution when expected coverage falls below the safety threshold
 - training replay can intentionally keep growing-window undercoverage as an explicit context-pack flag instead of treating it as production-ready coverage
 - V1 smoke QA now includes a network-free market-context edge-case contract so release evidence proves both Operation fail-closed behavior and Training replay visibility without requiring live providers
-- broader live-provider interval scenarios such as Alpaca IEX versus SIP/delayed feeds, IBKR session/calendar edge cases, and FX/global market data windows belong to V1.1/V2 unless they are moved back into the V1 boundary
+- broader live-provider interval scenarios such as Alpaca IEX versus SIP/delayed feeds belong to the V1 evidence track; IBKR session/calendar edge cases and FX/global market data windows remain V2 scope
 
 ## Phase 12: Semantic Memory And Retrieval Quality
 
@@ -414,7 +416,7 @@ Status: completed.
 - `paper` remains the default; `alpaca_paper` is an explicit external-paper backend gated by credentials, paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`
 - `live` remains blocked; V1 readiness is expressed through `v1-readiness`, `provider-diagnostics`, `broker-status`, dashboard/observer payloads, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden live brokerage
 
-## V1.1 Research Sidecar - Local Evidence Companion
+## V1 Research Sidecar - Local Evidence Companion
 
 Status: in progress.
 
@@ -431,12 +433,12 @@ Status: in progress.
 - [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
 - [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
       Notes:
-- V1.1 is a local-first evidence companion for the current runtime, not a re-platforming
+- this is a local-first V1 evidence companion for the current runtime, not a re-platforming
 - the sidecar may eventually run beside the daemon, but it must not submit orders, mutate trading policy, or weaken strict runtime gates
 - SEC EDGAR submissions ingestion is metadata-first and disabled by default; full filing text, XBRL facts, and downstream memory writes remain separate planned steps
 - missing provider data must stay visible as missing; source diversity, staleness, evidence/inference separation, and contradiction tracking are core contracts
 
-## V1.2 Evaluation And Crew Loops - Optional Sidecar Harness
+## V1 Evaluation And Crew Loops - Optional Sidecar Harness
 
 Status: planned.
 
@@ -491,5 +493,6 @@ Status: in progress.
 - `docs/` and `webgui/` should stay visually related, but neither should become a second runtime or a cross-app shared-package experiment before the surfaces stabilize
 - the docs app should stay curated and source-linked rather than mirroring whole repository files blindly
 - operator-facing docs should distinguish trading memory/review evidence from contributor `.ai` notes, and should explain V1 paper/live/broker boundaries before package ownership details
+- the docs landing page now presents an operator guide first, with developer/contributor details as secondary context
 - `webgui` dev mode now runs on `localhost:3210` with Watchpack polling so browser QA matches the README and avoids file-watch noise in this worktree
 - app-managed Ollama and bootstrap work should plug into the existing daemon/log/status surfaces rather than inventing separate setup helpers with hidden runtime state

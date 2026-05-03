@@ -53,7 +53,9 @@ def test_build_monitor_renderable_contains_core_sections(tmp_path: Path) -> None
     assert "Runtime Status" in output
     assert "Portfolio" in output
     assert "Runtime Events" in output
-    assert "Live Agent Activity" in output
+    assert "Decision Workflow" in output
+    assert "Cash (USD)" in output
+    assert "Marked At" in output
 
 
 def test_agent_activity_table_filters_to_current_runtime_cycle(tmp_path: Path) -> None:

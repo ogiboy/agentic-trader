@@ -1107,6 +1107,7 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
         try:
             snapshot = db.get_account_snapshot()
             positions = db.list_positions()
+            latest_marks = db.list_account_marks(limit=1)
         finally:
             db.close()
         available = True
@@ -1121,13 +1122,23 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
             open_positions=0,
         )
         positions = []
+        latest_marks = []
         available = False
         error = str(exc)
+    currency = _primary_account_currency(settings)
+    latest_mark = latest_marks[0].model_dump(mode="json") if latest_marks else None
     return {
         "available": available,
         "error": error,
         "snapshot": snapshot.model_dump(mode="json"),
         "positions": [position.model_dump(mode="json") for position in positions],
+        "accounting": {
+            "currency": currency,
+            "mark_created_at": latest_mark["created_at"] if latest_mark else None,
+            "mark_source": latest_mark["source"] if latest_mark else None,
+            "mark_note": latest_mark["note"] if latest_mark else None,
+            "mark_status": "marked" if latest_mark else "mark_time_unavailable",
+        },
     }
 
 
@@ -1148,6 +1159,47 @@ def _preferences_payload(settings: Settings) -> dict[str, object]:
     payload["available"] = available
     payload["error"] = error
     return payload
+
+
+def _primary_account_currency(settings: Settings) -> str:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            preferences = db.load_preferences()
+        finally:
+            db.close()
+    except Exception:
+        preferences = InvestmentPreferences()
+    return (preferences.currencies[0] if preferences.currencies else "USD").upper()
+
+
+def _execution_cost_model(settings: Settings) -> dict[str, object]:
+    if settings.execution_backend == "simulated_real":
+        return {
+            "fees": "not modeled",
+            "slippage_bps": settings.simulated_slippage_bps,
+            "spread_bps": settings.simulated_spread_bps,
+            "latency_ms": settings.simulated_latency_ms,
+            "partial_fill_probability": settings.simulated_partial_fill_probability,
+            "rejection_probability": settings.simulated_order_rejection_probability,
+        }
+    if settings.execution_backend == "alpaca_paper":
+        return {
+            "fees": "reported by external paper broker when available",
+            "slippage_bps": None,
+            "spread_bps": None,
+            "latency_ms": None,
+            "partial_fill_probability": None,
+            "rejection_probability": None,
+        }
+    return {
+        "fees": "not modeled",
+        "slippage_bps": 0.0,
+        "spread_bps": 0.0,
+        "latency_ms": 0,
+        "partial_fill_probability": 0.0,
+        "rejection_probability": 0.0,
+    }
 
 
 def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
@@ -1517,6 +1569,11 @@ def _finance_ops_payload(settings: Settings) -> dict[str, object]:
     risk_report = _risk_report_payload(settings)
     readiness = v1_readiness_payload(settings, check_provider=False)
     snapshot = portfolio.get("snapshot") if isinstance(portfolio, dict) else None
+    accounting = (
+        portfolio.get("accounting") if isinstance(portfolio, dict) else {}
+    )
+    if not isinstance(accounting, dict):
+        accounting = {}
     checks = [
         _finance_check(
             "paper_or_external_paper_only",
@@ -1563,6 +1620,18 @@ def _finance_ops_payload(settings: Settings) -> dict[str, object]:
         "portfolio": portfolio,
         "riskReport": risk_report,
         "paperEvidence": readiness.get("paper_evidence"),
+        "accounting": {
+            "currency": accounting.get("currency", _primary_account_currency(settings)),
+            "mark_created_at": accounting.get("mark_created_at"),
+            "mark_source": accounting.get("mark_source"),
+            "mark_note": accounting.get("mark_note"),
+            "mark_status": accounting.get("mark_status", "mark_time_unavailable"),
+            "cost_model": _execution_cost_model(settings),
+            "rejection_evidence": (
+                "Execution rejections are surfaced from execution_outcomes, "
+                "trade context, broker-status, and run review payloads."
+            ),
+        },
         "summary": (
             "Finance operations checks have the broker/account/evidence truth needed for local paper review."
             if blocking_passed
@@ -1586,6 +1655,12 @@ def _finance_snapshot_fields_visible(snapshot: object) -> bool:
 
 def _render_finance_ops(payload: dict[str, object]) -> None:
     checks = payload.get("checks", [])
+    accounting = payload.get("accounting", {})
+    if not isinstance(accounting, dict):
+        accounting = {}
+    cost_model = accounting.get("cost_model", {})
+    if not isinstance(cost_model, dict):
+        cost_model = {}
     console.print(
         Panel(
             str(payload.get("summary", "Finance operations status unavailable.")),
@@ -1608,6 +1683,26 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
                     str(check.get("details", "")),
                 )
     console.print(table)
+    context = Table(title="Desk Accounting Context")
+    context.add_column("Field")
+    context.add_column("Value")
+    context.add_row("Currency", str(accounting.get("currency", "USD")))
+    context.add_row(
+        "Marked At", str(accounting.get("mark_created_at") or "mark time unavailable")
+    )
+    context.add_row("Mark Source", str(accounting.get("mark_source") or "-"))
+    context.add_row("Mark Status", str(accounting.get("mark_status") or "-"))
+    context.add_row("Fees", str(cost_model.get("fees", "-")))
+    context.add_row(
+        "Slippage",
+        "-"
+        if cost_model.get("slippage_bps") is None
+        else f"{cost_model.get('slippage_bps')} bps",
+    )
+    context.add_row(
+        "Rejection Evidence", str(accounting.get("rejection_evidence") or "-")
+    )
+    console.print(context)
 
 
 def _training_backtest_allow_fallback(settings: Settings) -> bool:

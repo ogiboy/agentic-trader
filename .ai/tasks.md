@@ -19,7 +19,7 @@ Now:
 - keep root environment setup boring and explicit: root uv owns Python 3.13 `.venv` creation, dependency sync, checks, QA, release previews, and builds; Conda/Poetry are legacy fallback knowledge, not the default path
 - keep `sidecars/research_flow/` as a tracked but isolated CrewAI Flow uv project; root `pnpm check` should stay focused on the core runtime until the sidecar is mature enough for a separate CI job
 - keep the CrewAI subprocess contract deterministic and no-sync at runtime: setup/check commands may run `uv sync`, but runtime backend calls should only use an already-installed sidecar environment
-- grow V1.1 as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
+- grow the V1 research sidecar as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
 - keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` while making it the operator-first product guide, not only a developer entrypoint
 - keep docs language clear about the difference between product trading memory/review evidence and contributor `.ai` project notes
 - keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's uv-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
@@ -31,6 +31,7 @@ Now:
 - include empty observer bind hosts in the security posture loop; `--host ''` must stay blocked because it binds like an all-interface listener in Python's HTTP server stack
 - keep secret redaction tests alongside provider, sidecar, supervisor, and Web-facing changes; fake keys in errors, logs, or provider notes must never reach JSON payloads, docs evidence, or QA artifacts unmasked
 - keep `.ai/security/threat-model.md`, docs security posture pages, and `.ai/qa/qa-scenarios.md` aligned whenever a new operator surface, provider, sidecar, CI/CD artifact, or runtime artifact is added
+- use RuFlo only as a system-level development advisory layer when it helps with routing, diff-risk, memory, or workflow checks; do not run `ruflo init` in this repo or add RuFlo as a runtime dependency unless explicitly requested
 - keep the SEC EDGAR submissions provider opt-in and fair-access-aware: no network fetch without `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true`, a configured SEC User-Agent, and watched symbols
 - capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, using local-first monospace typography without build-time Google Fonts fetches
 - keep bundled `next/font/local` JetBrains Mono wiring in both Next apps when typography changes; do not reintroduce `next/font/google` or build-time font downloads
@@ -47,7 +48,7 @@ Next:
 
 - extend the file-backed research snapshot feed when real providers start returning raw evidence references, normalized events, findings, and entity dossiers
 - extend real official/structured providers behind the sidecar source ladder: SEC EDGAR submissions metadata is first, next are SEC company facts/full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
-- add optional V1.2 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
+- add optional V1 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
 - turn the planned CrewAI task definitions into executable Flow/Crew steps only after real normalized provider evidence exists and contract tests cover failures
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
@@ -209,6 +210,7 @@ Desired direction:
 - keep the automated CLI help contract in smoke QA green so key operator commands stay concise and do not expose implementation-style docstring sections
 - simplify Rich menu navigation so back, close, cancel, and exit behaviors are consistent and the repeated logo/header does not dominate every output
 - add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
+- keep desk-accounting labels reconciled across CLI/Rich/Ink/Web/docs: currency, mark timestamp/source/status, fee/slippage assumptions, and rejection evidence must come from shared payloads rather than UI guesses
 - turn UX findings into smallest-safe repair recommendations, classified as V1 blocker, V1 polish, or V2 redesign before implementation
 - keep the Web GUI on the same parity path, including production-verifiable visuals, browser QA, and route-boundary checks under the root pnpm workspace
 

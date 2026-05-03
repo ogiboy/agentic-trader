@@ -36,6 +36,7 @@ tui/.env
 .ai/qa/artifacts/evidence-*
 .ai/qa/artifacts/webgui-visual-*
 .sonarlint/connectedMode.json
+ruvector.db
 */node_modules
 /.pnp
 .pnp.*

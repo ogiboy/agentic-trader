@@ -402,7 +402,7 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
 def _agent_activity_table(
     state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Table:
-    table = Table(title="Live Agent Activity")
+    table = Table(title="Decision Workflow")
     table.add_column("Stage")
     table.add_column("Status")
     table.add_column("Message")
@@ -570,15 +570,25 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
         followed by a "Positions" table listing symbol, quantity, prices, market value, and unrealized PnL.
     """
     snapshot = db.get_account_snapshot()
+    preferences = db.load_preferences()
+    currency = (preferences.currencies[0] if preferences.currencies else "USD").upper()
+    latest_marks = db.list_account_marks(limit=1)
+    mark_time = latest_marks[0].created_at if latest_marks else "mark time unavailable"
+    mark_source = latest_marks[0].source if latest_marks else "-"
     summary = Table(title="Portfolio")
     summary.add_column("Metric")
     summary.add_column("Value")
-    summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
-    summary.add_row("Equity", f"{snapshot.equity:.2f}")
-    summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
+    summary.add_row(f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}")
+    summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
+    summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
+    summary.add_row(
+        f"{LABEL_UNREALIZED_PNL} ({currency}, paper mark)",
+        f"{snapshot.unrealized_pnl:.2f}",
+    )
     summary.add_row("Open Positions", str(snapshot.open_positions))
+    summary.add_row("Marked At", mark_time)
+    summary.add_row("Mark Source", mark_source)
 
     positions = db.list_positions()
     positions_table = Table(title="Positions")
@@ -1046,15 +1056,25 @@ def _show_portfolio(db: TradingDatabase) -> None:
         db (TradingDatabase): Database instance used to retrieve the account snapshot, open positions, and risk report.
     """
     snapshot = db.get_account_snapshot()
+    preferences = db.load_preferences()
+    currency = (preferences.currencies[0] if preferences.currencies else "USD").upper()
+    latest_marks = db.list_account_marks(limit=1)
+    mark_time = latest_marks[0].created_at if latest_marks else "mark time unavailable"
+    mark_source = latest_marks[0].source if latest_marks else "-"
     summary = Table(title="Portfolio")
     summary.add_column("Metric")
     summary.add_column("Value")
-    summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
-    summary.add_row("Equity", f"{snapshot.equity:.2f}")
-    summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
+    summary.add_row(f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}")
+    summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
+    summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
+    summary.add_row(
+        f"{LABEL_UNREALIZED_PNL} ({currency}, paper mark)",
+        f"{snapshot.unrealized_pnl:.2f}",
+    )
     summary.add_row("Open Positions", str(snapshot.open_positions))
+    summary.add_row("Marked At", mark_time)
+    summary.add_row("Mark Source", mark_source)
     console.print(summary)
     positions = db.list_positions()
     if not positions:
@@ -1116,7 +1136,7 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
 
 
 def _memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
-    table = Table(title="Memory Explorer")
+    table = Table(title="Decision Evidence Explorer")
     table.add_column("Created")
     table.add_column("Symbol")
     table.add_column("Score")

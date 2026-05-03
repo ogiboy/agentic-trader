@@ -34,6 +34,7 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert status_code == 200
     assert finance_ops["backend"] == "paper"
     assert "checks" in finance_ops
+    assert cast(dict[str, object], finance_ops["accounting"])["currency"] == "USD"
 
     status_code, provider = build_observer_api_payload(
         settings, path="/provider-diagnostics"

@@ -4,7 +4,11 @@
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { CHAT_PERSONAS, type ChatPersona } from '@/lib/chat-personas';
+import {
+  CHAT_PERSONAS,
+  formatChatPersona,
+  type ChatPersona,
+} from '@/lib/chat-personas';
 
 type DashboardData = Record<string, any>;
 type TabId =
@@ -25,7 +29,7 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'runtime', label: 'Runtime' },
   { id: 'portfolio', label: 'Portfolio' },
   { id: 'review', label: 'Review' },
-  { id: 'memory', label: 'Memory' },
+  { id: 'memory', label: 'Decision Evidence' },
   { id: 'chat', label: 'Chat' },
   { id: 'settings', label: 'Settings' },
 ];
@@ -58,6 +62,15 @@ function formatNumber(value: unknown, digits = 2): string {
     maximumFractionDigits: digits,
     minimumFractionDigits: digits,
   }).format(value);
+}
+
+function accountCurrency(dashboard: DashboardData): string {
+  return (
+    dashboard.financeOps?.accounting?.currency ||
+    dashboard.portfolio?.accounting?.currency ||
+    dashboard.preferences?.currencies?.[0] ||
+    'USD'
+  );
 }
 
 /**
@@ -343,12 +356,12 @@ function readinessLines(dashboard: DashboardData): string[] {
   const paper = readiness.paper_operations || {};
   const alpaca = readiness.alpaca_paper || {};
   return [
-    `Paper Operation Allowed: ${paper.allowed ? 'yes' : 'no'}`,
-    `Paper Blockers: ${failedCheckNames(paper)}`,
-    `Alpaca Paper Ready: ${alpaca.ready ? 'yes' : 'no'}`,
-    `Alpaca Blockers: ${failedCheckNames(alpaca)}`,
+    `Can run local paper cycle: ${paper.allowed ? 'yes' : 'no'}`,
+    `Why paper cycle is blocked: ${failedCheckNames(paper)}`,
+    `Can use Alpaca paper: ${alpaca.ready ? 'yes' : 'no'}`,
+    `Why Alpaca paper is blocked: ${failedCheckNames(alpaca)}`,
     `Backend: ${broker.backend ?? '-'}`,
-    `External Paper: ${broker.external_paper ? 'yes' : 'no'}`,
+    `External paper mode active: ${broker.external_paper ? 'yes' : 'no'}`,
     `Kill Switch: ${broker.kill_switch_active ? 'active' : 'inactive'}`,
     `Broker Health: ${broker.healthcheck?.message ?? broker.message ?? '-'}`,
   ];
@@ -437,7 +450,7 @@ function OverviewView({
         </Panel>
       </div>
 
-      <Panel title="Agent Activity" accent="amber">
+      <Panel title="Decision Workflow" accent="amber">
         <TextList items={recentStageEvents} />
       </Panel>
     </div>
@@ -501,6 +514,8 @@ function RuntimeView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
 }
 
 function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
+  const currency = accountCurrency(dashboard);
+  const accounting = dashboard.financeOps?.accounting || dashboard.portfolio?.accounting || {};
   const portfolioUnavailable = unavailableSectionLines(
     dashboard.portfolio,
     'Portfolio',
@@ -527,24 +542,26 @@ function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
           <>
             <KeyValueList
               items={[
-                ['Cash', formatNumber(dashboard.portfolio?.snapshot?.cash)],
+                [`Cash (${currency})`, formatNumber(dashboard.portfolio?.snapshot?.cash)],
                 [
-                  'Market Value',
+                  `Market Value (${currency})`,
                   formatNumber(dashboard.portfolio?.snapshot?.market_value),
                 ],
-                ['Equity', formatNumber(dashboard.portfolio?.snapshot?.equity)],
+                [`Equity (${currency})`, formatNumber(dashboard.portfolio?.snapshot?.equity)],
                 [
-                  'Realized PnL',
+                  `Realized PnL (${currency})`,
                   formatNumber(dashboard.portfolio?.snapshot?.realized_pnl),
                 ],
                 [
-                  'Unrealized PnL',
+                  `Unrealized PnL (${currency}, paper mark)`,
                   formatNumber(dashboard.portfolio?.snapshot?.unrealized_pnl),
                 ],
                 [
                   'Open Positions',
                   String(dashboard.portfolio?.snapshot?.open_positions ?? '-'),
                 ],
+                ['Marked At', formatTimestamp(accounting.mark_created_at)],
+                ['Mark Source', accounting.mark_source ?? '-'],
               ]}
             />
             <JsonPreview value={dashboard.portfolio?.positions || []} />
@@ -558,7 +575,10 @@ function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
           <>
             <KeyValueList
               items={[
-                ['Equity', formatNumber(dashboard.riskReport?.report?.equity)],
+                [
+                  `Equity (${currency})`,
+                  formatNumber(dashboard.riskReport?.report?.equity),
+                ],
                 [
                   'Gross Exposure',
                   formatPercent(
@@ -581,6 +601,7 @@ function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
                   'Warnings',
                   String((dashboard.riskReport?.report?.warnings || []).length),
                 ],
+                ['Generated At', formatTimestamp(dashboard.riskReport?.report?.generated_at)],
               ]}
             />
             <TextList
@@ -603,6 +624,22 @@ function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
             ['Behavior', dashboard.preferences?.behavior_preset ?? '-'],
             ['Tone', dashboard.preferences?.agent_tone ?? '-'],
             ['Strictness', dashboard.preferences?.strictness_preset ?? '-'],
+          ]}
+        />
+      </Panel>
+      <Panel title="Desk Accounting Notes" accent="amber">
+        <KeyValueList
+          items={[
+            ['Currency', currency],
+            ['Mark Status', accounting.mark_status ?? 'mark_time_unavailable'],
+            ['Fees', accounting.cost_model?.fees ?? '-'],
+            [
+              'Slippage',
+              accounting.cost_model?.slippage_bps == null
+                ? '-'
+                : `${accounting.cost_model.slippage_bps} bps`,
+            ],
+            ['Rejection Evidence', accounting.rejection_evidence ?? '-'],
           ]}
         />
       </Panel>
@@ -672,10 +709,10 @@ function MemoryView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
 
   return (
     <div className="grid grid--2">
-      <Panel title="Similar Memories" accent="lime">
+      <Panel title="Similar Past Runs" accent="lime">
         <TextList items={memoryLines} />
       </Panel>
-      <Panel title="Retrieval Inspection" accent="cyan">
+      <Panel title="Why This Context Was Used" accent="cyan">
         <TextList items={retrievalLines} />
       </Panel>
     </div>
@@ -706,7 +743,7 @@ function ChatView({
       <Panel title="Operator Chat" accent="lime">
         <div className="form-row">
           <label className="field-label">
-            <span>Persona</span>
+            <span>Role</span>
             <select
               value={chatPersona}
               onChange={(event) =>
@@ -715,7 +752,7 @@ function ChatView({
             >
               {CHAT_PERSONAS.map((persona) => (
                 <option key={persona} value={persona}>
-                  {persona}
+                  {formatChatPersona(persona)}
                 </option>
               ))}
             </select>
@@ -727,7 +764,9 @@ function ChatView({
               <article className="chat-bubble" key={`${entry.user}-${index}`}>
                 <div className="chat-bubble__meta">you</div>
                 <p>{entry.user}</p>
-                <div className="chat-bubble__meta">{entry.persona}</div>
+                <div className="chat-bubble__meta">
+                  {formatChatPersona(entry.persona)}
+                </div>
                 <p>{entry.response}</p>
               </article>
             ))
@@ -751,7 +790,7 @@ function ChatView({
           </button>
         </div>
       </Panel>
-      <Panel title="Live Agent Context" accent="cyan">
+      <Panel title="Decision Workflow Context" accent="cyan">
         <TextList
           items={[
             `Current Stage: ${dashboard.agentActivity?.current_stage ?? '-'}`,

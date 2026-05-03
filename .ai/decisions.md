@@ -12,13 +12,13 @@ Adding an external orchestrator as the central control plane would duplicate and
 
 Reason:
 The trading runtime already owns staged specialist execution, manager synthesis, guard decisions, broker adapters, persistence, and operator truth.
-The V1.1 research sidecar may collect and normalize external evidence, produce world-state snapshots, and prepare memory-update packets, but it must not submit orders, mutate trading policy, weaken strict runtime gates, or replace the staged graph.
-CrewAI can be useful later for V1.2 deep-dive/evaluation loops, but it stays behind an optional backend boundary and must not become a required core runtime dependency.
+The V1 research sidecar may collect and normalize external evidence, produce world-state snapshots, and prepare memory-update packets, but it must not submit orders, mutate trading policy, weaken strict runtime gates, or replace the staged graph.
+The former V1.1/V1.2 tracks are now part of V1 completion: CrewAI can be useful for deep-dive/evaluation loops, but it stays behind an optional backend boundary and must not become a required core runtime dependency.
 
 ### Research snapshots use the runtime feed before a sidecar database
 
 Reason:
-V1.1 needs sidecar persistence without competing with the active DuckDB runtime writer.
+V1 needs sidecar persistence without competing with the active DuckDB runtime writer.
 Research-only commands therefore append `ResearchSnapshotRecord` JSON to the runtime feed and update a latest-snapshot JSON file instead of creating a main `research_snapshots` table.
 A separate sidecar database can be reconsidered only after real provider volume, query needs, and daemon polling behavior justify it.
 
@@ -33,7 +33,7 @@ This provider does not parse full filing text, XBRL company facts, or trading po
 
 Reason:
 CrewAI is available as a useful sidecar harness, but adding it to the root lock would widen the runtime dependency surface before the adapter is implemented.
-The current path is operator-visible setup/status plus a tracked uv-managed CrewAI Flow sidecar under `sidecars/research_flow/`, then a JSON/Pydantic handshake behind `ResearchSidecarBackend` when V1.2 begins.
+The current path is operator-visible setup/status plus a tracked uv-managed CrewAI Flow sidecar under `sidecars/research_flow/`, then JSON/Pydantic handshakes behind `ResearchSidecarBackend` as V1 deep-dive tasks mature.
 The sidecar can own its CrewAI dependency, Python 3.13 `.python-version`, and `uv.lock`; the root runtime must keep working when that sidecar is not installed.
 
 ### External AI coding tools are development helpers, not runtime dependencies
@@ -41,6 +41,8 @@ The sidecar can own its CrewAI dependency, Python 3.13 `.python-version`, and `u
 Reason:
 ChatGPT, Codex, and similar tools may help plan and implement changes, but they should not become assumptions inside the trading runtime.
 The `.ai/agents/` role pack documents development workflows for planner, implementer, reviewer, QA, and data-focused helpers only; it must not be interpreted as a runtime agent platform or external orchestration dependency.
+RuFlo may be used the same way: as a system-level MCP/CLI advisory layer for task routing, diff-risk, workflow guidance, memory, or sandboxed-agent experiments.
+Do not initialize RuFlo into the repository, add its files to tracked project state, or let its agents become part of the trading runtime unless that is made an explicit repo decision.
 
 ### Operator-facing docs should explain the product before the repo
 
@@ -77,6 +79,8 @@ Reason:
 The project needs a Wall-Street/accounting/broker lens inside the actual application, not only developer guidance.
 The first V1-safe implementation is a read-only `finance-ops` payload that reconciles broker backend, account snapshot, PnL fields, risk report availability, paper evidence, and live-block state across CLI, dashboard, observer API, and evidence bundles.
 It must not submit orders, mutate settings, bypass approval gates, or become a hidden execution path.
+Operator-facing finance labels should include currency, paper mark timestamp/source/status, fee/slippage assumptions, and explicit rejection-evidence wording when those fields are present.
+UI surfaces must show missing mark time or missing external broker evidence as missing, never as a neutral or clean account state.
 
 ### Provider expansion should happen through adapters
 

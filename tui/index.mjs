@@ -30,7 +30,27 @@ const personas = [
   'risk_steward',
   'portfolio_manager',
 ];
+const personaLabels = {
+  operator_liaison: 'Operator Assistant',
+  regime_analyst: 'Market Regime Analyst',
+  strategy_selector: 'Strategy Selector',
+  risk_steward: 'Risk Steward',
+  portfolio_manager: 'Portfolio Manager',
+};
 const instructionModes = ['preview', 'apply'];
+
+function formatPersona(value) {
+  return personaLabels[value] || value || '-';
+}
+
+function accountCurrency(data) {
+  return (
+    data.financeOps?.accounting?.currency ||
+    data.portfolio?.accounting?.currency ||
+    data.preferences?.currencies?.[0] ||
+    'USD'
+  );
+}
 
 /**
  * Execute the Agentic Trader CLI using one of the configured executables, retrying across candidates.
@@ -497,7 +517,7 @@ function getPageLabel(page) {
     runtime: 'Runtime',
     portfolio: 'Portfolio',
     review: 'Review',
-    memory: 'Memory',
+    memory: 'Decision Evidence',
     chat: 'Chat',
     settings: 'Settings',
   };
@@ -816,12 +836,12 @@ function readinessLines(data) {
   const paper = readiness.paper_operations || {};
   const alpaca = readiness.alpaca_paper || {};
   return [
-    `Paper Allowed: ${paper.allowed ? 'yes' : 'no'}`,
-    `Paper Blockers: ${failedCheckNames(paper)}`,
-    `Alpaca Paper Ready: ${alpaca.ready ? 'yes' : 'no'}`,
-    `Alpaca Blockers: ${failedCheckNames(alpaca)}`,
+    `Can run local paper cycle: ${paper.allowed ? 'yes' : 'no'}`,
+    `Why paper cycle is blocked: ${failedCheckNames(paper)}`,
+    `Can use Alpaca paper: ${alpaca.ready ? 'yes' : 'no'}`,
+    `Why Alpaca paper is blocked: ${failedCheckNames(alpaca)}`,
     `Backend: ${broker.backend ?? '-'}`,
-    `External Paper: ${broker.external_paper ? 'yes' : 'no'}`,
+    `External paper mode active: ${broker.external_paper ? 'yes' : 'no'}`,
     `Kill Switch: ${broker.kill_switch_active ? 'active' : 'inactive'}`,
     `Broker Health: ${broker.healthcheck?.message ?? broker.message ?? '-'}`,
   ];
@@ -1131,6 +1151,8 @@ function PortfolioPage({ data }) {
   const preferences = data.preferences;
   const snapshot = portfolio.snapshot;
   const positions = portfolio.positions;
+  const currency = accountCurrency(data);
+  const accounting = data.financeOps?.accounting || portfolio.accounting || {};
 
   const portfolioLines = renderLinesFallback(
     'PORTFOLIO',
@@ -1138,12 +1160,21 @@ function PortfolioPage({ data }) {
     portfolio.error,
     'Portfolio view is temporarily unavailable.',
   ) || [
-    `Cash: ${snapshot.cash.toFixed(2)}`,
-    `Market Value: ${snapshot.market_value.toFixed(2)}`,
-    `Equity: ${snapshot.equity.toFixed(2)}`,
-    `Realized PnL: ${snapshot.realized_pnl.toFixed(2)}`,
-    `Unrealized PnL: ${snapshot.unrealized_pnl.toFixed(2)}`,
+    `Cash (${currency}): ${snapshot.cash.toFixed(2)}`,
+    `Market Value (${currency}): ${snapshot.market_value.toFixed(2)}`,
+    `Equity (${currency}): ${snapshot.equity.toFixed(2)}`,
+    `Realized PnL (${currency}): ${snapshot.realized_pnl.toFixed(2)}`,
+    `Unrealized PnL (${currency}, paper mark): ${snapshot.unrealized_pnl.toFixed(2)}`,
     `Open Positions: ${positions.length}`,
+    `Marked At: ${accounting.mark_created_at || 'mark time unavailable'}`,
+    `Mark Source: ${accounting.mark_source || '-'}`,
+    `Fees: ${accounting.cost_model?.fees || '-'}`,
+    `Slippage: ${
+      accounting.cost_model?.slippage_bps == null
+        ? '-'
+        : `${accounting.cost_model.slippage_bps} bps`
+    }`,
+    `Rejection Evidence: ${accounting.rejection_evidence || '-'}`,
   ];
 
   const riskLines =
@@ -1153,10 +1184,11 @@ function PortfolioPage({ data }) {
           riskReport.error || 'The runtime writer currently owns the database.',
         ]
       : [
-          `Equity: ${riskReport.report.equity.toFixed(2)}`,
+          `Equity (${currency}): ${riskReport.report.equity.toFixed(2)}`,
           `Gross Exposure: ${(riskReport.report.gross_exposure_pct * 100).toFixed(2)}%`,
           `Largest Position: ${(riskReport.report.largest_position_pct * 100).toFixed(2)}%`,
           `Drawdown: ${(riskReport.report.drawdown_from_peak_pct * 100).toFixed(2)}%`,
+          `Generated At: ${riskReport.report.generated_at || '-'}`,
           `Warnings: ${riskReport.report.warnings.length}`,
         ];
 
@@ -1349,12 +1381,12 @@ function MemoryPage({ data }) {
       e(
         Box,
         { width: '50%', paddingRight: 1 },
-        panel('SIMILAR MEMORIES', matchLines.slice(0, 10), 'cyan'),
+        panel('SIMILAR PAST RUNS', matchLines.slice(0, 10), 'cyan'),
       ),
       e(
         Box,
         { width: '50%', paddingLeft: 1 },
-        panel('RETRIEVAL INSPECTION', retrievalLines.slice(0, 12), 'yellow'),
+        panel('WHY THIS CONTEXT WAS USED', retrievalLines.slice(0, 12), 'yellow'),
       ),
     ),
   );
@@ -1524,7 +1556,7 @@ function ChatPage({ data, persona, history, draft, chatBusy }) {
         panel(
           'OPERATOR CHAT',
           [
-            `Persona: ${persona}`,
+            `Role: ${formatPersona(persona)}`,
             'Type directly to write. Enter sends. Backspace deletes. [ and ] switch persona.',
             chatBusy ? 'Sending message to the operator surface...' : 'Ready.',
             '',
@@ -1533,7 +1565,7 @@ function ChatPage({ data, persona, history, draft, chatBusy }) {
                   .slice(-8)
                   .flatMap((entry) => [
                     `you: ${entry.user}`,
-                    `${entry.persona}: ${entry.response}`,
+                    `${formatPersona(entry.persona)}: ${entry.response}`,
                     '',
                   ])
               : ['No chat messages yet.']),
@@ -1547,7 +1579,7 @@ function ChatPage({ data, persona, history, draft, chatBusy }) {
         e(
           Box,
           { width: '100%' },
-          panel('LIVE AGENT ACTIVITY', activityLines, 'cyan'),
+          panel('DECISION WORKFLOW', activityLines, 'cyan'),
         ),
         e(
           Box,

@@ -39,6 +39,7 @@ Implemented or substantially present:
 - the Web GUI command runner now prefers an explicit `AGENTIC_TRADER_PYTHON`, an active virtualenv, or the repo-managed uv `.venv` before falling back to legacy Conda/PATH entrypoints, which keeps the browser shell attached to the current worktree more reliably
 - the repository now also ships a Fumadocs-based `docs/` app with curated MDX pages for onboarding, architecture, agent pipeline, runtime operations, operator surfaces, frontend guidance, memory/review, QA, and contribution workflow, turning the existing docs scaffold into the canonical operator guide plus contributor-notes starting point
 - the docs app now uses locale-prefixed English and Turkish routes (`/en/...` and `/tr/...`) with localized page trees, localized feedback copy, and a modular frontend split across home, feedback, layout, i18n, and content helpers instead of one overloaded docs page file
+- the docs landing copy now frames the site as an operator guide for paper-trading operation first, with contributor/developer notes behind that product story rather than in the first viewport
 - the docs app is now configured for GitHub Pages static export with a project base path, static Fumadocs search data, and a feedback widget that prepares browser-local GitHub issue drafts instead of relying on Server Actions or filesystem writes
 - the repository now has GitHub Actions workflow scaffolding for Python/Web GUI/docs CI, semantic-release versioning with synchronized Python/root/workspace package versions on stable releases, SemVer-compatible branch version previews, stable release changelog/tag creation, prerelease branch GitHub Releases for test binaries, PyInstaller macOS/Windows binaries, and GitHub Pages docs deployment
 - JavaScript dependency management is now consolidated at the repository root with a pnpm workspace for `webgui/`, `docs/`, and `tui/`; root `package.json` scripts plus thin Makefile aliases provide shared setup, check, build, and local app entrypoints while uv owns Python locking, sync, command execution, and builds
@@ -95,6 +96,7 @@ Implemented or substantially present:
 - `v1-readiness` now surfaces paper-operation gates and Alpaca paper-readiness gates before longer runs or external paper checks, with optional provider/model health checking behind `--provider-check`
 - `v1-readiness` now also carries a `paper_evidence` section that ties V1 readiness to provider source-ladder visibility, source attribution, Market Context Pack explainability fields, review/evidence-bundle artifacts, broker health, and the no-live-until-approved gate
 - `finance-ops` now exposes a read-only trading-desk payload that reconciles broker backend, account snapshot, PnL fields, risk report availability, paper evidence, and live-block state without gaining execution authority
+- finance/accounting readability now carries currency, paper mark timestamp/source/status, cost-model assumptions, and rejection-evidence wording through `finance-ops`, dashboard payloads, Rich/Ink/Web operator surfaces, and targeted tests
 - memory vectors now persist embedding provider, model, version, and dimensionality metadata beside the existing lightweight local-hashing vectors, and legacy rows migrate with local-hashing defaults
 - Sonar is split into two explicit targets: local Docker SonarQube Community Build uses project `agentic-trader` through root `sonar-project.properties`, while GitHub-hosted CI and public badges use SonarCloud project `ogiboy_agentic-trader`
 - local `pnpm run sonar` uses `pysonar`, local `pnpm run sonar:js` uses `@sonar/scan`, and manual `pnpm run sonar:cloud` uses the npm scanner with SonarCloud organization `ogiboy`; tokens must come from `SONAR_TOKEN` or separate macOS Keychain services (`codex-sonarqube-token` for local, `codex-sonarcloud-token` for cloud)
@@ -119,8 +121,8 @@ New production-expansion direction:
 - market snapshots now carry a structured multi-horizon context pack, and Training/Operation visibility, behavior-specific gates, as-of audit fields, and transition checklists are present
 - memory is currently hybrid and inspectable, and vector metadata is now persisted; true local-first semantic embeddings and richer retrieval explanations are still planned expansions
 - Training and Operation should become first-class runtime modes shown across all surfaces instead of informal workflow concepts
-- V1.1 should grow the research sidecar as a local evidence companion that reconstructs what happened across 30d/90d/180d windows through normalized evidence packets, not raw web text in prompts
-- V1.2 should add optional CrewAI-backed deep-dive/evaluation loops behind the sidecar boundary while native replay, QA, and strict runtime flows remain valid without CrewAI installed
+- the former V1.1/V1.2 tracks are now part of V1 completion: the research sidecar should reconstruct what happened across 30d/90d/180d windows through normalized evidence packets, while optional CrewAI-backed deep-dive/evaluation loops stay behind the sidecar boundary
+- native replay, QA, and strict runtime flows must remain valid without CrewAI installed; V2 starts at IBKR/global/FX, multi-currency live accounting, and actual live brokerage
 - QA should grow from smoke coverage into tiered terminal regression evidence with CLI JSON snapshots, pexpect scenarios, optional tmux/asciinema capture, optional Computer Use visual passes, unique artifact directories for parallel runs, and generated failure reports
 
 ## Current Constraints
@@ -159,6 +161,7 @@ New production-expansion direction:
 - release binary uploads should be validated through the release workflow/tag-dispatch path; direct `main` branch binary workflow runs may upload artifacts while intentionally skipping GitHub Release publication
 - the stable release workflow now creates a baseline changelog section before the one-time pre-1.0 baseline tag when semantic-release's discovered candidate is below the tracked `0.9.0` baseline, so `main` does not end up with a release tag and an empty `CHANGELOG.md`
 - product-impacting feature/V1 branch pushes now carry an explicit tracked patch-version bump in Python, workspace package manifests, sidecar metadata, and lockfile metadata before push; `pnpm run version:plan` still records the branch artifact identity, and `CHANGELOG.md` remains release-flow owned unless explicitly requested
+- RuFlo is available as a system-level development MCP/CLI helper, not a project dependency; when its MCP namespace is available, use it for advisory checks such as guidance, route recommendations, and diff-risk/stats without initializing the repository
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture
