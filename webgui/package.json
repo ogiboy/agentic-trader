@@ -1,6 +1,6 @@
 {
   "name": "webgui",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "private": true,
   "scripts": {
     "dev": "WATCHPACK_POLLING=true next dev -p 3210",

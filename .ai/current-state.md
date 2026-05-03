@@ -112,7 +112,8 @@ Implemented or substantially present:
 - the CrewAI research backend now uses a subprocess JSON contract through `uv run --locked --no-sync research-flow-contract` when the sidecar is installed; failures stay visible and do not install dependencies implicitly during runtime
 - the CrewAI research backend now starts with a narrowed subprocess environment, keeps broker/runtime secrets out of the sidecar by default, and redacts non-JSON stdout/stderr failures before they reach research status or persisted error fields
 - the CrewAI Flow sidecar contract now emits deterministic planned deep-dive task definitions for company dossiers, timeline reconstruction, contradiction checks, watch-next lists, and sector briefs without running LLM-backed tasks yet
-- SEC EDGAR research can now be enabled explicitly through `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true` plus `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT`; when configured, it reads official submissions metadata and normalizes recent 10-K/10-Q/8-K-style filings into source-attributed research evidence without downloading raw filing text
+- SEC EDGAR research can now be enabled explicitly through `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true` plus `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT`; when configured, it reads official submissions metadata plus compact official company-facts XBRL metrics into source-attributed research evidence without downloading raw filing text
+- research world-state snapshots now preserve fresh source attribution when providers return normalized evidence, instead of labeling every sidecar provider attribution as missing
 
 New production-expansion direction:
 
@@ -134,7 +135,7 @@ New production-expansion direction:
 - true semantic memory is not implemented yet; current vector-style retrieval with explicit metadata should be treated as a migration bridge, not the destination
 - Training vs Operation mode is enforced for the first core boundary: Operation requires strict LLM readiness, while Training diagnostic fallback is limited to evaluation/backtest flows
 - live broker adapters are not implemented or enabled; simulated-real remains local and non-live
-- research sidecar status, schemas, and file-backed snapshot persistence are implemented; SEC EDGAR submissions metadata is the first opt-in live source, while broader evidence ingestion, daemon-style polling controls, and trade-memory writes are still future work
+- research sidecar status, schemas, and file-backed snapshot persistence are implemented; SEC EDGAR submissions metadata and compact company facts are the first opt-in live sources, while broader evidence ingestion, daemon-style polling controls, and trade-memory writes are still future work
 - CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph. The tracked Flow scaffold now lives under `sidecars/research_flow/`, outside `agentic_trader/`, with uv owning its own environment and sidecar package version aligned to the root app version.
 - financial provider interfaces and canonical aggregation are implemented, but real SEC/KAP, transcripts, macro indicators, and richer vendor fetchers are still scaffolds or future providers
 - SEC 10-K/10-Q/8-K-style filings now have a first metadata-only submissions ingestor when explicitly enabled; earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX source names remain explicit scaffold metadata rather than live ingestors
@@ -162,6 +163,7 @@ New production-expansion direction:
 - the stable release workflow now creates a baseline changelog section before the one-time pre-1.0 baseline tag when semantic-release's discovered candidate is below the tracked `0.9.0` baseline, so `main` does not end up with a release tag and an empty `CHANGELOG.md`
 - product-impacting feature/V1 branch pushes now carry an explicit tracked patch-version bump in Python, workspace package manifests, sidecar metadata, and lockfile metadata before push; `pnpm run version:plan` still records the branch artifact identity, and `CHANGELOG.md` remains release-flow owned unless explicitly requested
 - RuFlo is available as a system-level development MCP/CLI helper, not a project dependency; when its MCP namespace is available, use it for advisory checks such as guidance, route recommendations, and diff-risk/stats without initializing the repository
+- Context7 is also available as a system-level documentation helper; when MCP discovery/login state is confusing, call it through `npx ctx7 library ...` and `npx ctx7 docs ...` from the terminal instead of adding project dependencies or repo setup files
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 
 ## Current Development Posture

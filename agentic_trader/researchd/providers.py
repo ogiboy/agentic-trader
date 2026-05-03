@@ -15,6 +15,7 @@ from agentic_trader.providers.base import metadata, source_attribution, utc_now_
 from agentic_trader.schemas import (
     DataProviderKind,
     DataSourceRole,
+    DataSourceAttribution,
     MacroEvent,
     ProviderMetadata,
     RawEvidenceRecord,
@@ -25,6 +26,9 @@ from agentic_trader.schemas import (
 
 
 SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
+SEC_COMPANY_FACTS_URL_TEMPLATE = (
+    "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
+)
 SEC_SUBMISSIONS_URL_TEMPLATE = "https://data.sec.gov/submissions/CIK{cik}.json"
 SEC_ARCHIVES_URL_TEMPLATE = (
     "https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{primary_document}"
@@ -44,6 +48,30 @@ SEC_RESEARCH_FORMS = frozenset(
         "6-K",
         "6-K/A",
     }
+)
+SEC_COMPANY_FACT_CONCEPTS = (
+    (
+        "revenue",
+        "Revenue",
+        (
+            "RevenueFromContractWithCustomerExcludingAssessedTax",
+            "Revenues",
+            "SalesRevenueNet",
+        ),
+    ),
+    ("net_income", "Net income", ("NetIncomeLoss",)),
+    ("assets", "Assets", ("Assets",)),
+    ("liabilities", "Liabilities", ("Liabilities",)),
+    (
+        "operating_cash_flow",
+        "Operating cash flow",
+        ("NetCashProvidedByUsedInOperatingActivities",),
+    ),
+    (
+        "cash",
+        "Cash and equivalents",
+        ("CashAndCashEquivalentsAtCarryingValue",),
+    ),
 )
 JsonFetcher = Callable[[str, Mapping[str, str], float], dict[str, Any]]
 
@@ -197,6 +225,33 @@ class SecEdgarSubmissionsProvider:
             if match is None:
                 missing_reasons.append(f"sec_cik_missing:{symbol}")
                 continue
+            if len(records) < safe_limit:
+                try:
+                    facts_payload = self._fetcher(
+                        SEC_COMPANY_FACTS_URL_TEMPLATE.format(cik=match.cik),
+                        headers,
+                        self._timeout,
+                    )
+                except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
+                    missing_reasons.extend(
+                        [
+                            f"sec_companyfacts_fetch_failed:{symbol}",
+                            _safe_error_note(exc),
+                        ]
+                    )
+                else:
+                    facts_record = _record_from_company_facts(
+                        provider=self._metadata,
+                        symbol=symbol,
+                        match=match,
+                        payload=facts_payload,
+                    )
+                    if facts_record is None:
+                        missing_reasons.append(f"sec_companyfacts_missing:{symbol}")
+                    else:
+                        records.append(facts_record)
+            if len(records) >= safe_limit:
+                break
             try:
                 submissions_payload = self._fetcher(
                     SEC_SUBMISSIONS_URL_TEMPLATE.format(cik=match.cik),
@@ -311,6 +366,38 @@ def missing_attribution(provider: ProviderMetadata):
     )
 
 
+def source_attributions_from_output(
+    output: ResearchProviderOutput,
+) -> list[DataSourceAttribution]:
+    """Return provider attributions that truthfully represent payload freshness."""
+    attributions: list[DataSourceAttribution] = []
+    for record in [
+        *output.raw_evidence,
+        *output.macro_events,
+        *output.social_signals,
+    ]:
+        attributions.extend(record.source_attributions)
+    if not attributions and (
+        output.raw_evidence or output.macro_events or output.social_signals
+    ):
+        completeness = 1.0 if not output.missing_reasons else 0.7
+        attributions.append(
+            source_attribution(
+                source_name=output.metadata.provider_id,
+                provider_type=output.metadata.provider_type,
+                source_role=output.metadata.role,
+                fetched_at=utc_now_iso(),
+                freshness="fresh",
+                confidence=0.8,
+                completeness=completeness,
+                notes=[*output.metadata.notes, *output.missing_reasons],
+            )
+        )
+    if not attributions:
+        attributions.append(missing_attribution(output.metadata))
+    return _unique_attributions(attributions)
+
+
 def _fetch_json(
     url: str,
     headers: Mapping[str, str],
@@ -405,6 +492,98 @@ def _records_from_submissions(
             break
 
     return records
+
+
+def _record_from_company_facts(
+    *,
+    provider: ProviderMetadata,
+    symbol: str,
+    match: _SecTickerMatch,
+    payload: dict[str, Any],
+) -> RawEvidenceRecord | None:
+    us_gaap = _us_gaap_facts(payload)
+    if not us_gaap:
+        return None
+
+    fetched_at = utc_now_iso()
+    entity_name = str(payload.get("entityName") or match.entity_name).strip()
+    evidence: list[str] = []
+    concept_notes: list[str] = []
+    missing_fields: list[str] = []
+    observed_candidates: list[str] = []
+
+    for metric_id, label, concepts in SEC_COMPANY_FACT_CONCEPTS:
+        fact = _latest_company_fact(us_gaap, concepts=concepts)
+        if fact is None:
+            missing_fields.append(f"company_fact:{metric_id}")
+            continue
+        concept, unit, item = fact
+        value = item.get("val")
+        end = _string_value(item.get("end"))
+        filed = _string_value(item.get("filed"))
+        form = _string_value(item.get("form"))
+        period = _company_fact_period(item)
+        if filed:
+            observed_candidates.append(filed)
+        elif end:
+            observed_candidates.append(end)
+        evidence.append(
+            (
+                f"{label}: {_format_fact_value(value, unit)} "
+                f"for {period} ending {end or 'unknown'} "
+                f"filed {filed or 'unknown'} via {form or 'unknown form'}."
+            )
+        )
+        concept_notes.append(f"{metric_id}={concept}")
+
+    if not evidence:
+        return None
+
+    observed_at = max(observed_candidates) if observed_candidates else fetched_at
+    completeness = len(evidence) / len(SEC_COMPANY_FACT_CONCEPTS)
+    url = SEC_COMPANY_FACTS_URL_TEMPLATE.format(cik=match.cik)
+    return RawEvidenceRecord(
+        record_id=f"sec-companyfacts:{symbol}:{match.cik}",
+        source_kind="disclosure",
+        source_name=provider.provider_id,
+        title=f"{symbol} SEC company facts summary",
+        symbol=symbol,
+        entity_name=entity_name,
+        region="US",
+        url=url,
+        observed_at=observed_at,
+        last_verified_at=fetched_at,
+        normalized_summary=(
+            f"SEC company facts reports {len(evidence)} compact XBRL metric(s) "
+            f"for {entity_name}: {'; '.join(evidence)}"
+        ),
+        source_payload_ref=f"sec-companyfacts://CIK{match.cik}",
+        source_attributions=[
+            source_attribution(
+                source_name=provider.provider_id,
+                provider_type=provider.provider_type,
+                source_role=provider.role,
+                fetched_at=fetched_at,
+                freshness="fresh",
+                confidence=0.95,
+                completeness=completeness,
+                notes=[
+                    "sec_companyfacts_api",
+                    f"cik={match.cik}",
+                    *concept_notes,
+                ],
+            )
+        ],
+        evidence_vs_inference=EvidenceInferenceBreakdown(
+            evidence=evidence,
+            inference=[],
+            uncertainty=[
+                "SEC company facts aggregate normalized XBRL facts; filing text was not downloaded or parsed in this pass.",
+                "Company-specific extension taxonomy concepts are not included in this compact V1 summary.",
+            ],
+        ),
+        missing_fields=missing_fields,
+    )
 
 
 def _recent_filings(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -535,6 +714,68 @@ def _list_value(value: object) -> list[object]:
     return value if isinstance(value, list) else []
 
 
+def _us_gaap_facts(payload: dict[str, Any]) -> dict[str, Any] | None:
+    facts = payload.get("facts")
+    if not isinstance(facts, dict):
+        return None
+    us_gaap = facts.get("us-gaap")
+    return us_gaap if isinstance(us_gaap, dict) else None
+
+
+def _latest_company_fact(
+    us_gaap: dict[str, Any],
+    *,
+    concepts: tuple[str, ...],
+) -> tuple[str, str, dict[str, Any]] | None:
+    candidates: list[tuple[tuple[str, str, str], str, str, dict[str, Any]]] = []
+    for concept in concepts:
+        concept_payload = us_gaap.get(concept)
+        if not isinstance(concept_payload, dict):
+            continue
+        units = concept_payload.get("units")
+        if not isinstance(units, dict):
+            continue
+        for unit, values in units.items():
+            if unit != "USD" or not isinstance(values, list):
+                continue
+            for item in values:
+                if not isinstance(item, dict) or item.get("val") is None:
+                    continue
+                candidates.append((_company_fact_sort_key(item), concept, unit, item))
+    if not candidates:
+        return None
+    _, concept, unit, item = max(candidates, key=lambda candidate: candidate[0])
+    return concept, unit, item
+
+
+def _company_fact_sort_key(item: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        _string_value(item.get("filed")),
+        _string_value(item.get("end")),
+        _string_value(item.get("accn")),
+    )
+
+
+def _company_fact_period(item: dict[str, Any]) -> str:
+    fy = _string_value(item.get("fy"))
+    fp = _string_value(item.get("fp"))
+    if fy and fp:
+        return f"{fy} {fp}"
+    return fy or fp or "unknown period"
+
+
+def _format_fact_value(value: object, unit: str) -> str:
+    if isinstance(value, bool):
+        return f"{value} {unit}".strip()
+    if isinstance(value, int):
+        return f"{value:,} {unit}".strip()
+    if isinstance(value, float):
+        if value.is_integer():
+            return f"{int(value):,} {unit}".strip()
+        return f"{value:,.2f} {unit}".strip()
+    return f"{_string_value(value) or 'unknown'} {unit}".strip()
+
+
 def _string_value(value: object) -> str:
     return str(value).strip() if value is not None else ""
 
@@ -574,3 +815,22 @@ def _provider_health_message(*, has_payload: bool, notes: list[str]) -> str:
     if "ingestion_pending" in notes:
         return "Provider scaffold is visible, but ingestion is not implemented yet."
     return "Provider returned no normalized research evidence."
+
+
+def _unique_attributions(
+    attributions: list[DataSourceAttribution],
+) -> list[DataSourceAttribution]:
+    seen: set[tuple[str, str, str, str | None]] = set()
+    unique: list[DataSourceAttribution] = []
+    for attribution in attributions:
+        key = (
+            attribution.source_name,
+            attribution.provider_type,
+            attribution.source_role,
+            attribution.fetched_at,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(attribution)
+    return unique

@@ -32,6 +32,7 @@ Now:
 - keep secret redaction tests alongside provider, sidecar, supervisor, and Web-facing changes; fake keys in errors, logs, or provider notes must never reach JSON payloads, docs evidence, or QA artifacts unmasked
 - keep `.ai/security/threat-model.md`, docs security posture pages, and `.ai/qa/qa-scenarios.md` aligned whenever a new operator surface, provider, sidecar, CI/CD artifact, or runtime artifact is added
 - use RuFlo only as a system-level development advisory layer when it helps with routing, diff-risk, memory, or workflow checks; do not run `ruflo init` in this repo or add RuFlo as a runtime dependency unless explicitly requested
+- use Context7 as a system-level docs helper through `npx ctx7 library ...` and `npx ctx7 docs ...` when library/API guidance is needed; do not run `ctx7 setup` in this repo or add Context7 artifacts unless explicitly requested
 - keep the SEC EDGAR submissions provider opt-in and fair-access-aware: no network fetch without `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true`, a configured SEC User-Agent, and watched symbols
 - capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, using local-first monospace typography without build-time Google Fonts fetches
 - keep bundled `next/font/local` JetBrains Mono wiring in both Next apps when typography changes; do not reintroduce `next/font/google` or build-time font downloads
@@ -47,7 +48,7 @@ Now:
 Next:
 
 - extend the file-backed research snapshot feed when real providers start returning raw evidence references, normalized events, findings, and entity dossiers
-- extend real official/structured providers behind the sidecar source ladder: SEC EDGAR submissions metadata is first, next are SEC company facts/full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
+- extend real official/structured providers behind the sidecar source ladder: SEC EDGAR submissions metadata and compact company facts are first; next are SEC full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
 - add optional V1 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
 - turn the planned CrewAI task definitions into executable Flow/Crew steps only after real normalized provider evidence exists and contract tests cover failures
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
@@ -74,7 +75,7 @@ Current state:
 - fundamental assessment output now separates direct evidence, inference, and uncertainty across growth, profitability, cash flow, balance sheet, FX, business quality, macro fit, and forward outlook
 - feature-first prompts now expose the underlying fundamental metrics, and Ink review/trade-context surfaces show fundamental bias, red flags, evidence, inference, and uncertainty
 - trade context and memory documents now persist canonical analysis snapshots, decision features, and fundamental/macro summaries
-- SEC EDGAR submissions metadata is the first opt-in live research source; SEC company facts/full filing parsing plus Finnhub, FMP, Polygon/Massive, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
+- SEC EDGAR submissions metadata and compact company facts are the first opt-in live research sources; full filing parsing plus Finnhub, FMP, Polygon/Massive, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
 
 Next desired shape:
 

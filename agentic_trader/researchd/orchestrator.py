@@ -22,8 +22,8 @@ from agentic_trader.researchd.providers import (
     ResearchEvidenceProvider,
     ResearchProviderOutput,
     default_research_providers,
-    missing_attribution,
     provider_health_from_output,
+    source_attributions_from_output,
 )
 from agentic_trader.security import redact_sensitive_text
 from agentic_trader.schemas import (
@@ -148,7 +148,7 @@ class NoopResearchBackend:
             macro_events.extend(output.macro_events)
             social_signals.extend(output.social_signals)
             health.append(provider_health_from_output(output))
-            attributions.append(missing_attribution(output.metadata))
+            attributions.extend(source_attributions_from_output(output))
 
         world_state = WorldStateSnapshot(
             snapshot_id=f"world-{uuid4()}",
@@ -160,9 +160,11 @@ class NoopResearchBackend:
             macro_events=macro_events,
             social_signals=social_signals,
             findings=[],
-            summary=(
-                "Research sidecar foundation ran with provider scaffolds only; "
-                "no live evidence or synthesized findings were produced."
+            summary=_research_world_state_summary(
+                raw_evidence_count=len(raw_evidence),
+                macro_event_count=len(macro_events),
+                social_signal_count=len(social_signals),
+                finding_count=0,
             ),
         )
         state = ResearchSidecarState(
@@ -459,9 +461,9 @@ class CrewAiResearchBackend:
         ]
         generated_at = str(payload.get("generated_at") or utc_now_iso())
         observed_at = str(payload.get("observed_at") or generated_at)
-        attributions = [
-            missing_attribution(output.metadata) for output in provider_outputs
-        ]
+        attributions = []
+        for output in provider_outputs:
+            attributions.extend(source_attributions_from_output(output))
         world_state = WorldStateSnapshot(
             snapshot_id=f"world-{uuid4()}",
             mode=settings.research_mode,
@@ -473,7 +475,15 @@ class CrewAiResearchBackend:
             macro_events=macro_events,
             social_signals=social_signals,
             findings=findings,
-            summary=str(payload.get("summary") or ""),
+            summary=str(
+                payload.get("summary")
+                or _research_world_state_summary(
+                    raw_evidence_count=len(raw_evidence),
+                    macro_event_count=len(macro_events),
+                    social_signal_count=len(social_signals),
+                    finding_count=len(findings),
+                )
+            ),
         )
         payload_memory_update = payload.get("memory_update", {})
         memory_update = (
@@ -519,6 +529,34 @@ def summarize_provider_health(
     for item in provider_health:
         summary[item.freshness] = summary.get(item.freshness, 0) + 1
     return summary
+
+
+def _research_world_state_summary(
+    *,
+    raw_evidence_count: int,
+    macro_event_count: int,
+    social_signal_count: int,
+    finding_count: int,
+) -> str:
+    if any(
+        count > 0
+        for count in (
+            raw_evidence_count,
+            macro_event_count,
+            social_signal_count,
+            finding_count,
+        )
+    ):
+        return (
+            "Research sidecar assembled normalized evidence packets: "
+            f"raw_evidence={raw_evidence_count}, macro_events={macro_event_count}, "
+            f"social_signals={social_signal_count}, findings={finding_count}. "
+            "Trade-memory writes remain disabled."
+        )
+    return (
+        "Research sidecar foundation ran with provider scaffolds only; "
+        "no live evidence or synthesized findings were produced."
+    )
 
 
 class ResearchSidecar:

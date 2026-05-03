@@ -27,7 +27,8 @@ A separate sidecar database can be reconsidered only after real provider volume,
 Reason:
 The first live research source should be official, structured, and easy to audit without pulling raw filings into prompts.
 SEC EDGAR submissions metadata can produce source-attributed filing evidence for watched US symbols, but it must remain disabled by default, require an identifying User-Agent, respect fair-access expectations, and surface missing/network/user-agent failures instead of silently falling back.
-This provider does not parse full filing text, XBRL company facts, or trading policy; it only writes normalized research evidence packets for sidecar snapshots.
+The provider may summarize compact official XBRL company facts from the SEC companyfacts API, but it still must not download raw filing text, parse arbitrary filing HTML, or mutate trading policy; it only writes normalized research evidence packets for sidecar snapshots.
+When providers return normalized evidence, world-state source attribution must stay fresh and source-attributed rather than being collapsed into missing-source scaffolding.
 
 ### CrewAI setup stays isolated until the dependency boundary is proven
 
@@ -42,7 +43,8 @@ Reason:
 ChatGPT, Codex, and similar tools may help plan and implement changes, but they should not become assumptions inside the trading runtime.
 The `.ai/agents/` role pack documents development workflows for planner, implementer, reviewer, QA, and data-focused helpers only; it must not be interpreted as a runtime agent platform or external orchestration dependency.
 RuFlo may be used the same way: as a system-level MCP/CLI advisory layer for task routing, diff-risk, workflow guidance, memory, or sandboxed-agent experiments.
-Do not initialize RuFlo into the repository, add its files to tracked project state, or let its agents become part of the trading runtime unless that is made an explicit repo decision.
+Context7 may be used as a system-level documentation helper through the `npx ctx7` CLI when MCP discovery or login state is unreliable.
+Do not initialize RuFlo or Context7 into the repository, add their setup files to tracked project state, or let their agents/tools become part of the trading runtime unless that is made an explicit repo decision.
 
 ### Operator-facing docs should explain the product before the repo
 

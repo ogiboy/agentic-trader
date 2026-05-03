@@ -325,6 +325,99 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(tmp_path)
                     "title": "Apple Inc.",
                 }
             }
+        if url == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json":
+            return {
+                "entityName": "Apple Inc.",
+                "facts": {
+                    "us-gaap": {
+                        "RevenueFromContractWithCustomerExcludingAssessedTax": {
+                            "units": {
+                                "USD": [
+                                    {
+                                        "val": 391035000000,
+                                        "end": "2024-09-28",
+                                        "filed": "2024-11-01",
+                                        "form": "10-K",
+                                        "fy": 2024,
+                                        "fp": "FY",
+                                        "accn": "0000320193-24-000123",
+                                    }
+                                ]
+                            }
+                        },
+                        "NetIncomeLoss": {
+                            "units": {
+                                "USD": [
+                                    {
+                                        "val": 93736000000,
+                                        "end": "2024-09-28",
+                                        "filed": "2024-11-01",
+                                        "form": "10-K",
+                                        "fy": 2024,
+                                        "fp": "FY",
+                                    }
+                                ]
+                            }
+                        },
+                        "Assets": {
+                            "units": {
+                                "USD": [
+                                    {
+                                        "val": 364980000000,
+                                        "end": "2024-09-28",
+                                        "filed": "2024-11-01",
+                                        "form": "10-K",
+                                        "fy": 2024,
+                                        "fp": "FY",
+                                    }
+                                ]
+                            }
+                        },
+                        "Liabilities": {
+                            "units": {
+                                "USD": [
+                                    {
+                                        "val": 308030000000,
+                                        "end": "2024-09-28",
+                                        "filed": "2024-11-01",
+                                        "form": "10-K",
+                                        "fy": 2024,
+                                        "fp": "FY",
+                                    }
+                                ]
+                            }
+                        },
+                        "NetCashProvidedByUsedInOperatingActivities": {
+                            "units": {
+                                "USD": [
+                                    {
+                                        "val": 118254000000,
+                                        "end": "2024-09-28",
+                                        "filed": "2024-11-01",
+                                        "form": "10-K",
+                                        "fy": 2024,
+                                        "fp": "FY",
+                                    }
+                                ]
+                            }
+                        },
+                        "CashAndCashEquivalentsAtCarryingValue": {
+                            "units": {
+                                "USD": [
+                                    {
+                                        "val": 29943000000,
+                                        "end": "2024-09-28",
+                                        "filed": "2024-11-01",
+                                        "form": "10-K",
+                                        "fy": 2024,
+                                        "fp": "FY",
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                },
+            }
         if url == "https://data.sec.gov/submissions/CIK0000320193.json":
             return {
                 "name": "Apple Inc.",
@@ -354,11 +447,34 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(tmp_path)
 
     assert calls == [
         "https://www.sec.gov/files/company_tickers.json",
+        "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
         "https://data.sec.gov/submissions/CIK0000320193.json",
     ]
     assert output.missing_reasons == ["sec_cik_missing:MISSING"]
-    assert len(output.raw_evidence) == 1
-    record = output.raw_evidence[0]
+    assert len(output.raw_evidence) == 2
+    facts_record = output.raw_evidence[0]
+    assert facts_record.record_id == "sec-companyfacts:AAPL:0000320193"
+    assert facts_record.source_kind == "disclosure"
+    assert facts_record.source_name == "sec_edgar_research"
+    assert facts_record.title == "AAPL SEC company facts summary"
+    assert facts_record.symbol == "AAPL"
+    assert facts_record.entity_name == "Apple Inc."
+    assert facts_record.region == "US"
+    assert (
+        facts_record.url
+        == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json"
+    )
+    assert facts_record.source_payload_ref == "sec-companyfacts://CIK0000320193"
+    assert "Revenue: 391,035,000,000 USD" in facts_record.normalized_summary
+    assert facts_record.evidence_vs_inference.inference == []
+    assert "Company-specific extension taxonomy concepts" in (
+        facts_record.evidence_vs_inference.uncertainty[1]
+    )
+    assert facts_record.missing_fields == []
+    assert "sec_companyfacts_api" in facts_record.source_attributions[0].notes
+    assert facts_record.source_attributions[0].completeness == pytest.approx(1.0)
+
+    record = output.raw_evidence[1]
     assert record.record_id == "sec:AAPL:0000320193-24-000123"
     assert record.source_kind == "disclosure"
     assert record.source_name == "sec_edgar_research"
@@ -382,6 +498,70 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(tmp_path)
     assert health.freshness == "fresh"
     assert health.last_successful_update_at is not None
     assert "Provider returned normalized research evidence" in health.message
+
+
+def test_sec_evidence_flows_to_fresh_world_state_attribution(tmp_path) -> None:
+    settings = _settings(
+        tmp_path,
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+    )
+
+    def fake_fetcher(url, headers, timeout_seconds):
+        _ = (headers, timeout_seconds)
+        if url == "https://www.sec.gov/files/company_tickers.json":
+            return {
+                "0": {
+                    "cik_str": 320193,
+                    "ticker": "AAPL",
+                    "title": "Apple Inc.",
+                }
+            }
+        if url == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json":
+            return {
+                "entityName": "Apple Inc.",
+                "facts": {
+                    "us-gaap": {
+                        "Revenues": {
+                            "units": {
+                                "USD": [
+                                    {
+                                        "val": 100,
+                                        "end": "2024-09-28",
+                                        "filed": "2024-11-01",
+                                        "form": "10-K",
+                                        "fy": 2024,
+                                        "fp": "FY",
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+            }
+        if url == "https://data.sec.gov/submissions/CIK0000320193.json":
+            return {"name": "Apple Inc.", "filings": {"recent": {}}}
+        raise AssertionError(f"unexpected SEC URL: {url}")
+
+    provider = SecEdgarSubmissionsProvider(settings=settings, fetcher=fake_fetcher)
+
+    result = ResearchSidecar(settings, providers=[provider]).collect_once()
+
+    assert result.world_state is not None
+    assert result.raw_evidence
+    assert result.world_state.summary.startswith(
+        "Research sidecar assembled normalized evidence packets"
+    )
+    attribution = result.world_state.source_attributions[0]
+    assert attribution.source_name == "sec_edgar_research"
+    assert attribution.source_role == "primary"
+    assert attribution.freshness == "fresh"
+    assert "sec_companyfacts_api" in attribution.notes
+    assert result.memory_update["status"] == "not_written"
+    assert result.memory_update["raw_web_text_injected"] is False
 
 
 def test_research_result_persists_to_runtime_feed_without_database(tmp_path) -> None:

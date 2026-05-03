@@ -429,13 +429,14 @@ Status: in progress.
 - [x] add file-backed sidecar persistence for raw-evidence references, world-state snapshots, and memory-update previews without opening or competing with the active DuckDB runtime writer
 - [x] move CrewAI Flow scaffolding into a tracked uv-managed sidecar at `sidecars/research_flow/` while keeping it outside the root dependency graph
 - [x] add a first opt-in official SEC EDGAR submissions metadata provider with User-Agent gating and normalized filing evidence
-- [ ] wire remaining real official/structured sources: SEC company facts/full filing parsing, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
+- [x] add compact official SEC companyfacts XBRL summaries with fresh source attribution and no raw filing text injection
+- [ ] wire remaining real official/structured sources: SEC full filing parsing, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
 - [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
 - [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
       Notes:
 - this is a local-first V1 evidence companion for the current runtime, not a re-platforming
 - the sidecar may eventually run beside the daemon, but it must not submit orders, mutate trading policy, or weaken strict runtime gates
-- SEC EDGAR submissions ingestion is metadata-first and disabled by default; full filing text, XBRL facts, and downstream memory writes remain separate planned steps
+- SEC EDGAR submissions and compact companyfacts ingestion are disabled by default and require a configured User-Agent; full filing text and downstream memory writes remain separate planned steps
 - missing provider data must stay visible as missing; source diversity, staleness, evidence/inference separation, and contradiction tracking are core contracts
 
 ## V1 Evaluation And Crew Loops - Optional Sidecar Harness
