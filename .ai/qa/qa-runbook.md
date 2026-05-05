@@ -58,6 +58,14 @@ pnpm run sonar
 pnpm run sonar:js
 ```
 
+Optional advisory pass for broad or high-risk changes:
+
+```text
+Use the relevant `.ai/workflows/` file first, then RuFlo MCP diff-risk/file-risk
+tools when available. Keep any result as advisory evidence only; do not
+initialize RuFlo project state.
+```
+
 ## Evidence Directory
 
 Store manual QA evidence under:

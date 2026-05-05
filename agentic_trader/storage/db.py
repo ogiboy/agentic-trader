@@ -1077,6 +1077,7 @@ class TradingDatabase:
         """
         routed_models: dict[str, str] = {}
         retrieved_memory_summary: dict[str, list[str]] = {}
+        retrieval_explanation_summary: dict[str, list[dict[str, object]]] = {}
         tool_outputs: dict[str, list[str]] = {}
         shared_memory_summary: dict[str, list[str]] = {}
 
@@ -1091,6 +1092,12 @@ class TradingDatabase:
             if isinstance(context.get("retrieved_memories"), list):
                 retrieved_memory_summary[trace.role] = [
                     str(item) for item in context["retrieved_memories"][:5]
+                ]
+            if isinstance(context.get("retrieval_explanations"), list):
+                retrieval_explanation_summary[trace.role] = [
+                    item
+                    for item in context["retrieval_explanations"][:5]
+                    if isinstance(item, dict)
                 ]
             if isinstance(context.get("tool_outputs"), list):
                 tool_outputs[trace.role] = [
@@ -1114,6 +1121,7 @@ class TradingDatabase:
             decision_features=artifacts.decision_features,
             routed_models=routed_models,
             retrieved_memory_summary=retrieved_memory_summary,
+            retrieval_explanation_summary=retrieval_explanation_summary,
             tool_outputs=tool_outputs,
             shared_memory_summary=shared_memory_summary,
             consensus=artifacts.consensus,

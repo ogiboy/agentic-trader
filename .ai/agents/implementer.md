@@ -26,8 +26,9 @@ work, read the applicable QA scenario before finishing.
   change alters architecture, workflow, runtime contracts, or future assumptions.
 - When work touches release automation, package manifests, branch publishing, or
   app identity, verify the version contract before push: stable releases flow
-  from `pyproject.toml` through semantic-release, while branch builds use
-  `pnpm run version:plan` without mutating stable version files.
+  from `pyproject.toml` through semantic-release, while product-impacting
+  feature/V1 branch pushes also need a consistent tracked patch-version bump
+  before `pnpm run version:plan`.
 - Report validation honestly, including skipped checks and why they were skipped.
 
 ## Implementation Guardrails
@@ -51,6 +52,8 @@ Run the smallest relevant checks first, then broaden when feasible:
 4. `pnpm run check`
 5. A relevant `.ai/qa/qa-scenarios.md` manual or CLI pass for operator/runtime
    behavior.
+6. An advisory diff-risk/security/performance pass when the selected
+   `.ai/workflows/` file calls for it and the system-level tool is available.
 
 If `pyright`, Poetry, Node, Ollama, or UI dependencies are missing, say so
 plainly and provide the strongest completed fallback.

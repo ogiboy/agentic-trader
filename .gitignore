@@ -77,3 +77,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test coverage
+.coverage
+.coverage.*
+coverage.json
+htmlcov/

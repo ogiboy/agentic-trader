@@ -32,6 +32,10 @@ Now:
 - keep secret redaction tests alongside provider, sidecar, supervisor, and Web-facing changes; fake keys in errors, logs, or provider notes must never reach JSON payloads, docs evidence, or QA artifacts unmasked
 - keep `.ai/security/threat-model.md`, docs security posture pages, and `.ai/qa/qa-scenarios.md` aligned whenever a new operator surface, provider, sidecar, CI/CD artifact, or runtime artifact is added
 - use RuFlo only as a system-level development advisory layer when it helps with routing, diff-risk, memory, or workflow checks; do not run `ruflo init` in this repo or add RuFlo as a runtime dependency unless explicitly requested
+- if RuFlo or another assistant init creates `.claude/`, `.claude-flow/`, `.swarm/`, `.mcp.json`, `CLAUDE.md`, or similar tool-state folders, harvest useful workflow ideas into self-contained `.ai/agents/`, `.ai/workflows/`, `.ai/playbooks/`, `.ai/helpers/`, or `.ai/skills/` guidance and delete the generated artifacts instead of tracking or ignoring them
+- use the new `.ai/workflows/` and `.ai/playbooks/` pack for feature, security, release/PR, QA, performance, setup, browser, and memory-retrieval work
+- use external advisory routing pragmatically: security changes should get a security/audit lens, feature changes should get test-gap review, performance changes should get performance/diff-risk review, and 5+ file changes should get a map/reviewer pass when the tool is available
+- when RuFlo is available, prefer `.ai/skills/ruflo-codex.md` command recipes: route first, pre-command before expensive work, analyze diff before publish, security/performance/coverage commands for the matching workflow, and no init/daemon/agent-spawn/workflow-run without explicit approval
 - use Context7 as a system-level docs helper through `npx ctx7 library ...` and `npx ctx7 docs ...` when library/API guidance is needed; do not run `ctx7 setup` in this repo or add Context7 artifacts unless explicitly requested
 - keep the SEC EDGAR submissions provider opt-in and fair-access-aware: no network fetch without `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true`, a configured SEC User-Agent, and watched symbols
 - capture the shared frontend baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` so `docs` and `webgui` additions stay on the same preset result, using local-first monospace typography without build-time Google Fonts fetches
@@ -44,6 +48,7 @@ Now:
 - use `finance-ops` as the native read-only trading-desk check for broker/account/PnL/exposure/risk/evidence truth; do not turn it into an execution path
 - keep shared dashboard, observer API, Rich, Ink, and Web GUI readiness displays in parity with `provider-diagnostics`, `v1-readiness`, and `broker-status`
 - use `.ai/agents/product-docs.md` for docs/product explanation work and `.ai/agents/finance-ops.md` for broker/accounting/PnL/exposure changes; both are development-only roles, not runtime orchestration
+- keep retrieval explanations inspectable as memory quality improves: score components, as-of/freshness, outcome tags, regime/strategy alignment, and diversity buckets must survive CLI/Ink/Web/trade-context serialization
 
 Next:
 
@@ -51,6 +56,7 @@ Next:
 - extend real official/structured providers behind the sidecar source ladder: SEC EDGAR submissions metadata and compact company facts are first; next are SEC full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
 - add optional V1 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
 - turn the planned CrewAI task definitions into executable Flow/Crew steps only after real normalized provider evidence exists and contract tests cover failures
+- improve retrieval ranking with freshness, outcome weighting, regime buckets, and diversity constraints on top of the current explanation contract before replacing local-hashing embeddings
 - add a provider-aware cross-platform bootstrap flow that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and launches the Web GUI
 - keep growing browser-first QA coverage for `webgui`, including section-error truth, review/memory parity, and visual checks that compare the page with dashboard JSON
 - verify GitHub Pages, required status checks, version-check previews, semantic-release permissions, branch binary artifacts, and release binary upload behavior after the workflows are pushed
@@ -58,6 +64,10 @@ Next:
 - keep exercising `alpaca_paper` only as external paper readiness until paper evidence, operator approval, and live adapter scope are explicitly reviewed
 - expand docs feature deep dives for paper operation, broker/account truth, memory/review, research sidecar, runtime modes, and evidence bundles with user-facing examples before adding more contributor-only pages
 - keep an eye on local MCP hygiene: several `mcp/sonarqube` client containers can be active at once, and stale clients should be stopped only after confirming no current Codex/VS Code session depends on them
+- keep raising full-suite coverage toward an 80 percent V1 target; the current
+  enforced branch baseline is 75 percent and the latest full coverage run was
+  about 75.8 percent, with the largest remaining gaps in CLI, TUI, LLM client,
+  broker, service workflow, and market-data paths
 
 ### 1. Financial Intelligence Layer
 

@@ -17,17 +17,24 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] Run the smallest relevant targeted tests.
 - [ ] Run the full suite when feasible:
   - `pnpm run check`
-- [ ] For workflow/release changes, preview version identity without mutating files:
-  - `pnpm run release:preview`
+- [ ] For workflow/release changes, preview version identity:
   - `pnpm run version:plan`
-- [ ] Before pushing release/version/package metadata work, confirm agents did not
-  manually drift `pyproject.toml`, `agentic_trader/__init__.py`, workspace
-  `package.json` files, `sidecars/research_flow/pyproject.toml`, or
-  `CHANGELOG.md` outside the documented semantic-release path.
+  - `pnpm run release:preview` when release/CI/package metadata changed
+- [ ] For product-impacting feature/V1 branch pushes, confirm the tracked patch
+  version was bumped consistently across Python, workspace package manifests,
+  sidecar metadata, and lockfile metadata before push.
+- [ ] Before pushing release/version/package metadata work, confirm
+  `pyproject.toml`, `agentic_trader/__init__.py`, workspace `package.json`
+  files, `sidecars/research_flow/pyproject.toml`, and lock metadata agree, and
+  `CHANGELOG.md` moved only when the task explicitly asked for release/changelog
+  ownership.
 - [ ] Confirm `git status --short` does not contain accidental runtime artifacts.
 - [ ] Confirm smoke artifacts are grouped under a timestamped `.ai/qa/artifacts/smoke-*` directory.
 - [ ] Confirm changed roadmap items are checked or left unchecked accurately.
 - [ ] Confirm `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` are updated when architecture, runtime contracts, or assumptions change.
+- [ ] For non-trivial, security-sensitive, broker, storage, Web route, release,
+  performance, or 5+ file changes, run the relevant `.ai/workflows/` checklist
+  and an advisory diff-risk/file-risk pass when RuFlo MCP is available.
 - [ ] For CLI/Rich/Ink visual changes, use pexpect/tmux/asciinema for baseline interaction and layout verification, and add a Computer Use screenshot/screen-state pass when the environment exposes it.
 - [ ] For Web GUI changes, run the local `webgui/` shell, check the route handlers and browser surface, and add a Browser Use or equivalent localhost visual pass when the environment exposes it.
 

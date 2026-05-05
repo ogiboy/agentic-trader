@@ -685,8 +685,11 @@ function MemoryView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
     unavailableSectionLines(dashboard.memoryExplorer, 'Memory explorer') ||
     (dashboard.memoryExplorer?.matches?.length
       ? dashboard.memoryExplorer.matches.map(
-          (match: Record<string, any>) =>
-            `${formatTimestamp(match.created_at)} | ${match.symbol} | score=${match.similarity_score} | ${match.summary}`,
+          (match: Record<string, any>) => {
+            const reason =
+              match.explanation?.eligibility_reason || match.retrieval_source;
+            return `${formatTimestamp(match.created_at)} | ${match.symbol} | score=${match.similarity_score} | why=${reason} | ${match.summary}`;
+          },
         )
       : ['No similar historical memories found yet.']);
   const retrievalLines =
@@ -696,14 +699,20 @@ function MemoryView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
     ) ||
     (dashboard.retrievalInspection?.stages?.length
       ? dashboard.retrievalInspection.stages.flatMap(
-          (stage: Record<string, any>) => [
-            `${stage.role} | retrieved=${stage.retrieved_memories?.length ?? 0} | trade-memory=${stage.memory_notes?.length ?? 0} | shared-bus=${stage.shared_memory_bus?.length ?? 0} | recent-runs=${stage.recent_runs?.length ?? 0}`,
-            `Sample: ${
-              stage.retrieved_memories?.[0] ||
-              stage.memory_notes?.[0] ||
-              'No retrieval context attached.'
-            }`,
-          ],
+          (stage: Record<string, any>) => {
+            const firstWhy = stage.retrieval_explanations?.[0]?.explanation;
+            const whyLine = firstWhy
+              ? `Why: ${firstWhy.eligibility_reason || '-'} | freshness=${firstWhy.freshness || '-'} | outcome=${firstWhy.outcome_tag || '-'}`
+              : `Sample: ${
+                  stage.retrieved_memories?.[0] ||
+                  stage.memory_notes?.[0] ||
+                  'No retrieval context attached.'
+                }`;
+            return [
+              `${stage.role} | retrieved=${stage.retrieved_memories?.length ?? 0} | why=${stage.retrieval_explanations?.length ?? 0} | trade-memory=${stage.memory_notes?.length ?? 0} | shared-bus=${stage.shared_memory_bus?.length ?? 0} | recent-runs=${stage.recent_runs?.length ?? 0}`,
+              whyLine,
+            ];
+          },
         )
       : ['No retrieval inspection data available yet.']);
 

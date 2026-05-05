@@ -1079,6 +1079,7 @@ def _render_memory_matches(matches) -> None:
     table.add_column("Strategy")
     table.add_column("Bias")
     table.add_column("Approved")
+    table.add_column("Why")
     for match in matches:
         table.add_row(
             match.created_at,
@@ -1089,6 +1090,7 @@ def _render_memory_matches(matches) -> None:
             match.strategy_family,
             match.manager_bias,
             str(match.approved),
+            match.explanation.eligibility_reason,
         )
     console.print(table)
 
@@ -2140,6 +2142,9 @@ def _retrieval_inspection_payload(
                 "model_name": trace.model_name,
                 "used_fallback": trace.used_fallback,
                 "retrieved_memories": context.get("retrieved_memories", []),
+                "retrieval_explanations": context.get(
+                    "retrieval_explanations", []
+                ),
                 "memory_notes": context.get("memory_notes", []),
                 "shared_memory_bus": context.get("shared_memory_bus", []),
                 "recent_runs": context.get("recent_runs", []),
@@ -4479,7 +4484,9 @@ def memory_explorer(
     _render_memory_matches(matches)
 
 
-def _retrieval_stage_counts(stage: dict[str, object]) -> tuple[str, str, str, str, str]:
+def _retrieval_stage_counts(
+    stage: dict[str, object],
+) -> tuple[str, str, str, str, str, str]:
     """
     Extracts display-ready string values for a retrieval stage's role and counts of various retrieval-related lists.
     
@@ -4498,6 +4505,7 @@ def _retrieval_stage_counts(stage: dict[str, object]) -> tuple[str, str, str, st
     return (
         str(stage["role"]),
         str(len(cast(list[str], stage["retrieved_memories"]))),
+        str(len(cast(list[dict[str, object]], stage["retrieval_explanations"]))),
         str(len(cast(list[str], stage["memory_notes"]))),
         str(len(cast(list[dict[str, object]], stage["shared_memory_bus"]))),
         str(len(cast(list[str], stage["recent_runs"]))),
@@ -4522,12 +4530,16 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
         list[str]: A list of formatted text lines suitable for display. If no relevant fields are present, returns a single-item list with the message "No retrieval or memory context was attached for this stage."
     """
     retrieved_memories = cast(list[str], stage["retrieved_memories"])
+    retrieval_explanations = cast(
+        list[dict[str, object]], stage["retrieval_explanations"]
+    )
     memory_notes = cast(list[str], stage["memory_notes"])
     shared_memory_bus = cast(list[dict[str, object]], stage["shared_memory_bus"])
     recent_runs = cast(list[str], stage["recent_runs"])
     tool_outputs = cast(list[str], stage["tool_outputs"])
     sections = [
         ("Retrieved Similar Memories:", retrieved_memories),
+        ("Why These Memories:", _retrieval_explanation_lines(retrieval_explanations)),
         ("Trade Memory:", memory_notes),
         ("Recent Runs:", recent_runs),
         (
@@ -4547,6 +4559,26 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
     return lines or ["No retrieval or memory context was attached for this stage."]
 
 
+def _retrieval_explanation_lines(
+    explanations: list[dict[str, object]],
+) -> list[str]:
+    lines: list[str] = []
+    for item in explanations:
+        run_id = str(item.get("run_id") or "-")
+        explanation = item.get("explanation", {})
+        if not isinstance(explanation, dict):
+            continue
+        reason = str(explanation.get("eligibility_reason") or "-")
+        freshness = str(explanation.get("freshness") or "-")
+        outcome = str(explanation.get("outcome_tag") or "-")
+        bucket = str(explanation.get("diversity_bucket") or "-")
+        lines.append(
+            f"{run_id}: reason={reason} freshness={freshness} "
+            f"outcome={outcome} bucket={bucket}"
+        )
+    return lines
+
+
 def _render_retrieval_inspection(stages: list[dict[str, object]], run_id: object) -> None:
     """
     Render a retrieval-inspection summary and detailed panels for each agent stage to the console.
@@ -4560,6 +4592,7 @@ def _render_retrieval_inspection(stages: list[dict[str, object]], run_id: object
     table = Table(title=f"Retrieval Inspection / {run_id}")
     table.add_column("Role")
     table.add_column("Retrieved Memories")
+    table.add_column("Why")
     table.add_column("Trade Memory")
     table.add_column("Shared Bus")
     table.add_column("Recent Runs")

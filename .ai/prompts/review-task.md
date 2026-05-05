@@ -9,6 +9,8 @@ Read:
 - .ai/architecture.md
 - .ai/current-state.md
 - .ai/decisions.md
+- .ai/workflows/README.md
+- .ai/workflows/external-tooling-policy.md
 
 Focus:
 {{FOCUS}}

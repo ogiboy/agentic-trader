@@ -16,6 +16,15 @@
 - SEC EDGAR submissions metadata is the first opt-in live research source, gated by `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED` and `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT`
 - Stable app versions are owned by `pyproject.toml` and semantic-release; branch pushes should use `pnpm run version:plan` rather than manual package-version bumps, and `agentic_trader/__init__.py` must stay stamped with the same stable app version
 - `alpaca_paper` is an explicit external-paper backend, not the default local paper backend and not live trading
+- RuFlo and similar tools are system-level advisory helpers only; durable repo
+  workflow knowledge belongs in `.ai/workflows/`, `.ai/playbooks/`,
+  `.ai/helpers/`, `.ai/skills/`, and `.ai/agents/`, not in generated advisory
+  folders or external tool memory state
+- RuFlo can be used actively through Codex MCP tools or the global `ruflo`
+  binary for read-only route, diff-risk, command-risk, security, performance,
+  coverage, and code-boundary checks; do not run repo init, daemon, agent spawn,
+  workflow run, memory mutation, or auto-install commands without explicit user
+  approval
 
 ## Important Constraints
 
@@ -29,6 +38,9 @@
 - Do not let runtime commands implicitly sync or upgrade the sidecar environment; setup/check commands own uv sync
 - Do not fetch SEC EDGAR or any future external research source without explicit provider enablement and required contact/credential configuration
 - Do not submit external Alpaca paper orders unless `AGENTIC_TRADER_EXECUTION_BACKEND=alpaca_paper`, credentials, the paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true` are all explicit
+- Do not adopt external trading-agent flows that imply latency arbitrage,
+  predictive execution before data arrives, high-frequency execution, or live
+  brokerage behavior inside V1
 
 ## Current Architectural Direction
 

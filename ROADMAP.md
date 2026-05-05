@@ -291,14 +291,15 @@ Status: in progress.
 - [x] store embedding model name, version, dimensionality, and created-at metadata with memory vectors
 - [x] keep backwards compatibility with existing lightweight vectors during migration
 - [ ] rank retrieval with semantic similarity, market-regime similarity, freshness, outcome weighting, and diversity constraints
-- [ ] bucket or tag memories by regime, strategy family, outcome, and data quality so retrievals can justify their rationale
+- [x] bucket or tag selected memories by regime, strategy family, outcome, and diversity context so retrievals can justify their rationale
 - [ ] expand memory documents with Market Context Pack summaries, explicit success/failure tags, and post-trade review facts
-- [ ] persist stage-level retrieval explanations showing which memories were used, why they were selected, and how strongly they influenced the decision
+- [x] persist stage-level retrieval explanations showing which memories were used, why they were selected, and how strongly they influenced the decision
 - [ ] preserve chat-memory and trade-memory separation through explicit write policies while improving recall quality
       Notes:
 - this phase keeps memory useful without making it an opaque hidden policy layer
 - memory vectors now persist provider/model/version/dimension metadata so future true-embedding migrations can distinguish old lightweight vectors from newer semantic vectors
 - legacy `memory_vectors` rows without metadata columns are migrated in place with local-hashing defaults
+- selected memory matches now carry explanation payloads with score components, as-of/freshness, outcome tag, regime/strategy alignment, and diversity bucket across traces and operator surfaces
 - DuckDB can remain the source of truth at first; a dedicated vector index or service should wait until memory volume justifies the added operational cost
 
 ## Phase 13: Training And Operation Modes

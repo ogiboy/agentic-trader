@@ -31,6 +31,10 @@ marked unavailable, simulated, stale, or degraded.
 
 - paper versus `alpaca_paper` versus blocked `live` semantics
 - kill switch, manual approval, and readiness gates
+- position size limits, percent-of-equity exposure, sector concentration,
+  correlation concentration, stale marks, and liquidity constraints
+- stress scenarios such as gap-down, halted symbol, stale quote, partial fill,
+  rejected order, and provider outage
 - `ExecutionIntent -> BrokerAdapter -> ExecutionOutcome -> persistence` audit
   continuity
 - cash, equity, buying power, position quantity, cost basis, market value,
@@ -48,6 +52,8 @@ marked unavailable, simulated, stale, or degraded.
 - Never let missing broker/account data become neutral supporting evidence.
 - Never describe simulated or local paper fills as live brokerage fills.
 - Never hide partial fills, rejection reasons, stale marks, or disabled gates.
+- Never import high-frequency, latency-arbitrage, predictive-execution, or
+  temporal-advantage trading assumptions into V1.
 - Keep IBKR, global markets, FX, and multi-currency accounting out of V1 unless
   the roadmap explicitly moves them forward.
 

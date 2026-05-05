@@ -34,9 +34,17 @@ The human workflow may involve:
 
 - ChatGPT for planning and review
 - Codex or other coding tools for implementation assistance
+- RuFlo, Context7, GitHub, Sonar, CodeRabbit, or similar tools for advisory
+  routing, docs lookup, review, QA, and release evidence
 
 Those tools are external helpers.
 They must not redefine the architecture of this repository.
+Their generated setup files, daemons, memory stores, hooks, and project-local
+MCP configs should not be tracked unless a separate explicit integration
+decision says otherwise.
+RuFlo can still be used actively as a system-level Codex advisor through its
+MCP tools or global CLI for route, risk, security, performance, coverage, and
+code-boundary checks; those outputs are evidence, not repo architecture.
 
 ## Preferred Development Style
 

@@ -660,6 +660,7 @@ class AgentContext(BaseModel):
     recent_runs: list[str] = Field(default_factory=list)
     memory_notes: list[str] = Field(default_factory=list)
     retrieved_memories: list[str] = Field(default_factory=list)
+    retrieval_explanations: list["HistoricalMemoryMatch"] = Field(default_factory=list)
     calibration: "ConfidenceCalibration | None" = None
     shared_memory_bus: list["SharedMemoryEntry"] = Field(default_factory=list)
     tool_outputs: list[str] = Field(default_factory=list)
@@ -878,6 +879,9 @@ class TradeContextRecord(BaseModel):
     decision_features: DecisionFeatureBundle | None = None
     routed_models: dict[str, str] = Field(default_factory=dict)
     retrieved_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
+    retrieval_explanation_summary: dict[str, list[dict[str, object]]] = Field(
+        default_factory=dict
+    )
     tool_outputs: dict[str, list[str]] = Field(default_factory=dict)
     shared_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
     consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
@@ -1082,6 +1086,21 @@ class HistoricalMemoryMatch(BaseModel):
     manager_bias: str
     approved: bool
     summary: str
+    explanation: "MemoryRetrievalExplanation" = Field(
+        default_factory=lambda: MemoryRetrievalExplanation()
+    )
+
+
+class MemoryRetrievalExplanation(BaseModel):
+    eligibility_reason: str = "candidate_run_record"
+    score_components: dict[str, float] = Field(default_factory=dict)
+    as_of: str | None = None
+    freshness: FreshnessStatus = "unknown"
+    outcome_tag: str = "unknown"
+    regime_alignment: str = "unknown"
+    strategy_alignment: str = "unknown"
+    diversity_bucket: str = "unknown"
+    notes: list[str] = Field(default_factory=list)
 
 
 class RunReplayStage(BaseModel):

@@ -689,8 +689,10 @@ function getExplorerLines(explorer) {
     return ['No similar historical memories found yet.'];
   }
   return explorer.matches.map(
-    (match) =>
-      `${match.created_at} | ${match.symbol} | score=${match.similarity_score} | ${match.retrieval_source} | ${match.regime} | ${match.strategy_family} | ${match.summary}`,
+    (match) => {
+      const reason = match.explanation?.eligibility_reason || match.retrieval_source;
+      return `${match.created_at} | ${match.symbol} | score=${match.similarity_score} | why=${reason} | ${match.regime} | ${match.strategy_family} | ${match.summary}`;
+    },
   );
 }
 
@@ -703,12 +705,17 @@ function getInspectionLines(inspection) {
     const notes = stage.memory_notes?.length ?? 0;
     const recentRuns = stage.recent_runs?.length ?? 0;
     const sharedBus = stage.shared_memory_bus?.length ?? 0;
-    const headline = `${stage.role} | retrieved=${retrieved} | trade-memory=${notes} | shared-bus=${sharedBus} | recent-runs=${recentRuns}`;
+    const why = stage.retrieval_explanations?.length ?? 0;
+    const headline = `${stage.role} | retrieved=${retrieved} | why=${why} | trade-memory=${notes} | shared-bus=${sharedBus} | recent-runs=${recentRuns}`;
+    const firstWhy = stage.retrieval_explanations?.[0]?.explanation;
+    const whyLine = firstWhy
+      ? `Why: ${firstWhy.eligibility_reason || '-'} | freshness=${firstWhy.freshness || '-'} | outcome=${firstWhy.outcome_tag || '-'}`
+      : null;
     const sample =
       stage.retrieved_memories?.[0] ||
       stage.memory_notes?.[0] ||
       'No retrieval context attached.';
-    return [headline, `  ${sample}`, ''];
+    return [headline, whyLine ? `  ${whyLine}` : `  ${sample}`, ''];
   });
 }
 

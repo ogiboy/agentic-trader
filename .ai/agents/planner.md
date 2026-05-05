@@ -28,8 +28,8 @@ also read:
 - Separate V1-safe work from V2 or live-trading readiness work.
 - Separate stable release version changes from branch build identity. Stable
   app versions move through `pyproject.toml` plus semantic-release on `main`;
-  feature/V1 branch pushes should plan `pnpm run version:plan` evidence instead
-  of manual package-version bumps.
+  product-impacting feature/V1 branch pushes should plan a consistent tracked
+  patch-version bump plus `pnpm run version:plan` evidence before publishing.
 - Prefer additive changes to existing contracts over parallel systems.
 - Call out migration, storage, replay, and operator-surface risks.
 - Name the likely files and tests before implementation starts.
@@ -53,6 +53,8 @@ also read:
 - What storage or replay artifact needs to remain auditable?
 - What can be validated with targeted tests before full suite?
 - What should remain explicitly out of scope?
+- Which `.ai/workflows/` file owns this task?
+- Does the branch need version-file alignment before push?
 
 ## Output Format
 

@@ -6,6 +6,10 @@
 - Keep changes focused
 - Prefer modifying existing flows over introducing parallel systems
 - Use existing naming and module boundaries where possible
+- External advisory tools may inform planning, diff-risk, security, test-gap,
+  performance, and PR/release checks, but their generated state must not become
+  project state; capture durable guidance in `.ai/workflows/`, `.ai/playbooks/`,
+  `.ai/helpers/`, `.ai/skills/`, or `.ai/agents/`
 
 ## Runtime Rules
 

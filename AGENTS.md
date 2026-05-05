@@ -18,6 +18,8 @@ Always read these files first:
 - `.ai/memory.md`
 - `.ai/tasks.md`
 - `.ai/decisions.md`
+- `.ai/workflows/README.md`
+- `.ai/workflows/external-tooling-policy.md`
 
 If the task is related to debugging or runtime behavior, also read:
 

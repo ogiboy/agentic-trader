@@ -50,6 +50,8 @@ diff, also read the relevant QA checklist/scenario.
   consistently across Python, workspace package manifests, sidecar metadata, and
   lockfile metadata before push, then run `pnpm run version:plan` for artifact
   identity. `CHANGELOG.md` stays release-flow owned unless explicitly requested.
+- Workflow selection should be explicit: feature, security, release/PR, QA, or
+  performance work should follow the corresponding `.ai/workflows/` file.
 
 ## Output Format
 

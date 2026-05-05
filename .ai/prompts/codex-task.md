@@ -9,6 +9,8 @@ Read these files before making changes:
 - .ai/current-state.md
 - .ai/tasks.md
 - .ai/decisions.md
+- .ai/workflows/README.md
+- .ai/workflows/external-tooling-policy.md
 
 Task:
 {{TASK}}

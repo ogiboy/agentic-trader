@@ -45,6 +45,10 @@ The `.ai/agents/` role pack documents development workflows for planner, impleme
 RuFlo may be used the same way: as a system-level MCP/CLI advisory layer for task routing, diff-risk, workflow guidance, memory, or sandboxed-agent experiments.
 Context7 may be used as a system-level documentation helper through the `npx ctx7` CLI when MCP discovery or login state is unreliable.
 Do not initialize RuFlo or Context7 into the repository, add their setup files to tracked project state, or let their agents/tools become part of the trading runtime unless that is made an explicit repo decision.
+If an external init command creates tool-state folders such as `.claude/`, `.claude-flow/`, `.swarm/`, `.mcp.json`, or `CLAUDE.md`, those files are treated as disposable scaffolding.
+Reusable guidance should be translated into self-contained `.ai/` working agreements, then the generated artifacts should be removed rather than added to git or hidden in `.gitignore`.
+The durable home for those practices is `.ai/agents/`, `.ai/workflows/`, `.ai/playbooks/`, `.ai/helpers/`, and `.ai/skills/`; those files must stand alone.
+System-level RuFlo commands may be used actively from Codex as advisory checks when they do not initialize repository state, start daemons, spawn long-running agents, mutate memory, install dependencies, or replace local tests and source review.
 
 ### Operator-facing docs should explain the product before the repo
 
@@ -95,6 +99,7 @@ Future providers should be added behind a stable interface so agent workflow, me
 Reason:
 Trading memory supports context, replay, and review.
 It must not turn into a hidden policy mutation layer.
+Selected memories should carry explicit retrieval explanations with score components, as-of/freshness status, outcome tag, regime/strategy alignment, and diversity bucket so operators can inspect why context was used before deeper semantic models or outcome weighting are introduced.
 
 ### Local-first remains the default posture
 

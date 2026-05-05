@@ -10,6 +10,8 @@ Read:
 - .ai/current-state.md
 - .ai/tasks.md
 - .ai/decisions.md
+- .ai/workflows/README.md
+- .ai/workflows/external-tooling-policy.md
 
 Goal:
 {{GOAL}}

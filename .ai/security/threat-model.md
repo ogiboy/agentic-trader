@@ -27,6 +27,7 @@ processes without changing the project's paper-first product scope.
 | DuckDB/runtime files | DB, service logs, JSON feeds, research snapshots | Local filesystem | Ignored runtime artifacts | Multi-user machines can read world-readable artifacts |
 | Env/secret management | `.env`, `.env.local`, Keychain, CI secrets | Developer/operator machine to runtime | Tracked examples only, Keychain helpers | Logs, errors, and artifacts need central redaction |
 | CI/CD and releases | GitHub Actions, release, binaries, docs publish | Repo to public artifacts | Locked uv/pnpm, Sonar, branch release controls | Secret scan, SCA, provenance/signing are incremental hardening items |
+| External advisory tools | RuFlo/Context7/GitHub/CodeRabbit/Sonar helpers | System-level development tooling to repo working tree | Repo guidance treats them as helpers only | Generated hooks, daemons, memory stores, or MCP configs can become accidental project state if not cleaned |
 
 ## Prioritized Risks
 
@@ -41,6 +42,7 @@ processes without changing the project's paper-first product scope.
 | P1 | Mode gates | Elevation, tampering | Operator or automation confuses training fallback with operation readiness | Paper actions based on diagnostic fallback or incomplete provider/model readiness | Operation requires strict LLM/provider readiness; live blocked | Keep mode labels visible across Web/Rich/Ink/observer; QA scenario must compare payloads | `.ai/qa/qa-scenarios.md` security posture smoke |
 | P2 | Prompt/data poisoning | Tampering, repudiation | Raw web/social text instructs sidecar or model to ignore rules | Future memory pollution or misleading operator summaries | Raw web text is not injected; evidence/inference split exists | Trust tiering, normalized evidence packets only, provenance in every memory update | Research sidecar contract and future provider tests |
 | P2 | CI/CD supply chain | Tampering, repudiation | Dependency, artifact, or binary workflow produces vulnerable or unverifiable release | Public artifacts become hard to trust | uv/pnpm locks, Sonar, release workflows | Dependabot, SCA/secret scan scripts, SBOM/checksums/signing as follow-up gates | PR checklist plus future security workflow |
+| P2 | External advisory tooling | Tampering, elevation | Assistant init creates repo-local hooks, auto-commit helpers, daemon state, or MCP configs; later agents treat them as authoritative | Hidden workflow side effects, unexpected commands, repo noise, or architecture drift | External tools are documented as helpers only | Harvest useful process guidance into `.ai/workflows/`, `.ai/playbooks/`, `.ai/helpers/`, `.ai/skills/`, and `.ai/agents/`; delete generated tool-state folders after review | `git status --short` contains no accidental generated advisory folders, daemon logs, or external tool state |
 
 ## Immediately Applicable Checklist
 
@@ -53,3 +55,6 @@ processes without changing the project's paper-first product scope.
 - [ ] For any Web GUI route change, test malformed JSON, oversized JSON, foreign Origin, missing token when token is configured, and repeated runtime actions.
 - [ ] For any mode/runtime change, verify operation mode still fails closed and live execution remains blocked by default.
 - [ ] For release work, keep lockfiles current, run `pnpm run version:plan`, and do not mutate `CHANGELOG.md` outside the release flow unless requested.
+- [ ] After using external advisory init commands, confirm generated tool-state
+  folders were harvested into self-contained `.ai/` guidance and removed, not
+  tracked or hidden.

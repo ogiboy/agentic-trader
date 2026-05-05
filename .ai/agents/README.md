@@ -22,6 +22,8 @@ Required reading before role work:
 - `.ai/memory.md`
 - `.ai/tasks.md`
 - `.ai/decisions.md`
+- `.ai/workflows/README.md`
+- `.ai/workflows/external-tooling-policy.md`
 
 For runtime, CLI, TUI, daemon, broker, memory, or operator-facing changes,
 also read the QA documents under `.ai/qa/`.
@@ -41,6 +43,56 @@ For `webgui/` or `docs/` work, also read the local app guidance:
 - `data.md`: protects provider, canonical data, freshness, and attribution boundaries.
 - `product-docs.md`: keeps docs useful to operators first, with contributor notes only where they help.
 - `finance-ops.md`: reviews broker, account, portfolio, PnL, exposure, and audit truth through a trading-desk lens.
+- `researcher.md`: grounds codebase, provider, sidecar, and documentation research in source contracts.
+- `security-auditor.md`: reviews threat models, route/auth/origin, secrets, artifacts, and sidecar/provider poisoning.
+- `release-manager.md`: protects branch, PR, version, changelog, CI, and release-preview hygiene.
+- `performance-engineer.md`: measures setup/check/build/runtime bottlenecks without hidden auto-optimization.
+- `repo-architect.md`: maps module ownership and architecture boundaries before cross-module changes.
+- `code-quality.md`: reviews complexity, static analysis findings, duplicated logic, and small maintainability repairs.
+- `browser-qa.md`: verifies WebGUI/docs browser behavior against runtime contracts.
+- `test-long-runner.md`: coordinates expensive checks, smoke runs, coverage, and evidence summaries.
+
+## Workflow Map
+
+The concrete workflow agreements live under `.ai/workflows/` and `.ai/playbooks/`.
+Use those files instead of generated assistant init files.
+
+Use these role pairings when routing is helpful:
+
+- Bug fix: `planner.md`, `implementer.md`, `qa.md`, then `reviewer.md`; use `.ai/workflows/feature-workflow.md`.
+- Feature/API change: `planner.md`, `implementer.md`, `qa.md`, `reviewer.md`, plus `product-docs.md` when operator behavior changes; use `.ai/workflows/feature-workflow.md`.
+- Security change: `security-auditor.md`, `qa.md`, `.ai/security/threat-model.md`, and `.ai/workflows/security-workflow.md`.
+- Performance change: `performance-engineer.md`, `qa.md`, and `.ai/workflows/performance-workflow.md`.
+- Broker/accounting change: `finance-ops.md`, `data.md`, `qa.md`, then `reviewer.md`.
+- Docs/product explanation change: `product-docs.md`, `operator-ux.md`, then `qa.md`.
+- PR/release/setup change: `release-manager.md`, `qa.md`, then `reviewer.md`; use `.ai/workflows/release-pr-workflow.md`.
+- Research/provider/sidecar change: `researcher.md`, `data.md`, `security-auditor.md`, then `qa.md`.
+- Broad cross-module change: `repo-architect.md`, `planner.md`, `implementer.md`, then `reviewer.md`.
+- Static quality cleanup: `code-quality.md`, `implementer.md`, then `qa.md`.
+- Browser surface check: `browser-qa.md`, `operator-ux.md`, then `qa.md`.
+- Long validation: `test-long-runner.md`, then `reviewer.md`.
+
+External agents may be used for parallel investigation only when the task is
+large enough to justify delegation. Their output is advisory evidence; repo
+contracts, tests, and operator-facing truth remain authoritative.
+
+## RuFlo Advisory Command Map
+
+Use `.ai/skills/ruflo-codex.md` and `.ai/playbooks/ruflo-advisory-checks.md`
+when system-level RuFlo is available. Preferred examples:
+
+```bash
+ruflo route task "describe the current task"
+ruflo hooks route -t "describe the current task"
+ruflo hooks pre-command -- "pnpm run check"
+ruflo analyze diff --risk
+ruflo analyze complexity agentic_trader tests scripts
+ruflo security secrets
+ruflo performance bottleneck
+```
+
+Do not run init, daemon, agent-spawn, swarm-start, workflow-run, memory-store,
+or cleanup commands unless the user explicitly asks for that operation.
 
 ## Hand-Off Rules
 

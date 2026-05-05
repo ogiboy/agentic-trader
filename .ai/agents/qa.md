@@ -32,6 +32,8 @@ Also read the shared repository context listed in `.ai/agents/README.md`.
   PnL, exposure, order lifecycle, or execution audit behavior.
 - Pull in `.ai/agents/product-docs.md` when a feature should be explained to an
   end user or operator, not only to a contributor.
+- Pull in `.ai/workflows/qa-workflow.md` for tier selection and
+  `.ai/playbooks/browser-qa.md` for WebGUI/docs browser checks.
 - Distinguish product defects from polish issues.
 - Report exact commands, expected behavior, actual behavior, and evidence.
 
