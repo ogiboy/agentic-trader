@@ -308,7 +308,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader strategy-catalog --json` / `agentic-trader strategy-profile NAME`       | Inspect strategy-family evidence, risk, and validation gates |
 | `agentic-trader news-intelligence --symbol AAPL --json`                                | Build a source-tiered news/materiality research plan without fetching the web |
 | `agentic-trader research-cycle-plan --symbols AAPL,MSFT --json`                        | Inspect the safe PRE-FLIGHT/MONITOR/ANALYZE/PROPOSE/DIGEST cycle contract |
-| `agentic-trader research-cycle-run --symbols AAPL,MSFT --cycles 2 --no-sleep --json`    | Run bounded evidence-only research cycles without broker authority |
+| `agentic-trader research-cycle-run --symbols AAPL,MSFT --cycles 2 --no-sleep --json`    | Run bounded evidence-only research cycles with preflight, source-health delta, cadence, and digest output but no broker authority |
 | `agentic-trader evidence-bundle --provider-check --json`                               | Package read-only QA/release evidence with active model/provider readiness |
 | `agentic-trader research-status --json`                                                | Inspect optional research sidecar health   |
 | `agentic-trader research-refresh --json`                                               | Run one isolated sidecar snapshot pass     |

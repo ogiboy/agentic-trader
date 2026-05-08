@@ -30,6 +30,7 @@ from agentic_trader.security import (
     redact_sensitive_text,
     write_private_text,
 )
+from agentic_trader.system.tool_roots import local_tool_status_payload
 
 DEFAULT_APP_MANAGED_PORT = 11435
 DEFAULT_MODEL_CHOICES = (
@@ -71,6 +72,12 @@ class ModelServiceState(BaseModel):
 class ModelServiceStatus(BaseModel):
     """Operator-facing local model service status."""
 
+    tool_id: str = "ollama"
+    tool_status_id: str = "ollama_cli"
+    tool_consumers: list[str] = Field(default_factory=list)
+    tool_fallback_order: list[str] = Field(default_factory=list)
+    install_hint: str = ""
+    notes: list[str] = Field(default_factory=list)
     provider: str = "ollama"
     command_available: bool
     command_path: str | None = None
@@ -318,6 +325,7 @@ def build_model_service_status(settings: Settings, *, tail_limit: int = 12) -> M
                 "with /v1 when you want cycles to use it."
             )
     return ModelServiceStatus(
+        **local_tool_status_payload("ollama"),
         command_available=command_path is not None,
         command_path=command_path,
         configured_base_url=settings.base_url,

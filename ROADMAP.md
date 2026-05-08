@@ -450,7 +450,7 @@ Status: in progress.
 - [x] add compact official SEC companyfacts XBRL summaries with fresh source attribution and no raw filing text injection
 - [x] add optional disabled-by-default Firecrawl news search and Camofox local-browser health providers behind `researchd`, with redaction, provenance, and raw-text-free prompt boundaries
 - [x] document the safe news/browser evidence envelope: source tier, fetcher source, attempts, published/fetched timestamps, freshness, materiality, classification, and redaction before any scanner/proposal/review use
-- [x] add a first bounded CLI research-cycle executor for cadence/watchlist-aware sidecar snapshot collection without broker/proposal authority
+- [x] add a first bounded CLI research-cycle executor for cadence/watchlist-aware sidecar snapshot collection, preflight/source-health/digest output, and no broker/proposal authority
 - [ ] wire remaining real official/structured sources: SEC full filing parsing, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
 - [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
 - [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
@@ -459,7 +459,7 @@ Status: in progress.
 - the sidecar may eventually run beside the daemon, but it must not submit orders, mutate trading policy, or weaken strict runtime gates
 - SEC EDGAR submissions and compact companyfacts ingestion are disabled by default and require a configured User-Agent; full filing text and downstream memory writes remain separate planned steps
 - Firecrawl/Camofox support is optional helper infrastructure, not a mandatory runtime dependency or broker-capable sidecar
-- `research-cycle-run` now executes bounded evidence-only sidecar cycles, can persist research snapshots, supports QA-friendly `--no-sleep`, and reports that broker access, proposal approval, proposal creation, and raw web prompt injection remain disabled
+- `research-cycle-run` now executes bounded evidence-only sidecar cycles, can persist research snapshots, supports QA-friendly `--no-sleep`, and reports preflight status, source-health delta, cadence/next-run, digest, and disabled broker/proposal/raw-web-prompt authority
 - missing provider data must stay visible as missing; source diversity, staleness, evidence/inference separation, and contradiction tracking are core contracts
 
 ## V1 Evaluation And Crew Loops - Optional Sidecar Harness
@@ -527,7 +527,7 @@ Status: in progress.
 - app-managed Ollama and bootstrap work should plug into the existing daemon/log/status surfaces rather than inventing separate setup helpers with hidden runtime state
 - the first bootstrap slice is intentionally explicit: `make bootstrap` prompts before system installs, `agentic-trader setup-status` is read-only, Firecrawl auth remains user-owned, Camofox install is opt-in because it may download a browser binary, and the secure Camofox wrapper requires `CAMOFOX_ACCESS_KEY`
 - `agentic-trader setup-status` now includes model-service and WebGUI-service readiness, and the bootstrap script can offer PATH symlink repair when `agentic-trader` resolves to a stale checkout
-- `agentic_trader.system.tool_roots` now provides the first central registry for optional repo tools, including status IDs, consumers, fallback order, manifest notes, and install hints for Ollama, Firecrawl, and Camofox; setup-status consumes this registry, while researchd/model-service/WebGUI/QA/docs parity remains open
+- `agentic_trader.system.tool_roots` now provides the first central registry for optional repo tools, including status IDs, consumers, fallback order, manifest notes, and install hints for Ollama, Firecrawl, and Camofox; setup-status, model-service status, Camofox-service status, and research provider metadata consume this registry, while WebGUI/QA/docs parity remains open
 - side-application setup must be explicit and opt-in for paid/browser/provider helpers; missing optional tools should be reported as degraded readiness, not silently installed, auto-started, or treated as blockers for core paper operation
 - `tools/` is the intended home for optional local helper infrastructure; `sidecars/` stays for isolated runtime packages such as CrewAI Flow, and root Python/Node dependencies should not absorb browser/model/provider helper internals prematurely
 - refactors should be architectural cleanup with tests, not broad rewrites: extract duplicated strings/constants and service helpers when a touched file is already hard to audit, especially around CLI rendering, setup/service status, research provider fallbacks, and i18n-ready operator text

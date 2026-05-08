@@ -1606,6 +1606,10 @@ def test_research_cycle_run_json_executes_bounded_evidence_only_cycle(
     assert payload["execution_policy"]["proposal_approval"] is False
     assert payload["executions"][0]["watched_symbols"] == ["AAPL", "MSFT"]
     assert payload["executions"][0]["persisted_snapshot_id"]
+    assert payload["executions"][0]["preflight"]["phase"] == "PRE-FLIGHT"
+    assert "source_health_delta" in payload["executions"][0]
+    assert payload["executions"][0]["digest"]["raw_web_text_injected"] is False
+    assert payload["latest_digest"] == payload["executions"][-1]["digest"]
     assert research_latest_snapshot_path(settings).exists()
     assert settings.database_path.exists() is False
 

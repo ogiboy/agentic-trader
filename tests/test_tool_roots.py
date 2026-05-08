@@ -65,3 +65,16 @@ def test_manifest_notes_are_safe_and_include_entrypoints() -> None:
     assert any(note.startswith("fallback_order=") for note in notes)
     assert any(note == "start=agentic-trader camofox-service start" for note in notes)
     assert "secret" not in " ".join(notes).lower()
+
+
+def test_local_tool_status_payload_matches_registry_contract() -> None:
+    payload = tool_roots.local_tool_status_payload("firecrawl")
+
+    assert payload["tool_id"] == "firecrawl"
+    assert payload["tool_status_id"] == "firecrawl_cli"
+    assert "researchd" in payload["tool_consumers"]
+    assert "firecrawl_api_key" in payload["tool_fallback_order"]
+    assert "firecrawl login" in str(payload["install_hint"])
+    notes = payload["notes"]
+    assert isinstance(notes, list)
+    assert "local_tool_id=firecrawl" in notes

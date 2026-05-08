@@ -35,6 +35,7 @@ from agentic_trader.system.camofox_service import (
     CamofoxServiceStatus,
     build_camofox_service_status,
 )
+from agentic_trader.system.tool_roots import local_tool_manifest_notes
 
 
 SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
@@ -363,6 +364,7 @@ class FirecrawlNewsResearchProvider:
                 "news_search_provider",
                 "raw_web_text_not_injected",
                 "enabled" if self._enabled else "provider_disabled",
+                *local_tool_manifest_notes("firecrawl"),
             ],
         )
 
@@ -507,6 +509,7 @@ class CamofoxBrowserResearchProvider:
                 "browser_health_only",
                 "raw_web_text_not_injected",
                 "enabled" if self._enabled else "provider_disabled",
+                *local_tool_manifest_notes("camofox-browser"),
             ],
         )
 

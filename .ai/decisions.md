@@ -132,9 +132,9 @@ The continuous-loop pattern is exposed as `research-cycle-plan`, a read-only
 contract for PRE-FLIGHT, MONITOR, ANALYZE, PROPOSE, and DIGEST phases that
 names existing runtime commands instead of starting an autonomous executor.
 The first bounded executor, `research-cycle-run`, may run sidecar collection
-passes and persist snapshot records, but it still cannot create or approve
-proposals, submit broker intents, mutate policy, or inject raw web text into
-core prompts.
+passes, persist snapshot records, and emit preflight/source-health/cadence/digest
+payloads for operator surfaces, but it still cannot create or approve proposals,
+submit broker intents, mutate policy, or inject raw web text into core prompts.
 Any future continuous-loop executor must fail closed: missing provider health,
 non-loopback browser endpoints, unredacted provider errors, raw article text, or
 sidecar attempts to mutate broker/policy/proposal approval state should stop the
@@ -518,7 +518,7 @@ Reason:
 The repo-level `tools/` tree is the product's local helper root, not a dump for generated projects.
 Camofox, Ollama, and Firecrawl each carry a self-contained `agentic-tool.json` manifest describing setup/status/start commands, owning runtime modules, optional env, safety properties, and fallback order.
 Python runtime code that must be installed with the package stays under `agentic_trader/system/` or `agentic_trader/researchd/`; the tool roots hold helper source, manifests, setup wrappers, and adapter metadata that setup/readiness can inspect.
-`agentic_trader.system.tool_roots` is the first central registry for those tools: it maps repo tool IDs to setup/status IDs, consumers, fallback order, manifest notes, and install hints so setup-status and later runtime surfaces do not invent separate tool truths.
+`agentic_trader.system.tool_roots` is the first central registry for those tools: it maps repo tool IDs to setup/status IDs, consumers, fallback order, manifest notes, and install hints so setup-status, service status payloads, research provider metadata, and later runtime surfaces do not invent separate tool truths.
 Nested upstream git metadata, `node_modules`, browser binaries, crash telemetry workers, broad plugin packs, generated init state, and runtime logs must stay untracked.
 
 ### Camofox is local browser infrastructure, not a research authority

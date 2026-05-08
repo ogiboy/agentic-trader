@@ -86,6 +86,11 @@ def test_start_model_service_uses_minimal_env_and_owner_state(
     assert status.service_reachable is True
     assert status.model_available is True
     assert status.base_url == "http://127.0.0.1:11434"
+    assert status.tool_id == "ollama"
+    assert status.tool_status_id == "ollama_cli"
+    assert "model-service" in status.tool_consumers
+    assert "app_managed_repo_config" in status.tool_fallback_order
+    assert "local_tool_id=ollama" in status.notes
     assert captured["command"] == ["/opt/homebrew/bin/ollama", "serve"]
     env = captured["env"]
     assert isinstance(env, dict)

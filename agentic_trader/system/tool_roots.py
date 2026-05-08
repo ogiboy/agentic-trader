@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 LocalToolId = Literal["camofox-browser", "ollama", "firecrawl"]
 LocalToolConsumer = Literal[
@@ -69,6 +69,17 @@ class LocalToolDefinition:
         """Return the safe resolution order for this tool."""
 
         return TOOL_FALLBACK_ORDER[self.tool_id]
+
+
+class LocalToolStatusPayload(TypedDict):
+    """Typed metadata shared by optional tool status surfaces."""
+
+    tool_id: str
+    tool_status_id: str
+    tool_consumers: list[str]
+    tool_fallback_order: list[str]
+    install_hint: str
+    notes: list[str]
 
 
 LOCAL_TOOL_DEFINITIONS: dict[LocalToolId, LocalToolDefinition] = {
@@ -185,6 +196,20 @@ def local_tool_manifest_notes(tool_id: LocalToolId) -> list[str]:
             if isinstance(value, str) and value:
                 notes.append(f"{key}={value}")
     return notes
+
+
+def local_tool_status_payload(tool_id: LocalToolId) -> LocalToolStatusPayload:
+    """Return shared runtime/status metadata for one optional helper tool."""
+
+    definition = local_tool_definition(tool_id)
+    return {
+        "tool_id": definition.tool_id,
+        "tool_status_id": definition.status_tool_id,
+        "tool_consumers": list(definition.consumers),
+        "tool_fallback_order": list(definition.fallback_order),
+        "install_hint": definition.install_hint,
+        "notes": local_tool_manifest_notes(tool_id),
+    }
 
 
 def resolve_configured_tool_path(configured_path: str | Path, *, default_tool: LocalToolId) -> Path:

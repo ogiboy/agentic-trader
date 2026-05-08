@@ -340,6 +340,7 @@ def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(tmp_path) -> 
 
     assert disabled_output.raw_evidence == []
     assert disabled_output.missing_reasons == ["provider_disabled"]
+    assert "local_tool_id=firecrawl" in disabled.metadata().notes
 
     enabled = FirecrawlNewsResearchProvider(
         settings=_settings(
@@ -626,6 +627,7 @@ def test_camofox_browser_provider_reports_local_health(tmp_path) -> None:
 
     assert output.missing_reasons == []
     assert len(output.raw_evidence) == 1
+    assert "local_tool_id=camofox-browser" in provider.metadata().notes
     record = output.raw_evidence[0]
     assert record.source_kind == "provider_status"
     assert record.source_name == "camofox_browser_research"

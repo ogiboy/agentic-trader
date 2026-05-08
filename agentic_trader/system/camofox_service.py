@@ -28,7 +28,10 @@ from agentic_trader.security import (
     redact_sensitive_text,
     write_private_text,
 )
-from agentic_trader.system.tool_roots import resolve_configured_tool_path
+from agentic_trader.system.tool_roots import (
+    local_tool_status_payload,
+    resolve_configured_tool_path,
+)
 
 DEFAULT_CAMOFOX_HOST = "127.0.0.1"
 DEFAULT_CAMOFOX_PORT = 9377
@@ -87,6 +90,12 @@ class CamofoxServiceState(BaseModel):
 class CamofoxServiceStatus(BaseModel):
     """Operator-facing Camofox service status."""
 
+    tool_id: str = "camofox-browser"
+    tool_status_id: str = "camofox_browser"
+    tool_consumers: list[str] = Field(default_factory=list)
+    tool_fallback_order: list[str] = Field(default_factory=list)
+    install_hint: str = ""
+    notes: list[str] = Field(default_factory=list)
     command_available: bool
     command_path: str | None = None
     package_available: bool
@@ -424,6 +433,7 @@ def build_camofox_service_status(settings: Settings, *, tail_limit: int = 12) ->
         elif state is not None and app_state is None:
             message = "Recorded Camofox state is stale or process ownership could not be verified."
     return CamofoxServiceStatus(
+        **local_tool_status_payload("camofox-browser"),
         command_available=command_path is not None,
         command_path=command_path,
         package_available=package_available,
