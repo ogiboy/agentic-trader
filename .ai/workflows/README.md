@@ -16,6 +16,8 @@ Use this pack with the role docs in `.ai/agents/`:
   evidence rules.
 - `performance-workflow.md`: bottleneck, cache, setup/check runtime, and
   concurrency review.
+- `continuous-research-loop.md`: PRE-FLIGHT -> MONITOR -> ANALYZE -> PROPOSE
+  -> DIGEST research-loop design without broker authority.
 - `multi-agent-handoff.md`: when and how to split work across development
   agents without changing the runtime architecture.
 - `external-tooling-policy.md`: how to use system-level advisory tools without
@@ -29,7 +31,9 @@ Use this pack with the role docs in `.ai/agents/`:
 2. Read the relevant role contract in `.ai/agents/`.
 3. Run an advisory route check for non-trivial work when RuFlo is available:
    `ruflo route task "describe the current task"`.
-4. Pick one workflow from this folder and write a short file-level plan.
+4. Pick one workflow from this folder and write a short file-level plan. For
+   strategy/news/provider intelligence work, pair the workflow with the matching
+   playbook in `.ai/playbooks/`.
 5. Use `multi-agent-handoff.md` only when independent sidecar tasks will shorten
    the work without causing write conflicts.
 6. Make the smallest useful change.

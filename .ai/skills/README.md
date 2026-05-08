@@ -20,6 +20,13 @@ repo-local initialization unless explicitly requested.
 Use browser automation for WebGUI and docs checks. Validate visual output against
 runtime JSON contracts when state looks suspicious.
 
+## Market News Research
+
+Use `.ai/skills/market-news-research.md` for ticker, portfolio, macro, filing,
+Firecrawl, Camofox, and sidecar evidence work. The short rule: normalize source
+attribution, freshness, materiality, attempts, and redaction before any evidence
+can influence scanner/proposal/review surfaces.
+
 ## Security Audit
 
 Use security audit skills as advisory review lenses, then implement concrete

@@ -11,7 +11,8 @@ It checks:
 - dashboard contract fields consumed by operator surfaces, including runtime mode and market context sections
 - deterministic market-context edge cases for partial daily windows, intraday provider limits, non-datetime indexes, higher-timeframe fallback, and Training replay undercoverage flags
 - read-only JSON status surfaces such as `status`, `broker-status`, `supervisor-status`, `logs`, `preferences`, `portfolio`, and `memory-policy`
-- primary Ink entry through `agentic-trader`
+- primary operator launcher through `agentic-trader`, captured as `main_entrypoint_launcher.log`
+- direct Ink entry through `agentic-trader tui`, captured as `direct_tui_entrypoint.log`
 - root launcher entry through `python main.py`
 - legacy Rich/admin menu through `agentic-trader menu`
 - a deeper Rich/admin navigation path covering review/trace, research/logs, and portfolio pages
@@ -100,7 +101,8 @@ Current files include:
 - `dashboard_contract.log`
 - `market_context_edge_cases.log`
 - `runtime_mode_checklist_json.log`
-- `main_entrypoint_tui.log`
+- `main_entrypoint_launcher.log`
+- `direct_tui_entrypoint.log`
 - `python_main_tui.log`
 - `rich_menu.log`
 - `rich_menu_deep_navigation.log`

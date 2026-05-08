@@ -1,0 +1,28 @@
+{
+  "schema_version": "2026-05-08",
+  "id": "ollama",
+  "label": "Ollama",
+  "role": "optional_app_managed_local_model_service",
+  "entrypoints": {
+    "status": "agentic-trader model-service status",
+    "start": "agentic-trader model-service start",
+    "stop": "agentic-trader model-service stop",
+    "pull": "agentic-trader model-service pull <model>",
+    "setup_status": "agentic-trader setup-status"
+  },
+  "runtime_module": "agentic_trader.system.model_service",
+  "provider_module": "agentic_trader.llm.providers.OllamaProvider",
+  "default_models": ["qwen3:8b", "deepseek-r1:8b"],
+  "optional_env": [
+    "AGENTIC_TRADER_MODEL_SERVICE_BASE_URL",
+    "AGENTIC_TRADER_MODEL_SERVICE_MODELS_DIR",
+    "AGENTIC_TRADER_MODEL_SERVICE_KEEP_ALIVE",
+    "AGENTIC_TRADER_RUNTIME_AUTO_START_MODEL_SERVICE"
+  ],
+  "safety": [
+    "loopback_only",
+    "app_owned_state",
+    "no_external_ollama_stop_without_ownership",
+    "no_model_weights_tracked"
+  ]
+}

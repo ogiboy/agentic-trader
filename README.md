@@ -71,6 +71,28 @@ The repository is now a small monorepo-style workspace:
 
 ## Installation
 
+### Optional System Bootstrap
+
+For a fresh machine, start with the interactive system-tool check. It detects
+the tools around the app without silently installing paid/browser helpers:
+
+```bash
+make bootstrap-dry-run
+make bootstrap
+```
+
+`bootstrap` can offer macOS installs for `uv`, Node, `pnpm`, Ollama, Firecrawl,
+and the optional Camofox/RuFlo tooling when requested. It also offers a
+`~/.local/bin/agentic-trader` symlink after the uv environment has created the
+console entrypoint and warns when PATH resolves to a stale entrypoint from
+another checkout. Firecrawl still requires user-owned authentication through
+`firecrawl login --browser` or `FIRECRAWL_API_KEY` in an ignored env file.
+Runtime auto-start flags only supervise already-installed local helpers; they
+do not install tools, pull models, create accounts, or mutate trading policy.
+For Camofox, `make setup-camofox` installs helper dependencies without running
+browser-download scripts; `make fetch-camofox` downloads the optional Camoufox
+browser binary only when you approve that step.
+
 ### Python / uv From Source
 
 ```bash
@@ -83,6 +105,12 @@ Daily source development now defaults to uv-managed Python 3.13 in the root
 exercising the current minimum version signal, but local installs should not
 drift onto the system Python. `scripts/install-python.sh` runs
 `uv sync --locked --python 3.13 --all-extras --group dev`.
+
+When changing Python dependencies, use uv as the source of truth:
+`uv add <package>` for new packages, `uv lock --upgrade` for upgrades, and
+`uv sync --locked --all-extras --group dev` to restore the full developer
+environment. A plain `uv sync` can remove dev-only tools from `.venv`, so use
+the locked dev sync above for normal source work.
 
 Copy `.env.example` to a local ignored env file only when you need provider/model overrides. Do not put secrets in tracked files.
 
@@ -112,9 +140,13 @@ root uv Python environment. If you only need the JavaScript side, run
 
 ```bash
 pnpm dev:webgui
+agentic-trader webgui-service start
 ```
 
-The Web GUI runs at [http://localhost:3210](http://localhost:3210).
+The Web GUI runs on loopback, normally
+[http://localhost:3210](http://localhost:3210). The `webgui-service` commands
+record app-owned state and log tails under `runtime/webgui_service/`; `stop`
+only targets the recorded app-owned process.
 
 ### Optional Docs Site
 
@@ -159,9 +191,61 @@ AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true
 AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT="Agentic Trader local contact@example.com"
 ```
 
-This first provider normalizes recent filing metadata into source-attributed
-research evidence. It does not download full filing text or XBRL facts yet, and
-it does not write directly into trading memory.
+This first provider normalizes recent filing metadata plus compact official
+company-facts metrics into source-attributed research evidence. It does not
+download full filing text, and it does not write directly into trading memory.
+
+### Optional Firecrawl And Camofox Research Helpers
+
+Firecrawl and Camofox are optional research fetcher/development helpers behind
+`researchd`. They are disabled by default and only produce normalized
+source-attributed evidence or provider-health records. Firecrawl uses the
+Python SDK when `FIRECRAWL_API_KEY` is present and falls back to the CLI path
+when needed. Raw web text is not passed into trading prompts.
+
+```bash
+AGENTIC_TRADER_RESEARCH_MODE=training
+AGENTIC_TRADER_RESEARCH_SIDECAR_ENABLED=true
+AGENTIC_TRADER_RESEARCH_SYMBOLS=AAPL
+AGENTIC_TRADER_RESEARCH_FIRECRAWL_ENABLED=true
+AGENTIC_TRADER_RESEARCH_FIRECRAWL_CLI=firecrawl
+AGENTIC_TRADER_RESEARCH_CAMOFOX_ENABLED=true
+AGENTIC_TRADER_RESEARCH_CAMOFOX_BASE_URL=http://127.0.0.1:9377
+```
+
+Start the bundled Camofox helper only through the loopback/auth wrapper:
+
+```bash
+CAMOFOX_ACCESS_KEY=$(openssl rand -hex 24) make start-camofox
+```
+
+The helper starts the HTTP service first and launches the browser on demand by
+default. Set `CAMOFOX_BROWSER_PREWARM=true` only when you explicitly want a
+warm browser and have confirmed the local Camoufox binary is stable.
+
+Keep real provider keys in ignored local env files. The app-managed helper
+prefers `CAMOFOX_ACCESS_KEY`; when only `CAMOFOX_API_KEY` is configured it is
+mirrored into the loopback helper as the global access token so browser routes
+are not left open during local research. These adapters cannot submit orders,
+change runtime mode, or mutate broker policy.
+
+When `AGENTIC_TRADER_RUNTIME_AUTO_START_MODEL_SERVICE=true`, strict runtime
+actions can start an app-owned loopback Ollama process before checking model
+generation. When `AGENTIC_TRADER_RUNTIME_AUTO_START_CAMOFOX=true` and the
+Camofox research provider is enabled, research refreshes can start an app-owned
+loopback Camofox helper before collecting browser-health evidence. Camofox
+status treats a reachable HTTP server with `browserRunning=false` as ready for
+on-demand launch by default, while recent browser launch failures in app-owned
+logs still degrade readiness instead of treating a crash-looping helper as
+usable. Inspect or control these helpers directly with:
+
+```bash
+agentic-trader model-service status --json
+agentic-trader model-service stop --json
+agentic-trader camofox-service status --json
+agentic-trader camofox-service start
+agentic-trader camofox-service stop
+```
 
 ### Optional Release Binary
 
@@ -174,9 +258,20 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 | `python main.py doctor`                                          | Check local runtime, model, database, and configuration readiness |
 | `agentic-trader doctor --json`                                   | Emit the same health check as machine-readable JSON               |
 | `python main.py run --symbol AAPL --interval 1d --lookback 180d` | Run one strict paper-trading cycle                                |
-| `agentic-trader`                                                 | Open the primary Ink terminal control room                        |
+| `agentic-trader`                                                 | Open the operator launcher for Web GUI, daemon, Ink, Rich, setup, and model-service choices |
+| `agentic-trader tui`                                             | Open the primary Ink terminal control room directly               |
 | `agentic-trader menu`                                            | Open the Rich/admin fallback menu                                 |
-| `agentic-trader dashboard-snapshot`                              | Print the shared dashboard payload used by UI surfaces            |
+| `agentic-trader dashboard-snapshot`                              | Print the shared dashboard payload used by UI surfaces; add `--provider-check` for product-readiness evidence |
+| `agentic-trader setup-status --json`                             | Inspect source, side-application, and optional-tool readiness     |
+| `agentic-trader model-service status --json`                     | Inspect configured/app-managed Ollama readiness and log tails     |
+| `agentic-trader model-service start`                             | Start only an app-owned loopback Ollama process                   |
+| `agentic-trader model-service pull qwen3:8b`                     | Pull an Ollama model through the configured/app-owned service     |
+| `agentic-trader webgui-service status --json`                    | Inspect app-owned Web GUI readiness and log tails                 |
+| `agentic-trader webgui-service start`                            | Start/open the loopback Web GUI command center                    |
+
+`--provider-check` readiness performs a tiny generation probe, not just a
+reachability/model-list check. If Ollama can list a model but cannot load it,
+strict operation gates fail closed before an agent cycle starts.
 
 Advanced usage belongs in the docs site, not in this landing README.
 
@@ -201,9 +296,18 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader supervisor-status --json`                                              | Inspect daemon state and log tails         |
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
 | `agentic-trader finance-ops --json`                                                    | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check |
+| `agentic-trader setup-status --json`                                                   | Inspect root/sidecar/tool readiness without installing anything |
+| `agentic-trader model-service status --json`                                           | Inspect local Ollama/service/model readiness |
+| `agentic-trader webgui-service status --json`                                          | Inspect loopback Web GUI service readiness |
 | `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
-| `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks |
-| `agentic-trader evidence-bundle --json`                                                | Package read-only QA/release evidence      |
+| `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks; add `--provider-check` before longer paper runs and to verify local-model generation |
+| `agentic-trader trade-proposals --json`                                                | Inspect the manual-review proposal queue |
+| `agentic-trader proposal-create ...`                                                   | Queue a non-executing paper proposal for approval |
+| `agentic-trader idea-presets` / `agentic-trader idea-score ...`                        | Explore V1 idea-scanner presets without creating orders |
+| `agentic-trader strategy-catalog --json` / `agentic-trader strategy-profile NAME`       | Inspect strategy-family evidence, risk, and validation gates |
+| `agentic-trader news-intelligence --symbol AAPL --json`                                | Build a source-tiered news/materiality research plan without fetching the web |
+| `agentic-trader research-cycle-plan --symbols AAPL,MSFT --json`                        | Inspect the safe PRE-FLIGHT/MONITOR/ANALYZE/PROPOSE/DIGEST cycle contract |
+| `agentic-trader evidence-bundle --provider-check --json`                               | Package read-only QA/release evidence with active model/provider readiness |
 | `agentic-trader research-status --json`                                                | Inspect optional research sidecar health   |
 | `agentic-trader research-refresh --json`                                               | Run one isolated sidecar snapshot pass     |
 | `agentic-trader research-flow-setup --json`                                            | Inspect optional CrewAI Flow sidecar readiness |

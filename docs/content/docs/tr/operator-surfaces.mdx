@@ -10,6 +10,7 @@ detay seviyesi ister.
 
 | Yüzey | En iyi kullanım | Doğrulanacak şey |
 | --- | --- | --- |
+| Argümansız launcher | Web GUI, paper daemon, Ink, Rich, setup veya model-service yolunu seçmek | herhangi bir şeyi başlatmadan önce seçenekleri açıklıyor mu? |
 | CLI komutları | kurulum, JSON kontrol, tek seferlik paper run, evidence capture | komut çıktısı, exit code, persist edilmiş kayıtlar |
 | Rich menü | terminal navigasyonu ve hızlı status review | CLI JSON ile aynı backend/runtime gerçeği |
 | Ink control room | canlı lokal izleme, settings, recent runs, operator instructions | resize davranışı, current runtime mode, latest activity |
@@ -33,16 +34,29 @@ katman runtime ve persistence kanıtına güven.
 Şunları kullan:
 
 ```bash
+agentic-trader setup-status --json
+agentic-trader model-service status --json
+agentic-trader webgui-service status --json
 agentic-trader provider-diagnostics --json
 agentic-trader v1-readiness --json
 agentic-trader broker-status --json
 agentic-trader finance-ops --json
 agentic-trader supervisor-status --json
+agentic-trader trade-proposals --json
 ```
 
 Bu komutlar provider evidence, model readiness, broker mode,
 account/PnL/exposure evidence, runtime state ve daemon sağlığının devam etmek
 için yeterince görünür olup olmadığını gösterir.
+
+### Bir trade fikrini execute edilebilir hâle gelmeden incele
+
+Scanner veya research çıktısı doğrudan order olmamalı; önce proposal'a
+dönüşmeli. `proposal-create` paper-desk fikrini kuyruğa alır,
+`trade-proposals` pending ve terminal kararları gösterir, `proposal-approve`
+veya `proposal-reject` ise açık insan review adımıdır. Onay hâlâ yapılandırılan
+paper veya external-paper broker adapter'ından geçer ve execution
+intent/outcome audit trail'i bırakır.
 
 ### Paper cycle çalıştır veya incele
 
@@ -55,6 +69,13 @@ tek bir UI kartına güvenme.
 `supervisor-status --json`, observer `/supervisor` ve son log tail'lerini kullan.
 Blocked gate, dead PID, stale heartbeat state ve stop request durumları generic
 "not running" mesajının arkasına saklanmamalı.
+
+### İlk yüzeyi seç
+
+Ürün launcher'ı için `agentic-trader` komutunu argümansız çalıştır. Bu yüzey
+setup, Web GUI, model-service ve daemon hazır oluşunu gösterir, sonra hangi
+yüzeyi açacağını sorar. Trading daemon'ı sessizce başlatmamalıdır. Özellikle
+Ink control room istiyorsan `agentic-trader tui` kullan.
 
 ## Web GUI'nin yapmasına izin verilenler
 

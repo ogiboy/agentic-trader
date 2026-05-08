@@ -672,8 +672,8 @@ class LocalLLM:
             )
         )
 
-    def health_check(self) -> LLMHealthStatus:
-        return self.provider.health_check()
+    def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
+        return self.provider.health_check(include_generation=include_generation)
 
     def complete_structured(
         self,

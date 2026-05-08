@@ -570,6 +570,12 @@ class ResearchSidecar:
         backend: ResearchSidecarBackend | None = None,
     ) -> None:
         self.settings = settings
+        if providers is None and settings.research_camofox_enabled:
+            from agentic_trader.system.runtime_tools import (
+                ensure_camofox_service_if_configured,
+            )
+
+            ensure_camofox_service_if_configured(settings)
         self.providers = providers or default_research_providers(settings)
         self.backend = backend or self._backend_from_settings(settings)
 

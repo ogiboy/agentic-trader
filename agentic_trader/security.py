@@ -23,11 +23,13 @@ _URL_SECRET_PATTERN = re.compile(
 _SENSITIVE_ENV_NAME_PATTERN = re.compile(
     r"(?i)(?:api[_-]?key|secret|token|password|authorization)"
 )
+_ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def redact_sensitive_text(value: object, *, max_length: int | None = None) -> str:
     """Return a bounded string with common secret shapes masked."""
     text = str(value)
+    text = _ANSI_ESCAPE_PATTERN.sub("", text)
     for env_name, env_value in os.environ.items():
         if (
             env_value

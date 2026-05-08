@@ -10,6 +10,7 @@ different levels of detail.
 
 | Surface | Best for | What to verify |
 | --- | --- | --- |
+| No-argument launcher | choosing Web GUI, paper daemon, Ink, Rich, setup, or model-service paths | it explains choices before starting anything |
 | CLI commands | setup, JSON checks, one-off paper runs, evidence capture | command output, exit code, persisted records |
 | Rich menu | terminal navigation and quick status review | same backend/runtime truth as CLI JSON |
 | Ink control room | live local monitoring, settings, recent runs, operator instructions | resize behavior, current runtime mode, latest activity |
@@ -33,16 +34,29 @@ trust the lower-layer runtime and persistence evidence first.
 Use:
 
 ```bash
+agentic-trader setup-status --json
+agentic-trader model-service status --json
+agentic-trader webgui-service status --json
 agentic-trader provider-diagnostics --json
 agentic-trader v1-readiness --json
 agentic-trader broker-status --json
 agentic-trader finance-ops --json
 agentic-trader supervisor-status --json
+agentic-trader trade-proposals --json
 ```
 
 These commands answer whether provider evidence, model readiness, broker mode,
 account/PnL/exposure evidence, runtime state, and daemon health are visible
 enough to continue.
+
+### Review a trade idea before it can execute
+
+Scanner or research output should become a proposal first, not an immediate
+order. Use `proposal-create` to queue a paper-desk idea, `trade-proposals` to
+inspect pending and terminal decisions, and `proposal-approve` or
+`proposal-reject` for the explicit human review step. Approval still goes
+through the configured paper or external-paper broker adapter and records an
+execution intent/outcome audit trail.
 
 ### Run or review a paper cycle
 
@@ -55,6 +69,13 @@ broker/account or execution truth matters.
 Use `supervisor-status --json`, observer `/supervisor`, and recent log tails.
 Blocked gates, dead PIDs, stale heartbeat state, and stop requests should be
 visible instead of hidden behind a generic "not running" message.
+
+### Choose the first surface
+
+Use `agentic-trader` without arguments for the product launcher. It should show
+setup, Web GUI, model-service, and daemon readiness, then ask which surface to
+open. It must not silently start a trading daemon. Use `agentic-trader tui` when
+you specifically want the Ink control room.
 
 ## What the Web GUI is allowed to do
 

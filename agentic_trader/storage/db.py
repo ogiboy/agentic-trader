@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from dataclasses import dataclass
 import json
-from typing import Any, cast, get_args
+from typing import Any, Literal, cast, get_args
 from uuid import uuid4
 
 import duckdb
@@ -35,6 +35,8 @@ from agentic_trader.schemas import (
     ServiceStateSnapshot,
     RuntimeMode,
     TradeSide,
+    TradeProposalRecord,
+    TradeProposalStatus,
     TradeContextRecord,
     TradeJournalEntry,
 )
@@ -269,6 +271,17 @@ class TradingDatabase:
             self.conn = duckdb.connect(str(self.path))
             self._init_schema()
 
+    def _table_exists(self, table_name: str) -> bool:
+        row = self.conn.execute(
+            """
+            select count(*)
+            from information_schema.tables
+            where table_name = ?
+            """,
+            [table_name],
+        ).fetchone()
+        return row is not None and int(row[0]) > 0
+
     def _init_schema(self) -> None:
         """
         Create and migrate the database schema and ensure required seed rows exist.
@@ -440,6 +453,33 @@ class TradingDatabase:
                 rejection_reason varchar,
                 intent_json varchar not null,
                 outcome_json varchar not null
+            )
+            """
+        )
+        self.conn.execute(
+            """
+            create table if not exists trade_proposals (
+                proposal_id varchar primary key,
+                created_at varchar not null,
+                updated_at varchar not null,
+                symbol varchar not null,
+                side varchar not null,
+                order_type varchar not null,
+                quantity double,
+                notional double,
+                reference_price double not null,
+                confidence double not null,
+                thesis varchar not null,
+                stop_loss double,
+                take_profit double,
+                invalidation_condition varchar,
+                source varchar not null,
+                status varchar not null,
+                review_notes varchar not null,
+                rejection_reason varchar,
+                execution_intent_id varchar,
+                execution_order_id varchar,
+                execution_outcome_status varchar
             )
             """
         )
@@ -685,6 +725,169 @@ class TradingDatabase:
             float(result[8]),
             float(result[9]),
         )
+
+    def insert_trade_proposal(self, proposal: TradeProposalRecord) -> None:
+        self.conn.execute(
+            """
+            insert into trade_proposals (
+                proposal_id, created_at, updated_at, symbol, side, order_type,
+                quantity, notional, reference_price, confidence, thesis, stop_loss,
+                take_profit, invalidation_condition, source, status, review_notes,
+                rejection_reason, execution_intent_id, execution_order_id,
+                execution_outcome_status
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                proposal.proposal_id,
+                proposal.created_at,
+                proposal.updated_at,
+                proposal.symbol,
+                proposal.side,
+                proposal.order_type,
+                proposal.quantity,
+                proposal.notional,
+                proposal.reference_price,
+                proposal.confidence,
+                proposal.thesis,
+                proposal.stop_loss,
+                proposal.take_profit,
+                proposal.invalidation_condition,
+                proposal.source,
+                proposal.status,
+                proposal.review_notes,
+                proposal.rejection_reason,
+                proposal.execution_intent_id,
+                proposal.execution_order_id,
+                proposal.execution_outcome_status,
+            ],
+        )
+
+    def get_trade_proposal(self, proposal_id: str) -> TradeProposalRecord | None:
+        if not self._table_exists("trade_proposals"):
+            return None
+        rows = self._trade_proposal_rows(
+            """
+            select *
+            from trade_proposals
+            where proposal_id = ?
+            """,
+            [proposal_id],
+        )
+        return rows[0] if rows else None
+
+    def list_trade_proposals(
+        self, *, status: TradeProposalStatus | None = None, limit: int = 50
+    ) -> list[TradeProposalRecord]:
+        if not self._table_exists("trade_proposals"):
+            return []
+        if status is None:
+            return self._trade_proposal_rows(
+                """
+                select *
+                from trade_proposals
+                order by created_at desc
+                limit ?
+                """,
+                [limit],
+            )
+        return self._trade_proposal_rows(
+            """
+            select *
+            from trade_proposals
+            where status = ?
+            order by created_at desc
+            limit ?
+            """,
+            [status, limit],
+        )
+
+    def update_trade_proposal(
+        self,
+        proposal: TradeProposalRecord,
+        *,
+        expected_status: TradeProposalStatus | None = None,
+    ) -> bool:
+        if not self._table_exists("trade_proposals"):
+            return False
+        if expected_status is not None:
+            self.conn.execute("begin transaction")
+            try:
+                current = self.conn.execute(
+                    """
+                    select status
+                    from trade_proposals
+                    where proposal_id = ?
+                    """,
+                    [proposal.proposal_id],
+                ).fetchone()
+                if current is None or str(current[0]) != expected_status:
+                    self.conn.execute("commit")
+                    return False
+                self._execute_trade_proposal_update(proposal)
+                self.conn.execute("commit")
+                return True
+            except Exception:
+                self.conn.execute("rollback")
+                raise
+        self._execute_trade_proposal_update(proposal)
+        return True
+
+    def _execute_trade_proposal_update(self, proposal: TradeProposalRecord) -> None:
+        self.conn.execute(
+            """
+            update trade_proposals
+            set updated_at = ?,
+                status = ?,
+                review_notes = ?,
+                rejection_reason = ?,
+                execution_intent_id = ?,
+                execution_order_id = ?,
+                execution_outcome_status = ?
+            where proposal_id = ?
+            """,
+            [
+                proposal.updated_at,
+                proposal.status,
+                proposal.review_notes,
+                proposal.rejection_reason,
+                proposal.execution_intent_id,
+                proposal.execution_order_id,
+                proposal.execution_outcome_status,
+                proposal.proposal_id,
+            ],
+        )
+
+    def _trade_proposal_rows(
+        self, query: str, params: list[object]
+    ) -> list[TradeProposalRecord]:
+        rows = self.conn.execute(query, params).fetchall()
+        return [
+            TradeProposalRecord(
+                proposal_id=str(row[0]),
+                created_at=str(row[1]),
+                updated_at=str(row[2]),
+                symbol=str(row[3]),
+                side=cast(TradeSide, str(row[4])),
+                order_type=cast(Literal["market", "limit"], str(row[5])),
+                quantity=float(row[6]) if row[6] is not None else None,
+                notional=float(row[7]) if row[7] is not None else None,
+                reference_price=float(row[8]),
+                confidence=float(row[9]),
+                thesis=str(row[10]),
+                stop_loss=float(row[11]) if row[11] is not None else None,
+                take_profit=float(row[12]) if row[12] is not None else None,
+                invalidation_condition=_str_or_none(row[13]),
+                source=str(row[14]),
+                status=cast(TradeProposalStatus, str(row[15])),
+                review_notes=str(row[16]),
+                rejection_reason=_str_or_none(row[17]),
+                execution_intent_id=_str_or_none(row[18]),
+                execution_order_id=_str_or_none(row[19]),
+                execution_outcome_status=_str_or_none(row[20]),
+            )
+            for row in rows
+        ]
 
     def save_preferences(self, preferences: InvestmentPreferences) -> None:
         now = datetime.now(timezone.utc).isoformat()
@@ -1429,7 +1632,15 @@ class TradingDatabase:
         largest_position = max(
             (abs(position.market_value) for position in positions), default=0.0
         )
+        top_positions = sorted(
+            positions, key=lambda position: abs(position.market_value), reverse=True
+        )
         equity = snapshot.equity if snapshot.equity != 0 else 1.0
+        portfolio_hhi = (
+            sum((abs(position.market_value) / gross_exposure) ** 2 for position in positions)
+            if gross_exposure > 0
+            else 0.0
+        )
         drawdown_from_peak_pct = (
             max(0.0, (all_time_peak - snapshot.equity) / all_time_peak)
             if all_time_peak > 0
@@ -1442,6 +1653,14 @@ class TradingDatabase:
         if gross_exposure / equity > self.settings.max_gross_exposure_pct:
             warnings.append(
                 f"Gross exposure is above {self.settings.max_gross_exposure_pct:.0%} of equity."
+            )
+        if largest_position / equity > self.settings.max_position_pct:
+            warnings.append(
+                f"Largest position is above {self.settings.max_position_pct:.0%} of equity."
+            )
+        if portfolio_hhi > 0.25:
+            warnings.append(
+                f"Portfolio concentration HHI is elevated at {portfolio_hhi:.3f}."
             )
         if drawdown_from_peak_pct > 0.1:
             warnings.append("Portfolio drawdown from peak is above 10%.")
@@ -1460,6 +1679,8 @@ class TradingDatabase:
             daily_realized_pnl=daily_realized_pnl,
             gross_exposure_pct=gross_exposure / equity,
             largest_position_pct=largest_position / equity,
+            portfolio_hhi=portfolio_hhi,
+            top_position_symbols=[position.symbol for position in top_positions[:5]],
             drawdown_from_peak_pct=drawdown_from_peak_pct,
             warnings=warnings,
         )

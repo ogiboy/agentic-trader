@@ -87,7 +87,7 @@ Status: in progress.
 - [x] show structured agent activity, recent tool usage, and the current reasoning stage beside the chat transcript
 - [x] add a clearer retro-terminal visual language so the control room feels like a serious operator console rather than a plain CLI
 - [x] introduce an Ink-based next-generation control room under a dedicated `tui/` application so the operator surface can evolve beyond the current Rich menu
-- [x] keep `agentic-trader` as the primary launcher and expose subcommands such as `agentic-trader tui`, `agentic-trader monitor`, and future UI entrypoints
+- [x] keep `agentic-trader` as the primary operator launcher and expose subcommands such as `agentic-trader tui`, `agentic-trader monitor`, and future UI entrypoints
 - [x] show the Market Context Pack in operator surfaces so the user can verify what data window and derived context each cycle used
 - [x] add a mode banner across CLI, Rich, Ink, monitor, and observer API so Training and Operation runs are never confused (completed 2026-04-15; keep parity in future UI additions)
 - [x] add memory explorer UI to inspect long-term and vector memory state
@@ -173,6 +173,10 @@ Status: in progress.
 - a local observer API now exposes the same runtime contracts over HTTP endpoints such as `/health`, `/dashboard`, `/status`, `/logs`, and `/broker`
 - a first `webgui/` shell now exists and uses those shared contracts through local server-side route handlers instead of introducing a separate runtime
 - deeper supervisor compatibility and daemon-backed multi-surface UI support remain open
+- a first app-managed Ollama CLI/runtime foundation now exists through `model-service status/start/stop/pull` plus strict runtime auto-start when enabled; it records separate owner-only model-service state/logs, never stops external Ollama processes, preserves ownership state when a recorded process cannot be stopped, and strict provider readiness now verifies generation rather than only `/api/tags`, but richer Ink/Web/observer controls are still open
+- a first app-managed Camofox helper foundation now exists through `camofox-service status/start/stop` plus research auto-start when the Camofox provider is enabled; it binds loopback, requires a local access key, narrows subprocess env, records owner-only state/logs, disables telemetry/prewarm by default, and reports health as evidence only
+- a first app-owned Web GUI service foundation now exists through `webgui-service status/start/stop`; it binds loopback, records owner-only state/logs, and refuses to stop stale PID-reuse candidates
+- no-argument `agentic-trader` now acts as an operator launcher for Web GUI, default strict paper daemon, Ink, Rich, model-service, setup, and exit choices instead of assuming one terminal surface
 
 ## Phase 8: Live Execution Adapters
 
@@ -384,8 +388,15 @@ Status: in progress.
 - [x] aggregate runtime market context, fundamental scaffolds, news events, disclosure scaffolds, and macro scaffolds before feature generation
 - [x] document the V1 source ladder: regulatory/public data first, free-friendly APIs such as Finnhub/FMP as optional enrichers, and Yahoo only as a degraded fallback
 - [x] make SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX sources explicit scaffold metadata
+- [x] add deterministic idea-scanner presets for momentum, gap-up/down, mean-reversion, breakout, and volatile candidates as research-only scoring surfaces
+- [x] add first concentration visibility in daily risk reports through portfolio HHI and top-position symbols
+- [x] translate external market-intelligence benchmark patterns into repo-native `.ai` guidance for continuous research loops, source-attributed news, strategy research/sweeps, finance evidence reconciliation, and a V1 strategy catalog
 - [ ] implement real fundamental providers behind the feature interface, starting with API-backed US equities and SEC filings
 - [ ] implement structured news and macro ingestion from Finnhub, FMP, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
+- [x] turn the first V1 strategy/catalog/news/loop slice into incremental code through existing contracts: idea-scanner metadata, `strategy-catalog`, `strategy-profile`, `idea-score` readiness context, `news-intelligence`, `research-cycle-plan`, and `finance-ops` ledger categories
+- [ ] enrich scanner output with provider/news/fundamental materiality, liquidity, spread, and sizing context before queueing paper proposals
+- [ ] extend the runtime strategy catalog into feature bundles, backtest comparison, proposal records, guard/risk layers, and broader operator surfaces
+- [ ] add no-lookahead, declarative sweep, and confidence-review checks before opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble research candidates become proposal-capable
 - [ ] add operator-visible reasoning panels that explain how technical, fundamental, macro, memory, and guard evidence combined
 - [ ] improve risk engine with volatility-based sizing, portfolio exposure limits, sector concentration checks, and macro risk overrides
       Notes:
@@ -393,6 +404,9 @@ Status: in progress.
 - agents now consume a compact `DecisionFeatureBundle`; raw noisy data should stay behind feature/provider boundaries
 - the prompt-facing feature bundle is the primary agent input; compact runtime snapshots remain available internally for deterministic fallback and risk math
 - canonical analysis snapshots now sit below the feature bundle so provider source, freshness, and missing-data truth can travel into prompts, persistence, memory, and dashboard JSON without coupling agents to provider-specific payloads
+- idea-scanner presets are intentionally score/watch helpers, not execution agents; output must pass through proposal review and explicit approval before any broker adapter call
+- market-intelligence guidance now exists under `.ai/agents/market-strategist.md`, `.ai/workflows/continuous-research-loop.md`, `.ai/playbooks/news-intelligence.md`, `.ai/playbooks/strategy-research-and-sweeps.md`, `.ai/playbooks/finance-evidence-reconciliation.md`, `.ai/skills/market-news-research.md`, and `.ai/strategies/`; these files are development contracts and not a second runtime
+- HHI/top-position concentration is the first finance-ops concentration signal; ATR/confidence sizing, ADV/spread penalties, group budgets, and correlation clusters are still open
 - Yahoo should be treated as fallback/degraded evidence once stronger provider data is configured, not as the long-term source of truth
 - API keys are configuration-only and must stay in ignored local env files, never in tracked files or QA artifacts
 - live trading remains blocked; this is decision intelligence groundwork, not broker activation
@@ -406,6 +420,7 @@ Status: completed.
 - [x] default to Alpaca paper endpoints and IEX-class data assumptions unless the operator explicitly configures otherwise
 - [x] keep paper, simulated-real, Alpaca external paper, and live backends explicitly separated in settings, status, persistence, and operator UI
 - [x] require manual approval before any live execution path can submit an order
+- [x] add a V1 manual-review proposal queue with explicit create/list/approve/reject commands and persisted execution intent/outcome audit fields
 - [x] enforce strict risk caps, kill switch, and unsupported-backend failures before live adapter activation
 - [x] add account, order, position, and feed health checks before any Alpaca live-readiness banner can pass
 - [x] restrict V1 live-readiness scope to US equities until paper evidence, manual approval, and strict safety gates are proven
@@ -416,6 +431,7 @@ Status: completed.
 - V1 does not mean live trading is enabled; it means the system is Alpaca-ready while remaining paper-first with manual approval and strict safety gates
 - `paper` remains the default; `alpaca_paper` is an explicit external-paper backend gated by credentials, paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`
 - `live` remains blocked; V1 readiness is expressed through `v1-readiness`, `provider-diagnostics`, `broker-status`, dashboard/observer payloads, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden live brokerage
+- proposal approval submits through the existing broker adapter boundary and paper/external-paper safety gates; scanner, sidecar, chat, and Web surfaces must not approve or execute implicitly
 
 ## V1 Research Sidecar - Local Evidence Companion
 
@@ -431,6 +447,8 @@ Status: in progress.
 - [x] move CrewAI Flow scaffolding into a tracked uv-managed sidecar at `sidecars/research_flow/` while keeping it outside the root dependency graph
 - [x] add a first opt-in official SEC EDGAR submissions metadata provider with User-Agent gating and normalized filing evidence
 - [x] add compact official SEC companyfacts XBRL summaries with fresh source attribution and no raw filing text injection
+- [x] add optional disabled-by-default Firecrawl news search and Camofox local-browser health providers behind `researchd`, with redaction, provenance, and raw-text-free prompt boundaries
+- [x] document the safe news/browser evidence envelope: source tier, fetcher source, attempts, published/fetched timestamps, freshness, materiality, classification, and redaction before any scanner/proposal/review use
 - [ ] wire remaining real official/structured sources: SEC full filing parsing, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
 - [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
 - [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
@@ -438,6 +456,7 @@ Status: in progress.
 - this is a local-first V1 evidence companion for the current runtime, not a re-platforming
 - the sidecar may eventually run beside the daemon, but it must not submit orders, mutate trading policy, or weaken strict runtime gates
 - SEC EDGAR submissions and compact companyfacts ingestion are disabled by default and require a configured User-Agent; full filing text and downstream memory writes remain separate planned steps
+- Firecrawl/Camofox support is optional helper infrastructure, not a mandatory runtime dependency or broker-capable sidecar
 - missing provider data must stay visible as missing; source diversity, staleness, evidence/inference separation, and contradiction tracking are core contracts
 
 ## V1 Evaluation And Crew Loops - Optional Sidecar Harness
@@ -487,7 +506,12 @@ Status: in progress.
 - [ ] expand docs with contributing and deeper reference pages without duplicating repository truth
 - [ ] add feature deep dives for paper operation, broker/account truth, memory/review evidence, research sidecar, runtime modes, and evidence bundles
 - [ ] add a cross-platform bootstrap flow for macOS, Linux, and Windows that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and opens the Web GUI
+- [ ] add a V1 side-application installer/check script for the local tools needed to run the full app experience: WebGUI/docs/TUI workspace deps, CrewAI Flow sidecar setup, optional Ollama/default-model setup, optional Firecrawl CLI readiness, optional Camofox local browser health, and clear post-install service checks
+- [x] define a repo-owned local tool root under `tools/` for optional runtime/development helpers: Camofox browser infrastructure, Ollama service metadata notes, Firecrawl adapter metadata notes, and explicit fallback rules to host-system tools or pure Python/JS fetchers
+- [ ] extend the first `tool_roots` helper into a central tool registry/readiness contract so setup, researchd, model-service, WebGUI, QA, and docs describe the same local helper truth instead of each probing Ollama, Firecrawl, Camofox, and browser tooling independently
+- [x] add a first setup-status and macOS bootstrap script foundation that detects core tools, optional Ollama/Firecrawl/Camofox/RuFlo readiness, and the `agentic-trader` PATH entrypoint without hidden installs
 - [ ] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
+- [ ] split oversized runtime/CLI/helper files incrementally into domain modules, constants, render helpers, and service helpers so V1 remains inspectable as a product codebase rather than a single-developer script pile
 - [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, using a local-first monospace typography stack without build-time Google Fonts fetches
 - [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
 - [x] resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind issue so local interactive frontend work matches the green lint/build path
@@ -498,3 +522,8 @@ Status: in progress.
 - the docs landing page now presents an operator guide first, with developer/contributor details as secondary context
 - `webgui` dev mode now runs on `localhost:3210` with Watchpack polling so browser QA matches the README and avoids file-watch noise in this worktree
 - app-managed Ollama and bootstrap work should plug into the existing daemon/log/status surfaces rather than inventing separate setup helpers with hidden runtime state
+- the first bootstrap slice is intentionally explicit: `make bootstrap` prompts before system installs, `agentic-trader setup-status` is read-only, Firecrawl auth remains user-owned, Camofox install is opt-in because it may download a browser binary, and the secure Camofox wrapper requires `CAMOFOX_ACCESS_KEY`
+- `agentic-trader setup-status` now includes model-service and WebGUI-service readiness, and the bootstrap script can offer PATH symlink repair when `agentic-trader` resolves to a stale checkout
+- side-application setup must be explicit and opt-in for paid/browser/provider helpers; missing optional tools should be reported as degraded readiness, not silently installed, auto-started, or treated as blockers for core paper operation
+- `tools/` is the intended home for optional local helper infrastructure; `sidecars/` stays for isolated runtime packages such as CrewAI Flow, and root Python/Node dependencies should not absorb browser/model/provider helper internals prematurely
+- refactors should be architectural cleanup with tests, not broad rewrites: extract duplicated strings/constants and service helpers when a touched file is already hard to audit, especially around CLI rendering, setup/service status, research provider fallbacks, and i18n-ready operator text

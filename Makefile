@@ -1,11 +1,17 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai webgui docs tui clean clean-deps clean-all
+.PHONY: help bootstrap bootstrap-dry-run setup setup-tools setup-camofox fetch-camofox check-camofox setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai start-camofox webgui docs tui clean clean-deps clean-all
 
 help:
 	@printf '%s\n' \
 		'Agentic Trader aliases:' \
+		'  make bootstrap    inspect/install system tools with prompts' \
+		'  make bootstrap-dry-run show system-tool installer actions' \
 		'  make setup        install Python and Node dependencies' \
+		'  make setup-tools  show runtime/tool setup status' \
+		'  make setup-camofox install optional Camofox helper deps without browser download' \
+		'  make fetch-camofox download/update optional Camoufox browser binary' \
+		'  make check-camofox syntax-check the optional Camofox helper' \
 		'  make setup-node   install and verify root/webgui/docs/tui Node deps' \
 		'  make setup-research-flow install CrewAI Flow sidecar dependencies' \
 		'  make check        run Python and Node checks' \
@@ -14,6 +20,7 @@ help:
 		'  make qa           run terminal smoke QA' \
 		'  make sonar        run local Sonar scan' \
 		'  make run-research-flow run the gated CrewAI Flow sidecar placeholder' \
+		'  make start-camofox start optional loopback/auth Camofox helper' \
 		'  make webgui       start Web GUI dev server' \
 		'  make docs         start docs dev server' \
 		'  make tui          start terminal UI' \
@@ -21,8 +28,26 @@ help:
 		'  make clean-deps   remove installed dependency directories' \
 		'  make clean-all    remove artifacts and installed dependencies'
 
+bootstrap:
+	pnpm run bootstrap
+
+bootstrap-dry-run:
+	pnpm run bootstrap:dry-run
+
 setup:
 	pnpm run setup
+
+setup-tools:
+	pnpm run setup:tools
+
+setup-camofox:
+	pnpm run setup:camofox
+
+fetch-camofox:
+	pnpm run fetch:camofox
+
+check-camofox:
+	pnpm run check:camofox
 
 setup-node:
 	pnpm run setup:node
@@ -107,6 +132,9 @@ run-research-flow:
 	pnpm run run:research-flow
 
 run-research-crewai: run-research-flow
+
+start-camofox:
+	pnpm run start:camofox
 
 webgui:
 	pnpm run dev:webgui

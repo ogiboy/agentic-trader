@@ -15,6 +15,7 @@ from agentic_trader.runtime_status import build_runtime_status_view, is_process_
 from agentic_trader.schemas import LLMHealthStatus, RunArtifacts
 from agentic_trader.security import open_private_append_binary
 from agentic_trader.storage.db import TradingDatabase
+from agentic_trader.system.runtime_tools import ensure_model_service_if_configured
 from agentic_trader.workflows.run_once import persist_run, run_once
 
 
@@ -135,7 +136,8 @@ def _manage_open_position(
 
 def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
     """
-    Ensure the local LLM service is reachable and, if configured, that the required model is available.
+    Ensure the local LLM service is reachable, the required model is listed, and
+    strict operation mode can complete a lightweight generation probe.
 
     Parameters:
         settings (Settings): Application settings. When `settings.runtime_mode == "operation"`, `settings.strict_llm` must be True.
@@ -144,14 +146,17 @@ def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
         LLMHealthStatus: Health report returned by the local LLM.
 
     Raises:
-        RuntimeError: If operation mode is configured without `strict_llm`, if the LLM service is not reachable (message provided by the health check), or if `strict_llm` is True but the required model is unavailable (message provided by the health check).
+        RuntimeError: If operation mode is configured without `strict_llm`, if the LLM service is not reachable (message provided by the health check), if `strict_llm` is True but the required model is unavailable, or if the generation probe fails.
     """
     if settings.runtime_mode == "operation" and not settings.strict_llm:
         raise RuntimeError("Operation mode requires strict LLM gating.")
-    health = LocalLLM(settings).health_check()
+    ensure_model_service_if_configured(settings)
+    health = LocalLLM(settings).health_check(include_generation=settings.strict_llm)
     if not health.service_reachable:
         raise RuntimeError(health.message)
     if settings.strict_llm and not health.model_available:
+        raise RuntimeError(health.message)
+    if settings.strict_llm and health.generation_available is False:
         raise RuntimeError(health.message)
     return health
 

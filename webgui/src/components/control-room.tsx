@@ -445,10 +445,23 @@ function OverviewView({
         <Panel title="Readiness Gates" accent="rose">
           <TextList items={readinessLines(dashboard)} />
         </Panel>
-        <Panel title="Provider Warnings" accent="amber">
-          <TextList items={providerWarningLines(dashboard)} />
+        <Panel title="Local Tools" accent="cyan">
+          <TextList
+            items={[
+              `Model Service: ${dashboard.modelService?.message ?? '-'}`,
+              `Model Service Owned: ${dashboard.modelService?.app_owned ? 'yes' : 'no'}`,
+              `Model Service URL: ${dashboard.modelService?.base_url ?? dashboard.modelService?.configured_base_url ?? '-'}`,
+              `Web GUI: ${dashboard.webGui?.message ?? '-'}`,
+              `Web GUI Owned: ${dashboard.webGui?.app_owned ? 'yes' : 'no'}`,
+              `Web GUI URL: ${dashboard.webGui?.url ?? '-'}`,
+            ]}
+          />
         </Panel>
       </div>
+
+      <Panel title="Provider Warnings" accent="amber">
+        <TextList items={providerWarningLines(dashboard)} />
+      </Panel>
 
       <Panel title="Decision Workflow" accent="amber">
         <TextList items={recentStageEvents} />
@@ -1217,6 +1230,8 @@ export function ControlRoom() {
       ['Base URL', dashboard?.doctor?.base_url ?? '-'],
       ['Ollama Reachable', dashboard?.doctor?.ollama_reachable ? 'yes' : 'no'],
       ['Model Available', dashboard?.doctor?.model_available ? 'yes' : 'no'],
+      ['Model Service', dashboard?.modelService?.message ?? '-'],
+      ['Web GUI Service', dashboard?.webGui?.message ?? '-'],
       ['Broker Backend', dashboard?.broker?.backend ?? '-'],
       ['Broker State', dashboard?.broker?.state ?? '-'],
       ['Execution Mode', dashboard?.broker?.execution_mode ?? '-'],

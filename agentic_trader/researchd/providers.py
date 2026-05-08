@@ -4,14 +4,22 @@ Providers expose source readiness and missing-data truth. Real network-backed
 providers must stay opt-in, source-attributed, and free of fabricated events.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+import hashlib
+import json
+import os
+from pathlib import Path
+from urllib.parse import urlparse
+import shutil
+import subprocess
+from typing import Any, Callable, Protocol, cast, runtime_checkable
 
 import httpx
 
 from agentic_trader.config import Settings
 from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
+from agentic_trader.security import is_loopback_host, redact_sensitive_text
 from agentic_trader.schemas import (
     DataProviderKind,
     DataSourceRole,
@@ -22,6 +30,10 @@ from agentic_trader.schemas import (
     ResearchProviderHealth,
     SocialSignal,
     EvidenceInferenceBreakdown,
+)
+from agentic_trader.system.camofox_service import (
+    CamofoxServiceStatus,
+    build_camofox_service_status,
 )
 
 
@@ -74,6 +86,36 @@ SEC_COMPANY_FACT_CONCEPTS = (
     ),
 )
 JsonFetcher = Callable[[str, Mapping[str, str], float], dict[str, Any]]
+FirecrawlSdkSearcher = Callable[[str, int, float], object]
+CamofoxServiceStatusBuilder = Callable[[Settings], CamofoxServiceStatus]
+
+
+class CommandRunner(Protocol):
+    """Subprocess runner for optional CLI providers with explicit env."""
+
+    def __call__(
+        self,
+        command: list[str],
+        timeout_seconds: float,
+        env: Mapping[str, str],
+    ) -> subprocess.CompletedProcess[str]:
+        ...
+
+
+MINIMAL_COMMAND_ENV_KEYS = (
+    "PATH",
+    "HOME",
+    "TMPDIR",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "SYSTEMROOT",
+    "WINDIR",
+)
+HealthFetcher = Callable[[str, float], dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -287,6 +329,273 @@ class SecEdgarSubmissionsProvider:
         )
 
 
+class FirecrawlNewsResearchProvider:
+    """Opt-in Firecrawl news search provider with sanitized evidence output."""
+
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        command_runner: CommandRunner | None = None,
+        sdk_searcher: FirecrawlSdkSearcher | None = None,
+    ) -> None:
+        self._enabled = settings.research_firecrawl_enabled
+        self._api_key = settings.firecrawl_api_key
+        self._cli = settings.research_firecrawl_cli
+        self._country = settings.research_firecrawl_country.upper()
+        self._timeout = min(
+            max(settings.research_firecrawl_timeout_seconds, 1.0), 300.0
+        )
+        self._runner = command_runner or _run_command
+        self._sdk_searcher = sdk_searcher
+        self._prefer_sdk = command_runner is None
+        self._metadata = metadata(
+            provider_id="firecrawl_news_research",
+            name="Firecrawl News Research",
+            provider_type="news",
+            role="fallback",
+            priority=35,
+            enabled=self._enabled,
+            requires_network=self._enabled,
+            notes=[
+                "firecrawl_sdk_optional",
+                "firecrawl_cli_optional",
+                "news_search_provider",
+                "raw_web_text_not_injected",
+                "enabled" if self._enabled else "provider_disabled",
+            ],
+        )
+
+    def metadata(self) -> ProviderMetadata:
+        return self._metadata
+
+    def collect(self, *, symbols: list[str], limit: int) -> ResearchProviderOutput:
+        if not self._enabled:
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["provider_disabled"],
+            )
+        watched_symbols = [_normalize_symbol(symbol) for symbol in symbols]
+        watched_symbols = [symbol for symbol in watched_symbols if symbol]
+        if not watched_symbols:
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["watchlist_missing"],
+            )
+
+        records: list[RawEvidenceRecord] = []
+        missing_reasons: list[str] = []
+        per_symbol_limit = max(1, min(limit, 10))
+        for symbol in watched_symbols:
+            query = f"{symbol} stock news this week"
+            if self._prefer_sdk:
+                try:
+                    sdk_payload = _firecrawl_sdk_search_payload(
+                        query=query,
+                        limit=per_symbol_limit,
+                        timeout_seconds=self._timeout,
+                        api_key=self._api_key,
+                        sdk_searcher=self._sdk_searcher,
+                    )
+                except Exception as exc:
+                    missing_reasons.append(
+                        f"firecrawl_sdk_failed:{symbol}:{type(exc).__name__}"
+                    )
+                    sdk_payload = None
+                if sdk_payload is not None:
+                    symbol_records = _records_from_firecrawl_payload(
+                        provider=self._metadata,
+                        symbol=symbol,
+                        payload=sdk_payload,
+                        limit=per_symbol_limit,
+                    )
+                    if not symbol_records:
+                        missing_reasons.append(f"firecrawl_no_news:{symbol}")
+                    records.extend(symbol_records)
+                    if len(records) >= limit:
+                        break
+                    continue
+
+            cli_path = _resolve_cli(self._cli)
+            if cli_path is None:
+                missing_reasons.append("firecrawl_cli_missing")
+                continue
+            command = [
+                cli_path,
+                "search",
+                query,
+                "--sources",
+                "news",
+                "--country",
+                self._country,
+                "--limit",
+                str(per_symbol_limit),
+                "--json",
+            ]
+            try:
+                completed = self._runner(
+                    command,
+                    self._timeout,
+                    _minimal_firecrawl_env(self._api_key),
+                )
+            except (OSError, subprocess.SubprocessError, TimeoutError) as exc:
+                missing_reasons.append(
+                    f"firecrawl_command_failed:{symbol}:{type(exc).__name__}"
+                )
+                continue
+            if completed.returncode != 0:
+                missing_reasons.append(
+                    f"firecrawl_nonzero_exit:{symbol}:"
+                    f"{redact_sensitive_text(completed.stderr, max_length=120)}"
+                )
+                continue
+            try:
+                payload = json.loads(completed.stdout)
+            except json.JSONDecodeError:
+                missing_reasons.append(f"firecrawl_json_parse_failed:{symbol}")
+                continue
+            symbol_records = _records_from_firecrawl_payload(
+                provider=self._metadata,
+                symbol=symbol,
+                payload=payload,
+                limit=per_symbol_limit,
+            )
+            if not symbol_records:
+                missing_reasons.append(f"firecrawl_no_news:{symbol}")
+            records.extend(symbol_records)
+            if len(records) >= limit:
+                break
+
+        return ResearchProviderOutput(
+            metadata=self._metadata,
+            raw_evidence=records[:limit],
+            missing_reasons=list(dict.fromkeys(missing_reasons)),
+        )
+
+
+class CamofoxBrowserResearchProvider:
+    """Opt-in local Camofox health provider for browser-backed research readiness."""
+
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        health_fetcher: HealthFetcher | None = None,
+        service_status_builder: CamofoxServiceStatusBuilder | None = None,
+    ) -> None:
+        self._settings = settings
+        self._enabled = settings.research_camofox_enabled
+        self._base_url = settings.research_camofox_base_url.rstrip("/")
+        parsed_base_url = urlparse(self._base_url)
+        self._loopback_only = parsed_base_url.scheme in {"http", "https"} and is_loopback_host(
+            parsed_base_url.hostname or ""
+        )
+        self._timeout = min(max(settings.request_timeout_seconds, 1.0), 10.0)
+        self._fetcher = health_fetcher or _fetch_camofox_health
+        self._service_status_builder = service_status_builder or build_camofox_service_status
+        self._metadata = metadata(
+            provider_id="camofox_browser_research",
+            name="Camofox Browser Research",
+            provider_type="news",
+            role="fallback",
+            priority=36,
+            enabled=self._enabled,
+            requires_network=self._enabled,
+            notes=[
+                "camofox_local_browser_optional",
+                "loopback_required",
+                "browser_health_only",
+                "raw_web_text_not_injected",
+                "enabled" if self._enabled else "provider_disabled",
+            ],
+        )
+
+    def metadata(self) -> ProviderMetadata:
+        return self._metadata
+
+    def collect(self, *, symbols: list[str], limit: int) -> ResearchProviderOutput:
+        _ = (symbols, limit)
+        if not self._enabled:
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["provider_disabled"],
+            )
+        if not self._loopback_only:
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["camofox_base_url_must_be_loopback"],
+            )
+        service_status = self._service_status_builder(self._settings)
+        if (
+            service_status.app_owned
+            and service_status.base_url.rstrip("/") == self._base_url
+            and not service_status.health_ok
+        ):
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["camofox_browser_launch_failed"],
+            )
+        try:
+            payload = self._fetcher(f"{self._base_url}/health", self._timeout)
+        except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
+            return ResearchProviderOutput(
+                metadata=self._metadata,
+                missing_reasons=["camofox_health_failed", _safe_error_note(exc)],
+            )
+        fetched_at = utc_now_iso()
+        ok = bool(payload.get("ok"))
+        record = RawEvidenceRecord(
+            record_id=f"camofox-health:{_stable_hash(self._base_url)}",
+            source_kind="provider_status",
+            source_name=self._metadata.provider_id,
+            title="Camofox browser research health",
+            url=f"{self._base_url}/health",
+            observed_at=fetched_at,
+            last_verified_at=fetched_at,
+            normalized_summary=(
+                "Camofox local browser health is "
+                f"{'ok' if ok else 'not ok'}; "
+                f"engine={payload.get('engine', 'unknown')}; "
+                f"browserConnected={payload.get('browserConnected', 'unknown')}; "
+                f"browserRunning={payload.get('browserRunning', 'unknown')}."
+            ),
+            source_payload_ref=f"camofox-health://{_stable_hash(self._base_url)}",
+            source_attributions=[
+                source_attribution(
+                    source_name=self._metadata.provider_id,
+                    provider_type=self._metadata.provider_type,
+                    source_role=self._metadata.role if ok else "missing",
+                    fetched_at=fetched_at,
+                    freshness="fresh" if ok else "unknown",
+                    confidence=0.8 if ok else 0.2,
+                    completeness=1.0 if ok else 0.4,
+                    notes=[
+                        "local_browser_health",
+                        "raw_web_text_not_injected",
+                    ],
+                )
+            ],
+            evidence_vs_inference=EvidenceInferenceBreakdown(
+                evidence=[
+                    "Health endpoint returned a structured browser status payload."
+                ],
+                inference=[
+                    "Browser-backed research can be attempted only when the provider remains enabled and healthy."
+                ],
+                uncertainty=[
+                    "Health status does not prove a specific finance site can be fetched."
+                ],
+            ),
+            missing_fields=[] if ok else ["healthy_browser"],
+        )
+        missing = [] if ok else ["camofox_unhealthy"]
+        return ResearchProviderOutput(
+            metadata=self._metadata,
+            raw_evidence=[record],
+            missing_reasons=missing,
+        )
+
+
 def default_research_providers(settings: Settings) -> list[ResearchEvidenceProvider]:
     """Return the local-first research source ladder for the sidecar."""
     social_configured = bool(settings.research_symbols)
@@ -308,6 +617,8 @@ def default_research_providers(settings: Settings) -> list[ResearchEvidenceProvi
             priority=30,
             notes=["fred_cbtr_evds_gdelt_future_sources"],
         ),
+        FirecrawlNewsResearchProvider(settings=settings),
+        CamofoxBrowserResearchProvider(settings=settings),
         ScaffoldResearchProvider(
             provider_id="news_event_research",
             name="News And Event Research",
@@ -411,12 +722,249 @@ def _fetch_json(
     return payload
 
 
+def _run_command(
+    command: list[str], timeout_seconds: float, env: Mapping[str, str]
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds,
+        check=False,
+        env=dict(env),
+    )
+
+
+def _minimal_firecrawl_env(api_key: str | None = None) -> dict[str, str]:
+    env = {
+        key: os.environ[key]
+        for key in MINIMAL_COMMAND_ENV_KEYS
+        if key in os.environ
+    }
+    resolved_api_key = api_key or os.environ.get("FIRECRAWL_API_KEY")
+    if resolved_api_key:
+        env["FIRECRAWL_API_KEY"] = resolved_api_key
+    return env
+
+
+def _firecrawl_sdk_search_payload(
+    *,
+    query: str,
+    limit: int,
+    timeout_seconds: float,
+    api_key: str | None = None,
+    sdk_searcher: FirecrawlSdkSearcher | None = None,
+) -> object | None:
+    resolved_api_key = (api_key or os.environ.get("FIRECRAWL_API_KEY", "")).strip()
+    if not resolved_api_key and sdk_searcher is None:
+        return None
+    if sdk_searcher is not None:
+        return _firecrawl_sdk_payload(sdk_searcher(query, limit, timeout_seconds))
+    try:
+        from firecrawl import Firecrawl
+    except ImportError:
+        return None
+    client = Firecrawl(api_key=resolved_api_key, timeout=timeout_seconds)
+    return _firecrawl_sdk_payload(
+        client.search(
+            query,
+            sources=["news"],
+            limit=limit,
+            timeout=max(1, int(timeout_seconds)),
+        )
+    )
+
+
+def _firecrawl_sdk_payload(value: object) -> object:
+    if isinstance(value, dict):
+        return {str(key): _firecrawl_sdk_payload(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_firecrawl_sdk_payload(item) for item in value]
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return _firecrawl_sdk_payload(cast(Callable[[], object], model_dump)())
+    if hasattr(value, "data"):
+        return {"data": _firecrawl_sdk_payload(getattr(value, "data"))}
+    if hasattr(value, "__dict__"):
+        return {
+            key: _firecrawl_sdk_payload(item)
+            for key, item in vars(value).items()
+            if not key.startswith("_")
+        }
+    return value
+
+
+def _resolve_cli(raw_cli: str) -> str | None:
+    raw_cli = raw_cli.strip()
+    if not raw_cli:
+        return None
+    candidate_path = Path(raw_cli).expanduser()
+    if (
+        candidate_path.is_absolute()
+        or candidate_path.parent != Path(".")
+        or "\\" in raw_cli
+    ):
+        return str(candidate_path) if candidate_path.exists() else None
+    return shutil.which(raw_cli)
+
+
+def _fetch_camofox_health(url: str, timeout_seconds: float) -> dict[str, Any]:
+    response = httpx.get(url, timeout=timeout_seconds)
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("camofox_health_payload_not_object")
+    return payload
+
+
 def _normalize_symbol(symbol: str) -> str:
     return symbol.strip().upper()
 
 
 def _safe_error_note(exc: BaseException) -> str:
     return f"provider_error:{type(exc).__name__}"
+
+
+def _records_from_firecrawl_payload(
+    *,
+    provider: ProviderMetadata,
+    symbol: str,
+    payload: object,
+    limit: int,
+) -> list[RawEvidenceRecord]:
+    records: list[RawEvidenceRecord] = []
+    fetched_at = utc_now_iso()
+    for item in _firecrawl_results(payload):
+        record = _record_from_firecrawl_item(
+            provider=provider,
+            symbol=symbol,
+            item=item,
+            fetched_at=fetched_at,
+            index=len(records),
+        )
+        if record is None:
+            continue
+        records.append(record)
+        if len(records) >= limit:
+            break
+    return records
+
+
+def _firecrawl_results(payload: object) -> list[dict[str, Any]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if not isinstance(payload, dict):
+        return []
+    for key in ("data", "results", "items", "web", "news"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+        if isinstance(value, dict):
+            nested = _firecrawl_results(value)
+            if nested:
+                return nested
+    value = payload.get("success")
+    if isinstance(value, dict):
+        return _firecrawl_results(value)
+    return []
+
+
+def _record_from_firecrawl_item(
+    *,
+    provider: ProviderMetadata,
+    symbol: str,
+    item: dict[str, Any],
+    fetched_at: str,
+    index: int,
+) -> RawEvidenceRecord | None:
+    title = _first_text(item, "title", "name")
+    url = _first_text(item, "url", "link")
+    if not title and not url:
+        return None
+    source = _first_text(item, "source", "provider", "site") or _domain(url)
+    published_at = _first_text(
+        item,
+        "published_at",
+        "publishedAt",
+        "publishedDate",
+        "date",
+    )
+    summary = _sanitized_summary(_first_text(item, "description", "snippet", "summary"))
+    record_hash = _stable_hash(f"{symbol}:{url}:{title}:{index}")
+    evidence = [
+        f"title={title or 'unknown'}",
+        f"url={url or 'unknown'}",
+        f"source={source or 'unknown'}",
+    ]
+    if published_at:
+        evidence.append(f"published_at={published_at}")
+    return RawEvidenceRecord(
+        record_id=f"firecrawl-news:{symbol}:{record_hash}",
+        source_kind="news",
+        source_name=provider.provider_id,
+        title=title or f"{symbol} Firecrawl news result",
+        symbol=symbol,
+        url=url or None,
+        normalized_summary=summary,
+        source_payload_ref=f"firecrawl-search://{record_hash}",
+        observed_at=published_at or fetched_at,
+        last_verified_at=fetched_at,
+        source_attributions=[
+            source_attribution(
+                source_name=provider.provider_id,
+                provider_type=provider.provider_type,
+                source_role=provider.role,
+                fetched_at=fetched_at,
+                freshness="fresh" if published_at else "unknown",
+                confidence=0.65,
+                completeness=0.8 if summary else 0.6,
+                notes=[
+                    "firecrawl_search",
+                    "news_source",
+                    "raw_web_text_not_injected",
+                    f"result_source={source or 'unknown'}",
+                ],
+            )
+        ],
+        evidence_vs_inference=EvidenceInferenceBreakdown(
+            evidence=evidence,
+            inference=[
+                "Ticker-specific news query suggests company-specific relevance; downstream synthesis must verify materiality."
+            ],
+            uncertainty=[
+                "Search snippets may omit context, and publication timestamps can be missing or provider-normalized."
+            ],
+        ),
+        missing_fields=[] if summary else ["summary"],
+    )
+
+
+def _first_text(item: dict[str, Any], *keys: str) -> str:
+    for key in keys:
+        value = item.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+def _sanitized_summary(value: str) -> str:
+    text = redact_sensitive_text(" ".join(value.split()))
+    if len(text) > 500:
+        return f"{text[:500]}...<truncated>"
+    return text
+
+
+def _domain(url: str) -> str:
+    if not url:
+        return ""
+    return urlparse(url).netloc.lower()
+
+
+def _stable_hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
 
 
 def _sec_configuration_note(*, enabled: bool, user_agent: str) -> str:

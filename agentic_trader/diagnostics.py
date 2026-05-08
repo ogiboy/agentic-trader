@@ -268,12 +268,14 @@ def v1_readiness_payload(
 
     provider_health: dict[str, object] | None = None
     if check_provider:
-        health = LocalLLM(settings).health_check()
+        health = LocalLLM(settings).health_check(include_generation=True)
         provider_health = health.model_dump(mode="json")
         paper_checks.append(
             _check(
                 "llm_provider_ready",
-                health.service_reachable and (health.model_available or not settings.strict_llm),
+                health.service_reachable
+                and (health.model_available or not settings.strict_llm)
+                and health.generation_available is not False,
                 health.message,
             )
         )

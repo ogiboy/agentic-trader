@@ -13,6 +13,9 @@ Use them when a task needs a repeatable sequence:
 - `browser-qa.md`
 - `memory-retrieval.md`
 - `ruflo-advisory-checks.md`
+- `news-intelligence.md`
+- `strategy-research-and-sweeps.md`
+- `finance-evidence-reconciliation.md`
 
 Each playbook should name:
 
@@ -20,3 +23,10 @@ Each playbook should name:
 2. exact checks to run
 3. what evidence to keep
 4. what must not be automated
+
+For V1 trading-intelligence work, prefer these pairings:
+
+- News, macro, filing, Firecrawl, or Camofox work: `news-intelligence.md`
+- Scanner presets, strategy families, backtests, sweeps, or proposal enrichment:
+  `strategy-research-and-sweeps.md`
+- Broker/accounting/reporting truth: `finance-evidence-reconciliation.md`

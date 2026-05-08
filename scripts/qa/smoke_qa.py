@@ -58,6 +58,7 @@ HELP_COMMANDS = (
     ("trade_context_help", ["trade-context", "--help"]),
     ("tui_help", ["tui", "--help"]),
     ("menu_help", ["menu", "--help"]),
+    ("webgui_service_help", ["webgui-service", "--help"]),
     ("observer_api_help", ["observer-api", "--help"]),
 )
 HELP_INTERNAL_MARKERS = ("Parameters:", "Raises:", "Returns:")
@@ -2126,9 +2127,15 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
                 ),
                 run_tui_open_and_quit(
                     context,
-                    "main_entrypoint_tui",
+                    "main_entrypoint_launcher",
                     agentic_trader_executable,
                     [],
+                ),
+                run_tui_open_and_quit(
+                    context,
+                    "direct_tui_entrypoint",
+                    agentic_trader_executable,
+                    ["tui"],
                 ),
                 run_ink_settings_navigation(context, agentic_trader_executable),
                 run_tui_open_and_quit(
@@ -2148,7 +2155,7 @@ def _surface_checks(context: SmokeContext, args: Namespace) -> list[CheckResult]
     results.append(
         run_tui_open_and_quit(
             context,
-            "python_main_tui",
+            "python_main_launcher",
             SMOKE_PYTHON,
             ["main.py"],
             display=f"python main.py (resolved: {SMOKE_PYTHON})",

@@ -74,14 +74,86 @@ Expected:
 - supervisor status exposes daemon metadata and log tails without requiring the runtime writer lock
 - broker payload reports `paper` unless environment variables override it
 
-## Scenario 2: Primary Ink Control Room
+## Scenario 1A: Setup And Model-Service Readiness
 
-Purpose: verify the main operator surface is usable and does not hide runtime truth.
+Purpose: confirm onboarding/tool readiness is visible without hidden installs and app-managed Ollama cannot hijack external services.
+
+Steps:
+
+```bash
+make bootstrap-dry-run
+agentic-trader setup-status --json
+agentic-trader setup --json
+agentic-trader model-service status --json
+agentic-trader webgui-service status --json
+AGENTIC_TRADER_RESEARCH_CAMOFOX_BASE_URL=http://0.0.0.0:9377 agentic-trader setup-status --json
+AGENTIC_TRADER_RESEARCH_CAMOFOX_BASE_URL=http://0.0.0.0:9377 agentic-trader camofox-service status --json
+AGENTIC_TRADER_MODEL_SERVICE_HOST=0.0.0.0 agentic-trader model-service start --json
+scripts/start-camofox-browser.sh
+```
+
+Optional when intentionally testing local model setup:
+
+```bash
+agentic-trader model-service start --json
+agentic-trader model-service pull qwen3:8b --json
+agentic-trader v1-readiness --provider-check --json
+agentic-trader runtime-mode-checklist operation --provider-check --json
+agentic-trader model-service stop --json
+agentic-trader webgui-service start --no-open-browser --json
+agentic-trader webgui-service stop --json
+```
+
+Expected:
+
+- dry-run prints intended install/check actions without installing anything
+- setup status reports `uv`, Node, `pnpm`, the console entrypoint, Ollama,
+  CrewAI Flow sidecar, Firecrawl, Camofox, RuFlo, and Docker readiness
+- Firecrawl unauthenticated or missing state is degraded readiness, not a core blocker
+- Camofox missing/unhealthy state is degraded readiness, not a core blocker
+- Camofox non-loopback base URLs are marked unsafe without probing the URL
+- Camofox wrapper refuses to start without `CAMOFOX_ACCESS_KEY` or `CAMOFOX_API_KEY`
+- app-managed Camofox may mirror `CAMOFOX_API_KEY` into the local helper's access token so browser routes stay bearer-gated
+- app-managed Camofox reports degraded health when the Node server is reachable but recent logs show Camoufox browser launch failures
+- Camofox `/health` payloads with `browserRunning=false` or `browserConnected=false` are acceptable for the default on-demand browser-launch mode, but the first actual browser-backed fetch must still fail closed if launch produces SIGABRT or other launch-failure logs
+- non-loopback model-service host is rejected before starting a process
+- app-managed Ollama state and logs live under `runtime/model_service/`
+- app-managed stop only targets the recorded app-owned PID, escalates only for that PID if SIGTERM does not exit, and keeps ownership state visible if the process cannot be stopped
+- provider-check readiness fails closed when Ollama is reachable and the model is listed but generation fails
+- app-owned Web GUI state and logs live under `runtime/webgui_service/`
+- app-owned Web GUI stop only targets the recorded app-owned PID
+- fake provider/broker secrets do not appear in model-service log tails, JSON output, or setup artifacts
+
+## Scenario 2: Primary Operator Launcher
+
+Purpose: verify the installed product entrypoint is usable, explains the available surfaces, and does not start hidden work.
 
 Steps:
 
 ```bash
 agentic-trader
+```
+
+Interact:
+
+- verify the launcher shows Web GUI, daemon, Ink, Rich, model-service, setup, and exit choices
+- press `7` or `q`
+
+Expected:
+
+- no traceback on entry or exit
+- no daemon or Web GUI starts unless explicitly selected
+- setup/model-service/WebGUI-service messages are visible before selection
+- pexpect/tmux/asciinema evidence confirms the launcher is readable and truthful
+
+## Scenario 2B: Primary Ink Control Room
+
+Purpose: verify the main terminal control room is usable and does not hide runtime truth.
+
+Steps:
+
+```bash
+agentic-trader tui
 ```
 
 Interact:

@@ -30,6 +30,15 @@ pnpm run check
 
 This wraps `ruff check .`, `pyright agentic_trader tests scripts`, `python -m pytest -q`, and the Node workspace lint/type/build checks.
 
+Recommended onboarding/tooling verification after setup or side-application changes:
+
+```bash
+make bootstrap-dry-run
+agentic-trader setup-status --json
+agentic-trader model-service status --json
+agentic-trader webgui-service status --json
+```
+
 Recommended terminal smoke pass:
 
 ```bash
@@ -259,6 +268,19 @@ Primary UI:
 agentic-trader
 agentic-trader tui
 python main.py
+```
+
+Local side applications:
+
+```bash
+agentic-trader setup-status
+agentic-trader model-service status
+agentic-trader model-service stop
+agentic-trader camofox-service status
+agentic-trader camofox-service start
+agentic-trader camofox-service stop
+agentic-trader webgui-service status
+CAMOFOX_ACCESS_KEY=$(openssl rand -hex 24) make start-camofox
 ```
 
 Admin / legacy UI:

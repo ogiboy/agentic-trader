@@ -25,6 +25,7 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert "financeOps" in dashboard
     assert "providerDiagnostics" in dashboard
     assert "v1Readiness" in dashboard
+    assert "tradeProposals" in dashboard
 
     status_code, broker = build_observer_api_payload(settings, path="/broker")
     assert status_code == 200
@@ -52,6 +53,13 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert status_code == 200
     assert research["status"] == "disabled"
     assert "provider_health" in research
+
+    status_code, proposals = build_observer_api_payload(
+        settings, path="/trade-proposals"
+    )
+    assert status_code == 200
+    assert proposals["available"] is True
+    assert proposals["proposals"] == []
 
     status_code, supervisor = build_observer_api_payload(settings, path="/supervisor")
     assert status_code == 200

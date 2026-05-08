@@ -44,6 +44,9 @@ TrendVote: TypeAlias = Literal["bullish", "bearish", "mixed", "insufficient"]
 RuntimeMode: TypeAlias = Literal["training", "operation"]
 ResearchMode: TypeAlias = Literal["off", "training", "live_prep"]
 ExecutionBackend: TypeAlias = Literal["paper", "simulated_real", "alpaca_paper", "live"]
+TradeProposalStatus: TypeAlias = Literal[
+    "pending", "approved", "rejected", "executed", "failed", "expired"
+]
 type NewsClassification = Literal[
     "company_specific", "sector_level", "macro_level"
 ]
@@ -99,6 +102,8 @@ class LLMHealthStatus(BaseModel):
     model_name: str
     service_reachable: bool
     model_available: bool
+    generation_available: bool | None = None
+    generation_message: str | None = None
     message: str
 
 
@@ -166,6 +171,36 @@ class ExecutionDecision(BaseModel):
     position_size_pct: float
     confidence: float
     rationale: str
+
+
+class TradeProposalRecord(BaseModel):
+    proposal_id: str
+    created_at: str
+    updated_at: str
+    symbol: str
+    side: TradeSide
+    order_type: Literal["market", "limit"] = "market"
+    quantity: float | None = Field(default=None, gt=0.0)
+    notional: float | None = Field(default=None, gt=0.0)
+    reference_price: float = Field(gt=0.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    thesis: str
+    stop_loss: float | None = Field(default=None, gt=0.0)
+    take_profit: float | None = Field(default=None, gt=0.0)
+    invalidation_condition: str | None = None
+    source: str = "manual"
+    status: TradeProposalStatus = "pending"
+    review_notes: str = ""
+    rejection_reason: str | None = None
+    execution_intent_id: str | None = None
+    execution_order_id: str | None = None
+    execution_outcome_status: str | None = None
+
+    @model_validator(mode="after")
+    def require_quantity_or_notional(self) -> "TradeProposalRecord":
+        if self.quantity is None and self.notional is None:
+            raise ValueError("Trade proposals require quantity or notional.")
+        return self
 
 
 class PortfolioSnapshot(BaseModel):
@@ -919,6 +954,8 @@ class DailyRiskReport(BaseModel):
     daily_realized_pnl: float
     gross_exposure_pct: float
     largest_position_pct: float
+    portfolio_hhi: float = 0.0
+    top_position_symbols: list[str] = Field(default_factory=list)
     drawdown_from_peak_pct: float
     warnings: list[str] = Field(default_factory=list)
 

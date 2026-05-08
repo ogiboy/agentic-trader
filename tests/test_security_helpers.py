@@ -28,6 +28,12 @@ def test_redact_sensitive_text_masks_common_secret_shapes(
     assert "<redacted>" in redacted
 
 
+def test_redact_sensitive_text_strips_ansi_escape_sequences() -> None:
+    text = "\x1b[38;5;208mfirecrawl\x1b[0m status"
+
+    assert redact_sensitive_text(text) == "firecrawl status"
+
+
 def test_private_runtime_artifact_helpers_use_owner_only_modes(tmp_path) -> None:
     directory = tmp_path / "runtime"
     path = directory / "service_events.jsonl"

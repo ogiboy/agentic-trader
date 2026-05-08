@@ -74,15 +74,24 @@ Use this checklist for behavior-changing work. Not every item applies to every t
   API-key readiness without leaking secret values.
 - [ ] `agentic-trader v1-readiness --json` reports paper-operation gates and
   Alpaca paper-readiness gates before longer operation or external paper checks.
+- [ ] For product-readiness evidence, run `agentic-trader v1-readiness
+  --provider-check --json`, `agentic-trader dashboard-snapshot --provider-check`,
+  or `agentic-trader evidence-bundle --provider-check --json` so the V1 paper
+  gate reflects actual model/provider readiness rather than the safe
+  network-free "not checked" state.
 - [ ] `agentic-trader supervisor-status` reports daemon metadata and log tails without requiring the DuckDB writer lock.
 - [ ] Observer-compatible supervisor payloads expose the same daemon metadata and log-tail truth.
 - [ ] `agentic-trader dashboard-snapshot` contains the same truth consumed by Ink.
+- [ ] `agentic-trader setup-status --json` reports core and optional side-application readiness without installing anything.
+- [ ] `agentic-trader model-service status/start/stop/pull --json` paths are tested with mocked or intentional local Ollama behavior; non-loopback hosts fail closed, generation-load failures block provider-check readiness, and app-owned stop never kills external Ollama or forgets a still-running app-owned PID.
+- [ ] `agentic-trader webgui-service status/start/stop --json` paths are tested with mocked or intentional local Web GUI behavior; binds stay loopback-only and app-owned stop never kills unrelated PIDs.
+- [ ] `agentic-trader` without arguments shows operator-launcher choices and does not start the daemon unless the operator explicitly selects that path.
 
 ## Ink TUI
 
 - [ ] Use pexpect/tmux/asciinema to open the Ink control room and inspect the changed page or flow; add a Computer Use visual pass when available.
-- [ ] `agentic-trader` opens the Ink control room when the console entrypoint is installed.
-- [ ] `python main.py` opens the same primary operator surface.
+- [ ] `agentic-trader tui` opens the Ink control room when the console entrypoint is installed.
+- [ ] `agentic-trader` and `python main.py` open the same primary operator launcher before any surface is selected.
 - [ ] First-launch logo/header fits without pushing the primary controls off screen.
 - [ ] Layout remains readable after terminal resize, including compact, normal, and wide sizes when feasible.
 - [ ] Text wraps or truncates intentionally; critical state is not clipped.

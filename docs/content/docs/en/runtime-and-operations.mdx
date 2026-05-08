@@ -6,6 +6,8 @@ description: One-shot runs, service mode, health visibility, and the operational
 ## Runtime entrypoints
 
 - `main.py` and `agentic_trader.cli:app` expose the same command surface
+- no-argument `agentic-trader` opens the operator launcher and asks before
+  starting Web GUI, daemon, Ink, Rich, setup, or model-service paths
 - `agentic_trader/workflows/run_once.py` owns one strict cycle
 - `agentic_trader/workflows/service.py` owns continuous and background orchestration
 - observer and UI surfaces should read shared runtime state instead of inferring it
@@ -34,30 +36,49 @@ If a surface claims to show runtime state, it should be able to surface:
 Use `agentic-trader provider-diagnostics --json` for a network-free view of the
 configured model routing, source ladder, degraded Yahoo fallback warning, and
 API-key readiness. Use `agentic-trader v1-readiness --json` before longer paper
-operation or Alpaca paper checks. The default backend remains local `paper`;
+operation or Alpaca paper checks, and add `--provider-check` when the evidence
+bundle should actively call the configured model service. The default backend remains local `paper`;
 `alpaca_paper` is external paper only and requires credentials, the paper
 endpoint, and explicit enablement. `live` remains blocked.
 
 The same network-free readiness truth is also part of `dashboard-snapshot`, the
 observer API (`/provider-diagnostics` and `/v1-readiness`), Rich runtime menu,
-Ink overview/runtime pages, and the Web GUI overview.
+Ink overview/runtime pages, and the Web GUI overview. For product-readiness QA,
+`dashboard-snapshot --provider-check` and
+`evidence-bundle --provider-check --json` include the active provider gate.
+
+## Continuous research loop direction
+
+The research sidecar is moving toward a safe loop: pre-flight, monitor, analyze,
+propose, digest, then sleep. The loop can keep a watchlist fresh, explain source
+health, score ideas, and queue manual-review proposals.
+
+It must not approve proposals, place orders, mutate policy, weaken runtime
+gates, or treat raw web text as instructions. Research output remains evidence;
+the strict runtime and explicit operator approval keep authority.
 
 Daemon supervision truth is available through `agentic-trader supervisor-status
 --json` and the observer `/supervisor` endpoint. That payload includes runtime
 state, heartbeat/staleness, persisted service state, and stdout/stderr log
 tails without starting a second orchestrator.
 
-## Ollama direction
+## App-managed local services
 
-Today the runtime usually assumes the model service is already running.
-The desired next step is optional app-managed Ollama supervision through the same daemon and log surface already used for runtime diagnostics.
+`agentic-trader model-service status/start/stop/pull` is the first app-managed
+Ollama slice. It binds loopback only, writes owner-only state/logs under
+`runtime/model_service/`, and never stops external Ollama processes. If another
+Ollama already owns the default port, the app-owned service can pick a nearby
+loopback port and reports whether the runtime base URL matches it.
 
-That future work should include:
+`agentic-trader webgui-service status/start/stop` applies the same pattern to
+the local Web GUI: loopback bind, recorded app-owned state under
+`runtime/webgui_service/`, log tails, and no attempt to kill unrelated PIDs.
 
-- explicit start and stop hooks
-- health checks
-- log tails
+The remaining direction is broader parity:
+
 - visible distinction between “idle”, “busy”, and “broken”
+- model/profile selection for different agent roles from operator surfaces
+- setup flows that can recommend provider/model choices without hidden installs
 
 ## What not to infer from model traffic
 

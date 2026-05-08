@@ -8,6 +8,8 @@ changes.
 - `pnpm run setup`
 - `pnpm run check`
 - `pnpm run version:plan`
+- New dependency: `uv add <package>` rather than editing `pyproject.toml` by hand
+- Dependency upgrade: `uv lock --upgrade`, then `uv sync --locked --all-extras --group dev`
 - `ruflo doctor -c version`
 - `ruflo doctor -c node`
 - `ruflo doctor -c npm`
@@ -32,6 +34,9 @@ changes.
 - `clean` removes generated artifacts only.
 - `clean:deps` or `clean:all` removes installed dependencies.
 - Root Python is uv-managed; Conda/Poetry are not the default path.
+- A plain `uv sync` is not enough for local V1 development because it can omit
+  the dev dependency group. Recover with
+  `uv sync --locked --all-extras --group dev`.
 - Sidecar runtime does not implicitly install dependencies.
 
 ## Failure Triage

@@ -40,6 +40,9 @@ Current runtime stages:
 - `agentic_trader/storage/`
   DuckDB persistence for runs, fills, positions, journals, trade contexts, traces, and reports
 
+- `agentic_trader/finance/`
+  Finance-desk helpers that do not own orchestration: manual-review trade proposals, idea-scanner scoring presets, future sizing/risk utilities, and review-only accounting logic that must pass through storage and broker adapter contracts before any paper submission
+
 - `agentic_trader/engine/`
   Runtime execution and orchestration mechanics, including the broker adapter boundary, the local paper broker implementation, the simulated-real rehearsal adapter, and the opt-in Alpaca external-paper adapter
 
@@ -50,7 +53,10 @@ Current runtime stages:
   Higher-level flow composition, replay, backtesting, review, and operator workflows
 
 - `agentic_trader/researchd/`
-  Optional research sidecar contracts for source health, evidence normalization, opt-in SEC EDGAR submissions metadata ingestion, file-backed world-state snapshots, and future CrewAI-backed deep-dive loops. It is a sidecar boundary only and does not own trading runtime orchestration, broker execution, or the main DuckDB writer.
+  Optional research sidecar contracts for source health, evidence normalization, opt-in SEC EDGAR submissions metadata ingestion, optional Firecrawl/Camofox helper providers, file-backed world-state snapshots, and future CrewAI-backed deep-dive loops. It is a sidecar boundary only and does not own trading runtime orchestration, broker execution, or the main DuckDB writer.
+
+- `tools/`
+  Repo-owned optional helper infrastructure for local browser/model/fetcher tools. Camofox lives here today as loopback browser infrastructure; future Ollama and Firecrawl tool roots should hold app-managed configuration/assets or adapter metadata, not secrets or mandatory runtime dependencies. Root runtime code should prefer a central tool-readiness contract over ad hoc probes.
 
 - `sidecars/research_flow/`
   Tracked but isolated CrewAI Flow sidecar package. uv owns its Python 3.13 environment and lockfile; the root runtime reports setup/readiness and may call its pure JSON contract through subprocess, but must not import this package directly.

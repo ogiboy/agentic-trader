@@ -26,6 +26,23 @@ Recommended baseline:
 - Node 20+ and `pnpm`
 - Optional: `tmux`, `asciinema`, and browser tooling for QA
 - Optional: Ollama if you are using the default local model path
+- Optional: Firecrawl and Camofox when you explicitly enable research helpers
+
+Before installing everything, run the system-tool dry run:
+
+```bash
+make bootstrap-dry-run
+```
+
+If the plan looks right, use the interactive bootstrap:
+
+```bash
+make bootstrap
+```
+
+It asks before system installs, browser-helper dependencies, Firecrawl setup, or
+PATH symlink changes. Missing optional research helpers are degraded readiness,
+not a blocker for core paper operation.
 
 ## Install the Python runtime
 
@@ -83,7 +100,12 @@ want it to call the configured model service.
 | `v1-readiness --json` | Is local paper operation ready, is evidence/review context visible, and is external Alpaca paper still gated? |
 | `broker-status --json` | Which backend is active, and are live/paper safeguards visible? |
 | `finance-ops --json` | Do broker, account, PnL, exposure, risk, and evidence checks agree for paper review? |
+| `trade-proposals --json` | Which ideas are waiting for explicit approval, rejection, or audit review? |
+| `idea-presets` / `idea-score ...` | How would a candidate score under the V1 scanner presets before it becomes a proposal? |
 | `supervisor-status --json` | Is the daemon blocked, running, stale, stopped, or failed? |
+| `setup-status --json` | Which local tools and optional side applications are installed or degraded? |
+| `model-service status --json` | Is configured or app-managed Ollama reachable, and is the selected model available? |
+| `webgui-service status --json` | Is the app-owned loopback Web GUI service reachable, and where are its logs? |
 
 ## Configure environment files
 
@@ -109,6 +131,21 @@ export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
 Do not treat raw Ollama traffic as proof that the system is healthy.
 Model reachability, runtime readiness, and recent logs should agree.
 
+If you want Agentic Trader to own the local Ollama process for this project,
+start with the read-only status and then start the app-owned service:
+
+```bash
+agentic-trader model-service status --json
+agentic-trader model-service start
+agentic-trader model-service pull qwen3:8b
+```
+
+The app-managed service binds to loopback only, writes its own state and log
+tails under `runtime/model_service/`, and never stops an external Ollama process.
+If another Ollama is already running on the default port, the app-managed
+service chooses another loopback port and reports whether `AGENTIC_TRADER_BASE_URL`
+matches it.
+
 ## Run one safe paper cycle
 
 Run one strict cycle:
@@ -122,13 +159,25 @@ before treating the run as a trustworthy example.
 
 ## Bring up the main surfaces
 
-Open the Ink control room:
+Open the operator launcher:
 
 ```bash
 agentic-trader
 ```
 
-Run the Web GUI:
+Open the Ink control room directly:
+
+```bash
+agentic-trader tui
+```
+
+Run the Web GUI as an app-owned loopback service:
+
+```bash
+agentic-trader webgui-service start
+```
+
+Or run it as a foreground development server:
 
 ```bash
 pnpm dev:webgui

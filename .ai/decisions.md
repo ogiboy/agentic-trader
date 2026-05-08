@@ -88,6 +88,62 @@ It must not submit orders, mutate settings, bypass approval gates, or become a h
 Operator-facing finance labels should include currency, paper mark timestamp/source/status, fee/slippage assumptions, and explicit rejection-evidence wording when those fields are present.
 UI surfaces must show missing mark time or missing external broker evidence as missing, never as a neutral or clean account state.
 
+### Trade proposals are a manual review queue, not agent authority
+
+Reason:
+V1 needs explicit proposal discipline without giving scanners, sidecars, chat, or Web routes direct broker authority.
+Trade ideas may be queued as structured `TradeProposalRecord` rows with thesis, size, reference price, source, and review notes, but they remain pending until an explicit operator approval command submits through the existing broker adapter boundary.
+Approval records the broker-facing `ExecutionIntent` and `ExecutionOutcome`; rejection, execution, failure, and expiry are terminal states.
+This keeps proposal generation useful for a paper desk while preserving paper-first/manual-approval safety and keeping live execution blocked.
+
+### Optional web research helpers stay evidence-only and fail closed
+
+Reason:
+Firecrawl and Camofox can improve research coverage, but V1 should not make paid/browser tooling mandatory or let raw web content enter trading prompts.
+They therefore live as disabled-by-default `researchd` provider adapters: Firecrawl normalizes search/news snippets with provenance and central redaction, while Camofox currently reports local browser health readiness.
+Both adapters are evidence companions only; they do not import into the core runtime, submit orders, mutate runtime mode, or write broker policy.
+
+### Market-intelligence benchmark patterns become native runtime contracts
+
+Reason:
+External trading-agent examples contain useful ideas for news freshness,
+fetcher-attempt traces, continuous monitoring loops, strategy sweeps,
+no-lookahead checks, proposal discipline, and finance reporting.
+Those ideas should strengthen Agentic Trader's actual product/runtime behavior
+without copying another runtime, importing foreign scripts, or making the
+external project structure part of this repository.
+The `.ai` folder is the translation workshop and operating memory for this
+adaptation: it records the market strategist role, continuous research loop
+workflow, news-intelligence playbook, strategy research/sweep playbook, finance
+evidence reconciliation playbook, market-news research skill notes, and a V1
+strategy catalog so future agents can keep adapting the ideas coherently.
+The durable product home is repo-native code, schemas, storage, tests, QA, and
+operator surfaces. Adoption should proceed only through existing contracts such as
+`researchd`, provider schemas, `finance-ops`, idea scoring, backtests, proposal
+records, guard/risk checks, and operator surfaces.
+The first adoption slice is now runtime-visible: strategy profiles and readiness
+metadata live in `agentic_trader.finance.strategy_catalog`, source-tiered news
+planning lives in `agentic_trader.researchd.news_intelligence`, `idea-score`
+returns strategy/evidence readiness context, and `finance-ops` exposes ledger
+categories for trades, cash, fees/taxes, dividends, interest, and corporate
+actions.
+The continuous-loop pattern is exposed as `research-cycle-plan`, a read-only
+contract for PRE-FLIGHT, MONITOR, ANALYZE, PROPOSE, and DIGEST phases that
+names existing runtime commands instead of starting an autonomous executor.
+Any future continuous-loop executor must fail closed: missing provider health,
+non-loopback browser endpoints, unredacted provider errors, raw article text, or
+sidecar attempts to mutate broker/policy/proposal approval state should stop the
+loop or produce degraded evidence instead of trading authority.
+Digest and memory writes must stay reviewable, source-normalized, and linked to
+snapshots so operators can inspect what was collected, skipped, downgraded, or
+used before any proposal review.
+Those surfaces are read-only decision-preparation contracts; they do not fetch
+the web by themselves, create proposals, approve proposals, submit orders, or
+let raw article text enter core trading prompts.
+IBKR/global/FX/multi-currency execution, options execution, and flex-style
+broker reporting remain V2 unless a later decision explicitly accepts a narrow
+read-only V1 slice.
+
 ### Provider expansion should happen through adapters
 
 Reason:
@@ -344,6 +400,12 @@ The project is expected to run consistently on multiple machines, but Conda, Poe
 `pyproject.toml` remains the direct dependency manifest and root `uv.lock` is now the committed resolver output.
 uv owns root package add, remove, lock, sync, run, and build commands; daily root development defaults to Python 3.13 in the root `.venv`, while CI can still sync against Python 3.12 for the current minimum-support signal.
 Poetry is no longer a root package-management requirement.
+New root dependencies must be added with `uv add <package>` so the manifest and
+lockfile change together. Dependency upgrades should use `uv lock --upgrade`
+followed by a root dev sync such as
+`uv sync --locked --all-extras --group dev`. Avoid plain `uv sync` for local V1
+work because it can prune dev tools such as ruff, pytest, pyright, and coverage
+from the active `.venv`.
 
 ### JavaScript surfaces should share a root pnpm workspace
 
@@ -398,12 +460,83 @@ Reason:
 The repository already has runtime supervision metadata, status commands, log tails, observer attach flows, and a Web GUI that reads those contracts.
 If the application starts or stops Ollama for the operator, it should do so through the same local supervision and diagnostics surface rather than by creating a second orchestration/runtime layer.
 That keeps model-service truth visible to CLI, Ink, observer, and Web GUI users, and it preserves the existing local-first architecture.
+The first implementation keeps model-service state separate from orchestrator state under `runtime/model_service/`, starts only loopback-bound app-owned Ollama, narrows the subprocess environment so broker/provider secrets are not inherited, and stops only the PID recorded in app-owned state.
+Stopping an app-owned model service must preserve state unless the recorded process is actually gone; SIGTERM may be escalated to SIGKILL for the recorded Ollama PID, but an OS/permission failure must leave the state visible so setup/status surfaces do not lose track of a still-listening process.
+If a user-managed Ollama is already running, app-managed startup should choose another loopback port and make the base-url mismatch visible instead of killing or hijacking the external service.
+
+### Strict model readiness must verify generation, not just tags
+
+Reason:
+Ollama `/api/tags` can report a model as installed while `/api/generate` fails because of hardware backend, memory, or model-load errors.
+Operation-mode readiness, strict daemon startup, and explicit `--provider-check` evidence should therefore run a tiny generation probe and fail closed when the configured model cannot produce output.
+Default observer-style payloads may stay network-light, but product-readiness evidence must distinguish "service reachable", "model listed", and "model can generate".
+
+### The no-argument launcher chooses surfaces, it does not auto-trade
+
+Reason:
+The installed `agentic-trader` command should feel like a product entrypoint for humans, not a hidden background action.
+No-argument launch may show runtime, setup, model-service, and WebGUI-service truth, then ask whether to open Web GUI, start the strict paper daemon, open Ink, open Rich, inspect setup/model-service, or exit.
+Starting a daemon remains an explicit operator choice and still passes strict LLM/provider readiness before any paper cycle can run.
+
+### App-owned Web GUI follows the same PID and loopback discipline
+
+Reason:
+The local Web GUI is useful as the first browser command center, but it should not become a separate long-lived process manager with looser security.
+`webgui-service` records owner-only state and log paths under `runtime/webgui_service/`, binds Next.js to loopback, starts the local Next.js CLI through Node from the `webgui/` working directory, and stops only a recorded listener PID whose command line or loopback port ownership still matches the expected Web GUI process.
+This protects users from stale PID reuse while keeping browser startup visible through CLI, setup-status, dashboard, observer-compatible payloads, and Web GUI operator panels.
+If a Web GUI dev server is already reachable but was not started by `webgui-service`, the app should report it as external and must not kill or claim it.
+
+### Optional web fetcher subprocesses inherit only explicit research env
+
+Reason:
+Firecrawl and Camofox are evidence helpers, not trusted runtime peers.
+Firecrawl prefers the Python SDK when `FIRECRAWL_API_KEY` is available and can fall back to CLI calls for local/operator tooling; CLI calls receive a narrowed environment that includes only basic OS variables plus `FIRECRAWL_API_KEY`; broker/provider/runtime secrets stay out of optional research subprocesses by default.
+Camofox must be started on loopback, and the bundled wrapper refuses to start without `CAMOFOX_ACCESS_KEY`.
+The product-owned service path follows the same rule: `camofox-service` starts only a loopback helper, reads Camofox keys from ignored env/settings, disables crash telemetry and browser prewarm by default, narrows subprocess env to browser-helper variables, and records owner-only state/logs.
+If only `CAMOFOX_API_KEY` is configured, the app-owned loopback helper mirrors it into `CAMOFOX_ACCESS_KEY` so routes are globally bearer-gated instead of starting an unkeyed local browser API.
+Research collection may auto-start this helper only when the Camofox provider is explicitly enabled; Camofox remains browser-health/evidence infrastructure and does not become a broker, policy, or prompt-raw-text authority.
+Helper `/health` alone is not enough for browser-backed research readiness: app-managed helper health may pass before the first on-demand browser launch, but if recent app-owned logs show Camoufox browser launch failures, status should degrade even when the Node server is reachable.
 
 ### V1 bootstrap should be provider-aware and opt-in around model installs
 
 Reason:
 V1 needs a smoother onboarding flow, but forced Ollama or default-model installation would over-assume the user's adapter and local setup choices.
 The bootstrap path should detect missing prerequisites, offer sensible defaults such as Ollama plus a default local model, and still allow users to skip or replace that path without hidden behavior.
+The setup surface therefore starts as read-only `setup-status` plus an interactive script that prompts before system installs.
+Firecrawl remains optional and user-authenticated through `FIRECRAWL_API_KEY` for the SDK path or `firecrawl login --browser` for the CLI fallback; Camofox remains an optional local browser helper, installs Node dependencies with scripts disabled by default, and may download a browser binary only after explicit user approval.
+The installer may create a user-local `agentic-trader` PATH symlink after uv has installed the console entrypoint, but it must not mutate trading policy, pull large models, start daemons, or create provider accounts without operator approval.
+Runtime actions may start already-installed app-owned helper services only when the matching `AGENTIC_TRADER_RUNTIME_AUTO_START_*` flag is enabled. This is service supervision, not installation: missing binaries, missing models, missing Node dependencies, or missing access/API keys stay visible failures or degraded evidence.
+
+### Tool roots carry manifests, runtime code stays packaged
+
+Reason:
+The repo-level `tools/` tree is the product's local helper root, not a dump for generated projects.
+Camofox, Ollama, and Firecrawl each carry a self-contained `agentic-tool.json` manifest describing setup/status/start commands, owning runtime modules, optional env, safety properties, and fallback order.
+Python runtime code that must be installed with the package stays under `agentic_trader/system/` or `agentic_trader/researchd/`; the tool roots hold helper source, manifests, setup wrappers, and adapter metadata that setup/readiness can inspect.
+Nested upstream git metadata, `node_modules`, browser binaries, crash telemetry workers, broad plugin packs, generated init state, and runtime logs must stay untracked.
+
+### Camofox is local browser infrastructure, not a research authority
+
+Reason:
+Camofox can help future browser-backed research fetchers, but browser automation is a high-risk surface for cookies, traces, proxy credentials, and raw page text.
+V1 therefore treats `tools/camofox-browser` as optional local helper infrastructure.
+Runtime integration is limited to loopback health/status evidence behind `researchd`; non-loopback base URLs fail closed, telemetry should be disabled when Agentic Trader starts the helper, and raw browser content, screenshots, cookies, traces, and proxy details must not enter trading prompts or broker/policy paths.
+
+### Local tool roots are product infrastructure, sidecars are isolated runtimes
+
+Reason:
+The project now has optional local tools that are useful at runtime or during research, but they should not sprawl across setup scripts, global installs, root dependencies, and sidecar packages with inconsistent ownership.
+`tools/` is the repo-owned home for optional helper infrastructure such as Camofox, future Ollama service assets/config, and future Firecrawl adapter metadata.
+`sidecars/` remains the home for isolated runtime packages such as CrewAI Flow.
+Setup and runtime code should detect a repo tool first, then a configured host-system tool, then a safe built-in fallback when available.
+Every fallback path must remain explicit, redacted, source-attributed, loopback-aware for browser/model services, and outside broker/policy mutation.
+
+### V1 maintainability can favor corporate-grade modularity over single-file convenience
+
+Reason:
+The early solo-developer bias kept changes small, but several files have grown large enough that auditability now matters more than keeping everything in one place.
+When touching complex areas, prefer extracting domain constants, render helpers, service helpers, and provider/fetcher adapters into named modules with focused tests.
+This is still incremental architecture cleanup, not a license for broad rewrites or a new orchestration framework.
 
 ### The existing docs scaffold should be activated, not replaced
 

@@ -42,6 +42,32 @@ The generated advisory scaffold contained about 270 files across these groups:
 - `.ai/helpers/README.md`
 - `.ai/skills/README.md`
 - `.ai/skills/ruflo-codex.md`
+- `.ai/agents/market-strategist.md`
+- `.ai/workflows/continuous-research-loop.md`
+- `.ai/playbooks/news-intelligence.md`
+- `.ai/playbooks/strategy-research-and-sweeps.md`
+- `.ai/playbooks/finance-evidence-reconciliation.md`
+- `.ai/skills/market-news-research.md`
+- `.ai/strategies/README.md`
+- `.ai/strategies/v1-strategy-catalog.md`
+
+## External Benchmark Ideas Adopted
+
+The second harvest focused on financial-intelligence patterns rather than
+assistant tooling. Useful ideas were translated into self-contained Agentic
+Trader guidance:
+
+- continuous research-loop phases: pre-flight, monitor, analyze, propose, digest
+- source-attributed news evidence with fetcher source, attempts, freshness,
+  materiality, and fallback/staleness semantics
+- scanner-to-proposal discipline with no agent direct execution
+- strategy research taxonomy for momentum, gap review, mean reversion,
+  breakout/reclaim, VWAP/opening-range, regime-adaptive, and ensemble ideas
+- vectorized indicator/backtest guidance, no-lookahead checks, declarative
+  sweep design, and confidence review beyond raw return
+- finance-reporting patterns that separate trades, cash, fees, interest,
+  dividends, corporate actions, currency, and source ids before deriving
+  portfolio truth
 
 ## Rejection Rules
 
@@ -54,6 +80,10 @@ The generated advisory scaffold contained about 270 files across these groups:
 - Trading agents that claim predictive execution, latency arbitrage, or
   temporal advantage are rejected for V1 and V2 unless a separate legal,
   broker, market-data, and risk review accepts a bounded research-only scope.
+- IBKR gateway/container scripts, flex-report ingestion, options execution,
+  global/FX, multi-currency accounting, and short/pairs execution patterns are
+  deferred to V2 unless the roadmap explicitly pulls a narrow read-only slice
+  into V1.
 
 ## Verification
 

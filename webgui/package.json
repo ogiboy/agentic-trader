@@ -1,9 +1,9 @@
 {
   "name": "webgui",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "private": true,
   "scripts": {
-    "dev": "WATCHPACK_POLLING=true next dev -p 3210",
+    "dev": "WATCHPACK_POLLING=true next dev --hostname 127.0.0.1 -p 3210",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

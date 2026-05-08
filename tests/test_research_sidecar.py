@@ -1,4 +1,5 @@
 from dataclasses import replace
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 import json
 import subprocess
@@ -9,6 +10,8 @@ from agentic_trader.config import Settings
 from agentic_trader.researchd.orchestrator import CrewAiResearchBackend, ResearchSidecar
 from agentic_trader.researchd.persistence import persist_research_result
 from agentic_trader.researchd.providers import (
+    CamofoxBrowserResearchProvider,
+    FirecrawlNewsResearchProvider,
     SecEdgarSubmissionsProvider,
     default_research_providers,
     provider_health_from_output,
@@ -19,6 +22,7 @@ from agentic_trader.runtime_feed import (
 )
 from agentic_trader.researchd.status import build_research_sidecar_state
 from agentic_trader.schemas import EvidenceInferenceBreakdown, RawEvidenceRecord
+from agentic_trader.system.camofox_service import CamofoxServiceStatus
 
 
 def _settings(tmp_path, **overrides) -> Settings:
@@ -30,6 +34,31 @@ def _settings(tmp_path, **overrides) -> Settings:
     )
     settings.ensure_directories()
     return settings
+
+
+def _camofox_service_status(
+    *,
+    app_owned: bool = False,
+    health_ok: bool = True,
+) -> CamofoxServiceStatus:
+    return CamofoxServiceStatus(
+        command_available=True,
+        command_path="/opt/homebrew/bin/node",
+        package_available=True,
+        dependency_available=True,
+        dependency_path="/repo/tools/camofox-browser/node_modules",
+        access_key_configured=True,
+        app_owned=app_owned,
+        pid=24680 if app_owned else None,
+        host="127.0.0.1",
+        port=9377,
+        base_url="http://127.0.0.1:9377",
+        service_reachable=True,
+        health_ok=health_ok,
+        state_path="/tmp/camofox_service.json",
+        tool_dir="/repo/tools/camofox-browser",
+        message="ok" if health_ok else "Camofox server is reachable, but browser launch is failing.",
+    )
 
 
 def test_research_sidecar_defaults_to_disabled(tmp_path) -> None:
@@ -301,6 +330,351 @@ def test_sec_edgar_provider_requires_explicit_user_agent(tmp_path) -> None:
     assert health.enabled is True
     assert health.requires_network is True
     assert "required SEC User-Agent" in health.message
+
+
+def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(tmp_path) -> None:
+    settings = _settings(tmp_path, firecrawl_api_key=None)
+    disabled = FirecrawlNewsResearchProvider(settings=settings)
+
+    disabled_output = disabled.collect(symbols=["AAPL"], limit=3)
+
+    assert disabled_output.raw_evidence == []
+    assert disabled_output.missing_reasons == ["provider_disabled"]
+
+    enabled = FirecrawlNewsResearchProvider(
+        settings=_settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            firecrawl_api_key=None,
+            research_firecrawl_cli=str(tmp_path / "missing-firecrawl"),
+        )
+    )
+
+    enabled_output = enabled.collect(symbols=["AAPL"], limit=3)
+
+    assert enabled_output.raw_evidence == []
+    assert "firecrawl_cli_missing" in enabled_output.missing_reasons
+
+
+def test_firecrawl_news_provider_sanitizes_search_results(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
+    settings = _settings(
+        tmp_path,
+        research_firecrawl_enabled=True,
+        research_firecrawl_cli="/bin/echo",
+    )
+    captured_command: list[str] = []
+
+    def fake_runner(
+        command: list[str], timeout_seconds: float, env: Mapping[str, str]
+    ) -> subprocess.CompletedProcess[str]:
+        _ = (timeout_seconds, env)
+        captured_command.extend(command)
+        payload = {
+            "data": {
+                "web": [
+                    {
+                        "title": "Apple supplier news",
+                        "url": "https://example.com/aapl-supplier",
+                        "source": "Example News",
+                        "publishedAt": "2026-05-01T10:00:00Z",
+                        "snippet": (
+                            "Apple supplier update. "
+                            "FIRECRAWL_API_KEY=fake-token"
+                        ),
+                    }
+                ]
+            }
+        }
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+    provider = FirecrawlNewsResearchProvider(
+        settings=settings,
+        command_runner=fake_runner,
+    )
+
+    output = provider.collect(symbols=["AAPL"], limit=3)
+
+    assert captured_command[:3] == ["/bin/echo", "search", "AAPL stock news this week"]
+    assert output.missing_reasons == []
+    assert len(output.raw_evidence) == 1
+    record = output.raw_evidence[0]
+    assert record.source_kind == "news"
+    assert record.symbol == "AAPL"
+    assert record.url == "https://example.com/aapl-supplier"
+    assert "fake-token" not in record.normalized_summary
+    assert "<redacted>" in record.normalized_summary
+    assert "raw_web_text_not_injected" in record.source_attributions[0].notes
+
+
+def test_firecrawl_news_provider_ignores_raw_body_fields(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
+    settings = _settings(
+        tmp_path,
+        research_firecrawl_enabled=True,
+        research_firecrawl_cli="/bin/echo",
+    )
+
+    def fake_runner(
+        command: list[str], timeout_seconds: float, env: Mapping[str, str]
+    ) -> subprocess.CompletedProcess[str]:
+        _ = (timeout_seconds, env)
+        payload = {
+            "data": {
+                "web": [
+                    {
+                        "title": "Apple long-form article",
+                        "url": "https://example.com/aapl-raw",
+                        "source": "Example News",
+                        "publishedAt": "2026-05-01T10:00:00Z",
+                        "markdown": "RAW ARTICLE BODY SHOULD NOT BECOME SUMMARY",
+                        "content": "FULL TEXT SHOULD NOT BECOME SUMMARY",
+                    }
+                ]
+            }
+        }
+        return subprocess.CompletedProcess(command, 0, stdout=json.dumps(payload), stderr="")
+
+    provider = FirecrawlNewsResearchProvider(settings=settings, command_runner=fake_runner)
+
+    output = provider.collect(symbols=["AAPL"], limit=3)
+
+    assert output.missing_reasons == []
+    assert len(output.raw_evidence) == 1
+    record = output.raw_evidence[0]
+    assert record.normalized_summary == ""
+    assert "summary" in record.missing_fields
+
+
+def test_firecrawl_news_provider_uses_python_sdk_when_available(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
+    settings = _settings(tmp_path, research_firecrawl_enabled=True)
+    captured: dict[str, object] = {}
+
+    class SdkResult:
+        data = {
+            "web": [
+                {
+                    "title": "Apple SDK news",
+                    "url": "https://example.com/aapl-sdk",
+                    "source": "Example SDK",
+                    "publishedAt": "2026-05-01T11:00:00Z",
+                    "description": "SDK-normalized result.",
+                }
+            ]
+        }
+
+    def fake_sdk_search(query: str, limit: int, timeout_seconds: float) -> object:
+        captured["query"] = query
+        captured["limit"] = limit
+        captured["timeout_seconds"] = timeout_seconds
+        return SdkResult()
+
+    provider = FirecrawlNewsResearchProvider(
+        settings=settings,
+        sdk_searcher=fake_sdk_search,
+    )
+
+    output = provider.collect(symbols=["AAPL"], limit=3)
+
+    assert captured["query"] == "AAPL stock news this week"
+    assert captured["limit"] == 3
+    assert output.missing_reasons == []
+    assert len(output.raw_evidence) == 1
+    record = output.raw_evidence[0]
+    assert record.title == "Apple SDK news"
+    assert record.url == "https://example.com/aapl-sdk"
+    assert "raw_web_text_not_injected" in record.source_attributions[0].notes
+
+
+def test_firecrawl_news_provider_redacts_nonzero_stderr(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
+    settings = _settings(
+        tmp_path,
+        research_firecrawl_enabled=True,
+        research_firecrawl_cli="/bin/echo",
+    )
+
+    def fake_runner(
+        command: list[str], timeout_seconds: float, env: Mapping[str, str]
+    ) -> subprocess.CompletedProcess[str]:
+        _ = (timeout_seconds, env)
+        return subprocess.CompletedProcess(
+            command,
+            2,
+            stdout="",
+            stderr="Authorization: fake-token",
+        )
+
+    provider = FirecrawlNewsResearchProvider(
+        settings=settings,
+        command_runner=fake_runner,
+    )
+
+    output = provider.collect(symbols=["MSFT"], limit=3)
+
+    assert output.raw_evidence == []
+    assert output.missing_reasons
+    assert "fake-token" not in output.missing_reasons[0]
+    assert "<redacted>" in output.missing_reasons[0]
+
+
+def test_firecrawl_news_provider_passes_minimal_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
+    monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "fake-alpaca")
+    monkeypatch.setenv("AGENTIC_TRADER_FMP_API_KEY", "fake-fmp")
+    settings = _settings(
+        tmp_path,
+        research_firecrawl_enabled=True,
+        research_firecrawl_cli="/bin/echo",
+    )
+    captured_env: dict[str, str] = {}
+
+    def fake_runner(
+        command: list[str], timeout_seconds: float, env: Mapping[str, str]
+    ) -> subprocess.CompletedProcess[str]:
+        _ = timeout_seconds
+        captured_env.update(env)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps({"data": {"web": []}}),
+            stderr="",
+        )
+
+    provider = FirecrawlNewsResearchProvider(
+        settings=settings,
+        command_runner=fake_runner,
+    )
+
+    provider.collect(symbols=["AAPL"], limit=1)
+
+    assert captured_env["FIRECRAWL_API_KEY"] == "fake-token"
+    assert "AGENTIC_TRADER_ALPACA_SECRET_KEY" not in captured_env
+    assert "AGENTIC_TRADER_FMP_API_KEY" not in captured_env
+
+
+def test_firecrawl_news_provider_uses_settings_api_key_without_export(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.delenv("FIRECRAWL_API_KEY", raising=False)
+    settings = _settings(
+        tmp_path,
+        research_firecrawl_enabled=True,
+        firecrawl_api_key="settings-token",
+        research_firecrawl_cli="/bin/echo",
+    )
+    captured_env: dict[str, str] = {}
+
+    def fake_runner(
+        command: list[str], timeout_seconds: float, env: Mapping[str, str]
+    ) -> subprocess.CompletedProcess[str]:
+        _ = (command, timeout_seconds)
+        captured_env.update(env)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps({"data": {"web": []}}),
+            stderr="",
+        )
+
+    provider = FirecrawlNewsResearchProvider(
+        settings=settings,
+        command_runner=fake_runner,
+    )
+
+    provider.collect(symbols=["AAPL"], limit=1)
+
+    assert captured_env["FIRECRAWL_API_KEY"] == "settings-token"
+
+
+def test_camofox_browser_provider_reports_local_health(tmp_path) -> None:
+    settings = _settings(tmp_path, research_camofox_enabled=True)
+
+    def fake_health(url: str, timeout_seconds: float) -> dict[str, object]:
+        assert url == "http://127.0.0.1:9377/health"
+        assert timeout_seconds <= 10
+        return {
+            "ok": True,
+            "engine": "camoufox",
+            "browserConnected": True,
+            "browserRunning": True,
+        }
+
+    provider = CamofoxBrowserResearchProvider(
+        settings=settings,
+        health_fetcher=fake_health,
+        service_status_builder=lambda _settings: _camofox_service_status(),
+    )
+
+    output = provider.collect(symbols=["AAPL"], limit=1)
+
+    assert output.missing_reasons == []
+    assert len(output.raw_evidence) == 1
+    record = output.raw_evidence[0]
+    assert record.source_kind == "provider_status"
+    assert record.source_name == "camofox_browser_research"
+    assert "raw_web_text_not_injected" in record.source_attributions[0].notes
+
+
+def test_camofox_browser_provider_respects_app_owned_browser_launch_failure(
+    tmp_path,
+) -> None:
+    settings = _settings(tmp_path, research_camofox_enabled=True)
+
+    def fake_health(url: str, timeout_seconds: float) -> dict[str, object]:
+        raise AssertionError(f"browser-launch-failed Camofox should not be fetched: {url}")
+
+    provider = CamofoxBrowserResearchProvider(
+        settings=settings,
+        health_fetcher=fake_health,
+        service_status_builder=lambda _settings: _camofox_service_status(
+            app_owned=True,
+            health_ok=False,
+        ),
+    )
+
+    output = provider.collect(symbols=["AAPL"], limit=1)
+
+    assert output.raw_evidence == []
+    assert output.missing_reasons == ["camofox_browser_launch_failed"]
+
+
+def test_camofox_browser_provider_rejects_non_loopback_url(tmp_path) -> None:
+    settings = _settings(
+        tmp_path,
+        research_camofox_enabled=True,
+        research_camofox_base_url="http://0.0.0.0:9377",
+    )
+
+    def fake_health(url: str, timeout_seconds: float) -> dict[str, object]:
+        raise AssertionError(f"non-loopback Camofox URL was fetched: {url}")
+
+    provider = CamofoxBrowserResearchProvider(
+        settings=settings,
+        health_fetcher=fake_health,
+        service_status_builder=lambda _settings: _camofox_service_status(),
+    )
+
+    output = provider.collect(symbols=["AAPL"], limit=1)
+
+    assert output.raw_evidence == []
+    assert output.missing_reasons == ["camofox_base_url_must_be_loopback"]
 
 
 def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(tmp_path) -> None:

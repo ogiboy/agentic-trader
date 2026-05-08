@@ -43,6 +43,7 @@ For `webgui/` or `docs/` work, also read the local app guidance:
 - `data.md`: protects provider, canonical data, freshness, and attribution boundaries.
 - `product-docs.md`: keeps docs useful to operators first, with contributor notes only where they help.
 - `finance-ops.md`: reviews broker, account, portfolio, PnL, exposure, and audit truth through a trading-desk lens.
+- `market-strategist.md`: reviews strategy hypotheses, scanner presets, proposal-readiness, and backtest/sweep evidence through a market-structure lens.
 - `researcher.md`: grounds codebase, provider, sidecar, and documentation research in source contracts.
 - `security-auditor.md`: reviews threat models, route/auth/origin, secrets, artifacts, and sidecar/provider poisoning.
 - `release-manager.md`: protects branch, PR, version, changelog, CI, and release-preview hygiene.
@@ -64,9 +65,10 @@ Use these role pairings when routing is helpful:
 - Security change: `security-auditor.md`, `qa.md`, `.ai/security/threat-model.md`, and `.ai/workflows/security-workflow.md`.
 - Performance change: `performance-engineer.md`, `qa.md`, and `.ai/workflows/performance-workflow.md`.
 - Broker/accounting change: `finance-ops.md`, `data.md`, `qa.md`, then `reviewer.md`.
+- Strategy, scanner, or proposal-enrichment change: `market-strategist.md`, `finance-ops.md`, `data.md`, `qa.md`, then `reviewer.md`; use `.ai/playbooks/strategy-research-and-sweeps.md`.
 - Docs/product explanation change: `product-docs.md`, `operator-ux.md`, then `qa.md`.
 - PR/release/setup change: `release-manager.md`, `qa.md`, then `reviewer.md`; use `.ai/workflows/release-pr-workflow.md`.
-- Research/provider/sidecar change: `researcher.md`, `data.md`, `security-auditor.md`, then `qa.md`.
+- Research/provider/sidecar change: `researcher.md`, `data.md`, `security-auditor.md`, then `qa.md`; use `.ai/playbooks/news-intelligence.md` when news, event, browser, Firecrawl, or Camofox evidence is involved.
 - Broad cross-module change: `repo-architect.md`, `planner.md`, `implementer.md`, then `reviewer.md`.
 - Static quality cleanup: `code-quality.md`, `implementer.md`, then `qa.md`.
 - Browser surface check: `browser-qa.md`, `operator-ux.md`, then `qa.md`.
@@ -105,6 +107,7 @@ or cleanup commands unless the user explicitly asks for that operation.
 - Data output should keep raw provider payloads behind canonical contracts.
 - Product docs output should translate internal contracts into operator workflows, concepts, and feature deep dives before contributor implementation notes.
 - Finance ops output should reconcile broker/account claims against adapter payloads, persisted records, dashboard/observer truth, and evidence bundles.
+- Market strategist output should turn ideas into data requirements, entry/exit/invalidation, risk/sizing assumptions, backtest checks, and proposal-readiness notes without granting execution authority.
 
 ## Release / Version Handoff
 

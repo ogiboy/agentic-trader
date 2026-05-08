@@ -18,6 +18,12 @@ remove_artifacts() {
     docs/.next \
     docs/out \
     docs/.source \
+    tools/camofox-browser/dist \
+    tools/camofox-browser/build \
+    tools/camofox-browser/coverage \
+    tools/camofox-browser/.cache \
+    tools/camofox-browser/test-results \
+    tools/camofox-browser/playwright-report \
     webgui/.next \
     webgui/out \
     tui/dist
@@ -29,6 +35,7 @@ remove_artifacts() {
       -o -path "./docs/node_modules" \
       -o -path "./webgui/node_modules" \
       -o -path "./tui/node_modules" \
+      -o -path "./tools/camofox-browser/node_modules" \
       -o -path "./sidecars/research_flow/.venv" \
     \) -prune \
     -o -name "__pycache__" -type d -exec rm -rf {} +
@@ -42,6 +49,7 @@ remove_dependencies() {
     docs/node_modules \
     webgui/node_modules \
     tui/node_modules \
+    tools/camofox-browser/node_modules \
     sidecars/research_flow/.venv
 }
 
