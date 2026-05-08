@@ -2605,6 +2605,9 @@ def _render_model_service_status(payload: dict[str, object]) -> None:
         "configured_model",
         "service_reachable",
         "model_available",
+        "generation_checked",
+        "generation_available",
+        "generation_message",
         "app_owned",
         "pid",
         "base_url",
@@ -2880,11 +2883,22 @@ def setup_command(
 @model_service_app.command("status")
 def model_service_status(
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    probe_generation: bool = typer.Option(
+        False,
+        "--probe-generation",
+        help=(
+            "Run a tiny Ollama generation probe in addition to lightweight "
+            "service/model checks."
+        ),
+    ),
 ) -> None:
     """Show local model-service and configured-model readiness."""
 
     settings = get_settings()
-    payload = build_model_service_status(settings).model_dump(mode="json")
+    payload = build_model_service_status(
+        settings,
+        include_generation=probe_generation,
+    ).model_dump(mode="json")
     if json_output:
         _emit_json(payload)
         return

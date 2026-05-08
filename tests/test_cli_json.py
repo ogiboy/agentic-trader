@@ -348,7 +348,7 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     )
     monkeypatch.setattr(
         "agentic_trader.cli.build_model_service_status",
-        lambda _: _model_service_status_fixture(),
+        lambda *_args, **_kwargs: _model_service_status_fixture(),
     )
 
     db = TradingDatabase(settings)
@@ -842,7 +842,7 @@ def test_evidence_bundle_json_creates_read_only_artifacts(
     )
     monkeypatch.setattr(
         "agentic_trader.cli.build_model_service_status",
-        lambda _: _model_service_status_fixture(),
+        lambda *_args, **_kwargs: _model_service_status_fixture(),
     )
 
     artifacts_root = tmp_path / "artifacts"
@@ -1334,9 +1334,15 @@ def test_model_service_cli_json_commands(
     )
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    status_kwargs: list[dict[str, object]] = []
+
+    def fake_build_model_service_status(*_args: object, **kwargs: object) -> ModelServiceStatus:
+        status_kwargs.append(kwargs)
+        return _model_service_status_fixture()
+
     monkeypatch.setattr(
         "agentic_trader.cli.build_model_service_status",
-        lambda _: _model_service_status_fixture(),
+        fake_build_model_service_status,
     )
     monkeypatch.setattr(
         "agentic_trader.cli.start_model_service",
@@ -1362,6 +1368,14 @@ def test_model_service_cli_json_commands(
     status_payload = json.loads(status_result.stdout)
     assert status_payload["provider"] == "ollama"
     assert status_payload["command_available"] is True
+    assert status_kwargs[-1]["include_generation"] is False
+
+    probe_result = runner.invoke(
+        app,
+        ["model-service", "status", "--probe-generation", "--json"],
+    )
+    assert probe_result.exit_code == 0
+    assert status_kwargs[-1]["include_generation"] is True
 
     start_result = runner.invoke(app, ["model-service", "start", "--json"])
     assert start_result.exit_code == 0

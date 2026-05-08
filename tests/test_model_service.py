@@ -127,6 +127,26 @@ def test_model_service_process_match_requires_listening_port(
     assert model_service._process_matches_state(state) is False
 
 
+def test_model_service_process_match_accepts_port_owner_when_command_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = model_service.ModelServiceState(
+        pid=12345,
+        host="127.0.0.1",
+        port=11435,
+        base_url="http://127.0.0.1:11435",
+        started_at="2026-01-01T00:00:00+00:00",
+        stdout_log_path="/tmp/out.log",
+        stderr_log_path="/tmp/err.log",
+        command=["/opt/homebrew/bin/ollama", "serve"],
+    )
+
+    monkeypatch.setattr(model_service, "_process_command_line", lambda _pid: None)
+    monkeypatch.setattr(model_service, "_listen_port_owner_pid", lambda _host, _port: 12345)
+
+    assert model_service._process_matches_state(state) is True
+
+
 def test_pull_model_uses_app_owned_host_without_provider_secrets(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -360,3 +380,46 @@ def test_model_service_status_marks_app_owned_base_url_mismatch(
     assert status.app_owned is True
     assert status.runtime_base_url_matches_app_service is False
     assert "different base URL" in status.message
+
+
+def test_model_service_status_can_probe_generation_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = _settings(tmp_path)
+
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json() -> dict[str, str]:
+            return {
+                "error": (
+                    "model failed to load, this may be due to resource "
+                    "limitations or an internal error"
+                )
+            }
+
+    monkeypatch.setattr(
+        model_service,
+        "_fetch_ollama_tags",
+        lambda api_root, timeout_seconds=2.0: (
+            True,
+            ["qwen3:8b"],
+            f"{api_root} reachable",
+        ),
+    )
+    monkeypatch.setattr(
+        model_service.httpx,
+        "post",
+        lambda *_args, **_kwargs: FakeResponse(),
+    )
+
+    status = model_service.build_model_service_status(
+        settings,
+        include_generation=True,
+    )
+
+    assert status.generation_checked is True
+    assert status.generation_available is False
+    assert "model failed to load" in (status.generation_message or "")
+    assert "generation probe failed" in status.message

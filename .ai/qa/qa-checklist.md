@@ -83,7 +83,12 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 - [ ] Observer-compatible supervisor payloads expose the same daemon metadata and log-tail truth.
 - [ ] `agentic-trader dashboard-snapshot` contains the same truth consumed by Ink.
 - [ ] `agentic-trader setup-status --json` reports core and optional side-application readiness without installing anything.
-- [ ] `agentic-trader model-service status/start/stop/pull --json` paths are tested with mocked or intentional local Ollama behavior; non-loopback hosts fail closed, generation-load failures block provider-check readiness, and app-owned stop never kills external Ollama or forgets a still-running app-owned PID.
+- [ ] `agentic-trader model-service status --probe-generation --json` and
+  `model-service start/stop/pull --json` paths are tested with mocked or
+  intentional local Ollama behavior; non-loopback hosts fail closed,
+  generation-load failures block provider-check readiness and model-service
+  generation probes, and app-owned stop never kills external Ollama or forgets a
+  still-running app-owned PID.
 - [ ] `agentic-trader webgui-service status/start/stop --json` paths are tested with mocked or intentional local Web GUI behavior; binds stay loopback-only and app-owned stop never kills unrelated PIDs.
 - [ ] `agentic-trader` without arguments shows operator-launcher choices and does not start the daemon unless the operator explicitly selects that path.
 

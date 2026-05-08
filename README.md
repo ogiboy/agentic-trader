@@ -240,7 +240,7 @@ logs still degrade readiness instead of treating a crash-looping helper as
 usable. Inspect or control these helpers directly with:
 
 ```bash
-agentic-trader model-service status --json
+agentic-trader model-service status --probe-generation --json
 agentic-trader model-service stop --json
 agentic-trader camofox-service status --json
 agentic-trader camofox-service start
@@ -263,7 +263,7 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 | `agentic-trader menu`                                            | Open the Rich/admin fallback menu                                 |
 | `agentic-trader dashboard-snapshot`                              | Print the shared dashboard payload used by UI surfaces; add `--provider-check` for product-readiness evidence |
 | `agentic-trader setup-status --json`                             | Inspect source, side-application, and optional-tool readiness     |
-| `agentic-trader model-service status --json`                     | Inspect configured/app-managed Ollama readiness and log tails     |
+| `agentic-trader model-service status --probe-generation --json`  | Inspect configured/app-managed Ollama readiness, generation, and log tails |
 | `agentic-trader model-service start`                             | Start only an app-owned loopback Ollama process                   |
 | `agentic-trader model-service pull qwen3:8b`                     | Pull an Ollama model through the configured/app-owned service     |
 | `agentic-trader webgui-service status --json`                    | Inspect app-owned Web GUI readiness and log tails                 |
@@ -297,7 +297,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
 | `agentic-trader finance-ops --json`                                                    | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check |
 | `agentic-trader setup-status --json`                                                   | Inspect root/sidecar/tool readiness without installing anything |
-| `agentic-trader model-service status --json`                                           | Inspect local Ollama/service/model readiness |
+| `agentic-trader model-service status --probe-generation --json`                        | Inspect local Ollama/service/model/generation readiness |
 | `agentic-trader webgui-service status --json`                                          | Inspect loopback Web GUI service readiness |
 | `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
 | `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks; add `--provider-check` before longer paper runs and to verify local-model generation |

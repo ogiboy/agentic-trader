@@ -85,6 +85,9 @@ class ModelServiceStatus(BaseModel):
     configured_model: str
     service_reachable: bool
     model_available: bool
+    generation_checked: bool = False
+    generation_available: bool | None = None
+    generation_message: str | None = None
     available_models: list[str] = Field(default_factory=list)
     app_owned: bool = False
     pid: int | None = None
@@ -246,13 +249,18 @@ def _listen_port_owner_pid(host: str, port: int) -> int | None:
 
 
 def _process_matches_state(state: ModelServiceState) -> bool:
+    port_owner_pid = _listen_port_owner_pid(state.host, state.port)
+    if port_owner_pid == state.pid:
+        return True
+    if port_owner_pid is not None:
+        return False
     command_line = _process_command_line(state.pid)
     if not command_line:
         return False
     executable = Path(state.command[0]).name if state.command else "ollama"
     if executable not in command_line or "serve" not in command_line:
         return False
-    return _listen_port_owner_pid(state.host, state.port) == state.pid
+    return True
 
 
 def _state_process_alive(state: ModelServiceState | None) -> bool:
@@ -303,7 +311,86 @@ def _fetch_ollama_tags(api_root: str, *, timeout_seconds: float = 2.0) -> tuple[
     return True, sorted(models), "Ollama is reachable."
 
 
-def build_model_service_status(settings: Settings, *, tail_limit: int = 12) -> ModelServiceStatus:
+def _ollama_error_from_response(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+    except Exception:
+        return f"HTTP {getattr(response, 'status_code', 'error')}"
+    if isinstance(payload, dict):
+        error_obj = payload.get("error")
+        if isinstance(error_obj, str) and error_obj.strip():
+            return error_obj.strip()[:240]
+        if isinstance(error_obj, dict):
+            message = error_obj.get("message")
+            if isinstance(message, str) and message.strip():
+                return message.strip()[:240]
+    return f"HTTP {getattr(response, 'status_code', 'error')}"
+
+
+def _probe_ollama_generation(
+    api_root: str,
+    model_name: str,
+    *,
+    timeout_seconds: float = 20.0,
+) -> tuple[bool, str]:
+    body: dict[str, Any] = {
+        "model": model_name,
+        "prompt": "Reply with OK.",
+        "stream": False,
+        "options": {"num_predict": 4},
+    }
+    try:
+        response = httpx.post(
+            f"{api_root}/api/generate",
+            json=body,
+            timeout=timeout_seconds,
+        )
+        if response.status_code >= 400:
+            return False, _ollama_error_from_response(response)
+        payload = response.json()
+    except Exception as exc:
+        return False, redact_sensitive_text(exc, max_length=240)
+    if not isinstance(payload, dict):
+        return False, "Ollama generation response was not a JSON object."
+    error = payload.get("error")
+    if isinstance(error, str) and error.strip():
+        return False, redact_sensitive_text(error, max_length=240)
+    generated = payload.get("response")
+    if isinstance(generated, str):
+        return True, "Generation probe succeeded."
+    return False, "Ollama generation response did not include text."
+
+
+def _model_service_message(
+    *,
+    reachable: bool,
+    model_available: bool,
+    generation_checked: bool,
+    generation_available: bool | None,
+    generation_message: str | None,
+    fallback_message: str,
+) -> str:
+    if not reachable:
+        return fallback_message
+    if not model_available:
+        return "Ollama is reachable, but the configured model is not listed."
+    if generation_checked and generation_available is False:
+        detail = generation_message or "generation probe failed"
+        return (
+            "Ollama is reachable and the configured model is listed, but a "
+            f"generation probe failed: {detail}"
+        )
+    if generation_checked and generation_available is True:
+        return "Ollama is reachable and the configured model can generate."
+    return fallback_message
+
+
+def build_model_service_status(
+    settings: Settings,
+    *,
+    tail_limit: int = 12,
+    include_generation: bool = False,
+) -> ModelServiceStatus:
     """Build a read-only model-service status payload."""
 
     state = _read_state(settings)
@@ -313,11 +400,43 @@ def build_model_service_status(settings: Settings, *, tail_limit: int = 12) -> M
     api_root = app_state.base_url if app_state is not None else _api_root_from_base_url(settings.base_url)
     reachable, models, message = _fetch_ollama_tags(api_root)
     model_available = settings.model_name in models
-    status_message = message
-    if reachable and not model_available:
-        status_message = "Ollama is reachable, but the configured model is not listed."
+    generation_available: bool | None = None
+    generation_message: str | None = None
+    if include_generation:
+        if not reachable:
+            generation_available = False
+            generation_message = "Generation probe skipped because Ollama is unreachable."
+        elif not model_available:
+            generation_available = False
+            generation_message = (
+                "Generation probe skipped because the configured model is not listed."
+            )
+        else:
+            generation_available, generation_message = _probe_ollama_generation(
+                api_root,
+                settings.model_name,
+            )
+    status_message = _model_service_message(
+        reachable=reachable,
+        model_available=model_available,
+        generation_checked=include_generation,
+        generation_available=generation_available,
+        generation_message=generation_message,
+        fallback_message=message,
+    )
     if app_owned:
-        status_message = "App-managed Ollama is running." if reachable else message
+        status_message = (
+            _model_service_message(
+                reachable=reachable,
+                model_available=model_available,
+                generation_checked=include_generation,
+                generation_available=generation_available,
+                generation_message=generation_message,
+                fallback_message="App-managed Ollama is running.",
+            )
+            if reachable
+            else message
+        )
         if _api_root_from_base_url(settings.base_url) != app_state.base_url:
             status_message = (
                 "App-managed Ollama is running on a different base URL than the "
@@ -332,6 +451,9 @@ def build_model_service_status(settings: Settings, *, tail_limit: int = 12) -> M
         configured_model=settings.model_name,
         service_reachable=reachable,
         model_available=model_available,
+        generation_checked=include_generation,
+        generation_available=generation_available,
+        generation_message=generation_message,
         available_models=models,
         app_owned=app_owned,
         pid=app_state.pid if app_state is not None else None,

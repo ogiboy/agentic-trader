@@ -25,7 +25,7 @@ description = "A guardrailed multi-agent paper trading system built around local
 name = "agentic-trader"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
-version = "0.9.10"
+version = "0.9.11"
 
 [dependency-groups]
 dev = [

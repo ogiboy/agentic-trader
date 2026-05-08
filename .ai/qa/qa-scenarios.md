@@ -84,7 +84,7 @@ Steps:
 make bootstrap-dry-run
 agentic-trader setup-status --json
 agentic-trader setup --json
-agentic-trader model-service status --json
+agentic-trader model-service status --probe-generation --json
 agentic-trader webgui-service status --json
 AGENTIC_TRADER_RESEARCH_CAMOFOX_BASE_URL=http://0.0.0.0:9377 agentic-trader setup-status --json
 AGENTIC_TRADER_RESEARCH_CAMOFOX_BASE_URL=http://0.0.0.0:9377 agentic-trader camofox-service status --json
@@ -119,7 +119,8 @@ Expected:
 - non-loopback model-service host is rejected before starting a process
 - app-managed Ollama state and logs live under `runtime/model_service/`
 - app-managed stop only targets the recorded app-owned PID, escalates only for that PID if SIGTERM does not exit, and keeps ownership state visible if the process cannot be stopped
-- provider-check readiness fails closed when Ollama is reachable and the model is listed but generation fails
+- provider-check readiness and model-service `--probe-generation` fail closed
+  when Ollama is reachable and the model is listed but generation fails
 - app-owned Web GUI state and logs live under `runtime/webgui_service/`
 - app-owned Web GUI stop only targets the recorded app-owned PID
 - fake provider/broker secrets do not appear in model-service log tails, JSON output, or setup artifacts

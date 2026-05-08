@@ -467,6 +467,9 @@ If the application starts or stops Ollama for the operator, it should do so thro
 That keeps model-service truth visible to CLI, Ink, observer, and Web GUI users, and it preserves the existing local-first architecture.
 The first implementation keeps model-service state separate from orchestrator state under `runtime/model_service/`, starts only loopback-bound app-owned Ollama, narrows the subprocess environment so broker/provider secrets are not inherited, and stops only the PID recorded in app-owned state.
 Stopping an app-owned model service must preserve state unless the recorded process is actually gone; SIGTERM may be escalated to SIGKILL for the recorded Ollama PID, but an OS/permission failure must leave the state visible so setup/status surfaces do not lose track of a still-listening process.
+When command-line inspection is unavailable or sandbox-restricted, loopback port
+ownership is sufficient evidence that the recorded app-owned Ollama process is
+still alive; the app must not delete state merely because `ps` is unavailable.
 If a user-managed Ollama is already running, app-managed startup should choose another loopback port and make the base-url mismatch visible instead of killing or hijacking the external service.
 
 ### Strict model readiness must verify generation, not just tags
@@ -475,6 +478,9 @@ Reason:
 Ollama `/api/tags` can report a model as installed while `/api/generate` fails because of hardware backend, memory, or model-load errors.
 Operation-mode readiness, strict daemon startup, and explicit `--provider-check` evidence should therefore run a tiny generation probe and fail closed when the configured model cannot produce output.
 Default observer-style payloads may stay network-light, but product-readiness evidence must distinguish "service reachable", "model listed", and "model can generate".
+`model-service status` should keep its default lightweight behavior, while
+`model-service status --probe-generation` is the operator-facing diagnostic for
+the same listed-but-not-loadable model failure caught by V1 readiness.
 
 ### The no-argument launcher chooses surfaces, it does not auto-trade
 
