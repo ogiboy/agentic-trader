@@ -4394,6 +4394,7 @@ def build_dashboard_snapshot_payload(
         "supervisor": _service_supervisor_payload(settings),
         "broker": _broker_payload(settings),
         "modelService": build_model_service_status(settings).model_dump(mode="json"),
+        "camofoxService": build_camofox_service_status(settings).model_dump(mode="json"),
         "webGui": build_webgui_service_status(settings).model_dump(mode="json"),
         "financeOps": _finance_ops_payload(settings),
         "logs": [event.model_dump(mode="json") for event in events],

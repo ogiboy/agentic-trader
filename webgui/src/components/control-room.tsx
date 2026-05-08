@@ -100,6 +100,16 @@ function formatList(value: unknown): string {
   return value.join(', ');
 }
 
+function sourceHealthSummaryLine(summary: Record<string, unknown> | undefined): string {
+  if (!summary) {
+    return '-';
+  }
+  const fresh = summary.fresh ?? 0;
+  const missing = summary.missing ?? 0;
+  const unknown = summary.unknown ?? 0;
+  return `fresh ${fresh} / missing ${missing} / unknown ${unknown}`;
+}
+
 /**
  * Format a timestamp string into the current locale's readable date and time.
  *
@@ -451,9 +461,14 @@ function OverviewView({
               `Model Service: ${dashboard.modelService?.message ?? '-'}`,
               `Model Service Owned: ${dashboard.modelService?.app_owned ? 'yes' : 'no'}`,
               `Model Service URL: ${dashboard.modelService?.base_url ?? dashboard.modelService?.configured_base_url ?? '-'}`,
+              `Camofox: ${dashboard.camofoxService?.message ?? '-'}`,
+              `Camofox Owned: ${dashboard.camofoxService?.app_owned ? 'yes' : 'no'}`,
+              `Camofox URL: ${dashboard.camofoxService?.base_url ?? '-'}`,
               `Web GUI: ${dashboard.webGui?.message ?? '-'}`,
               `Web GUI Owned: ${dashboard.webGui?.app_owned ? 'yes' : 'no'}`,
               `Web GUI URL: ${dashboard.webGui?.url ?? '-'}`,
+              `Research: ${dashboard.research?.status ?? '-'} (${dashboard.research?.backend ?? '-'})`,
+              `Research Sources: ${sourceHealthSummaryLine(dashboard.research?.source_health_summary)}`,
             ]}
           />
         </Panel>
@@ -1231,7 +1246,13 @@ export function ControlRoom() {
       ['Ollama Reachable', dashboard?.doctor?.ollama_reachable ? 'yes' : 'no'],
       ['Model Available', dashboard?.doctor?.model_available ? 'yes' : 'no'],
       ['Model Service', dashboard?.modelService?.message ?? '-'],
+      ['Camofox Service', dashboard?.camofoxService?.message ?? '-'],
       ['Web GUI Service', dashboard?.webGui?.message ?? '-'],
+      ['Research', dashboard?.research?.status ?? '-'],
+      [
+        'Research Sources',
+        sourceHealthSummaryLine(dashboard?.research?.source_health_summary),
+      ],
       ['Broker Backend', dashboard?.broker?.backend ?? '-'],
       ['Broker State', dashboard?.broker?.state ?? '-'],
       ['Execution Mode', dashboard?.broker?.execution_mode ?? '-'],

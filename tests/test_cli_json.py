@@ -789,6 +789,7 @@ def test_dashboard_snapshot_json(
     assert payload["supervisor"]["state"]["launch_count"] == 0
     assert payload["broker"]["backend"] == "paper"
     assert payload["modelService"]["provider"] == "ollama"
+    assert payload["camofoxService"]["tool_id"] == "camofox-browser"
     assert "webGui" in payload
     assert payload["broker"]["external_paper"] is False
     assert "healthcheck" in payload["broker"]

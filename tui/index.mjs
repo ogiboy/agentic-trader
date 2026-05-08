@@ -837,6 +837,13 @@ function failedCheckNames(section) {
   return failed.length ? failed.join(', ') : '-';
 }
 
+function sourceHealthSummaryLine(summary) {
+  if (!summary) {
+    return '-';
+  }
+  return `fresh ${summary.fresh ?? 0} / missing ${summary.missing ?? 0} / unknown ${summary.unknown ?? 0}`;
+}
+
 function readinessLines(data) {
   const readiness = data.v1Readiness || {};
   const broker = data.broker || {};
@@ -932,6 +939,9 @@ function OverviewPage({ data, compact = false }) {
         `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
         `Broker Backend: ${broker?.backend ?? '-'}`,
         `Broker State: ${broker?.state ?? '-'}`,
+        `Camofox: ${data.camofoxService?.message ?? '-'}`,
+        `Research: ${data.research?.status ?? '-'} (${data.research?.backend ?? '-'})`,
+        `Research Sources: ${sourceHealthSummaryLine(data.research?.source_health_summary)}`,
         `V1 Paper Ready: ${data.v1Readiness?.paper_operations?.allowed ? 'yes' : 'no'}`,
         `Alpaca Paper Ready: ${data.v1Readiness?.alpaca_paper?.ready ? 'yes' : 'no'}`,
         `Market Session: ${formatMarketSession(calendar.session)}`,
@@ -947,6 +957,11 @@ function OverviewPage({ data, compact = false }) {
         `Broker Backend: ${broker?.backend ?? '-'}`,
         `Broker State: ${broker?.state ?? '-'}`,
         `Broker Health: ${broker?.healthcheck?.message ?? broker?.message ?? '-'}`,
+        `Camofox: ${data.camofoxService?.message ?? '-'}`,
+        `Camofox Owned: ${data.camofoxService?.app_owned ? 'yes' : 'no'}`,
+        `Camofox URL: ${data.camofoxService?.base_url ?? '-'}`,
+        `Research: ${data.research?.status ?? '-'} (${data.research?.backend ?? '-'})`,
+        `Research Sources: ${sourceHealthSummaryLine(data.research?.source_health_summary)}`,
         `V1 Paper Ready: ${data.v1Readiness?.paper_operations?.allowed ? 'yes' : 'no'}`,
         `Alpaca Paper Ready: ${data.v1Readiness?.alpaca_paper?.ready ? 'yes' : 'no'}`,
         `Provider Warnings: ${(data.providerDiagnostics?.warnings || []).length}`,

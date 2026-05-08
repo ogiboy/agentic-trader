@@ -1,6 +1,6 @@
 [project]
 name = "research_flow"
-version = "0.9.9"
+version = "0.9.10"
 description = "Tracked CrewAI research sidecar for Agentic Trader."
 authors = [
     {name = "Oğuzcan Toptaş",email = "oguzcantoptas@gmail.com"}
