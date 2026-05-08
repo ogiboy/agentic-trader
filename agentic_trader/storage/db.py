@@ -1452,20 +1452,36 @@ class TradingDatabase:
             limit 1
             """
         ).fetchone()
+        return self._execution_record_from_row(row)
+
+    def get_execution_record(self, intent_id: str) -> dict[str, object] | None:
+        row = self.conn.execute(
+            """
+            select intent_id, created_at, run_id, order_id, symbol, execution_backend,
+                   adapter_name, status, rejection_reason, intent_json, outcome_json
+            from execution_records
+            where intent_id = ?
+            """,
+            [intent_id],
+        ).fetchone()
+        return self._execution_record_from_row(row)
+
+    def _execution_record_from_row(self, row: object | None) -> dict[str, object] | None:
         if row is None:
             return None
+        values = cast(tuple[object, ...], row)
         return {
-            "intent_id": str(row[0]),
-            "created_at": str(row[1]),
-            "run_id": str(row[2]) if row[2] is not None else None,
-            "order_id": str(row[3]) if row[3] is not None else None,
-            "symbol": str(row[4]),
-            "execution_backend": str(row[5]),
-            "adapter_name": str(row[6]),
-            "status": str(row[7]),
-            "rejection_reason": str(row[8]) if row[8] is not None else None,
-            "intent": json.loads(str(row[9])),
-            "outcome": json.loads(str(row[10])),
+            "intent_id": str(values[0]),
+            "created_at": str(values[1]),
+            "run_id": str(values[2]) if values[2] is not None else None,
+            "order_id": str(values[3]) if values[3] is not None else None,
+            "symbol": str(values[4]),
+            "execution_backend": str(values[5]),
+            "adapter_name": str(values[6]),
+            "status": str(values[7]),
+            "rejection_reason": str(values[8]) if values[8] is not None else None,
+            "intent": json.loads(str(values[9])),
+            "outcome": json.loads(str(values[10])),
         }
 
     def close_trade_journal(

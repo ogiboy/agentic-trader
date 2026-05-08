@@ -1,6 +1,6 @@
 """Continuous research cycle plan for the local paper desk.
 
-The plan is an operator/runtime contract, not an autonomous executor. It shows
+The plan is an operator/runtime contract, not an autonomous trading executor. It shows
 how the existing safe commands compose into a PRE-FLIGHT -> MONITOR -> ANALYZE
 -> PROPOSE -> DIGEST loop while keeping proposals manual and broker access out
 of sidecar/news/scanner paths.

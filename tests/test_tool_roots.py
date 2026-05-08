@@ -38,3 +38,30 @@ def test_repo_tool_manifests_are_valid_json() -> None:
         assert manifest["id"] == tool_id
         assert "entrypoints" in manifest
         assert "secret" not in str(manifest).lower()
+
+
+def test_local_tool_definitions_expose_runtime_consumers_and_fallbacks() -> None:
+    definitions = {
+        definition.tool_id: definition
+        for definition in tool_roots.iter_local_tool_definitions()
+    }
+
+    assert tuple(definitions) == ("ollama", "firecrawl", "camofox-browser")
+    assert definitions["ollama"].status_tool_id == "ollama_cli"
+    assert "model-service" in definitions["ollama"].consumers
+    assert definitions["ollama"].fallback_order[0] == "app_managed_repo_config"
+    assert definitions["firecrawl"].status_tool_id == "firecrawl_cli"
+    assert "researchd" in definitions["firecrawl"].consumers
+    assert "pure_python_or_js_fetcher" in definitions["firecrawl"].fallback_order
+    assert definitions["camofox-browser"].status_tool_id == "camofox_browser"
+    assert "camofox-service" in definitions["camofox-browser"].consumers
+    assert definitions["camofox-browser"].fallback_order[0] == "repo_tools"
+
+
+def test_manifest_notes_are_safe_and_include_entrypoints() -> None:
+    notes = tool_roots.local_tool_manifest_notes("camofox-browser")
+
+    assert "local_tool_id=camofox-browser" in notes
+    assert any(note.startswith("fallback_order=") for note in notes)
+    assert any(note == "start=agentic-trader camofox-service start" for note in notes)
+    assert "secret" not in " ".join(notes).lower()

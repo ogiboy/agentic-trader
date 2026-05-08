@@ -303,10 +303,12 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks; add `--provider-check` before longer paper runs and to verify local-model generation |
 | `agentic-trader trade-proposals --json`                                                | Inspect the manual-review proposal queue |
 | `agentic-trader proposal-create ...`                                                   | Queue a non-executing paper proposal for approval |
+| `agentic-trader proposal-reconcile PROPOSAL_ID --json`                                 | Repair an in-flight proposal from a recorded execution outcome without resubmitting |
 | `agentic-trader idea-presets` / `agentic-trader idea-score ...`                        | Explore V1 idea-scanner presets without creating orders |
 | `agentic-trader strategy-catalog --json` / `agentic-trader strategy-profile NAME`       | Inspect strategy-family evidence, risk, and validation gates |
 | `agentic-trader news-intelligence --symbol AAPL --json`                                | Build a source-tiered news/materiality research plan without fetching the web |
 | `agentic-trader research-cycle-plan --symbols AAPL,MSFT --json`                        | Inspect the safe PRE-FLIGHT/MONITOR/ANALYZE/PROPOSE/DIGEST cycle contract |
+| `agentic-trader research-cycle-run --symbols AAPL,MSFT --cycles 2 --no-sleep --json`    | Run bounded evidence-only research cycles without broker authority |
 | `agentic-trader evidence-bundle --provider-check --json`                               | Package read-only QA/release evidence with active model/provider readiness |
 | `agentic-trader research-status --json`                                                | Inspect optional research sidecar health   |
 | `agentic-trader research-refresh --json`                                               | Run one isolated sidecar snapshot pass     |

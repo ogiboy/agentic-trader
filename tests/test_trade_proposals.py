@@ -4,10 +4,13 @@ import duckdb
 import pytest
 
 from agentic_trader.config import Settings
+from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
 from agentic_trader.finance.proposals import (
     approve_trade_proposal,
     create_trade_proposal,
+    reconcile_trade_proposal,
     reject_trade_proposal,
+    utc_now_iso,
 )
 from agentic_trader.storage.db import TradingDatabase
 
@@ -229,6 +232,90 @@ def test_trade_proposal_approval_requires_atomic_final_transition(
     assert stored.status == "approved"
     assert stored.execution_intent_id is not None
     assert db.latest_execution_record() is not None
+
+
+def test_trade_proposal_reconcile_repairs_in_flight_from_execution_record(
+    tmp_path,
+) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.81,
+        thesis="Manual paper desk approval candidate.",
+    )
+    intent = ExecutionIntent(
+        intent_id="intent-repair",
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.81,
+        thesis="Manual paper desk approval candidate.",
+        approved=True,
+        execution_backend="paper",
+        adapter_name="paper",
+        backend_metadata={"proposal_id": proposal.proposal_id},
+    )
+    approved = proposal.model_copy(
+        update={
+            "status": "approved",
+            "updated_at": utc_now_iso(),
+            "execution_intent_id": intent.intent_id,
+        }
+    )
+    assert db.update_trade_proposal(approved, expected_status="pending")
+    outcome = ExecutionOutcome(
+        intent_id=intent.intent_id,
+        order_id="paper-order-repair",
+        status="filled",
+        adapter_name="paper",
+        execution_backend="paper",
+        filled_quantity=1,
+        average_fill_price=100,
+    )
+    db.record_execution_outcome(run_id=None, intent=intent, outcome=outcome)
+
+    repaired, record = reconcile_trade_proposal(
+        db=db,
+        proposal_id=proposal.proposal_id,
+        review_notes="repair after interrupted final status write",
+    )
+
+    assert repaired.status == "executed"
+    assert repaired.execution_order_id == "paper-order-repair"
+    assert repaired.execution_outcome_status == "filled"
+    assert "repair after interrupted" in repaired.review_notes
+    assert record["intent_id"] == intent.intent_id
+
+
+def test_trade_proposal_reconcile_fails_closed_without_execution_record(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.81,
+        thesis="Manual paper desk approval candidate.",
+    )
+    approved = proposal.model_copy(
+        update={
+            "status": "approved",
+            "updated_at": utc_now_iso(),
+            "execution_intent_id": "intent-missing",
+        }
+    )
+    assert db.update_trade_proposal(approved, expected_status="pending")
+
+    with pytest.raises(ValueError, match="no recorded execution outcome"):
+        reconcile_trade_proposal(db=db, proposal_id=proposal.proposal_id)
 
 
 def test_trade_proposal_rejected_when_size_missing(tmp_path) -> None:

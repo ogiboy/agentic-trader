@@ -141,6 +141,57 @@ def approve_trade_proposal(
     return final_proposal, outcome
 
 
+def reconcile_trade_proposal(
+    *,
+    db: TradingDatabase,
+    proposal_id: str,
+    review_notes: str = "",
+) -> tuple[TradeProposalRecord, dict[str, object]]:
+    """Repair an in-flight proposal from an already recorded execution outcome.
+
+    This function never calls a broker adapter. It only reconciles a proposal
+    that already reached `approved` with an `execution_intent_id`, then uses the
+    idempotent `execution_records` row for that intent to make the proposal
+    terminal.
+    """
+
+    proposal = db.get_trade_proposal(proposal_id)
+    if proposal is None:
+        raise ValueError(f"Trade proposal not found: {proposal_id}")
+    if proposal.status in TERMINAL_PROPOSAL_STATUSES:
+        raise ValueError(
+            f"Trade proposal {proposal_id} is already terminal: {proposal.status}."
+        )
+    if proposal.status != "approved" or proposal.execution_intent_id is None:
+        raise ValueError(
+            f"Trade proposal {proposal_id} is not an in-flight approved proposal."
+        )
+    record = db.get_execution_record(proposal.execution_intent_id)
+    if record is None:
+        raise ValueError(
+            f"Trade proposal {proposal_id} has no recorded execution outcome to reconcile."
+        )
+    outcome_status = str(record["status"])
+    final_status: TradeProposalStatus = (
+        "executed" if outcome_status in _APPROVAL_SUCCESS_OUTCOMES else "failed"
+    )
+    repaired = proposal.model_copy(
+        update={
+            "status": final_status,
+            "updated_at": utc_now_iso(),
+            "review_notes": _merge_notes(proposal.review_notes, review_notes),
+            "execution_order_id": _str_or_none(record.get("order_id")),
+            "execution_outcome_status": outcome_status,
+            "rejection_reason": _str_or_none(record.get("rejection_reason")),
+        }
+    )
+    if not db.update_trade_proposal(repaired, expected_status="approved"):
+        raise ValueError(
+            f"Trade proposal {proposal_id} changed before reconciliation could finish."
+        )
+    return repaired, record
+
+
 def reject_trade_proposal(
     *, db: TradingDatabase, proposal_id: str, reason: str
 ) -> TradeProposalRecord:
@@ -226,3 +277,9 @@ def _merge_notes(existing: str, note: str) -> str:
     if not existing:
         return cleaned
     return f"{existing}\n{cleaned}"
+
+
+def _str_or_none(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)

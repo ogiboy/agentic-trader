@@ -76,6 +76,7 @@ Add tests for:
 - paper versus external paper label
 - live backend blocked
 - proposal approval failure updates proposal status
+- proposal reconciliation uses recorded execution outcome without resubmitting
 - evidence bundle includes finance-ops payload
 
 ## Output Format

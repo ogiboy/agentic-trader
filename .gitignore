@@ -86,6 +86,7 @@ htmlcov/
 
 /example/
 .firecrawl/
+!/tools/camofox-browser
 /tools/camofox-browser/.git/
 /tools/camofox-browser/node_modules/
 /tools/camofox-browser/dist/

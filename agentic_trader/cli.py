@@ -32,6 +32,7 @@ from agentic_trader.finance.ideas import (
 from agentic_trader.finance.proposals import (
     approve_trade_proposal,
     create_trade_proposal,
+    reconcile_trade_proposal,
     reject_trade_proposal,
 )
 from agentic_trader.finance.strategy_catalog import (
@@ -76,6 +77,7 @@ from agentic_trader.runtime_status import (
 from agentic_trader.observer_api import serve_observer_api
 from agentic_trader.researchd.crewai_setup import crewai_setup_status
 from agentic_trader.researchd.cycle_plan import research_cycle_plan_payload
+from agentic_trader.researchd.cycle_runner import run_research_cycle
 from agentic_trader.researchd.news_intelligence import (
     classify_source_tier,
     news_research_plan,
@@ -3893,6 +3895,51 @@ def proposal_approve(
     )
 
 
+@app.command("proposal-reconcile")
+def proposal_reconcile(
+    proposal_id: str = typer.Argument(
+        ..., help="In-flight approved proposal id to reconcile."
+    ),
+    review_notes: str = typer.Option("", help="Optional reconciliation notes."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Repair an approved proposal from a recorded execution outcome without resubmitting."""
+    settings = get_settings()
+    try:
+        db = _open_db(settings)
+        try:
+            proposal, execution_record = reconcile_trade_proposal(
+                db=db,
+                proposal_id=proposal_id,
+                review_notes=review_notes,
+            )
+        finally:
+            db.close()
+    except ValueError as exc:
+        console.print(
+            Panel(str(exc), title="Reconciliation Blocked", border_style="red")
+        )
+        raise typer.Exit(code=2) from exc
+    payload = {
+        "proposal": proposal.model_dump(mode="json"),
+        "execution_record": execution_record,
+        "resubmitted": False,
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"{proposal.proposal_id} -> {proposal.status}\n"
+            f"order={proposal.execution_order_id or '-'} "
+            f"status={proposal.execution_outcome_status or '-'}\n"
+            "No broker resubmission was attempted.",
+            title="Trade Proposal Reconciled",
+            border_style="green" if proposal.status == "executed" else "yellow",
+        )
+    )
+
+
 @app.command("proposal-reject")
 def proposal_reject(
     proposal_id: str = typer.Argument(..., help="Trade proposal id to reject."),
@@ -4184,6 +4231,67 @@ def research_cycle_plan(
             ", ".join(str(item) for item in produce),
         )
     console.print(table)
+
+
+@app.command("research-cycle-run")
+def research_cycle_run(
+    symbols: str = typer.Option(
+        ..., "--symbols", help="Comma-separated watchlist symbols for this cycle."
+    ),
+    cycles: int = typer.Option(1, min=1, max=24, help="Bounded cycle count to run."),
+    cadence_seconds: int = typer.Option(
+        60,
+        "--cadence-seconds",
+        min=1,
+        help="Seconds between cycles when --sleep is enabled.",
+    ),
+    max_proposals_per_cycle: int = typer.Option(
+        1,
+        "--max-proposals-per-cycle",
+        min=0,
+        max=10,
+        help="Maximum pending proposals the run should allow in its plan only.",
+    ),
+    persist: bool = typer.Option(
+        True,
+        "--persist/--no-persist",
+        help="Persist each research snapshot to the runtime research JSON feed.",
+    ),
+    sleep_between_cycles: bool = typer.Option(
+        True,
+        "--sleep/--no-sleep",
+        help="Wait cadence_seconds between cycles. Use --no-sleep for QA smoke.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Run a bounded evidence-only research cycle without broker authority."""
+    settings = get_settings()
+    symbol_list = [
+        item.strip().upper() for item in symbols.split(",") if item.strip()
+    ]
+    try:
+        payload = run_research_cycle(
+            settings,
+            symbols=symbol_list,
+            cycles=cycles,
+            cadence_seconds=cadence_seconds,
+            max_proposals_per_cycle=max_proposals_per_cycle,
+            persist=persist,
+            sleep_between_cycles=sleep_between_cycles,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"Executed {payload['executed_cycles']} evidence-only research cycle(s).\n"
+            "Broker access, proposal approval, and raw web prompt injection stayed disabled.",
+            title="Research Cycle Run",
+            border_style="green",
+        )
+    )
 
 
 @app.command()

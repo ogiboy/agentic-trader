@@ -6,6 +6,8 @@ from typer.testing import CliRunner
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
+from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
+from agentic_trader.finance.proposals import create_trade_proposal, utc_now_iso
 from agentic_trader.runtime_feed import (
     append_chat_history,
     research_latest_snapshot_path,
@@ -104,6 +106,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["proposal-create", "-h"],
         ["proposal-approve", "--help"],
         ["proposal-approve", "-h"],
+        ["proposal-reconcile", "--help"],
+        ["proposal-reconcile", "-h"],
         ["proposal-reject", "--help"],
         ["proposal-reject", "-h"],
         ["idea-presets", "--help"],
@@ -118,6 +122,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["news-intelligence", "-h"],
         ["research-cycle-plan", "--help"],
         ["research-cycle-plan", "-h"],
+        ["research-cycle-run", "--help"],
+        ["research-cycle-run", "-h"],
         ["evidence-bundle", "--help"],
         ["evidence-bundle", "-h"],
         ["hardware-profile", "--help"],
@@ -1565,6 +1571,45 @@ def test_research_refresh_json_persists_snapshot(
     assert settings.database_path.exists() is False
 
 
+def test_research_cycle_run_json_executes_bounded_evidence_only_cycle(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "research-cycle-run",
+            "--symbols",
+            "AAPL,MSFT",
+            "--cycles",
+            "2",
+            "--cadence-seconds",
+            "1",
+            "--no-sleep",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["executed_cycles"] == 2
+    assert payload["execution_policy"]["broker_access"] is False
+    assert payload["execution_policy"]["proposal_approval"] is False
+    assert payload["executions"][0]["watched_symbols"] == ["AAPL", "MSFT"]
+    assert payload["executions"][0]["persisted_snapshot_id"]
+    assert research_latest_snapshot_path(settings).exists()
+    assert settings.database_path.exists() is False
+
+
 def test_research_flow_setup_json_reports_optional_boundary(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -1909,6 +1954,81 @@ def test_trade_proposal_cli_approve_json_records_paper_execution(
     assert payload["proposal"]["status"] == "executed"
     assert payload["outcome"]["status"] == "filled"
     assert payload["proposal"]["execution_order_id"] == payload["outcome"]["order_id"]
+
+
+def test_trade_proposal_cli_reconcile_json_repairs_without_resubmission(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.82,
+        thesis="Proposal reconciliation smoke.",
+    )
+    intent = ExecutionIntent(
+        intent_id="intent-cli-repair",
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.82,
+        thesis="Proposal reconciliation smoke.",
+        approved=True,
+        execution_backend="paper",
+        adapter_name="paper",
+        backend_metadata={"proposal_id": proposal.proposal_id},
+    )
+    approved = proposal.model_copy(
+        update={
+            "status": "approved",
+            "updated_at": utc_now_iso(),
+            "execution_intent_id": intent.intent_id,
+        }
+    )
+    assert db.update_trade_proposal(approved, expected_status="pending")
+    db.record_execution_outcome(
+        run_id=None,
+        intent=intent,
+        outcome=ExecutionOutcome(
+            intent_id=intent.intent_id,
+            order_id="paper-order-cli-repair",
+            status="filled",
+            adapter_name="paper",
+            execution_backend="paper",
+            filled_quantity=1,
+            average_fill_price=100,
+        ),
+    )
+    db.close()
+
+    reconcile_result = CliRunner().invoke(
+        app,
+        [
+            "proposal-reconcile",
+            proposal.proposal_id,
+            "--review-notes",
+            "repair final proposal state",
+            "--json",
+        ],
+    )
+
+    assert reconcile_result.exit_code == 0
+    payload = json.loads(reconcile_result.stdout)
+    assert payload["resubmitted"] is False
+    assert payload["proposal"]["status"] == "executed"
+    assert payload["proposal"]["execution_order_id"] == "paper-order-cli-repair"
+    assert payload["execution_record"]["intent_id"] == intent.intent_id
 
 
 def test_idea_scanner_cli_outputs_presets_and_scores_json() -> None:

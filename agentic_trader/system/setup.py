@@ -21,7 +21,8 @@ from agentic_trader.system.camofox_service import build_camofox_service_status
 from agentic_trader.system.model_service import build_model_service_status
 from agentic_trader.system.tool_roots import (
     LocalToolId,
-    read_repo_tool_manifest,
+    local_tool_definition,
+    local_tool_manifest_notes,
     repo_root,
     resolve_configured_tool_path,
 )
@@ -106,12 +107,13 @@ def _command_tool(
 
 
 def _firecrawl_tool() -> ToolStatus:
+    definition = local_tool_definition("firecrawl")
     tool = _command_tool(
-        tool_id="firecrawl_cli",
-        label="Firecrawl CLI",
+        tool_id=definition.status_tool_id,
+        label=definition.label,
         category="runtime_optional",
         command="firecrawl",
-        install_hint="Run `npm install -g firecrawl-cli`, then `firecrawl login --browser` or set FIRECRAWL_API_KEY in an ignored env file.",
+        install_hint=definition.install_hint,
         version_args=["--version"],
     )
     tool = _with_manifest_note(tool, "firecrawl")
@@ -152,32 +154,23 @@ def _firecrawl_tool() -> ToolStatus:
 
 
 def _with_manifest_note(tool: ToolStatus, tool_id: LocalToolId) -> ToolStatus:
-    manifest = read_repo_tool_manifest(tool_id)
-    if not manifest:
-        return tool
-    notes = [*tool.notes]
-    notes.append(f"manifest={tool_id}/{manifest.get('schema_version', 'unknown')}")
-    entrypoints = manifest.get("entrypoints")
-    if isinstance(entrypoints, dict):
-        for key in sorted(entrypoints):
-            value = entrypoints.get(key)
-            if isinstance(value, str) and value:
-                notes.append(f"{key}={value}")
-    return tool.model_copy(update={"notes": notes})
+    return tool.model_copy(update={"notes": [*tool.notes, *local_tool_manifest_notes(tool_id)]})
 
 
 def _ollama_tool() -> ToolStatus:
+    definition = local_tool_definition("ollama")
     tool = _command_tool(
-        tool_id="ollama_cli",
-        label="Ollama CLI",
+        tool_id=definition.status_tool_id,
+        label=definition.label,
         category="runtime_optional",
         command="ollama",
-        install_hint="Install Ollama, then use `agentic-trader model-service start` or connect to your existing local Ollama.",
+        install_hint=definition.install_hint,
     )
     return _with_manifest_note(tool, "ollama")
 
 
 def _camofox_tool(settings: Settings) -> ToolStatus:
+    definition = local_tool_definition("camofox-browser")
     root = resolve_configured_tool_path(
         settings.research_camofox_tool_dir,
         default_tool="camofox-browser",
@@ -197,8 +190,8 @@ def _camofox_tool(settings: Settings) -> ToolStatus:
     if available:
         notes.extend(_with_manifest_note(
             ToolStatus(
-                tool_id="camofox_browser",
-                label="Camofox Browser",
+                tool_id=definition.status_tool_id,
+                label=definition.label,
                 category="runtime_optional",
                 available=True,
             ),
@@ -214,15 +207,15 @@ def _camofox_tool(settings: Settings) -> ToolStatus:
         if not is_loopback_host(host):
             notes.append("health_probe_skipped_non_loopback_base_url")
             return ToolStatus(
-                tool_id="camofox_browser",
-                label="Camofox Browser",
+                tool_id=definition.status_tool_id,
+                label=definition.label,
                 category="runtime_optional",
                 available=available,
                 path=str(root),
                 version=version or None,
                 status="unsafe_base_url",
                 notes=notes,
-                install_hint="Keep Camofox on loopback and start it with `CAMOFOX_ACCESS_KEY=$(openssl rand -hex 24) scripts/start-camofox-browser.sh`.",
+                install_hint=definition.install_hint,
             )
         try:
             response = httpx.get(
@@ -240,15 +233,15 @@ def _camofox_tool(settings: Settings) -> ToolStatus:
         except Exception:
             notes.append("health_endpoint_unreachable")
     return ToolStatus(
-        tool_id="camofox_browser",
-        label="Camofox Browser",
+        tool_id=definition.status_tool_id,
+        label=definition.label,
         category="runtime_optional",
         available=available,
         path=str(root) if available else None,
         version=version or None,
         status=status,
         notes=notes,
-        install_hint="Keep the optional browser helper under tools/camofox-browser, run npm install there, and start it with `CAMOFOX_ACCESS_KEY=$(openssl rand -hex 24) scripts/start-camofox-browser.sh` when needed.",
+        install_hint=definition.install_hint,
     )
 
 
@@ -351,7 +344,8 @@ def build_setup_status(settings: Settings) -> SetupStatus:
     optional_ready = all(
         tool.available
         for tool in tools
-        if tool.category == "runtime_optional" and tool.tool_id in {"ollama_cli"}
+        if tool.category == "runtime_optional"
+        and tool.tool_id in {local_tool_definition("ollama").status_tool_id}
     )
     return SetupStatus(
         platform=platform.system(),
