@@ -374,7 +374,7 @@ Commit messages should follow conventional commits so release automation can inf
 | Docs     | `docs: rewrite root readme`                       |
 | Breaking | `feat!: change release packaging flow`            |
 
-`main` is the only branch that mutates `pyproject.toml`, workspace package versions, and `CHANGELOG.md` automatically. Other branches run version previews and publish SemVer-compatible prerelease tags/releases without changing tracked version files.
+`main` is the only branch that mutates `CHANGELOG.md` automatically. Product-impacting feature and V1 branch pushes still bump the tracked patch version across Python, workspace package manifests, sidecar metadata, and lockfile metadata before push so local artifacts identify the tested build clearly; `pnpm run version:plan` remains the branch preview check.
 
 ## Uninstall / Cleanup
 
@@ -403,6 +403,9 @@ conda remove -n trader --all
 
 ## License / Disclaimer
 
-No license has been granted yet; usage restrictions apply until a `LICENSE` file is added.
+Agentic Trader is released under the GNU Lesser General Public License v3.0 or
+later (`LGPL-3.0-or-later`). See [LICENSE](LICENSE).
+Bundled or adapted third-party helper components keep their own notices when
+their package metadata says so.
 
 Agentic Trader is a paper-trading research and operator-tooling project. It does not provide financial advice, and it must not be treated as a live brokerage system. Live execution remains blocked unless a real adapter, explicit approval gates, and operator-visible safety checks are implemented.

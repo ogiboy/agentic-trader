@@ -60,12 +60,20 @@ Now:
 - use `agentic-trader model-service status --probe-generation --json` whenever
   testing real local-model readiness; plain `model-service status` is only a
   lightweight service/model-list check and can miss model-load failures
+- when validating model-service lifecycle, check both status JSON and real
+  listeners: stale app-managed Ollama ports 11435-11465 should be detected and
+  cleaned by `model-service stop`, while a remaining 11434 listener should be
+  reported as host/default Ollama rather than silently killed
 - keep `make bootstrap` and any future installer UX explicit and opt-in: detect `uv`, Node, `pnpm`, `agentic-trader`, Ollama, Firecrawl, Camofox, RuFlo, Docker, and sidecars first; ask before installing optional paid/browser/provider tools; never auto-pull large Ollama models or browser binaries without approval
 - keep `tools/` as the repo-owned optional helper root: Camofox, Ollama, and Firecrawl each carry an `agentic-tool.json` manifest plus local setup/runtime entrypoint notes; runtime Python modules may stay under `agentic_trader/system/` or `agentic_trader/researchd/`, but setup/readiness must consume one shared tool truth instead of scattered strings
 - keep extending the central local-tool readiness registry: setup-status, model-service status, Camofox-service status, dashboard snapshot, Web overview, Ink overview, and research provider metadata now consume or display `agentic_trader.system.tool_roots` definitions for Ollama, Firecrawl, and Camofox status IDs, consumers, fallback order, manifests, and safe notes; next passes should route QA, docs, RuFlo, Docker, and future browser/fetcher fallbacks through the same truth instead of re-probing independently
 - keep research fetch fallback order explicit and safe: official/structured providers first, Firecrawl search/scrape when authenticated, Camofox/browser WebCrawler helper only on loopback with an access key, then pure Python/JS or host-system fallback fetchers; every path must preserve provenance, staleness, redaction, and raw-text-free prompt boundaries
 - treat local Camofox browser-launch failures as a V1 tool-readiness blocker only after an actual browser launch is attempted: default app-managed helper mode keeps browser prewarm disabled to avoid macOS SIGABRT loops, while recent launch-failure logs still degrade readiness and must be fixed before browser-backed research is trusted
 - add setup QA that covers missing tools, existing external Ollama on `11434`, app-managed Ollama on an alternate loopback port, missing model, generation-listed-but-load-failing model, Firecrawl unauthenticated state, Camofox non-loopback rejection, Camofox access-key refusal, app-owned Camofox auto-start, model/Camofox/WebGUI service stale PID protection, and PATH entrypoint drift
+- use `.ai/qa/pre-push-checklist.md` before publishing broad V1/runtime/WebGUI/
+  sidecar/security work; static green checks are not enough when the change
+  affects first-run behavior, app-owned helper services, agent-cycle claims,
+  memory persistence, visual surfaces, or security boundaries
 - start a maintainability cleanup track for large files and repeated strings: extract constants, render helpers, command helpers, and service-specific modules as touched; keep names domain-oriented and preserve existing contracts rather than doing a risky one-shot rewrite
 - use `provider-diagnostics` and `v1-readiness` as the V1 operator gate before longer paper-operation runs or Alpaca paper-readiness checks; `v1-readiness.paper_evidence` must keep source attribution, context-pack explainability, review artifacts, broker health, and no-live-until-approved state visible
 - use `--provider-check` on `v1-readiness`, `dashboard-snapshot`, or

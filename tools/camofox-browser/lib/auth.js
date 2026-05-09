@@ -7,7 +7,7 @@
  * Policy (requireAuth / per-route):
  *   - If CAMOFOX_API_KEY is set, require Bearer token match (timing-safe).
  *   - If CAMOFOX_ACCESS_KEY is set, also accept it as an alternative (superkey).
- *   - If neither key set and NODE_ENV !== production, allow loopback (127.0.0.1 / ::1).
+ *   - If neither key set and NODE_ENV !== production, allow loopback.
  *   - Otherwise, reject.
  *
  * Policy (accessKeyMiddleware / global):
@@ -38,7 +38,14 @@ function timingSafeCompare(a, b) {
  */
 function isLoopbackAddress(address) {
   if (!address) return false;
-  return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+  const normalized = String(address).trim().replace(/^\[|\]$/g, '').toLowerCase();
+  return (
+    normalized === 'localhost' ||
+    normalized.endsWith('.localhost') ||
+    normalized === '127.0.0.1' ||
+    normalized === '::1' ||
+    normalized === '::ffff:127.0.0.1'
+  );
 }
 
 /**

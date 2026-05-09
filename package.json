@@ -1,7 +1,8 @@
 {
   "name": "agentic-trader-workspace",
-  "version": "0.9.11",
+  "version": "0.9.12",
   "private": true,
+  "license": "LGPL-3.0-or-later",
   "packageManager": "pnpm@10.33.2",
   "engines": {
     "node": ">=22"
@@ -56,7 +57,7 @@
     "run:research-flow": "sh scripts/run-research-flow.sh",
     "run:research-crewai": "pnpm run run:research-flow",
     "start:camofox": "scripts/start-camofox-browser.sh",
-    "dev:webgui": "pnpm --filter webgui exec next dev --hostname 127.0.0.1 -p 3210",
+    "dev:webgui": "AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY=1 WATCHPACK_POLLING=true pnpm --filter webgui exec next dev --hostname 127.0.0.1 -p 3210",
     "dev:docs": "pnpm --filter docs run dev",
     "start:tui": "pnpm --filter agentic-trader-tui run start",
     "clean": "scripts/clean-workspace.sh",

@@ -94,6 +94,7 @@ def test_start_webgui_service_uses_loopback_and_managed_python(
     env = captured["env"]
     assert isinstance(env, dict)
     assert Path(env["AGENTIC_TRADER_PYTHON"]).name.startswith("python")
+    assert env["AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY"] == "1"
     assert env["AGENTIC_TRADER_ALPACA_SECRET_KEY"] == "secret-value"
     state = webgui_service._read_state(settings)
     assert state is not None

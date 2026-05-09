@@ -37,5 +37,10 @@ CAMOFOX_ACCESS_KEY="$(openssl rand -hex 24)" scripts/start-camofox-browser.sh
 agentic-trader camofox-service status
 ```
 
+The helper refuses non-loopback hosts without `CAMOFOX_ACCESS_KEY`, and
+`NODE_ENV=production` requires that key even on loopback. Agentic Trader's
+app-owned service path mirrors `CAMOFOX_API_KEY` into the local access key when
+an explicit access key is not configured.
+
 The helper is evidence infrastructure only. It must not mutate broker state,
 runtime policy, live-trading gates, or proposal approval state.

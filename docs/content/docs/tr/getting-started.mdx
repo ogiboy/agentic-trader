@@ -144,7 +144,8 @@ App-managed servis yalnızca loopback'e bind eder, kendi state/log tail'lerini
 `runtime/model_service/` altına yazar ve dışarıdan başlatılmış bir Ollama
 process'ini durdurmaz. Varsayılan portta başka Ollama çalışıyorsa yakındaki
 başka bir loopback port seçer ve `AGENTIC_TRADER_BASE_URL` ile eşleşip
-eşleşmediğini görünür kılar.
+eşleşmediğini görünür kılar. Eski app-managed portlar stop/start sırasında
+temizlenir; `11434` üzerindeki servis kullanıcı/host Ollama olarak kalır.
 
 ## Tek bir güvenli paper cycle çalıştır
 

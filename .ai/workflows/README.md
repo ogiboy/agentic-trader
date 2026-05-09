@@ -14,6 +14,8 @@ Use this pack with the role docs in `.ai/agents/`:
   rules.
 - `qa-workflow.md`: smoke, manual QA, browser/docs/WebGUI, and agent-cycle
   evidence rules.
+- `.ai/qa/pre-push-checklist.md`: tiered push gate for code checks, product
+  readiness, runtime behavior, visual/browser QA, and security posture.
 - `performance-workflow.md`: bottleneck, cache, setup/check runtime, and
   concurrency review.
 - `continuous-research-loop.md`: PRE-FLIGHT -> MONITOR -> ANALYZE -> PROPOSE

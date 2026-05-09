@@ -142,7 +142,9 @@ def test_alpaca_paper_adapter_blocks_non_us_symbol_without_network(tmp_path) -> 
 def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(tmp_path) -> None:
     class FailingClient:
         def submit_order(self, *, order_data):
-            raise RuntimeError("paper api failed")
+            raise RuntimeError(
+                "paper api failed Authorization: Bearer alpaca-secret-token"
+            )
 
     settings = Settings(
         runtime_dir=tmp_path,
@@ -173,6 +175,34 @@ def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(tmp_path) ->
     assert outcome.status == "rejected"
     assert outcome.rejection_reason == "alpaca_api_error"
     assert outcome.order_id is not None
+    assert outcome.message is not None
+    assert "alpaca-secret-token" not in outcome.message
+    assert "Bearer <redacted>" in outcome.message
+
+
+def test_alpaca_paper_healthcheck_redacts_api_errors(tmp_path) -> None:
+    class FailingClient:
+        def get_account(self):
+            raise RuntimeError("health failed api_key=alpaca-secret-token")
+
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="key",
+        alpaca_secret_key="secret",
+        alpaca_paper_trading_enabled=True,
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    adapter = AlpacaPaperBrokerAdapter(db=db, settings=settings)
+    adapter._client = FailingClient()
+
+    healthcheck = adapter.healthcheck()
+
+    assert healthcheck.ok is False
+    assert "alpaca-secret-token" not in healthcheck.message
+    assert "api_key=<redacted>" in healthcheck.message
 
 
 def test_coerce_float():

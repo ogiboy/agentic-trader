@@ -33,6 +33,7 @@ from agentic_trader.security import (
 from agentic_trader.system.tool_roots import local_tool_status_payload
 
 DEFAULT_APP_MANAGED_PORT = 11435
+APP_MANAGED_ORPHAN_PORTS = (DEFAULT_APP_MANAGED_PORT, *range(11436, 11466))
 DEFAULT_MODEL_CHOICES = (
     "qwen3:8b",
     "llama3.2:3b",
@@ -202,6 +203,159 @@ def _process_command_line(pid: int) -> str | None:
     if completed.returncode != 0:
         return None
     return completed.stdout.strip() or None
+
+
+def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
+    """Return host-owned Ollama serve PIDs for operator diagnostics."""
+
+    if sys.platform.startswith("win"):
+        return []
+    executable_names = {"ollama"}
+    if command_path:
+        executable_names.add(Path(command_path).name)
+    try:
+        completed = subprocess.run(
+            ["ps", "-ax", "-o", "pid=,command="],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except Exception:
+        return _ollama_listener_pids_from_lsof()
+    if completed.returncode != 0:
+        return _ollama_listener_pids_from_lsof()
+    pids: list[int] = []
+    for line in completed.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        pid_text, _, command_line = stripped.partition(" ")
+        if not pid_text.isdigit():
+            continue
+        normalized = command_line.replace("\\", "/").lower()
+        if "serve" not in normalized:
+            continue
+        if any(f"/{name} " in f"/{normalized}" for name in executable_names):
+            pids.append(int(pid_text))
+    return sorted(set(pids) | set(_ollama_listener_pids_from_lsof()))
+
+
+def _ollama_listener_pids_from_lsof() -> list[int]:
+    """Return Ollama listener PIDs without relying on process-list permissions."""
+
+    if sys.platform.startswith("win"):
+        return []
+    try:
+        completed = subprocess.run(
+            ["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fpcn"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except Exception:
+        return []
+    if completed.returncode != 0:
+        return []
+    current_pid: int | None = None
+    current_command: str | None = None
+    pids: set[int] = set()
+    for line in completed.stdout.splitlines():
+        if line.startswith("p") and line[1:].isdigit():
+            current_pid = int(line[1:])
+            current_command = None
+            continue
+        if line.startswith("c"):
+            current_command = line[1:].strip().lower()
+            continue
+        if not line.startswith("n") or current_pid is None:
+            continue
+        endpoint = line[1:].strip()
+        host, _, port_text = endpoint.rpartition(":")
+        if (
+            current_command == "ollama"
+            and port_text.isdigit()
+            and is_loopback_host(host)
+        ):
+            pids.add(current_pid)
+    return sorted(pids)
+
+
+def _listening_loopback_ports_for_pid(pid: int) -> set[int]:
+    try:
+        completed = subprocess.run(
+            ["lsof", "-nP", "-a", "-p", str(pid), "-iTCP", "-sTCP:LISTEN", "-FpPn"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except Exception:
+        return set()
+    if completed.returncode != 0:
+        return set()
+    ports: set[int] = set()
+    for line in completed.stdout.splitlines():
+        if not line.startswith("n"):
+            continue
+        endpoint = line[1:].strip()
+        host, _, port_text = endpoint.rpartition(":")
+        if not port_text.isdigit() or not is_loopback_host(host):
+            continue
+        ports.add(int(port_text))
+    return ports
+
+
+def _orphan_app_managed_ollama_pids(
+    command_path: str | None,
+    active_state: ModelServiceState | None,
+) -> list[int]:
+    """Return stale app-managed Ollama PIDs without touching host/default 11434."""
+
+    active_pid = active_state.pid if active_state is not None else None
+    orphan_pids: list[int] = []
+    managed_ports = set(APP_MANAGED_ORPHAN_PORTS)
+    for pid in _external_ollama_serve_pids(command_path):
+        if pid == active_pid:
+            continue
+        if _listening_loopback_ports_for_pid(pid) & managed_ports:
+            orphan_pids.append(pid)
+    return sorted(set(orphan_pids))
+
+
+def _cleanup_orphan_app_managed_ollama_pids(
+    command_path: str | None,
+    active_state: ModelServiceState | None,
+) -> list[int]:
+    """Best-effort cleanup for stale app-managed Ollama listeners."""
+
+    stopped_pids: list[int] = []
+    for pid in _orphan_app_managed_ollama_pids(command_path, active_state):
+        if _stop_pid(pid):
+            stopped_pids.append(pid)
+    return stopped_pids
+
+
+def _wait_for_pid_exit(pid: int, *, timeout_seconds: float) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not is_process_alive(pid):
+            return True
+        time.sleep(0.2)
+    return not is_process_alive(pid)
+
+
+def _stop_pid(pid: int) -> bool:
+    try:
+        os.kill(pid, signal.SIGTERM)
+        stopped = _wait_for_pid_exit(pid, timeout_seconds=5)
+        if not stopped and is_process_alive(pid):
+            os.kill(pid, signal.SIGKILL)
+            stopped = _wait_for_pid_exit(pid, timeout_seconds=2)
+    except OSError:
+        stopped = not is_process_alive(pid)
+    return stopped or not is_process_alive(pid)
 
 
 def _windows_process_command_line(pid: int) -> str | None:
@@ -397,6 +551,11 @@ def build_model_service_status(
     app_state = state if _state_process_alive(state) else None
     app_owned = app_state is not None
     command_path = shutil.which("ollama")
+    ollama_serve_pids = _external_ollama_serve_pids(command_path)
+    orphan_app_managed_pids = _orphan_app_managed_ollama_pids(
+        command_path,
+        app_state,
+    )
     api_root = app_state.base_url if app_state is not None else _api_root_from_base_url(settings.base_url)
     reachable, models, message = _fetch_ollama_tags(api_root)
     model_available = settings.model_name in models
@@ -438,13 +597,44 @@ def build_model_service_status(
             else message
         )
         if _api_root_from_base_url(settings.base_url) != app_state.base_url:
-            status_message = (
+            base_url_message = (
                 "App-managed Ollama is running on a different base URL than the "
                 "runtime uses; set AGENTIC_TRADER_BASE_URL to the app-owned URL "
                 "with /v1 when you want cycles to use it."
             )
+            if include_generation and generation_available is False:
+                detail = generation_message or "generation probe failed"
+                status_message = (
+                    f"{base_url_message} Generation probe also failed: {detail}"
+                )
+            else:
+                status_message = base_url_message
+        if orphan_app_managed_pids:
+            status_message = (
+                f"{status_message} Stale app-managed Ollama processes were "
+                "detected; run agentic-trader model-service stop to clean them."
+            )
+    elif len(ollama_serve_pids) > 1:
+        status_message = (
+            f"{status_message} Multiple host/default Ollama serve processes were "
+            "detected; stop duplicates or use the app-managed model service if "
+            "generation fails."
+        )
+    elif reachable and ollama_serve_pids:
+        status_message = (
+            f"{status_message} This is a host/default Ollama service; "
+            "model-service stop will not kill it."
+        )
+    tool_payload = local_tool_status_payload("ollama")
+    notes = list(tool_payload.get("notes", []))
+    if ollama_serve_pids:
+        notes.append(f"ollama_process_count={len(ollama_serve_pids)}")
+    if len(ollama_serve_pids) > 1:
+        notes.append("external_ollama_duplicate_processes_detected")
+    if orphan_app_managed_pids:
+        notes.append(f"orphan_app_managed_ollama_process_count={len(orphan_app_managed_pids)}")
     return ModelServiceStatus(
-        **local_tool_status_payload("ollama"),
+        **{**tool_payload, "notes": notes},
         command_available=command_path is not None,
         command_path=command_path,
         configured_base_url=settings.base_url,
@@ -498,6 +688,7 @@ def start_model_service(
     existing = _read_state(settings)
     if _state_process_alive(existing):
         return build_model_service_status(settings)
+    _cleanup_orphan_app_managed_ollama_pids(command_path, None)
 
     preferred_port = port or settings.model_service_port
     chosen_port = choose_app_managed_port(desired_host, preferred_port)
@@ -534,9 +725,10 @@ def start_model_service(
     _write_state(settings, state)
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
-        status = build_model_service_status(settings)
-        if status.service_reachable:
-            return status
+        if _state_process_alive(state):
+            reachable, _models, _message = _fetch_ollama_tags(api_root)
+            if reachable:
+                return build_model_service_status(settings)
         time.sleep(0.25)
     return build_model_service_status(settings)
 
@@ -544,24 +736,22 @@ def start_model_service(
 def stop_model_service(settings: Settings) -> ModelServiceStatus:
     """Stop only the app-owned Ollama process, never an external service."""
 
+    command_path = shutil.which("ollama")
     state = _read_state(settings)
-    if state is None:
+    app_state = state if _state_process_alive(state) else None
+    orphan_pids = _orphan_app_managed_ollama_pids(command_path, app_state)
+    if state is None and not orphan_pids:
         return build_model_service_status(settings)
-    if not _state_process_alive(state):
+    if state is not None and app_state is None:
         _remove_state(settings)
+        _cleanup_orphan_app_managed_ollama_pids(command_path, None)
         return build_model_service_status(settings)
 
-    stopped = False
-    try:
-        os.kill(state.pid, signal.SIGTERM)
-        stopped = _wait_for_state_process_exit(state, timeout_seconds=5)
-        if not stopped and _state_process_alive(state):
-            os.kill(state.pid, signal.SIGKILL)
-            stopped = _wait_for_state_process_exit(state, timeout_seconds=2)
-    except OSError:
-        stopped = not _state_process_alive(state)
-
-    if stopped or not _state_process_alive(state):
+    stopped = True
+    if app_state is not None:
+        stopped = _stop_pid(app_state.pid)
+    _cleanup_orphan_app_managed_ollama_pids(command_path, app_state)
+    if app_state is not None and (stopped or not _state_process_alive(app_state)):
         _remove_state(settings)
     return build_model_service_status(settings)
 

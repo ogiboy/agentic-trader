@@ -219,6 +219,7 @@ def _webgui_env() -> dict[str, str]:
 
     env = {key: os.environ[key] for key in MINIMAL_WEBGUI_ENV_KEYS if key in os.environ}
     env["AGENTIC_TRADER_PYTHON"] = os.environ.get("AGENTIC_TRADER_PYTHON", sys.executable)
+    env["AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY"] = "1"
     env["WATCHPACK_POLLING"] = os.environ.get("WATCHPACK_POLLING", "true")
     for key, value in os.environ.items():
         if key.startswith("AGENTIC_TRADER_"):

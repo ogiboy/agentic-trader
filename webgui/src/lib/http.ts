@@ -43,6 +43,10 @@ function configuredWebguiToken(): null | string {
   return token || null;
 }
 
+function tokenlessLoopbackModeEnabled(): boolean {
+  return process.env.AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY === '1';
+}
+
 function constantTimeEqual(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
@@ -74,7 +78,9 @@ function isAuthorizedWebguiRequest(request: Request): boolean {
   const token = configuredWebguiToken();
   const requestUrl = new URL(request.url);
   if (!token) {
-    return isLoopbackHostname(requestUrl.hostname);
+    return (
+      tokenlessLoopbackModeEnabled() && isLoopbackHostname(requestUrl.hostname)
+    );
   }
   const provided =
     request.headers.get('x-agentic-trader-token') ||

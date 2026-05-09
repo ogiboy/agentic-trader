@@ -21,6 +21,7 @@ from agentic_trader.schemas import (
     PositionSnapshot,
     StrategyPlan,
 )
+from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import TradingDatabase
 
 
@@ -418,7 +419,10 @@ class AlpacaPaperBrokerAdapter:
                 adapter_name=self.backend_name,
                 execution_backend="alpaca_paper",
                 rejection_reason="alpaca_api_error",
-                message=f"Alpaca paper order submission failed: {exc}",
+                message=(
+                    "Alpaca paper order submission failed: "
+                    f"{redact_sensitive_text(exc, max_length=160)}"
+                ),
             )
         filled_quantity = _coerce_float(getattr(order, "filled_qty", 0.0))
         average_fill_price = _coerce_float(
@@ -535,7 +539,10 @@ class AlpacaPaperBrokerAdapter:
                 execution_backend="alpaca_paper",
                 ok=False,
                 blocked=True,
-                message=f"Alpaca paper account health check failed: {exc}",
+                message=(
+                    "Alpaca paper account health check failed: "
+                    f"{redact_sensitive_text(exc, max_length=160)}"
+                ),
             )
         status = str(getattr(account, "status", "unknown"))
         trading_blocked = bool(getattr(account, "trading_blocked", False))

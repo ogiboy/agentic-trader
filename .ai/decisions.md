@@ -179,6 +179,9 @@ payloads, and redact subprocess/provider errors before returning them to
 operator surfaces.
 These controls harden the local shell without creating a second runtime or
 weakening paper-first execution gates.
+Web GUI tokenless API access is only valid when the app-owned loopback launcher
+sets its explicit loopback marker; reverse-proxied or manually exposed Web GUI
+deployments must set `AGENTIC_TRADER_WEBGUI_TOKEN`.
 An empty observer host is not local-safe: Python's HTTP server binds `host=""`
 as an all-interface listener, so empty/blank hosts must be classified as
 non-loopback and covered by negative tests plus smoke QA.
@@ -470,6 +473,11 @@ Stopping an app-owned model service must preserve state unless the recorded proc
 When command-line inspection is unavailable or sandbox-restricted, loopback port
 ownership is sufficient evidence that the recorded app-owned Ollama process is
 still alive; the app must not delete state merely because `ps` is unavailable.
+Duplicate/stale process detection should also avoid a hard dependency on `ps`.
+If `ps` is denied, loopback listener evidence from `lsof` may identify Ollama
+listeners for operator diagnostics and stale app-managed cleanup. Cleanup may
+target app-owned alternate ports 11435-11465, but host-default 11434 remains a
+user-managed service unless the operator explicitly chooses otherwise.
 If a user-managed Ollama is already running, app-managed startup should choose another loopback port and make the base-url mismatch visible instead of killing or hijacking the external service.
 
 ### Strict model readiness must verify generation, not just tags
@@ -605,25 +613,24 @@ If semantic-release previews a tag below the tracked pre-1.0 baseline and that b
 Stable release identity and branch build identity are intentionally separate.
 Strict SemVer release tags keep the `MAJOR.MINOR.PATCH` core, such as `v0.9.5`; CI/build counters must not become a fourth core segment like `v0.9.5.9870`.
 Integration branches such as `V1` should use `next` artifact identities, for example `v0.9.6-next.9870+gabc1234`, while feature branches should use `beta` artifact identities such as `v0.9.6-beta.9870+gabc1234`.
-Only `main` should mutate tracked version and changelog files automatically.
-Non-main branch pushes may publish SemVer-compatible prerelease tags/releases for testing, but they should not edit `pyproject.toml`, workspace package versions, or `CHANGELOG.md`.
+Only `main` should mutate `CHANGELOG.md` automatically.
+Non-main branch pushes may publish SemVer-compatible prerelease tags/releases for testing, but product-impacting feature and V1 branch pushes should still bump the tracked patch version consistently across Python, workspace package manifests, sidecar metadata, and lockfile metadata before push so the tested branch artifact is identifiable.
 The pre-1.0 baseline is `0.9.0`; `allow_zero_version=true` and `major_on_zero=false` keep V1-hardening releases on the 0.x line until the project intentionally declares a stable `1.0.0`.
 
 ### Development agents must verify version identity before publishing
 
 Reason:
 Branch publishing and stable release publishing now have different version
-ownership rules. Stable app versions are owned by `pyproject.toml` plus
-semantic-release on `main`, and the release config stamps
-`agentic_trader/__init__.py`, the workspace package manifests, and the CrewAI
-Flow sidecar version. Feature and V1 branch pushes should use
-`pnpm run version:plan` for SemVer-compatible artifact identity without
-hand-editing stable version files or `CHANGELOG.md`.
-Any exception that manually changes `pyproject.toml`,
-`agentic_trader/__init__.py`, root/workspace `package.json` files,
-`sidecars/research_flow/pyproject.toml`, or `CHANGELOG.md` must be documented
-with the reason and validated with `pnpm run version:plan` and
-`pnpm run release:preview` before push.
+ownership rules. Stable changelog/tag publication is owned by semantic-release
+on `main`, while feature and V1 branch pushes that change product behavior,
+operator surfaces, docs, sidecars, setup, or workflow contracts should bump the
+tracked patch version across `pyproject.toml`, `agentic_trader/__init__.py`,
+root/workspace `package.json` files, `sidecars/research_flow/pyproject.toml`,
+and lockfile metadata. `CHANGELOG.md` remains release-flow owned unless the
+maintainer explicitly asks for a manual changelog edit.
+Before pushing, agents should validate the branch identity with
+`pnpm run version:plan`; use `pnpm run release:preview` when release config
+behavior itself changed.
 
 ### PyInstaller builds should use a tracked CLI spec
 

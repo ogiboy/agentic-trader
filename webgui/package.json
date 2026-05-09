@@ -1,9 +1,10 @@
 {
   "name": "webgui",
-  "version": "0.9.11",
+  "version": "0.9.12",
   "private": true,
+  "license": "LGPL-3.0-or-later",
   "scripts": {
-    "dev": "WATCHPACK_POLLING=true next dev --hostname 127.0.0.1 -p 3210",
+    "dev": "AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY=1 WATCHPACK_POLLING=true next dev --hostname 127.0.0.1 -p 3210",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

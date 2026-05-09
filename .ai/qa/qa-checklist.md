@@ -4,6 +4,10 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## Baseline Verification
 
+- [ ] Treat every push as a product-readiness checkpoint, not only a code-green
+  checkpoint: verify first-run entry, app-owned/helper-tool truth, operator
+  surfaces, security posture, and clean shutdown behavior when the change could
+  affect V1 operation.
 - [ ] Run terminal smoke QA:
   - `pnpm run qa`
 - [ ] For code-quality passes, run:
@@ -50,7 +54,13 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 
 ## Security Posture
 
+- [ ] Run a pre-push security posture pass for security-sensitive or broad
+  changes: Web GUI routes, observer API, subprocess helpers, provider/sidecar
+  fetchers, proposal approval, runtime modes, artifacts, and dependency drift.
 - [ ] Web GUI mutating routes reject foreign origins, malformed JSON, oversized bodies, missing/invalid token when `AGENTIC_TRADER_WEBGUI_TOKEN` is set, and rapid repeated runtime/chat/instruction calls.
+- [ ] Web GUI session/token/cookie assumptions are explicit: if no session
+  model exists yet, local-loopback plus optional token controls must be stated,
+  and route handlers must not imply authenticated multi-user operation.
 - [ ] Observer API keeps loopback-only as the default and rejects non-loopback binds unless `--allow-nonlocal` and `AGENTIC_TRADER_OBSERVER_API_TOKEN` are both used.
 - [ ] Supervisor log tails, sidecar subprocess failures, provider exception notes, and Web error responses redact fake `*_KEY`, `*_SECRET`, `TOKEN`, and `Authorization: Bearer ...` values.
 - [ ] `runtime/` feed/log writes and research snapshots prefer owner-only file permissions where the local filesystem supports them.
@@ -88,7 +98,9 @@ Use this checklist for behavior-changing work. Not every item applies to every t
   intentional local Ollama behavior; non-loopback hosts fail closed,
   generation-load failures block provider-check readiness and model-service
   generation probes, and app-owned stop never kills external Ollama or forgets a
-  still-running app-owned PID.
+  still-running app-owned PID. Stale app-managed Ollama listeners on
+  11435-11465 should be detected and cleaned by stop/start, while a remaining
+  11434 listener is reported as host/default Ollama instead of killed silently.
 - [ ] `agentic-trader webgui-service status/start/stop --json` paths are tested with mocked or intentional local Web GUI behavior; binds stay loopback-only and app-owned stop never kills unrelated PIDs.
 - [ ] `agentic-trader` without arguments shows operator-launcher choices and does not start the daemon unless the operator explicitly selects that path.
 
@@ -123,6 +135,12 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 ## Runtime / Daemon
 
 - [ ] Strict LLM gate blocks trading runtime when the configured model is unavailable.
+- [ ] A fresh-user path is tested or explicitly blocked: `agentic-trader`
+  starts the operator launcher cleanly, shows setup/model/WebGUI truth, and does
+  not leave unowned background processes after exit.
+- [ ] App-managed helper tools are accounted for: Ollama, Camofox, Firecrawl,
+  CrewAI Flow, WebGUI, Docker/RuFlo advisory tooling, and degraded fallbacks
+  show accurate readiness and do not pretend missing optional tools are healthy.
 - [ ] Background start records PID, heartbeat, launch count, restart count, stdout/stderr paths, and current symbol.
 - [ ] Stop request works without needing the DB writer lock.
 - [ ] Restart uses the stored launch configuration and increments restart metadata.
@@ -148,6 +166,11 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 ## Memory / Governance
 
 - [ ] Trading memory and chat memory remain separated.
+- [ ] Training-mode runs that claim to learn are checked against runtime
+  artifacts and DuckDB/memory inspection: what was written, where it appears,
+  and whether the next session can explain why it retrieved that context.
+- [ ] Operation-mode runs are checked for explicit reuse of approved memory and
+  research evidence without letting memory mutate policy or bypass gates.
 - [ ] Memory write policy is visible from CLI/TUI surfaces.
 - [ ] Retrieval inspection explains why memories were attached.
 - [ ] Chat/instruction flows update preferences only through approved schemas.
@@ -163,6 +186,9 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 ## Web GUI
 
 - [ ] `pnpm dev:webgui` serves the local shell on `http://localhost:3210`.
+- [ ] First-run product expectation is clear: if `agentic-trader` does not
+  auto-open the Web GUI yet, that is documented as an open V1 launcher task
+  rather than silently accepted.
 - [ ] The Web GUI uses the same dashboard/runtime/chat/instruction truth as CLI, Rich, and Ink.
 - [ ] Browser-visible cards surface section-level errors explicitly instead of collapsing them into empty-state copy.
 - [ ] Route handlers reject malformed JSON or foreign origins for POST actions.
@@ -171,6 +197,9 @@ Use this checklist for behavior-changing work. Not every item applies to every t
 ## UX / Copy
 
 - [ ] Visual evidence, when captured, agrees with CLI JSON/status/runtime truth.
+- [ ] Ink/TUI and Rich visual passes include scroll/resize artifacts, stray
+  symbols, clipped labels, and whether exit keys leave the terminal in a clean
+  state.
 - [ ] A designer-style pass checks spacing, hierarchy, visual density, repeated chrome, resize behavior, and focus order.
 - [ ] A finance/accounting-style pass checks cash, equity, PnL, exposure, positions, backend, adapter, runtime mode, rejection reason, and audit labels for clarity.
 - [ ] Confusing menu, command, or layout behavior has a smallest-safe repair recommendation, not only a pass/fail note.

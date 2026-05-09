@@ -72,7 +72,9 @@ ilk dilimidir. Yalnızca loopback'e bind eder, owner-only state/log'ları
 `runtime/model_service/` altına yazar ve dışarıdan başlatılmış Ollama
 process'lerini durdurmaz. Varsayılan port başka bir Ollama tarafından
 kullanılıyorsa yakındaki başka bir loopback port seçebilir ve runtime base
-URL'inin bununla eşleşip eşleşmediğini bildirir.
+URL'inin bununla eşleşip eşleşmediğini bildirir. Stop akışı eski
+app-managed portları temizlemeye çalışır; `11434` üzerinde kalan servis ise
+host/default Ollama olarak görünür ve otomatik öldürülmez.
 
 `agentic-trader webgui-service status/start/stop` aynı deseni lokal Web GUI'ye
 uygular: loopback bind, `runtime/webgui_service/` altında app-owned state,

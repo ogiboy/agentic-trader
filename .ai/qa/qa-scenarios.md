@@ -2,6 +2,47 @@
 
 Use these scenarios as manual product checks. Each scenario should produce either a pass note or a reproducible issue report.
 
+## Pre-Push Product Gate
+
+Purpose: make every meaningful push prove product behavior, not just code
+health.
+
+Minimum before a broad/V1/security/runtime push:
+
+```bash
+pnpm run check
+pnpm run qa
+agentic-trader setup-status --json
+agentic-trader model-service status --probe-generation --json
+agentic-trader v1-readiness --provider-check --json
+agentic-trader research-status --json
+agentic-trader dashboard-snapshot --provider-check > .ai/qa/artifacts/dashboard-prepush.json
+```
+
+Add when the change touches the relevant surface:
+
+```bash
+agentic-trader
+agentic-trader tui
+agentic-trader menu
+agentic-trader webgui-service start --no-open-browser --json
+agentic-trader webgui-service stop --json
+agentic-trader research-cycle-run --symbols AAPL,MSFT --cycles 1 --no-sleep --json
+```
+
+Expected:
+
+- first-run launcher opens cleanly and does not start hidden work
+- setup/model/WebGUI/Camofox/Firecrawl/CrewAI readiness is truthful
+- WebGUI, Rich, and Ink surfaces agree with dashboard JSON for changed fields
+- strict runtime remains blocked if the configured local model cannot generate
+- optional helper failures are degraded or blocked visibly, not hidden
+- no unowned background process remains after exit/stop
+- security posture checks cover route origins/tokens, loopback binds, secret
+  redaction, sidecar/provider poisoning, artifacts, and fallback behavior
+- any real V1 blocker is either fixed before push or recorded as a GitHub issue
+  with reproduction evidence
+
 ## Scenario 0: Automated Terminal Smoke
 
 Purpose: confirm core operator-facing terminal surfaces open, emit usable output, and leave evidence.

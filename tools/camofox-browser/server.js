@@ -5189,6 +5189,9 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 const PORT = CONFIG.port;
 const HOST = CONFIG.host || '127.0.0.1';
+if (CONFIG.nodeEnv === 'production' && !CONFIG.accessKey) {
+  throw new Error('CAMOFOX_ACCESS_KEY is required when NODE_ENV=production');
+}
 if (!_isLoopbackAddress(HOST) && !CONFIG.accessKey) {
   throw new Error('CAMOFOX_ACCESS_KEY is required when CAMOFOX_HOST is not loopback');
 }

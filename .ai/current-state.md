@@ -35,7 +35,7 @@ Implemented or substantially present:
 - blank observer bind hosts are treated as non-loopback because Python HTTP servers bind an empty host to all interfaces; unit tests and smoke QA now keep that bypass closed
 - a first local Web GUI now exists under `webgui/`; it uses a Next.js shell plus server-side route handlers that call the existing CLI/dashboard/runtime/chat/instruction contracts instead of adding a second runtime
 - the Web GUI now also validates persona/runtime inputs at the route boundary, rejects cross-origin or malformed POST bodies, uses a sequence guard to prevent stale dashboard polls from overwriting newer state, and uses Next metadata/icon wiring plus `next/image` on the operator hero surface
-- the Web GUI route boundary now also has loopback-only unauthenticated access, optional `AGENTIC_TRADER_WEBGUI_TOKEN`, JSON body caps, single-flight/cooldown guards for expensive runtime/chat/instruction actions, and redacted operator-facing subprocess errors
+- the Web GUI route boundary now also has app-launcher-scoped loopback-only unauthenticated access, optional `AGENTIC_TRADER_WEBGUI_TOKEN`, JSON body caps, single-flight/cooldown guards for expensive runtime/chat/instruction actions, and redacted operator-facing subprocess errors; tokenless API access requires the app-owned loopback launcher marker so reverse-proxied or manually exposed deployments must set a token
 - the Web GUI command runner now prefers an explicit `AGENTIC_TRADER_PYTHON`, an active virtualenv, or the repo-managed uv `.venv` before falling back to legacy Conda/PATH entrypoints, which keeps the browser shell attached to the current worktree more reliably
 - the repository now also ships a Fumadocs-based `docs/` app with curated MDX pages for onboarding, architecture, agent pipeline, runtime operations, operator surfaces, frontend guidance, memory/review, QA, and contribution workflow, turning the existing docs scaffold into the canonical operator guide plus contributor-notes starting point
 - the docs app now uses locale-prefixed English and Turkish routes (`/en/...` and `/tr/...`) with localized page trees, localized feedback copy, and a modular frontend split across home, feedback, layout, i18n, and content helpers instead of one overloaded docs page file
@@ -53,7 +53,7 @@ Implemented or substantially present:
 - broker adapter boundary with paper backend, safe live gating, and execution kill-switch semantics
 - canonical execution intent and outcome contracts now sit between guard output and broker adapters; the intent carries explicit timestamp/created-at audit fields, and paper execution uses the adapter path while preserving existing fills, positions, journals, and account marks
 - a simulated-real adapter scaffold exists for non-live execution rehearsal with slippage, spread, drift, latency metadata, rejection hooks, partial-fill shape, and explicit simulated/non-live status
-- an explicit `alpaca_paper` backend now exists behind the broker adapter boundary for US-equities-only external paper readiness; it uses Alpaca paper endpoints, requires credentials plus `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`, and keeps `live` execution blocked
+- an explicit `alpaca_paper` backend now exists behind the broker adapter boundary for US-equities-only external paper readiness; it uses Alpaca paper endpoints, requires credentials plus `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`, keeps `live` execution blocked, and redacts provider exception text before surfacing order or healthcheck failures
 - execution intent and adapter outcome metadata are persisted and surfaced in trade-context review views so future live integration can be replayed and audited before any real broker is enabled
 - structured financial feature contracts now exist for symbol identity, technical summaries, fundamental placeholders, and macro/news context
 - technical decision features now expose V1-friendly 30d, 90d, and 180d return windows on top of the existing bar-horizon context, plus a compact price anchor for risk math
@@ -137,6 +137,11 @@ Implemented or substantially present:
   evidence before falling back to process command-line inspection, so sandboxed
   or restricted `ps` access does not make the app forget a still-listening
   app-owned Ollama process
+- model-service duplicate detection no longer depends on `ps`: on macOS-like
+  restricted environments it falls back to loopback `lsof` listener evidence,
+  reports total Ollama process count, detects stale app-managed listeners on
+  ports 11435-11465, and `model-service start/stop` makes a best-effort cleanup
+  of those stale app-owned ports while still leaving host-default 11434 alone
 - strict runtime actions now can auto-start the app-owned model-service when `AGENTIC_TRADER_RUNTIME_AUTO_START_MODEL_SERVICE=true`, then repoint the in-process base URL to the app-owned loopback service before the generation probe runs
 - Camofox now has a first app-owned service surface: `agentic-trader camofox-service status/start/stop` manages only a loopback helper with `CAMOFOX_ACCESS_KEY` or a mirrored `CAMOFOX_API_KEY`, owner-only state/logs, narrowed environment, stale-state protection, explicit stop-permission errors, default browser prewarm disabled, and browser-launch failure detection from recent helper logs; app-managed health can pass with `browserRunning=false` because the browser launches on demand, but any actual launch failure remains degraded evidence
 - `tools/` is becoming the repo-owned local helper root for optional browser/model/fetcher infrastructure, while `sidecars/` stays reserved for isolated runtime packages such as CrewAI Flow; Camofox, Ollama, and Firecrawl now have small `agentic-tool.json` manifests so setup/research/model code can converge on a single tool-readiness contract instead of ad hoc probes
@@ -145,6 +150,15 @@ Implemented or substantially present:
 - the first market-intelligence runtime slice now turns the strategy/news/loop/finance benchmark material into product surfaces: `strategy-catalog`, `strategy-profile`, `idea-score` strategy readiness, `news-intelligence` source-tier query planning, `research-cycle-plan`, and `finance-ops` ledger/reconciliation categories
 - the continuous research-loop integration now has a bounded evidence-only executor: `research-cycle-plan` exposes PRE-FLIGHT, MONITOR, ANALYZE, PROPOSE, and DIGEST phase intent, while `research-cycle-run` can run one or more sidecar collection cycles, persist snapshot records, and report preflight status, source-health delta, cadence/next-run, digest, and safety policy without broker access, proposal approval, proposal creation, or raw web prompt injection
 - `agentic_trader.system.tool_roots` now owns the first central registry for optional repo tools, including status IDs, consumers, fallback order, manifests, and safe status notes for Ollama, Firecrawl, and Camofox; setup-status, model-service status, Camofox-service status, dashboard snapshot, Web overview, Ink overview, and research provider metadata now consume or display the shared registry-backed tool truth, while deeper QA/docs parity is still an incremental follow-up
+- repository community/security metadata now exists: `LICENSE` is LGPL-3.0-or-later,
+  package metadata advertises that license, `.github/CONTRIBUTING.md` documents
+  the local-first/paper-first contribution flow, `SECURITY.md` defines
+  vulnerability reporting and supported pre-1.0 branches, and
+  `CODE_OF_CONDUCT.md` has project-specific reporting guidance
+- `.ai/qa/pre-push-checklist.md` now records the expected push gate as a
+  product-readiness process: static checks, product commands, runtime/daemon
+  behavior, WebGUI/TUI/Rich visual checks, and security posture all have a home
+  instead of relying on ad hoc chat memory
 - `.ai` now carries a self-contained market-intelligence pack harvested from external benchmark patterns: `market-strategist` role guidance, a continuous research-loop workflow, news/source-attribution playbook, strategy research and sweep playbook, finance evidence reconciliation playbook, market-news research skill notes, and a V1 strategy catalog; these are development contracts, not a new runtime framework
 
 New production-expansion direction:
