@@ -407,7 +407,7 @@ def test_camofox_runtime_command_and_probe_messages(
         dependency_available=False,
     ) == (
         "Camofox dependencies are missing. Run "
-        "`pnpm --dir tools/camofox-browser install --ignore-scripts`."
+        "`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`."
     )
     assert camofox_service._camofox_blocking_status_message(
         probe_host="127.0.0.1",

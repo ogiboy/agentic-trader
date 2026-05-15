@@ -552,8 +552,8 @@ The next setup architecture should keep focused debug commands intact, but add a
 ### Optional browser helper setup should be pnpm-owned inside the tool root
 
 Reason:
-The root JavaScript policy is pnpm, but `tools/camofox-browser` still carries npm-shaped setup/start hints even though it is optional tool infrastructure.
-Camofox should remain outside the root workspace until it needs shared package ownership, but its local dependency commands should use `pnpm --dir tools/camofox-browser ...` so install, update, test, and lockfile behavior match the rest of the repo.
+The root JavaScript policy is pnpm, and `tools/camofox-browser` is optional tool infrastructure rather than a root workspace package.
+Camofox should remain outside the root workspace until it needs shared package ownership, but its local dependency commands should use standalone `pnpm --dir tools/camofox-browser --ignore-workspace ...` commands so install, update, test, and lockfile behavior match the rest of the repo without accidentally running the root workspace install.
 Dependency install stays separate from `camoufox-js fetch`: browser binary downloads are large, platform-sensitive, and should only run after explicit approval.
 The secure runtime boundary remains unchanged: loopback host only, access-key required, telemetry/prewarm off by default, narrowed environment, owner-only state/logs, and no raw browser content in trading prompts or broker/policy paths.
 
@@ -698,9 +698,9 @@ through `v1-readiness --provider-check` or
 Reason:
 The root JavaScript policy is pnpm, and optional tool infrastructure should not
 teach a second package-manager path unless there is a clear isolation reason.
-Root scripts and docs should call `pnpm --dir tools/camofox-browser ...` for
-dependency install, browser fetch, and syntax checks. The dependency install
-must still use `--ignore-scripts`, and the Camoufox browser binary download must
-remain a separate explicit command because it is large and platform-sensitive.
-The existing npm lockfile can be removed only after a dedicated pnpm tool-root
-install/test smoke proves the migration is clean.
+Root scripts and docs should call standalone `pnpm --dir tools/camofox-browser
+--ignore-workspace ...` commands for dependency install, browser fetch, and
+syntax checks. The dependency install must still use `--ignore-scripts`, and the
+Camoufox browser binary download must remain a separate explicit command because
+it is large and platform-sensitive. The npm lockfile was removed only after a
+dedicated pnpm tool-root install/test smoke proved the migration clean.

@@ -304,7 +304,7 @@ def _runtime_command(tool_dir: Path) -> list[str]:
     if not _dependency_available(tool_dir):
         raise RuntimeError(
             "Camofox dependencies are missing. Run "
-            "`pnpm --dir tools/camofox-browser install --ignore-scripts`."
+            "`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`."
         )
     return [node_path, SERVER_SCRIPT_NAME]
 
@@ -442,7 +442,7 @@ def _camofox_blocking_status_message(
     if not dependency_available:
         return (
             "Camofox dependencies are missing. Run "
-            "`pnpm --dir tools/camofox-browser install --ignore-scripts`."
+            "`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`."
         )
     return None
 

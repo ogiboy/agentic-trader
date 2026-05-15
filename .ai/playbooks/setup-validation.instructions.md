@@ -55,9 +55,9 @@ or app-owned runtime state.
   - `pnpm run check:research-flow`
   - `cd sidecars/research_flow && uv lock --check`
 - Camofox tool root:
-  - `pnpm --dir tools/camofox-browser install --ignore-scripts`
-  - `pnpm --dir tools/camofox-browser run fetch:browser`
-  - `pnpm --dir tools/camofox-browser run test`
+  - `pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`
+  - `pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser`
+  - `pnpm --dir tools/camofox-browser --ignore-workspace run test`
   - keep dependency install separate from browser binary fetch
 
 ## Validate Semantics
@@ -82,8 +82,8 @@ or app-owned runtime state.
 | ---------------------- | ---------------------------------------- | ------------------------------------------------ |
 | root uv sync           | `uv lock --check`                        | inspect `pyproject.toml` and `uv.lock` diff      |
 | workspace deps missing | `pnpm install --frozen-lockfile`         | verify `pnpm-workspace.yaml` and package scripts |
-| Camofox deps missing   | `pnpm --dir tools/camofox-browser install --ignore-scripts` | verify tool-root lockfile and no hidden browser fetch |
-| Camofox browser missing | `pnpm --dir tools/camofox-browser run fetch:browser` | require explicit operator approval first |
+| Camofox deps missing   | `pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts` | verify tool-root lockfile and no hidden browser fetch |
+| Camofox browser missing | `pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser` | require explicit operator approval first |
 | WebGUI build           | `pnpm --filter webgui build`             | run Browser QA if UI behavior changed            |
 | docs build             | `pnpm --filter docs build`               | verify static export assumptions                 |
 | sidecar check          | `pnpm run check:research-flow`           | verify sidecar `.venv` and `uv.lock`             |

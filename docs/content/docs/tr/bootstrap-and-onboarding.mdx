@@ -94,9 +94,9 @@ Yönlendirmeli setup dört durumu ayırmalı: host Ollama reachable, app-owned O
 Kurulumu npm-owned helper komutlarından repo'nun pnpm politikasına taşınmalı:
 
 ```bash
-pnpm --dir tools/camofox-browser install --ignore-scripts
-pnpm --dir tools/camofox-browser run fetch:browser
-pnpm --dir tools/camofox-browser run test
+pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts
+pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser
+pnpm --dir tools/camofox-browser --ignore-workspace run test
 ```
 
 İlk komut browser indirmeden lokal helper bağımlılıklarını kurar.

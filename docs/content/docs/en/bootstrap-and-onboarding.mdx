@@ -94,9 +94,9 @@ The guided setup should distinguish four states: host Ollama reachable, app-owne
 Its setup should move away from npm-owned helper commands and use the repo's pnpm policy:
 
 ```bash
-pnpm --dir tools/camofox-browser install --ignore-scripts
-pnpm --dir tools/camofox-browser run fetch:browser
-pnpm --dir tools/camofox-browser run test
+pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts
+pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser
+pnpm --dir tools/camofox-browser --ignore-workspace run test
 ```
 
 The first command installs local helper dependencies without browser downloads.
