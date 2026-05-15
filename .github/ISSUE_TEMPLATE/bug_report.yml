@@ -52,4 +52,4 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: OS, Python, Node, Poetry, pnpm, branch, and model/provider context.
+      description: OS, Python, uv, Node, pnpm, branch, and model/provider context.

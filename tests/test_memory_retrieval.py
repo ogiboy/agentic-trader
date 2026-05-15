@@ -139,6 +139,7 @@ def test_retrieve_similar_memories_prefers_closest_snapshot(tmp_path: Path) -> N
             bars_analyzed=160,
         ),
         limit=2,
+        strategy_family="trend_following",
     )
 
     assert len(matches) == 2
@@ -162,6 +163,15 @@ def test_retrieve_similar_memories_prefers_closest_snapshot(tmp_path: Path) -> N
     assert matches[0].vector_score is not None
     assert matches[0].heuristic_score is not None
     assert matches[0].similarity_score >= matches[1].similarity_score
+    assert (
+        matches[0].explanation.eligibility_reason
+        == "hybrid_similarity_to_current_snapshot"
+    )
+    assert matches[0].explanation.score_components["vector"] == matches[0].vector_score
+    assert matches[0].explanation.strategy_alignment == "same_strategy_family"
+    assert matches[0].explanation.freshness == "unknown"
+    assert "as_of_missing_legacy_snapshot" in matches[0].explanation.notes
+    assert "symbol=AAPL" in matches[0].explanation.diversity_bucket
 
 
 def test_memory_vector_schema_migrates_legacy_rows(tmp_path: Path) -> None:

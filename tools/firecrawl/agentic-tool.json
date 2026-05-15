@@ -1,0 +1,33 @@
+{
+  "schema_version": "2026-05-08",
+  "id": "firecrawl",
+  "label": "Firecrawl",
+  "role": "optional_authenticated_research_fetcher",
+  "entrypoints": {
+    "setup_status": "agentic-trader setup-status",
+    "research_status": "agentic-trader research-status",
+    "provider_diagnostics": "agentic-trader provider-diagnostics"
+  },
+  "runtime_module": "agentic_trader.researchd.providers.FirecrawlSearchProvider",
+  "sdk_package": "firecrawl-py",
+  "cli_command": "firecrawl",
+  "required_env": ["FIRECRAWL_API_KEY for SDK usage or CLI login"],
+  "optional_env": [
+    "AGENTIC_TRADER_RESEARCH_FIRECRAWL_ENABLED",
+    "AGENTIC_TRADER_RESEARCH_FIRECRAWL_CLI",
+    "AGENTIC_TRADER_RESEARCH_FIRECRAWL_COUNTRY",
+    "AGENTIC_TRADER_RESEARCH_FIRECRAWL_TIMEOUT_SECONDS"
+  ],
+  "safety": [
+    "opt_in_provider",
+    "redacted_errors",
+    "source_attributed_evidence_only",
+    "no_raw_web_text_in_trade_prompts"
+  ],
+  "fallbacks": [
+    "system_firecrawl_cli",
+    "sec_company_facts",
+    "pure_http_provider",
+    "degraded_research_evidence"
+  ]
+}

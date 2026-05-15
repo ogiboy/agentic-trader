@@ -4,6 +4,16 @@ Product name: `Agentic Trader`
 
 This roadmap is both a build plan and a progress ledger. Status values reflect the current codebase, not only the intended destination.
 
+## V1 Completion Boundary
+
+V1 readiness means local paper operation is inspectable, strict, and testable;
+Alpaca is ready for explicit external paper checks; source/provider gaps are
+visible; and live execution remains blocked. Former V1.1/V1.2 research,
+CrewAI-sidecar, evaluation, and memory-quality loops now belong to the V1
+completion track so V1 ends with a stronger evidence companion rather than only
+a runtime shell. V2 still starts at IBKR/global/FX expansion, multi-currency live
+accounting, and actual live brokerage.
+
 ## Phase 1: Guardrailed Core
 
 Status: completed in the initial scaffold.
@@ -42,8 +52,8 @@ Status: in progress.
 - [x] introduce a persisted Market Context Pack so `lookback` becomes operator-verifiable rather than only implied by latest-row indicators
 - [x] add multi-horizon context summaries for returns, volatility, drawdown, trend alignment, range structure, data sufficiency, and anomalies
 - [x] expose bars expected, bars analyzed, window coverage, cache provenance, and interval semantics in CLI, TUI, dashboard, review, and observer surfaces
-- [ ] add optional news and event feeds
-- [ ] add source/provider diagnostics for selected source, fallback reason, freshness, completeness, API-key readiness, rate-limit or degraded-mode state, and explicit Yahoo fallback warnings
+- [x] add optional news and event feeds
+- [x] add source/provider diagnostics for selected source, fallback reason, freshness, completeness, API-key readiness, rate-limit or degraded-mode state, and explicit Yahoo fallback warnings
 - [x] add cached data snapshots for repeatable tests
 - [x] let the user choose regions, exchanges, currencies, sectors, and default strategy posture
 - [x] let the user define portfolio preferences from the TUI instead of editing files
@@ -58,6 +68,7 @@ Status: in progress.
 - a first market-session heuristic is now available through the CLI, dashboard snapshot, Ink control room, and agent context tool outputs
 - repeatable market snapshot cache management is now available through the CLI and dashboard snapshot
 - a first optional news tool contract now exists and only enters agent context through explicit tool outputs
+- `provider-diagnostics` now exposes the current source ladder, model routing, API-key readiness, freshness/completeness placeholders, and explicit Yahoo fallback warnings without fetching network data or leaking secrets
 - a first Market Context Pack now makes the full lookback window visible, persisted, and reviewable through run artifacts, trade context, dashboard JSON, observer API, and Ink review surfaces
 - richer calendar awareness and tool-driven external context are still open
 
@@ -76,7 +87,7 @@ Status: in progress.
 - [x] show structured agent activity, recent tool usage, and the current reasoning stage beside the chat transcript
 - [x] add a clearer retro-terminal visual language so the control room feels like a serious operator console rather than a plain CLI
 - [x] introduce an Ink-based next-generation control room under a dedicated `tui/` application so the operator surface can evolve beyond the current Rich menu
-- [x] keep `agentic-trader` as the primary launcher and expose subcommands such as `agentic-trader tui`, `agentic-trader monitor`, and future UI entrypoints
+- [x] keep `agentic-trader` as the primary operator launcher and expose subcommands such as `agentic-trader tui`, `agentic-trader monitor`, and future UI entrypoints
 - [x] show the Market Context Pack in operator surfaces so the user can verify what data window and derived context each cycle used
 - [x] add a mode banner across CLI, Rich, Ink, monitor, and observer API so Training and Operation runs are never confused (completed 2026-04-15; keep parity in future UI additions)
 - [x] add memory explorer UI to inspect long-term and vector memory state
@@ -87,7 +98,8 @@ Status: in progress.
 - [ ] run a designer-style visual audit for Ink and Rich surfaces, including first-launch logo fit, resize behavior, visual density, and hotkey visibility
 - [ ] run a CLI ergonomics audit for `--help`, `-h`, examples, option naming, and short/long flag consistency
 - [ ] simplify Rich menu navigation so back, close, cancel, and exit controls feel consistent across sections
-- [ ] add a finance/accounting readability pass for cash, equity, PnL, exposure, positions, currency, backend, adapter, runtime mode, and rejection reason labels
+- [x] add a first finance/accounting read-only check for cash, equity, PnL, exposure, positions, backend, adapter, runtime mode, risk report availability, and live-block evidence
+- [x] deepen finance/accounting readability across CLI/Rich/Ink/Web GUI displays for currency, mark timestamp/source/status, fee/slippage assumptions, and rejection-evidence labels
 - [ ] convert UX audit findings into smallest-safe repair recommendations before deciding whether they are V1 fixes or V2 redesign work
       Notes:
 - control room, live monitor, operator chat, journal view, risk report view, and run review are already available
@@ -103,6 +115,7 @@ Status: in progress.
 - the Ink overview and review pages now surface context-pack summaries, lookback coverage, quality flags, anomalies, and horizon votes from the Python dashboard contract
 - the next operator trust upgrade is adding a Training/Operation mode banner and deeper retrieval explanations beside the context pack
 - richer trace inspection and deeper Ink feature parity are still open
+- finance/accounting surfaces now use shared payload truth for currency, paper mark context, cost assumptions, and rejection-evidence wording instead of display-only guesses
 - full multi-language support should wait until operator flows stabilize, then build on the shared text catalog instead of scattering strings per surface
 
 ## Phase 5: Backtesting
@@ -160,6 +173,10 @@ Status: in progress.
 - a local observer API now exposes the same runtime contracts over HTTP endpoints such as `/health`, `/dashboard`, `/status`, `/logs`, and `/broker`
 - a first `webgui/` shell now exists and uses those shared contracts through local server-side route handlers instead of introducing a separate runtime
 - deeper supervisor compatibility and daemon-backed multi-surface UI support remain open
+- a first app-managed Ollama CLI/runtime foundation now exists through `model-service status/start/stop/pull` plus strict runtime auto-start when enabled; it records separate owner-only model-service state/logs, never stops external Ollama processes, preserves ownership state when a recorded process cannot be stopped, and strict provider readiness now verifies generation rather than only `/api/tags`; `model-service status --probe-generation` exposes the same model-load truth directly, but richer Ink/Web/observer controls are still open
+- a first app-managed Camofox helper foundation now exists through `camofox-service status/start/stop` plus research auto-start when the Camofox provider is enabled; it binds loopback, requires a local access key, narrows subprocess env, records owner-only state/logs, disables telemetry/prewarm by default, and reports health as evidence only
+- a first app-owned Web GUI service foundation now exists through `webgui-service status/start/stop`; it binds loopback, records owner-only state/logs, and refuses to stop stale PID-reuse candidates
+- no-argument `agentic-trader` now acts as an operator launcher for Web GUI, default strict paper daemon, Ink, Rich, model-service, setup, and exit choices instead of assuming one terminal surface
 
 ## Phase 8: Live Execution Adapters
 
@@ -242,6 +259,9 @@ Status: in progress.
 - make lookback truth a first-class artifact: every trading decision should expose the data window, context summary, memory inputs, and safety gates that shaped it
 - treat Training vs Operation as a shared runtime mode overlay, not a forked product or separate orchestration path
 - treat research sidecars as optional local evidence companions, not a second trading runtime or a replacement for the staged specialist graph
+- keep the root runtime on uv with Python 3.13 as the daily developer default while preserving `>=3.12,<3.15` package support until CI broadens the matrix
+- keep optional CrewAI Flow work in a tracked but isolated uv sidecar instead of adding CrewAI to the root dependency graph or turning the repository into a repo-wide uv workspace
+- keep Conda/Poetry references as legacy fallback knowledge only; active setup, checks, QA, release, and CI should use root uv commands
 - evolve QA from smoke testing into repeatable terminal regression evidence with deterministic CLI JSON checks, pexpect flows, optional tmux/asciinema capture, and human-readable failure reports
 - keep memory local-first, inspectable, and policy-bound even as embeddings become more semantic and retrieval becomes more powerful
 
@@ -257,13 +277,15 @@ Status: in progress.
 - [x] include compact summaries by default and only include bar excerpts when Training mode, low confidence, or diagnostic depth requires it
 - [x] fail closed with a clear operator-facing reason when data is too thin for the configured lookback instead of silently behaving like a short-window run
 - [x] add QA coverage that asserts context-pack fields are present and coherent for representative lookback/interval combinations
+- [x] add deterministic V1 edge-case coverage for partial Yahoo-style windows, intraday provider limits, non-datetime indexes, higher-timeframe fallbacks, and Training replay undercoverage visibility
       Notes:
 - this phase answers the operator question: "Did the system really analyze the configured history?"
 - token pressure should be controlled by separating deterministic summaries from optional raw bar excerpts
 - the pack is now part of snapshot JSON, agent prompt rendering, memory documents, run artifacts, trade context, dashboard payloads, observer API payloads, and Ink review surfaces
 - under-covered operation/runtime windows now stop before agent execution when expected coverage falls below the safety threshold
 - training replay can intentionally keep growing-window undercoverage as an explicit context-pack flag instead of treating it as production-ready coverage
-- remaining work is adding broader QA scenarios around provider-specific interval edge cases, including Alpaca IEX versus SIP/delayed feeds, Yahoo fallback coverage gaps, IBKR session/calendar edge cases, and FX/global market data windows
+- V1 smoke QA now includes a network-free market-context edge-case contract so release evidence proves both Operation fail-closed behavior and Training replay visibility without requiring live providers
+- broader live-provider interval scenarios such as Alpaca IEX versus SIP/delayed feeds belong to the V1 evidence track; IBKR session/calendar edge cases and FX/global market data windows remain V2 scope
 
 ## Phase 12: Semantic Memory And Retrieval Quality
 
@@ -273,14 +295,15 @@ Status: in progress.
 - [x] store embedding model name, version, dimensionality, and created-at metadata with memory vectors
 - [x] keep backwards compatibility with existing lightweight vectors during migration
 - [ ] rank retrieval with semantic similarity, market-regime similarity, freshness, outcome weighting, and diversity constraints
-- [ ] bucket or tag memories by regime, strategy family, outcome, and data quality so retrievals can justify their rationale
+- [x] bucket or tag selected memories by regime, strategy family, outcome, and diversity context so retrievals can justify their rationale
 - [ ] expand memory documents with Market Context Pack summaries, explicit success/failure tags, and post-trade review facts
-- [ ] persist stage-level retrieval explanations showing which memories were used, why they were selected, and how strongly they influenced the decision
+- [x] persist stage-level retrieval explanations showing which memories were used, why they were selected, and how strongly they influenced the decision
 - [ ] preserve chat-memory and trade-memory separation through explicit write policies while improving recall quality
       Notes:
 - this phase keeps memory useful without making it an opaque hidden policy layer
 - memory vectors now persist provider/model/version/dimension metadata so future true-embedding migrations can distinguish old lightweight vectors from newer semantic vectors
 - legacy `memory_vectors` rows without metadata columns are migrated in place with local-hashing defaults
+- selected memory matches now carry explanation payloads with score components, as-of/freshness, outcome tag, regime/strategy alignment, and diversity bucket across traces and operator surfaces
 - DuckDB can remain the source of truth at first; a dedicated vector index or service should wait until memory volume justifies the added operational cost
 
 ## Phase 13: Training And Operation Modes
@@ -305,41 +328,47 @@ Status: completed.
 
 ## Phase 14: Terminal Regression QA And Evidence Bundles
 
-Status: planned.
+Status: in progress.
 
 - [x] expand `scripts/qa/smoke_qa.py` into a tiered terminal regression harness while keeping the fast smoke path lightweight (fast smoke plus optional quality, Sonar, and runtime-cycle tiers)
 - [ ] map `.ai/qa/qa-scenarios.md` scenarios to deterministic pexpect flows with fixed terminal size, environment, and artifact naming
-- [ ] capture CLI JSON snapshots, status payloads, broker state, service events, context-pack excerpts, and keypress transcripts for each scenario
+- [x] capture core CLI JSON snapshots, status payloads, broker state, provider diagnostics, V1 readiness, and dashboard contract sections in fast smoke QA
+- [ ] expand captured keypress transcripts, service events, and context-pack excerpts across every `.ai/qa/qa-scenarios.md` scenario
 - [ ] use Computer Use for visual CLI/Rich/Ink inspection when available, with pexpect, tmux, asciinema, and text artifacts as the fallback path
 - [ ] optionally capture tmux pane dumps and asciinema recordings for Ink and Rich visual regressions
-- [ ] generate a human-readable `qa-report.md` from structured check results when failures occur
-- [ ] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, trace, context pack, and QA results under a timestamped artifact directory
+- [x] generate a human-readable `qa-report.md` from structured check results for each smoke run
+- [x] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, readiness, broker state, observer-compatible payloads, and QA results under a timestamped artifact directory
 - [ ] keep quality gates tiered: CI-safe CLI/static checks first, local interactive TUI checks second, manual visual recordings third
-- [ ] include lookback-context, daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
+- [ ] include daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
       Notes:
 - QA should validate the product the operator actually touches, not just unit-level internals
-- smoke QA now includes dashboard and runtime-mode checklist contract checks, deep Rich-menu navigation, raw terminal-noise detection, and an optional isolated one-cycle runtime check
+- smoke QA now includes dashboard, provider diagnostics, V1 readiness, broker health, runtime-mode checklist, deterministic market-context edge-case checks, deep Rich-menu navigation, raw terminal-noise detection, a generated `qa-report.md`, and an optional isolated one-cycle runtime check
+- smoke QA now also includes a CLI help contract for key operator commands so `--help`/`-h` output stays concise and does not leak implementation-oriented docstring sections
 - visual QA can now use Computer Use in Codex/Desktop environments, but it remains optional and must be paired with contract/runtime truth checks
 - artifacts must stay token- and secret-safe, and generated evidence should remain ignored unless explicitly promoted to docs
 
 ## Phase 15: Production-Like Paper Operations
 
-Status: planned.
+Status: in progress.
 
-- [ ] define a canonical operator workflow: doctor, broker status, dashboard snapshot, Training review, one strict cycle, trace review, then background paper operation
-- [ ] harden daemon lifecycle semantics for stale PIDs, stop requests, restarts, log tails, and terminal outcomes
+- [x] define a canonical operator workflow: doctor, hardware profile, provider diagnostics, V1 readiness, smoke QA, one strict cycle, trace review, evidence bundle, then background paper operation
+- [x] harden daemon lifecycle semantics for stale PIDs, stop requests, restarts, log tails, and terminal outcomes
 - [ ] add runtime performance profiles that tune concurrent agents, model routing, token budgets, request timeouts, and memory limits based on local hardware class
-- [ ] add a hardware capability probe that records CPU, RAM, GPU/accelerator, model size, and safe parallelism recommendations before starting long-running operation
+- [x] add a hardware capability probe that records CPU, RAM, GPU/accelerator, model size, and safe parallelism recommendations before starting long-running operation
 - [ ] make live monitor stage progress show agent stage, current symbol, data context, last tool usage, current model call, terminal outcome, and safety gate result
 - [ ] redesign the Ink control room toward an htop-like operator console with stable panes, visible controls, resize-safe layout, and less scrollback noise
 - [ ] reduce Rich/admin visual density or keep it as a compact fallback surface once Ink reaches full operational parity
-- [ ] add a paper-operations readiness checklist that must pass before longer continuous runs
-- [ ] tie V1 readiness to paper evidence, provider health, source attribution, context-pack explainability, broker health checks, and an explicit no-live-until-approved gate
+- [x] add a paper-operations readiness checklist that must pass before longer continuous runs
+- [x] tie V1 readiness to paper evidence, provider health, source attribution, context-pack explainability, broker health checks, and an explicit no-live-until-approved gate
+- [x] add a native read-only `finance-ops` trading-desk payload across CLI, dashboard, observer API, and evidence bundles for broker/account/PnL/exposure/risk/evidence reconciliation
 - [ ] compare paper operation results against deterministic baselines and memory/no-memory ablations before considering any live adapter
 - [ ] keep live broker work blocked until paper operation has stable QA evidence, context-pack explainability, and reviewable trade journals
       Notes:
 - this phase is about earning operator trust in continuous paper operation before expanding execution risk
 - the product should feel like an inspectable operator system, not a black-box trading bot
+- `v1-readiness` is now the first paper-operations checklist and is visible through CLI, dashboard, observer API, Rich, Ink, and Web GUI surfaces; it also reports paper evidence expectations, source-ladder visibility, context-pack explainability fields, review/evidence-bundle artifacts, and the explicit no-live-until-approved gate
+- daemon lifecycle now records blocked runtime gates, recovers dead PID state through `stop-service`, treats stale live-heartbeat PID state as unsafe to double-launch, honors stop requests during cycle sleeps and after skipped symbols, exposes supervisor log tails through observer-compatible payloads, and filters live monitor stage rows to the active cycle
+- live monitor Current Cycle output now keeps data context, runtime mode, broker backend/state, kill-switch state, and V1 paper gate visible beside stage progress
 
 ## Phase 16: Financial Intelligence Layer
 
@@ -359,8 +388,15 @@ Status: in progress.
 - [x] aggregate runtime market context, fundamental scaffolds, news events, disclosure scaffolds, and macro scaffolds before feature generation
 - [x] document the V1 source ladder: regulatory/public data first, free-friendly APIs such as Finnhub/FMP as optional enrichers, and Yahoo only as a degraded fallback
 - [x] make SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX sources explicit scaffold metadata
+- [x] add deterministic idea-scanner presets for momentum, gap-up/down, mean-reversion, breakout, and volatile candidates as research-only scoring surfaces
+- [x] add first concentration visibility in daily risk reports through portfolio HHI and top-position symbols
+- [x] translate external market-intelligence benchmark patterns into repo-native `.ai` guidance for continuous research loops, source-attributed news, strategy research/sweeps, finance evidence reconciliation, and a V1 strategy catalog
 - [ ] implement real fundamental providers behind the feature interface, starting with API-backed US equities and SEC filings
 - [ ] implement structured news and macro ingestion from Finnhub, FMP, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
+- [x] turn the first V1 strategy/catalog/news/loop slice into incremental code through existing contracts: idea-scanner metadata, `strategy-catalog`, `strategy-profile`, `idea-score` readiness context, `news-intelligence`, `research-cycle-plan`, and `finance-ops` ledger categories
+- [ ] enrich scanner output with provider/news/fundamental materiality, liquidity, spread, and sizing context before queueing paper proposals
+- [ ] extend the runtime strategy catalog into feature bundles, backtest comparison, proposal records, guard/risk layers, and broader operator surfaces
+- [ ] add no-lookahead, declarative sweep, and confidence-review checks before opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble research candidates become proposal-capable
 - [ ] add operator-visible reasoning panels that explain how technical, fundamental, macro, memory, and guard evidence combined
 - [ ] improve risk engine with volatility-based sizing, portfolio exposure limits, sector concentration checks, and macro risk overrides
       Notes:
@@ -368,30 +404,37 @@ Status: in progress.
 - agents now consume a compact `DecisionFeatureBundle`; raw noisy data should stay behind feature/provider boundaries
 - the prompt-facing feature bundle is the primary agent input; compact runtime snapshots remain available internally for deterministic fallback and risk math
 - canonical analysis snapshots now sit below the feature bundle so provider source, freshness, and missing-data truth can travel into prompts, persistence, memory, and dashboard JSON without coupling agents to provider-specific payloads
+- idea-scanner presets are intentionally score/watch helpers, not execution agents; output must pass through proposal review and explicit approval before any broker adapter call
+- market-intelligence guidance now exists under `.ai/agents/market-strategist.md`, `.ai/workflows/continuous-research-loop.md`, `.ai/playbooks/news-intelligence.md`, `.ai/playbooks/strategy-research-and-sweeps.md`, `.ai/playbooks/finance-evidence-reconciliation.md`, `.ai/skills/market-news-research.md`, and `.ai/strategies/`; these files are development contracts and not a second runtime
+- HHI/top-position concentration is the first finance-ops concentration signal; ATR/confidence sizing, ADV/spread penalties, group budgets, and correlation clusters are still open
 - Yahoo should be treated as fallback/degraded evidence once stronger provider data is configured, not as the long-term source of truth
 - API keys are configuration-only and must stay in ignored local env files, never in tracked files or QA artifacts
 - live trading remains blocked; this is decision intelligence groundwork, not broker activation
 
 ## Phase 17: V1 Alpaca Readiness - US Paper First
 
-Status: planned.
+Status: completed.
 
 - [x] add settings-only Alpaca paper credentials/feed fields so env readiness can be checked without enabling live trading
-- [ ] add an Alpaca adapter behind the existing broker adapter contract for US equities only
-- [ ] default to Alpaca paper endpoints and IEX-class data assumptions unless the operator explicitly configures otherwise
-- [ ] keep paper, simulated-real, and live backends explicitly separated in settings, status, persistence, and operator UI
-- [ ] require manual approval before any live execution path can submit an order
-- [ ] enforce strict risk caps, kill switch, and unsupported-backend failures before live adapter activation
-- [ ] add account, order, position, and feed health checks before any Alpaca live-readiness banner can pass
-- [ ] restrict V1 live-readiness scope to US equities until paper evidence, manual approval, and strict safety gates are proven
-- [ ] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
-- [ ] add paper-to-live readiness checklist that compares paper performance, QA evidence, and broker health before enabling any live mode
+- [x] add an Alpaca adapter behind the existing broker adapter contract for US equities only
+- [x] default to Alpaca paper endpoints and IEX-class data assumptions unless the operator explicitly configures otherwise
+- [x] keep paper, simulated-real, Alpaca external paper, and live backends explicitly separated in settings, status, persistence, and operator UI
+- [x] require manual approval before any live execution path can submit an order
+- [x] add a V1 manual-review proposal queue with explicit create/list/approve/reject/reconcile commands and persisted execution intent/outcome audit fields
+- [x] enforce strict risk caps, kill switch, and unsupported-backend failures before live adapter activation
+- [x] add account, order, position, and feed health checks before any Alpaca live-readiness banner can pass
+- [x] restrict V1 live-readiness scope to US equities until paper evidence, manual approval, and strict safety gates are proven
+- [x] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
+- [x] add paper-to-live readiness checklist that compares paper performance, QA evidence, and broker health before enabling any live mode
       Notes:
 - V1 readiness is Alpaca-first and US-equities-only to limit blast radius
 - V1 does not mean live trading is enabled; it means the system is Alpaca-ready while remaining paper-first with manual approval and strict safety gates
-- `paper` remains the default; `live` remains blocked until the adapter, approval gate, and readiness checks are intentionally implemented
+- `paper` remains the default; `alpaca_paper` is an explicit external-paper backend gated by credentials, paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`
+- `live` remains blocked; V1 readiness is expressed through `v1-readiness`, `provider-diagnostics`, `broker-status`, dashboard/observer payloads, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden live brokerage
+- proposal approval submits through the existing broker adapter boundary and paper/external-paper safety gates; scanner, sidecar, chat, and Web surfaces must not approve or execute implicitly
+- `proposal-reconcile` repairs an already approved in-flight proposal from the idempotent `execution_records.intent_id` row without resubmitting to the broker, covering interrupted final-status writes before external paper/live adapters grow broader
 
-## V1.1 Research Sidecar - Local Evidence Companion
+## V1 Research Sidecar - Local Evidence Companion
 
 Status: in progress.
 
@@ -402,27 +445,39 @@ Status: in progress.
 - [x] add `research-status`, dashboard, and observer API visibility for mode, enabled/disabled state, backend, watched symbols, source health, and last update fields
 - [x] keep the initial CrewAI integration as an optional backend boundary rather than a required dependency or runtime replacement
 - [x] add file-backed sidecar persistence for raw-evidence references, world-state snapshots, and memory-update previews without opening or competing with the active DuckDB runtime writer
-- [ ] wire real official/structured sources first: SEC filings/company facts, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
+- [x] move CrewAI Flow scaffolding into a tracked uv-managed sidecar at `sidecars/research_flow/` while keeping it outside the root dependency graph
+- [x] add a first opt-in official SEC EDGAR submissions metadata provider with User-Agent gating and normalized filing evidence
+- [x] add compact official SEC companyfacts XBRL summaries with fresh source attribution and no raw filing text injection
+- [x] add optional disabled-by-default Firecrawl news search and Camofox local-browser health providers behind `researchd`, with redaction, provenance, and raw-text-free prompt boundaries
+- [x] document the safe news/browser evidence envelope: source tier, fetcher source, attempts, published/fetched timestamps, freshness, materiality, classification, and redaction before any scanner/proposal/review use
+- [x] add a first bounded CLI research-cycle executor for cadence/watchlist-aware sidecar snapshot collection, preflight/source-health/digest output, and no broker/proposal authority
+- [ ] wire remaining real official/structured sources: SEC full filing parsing, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
 - [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
 - [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
       Notes:
-- V1.1 is a local-first evidence companion for the current runtime, not a re-platforming
+- this is a local-first V1 evidence companion for the current runtime, not a re-platforming
 - the sidecar may eventually run beside the daemon, but it must not submit orders, mutate trading policy, or weaken strict runtime gates
+- SEC EDGAR submissions and compact companyfacts ingestion are disabled by default and require a configured User-Agent; full filing text and downstream memory writes remain separate planned steps
+- Firecrawl/Camofox support is optional helper infrastructure, not a mandatory runtime dependency or broker-capable sidecar
+- `research-cycle-run` now executes bounded evidence-only sidecar cycles, can persist research snapshots, supports QA-friendly `--no-sleep`, and reports preflight status, source-health delta, cadence/next-run, digest, and disabled broker/proposal/raw-web-prompt authority
 - missing provider data must stay visible as missing; source diversity, staleness, evidence/inference separation, and contradiction tracking are core contracts
 
-## V1.2 Evaluation And Crew Loops - Optional Sidecar Harness
+## V1 Evaluation And Crew Loops - Optional Sidecar Harness
 
 Status: planned.
 
 - [x] add an operator-visible CrewAI setup/status preflight that keeps CrewAI out of the core runtime dependency graph
+- [x] add a minimal tracked CrewAI Flow package with Python 3.13 `.python-version`, root-version-aligned pyproject metadata, uv lock/install flow, and root pnpm/Make setup and smoke-check commands
+- [x] add a subprocess JSON contract between the root `ResearchSidecarBackend` and tracked CrewAI Flow sidecar without importing CrewAI in core runtime modules
 - [ ] add optional CrewAI Flow/Crew adapters behind the sidecar backend boundary for deep-dive research tasks
-- [ ] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
+- [x] scaffold focused task definitions for company dossiers, sector briefs, contradiction checks, timeline reconstruction, and watch-next lists
 - [ ] add evaluation harnesses that compare research packets against later market behavior, paper outcomes, and memory/no-memory ablations
 - [ ] link simulated training trades back to the exact world-state snapshot, evidence packet, prompt context, and sidecar version used
 - [ ] add scenario memory, contradiction files, source-diversity scoring, and freshness/outcome weighting before research packets influence manager confidence
 - [ ] keep native replay, QA, and runtime paths valid when CrewAI is not installed or disabled
       Notes:
 - CrewAI is useful here as a sidecar research harness, not as the owner of execution, broker state, or runtime orchestration
+- the tracked sidecar is intentionally isolated: uv owns `sidecars/research_flow/`, root uv owns the core runtime lock, and native runtime/replay/QA must keep working when the sidecar is not installed
 - training intelligence loops should improve evaluation and memory quality while Operation remains strict, paper-first, and explicitly gated
 
 ## Phase 18: V2 Global Expansion - IBKR And FX
@@ -450,14 +505,29 @@ Status: in progress.
 - [x] refresh developer orientation notes and keep README links pointed at the current code-map instead of stale `docs/dev/*` paths
 - [x] activate the existing `docs/` app as a Fumadocs-based local documentation site for setup, architecture, runtime, data/execution, operator surfaces, and QA
 - [x] expand docs with project-state, bootstrap, and frontend-system pages without duplicating repository truth
+- [x] reframe the docs entrypoint, project state, getting started, operator surfaces, and memory/review pages as an operator-first guide rather than a contributor-only manual
 - [ ] expand docs with contributing and deeper reference pages without duplicating repository truth
+- [ ] add feature deep dives for paper operation, broker/account truth, memory/review evidence, research sidecar, runtime modes, and evidence bundles
 - [ ] add a cross-platform bootstrap flow for macOS, Linux, and Windows that checks prerequisites, sets up the environment, offers optional Ollama plus default-model installation, and opens the Web GUI
+- [ ] add a V1 side-application installer/check script for the local tools needed to run the full app experience: WebGUI/docs/TUI workspace deps, CrewAI Flow sidecar setup, optional Ollama/default-model setup, optional Firecrawl CLI readiness, optional Camofox local browser health, and clear post-install service checks
+- [x] define a repo-owned local tool root under `tools/` for optional runtime/development helpers: Camofox browser infrastructure, Ollama service metadata notes, Firecrawl adapter metadata notes, and explicit fallback rules to host-system tools or pure Python/JS fetchers
+- [ ] extend the first `tool_roots` helper into a central tool registry/readiness contract so setup, researchd, model-service, WebGUI, QA, and docs describe the same local helper truth instead of each probing Ollama, Firecrawl, Camofox, and browser tooling independently
+- [x] add a first setup-status and macOS bootstrap script foundation that detects core tools, optional Ollama/Firecrawl/Camofox/RuFlo readiness, and the `agentic-trader` PATH entrypoint without hidden installs
 - [ ] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
-- [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, including JetBrains Mono typography
+- [ ] split oversized runtime/CLI/helper files incrementally into domain modules, constants, render helpers, and service helpers so V1 remains inspectable as a product codebase rather than a single-developer script pile
+- [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, using a local-first monospace typography stack without build-time Google Fonts fetches
 - [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
 - [x] resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind issue so local interactive frontend work matches the green lint/build path
       Notes:
 - `docs/` and `webgui/` should stay visually related, but neither should become a second runtime or a cross-app shared-package experiment before the surfaces stabilize
 - the docs app should stay curated and source-linked rather than mirroring whole repository files blindly
+- operator-facing docs should distinguish trading memory/review evidence from contributor `.ai` notes, and should explain V1 paper/live/broker boundaries before package ownership details
+- the docs landing page now presents an operator guide first, with developer/contributor details as secondary context
 - `webgui` dev mode now runs on `localhost:3210` with Watchpack polling so browser QA matches the README and avoids file-watch noise in this worktree
 - app-managed Ollama and bootstrap work should plug into the existing daemon/log/status surfaces rather than inventing separate setup helpers with hidden runtime state
+- the first bootstrap slice is intentionally explicit: `make bootstrap` prompts before system installs, `agentic-trader setup-status` is read-only, Firecrawl auth remains user-owned, Camofox install is opt-in because it may download a browser binary, and the secure Camofox wrapper requires `CAMOFOX_ACCESS_KEY`
+- `agentic-trader setup-status` now includes model-service and WebGUI-service readiness, and the bootstrap script can offer PATH symlink repair when `agentic-trader` resolves to a stale checkout
+- `agentic_trader.system.tool_roots` now provides the first central registry for optional repo tools, including status IDs, consumers, fallback order, manifest notes, and install hints for Ollama, Firecrawl, and Camofox; setup-status, model-service status, Camofox-service status, dashboard snapshot, Web overview, Ink overview, and research provider metadata consume or display this registry-backed truth, while QA/docs parity remains open
+- side-application setup must be explicit and opt-in for paid/browser/provider helpers; missing optional tools should be reported as degraded readiness, not silently installed, auto-started, or treated as blockers for core paper operation
+- `tools/` is the intended home for optional local helper infrastructure; `sidecars/` stays for isolated runtime packages such as CrewAI Flow, and root Python/Node dependencies should not absorb browser/model/provider helper internals prematurely
+- refactors should be architectural cleanup with tests, not broad rewrites: extract duplicated strings/constants and service helpers when a touched file is already hard to audit, especially around CLI rendering, setup/service status, research provider fallbacks, and i18n-ready operator text

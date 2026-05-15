@@ -36,7 +36,7 @@ The details can evolve, but the important rule is that reasoning and execution s
 The repo currently has two Next.js shells:
 
 - `webgui/` for the operator-facing local UI
-- `docs/` for developer-facing documentation
+- `docs/` for the operator guide and contributor maintenance notes
 
 Neither should become a second runtime.
 Thin route handlers, shared contracts, and explicit CLI delegation are preferred over duplicating orchestration in TypeScript.
@@ -64,5 +64,5 @@ Examples of drift we want to avoid:
 
 - adding web-only runtime semantics
 - introducing a hidden orchestration layer outside the Python runtime
-- treating docs as a parallel source of truth instead of synced project memory
+- treating docs as a parallel source of truth instead of synced product guidance and contributor notes
 - burying execution safety in prompts that should live in code

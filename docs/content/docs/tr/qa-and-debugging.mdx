@@ -8,10 +8,31 @@ description: Operatöre görünen değişiklikleri hedefli testler, smoke QA ve 
 Hedefli kontrollerle başla:
 
 ```bash
-python -m ruff check .
-python -m pytest -q -p no:cacheprovider
+pnpm run check:python
+pnpm run check:research-flow
 pnpm run qa
 ```
+
+Fast smoke QA artık shared dashboard contract içinde provider diagnostics,
+V1 readiness, broker health, external-paper state, runtime mode ve Market
+Context Pack bölümlerinin bulunduğunu doğrular; Ink/Web/observer yüzeyleri bu
+alanları tüketmeden önce drift yakalanır.
+
+Ayrıca partial daily window, intraday provider limitleri, non-datetime index,
+higher-timeframe fallback ve Training replay undercoverage flag'leri için
+deterministik market-context edge-case kontrolü çalıştırır.
+
+İncelenebilir yerel evidence paketi için:
+
+```bash
+agentic-trader operator-workflow
+agentic-trader evidence-bundle
+```
+
+Bu paket read-only çalışır ve dashboard, status, broker, provider diagnostics,
+V1 readiness, runtime logları, runtime-mode checklist, research status, hardware
+profile, supervisor log tail'leri, operator workflow, manifest ve varsa son
+smoke summary/report dosyalarını içerir.
 
 Docs uygulaması için:
 
@@ -76,7 +97,7 @@ Docs işini PR-ready saymadan önce:
 - `/en/docs` ve `/tr/docs` sayfalarını aç
 - her locale içinde en az bir derin sayfayı aç
 - sidebar, search ve feedback UI doğru render oluyor mu bak
-- JetBrains Mono ve tema token'ları hâlâ uygulanıyor mu kontrol et
+- local-first monospace stack ve tema token'ları hâlâ uygulanıyor mu kontrol et
 
 ## İyi kapanış sorusu
 

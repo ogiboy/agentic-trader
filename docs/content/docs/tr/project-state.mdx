@@ -1,36 +1,53 @@
 ---
 title: Proje Durumu
-description: Nelerin zaten çalıştığı, nelerin hâlâ sertleştirildiği ve V1 sıkılaştırılırken nelerin drift etmemesi gerektiği.
+description: Agentic Trader'ın bugün ne yapabildiği, nelerin hâlâ deneysel olduğu ve hangi V1 sınırlarının oynamaması gerektiği.
 ---
 
-## Zaten doğru olan şeyler
+## Agentic Trader bugün ne yapabilir
 
 Agentic Trader artık yalnızca bir prototip değil.
-Depoda şu anda şunlar gerçekten var:
+Bugün şunları yapabilir:
 
-- aşamalı specialist graph
-- shared runtime ve review sözleşmeleri
-- DuckDB tabanlı persistence
-- CLI, Rich, Ink, observer API ve Web GUI yüzeyleri
-- paper-first execution disiplini
-- smoke QA ve runtime inspection araçları
+- mevcut Python runtime üzerinden strict lokal paper cycle çalıştırabilir
+- market context, decision feature, review snapshot ve runtime artefact'lerini
+  oluşturup persist edebilir
+- runtime, provider, broker, research ve supervisor durumunu CLI, Rich, Ink,
+  observer API ve Web GUI yüzeylerinde gösterebilir
+- lokal paper backend'i varsayılan tutarken live execution'ı bloklu tutabilir
+- model/provider sağlığı, runtime mode ve Alpaca paper hazırlığı için readiness
+  gate'lerini gösterebilir
+- smoke koşuları ve evidence bundle'lar ile QA kanıtı paketleyebilir
 
-Docs sitesi bu gerçeği yansıtmalı; projeyi soyut bir AI ürün hikâyesine çevirmemeli.
+Docs bu ürün gerçeğini sade operatör diliyle açıklamalı, implementation
+detaylarına ise gerçekten yardımcı oldukları yerde bağlanmalı.
 
-## Şu an aktif olarak sertleştirilen alanlar
+## Hâlâ sertleştirilen alanlar
 
 Mevcut hardening hattı şunlara odaklanıyor:
 
 - runtime, provider ve model sağlığını daha görünür yapmak
 - onboarding ve kurulum kalitesini yükseltmek
 - web yüzeylerini ince ve contract-aligned tutmak
-- katkı verenlerin daha az drift ile daha hızlı hareket etmesini sağlayacak açık sınırlar yazmak
+- docs'u yalnızca katkı verenlere değil operatörlere de faydalı hale getirmek
+- research-sidecar evidence ingestion'ı broker veya execution yetkisi vermeden
+  genişletmek
+
+## Hazır olmayan veya V1 kapsamı dışında kalanlar
+
+- Live trading hâlâ bloklu.
+- IBKR, global marketler, FX ve multi-currency accounting V2 kapsamı.
+- CrewAI research flow izole sidecar'dır; ana runtime değildir.
+- SEC EDGAR submissions metadata opt-in ve metadata-first çalışır; full filing
+  text, transcript, macro series, KAP ve daha zengin vendor ingestion hâlâ
+  provider-level gelecek iştir.
+- Web GUI ve docs runtime contract'lerinin etrafındaki lokal kabuklardır;
+  alternatif trading engine değildir.
 
 ## Drift etmemesi gereken şeyler
 
 - Kaynak gerçek hâlâ Python runtime'dır.
-- `webgui/` hâlâ Python CLI'ya delegasyon yapar; onun yerine geçmez.
-- `docs/` geliştiriciye dönük bir yüzeydir; ikinci ürün runtime'ı değildir.
+- `webgui/` mevcut runtime sözleşmelerine delegasyon yapar; onların yerine geçmez.
+- `docs/` ürün davranışını ve katkı sınırlarını açıklar; runtime değildir.
 - Varsayılan execution posture paper trading olarak kalır.
 - Fallback yolları açık ve inspect edilebilir olmalıdır.
 
@@ -59,20 +76,12 @@ Daha uzun vadeli onboarding hedefi; macOS, Linux ve Windows için şu işleri ya
 
 ## Docs açısından mevcut duruş
 
-Bu docs sitesi artık yalnızca kısa bir quick start olmamalı.
+Bu docs sitesi artık yalnızca kısa bir kurulum metni olmamalı.
 Şunları da açıklamalı:
 
-- mevcut sistem sahipliği
-- runtime davranışının arkasındaki guardrail'ler
-- frontend yüzeylerinin nasıl evrilmesine izin verildiği
-- hangi kanıtların anlamlı QA sayıldığı
-
-## Bu branch için PR ölçütü
-
-Bir docs branch yalnızca render olduğu için hazır sayılmaz.
-Ayrıca:
-
-- repo durumunu dürüst anlatmalı
-- repo büyüdükçe korunabilir olmalı
-- okunabilirliği gerçekten artırıyorsa uzun dosyaları bölmeli
-- docs, `.ai` notları ve gerçek implementasyon varsayımlarını hizalı tutmalı
+- mevcut ürün kabiliyetleri
+- paper/live/runtime davranışlarının arkasındaki guardrail'ler
+- bir paper run'ın nasıl doğrulanacağı
+- memory, review artefact'leri, broker durumu ve evidence bundle'ların güveni
+  nasıl desteklediği
+- bir özelliğin tamam mı, gated mı, scaffold mı, yoksa gelecek kapsam mı olduğu

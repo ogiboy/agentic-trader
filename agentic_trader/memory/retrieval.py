@@ -1,8 +1,15 @@
+from datetime import UTC, datetime
 from math import fabs
 from typing import Literal
 
 from agentic_trader.memory.embeddings import cosine_similarity, embed_snapshot
-from agentic_trader.schemas import HistoricalMemoryMatch, MarketSnapshot, RunRecord
+from agentic_trader.schemas import (
+    FreshnessStatus,
+    HistoricalMemoryMatch,
+    MarketSnapshot,
+    MemoryRetrievalExplanation,
+    RunRecord,
+)
 from agentic_trader.storage.db import TradingDatabase
 
 
@@ -41,12 +48,99 @@ def _snapshot_similarity(current: MarketSnapshot, historical: MarketSnapshot) ->
     return min(1.0, (sum(components) / len(components)) + trend_bonus)
 
 
+def _memory_freshness(as_of: str | None) -> FreshnessStatus:
+    if not as_of:
+        return "unknown"
+    try:
+        observed = datetime.fromisoformat(as_of.replace("Z", "+00:00"))
+    except ValueError:
+        return "unknown"
+    if observed.tzinfo is None:
+        observed = observed.replace(tzinfo=UTC)
+    age_days = (datetime.now(UTC) - observed).days
+    return "fresh" if age_days <= 365 else "stale"
+
+
+def _trend_alignment(current: MarketSnapshot, historical: MarketSnapshot) -> str:
+    current_signature = _trend_signature(current)
+    historical_signature = _trend_signature(historical)
+    if current_signature == historical_signature:
+        return "same_trend_signature"
+    return "different_trend_signature"
+
+
+def _strategy_alignment(
+    *,
+    requested_strategy: str | None,
+    candidate_strategy: str,
+) -> str:
+    if requested_strategy is None:
+        return "current_strategy_unknown"
+    if requested_strategy == candidate_strategy:
+        return "same_strategy_family"
+    return "different_strategy_family"
+
+
+def _diversity_bucket(candidate: RunRecord) -> str:
+    outcome = "approved" if candidate.approved else "not_approved"
+    return (
+        f"symbol={candidate.symbol}|"
+        f"regime={candidate.artifacts.regime.regime}|"
+        f"strategy={candidate.artifacts.strategy.strategy_family}|"
+        f"outcome={outcome}"
+    )
+
+
+def _retrieval_explanation(
+    *,
+    current: MarketSnapshot,
+    candidate: RunRecord,
+    similarity: float,
+    heuristic_similarity: float,
+    vector_similarity: float | None,
+    requested_strategy: str | None,
+    embedding_present: bool,
+) -> MemoryRetrievalExplanation:
+    historical = candidate.artifacts.snapshot
+    as_of = historical.as_of
+    score_components = {
+        "final": round(similarity, 4),
+        "heuristic": round(heuristic_similarity, 4),
+    }
+    notes = [
+        "embedding_present" if embedding_present else "embedding_missing",
+        "as_of_from_market_snapshot" if as_of else "as_of_missing_legacy_snapshot",
+    ]
+    eligibility_reason = "hybrid_similarity_to_current_snapshot"
+    if vector_similarity is None:
+        eligibility_reason = "heuristic_similarity_to_current_snapshot"
+    else:
+        score_components["vector"] = round(vector_similarity, 4)
+        score_components["heuristic_weight"] = 0.45
+        score_components["vector_weight"] = 0.55
+    return MemoryRetrievalExplanation(
+        eligibility_reason=eligibility_reason,
+        score_components=score_components,
+        as_of=as_of,
+        freshness=_memory_freshness(as_of),
+        outcome_tag="approved_trade" if candidate.approved else "not_approved",
+        regime_alignment=_trend_alignment(current, historical),
+        strategy_alignment=_strategy_alignment(
+            requested_strategy=requested_strategy,
+            candidate_strategy=candidate.artifacts.strategy.strategy_family,
+        ),
+        diversity_bucket=_diversity_bucket(candidate),
+        notes=notes,
+    )
+
+
 def retrieve_similar_memories(
     db: TradingDatabase,
     snapshot: MarketSnapshot,
     *,
     limit: int = 5,
     candidate_limit: int = 200,
+    strategy_family: str | None = None,
 ) -> list[HistoricalMemoryMatch]:
     candidates: list[RunRecord] = db.list_run_records(limit=candidate_limit)
     vector_rows = {
@@ -64,6 +158,7 @@ def retrieve_similar_memories(
         retrieval_source: Literal["heuristic", "vector", "hybrid"] = "heuristic"
         similarity = heuristic_similarity
         embedding = vector_rows.get(candidate.run_id)
+        embedding_present = embedding is not None
         if embedding is not None:
             vector_similarity = cosine_similarity(current_embedding, embedding)
             similarity = (heuristic_similarity * 0.45) + (vector_similarity * 0.55)
@@ -86,6 +181,15 @@ def retrieve_similar_memories(
                 manager_bias=candidate.artifacts.manager.action_bias,
                 approved=candidate.approved,
                 summary=candidate.artifacts.review.summary,
+                explanation=_retrieval_explanation(
+                    current=snapshot,
+                    candidate=candidate,
+                    similarity=similarity,
+                    heuristic_similarity=heuristic_similarity,
+                    vector_similarity=vector_similarity,
+                    requested_strategy=strategy_family,
+                    embedding_present=embedding_present,
+                ),
             )
         )
     ranked.sort(key=lambda item: item.similarity_score, reverse=True)

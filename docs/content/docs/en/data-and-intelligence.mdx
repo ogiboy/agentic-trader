@@ -45,6 +45,71 @@ If this layer is missing or incomplete, downstream confidence should reflect tha
 
 That is why missing `context` or missing `decision_features` should be treated as a real provider or evidence gap rather than a cosmetic omission.
 
+## News and world-state evidence
+
+News, filings, macro releases, browser fetches, and search results are useful only
+after they become small evidence packets. A usable packet should say where it
+came from, when it was published, when it was fetched, whether it was fresh or
+stale, what fetcher path was used, what source tier it belongs to, and why it is
+material.
+
+Agentic Trader should not hand raw article text or social posts to trading
+prompts. The safer path is: collect, redact, summarize, classify, cite, then let
+scanner and proposal review surfaces consume the compact result.
+
+The first operator-facing runtime surface for this is:
+
+```bash
+agentic-trader news-intelligence --symbol AAPL --company-name Apple --sector "consumer technology" --json
+```
+
+It does not scrape the web by itself. It produces query templates, source tiers,
+freshness rules, excluded noisy domains, material event types, and the prompt
+policy that keeps raw article text out of the core trading prompt.
+
+## Strategy intelligence
+
+The V1 strategy path is intentionally conservative. Momentum, gap review,
+mean-reversion, breakout/reclaim, and volatility presets are research helpers
+until they are enriched with provider evidence, liquidity/spread checks, sizing
+assumptions, and proposal review.
+
+Those profiles are now available as runtime metadata:
+
+```bash
+agentic-trader strategy-catalog --json
+agentic-trader strategy-profile vwap-breakout --json
+agentic-trader idea-score --symbol AAPL --preset momentum --price 190 --volume 5000000 --change-pct 6.2 --relative-volume 3.4 --json
+```
+
+The output explains required inputs, missing evidence, risk controls, validation
+checks, and why scanner output still needs manual proposal review.
+
+More advanced patterns such as opening-range, VWAP, Keltner/Bollinger,
+regime-adaptive, pairs, or ensemble ideas should first pass no-lookahead checks,
+backtest confidence review, and clear invalidation rules. Even then, they create
+pending proposals, not orders.
+
+## Finance/accounting evidence
+
+`finance-ops --json` now carries a reconciliation contract for ledger categories
+such as trades, cash, fees/taxes, dividends, interest, and corporate actions.
+V1 paper mode can honestly mark some of those categories as missing; the
+important rule is that missing evidence must never be treated as zero evidence.
+
+## Continuous research cycle
+
+The benchmark loop pattern is available as a read-only runtime contract:
+
+```bash
+agentic-trader research-cycle-plan --symbols AAPL,MSFT --json
+```
+
+The phases are PRE-FLIGHT, MONITOR, ANALYZE, PROPOSE, and DIGEST. The plan
+names the existing commands each phase reads and repeats the hard safety line:
+the cycle may surface ideas and pending proposals, but it may not approve,
+submit, mutate policy, or hide missing source evidence.
+
 ## Review and persistence tie-in
 
 These structured artifacts are not only for live reasoning.

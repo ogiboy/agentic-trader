@@ -5,6 +5,7 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from agentic_trader.schemas import ExecutionBackend, ResearchMode, RuntimeMode
+from agentic_trader.security import ensure_private_directory
 
 
 class Settings(BaseSettings):
@@ -38,6 +39,11 @@ class Settings(BaseSettings):
     max_retries: int = 2
     request_timeout_seconds: float = 180.0
     max_output_tokens: int = 2048
+    model_service_host: str = "127.0.0.1"
+    model_service_port: int = Field(default=11434, ge=1, le=65535)
+    model_service_models_dir: Path | None = None
+    runtime_auto_start_model_service: bool = True
+    runtime_auto_start_camofox: bool = True
 
     runtime_dir: Path = Field(default_factory=lambda: Path("runtime"))
     database_path: Path = Field(
@@ -54,6 +60,7 @@ class Settings(BaseSettings):
     alpaca_secret_key: str | None = None
     alpaca_base_url: str = "https://paper-api.alpaca.markets/v2"
     alpaca_data_feed: str = "iex"
+    alpaca_paper_trading_enabled: bool = False
     market_data_mode: Literal["live", "prefer_cache", "refresh_cache"] = "live"
     news_mode: Literal["off", "yfinance"] = "off"
     news_headline_limit: int = 5
@@ -63,6 +70,49 @@ class Settings(BaseSettings):
     research_symbols: str = ""
     research_poll_seconds: int = Field(default=900, ge=60)
     research_max_events_per_source: int = Field(default=20, ge=1, le=200)
+    research_sec_edgar_enabled: bool = False
+    research_sec_edgar_user_agent: str | None = None
+    research_firecrawl_enabled: bool = False
+    firecrawl_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "FIRECRAWL_API_KEY",
+            "AGENTIC_TRADER_FIRECRAWL_API_KEY",
+        ),
+    )
+    research_firecrawl_cli: str = "firecrawl"
+    research_firecrawl_country: str = "US"
+    research_firecrawl_timeout_seconds: float = Field(default=60.0, ge=1.0, le=300.0)
+    research_camofox_enabled: bool = False
+    research_camofox_base_url: str = "http://127.0.0.1:9377"
+    research_camofox_tool_dir: Path = Field(
+        default_factory=lambda: Path("tools") / "camofox-browser",
+        validation_alias=AliasChoices(
+            "AGENTIC_TRADER_RESEARCH_CAMOFOX_TOOL_DIR",
+            "AGENTIC_TRADER_CAMOFOX_TOOL_DIR",
+        ),
+    )
+    camofox_access_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "CAMOFOX_ACCESS_KEY",
+            "AGENTIC_TRADER_CAMOFOX_ACCESS_KEY",
+        ),
+    )
+    camofox_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "CAMOFOX_API_KEY",
+            "AGENTIC_TRADER_CAMOFOX_API_KEY",
+        ),
+    )
+    camofox_admin_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "CAMOFOX_ADMIN_KEY",
+            "AGENTIC_TRADER_CAMOFOX_ADMIN_KEY",
+        ),
+    )
 
     runtime_mode: RuntimeMode = "operation"
     strict_llm: bool = True
@@ -84,11 +134,12 @@ class Settings(BaseSettings):
     max_open_positions: int = 5
     min_risk_reward: float = 1.5
     default_cash: float = 100_000.0
+    observer_api_token: str | None = None
 
     def ensure_directories(self) -> None:
-        self.runtime_dir.mkdir(parents=True, exist_ok=True)
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
-        self.market_data_cache_dir.mkdir(parents=True, exist_ok=True)
+        ensure_private_directory(self.runtime_dir)
+        ensure_private_directory(self.database_path.parent)
+        ensure_private_directory(self.market_data_cache_dir)
 
     def model_for_role(self, role: str) -> str:
         mapping = {

@@ -4,35 +4,46 @@ name = "agentic-trader"
 
 [setup]
 script = '''
-eval "$(conda shell.zsh hook)"
-conda activate trader
 pnpm run setup
+pnpm run setup:research-flow
 '''
 
 [[actions]]
 name = "setup workspace"
 icon = "tool"
 command = '''
-eval "$(conda shell.zsh hook)"
-conda activate trader
 pnpm run setup
+pnpm run setup:research-flow
 '''
 
 [[actions]]
 name = "install node workspace deps"
 icon = "tool"
 command = '''
-pnpm install
-pnpm approve-builds --all
+pnpm run setup:node
 '''
 
 [[actions]]
 name = "install python deps"
 icon = "tool"
 command = '''
-eval "$(conda shell.zsh hook)"
-conda activate trader
 pnpm install:python
+'''
+
+[[actions]]
+name = "setup research flow sidecar"
+icon = "tool"
+command = '''
+pnpm run setup:research-flow
+pnpm run check:research-flow
+'''
+
+[[actions]]
+name = "check workspace"
+icon = "check"
+command = '''
+pnpm run check
+pnpm run check:research-flow
 '''
 
 [[actions]]
@@ -47,8 +58,6 @@ pnpm run sonar:status
 name = "run local sonar scan"
 icon = "search"
 command = '''
-eval "$(conda shell.zsh hook)"
-conda activate trader
 pnpm run sonar
 '''
 
@@ -56,8 +65,6 @@ pnpm run sonar
 name = "run sonarcloud scan"
 icon = "cloud"
 command = '''
-eval "$(conda shell.zsh hook)"
-conda activate trader
 SONAR_TOKEN_KEYCHAIN_SERVICE=codex-sonarcloud-token pnpm run sonar:cloud
 '''
 

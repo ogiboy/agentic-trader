@@ -23,7 +23,9 @@ class LLMProvider(Protocol):
         json_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]: ...
 
-    def health_check(self) -> LLMHealthStatus: ...
+    def health_check(
+        self, *, include_generation: bool = False
+    ) -> LLMHealthStatus: ...
 
 
 class OllamaProvider:
@@ -67,7 +69,7 @@ class OllamaProvider:
             raise RuntimeError(f"Ollama returned a non-object payload: {payload!r}")
         return cast(dict[str, Any], payload)
 
-    def health_check(self) -> LLMHealthStatus:
+    def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
         try:
             response = self.client.get(f"{self.base_url}/api/tags")
             response.raise_for_status()
@@ -84,10 +86,16 @@ class OllamaProvider:
                 if isinstance(name, str):
                     available.add(name)
             model_available = self.model_name in available
-            message = (
-                "Ollama is reachable and the configured model is available."
-                if model_available
-                else "Ollama is reachable, but the configured model is not listed."
+            generation_available: bool | None = None
+            generation_message: str | None = None
+            if include_generation:
+                generation_available, generation_message = self._probe_generation(
+                    model_available=model_available
+                )
+            message = self._health_message(
+                model_available=model_available,
+                generation_available=generation_available,
+                generation_message=generation_message,
             )
             return LLMHealthStatus(
                 provider=self.provider_name,
@@ -95,6 +103,8 @@ class OllamaProvider:
                 model_name=self.model_name,
                 service_reachable=True,
                 model_available=model_available,
+                generation_available=generation_available,
+                generation_message=generation_message,
                 message=message,
             )
         except Exception as exc:
@@ -104,8 +114,74 @@ class OllamaProvider:
                 model_name=self.model_name,
                 service_reachable=False,
                 model_available=False,
+                generation_available=False if include_generation else None,
+                generation_message=f"Unable to reach Ollama: {exc}"
+                if include_generation
+                else None,
                 message=f"Unable to reach Ollama: {exc}",
             )
+
+    def _probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
+        if not model_available:
+            return False, "Generation probe skipped because the configured model is not listed."
+        body: dict[str, Any] = {
+            "model": self.model_name,
+            "prompt": "Reply with OK.",
+            "stream": False,
+            "options": {
+                "temperature": 0,
+                "num_predict": 8,
+            },
+        }
+        try:
+            response = self.client.post(f"{self.base_url}/api/generate", json=body)
+            status_code = getattr(response, "status_code", 200)
+            if status_code >= 400:
+                return False, self._error_from_response(response)
+            response.raise_for_status()
+            payload = response.json()
+            if isinstance(payload, dict):
+                error_obj = payload.get("error")
+                if isinstance(error_obj, str) and error_obj.strip():
+                    return False, error_obj.strip()[:240]
+            return True, "Generation probe completed."
+        except Exception as exc:
+            return False, str(exc).strip()[:240] or type(exc).__name__
+
+    @staticmethod
+    def _error_from_response(response: httpx.Response) -> str:
+        try:
+            payload = response.json()
+        except Exception:
+            return f"HTTP {getattr(response, 'status_code', 'error')}"
+        if isinstance(payload, dict):
+            error_obj = payload.get("error")
+            if isinstance(error_obj, str) and error_obj.strip():
+                return error_obj.strip()[:240]
+            if isinstance(error_obj, dict):
+                message = error_obj.get("message")
+                if isinstance(message, str) and message.strip():
+                    return message.strip()[:240]
+        return f"HTTP {getattr(response, 'status_code', 'error')}"
+
+    @staticmethod
+    def _health_message(
+        *,
+        model_available: bool,
+        generation_available: bool | None,
+        generation_message: str | None,
+    ) -> str:
+        if not model_available:
+            return "Ollama is reachable, but the configured model is not listed."
+        if generation_available is False:
+            detail = generation_message or "generation probe failed"
+            return (
+                "Ollama is reachable and the model is listed, but a generation "
+                f"probe failed: {detail}"
+            )
+        if generation_available is True:
+            return "Ollama is reachable and the configured model can generate."
+        return "Ollama is reachable and the configured model is available."
 
 
 def build_provider(settings: Settings, *, model_name: str | None = None) -> LLMProvider:

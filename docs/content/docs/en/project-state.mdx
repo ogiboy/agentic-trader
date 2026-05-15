@@ -1,36 +1,55 @@
 ---
 title: Project State
-description: What is already shipped, what is still hardening, and what should not drift while V1 is being tightened.
+description: What Agentic Trader can do today, what is still experimental, and which V1 boundaries should not move.
 ---
 
-## What is already true
+## What Agentic Trader can do today
 
 Agentic Trader is already more than a prototype.
-The repo currently contains:
+Today it can:
 
-- a staged specialist graph
-- shared runtime and review contracts
-- DuckDB-backed persistence
-- CLI, Rich, Ink, observer API, and Web GUI surfaces
-- paper-first execution discipline
-- smoke QA and runtime inspection tooling
+- run strict local paper cycles through the existing Python runtime
+- build and persist market context, decision features, review snapshots, and
+  runtime artifacts
+- expose runtime, provider, broker, research, and supervisor status through CLI,
+  Rich, Ink, observer API, and Web GUI surfaces
+- keep local paper as the default broker backend while keeping live execution
+  blocked
+- show readiness gates for model/provider health, runtime mode, and Alpaca paper
+  preparation
+- package QA evidence through smoke runs and evidence bundles
 
-The docs site should reflect that reality instead of rewriting it into a generic AI-product story.
+The docs should explain that product reality in plain operator language, then
+link to implementation details where they help.
 
-## What is actively hardening
+## What is still hardening
 
 The current hardening track is focused on:
 
 - making runtime, provider, and model health easier to inspect
 - improving onboarding and setup quality
 - keeping web surfaces thin and contract-aligned
-- documenting real boundaries so contributors move faster with less drift
+- making docs useful for operators, not only contributors
+- expanding research-sidecar evidence ingestion without giving it broker or
+  execution authority
+
+## What is not ready or not in V1
+
+- Live trading is still blocked.
+- IBKR, global markets, FX, and multi-currency accounting are V2 scope.
+- CrewAI research flow is an isolated sidecar, not the main runtime.
+- SEC EDGAR submissions metadata is opt-in and metadata-first; full filing text,
+  transcripts, macro series, KAP, and richer vendor ingestion are still future
+  provider work.
+- Web GUI and docs are local shells around runtime contracts, not alternate
+  trading engines.
 
 ## What should not drift
 
 - The Python runtime remains the source of truth.
-- `webgui/` still shells out to the Python CLI instead of replacing it.
-- `docs/` is a developer-facing shell, not a second product runtime.
+- `webgui/` delegates to existing runtime contracts instead of replacing them.
+- `docs/` explains product behavior and contributor boundaries; it is not a
+  runtime.
 - Paper trading remains the default execution posture.
 - Fallback paths must stay explicit and inspectable.
 
@@ -57,22 +76,13 @@ The longer-term onboarding target is a guided setup flow for macOS, Linux, and W
 - validate providers and model readiness
 - launch the correct local surface
 
-## Current documentation posture
+## Documentation posture
 
-This docs site is now expected to cover more than a simple quick start.
+This docs site is now expected to cover more than setup.
 It should explain:
 
-- current system ownership
-- the guardrails behind runtime behavior
-- how frontend surfaces are allowed to evolve
-- what evidence counts as a meaningful QA pass
-
-## PR posture for this branch
-
-A docs branch is not ready merely because it renders.
-It should also:
-
-- describe the real repo state honestly
-- be maintainable as the repo grows
-- avoid long, overloaded files when splitting improves readability
-- keep docs, `.ai` notes, and implementation assumptions aligned
+- the current product capabilities
+- the guardrails behind paper/live/runtime behavior
+- how to verify a paper run
+- how memory, review artifacts, broker state, and evidence bundles support trust
+- where a feature is complete, gated, scaffolded, or future scope

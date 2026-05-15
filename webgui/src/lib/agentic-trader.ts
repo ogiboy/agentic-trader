@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { redactAndCapText } from './http';
 
 const execFileAsync = promisify(execFile);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -50,9 +51,9 @@ type ExecOptions = {
 };
 
 /**
- * Reads the local Codex environment manifest and returns the declared Conda environment name when present.
+ * Reads the local Codex environment manifest and returns a legacy declared Conda environment name when present.
  *
- * @returns The Conda environment name from `.codex/environments/environment.toml`, or `null` when the file is missing or does not declare a `conda activate <name>` command.
+ * @returns The legacy Conda environment name from `.codex/environments/environment.toml`, or `null` when the file is missing or does not declare a `conda activate <name>` command.
  */
 function detectManagedCondaEnvName(): null | string {
   const manifestPath = resolve(
@@ -63,7 +64,7 @@ function detectManagedCondaEnvName(): null | string {
     return null;
   }
   const manifest = readFileSync(manifestPath, 'utf-8');
-  const match = manifest.match(/conda activate ([^\s'"]+)/);
+  const match = /conda activate ([^\s'"]+)/.exec(manifest);
   return match?.[1] || null;
 }
 
@@ -72,8 +73,9 @@ function detectManagedCondaEnvName(): null | string {
  *
  * Preference order:
  * 1. active virtual environment
- * 2. active non-base Conda environment
- * 3. repo-declared Codex Conda environment derived from `CONDA_EXE`
+ * 2. repository uv `.venv`
+ * 3. active non-base Conda environment
+ * 4. legacy repo-declared Codex Conda environment derived from `CONDA_EXE`
  *
  * @returns An absolute Python path when one can be resolved locally; otherwise `null`.
  */
@@ -83,6 +85,11 @@ function detectManagedPythonExecutable(): null | string {
     if (existsSync(virtualEnvPython)) {
       return virtualEnvPython;
     }
+  }
+
+  const uvVenvPython = resolve(workspaceRoot, '.venv', 'bin', 'python');
+  if (existsSync(uvVenvPython)) {
+    return uvVenvPython;
   }
 
   if (
@@ -288,14 +295,16 @@ export async function execTrader(
       if (error && typeof error === 'object' && error.code !== 'ENOENT') {
         const detail = error.stderr || error.stdout || error.message;
         throw new Error(
-          String(detail).trim() || 'Agentic Trader command failed.',
+          redactAndCapText(detail).trim() || 'Agentic Trader command failed.',
         );
       }
     }
   }
 
   throw new Error(
-    extractError(lastError || 'No Agentic Trader executable was available.'),
+    redactAndCapText(
+      extractError(lastError || 'No Agentic Trader executable was available.'),
+    ),
   );
 }
 

@@ -1,7 +1,8 @@
 {
   "name": "agentic-trader-tui",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.9.12",
+  "license": "LGPL-3.0-or-later",
   "type": "module",
   "description": "Ink-based operator console for Agentic Trader",
   "scripts": {

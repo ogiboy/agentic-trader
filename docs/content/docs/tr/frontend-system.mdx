@@ -6,7 +6,7 @@ description: Docs ve Web GUI için ortak Next.js kararları; tema, modülerlik v
 ## Ortak temel
 
 Depo `webgui/`, `docs/` ve Ink `tui/` için root pnpm workspace kullanır.
-Poetry Python bağımlılık yöneticisi olarak kalır; Makefile hedefleri yalnızca pnpm ve Poetry komutlarına ince alias'lardır.
+uv Python bağımlılık yöneticisi olarak kalır; Makefile hedefleri yalnızca pnpm ve uv tabanlı komutlara ince alias'lardır.
 
 Hem `docs/` hem de `webgui/` şu komutla başlatıldı:
 
@@ -23,7 +23,7 @@ Bu da iki uygulamaya ortak bir temel veriyor:
 - Tailwind v4
 - CSS-variable tabanlı theme
 - mevcut shadcn preset'i
-- tipografi yönü olarak JetBrains Mono
+- build sırasında Google Fonts fetch etmeyen local-first monospace tipografi
 
 ## Component kuralı
 

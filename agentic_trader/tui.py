@@ -1,5 +1,7 @@
 import json
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Sequence, cast
 
 from rich.console import Console, Group
@@ -17,6 +19,10 @@ from agentic_trader.agents.operator_chat import (
     interpret_operator_instruction,
 )
 from agentic_trader.config import Settings, get_settings
+from agentic_trader.diagnostics import (
+    provider_diagnostics_payload,
+    v1_readiness_payload,
+)
 from agentic_trader.engine.broker import broker_runtime_payload
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
@@ -27,8 +33,13 @@ from agentic_trader.runtime_feed import (
     read_service_state,
     request_stop,
 )
-from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
-from agentic_trader.runtime_status import build_agent_activity_view
+from agentic_trader.runtime_status import (
+    AgentActivityView,
+    RuntimeStatusView,
+    build_agent_activity_view,
+    build_runtime_status_view,
+    is_process_alive,
+)
 from agentic_trader.schemas import (
     AgentProfile,
     AgentTone,
@@ -62,6 +73,23 @@ from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, start_background_service
 
 console = Console()
+LABEL_BASE_URL = "Base URL"
+
+
+@dataclass(frozen=True, slots=True)
+class TuiMenuAction:
+    key: str
+    label: str
+    observer_title: str
+    renderer: Callable[[TradingDatabase], None]
+
+
+@dataclass(frozen=True, slots=True)
+class TuiMainMenuAction:
+    key: str
+    label: str
+    handler: Callable[[Settings], None]
+    exits_menu: bool = False
 
 
 def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
@@ -395,12 +423,14 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
     return table
 
 
-def _agent_activity_table(events: list[ServiceEvent]) -> Table:
-    table = Table(title="Live Agent Activity")
+def _agent_activity_table(
+    state: ServiceStateSnapshot | None, events: list[ServiceEvent]
+) -> Table:
+    table = Table(title="Decision Workflow")
     table.add_column("Stage")
     table.add_column("Status")
     table.add_column("Message")
-    activity = build_agent_activity_view(None, events)
+    activity = build_agent_activity_view(state, events)
     if not activity.stage_statuses:
         table.add_row("-", "-", "No live agent stage events yet.")
         return table
@@ -410,38 +440,70 @@ def _agent_activity_table(events: list[ServiceEvent]) -> Table:
 
 
 def _current_activity_panel(
-    state: ServiceStateSnapshot | None, events: list[ServiceEvent]
+    settings: Settings, state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Panel:
     view = build_runtime_status_view(state)
     activity = build_agent_activity_view(state, events)
+    broker = broker_runtime_payload(settings)
+    readiness = v1_readiness_payload(settings, check_provider=False)
+    paper_operations = cast(dict[str, object], readiness.get("paper_operations", {}))
     lines = [
+        *_runtime_cycle_lines(settings=settings, state=state, view=view),
+        "",
+        *_agent_activity_lines(activity),
+        "",
+        *_broker_gate_lines(broker=broker, paper_operations=paper_operations),
+        "",
+        *_last_outcome_lines(activity),
+    ]
+    return Panel("\n".join(lines), title="Current Cycle", border_style="bright_cyan")
+
+
+def _runtime_cycle_lines(
+    *,
+    settings: Settings,
+    state: ServiceStateSnapshot | None,
+    view: RuntimeStatusView,
+) -> list[str]:
+    return [
         f"Runtime: {view.runtime_state}",
+        f"Runtime Mode: {state.runtime_mode if state is not None else settings.runtime_mode}",
+        f"Watched Symbols: {', '.join(state.symbols) if state is not None and state.symbols else '-'}",
         f"Current Symbol: {view.state.current_symbol if view.state is not None and view.state.current_symbol else '-'}",
         f"Cycle: {view.state.cycle_count if view.state is not None else '-'}",
+        f"Interval / Lookback: {state.interval if state is not None and state.interval else '-'} / {state.lookback if state is not None and state.lookback else '-'}",
         f"Current Note: {view.state.message if view.state is not None and view.state.message else '-'}",
-        "",
+    ]
+
+
+def _agent_activity_lines(activity: AgentActivityView) -> list[str]:
+    return [
         f"Current Stage: {activity.current_stage or '-'}",
         f"Stage Status: {activity.current_stage_status or '-'}",
         f"Stage Message: {activity.current_stage_message or 'No agent activity recorded yet.'}",
         f"Last Completed Stage: {activity.last_completed_stage or '-'}",
         f"Completed Note: {activity.last_completed_message or '-'}",
     ]
+
+
+def _broker_gate_lines(
+    *, broker: dict[str, object], paper_operations: dict[str, object]
+) -> list[str]:
+    return [
+        f"Broker Backend: {broker.get('backend', '-')}",
+        f"Broker State: {broker.get('state', '-')}",
+        f"Kill Switch: {'active' if broker.get('kill_switch_active') else 'inactive'}",
+        f"V1 Paper Gate: {'allowed' if paper_operations.get('allowed') else 'blocked'}",
+    ]
+
+
+def _last_outcome_lines(activity: AgentActivityView) -> list[str]:
     if activity.last_outcome_message is not None:
-        lines.extend(
-            [
-                "",
-                f"Last Outcome Type: {activity.last_outcome_type or '-'}",
-                f"Last Outcome: {activity.last_outcome_message}",
-            ]
-        )
-    else:
-        lines.extend(
-            [
-                "",
-                "Last Outcome: Waiting for a completed symbol, exit, or service result.",
-            ]
-        )
-    return Panel("\n".join(lines), title="Current Cycle", border_style="bright_cyan")
+        return [
+            f"Last Outcome Type: {activity.last_outcome_type or '-'}",
+            f"Last Outcome: {activity.last_outcome_message}",
+        ]
+    return ["Last Outcome: Waiting for a completed symbol, exit, or service result."]
 
 
 def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
@@ -528,7 +590,7 @@ def _system_status_table(
         ),
     )
     table.add_row("Model", settings.model_name)
-    table.add_row("Base URL", settings.base_url)
+    table.add_row(LABEL_BASE_URL, settings.base_url)
     table.add_row(
         "Ollama Reachable", "yes" if health_status.service_reachable else "no"
     )
@@ -553,15 +615,25 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
         followed by a "Positions" table listing symbol, quantity, prices, market value, and unrealized PnL.
     """
     snapshot = db.get_account_snapshot()
+    preferences = db.load_preferences()
+    currency = (preferences.currencies[0] if preferences.currencies else "USD").upper()
+    latest_marks = db.list_account_marks(limit=1)
+    mark_time = latest_marks[0].created_at if latest_marks else "mark time unavailable"
+    mark_source = latest_marks[0].source if latest_marks else "-"
     summary = Table(title="Portfolio")
     summary.add_column("Metric")
     summary.add_column("Value")
-    summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
-    summary.add_row("Equity", f"{snapshot.equity:.2f}")
-    summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
+    summary.add_row(f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}")
+    summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
+    summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
+    summary.add_row(
+        f"{LABEL_UNREALIZED_PNL} ({currency}, paper mark)",
+        f"{snapshot.unrealized_pnl:.2f}",
+    )
     summary.add_row("Open Positions", str(snapshot.open_positions))
+    summary.add_row("Marked At", mark_time)
+    summary.add_row("Mark Source", mark_source)
 
     positions = db.list_positions()
     positions_table = Table(title="Positions")
@@ -615,8 +687,11 @@ def build_monitor_renderable(
     )
     top = Columns(
         [
-            _current_activity_panel(runtime_state, events),
-            Panel(_agent_activity_table(events), border_style="bright_magenta"),
+            _current_activity_panel(settings, runtime_state, events),
+            Panel(
+                _agent_activity_table(runtime_state, events),
+                border_style="bright_magenta",
+            ),
         ],
         equal=True,
         expand=True,
@@ -737,14 +812,16 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
         ),
     )
     status.add_row("Model", settings.model_name)
-    status.add_row("Base URL", settings.base_url)
+    status.add_row(LABEL_BASE_URL, settings.base_url)
     status.add_row("Ollama Reachable", "yes" if health.service_reachable else "no")
     status.add_row("Model Available", "yes" if health.model_available else "no")
     status.add_row("Strict LLM", str(settings.strict_llm))
     console.print(status)
     _render_runtime_state(runtime_state)
     console.print(
-        _current_activity_panel(runtime_state, read_service_events(settings, limit=12))
+        _current_activity_panel(
+            settings, runtime_state, read_service_events(settings, limit=12)
+        )
     )
     if db is None:
         console.print(_observer_mode_panel("Preferences and portfolio-backed views"))
@@ -766,6 +843,10 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
     runtime_state = read_service_state(settings)
     runtime_view = build_runtime_status_view(runtime_state)
     broker = broker_runtime_payload(settings)
+    provider = provider_diagnostics_payload(settings)
+    readiness = v1_readiness_payload(settings, check_provider=False)
+    paper = cast(dict[str, object], readiness.get("paper_operations", {}))
+    alpaca = cast(dict[str, object], readiness.get("alpaca_paper", {}))
     table = Table(title="AGENTIC TRADER // System Snapshot", expand=True)
     table.add_column("Key", style="cyan")
     table.add_column("Value")
@@ -783,6 +864,19 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
         f"{broker['backend']} / {broker['state']}",
     )
     table.add_row(
+        "V1 Paper Ready",
+        "yes" if paper.get("allowed") else "no",
+    )
+    table.add_row(
+        "Alpaca Paper Ready",
+        "yes" if alpaca.get("ready") else "no",
+    )
+    warnings = provider.get("warnings", [])
+    table.add_row(
+        "Provider Warnings",
+        str(len(warnings)) if isinstance(warnings, list) else "-",
+    )
+    table.add_row(
         "Kill Switch",
         "yes" if broker["kill_switch_active"] else "no",
     )
@@ -791,6 +885,135 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
         "readable" if db is not None else LABEL_OBSERVER_MODE,
     )
     console.print(table)
+
+
+def _render_broker_status(settings: Settings) -> None:
+    payload = broker_runtime_payload(settings)
+    table = Table(title="Broker Status")
+    table.add_column("Field", style=STYLE_KEY_COLUMN)
+    table.add_column("Value")
+    for key in (
+        "backend",
+        "adapter_name",
+        "state",
+        "execution_mode",
+        "external_paper",
+        "live_execution_enabled",
+        "kill_switch_active",
+        "live_requested",
+        "live_ready",
+        "alpaca_paper_trading_enabled",
+        "alpaca_paper_endpoint",
+        "alpaca_data_feed",
+        "alpaca_credentials_configured",
+        "message",
+    ):
+        table.add_row(key.replace("_", " ").title(), str(payload.get(key, "-")))
+    healthcheck = payload.get("healthcheck")
+    if isinstance(healthcheck, dict):
+        table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
+        blockers = healthcheck.get("blocking_reasons")
+        if isinstance(blockers, list):
+            table.add_row("Blocking Reasons", ", ".join(str(item) for item in blockers) or "-")
+    console.print(table)
+
+
+def _render_provider_diagnostics(settings: Settings) -> None:
+    payload = provider_diagnostics_payload(settings)
+    summary = Table(title="Provider Diagnostics")
+    summary.add_column("Field", style=STYLE_KEY_COLUMN)
+    summary.add_column("Value")
+    llm = payload.get("llm", {})
+    market = payload.get("market_data", {})
+    news = payload.get("news", {})
+    alpaca = payload.get("alpaca", {})
+    if isinstance(llm, dict):
+        summary.add_row("LLM Provider", str(llm.get("provider", "-")))
+        summary.add_row("Default Model", str(llm.get("default_model", "-")))
+        summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
+    if isinstance(market, dict):
+        summary.add_row("Market Provider", str(market.get("selected_provider", "-")))
+        summary.add_row("Market Role", str(market.get("selected_role", "-")))
+    if isinstance(news, dict):
+        summary.add_row("News Mode", str(news.get("mode", "-")))
+    if isinstance(alpaca, dict):
+        summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
+        summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
+        summary.add_row(
+            "Alpaca Credentials",
+            "configured" if alpaca.get("credentials_configured") else "missing",
+        )
+    console.print(summary)
+
+    warnings = payload.get("warnings", [])
+    if isinstance(warnings, list) and warnings:
+        console.print(
+            Panel(
+                "\n".join(str(warning) for warning in warnings),
+                title="Provider Warnings",
+                border_style="yellow",
+            )
+        )
+
+    table = Table(title="Provider Source Ladder")
+    table.add_column("Provider", style=STYLE_KEY_COLUMN)
+    table.add_column("Type")
+    table.add_column("Role")
+    table.add_column("Enabled")
+    table.add_column("API Key")
+    table.add_column("Freshness")
+    providers = payload.get("providers", [])
+    if isinstance(providers, list):
+        for row in providers:
+            if not isinstance(row, dict):
+                continue
+            table.add_row(
+                str(row.get("provider_id", "-")),
+                str(row.get("provider_type", "-")),
+                str(row.get("role", "-")),
+                str(row.get("enabled", False)),
+                str(row.get("api_key_ready", "-")),
+                str(row.get("freshness", "-")),
+            )
+    console.print(table)
+
+
+def _render_readiness_table(title: str, payload: dict[str, object]) -> None:
+    table = Table(title=title)
+    table.add_column("Check", style=STYLE_KEY_COLUMN)
+    table.add_column("State")
+    table.add_column("Blocking")
+    table.add_column("Details")
+    checks = payload.get("checks", [])
+    if isinstance(checks, list):
+        for item in checks:
+            if not isinstance(item, dict):
+                continue
+            table.add_row(
+                str(item.get("name", "-")),
+                "[green]pass[/green]" if item.get("passed") else "[red]fail[/red]",
+                str(item.get("blocking", True)),
+                str(item.get("details", "")),
+            )
+    console.print(table)
+
+
+def _render_v1_readiness(settings: Settings) -> None:
+    payload = v1_readiness_payload(settings, check_provider=False)
+    paper = payload.get("paper_operations", {})
+    alpaca = payload.get("alpaca_paper", {})
+    paper_allowed = isinstance(paper, dict) and bool(paper.get("allowed"))
+    console.print(
+        Panel(
+            str(payload.get("summary", "V1 readiness status unavailable.")),
+            title="V1 Readiness",
+            border_style="green" if paper_allowed else "yellow",
+        )
+    )
+    if isinstance(paper, dict):
+        _render_readiness_table("Paper Operation Checks", paper)
+    if isinstance(alpaca, dict):
+        _render_readiness_table("Alpaca Paper Checks", alpaca)
 
 
 def _configure_preferences(db: TradingDatabase) -> None:
@@ -878,15 +1101,25 @@ def _show_portfolio(db: TradingDatabase) -> None:
         db (TradingDatabase): Database instance used to retrieve the account snapshot, open positions, and risk report.
     """
     snapshot = db.get_account_snapshot()
+    preferences = db.load_preferences()
+    currency = (preferences.currencies[0] if preferences.currencies else "USD").upper()
+    latest_marks = db.list_account_marks(limit=1)
+    mark_time = latest_marks[0].created_at if latest_marks else "mark time unavailable"
+    mark_source = latest_marks[0].source if latest_marks else "-"
     summary = Table(title="Portfolio")
     summary.add_column("Metric")
     summary.add_column("Value")
-    summary.add_row("Cash", f"{snapshot.cash:.2f}")
-    summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
-    summary.add_row("Equity", f"{snapshot.equity:.2f}")
-    summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
+    summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
+    summary.add_row(f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}")
+    summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
+    summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
+    summary.add_row(
+        f"{LABEL_UNREALIZED_PNL} ({currency}, paper mark)",
+        f"{snapshot.unrealized_pnl:.2f}",
+    )
     summary.add_row("Open Positions", str(snapshot.open_positions))
+    summary.add_row("Marked At", mark_time)
+    summary.add_row("Mark Source", mark_source)
     console.print(summary)
     positions = db.list_positions()
     if not positions:
@@ -948,7 +1181,7 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
 
 
 def _memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
-    table = Table(title="Memory Explorer")
+    table = Table(title="Decision Evidence Explorer")
     table.add_column("Created")
     table.add_column("Symbol")
     table.add_column("Score")
@@ -1214,7 +1447,10 @@ def _runtime_control_table() -> Table:
     table.add_row("3", "Start orchestrator service")
     table.add_row("4", "Request orchestrator stop")
     table.add_row("5", "Open live monitor")
-    table.add_row("6", "Back")
+    table.add_row("6", "Provider diagnostics")
+    table.add_row("7", "V1 readiness gates")
+    table.add_row("8", "Broker status")
+    table.add_row("9", "Back")
     return table
 
 
@@ -1311,6 +1547,18 @@ def _runtime_monitor_action(settings: Settings) -> None:
     run_live_monitor(settings, refresh_seconds=refresh_seconds)
 
 
+def _provider_diagnostics_action(settings: Settings) -> None:
+    _render_provider_diagnostics(settings)
+
+
+def _v1_readiness_action(settings: Settings) -> None:
+    _render_v1_readiness(settings)
+
+
+def _broker_status_action(settings: Settings) -> None:
+    _render_broker_status(settings)
+
+
 def _runtime_menu(settings: Settings) -> None:
     """
     Present an interactive runtime control menu for managing the orchestrator, one-shot cycles, and monitoring.
@@ -1321,15 +1569,20 @@ def _runtime_menu(settings: Settings) -> None:
         "3": _runtime_launch_action,
         "4": _runtime_stop_action,
         "5": _runtime_monitor_action,
+        "6": _provider_diagnostics_action,
+        "7": _v1_readiness_action,
+        "8": _broker_status_action,
     }
     while True:
         console.clear()
         console.print(_banner())
         console.print(_runtime_control_table())
         choice = Prompt.ask(
-            PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4", "5", "6"], default="1"
+            PROMPT_SELECT_ACTION,
+            choices=["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            default="1",
         )
-        if choice == "6":
+        if choice == "9":
             return
         actions[choice](settings)
         Prompt.ask(PROMPT_CONTINUE, default="")
@@ -1378,54 +1631,49 @@ def _operator_menu(settings: Settings) -> None:
             return
 
 
+def _menu_table(title: str, items: Sequence[TuiMenuAction | tuple[str, str]]) -> Table:
+    table = Table(title=title)
+    table.add_column("Key", style=STYLE_KEY_COLUMN)
+    table.add_column("Action")
+    for item in items:
+        if isinstance(item, TuiMenuAction):
+            table.add_row(item.key, item.label)
+        else:
+            table.add_row(item[0], item[1])
+    return table
+
+
+def _run_readonly_db_menu_action(settings: Settings, action: TuiMenuAction) -> None:
+    db = _safe_open_read_db(settings)
+    if db is None:
+        console.print(_observer_mode_panel(action.observer_title))
+        return
+    try:
+        action.renderer(db)
+    finally:
+        db.close()
+
+
 def _portfolio_menu(settings: Settings) -> None:
     """
     Present an interactive "Portfolio and Risk" menu, allowing the operator to view portfolio, trade journal, or daily risk reports.
 
     Displays a menu of actions, attempts to open a read-only database for views that require persisted data, shows an observer-mode notice when a readable database is unavailable, closes the database after each view, and returns to the caller when the user selects "Back".
     """
+    actions = {
+        "1": TuiMenuAction("1", "Show paper portfolio", "Paper portfolio", _show_portfolio),
+        "2": TuiMenuAction("2", "Show trade journal", "Trade journal", _show_trade_journal),
+        "3": TuiMenuAction("3", "Show daily risk report", "Daily risk report", _show_risk_report),
+    }
     while True:
         console.clear()
-        table = Table(title="Portfolio And Risk")
-        table.add_column("Key", style=STYLE_KEY_COLUMN)
-        table.add_column("Action")
-        table.add_row("1", "Show paper portfolio")
-        table.add_row("2", "Show trade journal")
-        table.add_row("3", "Show daily risk report")
-        table.add_row("4", "Back")
-        console.print(table)
+        console.print(_menu_table("Portfolio And Risk", [*actions.values(), ("4", "Back")]))
         choice = Prompt.ask(
             PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4"], default="1"
         )
-        if choice == "1":
-            db = _safe_open_read_db(settings)
-            if db is None:
-                console.print(_observer_mode_panel("Paper portfolio"))
-            else:
-                try:
-                    _show_portfolio(db)
-                finally:
-                    db.close()
-        elif choice == "2":
-            db = _safe_open_read_db(settings)
-            if db is None:
-                console.print(_observer_mode_panel("Trade journal"))
-            else:
-                try:
-                    _show_trade_journal(db)
-                finally:
-                    db.close()
-        elif choice == "3":
-            db = _safe_open_read_db(settings)
-            if db is None:
-                console.print(_observer_mode_panel("Daily risk report"))
-            else:
-                try:
-                    _show_risk_report(db)
-                finally:
-                    db.close()
-        else:
+        if choice == "4":
             return
+        _run_readonly_db_menu_action(settings, actions[choice])
         Prompt.ask(PROMPT_CONTINUE, default="")
 
 
@@ -1438,38 +1686,24 @@ def _research_menu(settings: Settings) -> None:
     Parameters:
         settings (Settings): Application settings used to locate and open the trading database and service state.
     """
+    actions = {
+        "1": TuiMenuAction(
+            "1",
+            "Open memory explorer",
+            "Memory explorer",
+            lambda db: _show_memory_explorer(settings, db),
+        ),
+        "2": TuiMenuAction("2", "Show recent runs and events", "Recent runs", _render_recent_runs),
+    }
     while True:
         console.clear()
-        table = Table(title="Research And Memory")
-        table.add_column("Key", style=STYLE_KEY_COLUMN)
-        table.add_column("Action")
-        table.add_row("1", "Open memory explorer")
-        table.add_row("2", "Show recent runs and events")
-        table.add_row("3", "Back")
-        console.print(table)
+        console.print(_menu_table("Research And Memory", [*actions.values(), ("3", "Back")]))
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
-        if choice == "1":
-            db = _safe_open_read_db(settings)
-            if db is None:
-                console.print(_observer_mode_panel("Memory explorer"))
-            else:
-                try:
-                    _show_memory_explorer(settings, db)
-                finally:
-                    db.close()
-        elif choice == "2":
-            db = _safe_open_read_db(settings)
-            try:
-                if db is None:
-                    console.print(_observer_mode_panel("Recent runs"))
-                else:
-                    _render_recent_runs(db)
-                _render_runtime_events(read_service_events(settings, limit=6))
-            finally:
-                if db is not None:
-                    db.close()
-        else:
+        if choice == "3":
             return
+        _run_readonly_db_menu_action(settings, actions[choice])
+        if choice == "2":
+            _render_runtime_events(read_service_events(settings, limit=6))
         Prompt.ask(PROMPT_CONTINUE, default="")
 
 
@@ -1482,37 +1716,109 @@ def _review_menu(settings: Settings) -> None:
     Parameters:
         settings (Settings): Application settings used to locate and open the trading database and to configure UI behavior.
     """
+    actions = {
+        "1": TuiMenuAction(
+            "1",
+            "Inspect latest run review",
+            "Latest run review",
+            _show_latest_run_review,
+        ),
+        "2": TuiMenuAction(
+            "2",
+            "Inspect latest run trace",
+            "Latest run trace",
+            _show_latest_run_trace,
+        ),
+    }
     while True:
         console.clear()
-        table = Table(title="Review And Trace")
-        table.add_column("Key", style=STYLE_KEY_COLUMN)
-        table.add_column("Action")
-        table.add_row("1", "Inspect latest run review")
-        table.add_row("2", "Inspect latest run trace")
-        table.add_row("3", "Back")
-        console.print(table)
+        console.print(_menu_table("Review And Trace", [*actions.values(), ("3", "Back")]))
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
-        if choice == "1":
-            db = _safe_open_read_db(settings)
-            if db is None:
-                console.print(_observer_mode_panel("Latest run review"))
-            else:
-                try:
-                    _show_latest_run_review(db)
-                finally:
-                    db.close()
-        elif choice == "2":
-            db = _safe_open_read_db(settings)
-            if db is None:
-                console.print(_observer_mode_panel("Latest run trace"))
-            else:
-                try:
-                    _show_latest_run_trace(db)
-                finally:
-                    db.close()
-        else:
+        if choice == "3":
             return
+        _run_readonly_db_menu_action(settings, actions[choice])
         Prompt.ask(PROMPT_CONTINUE, default="")
+
+
+def _render_main_status(settings: Settings) -> None:
+    db = _safe_open_read_db(settings)
+    try:
+        if console.height < 40:
+            _render_compact_status(settings, db)
+        else:
+            _render_status(settings, db)
+    finally:
+        if db is not None:
+            db.close()
+
+
+def _edit_preferences_action(settings: Settings) -> None:
+    try:
+        db = _open_db(settings, read_only=False)
+    except Exception as exc:
+        console.print(_observer_mode_panel("Preference editing", str(exc)))
+        Prompt.ask(PROMPT_CONTINUE, default="")
+        return
+    try:
+        _configure_preferences(db)
+    finally:
+        db.close()
+
+
+def _runtime_menu_action(settings: Settings) -> None:
+    _runtime_menu(settings)
+
+
+def _operator_menu_action(settings: Settings) -> None:
+    _operator_menu(settings)
+
+
+def _portfolio_menu_action(settings: Settings) -> None:
+    _portfolio_menu(settings)
+
+
+def _research_menu_action(settings: Settings) -> None:
+    _research_menu(settings)
+
+
+def _review_menu_action(settings: Settings) -> None:
+    _review_menu(settings)
+
+
+def _exit_menu_action(_settings: Settings) -> None:
+    console.print(Panel("Leaving control room.", title="Exit", border_style="blue"))
+
+
+def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
+    return (
+        TuiMainMenuAction("1", "Configure investment preferences", _edit_preferences_action),
+        TuiMainMenuAction("2", "Runtime control", _runtime_menu_action),
+        TuiMainMenuAction("3", "Operator desk", _operator_menu_action),
+        TuiMainMenuAction("4", "Portfolio and risk", _portfolio_menu_action),
+        TuiMainMenuAction("5", "Research and memory", _research_menu_action),
+        TuiMainMenuAction("6", "Review and trace", _review_menu_action),
+        TuiMainMenuAction("7", "Exit", _exit_menu_action, exits_menu=True),
+    )
+
+
+def _main_menu_table(actions: Sequence[TuiMainMenuAction]) -> Table:
+    menu = Table(title="Main Menu")
+    menu.add_column("Key", style=STYLE_KEY_COLUMN)
+    menu.add_column("Action")
+    for action in actions:
+        menu.add_row(action.key, action.label)
+    return menu
+
+
+def _run_main_menu_action(
+    settings: Settings,
+    choice: str,
+    actions: Sequence[TuiMainMenuAction],
+) -> bool:
+    action_by_key = {action.key: action for action in actions}
+    action = action_by_key[choice]
+    action.handler(settings)
+    return not action.exits_menu
 
 
 def run_main_menu() -> None:
@@ -1523,66 +1829,26 @@ def run_main_menu() -> None:
     """
     settings = get_settings()
     settings.ensure_directories()
+    actions = _main_menu_actions()
+    choices = [action.key for action in actions]
 
     while True:
         console.clear()
         console.print(_banner())
-        db = _safe_open_read_db(settings)
-        try:
-            if console.height < 40:
-                _render_compact_status(settings, db)
-            else:
-                _render_status(settings, db)
-        finally:
-            if db is not None:
-                db.close()
-        menu = Table(title="Main Menu")
-        menu.add_column("Key", style=STYLE_KEY_COLUMN)
-        menu.add_column("Action")
-        menu.add_row("1", "Configure investment preferences")
-        menu.add_row("2", "Runtime control")
-        menu.add_row("3", "Operator desk")
-        menu.add_row("4", "Portfolio and risk")
-        menu.add_row("5", "Research and memory")
-        menu.add_row("6", "Review and trace")
-        menu.add_row("7", "Exit")
-        console.print(menu)
+        _render_main_status(settings)
+        console.print(_main_menu_table(actions))
 
         try:
             choice = Prompt.ask(
                 PROMPT_SELECT_ACTION,
-                choices=["1", "2", "3", "4", "5", "6", "7"],
+                choices=choices,
                 default="2",
             )
         except EOFError:
             _exit_cleanly()
             return
         try:
-            if choice == "1":
-                try:
-                    db = _open_db(settings, read_only=False)
-                except Exception as exc:
-                    console.print(_observer_mode_panel("Preference editing", str(exc)))
-                    Prompt.ask(PROMPT_CONTINUE, default="")
-                    continue
-                try:
-                    _configure_preferences(db)
-                finally:
-                    db.close()
-            elif choice == "2":
-                _runtime_menu(settings)
-            elif choice == "3":
-                _operator_menu(settings)
-            elif choice == "4":
-                _portfolio_menu(settings)
-            elif choice == "5":
-                _research_menu(settings)
-            elif choice == "6":
-                _review_menu(settings)
-            else:
-                console.print(
-                    Panel("Leaving control room.", title="Exit", border_style="blue")
-                )
+            if not _run_main_menu_action(settings, choice, actions):
                 return
         except EOFError:
             _exit_cleanly()

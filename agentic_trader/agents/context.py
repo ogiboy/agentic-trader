@@ -12,6 +12,7 @@ from agentic_trader.schemas import (
     AgentRole,
     CanonicalAnalysisSnapshot,
     DecisionFeatureBundle,
+    HistoricalMemoryMatch,
     MarketSnapshot,
     NewsSignal,
     SharedMemoryEntry,
@@ -57,11 +58,12 @@ def _serialize_upstream(
 
 
 def _summarize_retrieved_memories(
-    db: TradingDatabase, snapshot: MarketSnapshot, *, limit: int = 3
+    matches: list[HistoricalMemoryMatch],
 ) -> list[str]:
-    matches = retrieve_similar_memories(db, snapshot, limit=limit)
     return [
-        f"{match.created_at} | {match.symbol} | score={match.similarity_score:.2f} | regime={match.regime} | strategy={match.strategy_family} | bias={match.manager_bias}"
+        f"{match.created_at} | {match.symbol} | score={match.similarity_score:.2f} | "
+        f"regime={match.regime} | strategy={match.strategy_family} | "
+        f"bias={match.manager_bias} | why={match.explanation.eligibility_reason}"
         for match in matches
     ]
 
@@ -228,6 +230,16 @@ def build_agent_context(
             f"sources={len(canonical_snapshot.source_attributions)}"
         )
     rendered_tool_outputs.extend(list(tool_outputs or []))
+    retrieval_matches = (
+        retrieve_similar_memories(
+            db,
+            snapshot,
+            limit=3,
+            strategy_family=strategy_family,
+        )
+        if memory_enabled
+        else []
+    )
     return AgentContext(
         role=role,
         model_name=settings.model_for_role(role),
@@ -241,8 +253,9 @@ def build_agent_context(
         recent_runs=_summarize_recent_runs(db),
         memory_notes=_summarize_trade_memory(db) if memory_enabled else [],
         retrieved_memories=(
-            _summarize_retrieved_memories(db, snapshot) if memory_enabled else []
+            _summarize_retrieved_memories(retrieval_matches) if memory_enabled else []
         ),
+        retrieval_explanations=retrieval_matches,
         calibration=build_confidence_calibration(
             db,
             snapshot,

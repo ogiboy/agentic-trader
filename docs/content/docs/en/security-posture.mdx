@@ -1,0 +1,67 @@
+---
+title: Security Posture
+description: How Agentic Trader keeps local paper operation, observer surfaces, research evidence, and secrets bounded.
+---
+
+## What is protected
+
+Agentic Trader is local-first and paper-first, but it still handles sensitive
+operational truth: account state, paper fills, provider readiness, model errors,
+runtime logs, and ignored local credentials. The security goal is not to make a
+cloud product out of it. The goal is to keep local operation explicit,
+inspectable, and hard to misuse by accident.
+
+The strongest default controls are:
+
+- live execution is blocked by default
+- operation mode must fail closed when provider or model readiness is missing
+- research sidecars are evidence companions, not broker or policy owners
+- Web GUI and observer surfaces read existing runtime contracts instead of
+  creating a second runtime
+- secrets belong in ignored local env files, Keychain, or CI secrets, never in
+  tracked config
+
+## Operator rules
+
+Keep the Web GUI on `localhost` for normal use. If you expose it through a proxy
+or LAN host, set `AGENTIC_TRADER_WEBGUI_TOKEN` and send it as
+`X-Agentic-Trader-Token` or `Authorization: Bearer ...`.
+
+Keep the observer API on `127.0.0.1` unless you intentionally share read-only
+runtime truth. Non-loopback observer binds require both `--allow-nonlocal` and
+`AGENTIC_TRADER_OBSERVER_API_TOKEN`.
+
+Treat `runtime/` and `.ai/qa/artifacts/` as sensitive evidence directories. They
+can contain run history, logs, paper account state, research snapshots, and
+provider diagnostics.
+
+## Threat model summary
+
+| Surface | Risk | Mitigation |
+| --- | --- | --- |
+| Web GUI route handlers | Direct POSTs can trigger long runtime, chat, or instruction work if the app is exposed | Same-origin checks, loopback-only unauthenticated mode, optional token, body caps, cooldowns |
+| Observer API | Read-only runtime truth can leak if bound outside loopback | Loopback default, nonlocal bind guard, optional token, no-store/security headers |
+| Runtime logs | Provider/model errors can print key-like values | Redaction before supervisor tails and Web error responses |
+| Research sidecar | Sidecar could inherit broker secrets or echo raw stderr | Narrow subprocess env, redacted sidecar failures, broker/policy access remains out of contract |
+| Provider errors | Future providers can throw signed URLs or key-bearing messages | Source attribution stores bounded redacted exception notes |
+| Local artifacts | Shared machines can read default-permission files | Runtime feed/log writes prefer owner-only directories and files |
+
+## Verification path
+
+For a quick security posture smoke, run:
+
+```bash
+uv run --locked --all-extras --group dev python -m pytest -q tests/test_security_helpers.py tests/test_observer_api.py tests/test_research_sidecar.py tests/test_cli_json.py tests/test_data_providers.py
+pnpm --filter webgui run typecheck
+pnpm --filter webgui run lint
+```
+
+For an operator-facing pass, follow the security scenario in
+[QA And Debugging](/en/docs/qa-and-debugging) and compare Web GUI, CLI, and
+observer payloads against the same runtime truth.
+
+## What is still future hardening
+
+Agentic Trader should grow secret scanning, dependency SCA, SBOM/provenance, and
+release signing in stages. Those controls should be added as gates only after
+they are tuned enough not to drown V1 work in false positives.

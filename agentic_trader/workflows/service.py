@@ -11,9 +11,11 @@ from agentic_trader.engine.broker import BrokerAdapter, get_broker_adapter
 from agentic_trader.engine.position_manager import evaluate_position_exit
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.runtime_feed import clear_stop_request, request_stop, stop_requested
-from agentic_trader.runtime_status import is_process_alive
+from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
 from agentic_trader.schemas import LLMHealthStatus, RunArtifacts
+from agentic_trader.security import open_private_append_binary
 from agentic_trader.storage.db import TradingDatabase
+from agentic_trader.system.runtime_tools import ensure_model_service_if_configured
 from agentic_trader.workflows.run_once import persist_run, run_once
 
 
@@ -40,6 +42,14 @@ class _ServiceSymbolOutcome:
     result: ServiceCycleResult | None = None
     skipped: bool = False
     stop_requested: bool = False
+
+
+@dataclass
+class _ServiceLoopState:
+    cycle_results: list[ServiceCycleResult]
+    cycle_count: int = 0
+    run_had_nonfatal_failure: bool = False
+    stopped: bool = False
 
 
 def _stop_requested(db: TradingDatabase) -> bool:
@@ -74,6 +84,17 @@ def _is_nonfatal_symbol_error(exc: Exception) -> bool:
         or "coverage is too thin" in message
         or "Refusing to run agents" in message
     )
+
+
+def terminate_service_process(pid: int | None) -> bool:
+    """Best-effort SIGTERM for a recorded service PID after safety checks."""
+    if pid is None or pid <= 1 or not is_process_alive(pid):
+        return False
+    try:
+        os.kill(pid, signal.SIGTERM)  # NOSONAR - guarded service PID, no user input.
+    except OSError:
+        return False
+    return True
 
 
 def _manage_open_position(
@@ -123,7 +144,8 @@ def _manage_open_position(
 
 def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
     """
-    Ensure the local LLM service is reachable and, if configured, that the required model is available.
+    Ensure the local LLM service is reachable, the required model is listed, and
+    strict operation mode can complete a lightweight generation probe.
 
     Parameters:
         settings (Settings): Application settings. When `settings.runtime_mode == "operation"`, `settings.strict_llm` must be True.
@@ -132,14 +154,17 @@ def ensure_llm_ready(settings: Settings) -> LLMHealthStatus:
         LLMHealthStatus: Health report returned by the local LLM.
 
     Raises:
-        RuntimeError: If operation mode is configured without `strict_llm`, if the LLM service is not reachable (message provided by the health check), or if `strict_llm` is True but the required model is unavailable (message provided by the health check).
+        RuntimeError: If operation mode is configured without `strict_llm`, if the LLM service is not reachable (message provided by the health check), if `strict_llm` is True but the required model is unavailable, or if the generation probe fails.
     """
     if settings.runtime_mode == "operation" and not settings.strict_llm:
         raise RuntimeError("Operation mode requires strict LLM gating.")
-    health = LocalLLM(settings).health_check()
+    ensure_model_service_if_configured(settings)
+    health = LocalLLM(settings).health_check(include_generation=settings.strict_llm)
     if not health.service_reachable:
         raise RuntimeError(health.message)
     if settings.strict_llm and not health.model_available:
+        raise RuntimeError(health.message)
+    if settings.strict_llm and health.generation_available is False:
         raise RuntimeError(health.message)
     return health
 
@@ -453,10 +478,51 @@ def _record_service_failed(
     )
 
 
+def _record_service_blocked(
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    *,
+    exc: Exception,
+) -> None:
+    _upsert_runtime_state(
+        db,
+        config,
+        state="blocked",
+        cycle_count=0,
+        current_symbol=None,
+        message="Runtime gate blocked before orchestrator start.",
+        last_error=str(exc),
+        stop_requested_flag=False,
+    )
+    db.insert_service_event(
+        level="error",
+        event_type="service_blocked",
+        message=str(exc),
+    )
+
+
 def _should_stop_after_cycle(config: _ServiceRunConfig, cycle_count: int) -> bool:
     if not config.continuous:
         return True
     return config.max_cycles is not None and cycle_count >= config.max_cycles
+
+
+def _sleep_until_next_cycle(
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    *,
+    cycle_count: int,
+) -> bool:
+    deadline = time.monotonic() + max(0, config.poll_seconds)
+    while time.monotonic() < deadline:
+        if _stop_requested(db):
+            _record_stop_before_cycle(db, config, cycle_count)
+            return True
+        time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
+    if _stop_requested(db):
+        _record_stop_before_cycle(db, config, cycle_count)
+        return True
+    return False
 
 
 def _process_service_symbol(
@@ -543,6 +609,90 @@ def _process_service_symbol(
     )
 
 
+def _handle_symbol_outcome(
+    *,
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    state: _ServiceLoopState,
+    symbol: str,
+    outcome: _ServiceSymbolOutcome,
+) -> bool:
+    if outcome.skipped:
+        state.run_had_nonfatal_failure = True
+        if _stop_requested(db):
+            _record_stop_after_symbol(
+                db,
+                config,
+                symbol=symbol,
+                cycle_count=state.cycle_count,
+            )
+            state.stopped = True
+            return True
+        return False
+
+    if outcome.result is not None:
+        state.cycle_results.append(outcome.result)
+    if outcome.stop_requested:
+        state.stopped = True
+    return outcome.stop_requested
+
+
+def _process_service_cycle(
+    *,
+    db: TradingDatabase,
+    broker: BrokerAdapter,
+    config: _ServiceRunConfig,
+    state: _ServiceLoopState,
+) -> bool:
+    state.cycle_count += 1
+    _record_cycle_started(db, config, state.cycle_count)
+    cycle_had_nonfatal_failure = False
+    for symbol in config.symbols:
+        outcome = _process_service_symbol(
+            db=db,
+            broker=broker,
+            config=config,
+            symbol=symbol,
+            cycle_count=state.cycle_count,
+        )
+        cycle_had_nonfatal_failure = cycle_had_nonfatal_failure or outcome.skipped
+        if _handle_symbol_outcome(
+            db=db,
+            config=config,
+            state=state,
+            symbol=symbol,
+            outcome=outcome,
+        ):
+            return True
+
+    _record_cycle_completed_mark(db, state.cycle_count)
+    if _should_stop_after_cycle(config, state.cycle_count):
+        return True
+    if cycle_had_nonfatal_failure:
+        _record_cycle_nonfatal_summary(db, config, state.cycle_count)
+    if _sleep_until_next_cycle(db, config, cycle_count=state.cycle_count):
+        state.stopped = True
+        return True
+    return False
+
+
+def _run_service_loop(
+    *,
+    db: TradingDatabase,
+    broker: BrokerAdapter,
+    config: _ServiceRunConfig,
+) -> _ServiceLoopState:
+    state = _ServiceLoopState(cycle_results=[])
+    while True:
+        if _stop_requested(db):
+            _record_stop_before_cycle(db, config, state.cycle_count)
+            state.stopped = True
+            break
+        if _process_service_cycle(db=db, broker=broker, config=config, state=state):
+            break
+    return state
+
+
 def run_service(
     *,
     settings: Settings,
@@ -554,8 +704,6 @@ def run_service(
     max_cycles: int | None,
 ) -> list[ServiceCycleResult]:
     """Run the orchestrator loop across configured symbols and cycles."""
-    ensure_llm_ready(settings)
-    clear_stop_request(settings)
     config = _ServiceRunConfig(
         settings=settings,
         symbols=symbols,
@@ -566,57 +714,39 @@ def run_service(
         max_cycles=max_cycles,
     )
     db = TradingDatabase(settings)
+    try:
+        ensure_llm_ready(settings)
+    except Exception as exc:
+        _record_service_blocked(db, config, exc=exc)
+        clear_stop_request(settings)
+        raise
+
+    clear_stop_request(settings)
     broker = get_broker_adapter(db=db, settings=settings)
     _record_service_starting(db, config)
 
-    cycle_results: list[ServiceCycleResult] = []
-    cycle_count = 0
-    run_had_nonfatal_failure = False
+    loop_state = _ServiceLoopState(cycle_results=[])
     try:
-        while True:
-            if _stop_requested(db):
-                _record_stop_before_cycle(db, config, cycle_count)
-                break
-            cycle_count += 1
-            _record_cycle_started(db, config, cycle_count)
-            cycle_had_nonfatal_failure = False
-            for symbol in symbols:
-                outcome = _process_service_symbol(
-                    db=db,
-                    broker=broker,
-                    config=config,
-                    symbol=symbol,
-                    cycle_count=cycle_count,
-                )
-                if outcome.skipped:
-                    cycle_had_nonfatal_failure = True
-                    run_had_nonfatal_failure = True
-                    continue
-                if outcome.result is not None:
-                    cycle_results.append(outcome.result)
-                if outcome.stop_requested:
-                    return cycle_results
-
-            _record_cycle_completed_mark(db, cycle_count)
-            if _should_stop_after_cycle(config, cycle_count):
-                break
-            if cycle_had_nonfatal_failure:
-                _record_cycle_nonfatal_summary(db, config, cycle_count)
-            time.sleep(poll_seconds)
-
-        _record_service_completed(
+        loop_state = _run_service_loop(db=db, broker=broker, config=config)
+        if not loop_state.stopped:
+            _record_service_completed(
+                db,
+                config,
+                cycle_count=loop_state.cycle_count,
+                had_nonfatal_failure=loop_state.run_had_nonfatal_failure,
+            )
+    except Exception as exc:
+        _record_service_failed(
             db,
             config,
-            cycle_count=cycle_count,
-            had_nonfatal_failure=run_had_nonfatal_failure,
+            cycle_count=loop_state.cycle_count,
+            exc=exc,
         )
-    except Exception as exc:
-        _record_service_failed(db, config, cycle_count=cycle_count, exc=exc)
         raise
     finally:
         clear_stop_request(settings)
 
-    return cycle_results
+    return loop_state.cycle_results
 
 
 def start_background_service(
@@ -673,8 +803,15 @@ def start_background_service(
         and state.state in {"starting", "running", "stopping"}
         and state.pid is not None
     ):
-        if is_process_alive(state.pid):
+        view = build_runtime_status_view(state)
+        if view.runtime_state == "active":
             raise RuntimeError(f"Service is already active with PID {state.pid}.")
+        if view.live_process:
+            raise RuntimeError(
+                "Service heartbeat is stale but PID "
+                f"{state.pid} is still alive. Use restart-service or "
+                "stop-service --force before launching another background service."
+            )
         db.upsert_service_state(
             state="stopped",
             continuous=state.continuous,
@@ -688,6 +825,7 @@ def start_background_service(
             message=f"Recovered stale runtime state from dead PID {state.pid}.",
             last_error=state.last_error,
             pid=None,
+            clear_pid=True,
             stop_requested=False,
         )
         db.insert_service_event(
@@ -719,8 +857,8 @@ def start_background_service(
         command.extend(["--max-cycles", str(max_cycles)])
 
     with (
-        open(stdout_path, "ab") as stdout_handle,
-        open(stderr_path, "ab") as stderr_handle,
+        open_private_append_binary(stdout_path) as stdout_handle,
+        open_private_append_binary(stderr_path) as stderr_handle,
     ):
         process = subprocess.Popen(
             command,
@@ -789,10 +927,7 @@ def restart_background_service(
         while time.time() < deadline and is_process_alive(state.pid):
             time.sleep(0.2)
         if is_process_alive(state.pid):
-            try:
-                os.kill(state.pid, signal.SIGTERM)
-            except OSError:
-                pass
+            terminate_service_process(state.pid)
     restart_count = state.restart_count + 1
     launch_count = state.launch_count + 1
     db.close()

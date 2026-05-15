@@ -1,11 +1,31 @@
 import type { Metadata } from 'next';
-import { JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
-import { cn } from '@/lib/utils';
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
+const jetBrainsMono = localFont({
+  src: [
+    {
+      path: './fonts/JetBrainsMonoVariable.ttf',
+      weight: '100 800',
+      style: 'normal',
+    },
+    {
+      path: './fonts/JetBrainsMonoItalicVariable.ttf',
+      weight: '100 800',
+      style: 'italic',
+    },
+  ],
   variable: '--font-jetbrains-mono',
+  display: 'swap',
+  fallback: [
+    'ui-monospace',
+    'SFMono-Regular',
+    'Menlo',
+    'Monaco',
+    'Consolas',
+    'Liberation Mono',
+    'monospace',
+  ],
 });
 
 export const metadata: Metadata = {
@@ -44,13 +64,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(
-        'dark',
-        'h-full',
-        'antialiased',
-        'font-mono',
-        jetbrainsMono.variable,
-      )}
+      className={`${jetBrainsMono.variable} ${jetBrainsMono.className} dark h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

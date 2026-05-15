@@ -1,8 +1,7 @@
-from typing import Literal, TypeAlias, TypedDict
+from typing import Literal, TypedDict
 
-
-MemoryDomain: TypeAlias = Literal["trade_memory", "chat_memory"]
-MemoryActor: TypeAlias = Literal[
+MemoryDomain = Literal["trade_memory", "chat_memory"]
+MemoryActor = Literal[
     "system_runtime",
     "review_agent",
     "operator_chat",

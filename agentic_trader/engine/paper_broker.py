@@ -321,6 +321,71 @@ class PaperBroker:
             projected_open_positions -= 1
         return projected_open_positions > self.settings.max_open_positions
 
+    def _guarded_no_fill_outcome(
+        self,
+        *,
+        intent: ExecutionIntent,
+        order_id: str,
+        decision: ExecutionDecision,
+        simulated_metadata: dict[str, object] | None,
+    ) -> ExecutionOutcome | None:
+        if decision.approved and decision.side != "hold":
+            return None
+        status = "rejected" if not decision.approved else "no_fill"
+        return self._outcome(
+            intent,
+            order_id=order_id,
+            status=status,
+            message=(
+                "Execution guard rejected the intent."
+                if status == "rejected"
+                else "Hold intent recorded without a fill."
+            ),
+            rejection_reason=decision.rationale if status == "rejected" else None,
+            simulated_metadata=simulated_metadata,
+        )
+
+    def _blocked_fill_outcome(
+        self,
+        *,
+        intent: ExecutionIntent,
+        order_id: str,
+        decision: ExecutionDecision,
+        current_qty: float,
+        current_market_value: float,
+        account_cash_after_fill: float,
+        projection: FillProjection,
+        simulated_metadata: dict[str, object] | None,
+    ) -> ExecutionOutcome | None:
+        if self._would_exceed_cash(decision, current_qty, account_cash_after_fill):
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="blocked",
+                message="Intent would exceed available paper cash.",
+                rejection_reason="cash_limit",
+                simulated_metadata=simulated_metadata,
+            )
+        if self._would_exceed_exposure(decision, projection, current_market_value):
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="blocked",
+                message="Intent would exceed gross exposure limit.",
+                rejection_reason="gross_exposure_limit",
+                simulated_metadata=simulated_metadata,
+            )
+        if self._would_exceed_open_position_limit(current_qty, projection.new_quantity):
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="blocked",
+                message="Intent would exceed open-position limit.",
+                rejection_reason="open_position_limit",
+                simulated_metadata=simulated_metadata,
+            )
+        return None
+
     def place_order(
         self,
         intent: ExecutionIntent,
@@ -339,20 +404,14 @@ class PaperBroker:
         self._record_order(order_id, decision)
 
         self.db.mark_price(decision.symbol, decision.entry_price)
-        if not decision.approved or decision.side == "hold":
-            status = "rejected" if not decision.approved else "no_fill"
-            return self._outcome(
-                intent,
-                order_id=order_id,
-                status=status,
-                message=(
-                    "Execution guard rejected the intent."
-                    if status == "rejected"
-                    else "Hold intent recorded without a fill."
-                ),
-                rejection_reason=decision.rationale if status == "rejected" else None,
-                simulated_metadata=simulated_metadata,
-            )
+        guarded_outcome = self._guarded_no_fill_outcome(
+            intent=intent,
+            order_id=order_id,
+            decision=decision,
+            simulated_metadata=simulated_metadata,
+        )
+        if guarded_outcome is not None:
+            return guarded_outcome
 
         account = self.db.get_account_snapshot()
         quantity = self._quantity_from_intent(
@@ -399,37 +458,18 @@ class PaperBroker:
                 simulated_metadata=simulated_metadata,
             )
 
-        if self._would_exceed_cash(
-            decision, current_qty, account.cash + projection.cash_delta
-        ):
-            return self._outcome(
-                intent,
-                order_id=order_id,
-                status="blocked",
-                message="Intent would exceed available paper cash.",
-                rejection_reason="cash_limit",
-                simulated_metadata=simulated_metadata,
-            )
-
-        if self._would_exceed_exposure(decision, projection, current_market_value):
-            return self._outcome(
-                intent,
-                order_id=order_id,
-                status="blocked",
-                message="Intent would exceed gross exposure limit.",
-                rejection_reason="gross_exposure_limit",
-                simulated_metadata=simulated_metadata,
-            )
-
-        if self._would_exceed_open_position_limit(current_qty, projection.new_quantity):
-            return self._outcome(
-                intent,
-                order_id=order_id,
-                status="blocked",
-                message="Intent would exceed open-position limit.",
-                rejection_reason="open_position_limit",
-                simulated_metadata=simulated_metadata,
-            )
+        blocked_outcome = self._blocked_fill_outcome(
+            intent=intent,
+            order_id=order_id,
+            decision=decision,
+            current_qty=current_qty,
+            current_market_value=current_market_value,
+            account_cash_after_fill=account.cash + projection.cash_delta,
+            projection=projection,
+            simulated_metadata=simulated_metadata,
+        )
+        if blocked_outcome is not None:
+            return blocked_outcome
 
         self.db.apply_fill(
             fill_id=f"fill-{uuid4().hex[:12]}",

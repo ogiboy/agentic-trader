@@ -79,6 +79,47 @@ button {
   grid-template-columns: 248px minmax(0, 1fr);
 }
 
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 20px;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 22px;
+  width: min(100%, 520px);
+  padding: 24px;
+  border: 1px solid rgba(143, 207, 99, 0.42);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.auth-panel__header {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-panel__header h1,
+.auth-panel__header p {
+  margin: 0;
+}
+
+.auth-panel__header h1 {
+  font-size: 30px;
+}
+
+.auth-panel__header p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.auth-panel__form {
+  display: grid;
+  gap: 14px;
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -410,6 +451,7 @@ button {
 }
 
 .composer textarea,
+.field-label input,
 .field-label select {
   width: 100%;
   border: 1px solid var(--border);
@@ -431,6 +473,7 @@ button {
   font-size: 13px;
 }
 
+.field-label input,
 .field-label select {
   min-height: 40px;
   padding: 0 10px;

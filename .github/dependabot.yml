@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # GitHub Dependabot uses the `npm` ecosystem value for pnpm projects.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      next-apps:
+        patterns:
+          - next
+          - react
+          - react-dom
+          - eslint*
+          - "@types/*"
+
+  # Python dependencies are uv-owned in this repo, so use the native `uv`
+  # ecosystem instead of the older `pip` fallback.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: uv
+    directory: /sidecars/research_flow
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

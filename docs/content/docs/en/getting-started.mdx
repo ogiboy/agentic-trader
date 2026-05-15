@@ -1,28 +1,54 @@
 ---
 title: Getting Started
-description: Install the repo, validate local readiness, and bring up the main operator surfaces.
+description: Install the local runtime, verify readiness, and open the control surfaces without hiding failures.
 ---
 
-## Baseline toolchain
+## The first-run goal
+
+The first successful setup should prove three things before any paper cycle:
+
+- the local Python runtime can start
+- provider, model, broker, and runtime-mode readiness are visible
+- the operator surfaces reflect lower-layer truth instead of inventing state
+
+Start with the checks below. If one fails, fix that layer before trusting the
+Web GUI, Ink TUI, or any background service.
+
+## Source install requirements
 
 The repository currently assumes a Python plus Node workflow.
 The Python runtime still owns the actual trading logic, while `webgui/`, `docs/`, and `tui/` are managed from the root pnpm workspace.
 
 Recommended baseline:
 
-- Python 3.14.x through Conda or another managed interpreter
-- Poetry for Python dependency management
+- Python 3.13.x through uv-managed `.venv`
+- uv for Python dependency management
 - Node 20+ and `pnpm`
 - Optional: `tmux`, `asciinema`, and browser tooling for QA
 - Optional: Ollama if you are using the default local model path
+- Optional: Firecrawl and Camofox when you explicitly enable research helpers
+
+Before installing everything, run the system-tool dry run:
+
+```bash
+make bootstrap-dry-run
+```
+
+If the plan looks right, use the interactive bootstrap:
+
+```bash
+make bootstrap
+```
+
+It asks before system installs, browser-helper dependencies, Firecrawl setup, or
+PATH symlink changes. Missing optional research helpers are degraded readiness,
+not a blocker for core paper operation.
 
 ## Install the Python runtime
 
 ```bash
-conda create -n trader python=3.14 poetry
-conda activate trader
-poetry env use "$CONDA_PREFIX/bin/python"
-poetry install --with dev --extras dev
+uv python install 3.13
+pnpm run install:python
 ```
 
 Install the Node workspace from the repository root:
@@ -32,7 +58,7 @@ pnpm install
 pnpm approve-builds --all
 ```
 
-After the Conda environment is active, use either shortcut:
+After uv is available, use either shortcut:
 
 ```bash
 pnpm run setup
@@ -40,12 +66,15 @@ pnpm run setup
 make setup
 ```
 
-## Validate the environment before opening UIs
+## Check readiness before trading
 
-Start with the smallest trust check:
+Run these checks before a paper cycle:
 
 ```bash
 python main.py doctor
+agentic-trader provider-diagnostics --json
+agentic-trader v1-readiness --json
+agentic-trader finance-ops --json
 ```
 
 If you rely on the installed CLI entrypoint, validate that too:
@@ -56,6 +85,27 @@ agentic-trader doctor
 
 Do this before debugging the Web GUI or Ink TUI.
 If `doctor` is already wrong, the UI is usually reflecting a real lower-layer problem.
+`provider-diagnostics` shows the current source ladder, API-key readiness, and
+fallback warnings without fetching secrets or pretending missing evidence is
+complete. `v1-readiness` shows whether local paper operation and Alpaca paper
+readiness gates are satisfied; add `--provider-check` when you intentionally
+want it to call the configured model service.
+
+## What readiness means
+
+| Check | Operator question it answers |
+| --- | --- |
+| `doctor` | Can the local runtime start with the expected environment? |
+| `provider-diagnostics --json` | Which data/model providers are configured, missing, or degraded? |
+| `v1-readiness --json` | Is local paper operation ready, is evidence/review context visible, and is external Alpaca paper still gated? |
+| `broker-status --json` | Which backend is active, and are live/paper safeguards visible? |
+| `finance-ops --json` | Do broker, account, PnL, exposure, risk, and evidence checks agree for paper review? |
+| `trade-proposals --json` | Which ideas are waiting for explicit approval, rejection, or audit review? |
+| `idea-presets` / `idea-score ...` | How would a candidate score under the V1 scanner presets before it becomes a proposal? |
+| `supervisor-status --json` | Is the daemon blocked, running, stale, stopped, or failed? |
+| `setup-status --json` | Which local tools and optional side applications are installed or degraded? |
+| `model-service status --json` | Is configured or app-managed Ollama reachable, and is the selected model available? |
+| `webgui-service status --json` | Is the app-owned loopback Web GUI service reachable, and where are its logs? |
 
 ## Configure environment files
 
@@ -81,7 +131,22 @@ export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
 Do not treat raw Ollama traffic as proof that the system is healthy.
 Model reachability, runtime readiness, and recent logs should agree.
 
-## Bring up the main surfaces
+If you want Agentic Trader to own the local Ollama process for this project,
+start with the read-only status and then start the app-owned service:
+
+```bash
+agentic-trader model-service status --json
+agentic-trader model-service start
+agentic-trader model-service pull qwen3:8b
+```
+
+The app-managed service binds to loopback only, writes its own state and log
+tails under `runtime/model_service/`, and never stops an external Ollama process.
+If another Ollama is already running on the default port, the app-managed
+service chooses another loopback port and reports whether `AGENTIC_TRADER_BASE_URL`
+matches it.
+
+## Run one safe paper cycle
 
 Run one strict cycle:
 
@@ -89,13 +154,30 @@ Run one strict cycle:
 python main.py run --symbol AAPL --interval 1d --lookback 180d
 ```
 
-Open the Ink control room:
+Then inspect the review output, dashboard/status JSON, and any evidence bundle
+before treating the run as a trustworthy example.
+
+## Bring up the main surfaces
+
+Open the operator launcher:
 
 ```bash
 agentic-trader
 ```
 
-Run the Web GUI:
+Open the Ink control room directly:
+
+```bash
+agentic-trader tui
+```
+
+Run the Web GUI as an app-owned loopback service:
+
+```bash
+agentic-trader webgui-service start
+```
+
+Or run it as a foreground development server:
 
 ```bash
 pnpm dev:webgui
@@ -113,12 +195,18 @@ Run the Ink TUI directly:
 pnpm start:tui
 ```
 
-## First things to inspect when something feels wrong
+## First places to inspect when something feels wrong
 
 - `doctor` output
+- `provider-diagnostics --json`
+- `v1-readiness --json`
+- `broker-status --json`
+- `finance-ops --json`
+- `supervisor-status --json`
 - runtime status in the CLI or observer surface
 - recent runtime logs
 - model service readiness
+- latest review or trade context
 - environment file differences between the repo root and nested apps
 
 ## Near-term onboarding direction

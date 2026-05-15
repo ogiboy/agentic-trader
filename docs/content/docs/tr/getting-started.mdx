@@ -1,28 +1,54 @@
 ---
 title: Başlangıç
-description: Depoyu kur, lokal hazır oluşu doğrula ve ana operatör yüzeylerini aç.
+description: Lokal runtime'ı kur, hazır oluşu doğrula ve kontrol yüzeylerini hata gizlemeden aç.
 ---
 
-## Temel toolchain
+## İlk başarılı kurulumun amacı
+
+İlk başarılı kurulum, herhangi bir paper cycle öncesinde üç şeyi kanıtlamalı:
+
+- lokal Python runtime başlayabiliyor
+- provider, model, broker ve runtime-mode hazır oluşu görünür
+- operatör yüzeyleri alt katman gerçeğini yansıtıyor, kendi state'ini uydurmuyor
+
+Aşağıdaki kontrollerle başla. Biri başarısızsa Web GUI, Ink TUI ya da background
+service'e güvenmeden önce o katmanı düzelt.
+
+## Kaynaktan kurulum gereksinimleri
 
 Depo şu anda Python artı Node workflow'u varsayıyor.
 Asıl trading logic hâlâ Python runtime içinde; `webgui/`, `docs/` ve `tui/` root pnpm workspace üzerinden yönetiliyor.
 
 Önerilen temel kurulum:
 
-- Conda ya da benzeri yönetilen bir yorumlayıcı üzerinden Python 3.14.x
-- Python bağımlılık yönetimi için Poetry
+- uv-managed `.venv` üzerinden Python 3.13.x
+- Python bağımlılık yönetimi için uv
 - Node 20+ ve `pnpm`
 - İsteğe bağlı olarak `tmux`, `asciinema` ve QA için tarayıcı araçları
 - Varsayılan lokal model yolunu kullanıyorsan isteğe bağlı Ollama
+- Araştırma helper'larını açıkça etkinleştiriyorsan isteğe bağlı Firecrawl ve Camofox
+
+Her şeyi kurmadan önce system-tool dry-run çalıştır:
+
+```bash
+make bootstrap-dry-run
+```
+
+Plan doğru görünüyorsa interaktif bootstrap kullan:
+
+```bash
+make bootstrap
+```
+
+Bu akış system install, browser-helper dependency, Firecrawl setup veya PATH
+symlink değişikliklerinden önce sorar. Eksik opsiyonel research helper'ları core
+paper operation için blocker değil, degraded readiness bilgisidir.
 
 ## Python runtime'ı kur
 
 ```bash
-conda create -n trader python=3.14 poetry
-conda activate trader
-poetry env use "$CONDA_PREFIX/bin/python"
-poetry install --with dev --extras dev
+uv python install 3.13
+pnpm run install:python
 ```
 
 Node workspace'i repo root'undan kur:
@@ -32,7 +58,7 @@ pnpm install
 pnpm approve-builds --all
 ```
 
-Conda ortamı aktifken aşağıdaki kısayollardan birini kullan:
+uv hazır olduktan sonra aşağıdaki kısayollardan birini kullan:
 
 ```bash
 pnpm run setup
@@ -40,12 +66,15 @@ pnpm run setup
 make setup
 ```
 
-## UI açmadan önce ortamı doğrula
+## Trading öncesi hazır oluşu kontrol et
 
-En küçük güven kontrolüyle başla:
+Bir paper cycle öncesinde bu kontrolleri çalıştır:
 
 ```bash
 python main.py doctor
+agentic-trader provider-diagnostics --json
+agentic-trader v1-readiness --json
+agentic-trader finance-ops --json
 ```
 
 Kurulu CLI entrypoint'ine güveniyorsan onu da doğrula:
@@ -56,6 +85,27 @@ agentic-trader doctor
 
 Bunu Web GUI ya da Ink TUI debug etmeden önce yap.
 `doctor` zaten yanlışsa UI çoğu zaman alt katmandaki gerçek problemi sadece yansıtıyordur.
+`provider-diagnostics` mevcut source ladder'ı, API-key hazır oluşunu ve fallback
+uyarılarını secret yazmadan ya da eksik evidence'ı tamam sanmadan gösterir.
+`v1-readiness` lokal paper operation ve Alpaca paper readiness kapılarının geçip
+geçmediğini gösterir; özellikle model servisini de çağırmak istiyorsan
+`--provider-check` ekle.
+
+## Readiness ne anlama gelir
+
+| Kontrol | Cevapladığı operatör sorusu |
+| --- | --- |
+| `doctor` | Lokal runtime beklenen ortamla başlayabiliyor mu? |
+| `provider-diagnostics --json` | Hangi data/model provider'ları hazır, eksik veya degraded? |
+| `v1-readiness --json` | Lokal paper operation hazır mı, evidence/review context görünür mü, external Alpaca paper hâlâ gate arkasında mı? |
+| `broker-status --json` | Hangi backend aktif, live/paper güvenlikleri görünür mü? |
+| `finance-ops --json` | Broker, account, PnL, exposure, risk ve evidence kontrolleri paper review için uyumlu mu? |
+| `trade-proposals --json` | Hangi fikirler açık onay, ret veya audit review bekliyor? |
+| `idea-presets` / `idea-score ...` | Bir aday proposal'a dönüşmeden önce V1 scanner preset'leriyle nasıl skorlanır? |
+| `supervisor-status --json` | Daemon blocked, running, stale, stopped veya failed durumda mı? |
+| `setup-status --json` | Hangi lokal araçlar ve opsiyonel yan uygulamalar kurulu veya degraded? |
+| `model-service status --json` | Configured ya da app-managed Ollama erişilebilir mi, seçili model var mı? |
+| `webgui-service status --json` | App-owned loopback Web GUI servisi erişilebilir mi, logları nerede? |
 
 ## Ortam dosyalarını yapılandır
 
@@ -81,7 +131,23 @@ export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
 Sadece Ollama trafiğini görmeyi sistemin sağlıklı olduğunun kanıtı sayma.
 Model erişimi, runtime ready oluşu ve son loglar birbiriyle uyumlu olmalı.
 
-## Ana yüzeyleri ayağa kaldır
+Agentic Trader'ın bu proje için lokal Ollama sürecini yönetmesini istiyorsan,
+önce read-only status'a bak, sonra app-owned servisi başlat:
+
+```bash
+agentic-trader model-service status --json
+agentic-trader model-service start
+agentic-trader model-service pull qwen3:8b
+```
+
+App-managed servis yalnızca loopback'e bind eder, kendi state/log tail'lerini
+`runtime/model_service/` altına yazar ve dışarıdan başlatılmış bir Ollama
+process'ini durdurmaz. Varsayılan portta başka Ollama çalışıyorsa yakındaki
+başka bir loopback port seçer ve `AGENTIC_TRADER_BASE_URL` ile eşleşip
+eşleşmediğini görünür kılar. Eski app-managed portlar stop/start sırasında
+temizlenir; `11434` üzerindeki servis kullanıcı/host Ollama olarak kalır.
+
+## Tek bir güvenli paper cycle çalıştır
 
 Tek bir strict cycle çalıştır:
 
@@ -89,13 +155,30 @@ Tek bir strict cycle çalıştır:
 python main.py run --symbol AAPL --interval 1d --lookback 180d
 ```
 
-Ink control room'u aç:
+Sonrasında bu koşuyu güvenilir bir örnek saymadan önce review çıktısını,
+dashboard/status JSON'u ve varsa evidence bundle'ı incele.
+
+## Ana yüzeyleri ayağa kaldır
+
+Operatör launcher'ı aç:
 
 ```bash
 agentic-trader
 ```
 
-Web GUI'yi çalıştır:
+Ink control room'u doğrudan aç:
+
+```bash
+agentic-trader tui
+```
+
+Web GUI'yi app-owned loopback service olarak çalıştır:
+
+```bash
+agentic-trader webgui-service start
+```
+
+Ya da foreground development server olarak çalıştır:
 
 ```bash
 pnpm dev:webgui
@@ -116,9 +199,15 @@ pnpm start:tui
 ## Bir şey ters hissedildiğinde önce bakılacak yerler
 
 - `doctor` çıktısı
+- `provider-diagnostics --json`
+- `v1-readiness --json`
+- `broker-status --json`
+- `finance-ops --json`
+- `supervisor-status --json`
 - CLI ya da observer yüzeyindeki runtime durumu
 - son runtime logları
 - model servisinin hazır oluşu
+- son review veya trade context
 - root repo ile iç içe Next uygulamaları arasındaki environment farkları
 
 ## Yakın dönem onboarding yönü

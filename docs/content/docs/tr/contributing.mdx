@@ -49,11 +49,15 @@ Sadece `main` otomatik olarak `pyproject.toml`, workspace package sürümleri ve
 
 `v0.9.5.9870` gibi dördüncü SemVer core segment kullanma; CI build kimliği prerelease ya da build metadata içinde yaşamalı.
 
+İlk stabil `main` release'i semantic-release sonucunu tracked pre-1.0 baseline'a
+floor etmek zorunda kalırsa release workflow tag atmadan önce baseline changelog
+bölümü üretir; böylece `CHANGELOG.md` boş kalmaz.
+
 ## CI ve release kontrolleri
 
 Pull request'ler ve korunan branch'lerde şu kontroller yeşil kalmalı:
 
-- Python core: Poetry install, Ruff, Pyright, Pytest ve PyInstaller smoke build
+- Python core: uv sync, Ruff, Pyright, Pytest ve PyInstaller smoke build
 - Web GUI: pnpm workspace install, lint, typecheck ve production build
 - Docs: pnpm workspace install, lint, typecheck ve static export
 - TUI: pnpm workspace install ve Ink entrypoint syntax check
