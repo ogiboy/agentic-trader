@@ -153,6 +153,29 @@ pnpm run app:doctor
 make app-doctor
 ```
 
+For the first conservative setup lifecycle facade, start with the plan view:
+
+```bash
+pnpm run app:setup -- --dry-run
+# or
+make app-setup ARGS="--dry-run"
+```
+
+The only mutating `app:setup` path currently implemented is explicit core
+repair:
+
+```bash
+pnpm run app:setup -- --core --yes
+# or
+make app-setup ARGS="--core --yes"
+```
+
+That path runs the existing root Node workspace setup and root uv Python sync
+only. It does not start a trading daemon, start app-owned services, pull Ollama
+models, fetch browser binaries, open the Web GUI, change provider accounts, or
+touch brokerage configuration. Sidecar, Camofox, model-service, Web GUI launch,
+update, and uninstall lanes remain separate opt-in lifecycle slices.
+
 ### Optional Web GUI
 
 ```bash
@@ -286,6 +309,8 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 | `agentic-trader dashboard-snapshot`                              | Print the shared dashboard payload used by UI surfaces; add `--provider-check` for product-readiness evidence |
 | `agentic-trader setup-status --json`                             | Inspect source, side-application, and optional-tool readiness     |
 | `pnpm --silent run app:doctor -- --json`                         | Read setup, provider, V1, and app-owned service readiness without mutating local state |
+| `pnpm --silent run app:setup -- --json --dry-run`                 | Preview setup lifecycle steps without installing, starting services, pulling models, or fetching browsers |
+| `pnpm --silent run app:setup -- --json --core --yes`              | Run only explicit core repair: root Node workspace setup plus root uv Python sync |
 | `agentic-trader model-service status --probe-generation --json`  | Inspect configured/app-managed Ollama readiness, generation, and log tails |
 | `agentic-trader model-service start`                             | Start only an app-owned loopback Ollama process                   |
 | `agentic-trader model-service pull qwen3:8b`                     | Pull an Ollama model through the configured/app-owned service     |
@@ -321,6 +346,8 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader finance-ops --json`                                                    | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check |
 | `agentic-trader setup-status --json`                                                   | Inspect root/sidecar/tool readiness without installing anything |
 | `pnpm --silent run app:doctor -- --json`                                               | Inspect setup, service, provider, and V1 readiness without installing or starting anything |
+| `pnpm --silent run app:setup -- --json --dry-run`                                      | Preview setup lifecycle steps and deferred optional tool/service actions |
+| `pnpm --silent run app:setup -- --json --core --yes`                                   | Repair only core root dependencies after explicit approval |
 | `agentic-trader model-service status --probe-generation --json`                        | Inspect local Ollama/service/model/generation readiness |
 | `agentic-trader webgui-service status --json`                                          | Inspect loopback Web GUI service readiness |
 | `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
@@ -363,6 +390,7 @@ This repo favors small, inspectable changes over broad rewrites. Keep Python run
 pnpm check
 make check
 pnpm run app:doctor
+pnpm run app:setup -- --dry-run
 pnpm run qa:quality
 pnpm run setup:research-flow
 pnpm run check:research-flow

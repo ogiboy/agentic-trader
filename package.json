@@ -1,6 +1,6 @@
 {
   "name": "agentic-trader-workspace",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "private": true,
   "license": "LGPL-3.0-or-later",
   "packageManager": "pnpm@11.0.9",
@@ -13,6 +13,7 @@
     "setup": "pnpm run setup:node && pnpm run install:python",
     "setup:tools": "uv run --locked --all-extras --group dev agentic-trader setup-status",
     "app:doctor": "node scripts/app-doctor.mjs",
+    "app:setup": "node scripts/app-setup.mjs",
     "setup:camofox": "pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts",
     "fetch:camofox": "pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser",
     "check:camofox": "pnpm --dir tools/camofox-browser --ignore-workspace run test",

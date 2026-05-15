@@ -693,6 +693,22 @@ start a trading daemon. Provider/model generation checks remain explicit
 through `v1-readiness --provider-check` or
 `model-service status --probe-generation`.
 
+### app:setup starts as dry-run plus explicit core repair
+
+Reason:
+The first mutating lifecycle command should prove the operator contract before
+it grows side-application ownership.
+`app:setup` therefore defaults to a dry-run plan and requires `--core --yes`
+before running the existing root dependency owners: `pnpm run setup:node` and
+`pnpm run install:python`.
+It does not start a trading daemon, launch the Web GUI, start model-service or
+Camofox, fetch browser binaries, pull Ollama models, modify provider accounts,
+change secrets, or touch brokerage configuration.
+Sidecar setup, Camofox setup/fetch, app-owned service starts, update,
+uninstall, and guided `app:up` remain later opt-in lifecycle slices after
+ownership choices such as host-owned, app-owned, API/key-only, or skipped are
+explicit.
+
 ### Camofox tool-root commands are pnpm-owned, browser fetch remains separate
 
 Reason:

@@ -28,8 +28,10 @@ instead of treating them as aliases for the same script:
 
 - `pnpm run app:doctor`: read-only setup, PATH, sidecar, service, provider, and
   optional tool-root status
-- `pnpm run app:setup`: dependency/tool install or repair only; no trading daemon
-  start and no hidden browser/model download
+- `pnpm run app:setup -- --dry-run`: setup lifecycle preview only
+- `pnpm run app:setup -- --core --yes`: root pnpm workspace plus root uv Python
+  repair only; no trading daemon start, no app-owned service start, and no
+  hidden browser/model download
 - `pnpm run app:up`: guided first-run path that may repair setup, start approved
   app-owned helper services, and open Web GUI
 - `pnpm run app:start`: start configured app-owned services and Web GUI only
