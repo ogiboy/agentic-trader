@@ -1,6 +1,6 @@
 {
   "name": "webgui",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": true,
   "license": "LGPL-3.0-or-later",
   "scripts": {
