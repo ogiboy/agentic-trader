@@ -3,7 +3,7 @@ import logging
 import re
 from collections.abc import Callable
 from textwrap import dedent
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -11,8 +11,6 @@ from pydantic import BaseModel, ValidationError
 from agentic_trader.config import Settings
 from agentic_trader.llm.providers import LLMProvider, build_provider
 from agentic_trader.schemas import AgentRole, LLMHealthStatus
-
-T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 _SENSITIVE_PAYLOAD_KEYS = {"thinking", "thought", "thoughts", "reasoning"}
@@ -150,59 +148,70 @@ _SANITIZE_RULES: dict[str, Callable[[Any], float | int]] = {
 }
 
 
+def _contains_any(value: str, tokens: tuple[str, ...]) -> bool:
+    return any(token in value for token in tokens)
+
+
+def _regime_alias(value: str) -> str | None:
+    if "no" in value and "trade" in value:
+        return "no_trade"
+    if _contains_any(value, ("range", "sideways", "mixed", "chop", "consolidat")):
+        return "range"
+    if "volatil" in value:
+        return "high_volatility"
+    if "break" in value:
+        return "breakout_candidate"
+    if _contains_any(value, ("bull", "up")):
+        return "trend_up"
+    if _contains_any(value, ("bear", "down")):
+        return "trend_down"
+    return None
+
+
+def _direction_bias_alias(value: str) -> str | None:
+    if _contains_any(
+        value,
+        (
+            "flat",
+            "neutral",
+            "mixed",
+            "sideways",
+            "none",
+            _NO_TRADE_PHRASE,
+        ),
+    ):
+        return "flat"
+    if _contains_any(value, ("long", "buy", "bull", "up", "positive")):
+        return "long"
+    if _contains_any(value, ("short", "sell", "bear", "down", "negative")):
+        return "short"
+    return None
+
+
+def _action_alias(value: str) -> str | None:
+    if _contains_any(value, ("hold", "flat", "neutral", "none", _NO_TRADE_PHRASE)):
+        return "hold"
+    if _contains_any(value, ("long", "buy", "bull", "up")):
+        return "buy"
+    if _contains_any(value, ("short", "sell", "bear", "down")):
+        return "sell"
+    return None
+
+
 def _semantic_value_alias(schema_name: str, field_name: str, value: str) -> Any:
     """Map common free-form enum phrases to conservative schema values."""
     normalized = value.strip().lower().replace("-", "_")
     normalized = " ".join(normalized.split())
     compact = normalized.replace("_", " ")
     if schema_name == "RegimeAssessment" and field_name == "regime":
-        if "no" in compact and "trade" in compact:
-            return "no_trade"
-        if any(
-            token in compact
-            for token in ("range", "sideways", "mixed", "chop", "consolidat")
-        ):
-            return "range"
-        if "volatil" in compact:
-            return "high_volatility"
-        if "break" in compact:
-            return "breakout_candidate"
-        if any(token in compact for token in ("bull", "up")):
-            return "trend_up"
-        if any(token in compact for token in ("bear", "down")):
-            return "trend_down"
+        return _regime_alias(compact) or value
     if schema_name == "RegimeAssessment" and field_name == "direction_bias":
-        if any(
-            token in compact
-            for token in (
-                "flat",
-                "neutral",
-                "mixed",
-                "sideways",
-                "none",
-                _NO_TRADE_PHRASE,
-            )
-        ):
-            return "flat"
-        if any(token in compact for token in ("long", "buy", "bull", "up", "positive")):
-            return "long"
-        if any(
-            token in compact for token in ("short", "sell", "bear", "down", "negative")
-        ):
-            return "short"
+        return _direction_bias_alias(compact) or value
     if schema_name in {"StrategyPlan", "ManagerDecision"} and field_name in {
         "action",
         "action_bias",
     }:
-        if any(
-            token in compact
-            for token in ("hold", "flat", "neutral", "none", _NO_TRADE_PHRASE)
-        ):
-            return "hold"
-        if any(token in compact for token in ("long", "buy", "bull", "up")):
-            return "buy"
-        if any(token in compact for token in ("short", "sell", "bear", "down")):
-            return "sell"
+        return _action_alias(compact) or value
     return value
 
 
@@ -372,7 +381,7 @@ def _extract_field_name_from_path(path: tuple[str | int, ...]) -> str | None:
     return None
 
 
-def _attempt_sanitize_and_validate(
+def _attempt_sanitize_and_validate[T: BaseModel](
     data: Any, exc: ValidationError, schema: type[T]
 ) -> T | None:
     """
@@ -434,7 +443,7 @@ def _attempt_sanitize_and_validate(
         return None
 
 
-def _mark_llm_source(parsed: T) -> T:
+def _mark_llm_source[T: BaseModel](parsed: T) -> T:
     """
     Mark a Pydantic model's source as "llm" and clear its fallback reason when present.
 
@@ -454,7 +463,7 @@ def _mark_llm_source(parsed: T) -> T:
     return parsed
 
 
-def _validate_structured_content(content: str, schema: type[T]) -> T:
+def _validate_structured_content[T: BaseModel](content: str, schema: type[T]) -> T:
     """
     Validate a JSON-formatted string and return a validated Pydantic model instance, applying numeric coercion and targeted sanitization when necessary.
 
@@ -567,16 +576,14 @@ def _validation_retry_prompt(prompt: str, content: str) -> str:
     Returns:
         str: A dedented prompt string that includes the original prompt, a note that the previous response did not validate (including that response), and a directive to "Return corrected JSON only."
     """
-    return dedent(
-        f"""
+    return dedent(f"""
         {prompt}
 
         Your previous response did not validate:
         {content}
 
         Return corrected JSON only.
-        """
-    ).strip()
+        """).strip()
 
 
 def _request_issue_retry_prompt(prompt: str) -> str:
@@ -589,14 +596,12 @@ def _request_issue_retry_prompt(prompt: str) -> str:
     Returns:
         str: A dedented string containing the original prompt followed by a short instruction that the previous response was empty, malformed, or invalid and that the model should return a complete JSON object only.
     """
-    return dedent(
-        f"""
+    return dedent(f"""
         {prompt}
 
         Your previous response was empty, malformed, or otherwise invalid.
         Return a complete JSON object only.
-        """
-    ).strip()
+        """).strip()
 
 
 class LocalLLM:
@@ -675,7 +680,7 @@ class LocalLLM:
     def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
         return self.provider.health_check(include_generation=include_generation)
 
-    def complete_structured(
+    def complete_structured[T: BaseModel](
         self,
         *,
         system_prompt: str,
@@ -699,8 +704,7 @@ class LocalLLM:
         schema_json = json.dumps(schema.model_json_schema(), indent=2)
         field_instruction = _schema_field_instruction(schema)
 
-        prompt = dedent(
-            f"""
+        prompt = dedent(f"""
             {system_prompt}
 
             You must respond with valid JSON only.
@@ -716,8 +720,7 @@ class LocalLLM:
 
             User request:
             {user_prompt}
-            """
-        ).strip()
+            """).strip()
 
         last_error: Exception | None = None
         for attempt in range(self.settings.max_retries + 1):
@@ -791,14 +794,12 @@ class LocalLLM:
         Raises:
             RuntimeError: If the LLM returns an empty response or all retry attempts fail.
         """
-        prompt = dedent(
-            f"""
+        prompt = dedent(f"""
             {system_prompt}
 
             User request:
             {user_prompt}
-            """
-        ).strip()
+            """).strip()
 
         last_error: Exception | None = None
         for attempt in range(self.settings.max_retries + 1):

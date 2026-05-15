@@ -102,3 +102,8 @@ htmlcov/
 .ai/qa/artifacts/camofox-service-*/
 .ai/qa/artifacts/model-service-*/
 .ai/qa/artifacts/ollama-*/
+/.claude/
+/.claude-flow/
+/.swarm/
+/.mcp.json
+/CLAUDE.md

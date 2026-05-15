@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 
 from agentic_trader.config import Settings
@@ -868,3 +870,145 @@ def test_broker_runtime_payload_pending_live(tmp_path) -> None:
     assert payload["backend"] == "live"
     assert payload["state"] == "pending_live_adapter"
     assert "implemented yet" in str(payload["message"]).lower()
+
+
+def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="key",
+        alpaca_secret_key="secret",
+        alpaca_paper_trading_enabled=True,
+    )
+    settings.ensure_directories()
+    submitted_orders: list[object] = []
+
+    class FakeClient:
+        def submit_order(self, *, order_data):
+            submitted_orders.append(order_data)
+            return SimpleNamespace(
+                id="order-1",
+                filled_qty="2",
+                filled_avg_price="101.25",
+                status="filled",
+            )
+
+        def get_all_positions(self):
+            return [
+                SimpleNamespace(
+                    symbol="AAPL",
+                    qty="2",
+                    avg_entry_price="100",
+                    current_price="101",
+                    market_value="202",
+                    unrealized_pl="2",
+                )
+            ]
+
+        def get_account(self):
+            return SimpleNamespace(
+                cash="99998",
+                long_market_value="202",
+                short_market_value="0",
+                portfolio_value="100200",
+                status="ACTIVE",
+                trading_blocked=False,
+            )
+
+        def get_orders(self, **kwargs):
+            assert kwargs["filter"] is not None
+            return [
+                SimpleNamespace(
+                    id="open-1",
+                    client_order_id="intent-1",
+                    symbol="AAPL",
+                    side="sell",
+                    qty="1",
+                    notional=None,
+                    status="new",
+                    created_at="2026-05-15T00:00:00Z",
+                )
+            ]
+
+        def close_position(self, symbol):
+            return SimpleNamespace(id=f"close-{symbol}")
+
+    adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
+    adapter._client = FakeClient()
+    intent = ExecutionIntent(
+        symbol="aapl",
+        side="buy",
+        quantity=2,
+        reference_price=101.25,
+        confidence=0.8,
+        thesis="External paper submission.",
+        approved=True,
+        execution_backend="alpaca_paper",
+        adapter_name="alpaca_paper",
+    )
+
+    outcome = adapter.place_order(intent)
+    positions = adapter.get_positions()
+    account = adapter.get_account_state()
+    open_orders = adapter.get_open_orders()
+    healthcheck = adapter.healthcheck()
+    close_id = adapter.close_position(
+        PositionExitDecision(
+            should_exit=True,
+            side="sell",
+            symbol="AAPL",
+            reason="time_exit",
+            rationale="manual close",
+            exit_price=101.0,
+        )
+    )
+
+    assert submitted_orders
+    assert outcome.status == "filled"
+    assert outcome.filled_quantity == pytest.approx(2.0)
+    assert outcome.average_fill_price == pytest.approx(101.25)
+    assert positions[0].symbol == "AAPL"
+    assert account.open_positions == 1
+    assert account.unrealized_pnl == pytest.approx(2.0)
+    assert open_orders[0].side == "sell"
+    assert healthcheck.ok is True
+    assert close_id == "close-AAPL"
+
+
+def test_alpaca_paper_adapter_blocks_close_without_exit_or_us_symbol(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="key",
+        alpaca_secret_key="secret",
+        alpaca_paper_trading_enabled=True,
+    )
+    settings.ensure_directories()
+    adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
+    adapter._client = object()
+
+    no_exit = adapter.close_position(
+        PositionExitDecision(
+            should_exit=False,
+            side="sell",
+            symbol="AAPL",
+            reason="no_exit",
+            rationale="hold",
+            exit_price=100.0,
+        )
+    )
+    unsupported = adapter.close_position(
+        PositionExitDecision(
+            should_exit=True,
+            side="sell",
+            symbol="AKBNK.IS",
+            reason="time_exit",
+            rationale="manual close",
+            exit_price=10.0,
+        )
+    )
+
+    assert no_exit.startswith("alpaca-paper-noop-")
+    assert unsupported.startswith("alpaca-paper-blocked-")

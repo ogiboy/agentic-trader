@@ -1472,6 +1472,97 @@ def test_camofox_service_cli_json_commands(
     assert json.loads(stop_result.stdout)["app_owned"] is False
 
 
+def test_setup_and_side_service_cli_render_human_status(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.cli.build_setup_status",
+        lambda _: _setup_status_fixture(tmp_path),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.build_model_service_status",
+        lambda *_args, **_kwargs: _model_service_status_fixture(app_owned=True),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.start_model_service",
+        lambda *_args, **_kwargs: _model_service_status_fixture(app_owned=True),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.stop_model_service",
+        lambda *_args, **_kwargs: _model_service_status_fixture(),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.pull_model",
+        lambda _settings, model_name: {
+            "model": model_name,
+            "exit_code": 0,
+            "stdout": "pulled",
+            "stderr": "",
+        },
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.build_webgui_service_status",
+        lambda _: _webgui_service_status_fixture(app_owned=True),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.start_operator_webgui",
+        lambda *_args, **_kwargs: _webgui_service_status_fixture(app_owned=True),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.stop_webgui_service",
+        lambda *_args, **_kwargs: _webgui_service_status_fixture(),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.build_camofox_service_status",
+        lambda _: _camofox_service_status_fixture(app_owned=True),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.start_camofox_service",
+        lambda *_args, **_kwargs: _camofox_service_status_fixture(app_owned=True),
+    )
+    monkeypatch.setattr(
+        "agentic_trader.cli.stop_camofox_service",
+        lambda *_args, **_kwargs: _camofox_service_status_fixture(),
+    )
+
+    runner = CliRunner()
+    commands = [
+        ["setup-status"],
+        ["setup"],
+        ["model-service", "status", "--probe-generation"],
+        ["model-service", "start"],
+        ["model-service", "stop"],
+        ["model-service", "pull", "qwen3:8b"],
+        ["webgui-service", "status"],
+        ["webgui-service", "start", "--no-open-browser"],
+        ["webgui-service", "stop"],
+        ["camofox-service", "status"],
+        ["camofox-service", "start"],
+        ["camofox-service", "stop"],
+    ]
+
+    outputs: list[str] = []
+    for command in commands:
+        result = runner.invoke(app, command)
+        assert result.exit_code == 0, result.stdout
+        outputs.append(result.stdout)
+
+    combined = "\n".join(outputs)
+    assert "Setup Status" in combined
+    assert "Tool Readiness" in combined
+    assert "Model Service" in combined
+    assert "Available Models" in combined
+    assert "Model Pull" in combined
+    assert "Web GUI Service" in combined
+    assert "Camofox Browser Helper" in combined
+
+
 def test_no_arg_entrypoint_opens_operator_launcher(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

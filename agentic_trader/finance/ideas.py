@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Literal
 
 IdeaPresetName = Literal[
@@ -39,6 +40,16 @@ class IdeaScore:
     warnings: tuple[str, ...]
 
 
+PresetScorer = Callable[[IdeaCandidate], tuple[float, list[str]]]
+
+
+@dataclass(frozen=True)
+class _PresetScoringRule:
+    scorer: PresetScorer
+    active_signal: IdeaSignal
+    threshold: float | None
+
+
 PRESET_DESCRIPTIONS: dict[IdeaPresetName, str] = {
     "momentum": "High momentum with strong volume and trend confirmation.",
     "gap-up": "Large positive gap with enough volume and RSI headroom.",
@@ -49,26 +60,19 @@ PRESET_DESCRIPTIONS: dict[IdeaPresetName, str] = {
 }
 
 
+def _signal_for_score(score: float, rule: _PresetScoringRule) -> IdeaSignal:
+    if rule.threshold is None:
+        return "watch"
+    if score >= rule.threshold:
+        return rule.active_signal
+    return "watch"
+
+
 def score_candidate(candidate: IdeaCandidate, preset: IdeaPresetName) -> IdeaScore:
     warnings = _candidate_warnings(candidate)
-    if preset == "momentum":
-        score, reasons = _score_momentum(candidate)
-        signal = "buy" if score >= 40 else "watch"
-    elif preset == "gap-up":
-        score, reasons = _score_gap_up(candidate)
-        signal = "buy" if score >= 40 else "watch"
-    elif preset == "gap-down":
-        score, reasons = _score_gap_down(candidate)
-        signal = "sell" if score >= 40 else "watch"
-    elif preset == "mean-reversion":
-        score, reasons = _score_mean_reversion(candidate)
-        signal = "buy" if score >= 35 else "watch"
-    elif preset == "breakout":
-        score, reasons = _score_breakout(candidate)
-        signal = "buy" if score >= 45 else "watch"
-    else:
-        score, reasons = _score_volatile(candidate)
-        signal = "watch"
+    rule = _SCORE_RULES[preset]
+    score, reasons = rule.scorer(candidate)
+    signal = _signal_for_score(score, rule)
     return IdeaScore(
         symbol=candidate.symbol.upper(),
         preset=preset,
@@ -120,7 +124,7 @@ def _score_momentum(candidate: IdeaCandidate) -> tuple[float, list[str]]:
 def _score_gap_up(candidate: IdeaCandidate) -> tuple[float, list[str]]:
     positive_gap = max(candidate.gap_pct, 0.0)
     score = min(positive_gap, 20) * 2
-    reasons = [f"gap={candidate.gap_pct:.2f}%"] if positive_gap else []
+    reasons = _gap_reasons(candidate, positive_gap)
     score += min(candidate.relative_volume, 6) * 5
     score += min(abs(candidate.change_pct), 10) * 2
     if candidate.rsi is not None and candidate.rsi < 70:
@@ -130,9 +134,9 @@ def _score_gap_up(candidate: IdeaCandidate) -> tuple[float, list[str]]:
 
 
 def _score_gap_down(candidate: IdeaCandidate) -> tuple[float, list[str]]:
-    negative_gap = abs(candidate.gap_pct) if candidate.gap_pct < 0 else 0.0
+    negative_gap = _negative_gap_pct(candidate)
     score = min(negative_gap, 20) * 2
-    reasons = [f"gap={candidate.gap_pct:.2f}%"] if negative_gap else []
+    reasons = _gap_reasons(candidate, negative_gap)
     if candidate.rsi is not None and candidate.rsi < 40:
         score += (40 - candidate.rsi) * 0.75
         reasons.append(f"oversold_rsi={candidate.rsi:.1f}")
@@ -148,7 +152,9 @@ def _score_mean_reversion(candidate: IdeaCandidate) -> tuple[float, list[str]]:
     score = 0.0
     reasons: list[str] = []
     if candidate.rsi is not None and candidate.rsi < 40:
-        score += (40 - candidate.rsi) * (1.0 if candidate.rsi < 30 else 0.5)
+        score += (40 - candidate.rsi) * _mean_reversion_rsi_multiplier(
+            candidate.rsi
+        )
         reasons.append(f"oversold_rsi={candidate.rsi:.1f}")
     for label, average in (("sma20", candidate.sma_20), ("sma50", candidate.sma_50)):
         if average is not None and candidate.price < average:
@@ -186,6 +192,34 @@ def _score_volatile(candidate: IdeaCandidate) -> tuple[float, list[str]]:
         score += 10
         reasons.append(f"rsi_extreme={candidate.rsi:.1f}")
     return score, reasons
+
+
+_SCORE_RULES: dict[IdeaPresetName, _PresetScoringRule] = {
+    "momentum": _PresetScoringRule(_score_momentum, "buy", 40),
+    "gap-up": _PresetScoringRule(_score_gap_up, "buy", 40),
+    "gap-down": _PresetScoringRule(_score_gap_down, "sell", 40),
+    "mean-reversion": _PresetScoringRule(_score_mean_reversion, "buy", 35),
+    "breakout": _PresetScoringRule(_score_breakout, "buy", 45),
+    "volatile": _PresetScoringRule(_score_volatile, "watch", None),
+}
+
+
+def _gap_reasons(candidate: IdeaCandidate, gap_magnitude: float) -> list[str]:
+    if gap_magnitude:
+        return [f"gap={candidate.gap_pct:.2f}%"]
+    return []
+
+
+def _negative_gap_pct(candidate: IdeaCandidate) -> float:
+    if candidate.gap_pct < 0:
+        return abs(candidate.gap_pct)
+    return 0.0
+
+
+def _mean_reversion_rsi_multiplier(rsi: float) -> float:
+    if rsi < 30:
+        return 1.0
+    return 0.5
 
 
 def _distance_below_pct(price: float, average: float) -> float:

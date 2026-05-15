@@ -147,6 +147,11 @@ The Web GUI runs on loopback, normally
 [http://localhost:3210](http://localhost:3210). The `webgui-service` commands
 record app-owned state and log tails under `runtime/webgui_service/`; `stop`
 only targets the recorded app-owned process.
+If `AGENTIC_TRADER_WEBGUI_TOKEN` is set for a token-protected or proxied local
+setup, the browser shell prompts for that token and exchanges it for a
+same-origin HttpOnly session cookie before dashboard, chat, or runtime API calls
+are allowed. Do not expose the Web GUI without either the app-owned loopback
+launcher marker or an explicit token.
 
 ### Optional Docs Site
 
@@ -358,6 +363,8 @@ Sonar is split by target on purpose:
 | SonarCloud                      | `ogiboy_agentic-trader` | GitHub-hosted CI, public badge, repository-level quality history |
 
 `sonar-project.properties` is the local default scanner file. `pnpm run sonar` runs the local Python scanner path through `pysonar`; `pnpm run sonar:js` runs the local npm scanner through `@sonar/scan`. Both read `SONAR_TOKEN` from the environment or macOS Keychain service `codex-sonarqube-token`. Use `pnpm run sonar:cloud` only when manually uploading to SonarCloud; it expects a SonarCloud token in `SONAR_TOKEN` or Keychain service `codex-sonarcloud-token`.
+
+`pnpm run sonar:start` waits until the local server is actually ready instead of only starting Docker containers. If an existing `sonarqube_postgres` volume was initialized with an older `SONAR_POSTGRES_PASSWORD`, the start/status scripts diagnose the password mismatch and suggest `pnpm run sonar:repair-db-password`, which aligns the stored local `sonar` database user password without deleting local Sonar history. If you provide `SONAR_AUTH_JWTBASE64HS256SECRET`, it must be Base64 encoded; unset it to use the repository's local-development default.
 
 Use `pnpm run secret:sonar:check`, `pnpm run mcp:sonarqube:dry-run`, or `pnpm run mcp:sonarqube:status` to verify the local Keychain/MCP wiring without printing tokens. The editor/Codex MCP wrapper uses `SONARQUBE_URL=http://host.docker.internal:9000` so Docker can reach the local host SonarQube server. Multiple running `mcp/sonarqube` containers usually mean multiple active MCP clients, not multiple SonarQube servers.
 

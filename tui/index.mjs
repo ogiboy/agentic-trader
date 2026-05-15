@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { execFile } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import {
   getCanonicalAnalysisLines,
@@ -265,7 +265,7 @@ function getMarketContextLines(marketContext) {
  *
  * @param {string} kind - Action to perform: "start", "stop", "one-shot", or other (treated as restart when a saved launch config exists).
  * @param {Object} data - Dashboard snapshot containing runtime `status` and `preferences` used to decide behavior.
- * @returns {{kind: string, text: string}} An action message describing the requested operation or why no action was taken (`kind: 'info'`, `text` explains the outcome).
+ * @returns {Promise<{kind: string, text: string}>} An action message describing the requested operation or why no action was taken (`kind: 'info'`, `text` explains the outcome).
  */
 async function performRuntimeAction(kind, data) {
   if (kind === 'start') {
@@ -492,7 +492,7 @@ function handleGlobalInput(input, handlers) {
  * Requests a dashboard snapshot and returns the snapshot object augmented with
  * a `loadedAt` field containing the ISO 8601 timestamp when the snapshot was fetched.
  *
- * @returns {object} The dashboard snapshot payload augmented with a `loadedAt` ISO 8601 string.
+ * @returns {Promise<object>} The dashboard snapshot payload augmented with a `loadedAt` ISO 8601 string.
  */
 async function loadDashboard() {
   const payload = await runJsonCommand([
@@ -527,32 +527,15 @@ function getPageLabel(page) {
 /**
  * Return the UI component element for the given dashboard page key.
  *
- * @param {string} page - Page key: 'overview', 'runtime', 'portfolio', 'review', 'memory', 'settings', or other (defaults to chat).
- * @param {Object} data - Dashboard snapshot and related data passed into the page component.
- * @param {string} chatPersona - Active chat persona used by the chat page.
- * @param {Array<Object>} chatHistory - Normalized chat history entries used by the chat page.
- * @param {string} chatDraft - Current chat draft text used by the chat page.
- * @param {boolean} chatBusy - Whether a chat request is in progress.
- * @param {string} instructionDraft - Current instruction draft text used by the settings page.
- * @param {boolean} instructionBusy - Whether an instruction request is in progress (settings page).
- * @param {string} instructionMode - Instruction mode ('preview' or 'apply') used by the settings page.
- * @param {Object|null} instructionResult - Result object from the last instruction invocation shown in the settings page.
- * @param {boolean} compact - Whether to render pages in compact mode (affects applicable pages).
+ * @param {Object} options - View selection and page state.
+ * @param {string} options.page - Page key: 'overview', 'runtime', 'portfolio', 'review', 'memory', 'settings', or other (defaults to chat).
+ * @param {Object} options.data - Dashboard snapshot and related data passed into the page component.
+ * @param {{persona: string, history: Array<Object>, draft: string, busy: boolean}} options.chat - Chat page state.
+ * @param {{draft: string, busy: boolean, mode: string, result: Object|null}} options.instruction - Settings page state.
+ * @param {boolean} options.compact - Whether to render pages in compact mode (affects applicable pages).
  * @returns {import('react').ReactElement} The page element corresponding to `page`; unknown keys render the Chat page.
  */
-function getPageView(
-  page,
-  data,
-  chatPersona,
-  chatHistory,
-  chatDraft,
-  chatBusy,
-  instructionDraft,
-  instructionBusy,
-  instructionMode,
-  instructionResult,
-  compact,
-) {
+function getPageView({ page, data, chat, instruction, compact }) {
   switch (page) {
     case 'overview':
       return e(OverviewPage, { data, compact });
@@ -567,19 +550,19 @@ function getPageView(
     case 'settings':
       return e(SettingsPage, {
         data,
-        draft: instructionDraft,
-        instructionBusy,
-        instructionMode,
-        instructionResult,
+        draft: instruction.draft,
+        instructionBusy: instruction.busy,
+        instructionMode: instruction.mode,
+        instructionResult: instruction.result,
         compact,
       });
     default:
       return e(ChatPage, {
         data,
-        persona: chatPersona,
-        history: chatHistory,
-        draft: chatDraft,
-        chatBusy,
+        persona: chat.persona,
+        history: chat.history,
+        draft: chat.draft,
+        chatBusy: chat.busy,
       });
   }
 }
@@ -688,12 +671,11 @@ function getExplorerLines(explorer) {
   if (!explorer?.matches?.length) {
     return ['No similar historical memories found yet.'];
   }
-  return explorer.matches.map(
-    (match) => {
-      const reason = match.explanation?.eligibility_reason || match.retrieval_source;
-      return `${match.created_at} | ${match.symbol} | score=${match.similarity_score} | why=${reason} | ${match.regime} | ${match.strategy_family} | ${match.summary}`;
-    },
-  );
+  return explorer.matches.map((match) => {
+    const reason =
+      match.explanation?.eligibility_reason || match.retrieval_source;
+    return `${match.created_at} | ${match.symbol} | score=${match.similarity_score} | why=${reason} | ${match.regime} | ${match.strategy_family} | ${match.summary}`;
+  });
 }
 
 function getInspectionLines(inspection) {
@@ -879,6 +861,138 @@ function providerLines(data) {
   ];
 }
 
+function overviewRuntimeMode(runtime, data) {
+  return (
+    runtime.runtime_mode ??
+    runtime.state?.runtime_mode ??
+    data.doctor?.runtime_mode ??
+    '-'
+  );
+}
+
+function compactCurrentCycleLines(data) {
+  const runtime = data.status;
+  const marketContext = data.marketContext;
+  const agentActivity = data.agentActivity;
+  return [
+    `Runtime: ${runtime.runtime_state}`,
+    `Mode: ${overviewRuntimeMode(runtime, data)}`,
+    `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
+    `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
+    `Status: ${runtime.status_message}`,
+    `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
+    `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
+    `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
+    `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
+    `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
+  ];
+}
+
+function fullCurrentCycleLines(data) {
+  const runtime = data.status;
+  const marketContext = data.marketContext;
+  const latestSnapshot = data.review.record?.artifacts?.snapshot;
+  const agentActivity = data.agentActivity;
+  return [
+    `Runtime: ${runtime.runtime_state}`,
+    `Mode: ${overviewRuntimeMode(runtime, data)}`,
+    `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
+    `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
+    `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
+    `Status: ${runtime.status_message}`,
+    `Current Note: ${runtime.state?.message ?? '-'}`,
+    `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
+    `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
+    `Stage Detail: ${agentActivity?.current_stage_message ?? '-'}`,
+    `Last Completed Stage: ${agentActivity?.last_completed_stage ?? '-'}`,
+    `Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
+    `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
+    `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
+    `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
+    `Context Pack: ${marketContext?.contextPack?.summary ?? '-'}`,
+    `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
+    '',
+    `Last Outcome Type: ${agentActivity?.last_outcome_type ?? '-'}`,
+    `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
+  ];
+}
+
+function getCurrentCycleLines(data, compact) {
+  if (compact) {
+    return compactCurrentCycleLines(data);
+  }
+  return fullCurrentCycleLines(data);
+}
+
+function compactSystemLines(data) {
+  const doctor = data.doctor;
+  const calendar = data.calendar;
+  const broker = data.broker;
+  return [
+    `Model: ${doctor.model}`,
+    `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
+    `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
+    `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
+    `Broker Backend: ${broker?.backend ?? '-'}`,
+    `Broker State: ${broker?.state ?? '-'}`,
+    `Camofox: ${data.camofoxService?.message ?? '-'}`,
+    `Research: ${data.research?.status ?? '-'} (${data.research?.backend ?? '-'})`,
+    `Research Sources: ${sourceHealthSummaryLine(data.research?.source_health_summary)}`,
+    `V1 Paper Ready: ${data.v1Readiness?.paper_operations?.allowed ? 'yes' : 'no'}`,
+    `Alpaca Paper Ready: ${data.v1Readiness?.alpaca_paper?.ready ? 'yes' : 'no'}`,
+    `Market Session: ${formatMarketSession(calendar.session)}`,
+  ];
+}
+
+function fullSystemLines(data) {
+  const doctor = data.doctor;
+  const preferences = data.preferences;
+  const calendar = data.calendar;
+  const broker = data.broker;
+  const marketCache = data.marketCache;
+  return [
+    `Model: ${doctor.model}`,
+    `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
+    `Base URL: ${doctor.base_url}`,
+    `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
+    `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
+    `Runtime Dir: ${doctor.runtime_dir}`,
+    `Database: ${doctor.database}`,
+    `Broker Backend: ${broker?.backend ?? '-'}`,
+    `Broker State: ${broker?.state ?? '-'}`,
+    `Broker Health: ${broker?.healthcheck?.message ?? broker?.message ?? '-'}`,
+    `Camofox: ${data.camofoxService?.message ?? '-'}`,
+    `Camofox Owned: ${data.camofoxService?.app_owned ? 'yes' : 'no'}`,
+    `Camofox URL: ${data.camofoxService?.base_url ?? '-'}`,
+    `Research: ${data.research?.status ?? '-'} (${data.research?.backend ?? '-'})`,
+    `Research Sources: ${sourceHealthSummaryLine(data.research?.source_health_summary)}`,
+    `V1 Paper Ready: ${data.v1Readiness?.paper_operations?.allowed ? 'yes' : 'no'}`,
+    `Alpaca Paper Ready: ${data.v1Readiness?.alpaca_paper?.ready ? 'yes' : 'no'}`,
+    `Provider Warnings: ${(data.providerDiagnostics?.warnings || []).length}`,
+    `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
+    `Market Session: ${formatMarketSession(calendar.session)}`,
+    `News Tool: ${data.news?.mode ?? 'off'}`,
+    `Cached Snapshots: ${marketCache.count}`,
+  ];
+}
+
+function getSystemLines(data, compact) {
+  if (compact) {
+    return compactSystemLines(data);
+  }
+  return fullSystemLines(data);
+}
+
+function getAgentEventLines(agentEvents) {
+  if (!agentEvents.length) {
+    return ['No live agent stage events yet.'];
+  }
+  return agentEvents.map(
+    (event) =>
+      `${event.created_at} | ${event.stage} | ${event.status} | ${event.message}`,
+  );
+}
+
 /**
  * Render the Overview dashboard page showing runtime status, system information, and recent agent activity.
  * @param {object} props
@@ -888,88 +1002,10 @@ function providerLines(data) {
 function OverviewPage({ data, compact = false }) {
   const doctor = data.doctor;
   const runtime = data.status;
-  const preferences = data.preferences;
-  const calendar = data.calendar;
-  const broker = data.broker;
-  const marketCache = data.marketCache;
-  const marketContext = data.marketContext;
-  const latestSnapshot = data.review.record?.artifacts?.snapshot;
   const agentActivity = data.agentActivity;
   const agentEvents = agentActivity?.recent_stage_events || [];
-  const currentCycleLines = compact
-    ? [
-        `Runtime: ${runtime.runtime_state}`,
-        `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
-        `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
-        `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
-        `Status: ${runtime.status_message}`,
-        `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
-        `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
-        `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
-        `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
-        `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
-      ]
-    : [
-        `Runtime: ${runtime.runtime_state}`,
-        `Mode: ${runtime.runtime_mode ?? runtime.state?.runtime_mode ?? data.doctor?.runtime_mode ?? '-'}`,
-        `Live Process: ${runtime.live_process ? 'yes' : 'no'}`,
-        `Current Symbol: ${runtime.state?.current_symbol ?? '-'}`,
-        `Cycle Count: ${runtime.state?.cycle_count ?? '-'}`,
-        `Status: ${runtime.status_message}`,
-        `Current Note: ${runtime.state?.message ?? '-'}`,
-        `Current Stage: ${agentActivity?.current_stage ?? '-'}`,
-        `Stage Status: ${agentActivity?.current_stage_status ?? '-'}`,
-        `Stage Detail: ${agentActivity?.current_stage_message ?? '-'}`,
-        `Last Completed Stage: ${agentActivity?.last_completed_stage ?? '-'}`,
-        `Completed Detail: ${agentActivity?.last_completed_message ?? '-'}`,
-        `Consensus: ${data.review.record?.artifacts?.consensus?.alignment_level ?? '-'}`,
-        `MTF Alignment: ${latestSnapshot?.mtf_alignment ?? '-'}`,
-        `Higher Timeframe: ${latestSnapshot?.higher_timeframe ?? '-'}`,
-        `Context Pack: ${marketContext?.contextPack?.summary ?? '-'}`,
-        `Context Quality: ${(marketContext?.contextPack?.data_quality_flags || []).join(', ') || '-'}`,
-        '',
-        `Last Outcome Type: ${agentActivity?.last_outcome_type ?? '-'}`,
-        `Last Outcome: ${agentActivity?.last_outcome_message ?? 'Waiting for a completed symbol or service result.'}`,
-      ];
-  const systemLines = compact
-    ? [
-        `Model: ${doctor.model}`,
-        `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
-        `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
-        `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
-        `Broker Backend: ${broker?.backend ?? '-'}`,
-        `Broker State: ${broker?.state ?? '-'}`,
-        `Camofox: ${data.camofoxService?.message ?? '-'}`,
-        `Research: ${data.research?.status ?? '-'} (${data.research?.backend ?? '-'})`,
-        `Research Sources: ${sourceHealthSummaryLine(data.research?.source_health_summary)}`,
-        `V1 Paper Ready: ${data.v1Readiness?.paper_operations?.allowed ? 'yes' : 'no'}`,
-        `Alpaca Paper Ready: ${data.v1Readiness?.alpaca_paper?.ready ? 'yes' : 'no'}`,
-        `Market Session: ${formatMarketSession(calendar.session)}`,
-      ]
-    : [
-        `Model: ${doctor.model}`,
-        `Runtime Mode: ${doctor.runtime_mode ?? '-'}`,
-        `Base URL: ${doctor.base_url}`,
-        `Ollama Reachable: ${doctor.ollama_reachable ? 'yes' : 'no'}`,
-        `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
-        `Runtime Dir: ${doctor.runtime_dir}`,
-        `Database: ${doctor.database}`,
-        `Broker Backend: ${broker?.backend ?? '-'}`,
-        `Broker State: ${broker?.state ?? '-'}`,
-        `Broker Health: ${broker?.healthcheck?.message ?? broker?.message ?? '-'}`,
-        `Camofox: ${data.camofoxService?.message ?? '-'}`,
-        `Camofox Owned: ${data.camofoxService?.app_owned ? 'yes' : 'no'}`,
-        `Camofox URL: ${data.camofoxService?.base_url ?? '-'}`,
-        `Research: ${data.research?.status ?? '-'} (${data.research?.backend ?? '-'})`,
-        `Research Sources: ${sourceHealthSummaryLine(data.research?.source_health_summary)}`,
-        `V1 Paper Ready: ${data.v1Readiness?.paper_operations?.allowed ? 'yes' : 'no'}`,
-        `Alpaca Paper Ready: ${data.v1Readiness?.alpaca_paper?.ready ? 'yes' : 'no'}`,
-        `Provider Warnings: ${(data.providerDiagnostics?.warnings || []).length}`,
-        `Default Symbols: ${defaultSymbolsFromPreferences(preferences)}`,
-        `Market Session: ${formatMarketSession(calendar.session)}`,
-        `News Tool: ${data.news?.mode ?? 'off'}`,
-        `Cached Snapshots: ${marketCache.count}`,
-      ];
+  const currentCycleLines = getCurrentCycleLines(data, compact);
+  const systemLines = getSystemLines(data, compact);
 
   return e(
     Box,
@@ -1016,16 +1052,7 @@ function OverviewPage({ data, compact = false }) {
       e(
         Box,
         { width: '100%' },
-        panel(
-          'AGENT ACTIVITY',
-          agentEvents.length
-            ? agentEvents.map(
-                (event) =>
-                  `${event.created_at} | ${event.stage} | ${event.status} | ${event.message}`,
-              )
-            : ['No live agent stage events yet.'],
-          'magenta',
-        ),
+        panel('AGENT ACTIVITY', getAgentEventLines(agentEvents), 'magenta'),
       ),
     ),
   );
@@ -1408,7 +1435,11 @@ function MemoryPage({ data }) {
       e(
         Box,
         { width: '50%', paddingLeft: 1 },
-        panel('WHY THIS CONTEXT WAS USED', retrievalLines.slice(0, 12), 'yellow'),
+        panel(
+          'WHY THIS CONTEXT WAS USED',
+          retrievalLines.slice(0, 12),
+          'yellow',
+        ),
       ),
     ),
   );
@@ -1702,19 +1733,23 @@ function DashboardView({
   const bodyHeight = Math.max(1, terminalRows - headerRows - footerRows);
   const compact = terminalRows <= 30 || terminalColumns <= 110;
 
-  const view = getPageView(
+  const view = getPageView({
     page,
     data,
-    chatPersona,
-    chatHistory,
-    chatDraft,
-    chatBusy,
-    instructionDraft,
-    instructionBusy,
-    instructionMode,
-    instructionResult,
+    chat: {
+      persona: chatPersona,
+      history: chatHistory,
+      draft: chatDraft,
+      busy: chatBusy,
+    },
+    instruction: {
+      draft: instructionDraft,
+      busy: instructionBusy,
+      mode: instructionMode,
+      result: instructionResult,
+    },
     compact,
-  );
+  });
 
   return e(
     Box,
@@ -2143,6 +2178,52 @@ function StaticDashboardApp() {
   });
 }
 
-await import('ink').then(({ render }) => {
-  render(once ? e(StaticDashboardApp) : e(InteractiveDashboardApp));
-});
+const isDirectRun =
+  Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
+  await import('ink').then(({ render }) => {
+    render(once ? e(StaticDashboardApp) : e(InteractiveDashboardApp));
+  });
+}
+
+export {
+  accountCurrency,
+  defaultRuntimeInterval,
+  defaultRuntimeLookback,
+  defaultSingleSymbol,
+  defaultSymbolsFromPreferences,
+  failedCheckNames,
+  formatMarketSession,
+  formatMarketSessionWithTradable,
+  formatMTFSnapshot,
+  formatPersona,
+  getAgentEventLines,
+  getCurrentCycleLines,
+  getExplorerLines,
+  getInspectionLines,
+  getInstructionResultLines,
+  getJournalLines,
+  getMarketContextLines,
+  getPageLabel,
+  getRecentRunsLines,
+  getReplayLines,
+  getReviewLines,
+  getStatusBorderColor,
+  getSystemLines,
+  getSupervisorLogLines,
+  getTraceLines,
+  getTradeContextLines,
+  handleChatInput,
+  handleGlobalInput,
+  handleSettingsInput,
+  normalizeChatHistory,
+  overviewRuntimeMode,
+  providerLines,
+  readinessLines,
+  renderLinesFallback,
+  renderUnavailableMessage,
+  rotateInstructionMode,
+  rotatePersona,
+  sourceHealthSummaryLine,
+};

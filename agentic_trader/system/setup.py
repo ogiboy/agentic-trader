@@ -29,6 +29,7 @@ from agentic_trader.system.tool_roots import (
 from agentic_trader.system.webgui_service import build_webgui_service_status
 
 ToolCategory = Literal["core", "runtime_optional", "developer_optional"]
+CAMOFOX_TOOL_ID: LocalToolId = "camofox-browser"
 
 
 class ToolStatus(BaseModel):
@@ -79,7 +80,9 @@ def _command_version(command: str, args: list[str] | None = None) -> str | None:
     except Exception as exc:
         return f"version check failed: {redact_sensitive_text(exc, max_length=120)}"
     output = (completed.stdout or completed.stderr).strip()
-    return redact_sensitive_text(output.splitlines()[0] if output else "", max_length=160)
+    return redact_sensitive_text(
+        output.splitlines()[0] if output else "", max_length=160
+    )
 
 
 def _command_tool(
@@ -154,7 +157,9 @@ def _firecrawl_tool() -> ToolStatus:
 
 
 def _with_manifest_note(tool: ToolStatus, tool_id: LocalToolId) -> ToolStatus:
-    return tool.model_copy(update={"notes": [*tool.notes, *local_tool_manifest_notes(tool_id)]})
+    return tool.model_copy(
+        update={"notes": [*tool.notes, *local_tool_manifest_notes(tool_id)]}
+    )
 
 
 def _ollama_tool() -> ToolStatus:
@@ -170,68 +175,22 @@ def _ollama_tool() -> ToolStatus:
 
 
 def _camofox_tool(settings: Settings) -> ToolStatus:
-    definition = local_tool_definition("camofox-browser")
+    definition = local_tool_definition(CAMOFOX_TOOL_ID)
     root = resolve_configured_tool_path(
         settings.research_camofox_tool_dir,
-        default_tool="camofox-browser",
+        default_tool=CAMOFOX_TOOL_ID,
     )
     package_json = root / "package.json"
     server_js = root / "server.js"
     available = package_json.exists() and server_js.exists()
-    notes: list[str] = []
     status = "available" if available else "missing"
-    version: str | None = None
-    if package_json.exists():
-        try:
-            payload = json.loads(package_json.read_text(encoding="utf-8"))
-            version = str(payload.get("version") or "")
-        except Exception:
-            notes.append("package_json_unreadable")
+    version, notes = _camofox_package_version(package_json)
     if available:
-        notes.extend(_with_manifest_note(
-            ToolStatus(
-                tool_id=definition.status_tool_id,
-                label=definition.label,
-                category="runtime_optional",
-                available=True,
-            ),
-            "camofox-browser",
-        ).notes)
-        access_key_configured = bool(
-            settings.camofox_access_key or os.environ.get("CAMOFOX_ACCESS_KEY", "").strip()
-            or settings.camofox_api_key
-            or os.environ.get("CAMOFOX_API_KEY", "").strip()
+        notes.extend(
+            _camofox_manifest_notes(definition.status_tool_id, definition.label)
         )
-        parsed = urlparse(settings.research_camofox_base_url)
-        host = parsed.hostname or ""
-        if not is_loopback_host(host):
-            notes.append("health_probe_skipped_non_loopback_base_url")
-            return ToolStatus(
-                tool_id=definition.status_tool_id,
-                label=definition.label,
-                category="runtime_optional",
-                available=available,
-                path=str(root),
-                version=version or None,
-                status="unsafe_base_url",
-                notes=notes,
-                install_hint=definition.install_hint,
-            )
-        try:
-            response = httpx.get(
-                f"{settings.research_camofox_base_url.rstrip('/')}/health",
-                timeout=2,
-            )
-            if 200 <= response.status_code < 300:
-                status = "healthy" if access_key_configured else "healthy_unkeyed"
-                notes.append("health_endpoint_reachable")
-                if not access_key_configured:
-                    notes.append("access_key_not_configured_start_with_wrapper")
-            else:
-                status = "unhealthy"
-                notes.append(f"health_status={response.status_code}")
-        except Exception:
-            notes.append("health_endpoint_unreachable")
+        status, health_notes = _camofox_health_status(settings)
+        notes.extend(health_notes)
     return ToolStatus(
         tool_id=definition.status_tool_id,
         label=definition.label,
@@ -243,6 +202,58 @@ def _camofox_tool(settings: Settings) -> ToolStatus:
         notes=notes,
         install_hint=definition.install_hint,
     )
+
+
+def _camofox_package_version(package_json: Path) -> tuple[str | None, list[str]]:
+    if not package_json.exists():
+        return None, []
+    try:
+        payload = json.loads(package_json.read_text(encoding="utf-8"))
+    except Exception:
+        return None, ["package_json_unreadable"]
+    return str(payload.get("version") or "") or None, []
+
+
+def _camofox_manifest_notes(tool_id: str, label: str) -> list[str]:
+    return _with_manifest_note(
+        ToolStatus(
+            tool_id=tool_id,
+            label=label,
+            category="runtime_optional",
+            available=True,
+        ),
+        CAMOFOX_TOOL_ID,
+    ).notes
+
+
+def _camofox_access_key_configured(settings: Settings) -> bool:
+    return bool(
+        settings.camofox_access_key
+        or os.environ.get("CAMOFOX_ACCESS_KEY", "").strip()
+        or settings.camofox_api_key
+        or os.environ.get("CAMOFOX_API_KEY", "").strip()
+    )
+
+
+def _camofox_health_status(settings: Settings) -> tuple[str, list[str]]:
+    notes: list[str] = []
+    host = urlparse(settings.research_camofox_base_url).hostname or ""
+    if not is_loopback_host(host):
+        return "unsafe_base_url", ["health_probe_skipped_non_loopback_base_url"]
+    try:
+        response = httpx.get(
+            f"{settings.research_camofox_base_url.rstrip('/')}/health",
+            timeout=2,
+        )
+    except Exception:
+        return "available", ["health_endpoint_unreachable"]
+    if 200 <= response.status_code < 300:
+        notes.append("health_endpoint_reachable")
+        if _camofox_access_key_configured(settings):
+            return "healthy", notes
+        notes.append("access_key_not_configured_start_with_wrapper")
+        return "healthy_unkeyed", notes
+    return "unhealthy", [f"health_status={response.status_code}"]
 
 
 def _agentic_trader_entrypoint() -> ToolStatus:
@@ -270,7 +281,9 @@ def _agentic_trader_entrypoint() -> ToolStatus:
                 notes.append(f"expected_repo_entrypoint={expected}")
         else:
             notes.append("repo_entrypoint_not_installed_yet")
-        return tool.model_copy(update={"version": None, "status": status, "notes": notes})
+        return tool.model_copy(
+            update={"version": None, "status": status, "notes": notes}
+        )
     return tool
 
 

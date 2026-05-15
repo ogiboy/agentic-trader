@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap bootstrap-dry-run setup setup-tools setup-camofox fetch-camofox check-camofox setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai start-camofox webgui docs tui clean clean-deps clean-all
+.PHONY: help bootstrap bootstrap-dry-run setup setup-tools setup-camofox fetch-camofox check-camofox setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-prompts qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai start-camofox webgui docs tui clean clean-deps clean-all
 
 help:
 	@printf '%s\n' \
@@ -18,6 +18,7 @@ help:
 		'  make check-research-flow run CrewAI Flow sidecar smoke checks' \
 		'  make build        build webgui/docs and check TUI' \
 		'  make qa           run terminal smoke QA' \
+		'  make qa-prompts   lint prompt, agent, and instruction markdown files' \
 		'  make sonar        run local Sonar scan' \
 		'  make run-research-flow run the gated CrewAI Flow sidecar placeholder' \
 		'  make start-camofox start optional loopback/auth Camofox helper' \
@@ -76,6 +77,9 @@ build:
 
 qa:
 	pnpm run qa
+
+qa-prompts:
+	pnpm run qa:prompts
 
 qa-quality:
 	pnpm run qa:quality

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import random
+import hashlib
 from typing import Any, Protocol, cast
 from uuid import uuid4
 
@@ -26,6 +26,17 @@ from agentic_trader.storage.db import TradingDatabase
 
 
 ALPACA_PAPER_ENDPOINT_HOST = "paper-api.alpaca.markets"
+PAPER_BROKER_ACTIVE_MESSAGE = "Paper broker adapter is active."
+ALPACA_REJECTED_STATUSES = {"rejected", "canceled", "cancelled", "expired"}
+
+
+def _deterministic_unit_interval(seed: str, label: str) -> float:
+    digest = hashlib.blake2b(f"{seed}:{label}".encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(digest, "big") / float(1 << 64)
+
+
+def _deterministic_uniform(seed: str, label: str, low: float, high: float) -> float:
+    return low + ((high - low) * _deterministic_unit_interval(seed, label))
 
 
 class BrokerAdapter(Protocol):
@@ -80,7 +91,7 @@ class PaperBrokerAdapter:
 
     def cancel_order(self, order_id: str) -> bool:
         # Paper orders are immediate-fill/no-fill records, so there is nothing open to cancel.
-        return False
+        return any(order.order_id == order_id for order in self.get_open_orders())
 
     def get_positions(self) -> list[PositionSnapshot]:
         return self.db.list_positions()
@@ -99,7 +110,7 @@ class PaperBrokerAdapter:
             simulated=False,
             live=False,
             blocked=False,
-            message="Paper broker adapter is active.",
+            message=PAPER_BROKER_ACTIVE_MESSAGE,
         )
 
     def record_position_plan(
@@ -133,7 +144,7 @@ class SimulatedRealBrokerAdapter:
     def __post_init__(self) -> None:
         self._broker = PaperBroker(self.db, self.settings)
 
-    def _simulation_metadata(self, intent: ExecutionIntent) -> dict[str, object]:
+    def _simulation_metadata(self) -> dict[str, object]:
         return {
             "non_live": True,
             "simulated": True,
@@ -145,9 +156,11 @@ class SimulatedRealBrokerAdapter:
             "order_rejection_probability": self.settings.simulated_order_rejection_probability,
         }
 
-    def _simulated_price(self, intent: ExecutionIntent, rng: random.Random) -> float:
+    def _simulated_price(self, intent: ExecutionIntent) -> float:
         direction = 1.0 if intent.side == "buy" else -1.0
-        drift_bps = rng.uniform(
+        drift_bps = _deterministic_uniform(
+            intent.intent_id,
+            "price_drift_bps",
             -self.settings.simulated_price_drift_bps,
             self.settings.simulated_price_drift_bps,
         )
@@ -158,18 +171,26 @@ class SimulatedRealBrokerAdapter:
         multiplier = 1.0 + ((friction_bps + drift_bps) / 10_000.0)
         return max(0.000001, intent.reference_price * multiplier)
 
-    def _fill_ratio(self, rng: random.Random) -> float:
-        if rng.random() >= self.settings.simulated_partial_fill_probability:
+    def _fill_ratio(self, intent: ExecutionIntent) -> float:
+        if (
+            _deterministic_unit_interval(intent.intent_id, "partial_fill_gate")
+            >= self.settings.simulated_partial_fill_probability
+        ):
             return 1.0
-        return rng.uniform(self.settings.simulated_partial_fill_min_ratio, 1.0)
+        return _deterministic_uniform(
+            intent.intent_id,
+            "partial_fill_ratio",
+            self.settings.simulated_partial_fill_min_ratio,
+            1.0,
+        )
 
     def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
-        rng = random.Random(intent.intent_id)
-        metadata = self._simulation_metadata(intent)
+        metadata = self._simulation_metadata()
         if (
             intent.approved
             and intent.side != "hold"
-            and rng.random() < self.settings.simulated_order_rejection_probability
+            and _deterministic_unit_interval(intent.intent_id, "order_rejection")
+            < self.settings.simulated_order_rejection_probability
         ):
             rejected_intent = intent.model_copy(
                 update={
@@ -196,14 +217,14 @@ class SimulatedRealBrokerAdapter:
             )
 
         fill_ratio = (
-            self._fill_ratio(rng) if intent.approved and intent.side != "hold" else 1.0
+            self._fill_ratio(intent) if intent.approved and intent.side != "hold" else 1.0
         )
         simulated_intent = intent.model_copy(
             update={
                 "adapter_name": self.backend_name,
                 "execution_backend": "simulated_real",
                 "reference_price": (
-                    self._simulated_price(intent, rng)
+                    self._simulated_price(intent)
                     if intent.side != "hold"
                     else intent.reference_price
                 ),
@@ -240,7 +261,7 @@ class SimulatedRealBrokerAdapter:
         return outcome.model_copy(update={"simulated_metadata": metadata})
 
     def cancel_order(self, order_id: str) -> bool:
-        return False
+        return any(order.order_id == order_id for order in self.get_open_orders())
 
     def get_positions(self) -> list[PositionSnapshot]:
         return self.db.list_positions()
@@ -364,7 +385,7 @@ class AlpacaPaperBrokerAdapter:
             message=message,
         )
 
-    def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
+    def _preflight_outcome(self, intent: ExecutionIntent) -> ExecutionOutcome | None:
         if not intent.approved or intent.side == "hold":
             return self._blocked_outcome(
                 intent,
@@ -383,14 +404,17 @@ class AlpacaPaperBrokerAdapter:
                 reason="shorting_disabled",
                 message="Short sell intent blocked because shorting is disabled.",
             )
+        if intent.quantity is None and intent.notional is None:
+            return self._blocked_outcome(
+                intent,
+                reason="missing_size",
+                message="Alpaca paper adapter requires quantity or notional.",
+            )
+        return None
 
-        try:
-            from alpaca.trading.enums import OrderSide, OrderType, TimeInForce
-            from alpaca.trading.requests import MarketOrderRequest
-        except Exception as exc:  # pragma: no cover - dependency import failure path
-            raise RuntimeError(
-                f"alpaca-py trading request types are unavailable: {exc}"
-            ) from exc
+    @staticmethod
+    def _order_kwargs(intent: ExecutionIntent) -> dict[str, object]:
+        from alpaca.trading.enums import OrderSide, OrderType, TimeInForce
 
         kwargs: dict[str, object] = {
             "symbol": intent.symbol.upper(),
@@ -402,37 +426,17 @@ class AlpacaPaperBrokerAdapter:
             kwargs["qty"] = intent.quantity
         elif intent.notional is not None:
             kwargs["notional"] = intent.notional
-        else:
-            return self._blocked_outcome(
-                intent,
-                reason="missing_size",
-                message="Alpaca paper adapter requires quantity or notional.",
-            )
+        return kwargs
 
-        try:
-            order = self.client.submit_order(order_data=MarketOrderRequest(**kwargs))
-        except Exception as exc:
-            return ExecutionOutcome(
-                intent_id=intent.intent_id,
-                order_id=f"alpaca-paper-error-{uuid4().hex[:12]}",
-                status="rejected",
-                adapter_name=self.backend_name,
-                execution_backend="alpaca_paper",
-                rejection_reason="alpaca_api_error",
-                message=(
-                    "Alpaca paper order submission failed: "
-                    f"{redact_sensitive_text(exc, max_length=160)}"
-                ),
-            )
+    def _outcome_from_order(self, intent: ExecutionIntent, order: object) -> ExecutionOutcome:
         filled_quantity = _coerce_float(getattr(order, "filled_qty", 0.0))
         average_fill_price = _coerce_float(
             getattr(order, "filled_avg_price", None), default=0.0
         )
         raw_status = str(getattr(order, "status", "accepted")).lower()
         status = "filled" if filled_quantity > 0 else "accepted"
-        if raw_status in {"rejected", "canceled", "cancelled", "expired"}:
+        if raw_status in ALPACA_REJECTED_STATUSES:
             status = "rejected"
-
         return ExecutionOutcome(
             intent_id=intent.intent_id,
             order_id=str(getattr(order, "id", f"alpaca-paper-{uuid4().hex[:12]}")),
@@ -448,6 +452,37 @@ class AlpacaPaperBrokerAdapter:
             ),
             message=f"Alpaca paper order submitted with broker status {raw_status}.",
         )
+
+    def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
+        preflight = self._preflight_outcome(intent)
+        if preflight is not None:
+            return preflight
+
+        try:
+            from alpaca.trading.requests import MarketOrderRequest
+        except Exception as exc:  # pragma: no cover - dependency import failure path
+            raise RuntimeError(
+                f"alpaca-py trading request types are unavailable: {exc}"
+            ) from exc
+
+        try:
+            order = self.client.submit_order(
+                order_data=MarketOrderRequest(**self._order_kwargs(intent))
+            )
+        except Exception as exc:
+            return ExecutionOutcome(
+                intent_id=intent.intent_id,
+                order_id=f"alpaca-paper-error-{uuid4().hex[:12]}",
+                status="rejected",
+                adapter_name=self.backend_name,
+                execution_backend="alpaca_paper",
+                rejection_reason="alpaca_api_error",
+                message=(
+                    "Alpaca paper order submission failed: "
+                    f"{redact_sensitive_text(exc, max_length=160)}"
+                ),
+            )
+        return self._outcome_from_order(intent, order)
 
     def cancel_order(self, order_id: str) -> bool:
         self.client.cancel_order_by_id(order_id=order_id)
@@ -623,7 +658,7 @@ def _healthcheck_payload(settings: Settings) -> dict[str, object]:
             adapter_name="paper",
             execution_backend="paper",
             ok=True,
-            message="Paper broker adapter is active.",
+            message=PAPER_BROKER_ACTIVE_MESSAGE,
         ).model_dump(mode="json")
     if backend == "simulated_real":
         return BrokerHealthcheck(
@@ -676,7 +711,7 @@ def broker_runtime_payload(settings: Settings) -> dict[str, object]:
         message = "Execution kill switch is active."
     elif backend == "paper":
         state = "paper"
-        message = "Paper broker adapter is active."
+        message = PAPER_BROKER_ACTIVE_MESSAGE
     elif backend == "simulated_real":
         state = "simulated"
         message = (

@@ -2,7 +2,14 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type SyntheticEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   CHAT_PERSONAS,
@@ -54,7 +61,7 @@ function cx(...values: Array<string | false | null | undefined>) {
  * @param digits - Number of fraction digits to display (default: `2`).
  * @returns `"-"` for non-number or `NaN`, otherwise the number formatted with exactly `digits` fraction digits.
  */
-function formatNumber(value: unknown, digits = 2): string {
+export function formatNumber(value: unknown, digits = 2): string {
   if (typeof value !== 'number' || Number.isNaN(value)) {
     return '-';
   }
@@ -80,7 +87,7 @@ function accountCurrency(dashboard: DashboardData): string {
  * @param digits - Number of digits after the decimal point in the formatted percent (default: `2`).
  * @returns `"-"` for non-number or `NaN`, otherwise the percentage string with a trailing `%` (e.g., `"12.00%"`).
  */
-function formatPercent(value: unknown, digits = 2): string {
+export function formatPercent(value: unknown, digits = 2): string {
   if (typeof value !== 'number' || Number.isNaN(value)) {
     return '-';
   }
@@ -93,21 +100,37 @@ function formatPercent(value: unknown, digits = 2): string {
  * @param value - The value expected to be an array of items; elements are joined with ", ". If `value` is not an array or is empty, the placeholder `"-"` is returned.
  * @returns The joined string of `value` elements separated by ", " when `value` is a non-empty array, otherwise `"-"`.
  */
-function formatList(value: unknown): string {
+export function formatList(value: unknown): string {
   if (!Array.isArray(value) || value.length === 0) {
     return '-';
   }
   return value.join(', ');
 }
 
-function sourceHealthSummaryLine(summary: Record<string, unknown> | undefined): string {
+export function sourceHealthSummaryLine(
+  summary: Record<string, unknown> | undefined,
+): string {
   if (!summary) {
     return '-';
   }
-  const fresh = summary.fresh ?? 0;
-  const missing = summary.missing ?? 0;
-  const unknown = summary.unknown ?? 0;
+  const fresh = formatSourceHealthCount(summary.fresh);
+  const missing = formatSourceHealthCount(summary.missing);
+  const unknown = formatSourceHealthCount(summary.unknown);
   return `fresh ${fresh} / missing ${missing} / unknown ${unknown}`;
+}
+
+export function formatSourceHealthCount(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '0';
+  }
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return String(value);
+  }
+  return '0';
 }
 
 /**
@@ -116,7 +139,7 @@ function sourceHealthSummaryLine(summary: Record<string, unknown> | undefined): 
  * @param value - The input timestamp to format. If `value` is falsy or not a string, the function returns `"-"`. If `value` is a string that cannot be parsed as a valid Date, the original string is returned.
  * @returns A localized date/time string when `value` is a parseable date string; the original `value` string if it cannot be parsed; `"-"` when `value` is falsy or not a string.
  */
-function formatTimestamp(value: unknown): string {
+export function formatTimestamp(value: unknown): string {
   if (typeof value !== 'string' || !value) {
     return '-';
   }
@@ -133,7 +156,7 @@ function formatTimestamp(value: unknown): string {
  * @param record - The trade context object (may be `null`/`undefined`). Expected fields include `trade_id`, `run_id`, `consensus.alignment_level`, `manager_rationale`, `execution_rationale`, `execution_backend`, `execution_adapter`, `execution_outcome_status`, `execution_rejection_reason`, `review_summary`, and `routed_models`.
  * @returns An array of labeled strings for trade/run IDs, consensus, rationales, execution details, review summary, and routed models; if `record` is missing returns a single line stating no persisted trade context is available.
  */
-function tradeContextLines(
+export function tradeContextLines(
   record: Record<string, any> | null | undefined,
 ): string[] {
   if (!record) {
@@ -163,7 +186,7 @@ function tradeContextLines(
  * @param snapshot - Snapshot object containing analysis fields; if `null` or `undefined` a placeholder line is returned
  * @returns An array of human-readable lines: summary, completeness score, missing sections, market/fundamental/macro source names, counts for news events and disclosures, and up to six source attribution lines
  */
-function canonicalLines(
+export function canonicalLines(
   snapshot: Record<string, any> | null | undefined,
 ): string[] {
   if (!snapshot) {
@@ -200,7 +223,7 @@ function canonicalLines(
  * quality/anomaly flags, and up to four horizon lines. If `pack` is `null`/`undefined`,
  * returns a single line stating that no persisted market context pack is available yet.
  */
-function marketContextLines(
+export function marketContextLines(
   pack: Record<string, any> | null | undefined,
 ): string[] {
   if (!pack) {
@@ -230,7 +253,7 @@ function marketContextLines(
  * @param label - Human-readable section label used in the message
  * @returns A one-line array when the section is explicitly unavailable; otherwise `null`
  */
-function unavailableSectionLines(
+export function unavailableSectionLines(
   section: Record<string, any> | null | undefined,
   label: string,
 ): null | string[] {
@@ -246,7 +269,7 @@ function unavailableSectionLines(
  * @param data - The dashboard payload (or `null`) containing optional `chatHistory.entries`.
  * @returns An array of objects each with `user` (the user's message), `persona`, and `response` (the agent's reply); the order is the source entries reversed.
  */
-function normalizeChatHistory(
+export function normalizeChatHistory(
   data: DashboardData | null,
 ): Array<Record<string, string>> {
   const entries = data?.chatHistory?.entries || [];
@@ -255,6 +278,16 @@ function normalizeChatHistory(
     persona: entry.persona,
     response: entry.response_text,
   }));
+}
+
+export class WebguiHttpError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'WebguiHttpError';
+    this.status = status;
+  }
 }
 
 /**
@@ -268,20 +301,41 @@ function normalizeChatHistory(
  * @returns The parsed JSON payload cast to `T`.
  * @throws Error when the response has a non-OK status; the error message is `payload.error` if present or `"Request failed."`.
  */
-async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
+export async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const requestInit: RequestInit = {};
+  if (init) {
+    Object.assign(requestInit, init);
+    delete requestInit.headers;
+  }
+
   const response = await fetch(url, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers || {}),
-    },
+    ...requestInit,
+    headers,
     cache: 'no-store',
+    credentials: 'same-origin',
   });
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.error || 'Request failed.');
+    throw new WebguiHttpError(
+      payload.error || 'Request failed.',
+      response.status,
+    );
   }
   return payload as T;
+}
+
+async function authenticateWebguiSession(token: string): Promise<void> {
+  await readJson<{ authenticated: boolean; tokenRequired: boolean }>(
+    '/api/session',
+    {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    },
+  );
 }
 
 /**
@@ -303,6 +357,54 @@ function Panel({
     <section className={cx('panel', accent ? `panel--${accent}` : undefined)}>
       <div className="panel__title">{title}</div>
       <div className="panel__body">{children}</div>
+    </section>
+  );
+}
+
+function WebguiTokenPrompt({
+  busy,
+  error,
+  token,
+  onSubmit,
+  onTokenChange,
+}: Readonly<{
+  busy: boolean;
+  error: string | null;
+  token: string;
+  onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
+  onTokenChange: (value: string) => void;
+}>) {
+  return (
+    <section className="auth-panel" aria-labelledby="webgui-token-title">
+      <div className="auth-panel__header">
+        <div className="sidebar__eyebrow">Protected local command center</div>
+        <h1 id="webgui-token-title">Agentic Trader</h1>
+        <p>
+          Enter the Web GUI token from your ignored local environment. The token
+          is exchanged for a same-origin HttpOnly session cookie and is not
+          rendered into the page.
+        </p>
+      </div>
+      <form className="auth-panel__form" onSubmit={onSubmit}>
+        <label className="field-label">
+          <span>Web GUI token</span>
+          <input
+            autoComplete="off"
+            autoFocus
+            onChange={(event) => onTokenChange(event.target.value)}
+            type="password"
+            value={token}
+          />
+        </label>
+        {error ? <div className="banner banner--bad">{error}</div> : null}
+        <button
+          className="button button--solid"
+          disabled={busy || !token.trim()}
+          type="submit"
+        >
+          {busy ? 'Unlocking...' : 'Unlock'}
+        </button>
+      </form>
     </section>
   );
 }
@@ -352,15 +454,19 @@ function JsonPreview({ value }: Readonly<{ value: unknown }>) {
   return <pre className="json-preview">{JSON.stringify(value, null, 2)}</pre>;
 }
 
-function failedCheckNames(section: Record<string, any> | undefined): string {
+export function failedCheckNames(
+  section: Record<string, any> | undefined,
+): string {
   const failed = (section?.checks || [])
-    .filter((item: Record<string, any>) => item.blocking !== false && !item.passed)
+    .filter(
+      (item: Record<string, any>) => item.blocking !== false && !item.passed,
+    )
     .map((item: Record<string, any>) => item.name)
     .slice(0, 3);
   return failed.length ? failed.join(', ') : '-';
 }
 
-function readinessLines(dashboard: DashboardData): string[] {
+export function readinessLines(dashboard: DashboardData): string[] {
   const readiness = dashboard.v1Readiness || {};
   const broker = dashboard.broker || {};
   const paper = readiness.paper_operations || {};
@@ -377,7 +483,7 @@ function readinessLines(dashboard: DashboardData): string[] {
   ];
 }
 
-function providerWarningLines(dashboard: DashboardData): string[] {
+export function providerWarningLines(dashboard: DashboardData): string[] {
   const diagnostics = dashboard.providerDiagnostics || {};
   const market = diagnostics.market_data || {};
   const keys = diagnostics.configured_keys || {};
@@ -395,7 +501,7 @@ function providerWarningLines(dashboard: DashboardData): string[] {
   ];
 }
 
-function OverviewView({
+export function OverviewView({
   dashboard,
   currentCycle,
   system,
@@ -427,12 +533,14 @@ function OverviewView({
             <p className="eyebrow">Operator Truth</p>
             <h1>Agentic Trader Web GUI</h1>
             <p className="market-ribbon__copy">
-              Local-first runtime, paper-first execution, and the same
-              dashboard contract that powers CLI, Rich, and Ink.
+              Local-first runtime, paper-first execution, and the same dashboard
+              contract that powers CLI, Rich, and Ink.
             </p>
           </div>
           <div className="pill-row">
-            <span className="pill">{dashboard.status?.runtime_mode ?? '-'}</span>
+            <span className="pill">
+              {dashboard.status?.runtime_mode ?? '-'}
+            </span>
             <span className="pill">{dashboard.broker?.backend ?? '-'}</span>
             <span className="pill">
               {dashboard.calendar?.session?.venue ?? 'session unknown'}
@@ -485,7 +593,9 @@ function OverviewView({
   );
 }
 
-function RuntimeView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
+export function RuntimeView({
+  dashboard,
+}: Readonly<{ dashboard: DashboardData }>) {
   const runtimeEvents = dashboard.logs?.length
     ? dashboard.logs.map(
         (event: Record<string, any>) =>
@@ -541,9 +651,12 @@ function RuntimeView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
   );
 }
 
-function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
+export function PortfolioView({
+  dashboard,
+}: Readonly<{ dashboard: DashboardData }>) {
   const currency = accountCurrency(dashboard);
-  const accounting = dashboard.financeOps?.accounting || dashboard.portfolio?.accounting || {};
+  const accounting =
+    dashboard.financeOps?.accounting ?? dashboard.portfolio?.accounting ?? {};
   const portfolioUnavailable = unavailableSectionLines(
     dashboard.portfolio,
     'Portfolio',
@@ -570,12 +683,18 @@ function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
           <>
             <KeyValueList
               items={[
-                [`Cash (${currency})`, formatNumber(dashboard.portfolio?.snapshot?.cash)],
+                [
+                  `Cash (${currency})`,
+                  formatNumber(dashboard.portfolio?.snapshot?.cash),
+                ],
                 [
                   `Market Value (${currency})`,
                   formatNumber(dashboard.portfolio?.snapshot?.market_value),
                 ],
-                [`Equity (${currency})`, formatNumber(dashboard.portfolio?.snapshot?.equity)],
+                [
+                  `Equity (${currency})`,
+                  formatNumber(dashboard.portfolio?.snapshot?.equity),
+                ],
                 [
                   `Realized PnL (${currency})`,
                   formatNumber(dashboard.portfolio?.snapshot?.realized_pnl),
@@ -588,8 +707,8 @@ function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
                   'Open Positions',
                   String(dashboard.portfolio?.snapshot?.open_positions ?? '-'),
                 ],
-                ['Marked At', formatTimestamp(accounting.mark_created_at)],
-                ['Mark Source', accounting.mark_source ?? '-'],
+                ['Marked At', formatTimestamp(accounting?.mark_created_at)],
+                ['Mark Source', accounting?.mark_source ?? '-'],
               ]}
             />
             <JsonPreview value={dashboard.portfolio?.positions || []} />
@@ -629,7 +748,10 @@ function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
                   'Warnings',
                   String((dashboard.riskReport?.report?.warnings || []).length),
                 ],
-                ['Generated At', formatTimestamp(dashboard.riskReport?.report?.generated_at)],
+                [
+                  'Generated At',
+                  formatTimestamp(dashboard.riskReport?.report?.generated_at),
+                ],
               ]}
             />
             <TextList
@@ -675,7 +797,9 @@ function PortfolioView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
   );
 }
 
-function ReviewView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
+export function ReviewView({
+  dashboard,
+}: Readonly<{ dashboard: DashboardData }>) {
   const reviewLines =
     unavailableSectionLines(dashboard.review, 'Latest review') ||
     (dashboard.review?.record
@@ -699,26 +823,30 @@ function ReviewView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
         <TextList items={tradeContextLines(dashboard.tradeContext?.record)} />
       </Panel>
       <Panel title="Canonical Analysis" accent="amber">
-        <TextList items={canonicalLines(dashboard.canonicalAnalysis?.snapshot)} />
+        <TextList
+          items={canonicalLines(dashboard.canonicalAnalysis?.snapshot)}
+        />
       </Panel>
       <Panel title="Market Context Pack" accent="rose">
-        <TextList items={marketContextLines(dashboard.marketContext?.contextPack)} />
+        <TextList
+          items={marketContextLines(dashboard.marketContext?.contextPack)}
+        />
       </Panel>
     </div>
   );
 }
 
-function MemoryView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
+export function MemoryView({
+  dashboard,
+}: Readonly<{ dashboard: DashboardData }>) {
   const memoryLines =
     unavailableSectionLines(dashboard.memoryExplorer, 'Memory explorer') ||
     (dashboard.memoryExplorer?.matches?.length
-      ? dashboard.memoryExplorer.matches.map(
-          (match: Record<string, any>) => {
-            const reason =
-              match.explanation?.eligibility_reason || match.retrieval_source;
-            return `${formatTimestamp(match.created_at)} | ${match.symbol} | score=${match.similarity_score} | why=${reason} | ${match.summary}`;
-          },
-        )
+      ? dashboard.memoryExplorer.matches.map((match: Record<string, any>) => {
+          const reason =
+            match.explanation?.eligibility_reason || match.retrieval_source;
+          return `${formatTimestamp(match.created_at)} | ${match.symbol} | score=${match.similarity_score} | why=${reason} | ${match.summary}`;
+        })
       : ['No similar historical memories found yet.']);
   const retrievalLines =
     unavailableSectionLines(
@@ -756,7 +884,7 @@ function MemoryView({ dashboard }: Readonly<{ dashboard: DashboardData }>) {
   );
 }
 
-function ChatView({
+export function ChatView({
   dashboard,
   chatPersona,
   chatHistory,
@@ -854,7 +982,7 @@ function instructionButtonLabel(
   return instructionMode === 'apply' ? 'Apply' : 'Preview';
 }
 
-function SettingsView({
+export function SettingsView({
   dashboard,
   instructionDraft,
   instructionMode,
@@ -973,7 +1101,7 @@ type ActiveViewProps = Readonly<{
   onSendInstruction: () => Promise<void>;
 }>;
 
-function ActiveView(props: ActiveViewProps) {
+export function ActiveView(props: ActiveViewProps) {
   switch (props.tab) {
     case 'overview':
       return (
@@ -1051,6 +1179,10 @@ export function ControlRoom() {
     any
   > | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<string>('-');
+  const [webguiToken, setWebguiToken] = useState('');
+  const [authRequired, setAuthRequired] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const lastRequestSeqRef = useRef(0);
   const dashboardAbortRef = useRef<AbortController | null>(null);
 
@@ -1058,6 +1190,8 @@ export function ControlRoom() {
     setDashboard(payload);
     setChatHistory(normalizeChatHistory(payload));
     setLastLoadedAt(new Date().toLocaleTimeString());
+    setAuthRequired(false);
+    setAuthError(null);
     setError(null);
   }, []);
 
@@ -1090,6 +1224,12 @@ export function ControlRoom() {
       if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
         return;
       }
+      if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+        setAuthRequired(true);
+        setAuthError(null);
+        setDashboard(null);
+        return;
+      }
       setError(
         nextError instanceof Error ? nextError.message : String(nextError),
       );
@@ -1117,6 +1257,32 @@ export function ControlRoom() {
     };
   }, [loadDashboard]);
 
+  const unlockWebgui = useCallback(
+    async (event: SyntheticEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const token = webguiToken.trim();
+      if (!token) {
+        return;
+      }
+      setAuthBusy(true);
+      setAuthError(null);
+      try {
+        await authenticateWebguiSession(token);
+        setWebguiToken('');
+        setAuthRequired(false);
+        await loadDashboard();
+      } catch (nextError) {
+        setAuthRequired(true);
+        setAuthError(
+          nextError instanceof Error ? nextError.message : String(nextError),
+        );
+      } finally {
+        setAuthBusy(false);
+      }
+    },
+    [loadDashboard, webguiToken],
+  );
+
   const runAction = useCallback(
     async (kind: 'refresh' | 'start' | 'stop' | 'restart' | 'one-shot') => {
       if (kind === 'refresh') {
@@ -1138,6 +1304,9 @@ export function ControlRoom() {
         applyLatestDashboard(result.dashboard);
         setMessage({ text: result.message, tone: 'good' });
       } catch (nextError) {
+        if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+          setAuthRequired(true);
+        }
         setMessage({
           text:
             nextError instanceof Error ? nextError.message : String(nextError),
@@ -1168,6 +1337,9 @@ export function ControlRoom() {
       setMessage({ text: 'Operator reply received.', tone: 'good' });
       await loadDashboard();
     } catch (nextError) {
+      if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+        setAuthRequired(true);
+      }
       setMessage({
         text:
           nextError instanceof Error ? nextError.message : String(nextError),
@@ -1206,6 +1378,9 @@ export function ControlRoom() {
         tone: 'good',
       });
     } catch (nextError) {
+      if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+        setAuthRequired(true);
+      }
       setMessage({
         text:
           nextError instanceof Error ? nextError.message : String(nextError),
@@ -1282,6 +1457,29 @@ export function ControlRoom() {
       onSendInstruction={sendInstruction}
     />
   ) : null;
+  const content = (() => {
+    if (loading) {
+      return <div className="loading">Loading dashboard...</div>;
+    }
+    if (dashboard) {
+      return activeView;
+    }
+    return <div className="loading">Dashboard unavailable.</div>;
+  })();
+
+  if (authRequired) {
+    return (
+      <div className="auth-shell">
+        <WebguiTokenPrompt
+          busy={authBusy}
+          error={authError}
+          onSubmit={unlockWebgui}
+          onTokenChange={setWebguiToken}
+          token={webguiToken}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="shell">
@@ -1391,13 +1589,7 @@ export function ControlRoom() {
         ) : null}
         {error ? <div className="banner banner--bad">{error}</div> : null}
 
-        {loading ? (
-          <div className="loading">Loading dashboard...</div>
-        ) : dashboard ? (
-          activeView
-        ) : (
-          <div className="loading">Dashboard unavailable.</div>
-        )}
+        {content}
       </main>
     </div>
   );

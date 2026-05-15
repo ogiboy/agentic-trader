@@ -36,6 +36,9 @@ from agentic_trader.system.tool_roots import (
 DEFAULT_CAMOFOX_HOST = "127.0.0.1"
 DEFAULT_CAMOFOX_PORT = 9377
 CAMOFOX_PORT_CANDIDATES = (9377, *range(9378, 9398))
+LOCAL_HTTP_SCHEME = "http"
+LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
+SERVER_SCRIPT_NAME = "server.js"
 MINIMAL_CAMOFOX_ENV_KEYS = (
     "PATH",
     "HOME",
@@ -199,7 +202,9 @@ def _node_command_path() -> str | None:
 
 
 def _package_available(tool_dir: Path) -> bool:
-    return (tool_dir / "package.json").exists() and (tool_dir / "server.js").exists()
+    return (tool_dir / "package.json").exists() and (
+        tool_dir / SERVER_SCRIPT_NAME
+    ).exists()
 
 
 def _dependency_available(tool_dir: Path) -> bool:
@@ -207,7 +212,7 @@ def _dependency_available(tool_dir: Path) -> bool:
 
 
 def _base_url(host: str, port: int) -> str:
-    return f"http://{host}:{port}"
+    return f"{LOCAL_HTTP_SCHEME}://{host}:{port}"
 
 
 def _configured_host_port(settings: Settings) -> tuple[str, int]:
@@ -266,7 +271,9 @@ def _camofox_access_token(settings: Settings) -> str | None:
 def _camofox_env(settings: Settings, *, host: str, port: int) -> dict[str, str]:
     """Return a narrowed Camofox subprocess env."""
 
-    env = {key: os.environ[key] for key in MINIMAL_CAMOFOX_ENV_KEYS if key in os.environ}
+    env = {
+        key: os.environ[key] for key in MINIMAL_CAMOFOX_ENV_KEYS if key in os.environ
+    }
     for key in CAMOFOX_SECRET_KEYS:
         value = _camofox_secret(settings, key)
         if value:
@@ -295,8 +302,10 @@ def _runtime_command(tool_dir: Path) -> list[str]:
     if not _package_available(tool_dir):
         raise RuntimeError(f"Camofox browser helper is missing at {tool_dir}.")
     if not _dependency_available(tool_dir):
-        raise RuntimeError("Camofox dependencies are missing. Run npm install in tools/camofox-browser.")
-    return [node_path, "server.js"]
+        raise RuntimeError(
+            "Camofox dependencies are missing. Run npm install in tools/camofox-browser."
+        )
+    return [node_path, SERVER_SCRIPT_NAME]
 
 
 def _health(base_url: str) -> tuple[bool, bool, str]:
@@ -305,12 +314,20 @@ def _health(base_url: str) -> tuple[bool, bool, str]:
         response.raise_for_status()
         payload = response.json()
     except Exception as exc:
-        return False, False, f"Unable to reach Camofox: {redact_sensitive_text(exc, max_length=160)}"
+        return (
+            False,
+            False,
+            f"Unable to reach Camofox: {redact_sensitive_text(exc, max_length=160)}",
+        )
     ok = bool(payload.get("ok")) if isinstance(payload, dict) else False
     if not ok:
         return True, False, "Camofox health is not ok."
-    browser_running = payload.get("browserRunning") if isinstance(payload, dict) else None
-    browser_connected = payload.get("browserConnected") if isinstance(payload, dict) else None
+    browser_running = (
+        payload.get("browserRunning") if isinstance(payload, dict) else None
+    )
+    browser_connected = (
+        payload.get("browserConnected") if isinstance(payload, dict) else None
+    )
     if browser_running is False or browser_connected is False:
         return True, True, "Camofox server is reachable; browser launches on demand."
     return True, True, "Camofox is reachable."
@@ -336,7 +353,14 @@ def _listen_port_owner_pid(host: str, port: int) -> int | None:
     query_host = "127.0.0.1" if host == "localhost" else host.strip("[]")
     try:
         completed = subprocess.run(
-            ["lsof", "-nP", "-a", f"-iTCP@{query_host}:{port}", "-sTCP:LISTEN", "-Fp"],
+            [
+                "lsof",
+                "-nP",
+                "-a",
+                f"-iTCP@{query_host}:{port}",
+                LSOF_LISTEN_FILTER,
+                "-Fp",
+            ],
             capture_output=True,
             text=True,
             timeout=2,
@@ -379,7 +403,7 @@ def _process_matches_state(state: CamofoxServiceState) -> bool:
     command_line = _process_command_line(state.pid)
     if command_line:
         normalized = command_line.replace("\\", "/").lower()
-        if "node" in normalized and "server.js" in normalized:
+        if "node" in normalized and SERVER_SCRIPT_NAME in normalized:
             cwd = _process_cwd(state.pid)
             if cwd is not None and cwd == Path(state.tool_dir).resolve():
                 return True
@@ -401,7 +425,55 @@ def _wait_for_state_exit(state: CamofoxServiceState, *, timeout: float) -> bool:
     return not _state_process_alive(state)
 
 
-def build_camofox_service_status(settings: Settings, *, tail_limit: int = 12) -> CamofoxServiceStatus:
+def _camofox_blocking_status_message(
+    *,
+    probe_host: str,
+    package_available: bool,
+    command_path: str | None,
+    dependency_available: bool,
+) -> str | None:
+    if not is_loopback_host(probe_host):
+        return "Camofox base URL must remain loopback."
+    if not package_available:
+        return "Camofox browser helper is missing."
+    if command_path is None:
+        return "node is not installed or not on PATH."
+    if not dependency_available:
+        return "Camofox dependencies are missing. Run npm install in tools/camofox-browser."
+    return None
+
+
+def _camofox_probe_status(
+    *,
+    base_url: str,
+    state: CamofoxServiceState | None,
+    app_state: CamofoxServiceState | None,
+) -> tuple[bool, bool, str]:
+    reachable, health_ok, message = _health(base_url)
+    if (
+        reachable
+        and app_state is not None
+        and _tail_contains_browser_launch_failure(app_state)
+    ):
+        return (
+            True,
+            False,
+            "Camofox server is reachable, but browser launch is failing.",
+        )
+    if app_state is not None and reachable and health_ok:
+        return reachable, health_ok, "App-owned Camofox is running."
+    if state is not None and app_state is None:
+        return (
+            reachable,
+            health_ok,
+            "Recorded Camofox state is stale or process ownership could not be verified.",
+        )
+    return reachable, health_ok, message
+
+
+def build_camofox_service_status(
+    settings: Settings, *, tail_limit: int = 12
+) -> CamofoxServiceStatus:
     """Build a read-only Camofox service status payload."""
 
     state = _read_state(settings)
@@ -410,35 +482,34 @@ def build_camofox_service_status(settings: Settings, *, tail_limit: int = 12) ->
     command_path = _node_command_path()
     package_available = _package_available(tool_dir)
     dependency_available = _dependency_available(tool_dir)
-    base_url = app_state.base_url if app_state is not None else _configured_base_url(settings)
+    base_url = (
+        app_state.base_url if app_state is not None else _configured_base_url(settings)
+    )
     host, port = _configured_host_port(settings)
     probe_host = app_state.host if app_state is not None else host
     reachable = False
     health_ok = False
-    if not is_loopback_host(probe_host):
-        message = "Camofox base URL must remain loopback."
-    elif not package_available:
-        message = "Camofox browser helper is missing."
-    elif command_path is None:
-        message = "node is not installed or not on PATH."
-    elif not dependency_available:
-        message = "Camofox dependencies are missing. Run npm install in tools/camofox-browser."
-    else:
-        reachable, health_ok, message = _health(base_url)
-        if reachable and app_state is not None and _tail_contains_browser_launch_failure(app_state):
-            health_ok = False
-            message = "Camofox server is reachable, but browser launch is failing."
-        if app_state is not None and reachable:
-            message = "App-owned Camofox is running." if health_ok else message
-        elif state is not None and app_state is None:
-            message = "Recorded Camofox state is stale or process ownership could not be verified."
+    message = _camofox_blocking_status_message(
+        probe_host=probe_host,
+        package_available=package_available,
+        command_path=command_path,
+        dependency_available=dependency_available,
+    )
+    if message is None:
+        reachable, health_ok, message = _camofox_probe_status(
+            base_url=base_url,
+            state=state,
+            app_state=app_state,
+        )
     return CamofoxServiceStatus(
         **local_tool_status_payload("camofox-browser"),
         command_available=command_path is not None,
         command_path=command_path,
         package_available=package_available,
         dependency_available=dependency_available,
-        dependency_path=str(tool_dir / "node_modules") if dependency_available else None,
+        dependency_path=(
+            str(tool_dir / "node_modules") if dependency_available else None
+        ),
         access_key_configured=bool(_camofox_access_token(settings)),
         app_owned=app_state is not None,
         pid=app_state.pid if app_state is not None else None,
@@ -461,6 +532,32 @@ def build_camofox_service_status(settings: Settings, *, tail_limit: int = 12) ->
         tool_dir=str(tool_dir),
         message=message,
     )
+
+
+def _startup_poll_should_stop(status: CamofoxServiceStatus) -> bool:
+    return (
+        status.app_owned
+        and status.service_reachable
+        and "browser launch is failing" in status.message
+    )
+
+
+def _await_camofox_start(
+    settings: Settings, *, timeout_seconds: float
+) -> CamofoxServiceStatus | None:
+    deadline = time.monotonic() + timeout_seconds
+    last_status: CamofoxServiceStatus | None = None
+    while time.monotonic() < deadline:
+        status = build_camofox_service_status(settings)
+        last_status = status
+        if status.app_owned and status.health_ok:
+            return status
+        if _startup_poll_should_stop(status):
+            return stop_camofox_service(settings)
+        time.sleep(0.4)
+    if last_status is not None and last_status.app_owned and not last_status.health_ok:
+        return stop_camofox_service(settings)
+    return None
 
 
 def start_camofox_service(
@@ -517,23 +614,24 @@ def start_camofox_service(
         tool_dir=str(tool_dir),
     )
     _write_state(settings, state)
-    deadline = time.monotonic() + 15
-    last_status: CamofoxServiceStatus | None = None
-    while time.monotonic() < deadline:
-        status = build_camofox_service_status(settings)
-        last_status = status
-        if status.app_owned and status.health_ok:
-            return status
-        if (
-            status.app_owned
-            and status.service_reachable
-            and "browser launch is failing" in status.message
-        ):
-            return stop_camofox_service(settings)
-        time.sleep(0.4)
-    if last_status is not None and last_status.app_owned and not last_status.health_ok:
-        return stop_camofox_service(settings)
+    started_status = _await_camofox_start(settings, timeout_seconds=15)
+    if started_status is not None:
+        return started_status
     return build_camofox_service_status(settings)
+
+
+def _stop_camofox_state_process(state: CamofoxServiceState) -> tuple[bool, str | None]:
+    stop_error: str | None = None
+    try:
+        os.kill(state.pid, signal.SIGTERM)
+        stopped = _wait_for_state_exit(state, timeout=5)
+        if not stopped and _state_process_alive(state):
+            os.kill(state.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+            stopped = _wait_for_state_exit(state, timeout=1)
+    except OSError as exc:
+        stop_error = redact_sensitive_text(exc, max_length=160)
+        stopped = not _state_process_alive(state)
+    return stopped or not _state_process_alive(state), stop_error
 
 
 def stop_camofox_service(settings: Settings) -> CamofoxServiceStatus:
@@ -545,17 +643,7 @@ def stop_camofox_service(settings: Settings) -> CamofoxServiceStatus:
     if not _state_process_alive(state):
         _remove_state(settings)
         return build_camofox_service_status(settings)
-    stopped = False
-    stop_error: str | None = None
-    try:
-        os.kill(state.pid, signal.SIGTERM)
-        stopped = _wait_for_state_exit(state, timeout=5)
-        if not stopped and _state_process_alive(state):
-            os.kill(state.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
-            stopped = _wait_for_state_exit(state, timeout=1)
-    except OSError as exc:
-        stop_error = redact_sensitive_text(exc, max_length=160)
-        stopped = not _state_process_alive(state)
+    stopped, stop_error = _stop_camofox_state_process(state)
     if stopped or not _state_process_alive(state):
         _remove_state(settings)
     status = build_camofox_service_status(settings)

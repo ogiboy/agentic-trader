@@ -20,6 +20,27 @@ SleepFn = Callable[[float], None]
 
 
 @dataclass(frozen=True)
+class ResearchCycleRequest:
+    symbols: list[str]
+    cycles: int = 1
+    cadence_seconds: int = 60
+    max_proposals_per_cycle: int = 1
+    persist: bool = True
+    sleep_between_cycles: bool = True
+
+
+@dataclass(frozen=True)
+class _ResolvedResearchCycleRequest:
+    symbols: list[str]
+    requested_cycles: int
+    safe_cycles: int
+    safe_cadence: int
+    max_proposals_per_cycle: int
+    persist: bool
+    sleep_between_cycles: bool
+
+
+@dataclass(frozen=True)
 class ResearchCycleExecution:
     """One safe research-loop iteration."""
 
@@ -64,7 +85,8 @@ class ResearchCycleExecution:
 def run_research_cycle(
     settings: Settings,
     *,
-    symbols: list[str],
+    symbols: list[str] | None = None,
+    request: ResearchCycleRequest | None = None,
     cycles: int = 1,
     cadence_seconds: int = 60,
     max_proposals_per_cycle: int = 1,
@@ -74,94 +96,172 @@ def run_research_cycle(
 ) -> dict[str, object]:
     """Run a bounded, evidence-only research cycle without broker authority."""
 
-    clean_symbols = [symbol.strip().upper() for symbol in symbols if symbol.strip()]
-    if not clean_symbols:
-        raise ValueError("symbols must contain at least one non-empty symbol")
-    safe_cycles = max(1, min(cycles, 24))
-    safe_cadence = max(1, cadence_seconds)
-    settings.research_symbols = ",".join(clean_symbols)
-    plan = research_cycle_plan_payload(
-        symbols=clean_symbols,
-        cadence_seconds=safe_cadence,
+    resolved = _resolve_research_cycle_request(
+        request=request,
+        symbols=symbols,
+        cycles=cycles,
+        cadence_seconds=cadence_seconds,
         max_proposals_per_cycle=max_proposals_per_cycle,
+        persist=persist,
+        sleep_between_cycles=sleep_between_cycles,
+    )
+    settings.research_symbols = ",".join(resolved.symbols)
+    plan = research_cycle_plan_payload(
+        symbols=resolved.symbols,
+        cadence_seconds=resolved.safe_cadence,
+        max_proposals_per_cycle=resolved.max_proposals_per_cycle,
     )
     executions: list[ResearchCycleExecution] = []
     previous_source_health: dict[str, int] = {}
-    for index in range(safe_cycles):
+    for index in range(resolved.safe_cycles):
         started_at = utc_now_iso()
         result = ResearchSidecar(settings).collect_once()
-        record = persist_research_result(settings, result) if persist else None
+        record = persist_research_result(settings, result) if resolved.persist else None
         completed_at = utc_now_iso()
-        is_final_cycle = index == safe_cycles - 1
+        is_final_cycle = index == resolved.safe_cycles - 1
         next_run_at = (
-            _iso_after(completed_at, safe_cadence)
-            if sleep_between_cycles and not is_final_cycle
+            _iso_after(completed_at, resolved.safe_cadence)
+            if resolved.sleep_between_cycles and not is_final_cycle
             else None
         )
         source_health_summary = dict(result.state.source_health_summary)
-        notes = [
-            "broker_access=false",
-            "proposal_approval=false",
-            "raw_web_text_in_core_prompt=false",
-        ]
-        if not settings.research_sidecar_enabled or settings.research_mode == "off":
-            notes.append("research_sidecar_disabled")
         executions.append(
-            ResearchCycleExecution(
+            _build_research_cycle_execution(
+                settings=settings,
+                result=result,
+                record_snapshot_id=record.snapshot_id if record is not None else None,
                 cycle_index=index + 1,
                 started_at=started_at,
                 completed_at=completed_at,
-                state_status=result.state.status,
-                backend=result.state.backend,
-                watched_symbols=list(result.state.watched_symbols),
-                raw_evidence_count=len(result.raw_evidence),
-                macro_event_count=len(result.macro_events),
-                social_signal_count=len(result.social_signals),
-                persisted_snapshot_id=record.snapshot_id if record is not None else None,
                 next_run_at=next_run_at,
-                preflight=_preflight_payload(
-                    settings=settings,
-                    state_status=result.state.status,
-                    source_health_summary=source_health_summary,
-                ),
-                source_health_delta=_source_health_delta(
-                    current=source_health_summary,
-                    previous=previous_source_health,
-                ),
-                cadence={
-                    "seconds": safe_cadence,
-                    "sleep_between_cycles": sleep_between_cycles,
-                    "next_run_at": next_run_at,
-                },
-                digest=_digest_payload(
-                    result=result,
-                    snapshot_id=record.snapshot_id if record is not None else None,
-                ),
-                notes=notes,
+                previous_source_health=previous_source_health,
+                cadence_seconds=resolved.safe_cadence,
+                sleep_between_cycles=resolved.sleep_between_cycles,
             )
         )
         previous_source_health = source_health_summary
-        if sleep_between_cycles and index < safe_cycles - 1:
-            sleep_fn(float(safe_cadence))
+        if resolved.sleep_between_cycles and index < resolved.safe_cycles - 1:
+            sleep_fn(float(resolved.safe_cadence))
 
     latest_digest = executions[-1].digest if executions else {}
     return {
         "cycle": "research-cycle-run",
         "plan": plan,
-        "requested_cycles": cycles,
+        "requested_cycles": resolved.requested_cycles,
         "executed_cycles": len(executions),
-        "cadence_seconds": safe_cadence,
-        "persisted": persist,
-        "sleep_between_cycles": sleep_between_cycles,
-        "execution_policy": {
-            "broker_access": False,
-            "proposal_approval": False,
-            "proposal_creation": False,
-            "raw_web_text_in_core_prompt": False,
-            "manual_review_required": True,
-        },
+        "cadence_seconds": resolved.safe_cadence,
+        "persisted": resolved.persist,
+        "sleep_between_cycles": resolved.sleep_between_cycles,
+        "execution_policy": _execution_policy_payload(),
         "latest_digest": latest_digest,
         "executions": [execution.to_payload() for execution in executions],
+    }
+
+
+def _resolve_research_cycle_request(
+    *,
+    request: ResearchCycleRequest | None,
+    symbols: list[str] | None,
+    cycles: int,
+    cadence_seconds: int,
+    max_proposals_per_cycle: int,
+    persist: bool,
+    sleep_between_cycles: bool,
+) -> _ResolvedResearchCycleRequest:
+    if request is not None and symbols is not None:
+        raise ValueError("Pass either request or symbols, not both.")
+    resolved_request = request or ResearchCycleRequest(
+        symbols=symbols or [],
+        cycles=cycles,
+        cadence_seconds=cadence_seconds,
+        max_proposals_per_cycle=max_proposals_per_cycle,
+        persist=persist,
+        sleep_between_cycles=sleep_between_cycles,
+    )
+    clean_symbols = _clean_research_symbols(resolved_request.symbols)
+    if not clean_symbols:
+        raise ValueError("symbols must contain at least one non-empty symbol")
+    return _ResolvedResearchCycleRequest(
+        symbols=clean_symbols,
+        requested_cycles=resolved_request.cycles,
+        safe_cycles=max(1, min(resolved_request.cycles, 24)),
+        safe_cadence=max(1, resolved_request.cadence_seconds),
+        max_proposals_per_cycle=resolved_request.max_proposals_per_cycle,
+        persist=resolved_request.persist,
+        sleep_between_cycles=resolved_request.sleep_between_cycles,
+    )
+
+
+def _clean_research_symbols(symbols: list[str]) -> list[str]:
+    return [symbol.strip().upper() for symbol in symbols if symbol.strip()]
+
+
+def _build_research_cycle_execution(
+    *,
+    settings: Settings,
+    result: ResearchPipelineResult,
+    record_snapshot_id: str | None,
+    cycle_index: int,
+    started_at: str,
+    completed_at: str,
+    next_run_at: str | None,
+    previous_source_health: dict[str, int],
+    cadence_seconds: int,
+    sleep_between_cycles: bool,
+) -> ResearchCycleExecution:
+    source_health_summary = dict(result.state.source_health_summary)
+    return ResearchCycleExecution(
+        cycle_index=cycle_index,
+        started_at=started_at,
+        completed_at=completed_at,
+        state_status=result.state.status,
+        backend=result.state.backend,
+        watched_symbols=list(result.state.watched_symbols),
+        raw_evidence_count=len(result.raw_evidence),
+        macro_event_count=len(result.macro_events),
+        social_signal_count=len(result.social_signals),
+        persisted_snapshot_id=record_snapshot_id,
+        next_run_at=next_run_at,
+        preflight=_preflight_payload(
+            settings=settings,
+            state_status=result.state.status,
+            source_health_summary=source_health_summary,
+        ),
+        source_health_delta=_source_health_delta(
+            current=source_health_summary,
+            previous=previous_source_health,
+        ),
+        cadence={
+            "seconds": cadence_seconds,
+            "sleep_between_cycles": sleep_between_cycles,
+            "next_run_at": next_run_at,
+        },
+        digest=_digest_payload(
+            result=result,
+            snapshot_id=record_snapshot_id,
+        ),
+        notes=_research_cycle_notes(settings),
+    )
+
+
+def _research_cycle_notes(settings: Settings) -> list[str]:
+    notes = [
+        "broker_access=false",
+        "proposal_approval=false",
+        "raw_web_text_in_core_prompt=false",
+    ]
+    if not settings.research_sidecar_enabled or settings.research_mode == "off":
+        notes.append("research_sidecar_disabled")
+    return notes
+
+
+def _execution_policy_payload() -> dict[str, bool]:
+    return {
+        "broker_access": False,
+        "proposal_approval": False,
+        "proposal_creation": False,
+        "raw_web_text_in_core_prompt": False,
+        "manual_review_required": True,
     }
 
 

@@ -8,20 +8,19 @@ import re
 from pathlib import Path
 from typing import IO
 
-
 _SENSITIVE_KEY_PATTERN = re.compile(
-    r"(?i)\b([A-Z0-9_.-]*(?:api[_-]?key|secret|token|password)"
+    r"(?i)\b([A-Z0-9_.-]*(?:api[_-]?key|access[_-]?key|secret|token|password)"
     r"[A-Z0-9_.-]*)(\s*[:=]\s*)([^\s,;\"']+)"
 )
-_BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
+_BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[a-z0-9._~+/=-]+")
 _AUTHORIZATION_PATTERN = re.compile(
     r"(?i)\b(Authorization)(\s*[:=]\s*)(?!Bearer\s)([^\s,;\"']+)"
 )
 _URL_SECRET_PATTERN = re.compile(
-    r"(?i)([?&](?:api[_-]?key|apikey|token|secret|password|key)=)[^&\s]+"
+    r"(?i)([?&](?:api[_-]?key|token|secret|password|key)=)[^&\s]+"
 )
 _SENSITIVE_ENV_NAME_PATTERN = re.compile(
-    r"(?i)(?:api[_-]?key|secret|token|password|authorization)"
+    r"(?i)(?:api[_-]?key|access[_-]?key|secret|token|password|authorization)"
 )
 _ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 

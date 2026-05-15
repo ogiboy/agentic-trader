@@ -17,7 +17,17 @@ export const CHAT_PERSONA_LABELS: Record<ChatPersona, string> = {
 };
 
 export function formatChatPersona(value: unknown): string {
-  return isChatPersona(value) ? CHAT_PERSONA_LABELS[value] : String(value || '-');
+  if (isChatPersona(value)) {
+    return CHAT_PERSONA_LABELS[value];
+  }
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return value === '' ? '-' : String(value);
+  }
+  return '-';
 }
 
 export function isChatPersona(value: unknown): value is ChatPersona {

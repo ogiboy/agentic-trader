@@ -32,6 +32,8 @@ from agentic_trader.security import (
 DEFAULT_WEBGUI_HOST = "127.0.0.1"
 DEFAULT_WEBGUI_PORT = 3210
 WEBGUI_PORT_CANDIDATES = (3210, *range(3211, 3221))
+LOCAL_HTTP_SCHEME = "http"
+LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
 MINIMAL_WEBGUI_ENV_KEYS = (
     "PATH",
     "HOME",
@@ -167,7 +169,7 @@ def choose_webgui_port(host: str, preferred_port: int = DEFAULT_WEBGUI_PORT) -> 
 
 
 def _webgui_url(host: str, port: int) -> str:
-    return f"http://{host}:{port}"
+    return f"{LOCAL_HTTP_SCHEME}://{host}:{port}"
 
 
 def _webgui_package_available() -> bool:
@@ -211,14 +213,19 @@ def _webgui_reachable(url: str) -> tuple[bool, str]:
             return True, "Web GUI is reachable."
         return False, f"Web GUI returned HTTP {response.status_code}."
     except Exception as exc:
-        return False, f"Unable to reach Web GUI: {redact_sensitive_text(exc, max_length=160)}"
+        return (
+            False,
+            f"Unable to reach Web GUI: {redact_sensitive_text(exc, max_length=160)}",
+        )
 
 
 def _webgui_env() -> dict[str, str]:
     """Return the subprocess env for the local Web GUI dev server."""
 
     env = {key: os.environ[key] for key in MINIMAL_WEBGUI_ENV_KEYS if key in os.environ}
-    env["AGENTIC_TRADER_PYTHON"] = os.environ.get("AGENTIC_TRADER_PYTHON", sys.executable)
+    env["AGENTIC_TRADER_PYTHON"] = os.environ.get(
+        "AGENTIC_TRADER_PYTHON", sys.executable
+    )
     env["AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY"] = "1"
     env["WATCHPACK_POLLING"] = os.environ.get("WATCHPACK_POLLING", "true")
     for key, value in os.environ.items():
@@ -249,7 +256,14 @@ def _listen_port_owner_pid(host: str, port: int) -> int | None:
     query_host = "127.0.0.1" if host == "localhost" else host.strip("[]")
     try:
         completed = subprocess.run(
-            ["lsof", "-nP", "-a", f"-iTCP@{query_host}:{port}", "-sTCP:LISTEN", "-Fp"],
+            [
+                "lsof",
+                "-nP",
+                "-a",
+                f"-iTCP@{query_host}:{port}",
+                LSOF_LISTEN_FILTER,
+                "-Fp",
+            ],
             capture_output=True,
             text=True,
             timeout=2,
@@ -345,7 +359,44 @@ def _webgui_runtime_status_fields() -> tuple[str | None, Path | None, bool]:
     return command_path, dependency_path, package_available
 
 
-def build_webgui_service_status(settings: Settings, *, tail_limit: int = 12) -> WebGUIServiceStatus:
+def _status_url(
+    *,
+    app_state: WebGUIServiceState | None,
+    state: WebGUIServiceState | None,
+) -> str:
+    if app_state is not None:
+        return app_state.url
+    if state is not None:
+        return state.url
+    return _webgui_url(DEFAULT_WEBGUI_HOST, DEFAULT_WEBGUI_PORT)
+
+
+def _webgui_status_message(
+    *,
+    package_available: bool,
+    command_path: str | None,
+    dependency_path: Path | None,
+    app_state: WebGUIServiceState | None,
+    state: WebGUIServiceState | None,
+    reachable: bool,
+    reachability_message: str,
+) -> str:
+    if not package_available:
+        return "Web GUI package is missing."
+    if command_path is None:
+        return "node is not installed or not on PATH."
+    if dependency_path is None:
+        return "Web GUI dependencies are missing. Run pnpm install first."
+    if app_state is not None and reachable:
+        return "App-owned Web GUI is running."
+    if state is not None and app_state is None:
+        return "Recorded Web GUI state is stale or process ownership could not be verified."
+    return reachability_message
+
+
+def build_webgui_service_status(
+    settings: Settings, *, tail_limit: int = 12
+) -> WebGUIServiceStatus:
     """Build a read-only Web GUI service status payload."""
 
     state = _read_state(settings)
@@ -354,25 +405,18 @@ def build_webgui_service_status(settings: Settings, *, tail_limit: int = 12) -> 
         external_status = _external_webgui_status(settings)
         if external_status is not None:
             return external_status
-    url = (
-        app_state.url
-        if app_state is not None
-        else state.url
-        if state is not None
-        else _webgui_url(DEFAULT_WEBGUI_HOST, DEFAULT_WEBGUI_PORT)
-    )
-    reachable, message = _webgui_reachable(url)
+    url = _status_url(app_state=app_state, state=state)
+    reachable, reachability_message = _webgui_reachable(url)
     command_path, dependency_path, package_available = _webgui_runtime_status_fields()
-    if not package_available:
-        message = "Web GUI package is missing."
-    elif command_path is None:
-        message = "node is not installed or not on PATH."
-    elif dependency_path is None:
-        message = "Web GUI dependencies are missing. Run pnpm install first."
-    elif app_state is not None and reachable:
-        message = "App-owned Web GUI is running."
-    elif state is not None and app_state is None:
-        message = "Recorded Web GUI state is stale or process ownership could not be verified."
+    message = _webgui_status_message(
+        package_available=package_available,
+        command_path=command_path,
+        dependency_path=dependency_path,
+        app_state=app_state,
+        state=state,
+        reachable=reachable,
+        reachability_message=reachability_message,
+    )
     return WebGUIServiceStatus(
         command_available=command_path is not None,
         command_path=command_path,
@@ -445,7 +489,9 @@ def _external_webgui_status(settings: Settings) -> WebGUIServiceStatus | None:
             command_path=command_path,
             package_available=package_available,
             dependency_available=dependency_path is not None,
-            dependency_path=str(dependency_path) if dependency_path is not None else None,
+            dependency_path=(
+                str(dependency_path) if dependency_path is not None else None
+            ),
             app_owned=False,
             pid=None,
             host=DEFAULT_WEBGUI_HOST,

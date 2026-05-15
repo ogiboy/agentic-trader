@@ -2,6 +2,7 @@ from agentic_trader.schemas import (
     MarketContextHorizon,
     MarketSnapshot,
     TechnicalFeatureSet,
+    TrendVote,
 )
 
 CALENDAR_RETURN_WINDOWS = {
@@ -62,79 +63,117 @@ def _last_structural_horizon(snapshot: MarketSnapshot) -> MarketContextHorizon |
         for horizon in snapshot.context_pack.horizons
         if horizon.support is not None and horizon.resistance is not None
     ]
-    return supported[-1] if supported else snapshot.context_pack.horizons[-1]
+    if supported:
+        return supported[-1]
+    return snapshot.context_pack.horizons[-1]
 
 
-def get_market_features(snapshot: MarketSnapshot) -> TechnicalFeatureSet:
-    """Summarize price action into the technical feature set consumed by agents."""
-    returns_by_window: dict[str, float | None] = {
+def _base_returns_by_window(snapshot: MarketSnapshot) -> dict[str, float | None]:
+    return {
         "5b": snapshot.return_5,
         "20b": snapshot.return_20,
         "30d": snapshot.return_20,
         "90d": None,
         "180d": None,
     }
-    data_quality_flags: list[str] = []
-    context_summary = ""
-    trend_classification = "insufficient"
-    max_drawdown_pct = None
-    support = None
-    resistance = None
 
-    if snapshot.context_pack is not None:
-        context_summary = snapshot.context_pack.summary
-        data_quality_flags = list(snapshot.context_pack.data_quality_flags)
-        for horizon in snapshot.context_pack.horizons:
-            returns_by_window[_horizon_key(horizon)] = horizon.return_pct
-        _add_calendar_return_windows(
-            returns_by_window,
-            snapshot.context_pack.horizons,
-        )
-        structural_horizon = _last_structural_horizon(snapshot)
-        if structural_horizon is not None:
-            support = structural_horizon.support
-            resistance = structural_horizon.resistance
-        drawdown_values = [
-            horizon.max_drawdown_pct
-            for horizon in snapshot.context_pack.horizons
-            if horizon.max_drawdown_pct is not None
-        ]
-        if drawdown_values:
-            max_drawdown_pct = min(drawdown_values)
-        trend_votes = [
-            horizon.trend_vote
-            for horizon in snapshot.context_pack.horizons
-            if horizon.trend_vote != "insufficient"
-        ]
-        if trend_votes:
-            bullish = trend_votes.count("bullish")
-            bearish = trend_votes.count("bearish")
-            if bullish > bearish:
-                trend_classification = "bullish"
-            elif bearish > bullish:
-                trend_classification = "bearish"
-            else:
-                trend_classification = "mixed"
 
-    if trend_classification == "insufficient":
-        if snapshot.last_close > snapshot.ema_20 > snapshot.ema_50:
-            trend_classification = "bullish"
-        elif snapshot.last_close < snapshot.ema_20 < snapshot.ema_50:
-            trend_classification = "bearish"
-        else:
-            trend_classification = "mixed"
+def _context_returns_by_window(snapshot: MarketSnapshot) -> dict[str, float | None]:
+    returns_by_window = _base_returns_by_window(snapshot)
+    if snapshot.context_pack is None:
+        return returns_by_window
+
+    for horizon in snapshot.context_pack.horizons:
+        returns_by_window[_horizon_key(horizon)] = horizon.return_pct
+    _add_calendar_return_windows(
+        returns_by_window,
+        snapshot.context_pack.horizons,
+    )
+    return returns_by_window
+
+
+def _structural_levels(snapshot: MarketSnapshot) -> tuple[float | None, float | None]:
+    structural_horizon = _last_structural_horizon(snapshot)
+    if structural_horizon is None:
+        return None, None
+    return structural_horizon.support, structural_horizon.resistance
+
+
+def _max_context_drawdown(snapshot: MarketSnapshot) -> float | None:
+    if snapshot.context_pack is None:
+        return None
+    drawdown_values = [
+        horizon.max_drawdown_pct
+        for horizon in snapshot.context_pack.horizons
+        if horizon.max_drawdown_pct is not None
+    ]
+    if not drawdown_values:
+        return None
+    return min(drawdown_values)
+
+
+def _context_trend_classification(snapshot: MarketSnapshot) -> TrendVote:
+    if snapshot.context_pack is None:
+        return "insufficient"
+    trend_votes = [
+        horizon.trend_vote
+        for horizon in snapshot.context_pack.horizons
+        if horizon.trend_vote != "insufficient"
+    ]
+    if not trend_votes:
+        return "insufficient"
+
+    bullish = trend_votes.count("bullish")
+    bearish = trend_votes.count("bearish")
+    if bullish > bearish:
+        return "bullish"
+    if bearish > bullish:
+        return "bearish"
+    return "mixed"
+
+
+def _average_trend_classification(snapshot: MarketSnapshot) -> TrendVote:
+    if snapshot.last_close > snapshot.ema_20 > snapshot.ema_50:
+        return "bullish"
+    if snapshot.last_close < snapshot.ema_20 < snapshot.ema_50:
+        return "bearish"
+    return "mixed"
+
+
+def _data_quality_flags(snapshot: MarketSnapshot) -> list[str]:
+    if snapshot.context_pack is None:
+        return []
+    return list(snapshot.context_pack.data_quality_flags)
+
+
+def _context_summary(snapshot: MarketSnapshot) -> str:
+    if snapshot.context_pack is None:
+        return ""
+    return snapshot.context_pack.summary
+
+
+def _trend_classification(snapshot: MarketSnapshot) -> TrendVote:
+    trend = _context_trend_classification(snapshot)
+    if trend != "insufficient":
+        return trend
+    return _average_trend_classification(snapshot)
+
+
+def get_market_features(snapshot: MarketSnapshot) -> TechnicalFeatureSet:
+    """Summarize price action into the technical feature set consumed by agents."""
+    support, resistance = _structural_levels(snapshot)
 
     return TechnicalFeatureSet(
         symbol=snapshot.symbol,
         interval=snapshot.interval,
         as_of=snapshot.as_of,
         price_anchor=snapshot.last_close,
-        returns_by_window=returns_by_window,
+        returns_by_window=_context_returns_by_window(snapshot),
         volatility_20=snapshot.volatility_20,
-        max_drawdown_pct=max_drawdown_pct,
+        max_drawdown_pct=_max_context_drawdown(snapshot),
         support=support,
         resistance=resistance,
-        trend_classification=trend_classification,
+        trend_classification=_trend_classification(snapshot),
         momentum_indicators={
             "rsi_14": snapshot.rsi_14,
             "return_5": snapshot.return_5,
@@ -142,6 +181,6 @@ def get_market_features(snapshot: MarketSnapshot) -> TechnicalFeatureSet:
             "volume_ratio_20": snapshot.volume_ratio_20,
             "mtf_confidence": snapshot.mtf_confidence,
         },
-        context_summary=context_summary,
-        data_quality_flags=data_quality_flags,
+        context_summary=_context_summary(snapshot),
+        data_quality_flags=_data_quality_flags(snapshot),
     )

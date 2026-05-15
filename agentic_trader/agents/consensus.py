@@ -13,6 +13,124 @@ def _fallback_evidence_note(role: str) -> str:
     return f"{role} evidence was fallback-generated and was not counted as support."
 
 
+def _record_regime_alignment(
+    regime: RegimeAssessment,
+    action: str,
+    supporting_roles: list[str],
+    dissenting_roles: list[str],
+    reasons: list[str],
+) -> None:
+    regime_supports_action = (
+        regime.direction_bias == "long"
+        and action == "buy"
+        or regime.direction_bias == "short"
+        and action == "sell"
+    )
+    if regime_supports_action:
+        supporting_roles.append("regime")
+        return
+    dissenting_roles.append("regime")
+    reasons.append("Regime bias did not line up cleanly with the selected action.")
+
+
+def _record_coordinator_alignment(
+    coordinator: ResearchCoordinatorBrief,
+    supporting_roles: list[str],
+    dissenting_roles: list[str],
+    reasons: list[str],
+) -> None:
+    if coordinator.market_focus in {"trend_following", "breakout", "mean_reversion"}:
+        supporting_roles.append("coordinator")
+        return
+    dissenting_roles.append("coordinator")
+    reasons.append(
+        f"Coordinator focus {coordinator.market_focus} leaned defensive versus the chosen action."
+    )
+
+
+def _record_risk_alignment(
+    risk: RiskPlan,
+    supporting_roles: list[str],
+    dissenting_roles: list[str],
+    reasons: list[str],
+) -> None:
+    if risk.risk_reward_ratio >= 1.5 and risk.position_size_pct >= 0.02:
+        supporting_roles.append("risk")
+        return
+    dissenting_roles.append("risk")
+    reasons.append(
+        "Risk plan looked too constrained for full specialist agreement "
+        f"(risk_reward_ratio={risk.risk_reward_ratio:.2f}, "
+        f"position_size_pct={risk.position_size_pct:.2%})."
+    )
+
+
+def _record_fundamental_alignment(
+    fundamental: FundamentalAssessment | None,
+    supporting_roles: list[str],
+    dissenting_roles: list[str],
+    reasons: list[str],
+) -> None:
+    if fundamental is None:
+        return
+    if fundamental.source == "fallback":
+        reasons.append(_fallback_evidence_note("Fundamental"))
+        return
+    if fundamental.overall_bias in {"supportive", "neutral"}:
+        supporting_roles.append("fundamental")
+        return
+    dissenting_roles.append("fundamental")
+    reasons.append(f"Fundamental analyst returned {fundamental.overall_bias} evidence.")
+
+
+def _record_macro_alignment(
+    macro: MacroAssessment | None,
+    supporting_roles: list[str],
+    dissenting_roles: list[str],
+    reasons: list[str],
+) -> None:
+    if macro is None:
+        return
+    if macro.source == "fallback":
+        reasons.append(_fallback_evidence_note("Macro/news"))
+        return
+    if macro.macro_signal in {"supportive", "neutral"}:
+        supporting_roles.append("macro")
+        return
+    dissenting_roles.append("macro")
+    reasons.append(f"Macro/news analyst returned {macro.macro_signal} context.")
+
+
+def _build_consensus(
+    supporting_roles: list[str],
+    dissenting_roles: list[str],
+    reasons: list[str],
+) -> SpecialistConsensus:
+    if not dissenting_roles:
+        return SpecialistConsensus(
+            alignment_level="aligned",
+            summary="Available specialists were aligned before manager synthesis.",
+            supporting_roles=supporting_roles,
+            dissenting_roles=[],
+            reasons=reasons or ["No specialist disagreements were detected."],
+        )
+    if len(dissenting_roles) == 1:
+        return SpecialistConsensus(
+            alignment_level="mixed",
+            summary="Most specialists aligned, with one material caution signal.",
+            supporting_roles=supporting_roles,
+            dissenting_roles=dissenting_roles,
+            reasons=reasons,
+        )
+    return SpecialistConsensus(
+        alignment_level="conflicted",
+        summary="Multiple specialist signals conflicted before execution.",
+        supporting_roles=supporting_roles,
+        dissenting_roles=dissenting_roles,
+        reasons=reasons,
+    )
+
+
 def assess_specialist_consensus(
     coordinator: ResearchCoordinatorBrief,
     regime: RegimeAssessment,
@@ -60,72 +178,16 @@ def assess_specialist_consensus(
             reasons=reasons,
         )
 
-    if (regime.direction_bias == "long" and action == "buy") or (
-        regime.direction_bias == "short" and action == "sell"
-    ):
-        supporting_roles.append("regime")
-    else:
-        dissenting_roles.append("regime")
-        reasons.append("Regime bias did not line up cleanly with the selected action.")
-
-    if coordinator.market_focus in {"trend_following", "breakout", "mean_reversion"}:
-        supporting_roles.append("coordinator")
-    else:
-        dissenting_roles.append("coordinator")
-        reasons.append(
-            f"Coordinator focus {coordinator.market_focus} leaned defensive versus the chosen action."
-        )
-
-    if risk.risk_reward_ratio >= 1.5 and risk.position_size_pct >= 0.02:
-        supporting_roles.append("risk")
-    else:
-        dissenting_roles.append("risk")
-        reasons.append(
-            "Risk plan looked too constrained for full specialist agreement "
-            f"(risk_reward_ratio={risk.risk_reward_ratio:.2f}, "
-            f"position_size_pct={risk.position_size_pct:.2%})."
-        )
-
-    if fundamental is not None:
-        if fundamental.source == "fallback":
-            reasons.append(_fallback_evidence_note("Fundamental"))
-        elif fundamental.overall_bias in {"supportive", "neutral"}:
-            supporting_roles.append("fundamental")
-        else:
-            dissenting_roles.append("fundamental")
-            reasons.append(
-                f"Fundamental analyst returned {fundamental.overall_bias} evidence."
-            )
-
-    if macro is not None:
-        if macro.source == "fallback":
-            reasons.append(_fallback_evidence_note("Macro/news"))
-        elif macro.macro_signal in {"supportive", "neutral"}:
-            supporting_roles.append("macro")
-        else:
-            dissenting_roles.append("macro")
-            reasons.append(f"Macro/news analyst returned {macro.macro_signal} context.")
-
-    if not dissenting_roles:
-        return SpecialistConsensus(
-            alignment_level="aligned",
-            summary="Available specialists were aligned before manager synthesis.",
-            supporting_roles=supporting_roles,
-            dissenting_roles=[],
-            reasons=reasons or ["No specialist disagreements were detected."],
-        )
-    if len(dissenting_roles) == 1:
-        return SpecialistConsensus(
-            alignment_level="mixed",
-            summary="Most specialists aligned, with one material caution signal.",
-            supporting_roles=supporting_roles,
-            dissenting_roles=dissenting_roles,
-            reasons=reasons,
-        )
-    return SpecialistConsensus(
-        alignment_level="conflicted",
-        summary="Multiple specialist signals conflicted before execution.",
-        supporting_roles=supporting_roles,
-        dissenting_roles=dissenting_roles,
-        reasons=reasons,
+    _record_regime_alignment(
+        regime, action, supporting_roles, dissenting_roles, reasons
     )
+    _record_coordinator_alignment(
+        coordinator, supporting_roles, dissenting_roles, reasons
+    )
+    _record_risk_alignment(risk, supporting_roles, dissenting_roles, reasons)
+    _record_fundamental_alignment(
+        fundamental, supporting_roles, dissenting_roles, reasons
+    )
+    _record_macro_alignment(macro, supporting_roles, dissenting_roles, reasons)
+
+    return _build_consensus(supporting_roles, dissenting_roles, reasons)

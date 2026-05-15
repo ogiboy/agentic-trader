@@ -6,10 +6,12 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 from uuid import uuid4
 
+import click
 import typer
+from typer.core import TyperCommand
 from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
@@ -30,6 +32,7 @@ from agentic_trader.finance.ideas import (
     rank_candidates,
 )
 from agentic_trader.finance.proposals import (
+    TradeProposalDraft,
     approve_trade_proposal,
     create_trade_proposal,
     reconcile_trade_proposal,
@@ -168,6 +171,7 @@ app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 console = Console()
+LABEL_MODEL_SERVICE = "Model Service"
 model_service_app = typer.Typer(
     help="Manage the optional app-owned local model service."
 )
@@ -190,6 +194,65 @@ ProposalOrderType = Literal["market", "limit"]
 
 
 type NodeCommandSet = tuple[list[str], list[str], Path, str]
+
+
+def _proposal_create_params() -> list[click.Parameter]:
+    return [
+        click.Option(["--symbol"], required=True, help=HELP_SYMBOL),
+        click.Option(["--side"], default="buy", show_default=True, help="Trade side: buy or sell."),
+        click.Option(["--quantity"], type=click.FloatRange(min=0.0), default=None, help="Share quantity. Either quantity or notional is required."),
+        click.Option(["--notional"], type=click.FloatRange(min=0.0), default=None, help="Dollar notional. Either quantity or notional is required."),
+        click.Option(["--reference-price", "reference_price"], type=click.FloatRange(min=0.01), required=True, help="Reference price used for the proposal."),
+        click.Option(["--confidence"], type=click.FloatRange(min=0.0, max=1.0), default=0.5, show_default=True, help="Proposal confidence from 0.0 to 1.0."),
+        click.Option(["--thesis"], required=True, help="Short operator-readable proposal thesis."),
+        click.Option(["--order-type", "order_type"], default="market", show_default=True, help="Proposal order type. V1 supports market or limit."),
+        click.Option(["--stop-loss", "stop_loss"], type=click.FloatRange(min=0.01), default=None, help="Optional stop loss."),
+        click.Option(["--take-profit", "take_profit"], type=click.FloatRange(min=0.01), default=None, help="Optional take profit."),
+        click.Option(["--invalidation-condition", "invalidation_condition"], default=None, help="Optional condition that invalidates the trade idea."),
+        click.Option(["--source"], default="manual", show_default=True, help="Source label such as manual, scanner, or research-sidecar."),
+        click.Option(["--review-notes", "review_notes"], default="", help="Optional review notes."),
+        click.Option(["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON),
+    ]
+
+
+def _idea_score_params() -> list[click.Parameter]:
+    return [
+        click.Option(["--symbol"], required=True, help=HELP_SYMBOL),
+        click.Option(["--preset"], default="momentum", show_default=True, help="Idea preset to apply."),
+        click.Option(["--price"], type=click.FloatRange(min=0.01), required=True, help="Last or reference price."),
+        click.Option(["--volume"], type=click.FloatRange(min=0.0), required=True, help="Latest volume."),
+        click.Option(["--change-pct", "change_pct"], type=float, required=True, help="Percent change over the scan window."),
+        click.Option(["--relative-volume", "relative_volume"], type=click.FloatRange(min=0.0), default=0.0, show_default=True, help="Relative volume."),
+        click.Option(["--gap-pct", "gap_pct"], type=float, default=0.0, show_default=True, help="Opening gap percent."),
+        click.Option(["--range-pct", "range_pct"], type=click.FloatRange(min=0.0), default=0.0, show_default=True, help="Intraday range percent."),
+        click.Option(["--rsi"], type=click.FloatRange(min=0.0, max=100.0), default=None, help="RSI value."),
+        click.Option(["--ema-9", "ema_9"], type=click.FloatRange(min=0.0), default=None, help="9 EMA value."),
+        click.Option(["--sma-20", "sma_20"], type=click.FloatRange(min=0.0), default=None, help="20 SMA value."),
+        click.Option(["--sma-50", "sma_50"], type=click.FloatRange(min=0.0), default=None, help="50 SMA value."),
+        click.Option(["--vwap"], type=click.FloatRange(min=0.0), default=None, help="VWAP value."),
+        click.Option(["--spread-pct", "spread_pct"], type=click.FloatRange(min=0.0), default=0.0, show_default=True, help="Bid/ask spread percent."),
+        click.Option(["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON),
+    ]
+
+
+class ProposalCreateCommand(TyperCommand):
+    def __init__(
+        self,
+        *args: Any,
+        params: list[click.Parameter] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, params=_proposal_create_params(), **kwargs)
+
+
+class IdeaScoreCommand(TyperCommand):
+    def __init__(
+        self,
+        *args: Any,
+        params: list[click.Parameter] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, params=_idea_score_params(), **kwargs)
 
 
 def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
@@ -1839,9 +1902,6 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
     accounting = payload.get("accounting", {})
     if not isinstance(accounting, dict):
         accounting = {}
-    cost_model = accounting.get("cost_model", {})
-    if not isinstance(cost_model, dict):
-        cost_model = {}
     console.print(
         Panel(
             str(payload.get("summary", "Finance operations status unavailable.")),
@@ -1849,6 +1909,14 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
             border_style="green" if payload.get("ready") else "yellow",
         )
     )
+    console.print(_finance_checks_table(checks))
+    console.print(_finance_accounting_table(accounting))
+    ledger_table = _finance_ledger_table(accounting.get("ledger_categories", []))
+    if ledger_table is not None:
+        console.print(ledger_table)
+
+
+def _finance_checks_table(checks: object) -> Table:
     table = Table(title="Finance Operations Checks")
     table.add_column("Check")
     table.add_column("State")
@@ -1863,7 +1931,13 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
                     str(check.get("blocking", True)),
                     str(check.get("details", "")),
                 )
-    console.print(table)
+    return table
+
+
+def _finance_accounting_table(accounting: dict[object, object]) -> Table:
+    cost_model = accounting.get("cost_model", {})
+    if not isinstance(cost_model, dict):
+        cost_model = {}
     context = Table(title="Desk Accounting Context")
     context.add_column("Field")
     context.add_column("Value")
@@ -1883,8 +1957,10 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
     context.add_row(
         "Rejection Evidence", str(accounting.get("rejection_evidence") or "-")
     )
-    console.print(context)
-    ledger_categories = accounting.get("ledger_categories", [])
+    return context
+
+
+def _finance_ledger_table(ledger_categories: object) -> Table | None:
     if isinstance(ledger_categories, list):
         ledger_table = Table(title="Finance Ledger Categories")
         ledger_table.add_column("Category")
@@ -1897,7 +1973,8 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
                     str(item.get("v1_source", "-")),
                     str(item.get("purpose", "-")),
                 )
-        console.print(ledger_table)
+        return ledger_table
+    return None
 
 
 def _training_backtest_allow_fallback(settings: Settings) -> bool:
@@ -2560,7 +2637,7 @@ def _render_setup_status(payload: dict[str, object]) -> None:
     model_service = cast(dict[str, object], payload.get("model_service", {}))
     camofox_service = cast(dict[str, object], payload.get("camofox_service", {}))
     webgui_service = cast(dict[str, object], payload.get("webgui_service", {}))
-    summary.add_row("Model Service", str(model_service.get("message", "-")))
+    summary.add_row(LABEL_MODEL_SERVICE, str(model_service.get("message", "-")))
     summary.add_row("Camofox", str(camofox_service.get("message", "-")))
     summary.add_row("Web GUI", str(webgui_service.get("message", "-")))
     console.print(summary)
@@ -2594,7 +2671,7 @@ def _render_setup_status(payload: dict[str, object]) -> None:
 def _render_model_service_status(payload: dict[str, object]) -> None:
     """Render app-owned model-service state and log tails."""
 
-    table = Table(title="Model Service")
+    table = Table(title=LABEL_MODEL_SERVICE)
     table.add_column("Field")
     table.add_column("Value")
     for key in (
@@ -2628,7 +2705,7 @@ def _render_model_service_status(payload: dict[str, object]) -> None:
         console.print(
             Panel(
                 "\n".join(stderr_tail),
-                title="Model Service Stderr Tail",
+                title=f"{LABEL_MODEL_SERVICE} Stderr Tail",
                 border_style="yellow",
             )
         )
@@ -2720,19 +2797,19 @@ def _render_operator_launcher_status(payload: dict[str, object]) -> None:
             f"{plan['interval']} {plan['lookback']} / poll {plan['poll_seconds']}s"
         ),
     )
+    if webgui_service.get("app_owned"):
+        webgui_state = "app-owned"
+    elif webgui_service.get("service_reachable"):
+        webgui_state = "external"
+    else:
+        webgui_state = str(webgui_service.get("message"))
     table.add_row(
         "Web GUI",
-        (
-            "app-owned"
-            if webgui_service.get("app_owned")
-            else "external"
-            if webgui_service.get("service_reachable")
-            else str(webgui_service.get("message"))
-        ),
+        webgui_state,
         str(webgui_service.get("url") or "agentic-trader webgui-service start"),
     )
     table.add_row(
-        "Model Service",
+        LABEL_MODEL_SERVICE,
         "ready" if model_service.get("model_available") else str(model_service.get("message")),
         str(model_service.get("base_url") or model_service.get("configured_base_url")),
     )
@@ -2940,7 +3017,7 @@ def model_service_start(
         else:
             console.print(
                 _render_health_panel(
-                    "Model Service Start Failed",
+                    f"{LABEL_MODEL_SERVICE} Start Failed",
                     str(error_payload["error"]),
                     border_style="red",
                 )
@@ -3797,59 +3874,34 @@ def trade_proposals(
     _render_trade_proposals(proposals)
 
 
-@app.command("proposal-create")
-def proposal_create(
-    symbol: str = typer.Option(..., help=HELP_SYMBOL),
-    side: str = typer.Option("buy", help="Trade side: buy or sell."),
-    quantity: float | None = typer.Option(
-        None, min=0.0, help="Share quantity. Either quantity or notional is required."
-    ),
-    notional: float | None = typer.Option(
-        None, min=0.0, help="Dollar notional. Either quantity or notional is required."
-    ),
-    reference_price: float = typer.Option(
-        ..., min=0.01, help="Reference price used for the proposal."
-    ),
-    confidence: float = typer.Option(
-        0.5, min=0.0, max=1.0, help="Proposal confidence from 0.0 to 1.0."
-    ),
-    thesis: str = typer.Option(..., help="Short operator-readable proposal thesis."),
-    order_type: str = typer.Option(
-        "market", help="Proposal order type. V1 supports market or limit."
-    ),
-    stop_loss: float | None = typer.Option(None, min=0.01, help="Optional stop loss."),
-    take_profit: float | None = typer.Option(
-        None, min=0.01, help="Optional take profit."
-    ),
-    invalidation_condition: str | None = typer.Option(
-        None, help="Optional condition that invalidates the trade idea."
-    ),
-    source: str = typer.Option(
-        "manual", help="Source label such as manual, scanner, or research-sidecar."
-    ),
-    review_notes: str = typer.Option("", help="Optional review notes."),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
+@app.command("proposal-create", cls=ProposalCreateCommand)
+def proposal_create(**options: str) -> None:
     """Create a pending trade proposal; this does not execute an order."""
     settings = get_settings()
+    symbol = str(options["symbol"])
+    side = str(options["side"])
     try:
         db = _open_db(settings)
         try:
             proposal = create_trade_proposal(
                 db=db,
-                symbol=symbol,
-                side=_parse_trade_side(side),
-                order_type=_parse_order_type(order_type),
-                quantity=quantity,
-                notional=notional,
-                reference_price=reference_price,
-                confidence=confidence,
-                thesis=thesis,
-                stop_loss=stop_loss,
-                take_profit=take_profit,
-                invalidation_condition=invalidation_condition,
-                source=source,
-                review_notes=review_notes,
+                draft=TradeProposalDraft(
+                    symbol=symbol,
+                    side=_parse_trade_side(side),
+                    order_type=_parse_order_type(str(options["order_type"])),
+                    quantity=cast(float | None, options["quantity"]),
+                    notional=cast(float | None, options["notional"]),
+                    reference_price=cast(float, options["reference_price"]),
+                    confidence=cast(float, options["confidence"]),
+                    thesis=str(options["thesis"]),
+                    stop_loss=cast(float | None, options["stop_loss"]),
+                    take_profit=cast(float | None, options["take_profit"]),
+                    invalidation_condition=cast(
+                        str | None, options["invalidation_condition"]
+                    ),
+                    source=str(options["source"]),
+                    review_notes=str(options["review_notes"]),
+                ),
             )
         finally:
             db.close()
@@ -3857,7 +3909,7 @@ def proposal_create(
         console.print(Panel(str(exc), title="Proposal Rejected", border_style="red"))
         raise typer.Exit(code=2) from exc
     payload = proposal.model_dump(mode="json")
-    if json_output:
+    if bool(options["json_output"]):
         _emit_json(payload)
         return
     console.print(
@@ -4012,45 +4064,41 @@ def idea_presets(
     console.print(table)
 
 
-@app.command("idea-score")
-def idea_score(
-    symbol: str = typer.Option(..., help=HELP_SYMBOL),
-    preset: str = typer.Option("momentum", help="Idea preset to apply."),
-    price: float = typer.Option(..., min=0.01, help="Last or reference price."),
-    volume: float = typer.Option(..., min=0.0, help="Latest volume."),
-    change_pct: float = typer.Option(..., help="Percent change over the scan window."),
-    relative_volume: float = typer.Option(0.0, min=0.0, help="Relative volume."),
-    gap_pct: float = typer.Option(0.0, help="Opening gap percent."),
-    range_pct: float = typer.Option(0.0, min=0.0, help="Intraday range percent."),
-    rsi: float | None = typer.Option(None, min=0.0, max=100.0, help="RSI value."),
-    ema_9: float | None = typer.Option(None, min=0.0, help="9 EMA value."),
-    sma_20: float | None = typer.Option(None, min=0.0, help="20 SMA value."),
-    sma_50: float | None = typer.Option(None, min=0.0, help="50 SMA value."),
-    vwap: float | None = typer.Option(None, min=0.0, help="VWAP value."),
-    spread_pct: float = typer.Option(0.0, min=0.0, help="Bid/ask spread percent."),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
+@app.command("idea-score", cls=IdeaScoreCommand)
+def idea_score(**options: str) -> None:
     """Score a single scanner candidate without creating or executing a proposal."""
-    candidate = IdeaCandidate(
-        symbol=symbol,
-        price=price,
-        volume=volume,
-        change_pct=change_pct,
-        relative_volume=relative_volume,
-        gap_pct=gap_pct,
-        range_pct=range_pct,
-        rsi=rsi,
-        ema_9=ema_9,
-        sma_20=sma_20,
-        sma_50=sma_50,
-        vwap=vwap,
-        spread_pct=spread_pct,
+    _render_idea_score(
+        candidate=IdeaCandidate(
+            symbol=str(options["symbol"]),
+            price=cast(float, options["price"]),
+            volume=cast(float, options["volume"]),
+            change_pct=cast(float, options["change_pct"]),
+            relative_volume=cast(float, options["relative_volume"]),
+            gap_pct=cast(float, options["gap_pct"]),
+            range_pct=cast(float, options["range_pct"]),
+            rsi=cast(float | None, options["rsi"]),
+            ema_9=cast(float | None, options["ema_9"]),
+            sma_20=cast(float | None, options["sma_20"]),
+            sma_50=cast(float | None, options["sma_50"]),
+            vwap=cast(float | None, options["vwap"]),
+            spread_pct=cast(float, options["spread_pct"]),
+        ),
+        preset=str(options["preset"]),
+        json_output=bool(options["json_output"]),
     )
+
+
+def _render_idea_score(
+    *,
+    candidate: IdeaCandidate,
+    preset: str,
+    json_output: bool,
+) -> None:
     parsed_preset = _parse_idea_preset(preset)
     ranked = rank_candidates([candidate], preset=parsed_preset, limit=1)
     if not ranked:
         raise typer.BadParameter(
-            f"No score could be produced for {symbol!r} with preset {parsed_preset!r}."
+            f"No score could be produced for {candidate.symbol!r} with preset {parsed_preset!r}."
         )
     result = ranked[0]
     payload = {
@@ -4576,29 +4624,27 @@ def _parse_memtotal_line(line: str) -> int | None:
 
 
 def _model_size_billions(model_name: str) -> float | None:
+    separators = ":/,_-()[]{}"
     normalized = model_name.lower()
-    for index, char in enumerate(normalized):
-        if char != "b":
-            continue
-        next_char = normalized[index + 1] if index + 1 < len(normalized) else ""
-        if next_char.isalnum():
-            continue
-        cursor = index - 1
-        while cursor >= 0 and normalized[cursor].isspace():
-            cursor -= 1
-        end = cursor + 1
-        while cursor >= 0 and (
-            normalized[cursor].isdigit() or normalized[cursor] == "."
-        ):
-            cursor -= 1
-        token = normalized[cursor + 1 : end]
-        if not token or token.startswith(".") or token.endswith("."):
-            continue
-        try:
-            return float(token)
-        except ValueError:
-            continue
+    for separator in separators:
+        normalized = normalized.replace(separator, " ")
+    for token in normalized.split():
+        size = _model_size_token_billions(token)
+        if size is not None:
+            return size
     return None
+
+
+def _model_size_token_billions(token: str) -> float | None:
+    if not token.endswith("b"):
+        return None
+    numeric = token[:-1]
+    if not numeric or numeric.startswith(".") or numeric.endswith("."):
+        return None
+    try:
+        return float(numeric)
+    except ValueError:
+        return None
 
 
 def _accelerator_payload() -> dict[str, object]:

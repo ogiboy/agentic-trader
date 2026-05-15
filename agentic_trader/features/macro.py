@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Literal
 
 from agentic_trader.config import Settings
 from agentic_trader.schemas import (
@@ -10,6 +11,9 @@ from agentic_trader.schemas import (
     StructuredNewsSignal,
     SymbolIdentity,
 )
+
+MacroBias = Literal["tailwind", "neutral", "headwind", "unknown"]
+MacroFxRisk = Literal["low", "medium", "high", "unknown"]
 
 MACRO_KEYWORDS = {
     "central bank",
@@ -102,6 +106,133 @@ def classify_news_signal(
     )
 
 
+def _news_signals_from_events(
+    news_events: list[NewsEvent],
+) -> list[StructuredNewsSignal]:
+    return [
+        StructuredNewsSignal(
+            symbol=event.symbol,
+            title=event.title,
+            category=event.category,
+            source=event.source,
+            published_at=event.published_at,
+            summary=event.summary,
+            relevance_score=event.relevance_score,
+        )
+        for event in news_events
+    ]
+
+
+def _build_news_signals(
+    symbol_identity: SymbolIdentity,
+    news_items: list[NewsSignal] | None,
+    news_events: list[NewsEvent] | None,
+) -> list[StructuredNewsSignal]:
+    if news_events is not None:
+        return _news_signals_from_events(news_events)
+    return [
+        classify_news_signal(item, symbol_identity=symbol_identity)
+        for item in (news_items or [])
+    ]
+
+
+def _macro_sources(
+    symbol_identity: SymbolIdentity,
+    settings: Settings,
+    news_signals: list[StructuredNewsSignal],
+    macro_snapshot: MacroSnapshot | None,
+) -> list[str]:
+    if macro_snapshot is not None:
+        sources = [
+            macro_snapshot.attribution.source_name,
+            *macro_snapshot.attribution.notes,
+        ]
+    else:
+        sources = _configured_macro_sources(settings, symbol_identity.region)
+    if not news_signals and settings.news_mode == "off":
+        sources.append("news_disabled")
+    return sources
+
+
+def _default_fx_risk(symbol_identity: SymbolIdentity) -> MacroFxRisk:
+    if symbol_identity.region == "TR":
+        if symbol_identity.currency != "TRY":
+            return "high"
+        return "medium"
+    if symbol_identity.currency not in {"USD", "TRY"}:
+        return "medium"
+    return "unknown"
+
+
+def _macro_as_of(macro_snapshot: MacroSnapshot | None) -> str | None:
+    if macro_snapshot is not None:
+        return macro_snapshot.attribution.fetched_at
+    return datetime.now(UTC).isoformat()
+
+
+def _macro_region(
+    symbol_identity: SymbolIdentity,
+    macro_snapshot: MacroSnapshot | None,
+) -> str:
+    if macro_snapshot is not None:
+        return macro_snapshot.region
+    return symbol_identity.region
+
+
+def _macro_currency(
+    symbol_identity: SymbolIdentity,
+    macro_snapshot: MacroSnapshot | None,
+) -> str:
+    if macro_snapshot is not None:
+        return macro_snapshot.currency
+    return symbol_identity.currency
+
+
+def _macro_rates_bias(macro_snapshot: MacroSnapshot | None) -> MacroBias:
+    if macro_snapshot is not None:
+        return macro_snapshot.rates_bias
+    return "unknown"
+
+
+def _macro_inflation_bias(macro_snapshot: MacroSnapshot | None) -> MacroBias:
+    if macro_snapshot is not None:
+        return macro_snapshot.inflation_bias
+    return "unknown"
+
+
+def _macro_fx_risk(
+    symbol_identity: SymbolIdentity,
+    macro_snapshot: MacroSnapshot | None,
+) -> MacroFxRisk:
+    if macro_snapshot is not None:
+        return macro_snapshot.fx_risk
+    return _default_fx_risk(symbol_identity)
+
+
+def _macro_sector_risk_score(macro_snapshot: MacroSnapshot | None) -> float | None:
+    if macro_snapshot is not None:
+        return macro_snapshot.sector_risk_score
+    return None
+
+
+def _macro_political_risk_score(macro_snapshot: MacroSnapshot | None) -> float | None:
+    if macro_snapshot is not None:
+        return macro_snapshot.political_risk_score
+    return None
+
+
+def _macro_summary(
+    news_signals: list[StructuredNewsSignal],
+    macro_snapshot: MacroSnapshot | None,
+) -> str:
+    if macro_snapshot is not None:
+        return macro_snapshot.summary
+    return (
+        "Macro/news context is structured and ready for provider enrichment. "
+        f"{len(news_signals)} headline(s) were classified for this cycle."
+    )
+
+
 def get_macro_context(
     symbol_identity: SymbolIdentity,
     *,
@@ -111,77 +242,20 @@ def get_macro_context(
     macro_snapshot: MacroSnapshot | None = None,
 ) -> MacroContext:
     """Build structured macro/news context from local settings and optional headlines."""
-    if news_events is not None:
-        news_signals = [
-            StructuredNewsSignal(
-                symbol=event.symbol,
-                title=event.title,
-                category=event.category,
-                source=event.source,
-                published_at=event.published_at,
-                summary=event.summary,
-                relevance_score=event.relevance_score,
-            )
-            for event in news_events
-        ]
-    else:
-        news_signals = [
-            classify_news_signal(item, symbol_identity=symbol_identity)
-            for item in (news_items or [])
-        ]
-    sources = _configured_macro_sources(settings, symbol_identity.region)
-    if macro_snapshot is not None:
-        sources = [
-            macro_snapshot.attribution.source_name,
-            *macro_snapshot.attribution.notes,
-        ]
-    if not news_signals and settings.news_mode == "off":
-        sources.append("news_disabled")
-
-    fx_risk = "medium" if symbol_identity.currency not in {"USD", "TRY"} else "unknown"
-    if symbol_identity.region == "TR":
-        fx_risk = "high" if symbol_identity.currency != "TRY" else "medium"
-    if macro_snapshot is not None:
-        fx_risk = macro_snapshot.fx_risk
+    news_signals = _build_news_signals(symbol_identity, news_items, news_events)
+    sources = _macro_sources(symbol_identity, settings, news_signals, macro_snapshot)
 
     return MacroContext(
         symbol=symbol_identity.symbol,
-        as_of=(
-            macro_snapshot.attribution.fetched_at
-            if macro_snapshot is not None
-            else datetime.now(UTC).isoformat()
-        ),
-        region=(
-            macro_snapshot.region
-            if macro_snapshot is not None
-            else symbol_identity.region
-        ),
-        currency=(
-            macro_snapshot.currency
-            if macro_snapshot is not None
-            else symbol_identity.currency
-        ),
-        rates_bias=(
-            macro_snapshot.rates_bias if macro_snapshot is not None else "unknown"
-        ),
-        inflation_bias=(
-            macro_snapshot.inflation_bias if macro_snapshot is not None else "unknown"
-        ),
-        fx_risk=fx_risk,
-        sector_risk_score=(
-            macro_snapshot.sector_risk_score if macro_snapshot is not None else None
-        ),
-        political_risk_score=(
-            macro_snapshot.political_risk_score if macro_snapshot is not None else None
-        ),
+        as_of=_macro_as_of(macro_snapshot),
+        region=_macro_region(symbol_identity, macro_snapshot),
+        currency=_macro_currency(symbol_identity, macro_snapshot),
+        rates_bias=_macro_rates_bias(macro_snapshot),
+        inflation_bias=_macro_inflation_bias(macro_snapshot),
+        fx_risk=_macro_fx_risk(symbol_identity, macro_snapshot),
+        sector_risk_score=_macro_sector_risk_score(macro_snapshot),
+        political_risk_score=_macro_political_risk_score(macro_snapshot),
         news_signals=news_signals,
         data_sources=sources,
-        summary=(
-            macro_snapshot.summary
-            if macro_snapshot is not None
-            else (
-                "Macro/news context is structured and ready for provider enrichment. "
-                f"{len(news_signals)} headline(s) were classified for this cycle."
-            )
-        ),
+        summary=_macro_summary(news_signals, macro_snapshot),
     )

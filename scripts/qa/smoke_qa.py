@@ -2254,9 +2254,12 @@ def _quality_checks(
 
 def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
     """
-    Run SonarQube analysis with the pysonar CLI and record the invocation and output in the artifacts directory.
+    Run the repository SonarQube scanner wrapper and record output in the artifacts directory.
 
-    If the pysonar executable or a Sonar token cannot be resolved, writes a diagnostic artifact and returns a failing CheckResult. Otherwise invokes pysonar with the configured host, project, default sources/tests and Python version, optionally includes branch, organization, and coverage.xml when available, and persists the command output with sensitive values redacted.
+    If a Sonar token cannot be resolved, writes a diagnostic artifact and returns
+    a failing CheckResult. Otherwise delegates to scripts/qa/run_sonar_scan.sh so
+    --include-sonar uses the same Python and JavaScript coverage path as
+    pnpm run sonar.
 
     Parameters:
         context (SmokeContext): Execution context containing the artifacts directory.
@@ -2265,17 +2268,6 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
     Returns:
         CheckResult: Result of the pysonar invocation; `passed` indicates success and `artifact` is the path to the written log.
     """
-    pysonar = _resolve_pysonar_executable()
-    if pysonar is None:
-        artifact = _artifact_path(context, "pysonar")
-        _write_artifact(artifact, "pysonar executable not found.\n")
-        return CheckResult(
-            name="pysonar",
-            passed=False,
-            details="pysonar not found",
-            artifact=str(artifact),
-        )
-
     token = _resolve_sonar_token()
     if not token:
         artifact = _artifact_path(context, "pysonar")
@@ -2295,47 +2287,37 @@ def _sonar_check(context: SmokeContext, args: Namespace) -> CheckResult:
             artifact=str(artifact),
         )
 
-    branch_name = args.sonar_branch_name
-    command = [
-        pysonar,
-        "--sonar-host-url",
-        args.sonar_host_url,
-        "--sonar-project-key",
-        args.sonar_project_key,
-        "--sonar-sources",
-        DEFAULT_SONAR_SOURCES,
-        "--sonar-tests",
-        DEFAULT_SONAR_TESTS,
-        "--sonar-python-version",
-        "3.12",
-    ]
-    if branch_name:
-        command.extend(["--sonar-branch-name", branch_name])
+    scanner_script = REPO_ROOT / "scripts" / "qa" / "run_sonar_scan.sh"
+    command = [str(scanner_script), "pysonar"]
+    env_overrides = {
+        "SONAR_ARTIFACT_DIR": str(context.artifacts_dir),
+        "SONAR_HOST_URL": args.sonar_host_url,
+        "SONAR_PROJECT_KEY": args.sonar_project_key,
+        "SONAR_TOKEN": token,
+    }
+    if args.sonar_branch_name:
+        env_overrides["SONAR_BRANCH_NAME"] = args.sonar_branch_name
     if args.sonar_organization:
-        command.append(f"-Dsonar.organization={args.sonar_organization}")
-    coverage_path = _coverage_path(context)
-    if coverage_path.exists():
-        command.extend(["--sonar-python-coverage-report-paths", str(coverage_path)])
+        env_overrides["SONAR_ORGANIZATION"] = args.sonar_organization
+
     display = (
-        "SONAR_TOKEN=<redacted> pysonar "
-        f"--sonar-host-url={args.sonar_host_url} "
-        f"--sonar-project-key={args.sonar_project_key} "
-        f"--sonar-sources={DEFAULT_SONAR_SOURCES} "
-        f"--sonar-tests={DEFAULT_SONAR_TESTS}"
+        "SONAR_TOKEN=<redacted> "
+        f"SONAR_ARTIFACT_DIR={context.artifacts_dir} "
+        f"SONAR_HOST_URL={args.sonar_host_url} "
+        f"SONAR_PROJECT_KEY={args.sonar_project_key} "
+        "scripts/qa/run_sonar_scan.sh pysonar"
     )
-    if branch_name:
-        display += f" --sonar-branch-name={branch_name}"
+    if args.sonar_branch_name:
+        display += f" SONAR_BRANCH_NAME={args.sonar_branch_name}"
     if args.sonar_organization:
-        display += f" -Dsonar.organization={args.sonar_organization}"
-    if coverage_path.exists():
-        display += " --sonar-python-coverage-report-paths=coverage.xml"
+        display += f" SONAR_ORGANIZATION={args.sonar_organization}"
     return run_command_capture(
         context,
         "pysonar",
         command,
-        timeout=240,
+        timeout=360,
         display=display,
-        env_overrides={"SONAR_TOKEN": token},
+        env_overrides=env_overrides,
         sensitive_values=(token,),
     )
 

@@ -224,6 +224,41 @@ class SecEdgarSubmissionsProvider:
         return self._metadata
 
     def collect(self, *, symbols: list[str], limit: int) -> ResearchProviderOutput:
+        early_output = self._early_collect_output(symbols)
+        if early_output is not None:
+            return early_output
+
+        watched_symbols = self._watched_symbols(symbols)
+        safe_limit = max(1, limit)
+        headers = self._headers()
+        ticker_output = self._ticker_index(headers)
+        if isinstance(ticker_output, ResearchProviderOutput):
+            return ticker_output
+
+        ticker_index = ticker_output
+        records: list[RawEvidenceRecord] = []
+        missing_reasons: list[str] = []
+        for symbol in watched_symbols:
+            if len(records) >= safe_limit:
+                break
+            symbol_records, symbol_missing = self._collect_symbol_records(
+                symbol=symbol,
+                ticker_index=ticker_index,
+                headers=headers,
+                remaining=safe_limit - len(records),
+            )
+            records.extend(symbol_records)
+            missing_reasons.extend(symbol_missing)
+
+        return ResearchProviderOutput(
+            metadata=self._metadata,
+            raw_evidence=records[:safe_limit],
+            missing_reasons=list(dict.fromkeys(missing_reasons)),
+        )
+
+    def _early_collect_output(
+        self, symbols: list[str]
+    ) -> ResearchProviderOutput | None:
         if not self._enabled:
             return ResearchProviderOutput(
                 metadata=self._metadata,
@@ -234,21 +269,26 @@ class SecEdgarSubmissionsProvider:
                 metadata=self._metadata,
                 missing_reasons=["sec_user_agent_missing"],
             )
-
-        watched_symbols = [_normalize_symbol(symbol) for symbol in symbols]
-        watched_symbols = [symbol for symbol in watched_symbols if symbol]
-        if not watched_symbols:
+        if not self._watched_symbols(symbols):
             return ResearchProviderOutput(
                 metadata=self._metadata,
                 missing_reasons=["watchlist_missing"],
             )
+        return None
 
-        safe_limit = max(1, limit)
-        headers = {
+    @staticmethod
+    def _watched_symbols(symbols: list[str]) -> list[str]:
+        return [symbol for symbol in (_normalize_symbol(item) for item in symbols) if symbol]
+
+    def _headers(self) -> dict[str, str]:
+        return {
             "Accept": "application/json",
             "User-Agent": self._user_agent,
         }
-        missing_reasons: list[str] = []
+
+    def _ticker_index(
+        self, headers: dict[str, str]
+    ) -> dict[str, _SecTickerMatch] | ResearchProviderOutput:
         try:
             ticker_payload = self._fetcher(
                 SEC_COMPANY_TICKERS_URL,
@@ -260,74 +300,91 @@ class SecEdgarSubmissionsProvider:
                 metadata=self._metadata,
                 missing_reasons=["sec_ticker_lookup_failed", _safe_error_note(exc)],
             )
+        return _sec_ticker_index(ticker_payload)
 
-        ticker_index = _sec_ticker_index(ticker_payload)
+    def _collect_symbol_records(
+        self,
+        *,
+        symbol: str,
+        ticker_index: dict[str, _SecTickerMatch],
+        headers: dict[str, str],
+        remaining: int,
+    ) -> tuple[list[RawEvidenceRecord], list[str]]:
+        match = ticker_index.get(symbol)
+        if match is None:
+            return [], [f"sec_cik_missing:{symbol}"]
         records: list[RawEvidenceRecord] = []
-        for symbol in watched_symbols:
-            match = ticker_index.get(symbol)
-            if match is None:
-                missing_reasons.append(f"sec_cik_missing:{symbol}")
-                continue
-            if len(records) < safe_limit:
-                try:
-                    facts_payload = self._fetcher(
-                        SEC_COMPANY_FACTS_URL_TEMPLATE.format(cik=match.cik),
-                        headers,
-                        self._timeout,
-                    )
-                except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
-                    missing_reasons.extend(
-                        [
-                            f"sec_companyfacts_fetch_failed:{symbol}",
-                            _safe_error_note(exc),
-                        ]
-                    )
-                else:
-                    facts_record = _record_from_company_facts(
-                        provider=self._metadata,
-                        symbol=symbol,
-                        match=match,
-                        payload=facts_payload,
-                    )
-                    if facts_record is None:
-                        missing_reasons.append(f"sec_companyfacts_missing:{symbol}")
-                    else:
-                        records.append(facts_record)
-            if len(records) >= safe_limit:
-                break
-            try:
-                submissions_payload = self._fetcher(
-                    SEC_SUBMISSIONS_URL_TEMPLATE.format(cik=match.cik),
-                    headers,
-                    self._timeout,
-                )
-            except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
-                missing_reasons.extend(
-                    [
-                        f"sec_submissions_fetch_failed:{symbol}",
-                        _safe_error_note(exc),
-                    ]
-                )
-                continue
-
-            symbol_records = _records_from_submissions(
-                provider=self._metadata,
-                symbol=symbol,
-                match=match,
-                payload=submissions_payload,
-                limit=safe_limit - len(records),
-            )
-            if not symbol_records:
-                missing_reasons.append(f"sec_target_filings_missing:{symbol}")
-            records.extend(symbol_records)
-            if len(records) >= safe_limit:
-                break
-
-        return ResearchProviderOutput(
-            metadata=self._metadata,
-            raw_evidence=records,
-            missing_reasons=list(dict.fromkeys(missing_reasons)),
+        missing_reasons = self._collect_company_facts_record(
+            symbol=symbol,
+            match=match,
+            headers=headers,
+            records=records,
         )
+        if len(records) >= remaining:
+            return records[:remaining], missing_reasons
+        submission_records, submission_missing = self._submission_records(
+            symbol=symbol,
+            match=match,
+            headers=headers,
+            limit=remaining - len(records),
+        )
+        records.extend(submission_records)
+        missing_reasons.extend(submission_missing)
+        return records[:remaining], missing_reasons
+
+    def _collect_company_facts_record(
+        self,
+        *,
+        symbol: str,
+        match: _SecTickerMatch,
+        headers: dict[str, str],
+        records: list[RawEvidenceRecord],
+    ) -> list[str]:
+        try:
+            facts_payload = self._fetcher(
+                SEC_COMPANY_FACTS_URL_TEMPLATE.format(cik=match.cik),
+                headers,
+                self._timeout,
+            )
+        except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
+            return [f"sec_companyfacts_fetch_failed:{symbol}", _safe_error_note(exc)]
+        facts_record = _record_from_company_facts(
+            provider=self._metadata,
+            symbol=symbol,
+            match=match,
+            payload=facts_payload,
+        )
+        if facts_record is None:
+            return [f"sec_companyfacts_missing:{symbol}"]
+        records.append(facts_record)
+        return []
+
+    def _submission_records(
+        self,
+        *,
+        symbol: str,
+        match: _SecTickerMatch,
+        headers: dict[str, str],
+        limit: int,
+    ) -> tuple[list[RawEvidenceRecord], list[str]]:
+        try:
+            submissions_payload = self._fetcher(
+                SEC_SUBMISSIONS_URL_TEMPLATE.format(cik=match.cik),
+                headers,
+                self._timeout,
+            )
+        except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
+            return [], [f"sec_submissions_fetch_failed:{symbol}", _safe_error_note(exc)]
+        records = _records_from_submissions(
+            provider=self._metadata,
+            symbol=symbol,
+            match=match,
+            payload=submissions_payload,
+            limit=limit,
+        )
+        if not records:
+            return [], [f"sec_target_filings_missing:{symbol}"]
+        return records, []
 
 
 class FirecrawlNewsResearchProvider:
@@ -389,81 +446,18 @@ class FirecrawlNewsResearchProvider:
         missing_reasons: list[str] = []
         per_symbol_limit = max(1, min(limit, 10))
         for symbol in watched_symbols:
-            query = f"{symbol} stock news this week"
-            if self._prefer_sdk:
-                try:
-                    sdk_payload = _firecrawl_sdk_search_payload(
-                        query=query,
-                        limit=per_symbol_limit,
-                        timeout_seconds=self._timeout,
-                        api_key=self._api_key,
-                        sdk_searcher=self._sdk_searcher,
-                    )
-                except Exception as exc:
-                    missing_reasons.append(
-                        f"firecrawl_sdk_failed:{symbol}:{type(exc).__name__}"
-                    )
-                    sdk_payload = None
-                if sdk_payload is not None:
-                    symbol_records = _records_from_firecrawl_payload(
-                        provider=self._metadata,
-                        symbol=symbol,
-                        payload=sdk_payload,
-                        limit=per_symbol_limit,
-                    )
-                    if not symbol_records:
-                        missing_reasons.append(f"firecrawl_no_news:{symbol}")
-                    records.extend(symbol_records)
-                    if len(records) >= limit:
-                        break
-                    continue
-
-            cli_path = _resolve_cli(self._cli)
-            if cli_path is None:
-                missing_reasons.append("firecrawl_cli_missing")
-                continue
-            command = [
-                cli_path,
-                "search",
-                query,
-                "--sources",
-                "news",
-                "--country",
-                self._country,
-                "--limit",
-                str(per_symbol_limit),
-                "--json",
-            ]
-            try:
-                completed = self._runner(
-                    command,
-                    self._timeout,
-                    _minimal_firecrawl_env(self._api_key),
-                )
-            except (OSError, subprocess.SubprocessError, TimeoutError) as exc:
-                missing_reasons.append(
-                    f"firecrawl_command_failed:{symbol}:{type(exc).__name__}"
-                )
-                continue
-            if completed.returncode != 0:
-                missing_reasons.append(
-                    f"firecrawl_nonzero_exit:{symbol}:"
-                    f"{redact_sensitive_text(completed.stderr, max_length=120)}"
-                )
-                continue
-            try:
-                payload = json.loads(completed.stdout)
-            except json.JSONDecodeError:
-                missing_reasons.append(f"firecrawl_json_parse_failed:{symbol}")
-                continue
-            symbol_records = _records_from_firecrawl_payload(
-                provider=self._metadata,
+            symbol_records, symbol_missing, sdk_answered = self._sdk_symbol_records(
                 symbol=symbol,
-                payload=payload,
-                limit=per_symbol_limit,
+                per_symbol_limit=per_symbol_limit,
             )
+            if not sdk_answered:
+                symbol_records, symbol_missing = self._cli_symbol_records(
+                    symbol=symbol,
+                    per_symbol_limit=per_symbol_limit,
+                )
             if not symbol_records:
-                missing_reasons.append(f"firecrawl_no_news:{symbol}")
+                symbol_missing.append(f"firecrawl_no_news:{symbol}")
+            missing_reasons.extend(symbol_missing)
             records.extend(symbol_records)
             if len(records) >= limit:
                 break
@@ -472,6 +466,78 @@ class FirecrawlNewsResearchProvider:
             metadata=self._metadata,
             raw_evidence=records[:limit],
             missing_reasons=list(dict.fromkeys(missing_reasons)),
+        )
+
+    def _sdk_symbol_records(
+        self,
+        *,
+        symbol: str,
+        per_symbol_limit: int,
+    ) -> tuple[list[RawEvidenceRecord], list[str], bool]:
+        if not self._prefer_sdk:
+            return [], [], False
+        try:
+            sdk_payload = _firecrawl_sdk_search_payload(
+                query=_firecrawl_news_query(symbol),
+                limit=per_symbol_limit,
+                timeout_seconds=self._timeout,
+                api_key=self._api_key,
+                sdk_searcher=self._sdk_searcher,
+            )
+        except Exception as exc:
+            return [], [f"firecrawl_sdk_failed:{symbol}:{type(exc).__name__}"], False
+        if sdk_payload is None:
+            return [], [], False
+        return (
+            _records_from_firecrawl_payload(
+                provider=self._metadata,
+                symbol=symbol,
+                payload=sdk_payload,
+                limit=per_symbol_limit,
+            ),
+            [],
+            True,
+        )
+
+    def _cli_symbol_records(
+        self,
+        *,
+        symbol: str,
+        per_symbol_limit: int,
+    ) -> tuple[list[RawEvidenceRecord], list[str]]:
+        cli_path = _resolve_cli(self._cli)
+        if cli_path is None:
+            return [], ["firecrawl_cli_missing"]
+        try:
+            completed = self._runner(
+                _firecrawl_cli_command(
+                    cli_path=cli_path,
+                    symbol=symbol,
+                    country=self._country,
+                    limit=per_symbol_limit,
+                ),
+                self._timeout,
+                _minimal_firecrawl_env(self._api_key),
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return [], [f"firecrawl_command_failed:{symbol}:{type(exc).__name__}"]
+        if completed.returncode != 0:
+            return [], [
+                f"firecrawl_nonzero_exit:{symbol}:"
+                f"{redact_sensitive_text(completed.stderr, max_length=120)}"
+            ]
+        try:
+            payload = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            return [], [f"firecrawl_json_parse_failed:{symbol}"]
+        return (
+            _records_from_firecrawl_payload(
+                provider=self._metadata,
+                symbol=symbol,
+                payload=payload,
+                limit=per_symbol_limit,
+            ),
+            [],
         )
 
 
@@ -748,6 +814,31 @@ def _minimal_firecrawl_env(api_key: str | None = None) -> dict[str, str]:
     if resolved_api_key:
         env["FIRECRAWL_API_KEY"] = resolved_api_key
     return env
+
+
+def _firecrawl_news_query(symbol: str) -> str:
+    return f"{symbol} stock news this week"
+
+
+def _firecrawl_cli_command(
+    *,
+    cli_path: str,
+    symbol: str,
+    country: str,
+    limit: int,
+) -> list[str]:
+    return [
+        cli_path,
+        "search",
+        _firecrawl_news_query(symbol),
+        "--sources",
+        "news",
+        "--country",
+        country,
+        "--limit",
+        str(limit),
+        "--json",
+    ]
 
 
 def _firecrawl_sdk_search_payload(
@@ -1278,25 +1369,44 @@ def _latest_company_fact(
     *,
     concepts: tuple[str, ...],
 ) -> tuple[str, str, dict[str, Any]] | None:
-    candidates: list[tuple[tuple[str, str, str], str, str, dict[str, Any]]] = []
-    for concept in concepts:
-        concept_payload = us_gaap.get(concept)
-        if not isinstance(concept_payload, dict):
-            continue
-        units = concept_payload.get("units")
-        if not isinstance(units, dict):
-            continue
-        for unit, values in units.items():
-            if unit != "USD" or not isinstance(values, list):
-                continue
-            for item in values:
-                if not isinstance(item, dict) or item.get("val") is None:
-                    continue
-                candidates.append((_company_fact_sort_key(item), concept, unit, item))
+    candidates = list(_company_fact_candidates(us_gaap, concepts=concepts))
     if not candidates:
         return None
     _, concept, unit, item = max(candidates, key=lambda candidate: candidate[0])
     return concept, unit, item
+
+
+def _company_fact_candidates(
+    us_gaap: dict[str, Any],
+    *,
+    concepts: tuple[str, ...],
+) -> list[tuple[tuple[str, str, str], str, str, dict[str, Any]]]:
+    candidates: list[tuple[tuple[str, str, str], str, str, dict[str, Any]]] = []
+    for concept in concepts:
+        for unit, item in _usd_company_fact_items(us_gaap.get(concept)):
+            candidates.append((_company_fact_sort_key(item), concept, unit, item))
+    return candidates
+
+
+def _usd_company_fact_items(concept_payload: object) -> list[tuple[str, dict[str, Any]]]:
+    units = _company_fact_units(concept_payload)
+    if units is None:
+        return []
+    values = units.get("USD")
+    if not isinstance(values, list):
+        return []
+    return [
+        ("USD", item)
+        for item in values
+        if isinstance(item, dict) and item.get("val") is not None
+    ]
+
+
+def _company_fact_units(concept_payload: object) -> dict[str, Any] | None:
+    if not isinstance(concept_payload, dict):
+        return None
+    units = concept_payload.get("units")
+    return units if isinstance(units, dict) else None
 
 
 def _company_fact_sort_key(item: dict[str, Any]) -> tuple[str, str, str]:

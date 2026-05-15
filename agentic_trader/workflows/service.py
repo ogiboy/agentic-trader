@@ -44,6 +44,14 @@ class _ServiceSymbolOutcome:
     stop_requested: bool = False
 
 
+@dataclass
+class _ServiceLoopState:
+    cycle_results: list[ServiceCycleResult]
+    cycle_count: int = 0
+    run_had_nonfatal_failure: bool = False
+    stopped: bool = False
+
+
 def _stop_requested(db: TradingDatabase) -> bool:
     """
     Check whether a stop of the service has been requested.
@@ -601,6 +609,90 @@ def _process_service_symbol(
     )
 
 
+def _handle_symbol_outcome(
+    *,
+    db: TradingDatabase,
+    config: _ServiceRunConfig,
+    state: _ServiceLoopState,
+    symbol: str,
+    outcome: _ServiceSymbolOutcome,
+) -> bool:
+    if outcome.skipped:
+        state.run_had_nonfatal_failure = True
+        if _stop_requested(db):
+            _record_stop_after_symbol(
+                db,
+                config,
+                symbol=symbol,
+                cycle_count=state.cycle_count,
+            )
+            state.stopped = True
+            return True
+        return False
+
+    if outcome.result is not None:
+        state.cycle_results.append(outcome.result)
+    if outcome.stop_requested:
+        state.stopped = True
+    return outcome.stop_requested
+
+
+def _process_service_cycle(
+    *,
+    db: TradingDatabase,
+    broker: BrokerAdapter,
+    config: _ServiceRunConfig,
+    state: _ServiceLoopState,
+) -> bool:
+    state.cycle_count += 1
+    _record_cycle_started(db, config, state.cycle_count)
+    cycle_had_nonfatal_failure = False
+    for symbol in config.symbols:
+        outcome = _process_service_symbol(
+            db=db,
+            broker=broker,
+            config=config,
+            symbol=symbol,
+            cycle_count=state.cycle_count,
+        )
+        cycle_had_nonfatal_failure = cycle_had_nonfatal_failure or outcome.skipped
+        if _handle_symbol_outcome(
+            db=db,
+            config=config,
+            state=state,
+            symbol=symbol,
+            outcome=outcome,
+        ):
+            return True
+
+    _record_cycle_completed_mark(db, state.cycle_count)
+    if _should_stop_after_cycle(config, state.cycle_count):
+        return True
+    if cycle_had_nonfatal_failure:
+        _record_cycle_nonfatal_summary(db, config, state.cycle_count)
+    if _sleep_until_next_cycle(db, config, cycle_count=state.cycle_count):
+        state.stopped = True
+        return True
+    return False
+
+
+def _run_service_loop(
+    *,
+    db: TradingDatabase,
+    broker: BrokerAdapter,
+    config: _ServiceRunConfig,
+) -> _ServiceLoopState:
+    state = _ServiceLoopState(cycle_results=[])
+    while True:
+        if _stop_requested(db):
+            _record_stop_before_cycle(db, config, state.cycle_count)
+            state.stopped = True
+            break
+        if _process_service_cycle(db=db, broker=broker, config=config, state=state):
+            break
+    return state
+
+
 def run_service(
     *,
     settings: Settings,
@@ -633,67 +725,28 @@ def run_service(
     broker = get_broker_adapter(db=db, settings=settings)
     _record_service_starting(db, config)
 
-    cycle_results: list[ServiceCycleResult] = []
-    cycle_count = 0
-    run_had_nonfatal_failure = False
-    stopped = False
+    loop_state = _ServiceLoopState(cycle_results=[])
     try:
-        while True:
-            if _stop_requested(db):
-                _record_stop_before_cycle(db, config, cycle_count)
-                stopped = True
-                break
-            cycle_count += 1
-            _record_cycle_started(db, config, cycle_count)
-            cycle_had_nonfatal_failure = False
-            for symbol in symbols:
-                outcome = _process_service_symbol(
-                    db=db,
-                    broker=broker,
-                    config=config,
-                    symbol=symbol,
-                    cycle_count=cycle_count,
-                )
-                if outcome.skipped:
-                    cycle_had_nonfatal_failure = True
-                    run_had_nonfatal_failure = True
-                    if _stop_requested(db):
-                        _record_stop_after_symbol(
-                            db,
-                            config,
-                            symbol=symbol,
-                            cycle_count=cycle_count,
-                        )
-                        return cycle_results
-                    continue
-                if outcome.result is not None:
-                    cycle_results.append(outcome.result)
-                if outcome.stop_requested:
-                    return cycle_results
-
-            _record_cycle_completed_mark(db, cycle_count)
-            if _should_stop_after_cycle(config, cycle_count):
-                break
-            if cycle_had_nonfatal_failure:
-                _record_cycle_nonfatal_summary(db, config, cycle_count)
-            if _sleep_until_next_cycle(db, config, cycle_count=cycle_count):
-                stopped = True
-                break
-
-        if not stopped:
+        loop_state = _run_service_loop(db=db, broker=broker, config=config)
+        if not loop_state.stopped:
             _record_service_completed(
                 db,
                 config,
-                cycle_count=cycle_count,
-                had_nonfatal_failure=run_had_nonfatal_failure,
+                cycle_count=loop_state.cycle_count,
+                had_nonfatal_failure=loop_state.run_had_nonfatal_failure,
             )
     except Exception as exc:
-        _record_service_failed(db, config, cycle_count=cycle_count, exc=exc)
+        _record_service_failed(
+            db,
+            config,
+            cycle_count=loop_state.cycle_count,
+            exc=exc,
+        )
         raise
     finally:
         clear_stop_request(settings)
 
-    return cycle_results
+    return loop_state.cycle_results
 
 
 def start_background_service(
