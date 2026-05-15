@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "hatchling.build"
-requires = ["hatchling>=1.28.0,<2.0.0"]
+requires = ["hatchling>=1.29.0,<2.0.0"]
 
 [project]
 authors = [
