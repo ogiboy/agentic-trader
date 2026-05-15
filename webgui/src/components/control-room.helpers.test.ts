@@ -130,6 +130,13 @@ const dashboardFixture = {
   },
   research: {
     backend: 'firecrawl',
+    cycleControl: {
+      status: 'paused',
+      trigger_now_requested: true,
+    },
+    latestDigestReplay: {
+      available: true,
+    },
     source_health_summary: { fresh: 2, missing: 0, unknown: 1 },
     status: 'ready',
   },

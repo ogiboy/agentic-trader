@@ -80,6 +80,17 @@ def test_build_snapshot_computes_higher_timeframe_alignment() -> None:
     assert snapshot.mtf_confidence > 0.55
 
 
+def test_build_snapshot_uses_daily_higher_timeframe_for_intraday_interval() -> None:
+    index = pd.date_range("2025-01-01", periods=24 * 40, freq="h")
+    frame = _ohlcv_frame(len(index), index=index)
+
+    snapshot = build_snapshot(frame, symbol="TREND", interval="1h", lookback="40d")
+
+    assert snapshot.higher_timeframe == "1d"
+    assert snapshot.context_pack is not None
+    assert snapshot.context_pack.higher_timeframe_used is True
+
+
 def test_build_snapshot_as_of_tracks_latest_clean_indicator_row() -> None:
     """
     Verifies that build_snapshot sets `as_of` to the ISO-formatted timestamp of the latest row with a non-missing indicator.

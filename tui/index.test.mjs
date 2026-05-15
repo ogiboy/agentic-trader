@@ -479,6 +479,13 @@ describe('Ink TUI dashboard helpers', () => {
       },
       research: {
         backend: 'noop',
+        cycleControl: {
+          status: 'running',
+          trigger_now_requested: false,
+        },
+        latestDigestReplay: {
+          available: false,
+        },
         source_health_summary: { fresh: 1, missing: 0, unknown: 0 },
         status: 'disabled',
       },

@@ -576,6 +576,9 @@ export function OverviewView({
               `Web GUI Owned: ${dashboard.webGui?.app_owned ? 'yes' : 'no'}`,
               `Web GUI URL: ${dashboard.webGui?.url ?? '-'}`,
               `Research: ${dashboard.research?.status ?? '-'} (${dashboard.research?.backend ?? '-'})`,
+              `Research Control: ${dashboard.research?.cycleControl?.status ?? '-'}`,
+              `Research Trigger: ${dashboard.research?.cycleControl?.trigger_now_requested ? 'requested' : 'clear'}`,
+              `Research Digest Replay: ${dashboard.research?.latestDigestReplay?.available ? 'available' : '-'}`,
               `Research Sources: ${sourceHealthSummaryLine(dashboard.research?.source_health_summary)}`,
             ]}
           />
@@ -1424,6 +1427,20 @@ export function ControlRoom() {
       ['Camofox Service', dashboard?.camofoxService?.message ?? '-'],
       ['Web GUI Service', dashboard?.webGui?.message ?? '-'],
       ['Research', dashboard?.research?.status ?? '-'],
+      [
+        'Research Control',
+        dashboard?.research?.cycleControl?.status ?? '-',
+      ],
+      [
+        'Research Trigger',
+        dashboard?.research?.cycleControl?.trigger_now_requested
+          ? 'requested'
+          : 'clear',
+      ],
+      [
+        'Research Digest Replay',
+        dashboard?.research?.latestDigestReplay?.available ? 'available' : '-',
+      ],
       [
         'Research Sources',
         sourceHealthSummaryLine(dashboard?.research?.source_health_summary),

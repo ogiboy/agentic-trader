@@ -66,6 +66,7 @@ from agentic_trader.memory.policy import memory_write_policy_snapshot
 from agentic_trader.runtime_feed import (
     append_chat_history,
     read_latest_research_snapshot,
+    read_research_digest_replay,
     read_service_events,
     read_service_state,
     read_chat_history,
@@ -79,6 +80,10 @@ from agentic_trader.runtime_status import (
 )
 from agentic_trader.observer_api import serve_observer_api
 from agentic_trader.researchd.crewai_setup import crewai_setup_status
+from agentic_trader.researchd.control import (
+    get_research_cycle_control,
+    set_research_cycle_control,
+)
 from agentic_trader.researchd.cycle_plan import research_cycle_plan_payload
 from agentic_trader.researchd.cycle_runner import run_research_cycle
 from agentic_trader.researchd.news_intelligence import (
@@ -139,6 +144,7 @@ from agentic_trader.schemas import (
     TradeProposalRecord,
     TradeProposalStatus,
     TradeSide,
+    ResearchCycleControlAction,
 )
 from agentic_trader.storage.db import OrderRow, TradingDatabase
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
@@ -3249,7 +3255,11 @@ def _research_sidecar_payload(
     payload = build_research_sidecar_state(settings, probe=probe).model_dump(
         mode="json"
     )
+    payload["cycleControl"] = get_research_cycle_control(settings).model_dump(
+        mode="json"
+    )
     payload["latestSnapshot"] = _latest_research_snapshot_payload(settings)
+    payload["latestDigestReplay"] = _latest_research_digest_replay_payload(settings)
     return payload
 
 
@@ -3265,6 +3275,25 @@ def _latest_research_snapshot_payload(settings: Settings) -> dict[str, object]:
         return {
             "available": False,
             "error": "no_research_snapshot_recorded",
+        }
+    return {
+        "available": True,
+        "record": record.model_dump(mode="json"),
+    }
+
+
+def _latest_research_digest_replay_payload(settings: Settings) -> dict[str, object]:
+    try:
+        record = read_research_digest_replay(settings)
+    except Exception as exc:
+        return {
+            "available": False,
+            "error": str(exc),
+        }
+    if record is None:
+        return {
+            "available": False,
+            "error": "no_research_digest_replay_recorded",
         }
     return {
         "available": True,
@@ -3289,6 +3318,14 @@ def _render_research_sidecar_state(payload: dict[str, object]) -> None:
     table.add_row("Last Successful Update", str(last_success or "-"))
     last_error = payload.get("last_error")
     table.add_row("Last Error", str(last_error or "-"))
+    control = cast(dict[str, object], payload.get("cycleControl", {}))
+    table.add_row("Cycle Control", str(control.get("status", "-")))
+    table.add_row(
+        "Trigger Now",
+        "yes" if control.get("trigger_now_requested") else "no",
+    )
+    replay = cast(dict[str, object], payload.get("latestDigestReplay", {}))
+    table.add_row("Digest Replay", "available" if replay.get("available") else "-")
     console.print(table)
 
     providers = cast(list[dict[str, object]], payload["provider_health"])
@@ -3325,6 +3362,77 @@ def research_status(
         _emit_json(payload)
         return
     _render_research_sidecar_state(payload)
+
+
+@app.command("research-cycle-control")
+def research_cycle_control(
+    pause: bool = typer.Option(
+        False,
+        "--pause",
+        help="Pause future automated research-cycle runs.",
+    ),
+    resume: bool = typer.Option(
+        False,
+        "--resume",
+        help="Resume future automated research-cycle runs.",
+    ),
+    trigger_now: bool = typer.Option(
+        False,
+        "--trigger-now",
+        help="Request one immediate research-cycle run for the next runner.",
+    ),
+    reason: str | None = typer.Option(
+        None,
+        "--reason",
+        help="Optional operator note persisted with the control state.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Read or update the advisory operator control state for research cycles."""
+    selected_actions = [
+        action
+        for action, enabled in (
+            ("pause", pause),
+            ("resume", resume),
+            ("trigger_now", trigger_now),
+        )
+        if enabled
+    ]
+    if len(selected_actions) > 1:
+        raise typer.BadParameter("Choose only one of --pause, --resume, or --trigger-now.")
+    settings = get_settings()
+    action = (
+        cast(ResearchCycleControlAction, selected_actions[0])
+        if selected_actions
+        else None
+    )
+    control = (
+        set_research_cycle_control(settings, action=action, reason=reason)
+        if action is not None
+        else get_research_cycle_control(settings)
+    )
+    payload = {
+        "control": control.model_dump(mode="json"),
+        "persisted": action is not None,
+        "execution_policy": {
+            "broker_access": False,
+            "proposal_creation": False,
+            "manual_review_required": True,
+        },
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            (
+                f"Research cycle control: {control.status}\n"
+                f"Trigger now requested: {'yes' if control.trigger_now_requested else 'no'}"
+            ),
+            title="Research Cycle Control",
+            border_style="cyan",
+        )
+    )
 
 
 @app.command("research-refresh")

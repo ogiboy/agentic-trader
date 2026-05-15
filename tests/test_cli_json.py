@@ -10,6 +10,8 @@ from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
 from agentic_trader.finance.proposals import create_trade_proposal, utc_now_iso
 from agentic_trader.runtime_feed import (
     append_chat_history,
+    research_cycle_control_path,
+    research_digest_replay_path,
     research_latest_snapshot_path,
 )
 from agentic_trader.schemas import (
@@ -122,6 +124,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["news-intelligence", "-h"],
         ["research-cycle-plan", "--help"],
         ["research-cycle-plan", "-h"],
+        ["research-cycle-control", "--help"],
+        ["research-cycle-control", "-h"],
         ["research-cycle-run", "--help"],
         ["research-cycle-run", "-h"],
         ["evidence-bundle", "--help"],
@@ -1638,7 +1642,54 @@ def test_research_status_json_reports_sidecar_state(
     assert payload["status"] == "idle"
     assert payload["watched_symbols"] == ["AAPL", "MSFT"]
     assert payload["provider_health"][0]["provider_id"] == "sec_edgar_research"
+    assert payload["cycleControl"]["status"] == "running"
     assert payload["latestSnapshot"]["available"] is False
+    assert payload["latestDigestReplay"]["available"] is False
+    assert settings.database_path.exists() is False
+
+
+def test_research_cycle_control_json_persists_pause_and_trigger(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    pause_result = runner.invoke(
+        app,
+        [
+            "research-cycle-control",
+            "--pause",
+            "--reason",
+            "operator review",
+            "--json",
+        ],
+    )
+
+    assert pause_result.exit_code == 0
+    pause_payload = json.loads(pause_result.stdout)
+    assert pause_payload["persisted"] is True
+    assert pause_payload["control"]["status"] == "paused"
+    assert pause_payload["control"]["reason"] == "operator review"
+    assert research_cycle_control_path(settings).exists()
+
+    trigger_result = runner.invoke(
+        app,
+        ["research-cycle-control", "--trigger-now", "--json"],
+    )
+
+    assert trigger_result.exit_code == 0
+    trigger_payload = json.loads(trigger_result.stdout)
+    assert trigger_payload["control"]["status"] == "paused"
+    assert trigger_payload["control"]["trigger_now_requested"] is True
+    assert trigger_payload["execution_policy"]["broker_access"] is False
     assert settings.database_path.exists() is False
 
 
@@ -1716,6 +1767,9 @@ def test_research_cycle_run_json_executes_bounded_evidence_only_cycle(
     assert "source_health_delta" in payload["executions"][0]
     assert payload["executions"][0]["digest"]["raw_web_text_injected"] is False
     assert payload["latest_digest"] == payload["executions"][-1]["digest"]
+    assert payload["operator_control"]["status"] == "running"
+    assert payload["digest_replay"]["snapshot_id"] == payload["latest_digest"]["snapshot_id"]
+    assert research_digest_replay_path(settings).exists()
     assert research_latest_snapshot_path(settings).exists()
     assert settings.database_path.exists() is False
 

@@ -4,6 +4,8 @@ from pathlib import Path
 from agentic_trader.config import Settings
 from agentic_trader.schemas import (
     ChatHistoryEntry,
+    ResearchCycleOperatorControl,
+    ResearchDigestReplayRecord,
     ResearchSnapshotRecord,
     ServiceEvent,
     ServiceStateSnapshot,
@@ -33,6 +35,14 @@ def research_snapshots_path(settings: Settings) -> Path:
 
 def research_latest_snapshot_path(settings: Settings) -> Path:
     return settings.runtime_dir / "research_latest_snapshot.json"
+
+
+def research_cycle_control_path(settings: Settings) -> Path:
+    return settings.runtime_dir / "research_cycle_control.json"
+
+
+def research_digest_replay_path(settings: Settings) -> Path:
+    return settings.runtime_dir / "research_digest_replay.json"
 
 
 def write_service_state(settings: Settings, state: ServiceStateSnapshot) -> None:
@@ -120,6 +130,46 @@ def read_latest_research_snapshot(settings: Settings) -> ResearchSnapshotRecord 
         )
     records = read_research_snapshots(settings, limit=1)
     return records[0] if records else None
+
+
+def write_research_cycle_control(
+    settings: Settings, control: ResearchCycleOperatorControl
+) -> None:
+    write_private_text(
+        research_cycle_control_path(settings),
+        control.model_dump_json(indent=2),
+    )
+
+
+def read_research_cycle_control(
+    settings: Settings,
+) -> ResearchCycleOperatorControl | None:
+    path = research_cycle_control_path(settings)
+    if not path.exists():
+        return None
+    return ResearchCycleOperatorControl.model_validate_json(
+        path.read_text(encoding="utf-8")
+    )
+
+
+def write_research_digest_replay(
+    settings: Settings, record: ResearchDigestReplayRecord
+) -> None:
+    write_private_text(
+        research_digest_replay_path(settings),
+        record.model_dump_json(indent=2),
+    )
+
+
+def read_research_digest_replay(
+    settings: Settings,
+) -> ResearchDigestReplayRecord | None:
+    path = research_digest_replay_path(settings)
+    if not path.exists():
+        return None
+    return ResearchDigestReplayRecord.model_validate_json(
+        path.read_text(encoding="utf-8")
+    )
 
 
 def request_stop(settings: Settings) -> None:

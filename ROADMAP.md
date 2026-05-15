@@ -451,15 +451,17 @@ Status: in progress.
 - [x] add optional disabled-by-default Firecrawl news search and Camofox local-browser health providers behind `researchd`, with redaction, provenance, and raw-text-free prompt boundaries
 - [x] document the safe news/browser evidence envelope: source tier, fetcher source, attempts, published/fetched timestamps, freshness, materiality, classification, and redaction before any scanner/proposal/review use
 - [x] add a first bounded CLI research-cycle executor for cadence/watchlist-aware sidecar snapshot collection, preflight/source-health/digest output, and no broker/proposal authority
+- [x] add advisory pause/resume/trigger-now research-cycle control state plus latest digest replay artifacts across CLI, dashboard JSON, Ink, and Web GUI visibility
 - [ ] wire remaining real official/structured sources: SEC full filing parsing, KAP disclosures, FRED/CBRT-style macro series, GDELT/news event feeds
 - [ ] write only normalized research packets into trade-memory-facing surfaces; never inject raw web/social text directly into trading prompts
-- [ ] add operator controls for start, stop, mode, cadence, watchlist, and source health across CLI, Ink, Rich, and Web GUI as the sidecar matures
+- [ ] add active daemon controls for start, stop, cadence, watchlist mutation, source health actions, and trigger consumption as the sidecar matures
       Notes:
 - this is a local-first V1 evidence companion for the current runtime, not a re-platforming
 - the sidecar may eventually run beside the daemon, but it must not submit orders, mutate trading policy, or weaken strict runtime gates
 - SEC EDGAR submissions and compact companyfacts ingestion are disabled by default and require a configured User-Agent; full filing text and downstream memory writes remain separate planned steps
 - Firecrawl/Camofox support is optional helper infrastructure, not a mandatory runtime dependency or broker-capable sidecar
 - `research-cycle-run` now executes bounded evidence-only sidecar cycles, can persist research snapshots, supports QA-friendly `--no-sleep`, and reports preflight status, source-health delta, cadence/next-run, digest, and disabled broker/proposal/raw-web-prompt authority
+- `research-cycle-control` persists advisory operator intent without starting a daemon; future continuous runners may consume the pause/resume/trigger-now file, while the latest digest replay artifact stays raw-text-free and broker-disabled
 - missing provider data must stay visible as missing; source diversity, staleness, evidence/inference separation, and contradiction tracking are core contracts
 
 ## V1 Evaluation And Crew Loops - Optional Sidecar Harness

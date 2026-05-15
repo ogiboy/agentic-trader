@@ -105,6 +105,12 @@ def test_symbol_identity_uses_market_suffix_and_preferences() -> None:
     assert eu_identity.currency == "EUR"
     assert eu_identity.region == "EU"
 
+    crypto_identity = resolve_symbol_identity("btc-usd")
+    assert crypto_identity.exchange == "CRYPTO"
+    assert crypto_identity.currency == "USD"
+    assert crypto_identity.region == "GLOBAL"
+    assert crypto_identity.asset_class == "crypto"
+
 
 def test_market_features_summarize_context_pack() -> None:
     features = get_market_features(_snapshot())

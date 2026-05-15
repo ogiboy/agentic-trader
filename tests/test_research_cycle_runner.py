@@ -2,8 +2,12 @@ from pathlib import Path
 from typing import Any, cast
 
 from agentic_trader.config import Settings
+from agentic_trader.researchd.control import set_research_cycle_control
 from agentic_trader.researchd.cycle_runner import run_research_cycle
-from agentic_trader.runtime_feed import research_latest_snapshot_path
+from agentic_trader.runtime_feed import (
+    read_research_digest_replay,
+    research_latest_snapshot_path,
+)
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
@@ -53,6 +57,14 @@ def test_research_cycle_run_persists_bounded_evidence_only_snapshot(
     assert digest["memory_status"] == "not_written"
     assert digest["watch_next"] == ["AAPL", "MSFT"]
     assert payload["latest_digest"] == executions[-1]["digest"]
+    latest_digest = cast(dict[str, object], payload["latest_digest"])
+    operator_control = cast(dict[str, object], payload["operator_control"])
+    assert operator_control["status"] == "running"
+    digest_replay = cast(dict[str, object], payload["digest_replay"])
+    assert digest_replay["snapshot_id"] == latest_digest["snapshot_id"]
+    persisted_replay = read_research_digest_replay(settings)
+    assert persisted_replay is not None
+    assert persisted_replay.snapshot_id == latest_digest["snapshot_id"]
     assert research_latest_snapshot_path(settings).exists()
     assert settings.database_path.exists() is False
 
@@ -80,6 +92,27 @@ def test_research_cycle_run_reports_next_run_when_sleeping(
     assert cadence["seconds"] == 3
     assert cadence["sleep_between_cycles"] is True
     assert executions[1]["next_run_at"] is None
+
+
+def test_research_cycle_run_carries_operator_control_into_digest_replay(
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path)
+    set_research_cycle_control(settings, action="pause", reason="review sources")
+
+    payload = run_research_cycle(
+        settings,
+        symbols=["AAPL"],
+        persist=True,
+        sleep_between_cycles=False,
+    )
+
+    operator_control = cast(dict[str, object], payload["operator_control"])
+    digest_replay = cast(dict[str, object], payload["digest_replay"])
+    replay_control = cast(dict[str, object], digest_replay["operator_control"])
+    assert operator_control["status"] == "paused"
+    assert replay_control["reason"] == "review sources"
+    assert replay_control["status"] == "paused"
 
 
 def test_research_cycle_run_fails_closed_without_symbols(tmp_path: Path) -> None:

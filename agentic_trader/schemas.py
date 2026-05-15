@@ -66,6 +66,8 @@ ResearchEvidenceKind = Literal[
 ResearchSignalDirection = Literal[
     "supportive", "neutral", "cautious", "contradictory", "unknown"
 ]
+ResearchCycleControlAction = Literal["idle", "pause", "resume", "trigger_now"]
+ResearchCycleControlStatus = Literal["running", "paused"]
 DisclosureKind = Literal[
     "sec_filing",
     "kap_disclosure",
@@ -591,6 +593,32 @@ class ResearchSidecarState(BaseModel):
     watched_symbols: list[str] = Field(default_factory=list)
     provider_health: list[ResearchProviderHealth] = Field(default_factory=list)
     source_health_summary: dict[str, int] = Field(default_factory=dict)
+
+
+class ResearchCycleOperatorControl(BaseModel):
+    status: ResearchCycleControlStatus = "running"
+    requested_action: ResearchCycleControlAction = "idle"
+    updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+    updated_by: str = "operator"
+    reason: str | None = None
+    trigger_now_requested: bool = False
+    trigger_requested_at: str | None = None
+    paused_at: str | None = None
+    resumed_at: str | None = None
+
+
+class ResearchDigestReplayRecord(BaseModel):
+    artifact_id: str
+    generated_at: str
+    snapshot_id: str | None = None
+    mode: ResearchMode
+    backend: str = "noop"
+    watched_symbols: list[str] = Field(default_factory=list)
+    digest: dict[str, object] = Field(default_factory=dict)
+    executions: list[dict[str, object]] = Field(default_factory=list)
+    execution_policy: dict[str, bool] = Field(default_factory=dict)
+    operator_control: ResearchCycleOperatorControl
+    replay_notes: list[str] = Field(default_factory=list)
 
 
 class ResearchSnapshotRecord(BaseModel):

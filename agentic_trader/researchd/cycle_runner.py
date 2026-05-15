@@ -6,8 +6,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from time import sleep
 from typing import Callable
+from uuid import uuid4
 
 from agentic_trader.config import Settings
+from agentic_trader.researchd.control import get_research_cycle_control
 from agentic_trader.researchd.cycle_plan import research_cycle_plan_payload
 from agentic_trader.researchd.orchestrator import (
     ResearchPipelineResult,
@@ -15,6 +17,8 @@ from agentic_trader.researchd.orchestrator import (
     utc_now_iso,
 )
 from agentic_trader.researchd.persistence import persist_research_result
+from agentic_trader.runtime_feed import write_research_digest_replay
+from agentic_trader.schemas import ResearchDigestReplayRecord
 
 SleepFn = Callable[[float], None]
 
@@ -111,6 +115,7 @@ def run_research_cycle(
         cadence_seconds=resolved.safe_cadence,
         max_proposals_per_cycle=resolved.max_proposals_per_cycle,
     )
+    operator_control = get_research_cycle_control(settings)
     executions: list[ResearchCycleExecution] = []
     previous_source_health: dict[str, int] = {}
     for index in range(resolved.safe_cycles):
@@ -144,6 +149,30 @@ def run_research_cycle(
             sleep_fn(float(resolved.safe_cadence))
 
     latest_digest = executions[-1].digest if executions else {}
+    execution_policy = _execution_policy_payload()
+    digest_replay = ResearchDigestReplayRecord(
+        artifact_id=f"research-digest-{uuid4()}",
+        generated_at=utc_now_iso(),
+        snapshot_id=(
+            str(latest_digest.get("snapshot_id"))
+            if latest_digest.get("snapshot_id") is not None
+            else None
+        ),
+        mode=settings.research_mode,
+        backend=executions[-1].backend if executions else settings.research_sidecar_backend,
+        watched_symbols=list(resolved.symbols),
+        digest=dict(latest_digest),
+        executions=[execution.to_payload() for execution in executions],
+        execution_policy=execution_policy,
+        operator_control=operator_control,
+        replay_notes=[
+            "artifact_replays_operator_digest_only",
+            "raw_web_text_is_not_included",
+            "broker_or_proposal_authority_is_disabled",
+        ],
+    )
+    if resolved.persist:
+        write_research_digest_replay(settings, digest_replay)
     return {
         "cycle": "research-cycle-run",
         "plan": plan,
@@ -152,7 +181,9 @@ def run_research_cycle(
         "cadence_seconds": resolved.safe_cadence,
         "persisted": resolved.persist,
         "sleep_between_cycles": resolved.sleep_between_cycles,
-        "execution_policy": _execution_policy_payload(),
+        "execution_policy": execution_policy,
+        "operator_control": operator_control.model_dump(mode="json"),
+        "digest_replay": digest_replay.model_dump(mode="json"),
         "latest_digest": latest_digest,
         "executions": [execution.to_payload() for execution in executions],
     }
