@@ -1,6 +1,6 @@
 {
   "name": "agentic-trader-workspace",
-  "version": "0.9.12",
+  "version": "0.10.0",
   "private": true,
   "license": "LGPL-3.0-or-later",
   "packageManager": "pnpm@11.0.9",
