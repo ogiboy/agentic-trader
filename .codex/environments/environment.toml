@@ -27,7 +27,7 @@ pnpm run setup:node
 name = "install python deps"
 icon = "tool"
 command = '''
-pnpm install:python
+pnpm run install:python
 '''
 
 [[actions]]
