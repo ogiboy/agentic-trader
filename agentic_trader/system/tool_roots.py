@@ -90,8 +90,10 @@ LOCAL_TOOL_DEFINITIONS: dict[LocalToolId, LocalToolDefinition] = {
         category="runtime_optional",
         consumers=("setup", "researchd", "camofox-service", "operator-launcher", "qa", "docs"),
         install_hint=(
-            "Keep the optional browser helper under tools/camofox-browser, run npm "
-            "install there, and start it with CAMOFOX_ACCESS_KEY before enabling it."
+            "Keep the optional browser helper under tools/camofox-browser, run "
+            "`pnpm --dir tools/camofox-browser install --ignore-scripts`, fetch the "
+            "browser binary explicitly with `make fetch-camofox`, and start it with "
+            "CAMOFOX_ACCESS_KEY before enabling it."
         ),
     ),
     "ollama": LocalToolDefinition(

@@ -32,11 +32,19 @@ Focused commands stay available for debugging, while normal operators get a shor
 | `pnpm run app:start` | start configured app-owned helper services and the Web GUI; daemon start remains an explicit operator choice |
 | `pnpm run app:stop` | stop only app-owned services recorded by the repo, never host-owned Ollama, Firecrawl, or browser processes |
 | `pnpm run app:update` | update dependencies and lockfiles through the right owners, rebuild, then report setup/service readiness |
-| `pnpm run app:doctor` | read-only setup, service, provider, PATH, and tool-root diagnosis |
+| `pnpm run app:doctor` | available first slice: read-only setup, service, provider, V1, PATH, and tool-root diagnosis |
 | `pnpm run app:uninstall` | remove app-owned dependency/runtime/tool artifacts only after confirmation |
 
 The existing focused commands such as `setup:node`, `install:python`, `setup:research-flow`, `setup:camofox`, `fetch:camofox`, `start:camofox`, and service-specific CLI commands should remain useful for debugging.
 The plan is to make them implementation details behind the guided lifecycle rather than the only way to get started.
+
+`app:doctor` is intentionally the first implemented lifecycle command. It uses
+the already installed `agentic-trader` entrypoint instead of invoking `uv run`,
+so a diagnosis does not create or repair an environment as a hidden side effect.
+It reads `setup-status`, model-service, Camofox-service, WebGUI-service,
+provider diagnostics, and network-light `v1-readiness`; generation probes remain
+explicit through `v1-readiness --provider-check` or
+`model-service status --probe-generation`.
 
 ## Non-negotiable requirements
 

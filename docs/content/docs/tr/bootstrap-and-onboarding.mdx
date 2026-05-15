@@ -32,11 +32,19 @@ Debugging için odaklı komutlar kalmalı, normal operatör ise kısa bir lifecy
 | `pnpm run app:start` | yapılandırılmış app-owned yardımcı servisleri ve Web GUI'yi başlatır; daemon başlatmak hâlâ açık operatör kararıdır |
 | `pnpm run app:stop` | sadece repo tarafından kaydedilen app-owned servisleri durdurur; host-owned Ollama, Firecrawl veya browser süreçlerini öldürmez |
 | `pnpm run app:update` | bağımlılıkları ve lockfile'ları doğru sahipleri üzerinden günceller, build eder ve setup/service readiness raporlar |
-| `pnpm run app:doctor` | read-only setup, servis, provider, PATH ve tool-root teşhisi verir |
+| `pnpm run app:doctor` | ilk hazır slice: read-only setup, servis, provider, V1, PATH ve tool-root teşhisi verir |
 | `pnpm run app:uninstall` | app-owned dependency/runtime/tool artifact'larını onaydan sonra kaldırır |
 
 `setup:node`, `install:python`, `setup:research-flow`, `setup:camofox`, `fetch:camofox`, `start:camofox` ve servis bazlı CLI komutları debugging için faydalı kalmalı.
 Plan, bunları yönlendirmeli lifecycle'ın arkasındaki uygulanabilir parçalar haline getirmek; kullanıcıyı tek tek komut avına mecbur bırakmak değil.
+
+`app:doctor` bilinçli olarak ilk implemente edilen lifecycle komutudur. Gizli
+yan etkiyle ortam oluşturmasın ya da onarmasın diye `uv run` çağırmak yerine
+zaten kurulu olan `agentic-trader` entrypoint'ini kullanır. `setup-status`,
+model-service, Camofox-service, WebGUI-service, provider diagnostics ve
+network-light `v1-readiness` okur; generation probe hâlâ açıkça
+`v1-readiness --provider-check` veya `model-service status --probe-generation`
+ile istenir.
 
 ## Vazgeçilmez gereksinimler
 

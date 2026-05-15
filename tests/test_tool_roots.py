@@ -56,6 +56,10 @@ def test_local_tool_definitions_expose_runtime_consumers_and_fallbacks() -> None
     assert definitions["camofox-browser"].status_tool_id == "camofox_browser"
     assert "camofox-service" in definitions["camofox-browser"].consumers
     assert definitions["camofox-browser"].fallback_order[0] == "repo_tools"
+    assert "pnpm --dir tools/camofox-browser install --ignore-scripts" in definitions[
+        "camofox-browser"
+    ].install_hint
+    assert "npm install" not in definitions["camofox-browser"].install_hint
 
 
 def test_manifest_notes_are_safe_and_include_entrypoints() -> None:

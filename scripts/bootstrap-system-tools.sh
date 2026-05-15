@@ -164,11 +164,11 @@ setup_camofox_browser() {
   fi
   printf '%s\n' "Camofox dependency install is local and skips browser downloads by default."
   if ask_yes "Install optional Camofox browser helper dependencies now?"; then
-    run_cmd sh -c "cd '$camofox_dir' && npm install --ignore-scripts"
+    run_cmd pnpm --dir "$camofox_dir" install --ignore-scripts
   fi
   printf '%s\n' "Camoufox browser binary download is separate and can be large."
   if ask_yes "Download/update the Camoufox browser binary now?"; then
-    run_cmd sh -c "cd '$camofox_dir' && npm run fetch:browser"
+    run_cmd pnpm --dir "$camofox_dir" run fetch:browser
   fi
 }
 

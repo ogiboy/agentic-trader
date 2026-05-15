@@ -677,3 +677,30 @@ Reason:
 Release binaries should come from a reproducible packaging contract instead of whatever spec PyInstaller generates in a CI runner.
 The canonical tracked spec is `agentic-trader.spec`, points at `main.py`, names the executable `agentic-trader`, and disables UPX to reduce platform-specific packaging variance and antivirus false positives.
 CI smoke builds and release binary builds should use this spec directly.
+
+### app:doctor is the first lifecycle slice and stays read-only
+
+Reason:
+The planned operator lifecycle needs a safe foothold before any mutating
+`app:setup`, `app:start`, `app:stop`, `app:up`, `app:update`, or
+`app:uninstall` behavior lands. `app:doctor` therefore resolves an already
+installed `agentic-trader` entrypoint and reads existing status contracts only:
+`setup-status`, model-service status, Camofox-service status, WebGUI-service
+status, provider diagnostics, and network-light `v1-readiness`.
+It must not call `uv run`, silently create or repair an environment, start or
+stop services, pull Ollama models, fetch browser binaries, open the Web GUI, or
+start a trading daemon. Provider/model generation checks remain explicit
+through `v1-readiness --provider-check` or
+`model-service status --probe-generation`.
+
+### Camofox tool-root commands are pnpm-owned, browser fetch remains separate
+
+Reason:
+The root JavaScript policy is pnpm, and optional tool infrastructure should not
+teach a second package-manager path unless there is a clear isolation reason.
+Root scripts and docs should call `pnpm --dir tools/camofox-browser ...` for
+dependency install, browser fetch, and syntax checks. The dependency install
+must still use `--ignore-scripts`, and the Camoufox browser binary download must
+remain a separate explicit command because it is large and platform-sensitive.
+The existing npm lockfile can be removed only after a dedicated pnpm tool-root
+install/test smoke proves the migration is clean.
