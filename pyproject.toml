@@ -17,7 +17,7 @@ dependencies = [
   "yfinance>=0.2.58",
   "alpaca-py>=0.43.2,<0.44.0",
   "massive>=2.5.0,<3.0.0",
-  "firecrawl-py>=4.25.1",
+  "firecrawl-py>=4.26.0",
   "ollama>=0.6.2",
   "yt-dlp>=2026.3.17",
 ]
