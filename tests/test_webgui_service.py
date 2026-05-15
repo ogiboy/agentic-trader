@@ -296,7 +296,7 @@ def test_stop_webgui_service_escalates_when_app_owned_process_survives_sigterm(
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
     webgui_service._write_state(settings, state)
-    signals: list[int] = []
+    signals: list[tuple[int, int]] = []
     wait_timeouts: list[float] = []
 
     def fake_wait(_state: webgui_service.WebGUIServiceState, *, timeout: float) -> bool:
@@ -305,19 +305,24 @@ def test_stop_webgui_service_escalates_when_app_owned_process_survives_sigterm(
 
     monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid == 88883)
     monkeypatch.setattr(webgui_service, "_process_matches_state", lambda _state: True)
-    monkeypatch.setattr(webgui_service.os, "kill", lambda _pid, sig: signals.append(sig))
+    monkeypatch.setattr(webgui_service.os, "getpgid", lambda pid: pid + 10)
+    monkeypatch.setattr(
+        webgui_service.os,
+        "killpg",
+        lambda pgid, sig: signals.append((pgid, sig)),
+    )
     monkeypatch.setattr(webgui_service, "_wait_for_state_exit", fake_wait)
     monkeypatch.setattr(webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable"))
 
     status = webgui_service.stop_webgui_service(settings)
 
     assert signals == [
-        signal.SIGTERM,
-        getattr(signal, "SIGKILL", signal.SIGTERM),
+        (88893, signal.SIGTERM),
+        (88893, getattr(signal, "SIGKILL", signal.SIGTERM)),
     ]
     assert wait_timeouts == [5, 1]
-    assert status.app_owned is False
-    assert not webgui_service.webgui_service_state_path(settings).exists()
+    assert "state preserved" in status.message
+    assert webgui_service.webgui_service_state_path(settings).exists()
 
 
 def test_stop_webgui_service_kills_verified_listener_pid_only(
@@ -336,21 +341,22 @@ def test_stop_webgui_service_kills_verified_listener_pid_only(
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
     webgui_service._write_state(settings, state)
-    killed: list[int] = []
+    killed: list[tuple[int, int]] = []
     alive = {222}
 
-    def fake_kill(pid: int, _signal: int) -> None:
-        killed.append(pid)
-        alive.discard(pid)
+    def fake_killpg(pgid: int, sig: int) -> None:
+        killed.append((pgid, sig))
+        alive.discard(222)
 
     monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid in alive)
     monkeypatch.setattr(webgui_service, "_process_matches_state", lambda checked: checked.pid == 222)
-    monkeypatch.setattr(webgui_service.os, "kill", fake_kill)
+    monkeypatch.setattr(webgui_service.os, "getpgid", lambda _pid: 333)
+    monkeypatch.setattr(webgui_service.os, "killpg", fake_killpg)
     monkeypatch.setattr(webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable"))
 
     status = webgui_service.stop_webgui_service(settings)
 
-    assert killed == [222]
+    assert killed == [(333, signal.SIGTERM)]
     assert status.app_owned is False
 
 

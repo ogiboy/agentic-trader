@@ -32,6 +32,13 @@ instead of treating them as aliases for the same script:
 - `pnpm run app:setup -- --core --yes`: root pnpm workspace plus root uv Python
   repair only; no trading daemon start, no app-owned service start, and no
   hidden browser/model download
+- `pnpm run app:start -- --dry-run`: app-owned service start preview only
+- `pnpm run app:start -- --webgui --yes`: start only the selected app-owned
+  Web GUI service with browser opening disabled unless `--open-browser` is
+  provided
+- `pnpm run app:stop -- --dry-run`: app-owned service stop preview only
+- `pnpm run app:stop -- --all --yes`: stop only app-owned service records
+  through existing service ownership safeguards
 - `pnpm run app:up`: guided first-run path that may repair setup, start approved
   app-owned helper services, and open Web GUI
 - `pnpm run app:start`: start configured app-owned services and Web GUI only
@@ -70,6 +77,12 @@ or app-owned runtime state.
 - `app:up` may launch the Web GUI but must not auto-start a trading daemon.
 - `app:start`, `app:stop`, and `app:uninstall` affect app-owned resources only
   unless the operator explicitly approves broader host/global changes.
+- `app:start` and `app:stop` require an explicit service selection plus `--yes`
+  before mutation, and must not install dependencies, fetch browser binaries,
+  pull Ollama models, open a browser by default, or start a trading daemon.
+- `webgui-service stop` should preserve app-owned state if the recorded process
+  cannot be stopped, so retry/debug remains possible and the process is not
+  reclassified as external.
 - Optional Ollama, Firecrawl, and Camofox setup records host-owned, app-owned,
   API/key-only, or skipped ownership instead of guessing silently.
 - Root Python is uv-managed; Conda/Poetry are not the default path.

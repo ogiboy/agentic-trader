@@ -22,15 +22,15 @@ En azından şu işleri yapabilmeli:
 
 ## Planlanan komut yüzeyi
 
-Bir sonraki implementation pass komut yüzeyini gizemli olmaktan çıkarmalı.
-Debugging için odaklı komutlar kalmalı, normal operatör ise kısa bir lifecycle sözlüğüyle çalışabilmeli:
+Komut yüzeyi gizemli değil, katmanlı kalmalı. Debugging için odaklı komutlar
+kalmalı, normal operatör ise kısa bir lifecycle sözlüğüyle çalışabilmeli:
 
-| Komut | Planlanan rol |
+| Komut | Rol |
 | --- | --- |
 | `pnpm run app:up` | ilk çalıştırma yolu: bağımlılıkları kurar ya da onarır, yapılandırılmış app-owned servisleri başlatır ve Web GUI'yi açar |
 | `pnpm run app:setup` | Python, root pnpm workspace, sidecar ve opsiyonel tool-root bağımlılıklarını kurar ya da onarır; trading runtime başlatmaz |
-| `pnpm run app:start` | yapılandırılmış app-owned yardımcı servisleri ve Web GUI'yi başlatır; daemon başlatmak hâlâ açık operatör kararıdır |
-| `pnpm run app:stop` | sadece repo tarafından kaydedilen app-owned servisleri durdurur; host-owned Ollama, Firecrawl veya browser süreçlerini öldürmez |
+| `pnpm run app:start` | hazır konservatif slice: seçilen app-owned yardımcı servisleri ve Web GUI'yi başlatır; daemon başlatmak hâlâ açık operatör kararıdır |
+| `pnpm run app:stop` | hazır konservatif slice: sadece repo tarafından kaydedilen app-owned servisleri durdurur; host-owned Ollama, Firecrawl veya browser süreçlerini öldürmez |
 | `pnpm run app:update` | bağımlılıkları ve lockfile'ları doğru sahipleri üzerinden günceller, build eder ve setup/service readiness raporlar |
 | `pnpm run app:doctor` | ilk hazır slice: read-only setup, servis, provider, V1, PATH ve tool-root teşhisi verir |
 | `pnpm run app:uninstall` | app-owned dependency/runtime/tool artifact'larını onaydan sonra kaldırır |
@@ -45,6 +45,16 @@ model-service, Camofox-service, WebGUI-service, provider diagnostics ve
 network-light `v1-readiness` okur; generation probe hâlâ açıkça
 `v1-readiness --provider-check` veya `model-service status --probe-generation`
 ile istenir.
+
+`app:start` ve `app:stop` da konservatif servis slice'ları olarak implemente
+edildi: varsayılanları dry-run'dır, `--webgui`, `--model-service`,
+`--camofox-service` veya `--all` seçimi isterler ve ancak `--yes` sonrası
+mutasyon yaparlar. Dependency kurmaz, browser binary fetch etmez, Ollama model
+çekmez, trading daemon başlatmaz, `--open-browser` açıkça verilmedikçe browser
+açmazlar. Sahiplik kontrolleri mevcut `model-service`, `camofox-service` ve
+`webgui-service` komutlarının içinde kalır. Kaydedilmiş app-owned Web GUI
+süreci durdurulamazsa state retry için korunur; süreç sessizce external
+listener gibi yeniden sınıflandırılmaz.
 
 ## Vazgeçilmez gereksinimler
 

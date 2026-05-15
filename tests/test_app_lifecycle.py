@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DOCTOR_SCRIPT = ROOT / "scripts" / "app-doctor.mjs"
 SETUP_SCRIPT = ROOT / "scripts" / "app-setup.mjs"
+SERVICES_SCRIPT = ROOT / "scripts" / "app-services.mjs"
 
 
 def _fake_cli(tmp_path: Path, exit_code: int = 0) -> Path:
@@ -60,6 +61,32 @@ def _fake_pnpm(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
     return script, log_path
 
 
+def _fake_service_cli(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
+    log_path = tmp_path / "agentic-trader.log"
+    script = tmp_path / "agentic-trader"
+    script.write_text(
+        "#!/usr/bin/env sh\n"
+        "if [ -n \"$AGENTIC_TRADER_CLI_LOG\" ]; then\n"
+        "  printf '%s\\n' \"$*\" >> \"$AGENTIC_TRADER_CLI_LOG\"\n"
+        "fi\n"
+        "case \"$*\" in\n"
+        "  *' start '*) printf '{\"app_owned\":true,\"service_reachable\":true,\"args\":\"%s\"}\\n' \"$*\" ;;\n"
+        "  *' stop '*)\n"
+        "    if [ \"$STOP_STILL_APP_OWNED\" = \"1\" ]; then\n"
+        "      printf '{\"app_owned\":true,\"service_reachable\":true,\"message\":\"still running\",\"args\":\"%s\"}\\n' \"$*\"\n"
+        "    else\n"
+        "      printf '{\"app_owned\":false,\"service_reachable\":false,\"args\":\"%s\"}\\n' \"$*\"\n"
+        "    fi\n"
+        "    ;;\n"
+        "  *) printf '{\"ok\":true,\"args\":\"%s\"}\\n' \"$*\" ;;\n"
+        "esac\n"
+        f"exit {exit_code}\n",
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return script, log_path
+
+
 def _run_setup(
     tmp_path: Path,
     *args: str,
@@ -70,6 +97,24 @@ def _run_setup(
         merged_env.update(env)
     return subprocess.run(
         ["node", str(SETUP_SCRIPT), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=merged_env,
+    )
+
+
+def _run_services(
+    mode: str,
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    if env is not None:
+        merged_env.update(env)
+    return subprocess.run(
+        ["node", str(SERVICES_SCRIPT), mode, *args],
         check=False,
         capture_output=True,
         text=True,
@@ -214,3 +259,123 @@ def test_app_setup_core_yes_runs_only_core_repair(tmp_path: Path) -> None:
         for step in payload["steps"]
         if step["category"] == "deferred"
     )
+
+
+def test_app_start_dry_run_defers_services_by_default() -> None:
+    result = _run_services("start", "--json", "--dry-run")
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["action"] == "start"
+    assert payload["dry_run"] is True
+    assert payload["mutated"] is False
+    assert payload["selected_services"] == []
+    commands = [" ".join(step["command"]) for step in payload["steps"]]
+    assert (
+        "agentic-trader webgui-service start --no-open-browser --json"
+        in commands
+    )
+    assert all(step["status"] == "deferred" for step in payload["steps"])
+    assert any(
+        "No dependency install" in note
+        for note in payload["safety_notes"]
+    )
+
+
+def test_app_start_webgui_yes_starts_only_webgui_without_browser(
+    tmp_path: Path,
+) -> None:
+    fake_cli, log_path = _fake_service_cli(tmp_path)
+    result = _run_services(
+        "start",
+        "--json",
+        "--webgui",
+        "--yes",
+        env={
+            "AGENTIC_TRADER_CLI": str(fake_cli),
+            "AGENTIC_TRADER_CLI_LOG": str(log_path),
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["dry_run"] is False
+    assert payload["mutated"] is True
+    assert payload["selected_services"] == ["webgui-service"]
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        "webgui-service start --no-open-browser --json"
+    ]
+    assert all(
+        step["status"] == "deferred"
+        for step in payload["steps"]
+        if not step["selected"]
+    )
+
+
+def test_app_start_rejects_yes_without_service_selection() -> None:
+    result = _run_services("start", "--json", "--yes")
+
+    assert result.returncode == 2
+    assert "Select at least one service" in result.stderr
+
+
+def test_app_start_rejects_browser_open_without_webgui_selection() -> None:
+    result = _run_services("start", "--json", "--model-service", "--open-browser")
+
+    assert result.returncode == 2
+    assert "--open-browser requires selecting --webgui or --all" in result.stderr
+
+
+def test_app_stop_all_yes_stops_only_app_owned_service_surfaces(
+    tmp_path: Path,
+) -> None:
+    fake_cli, log_path = _fake_service_cli(tmp_path)
+    result = _run_services(
+        "stop",
+        "--json",
+        "--all",
+        "--yes",
+        env={
+            "AGENTIC_TRADER_CLI": str(fake_cli),
+            "AGENTIC_TRADER_CLI_LOG": str(log_path),
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["dry_run"] is False
+    assert payload["mutated"] is True
+    assert payload["selected_services"] == [
+        "model-service",
+        "camofox-service",
+        "webgui-service",
+    ]
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        "webgui-service stop --json",
+        "camofox-service stop --json",
+        "model-service stop --json",
+    ]
+    commands = [" ".join(step["command"]) for step in payload["steps"]]
+    assert not any("setup" in command for command in commands)
+    assert not any("pull" in command for command in commands)
+
+
+def test_app_stop_fails_when_service_payload_remains_app_owned(
+    tmp_path: Path,
+) -> None:
+    fake_cli, _log_path = _fake_service_cli(tmp_path)
+    result = _run_services(
+        "stop",
+        "--json",
+        "--webgui",
+        "--yes",
+        env={
+            "AGENTIC_TRADER_CLI": str(fake_cli),
+            "STOP_STILL_APP_OWNED": "1",
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 1
+    assert payload["steps"][0]["status"] == "failed"
+    assert payload["steps"][0]["payload"]["message"] == "still running"

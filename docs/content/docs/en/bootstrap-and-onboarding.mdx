@@ -22,15 +22,16 @@ At minimum it should:
 
 ## Planned command surface
 
-The next implementation pass should make the command surface layered instead of mysterious.
-Focused commands stay available for debugging, while normal operators get a short lifecycle vocabulary:
+The command surface should stay layered instead of mysterious. Focused commands
+stay available for debugging, while normal operators get a short lifecycle
+vocabulary:
 
-| Command | Planned role |
+| Command | Role |
 | --- | --- |
 | `pnpm run app:up` | guided first-run path: setup or repair dependencies, start app-owned services when configured, and open the Web GUI |
 | `pnpm run app:setup` | install or repair Python, root pnpm workspace, sidecar, and optional tool-root dependencies without starting trading runtime |
-| `pnpm run app:start` | start configured app-owned helper services and the Web GUI; daemon start remains an explicit operator choice |
-| `pnpm run app:stop` | stop only app-owned services recorded by the repo, never host-owned Ollama, Firecrawl, or browser processes |
+| `pnpm run app:start` | available conservative slice: start selected app-owned helper services and the Web GUI; daemon start remains an explicit operator choice |
+| `pnpm run app:stop` | available conservative slice: stop only app-owned services recorded by the repo, never host-owned Ollama, Firecrawl, or browser processes |
 | `pnpm run app:update` | update dependencies and lockfiles through the right owners, rebuild, then report setup/service readiness |
 | `pnpm run app:doctor` | available first slice: read-only setup, service, provider, V1, PATH, and tool-root diagnosis |
 | `pnpm run app:uninstall` | remove app-owned dependency/runtime/tool artifacts only after confirmation |
@@ -45,6 +46,16 @@ It reads `setup-status`, model-service, Camofox-service, WebGUI-service,
 provider diagnostics, and network-light `v1-readiness`; generation probes remain
 explicit through `v1-readiness --provider-check` or
 `model-service status --probe-generation`.
+
+`app:start` and `app:stop` are also implemented as conservative service slices:
+they default to dry-run, require selecting `--webgui`, `--model-service`,
+`--camofox-service`, or `--all`, and mutate only after `--yes`. They do not
+install dependencies, fetch browser binaries, pull Ollama models, start a
+trading daemon, or open a browser unless `--open-browser` is explicitly passed.
+Ownership checks stay inside the existing `model-service`, `camofox-service`,
+and `webgui-service` commands. If the recorded app-owned Web GUI process cannot
+be stopped, its state remains for retry rather than being silently reclassified
+as an external listener.
 
 ## Non-negotiable requirements
 

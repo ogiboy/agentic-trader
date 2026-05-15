@@ -338,11 +338,24 @@ def _state_process_alive(state: WebGUIServiceState | None) -> bool:
     )
 
 
-def _send_process_signal(pid: int, signal_number: int) -> None:
+def _send_process_signal(
+    pid: int, signal_number: int, *, process_group: bool = False
+) -> bool:
+    if process_group and hasattr(os, "killpg") and hasattr(os, "getpgid"):
+        try:
+            os.killpg(os.getpgid(pid), signal_number)
+            return True
+        except ProcessLookupError:
+            return True
+        except OSError:
+            pass
     try:
         os.kill(pid, signal_number)
+        return True
+    except ProcessLookupError:
+        return True
     except OSError:
-        return
+        return False
 
 
 def _wait_for_state_exit(state: WebGUIServiceState, *, timeout: float) -> bool:
@@ -598,9 +611,23 @@ def stop_webgui_service(settings: Settings) -> WebGUIServiceStatus:
     if state is None:
         return build_webgui_service_status(settings)
     if _state_process_alive(state):
-        _send_process_signal(state.pid, signal.SIGTERM)
-        if not _wait_for_state_exit(state, timeout=5):
-            _send_process_signal(state.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
-            _wait_for_state_exit(state, timeout=1)
+        _send_process_signal(state.pid, signal.SIGTERM, process_group=True)
+        stopped = _wait_for_state_exit(state, timeout=5)
+        if not stopped:
+            _send_process_signal(
+                state.pid,
+                getattr(signal, "SIGKILL", signal.SIGTERM),
+                process_group=True,
+            )
+            stopped = _wait_for_state_exit(state, timeout=1)
+        if not stopped:
+            return build_webgui_service_status(settings).model_copy(
+                update={
+                    "message": (
+                        "Unable to stop app-owned Web GUI; state preserved "
+                        "for retry."
+                    )
+                }
+            )
     _remove_state(settings)
     return build_webgui_service_status(settings)

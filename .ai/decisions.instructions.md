@@ -709,6 +709,29 @@ uninstall, and guided `app:up` remain later opt-in lifecycle slices after
 ownership choices such as host-owned, app-owned, API/key-only, or skipped are
 explicit.
 
+### app:start and app:stop are selected app-owned service slices
+
+Reason:
+Starting or stopping helper processes is riskier than setup planning, so the
+first lifecycle service slice stays narrow and delegates ownership checks to the
+existing service commands.
+`app:start` and `app:stop` default to a dry-run plan. They require selecting
+`--webgui`, `--model-service`, `--camofox-service`, or `--all` plus `--yes`
+before they mutate anything.
+`app:start` may call only `model-service start --host 127.0.0.1 --json`,
+`camofox-service start --host 127.0.0.1 --json`, and
+`webgui-service start --no-open-browser --json` for the selected service
+surfaces; browser opening requires the extra `--open-browser` flag.
+`app:stop` calls only the matching app-owned service stop commands and relies on
+their recorded-PID/loopback ownership safeguards, preserving host-owned Ollama,
+Camofox/browser helpers, and external Web GUI listeners. If a recorded
+app-owned Web GUI process cannot be stopped, the state file must remain in
+place so the operator can retry or inspect the still-owned listener instead of
+having it reclassified as an external process.
+Neither command installs dependencies, fetches a browser, pulls a model, creates
+provider accounts, touches secrets or brokerage configuration, approves
+proposals, or starts a trading daemon.
+
 ### Camofox tool-root commands are pnpm-owned, browser fetch remains separate
 
 Reason:
