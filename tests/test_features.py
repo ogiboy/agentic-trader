@@ -3,6 +3,19 @@ import pandas as pd
 from agentic_trader.market.features import build_snapshot
 
 
+def _ohlcv_frame(periods: int, *, index: pd.Index | None = None) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "open": [100 + i for i in range(periods)],
+            "high": [101 + i for i in range(periods)],
+            "low": [99 + i for i in range(periods)],
+            "close": [100 + i for i in range(periods)],
+            "volume": [1_000 + (i * 10) for i in range(periods)],
+        },
+        index=index,
+    )
+
+
 def test_build_snapshot_returns_expected_fields() -> None:
     frame = pd.DataFrame(
         {
@@ -65,6 +78,17 @@ def test_build_snapshot_computes_higher_timeframe_alignment() -> None:
     assert snapshot.htf_ema_50 > 0
     assert snapshot.mtf_alignment == "bullish"
     assert snapshot.mtf_confidence > 0.55
+
+
+def test_build_snapshot_uses_daily_higher_timeframe_for_intraday_interval() -> None:
+    index = pd.date_range("2025-01-01", periods=24 * 40, freq="h")
+    frame = _ohlcv_frame(len(index), index=index)
+
+    snapshot = build_snapshot(frame, symbol="TREND", interval="1h", lookback="40d")
+
+    assert snapshot.higher_timeframe == "1d"
+    assert snapshot.context_pack is not None
+    assert snapshot.context_pack.higher_timeframe_used is True
 
 
 def test_build_snapshot_as_of_tracks_latest_clean_indicator_row() -> None:
@@ -143,3 +167,76 @@ def test_build_snapshot_can_keep_undercoverage_for_training_replay() -> None:
 
     assert snapshot.context_pack is not None
     assert "low_lookback_coverage" in snapshot.context_pack.data_quality_flags
+
+
+def test_context_pack_marks_partial_yfinance_style_window_without_blocking() -> None:
+    index = pd.date_range("2025-01-01", periods=80, freq="B")
+    frame = _ohlcv_frame(80, index=index)
+
+    snapshot = build_snapshot(frame, symbol="PARTIAL", interval="1d", lookback="180d")
+
+    assert snapshot.context_pack is not None
+    assert snapshot.context_pack.bars_expected == 128
+    assert snapshot.context_pack.bars_analyzed == 80
+    assert snapshot.context_pack.coverage_ratio == 0.625
+    assert "partial_lookback_coverage" in snapshot.context_pack.data_quality_flags
+
+
+def test_context_pack_blocks_intraday_provider_limit_in_operation() -> None:
+    index = pd.date_range("2025-01-01 09:30", periods=120, freq="h")
+    frame = _ohlcv_frame(120, index=index)
+
+    try:
+        build_snapshot(frame, symbol="INTRADAY", interval="1h", lookback="180d")
+    except ValueError as exc:
+        message = str(exc)
+        assert "coverage is too thin" in message
+        assert "INTRADAY" in message
+        assert "interval 1h" in message
+    else:
+        raise AssertionError("Expected intraday provider-limit window to fail closed")
+
+
+def test_context_pack_keeps_intraday_provider_limit_for_training_replay() -> None:
+    index = pd.date_range("2025-01-01 09:30", periods=120, freq="h")
+    frame = _ohlcv_frame(120, index=index)
+
+    snapshot = build_snapshot(
+        frame,
+        symbol="TRAIN",
+        interval="1h",
+        lookback="180d",
+        enforce_lookback_coverage=False,
+    )
+
+    assert snapshot.context_pack is not None
+    assert snapshot.context_pack.bars_expected is not None
+    assert snapshot.context_pack.coverage_ratio is not None
+    assert snapshot.context_pack.coverage_ratio < 0.6
+    assert "low_lookback_coverage" in snapshot.context_pack.data_quality_flags
+
+
+def test_context_pack_marks_non_datetime_index_as_higher_timeframe_fallback() -> None:
+    frame = _ohlcv_frame(80)
+
+    snapshot = build_snapshot(frame, symbol="RANGE", interval="1d", lookback="90d")
+
+    assert snapshot.as_of == "79"
+    assert snapshot.context_pack is not None
+    assert snapshot.context_pack.window_start == "0"
+    assert snapshot.context_pack.window_end == "79"
+    assert snapshot.context_pack.higher_timeframe == "same_as_base"
+    assert snapshot.context_pack.higher_timeframe_used is False
+    assert "higher_timeframe_fallback" in snapshot.context_pack.data_quality_flags
+
+
+def test_context_pack_marks_datetime_higher_timeframe_fallback_when_too_short() -> None:
+    index = pd.date_range("2025-01-01", periods=80, freq="B")
+    frame = _ohlcv_frame(80, index=index)
+
+    snapshot = build_snapshot(frame, symbol="SHORTHTF", interval="1d", lookback="90d")
+
+    assert snapshot.higher_timeframe == "same_as_base"
+    assert snapshot.context_pack is not None
+    assert snapshot.context_pack.higher_timeframe_used is False
+    assert "higher_timeframe_fallback" in snapshot.context_pack.data_quality_flags

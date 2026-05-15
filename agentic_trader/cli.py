@@ -1,23 +1,51 @@
+import json
 import os
-import signal
+import platform
 import shutil
 import subprocess
 import sys
-import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import cast
+from typing import Any, Literal, cast
 from uuid import uuid4
 
+import click
 import typer
+from typer.core import TyperCommand
 from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
 from agentic_trader.config import get_settings, Settings
+from agentic_trader.diagnostics import (
+    provider_diagnostics_payload,
+    v1_readiness_payload,
+)
 from agentic_trader.engine.broker import broker_runtime_payload
+from agentic_trader.finance.ideas import (
+    IdeaCandidate,
+    IdeaPresetName,
+    PRESET_DESCRIPTIONS,
+    rank_candidates,
+)
+from agentic_trader.finance.proposals import (
+    TradeProposalDraft,
+    approve_trade_proposal,
+    create_trade_proposal,
+    reconcile_trade_proposal,
+    reject_trade_proposal,
+)
+from agentic_trader.finance.strategy_catalog import (
+    StrategyStatus,
+    finance_reconciliation_contract_payload,
+    get_strategy_profile,
+    score_strategy_context,
+    strategy_catalog_payload,
+    strategy_profile_for_preset,
+)
 from agentic_trader.agents.operator_chat import (
     apply_preference_update,
     chat_with_persona,
@@ -38,6 +66,7 @@ from agentic_trader.memory.policy import memory_write_policy_snapshot
 from agentic_trader.runtime_feed import (
     append_chat_history,
     read_latest_research_snapshot,
+    read_research_digest_replay,
     read_service_events,
     read_service_state,
     read_chat_history,
@@ -51,9 +80,41 @@ from agentic_trader.runtime_status import (
 )
 from agentic_trader.observer_api import serve_observer_api
 from agentic_trader.researchd.crewai_setup import crewai_setup_status
+from agentic_trader.researchd.control import (
+    get_research_cycle_control,
+    set_research_cycle_control,
+)
+from agentic_trader.researchd.cycle_plan import research_cycle_plan_payload
+from agentic_trader.researchd.cycle_runner import run_research_cycle
+from agentic_trader.researchd.news_intelligence import (
+    classify_source_tier,
+    news_research_plan,
+)
 from agentic_trader.researchd.orchestrator import ResearchSidecar
 from agentic_trader.researchd.persistence import persist_research_result
 from agentic_trader.researchd.status import build_research_sidecar_state
+from agentic_trader.security import is_loopback_host, redact_sensitive_text
+from agentic_trader.system.camofox_service import (
+    build_camofox_service_status,
+    start_camofox_service,
+    stop_camofox_service,
+)
+from agentic_trader.system.model_service import (
+    build_model_service_status,
+    pull_model,
+    start_model_service,
+    stop_model_service,
+)
+from agentic_trader.system.operator_launcher import (
+    build_operator_launcher_status,
+    start_default_background_runtime,
+    start_operator_webgui,
+)
+from agentic_trader.system.setup import build_setup_status
+from agentic_trader.system.webgui_service import (
+    build_webgui_service_status,
+    stop_webgui_service,
+)
 from agentic_trader.schemas import (
     ChatPersona,
     CanonicalAnalysisSnapshot,
@@ -80,6 +141,10 @@ from agentic_trader.schemas import (
     ServiceStateSnapshot,
     TradeContextRecord,
     TradeJournalEntry,
+    TradeProposalRecord,
+    TradeProposalStatus,
+    TradeSide,
+    ResearchCycleControlAction,
 )
 from agentic_trader.storage.db import OrderRow, TradingDatabase
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
@@ -103,6 +168,7 @@ from agentic_trader.workflows.service import (
     restart_background_service,
     run_service,
     start_background_service,
+    terminate_service_process,
 )
 
 app = typer.Typer(
@@ -111,11 +177,88 @@ app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 console = Console()
+LABEL_MODEL_SERVICE = "Model Service"
+model_service_app = typer.Typer(
+    help="Manage the optional app-owned local model service."
+)
+app.add_typer(model_service_app, name="model-service")
+webgui_service_app = typer.Typer(
+    help="Manage the optional app-owned local Web GUI service."
+)
+app.add_typer(webgui_service_app, name="webgui-service")
+camofox_service_app = typer.Typer(
+    help="Manage the optional app-owned local Camofox browser helper."
+)
+app.add_typer(camofox_service_app, name="camofox-service")
 
 TUI_PACKAGE_NAME = "agentic-trader-tui"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
+HELP_RUNTIME_EVENT_LIMIT = "Maximum number of runtime events to include."
+HELP_PROVIDER_CHECK = "Actively check the configured LLM provider/model readiness."
+ProposalOrderType = Literal["market", "limit"]
 
 
 type NodeCommandSet = tuple[list[str], list[str], Path, str]
+
+
+def _proposal_create_params() -> list[click.Parameter]:
+    return [
+        click.Option(["--symbol"], required=True, help=HELP_SYMBOL),
+        click.Option(["--side"], default="buy", show_default=True, help="Trade side: buy or sell."),
+        click.Option(["--quantity"], type=click.FloatRange(min=0.0), default=None, help="Share quantity. Either quantity or notional is required."),
+        click.Option(["--notional"], type=click.FloatRange(min=0.0), default=None, help="Dollar notional. Either quantity or notional is required."),
+        click.Option(["--reference-price", "reference_price"], type=click.FloatRange(min=0.01), required=True, help="Reference price used for the proposal."),
+        click.Option(["--confidence"], type=click.FloatRange(min=0.0, max=1.0), default=0.5, show_default=True, help="Proposal confidence from 0.0 to 1.0."),
+        click.Option(["--thesis"], required=True, help="Short operator-readable proposal thesis."),
+        click.Option(["--order-type", "order_type"], default="market", show_default=True, help="Proposal order type. V1 supports market or limit."),
+        click.Option(["--stop-loss", "stop_loss"], type=click.FloatRange(min=0.01), default=None, help="Optional stop loss."),
+        click.Option(["--take-profit", "take_profit"], type=click.FloatRange(min=0.01), default=None, help="Optional take profit."),
+        click.Option(["--invalidation-condition", "invalidation_condition"], default=None, help="Optional condition that invalidates the trade idea."),
+        click.Option(["--source"], default="manual", show_default=True, help="Source label such as manual, scanner, or research-sidecar."),
+        click.Option(["--review-notes", "review_notes"], default="", help="Optional review notes."),
+        click.Option(["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON),
+    ]
+
+
+def _idea_score_params() -> list[click.Parameter]:
+    return [
+        click.Option(["--symbol"], required=True, help=HELP_SYMBOL),
+        click.Option(["--preset"], default="momentum", show_default=True, help="Idea preset to apply."),
+        click.Option(["--price"], type=click.FloatRange(min=0.01), required=True, help="Last or reference price."),
+        click.Option(["--volume"], type=click.FloatRange(min=0.0), required=True, help="Latest volume."),
+        click.Option(["--change-pct", "change_pct"], type=float, required=True, help="Percent change over the scan window."),
+        click.Option(["--relative-volume", "relative_volume"], type=click.FloatRange(min=0.0), default=0.0, show_default=True, help="Relative volume."),
+        click.Option(["--gap-pct", "gap_pct"], type=float, default=0.0, show_default=True, help="Opening gap percent."),
+        click.Option(["--range-pct", "range_pct"], type=click.FloatRange(min=0.0), default=0.0, show_default=True, help="Intraday range percent."),
+        click.Option(["--rsi"], type=click.FloatRange(min=0.0, max=100.0), default=None, help="RSI value."),
+        click.Option(["--ema-9", "ema_9"], type=click.FloatRange(min=0.0), default=None, help="9 EMA value."),
+        click.Option(["--sma-20", "sma_20"], type=click.FloatRange(min=0.0), default=None, help="20 SMA value."),
+        click.Option(["--sma-50", "sma_50"], type=click.FloatRange(min=0.0), default=None, help="50 SMA value."),
+        click.Option(["--vwap"], type=click.FloatRange(min=0.0), default=None, help="VWAP value."),
+        click.Option(["--spread-pct", "spread_pct"], type=click.FloatRange(min=0.0), default=0.0, show_default=True, help="Bid/ask spread percent."),
+        click.Option(["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON),
+    ]
+
+
+class ProposalCreateCommand(TyperCommand):
+    def __init__(
+        self,
+        *args: Any,
+        params: list[click.Parameter] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, params=_proposal_create_params(), **kwargs)
+
+
+class IdeaScoreCommand(TyperCommand):
+    def __init__(
+        self,
+        *args: Any,
+        params: list[click.Parameter] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, params=_idea_score_params(), **kwargs)
 
 
 def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
@@ -216,7 +359,7 @@ def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
     if path is None or not path.exists():
         return []
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    return lines[-limit:]
+    return [redact_sensitive_text(line, max_length=1_000) for line in lines[-limit:]]
 
 
 def _format_latest_order(order: OrderRow | None) -> str:
@@ -633,6 +776,8 @@ def _render_run_markdown(record: RunRecord) -> str:
         markdown (str): A Markdown document string summarizing the run review.
     """
     artifacts = record.artifacts
+    fundamental_evidence = artifacts.fundamental.evidence_vs_inference
+    manager_resolution_notes = _manager_resolution_notes(artifacts)
     lines = [
         f"# Run Review: {record.run_id}",
         "",
@@ -656,11 +801,11 @@ def _render_run_markdown(record: RunRecord) -> str:
         f"- Business Quality: {artifacts.fundamental.business_quality}",
         f"- Macro Fit: {artifacts.fundamental.macro_fit}",
         f"- Forward Outlook: {artifacts.fundamental.forward_outlook}",
-        f"- Red Flags: {', '.join(artifacts.fundamental.red_flags) or '-'}",
-        f"- Strengths: {', '.join(artifacts.fundamental.strengths) or '-'}",
-        f"- Evidence: {', '.join(artifacts.fundamental.evidence_vs_inference.evidence) or '-'}",
-        f"- Inference: {', '.join(artifacts.fundamental.evidence_vs_inference.inference) or '-'}",
-        f"- Uncertainty: {', '.join(artifacts.fundamental.evidence_vs_inference.uncertainty) or '-'}",
+        f"- Red Flags: {_join_or_dash(artifacts.fundamental.red_flags)}",
+        f"- Strengths: {_join_or_dash(artifacts.fundamental.strengths)}",
+        f"- Evidence: {_join_or_dash(fundamental_evidence.evidence)}",
+        f"- Inference: {_join_or_dash(fundamental_evidence.inference)}",
+        f"- Uncertainty: {_join_or_dash(fundamental_evidence.uncertainty)}",
         f"- Summary: {artifacts.fundamental.summary}",
         "",
         "## Regime",
@@ -682,10 +827,10 @@ def _render_run_markdown(record: RunRecord) -> str:
         "",
         "## Consensus",
         f"- Alignment: {artifacts.consensus.alignment_level}",
-        f"- Summary: {artifacts.consensus.summary or '-'}",
-        f"- Supporting Roles: {', '.join(artifacts.consensus.supporting_roles) or '-'}",
-        f"- Dissenting Roles: {', '.join(artifacts.consensus.dissenting_roles) or '-'}",
-        f"- Reasons: {', '.join(artifacts.consensus.reasons) or '-'}",
+        f"- Summary: {_value_or_dash(artifacts.consensus.summary)}",
+        f"- Supporting Roles: {_join_or_dash(artifacts.consensus.supporting_roles)}",
+        f"- Dissenting Roles: {_join_or_dash(artifacts.consensus.dissenting_roles)}",
+        f"- Reasons: {_join_or_dash(artifacts.consensus.reasons)}",
         "",
         "## Manager",
         f"- Action Bias: {artifacts.manager.action_bias}",
@@ -709,10 +854,9 @@ def _render_run_markdown(record: RunRecord) -> str:
         [
             "",
             "## Manager Resolution Notes",
-            *(
-                [f"- {note}" for note in _manager_resolution_notes(artifacts)]
-                if _manager_resolution_notes(artifacts)
-                else ["- No additional manager resolution notes."]
+            *_markdown_bullets(
+                manager_resolution_notes,
+                fallback="No additional manager resolution notes.",
             ),
             "",
             "## Execution",
@@ -723,13 +867,27 @@ def _render_run_markdown(record: RunRecord) -> str:
             "",
             "## Review",
             f"- Summary: {artifacts.review.summary}",
-            f"- Strengths: {', '.join(artifacts.review.strengths) or '-'}",
-            f"- Warnings: {', '.join(artifacts.review.warnings) or '-'}",
-            f"- Next Checks: {', '.join(artifacts.review.next_checks) or '-'}",
+            f"- Strengths: {_join_or_dash(artifacts.review.strengths)}",
+            f"- Warnings: {_join_or_dash(artifacts.review.warnings)}",
+            f"- Next Checks: {_join_or_dash(artifacts.review.next_checks)}",
             "",
         ]
     )
     return "\n".join(lines)
+
+
+def _value_or_dash(value: object) -> str:
+    return str(value) if value else "-"
+
+
+def _join_or_dash(values: list[str] | tuple[str, ...]) -> str:
+    return ", ".join(values) if values else "-"
+
+
+def _markdown_bullets(values: list[str], *, fallback: str) -> list[str]:
+    if not values:
+        return [f"- {fallback}"]
+    return [f"- {value}" for value in values]
 
 
 def _manager_override_notes(artifacts: RunArtifacts) -> list[str]:
@@ -1055,6 +1213,7 @@ def _render_memory_matches(matches) -> None:
     table.add_column("Strategy")
     table.add_column("Bias")
     table.add_column("Approved")
+    table.add_column("Why")
     for match in matches:
         table.add_row(
             match.created_at,
@@ -1065,6 +1224,7 @@ def _render_memory_matches(matches) -> None:
             match.strategy_family,
             match.manager_bias,
             str(match.approved),
+            match.explanation.eligibility_reason,
         )
     console.print(table)
 
@@ -1083,6 +1243,7 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
         try:
             snapshot = db.get_account_snapshot()
             positions = db.list_positions()
+            latest_marks = db.list_account_marks(limit=1)
         finally:
             db.close()
         available = True
@@ -1097,13 +1258,23 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
             open_positions=0,
         )
         positions = []
+        latest_marks = []
         available = False
         error = str(exc)
+    currency = _primary_account_currency(settings)
+    latest_mark = latest_marks[0].model_dump(mode="json") if latest_marks else None
     return {
         "available": available,
         "error": error,
         "snapshot": snapshot.model_dump(mode="json"),
         "positions": [position.model_dump(mode="json") for position in positions],
+        "accounting": {
+            "currency": currency,
+            "mark_created_at": latest_mark["created_at"] if latest_mark else None,
+            "mark_source": latest_mark["source"] if latest_mark else None,
+            "mark_note": latest_mark["note"] if latest_mark else None,
+            "mark_status": "marked" if latest_mark else "mark_time_unavailable",
+        },
     }
 
 
@@ -1124,6 +1295,47 @@ def _preferences_payload(settings: Settings) -> dict[str, object]:
     payload["available"] = available
     payload["error"] = error
     return payload
+
+
+def _primary_account_currency(settings: Settings) -> str:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            preferences = db.load_preferences()
+        finally:
+            db.close()
+    except Exception:
+        preferences = InvestmentPreferences()
+    return (preferences.currencies[0] if preferences.currencies else "USD").upper()
+
+
+def _execution_cost_model(settings: Settings) -> dict[str, object]:
+    if settings.execution_backend == "simulated_real":
+        return {
+            "fees": "not modeled",
+            "slippage_bps": settings.simulated_slippage_bps,
+            "spread_bps": settings.simulated_spread_bps,
+            "latency_ms": settings.simulated_latency_ms,
+            "partial_fill_probability": settings.simulated_partial_fill_probability,
+            "rejection_probability": settings.simulated_order_rejection_probability,
+        }
+    if settings.execution_backend == "alpaca_paper":
+        return {
+            "fees": "reported by external paper broker when available",
+            "slippage_bps": None,
+            "spread_bps": None,
+            "latency_ms": None,
+            "partial_fill_probability": None,
+            "rejection_probability": None,
+        }
+    return {
+        "fees": "not modeled",
+        "slippage_bps": 0.0,
+        "spread_bps": 0.0,
+        "latency_ms": 0,
+        "partial_fill_probability": 0.0,
+        "rejection_probability": 0.0,
+    }
 
 
 def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
@@ -1156,6 +1368,117 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
         "error": error,
         "entries": [entry.model_dump(mode="json") for entry in entries],
     }
+
+
+def _trade_proposals_payload(
+    settings: Settings, *, status: TradeProposalStatus | None = None, limit: int = 50
+) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            proposals = db.list_trade_proposals(status=status, limit=limit)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        proposals = []
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "status": status,
+        "proposals": [
+            proposal.model_dump(mode="json") for proposal in proposals
+        ],
+    }
+
+
+def _parse_trade_side(value: str) -> TradeSide:
+    normalized = value.strip().lower()
+    if normalized not in {"buy", "sell"}:
+        raise typer.BadParameter("side must be buy or sell")
+    return cast(TradeSide, normalized)
+
+
+def _parse_order_type(value: str) -> ProposalOrderType:
+    normalized = value.strip().lower()
+    if normalized not in {"market", "limit"}:
+        raise typer.BadParameter("proposal order type must be market or limit")
+    return cast(ProposalOrderType, normalized)
+
+
+def _parse_proposal_status(value: str | None) -> TradeProposalStatus | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized not in {
+        "pending",
+        "approved",
+        "rejected",
+        "executed",
+        "failed",
+        "expired",
+    }:
+        raise typer.BadParameter("status is not a known proposal state")
+    return cast(TradeProposalStatus, normalized)
+
+
+def _parse_idea_preset(value: str) -> IdeaPresetName:
+    normalized = value.strip().lower()
+    if normalized not in PRESET_DESCRIPTIONS:
+        raise typer.BadParameter("preset is not a known idea scanner preset")
+    return cast(IdeaPresetName, normalized)
+
+
+def _parse_strategy_status(value: str | None) -> StrategyStatus | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower().replace("-", "_")
+    if normalized not in {"implemented", "research_candidate", "v2_deferred"}:
+        raise typer.BadParameter(
+            "status must be implemented, research-candidate, or v2-deferred"
+        )
+    return cast(StrategyStatus, normalized)
+
+
+def _render_trade_proposals(proposals: list[TradeProposalRecord]) -> None:
+    if not proposals:
+        console.print(
+            Panel(
+                "No trade proposals recorded yet.",
+                title="Trade Proposals",
+                border_style="yellow",
+            )
+        )
+        return
+    table = Table(title="Trade Proposals")
+    table.add_column("ID")
+    table.add_column("Status")
+    table.add_column("Symbol")
+    table.add_column("Side")
+    table.add_column("Size")
+    table.add_column("Ref")
+    table.add_column("Confidence")
+    table.add_column("Source")
+    for proposal in proposals:
+        size = (
+            f"qty {proposal.quantity:.6f}"
+            if proposal.quantity is not None
+            else f"${proposal.notional or 0.0:.2f}"
+        )
+        table.add_row(
+            proposal.proposal_id,
+            proposal.status,
+            proposal.symbol,
+            proposal.side,
+            size,
+            f"{proposal.reference_price:.4f}",
+            f"{proposal.confidence:.2f}",
+            proposal.source,
+        )
+    console.print(table)
 
 
 def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]:
@@ -1475,6 +1798,191 @@ def _broker_payload(settings: Settings) -> dict[str, object]:
     return broker_runtime_payload(settings)
 
 
+def _finance_check(
+    name: str, passed: bool, details: str, *, blocking: bool = True
+) -> dict[str, object]:
+    return {
+        "name": name,
+        "passed": passed,
+        "details": details,
+        "blocking": blocking,
+    }
+
+
+def _finance_ops_payload(settings: Settings) -> dict[str, object]:
+    """Build a read-only trading-desk view of broker, account, PnL, and evidence truth."""
+    broker = _broker_payload(settings)
+    portfolio = _portfolio_payload(settings)
+    risk_report = _risk_report_payload(settings)
+    readiness = v1_readiness_payload(settings, check_provider=False)
+    reconciliation = finance_reconciliation_contract_payload()
+    snapshot = portfolio.get("snapshot") if isinstance(portfolio, dict) else None
+    accounting = (
+        portfolio.get("accounting") if isinstance(portfolio, dict) else {}
+    )
+    if not isinstance(accounting, dict):
+        accounting = {}
+    checks = [
+        _finance_check(
+            "paper_or_external_paper_only",
+            settings.execution_backend in {"paper", "alpaca_paper"}
+            and not settings.live_execution_enabled,
+            f"backend={settings.execution_backend} live_execution_enabled={settings.live_execution_enabled}",
+        ),
+        _finance_check(
+            "broker_health_visible",
+            isinstance(broker.get("healthcheck"), dict),
+            str(broker.get("message", "")),
+        ),
+        _finance_check(
+            "account_snapshot_visible",
+            bool(portfolio.get("available")) and isinstance(snapshot, dict),
+            str(portfolio.get("error") or "account snapshot available"),
+        ),
+        _finance_check(
+            "pnl_and_exposure_fields_visible",
+            _finance_snapshot_fields_visible(snapshot),
+            "cash/equity/PnL/position fields are present on the portfolio snapshot.",
+        ),
+        _finance_check(
+            "risk_report_visible",
+            bool(risk_report.get("available")) and risk_report.get("report") is not None,
+            str(risk_report.get("error") or "daily risk report available"),
+            blocking=False,
+        ),
+        _finance_check(
+            "paper_evidence_visible",
+            isinstance(readiness.get("paper_evidence"), dict),
+            "v1-readiness exposes source attribution, context-pack, review artifact, and no-live evidence.",
+        ),
+    ]
+    blocking_passed = all(
+        bool(check["passed"]) for check in checks if bool(check.get("blocking", True))
+    )
+    return {
+        "ready": blocking_passed,
+        "mode": settings.runtime_mode,
+        "backend": settings.execution_backend,
+        "checks": checks,
+        "broker": broker,
+        "portfolio": portfolio,
+        "riskReport": risk_report,
+        "paperEvidence": readiness.get("paper_evidence"),
+        "reconciliation": reconciliation,
+        "accounting": {
+            "currency": accounting.get("currency", _primary_account_currency(settings)),
+            "mark_created_at": accounting.get("mark_created_at"),
+            "mark_source": accounting.get("mark_source"),
+            "mark_note": accounting.get("mark_note"),
+            "mark_status": accounting.get("mark_status", "mark_time_unavailable"),
+            "cost_model": _execution_cost_model(settings),
+            "ledger_categories": reconciliation["ledger_categories"],
+            "rejection_evidence": (
+                "Execution rejections are surfaced from execution_outcomes, "
+                "trade context, broker-status, and run review payloads."
+            ),
+        },
+        "summary": (
+            "Finance operations checks have the broker/account/evidence truth needed for local paper review."
+            if blocking_passed
+            else "Finance operations checks are missing broker/account/evidence truth."
+        ),
+    }
+
+
+def _finance_snapshot_fields_visible(snapshot: object) -> bool:
+    if not isinstance(snapshot, dict):
+        return False
+    required_fields = {
+        "cash",
+        "equity",
+        "realized_pnl",
+        "unrealized_pnl",
+        "open_positions",
+    }
+    return required_fields.issubset(snapshot)
+
+
+def _render_finance_ops(payload: dict[str, object]) -> None:
+    checks = payload.get("checks", [])
+    accounting = payload.get("accounting", {})
+    if not isinstance(accounting, dict):
+        accounting = {}
+    console.print(
+        Panel(
+            str(payload.get("summary", "Finance operations status unavailable.")),
+            title="Finance Operations",
+            border_style="green" if payload.get("ready") else "yellow",
+        )
+    )
+    console.print(_finance_checks_table(checks))
+    console.print(_finance_accounting_table(accounting))
+    ledger_table = _finance_ledger_table(accounting.get("ledger_categories", []))
+    if ledger_table is not None:
+        console.print(ledger_table)
+
+
+def _finance_checks_table(checks: object) -> Table:
+    table = Table(title="Finance Operations Checks")
+    table.add_column("Check")
+    table.add_column("State")
+    table.add_column("Blocking")
+    table.add_column("Details")
+    if isinstance(checks, list):
+        for check in checks:
+            if isinstance(check, dict):
+                table.add_row(
+                    str(check.get("name", "-")),
+                    "[green]pass[/green]" if check.get("passed") else "[red]fail[/red]",
+                    str(check.get("blocking", True)),
+                    str(check.get("details", "")),
+                )
+    return table
+
+
+def _finance_accounting_table(accounting: dict[object, object]) -> Table:
+    cost_model = accounting.get("cost_model", {})
+    if not isinstance(cost_model, dict):
+        cost_model = {}
+    context = Table(title="Desk Accounting Context")
+    context.add_column("Field")
+    context.add_column("Value")
+    context.add_row("Currency", str(accounting.get("currency", "USD")))
+    context.add_row(
+        "Marked At", str(accounting.get("mark_created_at") or "mark time unavailable")
+    )
+    context.add_row("Mark Source", str(accounting.get("mark_source") or "-"))
+    context.add_row("Mark Status", str(accounting.get("mark_status") or "-"))
+    context.add_row("Fees", str(cost_model.get("fees", "-")))
+    context.add_row(
+        "Slippage",
+        "-"
+        if cost_model.get("slippage_bps") is None
+        else f"{cost_model.get('slippage_bps')} bps",
+    )
+    context.add_row(
+        "Rejection Evidence", str(accounting.get("rejection_evidence") or "-")
+    )
+    return context
+
+
+def _finance_ledger_table(ledger_categories: object) -> Table | None:
+    if isinstance(ledger_categories, list):
+        ledger_table = Table(title="Finance Ledger Categories")
+        ledger_table.add_column("Category")
+        ledger_table.add_column("V1 Source")
+        ledger_table.add_column("Purpose")
+        for item in ledger_categories:
+            if isinstance(item, dict):
+                ledger_table.add_row(
+                    str(item.get("name", "-")),
+                    str(item.get("v1_source", "-")),
+                    str(item.get("purpose", "-")),
+                )
+        return ledger_table
+    return None
+
+
 def _training_backtest_allow_fallback(settings: Settings) -> bool:
     """
     Determine whether a backtest running under the current settings may use deterministic diagnostic fallbacks.
@@ -1555,7 +2063,7 @@ def _runtime_mode_transition_plan(
             "Operation mode requires AGENTIC_TRADER_STRICT_LLM=true.",
         )
         if check_provider:
-            health = LocalLLM(settings).health_check()
+            health = LocalLLM(settings).health_check(include_generation=True)
             add_check(
                 "provider_reachable",
                 health.service_reachable,
@@ -1565,6 +2073,11 @@ def _runtime_mode_transition_plan(
                 "model_available",
                 health.model_available,
                 f"Configured model: {health.model_name}",
+            )
+            add_check(
+                "model_generation_ready",
+                health.generation_available is not False,
+                health.generation_message or health.message,
             )
         else:
             add_check(
@@ -1910,6 +2423,9 @@ def _retrieval_inspection_payload(
                 "model_name": trace.model_name,
                 "used_fallback": trace.used_fallback,
                 "retrieved_memories": context.get("retrieved_memories", []),
+                "retrieval_explanations": context.get(
+                    "retrieval_explanations", []
+                ),
                 "memory_notes": context.get("memory_notes", []),
                 "shared_memory_bus": context.get("shared_memory_bus", []),
                 "recent_runs": context.get("recent_runs", []),
@@ -2030,7 +2546,7 @@ def _run_replay_payload(
 @app.callback()
 def app_entry(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
-        ink_tui()
+        _operator_launcher()
 
 
 @app.command()
@@ -2114,6 +2630,600 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
         )
 
 
+def _render_setup_status(payload: dict[str, object]) -> None:
+    """Render local workspace and optional side-application readiness."""
+
+    summary = Table(title="Setup Status")
+    summary.add_column("Field")
+    summary.add_column("Value")
+    summary.add_row("Platform", str(payload["platform"]))
+    summary.add_row("Workspace", str(payload["workspace_root"]))
+    summary.add_row("Core Ready", str(payload["core_ready"]))
+    summary.add_row("Optional Runtime Ready", str(payload["optional_ready"]))
+    model_service = cast(dict[str, object], payload.get("model_service", {}))
+    camofox_service = cast(dict[str, object], payload.get("camofox_service", {}))
+    webgui_service = cast(dict[str, object], payload.get("webgui_service", {}))
+    summary.add_row(LABEL_MODEL_SERVICE, str(model_service.get("message", "-")))
+    summary.add_row("Camofox", str(camofox_service.get("message", "-")))
+    summary.add_row("Web GUI", str(webgui_service.get("message", "-")))
+    console.print(summary)
+
+    tools = cast(list[dict[str, object]], payload["tools"])
+    table = Table(title="Tool Readiness")
+    table.add_column("Tool")
+    table.add_column("Category")
+    table.add_column("Status")
+    table.add_column("Path")
+    table.add_column("Notes")
+    for tool in tools:
+        notes = ", ".join(cast(list[str], tool.get("notes", [])))
+        table.add_row(
+            str(tool["label"]),
+            str(tool["category"]),
+            str(tool["status"]),
+            str(tool.get("path") or "-"),
+            notes or str(tool.get("install_hint") or "-"),
+        )
+    console.print(table)
+    console.print(
+        Panel(
+            "\n".join(cast(list[str], payload["recommended_commands"])),
+            title="Recommended Next Commands",
+            border_style="cyan",
+        )
+    )
+
+
+def _render_model_service_status(payload: dict[str, object]) -> None:
+    """Render app-owned model-service state and log tails."""
+
+    table = Table(title=LABEL_MODEL_SERVICE)
+    table.add_column("Field")
+    table.add_column("Value")
+    for key in (
+        "provider",
+        "command_available",
+        "command_path",
+        "configured_base_url",
+        "configured_model",
+        "service_reachable",
+        "model_available",
+        "generation_checked",
+        "generation_available",
+        "generation_message",
+        "app_owned",
+        "pid",
+        "base_url",
+        "message",
+        "runtime_base_url_matches_app_service",
+    ):
+        table.add_row(key, str(payload.get(key, "-")))
+    console.print(table)
+    console.print(
+        Panel(
+            "\n".join(cast(list[str], payload.get("available_models", []))) or "-",
+            title="Available Models",
+            border_style="green",
+        )
+    )
+    stderr_tail = cast(list[str], payload.get("stderr_tail", []))
+    if stderr_tail:
+        console.print(
+            Panel(
+                "\n".join(stderr_tail),
+                title=f"{LABEL_MODEL_SERVICE} Stderr Tail",
+                border_style="yellow",
+            )
+        )
+
+
+def _render_webgui_service_status(payload: dict[str, object]) -> None:
+    """Render app-owned Web GUI state and log tails."""
+
+    table = Table(title="Web GUI Service")
+    table.add_column("Field")
+    table.add_column("Value")
+    for key in (
+        "command_available",
+        "command_path",
+        "package_available",
+        "service_reachable",
+        "app_owned",
+        "pid",
+        "host",
+        "port",
+        "url",
+        "message",
+    ):
+        table.add_row(key, str(payload.get(key, "-")))
+    console.print(table)
+    stderr_tail = cast(list[str], payload.get("stderr_tail", []))
+    if stderr_tail:
+        console.print(
+            Panel(
+                "\n".join(stderr_tail),
+                title="Web GUI Stderr Tail",
+                border_style="yellow",
+            )
+        )
+
+
+def _render_camofox_service_status(payload: dict[str, object]) -> None:
+    """Render app-owned Camofox helper state and log tails."""
+
+    table = Table(title="Camofox Browser Helper")
+    table.add_column("Field")
+    table.add_column("Value")
+    for key in (
+        "command_available",
+        "command_path",
+        "package_available",
+        "dependency_available",
+        "access_key_configured",
+        "service_reachable",
+        "health_ok",
+        "app_owned",
+        "pid",
+        "host",
+        "port",
+        "base_url",
+        "tool_dir",
+        "message",
+    ):
+        table.add_row(key, str(payload.get(key, "-")))
+    console.print(table)
+    stderr_tail = cast(list[str], payload.get("stderr_tail", []))
+    if stderr_tail:
+        console.print(
+            Panel(
+                "\n".join(stderr_tail),
+                title="Camofox Stderr Tail",
+                border_style="yellow",
+            )
+        )
+
+
+def _render_operator_launcher_status(payload: dict[str, object]) -> None:
+    """Render the primary no-argument operator launcher status."""
+
+    plan = cast(dict[str, object], payload["default_runtime_plan"])
+    model_service = cast(dict[str, object], payload["model_service"])
+    camofox_service = cast(dict[str, object], payload["camofox_service"])
+    webgui_service = cast(dict[str, object], payload["webgui_service"])
+    setup = cast(dict[str, object], payload["setup"])
+    table = Table(title="Agentic Trader Operator Launcher")
+    table.add_column("Surface")
+    table.add_column("Status")
+    table.add_column("Next")
+    table.add_row(
+        "Runtime Daemon",
+        "active" if payload["runtime_active"] else str(payload["runtime_state"]),
+        (
+            f"{', '.join(cast(list[str], plan['symbols']))} "
+            f"{plan['interval']} {plan['lookback']} / poll {plan['poll_seconds']}s"
+        ),
+    )
+    if webgui_service.get("app_owned"):
+        webgui_state = "app-owned"
+    elif webgui_service.get("service_reachable"):
+        webgui_state = "external"
+    else:
+        webgui_state = str(webgui_service.get("message"))
+    table.add_row(
+        "Web GUI",
+        webgui_state,
+        str(webgui_service.get("url") or "agentic-trader webgui-service start"),
+    )
+    table.add_row(
+        LABEL_MODEL_SERVICE,
+        "ready" if model_service.get("model_available") else str(model_service.get("message")),
+        str(model_service.get("base_url") or model_service.get("configured_base_url")),
+    )
+    table.add_row(
+        "Camofox",
+        "ready" if camofox_service.get("health_ok") else str(camofox_service.get("message")),
+        str(camofox_service.get("base_url") or "agentic-trader camofox-service start"),
+    )
+    table.add_row(
+        "Setup",
+        "ready" if setup.get("core_ready") else "needs attention",
+        "agentic-trader setup-status --json",
+    )
+    console.print(table)
+    console.print(
+        Panel(
+            "\n".join(
+                [
+                    "1  Open/start the local Web GUI command center",
+                    "2  Start the default strict paper daemon",
+                    "3  Open the Ink terminal control room",
+                    "4  Open the Rich/admin fallback menu",
+                    "5  Show local model-service status",
+                    "6  Show Camofox browser helper status",
+                    "7  Show setup/tool readiness",
+                    "8  Exit",
+                ]
+            ),
+            title="Choose A Surface",
+            border_style="cyan",
+        )
+    )
+
+
+def _operator_launcher() -> None:
+    """Interactive no-argument product launcher."""
+
+    settings = get_settings()
+    payload = build_operator_launcher_status(settings).model_dump(mode="json")
+    _render_operator_launcher_status(payload)
+    choice = Prompt.ask(
+        "Select action",
+        choices=["1", "2", "3", "4", "5", "6", "7", "8", "q"],
+        default="3",
+    )
+    if choice == "1":
+        try:
+            status = start_operator_webgui(settings)
+        except Exception as exc:
+            console.print(
+                _render_health_panel(
+                    "Web GUI Start Failed",
+                    redact_sensitive_text(exc, max_length=240),
+                    border_style="red",
+                )
+            )
+            raise typer.Exit(code=1) from exc
+        _render_webgui_service_status(status.model_dump(mode="json"))
+        return
+    if choice == "2":
+        try:
+            pid = start_default_background_runtime(settings)
+        except Exception as exc:
+            console.print(
+                _render_health_panel(
+                    "Daemon Start Blocked",
+                    redact_sensitive_text(exc, max_length=240),
+                    border_style="red",
+                )
+            )
+            raise typer.Exit(code=1) from exc
+        console.print(
+            _render_health_panel(
+                "Background Daemon Started",
+                f"Paper-runtime daemon is running with PID {pid}.",
+                border_style="green",
+            )
+        )
+        return
+    if choice == "3":
+        ink_tui()
+        return
+    if choice == "4":
+        run_main_menu()
+        return
+    if choice == "5":
+        _render_model_service_status(
+            build_model_service_status(settings).model_dump(mode="json")
+        )
+        return
+    if choice == "6":
+        _render_camofox_service_status(
+            build_camofox_service_status(settings).model_dump(mode="json")
+        )
+        return
+    if choice == "7":
+        _render_setup_status(build_setup_status(settings).model_dump(mode="json"))
+        return
+    console.print(_render_health_panel("Exit", "No action selected.", border_style="blue"))
+
+
+@app.command("setup-status")
+def setup_status(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show source setup, optional tool, and model-service readiness."""
+
+    settings = get_settings()
+    payload = build_setup_status(settings).model_dump(mode="json")
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_setup_status(payload)
+
+
+@app.command("setup")
+def setup_command(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--no-dry-run",
+        help="Report setup status. Use make bootstrap for interactive installs.",
+    ),
+) -> None:
+    """Report the recommended local setup path without hidden installs."""
+
+    settings = get_settings()
+    status = build_setup_status(settings).model_dump(mode="json")
+    payload = {
+        "dry_run": dry_run,
+        "mutated": False,
+        "status": status,
+        "message": "Run `make bootstrap` for the interactive system-tool installer.",
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_setup_status(status)
+    console.print(
+        _render_health_panel(
+            "Setup Guidance",
+            str(payload["message"]),
+            border_style="cyan",
+        )
+    )
+
+
+@model_service_app.command("status")
+def model_service_status(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    probe_generation: bool = typer.Option(
+        False,
+        "--probe-generation",
+        help=(
+            "Run a tiny Ollama generation probe in addition to lightweight "
+            "service/model checks."
+        ),
+    ),
+) -> None:
+    """Show local model-service and configured-model readiness."""
+
+    settings = get_settings()
+    payload = build_model_service_status(
+        settings,
+        include_generation=probe_generation,
+    ).model_dump(mode="json")
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_model_service_status(payload)
+
+
+@model_service_app.command("start")
+def model_service_start(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    host: str | None = typer.Option(
+        None,
+        "--host",
+        help="Loopback bind host for app-managed Ollama.",
+    ),
+    port: int | None = typer.Option(
+        None,
+        "--port",
+        min=1,
+        max=65535,
+        help="Preferred app-managed Ollama port.",
+    ),
+) -> None:
+    """Start app-owned Ollama on loopback without touching external services."""
+
+    settings = get_settings()
+    try:
+        payload = start_model_service(
+            settings,
+            host=host,
+            port=port,
+        ).model_dump(mode="json")
+    except Exception as exc:
+        error_payload = {
+            "started": False,
+            "error": redact_sensitive_text(exc, max_length=240),
+        }
+        if json_output:
+            _emit_json(error_payload)
+        else:
+            console.print(
+                _render_health_panel(
+                    f"{LABEL_MODEL_SERVICE} Start Failed",
+                    str(error_payload["error"]),
+                    border_style="red",
+                )
+            )
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_model_service_status(payload)
+
+
+@model_service_app.command("stop")
+def model_service_stop(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Stop only the app-owned model-service process recorded in runtime state."""
+
+    settings = get_settings()
+    payload = stop_model_service(settings).model_dump(mode="json")
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_model_service_status(payload)
+
+
+@model_service_app.command("pull")
+def model_service_pull(
+    model_name: str = typer.Argument(..., help="Ollama model name to pull."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Pull an Ollama model for the configured or app-owned local service."""
+
+    settings = get_settings()
+    try:
+        payload = pull_model(settings, model_name)
+    except Exception as exc:
+        payload = {
+            "model": model_name,
+            "exit_code": 1,
+            "stderr": redact_sensitive_text(exc, max_length=240),
+        }
+    if json_output:
+        _emit_json(payload)
+    else:
+        table = Table(title="Model Pull")
+        table.add_column("Field")
+        table.add_column("Value")
+        table.add_row("Model", str(payload["model"]))
+        table.add_row("Exit Code", str(payload["exit_code"]))
+        table.add_row("Stdout", str(payload.get("stdout", "")) or "-")
+        table.add_row("Stderr", str(payload.get("stderr", "")) or "-")
+        console.print(table)
+    exit_code_value = payload.get("exit_code", 1)
+    exit_code = exit_code_value if isinstance(exit_code_value, int) else 1
+    if exit_code != 0:
+        raise typer.Exit(code=1)
+
+
+@webgui_service_app.command("status")
+def webgui_service_status(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show app-owned local Web GUI readiness and log tails."""
+
+    settings = get_settings()
+    payload = build_webgui_service_status(settings).model_dump(mode="json")
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_webgui_service_status(payload)
+
+
+@webgui_service_app.command("start")
+def webgui_service_start(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    open_browser: bool = typer.Option(
+        True,
+        "--open-browser/--no-open-browser",
+        help="Ask the OS to open the Web GUI URL after starting.",
+    ),
+) -> None:
+    """Start the app-owned loopback Web GUI process."""
+
+    settings = get_settings()
+    try:
+        payload = start_operator_webgui(
+            settings,
+            open_browser=open_browser,
+        ).model_dump(mode="json")
+    except Exception as exc:
+        error_payload = {
+            "started": False,
+            "error": redact_sensitive_text(exc, max_length=240),
+        }
+        if json_output:
+            _emit_json(error_payload)
+        else:
+            console.print(
+                _render_health_panel(
+                    "Web GUI Start Failed",
+                    str(error_payload["error"]),
+                    border_style="red",
+                )
+            )
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_webgui_service_status(payload)
+
+
+@webgui_service_app.command("stop")
+def webgui_service_stop(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Stop only the app-owned local Web GUI process."""
+
+    settings = get_settings()
+    payload = stop_webgui_service(settings).model_dump(mode="json")
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_webgui_service_status(payload)
+
+
+@camofox_service_app.command("status")
+def camofox_service_status(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show app-owned Camofox browser helper readiness and log tails."""
+
+    settings = get_settings()
+    payload = build_camofox_service_status(settings).model_dump(mode="json")
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_camofox_service_status(payload)
+
+
+@camofox_service_app.command("start")
+def camofox_service_start(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+    host: str | None = typer.Option(
+        None,
+        "--host",
+        help="Loopback bind host for app-managed Camofox.",
+    ),
+    port: int | None = typer.Option(
+        None,
+        "--port",
+        min=1,
+        max=65535,
+        help="Preferred app-managed Camofox port.",
+    ),
+) -> None:
+    """Start app-owned Camofox on loopback without touching external helpers."""
+
+    settings = get_settings()
+    try:
+        payload = start_camofox_service(
+            settings,
+            host=host,
+            port=port,
+        ).model_dump(mode="json")
+    except Exception as exc:
+        error_payload = {
+            "started": False,
+            "error": redact_sensitive_text(exc, max_length=240),
+        }
+        if json_output:
+            _emit_json(error_payload)
+        else:
+            console.print(
+                _render_health_panel(
+                    "Camofox Start Failed",
+                    str(error_payload["error"]),
+                    border_style="red",
+                )
+            )
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_camofox_service_status(payload)
+
+
+@camofox_service_app.command("stop")
+def camofox_service_stop(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Stop only the app-owned Camofox process recorded in runtime state."""
+
+    settings = get_settings()
+    payload = stop_camofox_service(settings).model_dump(mode="json")
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_camofox_service_status(payload)
+
+
 @app.command("runtime-mode-checklist")
 def runtime_mode_checklist(
     target_mode: RuntimeMode = typer.Argument(
@@ -2145,7 +3255,11 @@ def _research_sidecar_payload(
     payload = build_research_sidecar_state(settings, probe=probe).model_dump(
         mode="json"
     )
+    payload["cycleControl"] = get_research_cycle_control(settings).model_dump(
+        mode="json"
+    )
     payload["latestSnapshot"] = _latest_research_snapshot_payload(settings)
+    payload["latestDigestReplay"] = _latest_research_digest_replay_payload(settings)
     return payload
 
 
@@ -2161,6 +3275,25 @@ def _latest_research_snapshot_payload(settings: Settings) -> dict[str, object]:
         return {
             "available": False,
             "error": "no_research_snapshot_recorded",
+        }
+    return {
+        "available": True,
+        "record": record.model_dump(mode="json"),
+    }
+
+
+def _latest_research_digest_replay_payload(settings: Settings) -> dict[str, object]:
+    try:
+        record = read_research_digest_replay(settings)
+    except Exception as exc:
+        return {
+            "available": False,
+            "error": str(exc),
+        }
+    if record is None:
+        return {
+            "available": False,
+            "error": "no_research_digest_replay_recorded",
         }
     return {
         "available": True,
@@ -2185,6 +3318,14 @@ def _render_research_sidecar_state(payload: dict[str, object]) -> None:
     table.add_row("Last Successful Update", str(last_success or "-"))
     last_error = payload.get("last_error")
     table.add_row("Last Error", str(last_error or "-"))
+    control = cast(dict[str, object], payload.get("cycleControl", {}))
+    table.add_row("Cycle Control", str(control.get("status", "-")))
+    table.add_row(
+        "Trigger Now",
+        "yes" if control.get("trigger_now_requested") else "no",
+    )
+    replay = cast(dict[str, object], payload.get("latestDigestReplay", {}))
+    table.add_row("Digest Replay", "available" if replay.get("available") else "-")
     console.print(table)
 
     providers = cast(list[dict[str, object]], payload["provider_health"])
@@ -2221,6 +3362,77 @@ def research_status(
         _emit_json(payload)
         return
     _render_research_sidecar_state(payload)
+
+
+@app.command("research-cycle-control")
+def research_cycle_control(
+    pause: bool = typer.Option(
+        False,
+        "--pause",
+        help="Pause future automated research-cycle runs.",
+    ),
+    resume: bool = typer.Option(
+        False,
+        "--resume",
+        help="Resume future automated research-cycle runs.",
+    ),
+    trigger_now: bool = typer.Option(
+        False,
+        "--trigger-now",
+        help="Request one immediate research-cycle run for the next runner.",
+    ),
+    reason: str | None = typer.Option(
+        None,
+        "--reason",
+        help="Optional operator note persisted with the control state.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Read or update the advisory operator control state for research cycles."""
+    selected_actions = [
+        action
+        for action, enabled in (
+            ("pause", pause),
+            ("resume", resume),
+            ("trigger_now", trigger_now),
+        )
+        if enabled
+    ]
+    if len(selected_actions) > 1:
+        raise typer.BadParameter("Choose only one of --pause, --resume, or --trigger-now.")
+    settings = get_settings()
+    action = (
+        cast(ResearchCycleControlAction, selected_actions[0])
+        if selected_actions
+        else None
+    )
+    control = (
+        set_research_cycle_control(settings, action=action, reason=reason)
+        if action is not None
+        else get_research_cycle_control(settings)
+    )
+    payload = {
+        "control": control.model_dump(mode="json"),
+        "persisted": action is not None,
+        "execution_policy": {
+            "broker_access": False,
+            "proposal_creation": False,
+            "manual_review_required": True,
+        },
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            (
+                f"Research cycle control: {control.status}\n"
+                f"Trigger now requested: {'yes' if control.trigger_now_requested else 'no'}"
+            ),
+            title="Research Cycle Control",
+            border_style="cyan",
+        )
+    )
 
 
 @app.command("research-refresh")
@@ -2321,17 +3533,7 @@ def run(
     interval: str = typer.Option("1d", help=HELP_INTERVAL),
     lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
 ) -> None:
-    """
-    Run a single agent cycle using the configured LLM and record the resulting paper order.
-    
-    Parameters:
-        symbol (str): Trading symbol to evaluate.
-        interval (str): Candlestick interval to use (e.g., "1d", "1h").
-        lookback (str): Historical lookback window to build the market snapshot (e.g., "180d").
-    
-    Raises:
-        typer.Exit: Exits with code 1 if the run fails.
-    """
+    """Run one strict paper cycle and record its reviewable decision evidence."""
     settings = get_settings()
     try:
         ensure_llm_ready(settings)
@@ -2373,24 +3575,7 @@ def launch(
         False, help="Spawn the orchestrator as a background service."
     ),
 ) -> None:
-    """
-    Start the agent orchestrator using the provided symbols and runtime options.
-    
-    This command launches the trading orchestrator either in the foreground (runs until completion or stopped) or as a background service (daemon). It validates the provided symbols and runtime flags, then either starts a background service or runs the service loop and renders the latest execution result.
-    
-    Parameters:
-        symbols (str): Comma-separated symbols (e.g., "AAPL,MSFT,BTC-USD").
-        interval (str): OHLCV interval to use for market data (e.g., "1d").
-        lookback (str): Historical lookback window (e.g., "180d").
-        poll_seconds (int): Sleep interval between cycles when running continuously.
-        continuous (bool): If true, keep the orchestrator running across cycles.
-        max_cycles (int | None): Optional cap on the number of cycles when running continuously.
-        background (bool): If true, spawn the orchestrator as a background service (requires --continuous).
-    
-    Raises:
-        typer.BadParameter: If no symbols are provided or if background is requested without --continuous.
-        typer.Exit: Exits with code 1 on runtime errors encountered during launch.
-    """
+    """Start a foreground or managed background paper-runtime loop."""
     settings = get_settings()
     symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
     if not symbol_list:
@@ -2633,6 +3818,652 @@ def broker_status(
     console.print(table)
 
 
+def _render_readiness_checks(title: str, payload: dict[str, object]) -> None:
+    checks = payload.get("checks", [])
+    table = Table(title=title)
+    table.add_column("Check")
+    table.add_column("State")
+    table.add_column("Blocking")
+    table.add_column("Details")
+    if isinstance(checks, list):
+        for item in checks:
+            if not isinstance(item, dict):
+                continue
+            passed = bool(item.get("passed"))
+            table.add_row(
+                str(item.get("name", "-")),
+                "[green]pass[/green]" if passed else "[red]fail[/red]",
+                str(item.get("blocking", True)),
+                str(item.get("details", "")),
+            )
+    console.print(table)
+
+
+@app.command("provider-diagnostics")
+def provider_diagnostics(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
+) -> None:
+    """Show configured model, market, research, and data-provider readiness."""
+    settings = get_settings()
+    payload = provider_diagnostics_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    summary = Table(title="Provider Diagnostics")
+    summary.add_column("Field")
+    summary.add_column("Value")
+    llm = payload.get("llm", {})
+    market_data = payload.get("market_data", {})
+    news = payload.get("news", {})
+    alpaca = payload.get("alpaca", {})
+    if isinstance(llm, dict):
+        summary.add_row("LLM Provider", str(llm.get("provider", "-")))
+        summary.add_row("Default Model", str(llm.get("default_model", "-")))
+        summary.add_row("Base URL", str(llm.get("base_url", "-")))
+    if isinstance(market_data, dict):
+        summary.add_row(
+            "Market Provider", str(market_data.get("selected_provider", "-"))
+        )
+        summary.add_row("Market Role", str(market_data.get("selected_role", "-")))
+    if isinstance(news, dict):
+        summary.add_row("News Mode", str(news.get("mode", "-")))
+    if isinstance(alpaca, dict):
+        summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
+        summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
+        summary.add_row(
+            "Alpaca Credentials Configured",
+            str(alpaca.get("credentials_configured", False)),
+        )
+    console.print(summary)
+
+    provider_table = Table(title="Provider Source Ladder")
+    provider_table.add_column("Provider")
+    provider_table.add_column("Type")
+    provider_table.add_column("Role")
+    provider_table.add_column("Enabled")
+    provider_table.add_column("API Key")
+    provider_table.add_column("Freshness")
+    provider_table.add_column("Notes")
+    providers = payload.get("providers", [])
+    if isinstance(providers, list):
+        for row in providers:
+            if not isinstance(row, dict):
+                continue
+            provider_table.add_row(
+                str(row.get("provider_id", "-")),
+                str(row.get("provider_type", "-")),
+                str(row.get("role", "-")),
+                str(row.get("enabled", False)),
+                str(row.get("api_key_ready", "-")),
+                str(row.get("freshness", "-")),
+                ", ".join(str(note) for note in row.get("notes", [])),
+            )
+    console.print(provider_table)
+
+
+@app.command("v1-readiness")
+def v1_readiness(
+    check_provider: bool = typer.Option(
+        False,
+        "--provider-check/--skip-provider-check",
+        help="Check local model/provider readiness; may call the configured LLM service.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show the V1 paper-operation and Alpaca paper-readiness checklist."""
+    settings = get_settings()
+    payload = v1_readiness_payload(settings, check_provider=check_provider)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    paper = payload.get("paper_operations", {})
+    alpaca = payload.get("alpaca_paper", {})
+    paper_allowed = isinstance(paper, dict) and bool(paper.get("allowed"))
+    console.print(
+        Panel(
+            str(payload.get("summary", "V1 readiness status unavailable.")),
+            title="V1 Readiness",
+            border_style="green" if paper_allowed else "yellow",
+        )
+    )
+    if isinstance(paper, dict):
+        _render_readiness_checks("Paper Operation Checks", paper)
+    if isinstance(alpaca, dict):
+        _render_readiness_checks("Alpaca Paper Checks", alpaca)
+
+
+@app.command("finance-ops")
+def finance_ops(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show read-only broker/account/PnL/exposure/evidence checks for paper operation."""
+    settings = get_settings()
+    payload = _finance_ops_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_finance_ops(payload)
+
+
+@app.command("trade-proposals")
+def trade_proposals(
+    status: str | None = typer.Option(
+        None,
+        "--status",
+        help="Filter by proposal state: pending, approved, rejected, executed, failed, expired.",
+    ),
+    limit: int = typer.Option(
+        50, min=1, max=200, help="Maximum number of trade proposals to show."
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show the manual-review trade proposal queue."""
+    settings = get_settings()
+    parsed_status = _parse_proposal_status(status)
+    payload = _trade_proposals_payload(settings, status=parsed_status, limit=limit)
+    if json_output:
+        _emit_json(payload)
+        return
+    proposals = [
+        TradeProposalRecord.model_validate(item)
+        for item in cast(list[dict[str, object]], payload["proposals"])
+    ]
+    if not payload["available"]:
+        console.print(
+            Panel(
+                f"Trade proposals are temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
+                title=LABEL_OBSERVER_MODE,
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    _render_trade_proposals(proposals)
+
+
+@app.command("proposal-create", cls=ProposalCreateCommand)
+def proposal_create(**options: str) -> None:
+    """Create a pending trade proposal; this does not execute an order."""
+    settings = get_settings()
+    symbol = str(options["symbol"])
+    side = str(options["side"])
+    try:
+        db = _open_db(settings)
+        try:
+            proposal = create_trade_proposal(
+                db=db,
+                draft=TradeProposalDraft(
+                    symbol=symbol,
+                    side=_parse_trade_side(side),
+                    order_type=_parse_order_type(str(options["order_type"])),
+                    quantity=cast(float | None, options["quantity"]),
+                    notional=cast(float | None, options["notional"]),
+                    reference_price=cast(float, options["reference_price"]),
+                    confidence=cast(float, options["confidence"]),
+                    thesis=str(options["thesis"]),
+                    stop_loss=cast(float | None, options["stop_loss"]),
+                    take_profit=cast(float | None, options["take_profit"]),
+                    invalidation_condition=cast(
+                        str | None, options["invalidation_condition"]
+                    ),
+                    source=str(options["source"]),
+                    review_notes=str(options["review_notes"]),
+                ),
+            )
+        finally:
+            db.close()
+    except ValueError as exc:
+        console.print(Panel(str(exc), title="Proposal Rejected", border_style="red"))
+        raise typer.Exit(code=2) from exc
+    payload = proposal.model_dump(mode="json")
+    if bool(options["json_output"]):
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"{proposal.proposal_id} queued for manual review.\n\n"
+            f"{proposal.symbol} {proposal.side.upper()} @ {proposal.reference_price:.4f}",
+            title="Trade Proposal Created",
+            border_style="green",
+        )
+    )
+
+
+@app.command("proposal-approve")
+def proposal_approve(
+    proposal_id: str = typer.Argument(..., help="Trade proposal id to approve."),
+    review_notes: str = typer.Option("", help="Optional approval notes."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Approve a pending proposal and submit it to the configured paper broker."""
+    settings = get_settings()
+    try:
+        db = _open_db(settings)
+        try:
+            proposal, outcome = approve_trade_proposal(
+                db=db,
+                settings=settings,
+                proposal_id=proposal_id,
+                review_notes=review_notes,
+            )
+        finally:
+            db.close()
+    except (RuntimeError, ValueError) as exc:
+        console.print(Panel(str(exc), title="Approval Blocked", border_style="red"))
+        raise typer.Exit(code=2) from exc
+    payload = {
+        "proposal": proposal.model_dump(mode="json"),
+        "outcome": outcome.model_dump(mode="json"),
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"{proposal.proposal_id} -> {proposal.status}\n"
+            f"order={proposal.execution_order_id or '-'} status={outcome.status}",
+            title="Trade Proposal Approved",
+            border_style="green" if proposal.status == "executed" else "yellow",
+        )
+    )
+
+
+@app.command("proposal-reconcile")
+def proposal_reconcile(
+    proposal_id: str = typer.Argument(
+        ..., help="In-flight approved proposal id to reconcile."
+    ),
+    review_notes: str = typer.Option("", help="Optional reconciliation notes."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Repair an approved proposal from a recorded execution outcome without resubmitting."""
+    settings = get_settings()
+    try:
+        db = _open_db(settings)
+        try:
+            proposal, execution_record = reconcile_trade_proposal(
+                db=db,
+                proposal_id=proposal_id,
+                review_notes=review_notes,
+            )
+        finally:
+            db.close()
+    except ValueError as exc:
+        console.print(
+            Panel(str(exc), title="Reconciliation Blocked", border_style="red")
+        )
+        raise typer.Exit(code=2) from exc
+    payload = {
+        "proposal": proposal.model_dump(mode="json"),
+        "execution_record": execution_record,
+        "resubmitted": False,
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"{proposal.proposal_id} -> {proposal.status}\n"
+            f"order={proposal.execution_order_id or '-'} "
+            f"status={proposal.execution_outcome_status or '-'}\n"
+            "No broker resubmission was attempted.",
+            title="Trade Proposal Reconciled",
+            border_style="green" if proposal.status == "executed" else "yellow",
+        )
+    )
+
+
+@app.command("proposal-reject")
+def proposal_reject(
+    proposal_id: str = typer.Argument(..., help="Trade proposal id to reject."),
+    reason: str = typer.Option(..., help="Human-readable rejection reason."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Reject a pending proposal and make the terminal decision auditable."""
+    settings = get_settings()
+    try:
+        db = _open_db(settings)
+        try:
+            proposal = reject_trade_proposal(
+                db=db, proposal_id=proposal_id, reason=reason
+            )
+        finally:
+            db.close()
+    except ValueError as exc:
+        console.print(Panel(str(exc), title="Rejection Blocked", border_style="red"))
+        raise typer.Exit(code=2) from exc
+    if json_output:
+        _emit_json(proposal.model_dump(mode="json"))
+        return
+    console.print(
+        Panel(
+            f"{proposal.proposal_id} rejected.\n\nReason: {proposal.rejection_reason}",
+            title="Trade Proposal Rejected",
+            border_style="yellow",
+        )
+    )
+
+
+@app.command("idea-presets")
+def idea_presets(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show V1 idea-scanner presets and their operator intent."""
+    payload = {
+        "presets": [
+            {
+                "name": name,
+                "description": description,
+                "strategy_profile": strategy_profile_for_preset(name).to_payload(),
+            }
+            for name, description in PRESET_DESCRIPTIONS.items()
+        ],
+        "execution_policy": "scanner ideas must become proposals and require manual approval",
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    table = Table(title="Idea Scanner Presets")
+    table.add_column("Preset")
+    table.add_column("Intent")
+    for item in cast(list[dict[str, str]], payload["presets"]):
+        table.add_row(item["name"], item["description"])
+    console.print(table)
+
+
+@app.command("idea-score", cls=IdeaScoreCommand)
+def idea_score(**options: str) -> None:
+    """Score a single scanner candidate without creating or executing a proposal."""
+    _render_idea_score(
+        candidate=IdeaCandidate(
+            symbol=str(options["symbol"]),
+            price=cast(float, options["price"]),
+            volume=cast(float, options["volume"]),
+            change_pct=cast(float, options["change_pct"]),
+            relative_volume=cast(float, options["relative_volume"]),
+            gap_pct=cast(float, options["gap_pct"]),
+            range_pct=cast(float, options["range_pct"]),
+            rsi=cast(float | None, options["rsi"]),
+            ema_9=cast(float | None, options["ema_9"]),
+            sma_20=cast(float | None, options["sma_20"]),
+            sma_50=cast(float | None, options["sma_50"]),
+            vwap=cast(float | None, options["vwap"]),
+            spread_pct=cast(float, options["spread_pct"]),
+        ),
+        preset=str(options["preset"]),
+        json_output=bool(options["json_output"]),
+    )
+
+
+def _render_idea_score(
+    *,
+    candidate: IdeaCandidate,
+    preset: str,
+    json_output: bool,
+) -> None:
+    parsed_preset = _parse_idea_preset(preset)
+    ranked = rank_candidates([candidate], preset=parsed_preset, limit=1)
+    if not ranked:
+        raise typer.BadParameter(
+            f"No score could be produced for {candidate.symbol!r} with preset {parsed_preset!r}."
+        )
+    result = ranked[0]
+    payload = {
+        "score": result.__dict__,
+        "strategy": score_strategy_context(result),
+        "execution_policy": "score output is research only; use proposal-create for manual review",
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"{result.symbol} {result.signal.upper()} score={result.score:.2f}\n\n"
+            f"Reasons: {', '.join(result.reasons) or '-'}\n"
+            f"Warnings: {', '.join(result.warnings) or '-'}",
+            title=f"Idea Score: {result.preset}",
+            border_style="cyan",
+        )
+    )
+
+
+@app.command("strategy-catalog")
+def strategy_catalog(
+    status: str | None = typer.Option(
+        None,
+        "--status",
+        help="Filter by implemented, research-candidate, or v2-deferred.",
+    ),
+    preset: str | None = typer.Option(
+        None,
+        "--preset",
+        help="Filter by an idea-scanner preset such as momentum or breakout.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show repo-native strategy profiles and their V1 readiness gates."""
+    parsed_status = _parse_strategy_status(status)
+    parsed_preset = _parse_idea_preset(preset) if preset else None
+    payload = strategy_catalog_payload(status=parsed_status, preset=parsed_preset)
+    if json_output:
+        _emit_json(payload)
+        return
+    table = Table(title="V1 Strategy Catalog")
+    table.add_column("Profile")
+    table.add_column("Family")
+    table.add_column("Status")
+    table.add_column("V1 Path")
+    table.add_column("Summary")
+    for item in cast(list[dict[str, object]], payload["profiles"]):
+        table.add_row(
+            str(item.get("name", "-")),
+            str(item.get("family", "-")),
+            str(item.get("status", "-")),
+            str(item.get("v1_path", "-")),
+            str(item.get("summary", "-")),
+        )
+    console.print(table)
+
+
+@app.command("strategy-profile")
+def strategy_profile(
+    name: str = typer.Argument(..., help="Strategy profile name."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show one strategy profile with evidence, risk, and validation gates."""
+    try:
+        profile = get_strategy_profile(name)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    payload = {
+        "profile": profile.to_payload(),
+        "execution_policy": "profile is read-only research metadata; it cannot execute trades",
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    profile_payload = payload["profile"]
+    assert isinstance(profile_payload, dict)
+    body = (
+        f"{profile_payload['summary']}\n\n"
+        f"Evidence: {', '.join(cast(list[str], profile_payload['evidence_requirements'])) or '-'}\n"
+        f"Risk: {', '.join(cast(list[str], profile_payload['risk_controls'])) or '-'}\n"
+        f"Validation: {', '.join(cast(list[str], profile_payload['validation_checks'])) or '-'}"
+    )
+    console.print(
+        Panel(body, title=f"Strategy Profile: {profile.name}", border_style="cyan")
+    )
+
+
+@app.command("news-intelligence")
+def news_intelligence(
+    symbol: str = typer.Option(..., help=HELP_SYMBOL),
+    company_name: str | None = typer.Option(
+        None, "--company-name", help="Optional company name for ticker disambiguation."
+    ),
+    sector: str | None = typer.Option(
+        None, "--sector", help="Optional sector for sector-level news checks."
+    ),
+    classify_source: str | None = typer.Option(
+        None,
+        "--classify-source",
+        help="Optionally classify a source domain or URL into the source tier policy.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Build a source-attributed news research plan without fetching the web."""
+    try:
+        payload = news_research_plan(
+            symbol=symbol, company_name=company_name, sector=sector
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if classify_source:
+        payload["classified_source"] = {
+            "source": classify_source,
+            "tier": classify_source_tier(classify_source),
+        }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            str(payload["prompt_policy"]),
+            title=f"News Intelligence: {payload['symbol']}",
+            border_style="cyan",
+        )
+    )
+    table = Table(title="News Query Plan")
+    table.add_column("Kind")
+    table.add_column("Query")
+    table.add_column("Materiality")
+    for query in cast(list[dict[str, str]], payload["query_templates"]):
+        table.add_row(
+            query["kind"], query["query"], query["materiality_hint"]
+        )
+    console.print(table)
+
+
+@app.command("research-cycle-plan")
+def research_cycle_plan(
+    symbols: str = typer.Option(
+        "AAPL",
+        "--symbols",
+        help="Comma-separated watchlist symbols for the research cycle plan.",
+    ),
+    cadence_seconds: int = typer.Option(
+        900,
+        "--cadence-seconds",
+        min=60,
+        help="Target cadence for future daemonized research checks.",
+    ),
+    max_proposals_per_cycle: int = typer.Option(
+        1,
+        "--max-proposals-per-cycle",
+        min=0,
+        max=10,
+        help="Maximum pending proposals the plan should allow per cycle.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show the safe continuous research cycle contract without starting a daemon."""
+    symbol_list = [
+        item.strip().upper() for item in symbols.split(",") if item.strip()
+    ]
+    try:
+        payload = research_cycle_plan_payload(
+            symbols=symbol_list,
+            cadence_seconds=cadence_seconds,
+            max_proposals_per_cycle=max_proposals_per_cycle,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            str(payload["safety_policy"]),
+            title=f"Research Cycle Plan: {payload['cycle']}",
+            border_style="cyan",
+        )
+    )
+    table = Table(title="Research Cycle Phases")
+    table.add_column("Phase")
+    table.add_column("Purpose")
+    table.add_column("Produces")
+    for phase in cast(list[dict[str, object]], payload["phases"]):
+        produce = cast(list[str] | tuple[str, ...], phase.get("produce", []))
+        table.add_row(
+            str(phase.get("name", "-")),
+            str(phase.get("purpose", "-")),
+            ", ".join(str(item) for item in produce),
+        )
+    console.print(table)
+
+
+@app.command("research-cycle-run")
+def research_cycle_run(
+    symbols: str = typer.Option(
+        ..., "--symbols", help="Comma-separated watchlist symbols for this cycle."
+    ),
+    cycles: int = typer.Option(1, min=1, max=24, help="Bounded cycle count to run."),
+    cadence_seconds: int = typer.Option(
+        60,
+        "--cadence-seconds",
+        min=1,
+        help="Seconds between cycles when --sleep is enabled.",
+    ),
+    max_proposals_per_cycle: int = typer.Option(
+        1,
+        "--max-proposals-per-cycle",
+        min=0,
+        max=10,
+        help="Maximum pending proposals the run should allow in its plan only.",
+    ),
+    persist: bool = typer.Option(
+        True,
+        "--persist/--no-persist",
+        help="Persist each research snapshot to the runtime research JSON feed.",
+    ),
+    sleep_between_cycles: bool = typer.Option(
+        True,
+        "--sleep/--no-sleep",
+        help="Wait cadence_seconds between cycles. Use --no-sleep for QA smoke.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Run a bounded evidence-only research cycle without broker authority."""
+    settings = get_settings()
+    symbol_list = [
+        item.strip().upper() for item in symbols.split(",") if item.strip()
+    ]
+    try:
+        payload = run_research_cycle(
+            settings,
+            symbols=symbol_list,
+            cycles=cycles,
+            cadence_seconds=cadence_seconds,
+            max_proposals_per_cycle=max_proposals_per_cycle,
+            persist=persist,
+            sleep_between_cycles=sleep_between_cycles,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"Executed {payload['executed_cycles']} evidence-only research cycle(s).\n"
+            "Broker access, proposal approval, and raw web prompt injection stayed disabled.",
+            title="Research Cycle Run",
+            border_style="green",
+        )
+    )
+
+
 @app.command()
 def logs(
     limit: int = typer.Option(
@@ -2658,28 +4489,39 @@ def logs(
 @app.command("dashboard-snapshot")
 def dashboard_snapshot(
     log_limit: int = typer.Option(
-        14, min=1, max=100, help="Maximum number of runtime events to include."
+        14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT
+    ),
+    provider_check: bool = typer.Option(
+        False,
+        "--provider-check/--no-provider-check",
+        help=HELP_PROVIDER_CHECK,
     ),
 ) -> None:
     """Emit the full Ink dashboard snapshot as a single JSON payload."""
     settings = get_settings()
-    _emit_json(build_dashboard_snapshot_payload(settings, log_limit=log_limit))
+    _emit_json(
+        build_dashboard_snapshot_payload(
+            settings,
+            log_limit=log_limit,
+            check_provider=provider_check,
+        )
+    )
 
 
 def build_dashboard_snapshot_payload(
-    settings: Settings, *, log_limit: int = 14
+    settings: Settings, *, log_limit: int = 14, check_provider: bool = False
 ) -> dict[str, object]:
     """
     Assembles a JSON-serializable dashboard snapshot containing runtime, service, agent activity, and persisted payloads for the observer API.
     
-    Builds health/doctor info, runtime status, supervisor and broker payloads, recent service events and agent activity summary, and a collection of read-only payloads (portfolio, preferences, recent runs, journal, risk report, run review/trace/replay, trade/market context, canonical analysis, memory inspection, retrieval inspection, memory policy, chat history, calendar, news, and market cache).
+    Builds health/doctor info, runtime status, supervisor, broker, model-service, and Web GUI payloads, recent service events and agent activity summary, and a collection of read-only payloads (portfolio, preferences, recent runs, journal, risk report, run review/trace/replay, trade/market context, canonical analysis, memory inspection, retrieval inspection, memory policy, chat history, calendar, news, and market cache).
     
     Parameters:
         settings (Settings): Application settings used to read service state, access the database, and resolve runtime paths.
         log_limit (int): Maximum number of recent service events to include in the `logs` section (default 14).
     
     Returns:
-        dict[str, object]: A JSON-serializable snapshot keyed by sections including (but not limited to) `doctor`, `status`, `supervisor`, `broker`, `logs`, `agentActivity`, `portfolio`, `preferences`, `recentRuns`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `canonicalAnalysis`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, and `marketCache`.
+        dict[str, object]: A JSON-serializable snapshot keyed by sections including (but not limited to) `doctor`, `status`, `supervisor`, `broker`, `modelService`, `webGui`, `logs`, `agentActivity`, `portfolio`, `preferences`, `recentRuns`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `canonicalAnalysis`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, and `marketCache`.
     """
     llm = LocalLLM(settings)
     health = llm.health_check()
@@ -2721,6 +4563,10 @@ def build_dashboard_snapshot_payload(
         "status": status_payload,
         "supervisor": _service_supervisor_payload(settings),
         "broker": _broker_payload(settings),
+        "modelService": build_model_service_status(settings).model_dump(mode="json"),
+        "camofoxService": build_camofox_service_status(settings).model_dump(mode="json"),
+        "webGui": build_webgui_service_status(settings).model_dump(mode="json"),
+        "financeOps": _finance_ops_payload(settings),
         "logs": [event.model_dump(mode="json") for event in events],
         "agentActivity": {
             "cycle_count": activity.cycle_count,
@@ -2758,6 +4604,7 @@ def build_dashboard_snapshot_payload(
         "portfolio": _portfolio_payload(settings),
         "preferences": _preferences_payload(settings),
         "recentRuns": _recent_runs_payload(settings, limit=8),
+        "tradeProposals": _trade_proposals_payload(settings, limit=8),
         "journal": _journal_payload(settings, limit=8),
         "riskReport": _risk_report_payload(settings),
         "review": _run_record_payload(settings),
@@ -2776,7 +4623,540 @@ def build_dashboard_snapshot_payload(
         "news": _news_payload(settings),
         "marketCache": _market_cache_payload(settings),
         "research": _research_sidecar_payload(settings),
+        "providerDiagnostics": provider_diagnostics_payload(settings),
+        "v1Readiness": v1_readiness_payload(settings, check_provider=check_provider),
     }
+
+
+def _claim_timestamped_dir(root: Path, label: str) -> Path:
+    """Create a unique artifact directory using label or label-N."""
+    root.mkdir(parents=True, exist_ok=True)
+    for attempt in range(1, 1000):
+        suffix = "" if attempt == 1 else f"-{attempt}"
+        candidate = root / f"{label}{suffix}"
+        try:
+            candidate.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            continue
+        return candidate
+    msg = f"Unable to create a unique artifact directory for {label!r}"
+    raise RuntimeError(msg)
+
+
+def _write_bundle_json(bundle_dir: Path, filename: str, payload: object) -> str:
+    path = bundle_dir / filename
+    path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    return str(path)
+
+
+def _latest_smoke_artifact_dir(artifacts_root: Path) -> Path | None:
+    if not artifacts_root.exists():
+        return None
+    candidates = [
+        path
+        for path in artifacts_root.glob("smoke-*")
+        if path.is_dir() and (path / "smoke-summary.json").exists()
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _run_probe_command(command: list[str], *, timeout: float = 2.0) -> str | None:
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=PROJECT_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    output = proc.stdout.strip()
+    return output or None
+
+
+def _total_memory_bytes() -> int | None:
+    if sys.platform == "darwin":
+        output = _run_probe_command(["sysctl", "-n", "hw.memsize"])
+        if output and output.isdigit():
+            return int(output)
+    sysconf_total = _sysconf_total_memory_bytes()
+    if sysconf_total is not None:
+        return sysconf_total
+    return _linux_meminfo_total_memory_bytes()
+
+
+def _sysconf_total_memory_bytes() -> int | None:
+    try:
+        pages = os.sysconf("SC_PHYS_PAGES")
+        page_size = os.sysconf("SC_PAGE_SIZE")
+    except (AttributeError, OSError, ValueError):
+        pages = page_size = None
+    if (
+        isinstance(pages, int)
+        and isinstance(page_size, int)
+        and pages > 0
+        and page_size > 0
+    ):
+        return pages * page_size
+    return None
+
+
+def _linux_meminfo_total_memory_bytes() -> int | None:
+    meminfo = Path("/proc/meminfo")
+    if not meminfo.exists():
+        return None
+    try:
+        lines = meminfo.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        total = _parse_memtotal_line(line)
+        if total is not None:
+            return total
+    return None
+
+
+def _parse_memtotal_line(line: str) -> int | None:
+    if not line.startswith("MemTotal:"):
+        return None
+    parts = line.split()
+    if len(parts) >= 2 and parts[1].isdigit():
+        return int(parts[1]) * 1024
+    return None
+
+
+def _model_size_billions(model_name: str) -> float | None:
+    separators = ":/,_-()[]{}"
+    normalized = model_name.lower()
+    for separator in separators:
+        normalized = normalized.replace(separator, " ")
+    for token in normalized.split():
+        size = _model_size_token_billions(token)
+        if size is not None:
+            return size
+    return None
+
+
+def _model_size_token_billions(token: str) -> float | None:
+    if not token.endswith("b"):
+        return None
+    numeric = token[:-1]
+    if not numeric or numeric.startswith(".") or numeric.endswith("."):
+        return None
+    try:
+        return float(numeric)
+    except ValueError:
+        return None
+
+
+def _accelerator_payload() -> dict[str, object]:
+    if sys.platform == "darwin" and platform.machine().lower() == "arm64":
+        return {
+            "type": "apple_silicon",
+            "detail": "Apple Silicon unified-memory accelerator available to supported local runtimes.",
+        }
+    if shutil.which("nvidia-smi"):
+        output = _run_probe_command(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,memory.total",
+                "--format=csv,noheader",
+            ]
+        )
+        if output:
+            return {"type": "nvidia", "detail": output.splitlines()}
+    return {
+        "type": "unknown",
+        "detail": "No accelerator probe succeeded with stdlib-safe local checks.",
+    }
+
+
+def _recommended_parallel_agents(
+    cpu_count: int, memory_gb: float | None, model_b: float | None
+) -> int:
+    cpu_floor = max(1, cpu_count // 4)
+    if memory_gb is None:
+        recommended = min(2, cpu_floor)
+    elif memory_gb < 24:
+        recommended = 1
+    elif memory_gb < 48:
+        recommended = min(2, cpu_floor)
+    else:
+        recommended = min(4, cpu_floor)
+    if model_b is not None and model_b >= 13 and (memory_gb is None or memory_gb < 48):
+        recommended = 1
+    return max(1, recommended)
+
+
+def build_hardware_profile_payload(settings: Settings) -> dict[str, object]:
+    """Build a local, read-only hardware/runtime capacity snapshot."""
+    cpu_count = os.cpu_count() or 1
+    memory_bytes = _total_memory_bytes()
+    memory_gb = round(memory_bytes / (1024**3), 2) if memory_bytes else None
+    model_b = _model_size_billions(settings.model_name)
+    safe_parallel_agents = _recommended_parallel_agents(cpu_count, memory_gb, model_b)
+    constrained = safe_parallel_agents == 1
+    return {
+        "platform": {
+            "system": platform.system(),
+            "release": platform.release(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "python": sys.version.split()[0],
+        },
+        "hardware": {
+            "cpu_count": cpu_count,
+            "memory_bytes": memory_bytes,
+            "memory_gb": memory_gb,
+            "accelerator": _accelerator_payload(),
+        },
+        "configured_runtime": {
+            "model_name": settings.model_name,
+            "estimated_model_size_b": model_b,
+            "max_output_tokens": settings.max_output_tokens,
+            "request_timeout_seconds": settings.request_timeout_seconds,
+            "max_retries": settings.max_retries,
+        },
+        "recommendations": {
+            "safe_parallel_agents": safe_parallel_agents,
+            "max_output_tokens": min(settings.max_output_tokens, 2048)
+            if constrained
+            else settings.max_output_tokens,
+            "request_timeout_seconds": max(settings.request_timeout_seconds, 180.0),
+            "profile": "constrained-local" if constrained else "standard-local",
+        },
+        "notes": [
+            "This is an operator hint, not an automatic runtime override.",
+            "Use the lower of configured and recommended limits before long paper-operation runs.",
+        ],
+    }
+
+
+def build_operator_workflow_payload(settings: Settings) -> dict[str, object]:
+    """Return the canonical V1 operator review workflow without executing it."""
+    steps = [
+        {
+            "order": 1,
+            "name": "environment_doctor",
+            "command": "agentic-trader doctor",
+            "purpose": "Verify model, runtime directory, database path, and basic provider reachability.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 2,
+            "name": "hardware_profile",
+            "command": "agentic-trader hardware-profile",
+            "purpose": "Inspect local CPU, memory, accelerator hints, model size, and safe parallelism recommendations.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 3,
+            "name": "provider_diagnostics",
+            "command": "agentic-trader provider-diagnostics",
+            "purpose": "Inspect source ladder, API-key readiness, and fallback warnings without leaking secrets.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 4,
+            "name": "v1_readiness",
+            "command": "agentic-trader v1-readiness --provider-check",
+            "purpose": "Verify paper-operation gates and Alpaca external-paper readiness before longer operation.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 5,
+            "name": "fast_smoke",
+            "command": "pnpm run qa",
+            "purpose": "Run CLI/Rich/Ink smoke QA and produce smoke-summary.json plus qa-report.md.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 6,
+            "name": "one_cycle",
+            "command": "pnpm run qa -- --include-runtime-cycle --runtime-symbol AAPL --runtime-interval 1d --runtime-lookback 180d",
+            "purpose": "Optionally prove one strict foreground agent cycle with isolated runtime storage.",
+            "required_before_long_run": False,
+        },
+        {
+            "order": 7,
+            "name": "review_outputs",
+            "command": "agentic-trader review-run && agentic-trader trace-run && agentic-trader trade-context",
+            "purpose": "Inspect decision, stage trace, context pack, broker outcome, and reviewable rationale.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 8,
+            "name": "evidence_bundle",
+            "command": "agentic-trader evidence-bundle",
+            "purpose": "Package shared runtime truth, readiness payloads, logs, hardware profile, and latest smoke report.",
+            "required_before_long_run": True,
+        },
+        {
+            "order": 9,
+            "name": "background_paper_operation",
+            "command": "agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous --background",
+            "purpose": "Start longer paper operation only after the readiness and evidence steps are understood.",
+            "required_before_long_run": False,
+        },
+    ]
+    return {
+        "workflow_version": "operator-workflow.v1",
+        "runtime_mode": settings.runtime_mode,
+        "execution_backend": settings.execution_backend,
+        "live_execution_enabled": settings.live_execution_enabled,
+        "kill_switch_active": settings.execution_kill_switch_active,
+        "paper_first": settings.execution_backend == "paper"
+        and not settings.live_execution_enabled,
+        "steps": steps,
+        "safety_notes": [
+            "This workflow is descriptive and does not execute runtime actions.",
+            "Live execution remains blocked until explicitly approved and implemented.",
+            "Paper evidence and operator review should precede any longer background run.",
+        ],
+    }
+
+
+@app.command("operator-workflow")
+def operator_workflow_command(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show the canonical V1 operator review workflow without executing it."""
+    settings = get_settings()
+    payload = build_operator_workflow_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+    table = Table(title="V1 Operator Workflow")
+    table.add_column("#", style="cyan")
+    table.add_column("Step")
+    table.add_column("Command")
+    table.add_column("Purpose")
+    for step in cast(list[dict[str, object]], payload["steps"]):
+        table.add_row(
+            str(step["order"]),
+            str(step["name"]),
+            str(step["command"]),
+            str(step["purpose"]),
+        )
+    console.print(
+        Panel(
+            "Read-only workflow guide. Review readiness and evidence before long paper operation.",
+            title="Operator Workflow",
+            border_style="cyan",
+        )
+    )
+    console.print(table)
+
+
+@app.command("hardware-profile")
+def hardware_profile_command(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show local hardware and model-capacity hints before long paper runs."""
+    settings = get_settings()
+    payload = build_hardware_profile_payload(settings)
+    if json_output:
+        _emit_json(payload)
+        return
+
+    hardware = cast(dict[str, object], payload["hardware"])
+    configured = cast(dict[str, object], payload["configured_runtime"])
+    recommendations = cast(dict[str, object], payload["recommendations"])
+    table = Table(title="Hardware Profile")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value")
+    table.add_row("CPU Count", str(hardware["cpu_count"]))
+    table.add_row("Memory GB", str(hardware["memory_gb"]))
+    accelerator = cast(dict[str, object], hardware["accelerator"])
+    table.add_row("Accelerator", str(accelerator.get("type", "unknown")))
+    table.add_row("Model", str(configured["model_name"]))
+    table.add_row("Estimated Model Size", str(configured["estimated_model_size_b"]))
+    table.add_row("Safe Parallel Agents", str(recommendations["safe_parallel_agents"]))
+    table.add_row("Token Hint", str(recommendations["max_output_tokens"]))
+    table.add_row("Profile", str(recommendations["profile"]))
+    console.print(table)
+
+
+def build_evidence_bundle(
+    settings: Settings,
+    *,
+    output_dir: Path | None = None,
+    label: str | None = None,
+    log_limit: int = 20,
+    include_latest_smoke: bool = True,
+    check_provider: bool = False,
+) -> dict[str, object]:
+    """Create a read-only QA evidence bundle from shared runtime contracts."""
+    artifacts_root = output_dir.expanduser() if output_dir is not None else QA_ARTIFACTS_ROOT
+    if not artifacts_root.is_absolute():
+        artifacts_root = PROJECT_ROOT / artifacts_root
+    run_label = label or f"evidence-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    bundle_dir = _claim_timestamped_dir(artifacts_root, run_label)
+
+    state = read_service_state(settings)
+    status_view = build_runtime_status_view(state)
+    operation_plan = _runtime_mode_transition_plan(
+        settings, target_mode="operation", check_provider=False
+    )
+    events = read_service_events(settings, limit=log_limit)
+    files: dict[str, str] = {}
+    files["dashboard"] = _write_bundle_json(
+        bundle_dir,
+        "dashboard-snapshot.json",
+        build_dashboard_snapshot_payload(
+            settings,
+            log_limit=log_limit,
+            check_provider=check_provider,
+        ),
+    )
+    files["status"] = _write_bundle_json(
+        bundle_dir,
+        "status.json",
+        _runtime_status_payload(status_view, settings),
+    )
+    files["broker"] = _write_bundle_json(
+        bundle_dir,
+        "broker-status.json",
+        _broker_payload(settings),
+    )
+    files["finance_ops"] = _write_bundle_json(
+        bundle_dir,
+        "finance-ops.json",
+        _finance_ops_payload(settings),
+    )
+    files["provider_diagnostics"] = _write_bundle_json(
+        bundle_dir,
+        "provider-diagnostics.json",
+        provider_diagnostics_payload(settings),
+    )
+    files["v1_readiness"] = _write_bundle_json(
+        bundle_dir,
+        "v1-readiness.json",
+        v1_readiness_payload(settings, check_provider=check_provider),
+    )
+    files["supervisor"] = _write_bundle_json(
+        bundle_dir,
+        "supervisor-status.json",
+        _service_supervisor_payload(settings),
+    )
+    files["logs"] = _write_bundle_json(
+        bundle_dir,
+        "logs.json",
+        {"logs": [event.model_dump(mode="json") for event in events]},
+    )
+    files["runtime_mode_operation"] = _write_bundle_json(
+        bundle_dir,
+        "runtime-mode-operation-checklist.json",
+        operation_plan.model_dump(mode="json"),
+    )
+    files["operator_workflow"] = _write_bundle_json(
+        bundle_dir,
+        "operator-workflow.json",
+        build_operator_workflow_payload(settings),
+    )
+    files["research"] = _write_bundle_json(
+        bundle_dir,
+        "research-status.json",
+        _research_sidecar_payload(settings),
+    )
+    files["hardware_profile"] = _write_bundle_json(
+        bundle_dir,
+        "hardware-profile.json",
+        build_hardware_profile_payload(settings),
+    )
+
+    latest_smoke_dir: Path | None = None
+    if include_latest_smoke:
+        latest_smoke_dir = _latest_smoke_artifact_dir(artifacts_root)
+        if latest_smoke_dir is not None:
+            for source_name, target_name, key in (
+                ("smoke-summary.json", "latest-smoke-summary.json", "latest_smoke_summary"),
+                ("qa-report.md", "latest-qa-report.md", "latest_qa_report"),
+            ):
+                source = latest_smoke_dir / source_name
+                if source.exists():
+                    target = bundle_dir / target_name
+                    shutil.copyfile(source, target)
+                    files[key] = str(target)
+
+    manifest: dict[str, object] = {
+        "bundle_version": "qa-evidence.v1",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "bundle_dir": str(bundle_dir),
+        "runtime_dir": str(settings.runtime_dir),
+        "database_path": str(settings.database_path),
+        "log_limit": log_limit,
+        "latest_smoke_dir": str(latest_smoke_dir) if latest_smoke_dir else None,
+        "files": files,
+    }
+    manifest_path = bundle_dir / "manifest.json"
+    files["manifest"] = str(manifest_path)
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, default=str), encoding="utf-8"
+    )
+    return manifest
+
+
+@app.command("evidence-bundle")
+def evidence_bundle_command(
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        help="Artifact root. Defaults to .ai/qa/artifacts.",
+    ),
+    label: str | None = typer.Option(
+        None,
+        "--label",
+        help="Bundle directory label. Defaults to evidence-YYYYMMDD-HHMMSS.",
+    ),
+    log_limit: int = typer.Option(
+        20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT
+    ),
+    include_latest_smoke: bool = typer.Option(
+        True,
+        "--include-latest-smoke/--no-latest-smoke",
+        help="Copy the latest smoke summary/report into the bundle when available.",
+    ),
+    provider_check: bool = typer.Option(
+        False,
+        "--provider-check/--no-provider-check",
+        help=HELP_PROVIDER_CHECK,
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Collect read-only runtime, broker, readiness, and QA evidence into a bundle."""
+    settings = get_settings()
+    manifest = build_evidence_bundle(
+        settings,
+        output_dir=output_dir,
+        label=label,
+        log_limit=log_limit,
+        include_latest_smoke=include_latest_smoke,
+        check_provider=provider_check,
+    )
+    if json_output:
+        _emit_json(manifest)
+        return
+    files = cast(dict[str, str], manifest["files"])
+    table = Table(title="QA Evidence Bundle")
+    table.add_column("Artifact", style="cyan")
+    table.add_column("Path")
+    for key, path in files.items():
+        table.add_row(key, path)
+    console.print(
+        Panel(
+            f"Bundle written to {manifest['bundle_dir']}",
+            title="Evidence Bundle",
+            border_style="green",
+        )
+    )
+    console.print(table)
 
 
 def build_observer_api_payload(
@@ -2790,8 +5170,13 @@ def build_observer_api_payload(
     - "/health": returns service name, basic OK flag, and the runtime status sub-object.
     - "/status": returns a detailed runtime status view (runtime_state, live_process, is_stale, age_seconds, status_message, state).
     - "/logs": returns a list of recent service events under the "logs" key.
+    - "/supervisor": returns supervisor status plus stdout/stderr log tails.
     - "/broker": returns broker runtime payload.
+    - "/finance-ops": returns read-only broker/account/PnL/evidence checks.
+    - "/provider-diagnostics": returns network-free provider/source readiness.
+    - "/v1-readiness": returns V1 paper-operation and Alpaca paper-readiness gates.
     - "/research": returns optional research sidecar mode and provider health.
+    - "/trade-proposals": returns the read-only manual-review proposal queue.
     - any other path: returns 404 with {"error": "not_found", "path": <requested path>}.
     
     Parameters:
@@ -2822,10 +5207,20 @@ def build_observer_api_payload(
                 for event in read_service_events(settings, limit=log_limit)
             ]
         }
+    if path == "/supervisor":
+        return 200, _service_supervisor_payload(settings)
     if path == "/broker":
         return 200, _broker_payload(settings)
+    if path == "/finance-ops":
+        return 200, _finance_ops_payload(settings)
+    if path == "/provider-diagnostics":
+        return 200, provider_diagnostics_payload(settings)
+    if path == "/v1-readiness":
+        return 200, v1_readiness_payload(settings, check_provider=False)
     if path == "/research":
         return 200, _research_sidecar_payload(settings)
+    if path == "/trade-proposals":
+        return 200, _trade_proposals_payload(settings, limit=50)
     return 404, {"error": "not_found", "path": path}
 
 
@@ -2838,32 +5233,57 @@ def observer_api_command(
         8765, min=1, max=65535, help="Bind port for the local observer API."
     ),
     log_limit: int = typer.Option(
-        14, min=1, max=100, help="Maximum number of runtime events to include."
+        14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT
+    ),
+    allow_nonlocal: bool = typer.Option(
+        False,
+        "--allow-nonlocal",
+        help=(
+            "Allow binding the observer API to a non-loopback host. "
+            "Requires AGENTIC_TRADER_OBSERVER_API_TOKEN."
+        ),
     ),
 ) -> None:
-    """
-    Start a local, read-only HTTP observer API exposing runtime and diagnostic endpoints.
-    
-    Parameters:
-    	host (str): Bind address for the observer API.
-    	port (int): TCP port to bind the observer API (1–65535).
-    	log_limit (int): Maximum number of recent runtime events to include in responses.
-    """
+    """Start the local read-only observer API with loopback-first safety gates."""
     settings = get_settings()
+    nonlocal_bind = not is_loopback_host(host)
+    if nonlocal_bind and (
+        not allow_nonlocal or not settings.observer_api_token
+    ):
+        console.print(
+            Panel(
+                (
+                    "Observer API is local-only by default. Use a loopback host "
+                    "or set AGENTIC_TRADER_OBSERVER_API_TOKEN and pass "
+                    "--allow-nonlocal for an intentional nonlocal read-only bind."
+                ),
+                title="Observer API Blocked",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=2)
     console.print(
         Panel(
-            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /research",
+            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /finance-ops\n- /provider-diagnostics\n- /v1-readiness\n- /research\n- /trade-proposals",
             title="Observer API",
             border_style="cyan",
         )
     )
-    serve_observer_api(
-        host=host,
-        port=port,
-        resolver=lambda path: build_observer_api_payload(
-            settings, path=path, log_limit=log_limit
-        ),
-    )
+    try:
+        serve_observer_api(
+            host=host,
+            port=port,
+            resolver=lambda path: build_observer_api_payload(
+                settings, path=path, log_limit=log_limit
+            ),
+            allow_nonlocal=allow_nonlocal,
+            token=settings.observer_api_token,
+        )
+    except ValueError as exc:
+        console.print(
+            Panel(str(exc), title="Observer API Blocked", border_style="red")
+        )
+        raise typer.Exit(code=2) from exc
 
 
 @app.command("calendar-status")
@@ -3227,27 +5647,30 @@ def trade_context(
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """
-    Display the persisted market, memory, and reasoning context for a trade.
-    
-    When `json_output` is true, emits the raw payload as JSON. Otherwise renders human-readable panels:
-    a summary table, routed-models table, and a context-summary panel. If the datastore is temporarily
-    unavailable or no trade context exists, prints a warning panel and exits with code 0.
-    
-    Parameters:
-        trade_id (str | None): Trade identifier to inspect. If omitted, the latest recorded trade context is used.
-        json_output (bool): If true, output the underlying payload as JSON instead of rendering panels.
-    """
+    """Inspect persisted market, memory, model-routing, and rationale evidence."""
     settings = get_settings()
     payload = _trade_context_payload(settings, trade_id=trade_id)
-    record = (
-        TradeContextRecord.model_validate(payload["record"])
-        if payload["record"] is not None
-        else None
-    )
+    record = _trade_context_record_from_payload(payload)
     if json_output:
         _emit_json(payload)
         return
+    if _render_unavailable_trade_context(payload, record):
+        raise typer.Exit(code=0)
+    assert record is not None
+    _render_trade_context(record)
+
+
+def _trade_context_record_from_payload(
+    payload: dict[str, object],
+) -> TradeContextRecord | None:
+    if payload["record"] is None:
+        return None
+    return TradeContextRecord.model_validate(payload["record"])
+
+
+def _render_unavailable_trade_context(
+    payload: dict[str, object], record: TradeContextRecord | None
+) -> bool:
     if not payload["available"]:
         console.print(
             Panel(
@@ -3256,7 +5679,7 @@ def trade_context(
                 border_style="yellow",
             )
         )
-        raise typer.Exit(code=0)
+        return True
     if record is None:
         console.print(
             Panel(
@@ -3265,21 +5688,24 @@ def trade_context(
                 border_style="yellow",
             )
         )
-        raise typer.Exit(code=0)
+        return True
+    return False
 
+
+def _render_trade_context(record: TradeContextRecord) -> None:
     summary = Table(title=f"Trade Context / {record.trade_id}")
     summary.add_column("Field")
     summary.add_column("Value")
     summary.add_row("Created", record.created_at)
-    summary.add_row("Run ID", record.run_id or "-")
+    summary.add_row("Run ID", _value_or_dash(record.run_id))
     summary.add_row("Symbol", record.symbol)
     summary.add_row("Consensus", record.consensus.alignment_level)
     summary.add_row("Manager Rationale", record.manager_rationale)
     summary.add_row("Execution Rationale", record.execution_rationale)
-    summary.add_row("Execution Backend", record.execution_backend or "-")
-    summary.add_row("Execution Adapter", record.execution_adapter or "-")
-    summary.add_row("Execution Outcome", record.execution_outcome_status or "-")
-    summary.add_row("Rejection Reason", record.execution_rejection_reason or "-")
+    summary.add_row("Execution Backend", _value_or_dash(record.execution_backend))
+    summary.add_row("Execution Adapter", _value_or_dash(record.execution_adapter))
+    summary.add_row("Execution Outcome", _value_or_dash(record.execution_outcome_status))
+    summary.add_row("Rejection Reason", _value_or_dash(record.execution_rejection_reason))
     summary.add_row("Review Summary", record.review_summary)
     console.print(summary)
 
@@ -3294,10 +5720,10 @@ def trade_context(
     console.print(routed_models)
 
     context_lines = [
-        f"Retrieved Memory Roles: {', '.join(sorted(record.retrieved_memory_summary)) or '-'}",
-        f"Tool Output Roles: {', '.join(sorted(record.tool_outputs)) or '-'}",
-        f"Shared Bus Roles: {', '.join(sorted(record.shared_memory_summary)) or '-'}",
-        f"Review Warnings: {', '.join(record.review_warnings) or '-'}",
+        f"Retrieved Memory Roles: {_join_or_dash(sorted(record.retrieved_memory_summary))}",
+        f"Tool Output Roles: {_join_or_dash(sorted(record.tool_outputs))}",
+        f"Shared Bus Roles: {_join_or_dash(sorted(record.shared_memory_summary))}",
+        f"Review Warnings: {_join_or_dash(record.review_warnings)}",
     ]
     console.print(
         Panel(
@@ -3579,7 +6005,9 @@ def memory_explorer(
     _render_memory_matches(matches)
 
 
-def _retrieval_stage_counts(stage: dict[str, object]) -> tuple[str, str, str, str, str]:
+def _retrieval_stage_counts(
+    stage: dict[str, object],
+) -> tuple[str, str, str, str, str, str]:
     """
     Extracts display-ready string values for a retrieval stage's role and counts of various retrieval-related lists.
     
@@ -3598,6 +6026,7 @@ def _retrieval_stage_counts(stage: dict[str, object]) -> tuple[str, str, str, st
     return (
         str(stage["role"]),
         str(len(cast(list[str], stage["retrieved_memories"]))),
+        str(len(cast(list[dict[str, object]], stage["retrieval_explanations"]))),
         str(len(cast(list[str], stage["memory_notes"]))),
         str(len(cast(list[dict[str, object]], stage["shared_memory_bus"]))),
         str(len(cast(list[str], stage["recent_runs"]))),
@@ -3622,12 +6051,16 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
         list[str]: A list of formatted text lines suitable for display. If no relevant fields are present, returns a single-item list with the message "No retrieval or memory context was attached for this stage."
     """
     retrieved_memories = cast(list[str], stage["retrieved_memories"])
+    retrieval_explanations = cast(
+        list[dict[str, object]], stage["retrieval_explanations"]
+    )
     memory_notes = cast(list[str], stage["memory_notes"])
     shared_memory_bus = cast(list[dict[str, object]], stage["shared_memory_bus"])
     recent_runs = cast(list[str], stage["recent_runs"])
     tool_outputs = cast(list[str], stage["tool_outputs"])
     sections = [
         ("Retrieved Similar Memories:", retrieved_memories),
+        ("Why These Memories:", _retrieval_explanation_lines(retrieval_explanations)),
         ("Trade Memory:", memory_notes),
         ("Recent Runs:", recent_runs),
         (
@@ -3647,6 +6080,26 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
     return lines or ["No retrieval or memory context was attached for this stage."]
 
 
+def _retrieval_explanation_lines(
+    explanations: list[dict[str, object]],
+) -> list[str]:
+    lines: list[str] = []
+    for item in explanations:
+        run_id = str(item.get("run_id") or "-")
+        explanation = item.get("explanation", {})
+        if not isinstance(explanation, dict):
+            continue
+        reason = str(explanation.get("eligibility_reason") or "-")
+        freshness = str(explanation.get("freshness") or "-")
+        outcome = str(explanation.get("outcome_tag") or "-")
+        bucket = str(explanation.get("diversity_bucket") or "-")
+        lines.append(
+            f"{run_id}: reason={reason} freshness={freshness} "
+            f"outcome={outcome} bucket={bucket}"
+        )
+    return lines
+
+
 def _render_retrieval_inspection(stages: list[dict[str, object]], run_id: object) -> None:
     """
     Render a retrieval-inspection summary and detailed panels for each agent stage to the console.
@@ -3660,6 +6113,7 @@ def _render_retrieval_inspection(stages: list[dict[str, object]], run_id: object
     table = Table(title=f"Retrieval Inspection / {run_id}")
     table.add_column("Role")
     table.add_column("Retrieved Memories")
+    table.add_column("Why")
     table.add_column("Trade Memory")
     table.add_column("Shared Bus")
     table.add_column("Recent Runs")
@@ -3875,18 +6329,7 @@ def monitor(
 
 @app.command("tui")
 def ink_tui() -> None:
-    """
-    Launch the Ink-based control room, falling back to the Rich control room when Ink is unavailable.
-
-    Checks for the bundled `tui` directory and a compatible Node package manager. If the TUI directory
-    is missing or no package manager can be resolved, the function invokes the Rich control-room
-    fallback (`run_main_menu`) and returns. On first-run (missing `node_modules`) it installs Ink
-    dependencies through the resolved package manager, then starts the Ink UI with the CLI and Python
-    executable passed through environment variables.
-
-    Raises:
-        subprocess.CalledProcessError: If dependency installation or TUI startup exits with a non-zero status.
-    """
+    """Open the primary Ink control room, with Rich fallback if needed."""
     tui_dir = Path(__file__).resolve().parent.parent / "tui"
     if not tui_dir.exists():
         console.print(
@@ -3948,10 +6391,37 @@ def stop_service(
         )
         raise typer.Exit(code=0)
     if not is_process_alive(state.pid):
+        db = TradingDatabase(settings)
+        try:
+            db.upsert_service_state(
+                state="stopped",
+                continuous=state.continuous,
+                poll_seconds=state.poll_seconds,
+                cycle_count=state.cycle_count,
+                symbols=state.symbols,
+                interval=state.interval,
+                lookback=state.lookback,
+                max_cycles=state.max_cycles,
+                current_symbol=None,
+                message=f"Recovered stale runtime state from dead PID {state.pid}.",
+                last_error=state.last_error,
+                pid=None,
+                clear_pid=True,
+                stop_requested=False,
+            )
+            db.insert_service_event(
+                level="warning",
+                event_type="stale_service_recovered",
+                message=f"Recovered stale runtime state from dead PID {state.pid}.",
+                cycle_count=state.cycle_count if state.cycle_count > 0 else None,
+                symbol=state.current_symbol,
+            )
+        finally:
+            db.close()
         console.print(
             _render_health_panel(
-                "Stale State Cleared",
-                f"Dead PID {state.pid} is no longer alive. The next service start will recover the stale runtime state automatically.",
+                "Stale State Recovered",
+                f"Dead PID {state.pid} is no longer alive. Runtime state was marked stopped and the stale PID was cleared.",
                 border_style="yellow",
             )
         )
@@ -3967,7 +6437,7 @@ def stop_service(
     except Exception:
         pass
     if force:
-        os.kill(state.pid, signal.SIGTERM)
+        terminate_service_process(state.pid)
     console.print(
         _render_health_panel(
             "Stop Requested",

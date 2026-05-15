@@ -1,5 +1,5 @@
 {
-  "title": "Geliştirici Dokümanları",
+  "title": "Agentic Trader Rehberi",
   "pages": [
     "index",
     "getting-started",
@@ -10,6 +10,7 @@
     "data-and-intelligence",
     "runtime-and-operations",
     "operator-surfaces",
+    "security-posture",
     "frontend-system",
     "memory-and-review",
     "qa-and-debugging",

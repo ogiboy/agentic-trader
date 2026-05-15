@@ -1,0 +1,36 @@
+{
+  "schema_version": "2026-05-08",
+  "id": "camofox-browser",
+  "label": "Camofox Browser",
+  "role": "optional_loopback_browser_research_helper",
+  "entrypoints": {
+    "status": "agentic-trader camofox-service status",
+    "start": "agentic-trader camofox-service start",
+    "stop": "agentic-trader camofox-service stop",
+    "script": "scripts/start-camofox-browser.sh",
+    "setup": "make setup-camofox",
+    "fetch_browser": "make fetch-camofox"
+  },
+  "runtime_module": "agentic_trader.system.camofox_service",
+  "provider_module": "agentic_trader.researchd.providers.CamofoxBrowserProvider",
+  "required_env": ["CAMOFOX_ACCESS_KEY or CAMOFOX_API_KEY"],
+  "optional_env": [
+    "AGENTIC_TRADER_RESEARCH_CAMOFOX_ENABLED",
+    "AGENTIC_TRADER_RESEARCH_CAMOFOX_BASE_URL",
+    "AGENTIC_TRADER_RUNTIME_AUTO_START_CAMOFOX",
+    "CAMOFOX_BROWSER_PREWARM"
+  ],
+  "safety": [
+    "loopback_only",
+    "access_key_required",
+    "telemetry_disabled_by_default",
+    "browser_launch_on_demand",
+    "no_broker_or_policy_mutation"
+  ],
+  "fallbacks": [
+    "firecrawl_sdk",
+    "firecrawl_cli",
+    "pure_http_provider",
+    "degraded_research_evidence"
+  ]
+}

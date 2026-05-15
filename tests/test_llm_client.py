@@ -13,8 +13,9 @@ class _StructuredEcho(BaseModel):
 
 
 class _FakeResponse:
-    def __init__(self, payload: Any):
+    def __init__(self, payload: Any, *, status_code: int = 200):
         self._payload = payload
+        self.status_code = status_code
 
     def raise_for_status(self) -> None:
         return None
@@ -346,3 +347,38 @@ def test_local_llm_uses_configured_provider_defaults() -> None:
     assert llm.provider.provider_name == "ollama"
     assert llm.model_name == "qwen3:8b"
     assert llm.base_url.endswith("localhost:11434")
+
+
+def test_health_check_generation_probe_reports_model_load_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(llm_provider="ollama", model_name="qwen3:8b")
+    llm = LocalLLM(settings)
+
+    monkeypatch.setattr(
+        llm.client,
+        "get",
+        lambda *_args, **_kwargs: _FakeResponse(
+            {"models": [{"name": "qwen3:8b"}]}
+        ),
+    )
+    monkeypatch.setattr(
+        llm.client,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            {
+                "error": (
+                    "model failed to load, this may be due to resource limitations"
+                )
+            },
+            status_code=500,
+        ),
+    )
+
+    health = llm.health_check(include_generation=True)
+
+    assert health.service_reachable is True
+    assert health.model_available is True
+    assert health.generation_available is False
+    assert "generation probe failed" in health.message
+    assert "resource limitations" in (health.generation_message or "")

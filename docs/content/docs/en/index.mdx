@@ -1,42 +1,62 @@
 ---
-title: Developer Docs
-description: Start here for setup, architecture, runtime truth, and the rules that keep Agentic Trader inspectable.
+title: Agentic Trader Guide
+description: Start here to install Agentic Trader, check readiness, run paper cycles, and review what happened.
 ---
 
-## What this docs site is for
+## What Agentic Trader is
 
-Agentic Trader already has a real local runtime, real persistence, and real operator surfaces.
-The job of this docs site is to make that system easier to navigate without inventing a second architecture.
+Agentic Trader is a local-first trading research and paper-operation system.
+It combines market context, specialist analysis, memory/review evidence, broker
+state, and operator controls into one inspectable runtime.
 
-These docs are written for contributors who need to answer questions like:
+The current V1 posture is deliberately cautious:
 
-- Which package owns this behavior?
-- Which UI is reading shared runtime truth versus inventing local state?
-- Where should setup, feedback, QA, and review expectations live?
-- Which repo notes must be updated when a behavior changes?
+- paper trading is the default
+- live execution is blocked
+- readiness gates must be explicit
+- missing provider, broker, or model evidence must stay visible
+- every operator surface should describe the same runtime truth
 
-## Reading paths by job
+Use this guide to understand what the system can do today, how to run it safely,
+and how to review a decision before trusting the next one.
 
-### If you are onboarding
+## Reading paths by operator task
+
+### First setup
 
 1. Read [Getting Started](/en/docs/getting-started).
-2. Validate the environment with `doctor`.
-3. Open the main operator surfaces before editing runtime behavior.
-4. Read [Project State](/en/docs/project-state) to understand what is already true.
+2. Run `doctor`, `provider-diagnostics`, and `v1-readiness`.
+3. Open the Ink control room or Web GUI only after the lower-layer checks agree.
 
-### If you are changing runtime behavior
+### Before a paper cycle
 
-1. Read [Architecture](/en/docs/architecture).
-2. Read [Agent Pipeline](/en/docs/agent-pipeline).
-3. Read [Runtime And Operations](/en/docs/runtime-and-operations).
-4. Finish with [QA And Debugging](/en/docs/qa-and-debugging).
+1. Read [Runtime And Operations](/en/docs/runtime-and-operations).
+2. Check provider, model, broker, and runtime-mode readiness.
+3. Read [Security Posture](/en/docs/security-posture) before exposing Web GUI
+   or observer surfaces beyond localhost.
+4. Keep the run paper-only unless the roadmap explicitly says otherwise.
 
-### If you are touching docs or frontend surfaces
+### Review what happened
 
-1. Read [Operator Surfaces](/en/docs/operator-surfaces).
-2. Read [Frontend System](/en/docs/frontend-system).
-3. Read [Memory And Review](/en/docs/memory-and-review).
-4. Update `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` together with the affected docs page.
+1. Read [Memory And Review](/en/docs/memory-and-review).
+2. Inspect the review snapshot, market context, broker state, logs, and evidence
+   bundle.
+3. Treat missing or stale evidence as a real signal, not a cosmetic warning.
+
+### Troubleshoot a confusing state
+
+1. Read [QA And Debugging](/en/docs/qa-and-debugging).
+2. Compare CLI JSON, observer API, Rich/Ink/Web GUI status, and persisted records.
+3. Prefer runtime evidence over what a single UI banner appears to say.
+
+## Contributor path
+
+If you are changing code, read these after the operator path:
+
+1. [Architecture](/en/docs/architecture)
+2. [Agent Pipeline](/en/docs/agent-pipeline)
+3. [Operator Surfaces](/en/docs/operator-surfaces)
+4. [Frontend System](/en/docs/frontend-system)
 
 ## Core non-negotiables
 
@@ -46,35 +66,23 @@ These docs are written for contributors who need to answer questions like:
 - CLI, Rich, Ink, observer API, and Web GUI should describe the same runtime state.
 - The docs app and the Web GUI are shells around the existing runtime, not replacements for it.
 
-## Repo files worth keeping open
+## What this guide should explain
 
-- `README.md`
-- `ROADMAP.md`
-- `.ai/profile.md`
-- `.ai/rules.md`
-- `.ai/architecture.md`
-- `.ai/current-state.md`
-- `.ai/memory.md`
-- `.ai/tasks.md`
-- `.ai/decisions.md`
-- `.ai/debugging.md`
-- `.ai/qa/qa-agent.md`
-- `.ai/qa/qa-checklist.md`
-- `.ai/qa/qa-runbook.md`
-- `.ai/qa/qa-scenarios.md`
+This docs site should answer operator questions first:
 
-## Current focus of this docs surface
+- What can Agentic Trader do today?
+- Which mode am I in: training, local paper, external paper readiness, or blocked live?
+- What data did the system actually see?
+- Why did it approve, block, hold, or reject an action?
+- Where can I verify broker/account, runtime, memory, and review truth?
 
-Right now the docs are doing four jobs at once:
+Contributor notes still belong here when they help maintain the system, but they
+should not replace product explanations or hide operational risk.
 
-- documenting the current runtime honestly
-- hardening onboarding expectations before a broader V1 push
-- keeping `docs/` and `webgui/` aligned on their shared frontend baseline
-- preserving project memory so contributors do not have to rediscover the same boundaries repeatedly
+## Contributor maintenance contract
 
-## Docs maintenance contract
-
-If a change moves runtime behavior, product direction, or developer workflow assumptions, update all of the following in the same branch:
+If a change moves runtime behavior, product direction, operator workflow, or
+developer assumptions, update all of the following in the same branch:
 
 - the affected docs page
 - `.ai/current-state.md`

@@ -46,8 +46,9 @@ def test_run_ink_settings_navigation_reports_tmux_session_failures(
 ) -> None:
     monkeypatch.setattr(smoke_qa.shutil, "which", lambda name: "/usr/bin/tmux")
 
-    def _fake_run(*args, **kwargs):
-        command = args[0]
+    def _fake_run(
+        command: list[str], *args: object, **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
         if command[1] == "new-session":
             raise subprocess.CalledProcessError(
                 returncode=1,
@@ -65,6 +66,55 @@ def test_run_ink_settings_navigation_reports_tmux_session_failures(
 
     assert not result.passed
     assert "tmux new-session failed" in result.details
+
+
+def test_write_report_summarizes_pass_and_failure_results(
+    tmp_path: Path, monkeypatch
+) -> None:
+    context = smoke_qa.SmokeContext(artifacts_dir=tmp_path)
+    results = [
+        smoke_qa.CheckResult("doctor", True, "exit_code=0", "doctor.log"),
+        smoke_qa.CheckResult("dashboard", False, "contract missing", "dashboard.log"),
+    ]
+    monkeypatch.setattr(smoke_qa, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(smoke_qa, "SMOKE_PYTHON", str(tmp_path / "python"))
+    monkeypatch.setattr(smoke_qa, "_current_git_branch", lambda: "feature/test")
+    monkeypatch.setattr(smoke_qa, "_current_git_commit", lambda: "abc1234")
+    monkeypatch.setattr(smoke_qa, "_git_worktree_dirty", lambda: True)
+    monkeypatch.setattr(
+        smoke_qa,
+        "_resolve_agentic_trader_executable",
+        lambda: str(tmp_path / "agentic-trader"),
+    )
+
+    summary_path = smoke_qa._write_summary(context, results)
+    report_path = smoke_qa._write_report(context, results, summary_path)
+
+    report = report_path.read_text(encoding="utf-8")
+    assert "QA Smoke Report" in report
+    assert "feature/test" in report
+    assert "`abc1234`" in report
+    assert "Worktree dirty: `yes`" in report
+    assert "`1 passed / 1 failed / 2 total`" in report
+    assert "| FAIL | `dashboard` | contract missing | `dashboard.log` |" in report
+    assert "`dashboard` failed: contract missing." in report
+
+
+def test_market_context_edge_case_check_records_v1_context_contract(
+    tmp_path: Path,
+) -> None:
+    result = smoke_qa.run_market_context_edge_case_check(
+        smoke_qa.SmokeContext(artifacts_dir=tmp_path)
+    )
+
+    assert result.passed
+    assert result.details == "context_edge_cases_ok"
+    assert result.artifact is not None
+    artifact = Path(result.artifact).read_text(encoding="utf-8")
+    assert "partial_lookback_coverage" in artifact
+    assert "low_lookback_coverage" in artifact
+    assert "higher_timeframe_fallback" in artifact
+    assert "coverage is too thin" in artifact
 
 
 def test_resolve_smoke_python_prefers_repo_uv_venv(

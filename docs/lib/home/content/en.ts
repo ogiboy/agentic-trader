@@ -2,14 +2,14 @@ import type { HomeContent } from '@/lib/home/content/types';
 
 export const homeContentEn: HomeContent = {
   badges: [
-    { label: 'Developer Docs', variant: 'secondary' },
+    { label: 'Operator Guide', variant: 'secondary' },
     { label: 'Fumadocs + MDX', variant: 'outline' },
     { label: 'Local-first', variant: 'outline' },
   ],
-  heroTitle: 'Build from the same runtime truth the operator sees.',
+  heroTitle: 'Run paper trading from evidence you can inspect.',
   heroDescription:
-    'Agentic Trader is not a second-order chat demo. These docs are the developer surface for a strict, paper-first trading runtime with inspectable storage, explicit safety gates, and shared contracts across CLI, Ink, observer API, and Web GUI.',
-  primaryAction: 'Read the docs',
+    'Agentic Trader is a local-first paper trading control room. These docs help an operator prepare the runtime, run strict paper cycles, inspect broker/account evidence, and understand why live execution stays blocked until explicitly approved.',
+  primaryAction: 'Open the guide',
   secondaryAction: {
     href: '/docs/getting-started',
     label: 'Open quick start',
@@ -35,7 +35,7 @@ export const homeContentEn: HomeContent = {
     },
     {
       icon: 'layout',
-      text: '`webgui` stays a thin local shell while `docs` becomes the canonical dev-docs surface.',
+      text: '`webgui` stays a thin local shell while `docs` becomes the canonical operator guide with contributor notes behind it.',
     },
     {
       icon: 'inspect',
@@ -43,7 +43,7 @@ export const homeContentEn: HomeContent = {
     },
   ],
   guardrail:
-    'The Web GUI and docs site are developer/operator surfaces. They do not own orchestration; Python runtime contracts remain the source of truth.',
+    'The Web GUI and docs site are operator/contributor surfaces. They do not own orchestration; Python runtime contracts remain the source of truth.',
   entryPoints: [
     {
       href: '/docs/getting-started',
@@ -77,14 +77,14 @@ export const homeContentEn: HomeContent = {
       href: '/docs/frontend-system',
       title: 'Frontend System',
       description:
-        'Keep `docs` and `webgui` aligned on the shared shadcn preset, JetBrains Mono typography, and modular file organization.',
+        'Keep `docs` and `webgui` aligned on the shared shadcn preset, local-first monospace typography, and modular file organization.',
       badge: 'Frontend',
     },
     {
       href: '/docs/memory-and-review',
-      title: 'Memory And Review',
+      title: 'Decision Evidence And Review',
       description:
-        'See how docs, `.ai` notes, feedback drafts, and review artifacts stay aligned with runtime reality.',
+        'Inspect similar past runs, trade context, manager review, and evidence bundles without confusing product memory with contributor notes.',
       badge: 'Continuity',
     },
     {

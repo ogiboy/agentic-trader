@@ -1,7 +1,8 @@
 [project]
 name = "research_flow"
-version = "0.9.0"
+version = "0.10.2"
 description = "Tracked CrewAI research sidecar for Agentic Trader."
+license = "LGPL-3.0-or-later"
 authors = [
     {name = "Oğuzcan Toptaş",email = "oguzcantoptas@gmail.com"}
 ]

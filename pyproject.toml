@@ -1,16 +1,11 @@
 [build-system]
-requires = ["hatchling>=1.28.0,<2.0.0"]
 build-backend = "hatchling.build"
+requires = ["hatchling>=1.28.0,<2.0.0"]
 
 [project]
-name = "agentic-trader"
-version = "0.9.0"
-description = "A guardrailed multi-agent paper trading system built around local LLMs."
 authors = [
-    {name = "Oğuzcan Toptaş",email = "oguzcantoptas@gmail.com"}
+  {name = "Oğuzcan Toptaş", email = "oguzcantoptas@gmail.com"},
 ]
-readme = "README.md"
-requires-python = ">=3.12,<3.15"
 dependencies = [
   "duckdb>=1.2.2",
   "httpx>=0.28.1",
@@ -22,28 +17,56 @@ dependencies = [
   "yfinance>=0.2.58",
   "alpaca-py>=0.43.2,<0.44.0",
   "massive>=2.5.0,<3.0.0",
+  "firecrawl-py>=4.25.1",
+  "ollama>=0.6.2",
+  "yt-dlp>=2026.3.17",
 ]
+description = "A guardrailed multi-agent paper trading system built around local LLMs."
+name = "agentic-trader"
+readme = "README.md"
+license = "LGPL-3.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.12,<3.15"
+version = "0.10.2"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
+  "coverage>=7.13.5",
+  "iniconfig>=2.3.0",
+  "nodeenv>=1.10.0",
   "pexpect>=4.9.0",
-  "pytest>=8.3.5",
-  "pytest-cov>=6.0.0",
-  "pyright>=1.1.408",
-  "ruff>=0.11.2",
+  "pluggy>=1.6.0",
+  "ptyprocess>=0.7.0",
+  "pyinstaller>=6.20.0,<7.0.0",
+  "pyright>=1.1.409",
+  "pysonar>=1.4.0.4676,<2.0.0",
+  "pytest>=9.0.3",
+  "pytest-cov>=7.1.0",
+  "python-semantic-release>=10.0.0,<11.0.0",
+  "ruff>=0.15.12",
 ]
 
 [project.scripts]
 agentic-trader = "agentic_trader.cli:app"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+addopts = "-p no:cacheprovider --cov=agentic_trader --cov-report=term-missing --cov-report=json"
 python_files = ["test_*.py"]
-addopts = "-p no:cacheprovider"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+omit = [
+  "tests/*",
+  "*/__init__.py",
+  ".ai/*",
+  "runtime/*",
+]
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true
 
 [tool.ruff]
-line-length = 88
-target-version = "py312"
 extend-exclude = [
   "build",
   "dist",
@@ -54,26 +77,29 @@ extend-exclude = [
   "webgui",
   "tui/node_modules",
 ]
+line-length = 88
+target-version = "py312"
 
 [tool.semantic_release]
+allow_zero_version = true
+build_command = "uv build"
+commit_message = "chore(release): v{version}"
+commit_parser = "conventional"
+dist_path = "dist/"
+major_on_zero = false
+tag_format = "v{version}"
+upload_to_vcs_release = true
 version_toml = [
   "pyproject.toml:project.version",
   "sidecars/research_flow/pyproject.toml:project.version",
 ]
 version_variables = [
+  "agentic_trader/__init__.py:__version__",
   "package.json:version",
   "webgui/package.json:version",
   "docs/package.json:version",
   "tui/package.json:version",
 ]
-commit_parser = "conventional"
-tag_format = "v{version}"
-commit_message = "chore(release): v{version}"
-build_command = "uv build"
-dist_path = "dist/"
-upload_to_vcs_release = true
-allow_zero_version = true
-major_on_zero = false
 
 [tool.semantic_release.branches.main]
 match = "main"
@@ -90,18 +116,11 @@ prerelease = true
 prerelease_token = "beta"
 
 [tool.semantic_release.commit_parser_options]
-minor_tags = ["feat"]
-patch_tags = ["fix", "perf", "docs", "build", "ci", "chore"]
-parse_squash_commits = true
 ignore_merge_commits = true
+minor_tags = ["feat"]
+parse_squash_commits = true
+patch_tags = ["fix", "perf", "docs", "build", "ci", "chore"]
 
 [tool.semantic_release.changelog.default_templates]
 changelog_file = "CHANGELOG.md"
 output_format = "md"
-
-[dependency-groups]
-dev = [
-    "pyinstaller>=6.20.0,<7.0.0",
-    "pysonar>=1.4.0.4676,<2.0.0",
-    "python-semantic-release>=10.0.0,<11.0.0"
-]

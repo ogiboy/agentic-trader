@@ -20,6 +20,32 @@ At minimum it should:
 5. start the relevant local surface
 6. explain next steps when anything fails
 
+## Planned command surface
+
+The next implementation pass should make the command surface layered instead of mysterious.
+Focused commands stay available for debugging, while normal operators get a short lifecycle vocabulary:
+
+| Command | Planned role |
+| --- | --- |
+| `pnpm run app:up` | guided first-run path: setup or repair dependencies, start app-owned services when configured, and open the Web GUI |
+| `pnpm run app:setup` | install or repair Python, root pnpm workspace, sidecar, and optional tool-root dependencies without starting trading runtime |
+| `pnpm run app:start` | start configured app-owned helper services and the Web GUI; daemon start remains an explicit operator choice |
+| `pnpm run app:stop` | stop only app-owned services recorded by the repo, never host-owned Ollama, Firecrawl, or browser processes |
+| `pnpm run app:update` | update dependencies and lockfiles through the right owners, rebuild, then report setup/service readiness |
+| `pnpm run app:doctor` | available first slice: read-only setup, service, provider, V1, PATH, and tool-root diagnosis |
+| `pnpm run app:uninstall` | remove app-owned dependency/runtime/tool artifacts only after confirmation |
+
+The existing focused commands such as `setup:node`, `install:python`, `setup:research-flow`, `setup:camofox`, `fetch:camofox`, `start:camofox`, and service-specific CLI commands should remain useful for debugging.
+The plan is to make them implementation details behind the guided lifecycle rather than the only way to get started.
+
+`app:doctor` is intentionally the first implemented lifecycle command. It uses
+the already installed `agentic-trader` entrypoint instead of invoking `uv run`,
+so a diagnosis does not create or repair an environment as a hidden side effect.
+It reads `setup-status`, model-service, Camofox-service, WebGUI-service,
+provider diagnostics, and network-light `v1-readiness`; generation probes remain
+explicit through `v1-readiness --provider-check` or
+`model-service status --probe-generation`.
+
 ## Non-negotiable requirements
 
 - cross-platform support: macOS, Linux, and Windows
@@ -27,6 +53,21 @@ At minimum it should:
 - explicit prompts before installing optional model services or models
 - resume or repair behavior for partial installs
 - visible logs and actionable error messages
+- no hidden dependency deletion, large browser/model download, provider account creation, or daemon start
+
+## Tool ownership questions
+
+Before installing or starting optional helpers, the guided setup should ask which ownership mode the operator wants:
+
+- host-owned: the app connects to an already managed local tool and never stops it
+- app-owned: the app installs or uses a repo-local helper and records owner-only state/logs before it starts or stops anything
+- API/key-only: the app uses an ignored environment/keychain value without installing a CLI
+- skipped: the feature stays degraded but the core paper-first product can still open
+
+This matters for Ollama, Firecrawl, and Camofox.
+If host Ollama is absent and the operator does not want a host install, the installer should offer the app-owned model-service path instead of letting the Web GUI open into a confusing "Ollama unreachable" state.
+Firecrawl should similarly support API key, authenticated CLI, future repo-local helper/fallback, or skipped readiness.
+Camofox should remain loopback-only, access-key-gated, and browser-binary fetch should stay a separate opt-in step.
 
 ## Ollama-specific direction
 
@@ -44,6 +85,37 @@ The desired future state is:
 - the app can show health and recent logs
 - the operator can tell the difference between idle, busy, and broken
 
+The guided setup should distinguish four states: host Ollama reachable, app-owned Ollama ready, Ollama intentionally skipped because another provider is configured, and model backend missing or broken.
+`app:start` may start an already configured app-owned model service, but it must not silently install a binary, pull a model, or hijack a host listener.
+
+## Camofox and pnpm direction
+
+`tools/camofox-browser` is optional tool infrastructure, not a broker/runtime authority.
+Its setup should move away from npm-owned helper commands and use the repo's pnpm policy:
+
+```bash
+pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts
+pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser
+pnpm --dir tools/camofox-browser --ignore-workspace run test
+```
+
+The first command installs local helper dependencies without browser downloads.
+The second command downloads or updates the Camoufox browser binary and must remain explicit because it can be large and platform-specific.
+The wrapper and service commands should start the helper only with a loopback host and `CAMOFOX_ACCESS_KEY` or a mirrored `CAMOFOX_API_KEY`.
+
+## Update and uninstall direction
+
+`app:update` should update each dependency owner through its native tool, then rebuild and re-run setup status:
+
+- root Node workspace: pnpm recursive/workspace update flow
+- Camofox helper: `pnpm --dir tools/camofox-browser ...`
+- root Python: uv lock upgrade plus locked sync
+- CrewAI Flow sidecar: sidecar uv lock upgrade plus locked sync
+- docs/WebGUI/TUI: normal workspace build and typecheck gates
+
+`app:uninstall` should remove only app-owned artifacts such as `.venv`, `node_modules`, sidecar `.venv`, generated runtime state, and downloaded helper assets when explicitly selected.
+It should not delete API keys, brokerage/provider accounts, user-owned host services, or unrelated global tools.
+
 ## Edge cases worth designing for
 
 - the user wants another provider and should be allowed to skip Ollama
@@ -52,6 +124,9 @@ The desired future state is:
 - a partial installation exists and needs repair
 - the Web GUI launches but the runtime fails readiness checks
 - a model is present but the wrong adapter or base URL is configured
+- Camofox dependencies are present but the browser binary is missing
+- a stale app-owned PID exists while a host-owned listener is also running
+- an IDE or worktree resolves `agentic-trader` from a stale checkout
 
 ## What a good bootstrap UX says out loud
 
@@ -70,3 +145,5 @@ A good bootstrap flow should be explicit about:
 - The user sees a clear failure when model or provider readiness is missing.
 - The launcher can point the user to logs instead of hiding them.
 - The generated environment stays consistent with the repo’s current runtime contracts.
+- Camofox, Firecrawl, and Ollama ownership decisions are visible in setup status and Web GUI readiness.
+- `app:up` can recover from a partial install and ends at an opened Web GUI or a precise blocker report.

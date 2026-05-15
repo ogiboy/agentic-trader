@@ -19,11 +19,14 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.service import (
+    _ServiceRunConfig,
+    _sleep_until_next_cycle,
     ensure_llm_ready,
     restart_background_service,
     run_service,
     start_background_service,
 )
+from agentic_trader.runtime_status import RuntimeStatusView
 from typer.testing import CliRunner
 
 
@@ -229,6 +232,44 @@ def test_run_service_records_runtime_state_and_events(
     }
 
 
+def test_run_service_records_blocked_state_when_llm_gate_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+
+    def _blocked_llm(current_settings: Settings) -> LLMHealthStatus:
+        raise RuntimeError("model missing")
+
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.ensure_llm_ready",
+        _blocked_llm,
+    )
+
+    with pytest.raises(RuntimeError, match="model missing"):
+        run_service(
+            settings=settings,
+            symbols=["AAPL"],
+            interval="1d",
+            lookback="180d",
+            poll_seconds=1,
+            continuous=False,
+            max_cycles=None,
+        )
+
+    db = TradingDatabase(settings)
+    state = db.get_service_state()
+    events = db.list_service_events(limit=5)
+
+    assert state is not None
+    assert state.state == "blocked"
+    assert state.last_error == "model missing"
+    assert any(event.event_type == "service_blocked" for event in events)
+
+
 def test_run_service_records_agent_stage_events(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -424,6 +465,108 @@ def test_run_service_remembers_run_level_undercoverage_skips(
     )
 
 
+def test_run_service_honors_stop_after_symbol_skip(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.ensure_llm_ready",
+        lambda current_settings: LLMHealthStatus(
+            provider="ollama",
+            base_url=current_settings.base_url,
+            model_name=current_settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            message="ok",
+        ),
+    )
+
+    def _run_once(**kwargs: Any) -> RunArtifacts:
+        if kwargs["symbol"] == "AAPL":
+            db.request_stop_service()
+            raise ValueError("No market data returned for AAPL")
+        return _artifacts(kwargs["symbol"])
+
+    monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.persist_run",
+        lambda **kwargs: "paper-test-order",
+    )
+
+    results = run_service(
+        settings=settings,
+        symbols=["AAPL", "MSFT"],
+        interval="1d",
+        lookback="180d",
+        poll_seconds=1,
+        continuous=True,
+        max_cycles=None,
+    )
+
+    state = db.get_service_state()
+    events = db.list_service_events(limit=10)
+    assert results == []
+    assert state is not None
+    assert state.state == "stopped"
+    assert state.stop_requested is True
+    assert any(event.event_type == "symbol_skipped" for event in events)
+    assert any(event.event_type == "service_stopped" for event in events)
+
+
+def test_sleep_until_next_cycle_is_interruptible(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    config_symbols = ["AAPL"]
+    config = _ServiceRunConfig(
+        settings=settings,
+        symbols=config_symbols,
+        interval="1d",
+        lookback="180d",
+        poll_seconds=300,
+        continuous=True,
+        max_cycles=None,
+    )
+    db.upsert_service_state(
+        state="running",
+        continuous=True,
+        poll_seconds=300,
+        cycle_count=1,
+        symbols=config_symbols,
+        interval="1d",
+        lookback="180d",
+        message="Waiting for next cycle.",
+        pid=None,
+        stop_requested=False,
+    )
+
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.time.monotonic", lambda: 0.0
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.time.sleep",
+        lambda seconds: db.request_stop_service(),
+    )
+
+    stopped = _sleep_until_next_cycle(db, config, cycle_count=1)
+
+    state = db.get_service_state()
+    assert stopped is True
+    assert state is not None
+    assert state.state == "stopped"
+
+
 def test_run_service_respects_stop_request(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -583,6 +726,57 @@ def test_start_background_service_recovers_stale_pid(
     assert any(event.event_type == "stale_service_recovered" for event in events)
 
 
+def test_start_background_service_blocks_stale_live_pid(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    db.upsert_service_state(
+        state="running",
+        continuous=True,
+        poll_seconds=300,
+        cycle_count=4,
+        symbols=["AAPL"],
+        interval="1d",
+        lookback="180d",
+        max_cycles=None,
+        current_symbol="AAPL",
+        message="Heartbeat stalled",
+        pid=4242,
+    )
+    state = db.get_service_state()
+    assert state is not None
+
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.build_runtime_status_view",
+        lambda current_state: RuntimeStatusView(
+            runtime_state="stale",
+            last_recorded_state=current_state.state,
+            status_message="stale heartbeat",
+            live_process=True,
+            is_stale=True,
+            age_seconds=999,
+            state=current_state,
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="heartbeat is stale"):
+        start_background_service(
+            settings=settings,
+            symbols=["AAPL"],
+            interval="1d",
+            lookback="180d",
+            poll_seconds=300,
+            continuous=True,
+            max_cycles=None,
+            workdir=tmp_path,
+        )
+
+
 def test_restart_background_service_uses_last_recorded_config(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -662,6 +856,49 @@ def test_stop_service_command_marks_stop_requested(
     assert updated is not None
     assert updated.stop_requested is True
     assert updated.state == "stopping"
+
+
+def test_stop_service_recovers_dead_pid_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    db.upsert_service_state(
+        state="running",
+        continuous=True,
+        poll_seconds=300,
+        cycle_count=3,
+        symbols=["AAPL"],
+        interval="1d",
+        lookback="180d",
+        current_symbol="AAPL",
+        message="Running",
+        pid=4242,
+        stop_requested=False,
+    )
+
+    runner = CliRunner()
+    monkeypatch.setattr("agentic_trader.cli.is_process_alive", lambda pid: False)
+    result = runner.invoke(
+        app,
+        ["stop-service"],
+        env={
+            "AGENTIC_TRADER_RUNTIME_DIR": str(tmp_path),
+            "AGENTIC_TRADER_DATABASE_PATH": str(tmp_path / "agentic_trader.duckdb"),
+        },
+    )
+
+    updated = db.get_service_state()
+    events = db.list_service_events(limit=5)
+    assert result.exit_code == 0
+    assert updated is not None
+    assert updated.state == "stopped"
+    assert updated.pid is None
+    assert any(event.event_type == "stale_service_recovered" for event in events)
 
 
 def test_run_service_records_last_terminal_state(

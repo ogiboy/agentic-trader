@@ -49,6 +49,10 @@ Only `main` mutates `pyproject.toml`, workspace package versions, and `CHANGELOG
 
 Do not use a fourth SemVer core segment like `v0.9.5.9870`; CI build identity belongs in prerelease or build metadata.
 
+If the first stable `main` release needs to floor semantic-release to the
+tracked pre-1.0 baseline, the release workflow creates a baseline changelog
+section before tagging so `CHANGELOG.md` does not stay empty.
+
 ## CI and release checks
 
 Pull requests and protected branches should keep these checks green:

@@ -13,6 +13,27 @@ pnpm run check:research-flow
 pnpm run qa
 ```
 
+Fast smoke QA now asserts the shared dashboard contract includes provider
+diagnostics, V1 readiness, broker health, external-paper state, runtime mode,
+and Market Context Pack sections before the Ink/Web/observer surfaces consume
+them.
+
+It also includes deterministic market-context edge cases for partial daily
+windows, intraday provider limits, non-datetime indexes, higher-timeframe
+fallbacks, and Training replay undercoverage flags.
+
+For a reviewable local evidence package:
+
+```bash
+agentic-trader operator-workflow
+agentic-trader evidence-bundle
+```
+
+The bundle is read-only and includes dashboard, status, broker, provider
+diagnostics, V1 readiness, runtime logs, runtime-mode checklist, research
+status, supervisor log tails, hardware profile, operator workflow, a manifest,
+and the latest smoke summary/report when available.
+
 For the docs app:
 
 ```bash
@@ -76,7 +97,7 @@ Before treating docs work as PR-ready:
 - open `/en/docs` and `/tr/docs`
 - open at least one deep page in each locale
 - confirm sidebar, search, and feedback UI render correctly
-- confirm JetBrains Mono and theme tokens still apply
+- confirm the local-first monospace stack and theme tokens still apply
 
 ## Good final question
 

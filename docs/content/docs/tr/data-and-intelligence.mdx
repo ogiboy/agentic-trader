@@ -45,6 +45,75 @@ Bu katman eksik ya da yarımsa downstream confidence bunu yansıtmalıdır.
 
 Bu yüzden missing `context` ya da missing `decision_features`, kozmetik bir eksik değil gerçek bir provider ya da evidence gap olarak ele alınmalıdır.
 
+## Haber ve dünya-durumu kanıtı
+
+Haberler, filing'ler, makro açıklamalar, browser fetch'leri ve arama sonuçları
+ancak küçük evidence packet'lerine dönüştükten sonra faydalıdır. Kullanılabilir
+bir packet; kaynağı, yayın zamanı, fetch zamanı, fresh/stale durumu, hangi
+fetcher yolunun kullanıldığını, source tier'ı ve neden material olduğunu
+göstermelidir.
+
+Agentic Trader ham makale metnini ya da sosyal medya postlarını trading
+prompt'larına vermemelidir. Güvenli yol şudur: topla, redakte et, özetle,
+sınıflandır, kaynak göster, sonra scanner ve proposal review yüzeyleri kompakt
+sonucu kullansın.
+
+Bu sözleşmenin ilk operator-facing runtime yüzeyi şudur:
+
+```bash
+agentic-trader news-intelligence --symbol AAPL --company-name Apple --sector "consumer technology" --json
+```
+
+Bu komut web'i kendisi scrape etmez. Query template'leri, source tier'ları,
+freshness kurallarını, gürültülü domain exclude listesini, material event
+tiplerini ve ham makale metnini core trading prompt'una sokmayan prompt
+politikasını üretir.
+
+## Strateji zekâsı
+
+V1 strateji yolu bilinçli olarak muhafazakârdır. Momentum, gap review,
+mean-reversion, breakout/reclaim ve volatility preset'leri; provider evidence,
+liquidity/spread kontrolleri, sizing varsayımları ve proposal review ile
+zenginleşene kadar research helper olarak kalır.
+
+Bu profiller artık runtime metadata olarak görülebilir:
+
+```bash
+agentic-trader strategy-catalog --json
+agentic-trader strategy-profile vwap-breakout --json
+agentic-trader idea-score --symbol AAPL --preset momentum --price 190 --volume 5000000 --change-pct 6.2 --relative-volume 3.4 --json
+```
+
+Çıktı; gerekli girdileri, eksik evidence'ı, risk kontrollerini, validation
+check'leri ve scanner sonucunun neden hâlâ manuel proposal review istediğini
+anlatır.
+
+Opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs ya da ensemble
+gibi daha ileri fikirler önce no-lookahead kontrolleri, backtest confidence
+review ve açık invalidation kurallarından geçmelidir. Bunlar geçse bile emir
+değil, pending proposal üretir.
+
+## Finans/muhasebe kanıtı
+
+`finance-ops --json` artık trades, cash, fees/taxes, dividends, interest ve
+corporate actions gibi ledger kategorileri için bir reconciliation contract
+taşır. V1 paper mod bazı kategorileri dürüstçe missing gösterebilir; önemli
+kural, missing evidence'ın asla sıfır evidence gibi davranmamasıdır.
+
+## Sürekli araştırma döngüsü
+
+Benchmark loop fikri runtime'da read-only contract olarak görülebilir:
+
+```bash
+agentic-trader research-cycle-plan --symbols AAPL,MSFT --json
+```
+
+Fazlar PRE-FLIGHT, MONITOR, ANALYZE, PROPOSE ve DIGEST'tir. Plan her fazın
+hangi mevcut komutlardan okuduğunu gösterir ve sert güvenlik çizgisini tekrar
+eder: döngü fikirleri ve pending proposal'ları yüzeye çıkarabilir, fakat
+approve edemez, emir gönderemez, policy değiştiremez ya da eksik source
+evidence'ı gizleyemez.
+
 ## Review ve persistence bağlantısı
 
 Bu yapısal artefact'ler yalnızca canlı reasoning için değil şunlar için de önemlidir:

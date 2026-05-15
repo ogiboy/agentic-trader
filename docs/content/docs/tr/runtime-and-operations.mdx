@@ -6,6 +6,8 @@ description: Tek seferlik çalıştırma, service mode, health görünürlüğü
 ## Runtime entrypoint'leri
 
 - `main.py` ve `agentic_trader.cli:app` aynı komut yüzeyini açar
+- argümansız `agentic-trader` operatör launcher'ını açar ve Web GUI, daemon,
+  Ink, Rich, setup ya da model-service yollarını başlatmadan önce sorar
 - `agentic_trader/workflows/run_once.py` tek strict cycle'ın sahibidir
 - `agentic_trader/workflows/service.py` sürekli ve arka plan orkestrasyonunu taşır
 - observer ve UI yüzeyleri, state uydurmak yerine shared runtime truth okumalıdır
@@ -31,17 +33,58 @@ Bir yüzey runtime state gösterdiğini iddia ediyorsa en azından şunları gö
 - model veya provider readiness kanıtı
 - gerekiyorsa stop ve failure state
 
-## Ollama yönü
+`agentic-trader provider-diagnostics --json`, model routing'i, source ladder'ı,
+degraded Yahoo fallback uyarısını ve API-key hazır oluşunu network fetch
+yapmadan gösterir. Daha uzun paper operation ya da Alpaca paper kontrolünden
+önce `agentic-trader v1-readiness --json` çalıştır; evidence bundle'ın seçili
+model servisini gerçekten çağırmasını istiyorsan `--provider-check` ekle.
+Varsayılan backend hâlâ
+lokal `paper`; `alpaca_paper` yalnızca external paper içindir ve credential,
+paper endpoint ve açık enablement ister. `live` hâlâ blokludur.
 
-Bugün runtime çoğu zaman model servisinin zaten çalıştığını varsayıyor.
-İstenen sonraki adım, Ollama'yı mevcut daemon ve log yüzeyleri üzerinden isteğe bağlı biçimde yönetebilmek.
+Aynı network-free readiness truth artık `dashboard-snapshot`, observer API
+(`/provider-diagnostics` ve `/v1-readiness`), Rich runtime menüsü, Ink
+overview/runtime sayfaları ve Web GUI overview içinde de görünür. Product
+readiness QA için `dashboard-snapshot --provider-check` ve
+`evidence-bundle --provider-check --json` aktif provider gate'ini de içerir.
 
-Bu gelecek işinin içinde şunlar olmalı:
+## Sürekli research loop yönü
 
-- açık start ve stop hook'ları
-- health check'ler
-- log tail'leri
+Research sidecar güvenli bir döngüye doğru ilerliyor: pre-flight, monitor,
+analyze, propose, digest ve sonra sleep. Bu loop watchlist'i güncel tutabilir,
+source health'i açıklayabilir, fikirleri skorlayabilir ve manual-review
+proposal kuyruğuna aday ekleyebilir.
+
+Ama proposal onaylayamaz, emir gönderemez, policy mutate edemez, runtime
+gate'lerini zayıflatamaz ve ham web metnini instruction gibi kullanamaz.
+Research çıktısı kanıttır; yetki strict runtime ve açık operator approval'da
+kalır.
+
+Daemon supervision truth `agentic-trader supervisor-status --json` ve observer
+`/supervisor` endpoint'i üzerinden de okunur. Bu payload ikinci bir
+orkestratör başlatmadan runtime state, heartbeat/staleness, persist edilmiş
+service state ve stdout/stderr log tail'lerini taşır.
+
+## App-managed lokal servisler
+
+`agentic-trader model-service status/start/stop/pull`, app-managed Ollama'nın
+ilk dilimidir. Yalnızca loopback'e bind eder, owner-only state/log'ları
+`runtime/model_service/` altına yazar ve dışarıdan başlatılmış Ollama
+process'lerini durdurmaz. Varsayılan port başka bir Ollama tarafından
+kullanılıyorsa yakındaki başka bir loopback port seçebilir ve runtime base
+URL'inin bununla eşleşip eşleşmediğini bildirir. Stop akışı eski
+app-managed portları temizlemeye çalışır; `11434` üzerinde kalan servis ise
+host/default Ollama olarak görünür ve otomatik öldürülmez.
+
+`agentic-trader webgui-service status/start/stop` aynı deseni lokal Web GUI'ye
+uygular: loopback bind, `runtime/webgui_service/` altında app-owned state,
+log tail'leri ve ilgisiz PID'leri öldürmeme.
+
+Kalan yön daha geniş parity'dir:
+
 - “idle”, “busy” ve “broken” hâlleri arasında görünür ayrım
+- farklı agent rolleri için model/profile seçiminin operatör yüzeylerinden yapılması
+- provider/model öneren ama hidden install yapmayan setup akışları
 
 ## Model trafiğinden ne çıkarılmamalı
 

@@ -20,15 +20,14 @@ pnpm run setup:research-flow
 name = "install node workspace deps"
 icon = "tool"
 command = '''
-pnpm install
-pnpm approve-builds --all
+pnpm run setup:node
 '''
 
 [[actions]]
 name = "install python deps"
 icon = "tool"
 command = '''
-pnpm install:python
+pnpm run install:python
 '''
 
 [[actions]]

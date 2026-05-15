@@ -505,7 +505,7 @@ def _higher_timeframe_frame(
         return frame.copy(), "same_as_base"
 
     lower_interval = interval.lower()
-    if lower_interval.endswith("m") or lower_interval.endswith("h"):
+    if lower_interval.endswith(("m", "h")):
         rule = "1D"
         higher_timeframe = "1d"
     else:

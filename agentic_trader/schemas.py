@@ -1,28 +1,28 @@
 from datetime import UTC, datetime
-from typing import Literal, TypeAlias
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-RiskProfile: TypeAlias = Literal["conservative", "balanced", "aggressive"]
-TradeStyle: TypeAlias = Literal["swing", "position", "intraday"]
-BehaviorPreset: TypeAlias = Literal[
+RiskProfile = Literal["conservative", "balanced", "aggressive"]
+TradeStyle = Literal["swing", "position", "intraday"]
+BehaviorPreset = Literal[
     "balanced_core", "trend_biased", "contrarian", "capital_preservation"
 ]
-AgentProfile: TypeAlias = Literal["neutral", "disciplined", "aggressive", "explanatory"]
-AgentTone: TypeAlias = Literal["neutral", "supportive", "direct", "forensic"]
-StrictnessPreset: TypeAlias = Literal["standard", "strict", "paranoid"]
-InterventionStyle: TypeAlias = Literal["hands_off", "balanced", "protective"]
-ChatPersona: TypeAlias = Literal[
+AgentProfile = Literal["neutral", "disciplined", "aggressive", "explanatory"]
+AgentTone = Literal["neutral", "supportive", "direct", "forensic"]
+StrictnessPreset = Literal["standard", "strict", "paranoid"]
+InterventionStyle = Literal["hands_off", "balanced", "protective"]
+ChatPersona = Literal[
     "operator_liaison",
     "regime_analyst",
     "strategy_selector",
     "risk_steward",
     "portfolio_manager",
 ]
-CoordinatorFocus: TypeAlias = Literal[
+CoordinatorFocus = Literal[
     "trend_following", "breakout", "mean_reversion", "capital_preservation", "no_trade"
 ]
-AgentRole: TypeAlias = Literal[
+AgentRole = Literal[
     "coordinator",
     "fundamental",
     "macro",
@@ -33,37 +33,42 @@ AgentRole: TypeAlias = Literal[
     "explainer",
     "instruction",
 ]
-ExecutionSide: TypeAlias = Literal["buy", "sell", "hold"]
-TradeSide: TypeAlias = Literal["buy", "sell"]
-PositionExitReason: TypeAlias = Literal[
+ExecutionSide = Literal["buy", "sell", "hold"]
+TradeSide = Literal["buy", "sell"]
+PositionExitReason = Literal[
     "stop_loss", "take_profit", "invalidation", "time_exit", "no_exit"
 ]
-MarketSessionState: TypeAlias = Literal["open", "closed", "always_open", "weekend"]
-MTFAlignment: TypeAlias = Literal["bullish", "bearish", "mixed"]
-TrendVote: TypeAlias = Literal["bullish", "bearish", "mixed", "insufficient"]
-RuntimeMode: TypeAlias = Literal["training", "operation"]
-ResearchMode: TypeAlias = Literal["off", "training", "live_prep"]
-ExecutionBackend: TypeAlias = Literal["paper", "simulated_real", "live"]
-type NewsClassification = Literal[
+MarketSessionState = Literal["open", "closed", "always_open", "weekend"]
+MTFAlignment = Literal["bullish", "bearish", "mixed"]
+TrendVote = Literal["bullish", "bearish", "mixed", "insufficient"]
+RuntimeMode = Literal["training", "operation"]
+ResearchMode = Literal["off", "training", "live_prep"]
+ExecutionBackend = Literal["paper", "simulated_real", "alpaca_paper", "live"]
+TradeProposalStatus = Literal[
+    "pending", "approved", "rejected", "executed", "failed", "expired"
+]
+NewsClassification = Literal[
     "company_specific", "sector_level", "macro_level"
 ]
-AnalysisSignal: TypeAlias = Literal["supportive", "neutral", "cautious", "avoid"]
-DataProviderKind: TypeAlias = Literal[
+AnalysisSignal = Literal["supportive", "neutral", "cautious", "avoid"]
+DataProviderKind = Literal[
     "market", "fundamental", "news", "disclosure", "macro", "social"
 ]
-DataSourceRole: TypeAlias = Literal["primary", "fallback", "inferred", "missing"]
-FreshnessStatus: TypeAlias = Literal["fresh", "stale", "unknown", "missing"]
-type ResearchEvidenceKind = Literal[
+DataSourceRole = Literal["primary", "fallback", "inferred", "missing"]
+FreshnessStatus = Literal["fresh", "stale", "unknown", "missing"]
+ResearchEvidenceKind = Literal[
     "disclosure",
     "news",
     "macro",
     "social",
     "provider_status",
 ]
-type ResearchSignalDirection = Literal[
+ResearchSignalDirection = Literal[
     "supportive", "neutral", "cautious", "contradictory", "unknown"
 ]
-DisclosureKind: TypeAlias = Literal[
+ResearchCycleControlAction = Literal["idle", "pause", "resume", "trigger_now"]
+ResearchCycleControlStatus = Literal["running", "paused"]
+DisclosureKind = Literal[
     "sec_filing",
     "kap_disclosure",
     "earnings",
@@ -71,7 +76,7 @@ DisclosureKind: TypeAlias = Literal[
     "material_event",
     "other",
 ]
-ServiceState: TypeAlias = Literal[
+ServiceState = Literal[
     "idle",
     "starting",
     "running",
@@ -81,9 +86,9 @@ ServiceState: TypeAlias = Literal[
     "failed",
     "blocked",
 ]
-ServiceEventLevel: TypeAlias = Literal["info", "warning", "error"]
-JournalStatus: TypeAlias = Literal["open", "closed", "rejected", "no_fill"]
-RegimeName: TypeAlias = Literal[
+ServiceEventLevel = Literal["info", "warning", "error"]
+JournalStatus = Literal["open", "closed", "rejected", "no_fill"]
+RegimeName = Literal[
     "trend_up",
     "trend_down",
     "range",
@@ -99,6 +104,8 @@ class LLMHealthStatus(BaseModel):
     model_name: str
     service_reachable: bool
     model_available: bool
+    generation_available: bool | None = None
+    generation_message: str | None = None
     message: str
 
 
@@ -166,6 +173,36 @@ class ExecutionDecision(BaseModel):
     position_size_pct: float
     confidence: float
     rationale: str
+
+
+class TradeProposalRecord(BaseModel):
+    proposal_id: str
+    created_at: str
+    updated_at: str
+    symbol: str
+    side: TradeSide
+    order_type: Literal["market", "limit"] = "market"
+    quantity: float | None = Field(default=None, gt=0.0)
+    notional: float | None = Field(default=None, gt=0.0)
+    reference_price: float = Field(gt=0.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    thesis: str
+    stop_loss: float | None = Field(default=None, gt=0.0)
+    take_profit: float | None = Field(default=None, gt=0.0)
+    invalidation_condition: str | None = None
+    source: str = "manual"
+    status: TradeProposalStatus = "pending"
+    review_notes: str = ""
+    rejection_reason: str | None = None
+    execution_intent_id: str | None = None
+    execution_order_id: str | None = None
+    execution_outcome_status: str | None = None
+
+    @model_validator(mode="after")
+    def require_quantity_or_notional(self) -> "TradeProposalRecord":
+        if self.quantity is None and self.notional is None:
+            raise ValueError("Trade proposals require quantity or notional.")
+        return self
 
 
 class PortfolioSnapshot(BaseModel):
@@ -558,6 +595,32 @@ class ResearchSidecarState(BaseModel):
     source_health_summary: dict[str, int] = Field(default_factory=dict)
 
 
+class ResearchCycleOperatorControl(BaseModel):
+    status: ResearchCycleControlStatus = "running"
+    requested_action: ResearchCycleControlAction = "idle"
+    updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+    updated_by: str = "operator"
+    reason: str | None = None
+    trigger_now_requested: bool = False
+    trigger_requested_at: str | None = None
+    paused_at: str | None = None
+    resumed_at: str | None = None
+
+
+class ResearchDigestReplayRecord(BaseModel):
+    artifact_id: str
+    generated_at: str
+    snapshot_id: str | None = None
+    mode: ResearchMode
+    backend: str = "noop"
+    watched_symbols: list[str] = Field(default_factory=list)
+    digest: dict[str, object] = Field(default_factory=dict)
+    executions: list[dict[str, object]] = Field(default_factory=list)
+    execution_policy: dict[str, bool] = Field(default_factory=dict)
+    operator_control: ResearchCycleOperatorControl
+    replay_notes: list[str] = Field(default_factory=list)
+
+
 class ResearchSnapshotRecord(BaseModel):
     snapshot_id: str
     created_at: str
@@ -660,6 +723,7 @@ class AgentContext(BaseModel):
     recent_runs: list[str] = Field(default_factory=list)
     memory_notes: list[str] = Field(default_factory=list)
     retrieved_memories: list[str] = Field(default_factory=list)
+    retrieval_explanations: list["HistoricalMemoryMatch"] = Field(default_factory=list)
     calibration: "ConfidenceCalibration | None" = None
     shared_memory_bus: list["SharedMemoryEntry"] = Field(default_factory=list)
     tool_outputs: list[str] = Field(default_factory=list)
@@ -878,6 +942,9 @@ class TradeContextRecord(BaseModel):
     decision_features: DecisionFeatureBundle | None = None
     routed_models: dict[str, str] = Field(default_factory=dict)
     retrieved_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
+    retrieval_explanation_summary: dict[str, list[dict[str, object]]] = Field(
+        default_factory=dict
+    )
     tool_outputs: dict[str, list[str]] = Field(default_factory=dict)
     shared_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
     consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
@@ -915,6 +982,8 @@ class DailyRiskReport(BaseModel):
     daily_realized_pnl: float
     gross_exposure_pct: float
     largest_position_pct: float
+    portfolio_hhi: float = 0.0
+    top_position_symbols: list[str] = Field(default_factory=list)
     drawdown_from_peak_pct: float
     warnings: list[str] = Field(default_factory=list)
 
@@ -1082,6 +1151,21 @@ class HistoricalMemoryMatch(BaseModel):
     manager_bias: str
     approved: bool
     summary: str
+    explanation: "MemoryRetrievalExplanation" = Field(
+        default_factory=lambda: MemoryRetrievalExplanation()
+    )
+
+
+class MemoryRetrievalExplanation(BaseModel):
+    eligibility_reason: str = "candidate_run_record"
+    score_components: dict[str, float] = Field(default_factory=dict)
+    as_of: str | None = None
+    freshness: FreshnessStatus = "unknown"
+    outcome_tag: str = "unknown"
+    regime_alignment: str = "unknown"
+    strategy_alignment: str = "unknown"
+    diversity_bucket: str = "unknown"
+    notes: list[str] = Field(default_factory=list)
 
 
 class RunReplayStage(BaseModel):

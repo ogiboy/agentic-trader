@@ -4,10 +4,13 @@ from pathlib import Path
 from agentic_trader.config import Settings
 from agentic_trader.schemas import (
     ChatHistoryEntry,
+    ResearchCycleOperatorControl,
+    ResearchDigestReplayRecord,
     ResearchSnapshotRecord,
     ServiceEvent,
     ServiceStateSnapshot,
 )
+from agentic_trader.security import append_private_text, write_private_text
 
 
 def service_state_path(settings: Settings) -> Path:
@@ -34,10 +37,17 @@ def research_latest_snapshot_path(settings: Settings) -> Path:
     return settings.runtime_dir / "research_latest_snapshot.json"
 
 
+def research_cycle_control_path(settings: Settings) -> Path:
+    return settings.runtime_dir / "research_cycle_control.json"
+
+
+def research_digest_replay_path(settings: Settings) -> Path:
+    return settings.runtime_dir / "research_digest_replay.json"
+
+
 def write_service_state(settings: Settings, state: ServiceStateSnapshot) -> None:
     path = service_state_path(settings)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(state.model_dump_json(indent=2), encoding="utf-8")
+    write_private_text(path, state.model_dump_json(indent=2))
 
 
 def read_service_state(settings: Settings) -> ServiceStateSnapshot | None:
@@ -49,10 +59,7 @@ def read_service_state(settings: Settings) -> ServiceStateSnapshot | None:
 
 def append_service_event(settings: Settings, event: ServiceEvent) -> None:
     path = service_events_path(settings)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(event.model_dump_json())
-        handle.write("\n")
+    append_private_text(path, f"{event.model_dump_json()}\n")
 
 
 def read_service_events(settings: Settings, *, limit: int = 20) -> list[ServiceEvent]:
@@ -71,10 +78,7 @@ def read_service_events(settings: Settings, *, limit: int = 20) -> list[ServiceE
 
 def append_chat_history(settings: Settings, entry: ChatHistoryEntry) -> None:
     path = chat_history_path(settings)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(entry.model_dump_json())
-        handle.write("\n")
+    append_private_text(path, f"{entry.model_dump_json()}\n")
 
 
 def read_chat_history(settings: Settings, *, limit: int = 20) -> list[ChatHistoryEntry]:
@@ -95,12 +99,10 @@ def append_research_snapshot(
     settings: Settings, record: ResearchSnapshotRecord
 ) -> None:
     path = research_snapshots_path(settings)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(record.model_dump_json())
-        handle.write("\n")
-    research_latest_snapshot_path(settings).write_text(
-        record.model_dump_json(indent=2), encoding="utf-8"
+    append_private_text(path, f"{record.model_dump_json()}\n")
+    write_private_text(
+        research_latest_snapshot_path(settings),
+        record.model_dump_json(indent=2),
     )
 
 
@@ -130,10 +132,49 @@ def read_latest_research_snapshot(settings: Settings) -> ResearchSnapshotRecord 
     return records[0] if records else None
 
 
+def write_research_cycle_control(
+    settings: Settings, control: ResearchCycleOperatorControl
+) -> None:
+    write_private_text(
+        research_cycle_control_path(settings),
+        control.model_dump_json(indent=2),
+    )
+
+
+def read_research_cycle_control(
+    settings: Settings,
+) -> ResearchCycleOperatorControl | None:
+    path = research_cycle_control_path(settings)
+    if not path.exists():
+        return None
+    return ResearchCycleOperatorControl.model_validate_json(
+        path.read_text(encoding="utf-8")
+    )
+
+
+def write_research_digest_replay(
+    settings: Settings, record: ResearchDigestReplayRecord
+) -> None:
+    write_private_text(
+        research_digest_replay_path(settings),
+        record.model_dump_json(indent=2),
+    )
+
+
+def read_research_digest_replay(
+    settings: Settings,
+) -> ResearchDigestReplayRecord | None:
+    path = research_digest_replay_path(settings)
+    if not path.exists():
+        return None
+    return ResearchDigestReplayRecord.model_validate_json(
+        path.read_text(encoding="utf-8")
+    )
+
+
 def request_stop(settings: Settings) -> None:
     path = stop_request_path(settings)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("stop\n", encoding="utf-8")
+    write_private_text(path, "stop\n")
 
 
 def stop_requested(settings: Settings) -> bool:

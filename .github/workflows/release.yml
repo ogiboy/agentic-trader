@@ -15,7 +15,6 @@ concurrency:
 
 env:
   UV_VERSION: '0.11.8'
-  PNPM_VERSION: '10.33.2'
 
 jobs:
   release:
@@ -43,8 +42,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e # v6.0.3
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Set up Node
         uses: actions/setup-node@v6
@@ -109,18 +106,47 @@ jobs:
           echo "baseline_release=false" >> "$GITHUB_OUTPUT"
           echo "tag=$raw_tag" >> "$GITHUB_OUTPUT"
 
-      - name: Bump version, changelog, and tag
+      - name: Bump version, changelog, lockfiles, and tag
         if: ${{ steps.release-plan.outputs.will_release == 'true' && steps.release-plan.outputs.baseline_release != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: uv run --locked --no-sync semantic-release version --no-vcs-release
+        run: |
+          set -euo pipefail
+          tag="${{ steps.release-plan.outputs.tag }}"
+          uv run --locked --no-sync semantic-release version --no-commit --no-tag --no-push --no-vcs-release
+          uv lock
+          (cd sidecars/research_flow && uv lock)
+          git add \
+            CHANGELOG.md \
+            agentic_trader/__init__.py \
+            docs/package.json \
+            package.json \
+            pyproject.toml \
+            sidecars/research_flow/pyproject.toml \
+            sidecars/research_flow/uv.lock \
+            tui/package.json \
+            uv.lock \
+            webgui/package.json
+          if git diff --cached --quiet; then
+            echo "No release files changed; skipping release commit and tag."
+            exit 0
+          fi
+          git commit -m "chore(release): ${tag}"
+          git tag -a "${tag}" -m "chore(release): ${tag}"
+          git push origin "HEAD:${GITHUB_REF_NAME}" "refs/tags/${tag}"
 
-      - name: Create baseline tag
+      - name: Create baseline changelog and tag
         if: ${{ steps.release-plan.outputs.will_release == 'true' && steps.release-plan.outputs.baseline_release == 'true' }}
         run: |
           set -euo pipefail
           tag="${{ steps.release-plan.outputs.tag }}"
+          uv run --locked --no-sync python scripts/release/bootstrap_changelog.py --version "$tag"
+          git add CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): ${tag}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
           if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
             echo "Tag ${tag} already exists locally; skipping baseline tag creation."
             exit 0

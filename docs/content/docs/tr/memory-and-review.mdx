@@ -1,26 +1,51 @@
 ---
 title: Hafıza ve Review
-description: Proje hafızasının, review artefact'lerinin ve docs güncellemelerinin runtime gerçeğiyle nasıl hizalı tutulduğu.
+description: Trading hafızasının, review kanıtının ve katkı notlarının nasıl ayrı ve denetlenebilir tutulduğu.
 ---
 
-## Bu repo için “hafıza” ne demek
+## Operatör için hafıza ne demek
 
-Buradaki hafıza yalnızca model hafızası değil.
-Aynı zamanda şunları da kapsar:
+Operatör açısından hafıza, bir kararı açıklamaya yardım eden kanıttır:
+
+- benzer context olarak getirilen önceki koşular
+- market context pack'leri ve data-quality flag'leri
+- specialist ve manager çıktıları
+- review sırasında kullanılan broker/account durumu
+- persist edilmiş trace, trade context ve review snapshot'ları
+- source attribution, freshness ve missing-evidence notları
+
+Hafıza bir inceleme desteğidir.
+Gizli trade izni değildir; broker, risk veya runtime policy'yi sessizce
+değiştirmemelidir.
+
+## Review kanıtı
+
+Şüpheli bir sonucu incelerken kanıtı şu sırayla oku:
+
+1. `as_of`, freshness, completeness ve fallback state dahil provider/market artefact'leri
+2. runtime state, supervisor state ve loglar
+3. broker/account status, execution outcome ve rejection reason
+4. specialist ve manager çıktıları
+5. persist edilmiş review snapshot'ları ve UI davranışı
+
+"Cevap yanlış hissettiriyor" noktasından doğrudan "prompt değişmeli" sonucuna
+atlama. Önce sistemin gerçekte hangi veri, state ve kanıtı gördüğünü doğrula.
+
+## Trading hafızası ve katkı notları
+
+Agentic Trader'da katkı verenlere dönük repo hafızası da var. Bunlar:
 
 - `.ai/current-state.md`
 - `.ai/tasks.md`
 - `.ai/decisions.md`
-- runtime review artefact'leri
-- persist edilmiş trace ve context pack'ler
+- `.ai/qa/*`
 - mevcut çalışma varsayımlarını açıklayan docs sayfaları
 
-## Bunun önemi
+Bu dosyalar bakım yapanların projeyi hizalı tutmasına yardım eder. Bunlar
+operatöre gösterilen trading memory, similar-run retrieval veya review evidence
+ile aynı şey değildir.
 
-Bu boyuttaki bir repo; implementasyon, docs ve çalışma varsayımları birbirinden koparsa hızla bakımı zor bir yapıya dönüşür.
-Gelecekteki işi yavaşlatmanın en kolay yolu, geride bayat proje hafızası bırakmaktır.
-
-## Repo hafızası ne zaman güncellenmeli
+## Katkı notları ne zaman güncellenmeli
 
 Bir değişiklik şunları etkiliyorsa `.ai` notlarını güncelle:
 
@@ -31,21 +56,10 @@ Bir değişiklik şunları etkiliyorsa `.ai` notlarını güncelle:
 - QA beklentileri
 - safety sınırları
 
-## Review duruşu
-
-Şüpheli bir sonucu incelerken inspect edilebilir kanıtı tercih et:
-
-1. typed provider ya da market artefact'leri
-2. runtime state ve loglar
-3. specialist ve manager çıktıları
-4. persist edilmiş review snapshot'ları
-5. UI davranışı
-
-“Cevap yanlış hissettiriyor” noktasından doğrudan “prompt değişmeli” sonucuna atlama.
-
 ## Docs sorumluluğu
 
-Bu docs sitesi proje hafızasının bir parçası.
+Bu docs sitesi katkı verenlerin koruduğu bilgi tabanının bir parçası, ama önce
+operatör için yazılmalı.
 Kalıcı bir karar değiştiğinde doğru kapanış çoğu zaman şudur:
 
 - implementasyonu güncelle
@@ -53,6 +67,9 @@ Kalıcı bir karar değiştiğinde doğru kapanış çoğu zaman şudur:
 - `.ai/current-state.md` dosyasını güncelle
 - `.ai/decisions.md` dosyasını güncelle
 - iş kaldıysa `.ai/tasks.md` dosyasını güncelle
+
+Temel dil kuralı: ürün hafızasını decision/review evidence olarak, `.ai`
+dosyalarını ise katkı notları olarak anlat.
 
 ## Feedback akışının düz anlatımı
 

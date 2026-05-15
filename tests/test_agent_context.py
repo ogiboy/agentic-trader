@@ -153,6 +153,8 @@ def test_build_agent_context_includes_runs_memory_and_upstream(tmp_path: Path) -
     assert context.model_name == "qwen3:8b"
     assert context.recent_runs
     assert context.memory_notes
+    assert context.retrieval_explanations
+    assert context.retrieval_explanations[0].explanation.eligibility_reason
     assert context.calibration is not None
     assert context.market_session is not None
     assert context.market_session.symbol == "AAPL"

@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { redactAndCapText } from './http';
 
 const execFileAsync = promisify(execFile);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -63,7 +64,7 @@ function detectManagedCondaEnvName(): null | string {
     return null;
   }
   const manifest = readFileSync(manifestPath, 'utf-8');
-  const match = manifest.match(/conda activate ([^\s'"]+)/);
+  const match = /conda activate ([^\s'"]+)/.exec(manifest);
   return match?.[1] || null;
 }
 
@@ -294,14 +295,16 @@ export async function execTrader(
       if (error && typeof error === 'object' && error.code !== 'ENOENT') {
         const detail = error.stderr || error.stdout || error.message;
         throw new Error(
-          String(detail).trim() || 'Agentic Trader command failed.',
+          redactAndCapText(detail).trim() || 'Agentic Trader command failed.',
         );
       }
     }
   }
 
   throw new Error(
-    extractError(lastError || 'No Agentic Trader executable was available.'),
+    redactAndCapText(
+      extractError(lastError || 'No Agentic Trader executable was available.'),
+    ),
   );
 }
 

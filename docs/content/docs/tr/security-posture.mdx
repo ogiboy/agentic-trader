@@ -1,0 +1,65 @@
+---
+title: Guvenlik Durusu
+description: Agentic Trader'in lokal paper operasyonu, observer yuzeyleri, research evidence ve secret'lari nasil sinirladigi.
+---
+
+## Ne korunuyor
+
+Agentic Trader local-first ve paper-first calisir, ama yine de hassas operasyon
+gercegi tasir: account state, paper fill'ler, provider hazirligi, model
+hatalari, runtime loglari ve ignored lokal credential'lar. Guvenlik hedefi bunu
+bir cloud urunune cevirmek degil; lokal operasyonu acik, denetlenebilir ve
+yanlislikla kotuye kullanilmasi zor halde tutmaktir.
+
+En guclu varsayilan kontroller:
+
+- live execution varsayilan olarak bloklu
+- operation mode provider veya model hazirligi yoksa fail-closed davranir
+- research sidecar sadece evidence companion'dir; broker veya policy sahibi degildir
+- Web GUI ve observer yuzeyleri yeni bir runtime kurmaz, mevcut contract'lari okur
+- secret'lar tracked config'e degil ignored local env, Keychain veya CI secret'larina aittir
+
+## Operator kurallari
+
+Normal kullanimda Web GUI'yi `localhost` uzerinde tut. Proxy veya LAN uzerinden
+acarsan `AGENTIC_TRADER_WEBGUI_TOKEN` ayarla ve isteklerde
+`X-Agentic-Trader-Token` ya da `Authorization: Bearer ...` olarak gonder.
+
+Observer API normalde `127.0.0.1` uzerinde kalmali. Read-only runtime truth'u
+bilerek paylasiyorsan non-loopback bind icin hem `--allow-nonlocal` hem de
+`AGENTIC_TRADER_OBSERVER_API_TOKEN` gerekir.
+
+`runtime/` ve `.ai/qa/artifacts/` dizinlerini hassas evidence olarak dusun.
+Bunlar run history, loglar, paper account state, research snapshot ve provider
+diagnostic tasiyabilir.
+
+## Threat model ozeti
+
+| Yuzey | Risk | Mitigation |
+| --- | --- | --- |
+| Web GUI route handler'lari | App disari acilirsa direkt POST'lar runtime, chat veya instruction islerini tetikleyebilir | Same-origin check, loopback-only token'siz mod, opsiyonel token, body cap, cooldown |
+| Observer API | Loopback disina bind edilirse read-only runtime truth sizabilir | Loopback default, nonlocal bind guard, opsiyonel token, no-store/security header'lari |
+| Runtime loglari | Provider/model hatalari key-benzeri degerleri basabilir | Supervisor tail ve Web error response oncesi redaction |
+| Research sidecar | Sidecar broker secret'larini miras alabilir veya raw stderr echo'layabilir | Dar subprocess env, redacted sidecar failure, broker/policy access contract disinda |
+| Provider hatalari | Gelecek provider'lar signed URL veya key iceren exception uretebilir | Source attribution bounded redacted exception note saklar |
+| Lokal artifact'ler | Paylasimli makinelerde default-permission dosyalar okunabilir | Runtime feed/log yazimlari owner-only dizin ve dosya izinlerini tercih eder |
+
+## Dogrulama yolu
+
+Hizli guvenlik posture smoke icin:
+
+```bash
+uv run --locked --all-extras --group dev python -m pytest -q tests/test_security_helpers.py tests/test_observer_api.py tests/test_research_sidecar.py tests/test_cli_json.py tests/test_data_providers.py
+pnpm --filter webgui run typecheck
+pnpm --filter webgui run lint
+```
+
+Operator odakli pass icin [QA And Debugging](/tr/docs/qa-and-debugging)
+icindeki security senaryosunu calistir ve Web GUI, CLI, observer payload'larini
+ayni runtime truth'a gore karsilastir.
+
+## Gelecek hardening
+
+Agentic Trader secret scanning, dependency SCA, SBOM/provenance ve release
+signing'i asamali buyutmeli. Bu kontroller V1 isini false positive'e bogmadan
+yeterince ayarlandiktan sonra gate haline getirilmeli.

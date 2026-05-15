@@ -288,6 +288,23 @@ def test_aggregation_marks_provider_failures_without_fabricating_data() -> None:
     )
 
 
+def test_aggregation_redacts_provider_exception_secrets() -> None:
+    class SecretFailingProvider(_FailingFundamentalProvider):
+        def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
+            _ = symbol
+            raise RuntimeError("api_key=secret-fmp")
+
+    canonical = build_canonical_analysis_snapshot(
+        _snapshot(),
+        settings=_settings(),
+        providers=ProviderSet(fundamental=[SecretFailingProvider()]),
+    )
+
+    payload = canonical.model_dump_json()
+    assert "secret-fmp" not in payload
+    assert "<redacted>" in payload
+
+
 def _artifacts(canonical_snapshot) -> RunArtifacts:
     return RunArtifacts(
         snapshot=_snapshot(),

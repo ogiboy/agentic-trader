@@ -1,25 +1,61 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai webgui docs tui clean
+.PHONY: help bootstrap bootstrap-dry-run setup setup-tools app-doctor setup-camofox fetch-camofox check-camofox setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-prompts qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai start-camofox webgui docs tui clean clean-deps clean-all
 
 help:
 	@printf '%s\n' \
 		'Agentic Trader aliases:' \
+		'  make bootstrap    inspect/install system tools with prompts' \
+		'  make bootstrap-dry-run show system-tool installer actions' \
 		'  make setup        install Python and Node dependencies' \
+		'  make setup-tools  show runtime/tool setup status' \
+		'  make app-doctor   read setup, provider, V1, and app-owned service readiness' \
+		'  make setup-camofox install optional Camofox helper deps without browser download' \
+		'  make fetch-camofox download/update optional Camoufox browser binary' \
+		'  make check-camofox syntax-check the optional Camofox helper' \
+		'  make setup-node   install and verify root/webgui/docs/tui Node deps' \
 		'  make setup-research-flow install CrewAI Flow sidecar dependencies' \
 		'  make check        run Python and Node checks' \
 		'  make check-research-flow run CrewAI Flow sidecar smoke checks' \
 		'  make build        build webgui/docs and check TUI' \
 		'  make qa           run terminal smoke QA' \
+		'  make qa-prompts   lint prompt, agent, and instruction markdown files' \
 		'  make sonar        run local Sonar scan' \
 		'  make run-research-flow run the gated CrewAI Flow sidecar placeholder' \
+		'  make start-camofox start optional loopback/auth Camofox helper' \
 		'  make webgui       start Web GUI dev server' \
 		'  make docs         start docs dev server' \
 		'  make tui          start terminal UI' \
-		'  make clean        remove local build/test artifacts'
+		'  make clean        remove local build/test artifacts' \
+		'  make clean-deps   remove installed dependency directories' \
+		'  make clean-all    remove artifacts and installed dependencies'
+
+bootstrap:
+	pnpm run bootstrap
+
+bootstrap-dry-run:
+	pnpm run bootstrap:dry-run
 
 setup:
 	pnpm run setup
+
+setup-tools:
+	pnpm run setup:tools
+
+app-doctor:
+	pnpm run app:doctor -- $(ARGS)
+
+setup-camofox:
+	pnpm run setup:camofox
+
+fetch-camofox:
+	pnpm run fetch:camofox
+
+check-camofox:
+	pnpm run check:camofox
+
+setup-node:
+	pnpm run setup:node
 
 setup-research-flow:
 	pnpm run setup:research-flow
@@ -45,6 +81,9 @@ build:
 
 qa:
 	pnpm run qa
+
+qa-prompts:
+	pnpm run qa:prompts
 
 qa-quality:
 	pnpm run qa:quality
@@ -102,6 +141,9 @@ run-research-flow:
 
 run-research-crewai: run-research-flow
 
+start-camofox:
+	pnpm run start:camofox
+
 webgui:
 	pnpm run dev:webgui
 
@@ -113,3 +155,9 @@ tui:
 
 clean:
 	pnpm run clean
+
+clean-deps:
+	pnpm run clean:deps
+
+clean-all:
+	pnpm run clean:all

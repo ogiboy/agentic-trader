@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from dataclasses import dataclass
 import json
-from typing import Any, cast, get_args
+from typing import Any, Literal, cast, get_args
 from uuid import uuid4
 
 import duckdb
@@ -17,6 +17,7 @@ from agentic_trader.memory.policy import MemoryActor, assert_memory_write_allowe
 from agentic_trader.runtime_feed import append_service_event, write_service_state
 from agentic_trader.schemas import (
     AccountMark,
+    AgentStageTrace,
     ChatPersona,
     ChatHistoryEntry,
     CoordinatorFocus,
@@ -35,6 +36,8 @@ from agentic_trader.schemas import (
     ServiceStateSnapshot,
     RuntimeMode,
     TradeSide,
+    TradeProposalRecord,
+    TradeProposalStatus,
     TradeContextRecord,
     TradeJournalEntry,
 )
@@ -66,12 +69,51 @@ class ServiceStateUpdate:
     current_symbol: str | None = None
     last_error: str | None = None
     pid: int | None = None
+    clear_pid: bool = False
     stop_requested: bool | None = None
     background_mode: bool | None = None
     launch_count: int | None = None
     restart_count: int | None = None
     stdout_log_path: str | None = None
     stderr_log_path: str | None = None
+
+
+@dataclass
+class _TraceContextSummaries:
+    routed_models: dict[str, str]
+    retrieved_memory_summary: dict[str, list[str]]
+    retrieval_explanation_summary: dict[str, list[dict[str, object]]]
+    tool_outputs: dict[str, list[str]]
+    shared_memory_summary: dict[str, list[str]]
+
+
+@dataclass
+class _ResolvedServiceStateValues:
+    runtime_mode: RuntimeMode
+    started_at: str
+    pid: int | None
+    stop_requested: bool
+    symbols: list[str]
+    interval: str | None
+    lookback: str | None
+    max_cycles: int | None
+    background_mode: bool
+    launch_count: int
+    restart_count: int
+    last_terminal_state: str | None
+    last_terminal_at: str | None
+    stdout_log_path: str | None
+    stderr_log_path: str | None
+
+
+def _empty_trace_context_summaries() -> _TraceContextSummaries:
+    return _TraceContextSummaries(
+        routed_models={},
+        retrieved_memory_summary={},
+        retrieval_explanation_summary={},
+        tool_outputs={},
+        shared_memory_summary={},
+    )
 
 
 def _str_or_none(value: Any) -> str | None:
@@ -146,6 +188,35 @@ def _resolve_optional_value[T](
     return new_value if new_value is not None else existing_value
 
 
+def _existing_value(
+    existing: ServiceStateSnapshot | None,
+    attr: str,
+) -> Any | None:
+    if existing is None:
+        return None
+    return getattr(existing, attr)
+
+
+def _resolve_started_at(
+    *,
+    update: ServiceStateUpdate,
+    existing: ServiceStateSnapshot | None,
+    now: str,
+) -> str:
+    started_at = _existing_value(existing, "started_at")
+    if update.state == "starting" or started_at is None:
+        return now
+    return started_at
+
+
+def _resolve_service_pid(
+    update: ServiceStateUpdate, existing: ServiceStateSnapshot | None
+) -> int | None:
+    if update.clear_pid:
+        return None
+    return _resolve_optional_value(update.pid, _existing_value(existing, "pid"))
+
+
 def _resolve_symbols(
     symbols: list[str] | None, existing: ServiceStateSnapshot | None
 ) -> list[str]:
@@ -205,6 +276,68 @@ def _decode_symbols(value: Any) -> list[str]:
 
 def _int_or_default(value: Any, default: int) -> int:
     return int(value) if value is not None else default
+
+
+def _trace_context(trace: AgentStageTrace) -> dict[str, Any] | None:
+    try:
+        context = json.loads(trace.context_json)
+    except json.JSONDecodeError:
+        return None
+    return context if isinstance(context, dict) else None
+
+
+def _summarize_trace_contexts(
+    traces: list[AgentStageTrace],
+) -> _TraceContextSummaries:
+    summaries = _empty_trace_context_summaries()
+    for trace in traces:
+        summaries.routed_models[trace.role] = trace.model_name
+        context = _trace_context(trace)
+        if context is None:
+            continue
+        _collect_trace_context_summary(summaries, trace.role, context)
+    return summaries
+
+
+def _collect_trace_context_summary(
+    summaries: _TraceContextSummaries,
+    role: str,
+    context: dict[str, Any],
+) -> None:
+    retrieved_memories = context.get("retrieved_memories")
+    if isinstance(retrieved_memories, list):
+        summaries.retrieved_memory_summary[role] = [
+            str(item) for item in retrieved_memories[:5]
+        ]
+
+    retrieval_explanations = context.get("retrieval_explanations")
+    if isinstance(retrieval_explanations, list):
+        summaries.retrieval_explanation_summary[role] = [
+            item for item in retrieval_explanations[:5] if isinstance(item, dict)
+        ]
+
+    trace_tool_outputs = context.get("tool_outputs")
+    if isinstance(trace_tool_outputs, list):
+        summaries.tool_outputs[role] = [str(item) for item in trace_tool_outputs[:5]]
+
+    shared_memory_bus = context.get("shared_memory_bus")
+    if isinstance(shared_memory_bus, list):
+        summaries.shared_memory_summary[role] = [
+            str(item.get("summary", ""))
+            for item in shared_memory_bus[:5]
+            if isinstance(item, dict)
+        ]
+
+
+def _execution_adapter_name(
+    execution_intent: ExecutionIntent | None,
+    execution_outcome: ExecutionOutcome | None,
+) -> str | None:
+    if execution_outcome is not None:
+        return execution_outcome.adapter_name
+    if execution_intent is not None:
+        return execution_intent.adapter_name
+    return None
 
 
 def _service_state_from_row(row: tuple[Any, ...]) -> ServiceStateSnapshot:
@@ -268,6 +401,17 @@ class TradingDatabase:
             self.conn = duckdb.connect(str(self.path))
             self._init_schema()
 
+    def _table_exists(self, table_name: str) -> bool:
+        row = self.conn.execute(
+            """
+            select count(*)
+            from information_schema.tables
+            where table_name = ?
+            """,
+            [table_name],
+        ).fetchone()
+        return row is not None and int(row[0]) > 0
+
     def _init_schema(self) -> None:
         """
         Create and migrate the database schema and ensure required seed rows exist.
@@ -278,6 +422,16 @@ class TradingDatabase:
         with the configured default cash when absent) and ensures a default preferences profile exists
         (inserting a default `InvestmentPreferences()` when absent).
         """
+        self._create_core_tables()
+        self._create_execution_tables()
+        self._create_service_tables()
+        self._migrate_service_state_columns()
+        self._create_memory_tables()
+        self._migrate_memory_vector_columns()
+        self._ensure_default_account()
+        self._ensure_default_preferences()
+
+    def _create_core_tables(self) -> None:
         self.conn.execute(
             """
             create table if not exists runs (
@@ -425,6 +579,8 @@ class TradingDatabase:
             )
             """
         )
+
+    def _create_execution_tables(self) -> None:
         self.conn.execute(
             """
             create table if not exists execution_records (
@@ -442,6 +598,35 @@ class TradingDatabase:
             )
             """
         )
+        self.conn.execute(
+            """
+            create table if not exists trade_proposals (
+                proposal_id varchar primary key,
+                created_at varchar not null,
+                updated_at varchar not null,
+                symbol varchar not null,
+                side varchar not null,
+                order_type varchar not null,
+                quantity double,
+                notional double,
+                reference_price double not null,
+                confidence double not null,
+                thesis varchar not null,
+                stop_loss double,
+                take_profit double,
+                invalidation_condition varchar,
+                source varchar not null,
+                status varchar not null,
+                review_notes varchar not null,
+                rejection_reason varchar,
+                execution_intent_id varchar,
+                execution_order_id varchar,
+                execution_outcome_status varchar
+            )
+            """
+        )
+
+    def _create_service_tables(self) -> None:
         self.conn.execute(
             """
             create table if not exists service_state (
@@ -473,60 +658,6 @@ class TradingDatabase:
             )
             """
         )
-        service_columns = {
-            str(row[1])
-            for row in self.conn.execute(
-                "pragma table_info('service_state')"
-            ).fetchall()
-        }
-        if "pid" not in service_columns:
-            self.conn.execute("alter table service_state add column pid bigint")
-        if "runtime_mode" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column runtime_mode varchar default 'operation'"
-            )
-        if "stop_requested" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column stop_requested boolean"
-            )
-        if "symbols_json" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column symbols_json varchar"
-            )
-        if "interval" not in service_columns:
-            self.conn.execute("alter table service_state add column interval varchar")
-        if "lookback" not in service_columns:
-            self.conn.execute("alter table service_state add column lookback varchar")
-        if "max_cycles" not in service_columns:
-            self.conn.execute("alter table service_state add column max_cycles integer")
-        if "background_mode" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column background_mode boolean"
-            )
-        if "launch_count" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column launch_count integer"
-            )
-        if "restart_count" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column restart_count integer"
-            )
-        if "last_terminal_state" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column last_terminal_state varchar"
-            )
-        if "last_terminal_at" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column last_terminal_at varchar"
-            )
-        if "stdout_log_path" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column stdout_log_path varchar"
-            )
-        if "stderr_log_path" not in service_columns:
-            self.conn.execute(
-                "alter table service_state add column stderr_log_path varchar"
-            )
         self.conn.execute(
             """
             create table if not exists service_events (
@@ -552,6 +683,43 @@ class TradingDatabase:
             )
             """
         )
+
+    def _column_names(self, table_name: str) -> set[str]:
+        return {
+            str(row[1])
+            for row in self.conn.execute(f"pragma table_info('{table_name}')").fetchall()
+        }
+
+    def _add_missing_columns(
+        self, table_name: str, column_statements: dict[str, str]
+    ) -> None:
+        existing_columns = self._column_names(table_name)
+        for column_name, statement in column_statements.items():
+            if column_name not in existing_columns:
+                self.conn.execute(statement)
+
+    def _migrate_service_state_columns(self) -> None:
+        self._add_missing_columns(
+            "service_state",
+            {
+                "pid": "alter table service_state add column pid bigint",
+                "runtime_mode": "alter table service_state add column runtime_mode varchar default 'operation'",
+                "stop_requested": "alter table service_state add column stop_requested boolean",
+                "symbols_json": "alter table service_state add column symbols_json varchar",
+                "interval": "alter table service_state add column interval varchar",
+                "lookback": "alter table service_state add column lookback varchar",
+                "max_cycles": "alter table service_state add column max_cycles integer",
+                "background_mode": "alter table service_state add column background_mode boolean",
+                "launch_count": "alter table service_state add column launch_count integer",
+                "restart_count": "alter table service_state add column restart_count integer",
+                "last_terminal_state": "alter table service_state add column last_terminal_state varchar",
+                "last_terminal_at": "alter table service_state add column last_terminal_at varchar",
+                "stdout_log_path": "alter table service_state add column stdout_log_path varchar",
+                "stderr_log_path": "alter table service_state add column stderr_log_path varchar",
+            },
+        )
+
+    def _create_memory_tables(self) -> None:
         self.conn.execute(
             """
             create table if not exists memory_vectors (
@@ -567,28 +735,19 @@ class TradingDatabase:
             )
             """
         )
-        memory_columns = {
-            str(row[1])
-            for row in self.conn.execute(
-                "pragma table_info('memory_vectors')"
-            ).fetchall()
-        }
-        if "embedding_provider" not in memory_columns:
-            self.conn.execute(
-                "alter table memory_vectors add column embedding_provider varchar default 'local_hashing'"
-            )
-        if "embedding_model" not in memory_columns:
-            self.conn.execute(
-                "alter table memory_vectors add column embedding_model varchar default 'agentic-hash-v1'"
-            )
-        if "embedding_version" not in memory_columns:
-            self.conn.execute(
-                "alter table memory_vectors add column embedding_version varchar default '1'"
-            )
-        if "embedding_dimensions" not in memory_columns:
-            self.conn.execute(
-                "alter table memory_vectors add column embedding_dimensions integer default 64"
-            )
+
+    def _migrate_memory_vector_columns(self) -> None:
+        self._add_missing_columns(
+            "memory_vectors",
+            {
+                "embedding_provider": "alter table memory_vectors add column embedding_provider varchar default 'local_hashing'",
+                "embedding_model": "alter table memory_vectors add column embedding_model varchar default 'agentic-hash-v1'",
+                "embedding_version": "alter table memory_vectors add column embedding_version varchar default '1'",
+                "embedding_dimensions": "alter table memory_vectors add column embedding_dimensions integer default 64",
+            },
+        )
+
+    def _ensure_default_account(self) -> None:
         existing = self.conn.execute(
             "select count(*) from account_state where account_id = 'paper'"
         ).fetchone()
@@ -603,6 +762,8 @@ class TradingDatabase:
                     self.settings.default_cash,
                 ],
             )
+
+    def _ensure_default_preferences(self) -> None:
         pref_existing = self.conn.execute(
             "select count(*) from preferences where profile_id = 'default'"
         ).fetchone()
@@ -684,6 +845,169 @@ class TradingDatabase:
             float(result[8]),
             float(result[9]),
         )
+
+    def insert_trade_proposal(self, proposal: TradeProposalRecord) -> None:
+        self.conn.execute(
+            """
+            insert into trade_proposals (
+                proposal_id, created_at, updated_at, symbol, side, order_type,
+                quantity, notional, reference_price, confidence, thesis, stop_loss,
+                take_profit, invalidation_condition, source, status, review_notes,
+                rejection_reason, execution_intent_id, execution_order_id,
+                execution_outcome_status
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                proposal.proposal_id,
+                proposal.created_at,
+                proposal.updated_at,
+                proposal.symbol,
+                proposal.side,
+                proposal.order_type,
+                proposal.quantity,
+                proposal.notional,
+                proposal.reference_price,
+                proposal.confidence,
+                proposal.thesis,
+                proposal.stop_loss,
+                proposal.take_profit,
+                proposal.invalidation_condition,
+                proposal.source,
+                proposal.status,
+                proposal.review_notes,
+                proposal.rejection_reason,
+                proposal.execution_intent_id,
+                proposal.execution_order_id,
+                proposal.execution_outcome_status,
+            ],
+        )
+
+    def get_trade_proposal(self, proposal_id: str) -> TradeProposalRecord | None:
+        if not self._table_exists("trade_proposals"):
+            return None
+        rows = self._trade_proposal_rows(
+            """
+            select *
+            from trade_proposals
+            where proposal_id = ?
+            """,
+            [proposal_id],
+        )
+        return rows[0] if rows else None
+
+    def list_trade_proposals(
+        self, *, status: TradeProposalStatus | None = None, limit: int = 50
+    ) -> list[TradeProposalRecord]:
+        if not self._table_exists("trade_proposals"):
+            return []
+        if status is None:
+            return self._trade_proposal_rows(
+                """
+                select *
+                from trade_proposals
+                order by created_at desc
+                limit ?
+                """,
+                [limit],
+            )
+        return self._trade_proposal_rows(
+            """
+            select *
+            from trade_proposals
+            where status = ?
+            order by created_at desc
+            limit ?
+            """,
+            [status, limit],
+        )
+
+    def update_trade_proposal(
+        self,
+        proposal: TradeProposalRecord,
+        *,
+        expected_status: TradeProposalStatus | None = None,
+    ) -> bool:
+        if not self._table_exists("trade_proposals"):
+            return False
+        if expected_status is not None:
+            self.conn.execute("begin transaction")
+            try:
+                current = self.conn.execute(
+                    """
+                    select status
+                    from trade_proposals
+                    where proposal_id = ?
+                    """,
+                    [proposal.proposal_id],
+                ).fetchone()
+                if current is None or str(current[0]) != expected_status:
+                    self.conn.execute("commit")
+                    return False
+                self._execute_trade_proposal_update(proposal)
+                self.conn.execute("commit")
+                return True
+            except Exception:
+                self.conn.execute("rollback")
+                raise
+        self._execute_trade_proposal_update(proposal)
+        return True
+
+    def _execute_trade_proposal_update(self, proposal: TradeProposalRecord) -> None:
+        self.conn.execute(
+            """
+            update trade_proposals
+            set updated_at = ?,
+                status = ?,
+                review_notes = ?,
+                rejection_reason = ?,
+                execution_intent_id = ?,
+                execution_order_id = ?,
+                execution_outcome_status = ?
+            where proposal_id = ?
+            """,
+            [
+                proposal.updated_at,
+                proposal.status,
+                proposal.review_notes,
+                proposal.rejection_reason,
+                proposal.execution_intent_id,
+                proposal.execution_order_id,
+                proposal.execution_outcome_status,
+                proposal.proposal_id,
+            ],
+        )
+
+    def _trade_proposal_rows(
+        self, query: str, params: list[object]
+    ) -> list[TradeProposalRecord]:
+        rows = self.conn.execute(query, params).fetchall()
+        return [
+            TradeProposalRecord(
+                proposal_id=str(row[0]),
+                created_at=str(row[1]),
+                updated_at=str(row[2]),
+                symbol=str(row[3]),
+                side=cast(TradeSide, str(row[4])),
+                order_type=cast(Literal["market", "limit"], str(row[5])),
+                quantity=float(row[6]) if row[6] is not None else None,
+                notional=float(row[7]) if row[7] is not None else None,
+                reference_price=float(row[8]),
+                confidence=float(row[9]),
+                thesis=str(row[10]),
+                stop_loss=float(row[11]) if row[11] is not None else None,
+                take_profit=float(row[12]) if row[12] is not None else None,
+                invalidation_condition=_str_or_none(row[13]),
+                source=str(row[14]),
+                status=cast(TradeProposalStatus, str(row[15])),
+                review_notes=str(row[16]),
+                rejection_reason=_str_or_none(row[17]),
+                execution_intent_id=_str_or_none(row[18]),
+                execution_order_id=_str_or_none(row[19]),
+                execution_outcome_status=_str_or_none(row[20]),
+            )
+            for row in rows
+        ]
 
     def save_preferences(self, preferences: InvestmentPreferences) -> None:
         now = datetime.now(timezone.utc).isoformat()
@@ -1074,33 +1398,7 @@ class TradingDatabase:
             execution_intent (ExecutionIntent | None): Optional execution intent; its backend/adapter and JSON form are included when present.
             execution_outcome (ExecutionOutcome | None): Optional execution outcome; its adapter, status, rejection reason, simulated metadata, and JSON form are included when present.
         """
-        routed_models: dict[str, str] = {}
-        retrieved_memory_summary: dict[str, list[str]] = {}
-        tool_outputs: dict[str, list[str]] = {}
-        shared_memory_summary: dict[str, list[str]] = {}
-
-        for trace in artifacts.agent_traces:
-            routed_models[trace.role] = trace.model_name
-            try:
-                context = json.loads(trace.context_json)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(context, dict):
-                continue
-            if isinstance(context.get("retrieved_memories"), list):
-                retrieved_memory_summary[trace.role] = [
-                    str(item) for item in context["retrieved_memories"][:5]
-                ]
-            if isinstance(context.get("tool_outputs"), list):
-                tool_outputs[trace.role] = [
-                    str(item) for item in context["tool_outputs"][:5]
-                ]
-            if isinstance(context.get("shared_memory_bus"), list):
-                shared_memory_summary[trace.role] = [
-                    str(item.get("summary", ""))
-                    for item in context["shared_memory_bus"][:5]
-                    if isinstance(item, dict)
-                ]
+        trace_summaries = _summarize_trace_contexts(artifacts.agent_traces)
 
         record = TradeContextRecord(
             trade_id=trade_id,
@@ -1111,10 +1409,13 @@ class TradingDatabase:
             market_context_pack=artifacts.snapshot.context_pack,
             canonical_snapshot=artifacts.canonical_snapshot,
             decision_features=artifacts.decision_features,
-            routed_models=routed_models,
-            retrieved_memory_summary=retrieved_memory_summary,
-            tool_outputs=tool_outputs,
-            shared_memory_summary=shared_memory_summary,
+            routed_models=trace_summaries.routed_models,
+            retrieved_memory_summary=trace_summaries.retrieved_memory_summary,
+            retrieval_explanation_summary=(
+                trace_summaries.retrieval_explanation_summary
+            ),
+            tool_outputs=trace_summaries.tool_outputs,
+            shared_memory_summary=trace_summaries.shared_memory_summary,
             consensus=artifacts.consensus,
             fundamental_assessment=artifacts.fundamental,
             fundamental_summary=artifacts.fundamental.summary,
@@ -1128,14 +1429,9 @@ class TradingDatabase:
                 if execution_intent is not None
                 else None
             ),
-            execution_adapter=(
-                execution_outcome.adapter_name
-                if execution_outcome is not None
-                else (
-                    execution_intent.adapter_name
-                    if execution_intent is not None
-                    else None
-                )
+            execution_adapter=_execution_adapter_name(
+                execution_intent,
+                execution_outcome,
             ),
             execution_intent=(
                 execution_intent.model_dump(mode="json")
@@ -1240,20 +1536,36 @@ class TradingDatabase:
             limit 1
             """
         ).fetchone()
+        return self._execution_record_from_row(row)
+
+    def get_execution_record(self, intent_id: str) -> dict[str, object] | None:
+        row = self.conn.execute(
+            """
+            select intent_id, created_at, run_id, order_id, symbol, execution_backend,
+                   adapter_name, status, rejection_reason, intent_json, outcome_json
+            from execution_records
+            where intent_id = ?
+            """,
+            [intent_id],
+        ).fetchone()
+        return self._execution_record_from_row(row)
+
+    def _execution_record_from_row(self, row: object | None) -> dict[str, object] | None:
         if row is None:
             return None
+        values = cast(tuple[object, ...], row)
         return {
-            "intent_id": str(row[0]),
-            "created_at": str(row[1]),
-            "run_id": str(row[2]) if row[2] is not None else None,
-            "order_id": str(row[3]) if row[3] is not None else None,
-            "symbol": str(row[4]),
-            "execution_backend": str(row[5]),
-            "adapter_name": str(row[6]),
-            "status": str(row[7]),
-            "rejection_reason": str(row[8]) if row[8] is not None else None,
-            "intent": json.loads(str(row[9])),
-            "outcome": json.loads(str(row[10])),
+            "intent_id": str(values[0]),
+            "created_at": str(values[1]),
+            "run_id": str(values[2]) if values[2] is not None else None,
+            "order_id": str(values[3]) if values[3] is not None else None,
+            "symbol": str(values[4]),
+            "execution_backend": str(values[5]),
+            "adapter_name": str(values[6]),
+            "status": str(values[7]),
+            "rejection_reason": str(values[8]) if values[8] is not None else None,
+            "intent": json.loads(str(values[9])),
+            "outcome": json.loads(str(values[10])),
         }
 
     def close_trade_journal(
@@ -1420,7 +1732,15 @@ class TradingDatabase:
         largest_position = max(
             (abs(position.market_value) for position in positions), default=0.0
         )
+        top_positions = sorted(
+            positions, key=lambda position: abs(position.market_value), reverse=True
+        )
         equity = snapshot.equity if snapshot.equity != 0 else 1.0
+        portfolio_hhi = (
+            sum((abs(position.market_value) / gross_exposure) ** 2 for position in positions)
+            if gross_exposure > 0
+            else 0.0
+        )
         drawdown_from_peak_pct = (
             max(0.0, (all_time_peak - snapshot.equity) / all_time_peak)
             if all_time_peak > 0
@@ -1433,6 +1753,14 @@ class TradingDatabase:
         if gross_exposure / equity > self.settings.max_gross_exposure_pct:
             warnings.append(
                 f"Gross exposure is above {self.settings.max_gross_exposure_pct:.0%} of equity."
+            )
+        if largest_position / equity > self.settings.max_position_pct:
+            warnings.append(
+                f"Largest position is above {self.settings.max_position_pct:.0%} of equity."
+            )
+        if portfolio_hhi > 0.25:
+            warnings.append(
+                f"Portfolio concentration HHI is elevated at {portfolio_hhi:.3f}."
             )
         if drawdown_from_peak_pct > 0.1:
             warnings.append("Portfolio drawdown from peak is above 10%.")
@@ -1451,90 +1779,88 @@ class TradingDatabase:
             daily_realized_pnl=daily_realized_pnl,
             gross_exposure_pct=gross_exposure / equity,
             largest_position_pct=largest_position / equity,
+            portfolio_hhi=portfolio_hhi,
+            top_position_symbols=[position.symbol for position in top_positions[:5]],
             drawdown_from_peak_pct=drawdown_from_peak_pct,
             warnings=warnings,
         )
 
-    def upsert_service_state(
+    def _resolve_service_state_values(
         self,
-        update: ServiceStateUpdate | None = None,
-        **fields: Any,
-    ) -> None:
-        """
-        Update or insert the persisted runtime snapshot for a named service.
-
-        Merges provided fields with any existing stored snapshot (preserving omitted values), resolves runtime-mode and other defaults, updates terminal-state markers when the new state is terminal, ensures `started_at` is set when appropriate, writes the resolved row into the database, and emits a mirrored ServiceStateSnapshot via write_service_state.
-
-        Parameters:
-            runtime_mode: If provided, sets the service's runtime mode; if `None`, preserves the existing runtime mode or falls back to settings.
-            symbols: If provided, replaces the stored symbol list; if `None`, preserves existing symbols (or `[]` when no existing snapshot).
-            stop_requested: If provided, sets the explicit stop request flag; if `None`, preserves the existing flag.
-        """
-        if update is None:
-            update = ServiceStateUpdate(**fields)
-        elif fields:
-            raise TypeError(
-                "Pass either ServiceStateUpdate or keyword fields, not both."
-            )
-
-        now = datetime.now(timezone.utc).isoformat()
-        existing = self.get_service_state(update.service_name)
+        *,
+        update: ServiceStateUpdate,
+        existing: ServiceStateSnapshot | None,
+        now: str,
+    ) -> _ResolvedServiceStateValues:
         resolved_runtime_mode = cast(
             RuntimeMode,
             _resolve_value(
                 update.runtime_mode,
-                existing.runtime_mode if existing is not None else None,
+                cast(RuntimeMode | None, _existing_value(existing, "runtime_mode")),
                 self.settings.runtime_mode,
             ),
         )
-        started_at = existing.started_at if existing is not None else None
-        if update.state == "starting" or started_at is None:
-            started_at = now
-        resolved_pid = _resolve_optional_value(
-            update.pid, existing.pid if existing is not None else None
+        last_terminal_state, last_terminal_at = _resolve_terminal_state(
+            state=update.state, existing=existing, now=now
         )
-        resolved_stop_requested = _resolve_value(
-            update.stop_requested,
-            existing.stop_requested if existing is not None else None,
-            False,
-        )
-        resolved_symbols = _resolve_symbols(update.symbols, existing)
-        resolved_interval = _resolve_optional_value(
-            update.interval, existing.interval if existing is not None else None
-        )
-        resolved_lookback = _resolve_optional_value(
-            update.lookback, existing.lookback if existing is not None else None
-        )
-        resolved_max_cycles = _resolve_optional_value(
-            update.max_cycles, existing.max_cycles if existing is not None else None
-        )
-        resolved_background_mode = _resolve_value(
-            update.background_mode,
-            existing.background_mode if existing is not None else None,
-            False,
-        )
-        resolved_launch_count = _resolve_value(
-            update.launch_count,
-            existing.launch_count if existing is not None else None,
-            0,
-        )
-        resolved_restart_count = _resolve_value(
-            update.restart_count,
-            existing.restart_count if existing is not None else None,
-            0,
-        )
-        resolved_stdout_log_path = _resolve_optional_value(
-            update.stdout_log_path,
-            existing.stdout_log_path if existing is not None else None,
-        )
-        resolved_stderr_log_path = _resolve_optional_value(
-            update.stderr_log_path,
-            existing.stderr_log_path if existing is not None else None,
-        )
-        resolved_last_terminal_state, resolved_last_terminal_at = (
-            _resolve_terminal_state(state=update.state, existing=existing, now=now)
+        return _ResolvedServiceStateValues(
+            runtime_mode=resolved_runtime_mode,
+            started_at=_resolve_started_at(
+                update=update,
+                existing=existing,
+                now=now,
+            ),
+            pid=_resolve_service_pid(update, existing),
+            stop_requested=_resolve_value(
+                update.stop_requested,
+                _existing_value(existing, "stop_requested"),
+                False,
+            ),
+            symbols=_resolve_symbols(update.symbols, existing),
+            interval=_resolve_optional_value(
+                update.interval, _existing_value(existing, "interval")
+            ),
+            lookback=_resolve_optional_value(
+                update.lookback, _existing_value(existing, "lookback")
+            ),
+            max_cycles=_resolve_optional_value(
+                update.max_cycles,
+                _existing_value(existing, "max_cycles"),
+            ),
+            background_mode=_resolve_value(
+                update.background_mode,
+                _existing_value(existing, "background_mode"),
+                False,
+            ),
+            launch_count=_resolve_value(
+                update.launch_count,
+                _existing_value(existing, "launch_count"),
+                0,
+            ),
+            restart_count=_resolve_value(
+                update.restart_count,
+                _existing_value(existing, "restart_count"),
+                0,
+            ),
+            last_terminal_state=last_terminal_state,
+            last_terminal_at=last_terminal_at,
+            stdout_log_path=_resolve_optional_value(
+                update.stdout_log_path,
+                _existing_value(existing, "stdout_log_path"),
+            ),
+            stderr_log_path=_resolve_optional_value(
+                update.stderr_log_path,
+                _existing_value(existing, "stderr_log_path"),
+            ),
         )
 
+    def _upsert_service_state_row(
+        self,
+        *,
+        update: ServiceStateUpdate,
+        resolved: _ResolvedServiceStateValues,
+        now: str,
+    ) -> None:
         self.conn.execute(
             """
             insert into service_state (
@@ -1574,61 +1900,101 @@ class TradingDatabase:
             [
                 update.service_name,
                 update.state,
-                resolved_runtime_mode,
+                resolved.runtime_mode,
                 now,
-                started_at,
+                resolved.started_at,
                 now,
                 update.continuous,
                 update.poll_seconds,
                 update.cycle_count,
-                json.dumps(resolved_symbols),
-                resolved_interval,
-                resolved_lookback,
-                resolved_max_cycles,
+                json.dumps(resolved.symbols),
+                resolved.interval,
+                resolved.lookback,
+                resolved.max_cycles,
                 update.current_symbol,
                 update.last_error,
-                resolved_pid,
-                resolved_stop_requested,
-                resolved_background_mode,
-                resolved_launch_count,
-                resolved_restart_count,
-                resolved_last_terminal_state,
-                resolved_last_terminal_at,
-                resolved_stdout_log_path,
-                resolved_stderr_log_path,
+                resolved.pid,
+                resolved.stop_requested,
+                resolved.background_mode,
+                resolved.launch_count,
+                resolved.restart_count,
+                resolved.last_terminal_state,
+                resolved.last_terminal_at,
+                resolved.stdout_log_path,
+                resolved.stderr_log_path,
                 update.message,
             ],
         )
+
+    def _write_service_state_snapshot(
+        self,
+        *,
+        update: ServiceStateUpdate,
+        resolved: _ResolvedServiceStateValues,
+        now: str,
+    ) -> None:
         write_service_state(
             self.settings,
             ServiceStateSnapshot(
                 service_name=update.service_name,
                 state=cast(ServiceState, update.state),
-                runtime_mode=resolved_runtime_mode,
+                runtime_mode=resolved.runtime_mode,
                 updated_at=now,
-                started_at=started_at,
+                started_at=resolved.started_at,
                 last_heartbeat_at=now,
                 continuous=update.continuous,
                 poll_seconds=update.poll_seconds,
                 cycle_count=update.cycle_count,
-                symbols=resolved_symbols,
-                interval=resolved_interval,
-                lookback=resolved_lookback,
-                max_cycles=resolved_max_cycles,
+                symbols=resolved.symbols,
+                interval=resolved.interval,
+                lookback=resolved.lookback,
+                max_cycles=resolved.max_cycles,
                 current_symbol=update.current_symbol,
                 last_error=update.last_error,
-                pid=resolved_pid,
-                stop_requested=resolved_stop_requested,
-                background_mode=resolved_background_mode,
-                launch_count=resolved_launch_count,
-                restart_count=resolved_restart_count,
-                last_terminal_state=resolved_last_terminal_state,
-                last_terminal_at=resolved_last_terminal_at,
-                stdout_log_path=resolved_stdout_log_path,
-                stderr_log_path=resolved_stderr_log_path,
+                pid=resolved.pid,
+                stop_requested=resolved.stop_requested,
+                background_mode=resolved.background_mode,
+                launch_count=resolved.launch_count,
+                restart_count=resolved.restart_count,
+                last_terminal_state=resolved.last_terminal_state,
+                last_terminal_at=resolved.last_terminal_at,
+                stdout_log_path=resolved.stdout_log_path,
+                stderr_log_path=resolved.stderr_log_path,
                 message=update.message,
             ),
         )
+
+    def upsert_service_state(
+        self,
+        update: ServiceStateUpdate | None = None,
+        **fields: Any,
+    ) -> None:
+        """
+        Update or insert the persisted runtime snapshot for a named service.
+
+        Merges provided fields with any existing stored snapshot (preserving omitted values), resolves runtime-mode and other defaults, updates terminal-state markers when the new state is terminal, ensures `started_at` is set when appropriate, writes the resolved row into the database, and emits a mirrored ServiceStateSnapshot via write_service_state.
+
+        Parameters:
+            runtime_mode: If provided, sets the service's runtime mode; if `None`, preserves the existing runtime mode or falls back to settings.
+            symbols: If provided, replaces the stored symbol list; if `None`, preserves existing symbols (or `[]` when no existing snapshot).
+            stop_requested: If provided, sets the explicit stop request flag; if `None`, preserves the existing flag.
+        """
+        if update is None:
+            update = ServiceStateUpdate(**fields)
+        elif fields:
+            raise TypeError(
+                "Pass either ServiceStateUpdate or keyword fields, not both."
+            )
+
+        now = datetime.now(timezone.utc).isoformat()
+        existing = self.get_service_state(update.service_name)
+        resolved = self._resolve_service_state_values(
+            update=update,
+            existing=existing,
+            now=now,
+        )
+        self._upsert_service_state_row(update=update, resolved=resolved, now=now)
+        self._write_service_state_snapshot(update=update, resolved=resolved, now=now)
 
     def get_service_state(
         self, service_name: str = "orchestrator"

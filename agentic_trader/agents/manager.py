@@ -3,6 +3,7 @@ from agentic_trader.agents.constants import LLM_FALLBACK_REASON
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
+    ExecutionSide,
     FundamentalAssessment,
     MacroAssessment,
     ManagerConflict,
@@ -13,6 +14,118 @@ from agentic_trader.schemas import (
     RiskPlan,
     StrategyPlan,
 )
+
+
+def _capital_preservation_conflict(
+    coordinator: ResearchCoordinatorBrief,
+    strategy: StrategyPlan,
+    manager: ManagerDecision,
+) -> ManagerConflict | None:
+    if not (
+        coordinator.market_focus == "capital_preservation"
+        and strategy.action != "hold"
+        and manager.size_multiplier < 1.0
+    ):
+        return None
+    return ManagerConflict(
+        conflict_type="focus",
+        severity="medium",
+        summary="Capital-preservation focus reduced the specialist conviction.",
+        specialist_view=(
+            f"Strategy wanted {strategy.action} with {strategy.confidence:.2f} confidence."
+        ),
+        manager_resolution=(
+            f"Manager kept the trade posture but reduced size to {manager.size_multiplier:.2f}."
+        ),
+    )
+
+
+def _action_change_conflict(
+    strategy: StrategyPlan,
+    manager: ManagerDecision,
+) -> ManagerConflict | None:
+    if manager.action_bias == strategy.action:
+        return None
+    severity = "medium"
+    if manager.action_bias == "hold":
+        severity = "high"
+    return ManagerConflict(
+        conflict_type="action",
+        severity=severity,
+        summary="Manager changed the specialist action bias.",
+        specialist_view=f"Strategy action: {strategy.action}",
+        manager_resolution=f"Manager action bias: {manager.action_bias}",
+    )
+
+
+def _approval_conflict(
+    strategy: StrategyPlan,
+    manager: ManagerDecision,
+) -> ManagerConflict | None:
+    if manager.approved is not False or strategy.action == "hold":
+        return None
+    return ManagerConflict(
+        conflict_type="approval",
+        severity="high",
+        summary="Manager blocked a non-hold specialist plan.",
+        specialist_view=(
+            f"Strategy proposed {strategy.action} at {strategy.confidence:.2f} confidence."
+        ),
+        manager_resolution="Manager withheld approval for execution.",
+    )
+
+
+def _confidence_conflict(
+    strategy: StrategyPlan,
+    manager: ManagerDecision,
+) -> ManagerConflict | None:
+    if manager.confidence_cap >= strategy.confidence:
+        return None
+    return ManagerConflict(
+        conflict_type="confidence",
+        severity="medium",
+        summary="Manager tightened the specialist confidence level.",
+        specialist_view=f"Strategy confidence: {strategy.confidence:.2f}",
+        manager_resolution=f"Confidence capped at {manager.confidence_cap:.2f}",
+    )
+
+
+def _size_reduction_reason(
+    coordinator: ResearchCoordinatorBrief,
+    regime: RegimeAssessment,
+    fundamental: FundamentalAssessment | None,
+    macro: MacroAssessment | None,
+) -> str:
+    if regime.regime == "high_volatility":
+        return "high-volatility risk reduction"
+    if coordinator.market_focus == "capital_preservation":
+        return "capital-preservation risk reduction"
+    if fundamental is not None and fundamental.overall_bias in {"cautious", "avoid"}:
+        return "fundamental risk reduction"
+    if macro is not None and macro.macro_signal in {"cautious", "avoid"}:
+        return "macro/news risk reduction"
+    return "general risk reduction"
+
+
+def _size_reduction_conflict(
+    coordinator: ResearchCoordinatorBrief,
+    regime: RegimeAssessment,
+    manager: ManagerDecision,
+    fundamental: FundamentalAssessment | None,
+    macro: MacroAssessment | None,
+) -> ManagerConflict | None:
+    if manager.size_multiplier >= 1.0:
+        return None
+    reason = _size_reduction_reason(coordinator, regime, fundamental, macro)
+    return ManagerConflict(
+        conflict_type="size",
+        severity="medium",
+        summary="Manager reduced the planned position size.",
+        specialist_view="Risk steward proposed the full base position size.",
+        manager_resolution=(
+            f"Size multiplier set to {manager.size_multiplier:.2f} because of {reason}."
+        ),
+    )
 
 
 def _derive_manager_conflicts(
@@ -38,80 +151,22 @@ def _derive_manager_conflicts(
         list[ManagerConflict]: A list of conflicts found (empty if manager decision aligns with guidance). Each conflict indicates type, severity, summary, specialist_view, and manager_resolution.
     """
     conflicts: list[ManagerConflict] = []
-    if (
-        coordinator.market_focus == "capital_preservation"
-        and strategy.action != "hold"
-        and manager.size_multiplier < 1.0
-    ):
-        conflicts.append(
-            ManagerConflict(
-                conflict_type="focus",
-                severity="medium",
-                summary="Capital-preservation focus reduced the specialist conviction.",
-                specialist_view=(
-                    f"Strategy wanted {strategy.action} with {strategy.confidence:.2f} confidence."
-                ),
-                manager_resolution=(
-                    f"Manager kept the trade posture but reduced size to {manager.size_multiplier:.2f}."
-                ),
-            )
-        )
-    if manager.action_bias != strategy.action:
-        conflicts.append(
-            ManagerConflict(
-                conflict_type="action",
-                severity="high" if manager.action_bias == "hold" else "medium",
-                summary="Manager changed the specialist action bias.",
-                specialist_view=f"Strategy action: {strategy.action}",
-                manager_resolution=f"Manager action bias: {manager.action_bias}",
-            )
-        )
-    if manager.approved is False and strategy.action != "hold":
-        conflicts.append(
-            ManagerConflict(
-                conflict_type="approval",
-                severity="high",
-                summary="Manager blocked a non-hold specialist plan.",
-                specialist_view=(
-                    f"Strategy proposed {strategy.action} at {strategy.confidence:.2f} confidence."
-                ),
-                manager_resolution="Manager withheld approval for execution.",
-            )
-        )
-    if manager.confidence_cap < strategy.confidence:
-        conflicts.append(
-            ManagerConflict(
-                conflict_type="confidence",
-                severity="medium",
-                summary="Manager tightened the specialist confidence level.",
-                specialist_view=f"Strategy confidence: {strategy.confidence:.2f}",
-                manager_resolution=f"Confidence capped at {manager.confidence_cap:.2f}",
-            )
-        )
-    if manager.size_multiplier < 1.0:
-        reason = "general risk reduction"
-        if regime.regime == "high_volatility":
-            reason = "high-volatility risk reduction"
-        elif coordinator.market_focus == "capital_preservation":
-            reason = "capital-preservation risk reduction"
-        elif fundamental is not None and fundamental.overall_bias in {
-            "cautious",
-            "avoid",
-        }:
-            reason = "fundamental risk reduction"
-        elif macro is not None and macro.macro_signal in {"cautious", "avoid"}:
-            reason = "macro/news risk reduction"
-        conflicts.append(
-            ManagerConflict(
-                conflict_type="size",
-                severity="medium",
-                summary="Manager reduced the planned position size.",
-                specialist_view="Risk steward proposed the full base position size.",
-                manager_resolution=(
-                    f"Size multiplier set to {manager.size_multiplier:.2f} because of {reason}."
-                ),
-            )
-        )
+    possible_conflicts = (
+        _capital_preservation_conflict(coordinator, strategy, manager),
+        _action_change_conflict(strategy, manager),
+        _approval_conflict(strategy, manager),
+        _confidence_conflict(strategy, manager),
+        _size_reduction_conflict(
+            coordinator,
+            regime,
+            manager,
+            fundamental,
+            macro,
+        ),
+    )
+    conflicts.extend(
+        conflict for conflict in possible_conflicts if conflict is not None
+    )
     return conflicts
 
 
@@ -215,29 +270,36 @@ def _apply_confidence_calibration(
     )
 
 
-def _fallback_manager(
-    _snapshot: MarketSnapshot,
-    coordinator: ResearchCoordinatorBrief,
-    regime: RegimeAssessment,
-    strategy: StrategyPlan,
-    risk: RiskPlan,
-    fundamental: FundamentalAssessment | None = None,
-    macro: MacroAssessment | None = None,
-) -> ManagerDecision:
-    """
-    Produce a conservative, rule-based ManagerDecision when LLM output is unavailable or invalid.
-
-    Approves the specialist plan only if the specialist's action is not "hold", the specialist confidence is >= 0.6, and the risk reward ratio is >= 1.5. Sets `confidence_cap` to the minimum of strategy and regime confidences. Reduces `size_multiplier` for capital-preservation focus, high-volatility regimes, low specialist confidence, or when fundamental.overall_bias or macro.macro_signal is "cautious" or "avoid". Populates `escalation_flags` to reflect defensive posture, reduced conviction, fundamental/macro caution, or a no-trade outcome. The decision's `source` is "fallback" and `fallback_reason` is set to the LLM fallback constant.
-
-    Returns:
-        ManagerDecision: A guarded decision with computed `approved`, normalized `action_bias` ("buy"/"sell"/"hold"), `confidence_cap`, `size_multiplier`, `rationale`, `escalation_flags`, `source="fallback"`, and `fallback_reason`.
-    """
-    approved = (
+def _fallback_approved(strategy: StrategyPlan, risk: RiskPlan) -> bool:
+    return (
         strategy.action != "hold"
         and strategy.confidence >= 0.6
         and risk.risk_reward_ratio >= 1.5
     )
-    action_bias = strategy.action if approved else "hold"
+
+
+def _normalized_action_bias(action_bias: str) -> ExecutionSide:
+    if action_bias == "buy":
+        return "buy"
+    if action_bias == "sell":
+        return "sell"
+    return "hold"
+
+
+def _fallback_action_bias(strategy: StrategyPlan, approved: bool) -> ExecutionSide:
+    if approved:
+        return strategy.action
+    return "hold"
+
+
+def _fallback_size_and_flags(
+    coordinator: ResearchCoordinatorBrief,
+    regime: RegimeAssessment,
+    strategy: StrategyPlan,
+    action_bias: ExecutionSide,
+    fundamental: FundamentalAssessment | None,
+    macro: MacroAssessment | None,
+) -> tuple[float, list[str]]:
     size_multiplier = 1.0
     flags: list[str] = []
 
@@ -259,15 +321,85 @@ def _fallback_manager(
     if action_bias == "hold":
         flags.append("manager_no_trade")
 
+    return size_multiplier, flags
+
+
+def _fallback_manager(
+    _snapshot: MarketSnapshot,
+    coordinator: ResearchCoordinatorBrief,
+    regime: RegimeAssessment,
+    strategy: StrategyPlan,
+    risk: RiskPlan,
+    fundamental: FundamentalAssessment | None = None,
+    macro: MacroAssessment | None = None,
+) -> ManagerDecision:
+    """
+    Produce a conservative, rule-based ManagerDecision when LLM output is unavailable or invalid.
+
+    Approves the specialist plan only if the specialist's action is not "hold", the specialist confidence is >= 0.6, and the risk reward ratio is >= 1.5. Sets `confidence_cap` to the minimum of strategy and regime confidences. Reduces `size_multiplier` for capital-preservation focus, high-volatility regimes, low specialist confidence, or when fundamental.overall_bias or macro.macro_signal is "cautious" or "avoid". Populates `escalation_flags` to reflect defensive posture, reduced conviction, fundamental/macro caution, or a no-trade outcome. The decision's `source` is "fallback" and `fallback_reason` is set to the LLM fallback constant.
+
+    Returns:
+        ManagerDecision: A guarded decision with computed `approved`, normalized `action_bias` ("buy"/"sell"/"hold"), `confidence_cap`, `size_multiplier`, `rationale`, `escalation_flags`, `source="fallback"`, and `fallback_reason`.
+    """
+    approved = _fallback_approved(strategy, risk)
+    action_bias = _fallback_action_bias(strategy, approved)
+    size_multiplier, flags = _fallback_size_and_flags(
+        coordinator,
+        regime,
+        strategy,
+        action_bias,
+        fundamental,
+        macro,
+    )
+
     return ManagerDecision(
         approved=approved,
-        action_bias=action_bias if action_bias in {"buy", "sell"} else "hold",
+        action_bias=_normalized_action_bias(action_bias),
         confidence_cap=min(strategy.confidence, regime.confidence),
         size_multiplier=size_multiplier,
         rationale="Fallback manager combined specialist outputs into a guarded execution posture.",
         escalation_flags=flags,
         source="fallback",
         fallback_reason=LLM_FALLBACK_REASON,
+    )
+
+
+def _render_optional_assessment(
+    assessment: FundamentalAssessment | MacroAssessment | None,
+) -> str:
+    if assessment is None:
+        return "not provided"
+    return assessment.model_dump_json(indent=2)
+
+
+def _build_manager_prompt(
+    snapshot: MarketSnapshot,
+    coordinator: ResearchCoordinatorBrief,
+    regime: RegimeAssessment,
+    strategy: StrategyPlan,
+    risk: RiskPlan,
+    fundamental: FundamentalAssessment | None,
+    macro: MacroAssessment | None,
+    context: AgentContext | None,
+) -> str:
+    task = (
+        "Combine coordinator, fundamental, macro, regime, strategy, and risk outputs into a final execution posture. "
+        "You may approve, force hold, cap confidence, or reduce size."
+    )
+    if context is not None:
+        return render_agent_context(context, task=task)
+
+    fundamental_payload = _render_optional_assessment(fundamental)
+    macro_payload = _render_optional_assessment(macro)
+    return (
+        f"Symbol: {snapshot.symbol}\n\n"
+        f"Snapshot:\n{snapshot.model_dump_json(indent=2)}\n\n"
+        f"Coordinator:\n{coordinator.model_dump_json(indent=2)}\n\n"
+        f"Fundamental:\n{fundamental_payload}\n\n"
+        f"Macro:\n{macro_payload}\n\n"
+        f"Regime:\n{regime.model_dump_json(indent=2)}\n\n"
+        f"Strategy:\n{strategy.model_dump_json(indent=2)}\n\n"
+        f"Risk:\n{risk.model_dump_json(indent=2)}"
     )
 
 
@@ -291,15 +423,15 @@ def manage_trade_decision(
         "You may approve, force hold, cap confidence, or reduce size."
     )
     routed_llm = llm.for_role("manager")
-    user_prompt = (
-        render_agent_context(
-            context,
-            task="Combine coordinator, fundamental, macro, regime, strategy, and risk outputs into a final execution posture. You may approve, force hold, cap confidence, or reduce size.",
-        )
-        if context is not None
-        else (
-            f"Symbol: {snapshot.symbol}\n\nSnapshot:\n{snapshot.model_dump_json(indent=2)}\n\nCoordinator:\n{coordinator.model_dump_json(indent=2)}\n\nFundamental:\n{fundamental.model_dump_json(indent=2) if fundamental else 'not provided'}\n\nMacro:\n{macro.model_dump_json(indent=2) if macro else 'not provided'}\n\nRegime:\n{regime.model_dump_json(indent=2)}\n\nStrategy:\n{strategy.model_dump_json(indent=2)}\n\nRisk:\n{risk.model_dump_json(indent=2)}"
-        )
+    user_prompt = _build_manager_prompt(
+        snapshot,
+        coordinator,
+        regime,
+        strategy,
+        risk,
+        fundamental,
+        macro,
+        context,
     )
     try:
         decision = routed_llm.complete_structured(

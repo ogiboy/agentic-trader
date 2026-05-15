@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from importlib.metadata import version
 
-from crewai.flow import Flow, start
+# CrewAI lives in the sidecar's uv environment, not the root runtime env.
+from crewai.flow import Flow, start  # type: ignore[reportMissingImports]
 from pydantic import BaseModel, Field
 
 from research_flow.contracts import (

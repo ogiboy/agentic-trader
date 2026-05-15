@@ -19,7 +19,7 @@ def resolve_symbol_identity(
             region="TR",
             asset_class="equity",
         )
-    if normalized.endswith("-USD") or normalized.endswith("USDT"):
+    if normalized.endswith(("-USD", "USDT")):
         return SymbolIdentity(
             symbol=normalized,
             exchange="CRYPTO",
