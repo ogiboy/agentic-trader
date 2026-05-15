@@ -20,6 +20,24 @@ En azından şu işleri yapabilmeli:
 5. ilgili lokal yüzeyi başlatmak
 6. herhangi bir şey bozulduğunda sonraki adımı açıkça söylemek
 
+## Planlanan komut yüzeyi
+
+Bir sonraki implementation pass komut yüzeyini gizemli olmaktan çıkarmalı.
+Debugging için odaklı komutlar kalmalı, normal operatör ise kısa bir lifecycle sözlüğüyle çalışabilmeli:
+
+| Komut | Planlanan rol |
+| --- | --- |
+| `pnpm run app:up` | ilk çalıştırma yolu: bağımlılıkları kurar ya da onarır, yapılandırılmış app-owned servisleri başlatır ve Web GUI'yi açar |
+| `pnpm run app:setup` | Python, root pnpm workspace, sidecar ve opsiyonel tool-root bağımlılıklarını kurar ya da onarır; trading runtime başlatmaz |
+| `pnpm run app:start` | yapılandırılmış app-owned yardımcı servisleri ve Web GUI'yi başlatır; daemon başlatmak hâlâ açık operatör kararıdır |
+| `pnpm run app:stop` | sadece repo tarafından kaydedilen app-owned servisleri durdurur; host-owned Ollama, Firecrawl veya browser süreçlerini öldürmez |
+| `pnpm run app:update` | bağımlılıkları ve lockfile'ları doğru sahipleri üzerinden günceller, build eder ve setup/service readiness raporlar |
+| `pnpm run app:doctor` | read-only setup, servis, provider, PATH ve tool-root teşhisi verir |
+| `pnpm run app:uninstall` | app-owned dependency/runtime/tool artifact'larını onaydan sonra kaldırır |
+
+`setup:node`, `install:python`, `setup:research-flow`, `setup:camofox`, `fetch:camofox`, `start:camofox` ve servis bazlı CLI komutları debugging için faydalı kalmalı.
+Plan, bunları yönlendirmeli lifecycle'ın arkasındaki uygulanabilir parçalar haline getirmek; kullanıcıyı tek tek komut avına mecbur bırakmak değil.
+
 ## Vazgeçilmez gereksinimler
 
 - macOS, Linux ve Windows desteği
@@ -27,6 +45,21 @@ En azından şu işleri yapabilmeli:
 - isteğe bağlı model servisleri ve modeller için açık onay
 - yarım kurulumlarda resume ya da repair davranışı
 - görünür loglar ve aksiyon alınabilir hata mesajları
+- gizli dependency silme, büyük browser/model indirme, provider hesabı oluşturma veya daemon başlatma yok
+
+## Tool sahipliği soruları
+
+Opsiyonel yardımcıları kurmadan ya da başlatmadan önce yönlendirmeli setup operatöre hangi sahiplik modunu istediğini sormalı:
+
+- host-owned: uygulama zaten yönetilen lokal araca bağlanır ve onu durdurmaz
+- app-owned: uygulama repo-local yardımcıyı kurar ya da kullanır, başlatmadan/durdurmadan önce owner-only state/log kaydeder
+- API/key-only: uygulama CLI kurmadan ignored environment veya keychain değerini kullanır
+- skipped: özellik degraded kalır ama core paper-first ürün açılabilir
+
+Bu ayrım Ollama, Firecrawl ve Camofox için önemli.
+Host Ollama yoksa ve operatör host kurulumu istemiyorsa installer Web GUI'yi kafa karıştırıcı bir "Ollama unreachable" durumuna açmak yerine app-owned model-service yolunu teklif etmeli.
+Firecrawl da API key, authenticated CLI, gelecekte repo-local helper/fallback ya da skipped readiness seçeneklerini desteklemeli.
+Camofox loopback-only, access-key-gated kalmalı; browser binary fetch ise ayrı ve opt-in bir adım olmalı.
 
 ## Ollama için özel yön
 
@@ -44,6 +77,37 @@ OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" ollama serve
 - uygulama health ve son logları gösterebilsin
 - operatör idle, busy ve broken hâllerini ayırt edebilsin
 
+Yönlendirmeli setup dört durumu ayırmalı: host Ollama reachable, app-owned Ollama ready, başka provider seçildiği için Ollama bilerek skipped, ve model backend eksik ya da bozuk.
+`app:start` önceden yapılandırılmış app-owned model service'i başlatabilir; ama binary kurmayı, model çekmeyi veya host listener'ı sahiplenmeyi sessizce yapmamalı.
+
+## Camofox ve pnpm yönü
+
+`tools/camofox-browser` opsiyonel tool altyapısıdır; broker ya da runtime otoritesi değildir.
+Kurulumu npm-owned helper komutlarından repo'nun pnpm politikasına taşınmalı:
+
+```bash
+pnpm --dir tools/camofox-browser install --ignore-scripts
+pnpm --dir tools/camofox-browser run fetch:browser
+pnpm --dir tools/camofox-browser run test
+```
+
+İlk komut browser indirmeden lokal helper bağımlılıklarını kurar.
+İkinci komut Camoufox browser binary'sini indirir ya da günceller; büyük ve platforma özel olabileceği için açık onaylı kalmalı.
+Wrapper ve servis komutları helper'ı yalnızca loopback host ile ve `CAMOFOX_ACCESS_KEY` ya da aynalanmış `CAMOFOX_API_KEY` varken başlatmalı.
+
+## Update ve uninstall yönü
+
+`app:update` her dependency sahibini kendi aracıyla güncellemeli, sonra build ve setup status çalıştırmalı:
+
+- root Node workspace: pnpm recursive/workspace update akışı
+- Camofox helper: `pnpm --dir tools/camofox-browser ...`
+- root Python: uv lock upgrade ve locked sync
+- CrewAI Flow sidecar: sidecar uv lock upgrade ve locked sync
+- docs/WebGUI/TUI: normal workspace build ve typecheck kapıları
+
+`app:uninstall` yalnızca açıkça seçilen app-owned artifact'ları kaldırmalı: `.venv`, `node_modules`, sidecar `.venv`, generated runtime state ve indirilen helper asset'leri gibi.
+API keyleri, broker/provider hesapları, user-owned host servisleri veya alakasız global tool'ları silmemeli.
+
 ## Tasarlanması gereken edge case'ler
 
 - kullanıcı başka provider istediği için Ollama'yı atlayabilmeli
@@ -52,6 +116,9 @@ OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" ollama serve
 - kısmi kurulum vardır ve repair ister
 - Web GUI açılır ama runtime readiness check'lerini geçemez
 - model vardır ama yanlış adapter ya da base URL yapılandırılmıştır
+- Camofox dependency'leri vardır ama browser binary yoktur
+- stale app-owned PID varken host-owned listener da çalışıyordur
+- IDE ya da worktree `agentic-trader` komutunu stale checkout'tan çözümlüyordur
 
 ## İyi bir bootstrap UX neyi açık söyler
 
@@ -70,3 +137,5 @@ OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" ollama serve
 - Model ya da provider ready oluşu eksikse kullanıcı açık bir hata görmeli.
 - Launcher kullanıcıyı loglara yönlendirebilmeli; logları saklamamalı.
 - Oluşturulan ortam repo'nun mevcut runtime sözleşmeleriyle uyumlu kalmalı.
+- Camofox, Firecrawl ve Ollama sahiplik kararları setup status ve Web GUI readiness üzerinde görünür olmalı.
+- `app:up` partial install durumundan toparlanabilmeli ve ya açılmış Web GUI'yle ya da net blocker raporuyla bitmeli.

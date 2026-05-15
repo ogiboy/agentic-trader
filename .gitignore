@@ -1,4 +1,5 @@
 .DS_Store
+.offline-markdown-preview/
 .env
 .env.*
 !.env.example

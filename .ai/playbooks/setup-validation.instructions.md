@@ -21,6 +21,28 @@ install, upgrade, or delete dependencies unless the task explicitly allows it.
 - `ruflo hooks pre-command -- "pnpm run setup"`
 - `ruflo hooks pre-command -- "pnpm run check"`
 
+## Planned Lifecycle Checks
+
+When the accelerated setup layer lands, validate the lifecycle commands by intent
+instead of treating them as aliases for the same script:
+
+- `pnpm run app:doctor`: read-only setup, PATH, sidecar, service, provider, and
+  optional tool-root status
+- `pnpm run app:setup`: dependency/tool install or repair only; no trading daemon
+  start and no hidden browser/model download
+- `pnpm run app:up`: guided first-run path that may repair setup, start approved
+  app-owned helper services, and open Web GUI
+- `pnpm run app:start`: start configured app-owned services and Web GUI only
+- `pnpm run app:stop`: stop only app-owned service PIDs recorded by the app
+- `pnpm run app:update`: update native dependency owners, rebuild, and report
+  setup/service status
+- `pnpm run app:uninstall`: remove confirmed app-owned artifacts while preserving
+  secrets, provider accounts, brokerage config, host services, and global tools
+
+Every lifecycle command should have a dry-run or preview path before it mutates
+system tools, dependency locks, downloaded browser/model assets, PATH symlinks,
+or app-owned runtime state.
+
 ## Focused Checks
 
 - Python only: `uv run python -m pytest -q -p no:cacheprovider <target>`
@@ -32,12 +54,22 @@ install, upgrade, or delete dependencies unless the task explicitly allows it.
   - `pnpm run setup:research-flow`
   - `pnpm run check:research-flow`
   - `cd sidecars/research_flow && uv lock --check`
+- Camofox tool root:
+  - `pnpm --dir tools/camofox-browser install --ignore-scripts`
+  - `pnpm --dir tools/camofox-browser run fetch:browser`
+  - `pnpm --dir tools/camofox-browser run test`
+  - keep dependency install separate from browser binary fetch
 
 ## Validate Semantics
 
 - `setup` installs dependencies.
 - `clean` removes generated artifacts only.
 - `clean:deps` or `clean:all` removes installed dependencies.
+- `app:up` may launch the Web GUI but must not auto-start a trading daemon.
+- `app:start`, `app:stop`, and `app:uninstall` affect app-owned resources only
+  unless the operator explicitly approves broader host/global changes.
+- Optional Ollama, Firecrawl, and Camofox setup records host-owned, app-owned,
+  API/key-only, or skipped ownership instead of guessing silently.
 - Root Python is uv-managed; Conda/Poetry are not the default path.
 - A plain `uv sync` is not enough for local V1 development because it can omit
   the dev dependency group. Recover with
@@ -50,9 +82,12 @@ install, upgrade, or delete dependencies unless the task explicitly allows it.
 | ---------------------- | ---------------------------------------- | ------------------------------------------------ |
 | root uv sync           | `uv lock --check`                        | inspect `pyproject.toml` and `uv.lock` diff      |
 | workspace deps missing | `pnpm install --frozen-lockfile`         | verify `pnpm-workspace.yaml` and package scripts |
+| Camofox deps missing   | `pnpm --dir tools/camofox-browser install --ignore-scripts` | verify tool-root lockfile and no hidden browser fetch |
+| Camofox browser missing | `pnpm --dir tools/camofox-browser run fetch:browser` | require explicit operator approval first |
 | WebGUI build           | `pnpm --filter webgui build`             | run Browser QA if UI behavior changed            |
 | docs build             | `pnpm --filter docs build`               | verify static export assumptions                 |
 | sidecar check          | `pnpm run check:research-flow`           | verify sidecar `.venv` and `uv.lock`             |
+| app-owned model absent | `agentic-trader model-service status --probe-generation --json` | verify host-owned vs app-owned vs skipped provider choice |
 | command runtime risk   | `ruflo hooks pre-command -- "<command>"` | document residual risk before running            |
 
 When setup validation changes runtime-managed tools, verify both directions:

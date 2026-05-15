@@ -1,11 +1,19 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Python](https://img.shields.io/badge/python-3.12--3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-11.0.9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
 [![CI](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml)
 [![SonarCloud CI](https://github.com/ogiboy/agentic-trader/actions/workflows/sonar.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/sonar.yml)
 [![Version Check](https://github.com/ogiboy/agentic-trader/actions/workflows/version-check.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/version-check.yml)
 [![Release](https://github.com/ogiboy/agentic-trader/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/release.yml)
+[![Binaries](https://github.com/ogiboy/agentic-trader/actions/workflows/binaries.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/binaries.yml)
 [![Docs](https://github.com/ogiboy/agentic-trader/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/docs.yml)
 [![Latest Release](https://img.shields.io/github/v/release/ogiboy/agentic-trader?sort=semver&display_name=tag)](https://github.com/ogiboy/agentic-trader/releases)
+[![License: LGPL-3.0-or-later](https://img.shields.io/badge/license-LGPL--3.0--or--later-blue.svg)](LICENSE)
 
 ```text
  █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗

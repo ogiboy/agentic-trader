@@ -540,6 +540,31 @@ Firecrawl remains optional and user-authenticated through `FIRECRAWL_API_KEY` fo
 The installer may create a user-local `agentic-trader` PATH symlink after uv has installed the console entrypoint, but it must not mutate trading policy, pull large models, start daemons, or create provider accounts without operator approval.
 Runtime actions may start already-installed app-owned helper services only when the matching `AGENTIC_TRADER_RUNTIME_AUTO_START_*` flag is enabled. This is service supervision, not installation: missing binaries, missing models, missing Node dependencies, or missing access/API keys stay visible failures or degraded evidence.
 
+### Onboarding uses a layered lifecycle surface, not a script maze
+
+Reason:
+The repo now has enough Python, pnpm workspace, sidecar, model-service, WebGUI-service, Firecrawl, and Camofox setup pieces that asking an operator to run them one by one is no longer a good V1 product experience.
+The next setup architecture should keep focused debug commands intact, but add a small operator lifecycle vocabulary: `app:up`, `app:setup`, `app:start`, `app:stop`, `app:update`, `app:doctor`, and `app:uninstall`.
+`app:up` is the guided happy path: detect prerequisites, install or repair dependencies, ask tool ownership questions, configure app-owned helper services where approved, start the Web GUI, and end with either an opened local URL or a precise blocker report.
+`app:start` may start only already configured app-owned services; it must not secretly install binaries, pull models, accept provider terms, create accounts, or start a trading daemon.
+`app:stop` and `app:uninstall` must operate only on app-owned state unless the operator confirms a separate destructive action for a host/global resource.
+
+### Optional browser helper setup should be pnpm-owned inside the tool root
+
+Reason:
+The root JavaScript policy is pnpm, but `tools/camofox-browser` still carries npm-shaped setup/start hints even though it is optional tool infrastructure.
+Camofox should remain outside the root workspace until it needs shared package ownership, but its local dependency commands should use `pnpm --dir tools/camofox-browser ...` so install, update, test, and lockfile behavior match the rest of the repo.
+Dependency install stays separate from `camoufox-js fetch`: browser binary downloads are large, platform-sensitive, and should only run after explicit approval.
+The secure runtime boundary remains unchanged: loopback host only, access-key required, telemetry/prewarm off by default, narrowed environment, owner-only state/logs, and no raw browser content in trading prompts or broker/policy paths.
+
+### Update and uninstall are first-class product workflows
+
+Reason:
+V1 local setup has multiple dependency owners, and "just rerun random scripts" is too easy to misapply.
+`app:update` should become the single narrated update lane that calls each native owner: pnpm for the root workspace and Camofox tool root, uv for root Python, uv for the CrewAI Flow sidecar, then build/typecheck/setup-status/service-status checks.
+`app:uninstall` should distinguish generated artifacts, installed dependency directories, downloaded helper assets, app-owned runtime state, ignored env files, keychain/API secrets, host services, and global tools.
+By default it may remove only app-owned/generated pieces after confirmation; user secrets, provider accounts, broker config, host-owned Ollama/Firecrawl/Camofox processes, and unrelated global tools are preserved.
+
 ### Tool roots carry manifests, runtime code stays packaged
 
 Reason:
