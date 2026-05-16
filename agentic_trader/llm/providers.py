@@ -184,7 +184,201 @@ class OllamaProvider:
         return "Ollama is reachable and the configured model is available."
 
 
+class OpenAICompatibleProvider:
+    provider_name = "openai-compatible"
+
+    def __init__(self, settings: Settings, *, model_name: str | None = None):
+        self.settings = settings
+        self.model_name = model_name or settings.model_name
+        self.base_url = settings.base_url.rstrip("/")
+        self.client = httpx.Client(timeout=settings.request_timeout_seconds)
+
+    def _headers(self) -> dict[str, str] | None:
+        api_key = (self.settings.openai_compatible_api_key or "").strip()
+        if not api_key:
+            return None
+        return {"Authorization": f"Bearer {api_key}"}
+
+    def generate(
+        self,
+        *,
+        prompt: str,
+        json_mode: bool = False,
+        json_schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "model": self.model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": self.settings.temperature,
+            "max_tokens": self.settings.max_output_tokens,
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+        response = self.client.post(
+            f"{self.base_url}/chat/completions",
+            headers=self._headers(),
+            json=body,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise RuntimeError(
+                f"OpenAI-compatible provider returned a non-object payload: {payload!r}"
+            )
+        content = _openai_compatible_content(payload)
+        return {"response": content, "raw": payload}
+
+    def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
+        try:
+            response = self.client.get(f"{self.base_url}/models", headers=self._headers())
+            response.raise_for_status()
+            payload = cast(dict[str, Any], response.json())
+            models = _openai_compatible_model_ids(payload)
+            model_available = self.model_name in models
+            generation_available: bool | None = None
+            generation_message: str | None = None
+            if include_generation:
+                generation_available, generation_message = self._probe_generation(
+                    model_available=model_available
+                )
+            message = self._health_message(
+                model_available=model_available,
+                generation_available=generation_available,
+                generation_message=generation_message,
+            )
+            return LLMHealthStatus(
+                provider=self.provider_name,
+                base_url=self.settings.base_url,
+                model_name=self.model_name,
+                service_reachable=True,
+                model_available=model_available,
+                generation_available=generation_available,
+                generation_message=generation_message,
+                message=message,
+            )
+        except Exception as exc:
+            return LLMHealthStatus(
+                provider=self.provider_name,
+                base_url=self.settings.base_url,
+                model_name=self.model_name,
+                service_reachable=False,
+                model_available=False,
+                generation_available=False if include_generation else None,
+                generation_message=f"Unable to reach OpenAI-compatible endpoint: {exc}"
+                if include_generation
+                else None,
+                message=f"Unable to reach OpenAI-compatible endpoint: {exc}",
+            )
+
+    def _probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
+        if not model_available:
+            return False, "Generation probe skipped because the configured model is not listed."
+        try:
+            response = self.client.post(
+                f"{self.base_url}/chat/completions",
+                headers=self._headers(),
+                json={
+                    "model": self.model_name,
+                    "messages": [{"role": "user", "content": "Reply with OK."}],
+                    "temperature": 0,
+                    "max_tokens": 8,
+                },
+            )
+            status_code = getattr(response, "status_code", 200)
+            if status_code >= 400:
+                return False, _openai_compatible_error_from_response(response)
+            response.raise_for_status()
+            payload = response.json()
+            if isinstance(payload, dict):
+                _openai_compatible_content(payload)
+            return True, "Generation probe completed."
+        except Exception as exc:
+            return False, str(exc).strip()[:240] or type(exc).__name__
+
+    @staticmethod
+    def _health_message(
+        *,
+        model_available: bool,
+        generation_available: bool | None,
+        generation_message: str | None,
+    ) -> str:
+        if not model_available:
+            return (
+                "OpenAI-compatible endpoint is reachable, but the configured "
+                "model is not listed."
+            )
+        if generation_available is False:
+            detail = generation_message or "generation probe failed"
+            return (
+                "OpenAI-compatible endpoint is reachable and the model is listed, "
+                f"but a generation probe failed: {detail}"
+            )
+        if generation_available is True:
+            return (
+                "OpenAI-compatible endpoint is reachable and the configured model "
+                "can generate."
+            )
+        return (
+            "OpenAI-compatible endpoint is reachable and the configured model is available."
+        )
+
+
+def _openai_compatible_model_ids(payload: dict[str, Any]) -> set[str]:
+    data = payload.get("data")
+    if not isinstance(data, list):
+        return set()
+    model_ids: set[str] = set()
+    for item in data:
+        if isinstance(item, dict):
+            model_id = item.get("id")
+            if isinstance(model_id, str):
+                model_ids.add(model_id)
+    return model_ids
+
+
+def _openai_compatible_content(payload: dict[str, Any]) -> str:
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise RuntimeError("OpenAI-compatible provider returned no choices.")
+    first = choices[0]
+    if not isinstance(first, dict):
+        raise RuntimeError("OpenAI-compatible provider returned malformed choices.")
+    message = first.get("message")
+    if isinstance(message, dict):
+        content = message.get("content")
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            text_parts: list[str] = []
+            for part in content:
+                if isinstance(part, dict) and isinstance(part.get("text"), str):
+                    text_parts.append(part["text"])
+            return "".join(text_parts).strip()
+    text = first.get("text")
+    if isinstance(text, str):
+        return text.strip()
+    raise RuntimeError("OpenAI-compatible provider returned no text content.")
+
+
+def _openai_compatible_error_from_response(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+    except Exception:
+        return f"HTTP {getattr(response, 'status_code', 'error')}"
+    if isinstance(payload, dict):
+        error_obj = payload.get("error")
+        if isinstance(error_obj, str) and error_obj.strip():
+            return error_obj.strip()[:240]
+        if isinstance(error_obj, dict):
+            message = error_obj.get("message")
+            if isinstance(message, str) and message.strip():
+                return message.strip()[:240]
+    return f"HTTP {getattr(response, 'status_code', 'error')}"
+
+
 def build_provider(settings: Settings, *, model_name: str | None = None) -> LLMProvider:
     if settings.llm_provider == "ollama":
         return OllamaProvider(settings, model_name=model_name)
+    if settings.llm_provider == "openai-compatible":
+        return OpenAICompatibleProvider(settings, model_name=model_name)
     raise RuntimeError(f"Unsupported LLM provider: {settings.llm_provider}")

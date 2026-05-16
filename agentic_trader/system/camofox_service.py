@@ -97,6 +97,7 @@ class CamofoxServiceStatus(BaseModel):
     tool_status_id: str = "camofox_browser"
     tool_consumers: list[str] = Field(default_factory=list)
     tool_fallback_order: list[str] = Field(default_factory=list)
+    tool_ownership_modes: list[str] = Field(default_factory=list)
     install_hint: str = ""
     notes: list[str] = Field(default_factory=list)
     command_available: bool

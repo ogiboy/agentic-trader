@@ -78,6 +78,8 @@ def test_local_tool_status_payload_matches_registry_contract() -> None:
     assert payload["tool_status_id"] == "firecrawl_cli"
     assert "researchd" in payload["tool_consumers"]
     assert "firecrawl_api_key" in payload["tool_fallback_order"]
+    assert "host-owned" in payload["tool_ownership_modes"]
+    assert "app-owned" in payload["tool_ownership_modes"]
     assert "firecrawl login" in str(payload["install_hint"])
     notes = payload["notes"]
     assert isinstance(notes, list)

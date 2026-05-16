@@ -208,6 +208,7 @@ button {
 
 .topbar__status,
 .topbar__actions,
+.tool-actions,
 .pill-row {
   display: flex;
   flex-wrap: wrap;
@@ -234,6 +235,10 @@ button {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 0 12px;
   background: var(--surface);
 }

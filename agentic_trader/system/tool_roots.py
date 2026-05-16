@@ -30,6 +30,13 @@ CAMOFOX_TOOL_DIR_NAME = "camofox-browser"
 OLLAMA_TOOL_DIR_NAME = "ollama"
 FIRECRAWL_TOOL_DIR_NAME = "firecrawl"
 TOOL_MANIFEST_FILE = "agentic-tool.json"
+LOCAL_TOOL_OWNERSHIP_MODES = (
+    "undecided",
+    "host-owned",
+    "app-owned",
+    "api-key-only",
+    "skipped",
+)
 
 TOOL_FALLBACK_ORDER: dict[LocalToolId, tuple[str, ...]] = {
     "camofox-browser": (
@@ -78,6 +85,7 @@ class LocalToolStatusPayload(TypedDict):
     tool_status_id: str
     tool_consumers: list[str]
     tool_fallback_order: list[str]
+    tool_ownership_modes: list[str]
     install_hint: str
     notes: list[str]
 
@@ -209,6 +217,7 @@ def local_tool_status_payload(tool_id: LocalToolId) -> LocalToolStatusPayload:
         "tool_status_id": definition.status_tool_id,
         "tool_consumers": list(definition.consumers),
         "tool_fallback_order": list(definition.fallback_order),
+        "tool_ownership_modes": list(LOCAL_TOOL_OWNERSHIP_MODES),
         "install_hint": definition.install_hint,
         "notes": local_tool_manifest_notes(tool_id),
     }

@@ -175,8 +175,30 @@ runtime. Optional Camofox dependency install, browser-binary fetch,
 model-service start, and Camofox-service start require explicit scopes and
 matching ownership flags such as `--ollama-owner=app-owned` or
 `--camofox-owner=app-owned`. Host-owned, API/key-only, and skipped choices are
-recorded in the JSON plan and remain degraded readiness rather than hidden
-installs.
+persisted in `runtime/setup/tool-ownership.json`, surface through
+`setup-status`, Web GUI, and TUI readiness, and remain degraded readiness rather
+than hidden installs.
+
+Inspect or adjust those optional-helper choices directly with:
+
+```bash
+agentic-trader tool-ownership status --json
+agentic-trader tool-ownership set --ollama-owner host-owned --firecrawl-owner api-key-only --camofox-owner skipped --json
+```
+
+The default V1 model path is internal-first: app-owned Ollama serving `qwen3:8b`
+through the repo service status/log surfaces. Host-managed fallback remains
+available only when the operator records host ownership, and it is never started
+or stopped by app lifecycle commands. Operators who do not want Ollama can keep
+Ollama `skipped` and select an OpenAI-compatible adapter explicitly:
+
+```bash
+AGENTIC_TRADER_LLM_PROVIDER=openai-compatible
+AGENTIC_TRADER_BASE_URL=http://127.0.0.1:8080/v1
+AGENTIC_TRADER_MODEL_NAME=your-model
+# optional for authenticated endpoints:
+AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY=...
+```
 
 For the first conservative setup lifecycle facade, start with the plan view:
 
@@ -213,7 +235,8 @@ pnpm run app:stop -- --all --yes
 `app:start` and `app:stop` do not install dependencies, fetch browsers, pull
 models, open the Web GUI browser by default, or start the trading daemon. They
 delegate ownership checks to `model-service`, `camofox-service`, and
-`webgui-service`, so host-owned tools are not claimed or stopped. If an
+`webgui-service`, and model/Camofox starts now require persisted app-owned
+ownership before they run. Host-owned tools are not claimed or stopped. If an
 app-owned Web GUI process cannot be stopped, its state is preserved for retry
 instead of being reclassified as an external listener.
 
@@ -314,8 +337,10 @@ download full filing text, and it does not write directly into trading memory.
 Firecrawl and Camofox are optional research fetcher/development helpers behind
 `researchd`. They are disabled by default and only produce normalized
 source-attributed evidence or provider-health records. Firecrawl uses the
-Python SDK when `FIRECRAWL_API_KEY` is present and falls back to the CLI path
-when needed. Raw web text is not passed into trading prompts.
+internal Python SDK/API-key path first when `FIRECRAWL_API_KEY` is present.
+The host CLI fallback is used only after the operator records Firecrawl as
+`host-owned`; app-owned/API-only/skipped modes keep that fallback disabled and
+visible. Raw web text is not passed into trading prompts.
 
 ```bash
 AGENTIC_TRADER_RESEARCH_MODE=training
@@ -343,9 +368,11 @@ mirrored into the loopback helper as the global access token so browser routes
 are not left open during local research. These adapters cannot submit orders,
 change runtime mode, or mutate broker policy.
 
-When `AGENTIC_TRADER_RUNTIME_AUTO_START_MODEL_SERVICE=true`, strict runtime
-actions can start an app-owned loopback Ollama process before checking model
-generation. When `AGENTIC_TRADER_RUNTIME_AUTO_START_CAMOFOX=true` and the
+When `AGENTIC_TRADER_RUNTIME_AUTO_START_MODEL_SERVICE=true` and
+`AGENTIC_TRADER_LLM_PROVIDER=ollama`, strict runtime actions can start an
+app-owned loopback Ollama process before checking model generation. Alternate
+model adapters are explicit endpoint choices and do not cause the Ollama service
+to be claimed. When `AGENTIC_TRADER_RUNTIME_AUTO_START_CAMOFOX=true` and the
 Camofox research provider is enabled, research refreshes can start an app-owned
 loopback Camofox helper before collecting browser-health evidence. Camofox
 status treats a reachable HTTP server with `browserRunning=false` as ready for
@@ -377,6 +404,7 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 | `agentic-trader menu`                                            | Open the Rich/admin fallback menu                                 |
 | `agentic-trader dashboard-snapshot`                              | Print the shared dashboard payload used by UI surfaces; add `--provider-check` for product-readiness evidence |
 | `agentic-trader setup-status --json`                             | Inspect source, side-application, and optional-tool readiness     |
+| `agentic-trader tool-ownership status --json`                    | Inspect persisted Ollama/Firecrawl/Camofox ownership choices      |
 | `pnpm --silent run app:doctor -- --json`                         | Read setup, provider, V1, and app-owned service readiness without mutating local state |
 | `pnpm --silent run app:up -- --json --dry-run`                   | Preview the guided first-run setup/start path and ownership decisions |
 | `pnpm --silent run app:up -- --json --all --yes`                 | Run the safe first-run lane: core repair, sidecar setup, Web GUI start, final doctor |
@@ -420,6 +448,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
 | `agentic-trader finance-ops --json`                                                    | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check |
 | `agentic-trader setup-status --json`                                                   | Inspect root/sidecar/tool readiness without installing anything |
+| `agentic-trader tool-ownership status --json`                                          | Inspect persisted optional helper ownership choices |
 | `pnpm --silent run app:doctor -- --json`                                               | Inspect setup, service, provider, and V1 readiness without installing or starting anything |
 | `pnpm --silent run app:up -- --json --dry-run`                                         | Preview guided first-run setup/start orchestration and ownership decisions |
 | `pnpm --silent run app:up -- --json --all --yes`                                       | Run the safe first-run lane without hidden model pulls, browser fetches, or daemon start |

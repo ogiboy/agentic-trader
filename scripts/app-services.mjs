@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-import { parseJsonPayload, resolveAgenticTrader, runLifecycleCommand } from './lib/app-lifecycle.mjs';
+import {
+  ownershipModeFor,
+  parseJsonPayload,
+  resolveAgenticTrader,
+  runLifecycleCommand,
+} from './lib/app-lifecycle.mjs';
 
 const SERVICE_IDS = ['model-service', 'camofox-service', 'webgui-service'];
 
@@ -87,7 +92,7 @@ function parseArgs(argv) {
   return options;
 }
 
-function serviceStep(id, label, args, selected, reason) {
+function serviceStep(id, label, args, selected, reason, options = {}) {
   return {
     id,
     label,
@@ -96,6 +101,7 @@ function serviceStep(id, label, args, selected, reason) {
     mutates: true,
     selected,
     reason,
+    requires_owner: options.requiresOwner,
   };
 }
 
@@ -107,6 +113,7 @@ function startPlan(options) {
       ['model-service', 'start', '--host', '127.0.0.1', '--json'],
       options.selectedServices.has('model-service'),
       'Select with --model-service or --all after provider ownership is configured.',
+      { requiresOwner: { tool: 'ollama', mode: 'app-owned' } },
     ),
     serviceStep(
       'camofox-service',
@@ -114,6 +121,7 @@ function startPlan(options) {
       ['camofox-service', 'start', '--host', '127.0.0.1', '--json'],
       options.selectedServices.has('camofox-service'),
       'Select with --camofox-service or --all after loopback/access-key readiness is configured.',
+      { requiresOwner: { tool: 'camofox', mode: 'app-owned' } },
     ),
     serviceStep(
       'webgui-service',
@@ -168,11 +176,27 @@ function safetyNotes(mode, options) {
   ];
 }
 
-function plannedStep(step) {
+function ownerBlocker(step, mode) {
+  if (mode !== 'start' || !step.requires_owner) {
+    return null;
+  }
+  const actual = ownershipModeFor(step.requires_owner.tool);
+  if (actual === step.requires_owner.mode) {
+    return null;
+  }
+  if (actual === 'undecided') {
+    return `Record ${step.requires_owner.tool} ownership ${step.requires_owner.mode} before starting ${step.id}. Run pnpm run app:up -- --${step.requires_owner.tool}-owner=${step.requires_owner.mode} --${step.id === 'model-service' ? 'model-service' : 'camofox-service'} --yes.`;
+  }
+  return `${step.id} requires ${step.requires_owner.tool} ownership ${step.requires_owner.mode}; current choice is ${actual}.`;
+}
+
+function plannedStep(step, mode) {
+  const blocker = step.selected ? ownerBlocker(step, mode) : null;
   return {
     ...step,
-    status: step.selected ? 'planned' : 'deferred',
-    exit_code: null,
+    status: blocker ? 'blocked' : step.selected ? 'planned' : 'deferred',
+    reason: blocker ?? step.reason,
+    exit_code: blocker ? 1 : null,
     stdout: '',
     stderr: '',
   };
@@ -237,7 +261,12 @@ function buildPayload(options) {
 
   for (const step of plan) {
     if (!step.selected || dryRun) {
-      results.push(plannedStep(step));
+      const planned = plannedStep(step, options.mode);
+      results.push(planned);
+      if (!dryRun && step.selected && planned.status === 'blocked') {
+        exitCode = 1;
+        previousFailure = true;
+      }
       continue;
     }
     if (!cliPath) {
@@ -247,6 +276,13 @@ function buildPayload(options) {
     }
     if (options.mode === 'start' && previousFailure) {
       results.push(skippedStep(step, 'A previous selected start step failed.'));
+      continue;
+    }
+    const blocker = ownerBlocker(step, options.mode);
+    if (blocker) {
+      results.push(blockedStep(step, blocker));
+      exitCode = 1;
+      previousFailure = true;
       continue;
     }
 

@@ -2,6 +2,7 @@
 'use client';
 
 import Image from 'next/image';
+import { Power, SlidersHorizontal, Wrench } from 'lucide-react';
 import {
   type SyntheticEvent,
   useCallback,
@@ -30,6 +31,11 @@ type MessageTone = 'neutral' | 'good' | 'warn' | 'bad';
 type InstructionMode = 'preview' | 'apply';
 type PanelAccent = 'lime' | 'amber' | 'cyan' | 'rose';
 type KeyValueItems = Array<[string, string]>;
+type ToolActionKind =
+  | 'enable-local-tools'
+  | 'enable-host-fallbacks'
+  | 'start-model-service'
+  | 'start-camofox-service';
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
@@ -501,14 +507,128 @@ export function providerWarningLines(dashboard: DashboardData): string[] {
   ];
 }
 
+function ownershipMode(dashboard: DashboardData, tool: string): string {
+  return dashboard.toolOwnership?.decisions_by_tool?.[tool]?.mode ?? 'undecided';
+}
+
+function withOpenAiSuffix(baseUrl: unknown): string {
+  if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
+    return '-';
+  }
+  const trimmed = baseUrl.replace(/\/$/, '');
+  return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`;
+}
+
+function effectiveModelBaseUrl(dashboard: DashboardData | null): string {
+  const modelService = dashboard?.modelService || {};
+  if (modelService.app_owned && modelService.base_url) {
+    return withOpenAiSuffix(modelService.base_url);
+  }
+  return dashboard?.doctor?.base_url ?? '-';
+}
+
+function effectiveBoolean(
+  appOwnedValue: unknown,
+  fallbackValue: unknown,
+): string {
+  return (appOwnedValue ?? fallbackValue) ? 'yes' : 'no';
+}
+
+export function systemStatusItems(dashboard: DashboardData | null): KeyValueItems {
+  const modelService = dashboard?.modelService || {};
+  const provider = dashboard?.doctor?.provider ?? 'ollama';
+  const reachabilityLabel =
+    provider === 'ollama' ? 'Ollama Reachable' : 'LLM Reachable';
+  return [
+    ['Provider', provider],
+    ['Model', dashboard?.doctor?.model ?? modelService.configured_model ?? '-'],
+    ['Base URL', effectiveModelBaseUrl(dashboard)],
+    [
+      reachabilityLabel,
+      effectiveBoolean(
+        modelService.app_owned ? modelService.service_reachable : undefined,
+        dashboard?.doctor?.llm_reachable ?? dashboard?.doctor?.ollama_reachable,
+      ),
+    ],
+    [
+      'Model Available',
+      effectiveBoolean(
+        modelService.app_owned ? modelService.model_available : undefined,
+        dashboard?.doctor?.model_available,
+      ),
+    ],
+    ['Model Service', modelService.message ?? '-'],
+    ['Camofox Service', dashboard?.camofoxService?.message ?? '-'],
+    ['Web GUI Service', dashboard?.webGui?.message ?? '-'],
+    ['Research', dashboard?.research?.status ?? '-'],
+    ['Research Control', dashboard?.research?.cycleControl?.status ?? '-'],
+    [
+      'Research Trigger',
+      dashboard?.research?.cycleControl?.trigger_now_requested
+        ? 'requested'
+        : 'clear',
+    ],
+    [
+      'Research Digest Replay',
+      dashboard?.research?.latestDigestReplay?.available ? 'available' : '-',
+    ],
+    [
+      'Research Sources',
+      sourceHealthSummaryLine(dashboard?.research?.source_health_summary),
+    ],
+    ['Broker Backend', dashboard?.broker?.backend ?? '-'],
+    ['Broker State', dashboard?.broker?.state ?? '-'],
+    ['Execution Mode', dashboard?.broker?.execution_mode ?? '-'],
+    ['Market Session', dashboard?.calendar?.session?.session_state ?? '-'],
+  ];
+}
+
+export function localToolLines(dashboard: DashboardData): string[] {
+  const modelService = dashboard.modelService || {};
+  const camofox = dashboard.camofoxService || {};
+  const provider = dashboard.doctor?.provider ?? 'ollama';
+  const firecrawlMode = ownershipMode(dashboard, 'firecrawl');
+  const camofoxBlocker =
+    camofox.access_key_configured === false
+      ? 'Camofox Blocker: set CAMOFOX_ACCESS_KEY or CAMOFOX_API_KEY in ignored local env before start'
+      : `Camofox Access Key: ${camofox.access_key_configured ? 'configured' : '-'}`;
+  return [
+    `Model Adapter: ${provider}`,
+    `LLM Runtime: internal-first${modelService.app_owned ? ' app-owned' : ''}`,
+    `Model Service: ${modelService.message ?? '-'}`,
+    `Ollama Ownership: ${ownershipMode(dashboard, 'ollama')}`,
+    `Model Service Owned: ${modelService.app_owned ? 'yes' : 'no'}`,
+    `Model Service Reachable: ${modelService.service_reachable ? 'yes' : 'no'}`,
+    `Model Available: ${modelService.model_available ? 'yes' : 'no'}`,
+    `Model Service URL: ${withOpenAiSuffix(modelService.base_url ?? modelService.configured_base_url)}`,
+    `Firecrawl Ownership: ${firecrawlMode}`,
+    `Firecrawl Runtime: internal SDK first; host CLI fallback ${firecrawlMode === 'host-owned' ? 'enabled' : 'disabled by ownership'}`,
+    `Camofox: ${camofox.message ?? '-'}`,
+    `Camofox Ownership: ${ownershipMode(dashboard, 'camofox')}`,
+    `Camofox Owned: ${camofox.app_owned ? 'yes' : 'no'}`,
+    `Camofox Reachable: ${camofox.service_reachable ? 'yes' : 'no'}`,
+    camofoxBlocker,
+    `Camofox URL: ${camofox.base_url ?? '-'}`,
+    `Web GUI: ${dashboard.webGui?.message ?? '-'}`,
+    `Web GUI Owned: ${dashboard.webGui?.app_owned ? 'yes' : 'no'}`,
+    `Web GUI URL: ${dashboard.webGui?.url ?? '-'}`,
+    `Research: ${dashboard.research?.status ?? '-'} (${dashboard.research?.backend ?? '-'})`,
+    `Research Sources: ${sourceHealthSummaryLine(dashboard.research?.source_health_summary)}`,
+  ];
+}
+
 export function OverviewView({
   dashboard,
   currentCycle,
   system,
+  busy,
+  onToolAction,
 }: Readonly<{
   dashboard: DashboardData;
   currentCycle: KeyValueItems;
   system: KeyValueItems;
+  busy: string | null;
+  onToolAction: (kind: ToolActionKind) => void;
 }>) {
   const recentStageEvents = dashboard.agentActivity?.recent_stage_events?.length
     ? dashboard.agentActivity.recent_stage_events.map(
@@ -564,24 +684,45 @@ export function OverviewView({
           <TextList items={readinessLines(dashboard)} />
         </Panel>
         <Panel title="Local Tools" accent="cyan">
-          <TextList
-            items={[
-              `Model Service: ${dashboard.modelService?.message ?? '-'}`,
-              `Model Service Owned: ${dashboard.modelService?.app_owned ? 'yes' : 'no'}`,
-              `Model Service URL: ${dashboard.modelService?.base_url ?? dashboard.modelService?.configured_base_url ?? '-'}`,
-              `Camofox: ${dashboard.camofoxService?.message ?? '-'}`,
-              `Camofox Owned: ${dashboard.camofoxService?.app_owned ? 'yes' : 'no'}`,
-              `Camofox URL: ${dashboard.camofoxService?.base_url ?? '-'}`,
-              `Web GUI: ${dashboard.webGui?.message ?? '-'}`,
-              `Web GUI Owned: ${dashboard.webGui?.app_owned ? 'yes' : 'no'}`,
-              `Web GUI URL: ${dashboard.webGui?.url ?? '-'}`,
-              `Research: ${dashboard.research?.status ?? '-'} (${dashboard.research?.backend ?? '-'})`,
-              `Research Control: ${dashboard.research?.cycleControl?.status ?? '-'}`,
-              `Research Trigger: ${dashboard.research?.cycleControl?.trigger_now_requested ? 'requested' : 'clear'}`,
-              `Research Digest Replay: ${dashboard.research?.latestDigestReplay?.available ? 'available' : '-'}`,
-              `Research Sources: ${sourceHealthSummaryLine(dashboard.research?.source_health_summary)}`,
-            ]}
-          />
+          <div className="tool-actions">
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => onToolAction('enable-local-tools')}
+              type="button"
+            >
+              <SlidersHorizontal aria-hidden="true" size={16} />
+              App Tools
+            </button>
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => onToolAction('enable-host-fallbacks')}
+              type="button"
+            >
+              <SlidersHorizontal aria-hidden="true" size={16} />
+              Host Fallback
+            </button>
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => onToolAction('start-model-service')}
+              type="button"
+            >
+              <Power aria-hidden="true" size={16} />
+              Ollama
+            </button>
+            <button
+              className="button"
+              disabled={busy !== null || dashboard.camofoxService?.access_key_configured === false}
+              onClick={() => onToolAction('start-camofox-service')}
+              type="button"
+            >
+              <Wrench aria-hidden="true" size={16} />
+              Camofox
+            </button>
+          </div>
+          <TextList items={localToolLines(dashboard)} />
         </Panel>
       </div>
 
@@ -1102,6 +1243,7 @@ type ActiveViewProps = Readonly<{
   onInstructionDraftChange: (value: string) => void;
   onInstructionModeChange: (value: InstructionMode) => void;
   onSendInstruction: () => Promise<void>;
+  onToolAction: (kind: ToolActionKind) => void;
 }>;
 
 export function ActiveView(props: ActiveViewProps) {
@@ -1112,6 +1254,8 @@ export function ActiveView(props: ActiveViewProps) {
           dashboard={props.dashboard}
           currentCycle={props.currentCycle}
           system={props.system}
+          busy={props.busy}
+          onToolAction={props.onToolAction}
         />
       );
     case 'runtime':
@@ -1322,6 +1466,35 @@ export function ControlRoom() {
     [applyLatestDashboard, loadDashboard],
   );
 
+  const runToolAction = useCallback(
+    async (kind: ToolActionKind) => {
+      setBusy(kind);
+      try {
+        const result = await readJson<{
+          message: string;
+          dashboard: DashboardData;
+        }>('/api/tools', {
+          method: 'POST',
+          body: JSON.stringify({ kind }),
+        });
+        applyLatestDashboard(result.dashboard);
+        setMessage({ text: result.message, tone: 'good' });
+      } catch (nextError) {
+        if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+          setAuthRequired(true);
+        }
+        setMessage({
+          text:
+            nextError instanceof Error ? nextError.message : String(nextError),
+          tone: 'bad',
+        });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [applyLatestDashboard],
+  );
+
   const sendChat = useCallback(async () => {
     const messageText = chatDraft.trim();
     if (!messageText) {
@@ -1418,38 +1591,7 @@ export function ControlRoom() {
   );
 
   const system = useMemo<KeyValueItems>(
-    () => [
-      ['Model', dashboard?.doctor?.model ?? '-'],
-      ['Base URL', dashboard?.doctor?.base_url ?? '-'],
-      ['Ollama Reachable', dashboard?.doctor?.ollama_reachable ? 'yes' : 'no'],
-      ['Model Available', dashboard?.doctor?.model_available ? 'yes' : 'no'],
-      ['Model Service', dashboard?.modelService?.message ?? '-'],
-      ['Camofox Service', dashboard?.camofoxService?.message ?? '-'],
-      ['Web GUI Service', dashboard?.webGui?.message ?? '-'],
-      ['Research', dashboard?.research?.status ?? '-'],
-      [
-        'Research Control',
-        dashboard?.research?.cycleControl?.status ?? '-',
-      ],
-      [
-        'Research Trigger',
-        dashboard?.research?.cycleControl?.trigger_now_requested
-          ? 'requested'
-          : 'clear',
-      ],
-      [
-        'Research Digest Replay',
-        dashboard?.research?.latestDigestReplay?.available ? 'available' : '-',
-      ],
-      [
-        'Research Sources',
-        sourceHealthSummaryLine(dashboard?.research?.source_health_summary),
-      ],
-      ['Broker Backend', dashboard?.broker?.backend ?? '-'],
-      ['Broker State', dashboard?.broker?.state ?? '-'],
-      ['Execution Mode', dashboard?.broker?.execution_mode ?? '-'],
-      ['Market Session', dashboard?.calendar?.session?.session_state ?? '-'],
-    ],
+    () => systemStatusItems(dashboard),
     [dashboard],
   );
 
@@ -1472,6 +1614,7 @@ export function ControlRoom() {
       onInstructionDraftChange={setInstructionDraft}
       onInstructionModeChange={setInstructionMode}
       onSendInstruction={sendInstruction}
+      onToolAction={(kind) => void runToolAction(kind)}
     />
   ) : null;
   const content = (() => {

@@ -97,6 +97,7 @@ def test_start_camofox_service_uses_loopback_keyed_minimal_env(
     assert status.tool_status_id == "camofox_browser"
     assert "camofox-service" in status.tool_consumers
     assert "repo_tools" in status.tool_fallback_order
+    assert "app-owned" in status.tool_ownership_modes
     assert "local_tool_id=camofox-browser" in status.notes
     assert captured["command"] == ["/opt/homebrew/bin/node", "server.js"]
     assert captured["cwd"] == tool_dir

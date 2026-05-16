@@ -54,8 +54,9 @@ Flow sidecar setup, app-owned Web GUI start, and a final `app:doctor` report.
 Optional Camofox dependency setup, Camofox browser binary fetch, model-service
 start, and Camofox-service start require explicit scopes plus matching ownership
 flags such as `--ollama-owner=app-owned` or `--camofox-owner=app-owned`.
-Host-owned, API/key-only, and skipped choices stay visible in the JSON plan and
-do not become hidden installs.
+Host-owned, API/key-only, and skipped choices are persisted in
+`runtime/setup/tool-ownership.json`, show up in setup status, dashboard, Web GUI,
+and TUI readiness, and do not become hidden installs.
 
 `app:start` and `app:stop` are also implemented as conservative service slices:
 they default to dry-run, require selecting `--webgui`, `--model-service`,
@@ -63,9 +64,11 @@ they default to dry-run, require selecting `--webgui`, `--model-service`,
 install dependencies, fetch browser binaries, pull Ollama models, start a
 trading daemon, or open a browser unless `--open-browser` is explicitly passed.
 Ownership checks stay inside the existing `model-service`, `camofox-service`,
-and `webgui-service` commands. If the recorded app-owned Web GUI process cannot
-be stopped, its state remains for retry rather than being silently reclassified
-as an external listener.
+and `webgui-service` commands. Starting model-service or Camofox-service through
+`app:start` requires the persisted ownership mode to be `app-owned`; host-owned
+or skipped tools remain visible blockers instead of being claimed. If the
+recorded app-owned Web GUI process cannot be stopped, its state remains for
+retry rather than being silently reclassified as an external listener.
 
 `app:update` is implemented as the first scoped update lane. It defaults to
 dry-run and requires selecting `--core`, `--sidecar`, `--camofox`, `--build`,
@@ -102,8 +105,28 @@ Before installing or starting optional helpers, the guided setup should ask whic
 
 This matters for Ollama, Firecrawl, and Camofox.
 If host Ollama is absent and the operator does not want a host install, the installer should offer the app-owned model-service path instead of letting the Web GUI open into a confusing "Ollama unreachable" state.
-Firecrawl should similarly support API key, authenticated CLI, future repo-local helper/fallback, or skipped readiness.
+Firecrawl should use the internal SDK/API-key path first; authenticated host CLI fallback is allowed only when Firecrawl is recorded as host-owned, while app-owned/API-only/skipped modes keep that fallback disabled and visible.
 Camofox should remain loopback-only, access-key-gated, and browser-binary fetch should stay a separate opt-in step.
+
+Current ownership state can be inspected or changed without running setup:
+
+```bash
+agentic-trader tool-ownership status --json
+agentic-trader tool-ownership set --ollama-owner host-owned --firecrawl-owner api-key-only --camofox-owner skipped --json
+```
+
+V1 defaults to the internal-first model path: app-owned Ollama, `qwen3:8b`, and
+the existing model-service status/log surfaces. Host fallback is available when
+the operator records host ownership, but app lifecycle commands must not start
+or stop host-owned tools. Operators who want another model adapter can skip
+Ollama and select an OpenAI-compatible endpoint explicitly:
+
+```bash
+AGENTIC_TRADER_LLM_PROVIDER=openai-compatible
+AGENTIC_TRADER_BASE_URL=http://127.0.0.1:8080/v1
+AGENTIC_TRADER_MODEL_NAME=your-model
+AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY=optional-secret
+```
 
 ## Ollama-specific direction
 
@@ -122,7 +145,7 @@ The desired future state is:
 - the operator can tell the difference between idle, busy, and broken
 
 The guided setup should distinguish four states: host Ollama reachable, app-owned Ollama ready, Ollama intentionally skipped because another provider is configured, and model backend missing or broken.
-`app:start` may start an already configured app-owned model service, but it must not silently install a binary, pull a model, or hijack a host listener.
+`app:start` may start an already configured app-owned model service when the active provider is `ollama`, but it must not silently install a binary, pull a model, hijack a host listener, or override an explicit OpenAI-compatible adapter.
 
 ## Camofox and pnpm direction
 
@@ -187,5 +210,5 @@ A good bootstrap flow should be explicit about:
 - The user sees a clear failure when model or provider readiness is missing.
 - The launcher can point the user to logs instead of hiding them.
 - The generated environment stays consistent with the repo’s current runtime contracts.
-- Camofox, Firecrawl, and Ollama ownership decisions are visible in setup status and Web GUI readiness.
+- Camofox, Firecrawl, and Ollama ownership decisions are persisted and visible in setup status, dashboard, Web GUI, and TUI readiness.
 - `app:up` can recover from a partial install and ends at an opened Web GUI or a precise blocker report.

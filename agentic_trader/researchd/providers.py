@@ -35,6 +35,7 @@ from agentic_trader.system.camofox_service import (
     CamofoxServiceStatus,
     build_camofox_service_status,
 )
+from agentic_trader.system.tool_ownership import ownership_mode_for_tool
 from agentic_trader.system.tool_roots import local_tool_manifest_notes
 
 
@@ -400,6 +401,7 @@ class FirecrawlNewsResearchProvider:
         self._enabled = settings.research_firecrawl_enabled
         self._api_key = settings.firecrawl_api_key
         self._cli = settings.research_firecrawl_cli
+        self._ownership_mode = ownership_mode_for_tool(settings, "firecrawl")
         self._country = settings.research_firecrawl_country.upper()
         self._timeout = min(
             max(settings.research_firecrawl_timeout_seconds, 1.0), 300.0
@@ -421,6 +423,13 @@ class FirecrawlNewsResearchProvider:
                 "news_search_provider",
                 "raw_web_text_not_injected",
                 "enabled" if self._enabled else "provider_disabled",
+                f"ownership={self._ownership_mode}",
+                "internal_sdk_first",
+                (
+                    "host_cli_fallback_enabled"
+                    if self._ownership_mode == "host-owned"
+                    else "host_cli_fallback_disabled"
+                ),
                 *local_tool_manifest_notes("firecrawl"),
             ],
         )
@@ -505,6 +514,8 @@ class FirecrawlNewsResearchProvider:
         symbol: str,
         per_symbol_limit: int,
     ) -> tuple[list[RawEvidenceRecord], list[str]]:
+        if self._ownership_mode != "host-owned":
+            return [], [f"firecrawl_cli_fallback_disabled:{self._ownership_mode}"]
         cli_path = _resolve_cli(self._cli)
         if cli_path is None:
             return [], ["firecrawl_cli_missing"]

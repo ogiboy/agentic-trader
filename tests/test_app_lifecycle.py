@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -202,6 +203,10 @@ def _run_up(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     merged_env = os.environ.copy()
+    merged_env.setdefault(
+        "AGENTIC_TRADER_RUNTIME_DIR",
+        str(Path(tempfile.mkdtemp(prefix="agentic-trader-app-up-test-")) / "runtime"),
+    )
     if env is not None:
         merged_env.update(env)
     return subprocess.run(
@@ -423,6 +428,68 @@ def test_app_start_rejects_browser_open_without_webgui_selection() -> None:
 
     assert result.returncode == 2
     assert "--open-browser requires selecting --webgui or --all" in result.stderr
+
+
+def test_app_start_model_service_requires_persisted_app_owned_ownership(
+    tmp_path: Path,
+) -> None:
+    result = _run_services(
+        "start",
+        "--json",
+        "--model-service",
+        "--yes",
+        env={"AGENTIC_TRADER_RUNTIME_DIR": str(tmp_path / "runtime")},
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 1
+    blocked = [step for step in payload["steps"] if step["status"] == "blocked"]
+    assert blocked[0]["id"] == "model-service"
+    assert "ownership app-owned" in blocked[0]["reason"]
+    assert payload["mutated"] is False
+
+
+def test_app_start_model_service_runs_with_persisted_app_owned_ownership(
+    tmp_path: Path,
+) -> None:
+    runtime_dir = tmp_path / "runtime"
+    ownership_dir = runtime_dir / "setup"
+    ownership_dir.mkdir(parents=True)
+    (ownership_dir / "tool-ownership.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "tool-ownership/v1",
+                "updated_at": "2026-01-01T00:00:00+00:00",
+                "decisions": {
+                    "ollama": {
+                        "mode": "app-owned",
+                        "source": "test",
+                        "updated_at": "2026-01-01T00:00:00+00:00",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    fake_cli, log_path = _fake_service_cli(tmp_path)
+    result = _run_services(
+        "start",
+        "--json",
+        "--model-service",
+        "--yes",
+        env={
+            "AGENTIC_TRADER_CLI": str(fake_cli),
+            "AGENTIC_TRADER_CLI_LOG": str(log_path),
+            "AGENTIC_TRADER_RUNTIME_DIR": str(runtime_dir),
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["mutated"] is True
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        "model-service start --host 127.0.0.1 --json"
+    ]
 
 
 def test_app_stop_all_yes_stops_only_app_owned_service_surfaces(
@@ -648,6 +715,7 @@ def test_app_up_owner_scoped_model_service_runs_only_when_app_owned(
     tmp_path: Path,
 ) -> None:
     bin_dir, log_path = _fake_app_up_toolchain(tmp_path)
+    runtime_dir = tmp_path / "runtime"
     result = _run_up(
         "--json",
         "--model-service",
@@ -656,6 +724,7 @@ def test_app_up_owner_scoped_model_service_runs_only_when_app_owned(
         env={
             "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
             "APP_UP_LOG": str(log_path),
+            "AGENTIC_TRADER_RUNTIME_DIR": str(runtime_dir),
         },
     )
     payload = json.loads(result.stdout)
@@ -665,7 +734,30 @@ def test_app_up_owner_scoped_model_service_runs_only_when_app_owned(
     assert log_path.read_text(encoding="utf-8").splitlines() == [
         f"{ROOT}|run app:start -- --json --model-service --yes"
     ]
+    ownership_payload = json.loads(
+        (runtime_dir / "setup" / "tool-ownership.json").read_text(encoding="utf-8")
+    )
+    assert ownership_payload["decisions"]["ollama"]["mode"] == "app-owned"
+    assert payload["tool_ownership"]["decisions_by_tool"]["ollama"]["mode"] == "app-owned"
     assert payload["steps"][4]["status"] == "passed"
+
+
+def test_app_up_dry_run_does_not_persist_owner_flags(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtime"
+    result = _run_up(
+        "--json",
+        "--model-service",
+        "--ollama-owner=app-owned",
+        "--dry-run",
+        env={"AGENTIC_TRADER_RUNTIME_DIR": str(runtime_dir)},
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["dry_run"] is True
+    assert payload["mutated"] is False
+    assert payload["ownership_decisions"][0]["mode"] == "app-owned"
+    assert not (runtime_dir / "setup" / "tool-ownership.json").exists()
 
 
 def test_app_uninstall_dry_run_plans_safe_scopes() -> None:

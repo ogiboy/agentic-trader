@@ -82,6 +82,40 @@ V1 onboarding needs one understandable operator path, but setup/start/update/uni
 Optional Camofox dependency setup, browser binary fetches, model-service starts, and Camofox-service starts require matching ownership flags such as app-owned; host-owned, API/key-only, and skipped choices remain visible setup decisions rather than inferred installs or process ownership.
 The trading daemon, broker config, provider accounts, secrets, hidden model pulls, and hidden browser downloads remain out of `app:up`.
 
+### Optional tool ownership is persisted operator intent
+
+Reason:
+Ollama, Firecrawl, and Camofox can be host-managed, app-managed, API/key-only,
+or intentionally skipped, and those choices need to survive beyond a single
+`app:up` dry-run.
+The first durable contract stores only non-secret ownership intent in
+`runtime/setup/tool-ownership.json` with owner-only permissions.
+`setup-status`, dashboard snapshots, Web GUI, and TUI read that same payload so
+optional-helper readiness does not diverge by surface.
+`app:start` and runtime auto-start paths may start model-service or
+Camofox-service only when the persisted mode for the matching tool is
+`app-owned`; host-owned, API/key-only, skipped, or undecided modes remain
+visible degraded/blocker states and must not be installed, started, stopped, or
+deleted by lifecycle commands.
+
+### Internal-first model tools keep an explicit adapter escape hatch
+
+Reason:
+The default V1 app experience should work from the repo's own local helper
+surfaces instead of assuming a host daemon is already running.
+App-owned Ollama plus `qwen3:8b` is therefore the default local-first path for
+strict LLM readiness, and dashboard/doctor/Web GUI views should report that
+app-owned endpoint before falling back to host status.
+Fallback remains an operator choice: host-owned tools may be connected to but
+not managed, Firecrawl host CLI fallback is disabled unless Firecrawl is
+recorded as host-owned, and Camofox still requires a loopback access key before
+start.
+Operators who want another model stack must select it explicitly through the
+provider seam, currently `AGENTIC_TRADER_LLM_PROVIDER=openai-compatible` plus a
+base URL, model name, and optional API key.
+App-owned Ollama auto-start or dashboard setting rewrites must not override that
+non-Ollama adapter.
+
 ### Operator-facing finance truth must be reconciled evidence, not UI copy
 
 Reason:

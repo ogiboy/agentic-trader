@@ -16,12 +16,14 @@ import {
   formatPercent,
   formatSourceHealthCount,
   formatTimestamp,
+  localToolLines,
   marketContextLines,
   normalizeChatHistory,
   providerWarningLines,
   readJson,
   readinessLines,
   sourceHealthSummaryLine,
+  systemStatusItems,
   tradeContextLines,
   unavailableSectionLines,
 } from './control-room';
@@ -107,7 +109,9 @@ const dashboardFixture = {
   modelService: {
     app_owned: true,
     base_url: 'http://127.0.0.1:11434',
+    model_available: true,
     message: 'ready',
+    service_reachable: true,
   },
   camofoxService: {
     app_owned: true,
@@ -205,6 +209,7 @@ function renderActiveView(
       onInstructionModeChange: vi.fn(),
       onSendChat: vi.fn(),
       onSendInstruction: vi.fn(),
+      onToolAction: vi.fn(),
       system: [['Runtime', 'training']],
       tab,
     }),
@@ -338,6 +343,18 @@ describe('control-room formatting helpers', () => {
     );
     expect(providerWarningLines({ providerDiagnostics: {} })).toContain(
       'No provider warnings.',
+    );
+    expect(systemStatusItems(dashboardFixture)).toContainEqual([
+      'Base URL',
+      'http://127.0.0.1:11434/v1',
+    ]);
+    expect(systemStatusItems(dashboardFixture)).toContainEqual([
+      'Ollama Reachable',
+      'yes',
+    ]);
+    expect(localToolLines(dashboardFixture)).toContain('Model Adapter: ollama');
+    expect(localToolLines(dashboardFixture)).toContain(
+      'Firecrawl Runtime: internal SDK first; host CLI fallback disabled by ownership',
     );
   });
 

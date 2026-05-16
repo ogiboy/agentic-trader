@@ -324,6 +324,10 @@ def _process_looks_like_webgui(pid: int) -> bool:
 
 
 def _process_matches_state(state: WebGUIServiceState) -> bool:
+    if _listen_port_owner_pid(state.host, state.port) == state.pid:
+        process_cwd = _process_cwd(state.pid)
+        if process_cwd == webgui_dir().resolve():
+            return True
     command_line = _process_command_line(state.pid)
     if command_line:
         return _command_line_matches_webgui(command_line, state)
@@ -374,8 +378,9 @@ def _verified_stop_pids(state: WebGUIServiceState) -> list[int]:
 def _send_state_signal(state: WebGUIServiceState, signal_number: int) -> bool:
     """Signal the recorded process group, then verified child/launcher PIDs."""
 
+    verified_pids = _verified_stop_pids(state)
     sent = _send_process_signal(state.pid, signal_number, process_group=True)
-    for pid in _verified_stop_pids(state):
+    for pid in verified_pids:
         sent = _send_process_signal(pid, signal_number) or sent
     return sent
 

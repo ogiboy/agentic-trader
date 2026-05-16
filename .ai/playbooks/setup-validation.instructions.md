@@ -63,6 +63,12 @@ instead of treating them as aliases for the same script:
   repair, CrewAI Flow sidecar setup, app-owned Web GUI start, and final doctor
 - `pnpm run app:up -- --model-service --ollama-owner=app-owned --yes`: start
   the app-owned model-service only after the ownership decision is explicit
+- `AGENTIC_TRADER_LLM_PROVIDER=openai-compatible agentic-trader doctor --json`:
+  confirm a non-Ollama adapter is reported without app-owned Ollama taking over
+- `agentic-trader tool-ownership status --json`: inspect persisted optional
+  helper ownership decisions without mutating setup or services
+- `agentic-trader tool-ownership set --ollama-owner host-owned --firecrawl-owner api-key-only --camofox-owner skipped --json`:
+  record non-secret operator intent for optional helpers
 
 Every lifecycle command should have a dry-run or preview path before it mutates
 system tools, dependency locks, downloaded browser/model assets, PATH symlinks,
@@ -112,6 +118,14 @@ or app-owned runtime state.
   recorded service state file remains.
 - Optional Ollama, Firecrawl, and Camofox setup records host-owned, app-owned,
   API/key-only, or skipped ownership instead of guessing silently.
+- Firecrawl host CLI fallback runs only when Firecrawl ownership is
+  `host-owned`; app-owned, API/key-only, skipped, or undecided modes must keep
+  it visibly disabled.
+- `app:start --model-service --yes` and `app:start --camofox-service --yes`
+  block unless the matching persisted ownership mode is `app-owned`.
+- App-owned Ollama status may update runtime settings only when the active LLM
+  provider is `ollama`; `openai-compatible` or future adapters must keep their
+  explicit endpoint.
 - Root Python is uv-managed; Conda/Poetry are not the default path.
 - A plain `uv sync` is not enough for local V1 development because it can omit
   the dev dependency group. Recover with

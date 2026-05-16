@@ -1,5 +1,11 @@
 #!/usr/bin/env node
-import { ROOT_DIR, parseJsonPayload, runLifecycleCommand } from './lib/app-lifecycle.mjs';
+import {
+  ROOT_DIR,
+  parseJsonPayload,
+  persistToolOwnership,
+  readToolOwnership,
+  runLifecycleCommand,
+} from './lib/app-lifecycle.mjs';
 
 const SAFE_ALL_SCOPES = ['core', 'sidecar', 'webgui', 'status'];
 const SCOPE_IDS = [
@@ -75,15 +81,17 @@ function parseOwner(value, optionName) {
 }
 
 function parseArgs(argv) {
+  const persistedOwnership = readToolOwnership().decisions_by_tool;
   const options = {
     dryRun: false,
     json: false,
     openBrowser: false,
     owners: {
-      ollama: 'undecided',
-      firecrawl: 'undecided',
-      camofox: 'undecided',
+      ollama: persistedOwnership.ollama?.mode ?? 'undecided',
+      firecrawl: persistedOwnership.firecrawl?.mode ?? 'undecided',
+      camofox: persistedOwnership.camofox?.mode ?? 'undecided',
     },
+    ownerOverrides: new Set(),
     selectedScopes: new Set(),
     yes: false,
   };
@@ -98,12 +106,15 @@ function parseArgs(argv) {
     const camofoxOwner = readValue(argv, index, '--camofox-owner');
     if (ollamaOwner) {
       options.owners.ollama = parseOwner(ollamaOwner.value, '--ollama-owner');
+      options.ownerOverrides.add('ollama');
       index = ollamaOwner.nextIndex;
     } else if (firecrawlOwner) {
       options.owners.firecrawl = parseOwner(firecrawlOwner.value, '--firecrawl-owner');
+      options.ownerOverrides.add('firecrawl');
       index = firecrawlOwner.nextIndex;
     } else if (camofoxOwner) {
       options.owners.camofox = parseOwner(camofoxOwner.value, '--camofox-owner');
+      options.ownerOverrides.add('camofox');
       index = camofoxOwner.nextIndex;
     } else if (arg === '--core') {
       options.selectedScopes.add('core');
@@ -289,6 +300,12 @@ function ownershipDecisions(options) {
   ];
 }
 
+function ownershipUpdates(options) {
+  return Object.fromEntries(
+    [...options.ownerOverrides].map((tool) => [tool, options.owners[tool]]),
+  );
+}
+
 function selectSteps(plan, selectedScopes) {
   return plan.map((step) => ({
     ...step,
@@ -365,9 +382,12 @@ function buildPayload(options) {
   const selectedScopes = options.selectedScopes;
   const dryRun = !(options.yes && !options.dryRun);
   const plan = selectSteps(upPlan(options), selectedScopes);
+  const ownershipState = dryRun
+    ? { mutated: false, payload: readToolOwnership() }
+    : persistToolOwnership(ownershipUpdates(options), 'app-up');
   const steps = [];
   let exitCode = 0;
-  let mutated = false;
+  let mutated = ownershipState.mutated;
   let previousFailure = false;
 
   for (const step of plan) {
@@ -412,6 +432,7 @@ function buildPayload(options) {
       mutated,
       selected_scopes: SCOPE_IDS.filter((scope) => selectedScopes.has(scope)),
       ownership_decisions: ownershipDecisions(options),
+      tool_ownership: ownershipState.payload,
       open_browser: options.openBrowser,
       safety_notes: safetyNotes(),
       steps,

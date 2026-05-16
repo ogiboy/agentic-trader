@@ -23,6 +23,7 @@ from agentic_trader.runtime_feed import (
 from agentic_trader.researchd.status import build_research_sidecar_state
 from agentic_trader.schemas import EvidenceInferenceBreakdown, RawEvidenceRecord
 from agentic_trader.system.camofox_service import CamofoxServiceStatus
+from agentic_trader.system.tool_ownership import write_tool_ownership
 
 
 def _settings(tmp_path, **overrides) -> Settings:
@@ -33,6 +34,11 @@ def _settings(tmp_path, **overrides) -> Settings:
         **overrides,
     )
     settings.ensure_directories()
+    return settings
+
+
+def _host_owned_firecrawl(settings: Settings) -> Settings:
+    write_tool_ownership(settings, {"firecrawl": "host-owned"}, source="test")
     return settings
 
 
@@ -354,17 +360,35 @@ def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(tmp_path) -> 
     enabled_output = enabled.collect(symbols=["AAPL"], limit=3)
 
     assert enabled_output.raw_evidence == []
-    assert "firecrawl_cli_missing" in enabled_output.missing_reasons
+    assert "firecrawl_cli_fallback_disabled:undecided" in enabled_output.missing_reasons
+
+    host_owned = FirecrawlNewsResearchProvider(
+        settings=_host_owned_firecrawl(
+            _settings(
+                tmp_path / "host-owned",
+                research_firecrawl_enabled=True,
+                firecrawl_api_key=None,
+                research_firecrawl_cli=str(tmp_path / "missing-firecrawl"),
+            )
+        )
+    )
+
+    host_owned_output = host_owned.collect(symbols=["AAPL"], limit=3)
+
+    assert host_owned_output.raw_evidence == []
+    assert "firecrawl_cli_missing" in host_owned_output.missing_reasons
 
 
 def test_firecrawl_news_provider_sanitizes_search_results(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            research_firecrawl_cli="/bin/echo",
+        )
     )
     captured_command: list[str] = []
 
@@ -419,10 +443,12 @@ def test_firecrawl_news_provider_ignores_raw_body_fields(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            research_firecrawl_cli="/bin/echo",
+        )
     )
 
     def fake_runner(
@@ -503,10 +529,12 @@ def test_firecrawl_news_provider_redacts_nonzero_stderr(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            research_firecrawl_cli="/bin/echo",
+        )
     )
 
     def fake_runner(
@@ -539,10 +567,12 @@ def test_firecrawl_news_provider_passes_minimal_env(
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
     monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "fake-alpaca")
     monkeypatch.setenv("AGENTIC_TRADER_FMP_API_KEY", "fake-fmp")
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            research_firecrawl_cli="/bin/echo",
+        )
     )
     captured_env: dict[str, str] = {}
 
@@ -574,11 +604,13 @@ def test_firecrawl_news_provider_uses_settings_api_key_without_export(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     monkeypatch.delenv("FIRECRAWL_API_KEY", raising=False)
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        firecrawl_api_key="settings-token",
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            firecrawl_api_key="settings-token",
+            research_firecrawl_cli="/bin/echo",
+        )
     )
     captured_env: dict[str, str] = {}
 

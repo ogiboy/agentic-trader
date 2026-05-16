@@ -137,4 +137,51 @@ describe('agentic-trader webgui CLI bridge', () => {
       'Unsupported runtime action',
     );
   });
+
+  it('runs app-owned local tool actions through explicit CLI contracts', async () => {
+    const { runToolAction } = await import('./agentic-trader');
+    execSuccess(
+      JSON.stringify({
+        doctor: { model: 'qwen3:8b' },
+        modelService: { configured_model: 'qwen3:8b' },
+      }),
+    );
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({ model_available: true }));
+    execSuccess(JSON.stringify({ modelService: { app_owned: true } }));
+
+    await expect(runToolAction('start-model-service')).resolves.toMatchObject({
+      message: 'App-owned model-service started; qwen3:8b is listed.',
+    });
+    expect(execFileMock.mock.calls[1][1]).toContain('tool-ownership');
+    expect(execFileMock.mock.calls[2][1]).toContain('model-service');
+    expect(execFileMock.mock.calls[2][1]).toContain('start');
+
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    await expect(runToolAction('enable-local-tools')).resolves.toMatchObject({
+      message: 'Local tool ownership set to app-owned.',
+    });
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('--firecrawl-owner');
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('app-owned');
+
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    await expect(runToolAction('enable-host-fallbacks')).resolves.toMatchObject({
+      message: 'Host-managed fallback ownership enabled.',
+    });
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('--ollama-owner');
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('host-owned');
+
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    await expect(runToolAction('start-camofox-service')).resolves.toMatchObject({
+      message: 'App-owned Camofox helper started.',
+    });
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('camofox-service');
+  });
 });

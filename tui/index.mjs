@@ -861,6 +861,10 @@ function providerLines(data) {
   ];
 }
 
+function ownershipMode(data, tool) {
+  return data.toolOwnership?.decisions_by_tool?.[tool]?.mode ?? 'undecided';
+}
+
 function overviewRuntimeMode(runtime, data) {
   return (
     runtime.runtime_mode ??
@@ -935,6 +939,9 @@ function compactSystemLines(data) {
     `Model Available: ${doctor.model_available ? 'yes' : 'no'}`,
     `Broker Backend: ${broker?.backend ?? '-'}`,
     `Broker State: ${broker?.state ?? '-'}`,
+    `Ollama Ownership: ${ownershipMode(data, 'ollama')}`,
+    `Firecrawl Ownership: ${ownershipMode(data, 'firecrawl')}`,
+    `Camofox Ownership: ${ownershipMode(data, 'camofox')}`,
     `Camofox: ${data.camofoxService?.message ?? '-'}`,
     `Research: ${data.research?.status ?? '-'} (${data.research?.backend ?? '-'})`,
     `Research Control: ${data.research?.cycleControl?.status ?? '-'}`,
@@ -964,6 +971,9 @@ function fullSystemLines(data) {
     `Broker Backend: ${broker?.backend ?? '-'}`,
     `Broker State: ${broker?.state ?? '-'}`,
     `Broker Health: ${broker?.healthcheck?.message ?? broker?.message ?? '-'}`,
+    `Ollama Ownership: ${ownershipMode(data, 'ollama')}`,
+    `Firecrawl Ownership: ${ownershipMode(data, 'firecrawl')}`,
+    `Camofox Ownership: ${ownershipMode(data, 'camofox')}`,
     `Camofox: ${data.camofoxService?.message ?? '-'}`,
     `Camofox Owned: ${data.camofoxService?.app_owned ? 'yes' : 'no'}`,
     `Camofox URL: ${data.camofoxService?.base_url ?? '-'}`,

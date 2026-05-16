@@ -53,8 +53,9 @@ izole CrewAI Flow sidecar setup, app-owned Web GUI start ve final `app:doctor`
 raporu çalıştırır. Opsiyonel Camofox dependency setup, Camofox browser binary
 fetch, model-service start ve Camofox-service start için açık scope ve
 `--ollama-owner=app-owned` ya da `--camofox-owner=app-owned` gibi eşleşen
-sahiplik flag'i gerekir. Host-owned, API/key-only ve skipped seçimleri JSON
-planda görünür kalır; gizli install'a dönüşmez.
+sahiplik flag'i gerekir. Host-owned, API/key-only ve skipped seçimleri
+`runtime/setup/tool-ownership.json` içine yazılır; setup status, dashboard, Web
+GUI ve TUI readiness üzerinde görünür kalır; gizli install'a dönüşmez.
 
 `app:start` ve `app:stop` da konservatif servis slice'ları olarak implemente
 edildi: varsayılanları dry-run'dır, `--webgui`, `--model-service`,
@@ -62,9 +63,11 @@ edildi: varsayılanları dry-run'dır, `--webgui`, `--model-service`,
 mutasyon yaparlar. Dependency kurmaz, browser binary fetch etmez, Ollama model
 çekmez, trading daemon başlatmaz, `--open-browser` açıkça verilmedikçe browser
 açmazlar. Sahiplik kontrolleri mevcut `model-service`, `camofox-service` ve
-`webgui-service` komutlarının içinde kalır. Kaydedilmiş app-owned Web GUI
-süreci durdurulamazsa state retry için korunur; süreç sessizce external
-listener gibi yeniden sınıflandırılmaz.
+`webgui-service` komutlarının içinde kalır. `app:start` ile model-service ya da
+Camofox-service başlatmak için kalıcı sahiplik modunun `app-owned` olması
+gerekir; host-owned veya skipped araçlar sahiplenilmez, görünür blocker olarak
+kalır. Kaydedilmiş app-owned Web GUI süreci durdurulamazsa state retry için
+korunur; süreç sessizce external listener gibi yeniden sınıflandırılmaz.
 
 `app:update` ilk scoped update lane'i olarak implemente edildi. Varsayılanı
 dry-run'dır; mutasyon için `--core`, `--sidecar`, `--camofox`, `--build`,
@@ -100,8 +103,28 @@ Opsiyonel yardımcıları kurmadan ya da başlatmadan önce yönlendirmeli setup
 
 Bu ayrım Ollama, Firecrawl ve Camofox için önemli.
 Host Ollama yoksa ve operatör host kurulumu istemiyorsa installer Web GUI'yi kafa karıştırıcı bir "Ollama unreachable" durumuna açmak yerine app-owned model-service yolunu teklif etmeli.
-Firecrawl da API key, authenticated CLI, gelecekte repo-local helper/fallback ya da skipped readiness seçeneklerini desteklemeli.
+Firecrawl internal SDK/API-key yolunu önce kullanmalı; authenticated host CLI fallback yalnızca Firecrawl host-owned kaydedildiğinde çalışmalı, app-owned/API-only/skipped modlarında bu fallback kapalı ve görünür kalmalı.
 Camofox loopback-only, access-key-gated kalmalı; browser binary fetch ise ayrı ve opt-in bir adım olmalı.
+
+Mevcut sahiplik durumu setup çalıştırmadan da görülebilir ya da değiştirilebilir:
+
+```bash
+agentic-trader tool-ownership status --json
+agentic-trader tool-ownership set --ollama-owner host-owned --firecrawl-owner api-key-only --camofox-owner skipped --json
+```
+
+V1 varsayılanı internal-first model yoludur: app-owned Ollama, `qwen3:8b` ve
+mevcut model-service status/log yüzeyleri. Operatör host sahipliği kaydederse
+host fallback kullanılabilir, fakat app lifecycle komutları host-owned araçları
+başlatmaz ya da durdurmaz. Başka model adaptörü isteyen operatör Ollama'yı
+skipped bırakıp OpenAI-compatible endpoint'i açıkça seçebilir:
+
+```bash
+AGENTIC_TRADER_LLM_PROVIDER=openai-compatible
+AGENTIC_TRADER_BASE_URL=http://127.0.0.1:8080/v1
+AGENTIC_TRADER_MODEL_NAME=your-model
+AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY=optional-secret
+```
 
 ## Ollama için özel yön
 
@@ -120,7 +143,7 @@ OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" ollama serve
 - operatör idle, busy ve broken hâllerini ayırt edebilsin
 
 Yönlendirmeli setup dört durumu ayırmalı: host Ollama reachable, app-owned Ollama ready, başka provider seçildiği için Ollama bilerek skipped, ve model backend eksik ya da bozuk.
-`app:start` önceden yapılandırılmış app-owned model service'i başlatabilir; ama binary kurmayı, model çekmeyi veya host listener'ı sahiplenmeyi sessizce yapmamalı.
+`app:start` aktif provider `ollama` ise önceden yapılandırılmış app-owned model service'i başlatabilir; ama binary kurmayı, model çekmeyi, host listener'ı sahiplenmeyi veya açıkça seçilmiş OpenAI-compatible adaptörü override etmeyi sessizce yapmamalı.
 
 ## Camofox ve pnpm yönü
 
@@ -185,5 +208,5 @@ evidence silinmemeli. Servis state dosyası hâlâ varsa operatör önce
 - Model ya da provider ready oluşu eksikse kullanıcı açık bir hata görmeli.
 - Launcher kullanıcıyı loglara yönlendirebilmeli; logları saklamamalı.
 - Oluşturulan ortam repo'nun mevcut runtime sözleşmeleriyle uyumlu kalmalı.
-- Camofox, Firecrawl ve Ollama sahiplik kararları setup status ve Web GUI readiness üzerinde görünür olmalı.
+- Camofox, Firecrawl ve Ollama sahiplik kararları kalıcı olmalı; setup status, dashboard, Web GUI ve TUI readiness üzerinde görünür olmalı.
 - `app:up` partial install durumundan toparlanabilmeli ve ya açılmış Web GUI'yle ya da net blocker raporuyla bitmeli.

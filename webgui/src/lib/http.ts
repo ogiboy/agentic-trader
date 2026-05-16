@@ -21,7 +21,7 @@ type RequestGuardResult =
 const DEFAULT_MAX_JSON_BODY_BYTES = 32 * 1024;
 const SAFE_METHODS_WITHOUT_BROWSER_ORIGIN = new Set(['GET', 'HEAD', 'OPTIONS']);
 const SECRET_ASSIGNMENT_PATTERN =
-  /\b([A-Z0-9_.-]*(?:API[_-]?KEY|SECRET|TOKEN|PASSWORD)[A-Z0-9_.-]*)(\s*[:=]\s*)([^\s,;"']+)/gi;
+  /\b([A-Z0-9_.-]*(?:API[_-]?KEY|ACCESS[_-]?KEY|SECRET|TOKEN|PASSWORD)[A-Z0-9_.-]*)(\s*[:=]\s*)([^\s,;"']+)/gi;
 const BEARER_PATTERN = /\bBearer\s+[a-z0-9._~+/=-]+/gi;
 const AUTHORIZATION_PATTERN =
   /\b(Authorization)(\s*[:=]\s*)(?!Bearer\s)([^\s,;"']+)/gi;

@@ -79,6 +79,7 @@ class ModelServiceStatus(BaseModel):
     tool_status_id: str = "ollama_cli"
     tool_consumers: list[str] = Field(default_factory=list)
     tool_fallback_order: list[str] = Field(default_factory=list)
+    tool_ownership_modes: list[str] = Field(default_factory=list)
     install_hint: str = ""
     notes: list[str] = Field(default_factory=list)
     provider: str = "ollama"
@@ -170,6 +171,26 @@ def _api_root_from_base_url(base_url: str) -> str:
             return trimmed[: -len("/v1")]
         return trimmed
     return base_url.removesuffix("/v1").rstrip("/")
+
+
+def _same_loopback_api_root(left: str, right: str) -> bool:
+    left_parsed = urlparse(left)
+    right_parsed = urlparse(right)
+    if not left_parsed.scheme or not right_parsed.scheme:
+        return left.rstrip("/") == right.rstrip("/")
+    if left_parsed.scheme != right_parsed.scheme:
+        return False
+    left_host = left_parsed.hostname or ""
+    right_host = right_parsed.hostname or ""
+    left_port = left_parsed.port or (443 if left_parsed.scheme == "https" else 80)
+    right_port = right_parsed.port or (443 if right_parsed.scheme == "https" else 80)
+    if left_port != right_port:
+        return False
+    if left_parsed.path.rstrip("/") != right_parsed.path.rstrip("/"):
+        return False
+    if left_host == right_host:
+        return True
+    return is_loopback_host(left_host) and is_loopback_host(right_host)
 
 
 def _base_url(host: str, port: int) -> str:
@@ -713,7 +734,10 @@ def build_model_service_status(
     )
     runtime_base_url_matches_app_service = bool(
         app_state is not None
-        and _api_root_from_base_url(settings.base_url) == app_state.base_url
+        and _same_loopback_api_root(
+            _api_root_from_base_url(settings.base_url),
+            app_state.base_url,
+        )
     )
     if app_owned:
         status_message = _app_owned_model_status_message(

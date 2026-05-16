@@ -416,6 +416,61 @@ def test_stop_webgui_service_kills_verified_listener_pid_only(
     assert status.app_owned is False
 
 
+def test_stop_webgui_service_kills_next_server_listener_verified_by_cwd(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = _settings(tmp_path)
+    state = webgui_service.WebGUIServiceState(
+        pid=222,
+        launcher_pid=111,
+        host="127.0.0.1",
+        port=3210,
+        url="http://127.0.0.1:3210",
+        started_at="2026-01-01T00:00:00+00:00",
+        stdout_log_path=str(tmp_path / "out.log"),
+        stderr_log_path=str(tmp_path / "err.log"),
+        command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
+    )
+    webgui_service._write_state(settings, state)
+    alive = {222}
+    killed_groups: list[tuple[int, int]] = []
+    killed_pids: list[tuple[int, int]] = []
+
+    def fake_killpg(pgid: int, sig: int) -> None:
+        killed_groups.append((pgid, sig))
+
+    def fake_kill(pid: int, sig: int) -> None:
+        killed_pids.append((pid, sig))
+        alive.discard(pid)
+
+    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid in alive)
+    monkeypatch.setattr(
+        webgui_service,
+        "_process_command_line",
+        lambda pid: "next-server (v16.2.6)" if pid == 222 else None,
+    )
+    monkeypatch.setattr(
+        webgui_service,
+        "_process_cwd",
+        lambda pid: webgui_service.webgui_dir().resolve() if pid == 222 else None,
+    )
+    monkeypatch.setattr(
+        webgui_service,
+        "_listen_port_owner_pid",
+        lambda host, port: 222 if host == "127.0.0.1" and port == 3210 else None,
+    )
+    monkeypatch.setattr(webgui_service.os, "getpgid", lambda _pid: 333)
+    monkeypatch.setattr(webgui_service.os, "killpg", fake_killpg)
+    monkeypatch.setattr(webgui_service.os, "kill", fake_kill)
+    monkeypatch.setattr(webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable"))
+
+    status = webgui_service.stop_webgui_service(settings)
+
+    assert killed_groups == [(333, signal.SIGTERM)]
+    assert killed_pids == [(222, signal.SIGTERM)]
+    assert status.app_owned is False
+
+
 def test_process_matches_state_uses_lsof_when_ps_is_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
