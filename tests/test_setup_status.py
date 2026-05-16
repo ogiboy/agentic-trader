@@ -6,6 +6,7 @@ import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.system import setup
+from agentic_trader.system.tool_ownership import write_tool_ownership
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
@@ -23,6 +24,7 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = _settings(tmp_path)
+    write_tool_ownership(settings, {"ollama": "host-owned", "firecrawl": "api-key-only"}, source="test")
     tool_paths = {
         "uv": "/opt/homebrew/bin/uv",
         "pnpm": "/opt/homebrew/bin/pnpm",
@@ -92,6 +94,10 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     tool_ids = {tool.tool_id: tool for tool in status.tools}
     assert tool_ids["uv"].required_for_core is True
     assert tool_ids["firecrawl_cli"].available is False
+    assert tool_ids["firecrawl_cli"].ownership_mode == "api-key-only"
+    assert tool_ids["ollama_cli"].ownership_mode == "host-owned"
+    assert status.tool_ownership is not None
+    assert status.tool_ownership.decisions_by_tool["ollama"].mode == "host-owned"
     assert tool_ids["research_flow_sidecar"].status == "needs_setup"
     assert "make bootstrap" in status.recommended_commands
 
@@ -206,3 +212,123 @@ def test_agentic_trader_entrypoint_reports_path_drift(
     assert tool.available is True
     assert tool.status == "path_drift"
     assert any("expected_repo_entrypoint" in note for note in tool.notes)
+
+
+def test_with_ownership_note_enriches_tool_with_mode_and_notes(
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path)
+    from agentic_trader.system.tool_ownership import (
+        read_tool_ownership_payload,
+        write_tool_ownership,
+    )
+    write_tool_ownership(settings, {"ollama": "host-owned"}, source="test-enrichment")
+    ownership = read_tool_ownership_payload(settings)
+
+    base_tool = setup.ToolStatus(
+        tool_id="ollama_cli",
+        label="Ollama",
+        category="runtime_optional",
+        available=False,
+        required_for_core=False,
+    )
+    enriched = setup._with_ownership_note(base_tool, "ollama", ownership)
+
+    assert enriched.ownership_tool == "ollama"
+    assert enriched.ownership_mode == "host-owned"
+    assert enriched.ownership_note is not None
+    assert any("ownership=host-owned" in note for note in enriched.notes)
+    assert any("ownership_source=test-enrichment" in note for note in enriched.notes)
+
+
+def test_with_ownership_note_undecided_mode_on_fresh_ownership(
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path)
+    from agentic_trader.system.tool_ownership import read_tool_ownership_payload
+
+    ownership = read_tool_ownership_payload(settings)
+
+    base_tool = setup.ToolStatus(
+        tool_id="firecrawl_cli",
+        label="Firecrawl",
+        category="runtime_optional",
+        available=False,
+        required_for_core=False,
+    )
+    enriched = setup._with_ownership_note(base_tool, "firecrawl", ownership)
+
+    assert enriched.ownership_mode == "undecided"
+    assert any("ownership=undecided" in note for note in enriched.notes)
+    assert any("ownership_source=default" in note for note in enriched.notes)
+
+
+def test_build_setup_status_includes_camofox_ownership_in_tool_notes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = _settings(tmp_path)
+    from agentic_trader.system.tool_ownership import write_tool_ownership
+    write_tool_ownership(settings, {"camofox": "skipped"}, source="test")
+
+    monkeypatch.setattr(setup.shutil, "which", lambda _command: None)
+    monkeypatch.setattr(setup, "_command_version", lambda _command, _args=None: None)
+    monkeypatch.setattr(
+        setup,
+        "crewai_setup_status",
+        lambda _: {
+            "environment_exists": False,
+            "flow_dir": str(tmp_path / "sidecars" / "research_flow"),
+            "version": None,
+            "notes": [],
+        },
+    )
+    monkeypatch.setattr(
+        setup,
+        "build_model_service_status",
+        lambda _: type(
+            "Status",
+            (),
+            {
+                "model_dump": lambda self, mode="json": {
+                    "provider": "ollama",
+                    "service_reachable": False,
+                }
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        setup,
+        "build_camofox_service_status",
+        lambda _: type(
+            "Status",
+            (),
+            {
+                "model_dump": lambda self, mode="json": {
+                    "service_reachable": False,
+                    "message": "not running",
+                }
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        setup,
+        "build_webgui_service_status",
+        lambda _: type(
+            "Status",
+            (),
+            {
+                "model_dump": lambda self, mode="json": {
+                    "service_reachable": False,
+                    "message": "not running",
+                }
+            },
+        )(),
+    )
+
+    status = setup.build_setup_status(settings)
+
+    tool_ids = {tool.tool_id: tool for tool in status.tools}
+    camofox_tool = tool_ids.get("camofox_browser")
+    assert camofox_tool is not None
+    assert camofox_tool.ownership_mode == "skipped"
+    assert any("ownership=skipped" in note for note in camofox_tool.notes)

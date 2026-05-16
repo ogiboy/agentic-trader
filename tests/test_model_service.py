@@ -91,6 +91,7 @@ def test_start_model_service_uses_minimal_env_and_owner_state(
     assert status.tool_status_id == "ollama_cli"
     assert "model-service" in status.tool_consumers
     assert "app_managed_repo_config" in status.tool_fallback_order
+    assert "app-owned" in status.tool_ownership_modes
     assert "local_tool_id=ollama" in status.notes
     assert captured["command"] == ["/opt/homebrew/bin/ollama", "serve"]
     env = captured["env"]
@@ -436,6 +437,40 @@ def test_model_service_status_marks_app_owned_base_url_mismatch(
     assert "different base URL" in status.message
 
 
+def test_model_service_status_accepts_equivalent_loopback_base_url(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = _settings(tmp_path, base_url="http://localhost:11434/v1")
+    state = model_service.ModelServiceState(
+        pid=22223,
+        host="127.0.0.1",
+        port=11434,
+        base_url="http://127.0.0.1:11434",
+        started_at="2026-01-01T00:00:00+00:00",
+        stdout_log_path=str(tmp_path / "out.log"),
+        stderr_log_path=str(tmp_path / "err.log"),
+        command=["/opt/homebrew/bin/ollama", "serve"],
+    )
+    model_service._write_state(settings, state)
+
+    monkeypatch.setattr(model_service, "is_process_alive", lambda pid: pid == 22223)
+    monkeypatch.setattr(model_service, "_process_matches_state", lambda _state: True)
+    monkeypatch.setattr(
+        model_service,
+        "_fetch_ollama_tags",
+        lambda api_root, timeout_seconds=2.0: (
+            True,
+            ["qwen3:8b"],
+            f"{api_root} reachable",
+        ),
+    )
+
+    status = model_service.build_model_service_status(settings)
+
+    assert status.runtime_base_url_matches_app_service is True
+    assert "different base URL" not in status.message
+
+
 def test_model_service_status_can_probe_generation_failure(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -604,3 +639,67 @@ def test_stop_model_service_cleans_orphan_app_managed_ports_only(
     model_service.stop_model_service(settings)
 
     assert killed == [111]
+
+
+def test_same_loopback_api_root_accepts_localhost_and_127() -> None:
+    assert model_service._same_loopback_api_root(
+        "http://localhost:11434",
+        "http://127.0.0.1:11434",
+    ) is True
+
+
+def test_same_loopback_api_root_accepts_identical_hosts() -> None:
+    assert model_service._same_loopback_api_root(
+        "http://127.0.0.1:11434",
+        "http://127.0.0.1:11434",
+    ) is True
+
+
+def test_same_loopback_api_root_rejects_different_ports() -> None:
+    assert model_service._same_loopback_api_root(
+        "http://127.0.0.1:11434",
+        "http://127.0.0.1:11435",
+    ) is False
+
+
+def test_same_loopback_api_root_rejects_different_schemes() -> None:
+    assert model_service._same_loopback_api_root(
+        "http://127.0.0.1:11434",
+        "https://127.0.0.1:11434",
+    ) is False
+
+
+def test_same_loopback_api_root_rejects_different_paths() -> None:
+    assert model_service._same_loopback_api_root(
+        "http://127.0.0.1:11434/api",
+        "http://127.0.0.1:11434/v2",
+    ) is False
+
+
+def test_same_loopback_api_root_accepts_trailing_slash_equivalence() -> None:
+    assert model_service._same_loopback_api_root(
+        "http://127.0.0.1:11434/",
+        "http://127.0.0.1:11434",
+    ) is True
+
+
+def test_same_loopback_api_root_handles_no_scheme_literal_comparison() -> None:
+    assert model_service._same_loopback_api_root(
+        "127.0.0.1:11434",
+        "127.0.0.1:11434",
+    ) is True
+    assert model_service._same_loopback_api_root(
+        "127.0.0.1:11434",
+        "localhost:11434",
+    ) is False
+
+
+def test_same_loopback_api_root_rejects_non_loopback_even_if_same_host() -> None:
+    assert model_service._same_loopback_api_root(
+        "http://192.168.1.1:11434",
+        "http://192.168.1.1:11434",
+    ) is True
+    assert model_service._same_loopback_api_root(
+        "http://192.168.1.1:11434",
+        "http://192.168.1.2:11434",
+    ) is False
