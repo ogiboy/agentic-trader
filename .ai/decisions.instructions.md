@@ -732,6 +732,24 @@ Neither command installs dependencies, fetches a browser, pulls a model, creates
 provider accounts, touches secrets or brokerage configuration, approves
 proposals, or starts a trading daemon.
 
+### app:update is a scoped native-owner lane
+
+Reason:
+Dependency and lockfile updates are broad enough that they should be narrated in
+one operator command instead of scattered across manual `pnpm`, `uv`, sidecar,
+tool-root, build, and status commands.
+`app:update` therefore defaults to a dry-run plan and requires at least one
+explicit scope plus `--yes` before it mutates anything.
+The first scopes are `--core` for root pnpm plus root uv lock/env updates,
+`--sidecar` for the CrewAI Flow uv lock/env, `--camofox` for optional
+Camofox helper package dependencies, `--build` for repository/sidecar/tool-root
+checks, and `--status` for the post-update `app:doctor` payload.
+`--all` selects the full lane.
+The command must not fetch Camofox browser binaries, pull Ollama models, start
+or stop app-owned services, create provider accounts, touch secrets or brokerage
+configuration, delete runtime state, approve proposals, or start a trading
+daemon.
+
 ### Camofox tool-root commands are pnpm-owned, browser fetch remains separate
 
 Reason:

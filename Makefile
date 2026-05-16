@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap bootstrap-dry-run setup setup-tools app-doctor app-setup app-start app-stop setup-camofox fetch-camofox check-camofox setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-prompts qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai start-camofox webgui docs tui clean clean-deps clean-all
+.PHONY: help bootstrap bootstrap-dry-run setup setup-tools app-doctor app-setup app-start app-stop app-update setup-camofox fetch-camofox check-camofox setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-prompts qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai start-camofox webgui docs tui clean clean-deps clean-all
 
 help:
 	@printf '%s\n' \
@@ -13,6 +13,7 @@ help:
 		'  make app-setup    preview setup lifecycle or run explicit core repair with ARGS="--core --yes"' \
 		'  make app-start    preview/start selected app-owned services with ARGS="--webgui --yes"' \
 		'  make app-stop     preview/stop selected app-owned services with ARGS="--all --yes"' \
+		'  make app-update   preview/update selected dependency owners with ARGS="--core --build --status --yes"' \
 		'  make setup-camofox install optional Camofox helper deps without browser download' \
 		'  make fetch-camofox download/update optional Camoufox browser binary' \
 		'  make check-camofox syntax-check the optional Camofox helper' \
@@ -56,6 +57,9 @@ app-start:
 
 app-stop:
 	pnpm run app:stop -- $(ARGS)
+
+app-update:
+	pnpm run app:update -- $(ARGS)
 
 setup-camofox:
 	pnpm run setup:camofox

@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCTOR_SCRIPT = ROOT / "scripts" / "app-doctor.mjs"
 SETUP_SCRIPT = ROOT / "scripts" / "app-setup.mjs"
 SERVICES_SCRIPT = ROOT / "scripts" / "app-services.mjs"
+UPDATE_SCRIPT = ROOT / "scripts" / "app-update.mjs"
 
 
 def _fake_cli(tmp_path: Path, exit_code: int = 0) -> Path:
@@ -59,6 +60,22 @@ def _fake_pnpm(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
     )
     script.chmod(0o755)
     return script, log_path
+
+
+def _fake_update_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log_path = tmp_path / "update.log"
+    for name in ("pnpm", "uv"):
+        script = bin_dir / name
+        script.write_text(
+            "#!/usr/bin/env sh\n"
+            "printf '%s|%s|%s\\n' \"$(basename \"$0\")\" \"$PWD\" \"$*\" >> \"$UPDATE_LOG\"\n"
+            f"exit {exit_code}\n",
+            encoding="utf-8",
+        )
+        script.chmod(0o755)
+    return bin_dir, log_path
 
 
 def _fake_service_cli(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
@@ -115,6 +132,23 @@ def _run_services(
         merged_env.update(env)
     return subprocess.run(
         ["node", str(SERVICES_SCRIPT), mode, *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=merged_env,
+    )
+
+
+def _run_update(
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    if env is not None:
+        merged_env.update(env)
+    return subprocess.run(
+        ["node", str(UPDATE_SCRIPT), *args],
         check=False,
         capture_output=True,
         text=True,
@@ -379,3 +413,91 @@ def test_app_stop_fails_when_service_payload_remains_app_owned(
     assert result.returncode == 1
     assert payload["steps"][0]["status"] == "failed"
     assert payload["steps"][0]["payload"]["message"] == "still running"
+
+
+def test_app_update_dry_run_plans_all_owner_lanes() -> None:
+    result = _run_update("--json", "--dry-run")
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["action"] == "update"
+    assert payload["dry_run"] is True
+    assert payload["mutated"] is False
+    assert payload["selected_scopes"] == []
+    commands = [" ".join(step["command"]) for step in payload["steps"]]
+    assert "pnpm update --recursive --latest" in commands
+    assert "uv sync --locked --all-extras --group dev" in commands
+    assert "pnpm --dir tools/camofox-browser --ignore-workspace update" in commands
+    assert "pnpm run check" in commands
+    assert "pnpm run app:doctor -- --json" in commands
+    assert not any("fetch:camofox" in command for command in commands)
+    assert not any("model-service pull" in command for command in commands)
+    assert not any("webgui-service start" in command for command in commands)
+
+
+def test_app_update_rejects_yes_without_scope() -> None:
+    result = _run_update("--json", "--yes")
+
+    assert result.returncode == 2
+    assert "Select at least one update scope" in result.stderr
+
+
+def test_app_update_core_yes_runs_only_core_owner_steps(tmp_path: Path) -> None:
+    bin_dir, log_path = _fake_update_toolchain(tmp_path)
+    result = _run_update(
+        "--json",
+        "--core",
+        "--yes",
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "UPDATE_LOG": str(log_path),
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["dry_run"] is False
+    assert payload["mutated"] is True
+    assert payload["selected_scopes"] == ["core"]
+    log_lines = log_path.read_text(encoding="utf-8").splitlines()
+    assert log_lines == [
+        f"pnpm|{ROOT}|update --recursive --latest",
+        f"uv|{ROOT}|lock --upgrade",
+        f"uv|{ROOT}|sync --locked --all-extras --group dev",
+    ]
+    assert all(
+        step["status"] == "passed"
+        for step in payload["steps"]
+        if step["scope"] == "core"
+    )
+    assert all(
+        step["status"] == "deferred"
+        for step in payload["steps"]
+        if step["scope"] != "core"
+    )
+
+
+def test_app_update_stops_selected_lane_after_failure(tmp_path: Path) -> None:
+    bin_dir, log_path = _fake_update_toolchain(tmp_path, exit_code=7)
+    result = _run_update(
+        "--json",
+        "--core",
+        "--yes",
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "UPDATE_LOG": str(log_path),
+        },
+    )
+    payload = json.loads(result.stdout)
+    core_steps = [step for step in payload["steps"] if step["scope"] == "core"]
+
+    assert result.returncode == 1
+    assert payload["mutated"] is True
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        f"pnpm|{ROOT}|update --recursive --latest",
+    ]
+    assert [step["status"] for step in core_steps] == [
+        "failed",
+        "skipped",
+        "skipped",
+    ]

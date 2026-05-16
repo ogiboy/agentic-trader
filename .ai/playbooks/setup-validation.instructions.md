@@ -39,6 +39,11 @@ instead of treating them as aliases for the same script:
 - `pnpm run app:stop -- --dry-run`: app-owned service stop preview only
 - `pnpm run app:stop -- --all --yes`: stop only app-owned service records
   through existing service ownership safeguards
+- `pnpm run app:update -- --dry-run`: update lifecycle preview across native
+  dependency owners only
+- `pnpm run app:update -- --core --sidecar --build --status --yes`: selected
+  root/sidecar update lane plus checks/status; no browser fetch, model pull, or
+  service start/stop
 - `pnpm run app:up`: guided first-run path that may repair setup, start approved
   app-owned helper services, and open Web GUI
 - `pnpm run app:start`: start configured app-owned services and Web GUI only
@@ -83,6 +88,10 @@ or app-owned runtime state.
 - `webgui-service stop` should preserve app-owned state if the recorded process
   cannot be stopped, so retry/debug remains possible and the process is not
   reclassified as external.
+- `app:update` must require explicit scopes plus `--yes` before mutation and
+  must not fetch browser binaries, pull Ollama models, start/stop services,
+  create provider accounts, touch brokerage config, delete runtime state, or
+  start a trading daemon.
 - Optional Ollama, Firecrawl, and Camofox setup records host-owned, app-owned,
   API/key-only, or skipped ownership instead of guessing silently.
 - Root Python is uv-managed; Conda/Poetry are not the default path.

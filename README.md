@@ -192,6 +192,19 @@ delegate ownership checks to `model-service`, `camofox-service`, and
 app-owned Web GUI process cannot be stopped, its state is preserved for retry
 instead of being reclassified as an external listener.
 
+For the explicit update lane, preview first and then choose native dependency
+owners:
+
+```bash
+pnpm run app:update -- --dry-run
+pnpm run app:update -- --core --sidecar --build --status --yes
+```
+
+`app:update` can update root pnpm, root uv, CrewAI Flow sidecar uv, and optional
+Camofox helper package dependencies, then run checks and `app:doctor`. It does
+not fetch browser binaries, pull Ollama models, start or stop services, delete
+runtime state, touch secrets or brokerage config, or start the trading daemon.
+
 ### Optional Web GUI
 
 ```bash
@@ -329,6 +342,7 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 | `pnpm --silent run app:setup -- --json --core --yes`              | Run only explicit core repair: root Node workspace setup plus root uv Python sync |
 | `pnpm --silent run app:start -- --json --webgui --yes`            | Start only the selected app-owned service surfaces; Web GUI browser open stays opt-in |
 | `pnpm --silent run app:stop -- --json --all --yes`                | Stop only app-owned service PIDs recorded by the app                 |
+| `pnpm --silent run app:update -- --json --dry-run`                | Preview the scoped update lane across native dependency owners       |
 | `agentic-trader model-service status --probe-generation --json`  | Inspect configured/app-managed Ollama readiness, generation, and log tails |
 | `agentic-trader model-service start`                             | Start only an app-owned loopback Ollama process                   |
 | `agentic-trader model-service pull qwen3:8b`                     | Pull an Ollama model through the configured/app-owned service     |
@@ -368,6 +382,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `pnpm --silent run app:setup -- --json --core --yes`                                   | Repair only core root dependencies after explicit approval |
 | `pnpm --silent run app:start -- --json --webgui --yes`                                 | Start selected app-owned helper services without installing, pulling models, or launching a trading daemon |
 | `pnpm --silent run app:stop -- --json --all --yes`                                     | Stop only app-owned helper services recorded by the app |
+| `pnpm --silent run app:update -- --json --dry-run`                                     | Preview root/sidecar/tool-root update, build, and status lanes |
 | `agentic-trader model-service status --probe-generation --json`                        | Inspect local Ollama/service/model/generation readiness |
 | `agentic-trader webgui-service status --json`                                          | Inspect loopback Web GUI service readiness |
 | `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
@@ -413,6 +428,7 @@ pnpm run app:doctor
 pnpm run app:setup -- --dry-run
 pnpm run app:start -- --dry-run
 pnpm run app:stop -- --dry-run
+pnpm run app:update -- --dry-run
 pnpm run qa:quality
 pnpm run setup:research-flow
 pnpm run check:research-flow

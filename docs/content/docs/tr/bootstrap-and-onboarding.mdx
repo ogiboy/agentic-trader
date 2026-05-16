@@ -56,6 +56,12 @@ açmazlar. Sahiplik kontrolleri mevcut `model-service`, `camofox-service` ve
 süreci durdurulamazsa state retry için korunur; süreç sessizce external
 listener gibi yeniden sınıflandırılmaz.
 
+`app:update` ilk scoped update lane'i olarak implemente edildi. Varsayılanı
+dry-run'dır; mutasyon için `--core`, `--sidecar`, `--camofox`, `--build`,
+`--status` veya `--all` seçimi ve `--yes` ister. Her dependency setinin native
+sahibini kullanır; browser binary fetch etmez, model çekmez, servis
+başlatmaz/durdurmaz, runtime state silmez ve trading daemon başlatmaz.
+
 ## Vazgeçilmez gereksinimler
 
 - macOS, Linux ve Windows desteği
@@ -115,13 +121,15 @@ Wrapper ve servis komutları helper'ı yalnızca loopback host ile ve `CAMOFOX_A
 
 ## Update ve uninstall yönü
 
-`app:update` her dependency sahibini kendi aracıyla güncellemeli, sonra build ve setup status çalıştırmalı:
+`app:update` her dependency sahibini kendi aracıyla günceller, sonra build ve
+setup status çalıştırabilir:
 
 - root Node workspace: pnpm recursive/workspace update akışı
 - Camofox helper: `pnpm --dir tools/camofox-browser ...`
 - root Python: uv lock upgrade ve locked sync
 - CrewAI Flow sidecar: sidecar uv lock upgrade ve locked sync
 - docs/WebGUI/TUI: normal workspace build ve typecheck kapıları
+- post-update status: `app:doctor`
 
 `app:uninstall` yalnızca açıkça seçilen app-owned artifact'ları kaldırmalı: `.venv`, `node_modules`, sidecar `.venv`, generated runtime state ve indirilen helper asset'leri gibi.
 API keyleri, broker/provider hesapları, user-owned host servisleri veya alakasız global tool'ları silmemeli.

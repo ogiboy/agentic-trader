@@ -57,6 +57,13 @@ and `webgui-service` commands. If the recorded app-owned Web GUI process cannot
 be stopped, its state remains for retry rather than being silently reclassified
 as an external listener.
 
+`app:update` is implemented as the first scoped update lane. It defaults to
+dry-run and requires selecting `--core`, `--sidecar`, `--camofox`, `--build`,
+`--status`, or `--all` plus `--yes` before it mutates anything. It uses the
+native owners for each dependency set and does not fetch browser binaries, pull
+models, start or stop services, delete runtime state, or start the trading
+daemon.
+
 ## Non-negotiable requirements
 
 - cross-platform support: macOS, Linux, and Windows
@@ -116,13 +123,15 @@ The wrapper and service commands should start the helper only with a loopback ho
 
 ## Update and uninstall direction
 
-`app:update` should update each dependency owner through its native tool, then rebuild and re-run setup status:
+`app:update` updates each dependency owner through its native tool, then can
+rebuild and re-run setup status:
 
 - root Node workspace: pnpm recursive/workspace update flow
 - Camofox helper: `pnpm --dir tools/camofox-browser ...`
 - root Python: uv lock upgrade plus locked sync
 - CrewAI Flow sidecar: sidecar uv lock upgrade plus locked sync
 - docs/WebGUI/TUI: normal workspace build and typecheck gates
+- post-update status: `app:doctor`
 
 `app:uninstall` should remove only app-owned artifacts such as `.venv`, `node_modules`, sidecar `.venv`, generated runtime state, and downloaded helper assets when explicitly selected.
 It should not delete API keys, brokerage/provider accounts, user-owned host services, or unrelated global tools.
