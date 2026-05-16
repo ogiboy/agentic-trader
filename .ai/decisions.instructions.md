@@ -74,6 +74,14 @@ The root pnpm workspace should not leave operators guessing whether `webgui`, `d
 `pnpm run setup` and `make setup` now run a node workspace setup script that installs the workspace, approves allowed builds, and checks expected dependency directories before Python sync.
 Normal `clean` remains artifact/cache-only to avoid unexpectedly deleting large installs, while `clean:deps` and `clean:all` make dependency removal intentional.
 
+### Guided app lifecycle commands compose existing owners
+
+Reason:
+V1 onboarding needs one understandable operator path, but setup/start/update/uninstall must not become hidden side effects.
+`app:up` therefore composes the existing lifecycle facades instead of owning a second runtime: it plans by default, runs the safe first-run lane only after explicit scopes plus `--yes`, and delegates setup, service ownership, and readiness checks to the already tested `app:setup`, `app:start`, and `app:doctor` commands.
+Optional Camofox dependency setup, browser binary fetches, model-service starts, and Camofox-service starts require matching ownership flags such as app-owned; host-owned, API/key-only, and skipped choices remain visible setup decisions rather than inferred installs or process ownership.
+The trading daemon, broker config, provider accounts, secrets, hidden model pulls, and hidden browser downloads remain out of `app:up`.
+
 ### Operator-facing finance truth must be reconciled evidence, not UI copy
 
 Reason:

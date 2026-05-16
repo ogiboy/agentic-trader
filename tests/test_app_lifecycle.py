@@ -10,6 +10,7 @@ SETUP_SCRIPT = ROOT / "scripts" / "app-setup.mjs"
 SERVICES_SCRIPT = ROOT / "scripts" / "app-services.mjs"
 UPDATE_SCRIPT = ROOT / "scripts" / "app-update.mjs"
 UNINSTALL_SCRIPT = ROOT / "scripts" / "app-uninstall.mjs"
+UP_SCRIPT = ROOT / "scripts" / "app-up.mjs"
 
 
 def _fake_cli(tmp_path: Path, exit_code: int = 0) -> Path:
@@ -76,6 +77,27 @@ def _fake_update_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Pa
             encoding="utf-8",
         )
         script.chmod(0o755)
+    return bin_dir, log_path
+
+
+def _fake_app_up_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log_path = tmp_path / "app-up.log"
+    script = bin_dir / "pnpm"
+    script.write_text(
+        "#!/usr/bin/env sh\n"
+        "printf '%s|%s\\n' \"$PWD\" \"$*\" >> \"$APP_UP_LOG\"\n"
+        "case \"$*\" in\n"
+        "  *app:doctor*) printf '{\"action\":\"doctor\",\"mutated\":false}\\n' ;;\n"
+        "  *app:start*) printf '{\"action\":\"start\",\"mutated\":true}\\n' ;;\n"
+        "  *app:setup*) printf '{\"action\":\"setup\",\"mutated\":true}\\n' ;;\n"
+        "  *) printf '{\"ok\":true}\\n' ;;\n"
+        "esac\n"
+        f"exit {exit_code}\n",
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
     return bin_dir, log_path
 
 
@@ -167,6 +189,23 @@ def _run_uninstall(
         merged_env.update(env)
     return subprocess.run(
         ["node", str(UNINSTALL_SCRIPT), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=merged_env,
+    )
+
+
+def _run_up(
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    if env is not None:
+        merged_env.update(env)
+    return subprocess.run(
+        ["node", str(UP_SCRIPT), *args],
         check=False,
         capture_output=True,
         text=True,
@@ -527,6 +566,106 @@ def test_app_update_stops_selected_lane_after_failure(tmp_path: Path) -> None:
         "skipped",
         "skipped",
     ]
+
+
+def test_app_up_dry_run_plans_guided_first_run_without_mutation() -> None:
+    result = _run_up("--json", "--dry-run")
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["action"] == "up"
+    assert payload["dry_run"] is True
+    assert payload["mutated"] is False
+    assert payload["selected_scopes"] == []
+    assert [decision["mode"] for decision in payload["ownership_decisions"]] == [
+        "undecided",
+        "undecided",
+        "undecided",
+    ]
+    commands = [" ".join(step["command"]) for step in payload["steps"]]
+    assert "pnpm run app:setup -- --json --core --yes" in commands
+    assert "pnpm run setup:research-flow" in commands
+    assert "pnpm run setup:camofox" in commands
+    assert "pnpm run fetch:camofox" in commands
+    assert "pnpm run app:start -- --json --webgui --yes" in commands
+    assert "pnpm run app:doctor -- --json" in commands
+    assert not any("model-service pull" in command for command in commands)
+    assert any(
+        "No trading daemon" in note
+        for note in payload["safety_notes"]
+    )
+
+
+def test_app_up_rejects_yes_without_scope() -> None:
+    result = _run_up("--json", "--yes")
+
+    assert result.returncode == 2
+    assert "Select at least one app:up scope" in result.stderr
+
+
+def test_app_up_blocks_app_owned_steps_without_owner_decision() -> None:
+    result = _run_up("--json", "--model-service", "--yes")
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 1
+    blocked = [step for step in payload["steps"] if step["status"] == "blocked"]
+    assert blocked[0]["id"] == "model-service-start"
+    assert "--ollama-owner=app-owned" in blocked[0]["reason"]
+    assert payload["mutated"] is False
+
+
+def test_app_up_all_yes_runs_safe_first_run_scopes(tmp_path: Path) -> None:
+    bin_dir, log_path = _fake_app_up_toolchain(tmp_path)
+    result = _run_up(
+        "--json",
+        "--all",
+        "--yes",
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "APP_UP_LOG": str(log_path),
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["dry_run"] is False
+    assert payload["mutated"] is True
+    assert payload["selected_scopes"] == ["core", "sidecar", "webgui", "status"]
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        f"{ROOT}|run app:setup -- --json --core --yes",
+        f"{ROOT}|run setup:research-flow",
+        f"{ROOT}|run app:start -- --json --webgui --yes",
+        f"{ROOT}|run app:doctor -- --json",
+    ]
+    assert all(
+        step["status"] == "deferred"
+        for step in payload["steps"]
+        if step["scope"] in {"camofox-deps", "camofox-browser", "model-service", "camofox-service"}
+    )
+
+
+def test_app_up_owner_scoped_model_service_runs_only_when_app_owned(
+    tmp_path: Path,
+) -> None:
+    bin_dir, log_path = _fake_app_up_toolchain(tmp_path)
+    result = _run_up(
+        "--json",
+        "--model-service",
+        "--ollama-owner=app-owned",
+        "--yes",
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "APP_UP_LOG": str(log_path),
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["selected_scopes"] == ["model-service"]
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        f"{ROOT}|run app:start -- --json --model-service --yes"
+    ]
+    assert payload["steps"][4]["status"] == "passed"
 
 
 def test_app_uninstall_dry_run_plans_safe_scopes() -> None:

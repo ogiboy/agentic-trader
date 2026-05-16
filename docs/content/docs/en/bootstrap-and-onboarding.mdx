@@ -47,6 +47,16 @@ provider diagnostics, and network-light `v1-readiness`; generation probes remain
 explicit through `v1-readiness --provider-check` or
 `model-service status --probe-generation`.
 
+`app:up` is now the first guided first-run orchestrator. It defaults to dry-run
+and composes the existing lifecycle commands instead of creating another runtime
+owner. The safe `--all --yes` lane runs core setup repair, the isolated CrewAI
+Flow sidecar setup, app-owned Web GUI start, and a final `app:doctor` report.
+Optional Camofox dependency setup, Camofox browser binary fetch, model-service
+start, and Camofox-service start require explicit scopes plus matching ownership
+flags such as `--ollama-owner=app-owned` or `--camofox-owner=app-owned`.
+Host-owned, API/key-only, and skipped choices stay visible in the JSON plan and
+do not become hidden installs.
+
 `app:start` and `app:stop` are also implemented as conservative service slices:
 they default to dry-run, require selecting `--webgui`, `--model-service`,
 `--camofox-service`, or `--all`, and mutate only after `--yes`. They do not

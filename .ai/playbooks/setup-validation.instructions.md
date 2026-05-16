@@ -57,6 +57,12 @@ instead of treating them as aliases for the same script:
   artifacts and dependency directories only
 - `pnpm run app:uninstall -- --service-state --yes`: remove app-owned service
   logs/state only after recorded service state files are already cleared
+- `pnpm run app:up -- --dry-run`: preview the guided first-run orchestration
+  without mutating dependencies, optional helpers, services, or browser state
+- `pnpm run app:up -- --all --yes`: run only the safe first-run lane: core
+  repair, CrewAI Flow sidecar setup, app-owned Web GUI start, and final doctor
+- `pnpm run app:up -- --model-service --ollama-owner=app-owned --yes`: start
+  the app-owned model-service only after the ownership decision is explicit
 
 Every lifecycle command should have a dry-run or preview path before it mutates
 system tools, dependency locks, downloaded browser/model assets, PATH symlinks,
@@ -85,6 +91,9 @@ or app-owned runtime state.
 - `clean` removes generated artifacts only.
 - `clean:deps` or `clean:all` removes installed dependencies.
 - `app:up` may launch the Web GUI but must not auto-start a trading daemon.
+- `app:up --all` must not imply browser binary fetches, model pulls, Camofox
+  service start, provider account creation, brokerage config edits, or hidden
+  tool ownership.
 - `app:start`, `app:stop`, and `app:uninstall` affect app-owned resources only
   unless the operator explicitly approves broader host/global changes.
 - `app:start` and `app:stop` require an explicit service selection plus `--yes`

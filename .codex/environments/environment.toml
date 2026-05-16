@@ -51,11 +51,19 @@ name = "preview app lifecycle"
 icon = "tool"
 command = '''
 pnpm run app:doctor -- --json
+pnpm run app:up -- --dry-run
 pnpm run app:setup -- --dry-run
 pnpm run app:start -- --dry-run
 pnpm run app:stop -- --dry-run
 pnpm run app:update -- --dry-run
 pnpm run app:uninstall -- --dry-run
+'''
+
+[[actions]]
+name = "preview app first run"
+icon = "tool"
+command = '''
+pnpm run app:up -- --dry-run
 '''
 
 [[actions]]

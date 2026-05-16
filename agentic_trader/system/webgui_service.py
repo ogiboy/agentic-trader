@@ -358,6 +358,28 @@ def _send_process_signal(
         return False
 
 
+def _verified_stop_pids(state: WebGUIServiceState) -> list[int]:
+    """Return app-owned Web GUI PIDs safe to signal individually."""
+
+    pids: list[int] = []
+    if _state_process_alive(state):
+        pids.append(state.pid)
+    if state.launcher_pid is not None and state.launcher_pid not in pids:
+        launcher_line = _process_command_line(state.launcher_pid)
+        if launcher_line and _command_line_matches_webgui(launcher_line, state):
+            pids.append(state.launcher_pid)
+    return pids
+
+
+def _send_state_signal(state: WebGUIServiceState, signal_number: int) -> bool:
+    """Signal the recorded process group, then verified child/launcher PIDs."""
+
+    sent = _send_process_signal(state.pid, signal_number, process_group=True)
+    for pid in _verified_stop_pids(state):
+        sent = _send_process_signal(pid, signal_number) or sent
+    return sent
+
+
 def _wait_for_state_exit(state: WebGUIServiceState, *, timeout: float) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline and _state_process_alive(state):
@@ -611,14 +633,10 @@ def stop_webgui_service(settings: Settings) -> WebGUIServiceStatus:
     if state is None:
         return build_webgui_service_status(settings)
     if _state_process_alive(state):
-        _send_process_signal(state.pid, signal.SIGTERM, process_group=True)
+        _send_state_signal(state, signal.SIGTERM)
         stopped = _wait_for_state_exit(state, timeout=5)
         if not stopped:
-            _send_process_signal(
-                state.pid,
-                getattr(signal, "SIGKILL", signal.SIGTERM),
-                process_group=True,
-            )
+            _send_state_signal(state, getattr(signal, "SIGKILL", signal.SIGTERM))
             stopped = _wait_for_state_exit(state, timeout=1)
         if not stopped:
             return build_webgui_service_status(settings).model_copy(

@@ -1,6 +1,6 @@
 {
   "name": "agentic-trader-workspace",
-  "version": "0.10.6",
+  "version": "0.10.7",
   "private": true,
   "license": "LGPL-3.0-or-later",
   "packageManager": "pnpm@11.0.9",
@@ -13,6 +13,7 @@
     "setup": "pnpm run setup:node && pnpm run install:python",
     "setup:tools": "uv run --locked --all-extras --group dev agentic-trader setup-status",
     "app:doctor": "node scripts/app-doctor.mjs",
+    "app:up": "node scripts/app-up.mjs",
     "app:setup": "node scripts/app-setup.mjs",
     "app:start": "node scripts/app-services.mjs start",
     "app:stop": "node scripts/app-services.mjs stop",

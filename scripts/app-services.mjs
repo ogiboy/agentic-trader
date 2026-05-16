@@ -1,10 +1,6 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { parseJsonPayload, resolveAgenticTrader, runLifecycleCommand } from './lib/app-lifecycle.mjs';
 
-const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SERVICE_IDS = ['model-service', 'camofox-service', 'webgui-service'];
 
 function usage(exitCode = 0) {
@@ -89,25 +85,6 @@ function parseArgs(argv) {
   }
 
   return options;
-}
-
-function commandExists(command) {
-  const result = spawnSync('sh', ['-c', 'command -v "$1"', 'sh', command], {
-    cwd: ROOT_DIR,
-    encoding: 'utf8',
-  });
-  return result.status === 0 ? result.stdout.trim() : null;
-}
-
-function resolveAgenticTrader() {
-  if (Object.prototype.hasOwnProperty.call(process.env, 'AGENTIC_TRADER_CLI')) {
-    return process.env.AGENTIC_TRADER_CLI || null;
-  }
-  const worktreeEntrypoint = join(ROOT_DIR, '.venv/bin/agentic-trader');
-  if (existsSync(worktreeEntrypoint)) {
-    return worktreeEntrypoint;
-  }
-  return commandExists('agentic-trader');
 }
 
 function serviceStep(id, label, args, selected, reason) {
@@ -223,14 +200,6 @@ function skippedStep(step, reason) {
   };
 }
 
-function parsePayload(stdout) {
-  try {
-    return JSON.parse(stdout);
-  } catch {
-    return null;
-  }
-}
-
 function commandSucceeded(mode, payload) {
   if (!payload || typeof payload !== 'object') {
     return false;
@@ -242,13 +211,8 @@ function commandSucceeded(mode, payload) {
 }
 
 function runStep(cliPath, step, mode) {
-  const completed = spawnSync(cliPath, step.command.slice(1), {
-    cwd: ROOT_DIR,
-    env: process.env,
-    encoding: 'utf8',
-    stdio: 'pipe',
-  });
-  const payload = completed.status === 0 ? parsePayload(completed.stdout) : null;
+  const completed = runLifecycleCommand([cliPath, ...step.command.slice(1)]);
+  const payload = completed.status === 0 ? parseJsonPayload(completed.stdout) : null;
   const passed = completed.status === 0 && commandSucceeded(mode, payload);
   return {
     ...step,

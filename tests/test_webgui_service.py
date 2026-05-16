@@ -325,6 +325,62 @@ def test_stop_webgui_service_escalates_when_app_owned_process_survives_sigterm(
     assert webgui_service.webgui_service_state_path(settings).exists()
 
 
+def test_stop_webgui_service_falls_back_to_verified_launcher_and_listener_pids(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = _settings(tmp_path)
+    state = webgui_service.WebGUIServiceState(
+        pid=222,
+        launcher_pid=111,
+        host="127.0.0.1",
+        port=3210,
+        url="http://127.0.0.1:3210",
+        started_at="2026-01-01T00:00:00+00:00",
+        stdout_log_path=str(tmp_path / "out.log"),
+        stderr_log_path=str(tmp_path / "err.log"),
+        command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
+    )
+    webgui_service._write_state(settings, state)
+    alive = {111, 222}
+    group_signals: list[tuple[int, int]] = []
+    pid_signals: list[tuple[int, int]] = []
+
+    def fake_kill(pid: int, sent_signal: int) -> None:
+        pid_signals.append((pid, sent_signal))
+        alive.discard(pid)
+
+    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid in alive)
+    monkeypatch.setattr(
+        webgui_service,
+        "_process_matches_state",
+        lambda checked: checked.pid == 222 and 222 in alive,
+    )
+    monkeypatch.setattr(
+        webgui_service,
+        "_process_command_line",
+        lambda pid: (
+            "node webgui/node_modules/next/dist/bin/next dev --hostname 127.0.0.1 -p 3210"
+            if pid == 111
+            else "next-server (v16.2.6)"
+        ),
+    )
+    monkeypatch.setattr(webgui_service.os, "getpgid", lambda _pid: 333)
+    monkeypatch.setattr(
+        webgui_service.os,
+        "killpg",
+        lambda pgid, sig: group_signals.append((pgid, sig)),
+    )
+    monkeypatch.setattr(webgui_service.os, "kill", fake_kill)
+    monkeypatch.setattr(webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable"))
+
+    status = webgui_service.stop_webgui_service(settings)
+
+    assert group_signals == [(333, signal.SIGTERM)]
+    assert pid_signals == [(222, signal.SIGTERM), (111, signal.SIGTERM)]
+    assert status.app_owned is False
+    assert not webgui_service.webgui_service_state_path(settings).exists()
+
+
 def test_stop_webgui_service_kills_verified_listener_pid_only(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -46,6 +46,16 @@ network-light `v1-readiness` okur; generation probe hâlâ açıkça
 `v1-readiness --provider-check` veya `model-service status --probe-generation`
 ile istenir.
 
+`app:up` artık ilk yönlendirmeli first-run orkestratörüdür. Varsayılanı
+dry-run'dır ve yeni bir runtime sahibi yaratmak yerine mevcut lifecycle
+komutlarını birleştirir. Güvenli `--all --yes` lane'i core setup repair,
+izole CrewAI Flow sidecar setup, app-owned Web GUI start ve final `app:doctor`
+raporu çalıştırır. Opsiyonel Camofox dependency setup, Camofox browser binary
+fetch, model-service start ve Camofox-service start için açık scope ve
+`--ollama-owner=app-owned` ya da `--camofox-owner=app-owned` gibi eşleşen
+sahiplik flag'i gerekir. Host-owned, API/key-only ve skipped seçimleri JSON
+planda görünür kalır; gizli install'a dönüşmez.
+
 `app:start` ve `app:stop` da konservatif servis slice'ları olarak implemente
 edildi: varsayılanları dry-run'dır, `--webgui`, `--model-service`,
 `--camofox-service` veya `--all` seçimi isterler ve ancak `--yes` sonrası

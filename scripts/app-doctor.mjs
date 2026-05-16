@@ -1,10 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
+import { parseJsonPayload, resolveAgenticTrader, ROOT_DIR, runLifecycleCommand } from './lib/app-lifecycle.mjs';
 
 function usage(exitCode = 0) {
   process.stdout.write(`Usage: node scripts/app-doctor.mjs [options]
@@ -37,25 +32,6 @@ function parseArgs(argv) {
   return options;
 }
 
-function commandExists(command) {
-  const result = spawnSync('sh', ['-c', 'command -v "$1"', 'sh', command], {
-    cwd: ROOT_DIR,
-    encoding: 'utf8',
-  });
-  return result.status === 0 ? result.stdout.trim() : null;
-}
-
-function resolveAgenticTrader() {
-  if (Object.prototype.hasOwnProperty.call(process.env, 'AGENTIC_TRADER_CLI')) {
-    return process.env.AGENTIC_TRADER_CLI || null;
-  }
-  const worktreeEntrypoint = join(ROOT_DIR, '.venv/bin/agentic-trader');
-  if (existsSync(worktreeEntrypoint)) {
-    return worktreeEntrypoint;
-  }
-  return commandExists('agentic-trader');
-}
-
 function step(id, label, args) {
   return { id, label, args };
 }
@@ -71,22 +47,9 @@ function doctorSteps() {
   ];
 }
 
-function parsePayload(stdout) {
-  try {
-    return JSON.parse(stdout);
-  } catch {
-    return null;
-  }
-}
-
 function runStep(cliPath, stepInfo) {
   const command = [cliPath, ...stepInfo.args];
-  const completed = spawnSync(command[0], command.slice(1), {
-    cwd: ROOT_DIR,
-    env: process.env,
-    encoding: 'utf8',
-    stdio: 'pipe',
-  });
+  const completed = runLifecycleCommand(command);
   return {
     id: stepInfo.id,
     label: stepInfo.label,
@@ -94,7 +57,7 @@ function runStep(cliPath, stepInfo) {
     mutates: false,
     status: completed.status === 0 ? 'passed' : 'failed',
     exit_code: completed.status ?? 1,
-    payload: completed.status === 0 ? parsePayload(completed.stdout) : null,
+    payload: completed.status === 0 ? parseJsonPayload(completed.stdout) : null,
     stdout: completed.stdout,
     stderr: completed.stderr,
   };

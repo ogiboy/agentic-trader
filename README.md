@@ -153,6 +153,31 @@ pnpm run app:doctor
 make app-doctor
 ```
 
+For the guided first-run path, preview the composed setup/start flow first:
+
+```bash
+pnpm run app:up -- --dry-run
+# or
+make app-up ARGS="--dry-run"
+```
+
+The safe `--all` lane runs core setup repair, CrewAI Flow sidecar setup, Web
+GUI service start, and a final `app:doctor` report only after `--yes`:
+
+```bash
+pnpm run app:up -- --all --yes
+# or
+make app-up ARGS="--all --yes"
+```
+
+`app:up` is an orchestrator over the existing lifecycle commands, not a second
+runtime. Optional Camofox dependency install, browser-binary fetch,
+model-service start, and Camofox-service start require explicit scopes and
+matching ownership flags such as `--ollama-owner=app-owned` or
+`--camofox-owner=app-owned`. Host-owned, API/key-only, and skipped choices are
+recorded in the JSON plan and remain degraded readiness rather than hidden
+installs.
+
 For the first conservative setup lifecycle facade, start with the plan view:
 
 ```bash
@@ -353,6 +378,8 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 | `agentic-trader dashboard-snapshot`                              | Print the shared dashboard payload used by UI surfaces; add `--provider-check` for product-readiness evidence |
 | `agentic-trader setup-status --json`                             | Inspect source, side-application, and optional-tool readiness     |
 | `pnpm --silent run app:doctor -- --json`                         | Read setup, provider, V1, and app-owned service readiness without mutating local state |
+| `pnpm --silent run app:up -- --json --dry-run`                   | Preview the guided first-run setup/start path and ownership decisions |
+| `pnpm --silent run app:up -- --json --all --yes`                 | Run the safe first-run lane: core repair, sidecar setup, Web GUI start, final doctor |
 | `pnpm --silent run app:setup -- --json --dry-run`                 | Preview setup lifecycle steps without installing, starting services, pulling models, or fetching browsers |
 | `pnpm --silent run app:setup -- --json --core --yes`              | Run only explicit core repair: root Node workspace setup plus root uv Python sync |
 | `pnpm --silent run app:start -- --json --webgui --yes`            | Start only the selected app-owned service surfaces; Web GUI browser open stays opt-in |
@@ -394,6 +421,8 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader finance-ops --json`                                                    | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check |
 | `agentic-trader setup-status --json`                                                   | Inspect root/sidecar/tool readiness without installing anything |
 | `pnpm --silent run app:doctor -- --json`                                               | Inspect setup, service, provider, and V1 readiness without installing or starting anything |
+| `pnpm --silent run app:up -- --json --dry-run`                                         | Preview guided first-run setup/start orchestration and ownership decisions |
+| `pnpm --silent run app:up -- --json --all --yes`                                       | Run the safe first-run lane without hidden model pulls, browser fetches, or daemon start |
 | `pnpm --silent run app:setup -- --json --dry-run`                                      | Preview setup lifecycle steps and deferred optional tool/service actions |
 | `pnpm --silent run app:setup -- --json --core --yes`                                   | Repair only core root dependencies after explicit approval |
 | `pnpm --silent run app:start -- --json --webgui --yes`                                 | Start selected app-owned helper services without installing, pulling models, or launching a trading daemon |
@@ -442,6 +471,7 @@ This repo favors small, inspectable changes over broad rewrites. Keep Python run
 pnpm check
 make check
 pnpm run app:doctor
+pnpm run app:up -- --dry-run
 pnpm run app:setup -- --dry-run
 pnpm run app:start -- --dry-run
 pnpm run app:stop -- --dry-run
