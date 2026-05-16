@@ -62,6 +62,9 @@ jobs:
           mkdir -p .ai/qa/artifacts/sonar
           uv run --locked --no-sync python -m pytest -q -p no:cacheprovider --cov=agentic_trader --cov-report=xml:.ai/qa/artifacts/sonar/coverage.xml
 
+      - name: Generate Web GUI coverage
+        run: pnpm run test:webgui:coverage
+
       - name: Run SonarCloud scan
         if: ${{ env.SONAR_TOKEN != '' }}
         uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7
@@ -76,6 +79,7 @@ jobs:
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
             -Dsonar.python.coverage.reportPaths=.ai/qa/artifacts/sonar/coverage.xml
+            -Dsonar.javascript.lcov.reportPaths=.ai/qa/artifacts/sonar/webgui-coverage/lcov.info
 
       - name: Explain skipped SonarCloud scan
         if: ${{ env.SONAR_TOKEN == '' }}

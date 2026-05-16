@@ -696,10 +696,13 @@ export function localToolLines(dashboard: DashboardData): string[] {
   const camofox = dashboard.camofoxService || {};
   const provider = dashboard.doctor?.provider ?? 'ollama';
   const firecrawlMode = ownershipMode(dashboard, 'firecrawl');
-  const camofoxBlocker =
-    camofox.access_key_configured === false
-      ? 'Camofox Blocker: set CAMOFOX_ACCESS_KEY or CAMOFOX_API_KEY in ignored local env before start'
-      : `Camofox Access Key: ${camofox.access_key_configured ? 'configured' : '-'}`;
+  let camofoxBlocker = 'Camofox Access Key: -';
+  if (camofox.access_key_configured === false) {
+    camofoxBlocker =
+      'Camofox Blocker: set CAMOFOX_ACCESS_KEY or CAMOFOX_API_KEY in ignored local env before start';
+  } else if (camofox.access_key_configured) {
+    camofoxBlocker = 'Camofox Access Key: configured';
+  }
   return [
     `Model Adapter: ${provider}`,
     `LLM Runtime: internal-first${modelService.app_owned ? ' app-owned' : ''}`,
