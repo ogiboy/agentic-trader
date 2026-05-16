@@ -1,6 +1,6 @@
 {
   "name": "agentic-trader-workspace",
-  "version": "0.10.5",
+  "version": "0.10.6",
   "private": true,
   "license": "LGPL-3.0-or-later",
   "packageManager": "pnpm@11.0.9",
@@ -17,6 +17,7 @@
     "app:start": "node scripts/app-services.mjs start",
     "app:stop": "node scripts/app-services.mjs stop",
     "app:update": "node scripts/app-update.mjs",
+    "app:uninstall": "node scripts/app-uninstall.mjs",
     "setup:camofox": "pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts",
     "fetch:camofox": "pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser",
     "check:camofox": "pnpm --dir tools/camofox-browser --ignore-workspace run test",

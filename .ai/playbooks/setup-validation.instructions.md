@@ -52,6 +52,11 @@ instead of treating them as aliases for the same script:
   setup/service status
 - `pnpm run app:uninstall`: remove confirmed app-owned artifacts while preserving
   secrets, provider accounts, brokerage config, host services, and global tools
+- `pnpm run app:uninstall -- --dry-run`: uninstall lifecycle preview only
+- `pnpm run app:uninstall -- --artifacts --deps --yes`: remove generated
+  artifacts and dependency directories only
+- `pnpm run app:uninstall -- --service-state --yes`: remove app-owned service
+  logs/state only after recorded service state files are already cleared
 
 Every lifecycle command should have a dry-run or preview path before it mutates
 system tools, dependency locks, downloaded browser/model assets, PATH symlinks,
@@ -92,6 +97,10 @@ or app-owned runtime state.
   must not fetch browser binaries, pull Ollama models, start/stop services,
   create provider accounts, touch brokerage config, delete runtime state, or
   start a trading daemon.
+- `app:uninstall` must require explicit scopes plus `--yes` before removal,
+  preserve ignored env files/secrets/provider accounts/brokerage config/global
+  tools/host services/trading evidence, and block service-state removal while a
+  recorded service state file remains.
 - Optional Ollama, Firecrawl, and Camofox setup records host-owned, app-owned,
   API/key-only, or skipped ownership instead of guessing silently.
 - Root Python is uv-managed; Conda/Poetry are not the default path.

@@ -205,6 +205,21 @@ Camofox helper package dependencies, then run checks and `app:doctor`. It does
 not fetch browser binaries, pull Ollama models, start or stop services, delete
 runtime state, touch secrets or brokerage config, or start the trading daemon.
 
+For conservative local uninstall, preview first and select only app-owned
+generated scopes:
+
+```bash
+pnpm run app:uninstall -- --dry-run
+pnpm run app:uninstall -- --artifacts --deps --yes
+```
+
+`app:uninstall` can remove generated build/test caches, local dependency
+directories, the repo-local pnpm store, and app-owned helper service logs/state.
+Recorded service state files block `--service-state` removal until the matching
+`app:stop` command has cleared the app-owned process record. It preserves
+ignored env files, secrets, provider accounts, brokerage configuration,
+host-owned services, global tools, and trading runtime evidence such as DuckDB.
+
 ### Optional Web GUI
 
 ```bash
@@ -343,6 +358,7 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 | `pnpm --silent run app:start -- --json --webgui --yes`            | Start only the selected app-owned service surfaces; Web GUI browser open stays opt-in |
 | `pnpm --silent run app:stop -- --json --all --yes`                | Stop only app-owned service PIDs recorded by the app                 |
 | `pnpm --silent run app:update -- --json --dry-run`                | Preview the scoped update lane across native dependency owners       |
+| `pnpm --silent run app:uninstall -- --json --dry-run`             | Preview app-owned artifact/dependency/service-state removal          |
 | `agentic-trader model-service status --probe-generation --json`  | Inspect configured/app-managed Ollama readiness, generation, and log tails |
 | `agentic-trader model-service start`                             | Start only an app-owned loopback Ollama process                   |
 | `agentic-trader model-service pull qwen3:8b`                     | Pull an Ollama model through the configured/app-owned service     |
@@ -383,6 +399,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `pnpm --silent run app:start -- --json --webgui --yes`                                 | Start selected app-owned helper services without installing, pulling models, or launching a trading daemon |
 | `pnpm --silent run app:stop -- --json --all --yes`                                     | Stop only app-owned helper services recorded by the app |
 | `pnpm --silent run app:update -- --json --dry-run`                                     | Preview root/sidecar/tool-root update, build, and status lanes |
+| `pnpm --silent run app:uninstall -- --json --dry-run`                                  | Preview app-owned generated artifact and dependency removal |
 | `agentic-trader model-service status --probe-generation --json`                        | Inspect local Ollama/service/model/generation readiness |
 | `agentic-trader webgui-service status --json`                                          | Inspect loopback Web GUI service readiness |
 | `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
@@ -429,6 +446,7 @@ pnpm run app:setup -- --dry-run
 pnpm run app:start -- --dry-run
 pnpm run app:stop -- --dry-run
 pnpm run app:update -- --dry-run
+pnpm run app:uninstall -- --dry-run
 pnpm run qa:quality
 pnpm run setup:research-flow
 pnpm run check:research-flow
@@ -483,6 +501,9 @@ make clean
 Remove dependency installs explicitly when you want a fresh setup:
 
 ```bash
+pnpm run app:uninstall -- --dry-run
+pnpm run app:uninstall -- --artifacts --deps --yes
+# or the older focused cleanup commands:
 pnpm run clean:deps
 # or remove artifacts and dependencies together:
 pnpm run clean:all

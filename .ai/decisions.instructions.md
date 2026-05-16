@@ -750,6 +750,23 @@ or stop app-owned services, create provider accounts, touch secrets or brokerage
 configuration, delete runtime state, approve proposals, or start a trading
 daemon.
 
+### app:uninstall is a conservative app-owned cleanup lane
+
+Reason:
+Uninstall is a destructive product surface, so the first lifecycle slice should
+prefer a precise local cleanup contract over a broad machine cleanup.
+`app:uninstall` therefore defaults to a dry-run plan and requires at least one
+explicit scope plus `--yes` before it removes files.
+The first scopes are `--artifacts` for generated build/test/cache outputs,
+`--deps` for local dependency directories plus the repo-local pnpm store, and
+`--service-state` for app-owned helper service log/state directories.
+`--all` selects those cleanup scopes, but it still preserves ignored env files,
+secrets, provider accounts, brokerage configuration, host-owned services,
+global tools, Keychain items, and trading runtime evidence such as DuckDB.
+Service-state cleanup blocks when a recorded state file remains, so operators
+must stop app-owned services through `app:stop` before deleting their service
+records and logs.
+
 ### Camofox tool-root commands are pnpm-owned, browser fetch remains separate
 
 Reason:

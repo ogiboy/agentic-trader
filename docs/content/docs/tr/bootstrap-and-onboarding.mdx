@@ -62,6 +62,14 @@ dry-run'dır; mutasyon için `--core`, `--sidecar`, `--camofox`, `--build`,
 sahibini kullanır; browser binary fetch etmez, model çekmez, servis
 başlatmaz/durdurmaz, runtime state silmez ve trading daemon başlatmaz.
 
+`app:uninstall` ilk konservatif cleanup lane'i olarak implemente edildi.
+Varsayılanı dry-run'dır; dosya silmek için `--artifacts`, `--deps`,
+`--service-state` veya `--all` seçimi ve `--yes` ister. Ignored env dosyalarını,
+secret'ları, provider hesaplarını, brokerage config'i, host-owned servisleri,
+global tool'ları ve trading runtime evidence'ını korur. Kaydedilmiş servis state
+dosyaları duruyorsa service-state cleanup bloke olur; önce `app:stop` ile
+app-owned süreç kaydı temizlenmelidir.
+
 ## Vazgeçilmez gereksinimler
 
 - macOS, Linux ve Windows desteği
@@ -131,8 +139,12 @@ setup status çalıştırabilir:
 - docs/WebGUI/TUI: normal workspace build ve typecheck kapıları
 - post-update status: `app:doctor`
 
-`app:uninstall` yalnızca açıkça seçilen app-owned artifact'ları kaldırmalı: `.venv`, `node_modules`, sidecar `.venv`, generated runtime state ve indirilen helper asset'leri gibi.
-API keyleri, broker/provider hesapları, user-owned host servisleri veya alakasız global tool'ları silmemeli.
+`app:uninstall` yalnızca seçilen app-owned/generated scope'ları kaldırır:
+artifact'lar, dependency dizinleri, repo-local pnpm store ve app-owned helper
+service-state/log dizinleri. API keyleri, broker/provider hesapları, user-owned
+host servisleri, global tool'lar, ignored env dosyaları veya DuckDB gibi trading
+evidence silinmemeli. Servis state dosyası hâlâ varsa operatör önce
+`pnpm run app:stop -- --all --yes` çalıştırmalıdır.
 
 ## Tasarlanması gereken edge case'ler
 

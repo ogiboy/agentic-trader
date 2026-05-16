@@ -9,6 +9,7 @@ DOCTOR_SCRIPT = ROOT / "scripts" / "app-doctor.mjs"
 SETUP_SCRIPT = ROOT / "scripts" / "app-setup.mjs"
 SERVICES_SCRIPT = ROOT / "scripts" / "app-services.mjs"
 UPDATE_SCRIPT = ROOT / "scripts" / "app-update.mjs"
+UNINSTALL_SCRIPT = ROOT / "scripts" / "app-uninstall.mjs"
 
 
 def _fake_cli(tmp_path: Path, exit_code: int = 0) -> Path:
@@ -155,6 +156,31 @@ def _run_update(
         cwd=ROOT,
         env=merged_env,
     )
+
+
+def _run_uninstall(
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    if env is not None:
+        merged_env.update(env)
+    return subprocess.run(
+        ["node", str(UNINSTALL_SCRIPT), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=merged_env,
+    )
+
+
+def _fake_app_root(tmp_path: Path) -> Path:
+    app_root = tmp_path / "app"
+    app_root.mkdir()
+    (app_root / "package.json").write_text('{"name":"agentic-trader"}\n', encoding="utf-8")
+    (app_root / "pyproject.toml").write_text('[project]\nname = "agentic-trader"\n', encoding="utf-8")
+    return app_root
 
 
 def test_app_doctor_is_read_only_status_surface(tmp_path: Path) -> None:
@@ -501,3 +527,132 @@ def test_app_update_stops_selected_lane_after_failure(tmp_path: Path) -> None:
         "skipped",
         "skipped",
     ]
+
+
+def test_app_uninstall_dry_run_plans_safe_scopes() -> None:
+    result = _run_uninstall("--json", "--dry-run")
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["action"] == "uninstall"
+    assert payload["dry_run"] is True
+    assert payload["mutated"] is False
+    assert payload["selected_scopes"] == []
+    relative_paths = {target["relative_path"] for target in payload["targets"]}
+    assert ".venv" in relative_paths
+    assert "node_modules" in relative_paths
+    assert "runtime/webgui_service" in relative_paths
+    assert "runtime/agentic_trader.duckdb" not in relative_paths
+    assert ".env" not in relative_paths
+    assert any(
+        "User secrets" in note
+        for note in payload["safety_notes"]
+    )
+
+
+def test_app_uninstall_rejects_yes_without_scope() -> None:
+    result = _run_uninstall("--json", "--yes")
+
+    assert result.returncode == 2
+    assert "Select at least one uninstall scope" in result.stderr
+
+
+def test_app_uninstall_deps_yes_removes_only_dependency_dirs(tmp_path: Path) -> None:
+    app_root = _fake_app_root(tmp_path)
+    for relative_path in (
+        ".venv",
+        "node_modules",
+        "webgui/node_modules",
+        "docs/node_modules",
+        "tui/node_modules",
+        "sidecars/research_flow/.venv",
+        "tools/camofox-browser/node_modules",
+        ".pnpm-store",
+    ):
+        (app_root / relative_path).mkdir(parents=True)
+    (app_root / ".env.local").write_text("SECRET=value\n", encoding="utf-8")
+    service_log = app_root / "runtime/webgui_service/webgui.out.log"
+    service_log.parent.mkdir(parents=True)
+    service_log.write_text("kept\n", encoding="utf-8")
+
+    result = _run_uninstall(
+        "--json",
+        "--deps",
+        "--yes",
+        env={"AGENTIC_TRADER_APP_UNINSTALL_ROOT": str(app_root)},
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["dry_run"] is False
+    assert payload["mutated"] is True
+    assert payload["selected_scopes"] == ["deps"]
+    assert not (app_root / ".venv").exists()
+    assert not (app_root / "node_modules").exists()
+    assert not (app_root / "webgui/node_modules").exists()
+    assert (app_root / ".env.local").exists()
+    assert service_log.exists()
+    assert all(
+        target["status"] in {"removed", "missing", "deferred"}
+        for target in payload["targets"]
+    )
+
+
+def test_app_uninstall_service_state_blocks_recorded_state(tmp_path: Path) -> None:
+    app_root = _fake_app_root(tmp_path)
+    service_dir = app_root / "runtime/webgui_service"
+    service_dir.mkdir(parents=True)
+    state_file = service_dir / "webgui_service.json"
+    state_file.write_text('{"pid": 12345}\n', encoding="utf-8")
+    (service_dir / "webgui.out.log").write_text("still tracked\n", encoding="utf-8")
+
+    result = _run_uninstall(
+        "--json",
+        "--service-state",
+        "--yes",
+        env={"AGENTIC_TRADER_APP_UNINSTALL_ROOT": str(app_root)},
+    )
+    payload = json.loads(result.stdout)
+    blocked_targets = [
+        target
+        for target in payload["targets"]
+        if target["status"] == "blocked"
+    ]
+
+    assert result.returncode == 1
+    assert payload["mutated"] is False
+    assert blocked_targets[0]["relative_path"] == "runtime/webgui_service"
+    assert "webgui_service.json" in blocked_targets[0]["reason"]
+    assert state_file.exists()
+
+
+def test_app_uninstall_artifacts_yes_removes_discovered_python_caches(
+    tmp_path: Path,
+) -> None:
+    app_root = _fake_app_root(tmp_path)
+    pycache_dir = app_root / "agentic_trader/__pycache__"
+    pycache_dir.mkdir(parents=True)
+    (pycache_dir / "module.pyc").write_bytes(b"cache")
+    ignored_env = app_root / ".env.local"
+    ignored_env.write_text("SECRET=value\n", encoding="utf-8")
+
+    result = _run_uninstall(
+        "--json",
+        "--artifacts",
+        "--yes",
+        env={"AGENTIC_TRADER_APP_UNINSTALL_ROOT": str(app_root)},
+    )
+    payload = json.loads(result.stdout)
+    aggregate_targets = [
+        target
+        for target in payload["targets"]
+        if target["id"] == "python-bytecode-caches"
+    ]
+
+    assert result.returncode == 0
+    assert aggregate_targets[0]["status"] == "removed"
+    assert aggregate_targets[0]["removed_paths"] == [
+        "agentic_trader/__pycache__"
+    ]
+    assert not pycache_dir.exists()
+    assert ignored_env.exists()

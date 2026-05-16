@@ -64,6 +64,14 @@ native owners for each dependency set and does not fetch browser binaries, pull
 models, start or stop services, delete runtime state, or start the trading
 daemon.
 
+`app:uninstall` is implemented as the first conservative cleanup lane. It
+defaults to dry-run and requires selecting `--artifacts`, `--deps`,
+`--service-state`, or `--all` plus `--yes` before it removes files. It preserves
+ignored env files, secrets, provider accounts, brokerage configuration,
+host-owned services, global tools, and trading runtime evidence. Recorded
+service state files block service-state cleanup until `app:stop` clears the
+app-owned process record.
+
 ## Non-negotiable requirements
 
 - cross-platform support: macOS, Linux, and Windows
@@ -133,8 +141,12 @@ rebuild and re-run setup status:
 - docs/WebGUI/TUI: normal workspace build and typecheck gates
 - post-update status: `app:doctor`
 
-`app:uninstall` should remove only app-owned artifacts such as `.venv`, `node_modules`, sidecar `.venv`, generated runtime state, and downloaded helper assets when explicitly selected.
-It should not delete API keys, brokerage/provider accounts, user-owned host services, or unrelated global tools.
+`app:uninstall` removes only selected app-owned/generated scopes: artifacts,
+dependency directories, the repo-local pnpm store, and app-owned helper
+service-state/log directories. It should not delete API keys,
+brokerage/provider accounts, user-owned host services, global tools, ignored env
+files, or trading evidence such as DuckDB. If a service state file still exists,
+the operator should run `pnpm run app:stop -- --all --yes` first.
 
 ## Edge cases worth designing for
 

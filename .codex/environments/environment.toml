@@ -47,6 +47,25 @@ pnpm run check:research-flow
 '''
 
 [[actions]]
+name = "preview app lifecycle"
+icon = "tool"
+command = '''
+pnpm run app:doctor -- --json
+pnpm run app:setup -- --dry-run
+pnpm run app:start -- --dry-run
+pnpm run app:stop -- --dry-run
+pnpm run app:update -- --dry-run
+pnpm run app:uninstall -- --dry-run
+'''
+
+[[actions]]
+name = "preview app cleanup"
+icon = "tool"
+command = '''
+pnpm run app:uninstall -- --dry-run
+'''
+
+[[actions]]
 name = "start local sonarqube"
 icon = "database"
 command = '''
