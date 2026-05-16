@@ -321,11 +321,13 @@ export async function getDashboardSnapshot(): Promise<any> {
 }
 
 /**
- * Orchestrates runtime actions (start, stop, restart, one-shot) for the Agentic Trader and returns a message and updated dashboard.
+ * Perform a lifecycle action for the Agentic Trader runtime.
  *
- * @param kind - Action to perform: "start", "stop", "restart", or "one-shot".
- * @returns An object with a human-readable `message` describing the outcome and the current `dashboard` snapshot.
- * @throws Error if `kind` is unsupported.
+ * Executes the requested runtime operation and returns a user-facing message with a refreshed dashboard snapshot.
+ *
+ * @param kind - One of "start", "stop", "restart", or "one-shot" indicating which lifecycle action to perform.
+ * @returns An object containing `message` — a human-readable description of the outcome — and `dashboard` — the current dashboard snapshot.
+ * @throws Error if `kind` is not one of the supported actions.
  */
 export async function runRuntimeAction(kind: string): Promise<{
   message: string;
@@ -430,16 +432,26 @@ export type ToolActionKind =
   | 'start-model-service'
   | 'start-camofox-service';
 
+/**
+ * Selects the model name configured in the provided dashboard snapshot.
+ *
+ * @param data - Dashboard snapshot object that may contain `modelService.configured_model` or `doctor.model`
+ * @returns The model name from `modelService.configured_model` if present, otherwise `doctor.model`, otherwise the default `"qwen3:8b"`
+ */
 function modelNameFromDashboard(data: Record<string, any>): string {
   return data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b';
 }
 
 /**
- * Orchestrates safe local-tool actions for app-owned helper readiness.
+ * Perform a managed tool action to set tool ownership or start helper services.
  *
- * These actions only persist non-secret ownership intent or call existing
- * app-owned service commands. They never generate secrets, pull models, fetch
- * browser binaries, or start the trading daemon.
+ * Available actions will persist non-secret ownership intent or request existing
+ * app-owned helper services to start; they do not generate secrets, download
+ * models/binaries, or launch the trading daemon.
+ *
+ * @param kind - One of `'enable-local-tools' | 'enable-host-fallbacks' | 'start-model-service' | 'start-camofox-service'` indicating the operation to perform
+ * @returns An object containing `message` summarizing the outcome, `dashboard` with a refreshed snapshot after the action, and an optional `result` with the CLI command output
+ * @throws Error if `kind` is not supported
  */
 export async function runToolAction(kind: ToolActionKind): Promise<{
   message: string;

@@ -300,6 +300,16 @@ def test_stop_webgui_service_escalates_when_app_owned_process_survives_sigterm(
     wait_timeouts: list[float] = []
 
     def fake_wait(_state: webgui_service.WebGUIServiceState, *, timeout: float) -> bool:
+        """
+        Simulate waiting for a WebGUI service state to exit while recording the timeout value.
+        
+        Parameters:
+            _state (WebGUIServiceState): State object to check (unused by this fake).
+            timeout (float): Timeout duration that will be recorded.
+        
+        Returns:
+            bool: `False` indicating the state did not exit within the given timeout.
+        """
         wait_timeouts.append(timeout)
         return False
 
@@ -346,6 +356,13 @@ def test_stop_webgui_service_falls_back_to_verified_launcher_and_listener_pids(
     pid_signals: list[tuple[int, int]] = []
 
     def fake_kill(pid: int, sent_signal: int) -> None:
+        """
+        Record a simulated signal sent to a process and mark that process as no longer alive.
+        
+        Parameters:
+            pid (int): Process ID receiving the signal.
+            sent_signal (int): Signal number sent to the process.
+        """
         pid_signals.append((pid, sent_signal))
         alive.discard(pid)
 
@@ -401,6 +418,13 @@ def test_stop_webgui_service_kills_verified_listener_pid_only(
     alive = {222}
 
     def fake_killpg(pgid: int, sig: int) -> None:
+        """
+        Record a simulated process-group termination and mark the test listener PID as dead.
+        
+        Parameters:
+            pgid (int): The process group ID that would be signaled.
+            sig (int): The signal number sent to the process group.
+        """
         killed.append((pgid, sig))
         alive.discard(222)
 
@@ -437,9 +461,25 @@ def test_stop_webgui_service_kills_next_server_listener_verified_by_cwd(
     killed_pids: list[tuple[int, int]] = []
 
     def fake_killpg(pgid: int, sig: int) -> None:
+        """
+        Record a process-group kill signal for test inspection.
+        
+        Appends the tuple (pgid, sig) to the outer-scope `killed_groups` list so tests can assert which signals would have been sent.
+        
+        Parameters:
+            pgid (int): The process group ID targeted.
+            sig (int): The signal number sent to the process group.
+        """
         killed_groups.append((pgid, sig))
 
     def fake_kill(pid: int, sig: int) -> None:
+        """
+        Record a simulated signal delivery and mark the PID as no longer alive.
+        
+        Parameters:
+            pid (int): Process ID to signal.
+            sig (int): Signal number to record.
+        """
         killed_pids.append((pid, sig))
         alive.discard(pid)
 

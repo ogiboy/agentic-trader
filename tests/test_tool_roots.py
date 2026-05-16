@@ -41,6 +41,14 @@ def test_repo_tool_manifests_are_valid_json() -> None:
 
 
 def test_local_tool_definitions_expose_runtime_consumers_and_fallbacks() -> None:
+    """
+    Validate local tool definitions expose expected status IDs, runtime consumers, fallback orders, and install hints.
+    
+    Asserts that the ordered local tool definitions are ("ollama", "firecrawl", "camofox-browser") and checks:
+    - "ollama" has status_tool_id "ollama_cli", includes "model-service" in consumers, and its first fallback is "app_managed_repo_config".
+    - "firecrawl" has status_tool_id "firecrawl_cli", includes "researchd" in consumers, and its fallback_order contains "pure_python_or_js_fetcher".
+    - "camofox-browser" has status_tool_id "camofox_browser", includes "camofox-service" in consumers, has "repo_tools" as the first fallback, and its install_hint contains the pnpm install command "pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts" and does not contain "npm install".
+    """
     definitions = {
         definition.tool_id: definition
         for definition in tool_roots.iter_local_tool_definitions()

@@ -843,6 +843,18 @@ function readinessLines(data) {
   ];
 }
 
+/**
+ * Build an array of display lines summarizing market/news provider selection, API key configuration, and up to two provider warnings.
+ * @param {object} data - Object containing provider diagnostics under `providerDiagnostics`. Expected shape: `{ market_data?, configured_keys?, warnings? }`.
+ * @returns {string[]} An ordered list of lines:
+ *   - "Market Provider: <provider or '-'">"
+ *   - "Market Role: <role or '-'">"
+ *   - "News Mode: <mode or '-'">"
+ *   - "Finnhub Key: 'configured' or 'missing'"
+ *   - "FMP Key: 'configured' or 'missing'"
+ *   - "Alpaca Key: 'configured' or 'missing'"
+ *   - Up to two warning strings from `providerDiagnostics.warnings`, or a single "No provider warnings." line when none exist.
+ */
 function providerLines(data) {
   const diagnostics = data.providerDiagnostics || {};
   const market = diagnostics.market_data || {};
@@ -861,10 +873,26 @@ function providerLines(data) {
   ];
 }
 
+/**
+ * Resolve the ownership decision mode for a specific tool.
+ * @param {Object} data - Dashboard data containing tool ownership decisions.
+ * @param {string} tool - Tool identifier to look up in decisions_by_tool.
+ * @returns {string} The ownership mode for the tool, or `'undecided'` if no decision is present.
+ */
 function ownershipMode(data, tool) {
   return data.toolOwnership?.decisions_by_tool?.[tool]?.mode ?? 'undecided';
 }
 
+/**
+ * Resolve the effective runtime mode to display in the dashboard.
+ *
+ * Checks the runtime object and dashboard data for a configured runtime mode and
+ * returns the first found value, or `'-'` when none is present.
+ *
+ * @param {object} runtime - Runtime state object (may include `runtime_mode` or nested `state.runtime_mode`).
+ * @param {object} data - Dashboard data object (may include `doctor.runtime_mode`).
+ * @returns {string} The resolved runtime mode, or `'-'` if no mode is available.
+ */
 function overviewRuntimeMode(runtime, data) {
   return (
     runtime.runtime_mode ??
@@ -928,6 +956,12 @@ function getCurrentCycleLines(data, compact) {
   return fullCurrentCycleLines(data);
 }
 
+/**
+ * Produce a compact list of system-status lines for the dashboard.
+ *
+ * @param {Object} data - Dashboard data object containing system snapshots (e.g., `doctor`, `calendar`, `broker`, `research`, `camofoxService`, `v1Readiness`, and ownership decisions).
+ * @returns {string[]} An ordered array of formatted status lines suitable for the compact "SYSTEM" panel. Each element is a single-line summary (model, runtime mode, provider reachability/availability, broker info, ownership modes, research status, readiness flags, and market session).
+ */
 function compactSystemLines(data) {
   const doctor = data.doctor;
   const calendar = data.calendar;
@@ -954,6 +988,12 @@ function compactSystemLines(data) {
   ];
 }
 
+/**
+ * Build a comprehensive list of human-readable system status lines for the full "SYSTEM" panel.
+ *
+ * @param {object} data - Dashboard data object containing doctor, preferences, calendar, broker, marketCache and other subsystem summaries used to generate the lines.
+ * @returns {string[]} An ordered array of formatted status lines covering model/runtime info, broker status, ownership of tooling, research and readiness summaries, provider warnings, default symbols, market session, news tool mode, and cached snapshot count.
+ */
 function fullSystemLines(data) {
   const doctor = data.doctor;
   const preferences = data.preferences;

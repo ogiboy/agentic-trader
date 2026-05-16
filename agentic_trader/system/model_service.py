@@ -163,6 +163,12 @@ def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
 
 
 def _api_root_from_base_url(base_url: str) -> str:
+    """
+    Normalize a base URL to its API root by removing a trailing `/v1` segment and extraneous trailing slashes.
+    
+    Returns:
+        The API root string with a trailing `/v1` removed if present and without trailing slashes. If `base_url` includes a scheme and netloc, the returned value preserves them (and any path preceding `/v1`); otherwise the function operates on the input as a path-like string.
+    """
     parsed = urlparse(base_url)
     if parsed.scheme and parsed.netloc:
         path = parsed.path.rstrip("/")
@@ -174,6 +180,14 @@ def _api_root_from_base_url(base_url: str) -> str:
 
 
 def _same_loopback_api_root(left: str, right: str) -> bool:
+    """
+    Determine whether two API base URLs refer to the same root by comparing scheme, effective port, and path, treating loopback hostnames (e.g., "localhost", "127.0.0.1", "::1") as interchangeable.
+    
+    If either input lacks a URL scheme, the function falls back to a plain trailing-slash-insensitive string comparison. When a scheme is present, default ports (443 for https, 80 for http) are used if no port is specified.
+    
+    Returns:
+        `true` if the URLs represent the same API root under the rules above, `false` otherwise.
+    """
     left_parsed = urlparse(left)
     right_parsed = urlparse(right)
     if not left_parsed.scheme or not right_parsed.scheme:
@@ -194,6 +208,12 @@ def _same_loopback_api_root(left: str, right: str) -> bool:
 
 
 def _base_url(host: str, port: int) -> str:
+    """
+    Constructs an HTTP base URL from the given host and port.
+    
+    Returns:
+        The base URL string in the form `http://{host}:{port}`.
+    """
     return f"{LOCAL_HTTP_SCHEME}://{host}:{port}"
 
 
@@ -699,7 +719,19 @@ def build_model_service_status(
     tail_limit: int = 12,
     include_generation: bool = False,
 ) -> ModelServiceStatus:
-    """Build a read-only model-service status payload."""
+    """
+    Assemble the current operator-facing model-service status for the Ollama tool.
+    
+    Reads persisted model-service state (if any), probes the configured or app-owned Ollama API for reachability and available models, optionally performs a short generation probe, and collects process, log-tail, and note information into a single read-only status payload.
+    
+    Parameters:
+        settings (Settings): Runtime settings used to derive configured base URL, configured model name, and state/log paths.
+        tail_limit (int): Maximum number of lines to include for stdout/stderr tails.
+        include_generation (bool): If True, perform a short generation request to verify model generation capability.
+    
+    Returns:
+        ModelServiceStatus: Read-only status payload containing command availability and path, configured base URL and model, service reachability, model availability, optional generation results, available model list, ownership and process/log details (pid, host, port, base_url, stdout/stderr paths and tails), notes, a user-facing message, and the persisted state file path.
+    """
 
     state = _read_state(settings)
     app_state = state if _state_process_alive(state) else None

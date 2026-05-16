@@ -489,6 +489,15 @@ export function readinessLines(dashboard: DashboardData): string[] {
   ];
 }
 
+/**
+ * Builds human-readable lines summarizing provider configuration and warnings from the dashboard.
+ *
+ * Reads provider diagnostics from the `dashboard` payload and returns lines for selected market provider,
+ * provider role, news mode, whether Finnhub/FMP/Alpaca API keys are configured, and up to three provider warnings.
+ *
+ * @param dashboard - Dashboard payload containing `providerDiagnostics` used to derive provider and key status
+ * @returns An array of status lines describing provider selection, news mode, key configuration, and up to three warnings (or `"No provider warnings."` when none)
+ */
 export function providerWarningLines(dashboard: DashboardData): string[] {
   const diagnostics = dashboard.providerDiagnostics || {};
   const market = diagnostics.market_data || {};
@@ -507,10 +516,23 @@ export function providerWarningLines(dashboard: DashboardData): string[] {
   ];
 }
 
+/**
+ * Get the ownership decision mode for a specified tool.
+ *
+ * @param dashboard - The dashboard payload containing tool ownership decisions
+ * @param tool - The tool key to look up in `dashboard.toolOwnership.decisions_by_tool`
+ * @returns The `mode` value for the given tool, or `'undecided'` if no mode is recorded
+ */
 function ownershipMode(dashboard: DashboardData, tool: string): string {
   return dashboard.toolOwnership?.decisions_by_tool?.[tool]?.mode ?? 'undecided';
 }
 
+/**
+ * Normalize a model service base URL so it consistently ends with `/v1`, or return `-` for invalid input.
+ *
+ * @param baseUrl - The value to normalize into a base URL; may be any type.
+ * @returns The input URL with a trailing slash removed and `/v1` appended when missing, or `-` if `baseUrl` is not a non-empty string.
+ */
 function withOpenAiSuffix(baseUrl: unknown): string {
   if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
     return '-';
@@ -519,6 +541,12 @@ function withOpenAiSuffix(baseUrl: unknown): string {
   return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`;
 }
 
+/**
+ * Determines the effective base URL to use for model service requests.
+ *
+ * @param dashboard - The dashboard payload containing modelService and doctor configuration
+ * @returns The model service base URL with an OpenAI `/v1` suffix when the app-owned model service is configured, otherwise the doctor's base URL, or `'-'` if neither is available
+ */
 function effectiveModelBaseUrl(dashboard: DashboardData | null): string {
   const modelService = dashboard?.modelService || {};
   if (modelService.app_owned && modelService.base_url) {
@@ -527,6 +555,13 @@ function effectiveModelBaseUrl(dashboard: DashboardData | null): string {
   return dashboard?.doctor?.base_url ?? '-';
 }
 
+/**
+ * Selects the primary value when defined, otherwise the fallback, and yields `"yes"` if that chosen value is truthy, `"no"` otherwise.
+ *
+ * @param appOwnedValue - Primary value to consider first (used when not `null` or `undefined`)
+ * @param fallbackValue - Secondary value used when `appOwnedValue` is `null` or `undefined`
+ * @returns `"yes"` if the selected value is truthy, `"no"` otherwise
+ */
 function effectiveBoolean(
   appOwnedValue: unknown,
   fallbackValue: unknown,
@@ -534,6 +569,16 @@ function effectiveBoolean(
   return (appOwnedValue ?? fallbackValue) ? 'yes' : 'no';
 }
 
+/**
+ * Build a list of labeled system status key/value pairs derived from the dashboard payload.
+ *
+ * Uses model service, doctor, research, broker, calendar, and auxiliary service fields to produce
+ * human-readable status entries (provider, model, base URL, reachability, availability, service
+ * messages, research and broker states, and market session).
+ *
+ * @param dashboard - The dashboard payload (may be null) from which status values are extracted
+ * @returns A KeyValueItems array where each tuple is [label, value] describing a system status item
+ */
 export function systemStatusItems(dashboard: DashboardData | null): KeyValueItems {
   const modelService = dashboard?.modelService || {};
   const provider = dashboard?.doctor?.provider ?? 'ollama';
@@ -583,6 +628,12 @@ export function systemStatusItems(dashboard: DashboardData | null): KeyValueItem
   ];
 }
 
+/**
+ * Builds human-readable status lines describing local tool, model service, and related ownership/reachability state from the dashboard payload.
+ *
+ * @param dashboard - The dashboard payload containing runtime, service, and ownership metadata
+ * @returns An array of labeled status strings suitable for display in the "Local Tools" panel (e.g., model adapter, service reachability, ownership, URLs, and research source summary)
+ */
 export function localToolLines(dashboard: DashboardData): string[] {
   const modelService = dashboard.modelService || {};
   const camofox = dashboard.camofoxService || {};
@@ -617,6 +668,16 @@ export function localToolLines(dashboard: DashboardData): string[] {
   ];
 }
 
+/**
+ * Render the Overview tab, including market ribbon, current cycle, system status, readiness gates, local tool controls, provider warnings, and recent decision workflow events.
+ *
+ * @param dashboard - Dashboard payload used to populate view sections and derive display data.
+ * @param currentCycle - Key/value pairs describing the current runtime cycle displayed in the "Current Cycle" panel.
+ * @param system - Key/value pairs describing system and provider status displayed in the "System" panel.
+ * @param busy - Current global busy/action identifier; when non-null, tool action buttons are disabled.
+ * @param onToolAction - Handler invoked with a ToolActionKind when a local tool action button is clicked.
+ * @returns The rendered Overview view as JSX.
+ */
 export function OverviewView({
   dashboard,
   currentCycle,
@@ -1246,6 +1307,14 @@ type ActiveViewProps = Readonly<{
   onToolAction: (kind: ToolActionKind) => void;
 }>;
 
+/**
+ * Renders the dashboard tab specified by `props.tab` and forwards the relevant
+ * slice of state and handlers to the corresponding view component.
+ *
+ * @param props - Component props containing `tab`, the `dashboard` payload, UI state such as `busy`,
+ *                and any view-specific handlers and data (chat, instruction, tool actions, etc.).
+ * @returns The JSX element for the active tab view.
+ */
 export function ActiveView(props: ActiveViewProps) {
   switch (props.tab) {
     case 'overview':
@@ -1296,11 +1365,11 @@ export function ActiveView(props: ActiveViewProps) {
 }
 
 /**
- * Render the operator control room UI that displays dashboard data and provides tabbed views, runtime controls, chat, and an instruction composer.
+ * Render the operator control room UI for viewing dashboard data and interacting with runtime controls, local tools, chat, and operator instructions.
  *
- * On mount the component loads dashboard data and polls /api/dashboard every 2.5 seconds; user actions issue requests to /api/runtime, /api/chat, and /api/instruct and update local UI state (messages, busy state, chat history, instruction results, and last refresh time).
+ * This component manages dashboard polling and session unlocking, presents tabbed views (overview, runtime, portfolio, review, memory, chat, settings), and exposes UI-driven actions that call backend endpoints to control runtime, tools, chat, and instruction workflows.
  *
- * @returns A React element containing the operator dashboard UI with tabs for overview, runtime, portfolio, review, memory, chat, and settings, plus controls for runtime actions, chat composition, and operator instructions.
+ * @returns A React element containing the tabbed operator dashboard UI with runtime/tool action controls, chat composer, instruction composer, and status/metadata panels.
  */
 export function ControlRoom() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);

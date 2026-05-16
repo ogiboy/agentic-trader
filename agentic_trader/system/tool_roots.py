@@ -209,7 +209,19 @@ def local_tool_manifest_notes(tool_id: LocalToolId) -> list[str]:
 
 
 def local_tool_status_payload(tool_id: LocalToolId) -> LocalToolStatusPayload:
-    """Return shared runtime/status metadata for one optional helper tool."""
+    """
+    Builds the status payload for a repo-local optional helper tool.
+    
+    Returns:
+        payload (LocalToolStatusPayload): Dictionary containing status and manifest metadata:
+            - `tool_id`: canonical local tool identifier.
+            - `tool_status_id`: status-friendly identifier used in status surfaces.
+            - `tool_consumers`: list of runtime surfaces that may consume the tool.
+            - `tool_fallback_order`: ordered list of resolution sources to try for the tool.
+            - `tool_ownership_modes`: list of possible ownership mode strings.
+            - `install_hint`: human-facing install/start hint from the tool definition.
+            - `notes`: list of non-secret notes and manifest-derived metadata strings.
+    """
 
     definition = local_tool_definition(tool_id)
     return {

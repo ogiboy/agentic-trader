@@ -15,6 +15,18 @@ UP_SCRIPT = ROOT / "scripts" / "app-up.mjs"
 
 
 def _fake_cli(tmp_path: Path, exit_code: int = 0) -> Path:
+    """
+    Create an executable fake `agentic-trader` CLI script in `tmp_path` that returns controlled JSON responses for testing.
+    
+    The generated script prints specific JSON payloads for certain argument patterns (e.g., `setup-status`, `model-service`, `camofox-service`, `webgui-service`, `provider-diagnostics`, `v1-readiness`) and a generic `{"ok": true}` for other invocations, then exits with `exit_code`.
+    
+    Parameters:
+        tmp_path (Path): Directory where the fake `agentic-trader` script will be written.
+        exit_code (int): Exit code the script will use when invoked.
+    
+    Returns:
+        Path: Path to the created executable script `agentic-trader`.
+    """
     script = tmp_path / "agentic-trader"
     script.write_text(
         "#!/usr/bin/env sh\n"
@@ -39,6 +51,17 @@ def _run_doctor(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """
+    Run the Node-based app-doctor script with the given arguments and an environment merged over the current process environment, capturing stdout and stderr as text.
+    
+    Parameters:
+        tmp_path (Path): Temporary directory fixture (accepted for test helper consistency; not used by this function).
+        *args (str): Arguments to pass to the doctor script.
+        env (dict[str, str] | None): Environment variables to merge over os.environ before invoking the process.
+    
+    Returns:
+        subprocess.CompletedProcess[str]: Completed process with `stdout` and `stderr` captured as text and `returncode` reflecting the script's exit status.
+    """
     merged_env = os.environ.copy()
     if env is not None:
         merged_env.update(env)
@@ -53,6 +76,16 @@ def _run_doctor(
 
 
 def _fake_pnpm(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
+    """
+    Create a fake `pnpm` executable script that records invoked arguments and exits with a given code.
+    
+    Parameters:
+        tmp_path (Path): Directory where the fake `pnpm` script and `pnpm.log` will be created.
+        exit_code (int): Exit code the fake script will return when executed.
+    
+    Returns:
+        tuple[Path, Path]: A tuple (script_path, log_path) where `script_path` is the path to the created `pnpm` executable and `log_path` is the path to `pnpm.log` in `tmp_path`.
+    """
     log_path = tmp_path / "pnpm.log"
     script = tmp_path / "pnpm"
     script.write_text(
@@ -66,6 +99,16 @@ def _fake_pnpm(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
 
 
 def _fake_update_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
+    """
+    Create a fake toolchain directory containing mock `pnpm` and `uv` executables that log invocations.
+    
+    Parameters:
+        tmp_path (Path): Temporary directory in which to create a `bin/` folder and log file.
+        exit_code (int): Exit code the fake tools will return when invoked.
+    
+    Returns:
+        tuple[Path, Path]: A tuple `(bin_dir, log_path)` where `bin_dir` is the created `bin/` directory containing the fake `pnpm` and `uv` scripts, and `log_path` is the path to the update log file that those scripts append to.
+    """
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     log_path = tmp_path / "update.log"
@@ -82,6 +125,18 @@ def _fake_update_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Pa
 
 
 def _fake_app_up_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
+    """
+    Create a fake toolchain directory containing a `pnpm` wrapper that records invocations for app-up tests.
+    
+    The generated `pnpm` script appends a line "<PWD>|<args>" to the file referenced by the `APP_UP_LOG` environment variable, prints a small JSON payload for invocations that match `app:doctor`, `app:start`, or `app:setup`, and prints `{"ok": true}` for other invocations before exiting with the given exit code.
+    
+    Parameters:
+        tmp_path (Path): Directory in which to create the `bin/` directory and log file.
+        exit_code (int): Exit code the fake `pnpm` script will use when it exits.
+    
+    Returns:
+        tuple[Path, Path]: A tuple containing the path to the created `bin/` directory (containing `pnpm`) and the path to the log file (`app-up.log`).
+    """
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     log_path = tmp_path / "app-up.log"
@@ -103,6 +158,18 @@ def _fake_app_up_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Pa
 
 
 def _fake_service_cli(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
+    """
+    Create a fake `agentic-trader` CLI script in tmp_path that records invocations and emits controlled JSON responses.
+    
+    The generated executable script appends the invoked arguments to the file pointed to by the environment variable `AGENTIC_TRADER_CLI_LOG` (if set). When invoked, it prints a JSON payload based on the arguments: for commands containing " start " it prints an object with `app_owned: true` and `service_reachable: true`; for commands containing " stop " it prints either a "still running" message and `app_owned: true` when `STOP_STILL_APP_OWNED=1`, or an object with `app_owned: false` and `service_reachable: false` otherwise; for all other commands it prints `{"ok": true}`. The script exits with the provided `exit_code`.
+    
+    Parameters:
+        tmp_path (Path): Directory where the fake CLI and its log path are created.
+        exit_code (int): Process exit code that the fake CLI will return.
+    
+    Returns:
+        tuple[Path, Path]: A tuple (script_path, log_path) where `script_path` is the path to the created `agentic-trader` executable and `log_path` is the path (tmp_path/agentic-trader.log) used for recorded invocations.
+    """
     log_path = tmp_path / "agentic-trader.log"
     script = tmp_path / "agentic-trader"
     script.write_text(
@@ -133,6 +200,17 @@ def _run_setup(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """
+    Run the Node-based app setup script with the given arguments and environment.
+    
+    Parameters:
+        tmp_path (Path): test temporary directory fixture (unused by this helper; present for API consistency).
+        *args (str): Arguments forwarded to the setup script.
+        env (dict[str, str] | None): Environment variables merged over the current process environment; values here override existing keys.
+    
+    Returns:
+        subprocess.CompletedProcess[str]: The completed process containing stdout, stderr, and the exit code.
+    """
     merged_env = os.environ.copy()
     if env is not None:
         merged_env.update(env)
@@ -151,6 +229,17 @@ def _run_services(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """
+    Run the repository's Node "services" script with the given mode and additional arguments, returning the completed subprocess result.
+    
+    Parameters:
+        mode (str): The mode argument passed to the services script (e.g., "start", "stop").
+        *args (str): Additional command-line arguments to forward to the script.
+        env (dict[str, str] | None): Optional environment variables to merge over the current process environment before running the command.
+    
+    Returns:
+        subprocess.CompletedProcess[str]: The completed process containing exit code, captured `stdout`, and `stderr`.
+    """
     merged_env = os.environ.copy()
     if env is not None:
         merged_env.update(env)
@@ -168,6 +257,16 @@ def _run_update(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """
+    Run the Node-based update script with the given arguments and environment, capturing its output.
+    
+    Parameters:
+        *args (str): Additional command-line arguments passed to the update script.
+        env (dict[str, str] | None): Environment variables to merge over the current process environment; if None, the current environment is used unchanged.
+    
+    Returns:
+        subprocess.CompletedProcess[str]: The completed process containing `stdout`, `stderr`, and `returncode`. The call does not raise on non-zero exit.
+    """
     merged_env = os.environ.copy()
     if env is not None:
         merged_env.update(env)
@@ -185,6 +284,16 @@ def _run_uninstall(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """
+    Run the Node-based uninstall script with the given command-line arguments and environment, returning the subprocess result.
+    
+    Parameters:
+        *args (str): Extra arguments passed to the uninstall script.
+        env (dict[str, str] | None): Environment variables to merge over the current process environment.
+    
+    Returns:
+        subprocess.CompletedProcess[str]: Completed process containing return code, stdout, and stderr.
+    """
     merged_env = os.environ.copy()
     if env is not None:
         merged_env.update(env)
@@ -202,6 +311,22 @@ def _run_up(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """
+    Run the app 'up' Node script with a merged environment and return its completed process.
+    
+    Executes `node <UP_SCRIPT> <args>` from the repository root, ensuring `AGENTIC_TRADER_RUNTIME_DIR`
+    is set to a temporary runtime directory when not provided in `env`. Any keys in `env` override
+    the current process environment.
+    
+    Parameters:
+        env (dict[str, str] | None): Additional environment variables to merge over the current
+            process environment; if omitted, the current environment is used (with a default
+            `AGENTIC_TRADER_RUNTIME_DIR` injected).
+    
+    Returns:
+        subprocess.CompletedProcess[str]: The completed process containing captured stdout/stderr,
+        the exit code, and related execution metadata.
+    """
     merged_env = os.environ.copy()
     merged_env.setdefault(
         "AGENTIC_TRADER_RUNTIME_DIR",
@@ -220,6 +345,19 @@ def _run_up(
 
 
 def _fake_app_root(tmp_path: Path) -> Path:
+    """
+    Create a minimal fake application root under `tmp_path` containing package metadata used by tests.
+    
+    Creates an `app/` directory with:
+    - `package.json` containing {"name":"agentic-trader"}
+    - `pyproject.toml` with a [project] name = "agentic-trader"
+    
+    Parameters:
+        tmp_path (Path): Base temporary directory in which the `app/` folder will be created.
+    
+    Returns:
+        Path: The path to the created `app/` directory.
+    """
     app_root = tmp_path / "app"
     app_root.mkdir()
     (app_root / "package.json").write_text('{"name":"agentic-trader"}\n', encoding="utf-8")
@@ -249,6 +387,13 @@ def test_app_doctor_is_read_only_status_surface(tmp_path: Path) -> None:
 
 
 def test_app_doctor_does_not_run_provider_generation_probe(tmp_path: Path) -> None:
+    """
+    Ensure the app doctor command does not run provider generation probes or start services.
+    
+    Runs the doctor script with a fake agentic-trader CLI and asserts that no planned step contains
+    `--provider-check`, `--probe-generation`, `webgui-service start`, or `model-service start`, and that
+    the reported safety notes include a message containing "never starts a trading daemon".
+    """
     fake_cli = _fake_cli(tmp_path)
     result = _run_doctor(
         tmp_path,
@@ -495,6 +640,11 @@ def test_app_start_model_service_runs_with_persisted_app_owned_ownership(
 def test_app_stop_all_yes_stops_only_app_owned_service_surfaces(
     tmp_path: Path,
 ) -> None:
+    """
+    Verifies that running `app-services stop --all --yes` stops only services owned by the app and records the stop operations in the expected order.
+    
+    Asserts that the command succeeds, mutates state (not a dry run), selects the model, camofox, and webgui services, writes the exact stop commands for each service to the agentic-trader CLI log in the expected order, and that the planned steps do not include any `setup` or `pull` commands.
+    """
     fake_cli, log_path = _fake_service_cli(tmp_path)
     result = _run_services(
         "stop",
@@ -548,6 +698,20 @@ def test_app_stop_fails_when_service_payload_remains_app_owned(
 
 
 def test_app_update_dry_run_plans_all_owner_lanes() -> None:
+    """
+    Assert that running 'app update' in dry-run mode produces a planning payload covering all owner lanes while not scheduling runtime or fetch actions.
+    
+    Checks:
+    - The action is "update" with dry-run semantics and no mutation.
+    - No specific update scopes are selected.
+    - The planned commands include:
+      - "pnpm update --recursive --latest"
+      - "uv sync --locked --all-extras --group dev"
+      - "pnpm --dir tools/camofox-browser --ignore-workspace update"
+      - "pnpm run check"
+      - "pnpm run app:doctor -- --json"
+    - The planned commands do not include "fetch:camofox", "model-service pull", or "webgui-service start".
+    """
     result = _run_update("--json", "--dry-run")
     payload = json.loads(result.stdout)
 
@@ -671,6 +835,11 @@ def test_app_up_rejects_yes_without_scope() -> None:
 
 
 def test_app_up_blocks_app_owned_steps_without_owner_decision() -> None:
+    """
+    Verifies that running `up --model-service --yes` without an ownership decision blocks the app-owned model-service start step.
+    
+    Asserts that the command exits with a non-zero code, a step with `id == "model-service-start"` has `status == "blocked"`, its `reason` mentions `--ollama-owner=app-owned`, and no mutation occurred (`mutated is False`).
+    """
     result = _run_up("--json", "--model-service", "--yes")
     payload = json.loads(result.stdout)
 
@@ -714,6 +883,11 @@ def test_app_up_all_yes_runs_safe_first_run_scopes(tmp_path: Path) -> None:
 def test_app_up_owner_scoped_model_service_runs_only_when_app_owned(
     tmp_path: Path,
 ) -> None:
+    """
+    Verifies that specifying `--ollama-owner=app-owned` allows the model-service to run and persists the ownership decision.
+    
+    Asserts that the run selects only the "model-service" scope, records a single app:start invocation for that scope, writes `tool-ownership.json` with `decisions.ollama.mode == "app-owned"`, exposes the same decision in the CLI payload, and marks the model-service start step as passed.
+    """
     bin_dir, log_path = _fake_app_up_toolchain(tmp_path)
     runtime_dir = tmp_path / "runtime"
     result = _run_up(
@@ -743,6 +917,11 @@ def test_app_up_owner_scoped_model_service_runs_only_when_app_owned(
 
 
 def test_app_up_dry_run_does_not_persist_owner_flags(tmp_path: Path) -> None:
+    """
+    Verifies that `app up` in dry-run mode reports owner decisions but does not persist them to the runtime directory.
+    
+    Asserts the command succeeds and the JSON payload indicates a dry run with no mutations, that the reported ownership decision for Ollama is `"app-owned"`, and that no `runtime/setup/tool-ownership.json` file is created.
+    """
     runtime_dir = tmp_path / "runtime"
     result = _run_up(
         "--json",

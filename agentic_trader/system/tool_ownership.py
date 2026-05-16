@@ -72,17 +72,37 @@ class ToolOwnershipPayload(BaseModel):
 
 
 def _utc_now_iso() -> str:
+    """
+    Return the current UTC time as an ISO-8601 formatted string.
+    
+    Returns:
+        str: Current UTC time in ISO-8601 format with UTC timezone offset.
+    """
     return datetime.now(timezone.utc).isoformat()
 
 
 def tool_ownership_path(settings: Settings) -> Path:
-    """Return the owner-only runtime state path for tool ownership."""
+    """
+    Get the file path used to store owner-only tool ownership state.
+    
+    Returns:
+        Path: Path to the `tool-ownership.json` file inside the runtime `setup` directory.
+    """
 
     return settings.runtime_dir / "setup" / "tool-ownership.json"
 
 
 def normalize_ownership_tool(tool: str) -> OwnershipToolId:
-    """Normalize user-facing and registry tool IDs into ownership IDs."""
+    """
+    Convert a user or registry tool identifier to the canonical ownership tool ID.
+    
+    Returns:
+        The ownership tool ID corresponding to the input (one of "ollama", "firecrawl", "camofox").
+    
+    Raises:
+        ValueError: If the provided `tool` is not a recognized ownership tool identifier.
+            The exception message is formatted as "unknown_tool_ownership_id:<tool>".
+    """
 
     if tool == "camofox-browser":
         return "camofox"
@@ -99,7 +119,15 @@ def ownership_tool_for_local_tool(tool_id: LocalToolId) -> OwnershipToolId:
 
 
 def validate_ownership_mode(mode: str) -> OwnershipMode:
-    """Validate and return a supported ownership mode."""
+    """
+    Ensure the input string is a supported ownership mode.
+    
+    Returns:
+        The validated value as an `OwnershipMode`.
+    
+    Raises:
+        ValueError: If `mode` is not one of the supported ownership modes; the error message lists the allowed modes excluding `"undecided"`.
+    """
 
     if mode in OWNERSHIP_MODES:
         return mode  # type: ignore[return-value]
@@ -111,7 +139,16 @@ def validate_ownership_mode(mode: str) -> OwnershipMode:
 
 
 def ownership_note(tool: OwnershipToolId, mode: OwnershipMode) -> str:
-    """Return operator-facing meaning for one ownership mode."""
+    """
+    Provide an operator-facing explanatory note describing the meaning and implications of a tool's ownership mode.
+    
+    Parameters:
+        tool (OwnershipToolId): The normalized ownership tool identifier (e.g., "ollama", "firecrawl", "camofox").
+        mode (OwnershipMode): The ownership mode whose explanation is requested.
+    
+    Returns:
+        str: A human-readable note explaining the operator-facing meaning of the specified ownership mode. For the combination of `tool == "firecrawl"` and `mode == "app-owned"`, a more specific Firecrawl-focused note is returned.
+    """
 
     notes: dict[OwnershipMode, str] = {
         "undecided": (
@@ -145,6 +182,15 @@ def ownership_note(tool: OwnershipToolId, mode: OwnershipMode) -> str:
 
 
 def _default_decision(tool: OwnershipToolId) -> ToolOwnershipDecision:
+    """
+    Create the default undecided ownership decision for a given tool.
+    
+    Parameters:
+        tool (OwnershipToolId): The ownership tool identifier to produce a decision for.
+    
+    Returns:
+        ToolOwnershipDecision: A decision with mode "undecided", source "default", updated_at set to None, and a generated note describing the undecided state for the tool.
+    """
     return ToolOwnershipDecision(
         tool=tool,
         mode="undecided",
@@ -158,6 +204,21 @@ def _decision_from_record(
     tool: OwnershipToolId,
     record: object,
 ) -> ToolOwnershipDecision:
+    """
+    Convert a raw record (typically from loaded JSON) into a ToolOwnershipDecision for the given tool.
+    
+    Parameters:
+        tool (OwnershipToolId): The ownership tool identifier to associate with the decision.
+        record (object): Raw record parsed from the persisted payload; expected to be a dict with optional keys
+            `"mode"`, `"source"`, and `"updated_at"`. If `record` is not a dict, a default undecided decision is returned.
+    
+    Returns:
+        ToolOwnershipDecision: A decision populated from the record where:
+            - `mode` is the validated ownership mode (falls back to `"undecided"` on invalid input),
+            - `source` defaults to `"file"` when absent,
+            - `updated_at` is included only if it is a string,
+            - `note` is generated for the tool and mode.
+    """
     if not isinstance(record, dict):
         return _default_decision(tool)
     raw_mode = str(record.get("mode") or "undecided")
@@ -177,7 +238,14 @@ def _decision_from_record(
 
 
 def read_tool_ownership_payload(settings: Settings) -> ToolOwnershipPayload:
-    """Read ownership decisions, filling missing tools with undecided defaults."""
+    """
+    Load the persisted tool ownership payload and return a complete payload with defaults for any missing tools.
+    
+    If the runtime JSON file exists, attempts to read and parse it; a malformed file or read error is treated as if no decisions were recorded. The returned ToolOwnershipPayload contains the file path, the payload-level `updated_at` (or `None`), a `decisions` list with one ToolOwnershipDecision for every supported tool (missing or invalid records produce an `undecided` default), and `decisions_by_tool` mapping tool IDs to their decisions.
+    
+    Returns:
+        ToolOwnershipPayload: The assembled payload including `state_path`, `updated_at`, `decisions`, and `decisions_by_tool`.
+    """
 
     path = tool_ownership_path(settings)
     updated_at: str | None = None
@@ -207,7 +275,16 @@ def read_tool_ownership_payload(settings: Settings) -> ToolOwnershipPayload:
 
 
 def ownership_mode_for_tool(settings: Settings, tool: str) -> OwnershipMode:
-    """Return the persisted ownership mode for a tool or undecided by default."""
+    """
+    Get the stored ownership mode for the given tool, defaulting to `undecided` when no decision is recorded.
+    
+    Parameters:
+        settings (Settings): Runtime settings used to locate the ownership state file.
+        tool (str): Tool identifier to normalize (accepts ownership and some registry/local IDs, e.g. "camofox" or "camofox-browser").
+    
+    Returns:
+        OwnershipMode: The persisted ownership mode for the tool; `undecided` if no decision is present.
+    """
 
     tool_id = normalize_ownership_tool(tool)
     payload = read_tool_ownership_payload(settings)
@@ -221,7 +298,19 @@ def write_tool_ownership(
     *,
     source: str = "cli",
 ) -> ToolOwnershipPayload:
-    """Merge explicit ownership decisions into the owner-only runtime file."""
+    """
+    Merge and persist operator ownership decisions for optional helper tools.
+    
+    Applies the provided updates to the existing owner-only runtime payload, removing decisions set to "undecided", recording the source and update timestamps, writing the resulting JSON to the runtime state file, and returning the refreshed payload.
+    
+    Parameters:
+        settings (Settings): Runtime settings used to locate the owner-only state file.
+        updates (dict[str, str]): Mapping from a tool identifier (user or registry form; will be normalized) to an ownership mode string (validated against supported modes). Entries with mode "undecided" will be removed from persisted records.
+        source (str): Origin label to record for applied updates (defaults to "cli").
+    
+    Returns:
+        ToolOwnershipPayload: The refreshed payload read from persistent storage after the write, containing the current decisions and per-tool metadata.
+    """
 
     existing = read_tool_ownership_payload(settings)
     now = _utc_now_iso()
