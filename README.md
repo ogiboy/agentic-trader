@@ -464,6 +464,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks; add `--provider-check` before longer paper runs and to verify local-model generation |
 | `agentic-trader trade-proposals --json`                                                | Inspect the manual-review proposal queue |
 | `agentic-trader proposal-create ...`                                                   | Queue a non-executing paper proposal for approval |
+| `agentic-trader proposal-approve PROPOSAL_ID --json` / `agentic-trader proposal-reject PROPOSAL_ID --reason "..." --json` | Approve or reject a pending proposal through the explicit manual-review gate |
 | `agentic-trader proposal-reconcile PROPOSAL_ID --json`                                 | Repair an in-flight proposal from a recorded execution outcome without resubmitting |
 | `agentic-trader idea-presets` / `agentic-trader idea-score ...`                        | Explore V1 idea-scanner presets without creating orders |
 | `agentic-trader strategy-catalog --json` / `agentic-trader strategy-profile NAME`       | Inspect strategy-family evidence, risk, and validation gates |
@@ -478,7 +479,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 
 ## Web GUI
 
-`webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction contracts from server-side route handlers. It is intentionally not a second orchestrator.
+`webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction/proposal contracts from server-side route handlers. It is intentionally not a second orchestrator, and its Proposal Desk can only call the same explicit approve/reject/reconcile gates that the CLI exposes.
 
 ```bash
 pnpm dev:webgui

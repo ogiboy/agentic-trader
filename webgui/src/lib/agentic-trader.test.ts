@@ -184,4 +184,55 @@ describe('agentic-trader webgui CLI bridge', () => {
     });
     expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('camofox-service');
   });
+
+  it('runs proposal actions through explicit manual-review CLI contracts', async () => {
+    const { runProposalAction } = await import('./agentic-trader');
+
+    execSuccess(
+      JSON.stringify({
+        outcome: { status: 'filled' },
+        proposal: { status: 'executed', symbol: 'AAPL' },
+      }),
+    );
+    execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
+    await expect(
+      runProposalAction('approve', 'proposal-1', 'desk approved'),
+    ).resolves.toMatchObject({
+      message: 'AAPL proposal approved; proposal=executed, broker=filled.',
+    });
+    expect(execFileMock.mock.calls[0][1]).toEqual([
+      '-m',
+      'agentic_trader.cli',
+      'proposal-approve',
+      'proposal-1',
+      '--review-notes',
+      'desk approved',
+      '--json',
+    ]);
+
+    execSuccess(JSON.stringify({ status: 'rejected', symbol: 'MSFT' }));
+    execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
+    await expect(
+      runProposalAction('reject', 'proposal-2', 'spread too wide'),
+    ).resolves.toMatchObject({
+      message: 'MSFT proposal rejected.',
+    });
+    expect(execFileMock.mock.calls[2][1]).toContain('proposal-reject');
+    expect(execFileMock.mock.calls[2][1]).toContain('--reason');
+
+    execSuccess(
+      JSON.stringify({ proposal: { status: 'executed', symbol: 'NVDA' } }),
+    );
+    execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
+    await expect(
+      runProposalAction('reconcile', 'proposal-3'),
+    ).resolves.toMatchObject({
+      message: 'NVDA proposal reconciled; status=executed.',
+    });
+    expect(execFileMock.mock.calls[4][1]).toContain('proposal-reconcile');
+
+    await expect(runProposalAction('reject', 'proposal-4')).rejects.toThrow(
+      'Rejection reason is required.',
+    );
+  });
 });

@@ -253,7 +253,7 @@ class OpenAICompatibleProvider:
             "max_tokens": self.settings.max_output_tokens,
         }
         if json_mode:
-            body["response_format"] = {"type": "json_object"}
+            body["response_format"] = _openai_compatible_response_format(json_schema)
         response = self.client.post(
             f"{self.base_url}/chat/completions",
             headers=self._headers(),
@@ -441,20 +441,47 @@ def _openai_compatible_content(payload: dict[str, Any]) -> str:
     if not isinstance(first, dict):
         raise RuntimeError("OpenAI-compatible provider returned malformed choices.")
     message = first.get("message")
-    if isinstance(message, dict):
-        content = message.get("content")
-        if isinstance(content, str):
-            return content.strip()
-        if isinstance(content, list):
-            text_parts: list[str] = []
-            for part in content:
-                if isinstance(part, dict) and isinstance(part.get("text"), str):
-                    text_parts.append(part["text"])
-            return "".join(text_parts).strip()
+    content = _openai_compatible_message_content(message)
+    if content:
+        return content
     text = first.get("text")
     if isinstance(text, str):
         return text.strip()
     raise RuntimeError("OpenAI-compatible provider returned no text content.")
+
+
+def _openai_compatible_response_format(
+    json_schema: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if json_schema is None:
+        return {"type": "json_object"}
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "agentic_trader_response",
+            "schema": json_schema,
+        },
+    }
+
+
+def _openai_compatible_message_content(message: object) -> str:
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content")
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        return _openai_compatible_text_parts(content)
+    return ""
+
+
+def _openai_compatible_text_parts(content: list[object]) -> str:
+    text_parts = [
+        part["text"]
+        for part in content
+        if isinstance(part, dict) and isinstance(part.get("text"), str)
+    ]
+    return "".join(text_parts).strip()
 
 
 def _openai_compatible_error_from_response(response: httpx.Response) -> str:

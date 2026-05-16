@@ -22,7 +22,7 @@ Now:
 - keep the CrewAI subprocess contract deterministic and no-sync at runtime: setup/check commands may run `uv sync`, but runtime backend calls should only use an already-installed sidecar environment
 - grow the V1 research sidecar as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
 - keep the new V1 proposal queue manual-review only: scanners, research providers, chat, Web routes, and sidecars may surface or explain proposals, but only explicit approval commands should submit to the configured paper/external-paper broker adapter
-- keep proposal reconciliation in the safety loop: `proposal-reconcile` can mark an already approved in-flight proposal terminal from the idempotent `execution_records.intent_id` row without broker resubmission; next passes should expose reconciliation status in richer operator/Web surfaces and smoke QA
+- keep proposal reconciliation in the safety loop: `proposal-reconcile` can mark an already approved in-flight proposal terminal from the idempotent `execution_records.intent_id` row without broker resubmission; the Web GUI Proposal Desk can surface and trigger reconcile explicitly, while next passes should add richer Rich/Ink parity and smoke QA
 - keep Firecrawl and Camofox optional under `researchd`: they may help collect source-attributed evidence or browser health, but they must stay disabled by default, redacted, raw-text-free for prompts, and outside the broker/runtime-mode boundary
 - keep deterministic idea-scanner presets as research/screening tools until provider/news/fundamental enrichment and proposal-review UX are mature enough for broader operator workflows
 - keep the new market-intelligence runtime surfaces aligned with the same safety boundary: `strategy-catalog`, `strategy-profile`, `news-intelligence`, `research-cycle-plan`, and `idea-score` readiness explain strategy/source/evidence/loop gates but cannot create, approve, or execute trades
@@ -102,7 +102,7 @@ Next:
 - connect idea-scanner output to provider/news/fundamental context and then to proposal records with audit-friendly materiality, freshness, liquidity, and risk/sizing fields
 - extend the first runtime strategy catalog slice into feature bundle enrichment, backtest comparison, proposal records, and guard/risk layers only after evidence and validation checks are green
 - add no-lookahead and confidence-review checks before treating opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble ideas as more than research candidates
-- expand proposal queue parity across Rich, Ink, Web GUI, docs, and smoke QA before treating it as the default paper-desk workflow
+- expand proposal queue parity across Rich, Ink, docs, and smoke QA before treating it as the default paper-desk workflow; the Web GUI now has the first explicit Proposal Desk surface over the existing CLI contracts
 - grow risk/sizing from the current HHI/top-position concentration signal toward ATR/confidence sizing, liquidity/ADV/spread penalties, group budgets, and correlation cluster warnings
 - add optional V1 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
 - turn the planned CrewAI task definitions into executable Flow/Crew steps only after real normalized provider evidence exists and contract tests cover failures

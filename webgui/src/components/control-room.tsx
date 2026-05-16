@@ -2,7 +2,14 @@
 'use client';
 
 import Image from 'next/image';
-import { Power, SlidersHorizontal, Wrench } from 'lucide-react';
+import {
+  CheckCircle2,
+  Power,
+  RotateCcw,
+  SlidersHorizontal,
+  Wrench,
+  XCircle,
+} from 'lucide-react';
 import {
   type SyntheticEvent,
   useCallback,
@@ -23,6 +30,7 @@ type TabId =
   | 'overview'
   | 'runtime'
   | 'portfolio'
+  | 'proposals'
   | 'review'
   | 'memory'
   | 'chat'
@@ -36,11 +44,13 @@ type ToolActionKind =
   | 'enable-host-fallbacks'
   | 'start-model-service'
   | 'start-camofox-service';
+type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'runtime', label: 'Runtime' },
   { id: 'portfolio', label: 'Portfolio' },
+  { id: 'proposals', label: 'Proposals' },
   { id: 'review', label: 'Review' },
   { id: 'memory', label: 'Decision Evidence' },
   { id: 'chat', label: 'Chat' },
@@ -184,6 +194,53 @@ export function tradeContextLines(
     `Review Summary: ${record.review_summary ?? '-'}`,
     `Routed Models: ${routedModels || '-'}`,
   ];
+}
+
+function proposalSizeLabel(proposal: Record<string, any>): string {
+  if (typeof proposal.quantity === 'number') {
+    return `qty ${formatNumber(proposal.quantity, 4)}`;
+  }
+  if (typeof proposal.notional === 'number') {
+    return `$${formatNumber(proposal.notional, 2)}`;
+  }
+  return '-';
+}
+
+function proposalHeadline(proposal: Record<string, any>): string {
+  return `${proposal.symbol ?? '-'} ${String(proposal.side ?? '-').toUpperCase()} | ${proposal.status ?? '-'} | ${proposalSizeLabel(proposal)}`;
+}
+
+export function proposalLines(dashboard: DashboardData): string[] {
+  const payload = dashboard.tradeProposals;
+  if (payload?.available === false) {
+    return [
+      `Proposal desk unavailable: ${payload.error || 'Unknown error.'}`,
+    ];
+  }
+  const proposals = Array.isArray(payload?.proposals)
+    ? payload.proposals
+    : [];
+  if (!proposals.length) {
+    return ['No manual-review proposals are queued yet.'];
+  }
+  return proposals.map(
+    (proposal: Record<string, any>) =>
+      `${proposal.proposal_id ?? '-'} | ${proposalHeadline(proposal)} | confidence=${formatNumber(proposal.confidence, 2)} | source=${proposal.source ?? '-'}`,
+  );
+}
+
+function proposalApprovalBlockedReason(dashboard: DashboardData): string {
+  const broker = dashboard.broker || {};
+  if (broker.kill_switch_active) {
+    return 'Execution kill switch is active.';
+  }
+  if (broker.live_requested || broker.live) {
+    return 'Live backend is not proposal-approval ready in V1.';
+  }
+  if (broker.state === 'blocked') {
+    return broker.message || 'Broker state is blocked.';
+  }
+  return '';
 }
 
 /**
@@ -1002,6 +1059,139 @@ export function PortfolioView({
   );
 }
 
+export function ProposalDeskView({
+  dashboard,
+  busy,
+  proposalNote,
+  onProposalNoteChange,
+  onProposalAction,
+}: Readonly<{
+  dashboard: DashboardData;
+  busy: string | null;
+  proposalNote: string;
+  onProposalNoteChange: (value: string) => void;
+  onProposalAction: (
+    kind: ProposalActionKind,
+    proposalId: string,
+  ) => Promise<void>;
+}>) {
+  const proposals = Array.isArray(dashboard.tradeProposals?.proposals)
+    ? dashboard.tradeProposals.proposals
+    : [];
+  const proposalUnavailable = dashboard.tradeProposals?.available === false;
+  const approvalBlockedReason = proposalApprovalBlockedReason(dashboard);
+
+  return (
+    <div className="grid grid--2">
+      <Panel title="Proposal Desk" accent="amber">
+        <TextList items={proposalLines(dashboard)} />
+        {approvalBlockedReason ? (
+          <div className="banner banner--warn">{approvalBlockedReason}</div>
+        ) : null}
+        {proposalUnavailable ? null : (
+          <>
+            {proposals.length ? (
+              <div className="proposal-list">
+                {proposals.slice(0, 6).map((proposal: Record<string, any>) => {
+                  const proposalId = String(proposal.proposal_id ?? '');
+                  const isPending = proposal.status === 'pending';
+                  const canApprove = isPending && !approvalBlockedReason;
+                  const canReconcile =
+                    proposal.status === 'approved' &&
+                    Boolean(proposal.execution_intent_id);
+                  return (
+                    <article className="proposal-card" key={proposalId}>
+                      <div className="proposal-card__head">
+                        <strong>{proposalHeadline(proposal)}</strong>
+                        <span className="chip">
+                          {formatNumber(proposal.confidence, 2)}
+                        </span>
+                      </div>
+                      <p>{proposal.thesis || '-'}</p>
+                      <div className="proposal-card__meta">
+                        <span>{proposalId}</span>
+                        <span>{proposal.source || '-'}</span>
+                        <span>
+                          stop {formatNumber(proposal.stop_loss, 2)} / take{' '}
+                          {formatNumber(proposal.take_profit, 2)}
+                        </span>
+                      </div>
+                      <div className="tool-actions">
+                        <button
+                          className="button button--solid"
+                          disabled={!canApprove || Boolean(busy)}
+                          onClick={() =>
+                            void onProposalAction('approve', proposalId)
+                          }
+                          title="Approve pending paper proposal"
+                          type="button"
+                        >
+                          <CheckCircle2 aria-hidden size={16} />
+                          Approve
+                        </button>
+                        <button
+                          className="button"
+                          disabled={
+                            !isPending || Boolean(busy) || !proposalNote.trim()
+                          }
+                          onClick={() =>
+                            void onProposalAction('reject', proposalId)
+                          }
+                          title="Reject pending proposal"
+                          type="button"
+                        >
+                          <XCircle aria-hidden size={16} />
+                          Reject
+                        </button>
+                        <button
+                          className="button"
+                          disabled={!canReconcile || Boolean(busy)}
+                          onClick={() =>
+                            void onProposalAction('reconcile', proposalId)
+                          }
+                          title="Reconcile approved in-flight proposal"
+                          type="button"
+                        >
+                          <RotateCcw aria-hidden size={16} />
+                          Reconcile
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : null}
+            <div className="composer">
+              <textarea
+                onChange={(event) =>
+                  onProposalNoteChange(event.target.value)
+                }
+                placeholder="Approval note or rejection reason."
+                value={proposalNote}
+              />
+            </div>
+          </>
+        )}
+      </Panel>
+      <Panel title="Desk Safety" accent="cyan">
+        <KeyValueList
+          items={[
+            ['Backend', dashboard.broker?.backend ?? '-'],
+            ['State', dashboard.broker?.state ?? '-'],
+            [
+              'External Paper',
+              dashboard.broker?.external_paper ? 'yes' : 'no',
+            ],
+            ['Live Requested', dashboard.broker?.live_requested ? 'yes' : 'no'],
+            ['Kill Switch', dashboard.broker?.kill_switch_active ? 'on' : 'off'],
+            ['Message', dashboard.broker?.message ?? '-'],
+          ]}
+        />
+      </Panel>
+    </div>
+  );
+}
+
 export function ReviewView({
   dashboard,
 }: Readonly<{ dashboard: DashboardData }>) {
@@ -1297,6 +1487,7 @@ type ActiveViewProps = Readonly<{
   instructionDraft: string;
   instructionMode: InstructionMode;
   instructionResult: Record<string, any> | null;
+  proposalNote: string;
   busy: string | null;
   onChatPersonaChange: (value: ChatPersona) => void;
   onChatDraftChange: (value: string) => void;
@@ -1305,6 +1496,11 @@ type ActiveViewProps = Readonly<{
   onInstructionModeChange: (value: InstructionMode) => void;
   onSendInstruction: () => Promise<void>;
   onToolAction: (kind: ToolActionKind) => void;
+  onProposalNoteChange: (value: string) => void;
+  onProposalAction: (
+    kind: ProposalActionKind,
+    proposalId: string,
+  ) => Promise<void>;
 }>;
 
 /**
@@ -1331,6 +1527,16 @@ export function ActiveView(props: ActiveViewProps) {
       return <RuntimeView dashboard={props.dashboard} />;
     case 'portfolio':
       return <PortfolioView dashboard={props.dashboard} />;
+    case 'proposals':
+      return (
+        <ProposalDeskView
+          dashboard={props.dashboard}
+          busy={props.busy}
+          proposalNote={props.proposalNote}
+          onProposalAction={props.onProposalAction}
+          onProposalNoteChange={props.onProposalNoteChange}
+        />
+      );
     case 'review':
       return <ReviewView dashboard={props.dashboard} />;
     case 'memory':
@@ -1394,6 +1600,7 @@ export function ControlRoom() {
     string,
     any
   > | null>(null);
+  const [proposalNote, setProposalNote] = useState('');
   const [lastLoadedAt, setLastLoadedAt] = useState<string>('-');
   const [webguiToken, setWebguiToken] = useState('');
   const [authRequired, setAuthRequired] = useState(false);
@@ -1564,6 +1771,37 @@ export function ControlRoom() {
     [applyLatestDashboard],
   );
 
+  const runProposalAction = useCallback(
+    async (kind: ProposalActionKind, proposalId: string) => {
+      const reviewNotes = proposalNote.trim();
+      setBusy(`proposal-${kind}`);
+      try {
+        const result = await readJson<{
+          message: string;
+          dashboard: DashboardData;
+        }>('/api/proposals', {
+          method: 'POST',
+          body: JSON.stringify({ kind, proposalId, reviewNotes }),
+        });
+        applyLatestDashboard(result.dashboard);
+        setProposalNote('');
+        setMessage({ text: result.message, tone: 'good' });
+      } catch (nextError) {
+        if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+          setAuthRequired(true);
+        }
+        setMessage({
+          text:
+            nextError instanceof Error ? nextError.message : String(nextError),
+          tone: 'bad',
+        });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [applyLatestDashboard, proposalNote],
+  );
+
   const sendChat = useCallback(async () => {
     const messageText = chatDraft.trim();
     if (!messageText) {
@@ -1676,6 +1914,7 @@ export function ControlRoom() {
       instructionDraft={instructionDraft}
       instructionMode={instructionMode}
       instructionResult={instructionResult}
+      proposalNote={proposalNote}
       busy={busy}
       onChatPersonaChange={setChatPersona}
       onChatDraftChange={setChatDraft}
@@ -1684,6 +1923,8 @@ export function ControlRoom() {
       onInstructionModeChange={setInstructionMode}
       onSendInstruction={sendInstruction}
       onToolAction={(kind) => void runToolAction(kind)}
+      onProposalNoteChange={setProposalNote}
+      onProposalAction={runProposalAction}
     />
   ) : null;
   const content = (() => {

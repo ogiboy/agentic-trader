@@ -139,6 +139,7 @@ V1 needs explicit proposal discipline without giving scanners, sidecars, chat, o
 Trade ideas may be queued as structured `TradeProposalRecord` rows with thesis, size, reference price, source, and review notes, but they remain pending until an explicit operator approval command submits through the existing broker adapter boundary.
 Approval records the broker-facing `ExecutionIntent` and `ExecutionOutcome`; rejection, execution, failure, and expiry are terminal states.
 If a process records the broker execution outcome but exits before the final proposal status update, reconciliation may only read the existing `execution_records.intent_id` row and mark the approved proposal terminal; it must not call the broker adapter again.
+The Web GUI Proposal Desk may call only the allowlisted CLI contracts for approve, reject, and reconcile, with same-origin/token route guards and no generic command execution or proposal creation surface.
 This keeps proposal generation useful for a paper desk while preserving paper-first/manual-approval safety and keeping live execution blocked.
 
 ### Optional web research helpers stay evidence-only and fail closed

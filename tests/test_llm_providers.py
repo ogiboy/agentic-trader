@@ -180,6 +180,49 @@ def test_openai_compatible_provider_generates_and_checks_health() -> None:
     assert client.posts[1]["response_format"] == {"type": "json_object"}
 
 
+def test_openai_compatible_provider_uses_schema_and_content_parts() -> None:
+    provider = OpenAICompatibleProvider(
+        Settings(llm_provider="openai-compatible", model_name="local-qwen")
+    )
+    client = FakeClient()
+    client.post_responses = [
+        FakeResponse(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": [
+                                {"type": "text", "text": "{\"ok\":"},
+                                {"type": "text", "text": " true}"},
+                                {"type": "ignored", "value": "no text"},
+                            ]
+                        }
+                    }
+                ]
+            }
+        )
+    ]
+    object.__setattr__(provider, "client", client)
+
+    payload = provider.generate(
+        prompt="Return JSON.",
+        json_mode=True,
+        json_schema={"type": "object", "properties": {"ok": {"type": "boolean"}}},
+    )
+
+    assert payload["response"] == '{"ok": true}'
+    assert client.posts[0]["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "agentic_trader_response",
+            "schema": {
+                "type": "object",
+                "properties": {"ok": {"type": "boolean"}},
+            },
+        },
+    }
+
+
 def test_openai_compatible_provider_reports_missing_model() -> None:
     """
     Verifies health_check reports a missing model when the configured model ID is not present in the OpenAI-compatible service response.
@@ -199,6 +242,36 @@ def test_openai_compatible_provider_reports_missing_model() -> None:
     assert health.model_available is False
     assert health.generation_available is False
     assert "not listed" in health.message
+
+
+def test_openai_compatible_provider_surfaces_errors_without_network() -> None:
+    provider = OpenAICompatibleProvider(
+        Settings(llm_provider="openai-compatible", model_name="local-qwen")
+    )
+    client = FakeClient()
+    client.get_response = FakeResponse(
+        {"error": {"message": "secret-free failure"}},
+        raise_error=RuntimeError("models unavailable"),
+    )
+    client.post_responses = [
+        FakeResponse({"error": {"message": "model load failed"}}, status_code=500),
+        FakeResponse({"choices": []}),
+    ]
+    object.__setattr__(provider, "client", client)
+
+    health = provider.health_check(include_generation=True)
+    http_ok, http_message = provider._probe_generation(model_available=True)
+    malformed_ok, malformed_message = provider._probe_generation(
+        model_available=True
+    )
+
+    assert health.service_reachable is False
+    assert health.generation_available is False
+    assert "models unavailable" in health.message
+    assert http_ok is False
+    assert http_message == "model load failed"
+    assert malformed_ok is False
+    assert "no choices" in malformed_message
 
 
 def test_build_provider_accepts_openai_compatible_adapter() -> None:

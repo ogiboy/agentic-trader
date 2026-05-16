@@ -432,6 +432,8 @@ export type ToolActionKind =
   | 'start-model-service'
   | 'start-camofox-service';
 
+export type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
+
 /**
  * Selects the model name configured in the provided dashboard snapshot.
  *
@@ -541,6 +543,74 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
   }
 
   throw new Error(`Unsupported tool action: ${kind}`);
+}
+
+function proposalActionMessage(kind: ProposalActionKind, result: any): string {
+  const proposal = result?.proposal || result;
+  const symbol = proposal?.symbol || 'Proposal';
+  const status = proposal?.status || kind;
+  if (kind === 'approve') {
+    const outcome = result?.outcome?.status || proposal?.execution_outcome_status || '-';
+    return `${symbol} proposal approved; proposal=${status}, broker=${outcome}.`;
+  }
+  if (kind === 'reject') {
+    return `${symbol} proposal rejected.`;
+  }
+  return `${symbol} proposal reconciled; status=${status}.`;
+}
+
+/**
+ * Execute an explicit manual-review proposal action through existing CLI commands.
+ *
+ * The Web GUI remains a thin operator surface: approval still goes through
+ * `proposal-approve`, which records the proposal transition and submits only
+ * through the configured broker adapter boundary.
+ */
+export async function runProposalAction(
+  kind: ProposalActionKind,
+  proposalId: string,
+  reviewNotes = '',
+): Promise<{
+  message: string;
+  dashboard: any;
+  result: any;
+}> {
+  const cleanProposalId = proposalId.trim();
+  const cleanNotes = reviewNotes.trim();
+  if (!cleanProposalId) {
+    throw new Error('Proposal id is required.');
+  }
+
+  let result: any;
+  if (kind === 'approve') {
+    const args = ['proposal-approve', cleanProposalId, '--json'];
+    if (cleanNotes) {
+      args.splice(2, 0, '--review-notes', cleanNotes);
+    }
+    result = await execTrader(args, { expectJson: true, timeoutMs: 90_000 });
+  } else if (kind === 'reject') {
+    if (!cleanNotes) {
+      throw new Error('Rejection reason is required.');
+    }
+    result = await execTrader(
+      ['proposal-reject', cleanProposalId, '--reason', cleanNotes, '--json'],
+      { expectJson: true, timeoutMs: 45_000 },
+    );
+  } else if (kind === 'reconcile') {
+    const args = ['proposal-reconcile', cleanProposalId, '--json'];
+    if (cleanNotes) {
+      args.splice(2, 0, '--review-notes', cleanNotes);
+    }
+    result = await execTrader(args, { expectJson: true, timeoutMs: 45_000 });
+  } else {
+    throw new Error(`Unsupported proposal action: ${kind}`);
+  }
+
+  return {
+    dashboard: await getDashboardSnapshot(),
+    message: proposalActionMessage(kind, result),
+    result,
+  };
 }
 
 /**

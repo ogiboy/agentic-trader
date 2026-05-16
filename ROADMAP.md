@@ -431,7 +431,7 @@ Status: completed.
 - V1 does not mean live trading is enabled; it means the system is Alpaca-ready while remaining paper-first with manual approval and strict safety gates
 - `paper` remains the default; `alpaca_paper` is an explicit external-paper backend gated by credentials, paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`
 - `live` remains blocked; V1 readiness is expressed through `v1-readiness`, `provider-diagnostics`, `broker-status`, dashboard/observer payloads, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden live brokerage
-- proposal approval submits through the existing broker adapter boundary and paper/external-paper safety gates; scanner, sidecar, chat, and Web surfaces must not approve or execute implicitly
+- proposal approval submits through the existing broker adapter boundary and paper/external-paper safety gates; the Web GUI Proposal Desk can invoke only explicit approve/reject/reconcile commands, while scanner, sidecar, chat, and Web surfaces must not approve or execute implicitly
 - `proposal-reconcile` repairs an already approved in-flight proposal from the idempotent `execution_records.intent_id` row without resubmitting to the broker, covering interrupted final-status writes before external paper/live adapters grow broader
 
 ## V1 Research Sidecar - Local Evidence Companion

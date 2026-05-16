@@ -411,6 +411,43 @@ button {
   padding-bottom: 0;
 }
 
+.proposal-list {
+  display: grid;
+  gap: 12px;
+}
+
+.proposal-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(244, 245, 239, 0.08);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.proposal-card p {
+  margin: 0;
+  color: #d7dccf;
+  line-height: 1.5;
+}
+
+.proposal-card__head,
+.proposal-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.proposal-card__head {
+  justify-content: space-between;
+}
+
+.proposal-card__meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .json-preview {
   margin: 14px 0 0;
   padding: 12px;
