@@ -34,14 +34,43 @@ class FakeResponse:
 
 class FakeClient:
     def __init__(self) -> None:
+        """
+        Initialize a FakeClient used by tests to simulate HTTP interactions.
+        
+        Creates:
+        - `posts`: an empty list that records copies of JSON payloads sent to `post`.
+        - `get_response`: default `FakeResponse` returned by `get` calls, initialized with `{"models": []}`.
+        - `post_responses`: an empty list acting as a FIFO queue of `FakeResponse` objects to be returned by `post`.
+        """
         self.posts: list[dict[str, Any]] = []
         self.get_response: FakeResponse = FakeResponse({"models": []})
         self.post_responses: list[FakeResponse] = []
 
     def get(self, _url: str, **_kwargs: Any) -> FakeResponse:
+        """
+        Return the client's configured FakeResponse for any GET request.
+        
+        Parameters:
+        	_url (str): The requested URL (ignored by this fake client).
+        	_kwargs (Any): Additional request options (ignored by this fake client).
+        
+        Returns:
+        	FakeResponse: The preconfigured response object stored on the client.
+        """
         return self.get_response
 
     def post(self, _url: str, *, json: dict[str, Any], **_kwargs: Any) -> FakeResponse:
+        """
+        Record the posted JSON payload and return the next queued fake response or a default success response.
+        
+        Parameters:
+            _url (str): Ignored request URL.
+            json (dict[str, Any]): JSON body to record; a shallow copy is appended to the client's recorded posts.
+            _kwargs: Ignored keyword arguments.
+        
+        Returns:
+            FakeResponse: The next response from the client's response queue if available; otherwise a default FakeResponse with payload {"response": "OK"}.
+        """
         self.posts.append(dict(json))
         if self.post_responses:
             return self.post_responses.pop(0)
@@ -152,6 +181,11 @@ def test_openai_compatible_provider_generates_and_checks_health() -> None:
 
 
 def test_openai_compatible_provider_reports_missing_model() -> None:
+    """
+    Verifies health_check reports a missing model when the configured model ID is not present in the OpenAI-compatible service response.
+    
+    Asserts that the service is reachable, that the configured model is reported as unavailable, that generation is skipped, and that the health message indicates the model is not listed.
+    """
     provider = OpenAICompatibleProvider(
         Settings(llm_provider="openai-compatible", model_name="missing-model")
     )

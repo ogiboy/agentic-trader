@@ -20,6 +20,10 @@ const SCOPE_IDS = [
 ];
 const OWNER_MODES = ['undecided', 'host-owned', 'app-owned', 'api-key-only', 'skipped'];
 
+/**
+ * Print the CLI usage/help text and terminate the process.
+ * @param {number} exitCode - Exit code passed to process.exit; defaults to 0.
+ */
 function usage(exitCode = 0) {
   process.stdout.write(`Usage: node scripts/app-up.mjs [options]
 
@@ -53,6 +57,20 @@ Options:
   process.exit(exitCode);
 }
 
+/**
+ * Parses an ownership-like CLI option from argv at the given index.
+ *
+ * Supports both `--option=value` and `--option value` forms. If the option is present
+ * and a value is provided, returns an object with the parsed `value` and the `nextIndex`
+ * pointing to the last consumed argv index. If the option is not present at `index`,
+ * returns `null`. On a missing or invalid value the function writes an error message
+ * to stderr and calls `usage(2)`.
+ *
+ * @param {string[]} argv - The CLI arguments array.
+ * @param {number} index - The index within `argv` to inspect.
+ * @param {string} optionName - The exact option name to match (e.g. `--ollama-owner`).
+ * @returns {{ value: string, nextIndex: number } | null} An object with `value` and `nextIndex` when the option is parsed, or `null` if the current arg is not this option.
+ */
 function readValue(argv, index, optionName) {
   const arg = argv[index];
   const eq = `${optionName}=`;
@@ -70,6 +88,17 @@ function readValue(argv, index, optionName) {
   return null;
 }
 
+/**
+ * Validate an ownership mode value for a CLI owner option.
+ *
+ * If `value` is not one of the allowed modes or is `"undecided"`, an error
+ * message is written to stderr and `usage(2)` is invoked (which will terminate
+ * the process). Otherwise returns the validated mode.
+ *
+ * @param {string} value - The ownership mode to validate.
+ * @param {string} optionName - The CLI option name used in the error message.
+ * @returns {string} The validated ownership mode.
+ */
 function parseOwner(value, optionName) {
   if (!OWNER_MODES.includes(value) || value === 'undecided') {
     process.stderr.write(
@@ -80,6 +109,18 @@ function parseOwner(value, optionName) {
   return value;
 }
 
+/**
+ * Parse CLI arguments for the app-up guided workflow and produce a normalized options object used by the planner and executor.
+ * @param {string[]} argv - Array of command-line arguments to parse (typically process.argv.slice(2)).
+ * @returns {{ dryRun: boolean, json: boolean, openBrowser: boolean, owners: { ollama: string, firecrawl: string, camofox: string }, ownerOverrides: Set<string>, selectedScopes: Set<string>, yes: boolean }} An options object:
+ *  - dryRun: true when planning only (no execution).
+ *  - json: true when output should be machine-readable JSON.
+ *  - openBrowser: true when the webgui step should open a browser.
+ *  - owners: current ownership mode for each tool (defaults from persisted state or 'undecided').
+ *  - ownerOverrides: set of tool keys whose ownership was explicitly provided on the command line.
+ *  - selectedScopes: set of scope ids requested via flags (e.g., 'core', 'webgui', etc.).
+ *  - yes: true when the user approved execution (enables non-dry-run execution when combined with dryRun=false).
+ */
 function parseArgs(argv) {
   const persistedOwnership = readToolOwnership().decisions_by_tool;
   const options = {
@@ -164,6 +205,25 @@ function parseArgs(argv) {
   return options;
 }
 
+/**
+ * Create a standardized "up" step descriptor used in the guided first-run plan.
+ *
+ * @param {string} id - Unique step identifier.
+ * @param {string} label - Human-readable step label.
+ * @param {string} command - Shell/CLI command to run for this step.
+ * @param {string} scope - Logical scope this step belongs to (e.g., "core", "webgui").
+ * @param {object} [options] - Optional step overrides.
+ * @param {string} [options.cwd] - Working directory for the command; defaults to the repository root.
+ * @param {boolean} [options.mutates=true] - Whether a successful run is considered to have mutated system state.
+ * @param {string} [options.reason] - Short note explaining the step when presented in plans or summaries.
+ * @param {{tool:string,mode:string}} [options.requiresOwner] - Ownership requirement for selecting/executing the step.
+ * @param {boolean} [options.largeDownload=false] - Marks the step as a large download operation.
+ * @returns {object} Step descriptor with fields:
+ *   - `id`, `label`, `command`, `cwd`, `scope`
+ *   - `mutates` (boolean), `selected` (boolean, initially false)
+ *   - `reason` (string|undefined), `requires_owner` (object|undefined)
+ *   - `large_download` (boolean)
+ */
 function upStep(id, label, command, scope, options = {}) {
   return {
     id,
@@ -179,6 +239,14 @@ function upStep(id, label, command, scope, options = {}) {
   };
 }
 
+/**
+ * Build the ordered list of guided "up" steps used by the first-run workflow.
+ *
+ * @param {Object} options - Runtime options used to tailor the plan.
+ * @param {boolean} [options.openBrowser] - When true, includes `--open-browser` in the web GUI start command.
+ * @returns {Array<Object>} An ordered array of step descriptors. Each step contains standardized fields such as
+ * `id`, `label`, `command`, `cwd`, `scope`, `mutates`, `selected`, and optional `reason`, `requiresOwner`, and `largeDownload`.
+ */
 function upPlan(options) {
   return [
     upStep(
@@ -267,6 +335,10 @@ function upPlan(options) {
   ];
 }
 
+/**
+ * Provide human-readable safety notes describing dry-run behavior and limits of the guided first-run flow.
+ * @returns {string[]} An array of safety note strings explaining that the command defaults to a dry-run, which scopes and ownership decisions are required to execute changes, and which external systems or resources will not be modified by the guided flow.
+ */
 function safetyNotes() {
   return [
     'app:up defaults to a dry-run plan.',
@@ -277,6 +349,13 @@ function safetyNotes() {
   ];
 }
 
+/**
+ * Create a human-readable ownership decision record for a given tool and mode.
+ *
+ * @param {string} tool - Tool identifier (e.g., `ollama`, `firecrawl`, `camofox`).
+ * @param {string} mode - Ownership mode identifier (one of `undecided`, `host-owned`, `app-owned`, `api-key-only`, `skipped`).
+ * @returns {{tool: string, mode: string, note: string}} An object containing the original `tool` and `mode` plus a `note` explaining the selected ownership mode.
+ */
 function ownerDecision(tool, mode) {
   const notes = {
     'undecided': 'No ownership choice supplied yet; app:up will defer ownership-sensitive actions.',
@@ -292,6 +371,12 @@ function ownerDecision(tool, mode) {
   };
 }
 
+/**
+ * Builds the ownership decision records for the known tools.
+ * @param {Object} options - CLI options and state.
+ * @param {Object} options.owners - Mapping of tool -> ownership mode.
+ * @returns {Array<Object>} An array of ownership decision objects (one each for `ollama`, `firecrawl`, and `camofox`). Each object has `tool`, `mode`, and `note` fields. 
+ */
 function ownershipDecisions(options) {
   return [
     ownerDecision('ollama', options.owners.ollama),
@@ -300,12 +385,26 @@ function ownershipDecisions(options) {
   ];
 }
 
+/**
+ * Build a mapping of ownership updates only for tools that were explicitly overridden.
+ *
+ * @param {Object} options - Options bag for the current run.
+ * @param {Object<string,string>} options.owners - Current owner mode per tool (e.g., `{ ollama: 'app-owned' }`).
+ * @param {Set<string>} options.ownerOverrides - Set of tool names whose ownership was explicitly provided on the CLI.
+ * @returns {Object<string,string>} An object mapping each overridden tool name to its chosen owner mode.
+ */
 function ownershipUpdates(options) {
   return Object.fromEntries(
     [...options.ownerOverrides].map((tool) => [tool, options.owners[tool]]),
   );
 }
 
+/**
+ * Mark steps whose scope is present in `selectedScopes` as selected.
+ * @param {Array<Object>} plan - Ordered list of step objects.
+ * @param {Set<string>} selectedScopes - Set of scope ids to select.
+ * @returns {Array<Object>} The plan with each step's `selected` property set to `true` if its scope is in `selectedScopes`, otherwise `false`.
+ */
 function selectSteps(plan, selectedScopes) {
   return plan.map((step) => ({
     ...step,
@@ -313,6 +412,13 @@ function selectSteps(plan, selectedScopes) {
   }));
 }
 
+/**
+ * Determine whether a step is blocked by the current tool ownership choices.
+ *
+ * @param {Object} step - Step object which may include `requires_owner` and `scope`.
+ * @param {{[tool:string]: string}} owners - Mapping of tool names to chosen ownership modes.
+ * @returns {string|null} A human-readable blocker message when the step is blocked, or `null` when the step is not blocked.
+ */
 function ownerBlocker(step, owners) {
   if (!step.requires_owner) {
     return null;
@@ -327,6 +433,17 @@ function ownerBlocker(step, owners) {
   return `${step.scope} requires ${step.requires_owner.tool} ownership ${step.requires_owner.mode}; current choice is ${actual}.`;
 }
 
+/**
+ * Produce a pre-execution record for a plan step, reflecting selection and ownership blockers.
+ * @param {object} step - A step object from the plan (fields: id, label, command, scope, selected, mutates, reason, requires_owner, etc.).
+ * @param {Set<string>} selectedScopes - Set of scope ids that were selected for execution.
+ * @param {Object<string,string>} owners - Current tool ownership decisions keyed by tool name.
+ * @returns {object} A step record containing the original step fields plus:
+ *  - `status`: `'planned'`, `'deferred'`, or `'blocked'` depending on selection and ownership,
+ *  - `reason`: blocker message when blocked or the step's original reason,
+ *  - `exit_code`: `1` when blocked, otherwise `null`,
+ *  - `stdout` and `stderr`: initialized as empty strings.
+ */
 function plannedStep(step, selectedScopes, owners) {
   const blocker = step.selected ? ownerBlocker(step, owners) : null;
   return {
@@ -343,6 +460,12 @@ function plannedStep(step, selectedScopes, owners) {
   };
 }
 
+/**
+ * Create a step record representing a skipped step.
+ * @param {object} step - Original step object whose fields are preserved.
+ * @param {string} reason - Human-readable explanation why the step was skipped.
+ * @return {object} A step record with `status` set to `'skipped'`, `reason` set to the provided message, `exit_code` set to `null`, and empty `stdout`/`stderr`.
+ */
 function skippedStep(step, reason) {
   return {
     ...step,
@@ -354,6 +477,12 @@ function skippedStep(step, reason) {
   };
 }
 
+/**
+ * Create a step record marked as blocked for reporting.
+ * @param {Object} step - The original step object to copy and annotate.
+ * @param {string} reason - Human-readable reason why the step is blocked.
+ * @returns {Object} A new step object with `status: 'blocked'`, the provided `reason`, `exit_code: 1`, and empty `stdout`/`stderr`.
+ */
 function blockedStep(step, reason) {
   return {
     ...step,
@@ -365,6 +494,16 @@ function blockedStep(step, reason) {
   };
 }
 
+/**
+ * Execute a lifecycle step command and return a structured result describing its outcome.
+ * @param {Object} step - Step descriptor containing at minimum `command` (string) and `cwd` (string) used to run the command.
+ * @returns {Object} Result object that merges the original step fields and adds:
+ *   - `status` — `'passed'` if the command exited with code 0, `'failed'` otherwise.
+ *   - `exit_code` — numeric exit code from the command (1 if unavailable).
+ *   - `payload` — parsed JSON payload from stdout when the command succeeded, `null` otherwise.
+ *   - `stdout` — captured standard output as a string.
+ *   - `stderr` — captured standard error as a string.
+ */
 function runStep(step) {
   const completed = runLifecycleCommand(step.command, { cwd: step.cwd });
   const payload = completed.status === 0 ? parseJsonPayload(completed.stdout) : null;
@@ -378,6 +517,22 @@ function runStep(step) {
   };
 }
 
+/**
+ * Build the execution payload and exit code for the guided "app up" workflow based on provided options.
+ *
+ * @param {Object} options - Parsed CLI/runtime options that control planning and execution.
+ * @param {Set<string>} options.selectedScopes - Scopes explicitly selected for execution.
+ * @param {boolean} options.yes - Whether the user approved actual execution (not a dry run).
+ * @param {boolean} options.dryRun - Whether dry-run mode was requested.
+ * @param {Object} options.owners - Current tool ownership decisions keyed by tool name.
+ * @param {boolean} options.openBrowser - Whether the webgui step should open the browser.
+ * @returns {{ payload: Object, exitCode: number }} An object containing:
+ *  - `payload`: a machine-readable payload describing action metadata (`action`, `mode`, `dry_run`, `approved`),
+ *    whether any ownership/service state was mutated, the list of selected scopes, ownership decisions and tool
+ *    ownership state, safety notes, the full ordered `steps` array with per-step status/output, and suggested
+ *    `next_commands`.
+ *  - `exitCode`: numeric exit code (0 when all selected executed steps passed; 1 if any selected step failed or was blocked).
+ */
 function buildPayload(options) {
   const selectedScopes = options.selectedScopes;
   const dryRun = !(options.yes && !options.dryRun);
@@ -447,6 +602,21 @@ function buildPayload(options) {
   };
 }
 
+/**
+ * Write a human-readable summary of the guided up payload to stdout.
+ *
+ * Prints the script title, dry-run status, selected scopes, ownership decisions,
+ * and each step's status, id, label, and optional reason. When `payload.dry_run`
+ * is true, prints a recommended safe first-run command.
+ *
+ * @param {Object} payload - Orchestration payload produced by buildPayload.
+ *   Expected properties:
+ *     - {boolean} dry_run
+ *     - {boolean} [dry_run]
+ *     - {Array<string>} selected_scopes
+ *     - {Array<{tool:string,mode:string}>} ownership_decisions
+ *     - {Array<{id:string,label:string,status:string,reason?:string}>} steps
+ */
 function renderHuman(payload) {
   process.stdout.write('Agentic Trader app:up\n');
   process.stdout.write(`dry-run: ${payload.dry_run ? 'yes' : 'no'}\n`);
@@ -479,6 +649,12 @@ function renderHuman(payload) {
   }
 }
 
+/**
+ * Run the CLI: parse command-line arguments, build the guided up payload, render output, and terminate the process.
+ *
+ * Parses options from process.argv, constructs the execution payload, writes machine-readable JSON when `--json`
+ * is set or a human-readable summary otherwise, and exits with the computed exit code.
+ */
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const { payload, exitCode } = buildPayload(options);

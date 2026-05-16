@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+/**
+ * Print the CLI usage/help message to stdout and terminate the process with the given exit code.
+ * @param {number} [exitCode=0] - Exit code to use when exiting the process.
+ */
 function usage(exitCode = 0) {
   process.stdout.write(`Usage: node scripts/app-setup.mjs [options]
 
@@ -23,6 +27,19 @@ Options:
   process.exit(exitCode);
 }
 
+/**
+ * Parse CLI arguments for the app-setup script into an options object.
+ *
+ * @param {string[]} argv - Command-line arguments to parse (typically process.argv.slice(2)).
+ * @returns {{core: boolean, dryRun: boolean, json: boolean, yes: boolean}} An object with boolean flags:
+ *  - `core`: whether core-only mode was requested.
+ *  - `dryRun`: whether to perform a dry-run plan.
+ *  - `json`: whether output should be JSON.
+ *  - `yes`: whether mutating actions are approved.
+ *
+ * If an unknown option is encountered, the function writes an error to stderr and calls `usage(2)` (which exits).
+ * If `--yes` is provided without `--core` and without `--dry-run`, the function writes an explanatory error to stderr and calls `usage(2)` (which exits).
+ */
 function parseArgs(argv) {
   const options = {
     core: false,
@@ -55,6 +72,14 @@ function parseArgs(argv) {
   return options;
 }
 
+/**
+ * Create a step descriptor representing a core, mutating, selected setup step.
+ *
+ * @param {string} id - Unique step identifier.
+ * @param {string} label - Human-readable step label.
+ * @param {string[]} command - Command array where the first element is the executable and remaining elements are arguments.
+ * @returns {{id: string, label: string, command: string[], category: 'core', mutates: true, selected: true}} The step descriptor object.
+ */
 function coreStep(id, label, command) {
   return {
     id,
@@ -66,6 +91,14 @@ function coreStep(id, label, command) {
   };
 }
 
+/**
+ * Create a descriptor for a non-mutating, not-selected setup step that is deferred.
+ * @param {string} id - Unique step identifier.
+ * @param {string} label - Human-readable step title.
+ * @param {string[]} command - Command array to execute the step (executable followed by args).
+ * @param {string} reason - Explanation why this step is deferred and not run by default.
+ * @returns {{id:string,label:string,command:string[],category:'deferred',mutates:false,selected:false,reason:string}} The step descriptor object.
+ */
 function deferredStep(id, label, command, reason) {
   return {
     id,
@@ -78,6 +111,11 @@ function deferredStep(id, label, command, reason) {
   };
 }
 
+/**
+ * Provide the ordered setup plan used by the script, combining core mutating steps and deferred non-mutating steps.
+ *
+ * @returns {Array<Object>} An array of step descriptor objects. Each descriptor includes `id`, `label`, and `command`; core descriptors have `category: 'core'`, `mutates: true`, and `selected: true`; deferred descriptors have `category: 'deferred'`, `mutates: false`, `selected: false` and may include a `reason` explaining why the step is deferred.
+ */
 function setupPlan() {
   return [
     coreStep('node-workspace', 'Install and verify root/webgui/docs/tui Node workspace dependencies', [
@@ -99,6 +137,10 @@ function setupPlan() {
   ];
 }
 
+/**
+ * Human-readable safety notes describing default behavior and the limited mutating scope of the app:setup command.
+ * @returns {string[]} An array of note strings included in the setup payload and displayed to users. 
+ */
 function safetyNotes() {
   return [
     'app:setup defaults to a dry-run plan.',
@@ -108,6 +150,11 @@ function safetyNotes() {
   ];
 }
 
+/**
+ * Create a result object representing a planned or deferred step.
+ * @param {Object} step - Step descriptor; if `step.selected` is `true` the returned object will have `status: 'planned'`, otherwise `status: 'deferred'`. Original step fields are preserved.
+ * @returns {Object} The step result containing the original step fields plus `status`, `exit_code` (null), `stdout` (empty string), and `stderr` (empty string).
+ */
 function plannedStep(step) {
   return {
     ...step,
@@ -118,6 +165,12 @@ function plannedStep(step) {
   };
 }
 
+/**
+ * Produce a standardized result object for a step that was skipped.
+ * @param {object} step - Original step descriptor; its fields are preserved in the returned result.
+ * @param {string} reason - Explanation for why the step was skipped.
+ * @returns {object} Result object containing the original step fields, `status: 'skipped'`, the provided `reason`, `exit_code: null`, and empty `stdout` and `stderr`.
+ */
 function skippedStep(step, reason) {
   return {
     ...step,
@@ -129,6 +182,15 @@ function skippedStep(step, reason) {
   };
 }
 
+/**
+ * Execute the step's command and produce a result record that includes execution outcome and captured output.
+ * @param {Object} step - Step descriptor. Must include `command` as an array where the first element is the executable and the rest are arguments; other step fields are retained in the returned object.
+ * @returns {Object} Result object containing the original step fields plus:
+ *  - `status`: `'passed'` if the command exited with code 0, `'failed'` otherwise.
+ *  - `exit_code`: numeric exit code (uses `1` if the child process exit code is unavailable).
+ *  - `stdout`: captured standard output as a UTF-8 string.
+ *  - `stderr`: captured standard error as a UTF-8 string.
+ */
 function runStep(step) {
   const completed = spawnSync(step.command[0], step.command.slice(1), {
     cwd: ROOT_DIR,
@@ -145,6 +207,29 @@ function runStep(step) {
   };
 }
 
+/**
+ * Build the setup action payload and determine the process exit code according to the provided options.
+ *
+ * The function evaluates the configured plan, optionally executes selected core steps (only when
+ * `options.core` and `options.yes` are set and `options.dryRun` is not), and aggregates step results,
+ * safety notes, and suggested next commands into a structured payload.
+ *
+ * @param {Object} options - CLI-derived flags that control behavior.
+ * @param {boolean} options.core - When true, target core (mutating) steps instead of a read-only plan.
+ * @param {boolean} options.dryRun - When true, prevent executing any mutating steps (overridden by internal logic).
+ * @param {boolean} options.json - When true, caller intends to render payload as JSON (not used by this function's logic).
+ * @param {boolean} options.yes - Approval flag required (with `core`) to actually perform mutations.
+ * @returns {{payload: Object, exitCode: number}} An object containing:
+ *   - payload.action: `'setup'`.
+ *   - payload.mode: `'core'` when `options.core` is true, otherwise `'plan'`.
+ *   - payload.dry_run: boolean indicating whether the run was non-mutating.
+ *   - payload.mutated: boolean indicating whether any mutating steps were attempted.
+ *   - payload.approved: the `options.yes` value.
+ *   - payload.safety_notes: array of strings describing safety guidance.
+ *   - payload.steps: array of step result objects (each with status, exit_code, stdout, stderr and original step fields).
+ *   - payload.next_commands: array of suggested follow-up command strings.
+ *   - exitCode: `0` when all executed steps succeeded or no mutation was attempted, `1` if any executed step failed.
+ */
 function buildPayload(options) {
   const requestedMutation = options.core && options.yes && !options.dryRun;
   const dryRun = !requestedMutation;
@@ -195,6 +280,24 @@ function buildPayload(options) {
   };
 }
 
+/**
+ * Print a human-readable summary of a setup payload to stdout.
+ *
+ * Writes a header, the run mode and dry-run status, then lists each step with
+ * a status marker (`ok` for `passed`, `fail` for `failed`, otherwise the
+ * step's `status`). If a step includes `reason`, it is printed indented on the
+ * next line. When `payload.dry_run` is true, prints a final instruction for
+ * executing core repairs.
+ *
+ * @param {Object} payload - The structured setup payload to render.
+ * @param {string} payload.mode - The planned action mode (e.g., `"core"` or `"plan"`).
+ * @param {boolean} payload.dry_run - Whether the payload represents a dry run.
+ * @param {Array<Object>} payload.steps - Ordered list of step result objects.
+ * @param {string} payload.steps[].id - Step identifier.
+ * @param {string} payload.steps[].label - Human-readable step label.
+ * @param {string} payload.steps[].status - Step status (`planned`, `passed`, `failed`, `skipped`, etc.).
+ * @param {string} [payload.steps[].reason] - Optional explanation for deferred/skipped steps.
+ */
 function renderHuman(payload) {
   process.stdout.write('Agentic Trader app:setup\n');
   process.stdout.write(`mode: ${payload.mode}\n`);
@@ -211,6 +314,11 @@ function renderHuman(payload) {
   }
 }
 
+/**
+ * Orchestrates the CLI: parses arguments, builds the setup payload, writes JSON or a human-readable summary, and exits with the computed code.
+ *
+ * If `--json` is present the payload is printed as formatted JSON to stdout; otherwise a human summary is rendered. This function terminates the process with the resulting exit code.
+ */
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const { payload, exitCode } = buildPayload(options);

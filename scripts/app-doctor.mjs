@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 import { parseJsonPayload, resolveAgenticTrader, ROOT_DIR, runLifecycleCommand } from './lib/app-lifecycle.mjs';
 
+/**
+ * Write the CLI usage/help text to stdout and exit the process with the provided code.
+ * @param {number} exitCode - Process exit code; defaults to 0.
+ */
 function usage(exitCode = 0) {
   process.stdout.write(`Usage: node scripts/app-doctor.mjs [options]
 
@@ -15,6 +19,16 @@ Options:
   process.exit(exitCode);
 }
 
+/**
+ * Parse CLI arguments for the doctor command into an options object.
+ *
+ * If `-h` or `--help` is present, prints usage and exits. Unknown options are
+ * reported to stderr and trigger printing usage with exit code 2. The special
+ * marker `--` is ignored.
+ *
+ * @param {string[]} argv - Command-line arguments to parse (typically process.argv.slice(2)).
+ * @returns {{json: boolean}} An options object where `json` is true when `--json` was provided.
+ */
 function parseArgs(argv) {
   const options = { json: false };
   for (const arg of argv) {
@@ -32,10 +46,25 @@ function parseArgs(argv) {
   return options;
 }
 
+/**
+ * Create a step descriptor for a lifecycle check.
+ * @param {string} id - Unique step identifier used in results and output.
+ * @param {string} label - Human-readable description shown in summaries.
+ * @param {string[]} args - CLI arguments for invoking the step (the entrypoint path is prepended when the command is executed).
+ * @returns {{id: string, label: string, args: string[]}} The step descriptor object.
+ */
 function step(id, label, args) {
   return { id, label, args };
 }
 
+/**
+ * Provide an ordered list of diagnostic step descriptors used by the app:doctor command.
+ *
+ * @returns {Array<{id: string, label: string, args: string[]}>} An array of step descriptor objects, each containing:
+ * - `id`: a short identifier for the step,
+ * - `label`: a human-readable description,
+ * - `args`: command arguments to invoke the step.
+ */
 function doctorSteps() {
   return [
     step('setup-status', 'Workspace setup and optional tool readiness', ['setup-status', '--json']),
@@ -47,6 +76,21 @@ function doctorSteps() {
   ];
 }
 
+/**
+ * Executes a single lifecycle step using the Agentic Trader CLI and returns a normalized result.
+ *
+ * @param {string} cliPath - Filesystem path to the agentic-trader CLI executable.
+ * @param {{id: string, label: string, args: string[]}} stepInfo - Descriptor for the step: `id`, human `label`, and CLI `args`.
+ * @returns {{id: string, label: string, command: string[], mutates: false, status: 'passed'|'failed', exit_code: number, payload: any|null, stdout: string, stderr: string}}
+ * An object summarizing the executed step:
+ * - `id`, `label`: copied from `stepInfo`.
+ * - `command`: full command array executed.
+ * - `mutates`: always `false` for doctor checks.
+ * - `status`: `'passed'` when the underlying command exit code is 0, `'failed'` otherwise.
+ * - `exit_code`: numeric exit code (defaults to `1` if the command exit code is undefined).
+ * - `payload`: parsed JSON from stdout when the command succeeded, otherwise `null`.
+ * - `stdout`, `stderr`: raw captured output streams.
+ */
 function runStep(cliPath, stepInfo) {
   const command = [cliPath, ...stepInfo.args];
   const completed = runLifecycleCommand(command);
@@ -63,6 +107,11 @@ function runStep(cliPath, stepInfo) {
   };
 }
 
+/**
+ * List safety notes that describe the read-only, non-invasive nature and scope of app:doctor checks.
+ *
+ * @returns {string[]} An array of safety note strings explaining that checks are read-only, network-light, and do not modify dependencies, accounts, secrets, or running trading daemons.
+ */
 function safetyNotes() {
   return [
     'app:doctor is read-only and never starts a trading daemon.',
@@ -71,6 +120,19 @@ function safetyNotes() {
   ];
 }
 
+/**
+ * Render a human-readable doctor report to stdout.
+ *
+ * If `payload.cli_path` is falsy, prints a setup hint and returns. Otherwise prints one line per step:
+ * "ok <id>: <label>" when `status === 'passed'`, "fail <id>: <label>" otherwise.
+ *
+ * @param {Object} payload - Report payload produced by the doctor run.
+ * @param {?string} payload.cli_path - Path to the agentic-trader CLI; when falsy a setup hint is printed.
+ * @param {Array<Object>} payload.steps - Ordered step results to render.
+ * @param {string} payload.steps[].id - Step identifier.
+ * @param {string} payload.steps[].label - Human-readable step label.
+ * @param {string} payload.steps[].status - Step status; expected value `"passed"` indicates success.
+ */
 function renderHuman(payload) {
   process.stdout.write('Agentic Trader app:doctor\n');
   if (!payload.cli_path) {
@@ -82,6 +144,14 @@ function renderHuman(payload) {
   }
 }
 
+/**
+ * Run the doctor command: perform readiness checks, output results, and exit.
+ *
+ * Parses CLI options, locates the app CLI, and if found runs a fixed sequence of read-only readiness checks.
+ * Builds a payload describing the action and step results, writes it to stdout as pretty JSON when `--json` is set,
+ * otherwise prints a human-readable summary. Exits the process with code 0 only when the app CLI was found and every
+ * step returned exit code 0; exits with code 1 otherwise.
+ */
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const cliPath = resolveAgenticTrader();

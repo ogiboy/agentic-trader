@@ -7,6 +7,12 @@ const DEFAULT_ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOT_DIR = resolve(process.env.AGENTIC_TRADER_APP_UNINSTALL_ROOT ?? DEFAULT_ROOT_DIR);
 const SCOPE_IDS = ['artifacts', 'deps', 'service-state'];
 
+/**
+ * Print CLI usage/help text for the uninstall script and exit the process.
+ *
+ * Writes a human-readable description of available options and behavior, then terminates the process with the given exit code.
+ * @param {number} exitCode - Process exit code to use when terminating (defaults to 0).
+ */
 function usage(exitCode = 0) {
   process.stdout.write(`Usage: node scripts/app-uninstall.mjs [options]
 
@@ -29,6 +35,16 @@ Options:
   process.exit(exitCode);
 }
 
+/**
+ * Parse command-line arguments into uninstall options and selected scopes.
+ *
+ * @param {string[]} argv - CLI arguments to parse (typically `process.argv.slice(2)`).
+ * @returns {{dryRun: boolean, json: boolean, selectedScopes: Set<string>, yes: boolean}} An options object:
+ *   - `dryRun`: true when the action should be simulated without mutating files.
+ *   - `json`: true when output should be emitted as JSON.
+ *   - `selectedScopes`: a Set of selected scope IDs (members of `SCOPE_IDS`, e.g. `'artifacts'`, `'deps'`, `'service-state'`).
+ *   - `yes`: true when the user approved destructive actions (requires at least one selected scope unless in dry-run).
+ */
 function parseArgs(argv) {
   const options = {
     dryRun: false,
@@ -72,10 +88,22 @@ function parseArgs(argv) {
   return options;
 }
 
+/**
+ * Checks whether a directory appears to be an Agentic Trader repository.
+ * @param {string} rootDir - Path to the directory to inspect.
+ * @returns {boolean} `true` if both `package.json` and `pyproject.toml` exist in `rootDir`, `false` otherwise.
+ */
 function rootLooksLikeAgenticTrader(rootDir) {
   return existsSync(join(rootDir, 'package.json')) && existsSync(join(rootDir, 'pyproject.toml'));
 }
 
+/**
+ * Validate that the given directory is an Agentic Trader app root.
+ *
+ * If `package.json` and `pyproject.toml` are not both present under `rootDir`,
+ * writes a refusal message to stderr and exits the process with code `2`.
+ * @param {string} rootDir - Path to the directory to validate.
+ */
 function assertSafeRoot(rootDir) {
   if (!rootLooksLikeAgenticTrader(rootDir)) {
     process.stderr.write(
@@ -85,11 +113,22 @@ function assertSafeRoot(rootDir) {
   }
 }
 
+/**
+ * Compute a path relative to the repository root, returning '.' for the root itself.
+ * @param {string} path - The path to resolve against ROOT_DIR.
+ * @returns {string} The relative path from ROOT_DIR to `path`, or '.' when `path` equals ROOT_DIR.
+ */
 function relativeTarget(path) {
   const rel = relative(ROOT_DIR, path);
   return rel === '' ? '.' : rel;
 }
 
+/**
+ * Resolve a path relative to the application's root and ensure the result is inside that root.
+ * @param {string} relativePath - Path resolved against the app root (e.g., '.', 'dist', 'sub/dir').
+ * @returns {string} The absolute path inside the application root.
+ * @throws {Error} If the resolved path is outside the application root.
+ */
 function targetPath(relativePath) {
   const resolvedPath = resolve(ROOT_DIR, relativePath);
   const rootWithSep = ROOT_DIR.endsWith(sep) ? ROOT_DIR : `${ROOT_DIR}${sep}`;
@@ -99,6 +138,23 @@ function targetPath(relativePath) {
   return resolvedPath;
 }
 
+/**
+ * Create a single uninstall target object for a specific repository path.
+ *
+ * @param {string} id - Unique identifier for the target.
+ * @param {string} label - Human-readable label describing the target.
+ * @param {string} relativePath - Path relative to the repository root that the target represents.
+ * @param {string} scope - One of the defined uninstall scopes (e.g., "artifacts", "deps", "service-state").
+ * @param {Object} [options] - Additional options.
+ * @param {string} [options.reason] - Optional explanatory reason describing why the target exists or should be removed.
+ * @param {string[]} [options.blockingFiles] - Paths (relative to the repo root) that, if present, block removal; each will be expanded into `{ path, relative_path }`.
+ * @returns {Object} An uninstall target object containing:
+ *  - `id`, `label`, `scope`
+ *  - `path` (absolute), `relative_path` (relative to the root)
+ *  - `mutates: true`, `selected: false`
+ *  - optional `reason`
+ *  - `blocking_files`: array of `{ path, relative_path }` entries for each provided blocking file
+ */
 function uninstallTarget(id, label, relativePath, scope, options = {}) {
   const path = targetPath(relativePath);
   return {
@@ -120,6 +176,15 @@ function uninstallTarget(id, label, relativePath, scope, options = {}) {
   };
 }
 
+/**
+ * Create an uninstall target that groups multiple discovered paths for the same logical item.
+ *
+ * @param {string} id - Unique identifier for the target.
+ * @param {string} label - Human-readable label describing the grouped item (e.g., "Python bytecode caches").
+ * @param {string[]} relativePaths - Array of paths relative to the repository root; each will be resolved to an absolute path.
+ * @param {string} scope - One of the uninstall scope IDs (e.g., "artifacts", "deps", "service-state").
+ * @returns {Object} An uninstall target object for a multi-path group. The object has `path: null`, a `paths` array of absolute paths, `relative_path` summarizing the group as "`N discovered <label>`", `relative_paths` for presentation, and metadata (`scope`, `mutates: true`, `selected: false`, `blocking_files: []`).
+ */
 function uninstallTargetGroup(id, label, relativePaths, scope) {
   const paths = relativePaths.map((relativePath) => targetPath(relativePath));
   return {
@@ -136,6 +201,16 @@ function uninstallTargetGroup(id, label, relativePaths, scope) {
   };
 }
 
+/**
+ * Produce the fixed set of common uninstall targets for the repository.
+ *
+ * Each entry represents a filesystem path (or group of paths) and associated
+ * metadata categorized into the `artifacts`, `deps`, or `service-state` scopes.
+ * Service-state targets may include `blockingFiles` and a `reason` explaining
+ * prerequisites that must be addressed before deletion.
+ *
+ * @returns {Array<object>} An array of uninstall target objects describing
+ *   static paths and metadata used to build the uninstall plan.
 function staticTargets() {
   return [
     uninstallTarget('pytest-cache', 'Pytest cache', '.pytest_cache', 'artifacts'),
@@ -200,6 +275,11 @@ function staticTargets() {
   ];
 }
 
+/**
+ * Determines whether a path should be skipped during recursive traversal.
+ * @param {string} path - Filesystem path to evaluate (converted to a path relative to the repository root).
+ * @returns {boolean} `true` if the path matches a known pruned directory (for example `.git`, `node_modules`, virtualenvs, build/output directories, or other repository-specific vendored/output folders), `false` otherwise.
+ */
 function shouldPrune(path) {
   const rel = relativeTarget(path);
   return [
@@ -227,6 +307,14 @@ function shouldPrune(path) {
   ].includes(rel);
 }
 
+/**
+ * Discover Python-related uninstall targets under the repository root and produce corresponding uninstall target groups.
+ *
+ * Searches the repository tree under ROOT_DIR for directories named `__pycache__` and top-level directories ending with `.egg-info`,
+ * and returns uninstall group targets representing Python bytecode caches and package metadata directories (assigned to the `artifacts` scope) when found.
+ *
+ * @returns {Array<Object>} An array of uninstall target group objects for discovered Python bytecode caches and Python package metadata directories; returns an empty array if none are found.
+ */
 function discoverDynamicTargets() {
   const pycachePaths = [];
   const eggInfoPaths = [];
@@ -278,10 +366,22 @@ function discoverDynamicTargets() {
   return targets;
 }
 
+/**
+ * Builds the complete uninstall plan for the repository.
+ *
+ * Combines the fixed set of static uninstall targets with any targets discovered
+ * dynamically by scanning the repository (e.g., __pycache__ and *.egg-info).
+ *
+ * @returns {Array<Object>} An array of uninstall target objects describing all planned targets.
+ */
 function uninstallPlan() {
   return [...staticTargets(), ...discoverDynamicTargets()];
 }
 
+/**
+ * Provides human-facing safety notes describing defaults, required approvals, what is in-scope and preserved, and service-state blocking behavior.
+ * @returns {string[]} An array of safety note strings used in uninstall reports.
+ */
 function safetyNotes() {
   return [
     'app:uninstall defaults to a dry-run plan.',
@@ -292,6 +392,12 @@ function safetyNotes() {
   ];
 }
 
+/**
+ * Mark each uninstall target in a plan as selected when its scope is included in the provided scopes.
+ * @param {Array<Object>} plan - Array of uninstall target objects.
+ * @param {Set<string>} selectedScopes - Set of scope IDs that should be selected.
+ * @returns {Array<Object>} A new array of targets where each target has a `selected` boolean: `true` if the target's `scope` is in `selectedScopes`, `false` otherwise.
+ */
 function selectTargets(plan, selectedScopes) {
   return plan.map((target) => ({
     ...target,
@@ -299,6 +405,12 @@ function selectTargets(plan, selectedScopes) {
   }));
 }
 
+/**
+ * Checks whether the uninstall target exists on disk.
+ *
+ * @param {Object} target - Uninstall target object; either a single-target with `path` or a group-target with `paths`.
+ * @returns {boolean} `true` if the target exists (for a group target: at least one path exists), `false` otherwise.
+ */
 function targetExists(target) {
   if (Array.isArray(target.paths)) {
     return target.paths.some((path) => existsSync(path));
@@ -306,10 +418,21 @@ function targetExists(target) {
   return existsSync(target.path);
 }
 
+/**
+ * Find the first blocking file for a target that currently exists on disk.
+ * @param {{ blocking_files: Array<{ path: string, relative_path?: string }> }} target - Uninstall target containing a list of blocking files.
+ * @returns {{ path: string, relative_path?: string } | null} The first blocking file object whose `path` exists, or `null` if none exist.
+ */
 function blockingFile(target) {
   return target.blocking_files.find((file) => existsSync(file.path)) ?? null;
 }
 
+/**
+ * Create a planned status entry for an uninstall target.
+ * @param {object} target - The uninstall target object to annotate; may be a single-path or group target and may include a `selected` flag.
+ * @param {Set<string>} selectedScopes - The set of scopes chosen by the user.
+ * @returns {object} The target augmented with `exists`, `status`, `exit_code`, `stdout`, and `stderr`. `status` is `"planned"` when no scopes are selected or when `target.selected` is truthy, otherwise `"deferred"`.
+ */
 function plannedTarget(target, selectedScopes) {
   return {
     ...target,
@@ -324,6 +447,12 @@ function plannedTarget(target, selectedScopes) {
   };
 }
 
+/**
+ * Mark a planned uninstall target as skipped and annotate it with existence and status metadata.
+ * @param {object} target - The uninstall target object to copy and annotate.
+ * @param {string} reason - Human-readable explanation of why the target was skipped.
+ * @returns {object} The annotated target with `status: 'skipped'`, `exists` (boolean), `reason`, `exit_code: null`, and empty `stdout`/`stderr`.
+ */
 function skippedTarget(target, reason) {
   return {
     ...target,
@@ -336,6 +465,13 @@ function skippedTarget(target, reason) {
   };
 }
 
+/**
+ * Mark a target as blocked because a recorded service-state file exists.
+ *
+ * @param {Object} target - The uninstall target object to annotate; its original properties are preserved.
+ * @param {Object} blocker - The blocking file descriptor with at least a `relative_path` property.
+ * @returns {Object} The input target object extended with `exists` (boolean), `status: 'blocked'`, `reason` explaining the blocker, `exit_code: 1`, and empty `stdout`/`stderr`.
+ */
 function blockedTarget(target, blocker) {
   return {
     ...target,
@@ -348,6 +484,20 @@ function blockedTarget(target, blocker) {
   };
 }
 
+/**
+ * Remove the filesystem entries described by a single uninstall target or a target group.
+ *
+ * For a group target (contains `paths`), attempts to remove each existing path and reports which were removed.
+ * For a single-path target, removes the target path if it exists.
+ *
+ * @param {object} target - Uninstall target object; either a group with a `paths` array or a single target with `path`.
+ * @returns {object} A copy of the input target augmented with:
+ *  - `exists` (boolean): whether any targeted path existed prior to removal,
+ *  - `status` (string): `'removed'` if one or more paths were removed, otherwise `'missing'`,
+ *  - `removed_paths` (string[]|undefined): for group targets, the list of relative paths that were removed,
+ *  - `exit_code` (number): zero on success,
+ *  - `stdout` (string) and `stderr` (string): empty strings (placeholders for command output).
+ */
 function removeTarget(target) {
   if (Array.isArray(target.paths)) {
     const removedPaths = [];
@@ -393,6 +543,19 @@ function removeTarget(target) {
   };
 }
 
+/**
+ * Construct an uninstall payload and compute an exit code by planning and (optionally) executing selected uninstall targets under the repository root.
+ *
+ * The function validates the repository root, determines whether actions should actually mutate the filesystem (based on `options.yes` and `options.dryRun`), selects targets by scope, and then for each target either records a planned entry, skips it due to a prior failure, marks it blocked if a service-state blocker file exists, or removes it and records the result. If any selected service-state target is blocked, the returned `exitCode` is `1`.
+ *
+ * @param {Object} options - Execution options controlling selection and approval.
+ * @param {Set<string>} options.selectedScopes - Set of scope IDs chosen for execution (elements from SCOPE_IDS).
+ * @param {boolean} options.yes - Whether the user approved destructive actions (corresponds to `--yes`).
+ * @param {boolean} options.dryRun - Whether to request a dry-run (corresponds to `--dry-run`); combined with `yes` to determine actual mutation.
+ * @returns {{ payload: Object, exitCode: number }} An object containing:
+ *  - `payload`: the uninstall payload object with metadata (`action`, `mode`, `root`, `dry_run`, `approved`), flags (`mutated`), `selected_scopes`, `safety_notes`, an array of per-target `targets` describing planned/skipped/blocked/removed statuses, and `next_commands` suggestions;
+ *  - `exitCode`: `0` on success (no blocked selected service-state targets), `1` if any selected service-state target was blocked.
+ */
 function buildPayload(options) {
   assertSafeRoot(ROOT_DIR);
   const selectedScopes = options.selectedScopes;
@@ -448,6 +611,19 @@ function buildPayload(options) {
   };
 }
 
+/**
+ * Print a concise, human-readable uninstall report to stdout.
+ *
+ * @param {object} payload - Uninstall payload describing the planned or executed actions.
+ * @param {string} payload.root - Resolved repository root path shown in the header.
+ * @param {boolean} payload.dry_run - If true, the report indicates dry-run mode and prints the follow-up command.
+ * @param {string[]} payload.selected_scopes - Selected uninstall scopes shown in the header (empty means "none").
+ * @param {Array<Object>} payload.targets - Ordered list of target status entries to report.
+ * @param {string} payload.targets[].id - Target identifier.
+ * @param {string} payload.targets[].relative_path - Human-friendly relative path or description for the target.
+ * @param {string} payload.targets[].status - Target status string (e.g., "removed", "blocked", "planned", "skipped", "missing").
+ * @param {string} [payload.targets[].reason] - Optional explanatory reason printed under the target when present.
+ */
 function renderHuman(payload) {
   process.stdout.write('Agentic Trader app:uninstall\n');
   process.stdout.write(`root: ${payload.root}\n`);
@@ -476,6 +652,13 @@ function renderHuman(payload) {
   }
 }
 
+/**
+ * Parse CLI arguments, build the uninstall payload, render output (JSON or human-readable), and exit with the computed code.
+ *
+ * This function is the CLI entry point: it reads process.argv, constructs the uninstall plan and results via buildPayload,
+ * writes either a JSON payload to stdout when `--json` is set or a human-friendly report otherwise, and terminates the process
+ * with the payload's exit code.
+ */
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const { payload, exitCode } = buildPayload(options);

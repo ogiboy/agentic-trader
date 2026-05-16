@@ -152,6 +152,7 @@ setup_agentic_trader_path() {
   fi
 }
 
+# setup_camofox_browser ensures the tools/camofox-browser helper exists, offers to install its local dependencies, and optionally downloads or updates the Camofox browser binary.
 setup_camofox_browser() {
   camofox_dir="$ROOT_DIR/tools/camofox-browser"
   if [ ! -f "$camofox_dir/package.json" ]; then

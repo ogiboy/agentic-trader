@@ -1367,6 +1367,17 @@ def test_tool_ownership_cli_status_and_set_json(
 def test_model_service_cli_json_commands(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Exercise the model-service CLI commands in JSON mode and verify their outputs.
+    
+    Sets up temporary Settings and monkeypatches model service status builders and control functions, then invokes
+    `model-service status`, `model-service status --probe-generation`, `model-service start`, `model-service stop`, and
+    `model-service pull` in JSON mode and asserts:
+    - reported provider and command availability,
+    - that the `include_generation` probe flag is propagated,
+    - `app_owned` reflects start/stop behavior and stderr tail redacts bearer tokens,
+    - the pull command returns the requested model name.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

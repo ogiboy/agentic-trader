@@ -14,6 +14,16 @@ from agentic_trader.system.tool_ownership import (
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
+    """
+    Create a Settings instance rooted at the provided temporary path and ensure required directories exist.
+    
+    Parameters:
+        tmp_path (Path): Temporary directory used as the runtime directory and base for database and cache paths.
+        **overrides: Additional Settings keyword overrides to apply.
+    
+    Returns:
+        Settings: Configured Settings with runtime_dir set to `tmp_path`, `database_path` set to `tmp_path / "agentic_trader.duckdb"`, `market_data_cache_dir` set to `tmp_path / "market_cache"`, and directories created via `ensure_directories()`.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

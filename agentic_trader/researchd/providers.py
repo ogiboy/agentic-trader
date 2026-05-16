@@ -398,6 +398,12 @@ class FirecrawlNewsResearchProvider:
         command_runner: CommandRunner | None = None,
         sdk_searcher: FirecrawlSdkSearcher | None = None,
     ) -> None:
+        """
+        Initialize the FirecrawlNewsResearchProvider using application settings and optional execution/search hooks.
+        
+        Parameters:
+            settings (Settings): Configuration source for provider enablement, API key, CLI path, country, timeout, and ownership mode which influence network usage and CLI fallback behavior.
+        """
         self._enabled = settings.research_firecrawl_enabled
         self._api_key = settings.firecrawl_api_key
         self._cli = settings.research_firecrawl_cli
@@ -514,6 +520,18 @@ class FirecrawlNewsResearchProvider:
         symbol: str,
         per_symbol_limit: int,
     ) -> tuple[list[RawEvidenceRecord], list[str]]:
+        """
+        Attempt to obtain Firecrawl news for a single symbol using the CLI fallback and convert the CLI JSON output into evidence records.
+        
+        If the provider is not allowed to run the CLI by ownership mode, if the CLI executable cannot be resolved, if the command fails, or if the CLI output cannot be parsed, this returns an empty record list and one or more provider-specific missing-reason strings describing the failure.
+        
+        Parameters:
+            symbol (str): Uppercased symbol to query.
+            per_symbol_limit (int): Maximum number of records to produce for this symbol.
+        
+        Returns:
+            tuple[list[RawEvidenceRecord], list[str]]: A pair where the first element is the list of evidence records produced from the CLI payload (possibly empty), and the second element is a list of missing-reason strings (empty when records were produced successfully).
+        """
         if self._ownership_mode != "host-owned":
             return [], [f"firecrawl_cli_fallback_disabled:{self._ownership_mode}"]
         cli_path = _resolve_cli(self._cli)

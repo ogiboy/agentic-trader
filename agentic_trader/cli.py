@@ -2646,7 +2646,21 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
 
 
 def _render_setup_status(payload: dict[str, object]) -> None:
-    """Render local workspace and optional side-application readiness."""
+    """
+    Display workspace and optional side-application readiness using Rich tables and panels.
+    
+    Parameters:
+        payload (dict[str, object]): Snapshot containing setup information. Expected keys:
+            - "platform": platform description (displayed under "Platform").
+            - "workspace_root": project workspace path.
+            - "core_ready": whether core components are ready.
+            - "optional_ready": whether optional runtime pieces are ready.
+            - "model_service", "camofox_service", "webgui_service": dicts with a "message" key summarizing each service.
+            - "tool_ownership" (optional): ownership snapshot passed to the tool ownership renderer.
+            - "tools": list of tool descriptors; each dict should include "label", "category", "status", optional "ownership_mode", "path", "notes" (list), and "install_hint".
+            - "recommended_commands": list[str] of CLI commands to suggest to the user.
+    
+    """
 
     summary = Table(title="Setup Status")
     summary.add_column("Field")
@@ -2696,7 +2710,20 @@ def _render_setup_status(payload: dict[str, object]) -> None:
 
 
 def _render_tool_ownership(payload: dict[str, object]) -> None:
-    """Render recorded optional helper ownership decisions."""
+    """
+    Render the recorded tool ownership decisions as a Rich table.
+    
+    Parameters:
+        payload (dict[str, object]): Snapshot containing an optional "decisions" key. If present, "decisions"
+            should be a list of mappings with the keys:
+                - "tool": tool identifier or name
+                - "mode": ownership mode
+                - "source": origin of the recorded decision
+                - "updated_at": timestamp of last update
+                - "note": human-readable meaning or note
+    
+    The function prints a table with columns: Tool, Mode, Source, Updated, and Meaning.
+    """
 
     table = Table(title="Tool Ownership")
     table.add_column("Tool")
@@ -2717,7 +2744,32 @@ def _render_tool_ownership(payload: dict[str, object]) -> None:
 
 
 def _render_model_service_status(payload: dict[str, object]) -> None:
-    """Render app-owned model-service state and log tails."""
+    """
+    Render the app-owned model service status and recent stderr lines to the console.
+    
+    The function reads known keys from the supplied payload and prints a two-column status table,
+    an "Available Models" panel, and a stderr tail panel when present.
+    
+    Parameters:
+    	payload (dict[str, object]): Status payload containing any of the following keys used for display:
+    		- provider
+    		- command_available
+    		- command_path
+    		- configured_base_url
+    		- configured_model
+    		- service_reachable
+    		- model_available
+    		- generation_checked
+    		- generation_available
+    		- generation_message
+    		- app_owned
+    		- pid
+    		- base_url
+    		- message
+    		- runtime_base_url_matches_app_service
+    		- available_models (iterable of model names shown in the "Available Models" panel)
+    		- stderr_tail (iterable of recent stderr lines shown in the stderr panel)
+    """
 
     table = Table(title=LABEL_MODEL_SERVICE)
     table.add_column("Field")
@@ -2963,7 +3015,14 @@ def _operator_launcher() -> None:
 def setup_status(
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show source setup, optional tool, and model-service readiness."""
+    """
+    Display system setup and tool/model-service readiness.
+    
+    When json_output is True, emit a structured JSON payload of the setup status; otherwise render human-friendly console panels summarizing source setup, optional tool ownership/readiness, and model-service state.
+    
+    Parameters:
+        json_output (bool): `True` to output a machine-readable JSON payload, `False` to render console output.
+    """
 
     settings = get_settings()
     payload = build_setup_status(settings).model_dump(mode="json")
@@ -3006,7 +3065,20 @@ def tool_ownership_set(
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Persist explicit ownership decisions for optional helper tools."""
+    """
+    Persist explicit ownership decisions for optional helper tools.
+    
+    Accepts ownership mode overrides for Ollama, Firecrawl, and Camofox, validates each mode, and writes the persisted ownership choices to application settings. When --json is set, emits the persisted payload as JSON; otherwise renders a human-friendly panel.
+    
+    Parameters:
+        ollama_owner (str | None): Ownership mode for Ollama. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
+        firecrawl_owner (str | None): Ownership mode for Firecrawl. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
+        camofox_owner (str | None): Ownership mode for Camofox. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
+        json_output (bool): If true, emit the persisted ownership payload as compact JSON instead of rendering a panel.
+    
+    Raises:
+        typer.BadParameter: If no ownership decisions are provided or if any provided mode is invalid.
+    """
 
     updates: dict[str, str] = {}
     for tool, value in (
@@ -3043,7 +3115,17 @@ def setup_command(
         help="Report setup status. Use make bootstrap for interactive installs.",
     ),
 ) -> None:
-    """Report the recommended local setup path without hidden installs."""
+    """
+    Show local system setup status and guidance.
+    
+    When run normally, renders a human-friendly setup status view and a guidance panel.
+    When `json_output` is true, emits a JSON payload with `dry_run`, `mutated`, `status`,
+    and `message` keys instead of rendering.
+    
+    Parameters:
+        json_output (bool): If true, output a JSON payload rather than rendering UI.
+        dry_run (bool): If true, report status without performing interactive or system installs.
+    """
 
     settings = get_settings()
     status = build_setup_status(settings).model_dump(mode="json")
