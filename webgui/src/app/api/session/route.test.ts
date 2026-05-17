@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { WEBGUI_SESSION_COOKIE_NAME } from '../../../lib/http';
+import {
+  WEBGUI_SESSION_COOKIE_NAME,
+  resetRequestGuardsForTests,
+} from '../../../lib/http';
 import { DELETE, GET, POST } from './route';
 
 function sessionRequest(init?: RequestInit): Request {
@@ -14,6 +17,8 @@ function sessionRequest(init?: RequestInit): Request {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
+  resetRequestGuardsForTests();
   delete process.env.AGENTIC_TRADER_WEBGUI_TOKEN;
   delete process.env.AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY;
 });
@@ -91,5 +96,29 @@ describe('session route', () => {
       }),
     );
     expect(wrongToken.status).toBe(401);
+  });
+
+  it('rate limits repeated wrong-token login attempts', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T00:00:00Z'));
+    process.env.AGENTIC_TRADER_WEBGUI_TOKEN = 'local-token';
+
+    const first = await POST(
+      sessionRequest({
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: 'wrong-token' }),
+      }),
+    );
+    expect(first.status).toBe(401);
+
+    const second = await POST(
+      sessionRequest({
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: 'still-wrong' }),
+      }),
+    );
+    expect(second.status).toBe(429);
   });
 });

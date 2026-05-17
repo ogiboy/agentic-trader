@@ -67,7 +67,11 @@ describe('agentic-trader webgui CLI bridge', () => {
     execSuccess(
       JSON.stringify({
         preferences: { regions: ['US'] },
-        status: { live_process: false, state: { interval: '1h' } },
+        status: {
+          live_process: false,
+          runtime_state: 'inactive',
+          state: { interval: '1h' },
+        },
       }),
     );
     execSuccess('');
@@ -81,7 +85,7 @@ describe('agentic-trader webgui CLI bridge', () => {
 
     execSuccess(
       JSON.stringify({
-        status: { live_process: true, state: { pid: 42 } },
+        status: { live_process: true, runtime_state: 'active', state: { pid: 42 } },
       }),
     );
     execSuccess('');
@@ -101,7 +105,7 @@ describe('agentic-trader webgui CLI bridge', () => {
       JSON.stringify({
         marketContext: { contextPack: { interval: '1d', lookback: '30d' } },
         review: { record: { symbol: 'MSFT' } },
-        status: { live_process: false, state: {} },
+        status: { live_process: false, runtime_state: 'inactive', state: {} },
       }),
     );
     execSuccess('');
@@ -115,14 +119,18 @@ describe('agentic-trader webgui CLI bridge', () => {
     const { runRuntimeAction } = await import('./agentic-trader');
     execSuccess(
       JSON.stringify({
-        status: { live_process: true, state: { pid: 99 } },
+        status: { live_process: true, runtime_state: 'active', state: { pid: 99 } },
       }),
     );
     await expect(runRuntimeAction('start')).resolves.toMatchObject({
       message: 'Runtime already active with PID 99.',
     });
 
-    execSuccess(JSON.stringify({ status: { live_process: false, state: {} } }));
+    execSuccess(
+      JSON.stringify({
+        status: { live_process: false, runtime_state: 'inactive', state: {} },
+      }),
+    );
     await expect(runRuntimeAction('stop')).resolves.toMatchObject({
       message: 'No managed runtime is currently active.',
     });
@@ -136,6 +144,38 @@ describe('agentic-trader webgui CLI bridge', () => {
     await expect(runRuntimeAction('unsupported')).rejects.toThrow(
       'Unsupported runtime action',
     );
+  });
+
+  it('keeps V1 Web GUI defaults inside US equities and ignores stale live PIDs', async () => {
+    const { runRuntimeAction } = await import('./agentic-trader');
+    execSuccess(
+      JSON.stringify({
+        preferences: { exchanges: ['BIST'], regions: ['TR'] },
+        status: { live_process: false, runtime_state: 'inactive', state: {} },
+      }),
+    );
+    execSuccess('');
+    execSuccess(JSON.stringify({ status: { runtime_state: 'active' } }));
+
+    await expect(runRuntimeAction('start')).resolves.toMatchObject({
+      message: 'Background runtime launch requested for AAPL,MSFT (1d, 180d).',
+    });
+    expect(execFileMock.mock.calls[1][1]).toContain('AAPL,MSFT');
+
+    execSuccess(
+      JSON.stringify({
+        status: {
+          live_process: true,
+          runtime_state: 'stale',
+          state: { pid: 12345 },
+        },
+      }),
+    );
+    execSuccess('');
+    execSuccess(JSON.stringify({ status: { runtime_state: 'inactive' } }));
+    await expect(runRuntimeAction('one-shot')).resolves.toMatchObject({
+      message: 'Strict one-shot cycle completed for AAPL (1d, 180d).',
+    });
   });
 
   it('runs app-owned local tool actions through explicit CLI contracts', async () => {

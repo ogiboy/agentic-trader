@@ -1,6 +1,6 @@
 {
   "name": "agentic-trader-workspace",
-  "version": "0.10.10",
+  "version": "0.10.11",
   "private": true,
   "license": "LGPL-3.0-or-later",
   "packageManager": "pnpm@11.0.9",
@@ -40,7 +40,7 @@
     "build:webgui": "pnpm --filter webgui run build",
     "build:docs": "pnpm --filter docs run build",
     "build:docs:pages": "GITHUB_PAGES=true pnpm --filter docs run build",
-    "check:tui": "pnpm --filter agentic-trader-tui exec node --check index.mjs",
+    "check:tui": "pnpm --filter agentic-trader-tui exec node --check index.mjs && pnpm --filter agentic-trader-tui exec node --input-type=module -e \"await import('ink')\"",
     "test:webgui:coverage": "vitest run webgui/src --coverage --coverage.reporter=lcov --coverage.reportsDirectory=.ai/qa/artifacts/sonar/webgui-coverage",
     "qa": "uv run --locked --all-extras --group dev python scripts/qa/smoke_qa.py",
     "qa:prompts": "uv run --locked --all-extras --group dev python scripts/qa/prompt_docs_lint.py",

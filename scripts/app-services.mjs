@@ -329,13 +329,21 @@ function skippedStep(step, reason) {
  * Determines whether a lifecycle command's parsed payload represents success for the given mode.
  * @param {'start'|'stop'} mode - Lifecycle mode, either `'start'` or `'stop'`.
  * @param {any} payload - Parsed JSON payload from the lifecycle command's stdout.
- * @returns {boolean} `true` if the payload indicates success for the mode: for `'start'` when `app_owned` is `true`, for `'stop'` when `app_owned` is not `true`; `false` otherwise.
+ * @param {Object} [step] - Optional lifecycle step metadata used for service-specific no-op success semantics.
+ * @returns {boolean} `true` if the payload indicates success for the mode: for `'start'` when `app_owned` is `true`, for Web GUI start when an external listener is already reachable, for `'stop'` when `app_owned` is not `true`; `false` otherwise.
  */
-function commandSucceeded(mode, payload) {
+function commandSucceeded(mode, payload, step = null) {
   if (!payload || typeof payload !== 'object') {
     return false;
   }
   if (mode === 'start') {
+    if (
+      step?.id === 'webgui-service' &&
+      payload.app_owned === false &&
+      payload.service_reachable === true
+    ) {
+      return true;
+    }
     return payload.app_owned === true;
   }
   return payload.app_owned !== true;
@@ -358,7 +366,7 @@ function commandSucceeded(mode, payload) {
 function runStep(cliPath, step, mode) {
   const completed = runLifecycleCommand([cliPath, ...step.command.slice(1)]);
   const payload = completed.status === 0 ? parseJsonPayload(completed.stdout) : null;
-  const passed = completed.status === 0 && commandSucceeded(mode, payload);
+  const passed = completed.status === 0 && commandSucceeded(mode, payload, step);
   return {
     ...step,
     resolved_command: [cliPath, ...step.command.slice(1)],

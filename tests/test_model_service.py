@@ -601,7 +601,7 @@ def test_ollama_pid_detection_falls_back_to_lsof_when_ps_is_unavailable(
     ]
 
 
-def test_stop_model_service_cleans_orphan_app_managed_ports_only(
+def test_stop_model_service_does_not_kill_unrecorded_managed_ports(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -637,9 +637,10 @@ def test_stop_model_service_cleans_orphan_app_managed_ports_only(
         ),
     )
 
-    model_service.stop_model_service(settings)
+    status = model_service.stop_model_service(settings)
 
-    assert killed == [111]
+    assert status.app_owned is False
+    assert killed == []
 
 
 # ---------------------------------------------------------------------------

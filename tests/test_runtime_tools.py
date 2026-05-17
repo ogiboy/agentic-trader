@@ -896,7 +896,6 @@ def test_model_service_lifecycle_paths(
 
     monkeypatch.setattr(model_service.shutil, "which", lambda _name: "/bin/ollama")
     monkeypatch.setattr(model_service, "_is_port_available", lambda *_args: True)
-    monkeypatch.setattr(model_service, "_cleanup_orphan_app_managed_ollama_pids", lambda *_args: [])
     monkeypatch.setattr(model_service.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(
         model_service,
@@ -961,18 +960,11 @@ def test_model_service_stop_and_pull_paths(
     assert model_service.stop_model_service(settings).message == "model ready"
 
     removed: list[str] = []
-    cleaned: list[object] = []
     monkeypatch.setattr(model_service, "_read_state", lambda _settings: state)
     monkeypatch.setattr(model_service, "_state_process_alive", lambda _state: False)
     monkeypatch.setattr(model_service, "_remove_state", lambda _settings: removed.append("state"))
-    monkeypatch.setattr(
-        model_service,
-        "_cleanup_orphan_app_managed_ollama_pids",
-        lambda command_path, active_state: cleaned.append((command_path, active_state)) or [],
-    )
     model_service.stop_model_service(settings)
     assert removed == ["state"]
-    assert cleaned == [("/bin/ollama", None)]
 
     stopped: list[int] = []
     monkeypatch.setattr(model_service, "_state_process_alive", lambda _state: True)

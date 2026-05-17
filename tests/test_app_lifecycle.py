@@ -697,6 +697,38 @@ def test_app_stop_fails_when_service_payload_remains_app_owned(
     assert payload["steps"][0]["payload"]["message"] == "still running"
 
 
+def test_app_start_webgui_treats_external_reachable_listener_as_noop(
+    tmp_path: Path,
+) -> None:
+    log_path = tmp_path / "agentic-trader.log"
+    fake_cli = tmp_path / "agentic-trader"
+    fake_cli.write_text(
+        "#!/usr/bin/env sh\n"
+        "printf '%s\\n' \"$*\" >> \"$AGENTIC_TRADER_CLI_LOG\"\n"
+        "printf '{\"app_owned\":false,\"service_reachable\":true,\"message\":\"external listener reachable\"}\\n'\n",
+        encoding="utf-8",
+    )
+    fake_cli.chmod(0o755)
+
+    result = _run_services(
+        "start",
+        "--json",
+        "--webgui",
+        "--yes",
+        env={
+            "AGENTIC_TRADER_CLI": str(fake_cli),
+            "AGENTIC_TRADER_CLI_LOG": str(log_path),
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    webgui_step = next(step for step in payload["steps"] if step["id"] == "webgui-service")
+    assert webgui_step["status"] == "passed"
+    assert webgui_step["payload"]["app_owned"] is False
+    assert webgui_step["payload"]["service_reachable"] is True
+
+
 def test_app_update_dry_run_plans_all_owner_lanes() -> None:
     """
     Assert that running 'app update' in dry-run mode produces a planning payload covering all owner lanes while not scheduling runtime or fetch actions.

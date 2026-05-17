@@ -846,7 +846,6 @@ def start_model_service(
     existing = _read_state(settings)
     if _state_process_alive(existing):
         return build_model_service_status(settings)
-    _cleanup_orphan_app_managed_ollama_pids(command_path, None)
 
     preferred_port = port or settings.model_service_port
     chosen_port = choose_app_managed_port(desired_host, preferred_port)
@@ -894,21 +893,17 @@ def start_model_service(
 def stop_model_service(settings: Settings) -> ModelServiceStatus:
     """Stop only the app-owned Ollama process, never an external service."""
 
-    command_path = shutil.which("ollama")
     state = _read_state(settings)
     app_state = state if _state_process_alive(state) else None
-    orphan_pids = _orphan_app_managed_ollama_pids(command_path, app_state)
-    if state is None and not orphan_pids:
+    if state is None:
         return build_model_service_status(settings)
     if state is not None and app_state is None:
         _remove_state(settings)
-        _cleanup_orphan_app_managed_ollama_pids(command_path, None)
         return build_model_service_status(settings)
 
     stopped = True
     if app_state is not None:
         stopped = _stop_pid(app_state.pid)
-    _cleanup_orphan_app_managed_ollama_pids(command_path, app_state)
     if app_state is not None and (stopped or not _state_process_alive(app_state)):
         _remove_state(settings)
     return build_model_service_status(settings)

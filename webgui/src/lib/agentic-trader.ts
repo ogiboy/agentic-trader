@@ -174,12 +174,16 @@ function buildAttempts(args: string[]): Array<[string, string[]]> {
  * Selects a default comma-separated list of market symbols based on exchange and region preferences.
  *
  * @param preferences - Object containing optional `exchanges` and `regions` arrays used to infer market preference.
- * @returns `THYAO.IS,GARAN.IS` when `exchanges` contains `BIST` or `regions` contains `TR`; `AAPL,MSFT` when `exchanges` contains `NASDAQ` or `NYSE` or `regions` contains `US`; otherwise `BTC-USD,ETH-USD`.
+ * @returns V1-safe US equities by default. Non-US/global defaults remain behind an explicit environment flag.
  */
 function defaultSymbolsFromPreferences(preferences: {
   exchanges?: string[];
   regions?: string[];
 }): string {
+  const v1DefaultSymbols = 'AAPL,MSFT';
+  if (process.env.AGENTIC_TRADER_WEBGUI_GLOBAL_SYMBOL_DEFAULTS !== '1') {
+    return v1DefaultSymbols;
+  }
   const exchanges = preferences.exchanges || [];
   const regions = preferences.regions || [];
   if (exchanges.includes('BIST') || regions.includes('TR')) {
@@ -192,7 +196,7 @@ function defaultSymbolsFromPreferences(preferences: {
   ) {
     return 'AAPL,MSFT';
   }
-  return 'BTC-USD,ETH-USD';
+  return v1DefaultSymbols;
 }
 
 /**
@@ -243,11 +247,14 @@ function defaultRuntimeLookback(data: Record<string, any>): string {
 /**
  * Determine whether the managed runtime is currently active according to the dashboard snapshot.
  *
- * @param data - Dashboard snapshot that may expose both `status.live_process` and `status.state.pid`
- * @returns `true` only when the dashboard confirms a live process; persisted PIDs can describe historical terminal states.
+ * @param data - Dashboard snapshot that may expose `status.runtime_state`, `status.live_process`, and `status.state.pid`
+ * @returns `true` only when the runtime view confirms an active live process; stale or terminal persisted PIDs are not considered running.
  */
 function isTraderRunning(data: Record<string, any>): boolean {
-  return data?.status?.live_process === true;
+  return (
+    data?.status?.live_process === true &&
+    data?.status?.runtime_state === 'active'
+  );
 }
 
 /**

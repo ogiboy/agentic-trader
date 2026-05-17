@@ -1,6 +1,6 @@
 [project]
 name = "research_flow"
-version = "0.10.10"
+version = "0.10.11"
 description = "Tracked CrewAI research sidecar for Agentic Trader."
 license = "LGPL-3.0-or-later"
 authors = [

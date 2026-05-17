@@ -159,13 +159,17 @@ setup_camofox_browser() {
     printf '%s\n' "Camofox browser helper is not present under tools/camofox-browser."
     return 0
   fi
-  if [ -d "$camofox_dir/node_modules" ]; then
-    printf '✓ Camofox browser dependencies appear installed\n'
+  if ! has_cmd pnpm; then
+    printf '%s\n' "pnpm is required for optional Camofox helper setup. Install pnpm first, then rerun make bootstrap -- --browser-tools."
     return 0
   fi
-  printf '%s\n' "Camofox dependency install is local and skips browser downloads by default."
-  if ask_yes "Install optional Camofox browser helper dependencies now?"; then
-    run_cmd pnpm --dir "$camofox_dir" install --ignore-workspace --ignore-scripts
+  if [ -d "$camofox_dir/node_modules" ]; then
+    printf '✓ Camofox browser dependencies appear installed\n'
+  else
+    printf '%s\n' "Camofox dependency install is local and skips browser downloads by default."
+    if ask_yes "Install optional Camofox browser helper dependencies now?"; then
+      run_cmd pnpm --dir "$camofox_dir" install --ignore-workspace --ignore-scripts
+    fi
   fi
   printf '%s\n' "Camoufox browser binary download is separate and can be large."
   if ask_yes "Download/update the Camoufox browser binary now?"; then

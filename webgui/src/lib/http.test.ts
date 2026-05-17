@@ -10,6 +10,7 @@ import {
   parseJsonObjectBody,
   redactAndCapText,
   rejectUnsafeWebguiRequest,
+  resetRequestGuardsForTests,
 } from './http';
 
 function request(url: string, init: RequestInit = {}): Request {
@@ -18,6 +19,7 @@ function request(url: string, init: RequestInit = {}): Request {
 
 afterEach(() => {
   vi.useRealTimers();
+  resetRequestGuardsForTests();
   delete process.env.AGENTIC_TRADER_WEBGUI_TOKEN;
   delete process.env.AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY;
 });
@@ -147,6 +149,16 @@ describe('webgui http guards', () => {
     );
     expect(tooLarge.ok).toBe(false);
     expect(!tooLarge.ok && tooLarge.response.status).toBe(413);
+
+    const chunkedTooLarge = await parseJsonObjectBody(
+      request('http://localhost:3210/api/runtime', {
+        method: 'POST',
+        body: JSON.stringify({ note: 'x'.repeat(32) }),
+      }),
+      { maxBytes: 8 },
+    );
+    expect(chunkedTooLarge.ok).toBe(false);
+    expect(!chunkedTooLarge.ok && chunkedTooLarge.response.status).toBe(413);
   });
 
   it('rate limits and single-flights guarded requests', async () => {
@@ -183,12 +195,15 @@ describe('webgui http guards', () => {
   });
 
   it('redacts common secret shapes and caps long errors', () => {
+    process.env.AGENTIC_TRADER_TEST_SECRET = 'raw-secret-value';
     const text = redactAndCapText(
-      'API_KEY=abc Bearer token123 Authorization: raw https://x.test?a=1&token=abc',
-      40,
+      'API_KEY=abc Bearer token123 Authorization: raw https://x.test?a=1&token=abc {"api_key":"json-secret"} raw-secret-value',
+      500,
     );
     expect(text).toContain('API_KEY=<redacted>');
     expect(text).toContain('Bearer <redacted>');
-    expect(text).toContain('...<truncated>');
+    expect(text).toContain('"api_key":"<redacted>"');
+    expect(text).not.toContain('raw-secret-value');
+    expect(redactAndCapText('x'.repeat(80), 40)).toContain('...<truncated>');
   });
 });
