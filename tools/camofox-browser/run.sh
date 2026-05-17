@@ -1,7 +1,10 @@
 #!/bin/bash
+set -euo pipefail
 # Local development script for camofox-browser
 # Usage: ./run.sh [-p port]
 # Example: ./run.sh -p 3001
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 CAMOFOX_PORT=3000
 while getopts "p:" opt; do
@@ -12,26 +15,21 @@ while getopts "p:" opt; do
 done
 export CAMOFOX_PORT
 
-# Install deps if needed
-if [ ! -d "node_modules" ]; then
-    echo "Installing dependencies..."
-    npm install
+if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
+    echo "Camofox dependencies are missing." >&2
+    echo "Run: pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts" >&2
+    exit 1
 fi
 
-# Check if camoufox browser is installed
-if ! npx camoufox-js --version &> /dev/null 2>&1; then
-    echo "Fetching Camoufox browser..."
-    npx camoufox-js fetch
+CAMOUFOX_CACHE_DIR="$(pnpm --dir "$SCRIPT_DIR" --ignore-workspace exec camoufox-js path 2>/dev/null || true)"
+if [ -z "$CAMOUFOX_CACHE_DIR" ] || [ ! -e "$CAMOUFOX_CACHE_DIR" ]; then
+    echo "Camoufox browser helper is not ready." >&2
+    echo "Run explicitly after approval: pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser" >&2
+    exit 1
 fi
 
-# Install nodemon globally if not available
-if ! command -v nodemon &> /dev/null; then
-    echo "Installing nodemon..."
-    npm install -g nodemon
-fi
-
-echo "Starting camofox-browser on http://localhost:$CAMOFOX_PORT (with auto-reload)"
+echo "Starting camofox-browser on http://localhost:$CAMOFOX_PORT"
 echo "Logs: /tmp/camofox-browser.log"
-nodemon --watch server.js --exec "node --max-old-space-size=128 server.js" 2>&1 | while IFS= read -r line; do
+pnpm --dir "$SCRIPT_DIR" --ignore-workspace run start 2>&1 | while IFS= read -r line; do
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $line"
 done | tee -a /tmp/camofox-browser.log

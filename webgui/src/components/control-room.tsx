@@ -3,6 +3,14 @@
 
 import Image from 'next/image';
 import {
+  CheckCircle2,
+  Power,
+  RotateCcw,
+  SlidersHorizontal,
+  Wrench,
+  XCircle,
+} from 'lucide-react';
+import {
   type SyntheticEvent,
   useCallback,
   useEffect,
@@ -22,6 +30,7 @@ type TabId =
   | 'overview'
   | 'runtime'
   | 'portfolio'
+  | 'proposals'
   | 'review'
   | 'memory'
   | 'chat'
@@ -30,11 +39,18 @@ type MessageTone = 'neutral' | 'good' | 'warn' | 'bad';
 type InstructionMode = 'preview' | 'apply';
 type PanelAccent = 'lime' | 'amber' | 'cyan' | 'rose';
 type KeyValueItems = Array<[string, string]>;
+type ToolActionKind =
+  | 'enable-local-tools'
+  | 'enable-host-fallbacks'
+  | 'start-model-service'
+  | 'start-camofox-service';
+type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'runtime', label: 'Runtime' },
   { id: 'portfolio', label: 'Portfolio' },
+  { id: 'proposals', label: 'Proposals' },
   { id: 'review', label: 'Review' },
   { id: 'memory', label: 'Decision Evidence' },
   { id: 'chat', label: 'Chat' },
@@ -178,6 +194,53 @@ export function tradeContextLines(
     `Review Summary: ${record.review_summary ?? '-'}`,
     `Routed Models: ${routedModels || '-'}`,
   ];
+}
+
+function proposalSizeLabel(proposal: Record<string, any>): string {
+  if (typeof proposal.quantity === 'number') {
+    return `qty ${formatNumber(proposal.quantity, 4)}`;
+  }
+  if (typeof proposal.notional === 'number') {
+    return `$${formatNumber(proposal.notional, 2)}`;
+  }
+  return '-';
+}
+
+function proposalHeadline(proposal: Record<string, any>): string {
+  return `${proposal.symbol ?? '-'} ${String(proposal.side ?? '-').toUpperCase()} | ${proposal.status ?? '-'} | ${proposalSizeLabel(proposal)}`;
+}
+
+export function proposalLines(dashboard: DashboardData): string[] {
+  const payload = dashboard.tradeProposals;
+  if (payload?.available === false) {
+    return [
+      `Proposal desk unavailable: ${payload.error || 'Unknown error.'}`,
+    ];
+  }
+  const proposals = Array.isArray(payload?.proposals)
+    ? payload.proposals
+    : [];
+  if (!proposals.length) {
+    return ['No manual-review proposals are queued yet.'];
+  }
+  return proposals.map(
+    (proposal: Record<string, any>) =>
+      `${proposal.proposal_id ?? '-'} | ${proposalHeadline(proposal)} | confidence=${formatNumber(proposal.confidence, 2)} | source=${proposal.source ?? '-'}`,
+  );
+}
+
+function proposalApprovalBlockedReason(dashboard: DashboardData): string {
+  const broker = dashboard.broker || {};
+  if (broker.kill_switch_active) {
+    return 'Execution kill switch is active.';
+  }
+  if (broker.live_requested || broker.live) {
+    return 'Live backend is not proposal-approval ready in V1.';
+  }
+  if (broker.state === 'blocked') {
+    return broker.message || 'Broker state is blocked.';
+  }
+  return '';
 }
 
 /**
@@ -483,6 +546,15 @@ export function readinessLines(dashboard: DashboardData): string[] {
   ];
 }
 
+/**
+ * Builds human-readable lines summarizing provider configuration and warnings from the dashboard.
+ *
+ * Reads provider diagnostics from the `dashboard` payload and returns lines for selected market provider,
+ * provider role, news mode, whether Finnhub/FMP/Alpaca API keys are configured, and up to three provider warnings.
+ *
+ * @param dashboard - Dashboard payload containing `providerDiagnostics` used to derive provider and key status
+ * @returns An array of status lines describing provider selection, news mode, key configuration, and up to three warnings (or `"No provider warnings."` when none)
+ */
 export function providerWarningLines(dashboard: DashboardData): string[] {
   const diagnostics = dashboard.providerDiagnostics || {};
   const market = diagnostics.market_data || {};
@@ -501,14 +573,186 @@ export function providerWarningLines(dashboard: DashboardData): string[] {
   ];
 }
 
+/**
+ * Get the ownership decision mode for a specified tool.
+ *
+ * @param dashboard - The dashboard payload containing tool ownership decisions
+ * @param tool - The tool key to look up in `dashboard.toolOwnership.decisions_by_tool`
+ * @returns The `mode` value for the given tool, or `'undecided'` if no mode is recorded
+ */
+function ownershipMode(dashboard: DashboardData, tool: string): string {
+  return dashboard.toolOwnership?.decisions_by_tool?.[tool]?.mode ?? 'undecided';
+}
+
+/**
+ * Normalize a model service base URL so it consistently ends with `/v1`, or return `-` for invalid input.
+ *
+ * @param baseUrl - The value to normalize into a base URL; may be any type.
+ * @returns The input URL with a trailing slash removed and `/v1` appended when missing, or `-` if `baseUrl` is not a non-empty string.
+ */
+function withOpenAiSuffix(baseUrl: unknown): string {
+  if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
+    return '-';
+  }
+  const trimmed = baseUrl.replace(/\/$/, '');
+  return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`;
+}
+
+/**
+ * Determines the effective base URL to use for model service requests.
+ *
+ * @param dashboard - The dashboard payload containing modelService and doctor configuration
+ * @returns The model service base URL with an OpenAI `/v1` suffix when the app-owned model service is configured, otherwise the doctor's base URL, or `'-'` if neither is available
+ */
+function effectiveModelBaseUrl(dashboard: DashboardData | null): string {
+  const modelService = dashboard?.modelService || {};
+  if (modelService.app_owned && modelService.base_url) {
+    return withOpenAiSuffix(modelService.base_url);
+  }
+  if (dashboard?.doctor?.base_url) {
+    return withOpenAiSuffix(dashboard.doctor.base_url);
+  }
+  return '-';
+}
+
+/**
+ * Selects the primary value when defined, otherwise the fallback, and yields `"yes"` if that chosen value is truthy, `"no"` otherwise.
+ *
+ * @param appOwnedValue - Primary value to consider first (used when not `null` or `undefined`)
+ * @param fallbackValue - Secondary value used when `appOwnedValue` is `null` or `undefined`
+ * @returns `"yes"` if the selected value is truthy, `"no"` otherwise
+ */
+function effectiveBoolean(
+  appOwnedValue: unknown,
+  fallbackValue: unknown,
+): string {
+  return (appOwnedValue ?? fallbackValue) ? 'yes' : 'no';
+}
+
+/**
+ * Build a list of labeled system status key/value pairs derived from the dashboard payload.
+ *
+ * Uses model service, doctor, research, broker, calendar, and auxiliary service fields to produce
+ * human-readable status entries (provider, model, base URL, reachability, availability, service
+ * messages, research and broker states, and market session).
+ *
+ * @param dashboard - The dashboard payload (may be null) from which status values are extracted
+ * @returns A KeyValueItems array where each tuple is [label, value] describing a system status item
+ */
+export function systemStatusItems(dashboard: DashboardData | null): KeyValueItems {
+  const modelService = dashboard?.modelService || {};
+  const provider = dashboard?.doctor?.provider ?? 'ollama';
+  const reachabilityLabel =
+    provider === 'ollama' ? 'Ollama Reachable' : 'LLM Reachable';
+  return [
+    ['Provider', provider],
+    ['Model', dashboard?.doctor?.model ?? modelService.configured_model ?? '-'],
+    ['Base URL', effectiveModelBaseUrl(dashboard)],
+    [
+      reachabilityLabel,
+      effectiveBoolean(
+        modelService.app_owned ? modelService.service_reachable : undefined,
+        dashboard?.doctor?.llm_reachable ?? dashboard?.doctor?.ollama_reachable,
+      ),
+    ],
+    [
+      'Model Available',
+      effectiveBoolean(
+        modelService.app_owned ? modelService.model_available : undefined,
+        dashboard?.doctor?.model_available,
+      ),
+    ],
+    ['Model Service', modelService.message ?? '-'],
+    ['Camofox Service', dashboard?.camofoxService?.message ?? '-'],
+    ['Web GUI Service', dashboard?.webGui?.message ?? '-'],
+    ['Research', dashboard?.research?.status ?? '-'],
+    ['Research Control', dashboard?.research?.cycleControl?.status ?? '-'],
+    [
+      'Research Trigger',
+      dashboard?.research?.cycleControl?.trigger_now_requested
+        ? 'requested'
+        : 'clear',
+    ],
+    [
+      'Research Digest Replay',
+      dashboard?.research?.latestDigestReplay?.available ? 'available' : '-',
+    ],
+    [
+      'Research Sources',
+      sourceHealthSummaryLine(dashboard?.research?.source_health_summary),
+    ],
+    ['Broker Backend', dashboard?.broker?.backend ?? '-'],
+    ['Broker State', dashboard?.broker?.state ?? '-'],
+    ['Execution Mode', dashboard?.broker?.execution_mode ?? '-'],
+    ['Market Session', dashboard?.calendar?.session?.session_state ?? '-'],
+  ];
+}
+
+/**
+ * Builds human-readable status lines describing local tool, model service, and related ownership/reachability state from the dashboard payload.
+ *
+ * @param dashboard - The dashboard payload containing runtime, service, and ownership metadata
+ * @returns An array of labeled status strings suitable for display in the "Local Tools" panel (e.g., model adapter, service reachability, ownership, URLs, and research source summary)
+ */
+export function localToolLines(dashboard: DashboardData): string[] {
+  const modelService = dashboard.modelService || {};
+  const camofox = dashboard.camofoxService || {};
+  const provider = dashboard.doctor?.provider ?? 'ollama';
+  const firecrawlMode = ownershipMode(dashboard, 'firecrawl');
+  let camofoxBlocker = 'Camofox Access Key: -';
+  if (camofox.access_key_configured === false) {
+    camofoxBlocker =
+      'Camofox Blocker: set CAMOFOX_ACCESS_KEY or CAMOFOX_API_KEY in ignored local env before start';
+  } else if (camofox.access_key_configured) {
+    camofoxBlocker = 'Camofox Access Key: configured';
+  }
+  return [
+    `Model Adapter: ${provider}`,
+    `LLM Runtime: internal-first${modelService.app_owned ? ' app-owned' : ''}`,
+    `Model Service: ${modelService.message ?? '-'}`,
+    `Ollama Ownership: ${ownershipMode(dashboard, 'ollama')}`,
+    `Model Service Owned: ${modelService.app_owned ? 'yes' : 'no'}`,
+    `Model Service Reachable: ${modelService.service_reachable ? 'yes' : 'no'}`,
+    `Model Available: ${modelService.model_available ? 'yes' : 'no'}`,
+    `Model Service URL: ${withOpenAiSuffix(modelService.base_url ?? modelService.configured_base_url)}`,
+    `Firecrawl Ownership: ${firecrawlMode}`,
+    `Firecrawl Runtime: internal SDK first; host CLI fallback ${firecrawlMode === 'host-owned' ? 'enabled' : 'disabled by ownership'}`,
+    `Camofox: ${camofox.message ?? '-'}`,
+    `Camofox Ownership: ${ownershipMode(dashboard, 'camofox')}`,
+    `Camofox Owned: ${camofox.app_owned ? 'yes' : 'no'}`,
+    `Camofox Reachable: ${camofox.service_reachable ? 'yes' : 'no'}`,
+    camofoxBlocker,
+    `Camofox URL: ${camofox.base_url ?? '-'}`,
+    `Web GUI: ${dashboard.webGui?.message ?? '-'}`,
+    `Web GUI Owned: ${dashboard.webGui?.app_owned ? 'yes' : 'no'}`,
+    `Web GUI URL: ${dashboard.webGui?.url ?? '-'}`,
+    `Research: ${dashboard.research?.status ?? '-'} (${dashboard.research?.backend ?? '-'})`,
+    `Research Sources: ${sourceHealthSummaryLine(dashboard.research?.source_health_summary)}`,
+  ];
+}
+
+/**
+ * Render the Overview tab, including market ribbon, current cycle, system status, readiness gates, local tool controls, provider warnings, and recent decision workflow events.
+ *
+ * @param dashboard - Dashboard payload used to populate view sections and derive display data.
+ * @param currentCycle - Key/value pairs describing the current runtime cycle displayed in the "Current Cycle" panel.
+ * @param system - Key/value pairs describing system and provider status displayed in the "System" panel.
+ * @param busy - Current global busy/action identifier; when non-null, tool action buttons are disabled.
+ * @param onToolAction - Handler invoked with a ToolActionKind when a local tool action button is clicked.
+ * @returns The rendered Overview view as JSX.
+ */
 export function OverviewView({
   dashboard,
   currentCycle,
   system,
+  busy,
+  onToolAction,
 }: Readonly<{
   dashboard: DashboardData;
   currentCycle: KeyValueItems;
   system: KeyValueItems;
+  busy: string | null;
+  onToolAction: (kind: ToolActionKind) => void;
 }>) {
   const recentStageEvents = dashboard.agentActivity?.recent_stage_events?.length
     ? dashboard.agentActivity.recent_stage_events.map(
@@ -564,24 +808,45 @@ export function OverviewView({
           <TextList items={readinessLines(dashboard)} />
         </Panel>
         <Panel title="Local Tools" accent="cyan">
-          <TextList
-            items={[
-              `Model Service: ${dashboard.modelService?.message ?? '-'}`,
-              `Model Service Owned: ${dashboard.modelService?.app_owned ? 'yes' : 'no'}`,
-              `Model Service URL: ${dashboard.modelService?.base_url ?? dashboard.modelService?.configured_base_url ?? '-'}`,
-              `Camofox: ${dashboard.camofoxService?.message ?? '-'}`,
-              `Camofox Owned: ${dashboard.camofoxService?.app_owned ? 'yes' : 'no'}`,
-              `Camofox URL: ${dashboard.camofoxService?.base_url ?? '-'}`,
-              `Web GUI: ${dashboard.webGui?.message ?? '-'}`,
-              `Web GUI Owned: ${dashboard.webGui?.app_owned ? 'yes' : 'no'}`,
-              `Web GUI URL: ${dashboard.webGui?.url ?? '-'}`,
-              `Research: ${dashboard.research?.status ?? '-'} (${dashboard.research?.backend ?? '-'})`,
-              `Research Control: ${dashboard.research?.cycleControl?.status ?? '-'}`,
-              `Research Trigger: ${dashboard.research?.cycleControl?.trigger_now_requested ? 'requested' : 'clear'}`,
-              `Research Digest Replay: ${dashboard.research?.latestDigestReplay?.available ? 'available' : '-'}`,
-              `Research Sources: ${sourceHealthSummaryLine(dashboard.research?.source_health_summary)}`,
-            ]}
-          />
+          <div className="tool-actions">
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => onToolAction('enable-local-tools')}
+              type="button"
+            >
+              <SlidersHorizontal aria-hidden="true" size={16} />
+              App Tools
+            </button>
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => onToolAction('enable-host-fallbacks')}
+              type="button"
+            >
+              <SlidersHorizontal aria-hidden="true" size={16} />
+              Host Fallback
+            </button>
+            <button
+              className="button"
+              disabled={busy !== null}
+              onClick={() => onToolAction('start-model-service')}
+              type="button"
+            >
+              <Power aria-hidden="true" size={16} />
+              Ollama
+            </button>
+            <button
+              className="button"
+              disabled={busy !== null || dashboard.camofoxService?.access_key_configured === false}
+              onClick={() => onToolAction('start-camofox-service')}
+              type="button"
+            >
+              <Wrench aria-hidden="true" size={16} />
+              Camofox
+            </button>
+          </div>
+          <TextList items={localToolLines(dashboard)} />
         </Panel>
       </div>
 
@@ -793,6 +1058,139 @@ export function PortfolioView({
                 : `${accounting.cost_model.slippage_bps} bps`,
             ],
             ['Rejection Evidence', accounting.rejection_evidence ?? '-'],
+          ]}
+        />
+      </Panel>
+    </div>
+  );
+}
+
+export function ProposalDeskView({
+  dashboard,
+  busy,
+  proposalNote,
+  onProposalNoteChange,
+  onProposalAction,
+}: Readonly<{
+  dashboard: DashboardData;
+  busy: string | null;
+  proposalNote: string;
+  onProposalNoteChange: (value: string) => void;
+  onProposalAction: (
+    kind: ProposalActionKind,
+    proposalId: string,
+  ) => Promise<void>;
+}>) {
+  const proposals = Array.isArray(dashboard.tradeProposals?.proposals)
+    ? dashboard.tradeProposals.proposals
+    : [];
+  const proposalUnavailable = dashboard.tradeProposals?.available === false;
+  const approvalBlockedReason = proposalApprovalBlockedReason(dashboard);
+
+  return (
+    <div className="grid grid--2">
+      <Panel title="Proposal Desk" accent="amber">
+        <TextList items={proposalLines(dashboard)} />
+        {approvalBlockedReason ? (
+          <div className="banner banner--warn">{approvalBlockedReason}</div>
+        ) : null}
+        {proposalUnavailable ? null : (
+          <>
+            {proposals.length ? (
+              <div className="proposal-list">
+                {proposals.slice(0, 6).map((proposal: Record<string, any>) => {
+                  const proposalId = String(proposal.proposal_id ?? '');
+                  const isPending = proposal.status === 'pending';
+                  const canApprove = isPending && !approvalBlockedReason;
+                  const canReconcile =
+                    proposal.status === 'approved' &&
+                    Boolean(proposal.execution_intent_id);
+                  return (
+                    <article className="proposal-card" key={proposalId}>
+                      <div className="proposal-card__head">
+                        <strong>{proposalHeadline(proposal)}</strong>
+                        <span className="chip">
+                          {formatNumber(proposal.confidence, 2)}
+                        </span>
+                      </div>
+                      <p>{proposal.thesis || '-'}</p>
+                      <div className="proposal-card__meta">
+                        <span>{proposalId}</span>
+                        <span>{proposal.source || '-'}</span>
+                        <span>
+                          stop {formatNumber(proposal.stop_loss, 2)} / take{' '}
+                          {formatNumber(proposal.take_profit, 2)}
+                        </span>
+                      </div>
+                      <div className="tool-actions">
+                        <button
+                          className="button button--solid"
+                          disabled={!canApprove || Boolean(busy)}
+                          onClick={() =>
+                            void onProposalAction('approve', proposalId)
+                          }
+                          title="Approve pending paper proposal"
+                          type="button"
+                        >
+                          <CheckCircle2 aria-hidden size={16} />
+                          Approve
+                        </button>
+                        <button
+                          className="button"
+                          disabled={
+                            !isPending || Boolean(busy) || !proposalNote.trim()
+                          }
+                          onClick={() =>
+                            void onProposalAction('reject', proposalId)
+                          }
+                          title="Reject pending proposal"
+                          type="button"
+                        >
+                          <XCircle aria-hidden size={16} />
+                          Reject
+                        </button>
+                        <button
+                          className="button"
+                          disabled={!canReconcile || Boolean(busy)}
+                          onClick={() =>
+                            void onProposalAction('reconcile', proposalId)
+                          }
+                          title="Reconcile approved in-flight proposal"
+                          type="button"
+                        >
+                          <RotateCcw aria-hidden size={16} />
+                          Reconcile
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : null}
+            <div className="composer">
+              <textarea
+                onChange={(event) =>
+                  onProposalNoteChange(event.target.value)
+                }
+                placeholder="Approval note or rejection reason."
+                value={proposalNote}
+              />
+            </div>
+          </>
+        )}
+      </Panel>
+      <Panel title="Desk Safety" accent="cyan">
+        <KeyValueList
+          items={[
+            ['Backend', dashboard.broker?.backend ?? '-'],
+            ['State', dashboard.broker?.state ?? '-'],
+            [
+              'External Paper',
+              dashboard.broker?.external_paper ? 'yes' : 'no',
+            ],
+            ['Live Requested', dashboard.broker?.live_requested ? 'yes' : 'no'],
+            ['Kill Switch', dashboard.broker?.kill_switch_active ? 'on' : 'off'],
+            ['Message', dashboard.broker?.message ?? '-'],
           ]}
         />
       </Panel>
@@ -1095,6 +1493,7 @@ type ActiveViewProps = Readonly<{
   instructionDraft: string;
   instructionMode: InstructionMode;
   instructionResult: Record<string, any> | null;
+  proposalNote: string;
   busy: string | null;
   onChatPersonaChange: (value: ChatPersona) => void;
   onChatDraftChange: (value: string) => void;
@@ -1102,8 +1501,22 @@ type ActiveViewProps = Readonly<{
   onInstructionDraftChange: (value: string) => void;
   onInstructionModeChange: (value: InstructionMode) => void;
   onSendInstruction: () => Promise<void>;
+  onToolAction: (kind: ToolActionKind) => void;
+  onProposalNoteChange: (value: string) => void;
+  onProposalAction: (
+    kind: ProposalActionKind,
+    proposalId: string,
+  ) => Promise<void>;
 }>;
 
+/**
+ * Renders the dashboard tab specified by `props.tab` and forwards the relevant
+ * slice of state and handlers to the corresponding view component.
+ *
+ * @param props - Component props containing `tab`, the `dashboard` payload, UI state such as `busy`,
+ *                and any view-specific handlers and data (chat, instruction, tool actions, etc.).
+ * @returns The JSX element for the active tab view.
+ */
 export function ActiveView(props: ActiveViewProps) {
   switch (props.tab) {
     case 'overview':
@@ -1112,12 +1525,24 @@ export function ActiveView(props: ActiveViewProps) {
           dashboard={props.dashboard}
           currentCycle={props.currentCycle}
           system={props.system}
+          busy={props.busy}
+          onToolAction={props.onToolAction}
         />
       );
     case 'runtime':
       return <RuntimeView dashboard={props.dashboard} />;
     case 'portfolio':
       return <PortfolioView dashboard={props.dashboard} />;
+    case 'proposals':
+      return (
+        <ProposalDeskView
+          dashboard={props.dashboard}
+          busy={props.busy}
+          proposalNote={props.proposalNote}
+          onProposalAction={props.onProposalAction}
+          onProposalNoteChange={props.onProposalNoteChange}
+        />
+      );
     case 'review':
       return <ReviewView dashboard={props.dashboard} />;
     case 'memory':
@@ -1152,11 +1577,11 @@ export function ActiveView(props: ActiveViewProps) {
 }
 
 /**
- * Render the operator control room UI that displays dashboard data and provides tabbed views, runtime controls, chat, and an instruction composer.
+ * Render the operator control room UI for viewing dashboard data and interacting with runtime controls, local tools, chat, and operator instructions.
  *
- * On mount the component loads dashboard data and polls /api/dashboard every 2.5 seconds; user actions issue requests to /api/runtime, /api/chat, and /api/instruct and update local UI state (messages, busy state, chat history, instruction results, and last refresh time).
+ * This component manages dashboard polling and session unlocking, presents tabbed views (overview, runtime, portfolio, review, memory, chat, settings), and exposes UI-driven actions that call backend endpoints to control runtime, tools, chat, and instruction workflows.
  *
- * @returns A React element containing the operator dashboard UI with tabs for overview, runtime, portfolio, review, memory, chat, and settings, plus controls for runtime actions, chat composition, and operator instructions.
+ * @returns A React element containing the tabbed operator dashboard UI with runtime/tool action controls, chat composer, instruction composer, and status/metadata panels.
  */
 export function ControlRoom() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -1181,6 +1606,7 @@ export function ControlRoom() {
     string,
     any
   > | null>(null);
+  const [proposalNote, setProposalNote] = useState('');
   const [lastLoadedAt, setLastLoadedAt] = useState<string>('-');
   const [webguiToken, setWebguiToken] = useState('');
   const [authRequired, setAuthRequired] = useState(false);
@@ -1188,6 +1614,12 @@ export function ControlRoom() {
   const [authError, setAuthError] = useState<string | null>(null);
   const lastRequestSeqRef = useRef(0);
   const dashboardAbortRef = useRef<AbortController | null>(null);
+
+  const selectTab = useCallback((nextTab: TabId) => {
+    setTab(nextTab);
+    setError(null);
+    setMessage(null);
+  }, []);
 
   const applyDashboardPayload = useCallback((payload: DashboardData) => {
     setDashboard(payload);
@@ -1322,6 +1754,66 @@ export function ControlRoom() {
     [applyLatestDashboard, loadDashboard],
   );
 
+  const runToolAction = useCallback(
+    async (kind: ToolActionKind) => {
+      setBusy(kind);
+      try {
+        const result = await readJson<{
+          message: string;
+          dashboard: DashboardData;
+        }>('/api/tools', {
+          method: 'POST',
+          body: JSON.stringify({ kind }),
+        });
+        applyLatestDashboard(result.dashboard);
+        setMessage({ text: result.message, tone: 'good' });
+      } catch (nextError) {
+        if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+          setAuthRequired(true);
+        }
+        setMessage({
+          text:
+            nextError instanceof Error ? nextError.message : String(nextError),
+          tone: 'bad',
+        });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [applyLatestDashboard],
+  );
+
+  const runProposalAction = useCallback(
+    async (kind: ProposalActionKind, proposalId: string) => {
+      const reviewNotes = proposalNote.trim();
+      setBusy(`proposal-${kind}`);
+      try {
+        const result = await readJson<{
+          message: string;
+          dashboard: DashboardData;
+        }>('/api/proposals', {
+          method: 'POST',
+          body: JSON.stringify({ kind, proposalId, reviewNotes }),
+        });
+        applyLatestDashboard(result.dashboard);
+        setProposalNote('');
+        setMessage({ text: result.message, tone: 'good' });
+      } catch (nextError) {
+        if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+          setAuthRequired(true);
+        }
+        setMessage({
+          text:
+            nextError instanceof Error ? nextError.message : String(nextError),
+          tone: 'bad',
+        });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [applyLatestDashboard, proposalNote],
+  );
+
   const sendChat = useCallback(async () => {
     const messageText = chatDraft.trim();
     if (!messageText) {
@@ -1418,38 +1910,7 @@ export function ControlRoom() {
   );
 
   const system = useMemo<KeyValueItems>(
-    () => [
-      ['Model', dashboard?.doctor?.model ?? '-'],
-      ['Base URL', dashboard?.doctor?.base_url ?? '-'],
-      ['Ollama Reachable', dashboard?.doctor?.ollama_reachable ? 'yes' : 'no'],
-      ['Model Available', dashboard?.doctor?.model_available ? 'yes' : 'no'],
-      ['Model Service', dashboard?.modelService?.message ?? '-'],
-      ['Camofox Service', dashboard?.camofoxService?.message ?? '-'],
-      ['Web GUI Service', dashboard?.webGui?.message ?? '-'],
-      ['Research', dashboard?.research?.status ?? '-'],
-      [
-        'Research Control',
-        dashboard?.research?.cycleControl?.status ?? '-',
-      ],
-      [
-        'Research Trigger',
-        dashboard?.research?.cycleControl?.trigger_now_requested
-          ? 'requested'
-          : 'clear',
-      ],
-      [
-        'Research Digest Replay',
-        dashboard?.research?.latestDigestReplay?.available ? 'available' : '-',
-      ],
-      [
-        'Research Sources',
-        sourceHealthSummaryLine(dashboard?.research?.source_health_summary),
-      ],
-      ['Broker Backend', dashboard?.broker?.backend ?? '-'],
-      ['Broker State', dashboard?.broker?.state ?? '-'],
-      ['Execution Mode', dashboard?.broker?.execution_mode ?? '-'],
-      ['Market Session', dashboard?.calendar?.session?.session_state ?? '-'],
-    ],
+    () => systemStatusItems(dashboard),
     [dashboard],
   );
 
@@ -1465,6 +1926,7 @@ export function ControlRoom() {
       instructionDraft={instructionDraft}
       instructionMode={instructionMode}
       instructionResult={instructionResult}
+      proposalNote={proposalNote}
       busy={busy}
       onChatPersonaChange={setChatPersona}
       onChatDraftChange={setChatDraft}
@@ -1472,6 +1934,9 @@ export function ControlRoom() {
       onInstructionDraftChange={setInstructionDraft}
       onInstructionModeChange={setInstructionMode}
       onSendInstruction={sendInstruction}
+      onToolAction={(kind) => void runToolAction(kind)}
+      onProposalNoteChange={setProposalNote}
+      onProposalAction={runProposalAction}
     />
   ) : null;
   const content = (() => {
@@ -1517,7 +1982,7 @@ export function ControlRoom() {
                 item.id === tab && 'nav-button--active',
               )}
               key={item.id}
-              onClick={() => setTab(item.id)}
+              onClick={() => selectTab(item.id)}
               type="button"
             >
               {item.label}

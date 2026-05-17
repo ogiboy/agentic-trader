@@ -47,6 +47,44 @@ pnpm run check:research-flow
 '''
 
 [[actions]]
+name = "preview app lifecycle"
+icon = "tool"
+command = '''
+pnpm run app:doctor -- --json
+pnpm run app:up -- --dry-run
+pnpm run app:setup -- --dry-run
+pnpm run app:start -- --dry-run
+pnpm run app:stop -- --dry-run
+pnpm run app:update -- --dry-run
+pnpm run app:uninstall -- --dry-run
+agentic-trader tool-ownership status --json
+pnpm run app:up -- --model-service --ollama-owner=app-owned --dry-run
+'''
+
+[[actions]]
+name = "preview app first run"
+icon = "tool"
+command = '''
+pnpm run app:up -- --dry-run
+'''
+
+[[actions]]
+name = "preview local tool readiness"
+icon = "tool"
+command = '''
+agentic-trader tool-ownership status --json
+agentic-trader model-service status --json
+agentic-trader camofox-service status --json
+'''
+
+[[actions]]
+name = "preview app cleanup"
+icon = "tool"
+command = '''
+pnpm run app:uninstall -- --dry-run
+'''
+
+[[actions]]
 name = "start local sonarqube"
 icon = "database"
 command = '''

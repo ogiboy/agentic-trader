@@ -67,7 +67,11 @@ describe('agentic-trader webgui CLI bridge', () => {
     execSuccess(
       JSON.stringify({
         preferences: { regions: ['US'] },
-        status: { live_process: false, state: { interval: '1h' } },
+        status: {
+          live_process: false,
+          runtime_state: 'inactive',
+          state: { interval: '1h' },
+        },
       }),
     );
     execSuccess('');
@@ -81,7 +85,7 @@ describe('agentic-trader webgui CLI bridge', () => {
 
     execSuccess(
       JSON.stringify({
-        status: { live_process: true, state: { pid: 42 } },
+        status: { live_process: true, runtime_state: 'active', state: { pid: 42 } },
       }),
     );
     execSuccess('');
@@ -101,7 +105,7 @@ describe('agentic-trader webgui CLI bridge', () => {
       JSON.stringify({
         marketContext: { contextPack: { interval: '1d', lookback: '30d' } },
         review: { record: { symbol: 'MSFT' } },
-        status: { live_process: false, state: {} },
+        status: { live_process: false, runtime_state: 'inactive', state: {} },
       }),
     );
     execSuccess('');
@@ -115,14 +119,18 @@ describe('agentic-trader webgui CLI bridge', () => {
     const { runRuntimeAction } = await import('./agentic-trader');
     execSuccess(
       JSON.stringify({
-        status: { live_process: true, state: { pid: 99 } },
+        status: { live_process: true, runtime_state: 'active', state: { pid: 99 } },
       }),
     );
     await expect(runRuntimeAction('start')).resolves.toMatchObject({
       message: 'Runtime already active with PID 99.',
     });
 
-    execSuccess(JSON.stringify({ status: { live_process: false, state: {} } }));
+    execSuccess(
+      JSON.stringify({
+        status: { live_process: false, runtime_state: 'inactive', state: {} },
+      }),
+    );
     await expect(runRuntimeAction('stop')).resolves.toMatchObject({
       message: 'No managed runtime is currently active.',
     });
@@ -135,6 +143,136 @@ describe('agentic-trader webgui CLI bridge', () => {
     execSuccess(JSON.stringify({ status: { state: {} } }));
     await expect(runRuntimeAction('unsupported')).rejects.toThrow(
       'Unsupported runtime action',
+    );
+  });
+
+  it('keeps V1 Web GUI defaults inside US equities and ignores stale live PIDs', async () => {
+    const { runRuntimeAction } = await import('./agentic-trader');
+    execSuccess(
+      JSON.stringify({
+        preferences: { exchanges: ['BIST'], regions: ['TR'] },
+        status: { live_process: false, runtime_state: 'inactive', state: {} },
+      }),
+    );
+    execSuccess('');
+    execSuccess(JSON.stringify({ status: { runtime_state: 'active' } }));
+
+    await expect(runRuntimeAction('start')).resolves.toMatchObject({
+      message: 'Background runtime launch requested for AAPL,MSFT (1d, 180d).',
+    });
+    expect(execFileMock.mock.calls[1][1]).toContain('AAPL,MSFT');
+
+    execSuccess(
+      JSON.stringify({
+        status: {
+          live_process: true,
+          runtime_state: 'stale',
+          state: { pid: 12345 },
+        },
+      }),
+    );
+    execSuccess('');
+    execSuccess(JSON.stringify({ status: { runtime_state: 'inactive' } }));
+    await expect(runRuntimeAction('one-shot')).resolves.toMatchObject({
+      message: 'Strict one-shot cycle completed for AAPL (1d, 180d).',
+    });
+  });
+
+  it('runs app-owned local tool actions through explicit CLI contracts', async () => {
+    const { runToolAction } = await import('./agentic-trader');
+    execSuccess(
+      JSON.stringify({
+        doctor: { model: 'qwen3:8b' },
+        modelService: { configured_model: 'qwen3:8b' },
+      }),
+    );
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({ model_available: true }));
+    execSuccess(JSON.stringify({ modelService: { app_owned: true } }));
+
+    await expect(runToolAction('start-model-service')).resolves.toMatchObject({
+      message: 'App-owned model-service started; qwen3:8b is listed.',
+    });
+    expect(execFileMock.mock.calls[1][1]).toContain('tool-ownership');
+    expect(execFileMock.mock.calls[2][1]).toContain('model-service');
+    expect(execFileMock.mock.calls[2][1]).toContain('start');
+
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    await expect(runToolAction('enable-local-tools')).resolves.toMatchObject({
+      message: 'Local tool ownership set to app-owned.',
+    });
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('--firecrawl-owner');
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('app-owned');
+
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    await expect(runToolAction('enable-host-fallbacks')).resolves.toMatchObject({
+      message: 'Host-managed fallback ownership enabled.',
+    });
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('--ollama-owner');
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('host-owned');
+
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    execSuccess(JSON.stringify({}));
+    await expect(runToolAction('start-camofox-service')).resolves.toMatchObject({
+      message: 'App-owned Camofox helper started.',
+    });
+    expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('camofox-service');
+  });
+
+  it('runs proposal actions through explicit manual-review CLI contracts', async () => {
+    const { runProposalAction } = await import('./agentic-trader');
+
+    execSuccess(
+      JSON.stringify({
+        outcome: { status: 'filled' },
+        proposal: { status: 'executed', symbol: 'AAPL' },
+      }),
+    );
+    execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
+    await expect(
+      runProposalAction('approve', 'proposal-1', 'desk approved'),
+    ).resolves.toMatchObject({
+      message: 'AAPL proposal approved; proposal=executed, broker=filled.',
+    });
+    expect(execFileMock.mock.calls[0][1]).toEqual([
+      '-m',
+      'agentic_trader.cli',
+      'proposal-approve',
+      'proposal-1',
+      '--review-notes',
+      'desk approved',
+      '--json',
+    ]);
+
+    execSuccess(JSON.stringify({ status: 'rejected', symbol: 'MSFT' }));
+    execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
+    await expect(
+      runProposalAction('reject', 'proposal-2', 'spread too wide'),
+    ).resolves.toMatchObject({
+      message: 'MSFT proposal rejected.',
+    });
+    expect(execFileMock.mock.calls[2][1]).toContain('proposal-reject');
+    expect(execFileMock.mock.calls[2][1]).toContain('--reason');
+
+    execSuccess(
+      JSON.stringify({ proposal: { status: 'executed', symbol: 'NVDA' } }),
+    );
+    execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
+    await expect(
+      runProposalAction('reconcile', 'proposal-3'),
+    ).resolves.toMatchObject({
+      message: 'NVDA proposal reconciled; status=executed.',
+    });
+    expect(execFileMock.mock.calls[4][1]).toContain('proposal-reconcile');
+
+    await expect(runProposalAction('reject', 'proposal-4')).rejects.toThrow(
+      'Rejection reason is required.',
     );
   });
 });

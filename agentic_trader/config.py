@@ -17,7 +17,7 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    llm_provider: Literal["ollama"] = "ollama"
+    llm_provider: Literal["ollama", "openai-compatible"] = "ollama"
     model_name: str = Field(
         default="qwen3:8b",
         validation_alias=AliasChoices(
@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     explainer_model_name: str | None = None
     instruction_model_name: str | None = None
     base_url: str = "http://localhost:11434/v1"
+    openai_compatible_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY",
+        ),
+    )
     temperature: float = 0.0
     max_retries: int = 2
     request_timeout_seconds: float = 180.0

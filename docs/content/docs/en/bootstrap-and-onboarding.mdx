@@ -22,21 +22,68 @@ At minimum it should:
 
 ## Planned command surface
 
-The next implementation pass should make the command surface layered instead of mysterious.
-Focused commands stay available for debugging, while normal operators get a short lifecycle vocabulary:
+The command surface should stay layered instead of mysterious. Focused commands
+stay available for debugging, while normal operators get a short lifecycle
+vocabulary:
 
-| Command | Planned role |
+| Command | Role |
 | --- | --- |
 | `pnpm run app:up` | guided first-run path: setup or repair dependencies, start app-owned services when configured, and open the Web GUI |
 | `pnpm run app:setup` | install or repair Python, root pnpm workspace, sidecar, and optional tool-root dependencies without starting trading runtime |
-| `pnpm run app:start` | start configured app-owned helper services and the Web GUI; daemon start remains an explicit operator choice |
-| `pnpm run app:stop` | stop only app-owned services recorded by the repo, never host-owned Ollama, Firecrawl, or browser processes |
+| `pnpm run app:start` | available conservative slice: start selected app-owned helper services and the Web GUI; daemon start remains an explicit operator choice |
+| `pnpm run app:stop` | available conservative slice: stop only app-owned services recorded by the repo, never host-owned Ollama, Firecrawl, or browser processes |
 | `pnpm run app:update` | update dependencies and lockfiles through the right owners, rebuild, then report setup/service readiness |
-| `pnpm run app:doctor` | read-only setup, service, provider, PATH, and tool-root diagnosis |
+| `pnpm run app:doctor` | available first slice: read-only setup, service, provider, V1, PATH, and tool-root diagnosis |
 | `pnpm run app:uninstall` | remove app-owned dependency/runtime/tool artifacts only after confirmation |
 
 The existing focused commands such as `setup:node`, `install:python`, `setup:research-flow`, `setup:camofox`, `fetch:camofox`, `start:camofox`, and service-specific CLI commands should remain useful for debugging.
 The plan is to make them implementation details behind the guided lifecycle rather than the only way to get started.
+
+`app:doctor` is intentionally the first implemented lifecycle command. It uses
+the already installed `agentic-trader` entrypoint instead of invoking `uv run`,
+so a diagnosis does not create or repair an environment as a hidden side effect.
+It reads `setup-status`, model-service, Camofox-service, WebGUI-service,
+provider diagnostics, and network-light `v1-readiness`; generation probes remain
+explicit through `v1-readiness --provider-check` or
+`model-service status --probe-generation`.
+
+`app:up` is now the first guided first-run orchestrator. It defaults to dry-run
+and composes the existing lifecycle commands instead of creating another runtime
+owner. The safe `--all --yes` lane runs core setup repair, the isolated CrewAI
+Flow sidecar setup, app-owned Web GUI start, and a final `app:doctor` report.
+Optional Camofox dependency setup, Camofox browser binary fetch, model-service
+start, and Camofox-service start require explicit scopes plus matching ownership
+flags such as `--ollama-owner=app-owned` or `--camofox-owner=app-owned`.
+Host-owned, API/key-only, and skipped choices are persisted in
+`runtime/setup/tool-ownership.json`, show up in setup status, dashboard, Web GUI,
+and TUI readiness, and do not become hidden installs.
+
+`app:start` and `app:stop` are also implemented as conservative service slices:
+they default to dry-run, require selecting `--webgui`, `--model-service`,
+`--camofox-service`, or `--all`, and mutate only after `--yes`. They do not
+install dependencies, fetch browser binaries, pull Ollama models, start a
+trading daemon, or open a browser unless `--open-browser` is explicitly passed.
+Ownership checks stay inside the existing `model-service`, `camofox-service`,
+and `webgui-service` commands. Starting model-service or Camofox-service through
+`app:start` requires the persisted ownership mode to be `app-owned`; host-owned
+or skipped tools remain visible blockers instead of being claimed. If the
+recorded app-owned Web GUI process cannot be stopped, its state remains for
+retry rather than being silently reclassified as an external listener.
+
+`app:update` is implemented as the first scoped update lane. It defaults to
+dry-run and requires selecting `--core`, `--sidecar`, `--camofox`, `--build`,
+`--status`, or `--all` plus `--yes` before it mutates anything. It uses the
+native owners for each dependency set and does not fetch browser binaries, pull
+models, start or stop services, delete runtime state, or start the trading
+daemon.
+
+`app:uninstall` is implemented as the first conservative cleanup lane. It
+defaults to dry-run and requires selecting `--artifacts`, `--deps`,
+`--service-state`, or `--all` plus `--yes` before it removes files. It preserves
+ignored env files, secrets, provider accounts, brokerage configuration,
+host-owned services, global tools, and trading runtime evidence. Recorded
+service state files block service-state cleanup until `app:stop` clears the
+app-owned process record.
 
 ## Non-negotiable requirements
 
@@ -58,8 +105,28 @@ Before installing or starting optional helpers, the guided setup should ask whic
 
 This matters for Ollama, Firecrawl, and Camofox.
 If host Ollama is absent and the operator does not want a host install, the installer should offer the app-owned model-service path instead of letting the Web GUI open into a confusing "Ollama unreachable" state.
-Firecrawl should similarly support API key, authenticated CLI, future repo-local helper/fallback, or skipped readiness.
+Firecrawl should use the internal SDK/API-key path first; authenticated host CLI fallback is allowed only when Firecrawl is recorded as host-owned, while app-owned/API-only/skipped modes keep that fallback disabled and visible.
 Camofox should remain loopback-only, access-key-gated, and browser-binary fetch should stay a separate opt-in step.
+
+Current ownership state can be inspected or changed without running setup:
+
+```bash
+agentic-trader tool-ownership status --json
+agentic-trader tool-ownership set --ollama-owner host-owned --firecrawl-owner api-key-only --camofox-owner skipped --json
+```
+
+V1 defaults to the internal-first model path: app-owned Ollama, `qwen3:8b`, and
+the existing model-service status/log surfaces. Host fallback is available when
+the operator records host ownership, but app lifecycle commands must not start
+or stop host-owned tools. Operators who want another model adapter can skip
+Ollama and select an OpenAI-compatible endpoint explicitly:
+
+```bash
+AGENTIC_TRADER_LLM_PROVIDER=openai-compatible
+AGENTIC_TRADER_BASE_URL=http://127.0.0.1:8080/v1
+AGENTIC_TRADER_MODEL_NAME=your-model
+AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY=optional-secret
+```
 
 ## Ollama-specific direction
 
@@ -78,7 +145,7 @@ The desired future state is:
 - the operator can tell the difference between idle, busy, and broken
 
 The guided setup should distinguish four states: host Ollama reachable, app-owned Ollama ready, Ollama intentionally skipped because another provider is configured, and model backend missing or broken.
-`app:start` may start an already configured app-owned model service, but it must not silently install a binary, pull a model, or hijack a host listener.
+`app:start` may start an already configured app-owned model service when the active provider is `ollama`, but it must not silently install a binary, pull a model, hijack a host listener, or override an explicit OpenAI-compatible adapter.
 
 ## Camofox and pnpm direction
 
@@ -86,9 +153,9 @@ The guided setup should distinguish four states: host Ollama reachable, app-owne
 Its setup should move away from npm-owned helper commands and use the repo's pnpm policy:
 
 ```bash
-pnpm --dir tools/camofox-browser install --ignore-scripts
-pnpm --dir tools/camofox-browser run fetch:browser
-pnpm --dir tools/camofox-browser run test
+pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts
+pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser
+pnpm --dir tools/camofox-browser --ignore-workspace run test
 ```
 
 The first command installs local helper dependencies without browser downloads.
@@ -97,16 +164,22 @@ The wrapper and service commands should start the helper only with a loopback ho
 
 ## Update and uninstall direction
 
-`app:update` should update each dependency owner through its native tool, then rebuild and re-run setup status:
+`app:update` updates each dependency owner through its native tool, then can
+rebuild and re-run setup status:
 
 - root Node workspace: pnpm recursive/workspace update flow
 - Camofox helper: `pnpm --dir tools/camofox-browser ...`
 - root Python: uv lock upgrade plus locked sync
 - CrewAI Flow sidecar: sidecar uv lock upgrade plus locked sync
 - docs/WebGUI/TUI: normal workspace build and typecheck gates
+- post-update status: `app:doctor`
 
-`app:uninstall` should remove only app-owned artifacts such as `.venv`, `node_modules`, sidecar `.venv`, generated runtime state, and downloaded helper assets when explicitly selected.
-It should not delete API keys, brokerage/provider accounts, user-owned host services, or unrelated global tools.
+`app:uninstall` removes only selected app-owned/generated scopes: artifacts,
+dependency directories, the repo-local pnpm store, and app-owned helper
+service-state/log directories. It should not delete API keys,
+brokerage/provider accounts, user-owned host services, global tools, ignored env
+files, or trading evidence such as DuckDB. If a service state file still exists,
+the operator should run `pnpm run app:stop -- --all --yes` first.
 
 ## Edge cases worth designing for
 
@@ -137,5 +210,5 @@ A good bootstrap flow should be explicit about:
 - The user sees a clear failure when model or provider readiness is missing.
 - The launcher can point the user to logs instead of hiding them.
 - The generated environment stays consistent with the repo’s current runtime contracts.
-- Camofox, Firecrawl, and Ollama ownership decisions are visible in setup status and Web GUI readiness.
+- Camofox, Firecrawl, and Ollama ownership decisions are persisted and visible in setup status, dashboard, Web GUI, and TUI readiness.
 - `app:up` can recover from a partial install and ends at an opened Web GUI or a precise blocker report.

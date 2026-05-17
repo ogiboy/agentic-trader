@@ -58,6 +58,10 @@ inspect pending and terminal decisions, and `proposal-approve` or
 through the configured paper or external-paper broker adapter and records an
 execution intent/outcome audit trail.
 
+The Web GUI Proposal Desk reads the same queue and can only call those explicit
+approve, reject, or reconcile contracts. It is not a generic broker console and
+does not create orders outside the proposal queue.
+
 ### Run or review a paper cycle
 
 Use the CLI for the first strict run, then review through CLI JSON, Rich/Ink,

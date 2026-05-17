@@ -174,12 +174,16 @@ function buildAttempts(args: string[]): Array<[string, string[]]> {
  * Selects a default comma-separated list of market symbols based on exchange and region preferences.
  *
  * @param preferences - Object containing optional `exchanges` and `regions` arrays used to infer market preference.
- * @returns `THYAO.IS,GARAN.IS` when `exchanges` contains `BIST` or `regions` contains `TR`; `AAPL,MSFT` when `exchanges` contains `NASDAQ` or `NYSE` or `regions` contains `US`; otherwise `BTC-USD,ETH-USD`.
+ * @returns V1-safe US equities by default. Non-US/global defaults remain behind an explicit environment flag.
  */
 function defaultSymbolsFromPreferences(preferences: {
   exchanges?: string[];
   regions?: string[];
 }): string {
+  const v1DefaultSymbols = 'AAPL,MSFT';
+  if (process.env.AGENTIC_TRADER_WEBGUI_GLOBAL_SYMBOL_DEFAULTS !== '1') {
+    return v1DefaultSymbols;
+  }
   const exchanges = preferences.exchanges || [];
   const regions = preferences.regions || [];
   if (exchanges.includes('BIST') || regions.includes('TR')) {
@@ -192,7 +196,7 @@ function defaultSymbolsFromPreferences(preferences: {
   ) {
     return 'AAPL,MSFT';
   }
-  return 'BTC-USD,ETH-USD';
+  return v1DefaultSymbols;
 }
 
 /**
@@ -243,11 +247,14 @@ function defaultRuntimeLookback(data: Record<string, any>): string {
 /**
  * Determine whether the managed runtime is currently active according to the dashboard snapshot.
  *
- * @param data - Dashboard snapshot that may expose both `status.live_process` and `status.state.pid`
- * @returns `true` only when the dashboard confirms a live process; persisted PIDs can describe historical terminal states.
+ * @param data - Dashboard snapshot that may expose `status.runtime_state`, `status.live_process`, and `status.state.pid`
+ * @returns `true` only when the runtime view confirms an active live process; stale or terminal persisted PIDs are not considered running.
  */
 function isTraderRunning(data: Record<string, any>): boolean {
-  return data?.status?.live_process === true;
+  return (
+    data?.status?.live_process === true &&
+    data?.status?.runtime_state === 'active'
+  );
 }
 
 /**
@@ -321,11 +328,13 @@ export async function getDashboardSnapshot(): Promise<any> {
 }
 
 /**
- * Orchestrates runtime actions (start, stop, restart, one-shot) for the Agentic Trader and returns a message and updated dashboard.
+ * Perform a lifecycle action for the Agentic Trader runtime.
  *
- * @param kind - Action to perform: "start", "stop", "restart", or "one-shot".
- * @returns An object with a human-readable `message` describing the outcome and the current `dashboard` snapshot.
- * @throws Error if `kind` is unsupported.
+ * Executes the requested runtime operation and returns a user-facing message with a refreshed dashboard snapshot.
+ *
+ * @param kind - One of "start", "stop", "restart", or "one-shot" indicating which lifecycle action to perform.
+ * @returns An object containing `message` — a human-readable description of the outcome — and `dashboard` — the current dashboard snapshot.
+ * @throws Error if `kind` is not one of the supported actions.
  */
 export async function runRuntimeAction(kind: string): Promise<{
   message: string;
@@ -422,6 +431,192 @@ export async function runRuntimeAction(kind: string): Promise<{
   }
 
   throw new Error(`Unsupported runtime action: ${kind}`);
+}
+
+export type ToolActionKind =
+  | 'enable-local-tools'
+  | 'enable-host-fallbacks'
+  | 'start-model-service'
+  | 'start-camofox-service';
+
+export type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
+
+/**
+ * Selects the model name configured in the provided dashboard snapshot.
+ *
+ * @param data - Dashboard snapshot object that may contain `modelService.configured_model` or `doctor.model`
+ * @returns The model name from `modelService.configured_model` if present, otherwise `doctor.model`, otherwise the default `"qwen3:8b"`
+ */
+function modelNameFromDashboard(data: Record<string, any>): string {
+  return data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b';
+}
+
+/**
+ * Perform a managed tool action to set tool ownership or start helper services.
+ *
+ * Available actions will persist non-secret ownership intent or request existing
+ * app-owned helper services to start; they do not generate secrets, download
+ * models/binaries, or launch the trading daemon.
+ *
+ * @param kind - One of `'enable-local-tools' | 'enable-host-fallbacks' | 'start-model-service' | 'start-camofox-service'` indicating the operation to perform
+ * @returns An object containing `message` summarizing the outcome, `dashboard` with a refreshed snapshot after the action, and an optional `result` with the CLI command output
+ * @throws Error if `kind` is not supported
+ */
+export async function runToolAction(kind: ToolActionKind): Promise<{
+  message: string;
+  dashboard: any;
+  result?: any;
+}> {
+  if (kind === 'enable-local-tools') {
+    const result = await execTrader(
+      [
+        'tool-ownership',
+        'set',
+        '--ollama-owner',
+        'app-owned',
+        '--firecrawl-owner',
+        'app-owned',
+        '--camofox-owner',
+        'app-owned',
+        '--json',
+      ],
+      { expectJson: true, timeoutMs: 30_000 },
+    );
+    return {
+      dashboard: await getDashboardSnapshot(),
+      message: 'Local tool ownership set to app-owned.',
+      result,
+    };
+  }
+
+  if (kind === 'enable-host-fallbacks') {
+    const result = await execTrader(
+      [
+        'tool-ownership',
+        'set',
+        '--ollama-owner',
+        'host-owned',
+        '--firecrawl-owner',
+        'host-owned',
+        '--camofox-owner',
+        'host-owned',
+        '--json',
+      ],
+      { expectJson: true, timeoutMs: 30_000 },
+    );
+    return {
+      dashboard: await getDashboardSnapshot(),
+      message: 'Host-managed fallback ownership enabled.',
+      result,
+    };
+  }
+
+  if (kind === 'start-model-service') {
+    const data = await getDashboardSnapshot();
+    await execTrader(
+      ['tool-ownership', 'set', '--ollama-owner', 'app-owned', '--json'],
+      { expectJson: true, timeoutMs: 30_000 },
+    );
+    const result = await execTrader(
+      ['model-service', 'start', '--host', '127.0.0.1', '--json'],
+      { expectJson: true, timeoutMs: 45_000 },
+    );
+    const model = modelNameFromDashboard(data);
+    const modelState = result?.model_available
+      ? `${model} is listed`
+      : `${model} is not listed; pull it explicitly from the CLI before running strict cycles`;
+    return {
+      dashboard: await getDashboardSnapshot(),
+      message: `App-owned model-service started; ${modelState}.`,
+      result,
+    };
+  }
+
+  if (kind === 'start-camofox-service') {
+    await execTrader(
+      ['tool-ownership', 'set', '--camofox-owner', 'app-owned', '--json'],
+      { expectJson: true, timeoutMs: 30_000 },
+    );
+    const result = await execTrader(
+      ['camofox-service', 'start', '--host', '127.0.0.1', '--json'],
+      { expectJson: true, timeoutMs: 45_000 },
+    );
+    return {
+      dashboard: await getDashboardSnapshot(),
+      message: 'App-owned Camofox helper started.',
+      result,
+    };
+  }
+
+  throw new Error(`Unsupported tool action: ${kind}`);
+}
+
+function proposalActionMessage(kind: ProposalActionKind, result: any): string {
+  const proposal = result?.proposal || result;
+  const symbol = proposal?.symbol || 'Proposal';
+  const status = proposal?.status || kind;
+  if (kind === 'approve') {
+    const outcome = result?.outcome?.status || proposal?.execution_outcome_status || '-';
+    return `${symbol} proposal approved; proposal=${status}, broker=${outcome}.`;
+  }
+  if (kind === 'reject') {
+    return `${symbol} proposal rejected.`;
+  }
+  return `${symbol} proposal reconciled; status=${status}.`;
+}
+
+/**
+ * Execute an explicit manual-review proposal action through existing CLI commands.
+ *
+ * The Web GUI remains a thin operator surface: approval still goes through
+ * `proposal-approve`, which records the proposal transition and submits only
+ * through the configured broker adapter boundary.
+ */
+export async function runProposalAction(
+  kind: ProposalActionKind,
+  proposalId: string,
+  reviewNotes = '',
+): Promise<{
+  message: string;
+  dashboard: any;
+  result: any;
+}> {
+  const cleanProposalId = proposalId.trim();
+  const cleanNotes = reviewNotes.trim();
+  if (!cleanProposalId) {
+    throw new Error('Proposal id is required.');
+  }
+
+  let result: any;
+  if (kind === 'approve') {
+    const args = ['proposal-approve', cleanProposalId, '--json'];
+    if (cleanNotes) {
+      args.splice(2, 0, '--review-notes', cleanNotes);
+    }
+    result = await execTrader(args, { expectJson: true, timeoutMs: 90_000 });
+  } else if (kind === 'reject') {
+    if (!cleanNotes) {
+      throw new Error('Rejection reason is required.');
+    }
+    result = await execTrader(
+      ['proposal-reject', cleanProposalId, '--reason', cleanNotes, '--json'],
+      { expectJson: true, timeoutMs: 45_000 },
+    );
+  } else if (kind === 'reconcile') {
+    const args = ['proposal-reconcile', cleanProposalId, '--json'];
+    if (cleanNotes) {
+      args.splice(2, 0, '--review-notes', cleanNotes);
+    }
+    result = await execTrader(args, { expectJson: true, timeoutMs: 45_000 });
+  } else {
+    throw new Error(`Unsupported proposal action: ${kind}`);
+  }
+
+  return {
+    dashboard: await getDashboardSnapshot(),
+    message: proposalActionMessage(kind, result),
+    result,
+  };
 }
 
 /**

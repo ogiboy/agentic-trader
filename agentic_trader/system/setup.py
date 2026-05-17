@@ -26,6 +26,11 @@ from agentic_trader.system.tool_roots import (
     repo_root,
     resolve_configured_tool_path,
 )
+from agentic_trader.system.tool_ownership import (
+    ToolOwnershipPayload,
+    ownership_tool_for_local_tool,
+    read_tool_ownership_payload,
+)
 from agentic_trader.system.webgui_service import build_webgui_service_status
 
 ToolCategory = Literal["core", "runtime_optional", "developer_optional"]
@@ -45,6 +50,9 @@ class ToolStatus(BaseModel):
     status: str = "missing"
     notes: list[str] = Field(default_factory=list)
     install_hint: str | None = None
+    ownership_tool: str | None = None
+    ownership_mode: str | None = None
+    ownership_note: str | None = None
 
 
 class SetupStatus(BaseModel):
@@ -55,6 +63,7 @@ class SetupStatus(BaseModel):
     core_ready: bool
     optional_ready: bool
     tools: list[ToolStatus]
+    tool_ownership: ToolOwnershipPayload | None = None
     model_service: dict[str, object]
     camofox_service: dict[str, object]
     webgui_service: dict[str, object]
@@ -157,12 +166,64 @@ def _firecrawl_tool() -> ToolStatus:
 
 
 def _with_manifest_note(tool: ToolStatus, tool_id: LocalToolId) -> ToolStatus:
+    """
+    Append manifest-derived notes for the given local tool identifier to a ToolStatus and return an updated copy.
+    
+    Parameters:
+        tool (ToolStatus): The original tool status to augment; unchanged by this function.
+        tool_id (LocalToolId): Identifier of the local tool whose manifest notes will be appended.
+    
+    Returns:
+        ToolStatus: A copy of `tool` with `notes` extended by the manifest-derived notes for `tool_id`.
+    """
     return tool.model_copy(
         update={"notes": [*tool.notes, *local_tool_manifest_notes(tool_id)]}
     )
 
 
+def _with_ownership_note(
+    tool: ToolStatus,
+    tool_id: LocalToolId,
+    ownership: ToolOwnershipPayload,
+) -> ToolStatus:
+    """
+    Attach ownership decision metadata to a ToolStatus and return an updated copy.
+    
+    Parameters:
+        tool (ToolStatus): Existing tool status to augment.
+        tool_id (LocalToolId): Local tool identifier used to look up the ownership decision.
+        ownership (ToolOwnershipPayload): Ownership payload containing decisions indexed by ownership tool id.
+    
+    Returns:
+        ToolStatus: A copy of `tool` with `ownership_tool`, `ownership_mode`, and `ownership_note` set from the decision,
+        and with ownership-related entries appended to the `notes` list.
+    """
+    ownership_tool = ownership_tool_for_local_tool(tool_id)
+    decision = ownership.decisions_by_tool[ownership_tool]
+    return tool.model_copy(
+        update={
+            "ownership_tool": decision.tool,
+            "ownership_mode": decision.mode,
+            "ownership_note": decision.note,
+            "notes": [
+                *tool.notes,
+                f"ownership={decision.mode}",
+                f"ownership_source={decision.source}",
+                decision.note,
+            ],
+        }
+    )
+
+
 def _ollama_tool() -> ToolStatus:
+    """
+    Report readiness and metadata for the Ollama CLI tool.
+    
+    Builds a ToolStatus representing whether the local `ollama` executable is available, its resolved path/version if present, and any manifest-derived notes relevant to the tool.
+    
+    Returns:
+        ToolStatus: Readiness and metadata for the Ollama CLI, including availability, path, version, status, notes, and manifest notes when applicable.
+    """
     definition = local_tool_definition("ollama")
     tool = _command_tool(
         tool_id=definition.status_tool_id,
@@ -288,9 +349,20 @@ def _agentic_trader_entrypoint() -> ToolStatus:
 
 
 def build_setup_status(settings: Settings) -> SetupStatus:
-    """Build the setup status without installing or mutating anything."""
+    """
+    Build an operator-facing read-only setup and readiness report for the current workspace.
+    
+    Constructs a snapshot of platform and workspace information, per-tool readiness (core, runtime-optional, developer-optional), optional tool ownership metadata, and service status summaries without installing, mutating, or performing persistent changes.
+    
+    Parameters:
+        settings (Settings): Runtime configuration used to resolve tool locations, service endpoints, and ownership payloads.
+    
+    Returns:
+        SetupStatus: Aggregated readiness report containing platform and workspace root, booleans `core_ready` and `optional_ready`, a list of `ToolStatus` entries (including ownership fields when available), optional `tool_ownership` payload, JSON-serializable service status objects for model/camofox/webgui, and recommended operator commands.
+    """
 
     root = _repo_root()
+    ownership = read_tool_ownership_payload(settings)
     crewai = crewai_setup_status(settings)
     crewai_notes = crewai.get("notes")
     tools = [
@@ -320,7 +392,7 @@ def build_setup_status(settings: Settings) -> SetupStatus:
             version_args=["--version"],
         ),
         _agentic_trader_entrypoint(),
-        _ollama_tool(),
+        _with_ownership_note(_ollama_tool(), "ollama", ownership),
         ToolStatus(
             tool_id="research_flow_sidecar",
             label="CrewAI Flow sidecar",
@@ -336,8 +408,8 @@ def build_setup_status(settings: Settings) -> SetupStatus:
             ),
             install_hint="Run `pnpm run setup:research-flow`.",
         ),
-        _firecrawl_tool(),
-        _camofox_tool(settings),
+        _with_ownership_note(_firecrawl_tool(), "firecrawl", ownership),
+        _with_ownership_note(_camofox_tool(settings), CAMOFOX_TOOL_ID, ownership),
         _command_tool(
             tool_id="ruflo",
             label="RuFlo advisory CLI",
@@ -366,6 +438,7 @@ def build_setup_status(settings: Settings) -> SetupStatus:
         core_ready=core_ready,
         optional_ready=optional_ready,
         tools=tools,
+        tool_ownership=ownership,
         model_service=build_model_service_status(settings).model_dump(mode="json"),
         camofox_service=build_camofox_service_status(settings).model_dump(mode="json"),
         recommended_commands=[

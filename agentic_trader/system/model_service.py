@@ -79,6 +79,7 @@ class ModelServiceStatus(BaseModel):
     tool_status_id: str = "ollama_cli"
     tool_consumers: list[str] = Field(default_factory=list)
     tool_fallback_order: list[str] = Field(default_factory=list)
+    tool_ownership_modes: list[str] = Field(default_factory=list)
     install_hint: str = ""
     notes: list[str] = Field(default_factory=list)
     provider: str = "ollama"
@@ -162,6 +163,12 @@ def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
 
 
 def _api_root_from_base_url(base_url: str) -> str:
+    """
+    Normalize a base URL to its API root by removing a trailing `/v1` segment and extraneous trailing slashes.
+    
+    Returns:
+        The API root string with a trailing `/v1` removed if present and without trailing slashes. If `base_url` includes a scheme and netloc, the returned value preserves them (and any path preceding `/v1`); otherwise the function operates on the input as a path-like string.
+    """
     parsed = urlparse(base_url)
     if parsed.scheme and parsed.netloc:
         path = parsed.path.rstrip("/")
@@ -172,7 +179,41 @@ def _api_root_from_base_url(base_url: str) -> str:
     return base_url.removesuffix("/v1").rstrip("/")
 
 
+def _same_loopback_api_root(left: str, right: str) -> bool:
+    """
+    Determine whether two API base URLs refer to the same root by comparing scheme, effective port, and path, treating loopback hostnames (e.g., "localhost", "127.0.0.1", "::1") as interchangeable.
+    
+    If either input lacks a URL scheme, the function falls back to a plain trailing-slash-insensitive string comparison. When a scheme is present, default ports (443 for https, 80 for http) are used if no port is specified.
+    
+    Returns:
+        `true` if the URLs represent the same API root under the rules above, `false` otherwise.
+    """
+    left_parsed = urlparse(left)
+    right_parsed = urlparse(right)
+    if not left_parsed.scheme or not right_parsed.scheme:
+        return left.rstrip("/") == right.rstrip("/")
+    if left_parsed.scheme != right_parsed.scheme:
+        return False
+    left_host = left_parsed.hostname or ""
+    right_host = right_parsed.hostname or ""
+    left_port = left_parsed.port or (443 if left_parsed.scheme == "https" else 80)
+    right_port = right_parsed.port or (443 if right_parsed.scheme == "https" else 80)
+    if left_port != right_port:
+        return False
+    if left_parsed.path.rstrip("/") != right_parsed.path.rstrip("/"):
+        return False
+    if left_host == right_host:
+        return True
+    return is_loopback_host(left_host) and is_loopback_host(right_host)
+
+
 def _base_url(host: str, port: int) -> str:
+    """
+    Constructs an HTTP base URL from the given host and port.
+    
+    Returns:
+        The base URL string in the form `http://{host}:{port}`.
+    """
     return f"{LOCAL_HTTP_SCHEME}://{host}:{port}"
 
 
@@ -678,7 +719,19 @@ def build_model_service_status(
     tail_limit: int = 12,
     include_generation: bool = False,
 ) -> ModelServiceStatus:
-    """Build a read-only model-service status payload."""
+    """
+    Assemble the current operator-facing model-service status for the Ollama tool.
+    
+    Reads persisted model-service state (if any), probes the configured or app-owned Ollama API for reachability and available models, optionally performs a short generation probe, and collects process, log-tail, and note information into a single read-only status payload.
+    
+    Parameters:
+        settings (Settings): Runtime settings used to derive configured base URL, configured model name, and state/log paths.
+        tail_limit (int): Maximum number of lines to include for stdout/stderr tails.
+        include_generation (bool): If True, perform a short generation request to verify model generation capability.
+    
+    Returns:
+        ModelServiceStatus: Read-only status payload containing command availability and path, configured base URL and model, service reachability, model availability, optional generation results, available model list, ownership and process/log details (pid, host, port, base_url, stdout/stderr paths and tails), notes, a user-facing message, and the persisted state file path.
+    """
 
     state = _read_state(settings)
     app_state = state if _state_process_alive(state) else None
@@ -713,7 +766,10 @@ def build_model_service_status(
     )
     runtime_base_url_matches_app_service = bool(
         app_state is not None
-        and _api_root_from_base_url(settings.base_url) == app_state.base_url
+        and _same_loopback_api_root(
+            _api_root_from_base_url(settings.base_url),
+            app_state.base_url,
+        )
     )
     if app_owned:
         status_message = _app_owned_model_status_message(
@@ -790,7 +846,6 @@ def start_model_service(
     existing = _read_state(settings)
     if _state_process_alive(existing):
         return build_model_service_status(settings)
-    _cleanup_orphan_app_managed_ollama_pids(command_path, None)
 
     preferred_port = port or settings.model_service_port
     chosen_port = choose_app_managed_port(desired_host, preferred_port)
@@ -838,21 +893,17 @@ def start_model_service(
 def stop_model_service(settings: Settings) -> ModelServiceStatus:
     """Stop only the app-owned Ollama process, never an external service."""
 
-    command_path = shutil.which("ollama")
     state = _read_state(settings)
     app_state = state if _state_process_alive(state) else None
-    orphan_pids = _orphan_app_managed_ollama_pids(command_path, app_state)
-    if state is None and not orphan_pids:
+    if state is None:
         return build_model_service_status(settings)
     if state is not None and app_state is None:
         _remove_state(settings)
-        _cleanup_orphan_app_managed_ollama_pids(command_path, None)
         return build_model_service_status(settings)
 
     stopped = True
     if app_state is not None:
         stopped = _stop_pid(app_state.pid)
-    _cleanup_orphan_app_managed_ollama_pids(command_path, app_state)
     if app_state is not None and (stopped or not _state_process_alive(app_state)):
         _remove_state(settings)
     return build_model_service_status(settings)

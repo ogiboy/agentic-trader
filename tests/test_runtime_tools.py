@@ -12,9 +12,22 @@ from agentic_trader.system import runtime_tools
 from agentic_trader.system import model_service
 from agentic_trader.system.camofox_service import CamofoxServiceStatus
 from agentic_trader.system.model_service import ModelServiceState, ModelServiceStatus
+from agentic_trader.system.tool_ownership import write_tool_ownership
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
+    """
+    Create a test Settings object rooted at a temporary path.
+    
+    Constructs a Settings instance with `runtime_dir` set to `tmp_path`, `database_path` set to `tmp_path / "agentic_trader.duckdb"`, and `market_data_cache_dir` set to `tmp_path / "market_cache"`. Any additional keyword arguments are forwarded to the Settings constructor. Ensures required directories exist before returning.
+    
+    Parameters:
+        tmp_path (Path): Base temporary directory for runtime files.
+        **overrides: Additional Settings fields to override the defaults.
+    
+    Returns:
+        Settings: Configured Settings instance with directories ensured.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -79,6 +92,7 @@ def test_ensure_model_service_updates_runtime_base_url_for_app_owned_service(
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
+    write_tool_ownership(settings, {"ollama": "app-owned"}, source="test")
 
     monkeypatch.setattr(
         runtime_tools,
@@ -92,6 +106,127 @@ def test_ensure_model_service_updates_runtime_base_url_for_app_owned_service(
     assert settings.base_url == "http://127.0.0.1:11435/v1"
 
 
+def test_apply_app_owned_service_settings_uses_recorded_helpers_without_starting(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(
+        tmp_path,
+        base_url="http://127.0.0.1:11434/v1",
+        research_camofox_enabled=True,
+    )
+    write_tool_ownership(
+        settings,
+        {"ollama": "app-owned", "camofox": "app-owned"},
+        source="test",
+    )
+    starts: list[str] = []
+
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_model_service_status",
+        lambda _settings: _model_status(app_owned=True),
+    )
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_camofox_service_status",
+        lambda _settings: _camofox_status(app_owned=True),
+    )
+    monkeypatch.setattr(
+        runtime_tools,
+        "start_model_service",
+        lambda _settings: starts.append("model") or _model_status(app_owned=True),
+    )
+    monkeypatch.setattr(
+        runtime_tools,
+        "start_camofox_service",
+        lambda _settings: starts.append("camofox") or _camofox_status(app_owned=True),
+    )
+
+    report = runtime_tools.apply_app_owned_service_settings(
+        settings,
+        include_camofox=True,
+    )
+
+    assert starts == []
+    assert report.model_service is not None
+    assert report.model_service.app_owned is True
+    assert settings.base_url == "http://127.0.0.1:11435/v1"
+    assert settings.research_camofox_base_url == "http://127.0.0.1:9377"
+
+
+def test_app_owned_model_service_does_not_override_non_ollama_adapter(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(
+        tmp_path,
+        llm_provider="openai-compatible",
+        base_url="http://127.0.0.1:8080/v1",
+    )
+    write_tool_ownership(settings, {"ollama": "app-owned"}, source="test")
+    starts: list[str] = []
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_model_service_status",
+        lambda _settings: _model_status(app_owned=True),
+    )
+    monkeypatch.setattr(
+        runtime_tools,
+        "start_model_service",
+        lambda _settings: starts.append("model") or _model_status(app_owned=True),
+    )
+
+    report = runtime_tools.apply_app_owned_service_settings(settings)
+    status = runtime_tools.ensure_model_service_if_configured(settings)
+
+    assert starts == []
+    assert settings.base_url == "http://127.0.0.1:8080/v1"
+    assert report.model_service is not None
+    assert status.app_owned is True
+
+
+def test_host_owned_model_service_does_not_adopt_app_owned_status(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
+    write_tool_ownership(settings, {"ollama": "host-owned"}, source="test")
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_model_service_status",
+        lambda _settings: _model_status(app_owned=True),
+    )
+
+    status = runtime_tools.ensure_model_service_if_configured(settings)
+
+    assert status.app_owned is True
+    assert settings.base_url == "http://127.0.0.1:11434/v1"
+
+
+def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(
+        tmp_path,
+        research_camofox_enabled=True,
+        research_camofox_base_url="http://127.0.0.1:9999",
+    )
+    write_tool_ownership(settings, {"camofox": "host-owned"}, source="test")
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_camofox_service_status",
+        lambda _settings: _camofox_status(app_owned=True),
+    )
+
+    status = runtime_tools.ensure_camofox_service_if_configured(settings)
+
+    assert status is not None
+    assert status.app_owned is True
+    assert settings.research_camofox_base_url == "http://127.0.0.1:9999"
+
+
 def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
     monkeypatch,
     tmp_path: Path,
@@ -101,6 +236,11 @@ def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
         research_camofox_enabled=True,
         runtime_auto_start_model_service=True,
         runtime_auto_start_camofox=True,
+    )
+    write_tool_ownership(
+        settings,
+        {"ollama": "app-owned", "camofox": "app-owned"},
+        source="test",
     )
 
     monkeypatch.setattr(
@@ -132,6 +272,53 @@ def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
     assert report.camofox_service.app_owned is True
     assert settings.research_camofox_base_url == "http://127.0.0.1:9377"
     assert report.messages == ["model ready", "camofox ready"]
+
+
+def test_ensure_runtime_tools_does_not_auto_start_host_owned_tools(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(
+        tmp_path,
+        research_camofox_enabled=True,
+        runtime_auto_start_model_service=True,
+        runtime_auto_start_camofox=True,
+    )
+    write_tool_ownership(
+        settings,
+        {"ollama": "host-owned", "camofox": "host-owned"},
+        source="test",
+    )
+    starts: list[str] = []
+
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_model_service_status",
+        lambda _settings: _model_status(reachable=False, model_available=False),
+    )
+    monkeypatch.setattr(
+        runtime_tools,
+        "start_model_service",
+        lambda _settings: starts.append("model") or _model_status(app_owned=True),
+    )
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_camofox_service_status",
+        lambda _settings: _camofox_status(healthy=False),
+    )
+    monkeypatch.setattr(
+        runtime_tools,
+        "start_camofox_service",
+        lambda _settings: starts.append("camofox") or _camofox_status(app_owned=True),
+    )
+
+    report = runtime_tools.ensure_runtime_tools(settings, include_camofox=True)
+
+    assert starts == []
+    assert report.model_service is not None
+    assert report.model_service.app_owned is False
+    assert report.camofox_service is not None
+    assert report.camofox_service.app_owned is False
 
 
 def test_model_service_status_helpers_are_defensive(
@@ -709,7 +896,6 @@ def test_model_service_lifecycle_paths(
 
     monkeypatch.setattr(model_service.shutil, "which", lambda _name: "/bin/ollama")
     monkeypatch.setattr(model_service, "_is_port_available", lambda *_args: True)
-    monkeypatch.setattr(model_service, "_cleanup_orphan_app_managed_ollama_pids", lambda *_args: [])
     monkeypatch.setattr(model_service.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(
         model_service,
@@ -774,18 +960,11 @@ def test_model_service_stop_and_pull_paths(
     assert model_service.stop_model_service(settings).message == "model ready"
 
     removed: list[str] = []
-    cleaned: list[object] = []
     monkeypatch.setattr(model_service, "_read_state", lambda _settings: state)
     monkeypatch.setattr(model_service, "_state_process_alive", lambda _state: False)
     monkeypatch.setattr(model_service, "_remove_state", lambda _settings: removed.append("state"))
-    monkeypatch.setattr(
-        model_service,
-        "_cleanup_orphan_app_managed_ollama_pids",
-        lambda command_path, active_state: cleaned.append((command_path, active_state)) or [],
-    )
     model_service.stop_model_service(settings)
     assert removed == ["state"]
-    assert cleaned == [("/bin/ollama", None)]
 
     stopped: list[int] = []
     monkeypatch.setattr(model_service, "_state_process_alive", lambda _state: True)

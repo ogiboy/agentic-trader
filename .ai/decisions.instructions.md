@@ -74,6 +74,48 @@ The root pnpm workspace should not leave operators guessing whether `webgui`, `d
 `pnpm run setup` and `make setup` now run a node workspace setup script that installs the workspace, approves allowed builds, and checks expected dependency directories before Python sync.
 Normal `clean` remains artifact/cache-only to avoid unexpectedly deleting large installs, while `clean:deps` and `clean:all` make dependency removal intentional.
 
+### Guided app lifecycle commands compose existing owners
+
+Reason:
+V1 onboarding needs one understandable operator path, but setup/start/update/uninstall must not become hidden side effects.
+`app:up` therefore composes the existing lifecycle facades instead of owning a second runtime: it plans by default, runs the safe first-run lane only after explicit scopes plus `--yes`, and delegates setup, service ownership, and readiness checks to the already tested `app:setup`, `app:start`, and `app:doctor` commands.
+Optional Camofox dependency setup, browser binary fetches, model-service starts, and Camofox-service starts require matching ownership flags such as app-owned; host-owned, API/key-only, and skipped choices remain visible setup decisions rather than inferred installs or process ownership.
+The trading daemon, broker config, provider accounts, secrets, hidden model pulls, and hidden browser downloads remain out of `app:up`.
+
+### Optional tool ownership is persisted operator intent
+
+Reason:
+Ollama, Firecrawl, and Camofox can be host-managed, app-managed, API/key-only,
+or intentionally skipped, and those choices need to survive beyond a single
+`app:up` dry-run.
+The first durable contract stores only non-secret ownership intent in
+`runtime/setup/tool-ownership.json` with owner-only permissions.
+`setup-status`, dashboard snapshots, Web GUI, and TUI read that same payload so
+optional-helper readiness does not diverge by surface.
+`app:start` and runtime auto-start paths may start model-service or
+Camofox-service only when the persisted mode for the matching tool is
+`app-owned`; host-owned, API/key-only, skipped, or undecided modes remain
+visible degraded/blocker states and must not be installed, started, stopped, or
+deleted by lifecycle commands.
+
+### Internal-first model tools keep an explicit adapter escape hatch
+
+Reason:
+The default V1 app experience should work from the repo's own local helper
+surfaces instead of assuming a host daemon is already running.
+App-owned Ollama plus `qwen3:8b` is therefore the default local-first path for
+strict LLM readiness, and dashboard/doctor/Web GUI views should report that
+app-owned endpoint before falling back to host status.
+Fallback remains an operator choice: host-owned tools may be connected to but
+not managed, Firecrawl host CLI fallback is disabled unless Firecrawl is
+recorded as host-owned, and Camofox still requires a loopback access key before
+start.
+Operators who want another model stack must select it explicitly through the
+provider seam, currently `AGENTIC_TRADER_LLM_PROVIDER=openai-compatible` plus a
+base URL, model name, and optional API key.
+App-owned Ollama auto-start or dashboard setting rewrites must not override that
+non-Ollama adapter.
+
 ### Operator-facing finance truth must be reconciled evidence, not UI copy
 
 Reason:
@@ -97,6 +139,7 @@ V1 needs explicit proposal discipline without giving scanners, sidecars, chat, o
 Trade ideas may be queued as structured `TradeProposalRecord` rows with thesis, size, reference price, source, and review notes, but they remain pending until an explicit operator approval command submits through the existing broker adapter boundary.
 Approval records the broker-facing `ExecutionIntent` and `ExecutionOutcome`; rejection, execution, failure, and expiry are terminal states.
 If a process records the broker execution outcome but exits before the final proposal status update, reconciliation may only read the existing `execution_records.intent_id` row and mark the approved proposal terminal; it must not call the broker adapter again.
+The Web GUI Proposal Desk may call only the allowlisted CLI contracts for approve, reject, and reconcile, with same-origin/token route guards and no generic command execution or proposal creation surface.
 This keeps proposal generation useful for a paper desk while preserving paper-first/manual-approval safety and keeping live execution blocked.
 
 ### Optional web research helpers stay evidence-only and fail closed
@@ -552,8 +595,8 @@ The next setup architecture should keep focused debug commands intact, but add a
 ### Optional browser helper setup should be pnpm-owned inside the tool root
 
 Reason:
-The root JavaScript policy is pnpm, but `tools/camofox-browser` still carries npm-shaped setup/start hints even though it is optional tool infrastructure.
-Camofox should remain outside the root workspace until it needs shared package ownership, but its local dependency commands should use `pnpm --dir tools/camofox-browser ...` so install, update, test, and lockfile behavior match the rest of the repo.
+The root JavaScript policy is pnpm, and `tools/camofox-browser` is optional tool infrastructure rather than a root workspace package.
+Camofox should remain outside the root workspace until it needs shared package ownership, but its local dependency commands should use standalone `pnpm --dir tools/camofox-browser --ignore-workspace ...` commands so install, update, test, and lockfile behavior match the rest of the repo without accidentally running the root workspace install.
 Dependency install stays separate from `camoufox-js fetch`: browser binary downloads are large, platform-sensitive, and should only run after explicit approval.
 The secure runtime boundary remains unchanged: loopback host only, access-key required, telemetry/prewarm off by default, narrowed environment, owner-only state/logs, and no raw browser content in trading prompts or broker/policy paths.
 
@@ -677,3 +720,104 @@ Reason:
 Release binaries should come from a reproducible packaging contract instead of whatever spec PyInstaller generates in a CI runner.
 The canonical tracked spec is `agentic-trader.spec`, points at `main.py`, names the executable `agentic-trader`, and disables UPX to reduce platform-specific packaging variance and antivirus false positives.
 CI smoke builds and release binary builds should use this spec directly.
+
+### app:doctor is the first lifecycle slice and stays read-only
+
+Reason:
+The planned operator lifecycle needs a safe foothold before any mutating
+`app:setup`, `app:start`, `app:stop`, `app:up`, `app:update`, or
+`app:uninstall` behavior lands. `app:doctor` therefore resolves an already
+installed `agentic-trader` entrypoint and reads existing status contracts only:
+`setup-status`, model-service status, Camofox-service status, WebGUI-service
+status, provider diagnostics, and network-light `v1-readiness`.
+It must not call `uv run`, silently create or repair an environment, start or
+stop services, pull Ollama models, fetch browser binaries, open the Web GUI, or
+start a trading daemon. Provider/model generation checks remain explicit
+through `v1-readiness --provider-check` or
+`model-service status --probe-generation`.
+
+### app:setup starts as dry-run plus explicit core repair
+
+Reason:
+The first mutating lifecycle command should prove the operator contract before
+it grows side-application ownership.
+`app:setup` therefore defaults to a dry-run plan and requires `--core --yes`
+before running the existing root dependency owners: `pnpm run setup:node` and
+`pnpm run install:python`.
+It does not start a trading daemon, launch the Web GUI, start model-service or
+Camofox, fetch browser binaries, pull Ollama models, modify provider accounts,
+change secrets, or touch brokerage configuration.
+Sidecar setup, Camofox setup/fetch, app-owned service starts, update,
+uninstall, and guided `app:up` remain later opt-in lifecycle slices after
+ownership choices such as host-owned, app-owned, API/key-only, or skipped are
+explicit.
+
+### app:start and app:stop are selected app-owned service slices
+
+Reason:
+Starting or stopping helper processes is riskier than setup planning, so the
+first lifecycle service slice stays narrow and delegates ownership checks to the
+existing service commands.
+`app:start` and `app:stop` default to a dry-run plan. They require selecting
+`--webgui`, `--model-service`, `--camofox-service`, or `--all` plus `--yes`
+before they mutate anything.
+`app:start` may call only `model-service start --host 127.0.0.1 --json`,
+`camofox-service start --host 127.0.0.1 --json`, and
+`webgui-service start --no-open-browser --json` for the selected service
+surfaces; browser opening requires the extra `--open-browser` flag.
+`app:stop` calls only the matching app-owned service stop commands and relies on
+their recorded-PID/loopback ownership safeguards, preserving host-owned Ollama,
+Camofox/browser helpers, and external Web GUI listeners. If a recorded
+app-owned Web GUI process cannot be stopped, the state file must remain in
+place so the operator can retry or inspect the still-owned listener instead of
+having it reclassified as an external process.
+Neither command installs dependencies, fetches a browser, pulls a model, creates
+provider accounts, touches secrets or brokerage configuration, approves
+proposals, or starts a trading daemon.
+
+### app:update is a scoped native-owner lane
+
+Reason:
+Dependency and lockfile updates are broad enough that they should be narrated in
+one operator command instead of scattered across manual `pnpm`, `uv`, sidecar,
+tool-root, build, and status commands.
+`app:update` therefore defaults to a dry-run plan and requires at least one
+explicit scope plus `--yes` before it mutates anything.
+The first scopes are `--core` for root pnpm plus root uv lock/env updates,
+`--sidecar` for the CrewAI Flow uv lock/env, `--camofox` for optional
+Camofox helper package dependencies, `--build` for repository/sidecar/tool-root
+checks, and `--status` for the post-update `app:doctor` payload.
+`--all` selects the full lane.
+The command must not fetch Camofox browser binaries, pull Ollama models, start
+or stop app-owned services, create provider accounts, touch secrets or brokerage
+configuration, delete runtime state, approve proposals, or start a trading
+daemon.
+
+### app:uninstall is a conservative app-owned cleanup lane
+
+Reason:
+Uninstall is a destructive product surface, so the first lifecycle slice should
+prefer a precise local cleanup contract over a broad machine cleanup.
+`app:uninstall` therefore defaults to a dry-run plan and requires at least one
+explicit scope plus `--yes` before it removes files.
+The first scopes are `--artifacts` for generated build/test/cache outputs,
+`--deps` for local dependency directories plus the repo-local pnpm store, and
+`--service-state` for app-owned helper service log/state directories.
+`--all` selects those cleanup scopes, but it still preserves ignored env files,
+secrets, provider accounts, brokerage configuration, host-owned services,
+global tools, Keychain items, and trading runtime evidence such as DuckDB.
+Service-state cleanup blocks when a recorded state file remains, so operators
+must stop app-owned services through `app:stop` before deleting their service
+records and logs.
+
+### Camofox tool-root commands are pnpm-owned, browser fetch remains separate
+
+Reason:
+The root JavaScript policy is pnpm, and optional tool infrastructure should not
+teach a second package-manager path unless there is a clear isolation reason.
+Root scripts and docs should call standalone `pnpm --dir tools/camofox-browser
+--ignore-workspace ...` commands for dependency install, browser fetch, and
+syntax checks. The dependency install must still use `--ignore-scripts`, and the
+Camoufox browser binary download must remain a separate explicit command because
+it is large and platform-sensitive. The npm lockfile was removed only after a
+dedicated pnpm tool-root install/test smoke proved the migration clean.

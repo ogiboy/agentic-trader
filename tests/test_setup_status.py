@@ -6,9 +6,20 @@ import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.system import setup
+from agentic_trader.system.tool_ownership import write_tool_ownership
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
+    """
+    Create a Settings instance rooted at the provided temporary path and ensure its required directories exist.
+    
+    Parameters:
+        tmp_path (Path): Base directory used for runtime files; also used to locate the database and market cache.
+        **overrides: Additional Settings attributes to override the default values (e.g., paths, credentials).
+    
+    Returns:
+        Settings: A configured Settings object with runtime_dir, database_path, and market_data_cache_dir set and required directories created.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -23,6 +34,7 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = _settings(tmp_path)
+    write_tool_ownership(settings, {"ollama": "host-owned", "firecrawl": "api-key-only"}, source="test")
     tool_paths = {
         "uv": "/opt/homebrew/bin/uv",
         "pnpm": "/opt/homebrew/bin/pnpm",
@@ -92,6 +104,10 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     tool_ids = {tool.tool_id: tool for tool in status.tools}
     assert tool_ids["uv"].required_for_core is True
     assert tool_ids["firecrawl_cli"].available is False
+    assert tool_ids["firecrawl_cli"].ownership_mode == "api-key-only"
+    assert tool_ids["ollama_cli"].ownership_mode == "host-owned"
+    assert status.tool_ownership is not None
+    assert status.tool_ownership.decisions_by_tool["ollama"].mode == "host-owned"
     assert tool_ids["research_flow_sidecar"].status == "needs_setup"
     assert "make bootstrap" in status.recommended_commands
 

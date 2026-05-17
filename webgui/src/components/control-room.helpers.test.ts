@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import {
   ActiveView,
@@ -16,12 +23,15 @@ import {
   formatPercent,
   formatSourceHealthCount,
   formatTimestamp,
+  localToolLines,
   marketContextLines,
   normalizeChatHistory,
+  proposalLines,
   providerWarningLines,
   readJson,
   readinessLines,
   sourceHealthSummaryLine,
+  systemStatusItems,
   tradeContextLines,
   unavailableSectionLines,
 } from './control-room';
@@ -107,7 +117,9 @@ const dashboardFixture = {
   modelService: {
     app_owned: true,
     base_url: 'http://127.0.0.1:11434',
+    model_available: true,
     message: 'ready',
+    service_reachable: true,
   },
   camofoxService: {
     app_owned: true,
@@ -175,6 +187,25 @@ const dashboardFixture = {
       trade_id: 'trade-1',
     },
   },
+  tradeProposals: {
+    available: true,
+    error: null,
+    proposals: [
+      {
+        confidence: 0.82,
+        notional: 250,
+        proposal_id: 'proposal-1',
+        reference_price: 190,
+        side: 'buy',
+        source: 'scanner',
+        status: 'pending',
+        stop_loss: 182,
+        symbol: 'AAPL',
+        take_profit: 205,
+        thesis: 'Momentum continuation with manual review.',
+      },
+    ],
+  },
   v1Readiness: {
     alpaca_paper: { checks: [{ name: 'keys', passed: true }], ready: true },
     paper_operations: {
@@ -183,6 +214,11 @@ const dashboardFixture = {
     },
   },
 };
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function renderActiveView(
   tab: Parameters<typeof ActiveView>[0]['tab'],
@@ -205,6 +241,10 @@ function renderActiveView(
       onInstructionModeChange: vi.fn(),
       onSendChat: vi.fn(),
       onSendInstruction: vi.fn(),
+      onProposalAction: vi.fn(),
+      onProposalNoteChange: vi.fn(),
+      onToolAction: vi.fn(),
+      proposalNote: 'desk review',
       system: [['Runtime', 'training']],
       tab,
     }),
@@ -339,6 +379,21 @@ describe('control-room formatting helpers', () => {
     expect(providerWarningLines({ providerDiagnostics: {} })).toContain(
       'No provider warnings.',
     );
+    expect(systemStatusItems(dashboardFixture)).toContainEqual([
+      'Base URL',
+      'http://127.0.0.1:11434/v1',
+    ]);
+    expect(systemStatusItems(dashboardFixture)).toContainEqual([
+      'Ollama Reachable',
+      'yes',
+    ]);
+    expect(localToolLines(dashboardFixture)).toContain('Model Adapter: ollama');
+    expect(localToolLines(dashboardFixture)).toContain(
+      'Firecrawl Runtime: internal SDK first; host CLI fallback disabled by ownership',
+    );
+    expect(proposalLines(dashboardFixture)).toContain(
+      'proposal-1 | AAPL BUY | pending | $250.00 | confidence=0.82 | source=scanner',
+    );
   });
 
   it('reads JSON with same-origin credentials and typed failures', async () => {
@@ -374,6 +429,7 @@ describe('control-room formatting helpers', () => {
       'overview',
       'runtime',
       'portfolio',
+      'proposals',
       'review',
       'memory',
       'chat',
@@ -384,6 +440,7 @@ describe('control-room formatting helpers', () => {
     expect(renderActiveView('overview')).toContain('Agentic Trader Web GUI');
     expect(renderActiveView('runtime')).toContain('Runtime State');
     expect(renderActiveView('portfolio')).toContain('Portfolio');
+    expect(renderActiveView('proposals')).toContain('Proposal Desk');
     expect(renderActiveView('review')).toContain('Latest Review');
     expect(renderActiveView('memory')).toContain('Similar Past Runs');
     expect(renderActiveView('chat')).toContain('Operator Chat');
@@ -402,6 +459,11 @@ describe('control-room formatting helpers', () => {
       review: { available: false, error: 'review locked' },
       riskReport: { available: false, error: 'risk locked' },
       status: { live_process: false, runtime_state: 'idle', state: {} },
+      tradeProposals: {
+        available: false,
+        error: 'proposal locked',
+        proposals: [],
+      },
       v1Readiness: {
         alpaca_paper: { checks: [], ready: false },
         paper_operations: { allowed: false, checks: [] },
@@ -416,6 +478,9 @@ describe('control-room formatting helpers', () => {
     );
     expect(renderActiveView('portfolio', sparseDashboard)).toContain(
       'Portfolio unavailable: portfolio locked',
+    );
+    expect(renderActiveView('proposals', sparseDashboard)).toContain(
+      'Proposal desk unavailable: proposal locked',
     );
     expect(renderActiveView('review', sparseDashboard)).toContain(
       'Latest review unavailable: review locked',
@@ -457,6 +522,15 @@ describe('control-room formatting helpers', () => {
             },
           },
         }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          dashboard: {
+            ...dashboardFixture,
+            tradeProposals: { available: true, proposals: [] },
+          },
+          message: 'AAPL proposal rejected.',
+        }),
       );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -493,7 +567,48 @@ describe('control-room formatting helpers', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     await screen.findByText('Preferences updated from operator instruction.');
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+    fireEvent.click(screen.getByRole('button', { name: 'Proposals' }));
+    fireEvent.change(
+      screen.getByPlaceholderText('Approval note or rejection reason.'),
+      { target: { value: 'spread widened' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    await screen.findByText('AAPL proposal rejected.');
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(7));
+    vi.unstubAllGlobals();
+  });
+
+  it('clears transient action messages when switching tabs', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(dashboardFixture))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { error: 'RuntimeError: model failed to load' },
+          { ok: false, status: 500 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(ControlRoom));
+    await screen.findByText('Agentic Trader Web GUI');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chat' }));
+    fireEvent.change(
+      screen.getByPlaceholderText('Ask for a review, status, or explanation.'),
+      { target: { value: 'Explain current risk' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText('RuntimeError: model failed to load');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proposals' }));
+    await waitFor(() => {
+      expect(
+        screen.queryByText('RuntimeError: model failed to load'),
+      ).toBeNull();
+    });
+
     vi.unstubAllGlobals();
   });
 

@@ -23,9 +23,20 @@ from agentic_trader.runtime_feed import (
 from agentic_trader.researchd.status import build_research_sidecar_state
 from agentic_trader.schemas import EvidenceInferenceBreakdown, RawEvidenceRecord
 from agentic_trader.system.camofox_service import CamofoxServiceStatus
+from agentic_trader.system.tool_ownership import write_tool_ownership
 
 
 def _settings(tmp_path, **overrides) -> Settings:
+    """
+    Builds a Settings instance rooted at the given temporary path and ensures required directories exist.
+    
+    Parameters:
+        tmp_path (pathlib.Path): Base directory used for runtime, database, and market data cache.
+        **overrides: Additional Settings fields to override the defaults (e.g., mode flags or provider toggles).
+    
+    Returns:
+        Settings: A Settings object with runtime_dir set to tmp_path, database_path set to tmp_path / "agentic_trader.duckdb", market_data_cache_dir set to tmp_path / "market_cache", and required directories created.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -36,11 +47,35 @@ def _settings(tmp_path, **overrides) -> Settings:
     return settings
 
 
+def _host_owned_firecrawl(settings: Settings) -> Settings:
+    """
+    Mark the Firecrawl tool as host-owned in the provided settings and return the updated settings.
+    
+    Parameters:
+        settings (Settings): Settings object to update.
+    
+    Returns:
+        Settings: The same Settings instance with Firecrawl ownership set to "host-owned".
+    """
+    write_tool_ownership(settings, {"firecrawl": "host-owned"}, source="test")
+    return settings
+
+
 def _camofox_service_status(
     *,
     app_owned: bool = False,
     health_ok: bool = True,
 ) -> CamofoxServiceStatus:
+    """
+    Builds a test CamofoxServiceStatus representing a local Camofox browser service.
+    
+    Parameters:
+        app_owned (bool): If True, mark the service as launched by the application and include a PID.
+        health_ok (bool): If True, indicate the browser health is OK; otherwise indicate a browser launch failure.
+    
+    Returns:
+        CamofoxServiceStatus: A status object configured for loopback host 127.0.0.1:9377 with service reachability set and a message reflecting health.
+    """
     return CamofoxServiceStatus(
         command_available=True,
         command_path="/opt/homebrew/bin/node",
@@ -333,6 +368,14 @@ def test_sec_edgar_provider_requires_explicit_user_agent(tmp_path) -> None:
 
 
 def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(tmp_path) -> None:
+    """
+    Verifies the Firecrawl news provider is opt-in and reports appropriate missing reasons when the CLI or host-owned tool is not available.
+    
+    This test checks three scenarios:
+    1. With no API key and default settings the provider is disabled and reports `"provider_disabled"`, and its metadata notes include `local_tool_id=firecrawl`.
+    2. When enabled via settings but the configured CLI path is missing, the provider reports a fallback-missing reason containing `"firecrawl_cli_fallback_disabled:undecided"` and returns no raw evidence.
+    3. When the host is marked as owning the Firecrawl tool but the CLI path is still missing, the provider reports `"firecrawl_cli_missing"` and returns no raw evidence.
+    """
     settings = _settings(tmp_path, firecrawl_api_key=None)
     disabled = FirecrawlNewsResearchProvider(settings=settings)
 
@@ -354,17 +397,35 @@ def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(tmp_path) -> 
     enabled_output = enabled.collect(symbols=["AAPL"], limit=3)
 
     assert enabled_output.raw_evidence == []
-    assert "firecrawl_cli_missing" in enabled_output.missing_reasons
+    assert "firecrawl_cli_fallback_disabled:undecided" in enabled_output.missing_reasons
+
+    host_owned = FirecrawlNewsResearchProvider(
+        settings=_host_owned_firecrawl(
+            _settings(
+                tmp_path / "host-owned",
+                research_firecrawl_enabled=True,
+                firecrawl_api_key=None,
+                research_firecrawl_cli=str(tmp_path / "missing-firecrawl"),
+            )
+        )
+    )
+
+    host_owned_output = host_owned.collect(symbols=["AAPL"], limit=3)
+
+    assert host_owned_output.raw_evidence == []
+    assert "firecrawl_cli_missing" in host_owned_output.missing_reasons
 
 
 def test_firecrawl_news_provider_sanitizes_search_results(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            research_firecrawl_cli="/bin/echo",
+        )
     )
     captured_command: list[str] = []
 
@@ -418,16 +479,34 @@ def test_firecrawl_news_provider_sanitizes_search_results(
 def test_firecrawl_news_provider_ignores_raw_body_fields(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
+    """
+    Verifies that Firecrawl provider discards raw `markdown`/`content` fields and does not use them as the normalized summary.
+    
+    Creates a host-owned Firecrawl configuration with a CLI-based command runner that returns a payload containing `markdown` and `content` fields; asserts the provider produces one raw evidence record whose `normalized_summary` is empty and whose `missing_fields` includes `"summary"`.
+    """
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            research_firecrawl_cli="/bin/echo",
+        )
     )
 
     def fake_runner(
         command: list[str], timeout_seconds: float, env: Mapping[str, str]
     ) -> subprocess.CompletedProcess[str]:
+        """
+        Simulate a subprocess runner for tests that returns a successful CompletedProcess with a JSON web payload.
+        
+        Parameters:
+            command (list[str]): Ignored command list used to construct the CompletedProcess.
+            timeout_seconds (float): Ignored timeout value.
+            env (Mapping[str, str]): Ignored environment mapping.
+        
+        Returns:
+            subprocess.CompletedProcess[str]: CompletedProcess with returncode 0, stdout containing a JSON object with a single `data.web` entry (fields: `title`, `url`, `source`, `publishedAt`, `markdown`, `content`), and empty stderr.
+        """
         _ = (timeout_seconds, env)
         payload = {
             "data": {
@@ -503,15 +582,23 @@ def test_firecrawl_news_provider_redacts_nonzero_stderr(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            research_firecrawl_cli="/bin/echo",
+        )
     )
 
     def fake_runner(
         command: list[str], timeout_seconds: float, env: Mapping[str, str]
     ) -> subprocess.CompletedProcess[str]:
+        """
+        Test command runner that simulates a subprocess failing with an authorization token emitted on stderr.
+        
+        Returns:
+            CompletedProcess[str]: A completed process with return code `2`, empty `stdout`, and `stderr` set to `"Authorization: fake-token"`.
+        """
         _ = (timeout_seconds, env)
         return subprocess.CompletedProcess(
             command,
@@ -539,10 +626,12 @@ def test_firecrawl_news_provider_passes_minimal_env(
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
     monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "fake-alpaca")
     monkeypatch.setenv("AGENTIC_TRADER_FMP_API_KEY", "fake-fmp")
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            research_firecrawl_cli="/bin/echo",
+        )
     )
     captured_env: dict[str, str] = {}
 
@@ -574,11 +663,13 @@ def test_firecrawl_news_provider_uses_settings_api_key_without_export(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     monkeypatch.delenv("FIRECRAWL_API_KEY", raising=False)
-    settings = _settings(
-        tmp_path,
-        research_firecrawl_enabled=True,
-        firecrawl_api_key="settings-token",
-        research_firecrawl_cli="/bin/echo",
+    settings = _host_owned_firecrawl(
+        _settings(
+            tmp_path,
+            research_firecrawl_enabled=True,
+            firecrawl_api_key="settings-token",
+            research_firecrawl_cli="/bin/echo",
+        )
     )
     captured_env: dict[str, str] = {}
 

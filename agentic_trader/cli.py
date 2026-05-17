@@ -110,7 +110,14 @@ from agentic_trader.system.operator_launcher import (
     start_default_background_runtime,
     start_operator_webgui,
 )
+from agentic_trader.system.runtime_tools import apply_app_owned_service_settings
 from agentic_trader.system.setup import build_setup_status
+from agentic_trader.system.tool_ownership import (
+    OWNERSHIP_MODES,
+    read_tool_ownership_payload,
+    validate_ownership_mode,
+    write_tool_ownership,
+)
 from agentic_trader.system.webgui_service import (
     build_webgui_service_status,
     stop_webgui_service,
@@ -190,6 +197,10 @@ camofox_service_app = typer.Typer(
     help="Manage the optional app-owned local Camofox browser helper."
 )
 app.add_typer(camofox_service_app, name="camofox-service")
+tool_ownership_app = typer.Typer(
+    help="Inspect or record optional helper ownership decisions."
+)
+app.add_typer(tool_ownership_app, name="tool-ownership")
 
 TUI_PACKAGE_NAME = "agentic-trader-tui"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -2560,6 +2571,7 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
         json_output (bool): If true, emit the environment payload as JSON rather than rendering terminal output.
     """
     settings = get_settings()
+    apply_app_owned_service_settings(settings, include_camofox=True)
     latest: str
     db_status = "ok"
     try:
@@ -2575,6 +2587,7 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
     llm = LocalLLM(settings)
     health = llm.health_check()
     payload = {
+        "provider": settings.llm_provider,
         "model": settings.model_name,
         "base_url": settings.base_url,
         "runtime_dir": str(settings.runtime_dir),
@@ -2582,6 +2595,7 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
         "database": str(settings.database_path),
         "db_status": db_status,
         "model_routing": settings.model_routing(),
+        "llm_reachable": health.service_reachable,
         "ollama_reachable": health.service_reachable,
         "model_available": health.model_available,
         "llm_status": health.message,
@@ -2594,6 +2608,7 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
     table = Table(title="Environment Check")
     table.add_column("Key")
     table.add_column("Value")
+    table.add_row("LLM Provider", settings.llm_provider)
     table.add_row("Model", settings.model_name)
     table.add_row("Runtime Mode", settings.runtime_mode)
     table.add_row("Base URL", settings.base_url)
@@ -2631,7 +2646,21 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
 
 
 def _render_setup_status(payload: dict[str, object]) -> None:
-    """Render local workspace and optional side-application readiness."""
+    """
+    Display workspace and optional side-application readiness using Rich tables and panels.
+    
+    Parameters:
+        payload (dict[str, object]): Snapshot containing setup information. Expected keys:
+            - "platform": platform description (displayed under "Platform").
+            - "workspace_root": project workspace path.
+            - "core_ready": whether core components are ready.
+            - "optional_ready": whether optional runtime pieces are ready.
+            - "model_service", "camofox_service", "webgui_service": dicts with a "message" key summarizing each service.
+            - "tool_ownership" (optional): ownership snapshot passed to the tool ownership renderer.
+            - "tools": list of tool descriptors; each dict should include "label", "category", "status", optional "ownership_mode", "path", "notes" (list), and "install_hint".
+            - "recommended_commands": list[str] of CLI commands to suggest to the user.
+    
+    """
 
     summary = Table(title="Setup Status")
     summary.add_column("Field")
@@ -2648,10 +2677,15 @@ def _render_setup_status(payload: dict[str, object]) -> None:
     summary.add_row("Web GUI", str(webgui_service.get("message", "-")))
     console.print(summary)
 
+    ownership = cast(dict[str, object] | None, payload.get("tool_ownership"))
+    if ownership is not None:
+        _render_tool_ownership(ownership)
+
     tools = cast(list[dict[str, object]], payload["tools"])
     table = Table(title="Tool Readiness")
     table.add_column("Tool")
     table.add_column("Category")
+    table.add_column("Ownership")
     table.add_column("Status")
     table.add_column("Path")
     table.add_column("Notes")
@@ -2660,6 +2694,7 @@ def _render_setup_status(payload: dict[str, object]) -> None:
         table.add_row(
             str(tool["label"]),
             str(tool["category"]),
+            str(tool.get("ownership_mode") or "-"),
             str(tool["status"]),
             str(tool.get("path") or "-"),
             notes or str(tool.get("install_hint") or "-"),
@@ -2674,8 +2709,67 @@ def _render_setup_status(payload: dict[str, object]) -> None:
     )
 
 
+def _render_tool_ownership(payload: dict[str, object]) -> None:
+    """
+    Render the recorded tool ownership decisions as a Rich table.
+    
+    Parameters:
+        payload (dict[str, object]): Snapshot containing an optional "decisions" key. If present, "decisions"
+            should be a list of mappings with the keys:
+                - "tool": tool identifier or name
+                - "mode": ownership mode
+                - "source": origin of the recorded decision
+                - "updated_at": timestamp of last update
+                - "note": human-readable meaning or note
+    
+    The function prints a table with columns: Tool, Mode, Source, Updated, and Meaning.
+    """
+
+    table = Table(title="Tool Ownership")
+    table.add_column("Tool")
+    table.add_column("Mode")
+    table.add_column("Source")
+    table.add_column("Updated")
+    table.add_column("Meaning")
+    decisions = cast(list[dict[str, object]], payload.get("decisions", []))
+    for decision in decisions:
+        table.add_row(
+            str(decision.get("tool", "-")),
+            str(decision.get("mode", "-")),
+            str(decision.get("source", "-")),
+            str(decision.get("updated_at") or "-"),
+            str(decision.get("note", "-")),
+        )
+    console.print(table)
+
+
 def _render_model_service_status(payload: dict[str, object]) -> None:
-    """Render app-owned model-service state and log tails."""
+    """
+    Render the app-owned model service status and recent stderr lines to the console.
+    
+    The function reads known keys from the supplied payload and prints a two-column status table,
+    an "Available Models" panel, and a stderr tail panel when present.
+    
+    Parameters:
+    	payload (dict[str, object]): Status payload containing any of the following keys used for display:
+    		- provider
+    		- command_available
+    		- command_path
+    		- configured_base_url
+    		- configured_model
+    		- service_reachable
+    		- model_available
+    		- generation_checked
+    		- generation_available
+    		- generation_message
+    		- app_owned
+    		- pid
+    		- base_url
+    		- message
+    		- runtime_base_url_matches_app_service
+    		- available_models (iterable of model names shown in the "Available Models" panel)
+    		- stderr_tail (iterable of recent stderr lines shown in the stderr panel)
+    """
 
     table = Table(title=LABEL_MODEL_SERVICE)
     table.add_column("Field")
@@ -2921,7 +3015,14 @@ def _operator_launcher() -> None:
 def setup_status(
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show source setup, optional tool, and model-service readiness."""
+    """
+    Display system setup and tool/model-service readiness.
+    
+    When json_output is True, emit a structured JSON payload of the setup status; otherwise render human-friendly console panels summarizing source setup, optional tool ownership/readiness, and model-service state.
+    
+    Parameters:
+        json_output (bool): `True` to output a machine-readable JSON payload, `False` to render console output.
+    """
 
     settings = get_settings()
     payload = build_setup_status(settings).model_dump(mode="json")
@@ -2929,6 +3030,80 @@ def setup_status(
         _emit_json(payload)
         return
     _render_setup_status(payload)
+
+
+@tool_ownership_app.command("status")
+def tool_ownership_status(
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show persisted optional helper ownership decisions."""
+
+    settings = get_settings()
+    payload = read_tool_ownership_payload(settings).model_dump(mode="json")
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_tool_ownership(payload)
+
+
+@tool_ownership_app.command("set")
+def tool_ownership_set(
+    ollama_owner: str | None = typer.Option(
+        None,
+        "--ollama-owner",
+        help="Ownership mode for Ollama: host-owned, app-owned, api-key-only, or skipped.",
+    ),
+    firecrawl_owner: str | None = typer.Option(
+        None,
+        "--firecrawl-owner",
+        help="Ownership mode for Firecrawl: host-owned, app-owned, api-key-only, or skipped.",
+    ),
+    camofox_owner: str | None = typer.Option(
+        None,
+        "--camofox-owner",
+        help="Ownership mode for Camofox: host-owned, app-owned, api-key-only, or skipped.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """
+    Persist explicit ownership decisions for optional helper tools.
+    
+    Accepts ownership mode overrides for Ollama, Firecrawl, and Camofox, validates each mode, and writes the persisted ownership choices to application settings. When --json is set, emits the persisted payload as JSON; otherwise renders a human-friendly panel.
+    
+    Parameters:
+        ollama_owner (str | None): Ownership mode for Ollama. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
+        firecrawl_owner (str | None): Ownership mode for Firecrawl. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
+        camofox_owner (str | None): Ownership mode for Camofox. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
+        json_output (bool): If true, emit the persisted ownership payload as compact JSON instead of rendering a panel.
+    
+    Raises:
+        typer.BadParameter: If no ownership decisions are provided or if any provided mode is invalid.
+    """
+
+    updates: dict[str, str] = {}
+    for tool, value in (
+        ("ollama", ollama_owner),
+        ("firecrawl", firecrawl_owner),
+        ("camofox", camofox_owner),
+    ):
+        if value is None:
+            continue
+        try:
+            updates[tool] = validate_ownership_mode(value)
+        except ValueError as exc:
+            modes = ", ".join(mode for mode in OWNERSHIP_MODES if mode != "undecided")
+            raise typer.BadParameter(f"{exc}; valid values: {modes}") from exc
+    if not updates:
+        raise typer.BadParameter("Select at least one ownership decision to persist.")
+
+    settings = get_settings()
+    payload = write_tool_ownership(settings, updates, source="cli").model_dump(
+        mode="json"
+    )
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_tool_ownership(payload)
 
 
 @app.command("setup")
@@ -2940,7 +3115,17 @@ def setup_command(
         help="Report setup status. Use make bootstrap for interactive installs.",
     ),
 ) -> None:
-    """Report the recommended local setup path without hidden installs."""
+    """
+    Show local system setup status and guidance.
+    
+    When run normally, renders a human-friendly setup status view and a guidance panel.
+    When `json_output` is true, emits a JSON payload with `dry_run`, `mutated`, `status`,
+    and `message` keys instead of rendering.
+    
+    Parameters:
+        json_output (bool): If true, output a JSON payload rather than rendering UI.
+        dry_run (bool): If true, report status without performing interactive or system installs.
+    """
 
     settings = get_settings()
     status = build_setup_status(settings).model_dump(mode="json")
@@ -4523,6 +4708,7 @@ def build_dashboard_snapshot_payload(
     Returns:
         dict[str, object]: A JSON-serializable snapshot keyed by sections including (but not limited to) `doctor`, `status`, `supervisor`, `broker`, `modelService`, `webGui`, `logs`, `agentActivity`, `portfolio`, `preferences`, `recentRuns`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `canonicalAnalysis`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, and `marketCache`.
     """
+    applied_tools = apply_app_owned_service_settings(settings, include_camofox=True)
     llm = LocalLLM(settings)
     health = llm.health_check()
     state = read_service_state(settings)
@@ -4541,6 +4727,7 @@ def build_dashboard_snapshot_payload(
         db_status = f"Database unavailable: {exc}"
 
     doctor_payload = {
+        "provider": settings.llm_provider,
         "model": settings.model_name,
         "runtime_mode": settings.runtime_mode,
         "base_url": settings.base_url,
@@ -4548,6 +4735,7 @@ def build_dashboard_snapshot_payload(
         "database": str(settings.database_path),
         "db_status": db_status,
         "model_routing": settings.model_routing(),
+        "llm_reachable": health.service_reachable,
         "ollama_reachable": health.service_reachable,
         "model_available": health.model_available,
         "llm_status": health.message,
@@ -4563,9 +4751,14 @@ def build_dashboard_snapshot_payload(
         "status": status_payload,
         "supervisor": _service_supervisor_payload(settings),
         "broker": _broker_payload(settings),
-        "modelService": build_model_service_status(settings).model_dump(mode="json"),
-        "camofoxService": build_camofox_service_status(settings).model_dump(mode="json"),
+        "modelService": (
+            applied_tools.model_service or build_model_service_status(settings)
+        ).model_dump(mode="json"),
+        "camofoxService": (
+            applied_tools.camofox_service or build_camofox_service_status(settings)
+        ).model_dump(mode="json"),
         "webGui": build_webgui_service_status(settings).model_dump(mode="json"),
+        "toolOwnership": read_tool_ownership_payload(settings).model_dump(mode="json"),
         "financeOps": _finance_ops_payload(settings),
         "logs": [event.model_dump(mode="json") for event in events],
         "agentActivity": {

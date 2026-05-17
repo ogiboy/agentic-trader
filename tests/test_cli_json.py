@@ -1329,9 +1329,55 @@ def test_setup_status_json_reports_side_application_readiness(
     assert setup_payload["status"]["tools"][1]["tool_id"] == "firecrawl_cli"
 
 
+def test_tool_ownership_cli_status_and_set_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    runner = CliRunner()
+    status_result = runner.invoke(app, ["tool-ownership", "status", "--json"])
+    assert status_result.exit_code == 0
+    status_payload = json.loads(status_result.stdout)
+    assert status_payload["decisions_by_tool"]["ollama"]["mode"] == "undecided"
+
+    set_result = runner.invoke(
+        app,
+        [
+            "tool-ownership",
+            "set",
+            "--ollama-owner",
+            "host-owned",
+            "--firecrawl-owner",
+            "api-key-only",
+            "--json",
+        ],
+    )
+    assert set_result.exit_code == 0
+    set_payload = json.loads(set_result.stdout)
+    assert set_payload["decisions_by_tool"]["ollama"]["mode"] == "host-owned"
+    assert set_payload["decisions_by_tool"]["firecrawl"]["mode"] == "api-key-only"
+    assert (tmp_path / "setup" / "tool-ownership.json").exists()
+
+
 def test_model_service_cli_json_commands(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Exercise the model-service CLI commands in JSON mode and verify their outputs.
+    
+    Sets up temporary Settings and monkeypatches model service status builders and control functions, then invokes
+    `model-service status`, `model-service status --probe-generation`, `model-service start`, `model-service stop`, and
+    `model-service pull` in JSON mode and asserts:
+    - reported provider and command availability,
+    - that the `include_generation` probe flag is propagated,
+    - `app_owned` reflects start/stop behavior and stderr tail redacts bearer tokens,
+    - the pull command returns the requested model name.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

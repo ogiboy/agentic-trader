@@ -97,6 +97,7 @@ class CamofoxServiceStatus(BaseModel):
     tool_status_id: str = "camofox_browser"
     tool_consumers: list[str] = Field(default_factory=list)
     tool_fallback_order: list[str] = Field(default_factory=list)
+    tool_ownership_modes: list[str] = Field(default_factory=list)
     install_hint: str = ""
     notes: list[str] = Field(default_factory=list)
     command_available: bool
@@ -296,6 +297,21 @@ def _camofox_env(settings: Settings, *, host: str, port: int) -> dict[str, str]:
 
 
 def _runtime_command(tool_dir: Path) -> list[str]:
+    """
+    Builds the command to launch the Camofox Node.js helper.
+    
+    Parameters:
+        tool_dir (Path): Filesystem path to the Camofox tool directory.
+    
+    Returns:
+        command (list[str]): The node executable path followed by the server script name.
+    
+    Raises:
+        RuntimeError: If the `node` executable is not found on PATH.
+        RuntimeError: If the Camofox tool package is missing at `tool_dir`.
+        RuntimeError: If Camofox dependencies are missing; suggests running
+            `pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`.
+    """
     node_path = _node_command_path()
     if node_path is None:
         raise RuntimeError("node is not installed or not on PATH.")
@@ -303,7 +319,8 @@ def _runtime_command(tool_dir: Path) -> list[str]:
         raise RuntimeError(f"Camofox browser helper is missing at {tool_dir}.")
     if not _dependency_available(tool_dir):
         raise RuntimeError(
-            "Camofox dependencies are missing. Run npm install in tools/camofox-browser."
+            "Camofox dependencies are missing. Run "
+            f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
         )
     return [node_path, SERVER_SCRIPT_NAME]
 
@@ -431,7 +448,21 @@ def _camofox_blocking_status_message(
     package_available: bool,
     command_path: str | None,
     dependency_available: bool,
+    tool_dir: Path,
 ) -> str | None:
+    """
+    Determine whether startup should be blocked and provide a human-readable message for the first missing prerequisite.
+
+    Parameters:
+    	probe_host (str): Host portion of the configured base URL to validate as loopback.
+    	package_available (bool): Whether the tool's package files (package.json, server.js) are present.
+    	command_path (str | None): Path to the Node.js executable, or None if not found.
+    	dependency_available (bool): Whether the tool's node_modules dependencies are installed.
+    	tool_dir (Path): The resolved Camofox tool directory path.
+
+    Returns:
+    	blocking_message (str | None): A short message describing the first blocking issue, or `None` if no blocking issues are detected.
+    """
     if not is_loopback_host(probe_host):
         return "Camofox base URL must remain loopback."
     if not package_available:
@@ -439,7 +470,10 @@ def _camofox_blocking_status_message(
     if command_path is None:
         return "node is not installed or not on PATH."
     if not dependency_available:
-        return "Camofox dependencies are missing. Run npm install in tools/camofox-browser."
+        return (
+            "Camofox dependencies are missing. Run "
+            f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
+        )
     return None
 
 
@@ -494,6 +528,7 @@ def build_camofox_service_status(
         package_available=package_available,
         command_path=command_path,
         dependency_available=dependency_available,
+        tool_dir=tool_dir,
     )
     if message is None:
         reachable, health_ok, message = _camofox_probe_status(

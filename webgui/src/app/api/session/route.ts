@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   WEBGUI_SESSION_COOKIE_NAME,
+  beginRequestGuard,
   configuredWebguiToken,
   constantTimeEqual,
   isAuthorizedWebguiRequest,
@@ -14,6 +15,7 @@ export const dynamic = 'force-dynamic';
 
 const MAX_SESSION_TOKEN_BYTES = 4 * 1024;
 const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60;
+const SESSION_ATTEMPT_COOLDOWN_MS = 1_000;
 
 function sessionCookieOptions(request: Request) {
   return {
@@ -59,10 +61,19 @@ export async function POST(request: Request) {
     return Response.json({ authenticated: true, tokenRequired: false });
   }
 
+  const guard = beginRequestGuard({
+    key: 'webgui-session',
+    cooldownMs: SESSION_ATTEMPT_COOLDOWN_MS,
+  });
+  if (!guard.ok) {
+    return guard.response;
+  }
+
   const parsed = await parseJsonObjectBody(request, {
     maxBytes: MAX_SESSION_TOKEN_BYTES,
   });
   if (!parsed.ok) {
+    guard.release();
     return parsed.response;
   }
 
@@ -91,6 +102,8 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     return jsonError(redactAndCapText(error), 500);
+  } finally {
+    guard.release();
   }
 }
 

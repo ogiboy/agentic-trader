@@ -30,6 +30,13 @@ CAMOFOX_TOOL_DIR_NAME = "camofox-browser"
 OLLAMA_TOOL_DIR_NAME = "ollama"
 FIRECRAWL_TOOL_DIR_NAME = "firecrawl"
 TOOL_MANIFEST_FILE = "agentic-tool.json"
+LOCAL_TOOL_OWNERSHIP_MODES = (
+    "undecided",
+    "host-owned",
+    "app-owned",
+    "api-key-only",
+    "skipped",
+)
 
 TOOL_FALLBACK_ORDER: dict[LocalToolId, tuple[str, ...]] = {
     "camofox-browser": (
@@ -78,6 +85,7 @@ class LocalToolStatusPayload(TypedDict):
     tool_status_id: str
     tool_consumers: list[str]
     tool_fallback_order: list[str]
+    tool_ownership_modes: list[str]
     install_hint: str
     notes: list[str]
 
@@ -90,8 +98,10 @@ LOCAL_TOOL_DEFINITIONS: dict[LocalToolId, LocalToolDefinition] = {
         category="runtime_optional",
         consumers=("setup", "researchd", "camofox-service", "operator-launcher", "qa", "docs"),
         install_hint=(
-            "Keep the optional browser helper under tools/camofox-browser, run npm "
-            "install there, and start it with CAMOFOX_ACCESS_KEY before enabling it."
+            "Keep the optional browser helper under tools/camofox-browser, run "
+            "`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`, "
+            "fetch the browser binary explicitly with `make fetch-camofox`, and start "
+            "it with CAMOFOX_ACCESS_KEY before enabling it."
         ),
     ),
     "ollama": LocalToolDefinition(
@@ -199,7 +209,19 @@ def local_tool_manifest_notes(tool_id: LocalToolId) -> list[str]:
 
 
 def local_tool_status_payload(tool_id: LocalToolId) -> LocalToolStatusPayload:
-    """Return shared runtime/status metadata for one optional helper tool."""
+    """
+    Builds the status payload for a repo-local optional helper tool.
+    
+    Returns:
+        payload (LocalToolStatusPayload): Dictionary containing status and manifest metadata:
+            - `tool_id`: canonical local tool identifier.
+            - `tool_status_id`: status-friendly identifier used in status surfaces.
+            - `tool_consumers`: list of runtime surfaces that may consume the tool.
+            - `tool_fallback_order`: ordered list of resolution sources to try for the tool.
+            - `tool_ownership_modes`: list of possible ownership mode strings.
+            - `install_hint`: human-facing install/start hint from the tool definition.
+            - `notes`: list of non-secret notes and manifest-derived metadata strings.
+    """
 
     definition = local_tool_definition(tool_id)
     return {
@@ -207,6 +229,7 @@ def local_tool_status_payload(tool_id: LocalToolId) -> LocalToolStatusPayload:
         "tool_status_id": definition.status_tool_id,
         "tool_consumers": list(definition.consumers),
         "tool_fallback_order": list(definition.fallback_order),
+        "tool_ownership_modes": list(LOCAL_TOOL_OWNERSHIP_MODES),
         "install_hint": definition.install_hint,
         "notes": local_tool_manifest_notes(tool_id),
     }

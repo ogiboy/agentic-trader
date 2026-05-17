@@ -41,6 +41,14 @@ def test_repo_tool_manifests_are_valid_json() -> None:
 
 
 def test_local_tool_definitions_expose_runtime_consumers_and_fallbacks() -> None:
+    """
+    Validate local tool definitions expose expected status IDs, runtime consumers, fallback orders, and install hints.
+    
+    Asserts that the ordered local tool definitions are ("ollama", "firecrawl", "camofox-browser") and checks:
+    - "ollama" has status_tool_id "ollama_cli", includes "model-service" in consumers, and its first fallback is "app_managed_repo_config".
+    - "firecrawl" has status_tool_id "firecrawl_cli", includes "researchd" in consumers, and its fallback_order contains "pure_python_or_js_fetcher".
+    - "camofox-browser" has status_tool_id "camofox_browser", includes "camofox-service" in consumers, has "repo_tools" as the first fallback, and its install_hint contains the pnpm install command "pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts" and does not contain "npm install".
+    """
     definitions = {
         definition.tool_id: definition
         for definition in tool_roots.iter_local_tool_definitions()
@@ -56,6 +64,10 @@ def test_local_tool_definitions_expose_runtime_consumers_and_fallbacks() -> None
     assert definitions["camofox-browser"].status_tool_id == "camofox_browser"
     assert "camofox-service" in definitions["camofox-browser"].consumers
     assert definitions["camofox-browser"].fallback_order[0] == "repo_tools"
+    assert "pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts" in definitions[
+        "camofox-browser"
+    ].install_hint
+    assert "npm install" not in definitions["camofox-browser"].install_hint
 
 
 def test_manifest_notes_are_safe_and_include_entrypoints() -> None:
@@ -74,6 +86,8 @@ def test_local_tool_status_payload_matches_registry_contract() -> None:
     assert payload["tool_status_id"] == "firecrawl_cli"
     assert "researchd" in payload["tool_consumers"]
     assert "firecrawl_api_key" in payload["tool_fallback_order"]
+    assert "host-owned" in payload["tool_ownership_modes"]
+    assert "app-owned" in payload["tool_ownership_modes"]
     assert "firecrawl login" in str(payload["install_hint"])
     notes = payload["notes"]
     assert isinstance(notes, list)

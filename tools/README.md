@@ -11,8 +11,9 @@ Current and planned roots:
   `agentic-tool.json`. Start through
   `scripts/start-camofox-browser.sh`, `make start-camofox`, or
   `agentic-trader camofox-service start` with `CAMOFOX_ACCESS_KEY` or
-  `CAMOFOX_API_KEY`. Install Node deps with `make setup-camofox`; download the
-  browser binary separately with `make fetch-camofox`.
+  `CAMOFOX_API_KEY`. Install Node deps with `make setup-camofox`, which uses
+  `pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`;
+  download the browser binary separately with `make fetch-camofox`.
 - `ollama/`: app-managed Ollama manifest, model-service metadata, and local
   model defaults. Do not vendor model weights here.
 - `firecrawl/`: Firecrawl manifest, SDK/CLI handoff metadata, and fallback

@@ -144,6 +144,130 @@ and `tui/` each have their workspace `node_modules` links before syncing the
 root uv Python environment. If you only need the JavaScript side, run
 `pnpm run setup:node` or `make setup-node`.
 
+For a read-only lifecycle check that does not install dependencies, start
+services, pull models, open a browser, or start trading, run:
+
+```bash
+pnpm run app:doctor
+# or
+make app-doctor
+```
+
+For the guided first-run path, preview the composed setup/start flow first:
+
+```bash
+pnpm run app:up -- --dry-run
+# or
+make app-up ARGS="--dry-run"
+```
+
+The safe `--all` lane runs core setup repair, CrewAI Flow sidecar setup, Web
+GUI service start, and a final `app:doctor` report only after `--yes`:
+
+```bash
+pnpm run app:up -- --all --yes
+# or
+make app-up ARGS="--all --yes"
+```
+
+`app:up` is an orchestrator over the existing lifecycle commands, not a second
+runtime. Optional Camofox dependency install, browser-binary fetch,
+model-service start, and Camofox-service start require explicit scopes and
+matching ownership flags such as `--ollama-owner=app-owned` or
+`--camofox-owner=app-owned`. Host-owned, API/key-only, and skipped choices are
+persisted in `runtime/setup/tool-ownership.json`, surface through
+`setup-status`, Web GUI, and TUI readiness, and remain degraded readiness rather
+than hidden installs.
+
+Inspect or adjust those optional-helper choices directly with:
+
+```bash
+agentic-trader tool-ownership status --json
+agentic-trader tool-ownership set --ollama-owner host-owned --firecrawl-owner api-key-only --camofox-owner skipped --json
+```
+
+The default V1 model path is internal-first: app-owned Ollama serving `qwen3:8b`
+through the repo service status/log surfaces. Host-managed fallback remains
+available only when the operator records host ownership, and it is never started
+or stopped by app lifecycle commands. Operators who do not want Ollama can keep
+Ollama `skipped` and select an OpenAI-compatible adapter explicitly:
+
+```bash
+AGENTIC_TRADER_LLM_PROVIDER=openai-compatible
+AGENTIC_TRADER_BASE_URL=http://127.0.0.1:8080/v1
+AGENTIC_TRADER_MODEL_NAME=your-model
+# optional for authenticated endpoints:
+AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY=...
+```
+
+For the first conservative setup lifecycle facade, start with the plan view:
+
+```bash
+pnpm run app:setup -- --dry-run
+# or
+make app-setup ARGS="--dry-run"
+```
+
+The only mutating `app:setup` path currently implemented is explicit core
+repair:
+
+```bash
+pnpm run app:setup -- --core --yes
+# or
+make app-setup ARGS="--core --yes"
+```
+
+That path runs the existing root Node workspace setup and root uv Python sync
+only. It does not start a trading daemon, start app-owned services, pull Ollama
+models, fetch browser binaries, open the Web GUI, change provider accounts, or
+touch brokerage configuration. Sidecar, Camofox, model-service, Web GUI launch,
+update, and uninstall lanes remain separate opt-in lifecycle slices.
+
+For app-owned services, preview first and then start or stop only the selected
+service surfaces:
+
+```bash
+pnpm run app:start -- --dry-run
+pnpm run app:start -- --webgui --yes
+pnpm run app:stop -- --all --yes
+```
+
+`app:start` and `app:stop` do not install dependencies, fetch browsers, pull
+models, open the Web GUI browser by default, or start the trading daemon. They
+delegate ownership checks to `model-service`, `camofox-service`, and
+`webgui-service`, and model/Camofox starts now require persisted app-owned
+ownership before they run. Host-owned tools are not claimed or stopped. If an
+app-owned Web GUI process cannot be stopped, its state is preserved for retry
+instead of being reclassified as an external listener.
+
+For the explicit update lane, preview first and then choose native dependency
+owners:
+
+```bash
+pnpm run app:update -- --dry-run
+pnpm run app:update -- --core --sidecar --build --status --yes
+```
+
+`app:update` can update root pnpm, root uv, CrewAI Flow sidecar uv, and optional
+Camofox helper package dependencies, then run checks and `app:doctor`. It does
+not fetch browser binaries, pull Ollama models, start or stop services, delete
+runtime state, touch secrets or brokerage config, or start the trading daemon.
+
+For conservative local uninstall, preview first and select only app-owned
+generated scopes:
+
+```bash
+pnpm run app:uninstall -- --dry-run
+pnpm run app:uninstall -- --artifacts --deps --yes
+```
+
+`app:uninstall` can remove generated build/test caches, local dependency
+directories, the repo-local pnpm store, and app-owned helper service logs/state.
+Recorded service state files block `--service-state` removal until the matching
+`app:stop` command has cleared the app-owned process record. It preserves
+ignored env files, secrets, provider accounts, brokerage configuration,
+host-owned services, global tools, and trading runtime evidence such as DuckDB.
+
 ### Optional Web GUI
 
 ```bash
@@ -213,8 +337,10 @@ download full filing text, and it does not write directly into trading memory.
 Firecrawl and Camofox are optional research fetcher/development helpers behind
 `researchd`. They are disabled by default and only produce normalized
 source-attributed evidence or provider-health records. Firecrawl uses the
-Python SDK when `FIRECRAWL_API_KEY` is present and falls back to the CLI path
-when needed. Raw web text is not passed into trading prompts.
+internal Python SDK/API-key path first when `FIRECRAWL_API_KEY` is present.
+The host CLI fallback is used only after the operator records Firecrawl as
+`host-owned`; app-owned/API-only/skipped modes keep that fallback disabled and
+visible. Raw web text is not passed into trading prompts.
 
 ```bash
 AGENTIC_TRADER_RESEARCH_MODE=training
@@ -242,9 +368,11 @@ mirrored into the loopback helper as the global access token so browser routes
 are not left open during local research. These adapters cannot submit orders,
 change runtime mode, or mutate broker policy.
 
-When `AGENTIC_TRADER_RUNTIME_AUTO_START_MODEL_SERVICE=true`, strict runtime
-actions can start an app-owned loopback Ollama process before checking model
-generation. When `AGENTIC_TRADER_RUNTIME_AUTO_START_CAMOFOX=true` and the
+When `AGENTIC_TRADER_RUNTIME_AUTO_START_MODEL_SERVICE=true` and
+`AGENTIC_TRADER_LLM_PROVIDER=ollama`, strict runtime actions can start an
+app-owned loopback Ollama process before checking model generation. Alternate
+model adapters are explicit endpoint choices and do not cause the Ollama service
+to be claimed. When `AGENTIC_TRADER_RUNTIME_AUTO_START_CAMOFOX=true` and the
 Camofox research provider is enabled, research refreshes can start an app-owned
 loopback Camofox helper before collecting browser-health evidence. Camofox
 status treats a reachable HTTP server with `browserRunning=false` as ready for
@@ -276,6 +404,16 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 | `agentic-trader menu`                                            | Open the Rich/admin fallback menu                                 |
 | `agentic-trader dashboard-snapshot`                              | Print the shared dashboard payload used by UI surfaces; add `--provider-check` for product-readiness evidence |
 | `agentic-trader setup-status --json`                             | Inspect source, side-application, and optional-tool readiness     |
+| `agentic-trader tool-ownership status --json`                    | Inspect persisted Ollama/Firecrawl/Camofox ownership choices      |
+| `pnpm --silent run app:doctor -- --json`                         | Read setup, provider, V1, and app-owned service readiness without mutating local state |
+| `pnpm --silent run app:up -- --json --dry-run`                   | Preview the guided first-run setup/start path and ownership decisions |
+| `pnpm --silent run app:up -- --json --all --yes`                 | Run the safe first-run lane: core repair, sidecar setup, Web GUI start, final doctor |
+| `pnpm --silent run app:setup -- --json --dry-run`                 | Preview setup lifecycle steps without installing, starting services, pulling models, or fetching browsers |
+| `pnpm --silent run app:setup -- --json --core --yes`              | Run only explicit core repair: root Node workspace setup plus root uv Python sync |
+| `pnpm --silent run app:start -- --json --webgui --yes`            | Start only the selected app-owned service surfaces; Web GUI browser open stays opt-in |
+| `pnpm --silent run app:stop -- --json --all --yes`                | Stop only app-owned service PIDs recorded by the app                 |
+| `pnpm --silent run app:update -- --json --dry-run`                | Preview the scoped update lane across native dependency owners       |
+| `pnpm --silent run app:uninstall -- --json --dry-run`             | Preview app-owned artifact/dependency/service-state removal          |
 | `agentic-trader model-service status --probe-generation --json`  | Inspect configured/app-managed Ollama readiness, generation, and log tails |
 | `agentic-trader model-service start`                             | Start only an app-owned loopback Ollama process                   |
 | `agentic-trader model-service pull qwen3:8b`                     | Pull an Ollama model through the configured/app-owned service     |
@@ -310,12 +448,23 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
 | `agentic-trader finance-ops --json`                                                    | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check |
 | `agentic-trader setup-status --json`                                                   | Inspect root/sidecar/tool readiness without installing anything |
+| `agentic-trader tool-ownership status --json`                                          | Inspect persisted optional helper ownership choices |
+| `pnpm --silent run app:doctor -- --json`                                               | Inspect setup, service, provider, and V1 readiness without installing or starting anything |
+| `pnpm --silent run app:up -- --json --dry-run`                                         | Preview guided first-run setup/start orchestration and ownership decisions |
+| `pnpm --silent run app:up -- --json --all --yes`                                       | Run the safe first-run lane without hidden model pulls, browser fetches, or daemon start |
+| `pnpm --silent run app:setup -- --json --dry-run`                                      | Preview setup lifecycle steps and deferred optional tool/service actions |
+| `pnpm --silent run app:setup -- --json --core --yes`                                   | Repair only core root dependencies after explicit approval |
+| `pnpm --silent run app:start -- --json --webgui --yes`                                 | Start selected app-owned helper services without installing, pulling models, or launching a trading daemon |
+| `pnpm --silent run app:stop -- --json --all --yes`                                     | Stop only app-owned helper services recorded by the app |
+| `pnpm --silent run app:update -- --json --dry-run`                                     | Preview root/sidecar/tool-root update, build, and status lanes |
+| `pnpm --silent run app:uninstall -- --json --dry-run`                                  | Preview app-owned generated artifact and dependency removal |
 | `agentic-trader model-service status --probe-generation --json`                        | Inspect local Ollama/service/model/generation readiness |
 | `agentic-trader webgui-service status --json`                                          | Inspect loopback Web GUI service readiness |
 | `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
 | `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks; add `--provider-check` before longer paper runs and to verify local-model generation |
 | `agentic-trader trade-proposals --json`                                                | Inspect the manual-review proposal queue |
 | `agentic-trader proposal-create ...`                                                   | Queue a non-executing paper proposal for approval |
+| `agentic-trader proposal-approve PROPOSAL_ID --json` / `agentic-trader proposal-reject PROPOSAL_ID --reason "..." --json` | Approve or reject a pending proposal through the explicit manual-review gate |
 | `agentic-trader proposal-reconcile PROPOSAL_ID --json`                                 | Repair an in-flight proposal from a recorded execution outcome without resubmitting |
 | `agentic-trader idea-presets` / `agentic-trader idea-score ...`                        | Explore V1 idea-scanner presets without creating orders |
 | `agentic-trader strategy-catalog --json` / `agentic-trader strategy-profile NAME`       | Inspect strategy-family evidence, risk, and validation gates |
@@ -330,7 +479,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 
 ## Web GUI
 
-`webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction contracts from server-side route handlers. It is intentionally not a second orchestrator.
+`webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction/proposal contracts from server-side route handlers. It is intentionally not a second orchestrator, and its Proposal Desk can only call the same explicit approve/reject/reconcile gates that the CLI exposes.
 
 ```bash
 pnpm dev:webgui
@@ -351,6 +500,13 @@ This repo favors small, inspectable changes over broad rewrites. Keep Python run
 ```bash
 pnpm check
 make check
+pnpm run app:doctor
+pnpm run app:up -- --dry-run
+pnpm run app:setup -- --dry-run
+pnpm run app:start -- --dry-run
+pnpm run app:stop -- --dry-run
+pnpm run app:update -- --dry-run
+pnpm run app:uninstall -- --dry-run
 pnpm run qa:quality
 pnpm run setup:research-flow
 pnpm run check:research-flow
@@ -405,6 +561,9 @@ make clean
 Remove dependency installs explicitly when you want a fresh setup:
 
 ```bash
+pnpm run app:uninstall -- --dry-run
+pnpm run app:uninstall -- --artifacts --deps --yes
+# or the older focused cleanup commands:
 pnpm run clean:deps
 # or remove artifacts and dependencies together:
 pnpm run clean:all

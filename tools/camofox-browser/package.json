@@ -3,6 +3,7 @@
   "version": "1.8.15",
   "description": "Agentic Trader local browser research helper based on camofox-browser",
   "type": "module",
+  "packageManager": "pnpm@11.0.9",
   "main": "server.js",
   "license": "MIT",
   "author": "Jo Inc <oss@askjo.ai>",

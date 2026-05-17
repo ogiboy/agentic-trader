@@ -324,13 +324,36 @@ def _process_looks_like_webgui(pid: int) -> bool:
 
 
 def _process_matches_state(state: WebGUIServiceState) -> bool:
+    """
+    Verify that the persisted WebGUIServiceState corresponds to a running Web GUI process.
+
+    Parameters:
+        state (WebGUIServiceState): Persisted state record containing expected PID, host, and port.
+
+    Returns:
+        bool: `True` if the recorded PID is currently a listener for the configured host/port and either the process's working directory is the Web GUI directory or its command line matches expected Web GUI markers; `False` otherwise.
+    """
+    if _listen_port_owner_pid(state.host, state.port) != state.pid:
+        return False
+    process_cwd = _process_cwd(state.pid)
+    if process_cwd == webgui_dir().resolve():
+        return True
     command_line = _process_command_line(state.pid)
     if command_line:
         return _command_line_matches_webgui(command_line, state)
-    return _listen_port_owner_pid(state.host, state.port) == state.pid
+    return True
 
 
 def _state_process_alive(state: WebGUIServiceState | None) -> bool:
+    """
+    Determine whether the persisted Web GUI state corresponds to a currently running, matching process.
+    
+    Parameters:
+        state (WebGUIServiceState | None): Persisted runtime state to verify.
+    
+    Returns:
+        `true` if `state` is not `None`, the recorded PID is alive, and the running process matches the recorded state; `false` otherwise.
+    """
     return bool(
         state is not None
         and is_process_alive(state.pid)
@@ -338,14 +361,90 @@ def _state_process_alive(state: WebGUIServiceState | None) -> bool:
     )
 
 
-def _send_process_signal(pid: int, signal_number: int) -> None:
+def _send_process_signal(
+    pid: int, signal_number: int, *, process_group: bool = False
+) -> bool:
+    """
+    Send a POSIX signal to a process or its process group.
+    
+    Attempts to send `signal_number` to the process group of `pid` when `process_group=True` and the platform supports process-group signaling; otherwise sends the signal to the single process `pid`. Treats a missing process (ProcessLookupError) as success. Returns `True` if the signal was delivered or the target process was already absent, `False` if an operating-system error prevented sending the signal.
+    
+    Parameters:
+        pid (int): PID of the target process.
+        signal_number (int): Numeric signal to send (e.g., `signal.SIGTERM`).
+        process_group (bool): If `True`, attempt to signal the process group of `pid` instead of the single process; falls back to signaling the single process on failure.
+        
+    Returns:
+        bool: `True` if the signal was sent or the process was not found, `False` if an error prevented sending the signal.
+    """
+    if process_group and hasattr(os, "killpg") and hasattr(os, "getpgid"):
+        try:
+            os.killpg(os.getpgid(pid), signal_number)
+            return True
+        except ProcessLookupError:
+            return True
+        except OSError:
+            pass
     try:
         os.kill(pid, signal_number)
+        return True
+    except ProcessLookupError:
+        return True
     except OSError:
-        return
+        return False
+
+
+def _verified_stop_pids(state: WebGUIServiceState) -> list[int]:
+    """
+    Identify PIDs associated with the recorded app-owned Web GUI that are safe to signal individually.
+    
+    Inspects the provided persisted state and returns PIDs that are verified to belong to the Web GUI process:
+    - Includes `state.pid` when the recorded process is alive and still matches the recorded state.
+    - Includes `state.launcher_pid` when its command line indicates it belongs to the Web GUI and it is not already included.
+    
+    Parameters:
+        state (WebGUIServiceState): Persisted Web GUI service state to verify.
+    
+    Returns:
+        list[int]: Verified PIDs safe to signal individually; may be empty.
+    """
+
+    pids: list[int] = []
+    if _state_process_alive(state):
+        pids.append(state.pid)
+    if state.launcher_pid is not None and state.launcher_pid not in pids:
+        launcher_line = _process_command_line(state.launcher_pid)
+        if launcher_line and _command_line_matches_webgui(launcher_line, state):
+            pids.append(state.launcher_pid)
+    return pids
+
+
+def _send_state_signal(state: WebGUIServiceState, signal_number: int) -> bool:
+    """
+    Send the signal to the recorded process group, then to any verified child or launcher PIDs.
+    
+    Returns:
+        `true` if any signal was successfully sent, `false` otherwise.
+    """
+
+    verified_pids = _verified_stop_pids(state)
+    sent = _send_process_signal(state.pid, signal_number, process_group=True)
+    for pid in verified_pids:
+        sent = _send_process_signal(pid, signal_number) or sent
+    return sent
 
 
 def _wait_for_state_exit(state: WebGUIServiceState, *, timeout: float) -> bool:
+    """
+    Waits until the recorded Web GUI process is no longer alive or the timeout elapses.
+    
+    Parameters:
+        state (WebGUIServiceState): Persisted app-owned Web GUI state whose `pid` and process ownership are checked.
+        timeout (float): Maximum number of seconds to wait.
+    
+    Returns:
+        bool: `true` if the process is no longer alive by the end of the wait, `false` otherwise.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline and _state_process_alive(state):
         time.sleep(0.2)
@@ -592,15 +691,35 @@ def start_webgui_service(
 
 
 def stop_webgui_service(settings: Settings) -> WebGUIServiceStatus:
-    """Stop only the app-owned Web GUI process recorded in runtime state."""
+    """
+    Stop the app-owned Web GUI process recorded in persisted runtime state.
+    
+    Attempts to gracefully stop the recorded app-owned process and removes the persisted state if the process is no longer alive. If the process cannot be stopped, the persisted state is preserved and the returned status contains a message indicating the preserved state for retry.
+    
+    Parameters:
+        settings (Settings): Runtime settings that determine state and storage paths.
+    
+    Returns:
+        WebGUIServiceStatus: Current service status after the stop attempt; when shutdown fails the status message indicates the state was preserved for retry.
+    """
 
     state = _read_state(settings)
     if state is None:
         return build_webgui_service_status(settings)
     if _state_process_alive(state):
-        _send_process_signal(state.pid, signal.SIGTERM)
-        if not _wait_for_state_exit(state, timeout=5):
-            _send_process_signal(state.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
-            _wait_for_state_exit(state, timeout=1)
+        _send_state_signal(state, signal.SIGTERM)
+        stopped = _wait_for_state_exit(state, timeout=5)
+        if not stopped:
+            _send_state_signal(state, getattr(signal, "SIGKILL", signal.SIGTERM))
+            stopped = _wait_for_state_exit(state, timeout=1)
+        if not stopped:
+            return build_webgui_service_status(settings).model_copy(
+                update={
+                    "message": (
+                        "Unable to stop app-owned Web GUI; state preserved "
+                        "for retry."
+                    )
+                }
+            )
     _remove_state(settings)
     return build_webgui_service_status(settings)

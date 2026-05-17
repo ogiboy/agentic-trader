@@ -296,26 +296,104 @@ def test_stop_webgui_service_escalates_when_app_owned_process_survives_sigterm(
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
     webgui_service._write_state(settings, state)
-    signals: list[int] = []
+    signals: list[tuple[int, int]] = []
     wait_timeouts: list[float] = []
 
     def fake_wait(_state: webgui_service.WebGUIServiceState, *, timeout: float) -> bool:
+        """
+        Simulate waiting for a WebGUI service state to exit while recording the timeout value.
+        
+        Parameters:
+            _state (WebGUIServiceState): State object to check (unused by this fake).
+            timeout (float): Timeout duration that will be recorded.
+        
+        Returns:
+            bool: `False` indicating the state did not exit within the given timeout.
+        """
         wait_timeouts.append(timeout)
         return False
 
     monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid == 88883)
     monkeypatch.setattr(webgui_service, "_process_matches_state", lambda _state: True)
-    monkeypatch.setattr(webgui_service.os, "kill", lambda _pid, sig: signals.append(sig))
+    monkeypatch.setattr(webgui_service.os, "getpgid", lambda pid: pid + 10)
+    monkeypatch.setattr(
+        webgui_service.os,
+        "killpg",
+        lambda pgid, sig: signals.append((pgid, sig)),
+    )
     monkeypatch.setattr(webgui_service, "_wait_for_state_exit", fake_wait)
     monkeypatch.setattr(webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable"))
 
     status = webgui_service.stop_webgui_service(settings)
 
     assert signals == [
-        signal.SIGTERM,
-        getattr(signal, "SIGKILL", signal.SIGTERM),
+        (88893, signal.SIGTERM),
+        (88893, getattr(signal, "SIGKILL", signal.SIGTERM)),
     ]
     assert wait_timeouts == [5, 1]
+    assert "state preserved" in status.message
+    assert webgui_service.webgui_service_state_path(settings).exists()
+
+
+def test_stop_webgui_service_falls_back_to_verified_launcher_and_listener_pids(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = _settings(tmp_path)
+    state = webgui_service.WebGUIServiceState(
+        pid=222,
+        launcher_pid=111,
+        host="127.0.0.1",
+        port=3210,
+        url="http://127.0.0.1:3210",
+        started_at="2026-01-01T00:00:00+00:00",
+        stdout_log_path=str(tmp_path / "out.log"),
+        stderr_log_path=str(tmp_path / "err.log"),
+        command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
+    )
+    webgui_service._write_state(settings, state)
+    alive = {111, 222}
+    group_signals: list[tuple[int, int]] = []
+    pid_signals: list[tuple[int, int]] = []
+
+    def fake_kill(pid: int, sent_signal: int) -> None:
+        """
+        Record a simulated signal sent to a process and mark that process as no longer alive.
+        
+        Parameters:
+            pid (int): Process ID receiving the signal.
+            sent_signal (int): Signal number sent to the process.
+        """
+        pid_signals.append((pid, sent_signal))
+        alive.discard(pid)
+
+    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid in alive)
+    monkeypatch.setattr(
+        webgui_service,
+        "_process_matches_state",
+        lambda checked: checked.pid == 222 and 222 in alive,
+    )
+    monkeypatch.setattr(
+        webgui_service,
+        "_process_command_line",
+        lambda pid: (
+            "node webgui/node_modules/next/dist/bin/next dev --hostname 127.0.0.1 -p 3210"
+            if pid == 111
+            else "next-server (v16.2.6)"
+        ),
+    )
+    monkeypatch.setattr(webgui_service.os, "getpgid", lambda _pid: 333)
+    monkeypatch.setattr(
+        webgui_service.os,
+        "killpg",
+        lambda pgid, sig: group_signals.append((pgid, sig)),
+    )
+    monkeypatch.setattr(webgui_service.os, "kill", fake_kill)
+    monkeypatch.setattr(webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable"))
+
+    status = webgui_service.stop_webgui_service(settings)
+
+    assert group_signals == [(333, signal.SIGTERM)]
+    assert pid_signals == [(222, signal.SIGTERM), (111, signal.SIGTERM)]
     assert status.app_owned is False
     assert not webgui_service.webgui_service_state_path(settings).exists()
 
@@ -336,21 +414,100 @@ def test_stop_webgui_service_kills_verified_listener_pid_only(
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
     webgui_service._write_state(settings, state)
-    killed: list[int] = []
+    killed: list[tuple[int, int]] = []
     alive = {222}
 
-    def fake_kill(pid: int, _signal: int) -> None:
-        killed.append(pid)
-        alive.discard(pid)
+    def fake_killpg(pgid: int, sig: int) -> None:
+        """
+        Record a simulated process-group termination and mark the test listener PID as dead.
+        
+        Parameters:
+            pgid (int): The process group ID that would be signaled.
+            sig (int): The signal number sent to the process group.
+        """
+        killed.append((pgid, sig))
+        alive.discard(222)
 
     monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid in alive)
     monkeypatch.setattr(webgui_service, "_process_matches_state", lambda checked: checked.pid == 222)
+    monkeypatch.setattr(webgui_service.os, "getpgid", lambda _pid: 333)
+    monkeypatch.setattr(webgui_service.os, "killpg", fake_killpg)
+    monkeypatch.setattr(webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable"))
+
+    status = webgui_service.stop_webgui_service(settings)
+
+    assert killed == [(333, signal.SIGTERM)]
+    assert status.app_owned is False
+
+
+def test_stop_webgui_service_kills_next_server_listener_verified_by_cwd(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = _settings(tmp_path)
+    state = webgui_service.WebGUIServiceState(
+        pid=222,
+        launcher_pid=111,
+        host="127.0.0.1",
+        port=3210,
+        url="http://127.0.0.1:3210",
+        started_at="2026-01-01T00:00:00+00:00",
+        stdout_log_path=str(tmp_path / "out.log"),
+        stderr_log_path=str(tmp_path / "err.log"),
+        command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
+    )
+    webgui_service._write_state(settings, state)
+    alive = {222}
+    killed_groups: list[tuple[int, int]] = []
+    killed_pids: list[tuple[int, int]] = []
+
+    def fake_killpg(pgid: int, sig: int) -> None:
+        """
+        Record a process-group kill signal for test inspection.
+        
+        Appends the tuple (pgid, sig) to the outer-scope `killed_groups` list so tests can assert which signals would have been sent.
+        
+        Parameters:
+            pgid (int): The process group ID targeted.
+            sig (int): The signal number sent to the process group.
+        """
+        killed_groups.append((pgid, sig))
+
+    def fake_kill(pid: int, sig: int) -> None:
+        """
+        Record a simulated signal delivery and mark the PID as no longer alive.
+        
+        Parameters:
+            pid (int): Process ID to signal.
+            sig (int): Signal number to record.
+        """
+        killed_pids.append((pid, sig))
+        alive.discard(pid)
+
+    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid in alive)
+    monkeypatch.setattr(
+        webgui_service,
+        "_process_command_line",
+        lambda pid: "next-server (v16.2.6)" if pid == 222 else None,
+    )
+    monkeypatch.setattr(
+        webgui_service,
+        "_process_cwd",
+        lambda pid: webgui_service.webgui_dir().resolve() if pid == 222 else None,
+    )
+    monkeypatch.setattr(
+        webgui_service,
+        "_listen_port_owner_pid",
+        lambda host, port: 222 if host == "127.0.0.1" and port == 3210 else None,
+    )
+    monkeypatch.setattr(webgui_service.os, "getpgid", lambda _pid: 333)
+    monkeypatch.setattr(webgui_service.os, "killpg", fake_killpg)
     monkeypatch.setattr(webgui_service.os, "kill", fake_kill)
     monkeypatch.setattr(webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable"))
 
     status = webgui_service.stop_webgui_service(settings)
 
-    assert killed == [222]
+    assert killed_groups == [(333, signal.SIGTERM)]
+    assert killed_pids == [(222, signal.SIGTERM)]
     assert status.app_owned is False
 
 

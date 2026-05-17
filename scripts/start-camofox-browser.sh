@@ -34,4 +34,4 @@ case "$CAMOFOX_HOST" in
 esac
 
 cd "$CAMOFOX_DIR"
-exec npm start
+exec pnpm --ignore-workspace run start
