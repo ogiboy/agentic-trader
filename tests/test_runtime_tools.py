@@ -92,6 +92,7 @@ def test_ensure_model_service_updates_runtime_base_url_for_app_owned_service(
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
+    write_tool_ownership(settings, {"ollama": "app-owned"}, source="test")
 
     monkeypatch.setattr(
         runtime_tools,
@@ -183,6 +184,47 @@ def test_app_owned_model_service_does_not_override_non_ollama_adapter(
     assert settings.base_url == "http://127.0.0.1:8080/v1"
     assert report.model_service is not None
     assert status.app_owned is True
+
+
+def test_host_owned_model_service_does_not_adopt_app_owned_status(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
+    write_tool_ownership(settings, {"ollama": "host-owned"}, source="test")
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_model_service_status",
+        lambda _settings: _model_status(app_owned=True),
+    )
+
+    status = runtime_tools.ensure_model_service_if_configured(settings)
+
+    assert status.app_owned is True
+    assert settings.base_url == "http://127.0.0.1:11434/v1"
+
+
+def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(
+        tmp_path,
+        research_camofox_enabled=True,
+        research_camofox_base_url="http://127.0.0.1:9999",
+    )
+    write_tool_ownership(settings, {"camofox": "host-owned"}, source="test")
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_camofox_service_status",
+        lambda _settings: _camofox_status(app_owned=True),
+    )
+
+    status = runtime_tools.ensure_camofox_service_if_configured(settings)
+
+    assert status is not None
+    assert status.app_owned is True
+    assert settings.research_camofox_base_url == "http://127.0.0.1:9999"
 
 
 def test_ensure_runtime_tools_starts_configured_degraded_side_tools(

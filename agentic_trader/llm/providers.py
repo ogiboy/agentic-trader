@@ -287,7 +287,7 @@ class OpenAICompatibleProvider:
         """
         try:
             response = self.client.get(f"{self.base_url}/models", headers=self._headers())
-            if not response.ok:
+            if response.status_code >= 400:
                 status_code = getattr(response, "status_code", "unknown")
                 try:
                     response_text = response.text[:240]
@@ -305,6 +305,7 @@ class OpenAICompatibleProvider:
                     else None,
                     message=f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip(),
                 )
+            response.raise_for_status()
             payload = cast(dict[str, Any], response.json())
             models = _openai_compatible_model_ids(payload)
             model_available = self.model_name in models

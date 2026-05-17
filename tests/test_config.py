@@ -41,11 +41,11 @@ def test_openai_compatible_api_key_reads_primary_env(monkeypatch) -> None:
     assert Settings().openai_compatible_api_key == "primary-key"
 
 
-def test_openai_compatible_api_key_reads_openai_api_key_fallback(monkeypatch) -> None:
+def test_openai_compatible_api_key_ignores_openai_api_key_fallback(monkeypatch) -> None:
     monkeypatch.delenv("AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "openai-fallback-key")
 
-    assert Settings().openai_compatible_api_key == "openai-fallback-key"
+    assert Settings().openai_compatible_api_key is None
 
 
 def test_openai_compatible_api_key_is_none_by_default(monkeypatch) -> None:

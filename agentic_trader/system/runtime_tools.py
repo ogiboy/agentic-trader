@@ -41,6 +41,27 @@ def _base_url_for_ollama_api(status: ModelServiceStatus) -> str | None:
     return f"{status.base_url.rstrip('/')}/v1"
 
 
+def _should_adopt_model_endpoint(
+    settings: Settings,
+    status: ModelServiceStatus,
+) -> bool:
+    return (
+        settings.llm_provider == "ollama"
+        and ownership_mode_for_tool(settings, "ollama") == "app-owned"
+        and status.app_owned
+    )
+
+
+def _should_adopt_camofox_endpoint(
+    settings: Settings,
+    status: CamofoxServiceStatus,
+) -> bool:
+    return (
+        ownership_mode_for_tool(settings, "camofox") == "app-owned"
+        and status.app_owned
+    )
+
+
 def apply_app_owned_service_settings(
     settings: Settings,
     *,
@@ -66,11 +87,7 @@ def apply_app_owned_service_settings(
 
     messages: list[str] = []
     model_status = build_model_service_status(settings)
-    if (
-        settings.llm_provider == "ollama"
-        and ownership_mode_for_tool(settings, "ollama") == "app-owned"
-        and model_status.app_owned
-    ):
+    if _should_adopt_model_endpoint(settings, model_status):
         runtime_base_url = _base_url_for_ollama_api(model_status)
         if runtime_base_url is not None:
             settings.base_url = runtime_base_url
@@ -80,10 +97,7 @@ def apply_app_owned_service_settings(
     camofox_status = None
     if include_camofox:
         camofox_status = build_camofox_service_status(settings)
-        if (
-            ownership_mode_for_tool(settings, "camofox") == "app-owned"
-            and camofox_status.app_owned
-        ):
+        if _should_adopt_camofox_endpoint(settings, camofox_status):
             settings.research_camofox_base_url = camofox_status.base_url
             camofox_status = build_camofox_service_status(settings)
         messages.append(camofox_status.message)
@@ -116,7 +130,7 @@ def ensure_model_service_if_configured(settings: Settings) -> ModelServiceStatus
         and (not status.service_reachable or not status.model_available)
     ):
         status = start_model_service(settings)
-    if settings.llm_provider == "ollama" and status.app_owned:
+    if _should_adopt_model_endpoint(settings, status):
         runtime_base_url = _base_url_for_ollama_api(status)
         if runtime_base_url is not None:
             settings.base_url = runtime_base_url
@@ -143,7 +157,7 @@ def ensure_camofox_service_if_configured(settings: Settings) -> CamofoxServiceSt
         and (not status.service_reachable or not status.health_ok)
     ):
         status = start_camofox_service(settings)
-    if status.app_owned:
+    if _should_adopt_camofox_endpoint(settings, status):
         settings.research_camofox_base_url = status.base_url
     return status
 

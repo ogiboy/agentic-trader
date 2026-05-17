@@ -388,33 +388,38 @@ def test_camofox_runtime_command_and_probe_messages(
         package_available=True,
         command_path="/usr/bin/node",
         dependency_available=True,
+        tool_dir=tool_dir,
     ) == "Camofox base URL must remain loopback."
     assert camofox_service._camofox_blocking_status_message(
         probe_host="127.0.0.1",
         package_available=False,
         command_path="/usr/bin/node",
         dependency_available=True,
+        tool_dir=tool_dir,
     ) == "Camofox browser helper is missing."
     assert camofox_service._camofox_blocking_status_message(
         probe_host="127.0.0.1",
         package_available=True,
         command_path=None,
         dependency_available=True,
+        tool_dir=tool_dir,
     ) == "node is not installed or not on PATH."
     assert camofox_service._camofox_blocking_status_message(
         probe_host="127.0.0.1",
         package_available=True,
         command_path="/usr/bin/node",
         dependency_available=False,
+        tool_dir=tool_dir,
     ) == (
         "Camofox dependencies are missing. Run "
-        "`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`."
+        f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
     )
     assert camofox_service._camofox_blocking_status_message(
         probe_host="127.0.0.1",
         package_available=True,
         command_path="/usr/bin/node",
         dependency_available=True,
+        tool_dir=tool_dir,
     ) is None
 
     state = camofox_service.CamofoxServiceState(
