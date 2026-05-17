@@ -229,6 +229,26 @@ export function proposalLines(dashboard: DashboardData): string[] {
   );
 }
 
+export function positionPlanCoverageLines(dashboard: DashboardData): string[] {
+  const coverage =
+    dashboard.financeOps?.positionPlanCoverage ||
+    dashboard.positionPlanCoverage;
+  if (!coverage) {
+    return ['No position plan coverage snapshot is available yet.'];
+  }
+  if (coverage.available === false) {
+    return [
+      `Position plan coverage unavailable: ${coverage.error || 'Unknown error.'}`,
+    ];
+  }
+  return [
+    `Open Positions: ${formatList(coverage.open_symbols)}`,
+    `Exit Plans: ${formatList(coverage.planned_symbols)}`,
+    `Missing Plans: ${formatList(coverage.missing_symbols)}`,
+    `Coverage: ${formatPercent(coverage.coverage_ratio)}`,
+  ];
+}
+
 function proposalApprovalBlockedReason(dashboard: DashboardData): string {
   const broker = dashboard.broker || {};
   if (broker.kill_switch_active) {
@@ -1030,6 +1050,9 @@ export function PortfolioView({
       </Panel>
       <Panel title="Trade Journal" accent="amber">
         <TextList items={journalLines} />
+      </Panel>
+      <Panel title="Exit Plan Coverage" accent="rose">
+        <TextList items={positionPlanCoverageLines(dashboard)} />
       </Panel>
       <Panel title="Preferences" accent="cyan">
         <KeyValueList

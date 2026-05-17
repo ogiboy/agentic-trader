@@ -26,6 +26,7 @@ import {
   localToolLines,
   marketContextLines,
   normalizeChatHistory,
+  positionPlanCoverageLines,
   proposalLines,
   providerWarningLines,
   readJson,
@@ -79,7 +80,16 @@ const dashboardFixture = {
     ],
   },
   doctor: { model: 'qwen3:8b', runtime_mode: 'training' },
-  financeOps: { accounting: { currency: 'USD' } },
+  financeOps: {
+    accounting: { currency: 'USD' },
+    positionPlanCoverage: {
+      available: true,
+      coverage_ratio: 0.5,
+      missing_symbols: ['MSFT'],
+      open_symbols: ['AAPL', 'MSFT'],
+      planned_symbols: ['AAPL'],
+    },
+  },
   logs: [
     {
       created_at: '2026-05-10T00:00:00Z',
@@ -394,6 +404,12 @@ describe('control-room formatting helpers', () => {
     expect(proposalLines(dashboardFixture)).toContain(
       'proposal-1 | AAPL BUY | pending | $250.00 | confidence=0.82 | source=scanner',
     );
+    expect(positionPlanCoverageLines(dashboardFixture)).toContain(
+      'Missing Plans: MSFT',
+    );
+    expect(positionPlanCoverageLines({})).toEqual([
+      'No position plan coverage snapshot is available yet.',
+    ]);
   });
 
   it('reads JSON with same-origin credentials and typed failures', async () => {
@@ -440,6 +456,7 @@ describe('control-room formatting helpers', () => {
     expect(renderActiveView('overview')).toContain('Agentic Trader Web GUI');
     expect(renderActiveView('runtime')).toContain('Runtime State');
     expect(renderActiveView('portfolio')).toContain('Portfolio');
+    expect(renderActiveView('portfolio')).toContain('Exit Plan Coverage');
     expect(renderActiveView('proposals')).toContain('Proposal Desk');
     expect(renderActiveView('review')).toContain('Latest Review');
     expect(renderActiveView('memory')).toContain('Similar Past Runs');
