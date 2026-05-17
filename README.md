@@ -33,7 +33,7 @@
 
 # Agentic Trader
 
-Agentic Trader is a strict, local-first, multi-agent paper trading system for Ollama-class models. It keeps the Python runtime as the source of truth, uses deterministic guardrails before any paper order, and records decision context so operator-facing surfaces can be inspected instead of trusted blindly.
+Agentic Trader is a strict, local-first, multi-agent trading system for Ollama-class models, paper-first by default and V1-focused on an approved US-equities buy/sell path. It keeps the Python runtime as the source of truth, uses deterministic guardrails before any broker intent, and records decision context so operator-facing surfaces can be inspected instead of trusted blindly.
 
 ## Navigation
 
@@ -52,7 +52,7 @@ Agentic Trader is a strict, local-first, multi-agent paper trading system for Ol
 
 ## Overview
 
-Agentic Trader is not a generic chat bot or a live broker. The runtime uses a staged specialist graph, structured model outputs, a deterministic execution guard, DuckDB-backed persistence, and paper broker accounting. The default posture is local-first, paper-first, and explicit about missing data, model readiness, and blocked execution paths.
+Agentic Trader is not a generic chat bot or hidden brokerage switch. The runtime uses a staged specialist graph, structured model outputs, a deterministic execution guard, DuckDB-backed persistence, and broker accounting. The default posture is local-first, paper-first, and explicit about missing data, model readiness, and blocked execution paths; V1 still targets an active US-equities buy/sell path through approved paper and Alpaca readiness gates.
 
 The repository is now a small monorepo-style workspace:
 
@@ -582,4 +582,4 @@ later (`LGPL-3.0-or-later`). See [LICENSE](LICENSE).
 Bundled or adapted third-party helper components keep their own notices when
 their package metadata says so.
 
-Agentic Trader is a paper-trading research and operator-tooling project. It does not provide financial advice, and it must not be treated as a live brokerage system. Live execution remains blocked unless a real adapter, explicit approval gates, and operator-visible safety checks are implemented.
+Agentic Trader is a trading research and operator-tooling project with paper-first execution controls. It does not provide financial advice, and it must not be treated as an ungated live brokerage system. Real-money execution remains blocked unless a real adapter, explicit approval gates, and operator-visible safety checks are implemented and intentionally enabled.

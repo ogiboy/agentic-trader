@@ -141,7 +141,7 @@ Good changes fit into one of these buckets:
 - keep research sidecars as local evidence companions that consume or emit structured packets through `runtime_feed` JSON snapshots without taking the DuckDB runtime writer role
 - keep official research providers explicit and opt-in; SEC EDGAR submissions metadata is allowed only with watched symbols and a configured User-Agent, and full filing/XBRL parsing remains a separate future provider layer
 - keep CrewAI or any future crew loop behind an optional adapter boundary; native runtime, replay, QA, and operator surfaces must keep working without it, and the tracked uv sidecar must communicate through subprocess JSON contracts rather than direct broker/runtime imports
-- keep V1 scoped to Alpaca-ready US paper-first operation; defer IBKR/global/FX accounting to V2
+- keep V1 scoped to Alpaca-ready US active trading through explicit paper/external-paper/manual-approval gates; defer Turkey-specific market, KAP/CBRT, TRY/FX, and broker expansion to V2
 - keep QA scenarios updated when runtime contracts, operator surfaces, or safety gates change
 - keep `webgui` and `docs` aligned on the current Next.js App Router plus Tailwind v4 plus shadcn baseline while migrating the Web GUI screen by screen instead of through a one-shot CSS rewrite
 - improve replay and backtest fidelity

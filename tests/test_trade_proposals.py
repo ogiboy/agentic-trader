@@ -6,8 +6,10 @@ import pytest
 from agentic_trader.config import Settings
 from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
 from agentic_trader.finance.proposals import (
+    TradeProposalDraft,
     approve_trade_proposal,
     create_trade_proposal,
+    expire_trade_proposal,
     reconcile_trade_proposal,
     reject_trade_proposal,
     utc_now_iso,
@@ -59,6 +61,46 @@ def test_trade_proposal_create_list_and_reject(tmp_path) -> None:
     assert stored_after_reject.status == "rejected"
 
 
+def test_trade_proposal_rejects_mixed_draft_and_fields(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    draft = TradeProposalDraft(
+        symbol="AAPL",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.7,
+        thesis="Draft and fields should not be mixed.",
+    )
+
+    with pytest.raises(ValueError, match="Pass either draft or proposal fields"):
+        create_trade_proposal(db=db, draft=draft, symbol="MSFT")
+
+
+def test_trade_proposal_expire_terminalizes_pending_proposal(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="AAPL",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.7,
+        thesis="Stale proposal should expire without broker access.",
+    )
+
+    expired = expire_trade_proposal(db=db, proposal_id=proposal.proposal_id)
+
+    assert expired.status == "expired"
+    with pytest.raises(ValueError, match="not pending"):
+        approve_trade_proposal(
+            db=db,
+            settings=settings,
+            proposal_id=proposal.proposal_id,
+        )
+
+
 def test_trade_proposal_approval_records_execution_and_terminal_state(tmp_path) -> None:
     settings = _settings(tmp_path)
     db = TradingDatabase(settings)
@@ -82,9 +124,16 @@ def test_trade_proposal_approval_records_execution_and_terminal_state(tmp_path) 
     )
 
     latest = db.latest_execution_record()
+    journal = db.list_trade_journal(limit=5)
     assert approved.status == "executed"
     assert approved.execution_order_id == outcome.order_id
     assert outcome.status == "filled"
+    assert len(journal) == 1
+    assert journal[0].entry_order_id == outcome.order_id
+    assert journal[0].journal_status == "open"
+    assert journal[0].symbol == "MSFT"
+    assert journal[0].strategy_family == "manual_proposal"
+    assert proposal.proposal_id in journal[0].notes
     assert latest is not None
     assert latest["intent_id"] == approved.execution_intent_id
     intent = latest["intent"]
@@ -291,6 +340,10 @@ def test_trade_proposal_reconcile_repairs_in_flight_from_execution_record(
     assert repaired.execution_outcome_status == "filled"
     assert "repair after interrupted" in repaired.review_notes
     assert record["intent_id"] == intent.intent_id
+    journal = db.list_trade_journal(limit=5)
+    assert len(journal) == 1
+    assert journal[0].entry_order_id == "paper-order-repair"
+    assert journal[0].journal_status == "open"
 
 
 def test_trade_proposal_reconcile_fails_closed_without_execution_record(tmp_path) -> None:

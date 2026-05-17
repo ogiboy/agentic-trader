@@ -158,6 +158,7 @@ def approve_trade_proposal(
         raise ValueError(
             f"Trade proposal {proposal_id} changed before broker outcome could be recorded."
         )
+    db.create_trade_journal_from_proposal(proposal=final_proposal, outcome=outcome)
     return final_proposal, outcome
 
 
@@ -208,6 +209,12 @@ def reconcile_trade_proposal(
     if not db.update_trade_proposal(repaired, expected_status="approved"):
         raise ValueError(
             f"Trade proposal {proposal_id} changed before reconciliation could finish."
+        )
+    outcome_payload = record.get("outcome")
+    if isinstance(outcome_payload, dict):
+        db.create_trade_journal_from_proposal(
+            proposal=repaired,
+            outcome=ExecutionOutcome.model_validate(outcome_payload),
         )
     return repaired, record
 

@@ -39,8 +39,10 @@ yapmadan gösterir. Daha uzun paper operation ya da Alpaca paper kontrolünden
 önce `agentic-trader v1-readiness --json` çalıştır; evidence bundle'ın seçili
 model servisini gerçekten çağırmasını istiyorsan `--provider-check` ekle.
 Varsayılan backend hâlâ
-lokal `paper`; `alpaca_paper` yalnızca external paper içindir ve credential,
-paper endpoint ve açık enablement ister. `live` hâlâ blokludur.
+lokal `paper`; `alpaca_paper` external paper prova yoludur ve credential,
+paper endpoint ve açık enablement ister. V1 aktif al-sat yolu yine desteklenen
+broker, manuel onay, audit, risk ve kill-switch kapılarından geçmelidir; gizli
+live brokerage yolu yoktur.
 
 Aynı network-free readiness truth artık `dashboard-snapshot`, observer API
 (`/provider-diagnostics` ve `/v1-readiness`), Rich runtime menüsü, Ink

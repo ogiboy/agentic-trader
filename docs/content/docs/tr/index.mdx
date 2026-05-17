@@ -12,7 +12,8 @@ durumu ve operatör kontrollerini tek bir denetlenebilir runtime içinde toplar.
 Mevcut V1 duruşu bilinçli olarak temkinlidir:
 
 - varsayılan mod paper trading'dir
-- live execution blokludur
+- desteklenen V1 aktif al-sat yolu approval ve readiness gate'lerinden geçmelidir
+- gate'siz real-money execution blokludur
 - readiness gate'leri açık olmalıdır
 - eksik provider, broker veya model kanıtı görünür kalmalıdır
 - her operatör yüzeyi aynı runtime gerçeğini anlatmalıdır
@@ -34,7 +35,8 @@ kararı bir sonraki karara güvenmeden önce incelemek için kullan.
 2. Provider, model, broker ve runtime-mode hazır oluşunu kontrol et.
 3. Web GUI veya observer yüzeylerini localhost dışına açmadan önce
    [Güvenlik Duruşu](/tr/docs/security-posture) sayfasını oku.
-4. Roadmap açıkça başka bir şey söylemedikçe koşuyu paper-only tut.
+4. Broker, account, approval, risk ve kill-switch gate'leri açıkça aksini
+   göstermedikçe koşuyu paper-first tut.
 
 ### Ne olduğunu inceleme
 

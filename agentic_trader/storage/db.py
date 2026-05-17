@@ -1377,6 +1377,78 @@ class TradingDatabase:
         )
         return trade_id
 
+    def create_trade_journal_from_proposal(
+        self,
+        *,
+        proposal: TradeProposalRecord,
+        outcome: ExecutionOutcome,
+    ) -> str | None:
+        """Create an operator-visible journal row for proposal-desk executions."""
+
+        if outcome.order_id is None:
+            return None
+        existing = self.conn.execute(
+            """
+            select trade_id
+            from trade_journal
+            where entry_order_id = ?
+            """,
+            [outcome.order_id],
+        ).fetchone()
+        if existing is not None:
+            return str(existing[0])
+
+        if outcome.status in {"filled", "partially_filled"}:
+            journal_status: JournalStatus = "open"
+        elif outcome.status == "accepted":
+            journal_status = "no_fill"
+        else:
+            journal_status = "rejected"
+        entry_price = outcome.average_fill_price or proposal.reference_price
+        stop_loss = proposal.stop_loss or proposal.reference_price
+        take_profit = proposal.take_profit or proposal.reference_price
+        note_parts = [
+            f"proposal_id={proposal.proposal_id}",
+            f"source={proposal.source}",
+            f"outcome_status={outcome.status}",
+        ]
+        if proposal.review_notes:
+            note_parts.append(f"review_notes={proposal.review_notes}")
+
+        trade_id = f"trade-{uuid4().hex[:12]}"
+        self.conn.execute(
+            """
+            insert into trade_journal (
+                trade_id, opened_at, symbol, run_id, entry_order_id, planned_side,
+                approved, journal_status, entry_price, stop_loss, take_profit,
+                position_size_pct, confidence, coordinator_focus, strategy_family,
+                manager_bias, review_summary, notes
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                trade_id,
+                datetime.now(timezone.utc).isoformat(),
+                proposal.symbol,
+                None,
+                outcome.order_id,
+                proposal.side,
+                True,
+                journal_status,
+                entry_price,
+                stop_loss,
+                take_profit,
+                0.0,
+                proposal.confidence,
+                "capital_preservation",
+                "manual_proposal",
+                proposal.side,
+                proposal.thesis,
+                " | ".join(note_parts),
+            ],
+        )
+        return trade_id
+
     def persist_trade_context(
         self,
         *,

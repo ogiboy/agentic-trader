@@ -191,8 +191,8 @@ Those surfaces are read-only decision-preparation contracts; they do not fetch
 the web by themselves, create proposals, approve proposals, submit orders, or
 let raw article text enter core trading prompts.
 IBKR/global/FX/multi-currency execution, options execution, and flex-style
-broker reporting remain V2 unless a later decision explicitly accepts a narrow
-read-only V1 slice.
+broker reporting remain later expansion work, not the default V2 path, unless a
+later decision explicitly accepts a narrow read-only slice.
 
 ### Provider expansion should happen through adapters
 
@@ -435,12 +435,14 @@ Yahoo/yfinance is useful for local-first bootstrap, tests, and fallback market/n
 SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX sources should normalize into canonical snapshots before reaching agents.
 Finnhub, FMP, Polygon/Massive, and similar APIs are optional enrichers; their keys must remain configuration-only and their absence must be visible as missing/degraded evidence rather than hidden fallback completeness.
 
-### V1 is Alpaca-ready and paper-first; V2 owns IBKR/global/FX expansion
+### V1 is Alpaca-ready and active-trading capable; V2 owns Turkey expansion
 
 Reason:
 The execution boundary is ready for future broker adapters, but V1 should remain narrow enough to ship reliably.
-Alpaca readiness belongs to V1 as US-equities-only preparation with manual approval, paper defaults, strict safety gates, kill switch, and broker/readiness health checks.
-Interactive Brokers, global markets, multi-currency account state, FX conversion assumptions, and region-specific market QA belong in V2 so V1 does not become a broad multi-broker production rewrite.
+Alpaca readiness belongs to V1 as the US-equities active trading path with manual approval, paper defaults, external-paper rehearsal, strict safety gates, kill switch, broker/readiness health checks, and an auditable paper-to-real promotion gate.
+V1 should not be described as a non-trading demo or only a research shell: it must be capable of submitting approved buy/sell intents through the supported broker boundary once the configured gates pass.
+V2 is the Turkey expansion track: Turkish symbols, KAP/company disclosures, CBRT-style macro context, TRY/FX accounting, local session calendars, and the eventual Turkey broker/data route.
+Broader IBKR/global expansion is deferred unless a later decision explicitly changes the product sequence.
 
 ### Alpaca paper is an explicit external-paper backend
 
@@ -456,7 +458,8 @@ surfaces for seeing whether those gates are satisfied, and their network-free
 payloads should also travel through dashboard, observer, Rich, Ink, and Web GUI
 surfaces. The generic `live` backend still fails closed until a real live
 adapter, manual approval gate, and paper-operation evidence are intentionally
-implemented.
+implemented. This gating language must not be misread as "V1 will not trade";
+it means V1 trades only through explicit, approved, auditable supported paths.
 
 ### Python dependencies should be locked with uv
 
@@ -508,6 +511,9 @@ Reason:
 Branch artifact identity from `pnpm run version:plan` is useful, but the project owner expects pushed product work to also advance the visible application version in tracked metadata.
 When a feature/V1 branch push changes runtime behavior, operator surfaces, docs, sidecars, setup, or workflow contracts, agents should bump the patch version consistently across `pyproject.toml`, `agentic_trader/__init__.py`, root/workspace `package.json` files, `sidecars/research_flow/pyproject.toml`, and lockfile metadata before pushing.
 `CHANGELOG.md` remains release-flow owned unless the user explicitly asks for a changelog update.
+If `CHANGELOG.md` does not change when a stable release is expected to update it,
+that is a release-flow finding to investigate rather than a reason to hand-edit
+the changelog on V1 feature work.
 The Python runtime loads root `.env` and `.env.local` through Pydantic settings, so root API keys and model/runtime overrides should stay at the repository root.
 The Web GUI may run without `webgui/.env.local` because it auto-detects the worktree and managed Python runtime; that app-local env file should only override command execution details.
 The docs app should keep local `GITHUB_PAGES=false`; GitHub Actions and `pnpm build:docs:pages` set `GITHUB_PAGES=true` at build time so Pages gets the `/agentic-trader` base path without committing production env files.

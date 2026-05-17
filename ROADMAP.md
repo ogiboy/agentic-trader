@@ -6,13 +6,14 @@ This roadmap is both a build plan and a progress ledger. Status values reflect t
 
 ## V1 Completion Boundary
 
-V1 readiness means local paper operation is inspectable, strict, and testable;
-Alpaca is ready for explicit external paper checks; source/provider gaps are
-visible; and live execution remains blocked. Former V1.1/V1.2 research,
-CrewAI-sidecar, evaluation, and memory-quality loops now belong to the V1
-completion track so V1 ends with a stronger evidence companion rather than only
-a runtime shell. V2 still starts at IBKR/global/FX expansion, multi-currency live
-accounting, and actual live brokerage.
+V1 readiness means the product is ready to actively trade supported US equities
+through the existing broker boundary: local paper remains the default, Alpaca
+paper is the external broker rehearsal path, and any real-money activation must
+stay explicit, manually approved, audited, and kill-switch protected. Source and
+provider gaps must stay visible instead of being hidden behind model prose.
+Former V1.1/V1.2 research, CrewAI-sidecar, evaluation, and memory-quality loops
+now belong to the V1 completion track so V1 ends with a stronger evidence
+companion rather than only a runtime shell. V2 is the Turkey expansion track.
 
 ## Phase 1: Guardrailed Core
 
@@ -189,12 +190,12 @@ Status: in progress.
 - [x] add a simulated-real adapter scaffold that remains local, non-live, and paper-safe while modeling slippage, spread, drift, latency metadata, rejection hooks, and partial-fill shape
 - [x] persist execution intent and outcome metadata for future replay/live-readiness audits
 - [x] add approval gates and kill switches
-- [ ] implement one live broker only after paper results are stable
+- [ ] harden the Alpaca broker path until V1 can prove active US buy/sell readiness with explicit operator approval, audit trail, kill switch, and paper-to-real promotion gates
       Notes:
 - a broker adapter boundary now sits in front of execution and the paper broker implements the first adapter through `ExecutionIntent -> place_order() -> ExecutionOutcome`
 - simulated-real is intentionally not a live broker; it records non-live simulated metadata while still using local paper-safe persistence
 - runtime surfaces now expose broker backend state, live-request status, and kill-switch status
-- live execution remains intentionally blocked until a real live adapter is added behind the same interface
+- real-money execution remains opt-in and gated; V1 work should make the supported Alpaca path demonstrably trade-ready without making hidden live execution possible
 
 ## Phase 9: Smarter Agent Layer
 
@@ -362,7 +363,7 @@ Status: in progress.
 - [x] tie V1 readiness to paper evidence, provider health, source attribution, context-pack explainability, broker health checks, and an explicit no-live-until-approved gate
 - [x] add a native read-only `finance-ops` trading-desk payload across CLI, dashboard, observer API, and evidence bundles for broker/account/PnL/exposure/risk/evidence reconciliation
 - [ ] compare paper operation results against deterministic baselines and memory/no-memory ablations before considering any live adapter
-- [ ] keep live broker work blocked until paper operation has stable QA evidence, context-pack explainability, and reviewable trade journals
+- [ ] keep ungated real-money broker work blocked while finishing the supported V1 paper/Alpaca approval path, stable QA evidence, context-pack explainability, and reviewable trade journals
       Notes:
 - this phase is about earning operator trust in continuous paper operation before expanding execution risk
 - the product should feel like an inspectable operator system, not a black-box trading bot
@@ -409,9 +410,9 @@ Status: in progress.
 - HHI/top-position concentration is the first finance-ops concentration signal; ATR/confidence sizing, ADV/spread penalties, group budgets, and correlation clusters are still open
 - Yahoo should be treated as fallback/degraded evidence once stronger provider data is configured, not as the long-term source of truth
 - API keys are configuration-only and must stay in ignored local env files, never in tracked files or QA artifacts
-- live trading remains blocked; this is decision intelligence groundwork, not broker activation
+- active broker use remains behind explicit proposal approval and runtime gates; this is decision intelligence groundwork feeding the V1 trade-ready path, not hidden broker activation
 
-## Phase 17: V1 Alpaca Readiness - US Paper First
+## Phase 17: V1 Alpaca Readiness - US Active Trading Path
 
 Status: completed.
 
@@ -423,14 +424,16 @@ Status: completed.
 - [x] add a V1 manual-review proposal queue with explicit create/list/approve/reject/reconcile commands and persisted execution intent/outcome audit fields
 - [x] enforce strict risk caps, kill switch, and unsupported-backend failures before live adapter activation
 - [x] add account, order, position, and feed health checks before any Alpaca live-readiness banner can pass
-- [x] restrict V1 live-readiness scope to US equities until paper evidence, manual approval, and strict safety gates are proven
+- [x] restrict V1 active trading scope to US equities until paper evidence, manual approval, and strict safety gates are proven
 - [x] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
-- [x] add paper-to-live readiness checklist that compares paper performance, QA evidence, and broker health before enabling any live mode
+- [x] add paper-to-real readiness checklist that compares paper performance, QA evidence, and broker health before any real-money activation can pass
+- [ ] prove the full V1 customer path with real operator QA: choose US symbols, collect/cache evidence, run at least two learning-aware cycles, inspect retrieved memory, create/review a proposal, submit through paper or Alpaca paper, and verify portfolio/journal/PnL persistence
+- [ ] make model-provider selection agnostic enough that V1 paper/Alpaca operation is not blocked on one local model family such as qwen
       Notes:
 - V1 readiness is Alpaca-first and US-equities-only to limit blast radius
-- V1 does not mean live trading is enabled; it means the system is Alpaca-ready while remaining paper-first with manual approval and strict safety gates
+- V1 must be active-trading ready for the supported US path; default operation remains paper-first and any real-money activation remains explicit, manually approved, audited, and kill-switch protected
 - `paper` remains the default; `alpaca_paper` is an explicit external-paper backend gated by credentials, paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`
-- `live` remains blocked; V1 readiness is expressed through `v1-readiness`, `provider-diagnostics`, `broker-status`, dashboard/observer payloads, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden live brokerage
+- real-money execution remains gated; V1 readiness is expressed through `v1-readiness`, `provider-diagnostics`, `broker-status`, dashboard/observer payloads, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden brokerage
 - proposal approval submits through the existing broker adapter boundary and paper/external-paper safety gates; the Web GUI Proposal Desk can invoke only explicit approve/reject/reconcile commands, while scanner, sidecar, chat, and Web surfaces must not approve or execute implicitly
 - `proposal-reconcile` repairs an already approved in-flight proposal from the idempotent `execution_records.intent_id` row without resubmitting to the broker, covering interrupted final-status writes before external paper/live adapters grow broader
 
@@ -482,23 +485,20 @@ Status: planned.
 - the tracked sidecar is intentionally isolated: uv owns `sidecars/research_flow/`, root uv owns the core runtime lock, and native runtime/replay/QA must keep working when the sidecar is not installed
 - training intelligence loops should improve evaluation and memory quality while Operation remains strict, paper-first, and explicitly gated
 
-## Phase 18: V2 Global Expansion - IBKR And FX
+## Phase 18: V2 Turkey Expansion
 
 Status: planned.
 
-- [ ] add an Interactive Brokers adapter behind the same broker adapter boundary
-- [ ] decide and document the IBKR integration route, such as TWS/Gateway versus Web API, before coding the adapter
-- [ ] support multi-market symbol identity across US, EU, TR, and future venues
-- [ ] add currency awareness to account state, intent sizing, fills, PnL, and risk reports
-- [ ] model FX exposure, conversion assumptions, conversion source, and as-of timestamps explicitly before execution
+- [ ] add Turkey-specific symbol identity, exchange/session calendars, and market-data QA without weakening the V1 US/Alpaca path
+- [ ] integrate KAP disclosures, company disclosures, CBRT-style macro data, inflation, rates, and TRY/FX context into the feature layer
+- [ ] model TRY account currency, conversion assumptions, conversion source, and as-of timestamps explicitly before execution
 - [ ] preserve realized and unrealized PnL by instrument currency and account base currency
-- [ ] add timezone/session awareness for global exchanges and market-specific trading calendars
-- [ ] integrate Turkey-specific KAP disclosures, company disclosures, CBRT-style macro data, inflation, rates, and FX context into the feature layer
-- [ ] add region-specific data QA for global sessions, holidays, delayed feeds, and currency conversion gaps
+- [ ] choose the Turkey broker/data route through a separate decision before coding execution adapters
+- [ ] add region-specific data QA for Borsa Istanbul sessions, holidays, delayed feeds, and currency conversion gaps
       Notes:
-- v2 should reuse the v1 contracts instead of creating a separate global trading runtime
-- global expansion depends on symbol identity, currency/FX accounting, session calendars, and provider-specific QA evidence being mature first
-- IBKR/global support belongs in V2; it should not pull V1 away from the US-only Alpaca paper-first path
+- V2 should reuse the V1 contracts instead of creating a separate Turkey trading runtime
+- Turkey expansion depends on symbol identity, TRY/FX accounting, session calendars, KAP/CBRT/provider evidence, and broker-specific QA being mature first
+- broader IBKR/global support is not the next expansion target unless a later decision changes the roadmap
 
 ## Phase 19: Onboarding, Docs, And Frontend System
 
@@ -526,6 +526,7 @@ Status: in progress.
 - [x] add a first setup-status and macOS bootstrap script foundation that detects core tools, optional Ollama/Firecrawl/Camofox/RuFlo readiness, and the `agentic-trader` PATH entrypoint without hidden installs
 - [x] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
 - [ ] split oversized runtime/CLI/helper files incrementally into domain modules, constants, render helpers, and service helpers so V1 remains inspectable as a product codebase rather than a single-developer script pile
+- [ ] investigate why `CHANGELOG.md` is not changing in the observed release/branch flow; confirm whether this is expected feature-branch behavior, missing semantic-release trigger, or a release workflow defect, then document the fix path before the next stable release
 - [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, using a local-first monospace typography stack without build-time Google Fonts fetches
 - [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
 - [x] resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind issue so local interactive frontend work matches the green lint/build path

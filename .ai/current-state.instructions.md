@@ -54,7 +54,7 @@ Implemented or substantially present:
 - broker adapter boundary with paper backend, safe live gating, and execution kill-switch semantics
 - canonical execution intent and outcome contracts now sit between guard output and broker adapters; the intent carries explicit timestamp/created-at audit fields, and paper execution uses the adapter path while preserving existing fills, positions, journals, and account marks
 - a simulated-real adapter scaffold exists for non-live execution rehearsal with slippage, spread, drift, latency metadata, rejection hooks, partial-fill shape, and explicit simulated/non-live status
-- an explicit `alpaca_paper` backend now exists behind the broker adapter boundary for US-equities-only external paper readiness; it uses Alpaca paper endpoints, requires credentials plus `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`, keeps `live` execution blocked, and redacts provider exception text before surfacing order or healthcheck failures
+- an explicit `alpaca_paper` backend now exists behind the broker adapter boundary for US-equities-only external paper readiness; it uses Alpaca paper endpoints, requires credentials plus `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`, keeps real-money activation explicit and gated, and redacts provider exception text before surfacing order or healthcheck failures
 - execution intent and adapter outcome metadata are persisted and surfaced in trade-context review views so future live integration can be replayed and audited before any real broker is enabled
 - structured financial feature contracts now exist for symbol identity, technical summaries, fundamental placeholders, and macro/news context
 - technical decision features now expose V1-friendly 30d, 90d, and 180d return windows on top of the existing bar-horizon context, plus a compact price anchor for risk math
@@ -180,7 +180,7 @@ New production-expansion direction:
 - memory is currently hybrid and inspectable, vector metadata is persisted, and first-class retrieval explanations are now visible; true local-first semantic embeddings and richer ranking remain planned expansions
 - Training and Operation should become first-class runtime modes shown across all surfaces instead of informal workflow concepts
 - the former V1.1/V1.2 tracks are now part of V1 completion: the research sidecar should reconstruct what happened across 30d/90d/180d windows through normalized evidence packets, while optional CrewAI-backed deep-dive/evaluation loops stay behind the sidecar boundary
-- native replay, QA, and strict runtime flows must remain valid without CrewAI installed; V2 starts at IBKR/global/FX, multi-currency live accounting, and actual live brokerage
+- native replay, QA, and strict runtime flows must remain valid without CrewAI installed; V2 starts with the Turkey expansion track, including Turkish symbols, KAP/CBRT evidence, TRY/FX accounting, local market calendars, and the eventual Turkey broker/data route
 - QA should grow from smoke coverage into tiered terminal regression evidence with CLI JSON snapshots, pexpect scenarios, optional tmux/asciinema capture, optional Computer Use visual passes, unique artifact directories for parallel runs, and generated failure reports
 
 ## Current Constraints
@@ -196,7 +196,7 @@ New production-expansion direction:
 - CrewAI is not a core dependency; the CrewAI backend is an isolated placeholder and must not replace the staged specialist graph. The tracked Flow scaffold now lives under `sidecars/research_flow/`, outside `agentic_trader/`, with uv owning its own environment and sidecar package version aligned to the root app version.
 - financial provider interfaces and canonical aggregation are implemented, but real SEC/KAP, transcripts, macro indicators, and richer vendor fetchers are still scaffolds or future providers
 - SEC 10-K/10-Q/8-K-style filings now have a first metadata-only submissions ingestor when explicitly enabled; earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX source names remain explicit scaffold metadata rather than live ingestors
-- Alpaca settings and the `alpaca_paper` broker adapter are config-ready for V1 external paper readiness checks, but the backend is off unless explicitly enabled and live execution remains blocked
+- Alpaca settings and the `alpaca_paper` broker adapter are config-ready for V1 external paper readiness checks, but the backend is off unless explicitly enabled; V1 should be treated as active US trading readiness behind explicit approval, audit, risk, kill-switch, and paper-to-real gates rather than as a passive-only product
 - fundamental and macro/news agents currently return structured neutral fallback when only scaffold provider data exists; this is intentional until real provider evidence is present
 - external provider support should be additive and adapter-based, not invasive
 - conversational surfaces must not silently mutate trading policy

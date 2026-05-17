@@ -74,8 +74,9 @@ processes without changing the project's paper-first product scope.
 
 - [ ] Do not pass broker keys into research sidecars; only model/CrewAI provider
       env may cross that subprocess boundary.
-- [ ] For any mode/runtime change, verify operation mode still fails closed and
-      live execution remains blocked by default.
+- [ ] For any mode/runtime change, verify operation mode still fails closed,
+      active trading remains approval/readiness gated, and ungated real-money
+      execution remains blocked by default.
 
 ### Release And Advisory Tools
 

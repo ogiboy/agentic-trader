@@ -28,7 +28,7 @@ also read:
 
 - Identify the exact user goal and the smallest meaningful deliverable.
 - Describe the relevant current architecture before proposing changes.
-- Separate V1-safe work from V2 or live-trading readiness work.
+- Separate V1 active US trading readiness from V2 Turkey expansion and later real-money risk expansion.
 - Separate stable release version changes from branch build identity. Stable
   app versions move through `pyproject.toml` plus semantic-release on `main`;
   product-impacting feature/V1 branch pushes should plan a consistent tracked
@@ -44,8 +44,8 @@ also read:
 - Do not route around the staged specialist graph.
 - Do not invent a new storage or runtime state system.
 - Do not weaken strict LLM, execution guard, kill-switch, or paper-first behavior.
-- Do not propose live broker work unless the request explicitly asks for it and
-  includes approval-gate scope.
+- Do not propose ungated real-money broker work; any active trading path must
+  include explicit approval, readiness, audit, and kill-switch scope.
 - Do not hide behavior in prompts when it belongs in typed code or config.
 
 ## Planning Checklist

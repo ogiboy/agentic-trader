@@ -22,6 +22,7 @@ Now:
 - keep the CrewAI subprocess contract deterministic and no-sync at runtime: setup/check commands may run `uv sync`, but runtime backend calls should only use an already-installed sidecar environment
 - grow the V1 research sidecar as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
 - keep the new V1 proposal queue manual-review only: scanners, research providers, chat, Web routes, and sidecars may surface or explain proposals, but only explicit approval commands should submit to the configured paper/external-paper broker adapter
+- treat V1 as an active US trading product goal, not a passive research demo: the supported Alpaca path must be able to submit approved buy/sell intents once provider, broker, account, risk, audit, and kill-switch gates pass; V2 is the Turkey expansion track
 - keep proposal reconciliation in the safety loop: `proposal-reconcile` can mark an already approved in-flight proposal terminal from the idempotent `execution_records.intent_id` row without broker resubmission; the Web GUI Proposal Desk can surface and trigger reconcile explicitly, while next passes should add richer Rich/Ink parity and smoke QA
 - keep Firecrawl and Camofox optional under `researchd`: they may help collect source-attributed evidence or browser health, but they must stay disabled by default, redacted, raw-text-free for prompts, and outside the broker/runtime-mode boundary
 - keep deterministic idea-scanner presets as research/screening tools until provider/news/fundamental enrichment and proposal-review UX are mature enough for broader operator workflows
@@ -35,6 +36,7 @@ Now:
 - keep docs language clear about the difference between product trading memory/review evidence and contributor `.ai` project notes
 - keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's uv-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
 - keep development-agent handoffs honest about version ownership before push: product-impacting branch pushes should bump the tracked app patch version consistently across Python, workspace package manifests, sidecar metadata, and lockfile metadata, then run `pnpm run version:plan`; `CHANGELOG.md` remains release-flow owned unless explicitly requested
+- investigate the current "CHANGELOG.md does not change" complaint as a release-flow task: verify whether the branch path is expected not to mutate changelog, whether semantic-release lacks a trigger or baseline, and what stable-release evidence should prove before V1 is promoted
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
 - keep local setup/cleanup semantics explicit: `setup` must install and verify root/webgui/docs/tui node workspace deps, `clean` should remain artifact-only, and dependency removal should go through explicit `clean:deps` or `clean:all`
 - keep the first user-facing accelerated lifecycle slices conservative: `app:doctor` is read-only and must not call `uv run`, install deps, start/stop app-owned services, pull models, open browsers, or launch trading; `app:setup` defaults to dry-run planning and only mutates through explicit `--core --yes` root dependency repair; `app:start` and `app:stop` default to dry-run, require selected app-owned services plus `--yes`, never install/fetch/pull/open browsers by default, and delegate ownership checks to existing service commands; `app:update` defaults to dry-run and can run selected native dependency-owner lanes only after explicit scope plus `--yes`, without browser fetch, model pull, service start/stop, daemon start, secrets, brokerage config, or runtime-state deletion; `app:uninstall` defaults to dry-run and removes only selected generated/dependency/service-state scopes after `--yes`, blocking service-state cleanup while recorded state files remain; `app:up` now composes the safe first-run path through existing lifecycle commands and requires explicit optional-helper ownership flags before Camofox/browser/model-service lanes
@@ -330,8 +332,8 @@ Desired direction:
 
 - preserve paper as the default execution backend
 - keep live execution blocked unless explicitly enabled and implemented
-- keep V1 focused on Alpaca-ready US equities with manual approval and strict safety checks; do not pull IBKR/global/FX work into V1
-- defer IBKR, global markets, and multi-currency/FX execution accounting to V2
+- keep V1 focused on Alpaca-ready US equities with active buy/sell capability behind manual approval, strict safety checks, audit persistence, and paper-to-real promotion gates
+- defer Turkey-specific symbols, KAP/CBRT evidence, TRY/FX accounting, and the Turkey broker/data route to V2; broader IBKR/global work is not the next expansion target unless a later decision changes it
 - surface broker backend, execution outcome, rejection reason, kill-switch, and readiness state in operator review/status surfaces
 - add one real live adapter only after paper evaluation quality is stable
 
