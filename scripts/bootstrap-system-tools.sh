@@ -138,7 +138,7 @@ setup_agentic_trader_path() {
     return 0
   fi
   if [ ! -x "$entrypoint" ]; then
-    printf '%s\n' "agentic-trader entrypoint is not installed yet. Run make setup first, then rerun make setup-path or make bootstrap."
+    printf '%s\n' "agentic-trader entrypoint is not installed yet. Run make setup first, then rerun make bootstrap."
     return 0
   fi
   if ask_yes "Create/update $target so agentic-trader works from any shell?"; then
