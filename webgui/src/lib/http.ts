@@ -54,7 +54,7 @@ function compactTraceback(value: string): string {
   if (!value.includes('Traceback (most recent call last)')) {
     return value;
   }
-  const match = value.match(PYTHON_EXCEPTION_PATTERN);
+  const match = PYTHON_EXCEPTION_PATTERN.exec(value);
   if (match?.[0]) {
     return match[0].replace(/\s+/g, ' ').trim();
   }
