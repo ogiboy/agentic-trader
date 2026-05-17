@@ -17,6 +17,7 @@ from agentic_trader.runtime_feed import (
     research_cycle_control_path,
     research_digest_replay_path,
     research_latest_snapshot_path,
+    research_snapshots_path,
 )
 from agentic_trader.schemas import (
     AgentStageTrace,
@@ -1821,6 +1822,48 @@ def test_research_cycle_run_json_executes_bounded_evidence_only_cycle(
     assert payload["digest_replay"]["snapshot_id"] == payload["latest_digest"]["snapshot_id"]
     assert research_digest_replay_path(settings).exists()
     assert research_latest_snapshot_path(settings).exists()
+    assert settings.database_path.exists() is False
+
+
+def test_research_cycle_run_replays_previous_snapshot_between_invocations(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL,MSFT,NVDA",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+    command = [
+        "research-cycle-run",
+        "--symbols",
+        "AAPL,MSFT,NVDA",
+        "--cycles",
+        "1",
+        "--cadence-seconds",
+        "1",
+        "--no-sleep",
+        "--json",
+    ]
+    first_result = runner.invoke(app, command)
+    first_payload = json.loads(first_result.stdout)
+    first_snapshot_id = first_payload["latest_digest"]["snapshot_id"]
+
+    second_result = runner.invoke(app, command)
+    second_payload = json.loads(second_result.stdout)
+    second_execution = second_payload["executions"][0]
+
+    assert first_result.exit_code == 0
+    assert second_result.exit_code == 0
+    assert second_execution["prior_snapshot_id"] == first_snapshot_id
+    assert second_execution["prior_digest_available"] is True
+    assert second_execution["source_health_delta"]["previous"]["missing"] == 7
+    assert "prior_research_snapshot_replayed" in second_execution["notes"]
+    assert len(research_snapshots_path(settings).read_text().splitlines()) == 2
     assert settings.database_path.exists() is False
 
 
