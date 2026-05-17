@@ -503,12 +503,23 @@ function removeTarget(target) {
   if (Array.isArray(target.paths)) {
     const removedPaths = [];
     for (const path of target.paths) {
-      if (!existsSync(path)) {
-        continue;
+      try {
+        if (!existsSync(path)) {
+          continue;
+        }
+        const stat = statSync(path);
+        rmSync(path, { recursive: stat.isDirectory(), force: true });
+        removedPaths.push(relativeTarget(path));
+      } catch (error) {
+        return {
+          ...target,
+          exists: false,
+          status: 'failed',
+          exit_code: 1,
+          stdout: '',
+          stderr: error.message,
+        };
       }
-      const stat = statSync(path);
-      rmSync(path, { recursive: stat.isDirectory(), force: true });
-      removedPaths.push(relativeTarget(path));
     }
     return {
       ...target,
@@ -521,27 +532,38 @@ function removeTarget(target) {
     };
   }
 
-  if (!targetExists(target)) {
+  try {
+    if (!targetExists(target)) {
+      return {
+        ...target,
+        exists: false,
+        status: 'missing',
+        exit_code: 0,
+        stdout: '',
+        stderr: '',
+      };
+    }
+
+    const stat = statSync(target.path);
+    rmSync(target.path, { recursive: stat.isDirectory(), force: true });
     return {
       ...target,
-      exists: false,
-      status: 'missing',
+      exists: true,
+      status: 'removed',
       exit_code: 0,
       stdout: '',
       stderr: '',
     };
+  } catch (error) {
+    return {
+      ...target,
+      exists: targetExists(target),
+      status: 'failed',
+      exit_code: 1,
+      stdout: '',
+      stderr: error.message,
+    };
   }
-
-  const stat = statSync(target.path);
-  rmSync(target.path, { recursive: stat.isDirectory(), force: true });
-  return {
-    ...target,
-    exists: true,
-    status: 'removed',
-    exit_code: 0,
-    stdout: '',
-    stderr: '',
-  };
 }
 
 /**
@@ -588,6 +610,10 @@ function buildPayload(options) {
     const result = removeTarget(target);
     targets.push(result);
     mutated = mutated || result.status === 'removed';
+    if (result.exit_code !== 0) {
+      previousFailure = true;
+      exitCode = result.exit_code;
+    }
   }
 
   return {

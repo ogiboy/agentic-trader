@@ -61,6 +61,7 @@ export function runLifecycleCommand(command, options = {}) {
     env: options.env ?? process.env,
     encoding: 'utf8',
     stdio: 'pipe',
+    maxBuffer: 10 * 1024 * 1024,
   });
 }
 
@@ -178,8 +179,21 @@ export function readToolOwnership() {
  * @returns {Object<string, string>} A new map with entries where the mode is truthy and not 'undecided'.
  */
 export function explicitOwnershipUpdates(owners) {
+  const knownToolIds = new Set(OWNERSHIP_TOOL_IDS);
+  const allowedModes = new Set(['accepted', 'rejected', 'host-owned', 'app-owned', 'api-key-only', 'skipped']);
   return Object.fromEntries(
-    Object.entries(owners).filter(([, mode]) => mode && mode !== 'undecided'),
+    Object.entries(owners).filter(([toolId, mode]) => {
+      if (!knownToolIds.has(toolId)) {
+        return false;
+      }
+      if (!mode || mode === 'undecided') {
+        return false;
+      }
+      if (!allowedModes.has(mode)) {
+        return false;
+      }
+      return true;
+    }),
   );
 }
 

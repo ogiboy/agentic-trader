@@ -609,7 +609,10 @@ function effectiveModelBaseUrl(dashboard: DashboardData | null): string {
   if (modelService.app_owned && modelService.base_url) {
     return withOpenAiSuffix(modelService.base_url);
   }
-  return dashboard?.doctor?.base_url ?? '-';
+  if (dashboard?.doctor?.base_url) {
+    return withOpenAiSuffix(dashboard.doctor.base_url);
+  }
+  return '-';
 }
 
 /**

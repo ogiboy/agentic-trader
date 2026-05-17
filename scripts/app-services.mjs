@@ -99,7 +99,7 @@ function parseArgs(argv) {
   }
 
   if (options.openBrowser && mode !== 'start') {
-    process.stderr.write('--open-browser only applies to app:start.\n');
+    process.stderr.write('--open-browser only applies to app-services start.\n');
     usage(2);
   }
   if (options.openBrowser && !options.selectedServices.has('webgui-service')) {

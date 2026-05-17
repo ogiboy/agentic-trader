@@ -271,12 +271,12 @@ class OpenAICompatibleProvider:
     def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
         """
         Check the OpenAI-compatible endpoint and determine whether the configured model and (optionally) generation are available.
-        
+
         Performs an HTTP GET to the provider's /models endpoint to verify service reachability and whether the configured model is listed. If include_generation is True, performs a small generation probe to determine whether model inference is operational and captures a short diagnostic message.
-        
+
         Parameters:
             include_generation (bool): If True, run a lightweight generation probe after verifying the model is listed to determine runtime generation availability.
-        
+
         Returns:
             LLMHealthStatus: Health information including:
                 - service_reachable: `True` if the /models endpoint was reachable and returned a 2xx response; `False` otherwise.
@@ -287,7 +287,24 @@ class OpenAICompatibleProvider:
         """
         try:
             response = self.client.get(f"{self.base_url}/models", headers=self._headers())
-            response.raise_for_status()
+            if not response.ok:
+                status_code = getattr(response, "status_code", "unknown")
+                try:
+                    response_text = response.text[:240]
+                except Exception:
+                    response_text = ""
+                return LLMHealthStatus(
+                    provider=self.provider_name,
+                    base_url=self.settings.base_url,
+                    model_name=self.model_name,
+                    service_reachable=True,
+                    model_available=False,
+                    generation_available=False if include_generation else None,
+                    generation_message=f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip()
+                    if include_generation
+                    else None,
+                    message=f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip(),
+                )
             payload = cast(dict[str, Any], response.json())
             models = _openai_compatible_model_ids(payload)
             model_available = self.model_name in models

@@ -197,11 +197,13 @@ function runStep(step) {
     env: process.env,
     encoding: 'utf8',
     stdio: 'pipe',
+    maxBuffer: 10 * 1024 * 1024,
   });
   return {
     ...step,
     status: completed.status === 0 ? 'passed' : 'failed',
     exit_code: completed.status ?? 1,
+    spawn_error: completed.error,
     stdout: completed.stdout,
     stderr: completed.stderr,
   };
