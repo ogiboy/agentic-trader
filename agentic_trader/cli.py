@@ -1289,6 +1289,44 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
     }
 
 
+def _position_plan_coverage_payload(settings: Settings) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            positions = db.list_positions()
+            plans = db.list_position_plans()
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+        positions = []
+        plans = []
+        available = False
+        error = str(exc)
+
+    open_symbols = sorted(
+        position.symbol for position in positions if position.quantity != 0
+    )
+    open_symbol_set = set(open_symbols)
+    planned_symbol_set = {plan.symbol for plan in plans}
+    planned_open_symbols = sorted(open_symbol_set & planned_symbol_set)
+    missing_symbols = sorted(open_symbol_set - planned_symbol_set)
+    extra_plan_symbols = sorted(planned_symbol_set - open_symbol_set)
+    coverage_ratio = (
+        len(planned_open_symbols) / len(open_symbols) if open_symbols else 1.0
+    )
+    return {
+        "available": available,
+        "error": error,
+        "open_symbols": open_symbols,
+        "planned_symbols": planned_open_symbols,
+        "missing_symbols": missing_symbols,
+        "extra_plan_symbols": extra_plan_symbols,
+        "coverage_ratio": round(coverage_ratio, 4),
+    }
+
+
 def _preferences_payload(settings: Settings) -> dict[str, object]:
     try:
         db = _open_db(settings, read_only=True)
@@ -1820,10 +1858,24 @@ def _finance_check(
     }
 
 
+def _position_plan_coverage_details(payload: dict[str, object]) -> str:
+    if not bool(payload.get("available")):
+        return str(payload.get("error") or "position plan coverage unavailable")
+    open_symbols = payload.get("open_symbols")
+    missing_symbols = payload.get("missing_symbols")
+    planned_symbols = payload.get("planned_symbols")
+    return (
+        f"open={open_symbols if isinstance(open_symbols, list) else []} "
+        f"planned={planned_symbols if isinstance(planned_symbols, list) else []} "
+        f"missing={missing_symbols if isinstance(missing_symbols, list) else []}"
+    )
+
+
 def _finance_ops_payload(settings: Settings) -> dict[str, object]:
     """Build a read-only trading-desk view of broker, account, PnL, and evidence truth."""
     broker = _broker_payload(settings)
     portfolio = _portfolio_payload(settings)
+    position_plan_coverage = _position_plan_coverage_payload(settings)
     risk_report = _risk_report_payload(settings)
     readiness = v1_readiness_payload(settings, check_provider=False)
     reconciliation = finance_reconciliation_contract_payload()
@@ -1856,6 +1908,12 @@ def _finance_ops_payload(settings: Settings) -> dict[str, object]:
             "cash/equity/PnL/position fields are present on the portfolio snapshot.",
         ),
         _finance_check(
+            "open_position_exit_plans_visible",
+            bool(position_plan_coverage.get("available"))
+            and not bool(position_plan_coverage.get("missing_symbols")),
+            _position_plan_coverage_details(position_plan_coverage),
+        ),
+        _finance_check(
             "risk_report_visible",
             bool(risk_report.get("available")) and risk_report.get("report") is not None,
             str(risk_report.get("error") or "daily risk report available"),
@@ -1877,6 +1935,7 @@ def _finance_ops_payload(settings: Settings) -> dict[str, object]:
         "checks": checks,
         "broker": broker,
         "portfolio": portfolio,
+        "positionPlanCoverage": position_plan_coverage,
         "riskReport": risk_report,
         "paperEvidence": readiness.get("paper_evidence"),
         "reconciliation": reconciliation,

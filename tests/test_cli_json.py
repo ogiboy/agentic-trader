@@ -7,7 +7,11 @@ from typer.testing import CliRunner
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
 from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
-from agentic_trader.finance.proposals import create_trade_proposal, utc_now_iso
+from agentic_trader.finance.proposals import (
+    approve_trade_proposal,
+    create_trade_proposal,
+    utc_now_iso,
+)
 from agentic_trader.runtime_feed import (
     append_chat_history,
     research_cycle_control_path,
@@ -2046,6 +2050,7 @@ def test_finance_ops_json_reports_read_only_desk_checks(
     assert payload["accounting"]["mark_status"] == "mark_time_unavailable"
     assert payload["accounting"]["cost_model"]["fees"] == "not modeled"
     assert payload["reconciliation"]["audit_policy"]["distinguish_zero_from_missing"] is True
+    assert payload["positionPlanCoverage"]["missing_symbols"] == []
     assert any(
         item["name"] == "corporate_actions"
         for item in payload["accounting"]["ledger_categories"]
@@ -2053,6 +2058,48 @@ def test_finance_ops_json_reports_read_only_desk_checks(
     assert payload["portfolio"]["accounting"]["currency"] == "USD"
     assert any(
         check["name"] == "paper_or_external_paper_only" and check["passed"] is True
+        for check in payload["checks"]
+    )
+
+
+def test_finance_ops_flags_open_positions_without_exit_plans(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+        live_execution_enabled=False,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.7,
+        thesis="Unmanaged position should block finance readiness.",
+    )
+    approve_trade_proposal(
+        db=db,
+        settings=settings,
+        proposal_id=proposal.proposal_id,
+        review_notes="no stop/take on purpose",
+    )
+    db.close()
+
+    result = CliRunner().invoke(app, ["finance-ops", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["ready"] is False
+    assert payload["positionPlanCoverage"]["missing_symbols"] == ["MSFT"]
+    assert any(
+        check["name"] == "open_position_exit_plans_visible"
+        and check["passed"] is False
         for check in payload["checks"]
     )
 
