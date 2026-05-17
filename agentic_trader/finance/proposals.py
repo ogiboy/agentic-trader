@@ -107,6 +107,7 @@ def approve_trade_proposal(
     review_notes: str = "",
 ) -> tuple[TradeProposalRecord, ExecutionOutcome]:
     proposal = _load_mutable_proposal(db, proposal_id)
+    _validate_proposal_risk_controls(proposal)
     approved_proposal = proposal.model_copy(
         update={
             "status": "approved",
@@ -336,6 +337,25 @@ def _save_position_plan_from_proposal(
             or "Manual proposal risk plan: exit on stop loss, take profit, or max holding period."
         ),
     )
+
+
+def _validate_proposal_risk_controls(proposal: TradeProposalRecord) -> None:
+    if proposal.stop_loss is None or proposal.take_profit is None:
+        raise ValueError(
+            "Trade proposal approval requires stop_loss and take_profit risk controls."
+        )
+    if proposal.side == "buy" and not (
+        proposal.stop_loss < proposal.reference_price < proposal.take_profit
+    ):
+        raise ValueError(
+            "Buy proposal risk controls must satisfy stop_loss < reference_price < take_profit."
+        )
+    if proposal.side == "sell" and not (
+        proposal.take_profit < proposal.reference_price < proposal.stop_loss
+    ):
+        raise ValueError(
+            "Sell proposal risk controls must satisfy take_profit < reference_price < stop_loss."
+        )
 
 
 def _str_or_none(value: object) -> str | None:

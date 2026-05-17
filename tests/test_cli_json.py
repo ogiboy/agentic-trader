@@ -6,9 +6,9 @@ from typer.testing import CliRunner
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
+from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
 from agentic_trader.finance.proposals import (
-    approve_trade_proposal,
     create_trade_proposal,
     utc_now_iso,
 )
@@ -2074,20 +2074,18 @@ def test_finance_ops_flags_open_positions_without_exit_plans(
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     db = TradingDatabase(settings)
-    proposal = create_trade_proposal(
-        db=db,
-        symbol="MSFT",
-        side="buy",
-        quantity=1,
-        reference_price=100,
-        confidence=0.7,
-        thesis="Unmanaged position should block finance readiness.",
-    )
-    approve_trade_proposal(
-        db=db,
-        settings=settings,
-        proposal_id=proposal.proposal_id,
-        review_notes="no stop/take on purpose",
+    PaperBroker(db, settings).place_order(
+        ExecutionIntent(
+            symbol="MSFT",
+            side="buy",
+            quantity=1,
+            reference_price=100,
+            confidence=0.7,
+            thesis="Legacy unmanaged position should block finance readiness.",
+            approved=True,
+            execution_backend="paper",
+            adapter_name="paper",
+        )
     )
     db.close()
 
@@ -2190,6 +2188,10 @@ def test_trade_proposal_cli_approve_json_records_paper_execution(
             "0.82",
             "--thesis",
             "Proposal approval smoke.",
+            "--stop-loss",
+            "95",
+            "--take-profit",
+            "110",
             "--json",
         ],
     )
@@ -2211,6 +2213,57 @@ def test_trade_proposal_cli_approve_json_records_paper_execution(
     assert payload["proposal"]["status"] == "executed"
     assert payload["outcome"]["status"] == "filled"
     assert payload["proposal"]["execution_order_id"] == payload["outcome"]["order_id"]
+
+
+def test_trade_proposal_cli_approve_blocks_missing_exit_controls(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+    create_result = runner.invoke(
+        app,
+        [
+            "proposal-create",
+            "--symbol",
+            "GOOG",
+            "--side",
+            "buy",
+            "--quantity",
+            "1",
+            "--reference-price",
+            "170",
+            "--confidence",
+            "0.72",
+            "--thesis",
+            "Missing risk controls should block approval.",
+            "--json",
+        ],
+    )
+    proposal_id = json.loads(create_result.stdout)["proposal_id"]
+
+    approve_result = runner.invoke(
+        app,
+        [
+            "proposal-approve",
+            proposal_id,
+            "--review-notes",
+            "operator attempted unsafe approval",
+            "--json",
+        ],
+    )
+
+    assert approve_result.exit_code == 2
+    assert "requires stop_loss and take_profit" in approve_result.stdout
+    list_result = runner.invoke(app, ["trade-proposals", "--json"])
+    payload = json.loads(list_result.stdout)
+    assert payload["proposals"][0]["status"] == "pending"
+    assert payload["proposals"][0]["execution_order_id"] is None
 
 
 def test_trade_proposal_cli_reconcile_json_repairs_without_resubmission(

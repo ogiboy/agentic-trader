@@ -101,6 +101,55 @@ def test_trade_proposal_expire_terminalizes_pending_proposal(tmp_path) -> None:
         )
 
 
+def test_trade_proposal_approval_requires_exit_risk_controls(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.81,
+        thesis="Manual paper desk approval candidate.",
+    )
+
+    with pytest.raises(ValueError, match="requires stop_loss and take_profit"):
+        approve_trade_proposal(
+            db=db,
+            settings=settings,
+            proposal_id=proposal.proposal_id,
+        )
+
+    stored = db.get_trade_proposal(proposal.proposal_id)
+    assert stored is not None
+    assert stored.status == "pending"
+    assert db.latest_execution_record() is None
+
+
+def test_trade_proposal_approval_rejects_inconsistent_risk_controls(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.81,
+        thesis="Manual paper desk approval candidate.",
+        stop_loss=105,
+        take_profit=110,
+    )
+
+    with pytest.raises(ValueError, match="stop_loss < reference_price"):
+        approve_trade_proposal(
+            db=db,
+            settings=settings,
+            proposal_id=proposal.proposal_id,
+        )
+
+
 def test_trade_proposal_approval_records_execution_and_terminal_state(tmp_path) -> None:
     settings = _settings(tmp_path)
     db = TradingDatabase(settings)
@@ -269,6 +318,8 @@ def test_trade_proposal_approval_requires_atomic_final_transition(
         reference_price=100,
         confidence=0.81,
         thesis="Manual paper desk approval candidate.",
+        stop_loss=95,
+        take_profit=110,
     )
     original_update = db.update_trade_proposal
 
