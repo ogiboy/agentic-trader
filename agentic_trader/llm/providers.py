@@ -239,7 +239,7 @@ class OpenAICompatibleProvider:
         Parameters:
             prompt (str): The user prompt sent as the content of a single chat message.
             json_mode (bool): If true, requests the server to produce a JSON object response via `response_format`.
-            json_schema (dict[str, Any] | None): Ignored by this provider; present for API compatibility.
+            json_schema (dict[str, Any] | None): Optional schema used to request provider-supported structured JSON output when `json_mode` is true.
         
         Returns:
             dict[str, Any]: A mapping with keys:
