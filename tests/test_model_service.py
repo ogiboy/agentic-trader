@@ -6,6 +6,7 @@ import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.system import model_service
+from agentic_trader.system.model_service import _same_loopback_api_root
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
@@ -639,3 +640,62 @@ def test_stop_model_service_cleans_orphan_app_managed_ports_only(
     model_service.stop_model_service(settings)
 
     assert killed == [111]
+
+
+# ---------------------------------------------------------------------------
+# _same_loopback_api_root
+# ---------------------------------------------------------------------------
+
+
+def test_same_loopback_api_root_identical_urls() -> None:
+    assert _same_loopback_api_root(
+        "http://127.0.0.1:11434",
+        "http://127.0.0.1:11434",
+    ) is True
+
+
+def test_same_loopback_api_root_localhost_and_127_same_port() -> None:
+    assert _same_loopback_api_root(
+        "http://localhost:11434",
+        "http://127.0.0.1:11434",
+    ) is True
+
+
+def test_same_loopback_api_root_different_ports_returns_false() -> None:
+    assert _same_loopback_api_root(
+        "http://127.0.0.1:11434",
+        "http://127.0.0.1:11435",
+    ) is False
+
+
+def test_same_loopback_api_root_different_scheme_returns_false() -> None:
+    assert _same_loopback_api_root(
+        "http://127.0.0.1:11434",
+        "https://127.0.0.1:11434",
+    ) is False
+
+
+def test_same_loopback_api_root_non_loopback_host_returns_false() -> None:
+    assert _same_loopback_api_root(
+        "http://example.com:11434",
+        "http://127.0.0.1:11434",
+    ) is False
+
+
+def test_same_loopback_api_root_schemeless_strings_use_exact_match() -> None:
+    assert _same_loopback_api_root("localhost:11434", "localhost:11434") is True
+    assert _same_loopback_api_root("localhost:11434", "localhost:11435") is False
+
+
+def test_same_loopback_api_root_path_mismatch_returns_false() -> None:
+    assert _same_loopback_api_root(
+        "http://127.0.0.1:11434/api",
+        "http://127.0.0.1:11434/other",
+    ) is False
+
+
+def test_same_loopback_api_root_trailing_slash_ignored_in_path() -> None:
+    assert _same_loopback_api_root(
+        "http://127.0.0.1:11434/api/",
+        "http://127.0.0.1:11434/api",
+    ) is True
