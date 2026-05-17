@@ -1615,6 +1615,12 @@ export function ControlRoom() {
   const lastRequestSeqRef = useRef(0);
   const dashboardAbortRef = useRef<AbortController | null>(null);
 
+  const selectTab = useCallback((nextTab: TabId) => {
+    setTab(nextTab);
+    setError(null);
+    setMessage(null);
+  }, []);
+
   const applyDashboardPayload = useCallback((payload: DashboardData) => {
     setDashboard(payload);
     setChatHistory(normalizeChatHistory(payload));
@@ -1976,7 +1982,7 @@ export function ControlRoom() {
                 item.id === tab && 'nav-button--active',
               )}
               key={item.id}
-              onClick={() => setTab(item.id)}
+              onClick={() => selectTab(item.id)}
               type="button"
             >
               {item.label}

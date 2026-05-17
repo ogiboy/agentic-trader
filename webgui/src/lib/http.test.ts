@@ -206,4 +206,22 @@ describe('webgui http guards', () => {
     expect(text).not.toContain('raw-secret-value');
     expect(redactAndCapText('x'.repeat(80), 40)).toContain('...<truncated>');
   });
+
+  it('compacts Python tracebacks to the operator-facing exception line', () => {
+    const text = redactAndCapText(
+      [
+        '╭───────────────────── Traceback (most recent call last) ──────────────────────╮',
+        '│ /Users/ogiboy/project/agentic_trader/cli.py:6415 in chat │',
+        '│ ensure_llm_ready(settings) │',
+        '╰──────────────────────────────────────────────────────────────────────────────╯',
+        'RuntimeError: Ollama is reachable but generation failed.',
+      ].join('\n'),
+    );
+
+    expect(text).toBe(
+      'RuntimeError: Ollama is reachable but generation failed.',
+    );
+    expect(text).not.toContain('/Users/ogiboy');
+    expect(text).not.toContain('Traceback');
+  });
 });

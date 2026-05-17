@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import {
   ActiveView,
@@ -207,6 +214,11 @@ const dashboardFixture = {
     },
   },
 };
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function renderActiveView(
   tab: Parameters<typeof ActiveView>[0]['tab'],
@@ -564,6 +576,39 @@ describe('control-room formatting helpers', () => {
     await screen.findByText('AAPL proposal rejected.');
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(7));
+    vi.unstubAllGlobals();
+  });
+
+  it('clears transient action messages when switching tabs', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(dashboardFixture))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { error: 'RuntimeError: model failed to load' },
+          { ok: false, status: 500 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(ControlRoom));
+    await screen.findByText('Agentic Trader Web GUI');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chat' }));
+    fireEvent.change(
+      screen.getByPlaceholderText('Ask for a review, status, or explanation.'),
+      { target: { value: 'Explain current risk' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText('RuntimeError: model failed to load');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proposals' }));
+    await waitFor(() => {
+      expect(
+        screen.queryByText('RuntimeError: model failed to load'),
+      ).toBeNull();
+    });
+
     vi.unstubAllGlobals();
   });
 

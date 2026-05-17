@@ -31,6 +31,8 @@ const AUTHORIZATION_PATTERN =
   /\b(Authorization)(\s*[:=]\s*)(?!Bearer\s)([^\s,;"']+)/gi;
 const URL_SECRET_PATTERN =
   /([?&](?:api[_-]?key|token|secret|password|key)=)[^&\s]+/gi;
+const PYTHON_EXCEPTION_PATTERN =
+  /\b[A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception):\s+\S[\s\S]*$/;
 const inFlightRequests = new Set<string>();
 const cooldownUntilByKey = new Map<string, number>();
 
@@ -46,6 +48,17 @@ function jsonError(
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+function compactTraceback(value: string): string {
+  if (!value.includes('Traceback (most recent call last)')) {
+    return value;
+  }
+  const match = value.match(PYTHON_EXCEPTION_PATTERN);
+  if (match?.[0]) {
+    return match[0].replace(/\s+/g, ' ').trim();
+  }
+  return 'Agentic Trader command failed. Check local runtime logs for details.';
 }
 
 function sensitiveEnvValues(): string[] {
@@ -248,7 +261,9 @@ export function resetRequestGuardsForTests(): void {
 }
 
 export function redactAndCapText(value: unknown, maxLength = 2_000): string {
-  let text = value instanceof Error ? value.message : String(value);
+  let text = compactTraceback(
+    value instanceof Error ? value.message : String(value),
+  );
   for (const secret of sensitiveEnvValues()) {
     text = text.replaceAll(new RegExp(escapeRegExp(secret), 'g'), '<redacted>');
   }
