@@ -159,6 +159,7 @@ def approve_trade_proposal(
             f"Trade proposal {proposal_id} changed before broker outcome could be recorded."
         )
     db.create_trade_journal_from_proposal(proposal=final_proposal, outcome=outcome)
+    _save_position_plan_from_proposal(db, proposal=final_proposal, outcome=outcome)
     return final_proposal, outcome
 
 
@@ -212,10 +213,12 @@ def reconcile_trade_proposal(
         )
     outcome_payload = record.get("outcome")
     if isinstance(outcome_payload, dict):
+        outcome = ExecutionOutcome.model_validate(outcome_payload)
         db.create_trade_journal_from_proposal(
             proposal=repaired,
-            outcome=ExecutionOutcome.model_validate(outcome_payload),
+            outcome=outcome,
         )
+        _save_position_plan_from_proposal(db, proposal=repaired, outcome=outcome)
     return repaired, record
 
 
@@ -306,6 +309,33 @@ def _merge_notes(existing: str, note: str) -> str:
     if not existing:
         return cleaned
     return f"{existing}\n{cleaned}"
+
+
+def _save_position_plan_from_proposal(
+    db: TradingDatabase,
+    *,
+    proposal: TradeProposalRecord,
+    outcome: ExecutionOutcome,
+) -> None:
+    if outcome.status not in {"filled", "partially_filled"}:
+        return
+    if outcome.filled_quantity <= 0:
+        return
+    if proposal.stop_loss is None or proposal.take_profit is None:
+        return
+    db.save_position_plan(
+        symbol=proposal.symbol,
+        side=proposal.side,
+        entry_price=outcome.average_fill_price or proposal.reference_price,
+        stop_loss=proposal.stop_loss,
+        take_profit=proposal.take_profit,
+        max_holding_bars=20,
+        holding_bars=0,
+        invalidation_logic=(
+            proposal.invalidation_condition
+            or "Manual proposal risk plan: exit on stop loss, take profit, or max holding period."
+        ),
+    )
 
 
 def _str_or_none(value: object) -> str | None:

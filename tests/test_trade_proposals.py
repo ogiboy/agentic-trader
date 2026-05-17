@@ -125,6 +125,7 @@ def test_trade_proposal_approval_records_execution_and_terminal_state(tmp_path) 
 
     latest = db.latest_execution_record()
     journal = db.list_trade_journal(limit=5)
+    position_plan = db.get_position_plan("MSFT")
     assert approved.status == "executed"
     assert approved.execution_order_id == outcome.order_id
     assert outcome.status == "filled"
@@ -136,6 +137,11 @@ def test_trade_proposal_approval_records_execution_and_terminal_state(tmp_path) 
     assert proposal.proposal_id in journal[0].notes
     assert latest is not None
     assert latest["intent_id"] == approved.execution_intent_id
+    assert position_plan is not None
+    assert position_plan.entry_price == pytest.approx(100)
+    assert position_plan.stop_loss == pytest.approx(95)
+    assert position_plan.take_profit == pytest.approx(110)
+    assert position_plan.holding_bars == 0
     intent = latest["intent"]
     assert isinstance(intent, dict)
     assert intent["approved"] is True
@@ -159,6 +165,8 @@ def test_trade_proposal_approval_persists_in_flight_before_adapter_call(
         reference_price=100,
         confidence=0.81,
         thesis="Manual paper desk approval candidate.",
+        stop_loss=95,
+        take_profit=110,
     )
     place_order_attempts = 0
 
@@ -211,6 +219,8 @@ def test_trade_proposal_approval_requires_atomic_pending_transition(
         reference_price=100,
         confidence=0.81,
         thesis="Manual paper desk approval candidate.",
+        stop_loss=95,
+        take_profit=110,
     )
     original_update = db.update_trade_proposal
     place_order_attempts = 0
@@ -296,6 +306,8 @@ def test_trade_proposal_reconcile_repairs_in_flight_from_execution_record(
         reference_price=100,
         confidence=0.81,
         thesis="Manual paper desk approval candidate.",
+        stop_loss=95,
+        take_profit=110,
     )
     intent = ExecutionIntent(
         intent_id="intent-repair",
@@ -341,9 +353,13 @@ def test_trade_proposal_reconcile_repairs_in_flight_from_execution_record(
     assert "repair after interrupted" in repaired.review_notes
     assert record["intent_id"] == intent.intent_id
     journal = db.list_trade_journal(limit=5)
+    position_plan = db.get_position_plan("MSFT")
     assert len(journal) == 1
     assert journal[0].entry_order_id == "paper-order-repair"
     assert journal[0].journal_status == "open"
+    assert position_plan is not None
+    assert position_plan.stop_loss == pytest.approx(95)
+    assert position_plan.take_profit == pytest.approx(110)
 
 
 def test_trade_proposal_reconcile_fails_closed_without_execution_record(tmp_path) -> None:
