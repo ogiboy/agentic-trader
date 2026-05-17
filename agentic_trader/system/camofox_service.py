@@ -320,7 +320,7 @@ def _runtime_command(tool_dir: Path) -> list[str]:
     if not _dependency_available(tool_dir):
         raise RuntimeError(
             "Camofox dependencies are missing. Run "
-            "`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`."
+            f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
         )
     return [node_path, SERVER_SCRIPT_NAME]
 
@@ -448,16 +448,18 @@ def _camofox_blocking_status_message(
     package_available: bool,
     command_path: str | None,
     dependency_available: bool,
+    tool_dir: Path,
 ) -> str | None:
     """
     Determine whether startup should be blocked and provide a human-readable message for the first missing prerequisite.
-    
+
     Parameters:
     	probe_host (str): Host portion of the configured base URL to validate as loopback.
     	package_available (bool): Whether the tool's package files (package.json, server.js) are present.
     	command_path (str | None): Path to the Node.js executable, or None if not found.
     	dependency_available (bool): Whether the tool's node_modules dependencies are installed.
-    
+    	tool_dir (Path): The resolved Camofox tool directory path.
+
     Returns:
     	blocking_message (str | None): A short message describing the first blocking issue, or `None` if no blocking issues are detected.
     """
@@ -470,7 +472,7 @@ def _camofox_blocking_status_message(
     if not dependency_available:
         return (
             "Camofox dependencies are missing. Run "
-            "`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`."
+            f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
         )
     return None
 
@@ -526,6 +528,7 @@ def build_camofox_service_status(
         package_available=package_available,
         command_path=command_path,
         dependency_available=dependency_available,
+        tool_dir=tool_dir,
     )
     if message is None:
         reachable, health_ok, message = _camofox_probe_status(

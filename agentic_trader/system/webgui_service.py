@@ -326,21 +326,22 @@ def _process_looks_like_webgui(pid: int) -> bool:
 def _process_matches_state(state: WebGUIServiceState) -> bool:
     """
     Verify that the persisted WebGUIServiceState corresponds to a running Web GUI process.
-    
+
     Parameters:
         state (WebGUIServiceState): Persisted state record containing expected PID, host, and port.
-    
+
     Returns:
         bool: `True` if the recorded PID is currently a listener for the configured host/port and either the process's working directory is the Web GUI directory or its command line matches expected Web GUI markers; `False` otherwise.
     """
-    if _listen_port_owner_pid(state.host, state.port) == state.pid:
-        process_cwd = _process_cwd(state.pid)
-        if process_cwd == webgui_dir().resolve():
-            return True
+    if _listen_port_owner_pid(state.host, state.port) != state.pid:
+        return False
+    process_cwd = _process_cwd(state.pid)
+    if process_cwd == webgui_dir().resolve():
+        return True
     command_line = _process_command_line(state.pid)
     if command_line:
         return _command_line_matches_webgui(command_line, state)
-    return _listen_port_owner_pid(state.host, state.port) == state.pid
+    return True
 
 
 def _state_process_alive(state: WebGUIServiceState | None) -> bool:

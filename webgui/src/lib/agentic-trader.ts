@@ -460,8 +460,6 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
   dashboard: any;
   result?: any;
 }> {
-  const data = await getDashboardSnapshot();
-
   if (kind === 'enable-local-tools') {
     const result = await execTrader(
       [
@@ -507,6 +505,7 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
   }
 
   if (kind === 'start-model-service') {
+    const data = await getDashboardSnapshot();
     await execTrader(
       ['tool-ownership', 'set', '--ollama-owner', 'app-owned', '--json'],
       { expectJson: true, timeoutMs: 30_000 },

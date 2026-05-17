@@ -39,7 +39,6 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices(
             "AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY",
-            "OPENAI_API_KEY",
         ),
     )
     temperature: float = 0.0
