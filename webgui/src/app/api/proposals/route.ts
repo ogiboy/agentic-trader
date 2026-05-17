@@ -61,6 +61,13 @@ export async function POST(request: Request) {
     if (!proposalId) {
       return Response.json({ error: 'proposal id is required' }, { status: 400 });
     }
+    const reviewNotes = stringField(body.reviewNotes).trim();
+    if (body.kind === 'reject' && !reviewNotes) {
+      return Response.json(
+        { error: 'review note is required for reject' },
+        { status: 400 },
+      );
+    }
     const guard = beginRequestGuard({
       key: 'proposals',
       cooldownMs: body.kind === 'approve' ? 3_000 : 1_500,
@@ -73,7 +80,7 @@ export async function POST(request: Request) {
       const result = await runProposalAction(
         body.kind,
         proposalId,
-        stringField(body.reviewNotes),
+        reviewNotes,
       );
       return Response.json(result);
     } finally {
