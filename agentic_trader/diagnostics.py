@@ -240,8 +240,8 @@ def v1_readiness_payload(
             f"strict_llm={settings.strict_llm}",
         ),
         _check(
-            "paper_first_backend",
-            settings.execution_backend == "paper",
+            "paper_or_external_paper_backend",
+            settings.execution_backend in {"paper", "alpaca_paper"},
             f"execution_backend={settings.execution_backend}",
         ),
         _check(

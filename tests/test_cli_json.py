@@ -2072,6 +2072,47 @@ def test_v1_readiness_json_reports_paper_and_alpaca_sections(
     )
 
 
+def test_v1_readiness_allows_alpaca_paper_backend_when_enabled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="configured",
+        alpaca_secret_key="configured",
+        alpaca_paper_trading_enabled=True,
+        live_execution_enabled=False,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.diagnostics.LocalLLM.health_check",
+        lambda self, **_kwargs: LLMHealthStatus(
+            provider="ollama",
+            base_url=self.settings.base_url,
+            model_name=self.settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            generation_available=True,
+            message="ready",
+        ),
+    )
+
+    result = CliRunner().invoke(app, ["v1-readiness", "--provider-check", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["execution_backend"] == "alpaca_paper"
+    assert payload["paper_operations"]["allowed"] is True
+    assert payload["alpaca_paper"]["ready"] is True
+    assert any(
+        check["name"] == "paper_or_external_paper_backend"
+        and check["passed"] is True
+        for check in payload["paper_operations"]["checks"]
+    )
+
+
 def test_finance_ops_json_reports_read_only_desk_checks(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
