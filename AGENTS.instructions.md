@@ -65,6 +65,20 @@ This project already has:
 
 New work should extend those systems instead of bypassing them.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `ogiboy/agentic-trader`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default five-label triage vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use a single-context domain-doc layout for this product; until `CONTEXT.md` and `docs/adr/` exist, read `README.md`, `ROADMAP.md`, and `.ai/*.instructions.md` as the repo truth. See `docs/agents/domain.md`.
+
 ## Working Style
 
 - Prefer minimal, targeted changes
