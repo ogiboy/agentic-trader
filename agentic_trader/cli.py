@@ -37,6 +37,7 @@ from agentic_trader.finance.proposals import (
     create_trade_proposal,
     reconcile_trade_proposal,
     reject_trade_proposal,
+    repair_missing_position_plans,
 )
 from agentic_trader.finance.strategy_catalog import (
     StrategyStatus,
@@ -1990,6 +1991,46 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
     ledger_table = _finance_ledger_table(accounting.get("ledger_categories", []))
     if ledger_table is not None:
         console.print(ledger_table)
+
+
+def _render_position_plan_repair(payload: dict[str, object]) -> None:
+    applied = bool(payload.get("applied"))
+    table = Table(title="Position Plan Repair")
+    table.add_column("Symbol")
+    table.add_column("Status")
+    table.add_column("Proposal")
+    table.add_column("Entry")
+    table.add_column("Stop")
+    table.add_column("Take")
+    table.add_column("Reason")
+    repairs = payload.get("repairs", [])
+    if isinstance(repairs, list):
+        for item in repairs:
+            if not isinstance(item, dict):
+                continue
+            table.add_row(
+                str(item.get("symbol", "-")),
+                str(item.get("status", "-")),
+                str(item.get("proposal_id", "-")),
+                _format_optional_float(item.get("entry_price")),
+                _format_optional_float(item.get("stop_loss")),
+                _format_optional_float(item.get("take_profit")),
+                str(item.get("reason", "")),
+            )
+    console.print(
+        Panel(
+            str(payload.get("summary", "Position plan repair status unavailable.")),
+            title="Position Plan Repair",
+            border_style="green" if applied else "yellow",
+        )
+    )
+    console.print(table)
+
+
+def _format_optional_float(value: object) -> str:
+    if isinstance(value, (int, float)):
+        return f"{float(value):.4f}"
+    return "-"
 
 
 def _finance_checks_table(checks: object) -> Table:
@@ -4189,6 +4230,64 @@ def finance_ops(
         _emit_json(payload)
         return
     _render_finance_ops(payload)
+
+
+@app.command("position-plan-repair")
+def position_plan_repair(
+    apply_changes: bool = typer.Option(
+        False,
+        "--apply",
+        help="Write repairable missing position plans. Defaults to dry-run.",
+    ),
+    max_holding_bars: int = typer.Option(
+        20,
+        min=1,
+        max=500,
+        help="Maximum holding bars for repaired position plans.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Backfill missing exit plans from already executed proposal records."""
+    settings = get_settings()
+    try:
+        db = _open_db(settings, read_only=not apply_changes)
+        try:
+            repairs = repair_missing_position_plans(
+                db=db,
+                apply_repair=apply_changes,
+                max_holding_bars=max_holding_bars,
+            )
+        finally:
+            db.close()
+    except Exception as exc:  # noqa: BLE001 - operator command should degrade on DB locks
+        console.print(
+            Panel(
+                f"Position plan repair is temporarily unavailable while the runtime writer owns the database.\n\n{exc}",
+                title=LABEL_OBSERVER_MODE,
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0) from exc
+
+    created = sum(1 for item in repairs if item["status"] == "created")
+    candidates = sum(1 for item in repairs if item["status"] == "candidate")
+    skipped = sum(1 for item in repairs if item["status"] == "skipped")
+    payload = {
+        "applied": apply_changes,
+        "created": created,
+        "candidates": candidates,
+        "skipped": skipped,
+        "repairs": repairs,
+        "summary": (
+            f"Created {created} repaired position plan(s)."
+            if apply_changes
+            else f"Found {candidates} repair candidate(s)."
+        ),
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_position_plan_repair(payload)
 
 
 @app.command("trade-proposals")

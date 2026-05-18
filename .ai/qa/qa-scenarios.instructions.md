@@ -97,6 +97,8 @@ agentic-trader operator-workflow --json
 agentic-trader hardware-profile --json
 agentic-trader provider-diagnostics --json
 agentic-trader v1-readiness --json
+agentic-trader finance-ops --json
+agentic-trader position-plan-repair --json
 agentic-trader evidence-bundle --json
 agentic-trader dashboard-snapshot > .ai/qa/artifacts/dashboard.json
 python main.py doctor
@@ -115,6 +117,9 @@ Expected:
   readiness without printing secret values
 - V1 readiness reports paper-operation and Alpaca paper checks, with provider
   readiness marked unchecked unless `--provider-check` is used
+- finance operations reports missing open-position exit plans as blocking, and
+  `position-plan-repair --json` reports only dry-run candidates unless
+  `--apply` is explicitly provided
 - evidence bundle writes dashboard/status/broker/provider/readiness/log artifacts
   plus a manifest under `.ai/qa/artifacts/` without mutating runtime state
 - supervisor status exposes daemon metadata and log tails without requiring the runtime writer lock

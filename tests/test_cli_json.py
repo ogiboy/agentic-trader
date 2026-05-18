@@ -9,6 +9,7 @@ from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
 from agentic_trader.finance.proposals import (
+    approve_trade_proposal,
     create_trade_proposal,
     utc_now_iso,
 )
@@ -73,6 +74,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["broker-status", "-h"],
         ["finance-ops", "--help"],
         ["finance-ops", "-h"],
+        ["position-plan-repair", "--help"],
+        ["position-plan-repair", "-h"],
         ["provider-diagnostics", "--help"],
         ["provider-diagnostics", "-h"],
         ["v1-readiness", "--help"],
@@ -2143,6 +2146,66 @@ def test_finance_ops_flags_open_positions_without_exit_plans(
         and check["passed"] is False
         for check in payload["checks"]
     )
+
+
+def test_position_plan_repair_cli_backfills_executed_proposal_plan(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.82,
+        thesis="Executed proposal without a persisted exit plan.",
+        stop_loss=95,
+        take_profit=110,
+    )
+    approve_trade_proposal(
+        db=db,
+        settings=settings,
+        proposal_id=proposal.proposal_id,
+    )
+    db.delete_position_plan("MSFT")
+    db.close()
+    runner = CliRunner()
+
+    dry_run = runner.invoke(app, ["position-plan-repair", "--json"])
+
+    assert dry_run.exit_code == 0
+    dry_payload = json.loads(dry_run.stdout)
+    assert dry_payload["applied"] is False
+    assert dry_payload["candidates"] == 1
+    assert dry_payload["repairs"][0]["proposal_id"] == proposal.proposal_id
+    dry_db = TradingDatabase(settings)
+    try:
+        assert dry_db.get_position_plan("MSFT") is None
+    finally:
+        dry_db.close()
+
+    applied = runner.invoke(app, ["position-plan-repair", "--apply", "--json"])
+
+    assert applied.exit_code == 0
+    apply_payload = json.loads(applied.stdout)
+    assert apply_payload["applied"] is True
+    assert apply_payload["created"] == 1
+    repaired_db = TradingDatabase(settings)
+    try:
+        plan = repaired_db.get_position_plan("MSFT")
+    finally:
+        repaired_db.close()
+    assert plan is not None
+    assert plan.stop_loss == pytest.approx(95)
+    assert plan.take_profit == pytest.approx(110)
 
 
 def test_trade_proposal_cli_create_list_reject_json(

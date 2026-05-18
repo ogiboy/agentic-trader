@@ -141,6 +141,7 @@ Approval records the broker-facing `ExecutionIntent` and `ExecutionOutcome`; rej
 If a process records the broker execution outcome but exits before the final proposal status update, reconciliation may only read the existing `execution_records.intent_id` row and mark the approved proposal terminal; it must not call the broker adapter again.
 The Web GUI Proposal Desk may call only the allowlisted CLI contracts for approve, reject, and reconcile, with same-origin/token route guards and no generic command execution or proposal creation surface.
 This keeps proposal generation useful for a paper desk while preserving paper-first/manual-approval safety and keeping live execution blocked.
+Missing exit-plan recovery is also explicit and non-executing: `position-plan-repair` may backfill stored position plans only from already executed proposal records with valid stop-loss/take-profit controls and matching open positions, defaults to dry-run, and must never resubmit orders or infer risk controls from a thesis alone.
 
 ### Optional web research helpers stay evidence-only and fail closed
 

@@ -447,6 +447,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader supervisor-status --json`                                              | Inspect daemon state and log tails         |
 | `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
 | `agentic-trader finance-ops --json`                                                    | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check |
+| `agentic-trader position-plan-repair --json` / `--apply --json`                        | Dry-run or apply a broker-free backfill for missing exit plans from executed proposals |
 | `agentic-trader setup-status --json`                                                   | Inspect root/sidecar/tool readiness without installing anything |
 | `agentic-trader tool-ownership status --json`                                          | Inspect persisted optional helper ownership choices |
 | `pnpm --silent run app:doctor -- --json`                                               | Inspect setup, service, provider, and V1 readiness without installing or starting anything |

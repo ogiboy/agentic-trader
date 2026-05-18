@@ -12,6 +12,7 @@ from agentic_trader.finance.proposals import (
     expire_trade_proposal,
     reconcile_trade_proposal,
     reject_trade_proposal,
+    repair_missing_position_plans,
     utc_now_iso,
 )
 from agentic_trader.storage.db import TradingDatabase
@@ -199,6 +200,57 @@ def test_trade_proposal_approval_records_execution_and_terminal_state(tmp_path) 
 
     with pytest.raises(ValueError, match="not pending"):
         reject_trade_proposal(db=db, proposal_id=proposal.proposal_id, reason="late")
+
+
+def test_repair_missing_position_plans_backfills_from_executed_proposal(
+    tmp_path,
+) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.81,
+        thesis="Manual paper desk approval candidate.",
+        stop_loss=95,
+        take_profit=110,
+        invalidation_condition="Exit if thesis breaks.",
+    )
+    approve_trade_proposal(
+        db=db,
+        settings=settings,
+        proposal_id=proposal.proposal_id,
+    )
+    db.delete_position_plan("MSFT")
+
+    dry_run = repair_missing_position_plans(db=db)
+
+    assert dry_run == [
+        {
+            "symbol": "MSFT",
+            "status": "candidate",
+            "reason": "dry-run candidate from executed proposal",
+            "proposal_id": proposal.proposal_id,
+            "side": "buy",
+            "entry_price": 100.0,
+            "stop_loss": 95.0,
+            "take_profit": 110.0,
+        }
+    ]
+    assert db.get_position_plan("MSFT") is None
+
+    applied = repair_missing_position_plans(db=db, apply_repair=True)
+
+    assert applied[0]["status"] == "created"
+    plan = db.get_position_plan("MSFT")
+    assert plan is not None
+    assert plan.entry_price == pytest.approx(100)
+    assert plan.stop_loss == pytest.approx(95)
+    assert plan.take_profit == pytest.approx(110)
+    assert plan.invalidation_logic == "Exit if thesis breaks."
 
 
 def test_trade_proposal_approval_persists_in_flight_before_adapter_call(
