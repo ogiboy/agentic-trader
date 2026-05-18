@@ -24,7 +24,7 @@ from agentic_trader.diagnostics import (
     provider_diagnostics_payload,
     v1_readiness_payload,
 )
-from agentic_trader.engine.broker import broker_runtime_payload
+from agentic_trader.engine.broker import broker_runtime_payload, get_broker_adapter
 from agentic_trader.finance.ideas import (
     IdeaCandidate,
     IdeaPresetName,
@@ -1250,11 +1250,19 @@ def _open_db(settings: Settings, *, read_only: bool = False) -> TradingDatabase:
 
 
 def _portfolio_payload(settings: Settings) -> dict[str, object]:
+    source = "unavailable"
     try:
         db = _open_db(settings, read_only=True)
         try:
-            snapshot = db.get_account_snapshot()
-            positions = db.list_positions()
+            if settings.execution_backend == "alpaca_paper":
+                broker = get_broker_adapter(db=db, settings=settings)
+                snapshot = broker.get_account_state()
+                positions = broker.get_positions()
+                source = "broker_adapter"
+            else:
+                snapshot = db.get_account_snapshot()
+                positions = db.list_positions()
+                source = "runtime_database"
             latest_marks = db.list_account_marks(limit=1)
         finally:
             db.close()
@@ -1278,6 +1286,7 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
     return {
         "available": available,
         "error": error,
+        "source": source if available else "unavailable",
         "snapshot": snapshot.model_dump(mode="json"),
         "positions": [position.model_dump(mode="json") for position in positions],
         "accounting": {
@@ -1291,10 +1300,16 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
 
 
 def _position_plan_coverage_payload(settings: Settings) -> dict[str, object]:
+    source = "unavailable"
     try:
         db = _open_db(settings, read_only=True)
         try:
-            positions = db.list_positions()
+            if settings.execution_backend == "alpaca_paper":
+                positions = get_broker_adapter(db=db, settings=settings).get_positions()
+                source = "broker_adapter"
+            else:
+                positions = db.list_positions()
+                source = "runtime_database"
             plans = db.list_position_plans()
         finally:
             db.close()
@@ -1320,6 +1335,7 @@ def _position_plan_coverage_payload(settings: Settings) -> dict[str, object]:
     return {
         "available": available,
         "error": error,
+        "source": source if available else "unavailable",
         "open_symbols": open_symbols,
         "planned_symbols": planned_open_symbols,
         "missing_symbols": missing_symbols,
@@ -1578,6 +1594,65 @@ def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]
     }
 
 
+def _risk_report_from_portfolio(
+    *,
+    settings: Settings,
+    snapshot: PortfolioSnapshot,
+    positions: list[PositionSnapshot],
+    report_date: str | None = None,
+) -> DailyRiskReport:
+    resolved_date = report_date or datetime.now(timezone.utc).date().isoformat()
+    gross_exposure = sum(abs(position.market_value) for position in positions)
+    largest_position = max(
+        (abs(position.market_value) for position in positions), default=0.0
+    )
+    top_positions = sorted(
+        positions, key=lambda position: abs(position.market_value), reverse=True
+    )
+    equity = snapshot.equity if snapshot.equity != 0 else 1.0
+    portfolio_hhi = (
+        sum((abs(position.market_value) / gross_exposure) ** 2 for position in positions)
+        if gross_exposure > 0
+        else 0.0
+    )
+
+    warnings: list[str] = []
+    if snapshot.open_positions >= settings.max_open_positions:
+        warnings.append("Open position count is elevated.")
+    if gross_exposure / equity > settings.max_gross_exposure_pct:
+        warnings.append(
+            f"Gross exposure is above {settings.max_gross_exposure_pct:.0%} of equity."
+        )
+    if largest_position / equity > settings.max_position_pct:
+        warnings.append(
+            f"Largest position is above {settings.max_position_pct:.0%} of equity."
+        )
+    if portfolio_hhi > 0.25:
+        warnings.append(
+            f"Portfolio concentration HHI is elevated at {portfolio_hhi:.3f}."
+        )
+
+    return DailyRiskReport(
+        report_date=resolved_date,
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        cash=snapshot.cash,
+        market_value=snapshot.market_value,
+        equity=snapshot.equity,
+        realized_pnl=snapshot.realized_pnl,
+        unrealized_pnl=snapshot.unrealized_pnl,
+        open_positions=snapshot.open_positions,
+        fills_today=0,
+        marks_recorded=0,
+        daily_realized_pnl=0.0,
+        gross_exposure_pct=gross_exposure / equity,
+        largest_position_pct=largest_position / equity,
+        portfolio_hhi=portfolio_hhi,
+        top_position_symbols=[position.symbol for position in top_positions[:5]],
+        drawdown_from_peak_pct=0.0,
+        warnings=warnings,
+    )
+
+
 def _risk_report_payload(
     settings: Settings, *, report_date: str | None = None
 ) -> dict[str, object]:
@@ -1593,10 +1668,22 @@ def _risk_report_payload(
             - "error" (str | None): Error message when `available` is `False`, otherwise `None`.
             - "report" (dict | None): JSON-serializable representation of the daily risk report when available, otherwise `None`.
     """
+    source = "unavailable"
     try:
         db = _open_db(settings, read_only=True)
         try:
-            report = db.build_daily_risk_report(report_date=report_date)
+            if settings.execution_backend == "alpaca_paper":
+                broker = get_broker_adapter(db=db, settings=settings)
+                report = _risk_report_from_portfolio(
+                    settings=settings,
+                    snapshot=broker.get_account_state(),
+                    positions=broker.get_positions(),
+                    report_date=report_date,
+                )
+                source = "broker_adapter"
+            else:
+                report = db.build_daily_risk_report(report_date=report_date)
+                source = "runtime_database"
         finally:
             db.close()
         available = True
@@ -1608,6 +1695,7 @@ def _risk_report_payload(
     return {
         "available": available,
         "error": error,
+        "source": source if available else "unavailable",
         "report": report.model_dump(mode="json") if report is not None else None,
     }
 

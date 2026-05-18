@@ -29,6 +29,8 @@ from agentic_trader.schemas import (
     ManagerDecision,
     MarketSnapshot,
     OperatorInstruction,
+    PortfolioSnapshot,
+    PositionSnapshot,
     PreferenceUpdate,
     RegimeAssessment,
     ResearchCoordinatorBrief,
@@ -2147,6 +2149,77 @@ def test_finance_ops_json_reports_read_only_desk_checks(
         check["name"] == "paper_or_external_paper_only" and check["passed"] is True
         for check in payload["checks"]
     )
+
+
+def test_finance_ops_uses_alpaca_paper_adapter_account_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="configured",
+        alpaca_secret_key="configured",
+        alpaca_paper_trading_enabled=True,
+        live_execution_enabled=False,
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    db.save_position_plan(
+        symbol="AAPL",
+        side="buy",
+        entry_price=190.0,
+        stop_loss=180.0,
+        take_profit=210.0,
+        max_holding_bars=20,
+        holding_bars=0,
+        invalidation_logic="QA adapter-backed position plan.",
+    )
+    db.close()
+
+    class FakeAlpacaPaperAdapter:
+        def get_account_state(self) -> PortfolioSnapshot:
+            return PortfolioSnapshot(
+                cash=99995.0,
+                market_value=5.0,
+                equity=100000.0,
+                realized_pnl=0.0,
+                unrealized_pnl=0.25,
+                open_positions=1,
+            )
+
+        def get_positions(self) -> list[PositionSnapshot]:
+            return [
+                PositionSnapshot(
+                    symbol="AAPL",
+                    quantity=0.025,
+                    average_price=190.0,
+                    market_price=200.0,
+                    market_value=5.0,
+                    unrealized_pnl=0.25,
+                )
+            ]
+
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.cli.get_broker_adapter",
+        lambda **_kwargs: FakeAlpacaPaperAdapter(),
+    )
+
+    result = CliRunner().invoke(app, ["finance-ops", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["backend"] == "alpaca_paper"
+    assert payload["portfolio"]["source"] == "broker_adapter"
+    assert payload["portfolio"]["snapshot"]["market_value"] == pytest.approx(5.0)
+    assert payload["portfolio"]["positions"][0]["quantity"] == pytest.approx(0.025)
+    assert payload["positionPlanCoverage"]["source"] == "broker_adapter"
+    assert payload["positionPlanCoverage"]["open_symbols"] == ["AAPL"]
+    assert payload["positionPlanCoverage"]["missing_symbols"] == []
+    assert payload["riskReport"]["source"] == "broker_adapter"
+    assert payload["riskReport"]["report"]["market_value"] == pytest.approx(5.0)
+    assert payload["riskReport"]["report"]["top_position_symbols"] == ["AAPL"]
 
 
 def test_finance_ops_flags_open_positions_without_exit_plans(
