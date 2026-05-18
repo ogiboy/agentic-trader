@@ -321,10 +321,13 @@ export async function execTrader(
  * @returns The dashboard data parsed from the CLI's JSON output.
  */
 export async function getDashboardSnapshot(): Promise<any> {
-  return execTrader(['dashboard-snapshot', '--log-limit', '14'], {
-    expectJson: true,
-    timeoutMs: 30_000,
-  });
+  return execTrader(
+    ['dashboard-snapshot', '--log-limit', '14', '--provider-check'],
+    {
+      expectJson: true,
+      timeoutMs: 30_000,
+    },
+  );
 }
 
 /**

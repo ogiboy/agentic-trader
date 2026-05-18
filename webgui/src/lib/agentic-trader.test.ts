@@ -41,6 +41,28 @@ describe('agentic-trader webgui CLI bridge', () => {
     );
   });
 
+  it('requests provider-checked dashboard snapshots for readiness truth', async () => {
+    const { getDashboardSnapshot } = await import('./agentic-trader');
+    execSuccess('{"v1Readiness":{"paper_operations":{"allowed":true}}}');
+
+    await expect(getDashboardSnapshot()).resolves.toMatchObject({
+      v1Readiness: { paper_operations: { allowed: true } },
+    });
+    expect(execFileMock).toHaveBeenCalledWith(
+      '/usr/bin/python-test',
+      [
+        '-m',
+        'agentic_trader.cli',
+        'dashboard-snapshot',
+        '--log-limit',
+        '14',
+        '--provider-check',
+      ],
+      expect.objectContaining({ timeout: 30_000 }),
+      expect.any(Function),
+    );
+  });
+
   it('falls back past missing executables and redacts command failures', async () => {
     const { execTrader } = await import('./agentic-trader');
     const missing = Object.assign(new Error('missing'), { code: 'ENOENT' });
