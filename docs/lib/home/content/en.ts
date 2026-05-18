@@ -106,7 +106,7 @@ export const homeContentEn: HomeContent = {
         },
         {
           title: 'Architecture track',
-          body: 'Use `dev/code-map.md` plus the architecture docs to find the smallest owning module before editing.',
+          body: 'Use `dev-docs/code-map.md` plus the architecture docs to find the smallest owning module before editing.',
         },
         {
           title: 'Frontend track',

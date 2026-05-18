@@ -106,7 +106,7 @@ export const homeContentTr: HomeContent = {
         },
         {
           title: 'Mimari izi',
-          body: "Edit yapmadan önce en küçük sahip modülü bulmak için `dev/code-map.md` ve mimari docs'unu birlikte kullan.",
+          body: "Edit yapmadan önce en küçük sahip modülü bulmak için `dev-docs/code-map.md` ve mimari docs'unu birlikte kullan.",
         },
         {
           title: 'Frontend izi',

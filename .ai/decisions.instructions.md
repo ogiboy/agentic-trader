@@ -650,7 +650,7 @@ This is still incremental architecture cleanup, not a license for broad rewrites
 ### The existing docs scaffold should be activated, not replaced
 
 Reason:
-The repository already contains a `docs/` Next.js scaffold, while developer orientation still partly lives in repo notes such as `dev/code-map.md`.
+The repository already contains a `docs/` Next.js scaffold, while developer orientation still partly lives in repo notes such as `dev-docs/code-map.md`.
 The right next step is to refresh links, migrate/update content, and grow the existing docs site into the canonical documentation surface instead of creating a second documentation project.
 Fumadocs is a good fit for that work because it gives the existing app a docs-native MDX layout, page tree, and search flow without changing the repository's runtime architecture.
 
