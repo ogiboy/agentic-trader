@@ -139,6 +139,7 @@ Implemented or substantially present:
 - optional tool ownership now has a persisted first contract under `runtime/setup/tool-ownership.json`: `app:up` and `agentic-trader tool-ownership` can record Ollama, Firecrawl, and Camofox as host-owned, app-owned, API/key-only, or skipped; setup-status, dashboard, Web GUI, and TUI expose that truth; model/Camofox app:start paths require persisted app-owned ownership before they start anything
 - setup is still not yet a fully interactive one-command product onboarding flow: the next layer should ask these ownership questions conversationally, preserve focused debug scripts, and keep install/update/delete actions explicit
 - `tools/camofox-browser` setup/start docs and root scripts now use standalone `pnpm --dir tools/camofox-browser --ignore-workspace ...` commands with a tool-root `pnpm-lock.yaml`; the npm lockfile is removed after pnpm install/test smoke, and browser binary fetch remains explicit and opt-in
+- root `pnpm-workspace.yaml` intentionally includes only the always-installed app packages `webgui`, `docs`, and `tui`; optional helper roots such as `tools/camofox-browser` stay outside the workspace and use explicit `pnpm --dir ... --ignore-workspace` commands until a future decision changes their ownership model
 - strict provider readiness now probes actual local-model generation when `--provider-check` or strict runtime launch gates are used; an Ollama server that is reachable and lists the configured model still blocks operation if `/api/generate` fails, so resource/Metal/backend load failures are caught before an agent cycle starts
 - `agentic-trader model-service status --probe-generation --json` now exposes
   that same model-load/generation truth directly on the model-service surface,
@@ -230,6 +231,7 @@ New production-expansion direction:
   when VS Code prompt-evaluation extensions are stale, quota-limited, or
   unavailable
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
+- `webgui/src/components/control-room.tsx` is currently an oversized mid-migration shell; the next maintainability pass should split dashboard polling, proposal desk, local tools, finance/readiness, auth/session, runtime controls, chat, and render helpers into focused modules before adding broad new Web GUI behavior
 
 ## Current Development Posture
 

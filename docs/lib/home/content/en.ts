@@ -146,7 +146,7 @@ export const homeContentEn: HomeContent = {
         },
         {
           title: 'Docs track',
-          body: 'Whenever runtime behavior or assumptions move, update `.ai/current-state.md`, `.ai/tasks.md`, `.ai/decisions.md`, and the matching docs page together.',
+          body: 'Whenever runtime behavior or assumptions move, update `.ai/current-state.instructions.md`, `.ai/tasks.instructions.md`, `.ai/decisions.instructions.md`, and the matching docs page together.',
         },
       ],
     },

@@ -74,6 +74,14 @@ The root pnpm workspace should not leave operators guessing whether `webgui`, `d
 `pnpm run setup` and `make setup` now run a node workspace setup script that installs the workspace, approves allowed builds, and checks expected dependency directories before Python sync.
 Normal `clean` remains artifact/cache-only to avoid unexpectedly deleting large installs, while `clean:deps` and `clean:all` make dependency removal intentional.
 
+### Optional helper tool roots are not app workspace packages by default
+
+Reason:
+The root pnpm workspace represents app surfaces that should be installed by the normal developer/operator setup path: `webgui`, `docs`, and `tui`.
+Browser/model/fetcher helpers under `tools/` have different ownership, security, download, and lifecycle rules.
+Camofox therefore remains a standalone tool root installed with explicit `pnpm --dir tools/camofox-browser --ignore-workspace ...` commands, with browser binary fetches staying opt-in.
+Adding Camofox to `pnpm-workspace.yaml` would make normal workspace setup install browser-helper dependencies and blur optional-helper ownership before the product decides that Camofox should be always-installed infrastructure.
+
 ### Guided app lifecycle commands compose existing owners
 
 Reason:

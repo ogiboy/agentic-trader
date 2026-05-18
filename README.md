@@ -144,6 +144,12 @@ and `tui/` each have their workspace `node_modules` links before syncing the
 root uv Python environment. If you only need the JavaScript side, run
 `pnpm run setup:node` or `make setup-node`.
 
+Optional helper tools under `tools/` are not root workspace packages by
+default. Camofox is installed through explicit tool-root commands such as
+`make setup-camofox` or `pnpm --dir tools/camofox-browser install
+--ignore-workspace --ignore-scripts`, so a normal `pnpm install` does not fetch
+browser-helper dependencies or blur app-package ownership.
+
 For a read-only lifecycle check that does not install dependencies, start
 services, pull models, open a browser, or start trading, run:
 

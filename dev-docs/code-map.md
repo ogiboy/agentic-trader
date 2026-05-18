@@ -14,7 +14,7 @@ behavior, while this map explains where to look and how the pieces connect.
 ## Web And Docs Surfaces
 
 - `webgui/` is the local Web GUI. It uses Next.js App Router route handlers to call the same dashboard, runtime, chat, and instruction contracts that power the terminal surfaces.
-- `docs/` is the developer docs app. It now uses Fumadocs plus MDX for curated setup, architecture, runtime, operator-surface, and QA documentation.
+- `docs/` is the separate operator-first docs app. It now uses Fumadocs plus MDX for curated setup, architecture, runtime, operator-surface, QA, and contributor-maintenance documentation.
 - `docs/source.config.ts`, `docs/lib/source.ts`, and `docs/content/docs/` own the Fumadocs content pipeline.
 - `docs/app/[lang]/docs/[[...slug]]/page.tsx` renders the generated MDX pages under locale-prefixed routes such as `/en/...` and `/tr/...`, while `docs/app/page.tsx` is the project-facing landing page for developers.
 
@@ -63,7 +63,7 @@ behavior, while this map explains where to look and how the pieces connect.
 
 - `scripts/qa/smoke_qa.py` is the terminal smoke harness. It checks installed CLI commands, Ink/Rich entrypoints, `python main.py`, optional `ruff`, `pytest`, `pyright`, coverage XML, and optional SonarQube submission.
 - `.ai/qa/qa-smoke-script.md` documents how to run the smoke harness and where artifacts are written.
-- `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` should be updated when architecture or workflow assumptions change.
+- `.ai/current-state.instructions.md`, `.ai/tasks.instructions.md`, and `.ai/decisions.instructions.md` should be updated when architecture or workflow assumptions change.
 - `pyrightconfig.json` scopes static type checking to source, tests, and scripts while excluding generated/build/runtime artifacts.
 
 ## Documentation Conventions

@@ -146,7 +146,7 @@ export const homeContentTr: HomeContent = {
         },
         {
           title: 'Docs izi',
-          body: 'Runtime davranışı veya varsayımlar değiştiğinde `.ai/current-state.md`, `.ai/tasks.md`, `.ai/decisions.md` ve ilgili docs sayfasını birlikte güncelle.',
+          body: 'Runtime davranışı veya varsayımlar değiştiğinde `.ai/current-state.instructions.md`, `.ai/tasks.instructions.md`, `.ai/decisions.instructions.md` ve ilgili docs sayfasını birlikte güncelle.',
         },
       ],
     },
