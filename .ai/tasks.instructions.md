@@ -23,7 +23,8 @@ Now:
 - grow the V1 research sidecar as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
 - keep the new V1 proposal queue manual-review only: scanners, research providers, chat, Web routes, and sidecars may surface or explain proposals, but only explicit approval commands should submit to the configured paper/external-paper broker adapter
 - treat V1 as an active US trading product goal, not a passive research demo: the supported Alpaca path must be able to submit approved buy/sell intents once provider, broker, account, risk, audit, and kill-switch gates pass; V2 is the Turkey expansion track
-- keep proposal reconciliation in the safety loop: `proposal-reconcile` can mark an already approved in-flight proposal terminal from the idempotent `execution_records.intent_id` row without broker resubmission; the Web GUI Proposal Desk can surface and trigger reconcile explicitly, while next passes should add richer Rich/Ink parity and smoke QA
+- keep broker/journal truth conservative: externally accepted paper orders should remain in-flight approved proposals plus operator-visible open journal entries, and `proposal-refresh` should read the original broker order without resubmission before marking a later fill, no-fill, cancel, or reject state
+- keep proposal reconciliation in the safety loop: `proposal-reconcile` can mark an already approved in-flight proposal terminal from the idempotent `execution_records.intent_id` row without broker resubmission, and the Web GUI Proposal Desk can surface reconcile plus refresh explicitly; next passes should add richer Rich/Ink parity and smoke QA
 - keep position-plan repair in the paper-desk recovery loop: `position-plan-repair` must remain broker-free, dry-run by default, and limited to executed proposals with valid stop/take controls for currently open positions that are missing stored exit plans
 - keep Firecrawl and Camofox optional under `researchd`: they may help collect source-attributed evidence or browser health, but they must stay disabled by default, redacted, raw-text-free for prompts, and outside the broker/runtime-mode boundary
 - keep deterministic idea-scanner presets as research/screening tools until provider/news/fundamental enrichment and proposal-review UX are mature enough for broader operator workflows
@@ -107,7 +108,7 @@ Next:
 - connect idea-scanner output to provider/news/fundamental context and then to proposal records with audit-friendly materiality, freshness, liquidity, and risk/sizing fields
 - extend the first runtime strategy catalog slice into feature bundle enrichment, backtest comparison, proposal records, and guard/risk layers only after evidence and validation checks are green
 - add no-lookahead and confidence-review checks before treating opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble ideas as more than research candidates
-- expand proposal queue parity across Rich, Ink, docs, and smoke QA before treating it as the default paper-desk workflow; the Web GUI now has the first explicit Proposal Desk surface over the existing CLI contracts
+- expand proposal queue parity across Rich, Ink, docs, and smoke QA before treating it as the default paper-desk workflow; the Web GUI now has the first explicit Proposal Desk surface over the existing CLI approve/reject/reconcile/refresh contracts
 - grow risk/sizing from the current HHI/top-position concentration signal toward ATR/confidence sizing, liquidity/ADV/spread penalties, group budgets, and correlation cluster warnings
 - add optional V1 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
 - turn the planned CrewAI task definitions into executable Flow/Crew steps only after real normalized provider evidence exists and contract tests cover failures
@@ -119,10 +120,12 @@ Next:
 - keep exercising `alpaca_paper` only as external paper readiness until paper evidence, operator approval, and live adapter scope are explicitly reviewed
 - expand docs feature deep dives for paper operation, broker/account truth, memory/review, research sidecar, runtime modes, and evidence bundles with user-facing examples before adding more contributor-only pages
 - keep an eye on local MCP hygiene: several `mcp/sonarqube` client containers can be active at once, and stale clients should be stopped only after confirming no current Codex/VS Code session depends on them
-- keep raising full-suite coverage toward an 80 percent V1 target; the current
-  enforced branch baseline is 75 percent and the latest full coverage run was
-  about 75.8 percent, with the largest remaining gaps in CLI, TUI, LLM client,
-  broker, service workflow, and market-data paths
+- keep full-suite coverage at or above the 80 percent V1 target; the enforced
+  branch baseline is still 75 percent, and the latest sandbox full coverage run
+  reached about 80.2 percent, though the run itself was not green because three
+  loopback socket-bind tests are blocked by sandbox permissions. The largest
+  remaining gaps are still CLI, TUI, LLM client, service workflow, observer API,
+  and market-data paths.
 
 ### 1. Financial Intelligence Layer
 

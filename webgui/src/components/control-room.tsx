@@ -5,6 +5,7 @@ import Image from 'next/image';
 import {
   CheckCircle2,
   Power,
+  RefreshCw,
   RotateCcw,
   SlidersHorizontal,
   Wrench,
@@ -641,6 +642,11 @@ export function ProposalDeskView({
                   const canReconcile =
                     proposal.status === 'approved' &&
                     Boolean(proposal.execution_intent_id);
+                  const canRefresh =
+                    (proposal.status === 'approved' ||
+                      proposal.status === 'executed') &&
+                    proposal.execution_outcome_status === 'accepted' &&
+                    Boolean(proposal.execution_order_id);
                   return (
                     <article className="proposal-card" key={proposalId}>
                       <div className="proposal-card__head">
@@ -696,6 +702,18 @@ export function ProposalDeskView({
                         >
                           <RotateCcw aria-hidden size={16} />
                           Reconcile
+                        </button>
+                        <button
+                          className="button"
+                          disabled={!canRefresh || Boolean(busy)}
+                          onClick={() =>
+                            void onProposalAction('refresh', proposalId)
+                          }
+                          title="Refresh accepted broker order without resubmitting"
+                          type="button"
+                        >
+                          <RefreshCw aria-hidden size={16} />
+                          Refresh
                         </button>
                       </div>
                     </article>

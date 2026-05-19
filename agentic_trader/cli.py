@@ -36,6 +36,7 @@ from agentic_trader.finance.proposals import (
     approve_trade_proposal,
     create_trade_proposal,
     reconcile_trade_proposal,
+    refresh_trade_proposal_order,
     reject_trade_proposal,
     repair_missing_position_plans,
 )
@@ -1243,6 +1244,10 @@ def _render_memory_matches(matches) -> None:
 
 def _emit_json(payload: object) -> None:
     typer.echo(json.dumps(payload, indent=2))
+
+
+def _emit_json_error(error: Exception | str) -> None:
+    _emit_json({"error": str(error)})
 
 
 def _open_db(settings: Settings, *, read_only: bool = False) -> TradingDatabase:
@@ -4445,6 +4450,9 @@ def proposal_create(**options: str) -> None:
         finally:
             db.close()
     except ValueError as exc:
+        if bool(options["json_output"]):
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
         console.print(Panel(str(exc), title="Proposal Rejected", border_style="red"))
         raise typer.Exit(code=2) from exc
     payload = proposal.model_dump(mode="json")
@@ -4481,6 +4489,9 @@ def proposal_approve(
         finally:
             db.close()
     except (RuntimeError, ValueError) as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
         console.print(Panel(str(exc), title="Approval Blocked", border_style="red"))
         raise typer.Exit(code=2) from exc
     payload = {
@@ -4521,6 +4532,9 @@ def proposal_reconcile(
         finally:
             db.close()
     except ValueError as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
         console.print(
             Panel(str(exc), title="Reconciliation Blocked", border_style="red")
         )
@@ -4545,6 +4559,53 @@ def proposal_reconcile(
     )
 
 
+@app.command("proposal-refresh")
+def proposal_refresh(
+    proposal_id: str = typer.Argument(
+        ..., help="Executed proposal id with an accepted broker order to refresh."
+    ),
+    review_notes: str = typer.Option("", help="Optional refresh notes."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Refresh an accepted broker order without submitting a new order."""
+    settings = get_settings()
+    try:
+        db = _open_db(settings)
+        try:
+            proposal, outcome = refresh_trade_proposal_order(
+                db=db,
+                settings=settings,
+                proposal_id=proposal_id,
+                review_notes=review_notes,
+            )
+        finally:
+            db.close()
+    except (RuntimeError, ValueError) as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
+        console.print(Panel(str(exc), title="Refresh Blocked", border_style="red"))
+        raise typer.Exit(code=2) from exc
+    payload = {
+        "proposal": proposal.model_dump(mode="json"),
+        "outcome": outcome.model_dump(mode="json"),
+        "resubmitted": False,
+        "refreshed": True,
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"{proposal.proposal_id} -> {proposal.status}\n"
+            f"order={proposal.execution_order_id or '-'} status={outcome.status}\n"
+            "No broker resubmission was attempted.",
+            title="Trade Proposal Refreshed",
+            border_style="green" if proposal.status == "executed" else "yellow",
+        )
+    )
+
+
 @app.command("proposal-reject")
 def proposal_reject(
     proposal_id: str = typer.Argument(..., help="Trade proposal id to reject."),
@@ -4562,6 +4623,9 @@ def proposal_reject(
         finally:
             db.close()
     except ValueError as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
         console.print(Panel(str(exc), title="Rejection Blocked", border_style="red"))
         raise typer.Exit(code=2) from exc
     if json_output:

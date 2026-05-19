@@ -513,6 +513,39 @@ describe('control-room formatting helpers', () => {
     );
   });
 
+  it('shows accepted broker orders as refreshable proposal desk items', () => {
+    const dashboardWithAcceptedOrder = {
+      ...dashboardFixture,
+      tradeProposals: {
+        available: true,
+        error: null,
+        proposals: [
+          {
+            confidence: 0.77,
+            execution_order_id: 'alpaca-paper-order-1',
+            execution_outcome_status: 'accepted',
+            notional: 500,
+            proposal_id: 'proposal-refresh-1',
+            reference_price: 250,
+            side: 'buy',
+            source: 'manual',
+            status: 'approved',
+            stop_loss: 240,
+            symbol: 'NVDA',
+            take_profit: 275,
+            thesis: 'Accepted external paper order needs broker refresh.',
+          },
+        ],
+      },
+    };
+
+    const markup = renderActiveView('proposals', dashboardWithAcceptedOrder);
+
+    expect(markup).toContain('proposal-refresh-1');
+    expect(markup).toContain('Refresh');
+    expect(markup).toContain('Refresh accepted broker order without resubmitting');
+  });
+
   it('loads the control room and exercises runtime, chat, and instruction actions', async () => {
     const fetchMock = vi
       .fn()

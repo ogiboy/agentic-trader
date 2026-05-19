@@ -9,6 +9,7 @@ from agentic_trader.engine.broker import (
     SimulatedRealBrokerAdapter,
     broker_runtime_payload,
     get_broker_adapter,
+    get_broker_order_reader,
 )
 from agentic_trader.execution.intent import ExecutionIntent
 from agentic_trader.schemas import (
@@ -59,6 +60,25 @@ def test_get_broker_adapter_respects_kill_switch(tmp_path) -> None:
 
     with pytest.raises(RuntimeError, match="kill switch"):
         get_broker_adapter(db=db, settings=settings)
+
+
+def test_broker_order_reader_does_not_expose_mutators_under_kill_switch(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+        execution_kill_switch_active=True,
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+
+    reader = get_broker_order_reader(db=db, settings=settings)
+
+    assert hasattr(reader, "get_order_outcome")
+    assert not hasattr(reader, "adapter")
+    assert not hasattr(reader, "place_order")
+    assert not hasattr(reader, "cancel_order")
+    assert not hasattr(reader, "close_position")
 
 
 def test_broker_runtime_payload_reports_blocked_live_backend(tmp_path) -> None:
@@ -143,6 +163,17 @@ def test_alpaca_paper_adapter_blocks_non_us_symbol_without_network(tmp_path) -> 
 
 def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(tmp_path) -> None:
     class FailingClient:
+        def get_all_positions(self):
+            return []
+
+        def get_account(self):
+            return SimpleNamespace(
+                cash="100000",
+                long_market_value="0",
+                short_market_value="0",
+                portfolio_value="100000",
+            )
+
         def submit_order(self, *, order_data):
             raise RuntimeError(
                 "paper api failed Authorization: Bearer alpaca-secret-token"
@@ -263,6 +294,34 @@ def test_paper_broker_adapter_submit(tmp_path) -> None:
 
     result = adapter.submit(decision)
     assert result is not None
+
+
+def test_paper_broker_adapter_blocks_invalid_symbol(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    adapter = PaperBrokerAdapter(db=db, settings=settings)
+    intent = ExecutionIntent(
+        symbol="AAPL;BAD",
+        side="buy",
+        quantity=1.0,
+        reference_price=100.0,
+        confidence=0.8,
+        thesis="Invalid symbol should fail before local paper fill.",
+        approved=True,
+        execution_backend="paper",
+        adapter_name="paper",
+    )
+
+    outcome = adapter.place_order(intent)
+
+    assert outcome.status == "blocked"
+    assert outcome.rejection_reason == "unsupported_symbol_scope"
+    assert db.get_position("AAPL;BAD") is None
 
 
 def test_simulated_real_broker_adapter(tmp_path) -> None:
@@ -894,6 +953,15 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
                 status="filled",
             )
 
+        def get_order_by_id(self, order_id):
+            assert order_id == "order-1"
+            return SimpleNamespace(
+                id="order-1",
+                filled_qty="1",
+                filled_avg_price="101.25",
+                status="partially_filled",
+            )
+
         def get_all_positions(self):
             return [
                 SimpleNamespace(
@@ -949,6 +1017,7 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
     )
 
     outcome = adapter.place_order(intent)
+    refreshed_outcome = adapter.get_order_outcome(order_id="order-1", intent=intent)
     positions = adapter.get_positions()
     account = adapter.get_account_state()
     open_orders = adapter.get_open_orders()
@@ -966,6 +1035,9 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
 
     assert submitted_orders
     assert outcome.status == "filled"
+    assert refreshed_outcome.status == "partially_filled"
+    assert refreshed_outcome.filled_quantity == pytest.approx(1.0)
+    assert refreshed_outcome.message.endswith("broker status partially_filled.")
     assert outcome.filled_quantity == pytest.approx(2.0)
     assert outcome.average_fill_price == pytest.approx(101.25)
     assert positions[0].symbol == "AAPL"
@@ -974,6 +1046,212 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
     assert open_orders[0].side == "sell"
     assert healthcheck.ok is True
     assert close_id == "close-AAPL"
+
+
+def test_alpaca_paper_adapter_blocks_oversize_order_before_submit(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="key",
+        alpaca_secret_key="secret",
+        alpaca_paper_trading_enabled=True,
+        max_position_pct=0.1,
+        max_gross_exposure_pct=0.8,
+    )
+    settings.ensure_directories()
+
+    class FakeClient:
+        def submit_order(self, *, order_data):
+            raise AssertionError("oversize order must be blocked before submit")
+
+        def get_all_positions(self):
+            return []
+
+        def get_account(self):
+            return SimpleNamespace(
+                cash="100000",
+                long_market_value="0",
+                short_market_value="0",
+                portfolio_value="100000",
+            )
+
+    adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
+    adapter._client = FakeClient()
+    intent = ExecutionIntent(
+        symbol="AAPL",
+        side="buy",
+        notional=50_000,
+        reference_price=250,
+        confidence=0.95,
+        thesis="Oversize order should fail pre-submit.",
+        approved=True,
+        execution_backend="alpaca_paper",
+        adapter_name="alpaca_paper",
+    )
+
+    outcome = adapter.place_order(intent)
+
+    assert outcome.status == "blocked"
+    assert outcome.rejection_reason == "max_position_exceeded"
+
+
+def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="key",
+        alpaca_secret_key="secret",
+        alpaca_paper_trading_enabled=True,
+        allow_short=False,
+        max_position_pct=0.1,
+        max_gross_exposure_pct=0.8,
+    )
+    settings.ensure_directories()
+    submitted_orders: list[object] = []
+
+    class FakeClient:
+        def submit_order(self, *, order_data):
+            submitted_orders.append(order_data)
+            return SimpleNamespace(
+                id="close-order-1",
+                filled_qty="200",
+                filled_avg_price="250",
+                status="filled",
+            )
+
+        def get_all_positions(self):
+            return [
+                SimpleNamespace(
+                    symbol="AAPL",
+                    qty="200",
+                    avg_entry_price="250",
+                    current_price="250",
+                    market_value="50000",
+                    unrealized_pl="0",
+                )
+            ]
+
+        def get_account(self):
+            return SimpleNamespace(
+                cash="50000",
+                long_market_value="50000",
+                short_market_value="0",
+                portfolio_value="100000",
+            )
+
+    adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
+    adapter._client = FakeClient()
+    intent = ExecutionIntent(
+        symbol="AAPL",
+        side="sell",
+        quantity=200,
+        reference_price=250,
+        confidence=0.9,
+        thesis="Large sell closes an existing long position.",
+        approved=True,
+        execution_backend="alpaca_paper",
+        adapter_name="alpaca_paper",
+    )
+
+    outcome = adapter.place_order(intent)
+
+    assert submitted_orders
+    assert outcome.status == "filled"
+    assert outcome.order_id == "close-order-1"
+
+
+def test_alpaca_paper_adapter_maps_cancelled_and_redacts_rejection_reason(
+    tmp_path,
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="key",
+        alpaca_secret_key="secret",
+        alpaca_paper_trading_enabled=True,
+    )
+    settings.ensure_directories()
+
+    class FakeClient:
+        def get_order_by_id(self, order_id):
+            assert order_id == "cancelled-order-1"
+            return SimpleNamespace(
+                id="cancelled-order-1",
+                filled_qty="0",
+                filled_avg_price=None,
+                status="canceled",
+                reject_reason="BROKER_TOKEN=secret-value cancelled",
+            )
+
+    adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
+    adapter._client = FakeClient()
+    intent = ExecutionIntent(
+        symbol="AAPL",
+        side="buy",
+        quantity=1,
+        reference_price=250,
+        confidence=0.9,
+        thesis="Refresh cancelled order.",
+        approved=True,
+        execution_backend="alpaca_paper",
+        adapter_name="alpaca_paper",
+    )
+
+    outcome = adapter.get_order_outcome(order_id="cancelled-order-1", intent=intent)
+
+    assert outcome.status == "cancelled"
+    assert outcome.rejection_reason == "BROKER_TOKEN=<redacted> cancelled"
+
+
+def test_alpaca_paper_adapter_preserves_partial_fill_on_cancelled_order(
+    tmp_path,
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="key",
+        alpaca_secret_key="secret",
+        alpaca_paper_trading_enabled=True,
+    )
+    settings.ensure_directories()
+
+    class FakeClient:
+        def get_order_by_id(self, order_id):
+            assert order_id == "cancelled-partial-order-1"
+            return SimpleNamespace(
+                id="cancelled-partial-order-1",
+                filled_qty="0.5",
+                filled_avg_price="250",
+                status="canceled",
+                reject_reason="unfilled remainder canceled",
+            )
+
+    adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
+    adapter._client = FakeClient()
+    intent = ExecutionIntent(
+        symbol="AAPL",
+        side="buy",
+        quantity=1,
+        reference_price=250,
+        confidence=0.9,
+        thesis="Refresh cancelled partial order.",
+        approved=True,
+        execution_backend="alpaca_paper",
+        adapter_name="alpaca_paper",
+    )
+
+    outcome = adapter.get_order_outcome(
+        order_id="cancelled-partial-order-1", intent=intent
+    )
+
+    assert outcome.status == "partially_filled"
+    assert outcome.filled_quantity == 0.5
+    assert outcome.average_fill_price == 250
+    assert outcome.rejection_reason is None
 
 
 def test_alpaca_paper_adapter_blocks_close_without_exit_or_us_symbol(tmp_path) -> None:

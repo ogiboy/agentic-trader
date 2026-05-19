@@ -1387,23 +1387,7 @@ class TradingDatabase:
 
         if outcome.order_id is None:
             return None
-        existing = self.conn.execute(
-            """
-            select trade_id
-            from trade_journal
-            where entry_order_id = ?
-            """,
-            [outcome.order_id],
-        ).fetchone()
-        if existing is not None:
-            return str(existing[0])
-
-        if outcome.status in {"filled", "partially_filled"}:
-            journal_status: JournalStatus = "open"
-        elif outcome.status == "accepted":
-            journal_status = "no_fill"
-        else:
-            journal_status = "rejected"
+        journal_status = self._proposal_journal_status(outcome)
         entry_price = outcome.average_fill_price or proposal.reference_price
         stop_loss = proposal.stop_loss or proposal.reference_price
         take_profit = proposal.take_profit or proposal.reference_price
@@ -1414,6 +1398,41 @@ class TradingDatabase:
         ]
         if proposal.review_notes:
             note_parts.append(f"review_notes={proposal.review_notes}")
+        notes = " | ".join(note_parts)
+        existing = self.conn.execute(
+            """
+            select trade_id
+            from trade_journal
+            where entry_order_id = ?
+            """,
+            [outcome.order_id],
+        ).fetchone()
+        if existing is not None:
+            trade_id = str(existing[0])
+            self.conn.execute(
+                """
+                update trade_journal
+                set journal_status = ?,
+                    entry_price = ?,
+                    stop_loss = ?,
+                    take_profit = ?,
+                    confidence = ?,
+                    review_summary = ?,
+                    notes = ?
+                where trade_id = ?
+                """,
+                [
+                    journal_status,
+                    entry_price,
+                    stop_loss,
+                    take_profit,
+                    proposal.confidence,
+                    proposal.thesis,
+                    notes,
+                    trade_id,
+                ],
+            )
+            return trade_id
 
         trade_id = f"trade-{uuid4().hex[:12]}"
         self.conn.execute(
@@ -1444,10 +1463,18 @@ class TradingDatabase:
                 "manual_proposal",
                 proposal.side,
                 proposal.thesis,
-                " | ".join(note_parts),
+                notes,
             ],
         )
         return trade_id
+
+    @staticmethod
+    def _proposal_journal_status(outcome: ExecutionOutcome) -> JournalStatus:
+        if outcome.status in {"accepted", "filled", "partially_filled"}:
+            return "open"
+        if outcome.status in {"cancelled", "no_fill"}:
+            return "no_fill"
+        return "rejected"
 
     def persist_trade_context(
         self,

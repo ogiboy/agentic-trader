@@ -16,6 +16,7 @@ const SUPPORTED_PROPOSAL_ACTIONS = new Set<ProposalActionKind>([
   'approve',
   'reject',
   'reconcile',
+  'refresh',
 ]);
 
 function isProposalActionKind(value: unknown): value is ProposalActionKind {

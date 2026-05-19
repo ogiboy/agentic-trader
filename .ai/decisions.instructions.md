@@ -145,9 +145,11 @@ UI surfaces must show missing mark time or missing external broker evidence as m
 Reason:
 V1 needs explicit proposal discipline without giving scanners, sidecars, chat, or Web routes direct broker authority.
 Trade ideas may be queued as structured `TradeProposalRecord` rows with thesis, size, reference price, source, and review notes, but they remain pending until an explicit operator approval command submits through the existing broker adapter boundary.
+V1 proposal creation and paper/external-paper broker submissions accept only the supported simple US-equity symbol shape; Turkey/global symbols and malformed symbol strings stay blocked until a later scoped expansion.
 Approval records the broker-facing `ExecutionIntent` and `ExecutionOutcome`; rejection, execution, failure, and expiry are terminal states.
+External paper broker acknowledgements such as Alpaca paper `accepted` are in-flight approved proposals and open/operator-visible journal orders, not no-fill or executed outcomes; `proposal-refresh` may read the original broker order and update the stored execution/proposal/position-plan state, but it must never resubmit the order.
 If a process records the broker execution outcome but exits before the final proposal status update, reconciliation may only read the existing `execution_records.intent_id` row and mark the approved proposal terminal; it must not call the broker adapter again.
-The Web GUI Proposal Desk may call only the allowlisted CLI contracts for approve, reject, and reconcile, with same-origin/token route guards and no generic command execution or proposal creation surface.
+The Web GUI Proposal Desk may call only the allowlisted CLI contracts for approve, reject, reconcile, and refresh, with same-origin/token route guards and no generic command execution or proposal creation surface.
 This keeps proposal generation useful for a paper desk while preserving paper-first/manual-approval safety and keeping live execution blocked.
 Missing exit-plan recovery is also explicit and non-executing: `position-plan-repair` may backfill stored position plans only from already executed proposal records with valid stop-loss/take-profit controls and matching open positions, defaults to dry-run, and must never resubmit orders or infer risk controls from a thesis alone.
 

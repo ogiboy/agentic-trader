@@ -2381,6 +2381,44 @@ def test_trade_proposal_cli_create_list_reject_json(
     assert rejected["rejection_reason"] == "operator declined"
 
 
+def test_trade_proposal_cli_create_rejects_invalid_symbol_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "proposal-create",
+            "--symbol",
+            "AAPL;BAD",
+            "--side",
+            "buy",
+            "--order-type",
+            "market",
+            "--notional",
+            "10",
+            "--reference-price",
+            "100",
+            "--confidence",
+            "0.8",
+            "--thesis",
+            "Invalid symbol smoke.",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert payload["error"] == "Trade proposals require a simple V1 US equity symbol."
+
+
 def test_trade_proposal_cli_approve_json_records_paper_execution(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -2479,11 +2517,75 @@ def test_trade_proposal_cli_approve_blocks_missing_exit_controls(
     )
 
     assert approve_result.exit_code == 2
-    assert "requires stop_loss and take_profit" in approve_result.stdout
+    error_payload = json.loads(approve_result.stdout)
+    assert "requires stop_loss and take_profit" in error_payload["error"]
     list_result = runner.invoke(app, ["trade-proposals", "--json"])
     payload = json.loads(list_result.stdout)
     assert payload["proposals"][0]["status"] == "pending"
     assert payload["proposals"][0]["execution_order_id"] is None
+
+
+def test_trade_proposal_cli_refresh_missing_stays_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+    )
+    settings.ensure_directories()
+    TradingDatabase(settings).close()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["proposal-refresh", "proposal-missing", "--json"])
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert payload["error"] == "Trade proposal not found: proposal-missing"
+
+
+def test_trade_proposal_cli_reconcile_terminal_error_stays_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.82,
+        thesis="Already terminal proposal.",
+        stop_loss=95,
+        take_profit=110,
+    )
+    approve_trade_proposal(
+        db=db,
+        settings=settings,
+        proposal_id=proposal.proposal_id,
+    )
+    db.close()
+
+    reconcile_result = CliRunner().invoke(
+        app,
+        [
+            "proposal-reconcile",
+            proposal.proposal_id,
+            "--json",
+        ],
+    )
+
+    assert reconcile_result.exit_code == 2
+    error_payload = json.loads(reconcile_result.stdout)
+    assert "already terminal" in error_payload["error"]
 
 
 def test_trade_proposal_cli_reconcile_json_repairs_without_resubmission(

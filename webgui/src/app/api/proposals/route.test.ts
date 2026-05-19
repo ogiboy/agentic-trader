@@ -96,6 +96,20 @@ describe('proposals route', () => {
       'proposal-2',
       'spread too wide',
     );
+    vi.advanceTimersByTime(1_500);
+
+    const third = await POST(
+      proposalRequest({
+        kind: 'refresh',
+        proposalId: 'proposal-3',
+      }),
+    );
+    expect(third.status).toBe(200);
+    expect(vi.mocked(runProposalAction)).toHaveBeenCalledWith(
+      'refresh',
+      'proposal-3',
+      '',
+    );
   });
 
   it('redacts thrown proposal errors', async () => {

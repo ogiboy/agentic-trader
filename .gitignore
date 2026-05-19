@@ -106,6 +106,9 @@ htmlcov/
 .ai/qa/artifacts/ollama-*/
 /.claude/
 /.claude-flow/
+/.ruflo/
 /.swarm/
 /.mcp.json
 /CLAUDE.md
+
+/.playwright-cli/

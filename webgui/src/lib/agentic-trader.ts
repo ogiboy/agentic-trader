@@ -442,7 +442,7 @@ export type ToolActionKind =
   | 'start-model-service'
   | 'start-camofox-service';
 
-export type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
+export type ProposalActionKind = 'approve' | 'reject' | 'reconcile' | 'refresh';
 
 /**
  * Selects the model name configured in the provided dashboard snapshot.
@@ -565,6 +565,10 @@ function proposalActionMessage(kind: ProposalActionKind, result: any): string {
   if (kind === 'reject') {
     return `${symbol} proposal rejected.`;
   }
+  if (kind === 'refresh') {
+    const outcome = result?.outcome?.status || proposal?.execution_outcome_status || '-';
+    return `${symbol} proposal refreshed; proposal=${status}, broker=${outcome}.`;
+  }
   return `${symbol} proposal reconciled; status=${status}.`;
 }
 
@@ -607,6 +611,12 @@ export async function runProposalAction(
     );
   } else if (kind === 'reconcile') {
     const args = ['proposal-reconcile', cleanProposalId, '--json'];
+    if (cleanNotes) {
+      args.splice(2, 0, '--review-notes', cleanNotes);
+    }
+    result = await execTrader(args, { expectJson: true, timeoutMs: 45_000 });
+  } else if (kind === 'refresh') {
+    const args = ['proposal-refresh', cleanProposalId, '--json'];
     if (cleanNotes) {
       args.splice(2, 0, '--review-notes', cleanNotes);
     }

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import hashlib
-from typing import Any, Protocol, cast
+from typing import Any, Callable, Protocol, cast
 from uuid import uuid4
 
 from agentic_trader.config import Settings
@@ -13,6 +13,7 @@ from agentic_trader.execution.intent import (
     ExecutionOutcome,
     OpenOrderSnapshot,
 )
+from agentic_trader.execution.symbols import is_v1_us_equity_symbol
 from agentic_trader.schemas import (
     ExecutionBackend,
     ExecutionDecision,
@@ -27,7 +28,9 @@ from agentic_trader.storage.db import TradingDatabase
 
 ALPACA_PAPER_ENDPOINT_HOST = "paper-api.alpaca.markets"
 PAPER_BROKER_ACTIVE_MESSAGE = "Paper broker adapter is active."
-ALPACA_REJECTED_STATUSES = {"rejected", "canceled", "cancelled", "expired"}
+ALPACA_CANCELLED_STATUSES = {"canceled", "cancelled"}
+ALPACA_NO_FILL_STATUSES = {"expired"}
+ALPACA_REJECTED_STATUSES = {"rejected"}
 
 
 def _deterministic_unit_interval(seed: str, label: str) -> float:
@@ -43,6 +46,10 @@ class BrokerAdapter(Protocol):
     backend_name: str
 
     def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome: ...
+
+    def get_order_outcome(
+        self, *, order_id: str, intent: ExecutionIntent
+    ) -> ExecutionOutcome: ...
 
     def cancel_order(self, order_id: str) -> bool: ...
 
@@ -66,6 +73,22 @@ class BrokerAdapter(Protocol):
     def close_position(self, decision: PositionExitDecision) -> str: ...
 
 
+class OrderOutcomeReader(Protocol):
+    def get_order_outcome(
+        self, *, order_id: str, intent: ExecutionIntent
+    ) -> ExecutionOutcome: ...
+
+
+@dataclass(slots=True)
+class _ReadOnlyOrderOutcomeReader:
+    _get_order_outcome: Callable[..., ExecutionOutcome]
+
+    def get_order_outcome(
+        self, *, order_id: str, intent: ExecutionIntent
+    ) -> ExecutionOutcome:
+        return self._get_order_outcome(order_id=order_id, intent=intent)
+
+
 @dataclass(slots=True)
 class PaperBrokerAdapter:
     db: TradingDatabase
@@ -85,6 +108,17 @@ class PaperBrokerAdapter:
                 }
             )
         )
+
+    def get_order_outcome(
+        self, *, order_id: str, intent: ExecutionIntent
+    ) -> ExecutionOutcome:
+        record = self.db.get_execution_record(intent.intent_id)
+        if record is None or record.get("order_id") != order_id:
+            raise RuntimeError("Paper order refresh has no matching execution record.")
+        outcome_payload = record.get("outcome")
+        if not isinstance(outcome_payload, dict):
+            raise RuntimeError("Paper order refresh has no persisted outcome payload.")
+        return ExecutionOutcome.model_validate(outcome_payload)
 
     def submit(self, decision: ExecutionDecision) -> str:
         return self._broker.submit(decision)
@@ -260,6 +294,21 @@ class SimulatedRealBrokerAdapter:
             )
         return outcome.model_copy(update={"simulated_metadata": metadata})
 
+    def get_order_outcome(
+        self, *, order_id: str, intent: ExecutionIntent
+    ) -> ExecutionOutcome:
+        record = self.db.get_execution_record(intent.intent_id)
+        if record is None or record.get("order_id") != order_id:
+            raise RuntimeError(
+                "Simulated-real order refresh has no matching execution record."
+            )
+        outcome_payload = record.get("outcome")
+        if not isinstance(outcome_payload, dict):
+            raise RuntimeError(
+                "Simulated-real order refresh has no persisted outcome payload."
+            )
+        return ExecutionOutcome.model_validate(outcome_payload)
+
     def cancel_order(self, order_id: str) -> bool:
         return any(order.order_id == order_id for order in self.get_open_orders())
 
@@ -315,20 +364,6 @@ def alpaca_credentials_ready(settings: Settings) -> bool:
 
 def alpaca_uses_paper_endpoint(settings: Settings) -> bool:
     return ALPACA_PAPER_ENDPOINT_HOST in settings.alpaca_base_url.lower()
-
-
-def is_v1_us_equity_symbol(symbol: str) -> bool:
-    normalized = symbol.strip().upper()
-    if not normalized or len(normalized) > 10:
-        return False
-    if not all(char.isalnum() or char in {".", "-"} for char in normalized):
-        return False
-    parts = normalized.split(".")
-    if len(parts) > 2:
-        return False
-    if len(parts) == 2 and len(parts[1]) != 1:
-        return False
-    return True
 
 
 @dataclass(slots=True)
@@ -398,17 +433,131 @@ class AlpacaPaperBrokerAdapter:
                 reason="unsupported_symbol_scope",
                 message="V1 Alpaca paper adapter only accepts simple US equity symbols.",
             )
-        if intent.side == "sell" and not self.settings.allow_short:
-            return self._blocked_outcome(
-                intent,
-                reason="shorting_disabled",
-                message="Short sell intent blocked because shorting is disabled.",
-            )
         if intent.quantity is None and intent.notional is None:
             return self._blocked_outcome(
                 intent,
                 reason="missing_size",
                 message="Alpaca paper adapter requires quantity or notional.",
+            )
+        if intent.side == "sell" and not self.settings.allow_short:
+            short_check = self._shorting_disabled_outcome(intent)
+            if short_check is not None:
+                return short_check
+        risk_limit_outcome = self._risk_limit_outcome(intent)
+        if risk_limit_outcome is not None:
+            return risk_limit_outcome
+        return None
+
+    def _shorting_disabled_outcome(
+        self, intent: ExecutionIntent
+    ) -> ExecutionOutcome | None:
+        quantity = intent.quantity
+        if quantity is None and intent.notional is not None:
+            quantity = intent.notional / intent.reference_price
+        if quantity is None:
+            return self._blocked_outcome(
+                intent,
+                reason="missing_size",
+                message="Alpaca paper adapter requires quantity or notional.",
+            )
+        try:
+            current_qty = 0.0
+            for position in self.get_positions():
+                if position.symbol.upper() == intent.symbol.upper():
+                    current_qty = position.quantity
+                    break
+        except Exception as exc:
+            return self._blocked_outcome(
+                intent,
+                reason="position_lookup_failed",
+                message=(
+                    "Alpaca paper shorting check could not read positions: "
+                    f"{redact_sensitive_text(exc, max_length=160)}"
+                ),
+            )
+        if current_qty - quantity >= -1e-9:
+            return None
+        return self._blocked_outcome(
+            intent,
+            reason="shorting_disabled",
+            message="Short sell intent blocked because shorting is disabled.",
+        )
+
+    def _risk_limit_outcome(self, intent: ExecutionIntent) -> ExecutionOutcome | None:
+        try:
+            account = self.get_account_state()
+            positions = self.get_positions()
+        except Exception as exc:  # pragma: no cover - exercised through adapter boundary
+            return self._blocked_outcome(
+                intent,
+                reason="risk_check_unavailable",
+                message=(
+                    "Alpaca paper risk check could not verify account exposure: "
+                    f"{redact_sensitive_text(exc, max_length=160)}"
+                ),
+            )
+
+        equity = account.equity
+        if equity <= 0:
+            return self._blocked_outcome(
+                intent,
+                reason="account_equity_unavailable",
+                message="Alpaca paper risk check requires positive account equity.",
+            )
+
+        reference_price = intent.reference_price
+        order_quantity = (
+            intent.quantity
+            if intent.quantity is not None
+            else (intent.notional or 0.0) / reference_price
+        )
+        signed_order_quantity = order_quantity if intent.side == "buy" else -order_quantity
+
+        current_position = next(
+            (
+                position
+                for position in positions
+                if position.symbol.upper() == intent.symbol.upper()
+            ),
+            None,
+        )
+        current_quantity = current_position.quantity if current_position else 0.0
+        projected_quantity = current_quantity + signed_order_quantity
+        current_symbol_exposure = (
+            abs(current_position.market_value)
+            if current_position
+            else 0.0
+        )
+        projected_symbol_exposure = abs(projected_quantity * reference_price)
+        current_gross_exposure = sum(abs(position.market_value) for position in positions)
+        projected_gross_exposure = (
+            current_gross_exposure
+            - current_symbol_exposure
+            + projected_symbol_exposure
+        )
+
+        max_position_value = equity * self.settings.max_position_pct
+        if projected_symbol_exposure > max_position_value:
+            return self._blocked_outcome(
+                intent,
+                reason="max_position_exceeded",
+                message=(
+                    "Alpaca paper order would exceed max position size: "
+                    f"projected {projected_symbol_exposure:.2f} > "
+                    f"limit {max_position_value:.2f}."
+                ),
+            )
+
+        max_gross_value = equity * self.settings.max_gross_exposure_pct
+        if projected_gross_exposure > max_gross_value:
+            return self._blocked_outcome(
+                intent,
+                reason="max_gross_exposure_exceeded",
+                message=(
+                    "Alpaca paper order would exceed max gross exposure: "
+                    f"projected {projected_gross_exposure:.2f} > "
+                    f"limit {max_gross_value:.2f}."
+                ),
             )
         return None
 
@@ -428,15 +577,36 @@ class AlpacaPaperBrokerAdapter:
             kwargs["notional"] = intent.notional
         return kwargs
 
-    def _outcome_from_order(self, intent: ExecutionIntent, order: object) -> ExecutionOutcome:
+    def _outcome_from_order(
+        self, intent: ExecutionIntent, order: object, *, action: str = "submitted"
+    ) -> ExecutionOutcome:
         filled_quantity = _coerce_float(getattr(order, "filled_qty", 0.0))
         average_fill_price = _coerce_float(
             getattr(order, "filled_avg_price", None), default=0.0
         )
         raw_status = str(getattr(order, "status", "accepted")).lower()
-        status = "filled" if filled_quantity > 0 else "accepted"
         if raw_status in ALPACA_REJECTED_STATUSES:
             status = "rejected"
+        elif filled_quantity > 0 and (
+            raw_status in ALPACA_CANCELLED_STATUSES
+            or raw_status in ALPACA_NO_FILL_STATUSES
+            or raw_status == "partially_filled"
+        ):
+            status = "partially_filled"
+        elif raw_status in ALPACA_CANCELLED_STATUSES:
+            status = "cancelled"
+        elif raw_status in ALPACA_NO_FILL_STATUSES:
+            status = "no_fill"
+        elif filled_quantity > 0:
+            status = "filled"
+        else:
+            status = "accepted"
+        raw_rejection_reason = str(getattr(order, "reject_reason", "")) or None
+        safe_rejection_reason = (
+            redact_sensitive_text(raw_rejection_reason, max_length=160)
+            if raw_rejection_reason
+            else None
+        )
         return ExecutionOutcome(
             intent_id=intent.intent_id,
             order_id=str(getattr(order, "id", f"alpaca-paper-{uuid4().hex[:12]}")),
@@ -446,11 +616,11 @@ class AlpacaPaperBrokerAdapter:
             filled_quantity=filled_quantity,
             average_fill_price=average_fill_price or None,
             rejection_reason=(
-                str(getattr(order, "reject_reason", "")) or None
-                if status == "rejected"
+                safe_rejection_reason
+                if status in {"cancelled", "no_fill", "rejected"}
                 else None
             ),
-            message=f"Alpaca paper order submitted with broker status {raw_status}.",
+            message=f"Alpaca paper order {action} with broker status {raw_status}.",
         )
 
     def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
@@ -483,6 +653,18 @@ class AlpacaPaperBrokerAdapter:
                 ),
             )
         return self._outcome_from_order(intent, order)
+
+    def get_order_outcome(
+        self, *, order_id: str, intent: ExecutionIntent
+    ) -> ExecutionOutcome:
+        try:
+            order = self.client.get_order_by_id(order_id)
+        except Exception as exc:
+            raise RuntimeError(
+                "Alpaca paper order status refresh failed: "
+                f"{redact_sensitive_text(exc, max_length=160)}"
+            ) from exc
+        return self._outcome_from_order(intent, order, action="refreshed")
 
     def cancel_order(self, order_id: str) -> bool:
         self.client.cancel_order_by_id(order_id=order_id)
@@ -619,11 +801,7 @@ class AlpacaPaperBrokerAdapter:
         return str(getattr(response, "id", f"alpaca-paper-close-{uuid4().hex[:12]}"))
 
 
-def get_broker_adapter(*, db: TradingDatabase, settings: Settings) -> BrokerAdapter:
-    if settings.execution_kill_switch_active:
-        raise RuntimeError(
-            "Execution kill switch is active. No broker adapter may submit orders."
-        )
+def _adapter_for_backend(*, db: TradingDatabase, settings: Settings) -> BrokerAdapter:
     if settings.execution_backend == "paper":
         return PaperBrokerAdapter(db, settings)
     if settings.execution_backend == "simulated_real":
@@ -639,6 +817,23 @@ def get_broker_adapter(*, db: TradingDatabase, settings: Settings) -> BrokerAdap
             "Live execution backend is configured but no live broker adapter is implemented yet."
         )
     raise RuntimeError(f"Unsupported execution backend: {settings.execution_backend}")
+
+
+def get_broker_adapter(*, db: TradingDatabase, settings: Settings) -> BrokerAdapter:
+    if settings.execution_kill_switch_active:
+        raise RuntimeError(
+            "Execution kill switch is active. No broker adapter may submit orders."
+        )
+    return _adapter_for_backend(db=db, settings=settings)
+
+
+def get_broker_order_reader(
+    *, db: TradingDatabase, settings: Settings
+) -> OrderOutcomeReader:
+    """Return a broker order reader without exposing mutating adapter methods."""
+
+    adapter = _adapter_for_backend(db=db, settings=settings)
+    return _ReadOnlyOrderOutcomeReader(adapter.get_order_outcome)
 
 
 def _healthcheck_payload(settings: Settings) -> dict[str, object]:

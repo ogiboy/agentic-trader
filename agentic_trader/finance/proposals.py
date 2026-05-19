@@ -4,8 +4,9 @@ from typing import Any, Literal, NotRequired, TypedDict, cast
 from uuid import uuid4
 
 from agentic_trader.config import Settings
-from agentic_trader.engine.broker import get_broker_adapter
+from agentic_trader.engine.broker import get_broker_adapter, get_broker_order_reader
 from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
+from agentic_trader.execution.symbols import is_v1_us_equity_symbol
 from agentic_trader.schemas import (
     TradeProposalRecord,
     TradeProposalStatus,
@@ -21,7 +22,7 @@ TERMINAL_PROPOSAL_STATUSES: set[TradeProposalStatus] = {
     "expired",
 }
 
-_APPROVAL_SUCCESS_OUTCOMES = {"accepted", "filled", "partially_filled"}
+_EXECUTED_OUTCOMES = {"filled", "partially_filled"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,12 +76,15 @@ def create_trade_proposal(
         raise ValueError("Trade proposals require reference_price greater than zero.")
     if not 0 <= proposal_draft.confidence <= 1:
         raise ValueError("Trade proposals require confidence between 0 and 1.")
+    symbol = proposal_draft.symbol.strip().upper()
+    if not is_v1_us_equity_symbol(symbol):
+        raise ValueError("Trade proposals require a simple V1 US equity symbol.")
     now = utc_now_iso()
     proposal = TradeProposalRecord(
         proposal_id=f"proposal-{uuid4().hex[:12]}",
         created_at=now,
         updated_at=now,
-        symbol=proposal_draft.symbol.strip().upper(),
+        symbol=symbol,
         side=proposal_draft.side,
         order_type=proposal_draft.order_type,
         quantity=proposal_draft.quantity,
@@ -153,9 +157,7 @@ def approve_trade_proposal(
             ),
         )
     db.record_execution_outcome(run_id=None, intent=intent, outcome=outcome)
-    final_status: TradeProposalStatus = (
-        "executed" if outcome.status in _APPROVAL_SUCCESS_OUTCOMES else "failed"
-    )
+    final_status = _proposal_status_for_outcome(outcome.status)
     final_proposal = approved_proposal.model_copy(
         update={
             "status": final_status,
@@ -206,9 +208,7 @@ def reconcile_trade_proposal(
             f"Trade proposal {proposal_id} has no recorded execution outcome to reconcile."
         )
     outcome_status = str(record["status"])
-    final_status: TradeProposalStatus = (
-        "executed" if outcome_status in _APPROVAL_SUCCESS_OUTCOMES else "failed"
-    )
+    final_status = _proposal_status_for_outcome(outcome_status)
     repaired = proposal.model_copy(
         update={
             "status": final_status,
@@ -224,14 +224,91 @@ def reconcile_trade_proposal(
             f"Trade proposal {proposal_id} changed before reconciliation could finish."
         )
     outcome_payload = record.get("outcome")
-    if isinstance(outcome_payload, dict):
-        outcome = ExecutionOutcome.model_validate(outcome_payload)
-        db.create_trade_journal_from_proposal(
-            proposal=repaired,
-            outcome=outcome,
+    if not isinstance(outcome_payload, dict):
+        raise ValueError(
+            f"Trade proposal {proposal_id} has no recorded execution outcome payload."
         )
-        _save_position_plan_from_proposal(db, proposal=repaired, outcome=outcome)
+    outcome = ExecutionOutcome.model_validate(outcome_payload)
+    db.create_trade_journal_from_proposal(
+        proposal=repaired,
+        outcome=outcome,
+    )
+    _save_position_plan_from_proposal(db, proposal=repaired, outcome=outcome)
     return repaired, record
+
+
+def refresh_trade_proposal_order(
+    *,
+    db: TradingDatabase,
+    settings: Settings,
+    proposal_id: str,
+    review_notes: str = "",
+) -> tuple[TradeProposalRecord, ExecutionOutcome]:
+    """Refresh an accepted proposal order from the original broker without resubmitting."""
+
+    proposal = db.get_trade_proposal(proposal_id)
+    if proposal is None:
+        raise ValueError(f"Trade proposal not found: {proposal_id}")
+    if proposal.execution_intent_id is None or proposal.execution_order_id is None:
+        raise ValueError(
+            f"Trade proposal {proposal_id} has no broker order to refresh."
+        )
+    if proposal.execution_outcome_status != "accepted":
+        raise ValueError(
+            f"Trade proposal {proposal_id} is not waiting on an accepted broker order."
+        )
+    record = db.get_execution_record(proposal.execution_intent_id)
+    if record is None:
+        raise ValueError(
+            f"Trade proposal {proposal_id} has no recorded execution intent to refresh."
+        )
+    intent_payload = record.get("intent")
+    if not isinstance(intent_payload, dict):
+        raise ValueError(
+            f"Trade proposal {proposal_id} has no refreshable execution intent payload."
+        )
+    intent = ExecutionIntent.model_validate(intent_payload)
+    adapter_settings = settings.model_copy(
+        update={"execution_backend": intent.execution_backend}
+    )
+    adapter = get_broker_order_reader(
+        db=db,
+        settings=adapter_settings,
+    )
+    outcome = adapter.get_order_outcome(
+        order_id=proposal.execution_order_id,
+        intent=intent,
+    )
+    if outcome.order_id is None:
+        outcome = outcome.model_copy(update={"order_id": proposal.execution_order_id})
+    if outcome.order_id != proposal.execution_order_id:
+        raise RuntimeError(
+            f"Broker order refresh returned a different order id for {proposal_id}."
+        )
+
+    db.record_execution_outcome(
+        run_id=_str_or_none(record.get("run_id")),
+        intent=intent,
+        outcome=outcome,
+    )
+    final_status = _proposal_status_for_outcome(outcome.status)
+    refreshed = proposal.model_copy(
+        update={
+            "status": final_status,
+            "updated_at": utc_now_iso(),
+            "review_notes": _merge_notes(proposal.review_notes, review_notes),
+            "execution_order_id": outcome.order_id,
+            "execution_outcome_status": outcome.status,
+            "rejection_reason": outcome.rejection_reason,
+        }
+    )
+    if not db.update_trade_proposal(refreshed, expected_status=proposal.status):
+        raise ValueError(
+            f"Trade proposal {proposal_id} changed before broker refresh could finish."
+        )
+    db.create_trade_journal_from_proposal(proposal=refreshed, outcome=outcome)
+    _save_position_plan_from_proposal(db, proposal=refreshed, outcome=outcome)
+    return refreshed, outcome
 
 
 def reject_trade_proposal(
@@ -445,7 +522,7 @@ def _latest_repairable_proposal(
     for proposal in proposals:
         if proposal.symbol != symbol or proposal.side != expected_side:
             continue
-        if proposal.execution_outcome_status not in _APPROVAL_SUCCESS_OUTCOMES:
+        if proposal.execution_outcome_status not in _EXECUTED_OUTCOMES:
             continue
         try:
             _validate_proposal_risk_controls(proposal)
@@ -459,3 +536,11 @@ def _str_or_none(value: object) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _proposal_status_for_outcome(outcome_status: str) -> TradeProposalStatus:
+    if outcome_status in _EXECUTED_OUTCOMES:
+        return "executed"
+    if outcome_status == "accepted":
+        return "approved"
+    return "failed"

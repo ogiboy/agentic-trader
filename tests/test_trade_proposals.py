@@ -11,6 +11,7 @@ from agentic_trader.finance.proposals import (
     create_trade_proposal,
     expire_trade_proposal,
     reconcile_trade_proposal,
+    refresh_trade_proposal_order,
     reject_trade_proposal,
     repair_missing_position_plans,
     utc_now_iso,
@@ -200,6 +201,197 @@ def test_trade_proposal_approval_records_execution_and_terminal_state(tmp_path) 
 
     with pytest.raises(ValueError, match="not pending"):
         reject_trade_proposal(db=db, proposal_id=proposal.proposal_id, reason="late")
+
+
+def test_trade_proposal_journal_keeps_accepted_broker_orders_open(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="NVDA",
+        side="buy",
+        quantity=1,
+        reference_price=900,
+        confidence=0.78,
+        thesis="External paper broker acknowledgement should stay operator-visible.",
+        stop_loss=860,
+        take_profit=980,
+        source="manual",
+    )
+    outcome = ExecutionOutcome(
+        intent_id="intent-accepted-1",
+        order_id="alpaca-paper-accepted-1",
+        status="accepted",
+        adapter_name="alpaca_paper",
+        execution_backend="alpaca_paper",
+        message="Accepted by external paper broker.",
+    )
+
+    trade_id = db.create_trade_journal_from_proposal(proposal=proposal, outcome=outcome)
+
+    journal = db.list_trade_journal(limit=5)
+    assert trade_id is not None
+    assert len(journal) == 1
+    assert journal[0].entry_order_id == "alpaca-paper-accepted-1"
+    assert journal[0].journal_status == "open"
+    assert "outcome_status=accepted" in journal[0].notes
+
+
+def test_trade_proposal_approval_keeps_accepted_order_in_flight(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="NVDA",
+        side="buy",
+        quantity=1,
+        reference_price=900,
+        confidence=0.78,
+        thesis="External paper broker acknowledgement is not a fill.",
+        stop_loss=860,
+        take_profit=980,
+        source="manual",
+    )
+
+    class AcceptedAdapter:
+        def place_order(self, intent):
+            return ExecutionOutcome(
+                intent_id=intent.intent_id,
+                order_id="alpaca-paper-accepted-approval",
+                status="accepted",
+                adapter_name="alpaca_paper",
+                execution_backend="alpaca_paper",
+            )
+
+    monkeypatch.setattr(
+        "agentic_trader.finance.proposals.get_broker_adapter",
+        lambda *, db, settings: AcceptedAdapter(),
+    )
+
+    approved, outcome = approve_trade_proposal(
+        db=db,
+        settings=settings,
+        proposal_id=proposal.proposal_id,
+        review_notes="submit external paper order",
+    )
+
+    assert outcome.status == "accepted"
+    assert approved.status == "approved"
+    assert approved.execution_outcome_status == "accepted"
+    journal = db.list_trade_journal(limit=5)
+    assert len(journal) == 1
+    assert journal[0].journal_status == "open"
+
+
+def test_trade_proposal_refresh_updates_accepted_order_without_resubmit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="NVDA",
+        side="buy",
+        quantity=1,
+        reference_price=900,
+        confidence=0.78,
+        thesis="External paper broker acknowledgement should be refreshable.",
+        stop_loss=860,
+        take_profit=980,
+        source="manual",
+    )
+    intent = ExecutionIntent(
+        intent_id="intent-refresh",
+        symbol="NVDA",
+        side="buy",
+        quantity=1,
+        reference_price=900,
+        confidence=0.78,
+        thesis="External paper broker acknowledgement should be refreshable.",
+        approved=True,
+        execution_backend="alpaca_paper",
+        adapter_name="alpaca_paper",
+        backend_metadata={"proposal_id": proposal.proposal_id},
+    )
+    accepted_outcome = ExecutionOutcome(
+        intent_id=intent.intent_id,
+        order_id="alpaca-paper-accepted-2",
+        status="accepted",
+        adapter_name="alpaca_paper",
+        execution_backend="alpaca_paper",
+    )
+    executed = proposal.model_copy(
+        update={
+            "status": "approved",
+            "updated_at": utc_now_iso(),
+            "execution_intent_id": intent.intent_id,
+            "execution_order_id": accepted_outcome.order_id,
+            "execution_outcome_status": accepted_outcome.status,
+        }
+    )
+    assert db.update_trade_proposal(executed, expected_status="pending")
+    db.record_execution_outcome(run_id=None, intent=intent, outcome=accepted_outcome)
+    db.create_trade_journal_from_proposal(proposal=executed, outcome=accepted_outcome)
+    refresh_calls = 0
+
+    class RefreshAdapter:
+        def place_order(self, intent):
+            raise AssertionError("refresh must not submit a new broker order")
+
+        def get_order_outcome(self, *, order_id, intent):
+            nonlocal refresh_calls
+            refresh_calls += 1
+            assert order_id == "alpaca-paper-accepted-2"
+            return ExecutionOutcome(
+                intent_id=intent.intent_id,
+                order_id=order_id,
+                status="filled",
+                adapter_name="alpaca_paper",
+                execution_backend="alpaca_paper",
+                filled_quantity=1,
+                average_fill_price=901,
+            )
+
+    monkeypatch.setattr(
+        "agentic_trader.finance.proposals.get_broker_order_reader",
+        lambda *, db, settings: RefreshAdapter(),
+    )
+
+    refreshed, outcome = refresh_trade_proposal_order(
+        db=db,
+        settings=settings,
+        proposal_id=proposal.proposal_id,
+        review_notes="broker refresh",
+    )
+
+    latest = db.get_execution_record(intent.intent_id)
+    journal = db.list_trade_journal(limit=5)
+    position_plan = db.get_position_plan("NVDA")
+    assert refresh_calls == 1
+    assert refreshed.status == "executed"
+    assert refreshed.execution_outcome_status == "filled"
+    assert refreshed.execution_order_id == "alpaca-paper-accepted-2"
+    assert outcome.status == "filled"
+    assert latest is not None
+    assert latest["status"] == "filled"
+    assert len(journal) == 1
+    assert journal[0].journal_status == "open"
+    assert journal[0].entry_price == pytest.approx(901)
+    assert "outcome_status=filled" in journal[0].notes
+    assert position_plan is not None
+    assert position_plan.entry_price == pytest.approx(901)
 
 
 def test_repair_missing_position_plans_backfills_from_executed_proposal(

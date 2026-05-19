@@ -58,9 +58,13 @@ inspect pending and terminal decisions, and `proposal-approve` or
 through the configured paper or external-paper broker adapter and records an
 execution intent/outcome audit trail.
 
+External-paper broker acknowledgements such as `accepted` stay in-flight until
+`proposal-refresh` reads the original broker order and proves a fill,
+partial-fill, cancel, or reject state.
+
 The Web GUI Proposal Desk reads the same queue and can only call those explicit
-approve, reject, or reconcile contracts. It is not a generic broker console and
-does not create orders outside the proposal queue.
+approve, reject, reconcile, or refresh contracts. It is not a generic broker
+console and does not create orders outside the proposal queue.
 
 ### Run or review a paper cycle
 

@@ -19,7 +19,7 @@ export type ToolActionKind =
   | 'enable-host-fallbacks'
   | 'start-model-service'
   | 'start-camofox-service';
-export type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
+export type ProposalActionKind = 'approve' | 'reject' | 'reconcile' | 'refresh';
 
 export const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'overview', label: 'Overview' },

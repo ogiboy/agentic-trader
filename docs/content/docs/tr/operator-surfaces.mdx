@@ -58,9 +58,14 @@ veya `proposal-reject` ise açık insan review adımıdır. Onay hâlâ yapılan
 paper veya external-paper broker adapter'ından geçer ve execution
 intent/outcome audit trail'i bırakır.
 
-Web GUI Proposal Desk aynı kuyruğu okur ve yalnızca explicit approve, reject
-veya reconcile kontratlarını çağırabilir. Generic broker console değildir ve
-proposal kuyruğu dışında order oluşturmaz.
+External-paper broker `accepted` acknowledgement'ları fill sayılmaz; in-flight
+kalır ve `proposal-refresh` orijinal broker order'ını okuyup fill,
+partial-fill, cancel veya reject durumunu kanıtlayana kadar yeniden order
+göndermez.
+
+Web GUI Proposal Desk aynı kuyruğu okur ve yalnızca explicit approve, reject,
+reconcile veya refresh kontratlarını çağırabilir. Generic broker console
+değildir ve proposal kuyruğu dışında order oluşturmaz.
 
 ### Paper cycle çalıştır veya incele
 

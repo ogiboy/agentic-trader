@@ -293,6 +293,28 @@ describe('agentic-trader webgui CLI bridge', () => {
     });
     expect(execFileMock.mock.calls[4][1]).toContain('proposal-reconcile');
 
+    execSuccess(
+      JSON.stringify({
+        outcome: { status: 'filled' },
+        proposal: { status: 'executed', symbol: 'NVDA' },
+      }),
+    );
+    execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
+    await expect(
+      runProposalAction('refresh', 'proposal-3', 'broker status check'),
+    ).resolves.toMatchObject({
+      message: 'NVDA proposal refreshed; proposal=executed, broker=filled.',
+    });
+    expect(execFileMock.mock.calls[6][1]).toEqual([
+      '-m',
+      'agentic_trader.cli',
+      'proposal-refresh',
+      'proposal-3',
+      '--review-notes',
+      'broker status check',
+      '--json',
+    ]);
+
     await expect(runProposalAction('reject', 'proposal-4')).rejects.toThrow(
       'Rejection reason is required.',
     );
