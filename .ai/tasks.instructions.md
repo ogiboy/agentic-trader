@@ -105,7 +105,7 @@ Next:
 
 - extend the file-backed research snapshot feed when real providers start returning raw evidence references, normalized events, findings, and entity dossiers
 - extend real official/structured providers behind the sidecar source ladder: SEC EDGAR submissions metadata and compact company facts are first; next are SEC full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
-- continue enriching proposal candidates with real provider/news/fundamental evidence; the first broker-free candidate queue exists, but provider-backed materiality and broader review UX are still open
+- continue enriching proposal candidates with real provider/news/fundamental evidence; the candidate queue now carries redacted network-light canonical source-attribution context, but live provider-backed materiality and broader review UX are still open
 - extend the first runtime strategy catalog slice into feature bundle enrichment, backtest comparison, proposal records, and guard/risk layers only after evidence and validation checks are green
 - add no-lookahead and confidence-review checks before treating opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble ideas as more than research candidates
 - expand proposal queue parity across Rich, Ink, docs, and smoke QA before treating it as the default paper-desk workflow; the Web GUI now has the first explicit Proposal Desk surface over the existing CLI approve/reject/reconcile/refresh contracts

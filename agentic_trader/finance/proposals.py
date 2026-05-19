@@ -57,11 +57,8 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def create_trade_proposal(
-    *,
-    db: TradingDatabase,
-    draft: TradeProposalDraft | None = None,
-    **fields: Any,
+def prepare_trade_proposal(
+    *, draft: TradeProposalDraft | None = None, **fields: Any
 ) -> TradeProposalRecord:
     proposal_draft = _coerce_trade_proposal_draft(draft=draft, fields=fields)
     if proposal_draft.quantity is None and proposal_draft.notional is None:
@@ -98,6 +95,16 @@ def create_trade_proposal(
         source=proposal_draft.source,
         review_notes=proposal_draft.review_notes,
     )
+    return proposal
+
+
+def create_trade_proposal(
+    *,
+    db: TradingDatabase,
+    draft: TradeProposalDraft | None = None,
+    **fields: Any,
+) -> TradeProposalRecord:
+    proposal = prepare_trade_proposal(draft=draft, **fields)
     db.insert_trade_proposal(proposal)
     return proposal
 

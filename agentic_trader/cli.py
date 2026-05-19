@@ -1487,7 +1487,7 @@ def _proposal_candidates_payload(
     except Exception as exc:
         candidates = []
         available = False
-        error = str(exc)
+        error = redact_sensitive_text(exc, max_length=240)
     return {
         "available": available,
         "error": error,
@@ -4567,6 +4567,19 @@ def proposal_candidate_create(
     liquidity: str = typer.Option("", "--liquidity", help="Liquidity note."),
     risk_notes: str = typer.Option("", "--risk-notes", help="Risk note."),
     source: str = typer.Option("idea-scanner", "--source", help="Candidate source."),
+    enrich_provider_context: bool = typer.Option(
+        True,
+        "--enrich-provider-context/--no-enrich-provider-context",
+        help=(
+            "Attach a compact, broker-free canonical provider context. "
+            "Defaults to network-light evidence."
+        ),
+    ),
+    fetch_provider_news: bool = typer.Option(
+        False,
+        "--fetch-provider-news/--no-fetch-provider-news",
+        help="Allow configured news providers to refresh headlines for this candidate.",
+    ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Persist a scanner/research candidate without approving or submitting it."""
@@ -4603,7 +4616,13 @@ def proposal_candidate_create(
     try:
         db = _open_db(settings)
         try:
-            candidate = create_proposal_candidate(db=db, draft=draft)
+            candidate = create_proposal_candidate(
+                db=db,
+                draft=draft,
+                settings=settings,
+                enrich_provider_context=enrich_provider_context,
+                fetch_provider_news=fetch_provider_news,
+            )
         finally:
             db.close()
     except ValueError as exc:

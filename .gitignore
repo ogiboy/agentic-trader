@@ -38,6 +38,7 @@ tui/.env
 .ai/qa/artifacts/evidence-*
 .ai/qa/artifacts/*v1-paper-desk*/
 .ai/qa/artifacts/*v1-candidate*/
+.ai/qa/artifacts/*v1-provider*/
 .ai/qa/artifacts/webgui-visual-*
 .sonarlint/connectedMode.json
 ruvector.db

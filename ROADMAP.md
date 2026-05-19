@@ -396,7 +396,8 @@ Status: in progress.
 - [ ] implement structured news and macro ingestion from Finnhub, FMP, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
 - [x] turn the first V1 strategy/catalog/news/loop slice into incremental code through existing contracts: idea-scanner metadata, `strategy-catalog`, `strategy-profile`, `idea-score` readiness context, `news-intelligence`, `research-cycle-plan`, and `finance-ops` ledger categories
 - [x] add a broker-free proposal-candidate queue that records scanner materiality, freshness, liquidity, spread, sizing intent, risk controls, and evidence before promotion into pending paper proposals
-- [ ] continue enriching proposal candidates with real provider/news/fundamental materiality before treating scanner output as proposal-ready
+- [x] attach redacted, broker-free canonical source-attribution context to proposal candidates through the existing provider contracts, defaulting to network-light missing-data truth and requiring explicit opt-in before news refreshes
+- [ ] continue enriching proposal candidates with real live provider/news/fundamental materiality before treating scanner output as proposal-ready
 - [ ] extend the runtime strategy catalog into feature bundles, backtest comparison, proposal records, guard/risk layers, and broader operator surfaces
 - [ ] add no-lookahead, declarative sweep, and confidence-review checks before opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble research candidates become proposal-capable
 - [ ] add operator-visible reasoning panels that explain how technical, fundamental, macro, memory, and guard evidence combined

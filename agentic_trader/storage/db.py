@@ -892,6 +892,9 @@ class TradingDatabase:
         )
 
     def insert_trade_proposal(self, proposal: TradeProposalRecord) -> None:
+        self._execute_trade_proposal_insert(proposal)
+
+    def _execute_trade_proposal_insert(self, proposal: TradeProposalRecord) -> None:
         self.conn.execute(
             """
             insert into trade_proposals (
@@ -1013,6 +1016,44 @@ class TradingDatabase:
     def update_proposal_candidate(self, candidate: ProposalCandidateRecord) -> bool:
         if not self._table_exists("proposal_candidates"):
             return False
+        self._execute_proposal_candidate_update(candidate)
+        return True
+
+    def promote_proposal_candidate_with_proposal(
+        self,
+        *,
+        candidate: ProposalCandidateRecord,
+        proposal: TradeProposalRecord,
+        expected_status: ProposalCandidateStatus = "candidate",
+    ) -> bool:
+        if not self._table_exists("proposal_candidates") or not self._table_exists(
+            "trade_proposals"
+        ):
+            return False
+        self.conn.execute("begin transaction")
+        try:
+            current = self.conn.execute(
+                """
+                select status
+                from proposal_candidates
+                where candidate_id = ?
+                """,
+                [candidate.candidate_id],
+            ).fetchone()
+            if current is None or str(current[0]) != expected_status:
+                self.conn.execute("commit")
+                return False
+            self._execute_trade_proposal_insert(proposal)
+            self._execute_proposal_candidate_update(candidate)
+            self.conn.execute("commit")
+            return True
+        except Exception:
+            self.conn.execute("rollback")
+            raise
+
+    def _execute_proposal_candidate_update(
+        self, candidate: ProposalCandidateRecord
+    ) -> None:
         self.conn.execute(
             """
             update proposal_candidates
@@ -1030,7 +1071,6 @@ class TradingDatabase:
                 candidate.candidate_id,
             ],
         )
-        return True
 
     def get_trade_proposal(self, proposal_id: str) -> TradeProposalRecord | None:
         if not self._table_exists("trade_proposals"):

@@ -114,6 +114,66 @@ def test_proposal_candidate_promotes_to_pending_proposal(tmp_path) -> None:
     assert stored_proposal.execution_order_id is None
     assert candidate.candidate_id in stored_proposal.review_notes
 
+    with pytest.raises(ValueError, match="already promoted"):
+        promote_proposal_candidate(db=db, candidate_id=candidate.candidate_id)
+    assert len(db.list_trade_proposals(status="pending")) == 1
+
+
+def test_proposal_candidate_records_redacted_provider_context(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("AGENTIC_TRADER_TEST_API_KEY", "super-secret-token")
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+
+    candidate = create_proposal_candidate(
+        db=db,
+        settings=settings,
+        draft=ProposalCandidateDraft(
+            idea=IdeaCandidate(
+                symbol="AAPL",
+                price=190,
+                volume=5_000_000,
+                change_pct=6.2,
+                relative_volume=3.4,
+                rsi=63,
+                ema_9=184,
+                spread_pct=0.05,
+            ),
+            preset="momentum",
+            quantity=1,
+            stop_loss=182,
+            take_profit=205,
+            freshness="same_session_quote",
+            evidence={
+                "provider_error": (
+                    "api_key=super-secret-token Bearer abcdef123456 "
+                    "https://example.test/?token=super-secret-token"
+                )
+            },
+        ),
+    )
+
+    stored = db.get_proposal_candidate(candidate.candidate_id)
+    assert stored is not None
+    context = stored.evidence["canonical_analysis"]
+    assert isinstance(context, dict)
+    assert context["available"] is True
+    assert context["policy"] == {
+        "enabled": True,
+        "network_light_default": True,
+        "fetch_provider_news": False,
+        "broker_access": False,
+        "proposal_approval": False,
+    }
+    assert "fundamentals" in context["missing_sections"]
+    assert "news" in context["missing_sections"]
+    assert "source_attributions" in context
+    serialized = json.dumps(stored.evidence)
+    assert "super-secret-token" not in serialized
+    assert "abcdef123456" not in serialized
+    assert "<redacted>" in serialized
+
 
 def test_proposal_candidate_blocks_watch_or_low_liquidity_promotion(tmp_path) -> None:
     settings = _settings(tmp_path)
@@ -155,6 +215,82 @@ def test_proposal_candidate_blocks_watch_or_low_liquidity_promotion(tmp_path) ->
         promote_proposal_candidate(db=db, candidate_id=watch.candidate_id)
     with pytest.raises(ValueError, match="blocking scanner warnings"):
         promote_proposal_candidate(db=db, candidate_id=illiquid.candidate_id)
+
+
+def test_proposal_candidate_blocks_stale_evidence_and_bad_risk_geometry(
+    tmp_path,
+) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    stale = create_proposal_candidate(
+        db=db,
+        draft=ProposalCandidateDraft(
+            idea=IdeaCandidate(
+                symbol="AAPL",
+                price=190,
+                volume=5_000_000,
+                change_pct=6.2,
+                relative_volume=3.4,
+                rsi=63,
+                ema_9=184,
+                spread_pct=0.05,
+            ),
+            preset="momentum",
+            quantity=1,
+            stop_loss=182,
+            take_profit=205,
+            freshness="stale_quote",
+        ),
+    )
+    bad_risk = create_proposal_candidate(
+        db=db,
+        draft=ProposalCandidateDraft(
+            idea=IdeaCandidate(
+                symbol="MSFT",
+                price=420,
+                volume=5_000_000,
+                change_pct=6.2,
+                relative_volume=3.4,
+                rsi=63,
+                ema_9=410,
+                spread_pct=0.05,
+            ),
+            preset="momentum",
+            quantity=1,
+            stop_loss=430,
+            take_profit=450,
+            freshness="same_session_quote",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="stale or missing freshness"):
+        promote_proposal_candidate(db=db, candidate_id=stale.candidate_id)
+    with pytest.raises(ValueError, match="stop_loss < reference_price"):
+        promote_proposal_candidate(db=db, candidate_id=bad_risk.candidate_id)
+
+
+def test_proposal_candidate_rejects_invalid_sizing_on_create(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    draft = ProposalCandidateDraft(
+        idea=IdeaCandidate(
+            symbol="AAPL",
+            price=190,
+            volume=5_000_000,
+            change_pct=6.2,
+            relative_volume=3.4,
+            rsi=63,
+            ema_9=184,
+            spread_pct=0.05,
+        ),
+        preset="momentum",
+        quantity=0,
+        stop_loss=182,
+        take_profit=205,
+    )
+
+    with pytest.raises(ValueError, match="quantity greater than zero"):
+        create_proposal_candidate(db=db, draft=draft)
 
 
 def test_trade_proposal_rejects_mixed_draft_and_fields(tmp_path) -> None:

@@ -2438,6 +2438,17 @@ def test_proposal_candidate_cli_create_promote_json(
     assert candidate["status"] == "candidate"
     assert candidate["signal"] == "buy"
     assert candidate["proposal_id"] is None
+    assert candidate["evidence"]["authority"] == {
+        "broker_access": False,
+        "proposal_approval": False,
+        "manual_review_required": True,
+    }
+    canonical = candidate["evidence"]["canonical_analysis"]
+    assert canonical["available"] is True
+    assert canonical["policy"]["network_light_default"] is True
+    assert canonical["policy"]["fetch_provider_news"] is False
+    assert "fundamentals" in canonical["missing_sections"]
+    assert "news" in canonical["missing_sections"]
 
     promote_result = runner.invoke(
         app,
@@ -2457,6 +2468,7 @@ def test_proposal_candidate_cli_create_promote_json(
     assert promoted["proposal"]["status"] == "pending"
     assert promoted["proposal"]["execution_order_id"] is None
     assert candidate["candidate_id"] in promoted["proposal"]["review_notes"]
+    assert "missing_sections=" in promoted["proposal"]["review_notes"]
 
     list_result = runner.invoke(app, ["proposal-candidates", "--json"])
     assert list_result.exit_code == 0
