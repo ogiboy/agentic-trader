@@ -1195,42 +1195,53 @@ export function ControlRoom() {
     [applyDashboardPayload],
   );
 
-  const loadDashboard = useCallback(async () => {
-    const seq = lastRequestSeqRef.current + 1;
-    lastRequestSeqRef.current = seq;
-    dashboardAbortRef.current?.abort();
-    const controller = new AbortController();
-    dashboardAbortRef.current = controller;
-    try {
-      const payload = await readJson<DashboardData>('/api/dashboard', {
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
-        return;
+  const loadDashboard = useCallback(
+    async ({ force = false }: { force?: boolean } = {}) => {
+      if (
+        dashboardAbortRef.current &&
+        !dashboardAbortRef.current.signal.aborted
+      ) {
+        if (!force) {
+          return;
+        }
+        dashboardAbortRef.current.abort();
       }
-      applyDashboardPayload(payload);
-    } catch (nextError) {
-      if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
-        return;
+      const seq = lastRequestSeqRef.current + 1;
+      lastRequestSeqRef.current = seq;
+      const controller = new AbortController();
+      dashboardAbortRef.current = controller;
+      try {
+        const payload = await readJson<DashboardData>('/api/dashboard', {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
+          return;
+        }
+        applyDashboardPayload(payload);
+      } catch (nextError) {
+        if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
+          return;
+        }
+        if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+          setAuthRequired(true);
+          setAuthError(null);
+          setDashboard(null);
+          return;
+        }
+        setError(
+          nextError instanceof Error ? nextError.message : String(nextError),
+        );
+      } finally {
+        if (dashboardAbortRef.current === controller) {
+          dashboardAbortRef.current = null;
+        }
+        if (seq === lastRequestSeqRef.current) {
+          setLoading(false);
+        }
       }
-      if (nextError instanceof WebguiHttpError && nextError.status === 401) {
-        setAuthRequired(true);
-        setAuthError(null);
-        setDashboard(null);
-        return;
-      }
-      setError(
-        nextError instanceof Error ? nextError.message : String(nextError),
-      );
-    } finally {
-      if (dashboardAbortRef.current === controller) {
-        dashboardAbortRef.current = null;
-      }
-      if (seq === lastRequestSeqRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [applyDashboardPayload]);
+    },
+    [applyDashboardPayload],
+  );
   useEffect(() => {
     const initialRefresh = setTimeout(() => {
       void loadDashboard();
@@ -1259,7 +1270,7 @@ export function ControlRoom() {
         await authenticateWebguiSession(token);
         setWebguiToken('');
         setAuthRequired(false);
-        await loadDashboard();
+        await loadDashboard({ force: true });
       } catch (nextError) {
         setAuthRequired(true);
         setAuthError(
@@ -1276,7 +1287,7 @@ export function ControlRoom() {
     async (kind: 'refresh' | 'start' | 'stop' | 'restart' | 'one-shot') => {
       if (kind === 'refresh') {
         setBusy('refresh');
-        await loadDashboard();
+        await loadDashboard({ force: true });
         setMessage({ text: 'Dashboard refreshed.', tone: 'neutral' });
         setBusy(null);
         return;

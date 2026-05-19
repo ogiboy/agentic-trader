@@ -227,6 +227,7 @@ const dashboardFixture = {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -682,6 +683,24 @@ describe('control-room formatting helpers', () => {
     await screen.findByText('Agentic Trader Web GUI');
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     vi.unstubAllGlobals();
+  });
+
+  it('does not abort a slow dashboard request on every polling tick', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(ControlRoom));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7_500);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('renders the initial control room shell while loading', () => {
