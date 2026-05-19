@@ -222,6 +222,7 @@ Desired direction:
 - fail smoke evidence when raw provider output or LLM retry diagnostics leak into operator-facing terminal output
 - keep generated `qa-report.md` summaries in every smoke artifact directory so agents can inspect pass/fail evidence without reconstructing it from JSON first
 - use `agentic-trader evidence-bundle` before V1 release review to package dashboard, status, broker, provider diagnostics, V1 readiness, logs, runtime-mode checklist, research status, and the latest smoke report into one timestamped evidence directory
+- use `pnpm run qa:v1-paper-desk` for the product-shaped V1 paper desk rehearsal: isolated runtime, provider/readiness/finance checks, two research cycles, memory inspection, proposal create/approve, journal verification, and an evidence bundle
 - use `agentic-trader hardware-profile` before long paper-operation sessions; treat recommendations as operator hints and keep actual runtime overrides explicit
 - use `agentic-trader operator-workflow` as the canonical V1 review order before background paper operation; it is descriptive and must not execute hidden runtime actions
 - keep the one-cycle runtime check as an explicit opt-in tier because it needs live market data and a healthy local model

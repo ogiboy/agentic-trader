@@ -45,6 +45,7 @@
     "qa": "uv run --locked --all-extras --group dev python scripts/qa/smoke_qa.py",
     "qa:prompts": "uv run --locked --all-extras --group dev python scripts/qa/prompt_docs_lint.py",
     "qa:quality": "pnpm run qa:prompts && uv run --locked --all-extras --group dev python scripts/qa/smoke_qa.py --include-quality",
+    "qa:v1-paper-desk": "uv run --locked --all-extras --group dev python scripts/qa/v1_paper_desk_rehearsal.py",
     "qa:sonar": "pnpm run qa:prompts && uv run --locked --all-extras --group dev python scripts/qa/smoke_qa.py --include-quality --include-sonar",
     "version:plan": "scripts/release/preview_version_plan.sh",
     "release:preview": "uv run --locked --all-extras --group dev semantic-release --noop version --print-tag",

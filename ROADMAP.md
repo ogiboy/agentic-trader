@@ -431,6 +431,7 @@ Status: in progress.
 - [x] restrict V1 active trading scope to US equities until paper evidence, manual approval, and strict safety gates are proven
 - [x] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
 - [x] add paper-to-real readiness checklist that compares paper performance, QA evidence, and broker health before any real-money activation can pass
+- [x] add an isolated V1 paper desk rehearsal lane that collects readiness, research-cycle, memory, proposal, journal, finance, and evidence-bundle artifacts
 - [ ] prove the full V1 customer path with real operator QA: choose US symbols, collect/cache evidence, run at least two learning-aware cycles, inspect retrieved memory, create/review a proposal, submit through paper or Alpaca paper, and verify portfolio/journal/PnL persistence
 - [ ] make model-provider selection agnostic enough that V1 paper/Alpaca operation is not blocked on one local model family such as qwen
       Notes:

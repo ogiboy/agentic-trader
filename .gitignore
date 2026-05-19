@@ -36,6 +36,7 @@ tui/.env
 .ai/qa/artifacts/tmux-*
 .ai/qa/artifacts/edge-*
 .ai/qa/artifacts/evidence-*
+.ai/qa/artifacts/*v1-paper-desk*/
 .ai/qa/artifacts/webgui-visual-*
 .sonarlint/connectedMode.json
 ruvector.db
