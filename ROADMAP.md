@@ -432,7 +432,7 @@ Status: in progress.
 - [x] persist full execution audit trail including intent, approval, adapter health, broker response, fills, rejection reason, and trace link
 - [x] add paper-to-real readiness checklist that compares paper performance, QA evidence, and broker health before any real-money activation can pass
 - [x] add an isolated V1 paper desk rehearsal lane that collects readiness, research-cycle, memory, proposal, journal, finance, and evidence-bundle artifacts
-- [ ] prove the full V1 customer path with real operator QA: choose US symbols, collect/cache evidence, run at least two learning-aware cycles, inspect retrieved memory, create/review a proposal, submit through paper or Alpaca paper, and verify portfolio/journal/PnL persistence
+- [x] prove the full V1 customer path with real operator QA: choose US symbols, collect/cache evidence, run at least two learning-aware cycles, inspect retrieved memory, create/review a proposal, submit through paper or Alpaca paper, and verify portfolio/journal/PnL persistence
 - [ ] make model-provider selection agnostic enough that V1 paper/Alpaca operation is not blocked on one local model family such as qwen
       Notes:
 - V1 readiness is Alpaca-first and US-equities-only to limit blast radius
@@ -442,6 +442,7 @@ Status: in progress.
 - proposal approval submits through the existing broker adapter boundary and paper/external-paper safety gates; the Web GUI Proposal Desk can invoke only explicit approve/reject/reconcile/refresh commands, while scanner, sidecar, chat, and Web surfaces must not approve or execute implicitly
 - broker acknowledgements such as Alpaca paper `accepted` remain in-flight approved proposals with operator-visible open journal entries; `proposal-refresh` can read the original broker order without resubmitting and update proposal/execution/position-plan truth when the broker later reports fill, partial-fill, cancel, or reject state
 - `proposal-reconcile` repairs an already approved in-flight proposal from the idempotent `execution_records.intent_id` row without resubmitting to the broker, covering interrupted final-status writes before external paper/live adapters grow broader
+- `pnpm run qa:v1-paper-desk` passed on the current V1 branch with an isolated AAPL/MSFT paper rehearsal, producing provider, readiness, research-cycle, memory, proposal, journal, finance, and evidence-bundle artifacts under `.ai/qa/artifacts/codex-v1-paper-desk-smoke/`
 
 ## V1 Research Sidecar - Local Evidence Companion
 
