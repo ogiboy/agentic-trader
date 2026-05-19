@@ -53,7 +53,8 @@ Ink overview/runtime pages, and the Web GUI overview. For product-readiness QA,
 
 The research sidecar is moving toward a safe loop: pre-flight, monitor, analyze,
 propose, digest, then sleep. The loop can keep a watchlist fresh, explain source
-health, score ideas, and queue manual-review proposals.
+health, and score or queue broker-free proposal candidates; an explicit operator
+promotion step is still required before a candidate becomes a pending proposal.
 
 It must not approve proposals, place orders, mutate policy, weaken runtime
 gates, or treat raw web text as instructions. Research output remains evidence;

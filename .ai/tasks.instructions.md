@@ -21,7 +21,7 @@ Now:
 - keep `sidecars/research_flow/` as a tracked but isolated CrewAI Flow uv project; root `pnpm check` should stay focused on the core runtime until the sidecar is mature enough for a separate CI job
 - keep the CrewAI subprocess contract deterministic and no-sync at runtime: setup/check commands may run `uv sync`, but runtime backend calls should only use an already-installed sidecar environment
 - grow the V1 research sidecar as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
-- keep the new V1 proposal queue manual-review only: scanners, research providers, chat, Web routes, and sidecars may surface or explain proposals, but only explicit approval commands should submit to the configured paper/external-paper broker adapter
+- keep proposal candidates broker-free: scanners, research providers, chat, Web routes, and sidecars may surface candidates or pending proposal evidence, but candidate promotion only creates a pending manual-review proposal, and only explicit approval commands may submit to the configured paper/external-paper broker adapter
 - treat V1 as an active US trading product goal, not a passive research demo: the supported Alpaca path must be able to submit approved buy/sell intents once provider, broker, account, risk, audit, and kill-switch gates pass; V2 is the Turkey expansion track
 - keep broker/journal truth conservative: externally accepted paper orders should remain in-flight approved proposals plus operator-visible open journal entries, and `proposal-refresh` should read the original broker order without resubmission before marking a later fill, no-fill, cancel, or reject state
 - keep proposal reconciliation in the safety loop: `proposal-reconcile` can mark an already approved in-flight proposal terminal from the idempotent `execution_records.intent_id` row without broker resubmission, and the Web GUI Proposal Desk can surface reconcile plus refresh explicitly; next passes should add richer Rich/Ink parity and smoke QA
@@ -105,7 +105,7 @@ Next:
 
 - extend the file-backed research snapshot feed when real providers start returning raw evidence references, normalized events, findings, and entity dossiers
 - extend real official/structured providers behind the sidecar source ladder: SEC EDGAR submissions metadata and compact company facts are first; next are SEC full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
-- connect idea-scanner output to provider/news/fundamental context and then to proposal records with audit-friendly materiality, freshness, liquidity, and risk/sizing fields
+- continue enriching proposal candidates with real provider/news/fundamental evidence; the first broker-free candidate queue exists, but provider-backed materiality and broader review UX are still open
 - extend the first runtime strategy catalog slice into feature bundle enrichment, backtest comparison, proposal records, and guard/risk layers only after evidence and validation checks are green
 - add no-lookahead and confidence-review checks before treating opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble ideas as more than research candidates
 - expand proposal queue parity across Rich, Ink, docs, and smoke QA before treating it as the default paper-desk workflow; the Web GUI now has the first explicit Proposal Desk surface over the existing CLI approve/reject/reconcile/refresh contracts

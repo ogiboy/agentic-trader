@@ -5,6 +5,12 @@ import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
+from agentic_trader.finance.ideas import IdeaCandidate
+from agentic_trader.finance.proposal_candidates import (
+    ProposalCandidateDraft,
+    create_proposal_candidate,
+    promote_proposal_candidate,
+)
 from agentic_trader.finance.proposals import (
     TradeProposalDraft,
     approve_trade_proposal,
@@ -61,6 +67,94 @@ def test_trade_proposal_create_list_and_reject(tmp_path) -> None:
     stored_after_reject = db.get_trade_proposal(proposal.proposal_id)
     assert stored_after_reject is not None
     assert stored_after_reject.status == "rejected"
+
+
+def test_proposal_candidate_promotes_to_pending_proposal(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    candidate = create_proposal_candidate(
+        db=db,
+        draft=ProposalCandidateDraft(
+            idea=IdeaCandidate(
+                symbol="aapl",
+                price=190,
+                volume=5_000_000,
+                change_pct=6.2,
+                relative_volume=3.4,
+                rsi=63,
+                ema_9=184,
+                spread_pct=0.05,
+            ),
+            preset="momentum",
+            quantity=1,
+            stop_loss=182,
+            take_profit=205,
+            invalidation_condition="Close below 9 EMA.",
+            thesis="Momentum candidate with volume confirmation.",
+            freshness="same_session_quote",
+            materiality="high relative-volume scanner hit",
+        ),
+    )
+
+    promoted, proposal = promote_proposal_candidate(
+        db=db,
+        candidate_id=candidate.candidate_id,
+        review_notes="operator checked scanner evidence",
+    )
+
+    stored_candidate = db.get_proposal_candidate(candidate.candidate_id)
+    stored_proposal = db.get_trade_proposal(proposal.proposal_id)
+    assert promoted.status == "promoted"
+    assert promoted.proposal_id == proposal.proposal_id
+    assert stored_candidate is not None
+    assert stored_candidate.status == "promoted"
+    assert stored_proposal is not None
+    assert stored_proposal.status == "pending"
+    assert stored_proposal.source == "proposal-candidate"
+    assert stored_proposal.execution_order_id is None
+    assert candidate.candidate_id in stored_proposal.review_notes
+
+
+def test_proposal_candidate_blocks_watch_or_low_liquidity_promotion(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    watch = create_proposal_candidate(
+        db=db,
+        draft=ProposalCandidateDraft(
+            idea=IdeaCandidate(
+                symbol="MSFT",
+                price=420,
+                volume=4_000_000,
+                change_pct=2.0,
+                relative_volume=2.5,
+                range_pct=8.0,
+                spread_pct=0.05,
+            ),
+            preset="volatile",
+        ),
+    )
+    illiquid = create_proposal_candidate(
+        db=db,
+        draft=ProposalCandidateDraft(
+            idea=IdeaCandidate(
+                symbol="NVDA",
+                price=120,
+                volume=20_000,
+                change_pct=8.0,
+                relative_volume=4.0,
+                spread_pct=0.05,
+            ),
+            preset="momentum",
+            quantity=1,
+            stop_loss=115,
+            take_profit=135,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="watch-only"):
+        promote_proposal_candidate(db=db, candidate_id=watch.candidate_id)
+    with pytest.raises(ValueError, match="blocking scanner warnings"):
+        promote_proposal_candidate(db=db, candidate_id=illiquid.candidate_id)
 
 
 def test_trade_proposal_rejects_mixed_draft_and_fields(tmp_path) -> None:

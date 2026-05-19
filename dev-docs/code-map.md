@@ -51,11 +51,12 @@ behavior, while this map explains where to look and how the pieces connect.
 - `agentic_trader/engine/broker.py` defines the broker adapter boundary.
 - `agentic_trader/engine/paper_broker.py` implements paper fills, positions, cash, journals, and position plans.
 - `agentic_trader/engine/position_manager.py` manages open position exits bar by bar.
+- `agentic_trader/finance/proposal_candidates.py` owns the broker-free scanner/research candidate bridge before promotion into pending manual-review proposals.
 
 ## Persistence And Schemas
 
 - `agentic_trader/schemas.py` is the contract layer. Add new agent/runtime payload fields here before wiring them into storage or UI. `MarketContextPack` lives here so agents, storage, dashboards, and future UI clients share the same lookback-truth contract.
-- `agentic_trader/storage/db.py` is the DuckDB persistence boundary. It stores runs, orders, fills, service state/events, preferences, memory vectors with embedding metadata, trade context, and journals.
+- `agentic_trader/storage/db.py` is the DuckDB persistence boundary. It stores runs, orders, fills, service state/events, preferences, memory vectors with embedding metadata, trade context, proposal candidates, trade proposals, and journals.
 - `agentic_trader/config.py` centralizes environment-driven settings, runtime paths, runtime mode, provider routing, and directory setup.
 - `agentic_trader/ui_text.py` is the first shared UI text catalog. Put repeated operator-facing labels/prompts here instead of duplicating them across CLI, Rich, Ink, and future WebUI surfaces.
 

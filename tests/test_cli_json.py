@@ -114,6 +114,12 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["webgui-service", "stop", "-h"],
         ["trade-proposals", "--help"],
         ["trade-proposals", "-h"],
+        ["proposal-candidates", "--help"],
+        ["proposal-candidates", "-h"],
+        ["proposal-candidate-create", "--help"],
+        ["proposal-candidate-create", "-h"],
+        ["proposal-candidate-promote", "--help"],
+        ["proposal-candidate-promote", "-h"],
         ["proposal-create", "--help"],
         ["proposal-create", "-h"],
         ["proposal-approve", "--help"],
@@ -2379,6 +2385,132 @@ def test_trade_proposal_cli_create_list_reject_json(
     rejected = json.loads(reject_result.stdout)
     assert rejected["status"] == "rejected"
     assert rejected["rejection_reason"] == "operator declined"
+
+
+def test_proposal_candidate_cli_create_promote_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+
+    create_result = runner.invoke(
+        app,
+        [
+            "proposal-candidate-create",
+            "--symbol",
+            "AAPL",
+            "--preset",
+            "momentum",
+            "--price",
+            "190",
+            "--volume",
+            "5000000",
+            "--change-pct",
+            "6.2",
+            "--relative-volume",
+            "3.4",
+            "--rsi",
+            "63",
+            "--ema-9",
+            "184",
+            "--quantity",
+            "1",
+            "--stop-loss",
+            "182",
+            "--take-profit",
+            "205",
+            "--thesis",
+            "Momentum candidate with scanner evidence.",
+            "--freshness",
+            "same_session_quote",
+            "--json",
+        ],
+    )
+
+    assert create_result.exit_code == 0
+    candidate = json.loads(create_result.stdout)
+    assert candidate["status"] == "candidate"
+    assert candidate["signal"] == "buy"
+    assert candidate["proposal_id"] is None
+
+    promote_result = runner.invoke(
+        app,
+        [
+            "proposal-candidate-promote",
+            candidate["candidate_id"],
+            "--review-notes",
+            "operator reviewed scanner evidence",
+            "--json",
+        ],
+    )
+
+    assert promote_result.exit_code == 0
+    promoted = json.loads(promote_result.stdout)
+    assert promoted["submitted_to_broker"] is False
+    assert promoted["candidate"]["status"] == "promoted"
+    assert promoted["proposal"]["status"] == "pending"
+    assert promoted["proposal"]["execution_order_id"] is None
+    assert candidate["candidate_id"] in promoted["proposal"]["review_notes"]
+
+    list_result = runner.invoke(app, ["proposal-candidates", "--json"])
+    assert list_result.exit_code == 0
+    listed = json.loads(list_result.stdout)
+    assert listed["available"] is True
+    assert listed["candidates"][0]["candidate_id"] == candidate["candidate_id"]
+
+
+def test_proposal_candidate_cli_blocks_watch_promotion_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+
+    create_result = runner.invoke(
+        app,
+        [
+            "proposal-candidate-create",
+            "--symbol",
+            "MSFT",
+            "--preset",
+            "volatile",
+            "--price",
+            "420",
+            "--volume",
+            "4000000",
+            "--change-pct",
+            "2.0",
+            "--relative-volume",
+            "2.5",
+            "--range-pct",
+            "8.0",
+            "--spread-pct",
+            "0.05",
+            "--json",
+        ],
+    )
+    assert create_result.exit_code == 0
+    candidate_id = json.loads(create_result.stdout)["candidate_id"]
+
+    promote_result = runner.invoke(
+        app,
+        ["proposal-candidate-promote", candidate_id, "--json"],
+    )
+
+    assert promote_result.exit_code == 2
+    error_payload = json.loads(promote_result.stdout)
+    assert "watch-only" in error_payload["error"]
 
 
 def test_trade_proposal_cli_create_rejects_invalid_symbol_json(

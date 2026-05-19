@@ -129,6 +129,7 @@ def _build_markdown_report(summary: dict[str, object]) -> str:
             "",
             "## Proposal",
             "",
+            f"- Candidate ID: `{summary.get('candidate_id') or '-'}`",
             f"- Proposal ID: `{summary.get('proposal_id') or '-'}`",
             f"- Approval status: `{summary.get('approval_status') or '-'}`",
             f"- Outcome status: `{summary.get('outcome_status') or '-'}`",
@@ -208,20 +209,32 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
         ],
         timeout=120,
     )
-    created = step(
-        "proposal-create",
+    candidate_created = step(
+        "proposal-candidate-create",
         [
-            "proposal-create",
+            "proposal-candidate-create",
             "--symbol",
             proposal_symbol,
-            "--side",
-            args.side,
+            "--preset",
+            "momentum" if args.side == "buy" else "gap-down",
+            "--price",
+            str(args.reference_price),
+            "--volume",
+            "5000000",
+            "--change-pct",
+            "6.2" if args.side == "buy" else "-6.2",
+            "--relative-volume",
+            "3.4",
+            "--rsi",
+            "63" if args.side == "buy" else "32",
+            "--ema-9",
+            str(round(args.reference_price * 0.97, 2)),
+            "--gap-pct",
+            "0" if args.side == "buy" else "-5.8",
+            "--spread-pct",
+            "0.05",
             "--quantity",
             str(args.quantity),
-            "--reference-price",
-            str(args.reference_price),
-            "--confidence",
-            str(args.confidence),
             "--thesis",
             args.thesis,
             "--stop-loss",
@@ -232,15 +245,42 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
             args.invalidation_condition,
             "--source",
             "v1-paper-desk-rehearsal",
-            "--review-notes",
-            "created by V1 paper desk rehearsal",
+            "--materiality",
+            "qa_rehearsal_scanner_candidate",
+            "--freshness",
+            "same_session_rehearsal_input",
+            "--liquidity",
+            "synthetic_liquid_us_equity_rehearsal",
+            "--risk-notes",
+            "stop_loss_take_profit_supplied_before_promotion",
             "--json",
         ],
     )
-    proposal = created.get("stdout_json")
+    candidate = candidate_created.get("stdout_json")
+    candidate_id = (
+        candidate.get("candidate_id") if isinstance(candidate, dict) else None
+    )
+    if not candidate_id:
+        raise RuntimeError("proposal-candidate-create did not return a candidate_id")
+    promoted = step(
+        "proposal-candidate-promote",
+        [
+            "proposal-candidate-promote",
+            str(candidate_id),
+            "--review-notes",
+            "promoted by V1 paper desk rehearsal",
+            "--json",
+        ],
+    )
+    promoted_payload = promoted.get("stdout_json")
+    proposal = (
+        promoted_payload.get("proposal")
+        if isinstance(promoted_payload, dict)
+        else None
+    )
     proposal_id = proposal.get("proposal_id") if isinstance(proposal, dict) else None
     if not proposal_id:
-        raise RuntimeError("proposal-create did not return a proposal_id")
+        raise RuntimeError("proposal-candidate-promote did not return a proposal_id")
     approved = step(
         "proposal-approve",
         [
@@ -312,6 +352,7 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
         "artifact_dir": str(artifact_dir),
         "execution_backend": args.execution_backend,
         "symbols": ",".join(symbols),
+        "candidate_id": candidate_id,
         "proposal_id": proposal_id,
         "approval_status": (
             approved_proposal.get("status") if isinstance(approved_proposal, dict) else None

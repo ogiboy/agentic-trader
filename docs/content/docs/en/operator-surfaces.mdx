@@ -42,6 +42,7 @@ agentic-trader v1-readiness --json
 agentic-trader broker-status --json
 agentic-trader finance-ops --json
 agentic-trader supervisor-status --json
+agentic-trader proposal-candidates --json
 agentic-trader trade-proposals --json
 ```
 
@@ -51,12 +52,15 @@ enough to continue.
 
 ### Review a trade idea before it can execute
 
-Scanner or research output should become a proposal first, not an immediate
-order. Use `proposal-create` to queue a paper-desk idea, `trade-proposals` to
-inspect pending and terminal decisions, and `proposal-approve` or
-`proposal-reject` for the explicit human review step. Approval still goes
-through the configured paper or external-paper broker adapter and records an
-execution intent/outcome audit trail.
+Scanner or research output should become a broker-free proposal candidate first,
+not an immediate order. Use `proposal-candidate-create` to persist a candidate,
+`proposal-candidates` to inspect scanner/research evidence, and
+`proposal-candidate-promote` to turn a checked candidate into a pending
+manual-review proposal. Use `proposal-create` only for manual paper-desk ideas,
+`trade-proposals` to inspect pending and terminal decisions, and
+`proposal-approve` or `proposal-reject` for the explicit human review step.
+Approval still goes through the configured paper or external-paper broker
+adapter and records an execution intent/outcome audit trail.
 
 External-paper broker acknowledgements such as `accepted` stay in-flight until
 `proposal-refresh` reads the original broker order and proves a fill,

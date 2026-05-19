@@ -82,16 +82,18 @@ Bu profiller artık runtime metadata olarak görülebilir:
 agentic-trader strategy-catalog --json
 agentic-trader strategy-profile vwap-breakout --json
 agentic-trader idea-score --symbol AAPL --preset momentum --price 190 --volume 5000000 --change-pct 6.2 --relative-volume 3.4 --json
+agentic-trader proposal-candidate-create --symbol AAPL --preset momentum --price 190 --volume 5000000 --change-pct 6.2 --relative-volume 3.4 --quantity 1 --stop-loss 182 --take-profit 205 --json
+agentic-trader proposal-candidate-promote CANDIDATE_ID --json
 ```
 
 Çıktı; gerekli girdileri, eksik evidence'ı, risk kontrollerini, validation
-check'leri ve scanner sonucunun neden hâlâ manuel proposal review istediğini
-anlatır.
+check'leri ve scanner sonucunun neden pending proposal'a dönüşmeden önce hâlâ
+broker-free candidate review istediğini anlatır.
 
 Opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs ya da ensemble
 gibi daha ileri fikirler önce no-lookahead kontrolleri, backtest confidence
 review ve açık invalidation kurallarından geçmelidir. Bunlar geçse bile emir
-değil, pending proposal üretir.
+değil, proposal candidate veya promotion sonrası pending proposal üretir.
 
 ## Finans/muhasebe kanıtı
 

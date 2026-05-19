@@ -54,8 +54,9 @@ readiness QA için `dashboard-snapshot --provider-check` ve
 
 Research sidecar güvenli bir döngüye doğru ilerliyor: pre-flight, monitor,
 analyze, propose, digest ve sonra sleep. Bu loop watchlist'i güncel tutabilir,
-source health'i açıklayabilir, fikirleri skorlayabilir ve manual-review
-proposal kuyruğuna aday ekleyebilir.
+source health'i açıklayabilir, fikirleri skorlayabilir ve broker-free proposal
+candidate oluşturabilir; bir adayın pending proposal'a dönüşmesi için hâlâ
+açık operator promotion adımı gerekir.
 
 Ama proposal onaylayamaz, emir gönderemez, policy mutate edemez, runtime
 gate'lerini zayıflatamaz ve ham web metnini instruction gibi kullanamaz.

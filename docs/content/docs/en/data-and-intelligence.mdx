@@ -80,15 +80,18 @@ Those profiles are now available as runtime metadata:
 agentic-trader strategy-catalog --json
 agentic-trader strategy-profile vwap-breakout --json
 agentic-trader idea-score --symbol AAPL --preset momentum --price 190 --volume 5000000 --change-pct 6.2 --relative-volume 3.4 --json
+agentic-trader proposal-candidate-create --symbol AAPL --preset momentum --price 190 --volume 5000000 --change-pct 6.2 --relative-volume 3.4 --quantity 1 --stop-loss 182 --take-profit 205 --json
+agentic-trader proposal-candidate-promote CANDIDATE_ID --json
 ```
 
 The output explains required inputs, missing evidence, risk controls, validation
-checks, and why scanner output still needs manual proposal review.
+checks, and why scanner output still needs broker-free candidate review before
+it can become a pending proposal.
 
 More advanced patterns such as opening-range, VWAP, Keltner/Bollinger,
 regime-adaptive, pairs, or ensemble ideas should first pass no-lookahead checks,
 backtest confidence review, and clear invalidation rules. Even then, they create
-pending proposals, not orders.
+proposal candidates or pending proposals after promotion, not orders.
 
 ## Finance/accounting evidence
 

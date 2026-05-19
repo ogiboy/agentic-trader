@@ -40,6 +40,11 @@ from agentic_trader.finance.proposals import (
     reject_trade_proposal,
     repair_missing_position_plans,
 )
+from agentic_trader.finance.proposal_candidates import (
+    ProposalCandidateDraft,
+    create_proposal_candidate,
+    promote_proposal_candidate,
+)
 from agentic_trader.finance.strategy_catalog import (
     StrategyStatus,
     finance_reconciliation_contract_payload,
@@ -148,6 +153,8 @@ from agentic_trader.schemas import (
     RuntimeModeTransitionPlan,
     ServiceEvent,
     ServiceStateSnapshot,
+    ProposalCandidateRecord,
+    ProposalCandidateStatus,
     TradeContextRecord,
     TradeJournalEntry,
     TradeProposalRecord,
@@ -1466,6 +1473,31 @@ def _trade_proposals_payload(
     }
 
 
+def _proposal_candidates_payload(
+    settings: Settings, *, status: ProposalCandidateStatus | None = None, limit: int = 50
+) -> dict[str, object]:
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            candidates = db.list_proposal_candidates(status=status, limit=limit)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        candidates = []
+        available = False
+        error = str(exc)
+    return {
+        "available": available,
+        "error": error,
+        "status": status,
+        "candidates": [
+            candidate.model_dump(mode="json") for candidate in candidates
+        ],
+    }
+
+
 def _parse_trade_side(value: str) -> TradeSide:
     normalized = value.strip().lower()
     if normalized not in {"buy", "sell"}:
@@ -1494,6 +1526,15 @@ def _parse_proposal_status(value: str | None) -> TradeProposalStatus | None:
     }:
         raise typer.BadParameter("status is not a known proposal state")
     return cast(TradeProposalStatus, normalized)
+
+
+def _parse_candidate_status(value: str | None) -> ProposalCandidateStatus | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized not in {"candidate", "promoted", "rejected", "expired"}:
+        raise typer.BadParameter("status is not a known proposal candidate state")
+    return cast(ProposalCandidateStatus, normalized)
 
 
 def _parse_idea_preset(value: str) -> IdeaPresetName:
@@ -1548,6 +1589,39 @@ def _render_trade_proposals(proposals: list[TradeProposalRecord]) -> None:
             f"{proposal.reference_price:.4f}",
             f"{proposal.confidence:.2f}",
             proposal.source,
+        )
+    console.print(table)
+
+
+def _render_proposal_candidates(candidates: list[ProposalCandidateRecord]) -> None:
+    if not candidates:
+        console.print(
+            Panel(
+                "No proposal candidates recorded yet.",
+                title="Proposal Candidates",
+                border_style="yellow",
+            )
+        )
+        return
+    table = Table(title="Proposal Candidates")
+    table.add_column("ID")
+    table.add_column("Status")
+    table.add_column("Symbol")
+    table.add_column("Preset")
+    table.add_column("Signal")
+    table.add_column("Score")
+    table.add_column("Ref")
+    table.add_column("Proposal")
+    for candidate in candidates:
+        table.add_row(
+            candidate.candidate_id,
+            candidate.status,
+            candidate.symbol,
+            candidate.preset,
+            candidate.signal,
+            f"{candidate.score:.2f}",
+            f"{candidate.reference_price:.4f}",
+            candidate.proposal_id or "-",
         )
     console.print(table)
 
@@ -4418,6 +4492,181 @@ def trade_proposals(
     _render_trade_proposals(proposals)
 
 
+@app.command("proposal-candidates")
+def proposal_candidates(
+    status: str | None = typer.Option(
+        None,
+        "--status",
+        help="Filter by candidate state: candidate, promoted, rejected, expired.",
+    ),
+    limit: int = typer.Option(
+        50, min=1, max=200, help="Maximum number of proposal candidates to show."
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show scanner/research candidates that may be promoted into proposals."""
+    settings = get_settings()
+    parsed_status = _parse_candidate_status(status)
+    payload = _proposal_candidates_payload(
+        settings,
+        status=parsed_status,
+        limit=limit,
+    )
+    if json_output:
+        _emit_json(payload)
+        return
+    candidates = [
+        ProposalCandidateRecord.model_validate(item)
+        for item in cast(list[dict[str, object]], payload["candidates"])
+    ]
+    if not payload["available"]:
+        console.print(
+            Panel(
+                "Proposal candidates are temporarily unavailable while the runtime "
+                f"writer owns the database.\n\n{payload['error']}",
+                title=LABEL_OBSERVER_MODE,
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    _render_proposal_candidates(candidates)
+
+
+@app.command("proposal-candidate-create")
+def proposal_candidate_create(
+    symbol: str = typer.Option(..., "--symbol", help=HELP_SYMBOL),
+    preset: str = typer.Option("momentum", "--preset", help="Idea preset to apply."),
+    price: float = typer.Option(..., "--price", min=0.01, help="Reference price."),
+    volume: float = typer.Option(..., "--volume", min=0.0, help="Latest volume."),
+    change_pct: float = typer.Option(..., "--change-pct", help="Scan-window change percent."),
+    relative_volume: float = typer.Option(0.0, "--relative-volume", min=0.0),
+    gap_pct: float = typer.Option(0.0, "--gap-pct", help="Opening gap percent."),
+    range_pct: float = typer.Option(0.0, "--range-pct", min=0.0),
+    rsi: float | None = typer.Option(None, "--rsi", min=0.0, max=100.0),
+    ema_9: float | None = typer.Option(None, "--ema-9", min=0.0),
+    sma_20: float | None = typer.Option(None, "--sma-20", min=0.0),
+    sma_50: float | None = typer.Option(None, "--sma-50", min=0.0),
+    vwap: float | None = typer.Option(None, "--vwap", min=0.0),
+    spread_pct: float = typer.Option(0.0, "--spread-pct", min=0.0),
+    quantity: float | None = typer.Option(None, "--quantity", min=0.0),
+    notional: float | None = typer.Option(None, "--notional", min=0.0),
+    stop_loss: float | None = typer.Option(None, "--stop-loss", min=0.01),
+    take_profit: float | None = typer.Option(None, "--take-profit", min=0.01),
+    invalidation_condition: str | None = typer.Option(
+        None,
+        "--invalidation-condition",
+        help="Condition that invalidates the candidate.",
+    ),
+    thesis: str = typer.Option("", "--thesis", help="Operator-readable thesis."),
+    materiality: str = typer.Option("", "--materiality", help="Materiality note."),
+    freshness: str = typer.Option(
+        "operator_supplied_current",
+        "--freshness",
+        help="Freshness note for the scanner inputs.",
+    ),
+    liquidity: str = typer.Option("", "--liquidity", help="Liquidity note."),
+    risk_notes: str = typer.Option("", "--risk-notes", help="Risk note."),
+    source: str = typer.Option("idea-scanner", "--source", help="Candidate source."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Persist a scanner/research candidate without approving or submitting it."""
+    settings = get_settings()
+    draft = ProposalCandidateDraft(
+        idea=IdeaCandidate(
+            symbol=symbol,
+            price=price,
+            volume=volume,
+            change_pct=change_pct,
+            relative_volume=relative_volume,
+            gap_pct=gap_pct,
+            range_pct=range_pct,
+            rsi=rsi,
+            ema_9=ema_9,
+            sma_20=sma_20,
+            sma_50=sma_50,
+            vwap=vwap,
+            spread_pct=spread_pct,
+        ),
+        preset=_parse_idea_preset(preset),
+        quantity=quantity,
+        notional=notional,
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        invalidation_condition=invalidation_condition,
+        thesis=thesis,
+        materiality=materiality,
+        freshness=freshness,
+        liquidity=liquidity,
+        risk_notes=risk_notes,
+        source=source,
+    )
+    try:
+        db = _open_db(settings)
+        try:
+            candidate = create_proposal_candidate(db=db, draft=draft)
+        finally:
+            db.close()
+    except ValueError as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
+        console.print(Panel(str(exc), title="Candidate Rejected", border_style="red"))
+        raise typer.Exit(code=2) from exc
+    if json_output:
+        _emit_json(candidate.model_dump(mode="json"))
+        return
+    console.print(
+        Panel(
+            f"{candidate.candidate_id} recorded for review.\n\n"
+            f"{candidate.symbol} {candidate.signal.upper()} score={candidate.score:.2f}",
+            title="Proposal Candidate Created",
+            border_style="green",
+        )
+    )
+
+
+@app.command("proposal-candidate-promote")
+def proposal_candidate_promote(
+    candidate_id: str = typer.Argument(..., help="Proposal candidate id to promote."),
+    review_notes: str = typer.Option("", help="Optional promotion notes."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Promote a proposal-grade candidate into a pending manual-review proposal."""
+    settings = get_settings()
+    try:
+        db = _open_db(settings)
+        try:
+            candidate, proposal = promote_proposal_candidate(
+                db=db,
+                candidate_id=candidate_id,
+                review_notes=review_notes,
+            )
+        finally:
+            db.close()
+    except ValueError as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
+        console.print(Panel(str(exc), title="Promotion Blocked", border_style="red"))
+        raise typer.Exit(code=2) from exc
+    payload = {
+        "candidate": candidate.model_dump(mode="json"),
+        "proposal": proposal.model_dump(mode="json"),
+        "submitted_to_broker": False,
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"{candidate.candidate_id} -> {proposal.proposal_id}\n"
+            "Queued as pending proposal. No broker submission was attempted.",
+            title="Proposal Candidate Promoted",
+            border_style="green",
+        )
+    )
+
+
 @app.command("proposal-create", cls=ProposalCreateCommand)
 def proposal_create(**options: str) -> None:
     """Create a pending trade proposal; this does not execute an order."""
@@ -5107,6 +5356,7 @@ def build_dashboard_snapshot_payload(
         "portfolio": _portfolio_payload(settings),
         "preferences": _preferences_payload(settings),
         "recentRuns": _recent_runs_payload(settings, limit=8),
+        "proposalCandidates": _proposal_candidates_payload(settings, limit=8),
         "tradeProposals": _trade_proposals_payload(settings, limit=8),
         "journal": _journal_payload(settings, limit=8),
         "riskReport": _risk_report_payload(settings),
@@ -5679,6 +5929,7 @@ def build_observer_api_payload(
     - "/provider-diagnostics": returns network-free provider/source readiness.
     - "/v1-readiness": returns V1 paper-operation and Alpaca paper-readiness gates.
     - "/research": returns optional research sidecar mode and provider health.
+    - "/proposal-candidates": returns read-only scanner/research proposal candidates.
     - "/trade-proposals": returns the read-only manual-review proposal queue.
     - any other path: returns 404 with {"error": "not_found", "path": <requested path>}.
     
@@ -5722,6 +5973,8 @@ def build_observer_api_payload(
         return 200, v1_readiness_payload(settings, check_provider=False)
     if path == "/research":
         return 200, _research_sidecar_payload(settings)
+    if path == "/proposal-candidates":
+        return 200, _proposal_candidates_payload(settings, limit=50)
     if path == "/trade-proposals":
         return 200, _trade_proposals_payload(settings, limit=50)
     return 404, {"error": "not_found", "path": path}
@@ -5767,7 +6020,7 @@ def observer_api_command(
         raise typer.Exit(code=2)
     console.print(
         Panel(
-            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /finance-ops\n- /provider-diagnostics\n- /v1-readiness\n- /research\n- /trade-proposals",
+            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /finance-ops\n- /provider-diagnostics\n- /v1-readiness\n- /research\n- /proposal-candidates\n- /trade-proposals",
             title="Observer API",
             border_style="cyan",
         )

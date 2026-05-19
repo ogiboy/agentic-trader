@@ -395,7 +395,8 @@ Status: in progress.
 - [ ] implement real fundamental providers behind the feature interface, starting with API-backed US equities and SEC filings
 - [ ] implement structured news and macro ingestion from Finnhub, FMP, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
 - [x] turn the first V1 strategy/catalog/news/loop slice into incremental code through existing contracts: idea-scanner metadata, `strategy-catalog`, `strategy-profile`, `idea-score` readiness context, `news-intelligence`, `research-cycle-plan`, and `finance-ops` ledger categories
-- [ ] enrich scanner output with provider/news/fundamental materiality, liquidity, spread, and sizing context before queueing paper proposals
+- [x] add a broker-free proposal-candidate queue that records scanner materiality, freshness, liquidity, spread, sizing intent, risk controls, and evidence before promotion into pending paper proposals
+- [ ] continue enriching proposal candidates with real provider/news/fundamental materiality before treating scanner output as proposal-ready
 - [ ] extend the runtime strategy catalog into feature bundles, backtest comparison, proposal records, guard/risk layers, and broader operator surfaces
 - [ ] add no-lookahead, declarative sweep, and confidence-review checks before opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble research candidates become proposal-capable
 - [ ] add operator-visible reasoning panels that explain how technical, fundamental, macro, memory, and guard evidence combined
@@ -406,6 +407,7 @@ Status: in progress.
 - the prompt-facing feature bundle is the primary agent input; compact runtime snapshots remain available internally for deterministic fallback and risk math
 - canonical analysis snapshots now sit below the feature bundle so provider source, freshness, and missing-data truth can travel into prompts, persistence, memory, and dashboard JSON without coupling agents to provider-specific payloads
 - idea-scanner presets are intentionally score/watch helpers, not execution agents; output must pass through proposal review and explicit approval before any broker adapter call
+- proposal candidates are persisted as broker-free review records; promotion creates a pending `TradeProposalRecord` only after watch/blocking-warning/sizing/stop-take checks pass, and still requires explicit approval before broker submission
 - market-intelligence guidance now exists under `.ai/agents/market-strategist.md`, `.ai/workflows/continuous-research-loop.md`, `.ai/playbooks/news-intelligence.md`, `.ai/playbooks/strategy-research-and-sweeps.md`, `.ai/playbooks/finance-evidence-reconciliation.md`, `.ai/skills/market-news-research.md`, and `.ai/strategies/`; these files are development contracts and not a second runtime
 - HHI/top-position concentration is the first finance-ops concentration signal; ATR/confidence sizing, ADV/spread penalties, group budgets, and correlation clusters are still open
 - Yahoo should be treated as fallback/degraded evidence once stronger provider data is configured, not as the long-term source of truth
@@ -440,6 +442,7 @@ Status: in progress.
 - `paper` remains the default; `alpaca_paper` is an explicit external-paper backend gated by credentials, paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`
 - real-money execution remains gated; V1 readiness is expressed through `v1-readiness`, `provider-diagnostics`, `broker-status`, dashboard/observer payloads, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden brokerage
 - proposal approval submits through the existing broker adapter boundary and paper/external-paper safety gates; the Web GUI Proposal Desk can invoke only explicit approve/reject/reconcile/refresh commands, while scanner, sidecar, chat, and Web surfaces must not approve or execute implicitly
+- scanner/research candidates enter the broker-free `proposal_candidates` bridge first; promotion may create a pending proposal, but broker submission remains a separate approval action
 - broker acknowledgements such as Alpaca paper `accepted` remain in-flight approved proposals with operator-visible open journal entries; `proposal-refresh` can read the original broker order without resubmitting and update proposal/execution/position-plan truth when the broker later reports fill, partial-fill, cancel, or reject state
 - `proposal-reconcile` repairs an already approved in-flight proposal from the idempotent `execution_records.intent_id` row without resubmitting to the broker, covering interrupted final-status writes before external paper/live adapters grow broader
 - `pnpm run qa:v1-paper-desk` passed on the current V1 branch with an isolated AAPL/MSFT paper rehearsal, producing provider, readiness, research-cycle, memory, proposal, journal, finance, and evidence-bundle artifacts under `.ai/qa/artifacts/codex-v1-paper-desk-smoke/`

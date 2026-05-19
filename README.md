@@ -470,6 +470,9 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 | `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
 | `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks; add `--provider-check` before longer paper runs and to verify local-model generation |
 | `agentic-trader trade-proposals --json`                                                | Inspect the manual-review proposal queue |
+| `agentic-trader proposal-candidates --json`                                            | Inspect broker-free scanner/research candidates before proposal promotion |
+| `agentic-trader proposal-candidate-create ...`                                         | Persist a candidate without approval or broker submission |
+| `agentic-trader proposal-candidate-promote CANDIDATE_ID --json`                        | Promote a checked candidate into a pending manual-review proposal |
 | `agentic-trader proposal-create ...`                                                   | Queue a non-executing paper proposal for approval |
 | `agentic-trader proposal-approve PROPOSAL_ID --json` / `agentic-trader proposal-reject PROPOSAL_ID --reason "..." --json` | Approve or reject a pending proposal through the explicit manual-review gate |
 | `agentic-trader proposal-refresh PROPOSAL_ID --json`                                   | Recheck an accepted broker order without resubmitting |

@@ -47,6 +47,7 @@ ExecutionBackend = Literal["paper", "simulated_real", "alpaca_paper", "live"]
 TradeProposalStatus = Literal[
     "pending", "approved", "rejected", "executed", "failed", "expired"
 ]
+ProposalCandidateStatus = Literal["candidate", "promoted", "rejected", "expired"]
 NewsClassification = Literal[
     "company_specific", "sector_level", "macro_level"
 ]
@@ -202,6 +203,42 @@ class TradeProposalRecord(BaseModel):
     def require_quantity_or_notional(self) -> "TradeProposalRecord":
         if self.quantity is None and self.notional is None:
             raise ValueError("Trade proposals require quantity or notional.")
+        return self
+
+
+class ProposalCandidateRecord(BaseModel):
+    candidate_id: str
+    created_at: str
+    updated_at: str
+    symbol: str
+    preset: str
+    signal: Literal["buy", "sell", "watch"]
+    side: TradeSide | None = None
+    score: float = Field(ge=0.0, le=100.0)
+    reference_price: float = Field(gt=0.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    quantity: float | None = Field(default=None, gt=0.0)
+    notional: float | None = Field(default=None, gt=0.0)
+    thesis: str
+    stop_loss: float | None = Field(default=None, gt=0.0)
+    take_profit: float | None = Field(default=None, gt=0.0)
+    invalidation_condition: str | None = None
+    source: str = "idea-scanner"
+    status: ProposalCandidateStatus = "candidate"
+    materiality: str
+    freshness: str
+    liquidity: str
+    spread_pct: float = Field(ge=0.0)
+    risk_notes: str
+    evidence: dict[str, object] = Field(default_factory=dict)
+    proposal_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_sizing(self) -> "ProposalCandidateRecord":
+        if self.quantity is not None and self.notional is not None:
+            raise ValueError("Proposal candidates require exactly one of quantity or notional.")
+        if self.side is not None and self.quantity is None and self.notional is None:
+            raise ValueError("Proposal candidates with a side require quantity or notional.")
         return self
 
 

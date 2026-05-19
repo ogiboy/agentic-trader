@@ -152,6 +152,7 @@ If a process records the broker execution outcome but exits before the final pro
 The Web GUI Proposal Desk may call only the allowlisted CLI contracts for approve, reject, reconcile, and refresh, with same-origin/token route guards and no generic command execution or proposal creation surface.
 This keeps proposal generation useful for a paper desk while preserving paper-first/manual-approval safety and keeping live execution blocked.
 Missing exit-plan recovery is also explicit and non-executing: `position-plan-repair` may backfill stored position plans only from already executed proposal records with valid stop-loss/take-profit controls and matching open positions, defaults to dry-run, and must never resubmit orders or infer risk controls from a thesis alone.
+Proposal candidates are a pre-review evidence layer, not agent authority. Scanner/research output may be persisted as `ProposalCandidateRecord` rows with score, materiality, freshness, liquidity, sizing intent, controls, and evidence. Promotion may create a pending `TradeProposalRecord` only after deterministic checks pass; it must not approve, execute, or bypass the proposal gate.
 
 ### Optional web research helpers stay evidence-only and fail closed
 
