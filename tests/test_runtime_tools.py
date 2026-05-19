@@ -32,6 +32,7 @@ def _settings(tmp_path: Path, **overrides: Any) -> Settings:
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
         market_data_cache_dir=tmp_path / "market_cache",
+        host_id="test-host",
         **overrides,
     )
     settings.ensure_directories()
@@ -43,6 +44,7 @@ def _model_status(
     app_owned: bool = False,
     reachable: bool = True,
     model_available: bool = True,
+    owner: str | None = "test-host",
 ) -> ModelServiceStatus:
     return ModelServiceStatus(
         command_available=True,
@@ -53,6 +55,7 @@ def _model_status(
         model_available=model_available,
         available_models=["qwen3:8b"] if model_available else [],
         app_owned=app_owned,
+        owner=owner if app_owned else None,
         pid=123 if app_owned else None,
         host="127.0.0.1" if app_owned else None,
         port=11435 if app_owned else None,
@@ -64,7 +67,12 @@ def _model_status(
     )
 
 
-def _camofox_status(*, app_owned: bool = False, healthy: bool = True) -> CamofoxServiceStatus:
+def _camofox_status(
+    *,
+    app_owned: bool = False,
+    healthy: bool = True,
+    owner: str | None = "test-host",
+) -> CamofoxServiceStatus:
     return CamofoxServiceStatus(
         command_available=True,
         command_path="/opt/homebrew/bin/node",
@@ -75,6 +83,7 @@ def _camofox_status(*, app_owned: bool = False, healthy: bool = True) -> Camofox
         service_reachable=healthy,
         health_ok=healthy,
         app_owned=app_owned,
+        owner=owner if app_owned else None,
         pid=456 if app_owned else None,
         host="127.0.0.1",
         port=9377,
@@ -204,6 +213,25 @@ def test_host_owned_model_service_does_not_adopt_app_owned_status(
     assert settings.base_url == "http://127.0.0.1:11434/v1"
 
 
+def test_app_owned_model_service_from_other_host_does_not_adopt_endpoint(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
+    write_tool_ownership(settings, {"ollama": "app-owned"}, source="test")
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_model_service_status",
+        lambda _settings: _model_status(app_owned=True, owner="other-host"),
+    )
+
+    status = runtime_tools.ensure_model_service_if_configured(settings)
+
+    assert status.app_owned is True
+    assert status.is_owned_by_host(settings.host_id) is False
+    assert settings.base_url == "http://127.0.0.1:11434/v1"
+
+
 def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
     monkeypatch,
     tmp_path: Path,
@@ -224,6 +252,30 @@ def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
 
     assert status is not None
     assert status.app_owned is True
+    assert settings.research_camofox_base_url == "http://127.0.0.1:9999"
+
+
+def test_app_owned_camofox_service_from_other_host_does_not_adopt_endpoint(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(
+        tmp_path,
+        research_camofox_enabled=True,
+        research_camofox_base_url="http://127.0.0.1:9999",
+    )
+    write_tool_ownership(settings, {"camofox": "app-owned"}, source="test")
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_camofox_service_status",
+        lambda _settings: _camofox_status(app_owned=True, owner="other-host"),
+    )
+
+    status = runtime_tools.ensure_camofox_service_if_configured(settings)
+
+    assert status is not None
+    assert status.app_owned is True
+    assert status.is_owned_by_host(settings.host_id) is False
     assert settings.research_camofox_base_url == "http://127.0.0.1:9999"
 
 

@@ -91,6 +91,8 @@ def test_start_camofox_service_uses_loopback_keyed_minimal_env(
     status = camofox_service.start_camofox_service(settings)
 
     assert status.app_owned is True
+    assert status.owner == settings.host_id
+    assert status.is_owned_by_host(settings.host_id) is True
     assert status.service_reachable is True
     assert status.health_ok is True
     assert status.tool_id == "camofox-browser"

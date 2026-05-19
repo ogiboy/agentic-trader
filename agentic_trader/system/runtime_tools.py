@@ -49,6 +49,7 @@ def _should_adopt_model_endpoint(
         settings.llm_provider == "ollama"
         and ownership_mode_for_tool(settings, "ollama") == "app-owned"
         and status.app_owned
+        and status.is_owned_by_host(settings.host_id)
     )
 
 
@@ -59,6 +60,7 @@ def _should_adopt_camofox_endpoint(
     return (
         ownership_mode_for_tool(settings, "camofox") == "app-owned"
         and status.app_owned
+        and status.is_owned_by_host(settings.host_id)
     )
 
 

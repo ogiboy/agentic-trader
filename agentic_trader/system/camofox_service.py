@@ -78,6 +78,7 @@ CAMOFOX_PROXY_KEYS = (
 class CamofoxServiceState(BaseModel):
     """Persisted state for an app-owned Camofox process."""
 
+    owner: str | None = None
     pid: int
     host: str
     port: int
@@ -107,6 +108,7 @@ class CamofoxServiceStatus(BaseModel):
     dependency_path: str | None = None
     access_key_configured: bool
     app_owned: bool = False
+    owner: str | None = None
     pid: int | None = None
     host: str | None = None
     port: int | None = None
@@ -120,6 +122,11 @@ class CamofoxServiceStatus(BaseModel):
     state_path: str
     tool_dir: str
     message: str
+
+    def is_owned_by_host(self, host_id: str) -> bool:
+        """Return true only when this app-owned status belongs to this runtime host."""
+
+        return self.app_owned and self.owner == host_id
 
 
 def camofox_service_dir(settings: Settings) -> Path:
@@ -547,6 +554,7 @@ def build_camofox_service_status(
         ),
         access_key_configured=bool(_camofox_access_token(settings)),
         app_owned=app_state is not None,
+        owner=app_state.owner if app_state is not None else None,
         pid=app_state.pid if app_state is not None else None,
         host=app_state.host if app_state is not None else host,
         port=app_state.port if app_state is not None else port,
@@ -638,6 +646,7 @@ def start_camofox_service(
             start_new_session=True,
         )
     state = CamofoxServiceState(
+        owner=settings.host_id,
         pid=process.pid,
         host=desired_host,
         port=chosen_port,

@@ -61,6 +61,7 @@ class ModelServiceState(BaseModel):
     """Persisted state for an app-owned model-service process."""
 
     provider: str = "ollama"
+    owner: str | None = None
     pid: int
     host: str
     port: int
@@ -94,6 +95,7 @@ class ModelServiceStatus(BaseModel):
     generation_message: str | None = None
     available_models: list[str] = Field(default_factory=list)
     app_owned: bool = False
+    owner: str | None = None
     pid: int | None = None
     host: str | None = None
     port: int | None = None
@@ -108,6 +110,11 @@ class ModelServiceStatus(BaseModel):
         default_factory=lambda: list(DEFAULT_MODEL_CHOICES)
     )
     runtime_base_url_matches_app_service: bool = False
+
+    def is_owned_by_host(self, host_id: str) -> bool:
+        """Return true only when this app-owned status belongs to this runtime host."""
+
+        return self.app_owned and self.owner == host_id
 
 
 def model_service_dir(settings: Settings) -> Path:
@@ -807,6 +814,7 @@ def build_model_service_status(
         generation_message=generation_message,
         available_models=models,
         app_owned=app_owned,
+        owner=app_state.owner if app_state is not None else None,
         pid=app_state.pid if app_state is not None else None,
         host=app_state.host if app_state is not None else None,
         port=app_state.port if app_state is not None else None,
@@ -870,6 +878,7 @@ def start_model_service(
             start_new_session=True,
         )
     state = ModelServiceState(
+        owner=settings.host_id,
         pid=process.pid,
         host=desired_host,
         port=chosen_port,

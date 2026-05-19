@@ -553,6 +553,11 @@ listeners for operator diagnostics and stale app-managed cleanup. Cleanup may
 target app-owned alternate ports 11435-11465, but host-default 11434 remains a
 user-managed service unless the operator explicitly chooses otherwise.
 If a user-managed Ollama is already running, app-managed startup should choose another loopback port and make the base-url mismatch visible instead of killing or hijacking the external service.
+Runtime adoption of an app-owned model-service or Camofox endpoint must also
+match the current host identity. App-owned state copied from another checkout or
+machine should remain inspectable, but it must not override host-owned or
+explicitly configured endpoints unless the persisted service owner equals the
+current `AGENTIC_TRADER_HOST_ID`.
 
 ### Strict model readiness must verify generation, not just tags
 

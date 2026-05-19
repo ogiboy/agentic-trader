@@ -152,6 +152,10 @@ Implemented or substantially present:
   evidence before falling back to process command-line inspection, so sandboxed
   or restricted `ps` access does not make the app forget a still-listening
   app-owned Ollama process
+- app-owned model-service and Camofox endpoint adoption now also requires the
+  persisted service owner to match the current `AGENTIC_TRADER_HOST_ID`; stale
+  or copied app-owned state from another machine stays visible as status, but it
+  no longer rewrites the active runtime base URLs
 - model-service duplicate detection no longer depends on `ps`: on macOS-like
   restricted environments it falls back to loopback `lsof` listener evidence,
   reports total Ollama process count, detects stale app-managed listeners on
