@@ -4,6 +4,7 @@ import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
+from agentic_trader.execution.intent import ExecutionIntent
 from agentic_trader.engine.position_manager import evaluate_position_exit
 from agentic_trader.schemas import ExecutionDecision, MarketSnapshot
 from agentic_trader.storage.db import TradingDatabase
@@ -72,6 +73,50 @@ def test_paper_broker_avoids_same_direction_pyramiding(tmp_path: Path) -> None:
     assert first_position is not None
     assert second_position is not None
     assert second_position.quantity == first_position.quantity
+
+
+def test_paper_broker_blocks_sell_that_would_cross_short_when_shorting_disabled(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        default_cash=10_000.0,
+        allow_short=False,
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    broker = PaperBroker(db, settings)
+
+    broker.place_order(
+        ExecutionIntent(
+            symbol="AAPL",
+            side="buy",
+            quantity=1,
+            reference_price=100,
+            confidence=0.8,
+            thesis="Seed a long position.",
+            approved=True,
+        )
+    )
+
+    outcome = broker.place_order(
+        ExecutionIntent(
+            symbol="AAPL",
+            side="sell",
+            quantity=2,
+            reference_price=100,
+            confidence=0.8,
+            thesis="Attempt to sell past flat.",
+            approved=True,
+        )
+    )
+
+    position = db.get_position("AAPL")
+    assert outcome.status == "blocked"
+    assert outcome.rejection_reason == "shorting_disabled"
+    assert position is not None
+    assert position.quantity == 1
 
 
 def test_position_manager_triggers_take_profit_exit(tmp_path: Path) -> None:

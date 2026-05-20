@@ -114,7 +114,6 @@ from agentic_trader.system.model_service import (
 )
 from agentic_trader.system.operator_launcher import (
     build_operator_launcher_status,
-    start_default_background_runtime,
     start_operator_webgui,
 )
 from agentic_trader.system.runtime_tools import apply_app_owned_service_settings
@@ -3659,13 +3658,9 @@ def _render_operator_launcher_status(payload: dict[str, object]) -> None:
             "\n".join(
                 [
                     "1  Open/start the local Web GUI command center",
-                    "2  Start the default strict paper daemon",
-                    "3  Open the Ink terminal control room",
-                    "4  Open the Rich/admin fallback menu",
-                    "5  Show local model-service status",
-                    "6  Show Camofox browser helper status",
-                    "7  Show setup/tool readiness",
-                    "8  Exit",
+                    "2  Continue in the Rich terminal control room",
+                    "3  Stay here and refresh this launcher",
+                    "4  Exit",
                 ]
             ),
             title="Choose A Surface",
@@ -3678,66 +3673,34 @@ def _operator_launcher() -> None:
     """Interactive no-argument product launcher."""
 
     settings = get_settings()
-    payload = build_operator_launcher_status(settings).model_dump(mode="json")
-    _render_operator_launcher_status(payload)
-    choice = Prompt.ask(
-        "Select action",
-        choices=["1", "2", "3", "4", "5", "6", "7", "8", "q"],
-        default="3",
-    )
-    if choice == "1":
-        try:
-            status = start_operator_webgui(settings)
-        except Exception as exc:
-            console.print(
-                _render_health_panel(
-                    "Web GUI Start Failed",
-                    redact_sensitive_text(exc, max_length=240),
-                    border_style="red",
+    while True:
+        payload = build_operator_launcher_status(settings).model_dump(mode="json")
+        _render_operator_launcher_status(payload)
+        choice = Prompt.ask(
+            "Select action",
+            choices=["1", "2", "3", "4", "8", "q"],
+            default="2",
+        )
+        if choice == "1":
+            try:
+                status = start_operator_webgui(settings)
+            except Exception as exc:
+                console.print(
+                    _render_health_panel(
+                        "Web GUI Start Failed",
+                        redact_sensitive_text(exc, max_length=240),
+                        border_style="red",
+                    )
                 )
-            )
-            raise typer.Exit(code=1) from exc
-        _render_webgui_service_status(status.model_dump(mode="json"))
-        return
-    if choice == "2":
-        try:
-            pid = start_default_background_runtime(settings)
-        except Exception as exc:
-            console.print(
-                _render_health_panel(
-                    "Daemon Start Blocked",
-                    redact_sensitive_text(exc, max_length=240),
-                    border_style="red",
-                )
-            )
-            raise typer.Exit(code=1) from exc
-        console.print(
-            _render_health_panel(
-                "Background Daemon Started",
-                f"Paper-runtime daemon is running with PID {pid}.",
-                border_style="green",
-            )
-        )
-        return
-    if choice == "3":
-        ink_tui()
-        return
-    if choice == "4":
-        run_main_menu()
-        return
-    if choice == "5":
-        _render_model_service_status(
-            build_model_service_status(settings).model_dump(mode="json")
-        )
-        return
-    if choice == "6":
-        _render_camofox_service_status(
-            build_camofox_service_status(settings).model_dump(mode="json")
-        )
-        return
-    if choice == "7":
-        _render_setup_status(build_setup_status(settings).model_dump(mode="json"))
-        return
+                raise typer.Exit(code=1) from exc
+            _render_webgui_service_status(status.model_dump(mode="json"))
+            return
+        if choice == "2":
+            run_main_menu()
+            return
+        if choice == "3":
+            continue
+        break
     console.print(
         _render_health_panel("Exit", "No action selected.", border_style="blue")
     )

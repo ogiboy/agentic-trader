@@ -163,7 +163,7 @@ function renderHuman(payload) {
   process.stdout.write('Agentic Trader app:doctor\n');
   if (!payload.cli_path) {
     process.stdout.write(
-      'agentic-trader entrypoint was not found. Run make setup, then retry app:doctor.\n',
+      'local agentic-trader entrypoint was not found. Run make setup, set AGENTIC_TRADER_CLI, or set AGENTIC_TRADER_ALLOW_GLOBAL_CLI=1 intentionally.\n',
     );
     return;
   }

@@ -9,15 +9,15 @@ import shutil
 import subprocess
 import sys
 import time
+import pexpect
+import pandas as pd
+from agentic_trader.market.features import build_snapshot
 from argparse import ArgumentParser, Namespace
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
-
-import pexpect
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
@@ -963,10 +963,7 @@ def _market_context_edge_case_results() -> tuple[list[str], dict[str, object]]:
     return issues, observations
 
 
-def _qa_ohlcv_frame(
-    periods: int, *, index: Any | None = None
-) -> Any:
-    import pandas as pd
+def _qa_ohlcv_frame(periods: int, *, index: Any | None = None) -> Any:
 
     return pd.DataFrame(
         {
@@ -981,7 +978,6 @@ def _qa_ohlcv_frame(
 
 
 def _intraday_edge_case_frame() -> Any:
-    import pandas as pd
 
     return _qa_ohlcv_frame(
         120, index=pd.date_range("2025-01-01 09:30", periods=120, freq="h")
@@ -1009,9 +1005,6 @@ def _require_context_flag(
 def _check_partial_daily_window(
     issues: list[str], observations: dict[str, object]
 ) -> None:
-    import pandas as pd
-
-    from agentic_trader.market.features import build_snapshot
 
     partial_frame = _qa_ohlcv_frame(
         80, index=pd.date_range("2025-01-01", periods=80, freq="B")
@@ -1033,10 +1026,11 @@ def _check_partial_daily_window(
 def _check_intraday_fail_closed(
     intraday_frame: Any, issues: list[str], observations: dict[str, object]
 ) -> None:
-    from agentic_trader.market.features import build_snapshot
 
     try:
-        build_snapshot(intraday_frame, symbol="INTRADAY", interval="1h", lookback="180d")
+        build_snapshot(
+            intraday_frame, symbol="INTRADAY", interval="1h", lookback="180d"
+        )
     except ValueError as exc:
         observations["intraday_operation_block"] = str(exc)
         if "coverage is too thin" not in str(exc):
@@ -1048,7 +1042,6 @@ def _check_intraday_fail_closed(
 def _check_training_replay_undercoverage(
     intraday_frame: Any, issues: list[str], observations: dict[str, object]
 ) -> None:
-    from agentic_trader.market.features import build_snapshot
 
     replay_snapshot = build_snapshot(
         intraday_frame,
@@ -1071,9 +1064,6 @@ def _check_training_replay_undercoverage(
 def _check_higher_timeframe_fallbacks(
     issues: list[str], observations: dict[str, object]
 ) -> None:
-    import pandas as pd
-
-    from agentic_trader.market.features import build_snapshot
 
     range_pack = build_snapshot(
         _qa_ohlcv_frame(80), symbol="RANGE", interval="1d", lookback="90d"
@@ -1531,9 +1521,7 @@ def _start_tmux_session(
         issues.append(f"tmux new-session stderr: {launch_proc.stderr.strip()}")
 
 
-def _wait_for_ink_overview(
-    tmux_path: str, session_name: str, timeout: int
-) -> str:
+def _wait_for_ink_overview(tmux_path: str, session_name: str, timeout: int) -> str:
     capture = ""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:

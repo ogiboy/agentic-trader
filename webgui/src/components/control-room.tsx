@@ -33,6 +33,7 @@ import {
   formatNumber,
   formatPercent,
   formatTimestamp,
+  localToolActionLines,
   localToolLines,
   marketContextLines,
   marketLensImage,
@@ -67,6 +68,7 @@ export {
   formatPercent,
   formatSourceHealthCount,
   formatTimestamp,
+  localToolActionLines,
   localToolLines,
   marketContextLines,
   normalizeChatHistory,
@@ -323,6 +325,7 @@ export function OverviewView({
           `${formatTimestamp(event.created_at)} | ${event.stage} | ${event.status} | ${event.message}`,
       )
     : ['No live agent stage events yet.'];
+  const localToolActions = localToolActionLines(dashboard);
 
   return (
     <div className="stack">
@@ -412,6 +415,11 @@ export function OverviewView({
               Camofox
             </button>
           </div>
+          {localToolActions.length ? (
+            <div className="banner banner--warn">
+              <TextList items={localToolActions} />
+            </div>
+          ) : null}
           <TextList items={localToolLines(dashboard)} />
         </Panel>
       </div>
