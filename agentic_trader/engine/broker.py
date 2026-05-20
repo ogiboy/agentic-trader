@@ -429,6 +429,24 @@ class AlpacaPaperBrokerAdapter:
         )
 
     def _preflight_outcome(self, intent: ExecutionIntent) -> ExecutionOutcome | None:
+        basic_outcome = self._basic_preflight_outcome(intent)
+        if basic_outcome is not None:
+            return basic_outcome
+        limit_outcome = self._limit_order_preflight_outcome(intent)
+        if limit_outcome is not None:
+            return limit_outcome
+        if intent.side == "sell" and not self.settings.allow_short:
+            short_check = self._shorting_disabled_outcome(intent)
+            if short_check is not None:
+                return short_check
+        risk_limit_outcome = self._risk_limit_outcome(intent)
+        if risk_limit_outcome is not None:
+            return risk_limit_outcome
+        return None
+
+    def _basic_preflight_outcome(
+        self, intent: ExecutionIntent
+    ) -> ExecutionOutcome | None:
         if not intent.approved or intent.side == "hold":
             return self._blocked_outcome(
                 intent,
@@ -453,26 +471,25 @@ class AlpacaPaperBrokerAdapter:
                 reason="missing_size",
                 message="Alpaca paper adapter requires quantity or notional.",
             )
-        if intent.order_type == "limit":
-            if intent.limit_price is None:
-                return self._blocked_outcome(
-                    intent,
-                    reason="missing_limit_price",
-                    message="Alpaca paper limit orders require limit_price.",
-                )
-            if intent.quantity is None:
-                return self._blocked_outcome(
-                    intent,
-                    reason="limit_quantity_required",
-                    message="Alpaca paper limit orders require quantity.",
-                )
-        if intent.side == "sell" and not self.settings.allow_short:
-            short_check = self._shorting_disabled_outcome(intent)
-            if short_check is not None:
-                return short_check
-        risk_limit_outcome = self._risk_limit_outcome(intent)
-        if risk_limit_outcome is not None:
-            return risk_limit_outcome
+        return None
+
+    def _limit_order_preflight_outcome(
+        self, intent: ExecutionIntent
+    ) -> ExecutionOutcome | None:
+        if intent.order_type != "limit":
+            return None
+        if intent.limit_price is None:
+            return self._blocked_outcome(
+                intent,
+                reason="missing_limit_price",
+                message="Alpaca paper limit orders require limit_price.",
+            )
+        if intent.quantity is None:
+            return self._blocked_outcome(
+                intent,
+                reason="limit_quantity_required",
+                message="Alpaca paper limit orders require quantity.",
+            )
         return None
 
     def _shorting_disabled_outcome(

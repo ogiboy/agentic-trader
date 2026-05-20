@@ -37,6 +37,7 @@ from agentic_trader.storage.db import TradingDatabase
 
 BLOCKING_CANDIDATE_WARNINGS = {"invalid_price", "low_volume", "wide_spread"}
 STALE_FRESHNESS_MARKERS = ("stale", "expired", "outdated", "unknown", "missing")
+TRUNCATED_PAYLOAD_MARKER = "<truncated>"
 
 
 @dataclass(frozen=True, slots=True)
@@ -463,6 +464,13 @@ def _blocking_warnings(warnings: tuple[str, ...]) -> list[str]:
 
 
 def _validate_candidate_promotable(candidate: ProposalCandidateRecord) -> None:
+    _validate_candidate_blockers(candidate)
+    _validate_candidate_sizing(candidate)
+    _validate_candidate_evidence(candidate)
+    _validate_candidate_risk_geometry(candidate)
+
+
+def _validate_candidate_blockers(candidate: ProposalCandidateRecord) -> None:
     raw_blockers: Any = candidate.evidence.get("blocking_warnings")
     blockers = raw_blockers if isinstance(raw_blockers, list) else []
     if blockers:
@@ -474,6 +482,9 @@ def _validate_candidate_promotable(candidate: ProposalCandidateRecord) -> None:
         raise ValueError(
             f"Proposal candidate {candidate.candidate_id} is watch-only and cannot be promoted."
         )
+
+
+def _validate_candidate_sizing(candidate: ProposalCandidateRecord) -> None:
     if candidate.quantity is None and candidate.notional is None:
         raise ValueError(
             f"Proposal candidate {candidate.candidate_id} has no quantity or notional."
@@ -490,6 +501,9 @@ def _validate_candidate_promotable(candidate: ProposalCandidateRecord) -> None:
         raise ValueError(
             f"Proposal candidate {candidate.candidate_id} has no stop_loss/take_profit controls."
         )
+
+
+def _validate_candidate_evidence(candidate: ProposalCandidateRecord) -> None:
     if not _candidate_has_current_evidence(candidate):
         raise ValueError(
             f"Proposal candidate {candidate.candidate_id} has stale or missing freshness evidence."
@@ -498,15 +512,24 @@ def _validate_candidate_promotable(candidate: ProposalCandidateRecord) -> None:
         raise ValueError(
             f"Proposal candidate {candidate.candidate_id} requires reference_price greater than zero."
         )
+
+
+def _validate_candidate_risk_geometry(candidate: ProposalCandidateRecord) -> None:
+    stop_loss = candidate.stop_loss
+    take_profit = candidate.take_profit
+    if stop_loss is None or take_profit is None:
+        raise ValueError(
+            f"Proposal candidate {candidate.candidate_id} has no stop_loss/take_profit controls."
+        )
     if candidate.side == "buy" and not (
-        candidate.stop_loss < candidate.reference_price < candidate.take_profit
+        stop_loss < candidate.reference_price < take_profit
     ):
         raise ValueError(
             "Buy proposal candidate risk controls must satisfy "
             "stop_loss < reference_price < take_profit."
         )
     if candidate.side == "sell" and not (
-        candidate.take_profit < candidate.reference_price < candidate.stop_loss
+        take_profit < candidate.reference_price < stop_loss
     ):
         raise ValueError(
             "Sell proposal candidate risk controls must satisfy "
@@ -555,12 +578,12 @@ def _safe_note(value: object, *, max_length: int) -> str:
 
 def _redacted_json_payload(value: object, *, max_depth: int = 6) -> object:
     if max_depth <= 0:
-        return "<truncated>"
+        return TRUNCATED_PAYLOAD_MARKER
     if isinstance(value, dict):
         payload: dict[str, object] = {}
         for index, (key, item) in enumerate(value.items()):
             if index >= 100:
-                payload["<truncated>"] = "additional keys omitted"
+                payload[TRUNCATED_PAYLOAD_MARKER] = "additional keys omitted"
                 break
             payload[_safe_note(key, max_length=120)] = _redacted_json_payload(
                 item,
@@ -573,7 +596,7 @@ def _redacted_json_payload(value: object, *, max_depth: int = 6) -> object:
             for item in value[:100]
         ]
         if len(value) > 100:
-            items.append("<truncated>")
+            items.append(TRUNCATED_PAYLOAD_MARKER)
         return items
     if isinstance(value, str):
         return _safe_note(value, max_length=1000)

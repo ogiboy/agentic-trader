@@ -301,8 +301,15 @@ def _is_ollama_serve_command(command_line: str, executable_names: set[str]) -> b
 def _ollama_listener_pids_from_lsof() -> list[int]:
     """Return Ollama listener PIDs without relying on process-list permissions."""
 
-    if sys.platform.startswith("win"):
+    output = _run_lsof_listener_scan()
+    if output is None:
         return []
+    return sorted(_parse_ollama_listener_pids(output))
+
+
+def _run_lsof_listener_scan() -> str | None:
+    if sys.platform.startswith("win"):
+        return None
     try:
         completed = subprocess.run(
             ["lsof", "-nP", "-iTCP", LSOF_LISTEN_FILTER, "-Fpcn"],
@@ -312,13 +319,17 @@ def _ollama_listener_pids_from_lsof() -> list[int]:
             check=False,
         )
     except Exception:
-        return []
+        return None
     if completed.returncode != 0:
-        return []
+        return None
+    return completed.stdout
+
+
+def _parse_ollama_listener_pids(output: str) -> set[int]:
     current_pid: int | None = None
     current_command: str | None = None
     pids: set[int] = set()
-    for line in completed.stdout.splitlines():
+    for line in output.splitlines():
         if line.startswith("p") and line[1:].isdigit():
             current_pid = int(line[1:])
             current_command = None
@@ -330,14 +341,18 @@ def _ollama_listener_pids_from_lsof() -> list[int]:
             continue
         endpoint = line[1:].strip()
         host, _, port_text = endpoint.rpartition(":")
-        port = int(port_text) if port_text.isdigit() else None
-        if (
-            current_command == "ollama"
-            and port in KNOWN_OLLAMA_SERVICE_PORTS
-            and is_loopback_host(host)
-        ):
+        if _is_known_ollama_listener(current_command, host, port_text):
             pids.add(current_pid)
-    return sorted(pids)
+    return pids
+
+
+def _is_known_ollama_listener(command: str | None, host: str, port_text: str) -> bool:
+    port = int(port_text) if port_text.isdigit() else None
+    return (
+        command == "ollama"
+        and port in KNOWN_OLLAMA_SERVICE_PORTS
+        and is_loopback_host(host)
+    )
 
 
 def _listening_loopback_ports_for_pid(pid: int) -> set[int]:

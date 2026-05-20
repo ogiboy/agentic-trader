@@ -62,28 +62,8 @@ def prepare_trade_proposal(
     *, draft: TradeProposalDraft | None = None, **fields: Any
 ) -> TradeProposalRecord:
     proposal_draft = _coerce_trade_proposal_draft(draft=draft, fields=fields)
-    if proposal_draft.quantity is None and proposal_draft.notional is None:
-        raise ValueError("Trade proposals require quantity or notional.")
-    if proposal_draft.quantity is not None and proposal_draft.notional is not None:
-        raise ValueError("Trade proposals require exactly one of quantity or notional.")
-    if proposal_draft.quantity is not None and proposal_draft.quantity <= 0:
-        raise ValueError("Trade proposals require quantity greater than zero.")
-    if proposal_draft.notional is not None and proposal_draft.notional <= 0:
-        raise ValueError("Trade proposals require notional greater than zero.")
-    if proposal_draft.order_type == "limit":
-        if proposal_draft.limit_price is None:
-            raise ValueError("Limit trade proposals require limit_price.")
-        if proposal_draft.quantity is None:
-            raise ValueError("Limit trade proposals require quantity.")
-    elif proposal_draft.limit_price is not None:
-        raise ValueError("Market trade proposals must not include limit_price.")
-    if proposal_draft.reference_price <= 0:
-        raise ValueError("Trade proposals require reference_price greater than zero.")
-    if not 0 <= proposal_draft.confidence <= 1:
-        raise ValueError("Trade proposals require confidence between 0 and 1.")
+    _validate_trade_proposal_draft(proposal_draft)
     symbol = proposal_draft.symbol.strip().upper()
-    if not is_v1_us_equity_symbol(symbol):
-        raise ValueError("Trade proposals require a simple V1 US equity symbol.")
     now = utc_now_iso()
     proposal = TradeProposalRecord(
         proposal_id=f"proposal-{uuid4().hex[:12]}",
@@ -105,6 +85,43 @@ def prepare_trade_proposal(
         review_notes=proposal_draft.review_notes,
     )
     return proposal
+
+
+def _validate_trade_proposal_draft(proposal_draft: TradeProposalDraft) -> None:
+    _validate_trade_proposal_size(proposal_draft)
+    _validate_trade_proposal_order(proposal_draft)
+    _validate_trade_proposal_confidence(proposal_draft)
+    symbol = proposal_draft.symbol.strip().upper()
+    if not is_v1_us_equity_symbol(symbol):
+        raise ValueError("Trade proposals require a simple V1 US equity symbol.")
+
+
+def _validate_trade_proposal_size(proposal_draft: TradeProposalDraft) -> None:
+    if proposal_draft.quantity is None and proposal_draft.notional is None:
+        raise ValueError("Trade proposals require quantity or notional.")
+    if proposal_draft.quantity is not None and proposal_draft.notional is not None:
+        raise ValueError("Trade proposals require exactly one of quantity or notional.")
+    if proposal_draft.quantity is not None and proposal_draft.quantity <= 0:
+        raise ValueError("Trade proposals require quantity greater than zero.")
+    if proposal_draft.notional is not None and proposal_draft.notional <= 0:
+        raise ValueError("Trade proposals require notional greater than zero.")
+
+
+def _validate_trade_proposal_order(proposal_draft: TradeProposalDraft) -> None:
+    if proposal_draft.order_type == "limit":
+        if proposal_draft.limit_price is None:
+            raise ValueError("Limit trade proposals require limit_price.")
+        if proposal_draft.quantity is None:
+            raise ValueError("Limit trade proposals require quantity.")
+    elif proposal_draft.limit_price is not None:
+        raise ValueError("Market trade proposals must not include limit_price.")
+    if proposal_draft.reference_price <= 0:
+        raise ValueError("Trade proposals require reference_price greater than zero.")
+
+
+def _validate_trade_proposal_confidence(proposal_draft: TradeProposalDraft) -> None:
+    if not 0 <= proposal_draft.confidence <= 1:
+        raise ValueError("Trade proposals require confidence between 0 and 1.")
 
 
 def create_trade_proposal(

@@ -1,7 +1,7 @@
 """Public-source provider adapters for canonical financial context."""
 
 from collections.abc import Mapping
-from typing import Any, Callable
+from typing import Any, Callable, TypeGuard
 
 import httpx
 
@@ -525,25 +525,46 @@ def _company_fact_entries(
 ) -> list[tuple[str, str, dict[str, Any]]]:
     entries: list[tuple[str, str, dict[str, Any]]] = []
     for concept in concepts:
-        concept_payload = us_gaap.get(concept)
-        if not isinstance(concept_payload, dict):
-            continue
-        units = concept_payload.get("units")
-        if not isinstance(units, dict):
-            continue
-        for unit, unit_entries in units.items():
-            if not isinstance(unit_entries, list):
-                continue
-            for item in unit_entries:
-                if not isinstance(item, dict):
-                    continue
-                if _fact_number((concept, str(unit), item)) is None:
-                    continue
-                form = str(item.get("form") or "").upper()
-                if form and form not in SEC_RESEARCH_FORMS:
-                    continue
-                entries.append((concept, str(unit), item))
+        entries.extend(_company_fact_entries_for_concept(us_gaap, concept))
     return entries
+
+
+def _company_fact_entries_for_concept(
+    us_gaap: dict[str, Any], concept: str
+) -> list[tuple[str, str, dict[str, Any]]]:
+    concept_payload = us_gaap.get(concept)
+    if not isinstance(concept_payload, dict):
+        return []
+    units = concept_payload.get("units")
+    if not isinstance(units, dict):
+        return []
+    entries: list[tuple[str, str, dict[str, Any]]] = []
+    for unit, unit_entries in units.items():
+        entries.extend(_company_fact_entries_for_unit(concept, str(unit), unit_entries))
+    return entries
+
+
+def _company_fact_entries_for_unit(
+    concept: str, unit: str, unit_entries: object
+) -> list[tuple[str, str, dict[str, Any]]]:
+    if not isinstance(unit_entries, list):
+        return []
+    entries: list[tuple[str, str, dict[str, Any]]] = []
+    for item in unit_entries:
+        if _is_supported_company_fact_item(item, concept=concept, unit=unit):
+            entries.append((concept, unit, item))
+    return entries
+
+
+def _is_supported_company_fact_item(
+    item: object, *, concept: str, unit: str
+) -> TypeGuard[dict[str, Any]]:
+    if not isinstance(item, dict):
+        return False
+    if _fact_number((concept, unit, item)) is None:
+        return False
+    form = str(item.get("form") or "").upper()
+    return not form or form in SEC_RESEARCH_FORMS
 
 
 def _growth_ratio(us_gaap: dict[str, Any], concepts: tuple[str, ...]) -> float | None:

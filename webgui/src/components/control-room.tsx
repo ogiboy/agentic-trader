@@ -101,6 +101,22 @@ export class WebguiHttpError extends Error {
   }
 }
 
+type DashboardRequestContext = {
+  controller: AbortController;
+  seq: number;
+};
+
+function isDashboardRequestCurrent(
+  request: DashboardRequestContext,
+  latestSeq: number,
+): boolean {
+  return !request.controller.signal.aborted && request.seq === latestSeq;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Fetches JSON from the given URL and returns the parsed payload.
  *
@@ -1206,34 +1222,55 @@ export function ControlRoom() {
     [applyDashboardPayload],
   );
 
-  const loadDashboard = useCallback(
-    async ({ force = false }: { force?: boolean } = {}) => {
+  const beginDashboardRequest = useCallback(
+    (force: boolean): DashboardRequestContext | null => {
       if (!force && busyRef.current) {
-        return;
+        return null;
       }
-      if (
-        dashboardAbortRef.current &&
-        !dashboardAbortRef.current.signal.aborted
-      ) {
+      const activeRequest = dashboardAbortRef.current;
+      if (activeRequest && !activeRequest.signal.aborted) {
         if (!force) {
-          return;
+          return null;
         }
-        dashboardAbortRef.current.abort();
+        activeRequest.abort();
       }
       const seq = lastRequestSeqRef.current + 1;
       lastRequestSeqRef.current = seq;
       const controller = new AbortController();
       dashboardAbortRef.current = controller;
+      return { controller, seq };
+    },
+    [],
+  );
+
+  const completeDashboardRequest = useCallback(
+    ({ controller, seq }: DashboardRequestContext) => {
+      if (dashboardAbortRef.current === controller) {
+        dashboardAbortRef.current = null;
+      }
+      if (seq === lastRequestSeqRef.current) {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  const loadDashboard = useCallback(
+    async ({ force = false }: { force?: boolean } = {}) => {
+      const request = beginDashboardRequest(force);
+      if (!request) {
+        return;
+      }
       try {
         const payload = await readJson<DashboardData>('/api/dashboard', {
-          signal: controller.signal,
+          signal: request.controller.signal,
         });
-        if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
+        if (!isDashboardRequestCurrent(request, lastRequestSeqRef.current)) {
           return;
         }
         applyDashboardPayload(payload);
       } catch (nextError) {
-        if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
+        if (!isDashboardRequestCurrent(request, lastRequestSeqRef.current)) {
           return;
         }
         if (nextError instanceof WebguiHttpError && nextError.status === 401) {
@@ -1242,19 +1279,12 @@ export function ControlRoom() {
           setDashboard(null);
           return;
         }
-        setError(
-          nextError instanceof Error ? nextError.message : String(nextError),
-        );
+        setError(errorMessage(nextError));
       } finally {
-        if (dashboardAbortRef.current === controller) {
-          dashboardAbortRef.current = null;
-        }
-        if (seq === lastRequestSeqRef.current) {
-          setLoading(false);
-        }
+        completeDashboardRequest(request);
       }
     },
-    [applyDashboardPayload],
+    [applyDashboardPayload, beginDashboardRequest, completeDashboardRequest],
   );
   useEffect(() => {
     const initialRefresh = setTimeout(() => {
