@@ -36,6 +36,11 @@ from agentic_trader.schemas import (
 from agentic_trader.storage.db import TradingDatabase
 
 BLOCKING_CANDIDATE_WARNINGS = {"invalid_price", "low_volume", "wide_spread"}
+RESERVED_CANDIDATE_EVIDENCE_KEYS = {
+    "authority",
+    "blocking_warnings",
+    "canonical_analysis",
+}
 STALE_FRESHNESS_MARKERS = ("stale", "expired", "outdated", "unknown", "missing")
 TRUNCATED_PAYLOAD_MARKER = "<truncated>"
 
@@ -83,7 +88,7 @@ def create_proposal_candidate(
     symbol = score.symbol.strip().upper()
     if not is_v1_us_equity_symbol(symbol):
         raise ValueError("Proposal candidates require a simple V1 US equity symbol.")
-    if draft.quantity is not None and draft.notional is not None:
+    if (draft.quantity is None) == (draft.notional is None):
         raise ValueError(
             "Proposal candidates require exactly one of quantity or notional."
         )
@@ -260,7 +265,14 @@ def _candidate_evidence(
         },
     }
     if draft.evidence:
-        evidence.update(cast(dict[str, object], _redacted_json_payload(draft.evidence)))
+        draft_evidence = cast(dict[str, object], _redacted_json_payload(draft.evidence))
+        evidence.update(
+            {
+                key: value
+                for key, value in draft_evidence.items()
+                if key not in RESERVED_CANDIDATE_EVIDENCE_KEYS
+            }
+        )
     if settings is not None and enrich_provider_context:
         evidence["canonical_analysis"] = _candidate_provider_context(
             draft=draft,

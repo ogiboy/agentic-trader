@@ -1,4 +1,5 @@
 import json
+from typing import cast
 
 import duckdb
 import pytest
@@ -67,6 +68,24 @@ def test_trade_proposal_create_list_and_reject(tmp_path) -> None:
     stored_after_reject = db.get_trade_proposal(proposal.proposal_id)
     assert stored_after_reject is not None
     assert stored_after_reject.status == "rejected"
+
+
+def test_reject_trade_proposal_requires_review_note(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="aapl",
+        side="buy",
+        quantity=2,
+        reference_price=100,
+        confidence=0.72,
+        thesis="Momentum scanner with confirmed news context.",
+        source="scanner",
+    )
+
+    with pytest.raises(ValueError, match="requires review_notes"):
+        reject_trade_proposal(db=db, proposal_id=proposal.proposal_id, reason=" ")
 
 
 def test_proposal_candidate_promotes_to_pending_proposal(tmp_path) -> None:
@@ -201,6 +220,7 @@ def test_proposal_candidate_blocks_watch_or_low_liquidity_promotion(tmp_path) ->
                 spread_pct=0.05,
             ),
             preset="volatile",
+            quantity=1,
         ),
     )
     illiquid = create_proposal_candidate(
@@ -301,6 +321,77 @@ def test_proposal_candidate_rejects_invalid_sizing_on_create(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="quantity greater than zero"):
         create_proposal_candidate(db=db, draft=draft)
+
+
+def test_proposal_candidate_requires_exactly_one_size_on_create(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    base_idea = IdeaCandidate(
+        symbol="AAPL",
+        price=190,
+        volume=5_000_000,
+        change_pct=6.2,
+        relative_volume=3.4,
+        rsi=63,
+        ema_9=184,
+        spread_pct=0.05,
+    )
+
+    with pytest.raises(ValueError, match="exactly one of quantity or notional"):
+        create_proposal_candidate(
+            db=db,
+            draft=ProposalCandidateDraft(idea=base_idea, preset="momentum"),
+        )
+
+    with pytest.raises(ValueError, match="exactly one of quantity or notional"):
+        create_proposal_candidate(
+            db=db,
+            draft=ProposalCandidateDraft(
+                idea=base_idea,
+                preset="momentum",
+                quantity=1,
+                notional=100,
+            ),
+        )
+
+
+def test_proposal_candidate_preserves_reserved_evidence_keys(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+
+    candidate = create_proposal_candidate(
+        db=db,
+        draft=ProposalCandidateDraft(
+            idea=IdeaCandidate(
+                symbol="AAPL",
+                price=190,
+                volume=5_000_000,
+                change_pct=6.2,
+                relative_volume=3.4,
+                rsi=63,
+                ema_9=184,
+                spread_pct=0.05,
+            ),
+            preset="momentum",
+            quantity=1,
+            evidence={
+                "blocking_warnings": ["fake_clear"],
+                "authority": {"broker_access": True},
+                "canonical_analysis": {"available": True},
+                "operator_note": "keep this non-reserved note",
+            },
+        ),
+    )
+
+    assert candidate.evidence["blocking_warnings"] == []
+    assert candidate.evidence["authority"] == {
+        "broker_access": False,
+        "proposal_approval": False,
+        "manual_review_required": True,
+    }
+    canonical_analysis = cast(dict[str, object], candidate.evidence["canonical_analysis"])
+    assert canonical_analysis["available"] is False
+    assert candidate.evidence["operator_note"] == "keep this non-reserved note"
 
 
 def test_trade_proposal_rejects_mixed_draft_and_fields(tmp_path) -> None:
@@ -549,6 +640,134 @@ def test_trade_proposal_journal_keeps_accepted_broker_orders_open(tmp_path) -> N
     assert journal[0].entry_order_id == "alpaca-paper-accepted-1"
     assert journal[0].journal_status == "open"
     assert "outcome_status=accepted" in journal[0].notes
+
+
+def test_trade_proposal_journal_upserts_by_entry_order_id(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="NVDA",
+        side="buy",
+        quantity=1,
+        reference_price=900,
+        confidence=0.78,
+        thesis="Initial thesis.",
+        stop_loss=860,
+        take_profit=980,
+        source="manual",
+    )
+    outcome = ExecutionOutcome(
+        intent_id="intent-accepted-1",
+        order_id="alpaca-paper-accepted-1",
+        status="accepted",
+        adapter_name="alpaca_paper",
+        execution_backend="alpaca_paper",
+        message="Accepted by external paper broker.",
+    )
+
+    first_trade_id = db.create_trade_journal_from_proposal(
+        proposal=proposal, outcome=outcome
+    )
+    filled_outcome = outcome.model_copy(
+        update={
+            "status": "filled",
+            "filled_quantity": 1,
+            "average_fill_price": 901,
+            "message": "Filled by external paper broker.",
+        }
+    )
+    second_trade_id = db.create_trade_journal_from_proposal(
+        proposal=proposal, outcome=filled_outcome
+    )
+
+    journal = db.list_trade_journal(limit=5)
+    assert second_trade_id == first_trade_id
+    assert len(journal) == 1
+    assert journal[0].entry_order_id == "alpaca-paper-accepted-1"
+    assert journal[0].entry_price == pytest.approx(901)
+    assert journal[0].journal_status == "open"
+    assert "outcome_status=filled" in journal[0].notes
+
+
+def test_trade_journal_migration_deduplicates_legacy_entry_order_rows(
+    tmp_path,
+) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    db.conn.execute("drop index if exists trade_journal_entry_order_id_idx")
+    db.conn.executemany(
+        """
+        insert into trade_journal (
+            trade_id, opened_at, closed_at, symbol, run_id, entry_order_id,
+            exit_order_id, planned_side, approved, journal_status, entry_price,
+            exit_price, stop_loss, take_profit, position_size_pct, confidence,
+            coordinator_focus, strategy_family, manager_bias, review_summary,
+            exit_reason, realized_pnl, notes
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                "trade-old",
+                "2026-01-01T00:00:00+00:00",
+                None,
+                "NVDA",
+                None,
+                "order-duplicate",
+                None,
+                "buy",
+                True,
+                "open",
+                900.0,
+                None,
+                860.0,
+                980.0,
+                0.0,
+                0.7,
+                "",
+                "",
+                "",
+                "old",
+                None,
+                None,
+                "old",
+            ),
+            (
+                "trade-new",
+                "2026-01-02T00:00:00+00:00",
+                None,
+                "NVDA",
+                None,
+                "order-duplicate",
+                None,
+                "buy",
+                True,
+                "open",
+                901.0,
+                None,
+                860.0,
+                980.0,
+                0.0,
+                0.8,
+                "",
+                "",
+                "",
+                "new",
+                None,
+                None,
+                "new",
+            ),
+        ],
+    )
+
+    db._migrate_trade_journal_constraints()
+
+    rows = db.conn.execute(
+        "select trade_id from trade_journal where entry_order_id = ?",
+        ["order-duplicate"],
+    ).fetchall()
+    assert rows == [("trade-new",)]
 
 
 def test_trade_proposal_approval_keeps_accepted_order_in_flight(
@@ -1121,6 +1340,31 @@ def test_trade_proposal_rejects_invalid_limit_contract(tmp_path) -> None:
             reference_price=100,
             confidence=0.7,
             thesis="Market proposal with stray limit price.",
+        )
+
+    with pytest.raises(ValueError, match="order_type to be limit or market"):
+        create_trade_proposal(
+            db=db,
+            symbol="AAPL",
+            side="buy",
+            order_type="stop",  # type: ignore[arg-type]
+            quantity=1,
+            reference_price=100,
+            confidence=0.7,
+            thesis="Unsupported order type should not enter the queue.",
+        )
+
+    with pytest.raises(ValueError, match="limit_price greater than zero"):
+        create_trade_proposal(
+            db=db,
+            symbol="AAPL",
+            side="buy",
+            order_type="limit",
+            quantity=1,
+            limit_price=0,
+            reference_price=100,
+            confidence=0.7,
+            thesis="Zero limit price should not enter the queue.",
         )
 
 

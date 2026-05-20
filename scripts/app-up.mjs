@@ -217,6 +217,9 @@ function parseArgs(argv) {
     );
     usage(2);
   }
+  if (options.selectedScopes.has('camofox-browser')) {
+    options.selectedScopes.add('camofox-deps');
+  }
 
   return options;
 }
@@ -484,7 +487,7 @@ function plannedStep(step, selectedScopes, owners) {
     ...step,
     status: blocker
       ? 'blocked'
-      : selectedScopes.size === 0 || step.selected
+      : step.selected
         ? 'planned'
         : 'deferred',
     reason: blocker ?? step.reason,
@@ -549,6 +552,29 @@ function runStep(step) {
     payload,
     stdout: completed.stdout,
     stderr: completed.stderr,
+  };
+}
+
+function stepSummary(steps) {
+  const bucket = (step) => ({
+    id: step.id,
+    label: step.label,
+    reason:
+      step.reason ||
+      (step.status === 'deferred'
+        ? `Not selected; pass --${step.scope} to include this step.`
+        : ''),
+  });
+  return {
+    done: steps
+      .filter((step) => step.status === 'passed')
+      .map(bucket),
+    not_done: steps
+      .filter((step) => ['blocked', 'failed', 'skipped'].includes(step.status))
+      .map(bucket),
+    deferred: steps
+      .filter((step) => step.status === 'deferred')
+      .map(bucket),
   };
 }
 
@@ -629,6 +655,7 @@ function buildPayload(options) {
       open_browser: options.openBrowser,
       safety_notes: safetyNotes(),
       steps,
+      summary: stepSummary(steps),
       next_commands: [
         'pnpm run app:up -- --dry-run',
         'pnpm run app:up -- --all --yes',
@@ -680,6 +707,14 @@ function renderHuman(payload) {
     process.stdout.write(`${marker} ${step.id}: ${step.label}\n`);
     if (step.reason) {
       process.stdout.write(`  ${step.reason}\n`);
+    }
+  }
+  process.stdout.write('summary:\n');
+  for (const key of ['done', 'not_done', 'deferred']) {
+    const items = payload.summary?.[key] ?? [];
+    process.stdout.write(`  ${key}: ${items.length}\n`);
+    for (const item of items) {
+      process.stdout.write(`    - ${item.id}: ${item.reason || item.label}\n`);
     }
   }
   if (payload.dry_run) {

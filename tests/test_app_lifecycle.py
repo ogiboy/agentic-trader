@@ -11,6 +11,7 @@ SERVICES_SCRIPT = ROOT / "scripts" / "app-services.mjs"
 UPDATE_SCRIPT = ROOT / "scripts" / "app-update.mjs"
 UNINSTALL_SCRIPT = ROOT / "scripts" / "app-uninstall.mjs"
 UP_SCRIPT = ROOT / "scripts" / "app-up.mjs"
+BOOTSTRAP_SCRIPT = ROOT / "scripts" / "bootstrap-system-tools.sh"
 
 
 def _fake_cli(tmp_path: Path, exit_code: int = 0) -> Path:
@@ -157,6 +158,16 @@ def _fake_app_up_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Pa
     )
     script.chmod(0o755)
     return bin_dir, log_path
+
+
+def _fake_path_commands(tmp_path: Path, *names: str) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    for name in names:
+        script = bin_dir / name
+        script.write_text("#!/usr/bin/env sh\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+    return bin_dir
 
 
 def _fake_service_cli(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
@@ -335,6 +346,23 @@ def _run_up(
         merged_env.update(env)
     return subprocess.run(
         ["node", str(UP_SCRIPT), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=merged_env,
+    )
+
+
+def _run_bootstrap(
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    if env is not None:
+        merged_env.update(env)
+    return subprocess.run(
+        [str(BOOTSTRAP_SCRIPT), *args],
         check=False,
         capture_output=True,
         text=True,
@@ -858,8 +886,63 @@ def test_app_up_dry_run_plans_guided_first_run_without_mutation() -> None:
     assert "pnpm run fetch:camofox" in commands
     assert "pnpm run app:start -- --json --webgui --yes" in commands
     assert "pnpm run app:doctor -- --json" in commands
+    assert all(step["status"] == "deferred" for step in payload["steps"])
+    assert len(payload["summary"]["deferred"]) == len(payload["steps"])
     assert not any("model-service pull" in command for command in commands)
     assert any("No trading daemon" in note for note in payload["safety_notes"])
+
+
+def test_bootstrap_dry_run_prompts_tool_ownership_and_camofox_by_default(
+    tmp_path: Path,
+) -> None:
+    bin_dir = _fake_path_commands(
+        tmp_path,
+        "agentic-trader",
+        "node",
+        "ollama",
+        "pnpm",
+        "uv",
+    )
+    result = _run_bootstrap(
+        "--dry-run",
+        "--yes",
+        env={"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "+ record ollama ownership as app-owned" in result.stdout
+    assert "+ record camofox ownership as app-owned" in result.stdout
+    assert "Camofox dependencies" in result.stdout
+    assert "Bootstrap summary" in result.stdout
+    assert "planned  Ollama ownership" in result.stdout
+
+
+def test_app_up_camofox_browser_selects_deps_first(tmp_path: Path) -> None:
+    bin_dir, log_path = _fake_app_up_toolchain(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    result = _run_up(
+        "--json",
+        "--camofox-browser",
+        "--camofox-owner=app-owned",
+        "--yes",
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "APP_UP_LOG": str(log_path),
+            "AGENTIC_TRADER_RUNTIME_DIR": str(runtime_dir),
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["selected_scopes"] == ["camofox-deps", "camofox-browser"]
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        f"{ROOT}|run setup:camofox",
+        f"{ROOT}|run fetch:camofox",
+    ]
+    assert [step["id"] for step in payload["summary"]["done"]] == [
+        "camofox-deps",
+        "camofox-browser",
+    ]
 
 
 def test_app_up_rejects_yes_without_scope() -> None:

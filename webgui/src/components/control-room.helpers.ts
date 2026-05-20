@@ -615,3 +615,48 @@ export function localToolLines(dashboard: DashboardData): string[] {
     `Research Sources: ${sourceHealthSummaryLine(dashboard.research?.source_health_summary)}`,
   ];
 }
+
+export function localToolActionLines(dashboard: DashboardData): string[] {
+  const modelService = dashboard.modelService || {};
+  const camofox = dashboard.camofoxService || {};
+  const provider = dashboard.doctor?.provider ?? 'ollama';
+  const ollamaMode = ownershipMode(dashboard, 'ollama');
+  const camofoxMode = ownershipMode(dashboard, 'camofox');
+  const lines: string[] = [];
+
+  if (provider === 'ollama' && !modelService.service_reachable) {
+    if (ollamaMode === 'app-owned') {
+      lines.push('Ollama is app-managed but not running. Start it from Ollama.');
+    } else if (ollamaMode === 'host-owned') {
+      lines.push(
+        'Ollama is host-managed but unreachable. Start it on the host or switch to App Tools.',
+      );
+    } else {
+      lines.push(
+        'Ollama ownership is undecided. Choose App Tools or Host Fallback before first run.',
+      );
+    }
+  } else if (provider === 'ollama' && !modelService.model_available) {
+    lines.push(
+      `Ollama is reachable but ${modelService.configured_model ?? 'the configured model'} is not available yet.`,
+    );
+  }
+
+  if (camofoxMode === 'app-owned' && !camofox.service_reachable) {
+    lines.push('Camofox is app-managed but not running. Start it from Camofox.');
+  } else if (camofoxMode === 'host-owned' && !camofox.service_reachable) {
+    lines.push(
+      'Camofox is host-managed but unreachable. Start the host helper or switch to App Tools.',
+    );
+  } else if (camofoxMode === 'undecided') {
+    lines.push('Camofox ownership is undecided. Choose App Tools or Host Fallback.');
+  }
+
+  if (camofox.access_key_configured === false) {
+    lines.push(
+      'Camofox access key is missing. Add CAMOFOX_ACCESS_KEY or CAMOFOX_API_KEY in local env before start.',
+    );
+  }
+
+  return lines;
+}

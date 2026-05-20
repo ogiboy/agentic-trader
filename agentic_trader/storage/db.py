@@ -469,6 +469,7 @@ class TradingDatabase:
         (inserting a default `InvestmentPreferences()` when absent).
         """
         self._create_core_tables()
+        self._migrate_trade_journal_constraints()
         self._create_execution_tables()
         self._migrate_trade_proposal_columns()
         self._create_service_tables()
@@ -872,6 +873,32 @@ class TradingDatabase:
             {
                 "limit_price": "alter table trade_proposals add column limit_price double",
             },
+        )
+
+    def _migrate_trade_journal_constraints(self) -> None:
+        self.conn.execute(
+            """
+            delete from trade_journal
+            where trade_id in (
+                select trade_id
+                from (
+                    select
+                        trade_id,
+                        row_number() over (
+                            partition by entry_order_id
+                            order by opened_at desc, trade_id desc
+                        ) as duplicate_rank
+                    from trade_journal
+                )
+                where duplicate_rank > 1
+            )
+            """
+        )
+        self.conn.execute(
+            """
+            create unique index if not exists trade_journal_entry_order_id_idx
+            on trade_journal(entry_order_id)
+            """
         )
 
     def _ensure_default_account(self) -> None:
@@ -1826,6 +1853,18 @@ class TradingDatabase:
                 manager_bias, review_summary, notes
             )
             values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            on conflict(entry_order_id) do update set
+                journal_status = excluded.journal_status,
+                entry_price = excluded.entry_price,
+                stop_loss = excluded.stop_loss,
+                take_profit = excluded.take_profit,
+                position_size_pct = excluded.position_size_pct,
+                confidence = excluded.confidence,
+                coordinator_focus = excluded.coordinator_focus,
+                strategy_family = excluded.strategy_family,
+                manager_bias = excluded.manager_bias,
+                review_summary = excluded.review_summary,
+                notes = excluded.notes
             """,
             [
                 trade_id,
@@ -1848,7 +1887,15 @@ class TradingDatabase:
                 notes,
             ],
         )
-        return trade_id
+        stored = self.conn.execute(
+            """
+            select trade_id
+            from trade_journal
+            where entry_order_id = ?
+            """,
+            [order_id],
+        ).fetchone()
+        return str(stored[0]) if stored is not None else trade_id
 
     def create_trade_journal_from_proposal(
         self,
@@ -1879,41 +1926,6 @@ class TradingDatabase:
         if proposal.review_notes:
             note_parts.append(f"review_notes={proposal.review_notes}")
         notes = " | ".join(note_parts)
-        existing = self.conn.execute(
-            """
-            select trade_id
-            from trade_journal
-            where entry_order_id = ?
-            """,
-            [outcome.order_id],
-        ).fetchone()
-        if existing is not None:
-            trade_id = str(existing[0])
-            self.conn.execute(
-                """
-                update trade_journal
-                set journal_status = ?,
-                    entry_price = ?,
-                    stop_loss = ?,
-                    take_profit = ?,
-                    confidence = ?,
-                    review_summary = ?,
-                    notes = ?
-                where trade_id = ?
-                """,
-                [
-                    journal_status,
-                    entry_price,
-                    stop_loss,
-                    take_profit,
-                    proposal.confidence,
-                    proposal.thesis,
-                    notes,
-                    trade_id,
-                ],
-            )
-            return trade_id
-
         trade_id = f"trade-{uuid4().hex[:12]}"
         self.conn.execute(
             """
@@ -1924,6 +1936,14 @@ class TradingDatabase:
                 manager_bias, review_summary, notes
             )
             values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            on conflict(entry_order_id) do update set
+                journal_status = excluded.journal_status,
+                entry_price = excluded.entry_price,
+                stop_loss = excluded.stop_loss,
+                take_profit = excluded.take_profit,
+                confidence = excluded.confidence,
+                review_summary = excluded.review_summary,
+                notes = excluded.notes
             """,
             [
                 trade_id,
@@ -1946,7 +1966,15 @@ class TradingDatabase:
                 notes,
             ],
         )
-        return trade_id
+        stored = self.conn.execute(
+            """
+            select trade_id
+            from trade_journal
+            where entry_order_id = ?
+            """,
+            [outcome.order_id],
+        ).fetchone()
+        return str(stored[0]) if stored is not None else trade_id
 
     @staticmethod
     def _proposal_journal_status(outcome: ExecutionOutcome) -> JournalStatus:

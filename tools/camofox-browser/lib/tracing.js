@@ -1,7 +1,7 @@
-import fs from 'fs';
-import fsp from 'fs/promises';
-import path from 'path';
-import crypto from 'crypto';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
 
 /**
  * Produce a short, deterministic identifier for a user based on their ID.
@@ -62,7 +62,8 @@ export function resolveTracePath(baseDir, userId, filename) {
     filename.includes('/') ||
     filename.includes('\\') ||
     filename.includes('..') ||
-    filename.startsWith('.')
+    filename.startsWith('.') ||
+    !filename.endsWith('.zip')
   ) {
     return null;
   }
@@ -152,7 +153,7 @@ export function sweepOldTraces({
     const dir = path.join(baseDir, userDir);
     let st;
     try {
-      st = fs.statSync(dir);
+      st = fs.lstatSync(dir);
     } catch {
       continue;
     }
@@ -172,8 +173,8 @@ export function sweepOldTraces({
       try {
         const fst = fs.statSync(full);
         if (!fst.isFile()) continue;
-        const tooOld = ttlMs && now - fst.mtimeMs > ttlMs;
-        const tooBig = maxBytesPerFile && fst.size > maxBytesPerFile;
+        const tooOld = ttlMs != null && now - fst.mtimeMs > ttlMs;
+        const tooBig = maxBytesPerFile != null && fst.size > maxBytesPerFile;
         if (tooOld) {
           fs.unlinkSync(full);
           result.removedTtl++;

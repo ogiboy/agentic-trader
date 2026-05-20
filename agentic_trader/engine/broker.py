@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import hashlib
+from urllib.parse import urlparse
 from typing import Any, Callable, Protocol, cast
 from uuid import uuid4
 
@@ -82,51 +83,53 @@ def _alpaca_client_order_id(intent_id: str) -> str:
 class BrokerAdapter(Protocol):
     backend_name: str
 
-    def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome: """
-Submit the given execution intent to the broker adapter and produce an ExecutionOutcome describing the result.
+    def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
+        """
+        Submit an execution intent and return the broker outcome.
 
-Parameters:
-	intent (ExecutionIntent): The order intent containing symbol, side, size/notional, pricing and execution metadata.
+        Parameters:
+            intent: Order intent containing symbol, side, sizing, pricing, and execution metadata.
 
-Returns:
-	ExecutionOutcome: A snapshot of the order result or state (e.g., accepted, filled, partially_filled, rejected, cancelled, blocked, or no_fill) with adapter/backend metadata.
-"""
-...
+        Returns:
+            Snapshot of the accepted, filled, rejected, cancelled, blocked, or no-fill order state.
+        """
+        ...
 
     def get_order_outcome(
         self, *, order_id: str, intent: ExecutionIntent
-    ) -> ExecutionOutcome: """
+    ) -> ExecutionOutcome:
+        """
         Fetch the latest execution outcome for a previously submitted order.
-        
+
         Parameters:
-            order_id (str): Broker-assigned identifier for the order to refresh.
-            intent (ExecutionIntent): The original execution intent used as context/lookup key for validating or locating the persisted outcome.
-        
+            order_id: Broker-assigned identifier for the order to refresh.
+            intent: Original execution intent used as lookup context.
+
         Returns:
             ExecutionOutcome: The canonical execution outcome record for the given order and intent.
         """
         ...
 
-    def cancel_order(self, order_id: str) -> bool: """
-Attempt to cancel an order by its identifier.
+    def cancel_order(self, order_id: str) -> bool:
+        """
+        Attempt to cancel an order by its identifier.
 
-Parameters:
-    order_id (str): The broker-specific order identifier to cancel.
+        Parameters:
+            order_id: Broker-specific order identifier to cancel.
 
-Returns:
-    bool: `True` if the order was successfully cancelled, `False` otherwise.
-"""
-...
+        Returns:
+            True when the order was successfully cancelled, otherwise false.
+        """
+        ...
 
-    def get_positions(self) -> list[PositionSnapshot]: """
-Return current position snapshots for the account.
+    def get_positions(self) -> list[PositionSnapshot]:
+        """
+        Return current account position snapshots.
 
-Each PositionSnapshot describes a held symbol's quantity, average entry price, current price, market value, and unrealized P&L.
-
-Returns:
-    list[PositionSnapshot]: A list of current position snapshots; an empty list if there are no positions.
-"""
-...
+        Returns:
+            Current position snapshots, or an empty list when there are no positions.
+        """
+        ...
 
     def get_account_state(self) -> PortfolioSnapshot: ...
 
@@ -143,32 +146,30 @@ Returns:
         max_holding_bars: int,
     ) -> None: ...
 
-    def close_position(self, decision: PositionExitDecision) -> str: """
-Perform the requested position exit and return an identifier for the close action.
+    def close_position(self, decision: PositionExitDecision) -> str:
+        """
+        Perform a requested position exit and return the close-action identifier.
 
-If the decision indicates no exit is required, returns a unique "no-op" identifier.
-If the decision's symbol is unsupported for automated exits, returns a unique "blocked" identifier.
-Otherwise attempts to close the position and returns the broker/client-provided close operation identifier or a fallback string when no identifier is available.
+        Parameters:
+            decision: Exit decision containing the symbol and whether an exit is required.
 
-Parameters:
-    decision (PositionExitDecision): Decision object containing at least `should_exit` and `symbol` used to determine whether and how to close the position.
-
-Returns:
-    str: Identifier string for the close action: a "no-op" id when no exit was performed, a "blocked" id when the symbol cannot be closed, or the broker's close operation id (or a fallback) when a close was attempted.
-"""
-...
+        Returns:
+            No-op, blocked, broker-provided, or fallback identifier for the close action.
+        """
+        ...
 
 
 class OrderOutcomeReader(Protocol):
     def get_order_outcome(
         self, *, order_id: str, intent: ExecutionIntent
-    ) -> ExecutionOutcome: """
+    ) -> ExecutionOutcome:
+        """
         Fetch the latest execution outcome for a previously submitted order.
-        
+
         Parameters:
-            order_id (str): Broker-assigned identifier for the order to refresh.
-            intent (ExecutionIntent): The original execution intent used as context/lookup key for validating or locating the persisted outcome.
-        
+            order_id: Broker-assigned identifier for the order to refresh.
+            intent: Original execution intent used as lookup context.
+
         Returns:
             ExecutionOutcome: The canonical execution outcome record for the given order and intent.
         """
@@ -538,14 +539,15 @@ def alpaca_credentials_ready(settings: Settings) -> bool:
 def alpaca_uses_paper_endpoint(settings: Settings) -> bool:
     """
     Check whether the configured Alpaca base URL targets the Alpaca paper endpoint.
-    
+
     Parameters:
         settings (Settings): Application settings containing `alpaca_base_url`.
-    
+
     Returns:
         True if the `alpaca_base_url` contains the Alpaca paper endpoint host, False otherwise.
     """
-    return ALPACA_PAPER_ENDPOINT_HOST in settings.alpaca_base_url.lower()
+    parsed = urlparse(settings.alpaca_base_url)
+    return parsed.hostname == ALPACA_PAPER_ENDPOINT_HOST
 
 
 @dataclass(slots=True)

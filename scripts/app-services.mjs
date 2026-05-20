@@ -432,16 +432,6 @@ function buildPayload(options) {
       }
       continue;
     }
-    if (!cliPath) {
-      results.push(
-        blockedStep(
-          step,
-          'agentic-trader entrypoint was not found. Run make setup, then retry the lifecycle command.',
-        ),
-      );
-      exitCode = 1;
-      continue;
-    }
     if (options.mode === 'start' && previousFailure) {
       results.push(skippedStep(step, 'A previous selected start step failed.'));
       continue;
@@ -451,6 +441,16 @@ function buildPayload(options) {
       results.push(blockedStep(step, blocker));
       exitCode = 1;
       previousFailure = true;
+      continue;
+    }
+    if (!cliPath) {
+      results.push(
+        blockedStep(
+          step,
+          'agentic-trader entrypoint was not found. Run make setup, then retry the lifecycle command.',
+        ),
+      );
+      exitCode = 1;
       continue;
     }
 

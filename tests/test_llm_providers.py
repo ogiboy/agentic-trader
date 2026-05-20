@@ -578,6 +578,18 @@ def test_openai_compatible_error_from_response_dict_error_with_message() -> None
     assert result == "model not found"
 
 
+def test_openai_compatible_error_from_response_redacts_secret_shapes() -> None:
+    response = _FakeHttpxResponse(
+        {"error": {"message": "provider failed api_key=llm-secret-token"}},
+        status_code=401,
+    )
+
+    result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
+
+    assert "llm-secret-token" not in result
+    assert "api_key=<redacted>" in result
+
+
 def test_openai_compatible_error_from_response_fallback_on_no_error_key() -> None:
     response = _FakeHttpxResponse({"ok": False}, status_code=503)
     result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]

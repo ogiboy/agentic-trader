@@ -151,19 +151,24 @@ def _validate_trade_proposal_size(proposal_draft: TradeProposalDraft) -> None:
 def _validate_trade_proposal_order(proposal_draft: TradeProposalDraft) -> None:
     """
     Validate order-related fields of a trade proposal draft.
-    
+
     Raises ValueError if:
+    - order_type is not "limit" or "market".
     - order_type == "limit" and limit_price is missing.
     - order_type == "limit" and quantity is missing.
     - order_type != "limit" and limit_price is provided.
     - reference_price is less than or equal to zero.
-    
+
     Parameters:
         proposal_draft (TradeProposalDraft): The draft whose order fields are being validated.
     """
+    if proposal_draft.order_type not in {"limit", "market"}:
+        raise ValueError("Trade proposals require order_type to be limit or market.")
     if proposal_draft.order_type == "limit":
         if proposal_draft.limit_price is None:
             raise ValueError("Limit trade proposals require limit_price.")
+        if proposal_draft.limit_price <= 0:
+            raise ValueError("Limit trade proposals require limit_price greater than zero.")
         if proposal_draft.quantity is None:
             raise ValueError("Limit trade proposals require quantity.")
     elif proposal_draft.limit_price is not None:
@@ -475,12 +480,13 @@ def reject_trade_proposal(
         ValueError: If the proposal changed concurrently and the database update did not succeed.
     """
     proposal = _load_mutable_proposal(db, proposal_id)
+    clean_reason = _require_review_note("rejection", reason)
     rejected = proposal.model_copy(
         update={
             "status": "rejected",
             "updated_at": utc_now_iso(),
-            "review_notes": _merge_notes(proposal.review_notes, reason),
-            "rejection_reason": reason,
+            "review_notes": _merge_notes(proposal.review_notes, clean_reason),
+            "rejection_reason": clean_reason,
         }
     )
     if not db.update_trade_proposal(rejected, expected_status="pending"):

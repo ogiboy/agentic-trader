@@ -23,6 +23,7 @@ import {
   formatPercent,
   formatSourceHealthCount,
   formatTimestamp,
+  localToolActionLines,
   localToolLines,
   marketContextLines,
   normalizeChatHistory,
@@ -404,6 +405,32 @@ describe('control-room formatting helpers', () => {
     expect(localToolLines(dashboardFixture)).toContain(
       'Firecrawl Runtime: internal SDK first; host CLI fallback disabled by ownership',
     );
+    expect(
+      localToolActionLines({
+        ...dashboardFixture,
+        camofoxService: {
+          app_owned: true,
+          message: 'not running',
+          service_reachable: false,
+        },
+        modelService: {
+          app_owned: true,
+          configured_model: 'qwen3:8b',
+          message: 'offline',
+          model_available: false,
+          service_reachable: false,
+        },
+        toolOwnership: {
+          decisions_by_tool: {
+            camofox: { mode: 'app-owned' },
+            ollama: { mode: 'app-owned' },
+          },
+        },
+      }),
+    ).toEqual([
+      'Ollama is app-managed but not running. Start it from Ollama.',
+      'Camofox is app-managed but not running. Start it from Camofox.',
+    ]);
     expect(proposalLines(dashboardFixture)).toContain(
       'proposal-1 | AAPL BUY | pending | $250.00 | confidence=0.82 | source=scanner',
     );

@@ -255,6 +255,25 @@ def test_app_owned_model_service_from_other_host_does_not_adopt_endpoint(
     assert settings.base_url == "http://127.0.0.1:11434/v1"
 
 
+def test_legacy_app_owned_model_service_adopts_endpoint(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
+    write_tool_ownership(settings, {"ollama": "app-owned"}, source="test")
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_model_service_status",
+        lambda _settings: _model_status(app_owned=True, owner=None),
+    )
+
+    status = runtime_tools.ensure_model_service_if_configured(settings)
+
+    assert status.app_owned is True
+    assert status.owner is None
+    assert settings.base_url == "http://127.0.0.1:11435/v1"
+
+
 def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
     monkeypatch,
     tmp_path: Path,
@@ -305,6 +324,30 @@ def test_app_owned_camofox_service_from_other_host_does_not_adopt_endpoint(
     assert status.app_owned is True
     assert status.is_owned_by_host(settings.host_id) is False
     assert settings.research_camofox_base_url == "http://127.0.0.1:9999"
+
+
+def test_legacy_app_owned_camofox_service_adopts_endpoint(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(
+        tmp_path,
+        research_camofox_enabled=True,
+        research_camofox_base_url="http://127.0.0.1:9999",
+    )
+    write_tool_ownership(settings, {"camofox": "app-owned"}, source="test")
+    monkeypatch.setattr(
+        runtime_tools,
+        "build_camofox_service_status",
+        lambda _settings: _camofox_status(app_owned=True, owner=None),
+    )
+
+    status = runtime_tools.ensure_camofox_service_if_configured(settings)
+
+    assert status is not None
+    assert status.app_owned is True
+    assert status.owner is None
+    assert settings.research_camofox_base_url == "http://127.0.0.1:9377"
 
 
 def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
