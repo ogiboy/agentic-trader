@@ -7,10 +7,21 @@ const MAX_SNAPSHOT_CHARS = 80000; // ~20K tokens
 const SNAPSHOT_TAIL_CHARS = 5000; // keep last ~5K for pagination/nav links
 
 /**
- * Return a window of the snapshot YAML.
- *  offset=0 (default): head chunk + tail (pagination/nav).
- *  offset=N: chars N..N+budget from the full snapshot.
- *  Always appends pagination tail so nav refs are available in every chunk.
+ * Produce a character-windowed view of a full snapshot YAML for pagination.
+ *
+ * When the snapshot is small enough, returns the full text; otherwise returns
+ * a chunk of the snapshot plus a preserved tail and a truncation marker that
+ * can be used to request the next window.
+ *
+ * @param {string} yaml - Full snapshot text to window; falsy values yield an empty result.
+ * @param {number} [offset=0] - Starting character index within the snapshot for the returned chunk; clamped to a valid range so the tail is always preserved.
+ * @returns {{text: string, truncated: boolean, totalChars: number, offset: number, hasMore?: boolean, nextOffset?: number|null}} An object describing the returned window:
+ *  - `text`: the concatenated chunk, truncation marker (if any), and preserved tail.
+ *  - `truncated`: `true` when the original snapshot was larger than the window and was truncated; `false` when the full snapshot is returned.
+ *  - `totalChars`: total character length of the original `yaml`.
+ *  - `offset`: the effective (clamped) offset used to produce the returned chunk.
+ *  - `hasMore`: present when `truncated` is `true`; `true` if there is additional content (excluding the preserved tail) after this chunk.
+ *  - `nextOffset`: the offset to pass to retrieve the next chunk when `hasMore` is `true`, otherwise `null`.
  */
 function windowSnapshot(yaml, offset = 0) {
   if (!yaml) return { text: '', truncated: false, totalChars: 0, offset: 0 };

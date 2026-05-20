@@ -19,6 +19,15 @@ def _settings(tmp_path: Path, **overrides: Any) -> Settings:
 
 
 def _tool_dir(tmp_path: Path) -> Path:
+    """
+    Create a minimal mock Camofox tool directory under tmp_path/tools/camofox-browser and return its path.
+    
+    Parameters:
+        tmp_path (Path): Base temporary directory in which the tool directory will be created.
+    
+    Returns:
+        Path: Path to the created camofox-browser tool directory containing a `node_modules` directory, `server.js`, and `package.json`.
+    """
     root = tmp_path / "tools" / "camofox-browser"
     (root / "node_modules").mkdir(parents=True)
     (root / "server.js").write_text("console.log('ok')", encoding="utf-8")
@@ -205,6 +214,17 @@ def test_camofox_status_does_not_probe_non_loopback_url(
     )
 
     def fake_health(_base_url: str) -> tuple[bool, bool, str]:
+        """
+        Assert that health probing is not performed for non-loopback Camofox URLs; used as a test stub that fails if invoked.
+        
+        This test helper is intended to be substituted for the real health probe when a non-loopback base URL is present; it raises AssertionError to indicate the probe must not run in that case.
+        
+        Parameters:
+            _base_url (str): The Camofox base URL that would be probed.
+        
+        Returns:
+            tuple: `(reachable, health_ok, message)` where `reachable` is `True` if the server is reachable, `health_ok` is `True` if the server reports a healthy/browser-ready state, and `message` is a human-readable status string.
+        """
         raise AssertionError("non-loopback Camofox status must not probe")
 
     monkeypatch.setattr(
@@ -308,9 +328,26 @@ def test_camofox_health_allows_on_demand_browser_launch(
 ) -> None:
     class FakeResponse:
         def raise_for_status(self) -> None:
+            """
+            No-op method that performs no action.
+            
+            This method is retained for API compatibility and does not raise any exception or modify state.
+            """
             return None
 
         def json(self) -> dict[str, object]:
+            """
+            Mock response body indicating the Camofox server is reachable and the browser is not connected or running.
+            
+            The dictionary follows the Camofox health probe shape used in tests.
+            
+            Returns:
+                dict[str, object]: {
+                    "ok": True,
+                    "browserConnected": False,
+                    "browserRunning": False,
+                }
+            """
             return {
                 "ok": True,
                 "browserConnected": False,
@@ -395,6 +432,14 @@ def test_camofox_runtime_command_and_probe_messages(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    """
+    Verify runtime command validation, blocking-status message composition, and probe-status outcomes for Camofox.
+    
+    Checks:
+    - _runtime_command raises when Node is unavailable, when server.js is missing, and when dependencies are missing, and returns the expected command when all are present.
+    - _camofox_blocking_status_message returns appropriate human-readable blocking reasons for non-loopback hosts, missing package, missing node command, missing dependencies, and returns None when no blockage exists.
+    - _camofox_probe_status reports an app-owned running server when health is OK, reports a browser-launch failure when log tail indicates failure, and emits a message indicating the recorded state is stale when the application state is None.
+    """
     tool_dir = _tool_dir(tmp_path)
     monkeypatch.setattr(camofox_service, "_node_command_path", lambda: None)
     with pytest.raises(RuntimeError, match="node"):

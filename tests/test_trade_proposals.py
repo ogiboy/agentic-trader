@@ -70,6 +70,11 @@ def test_trade_proposal_create_list_and_reject(tmp_path) -> None:
 
 
 def test_proposal_candidate_promotes_to_pending_proposal(tmp_path) -> None:
+    """
+    Verifies that a ProposalCandidate can be promoted into a pending TradeProposal and that duplicate promotions are blocked.
+    
+    Asserts the promoted candidate's status becomes "promoted" and links to a created trade proposal whose status is "pending", whose source is "proposal-candidate", and whose execution_order_id remains None. Also asserts the stored proposal's review_notes include the candidate ID, that re-promoting the same candidate raises a ValueError containing "already promoted", and that exactly one pending proposal exists after promotion.
+    """
     settings = _settings(tmp_path)
     db = TradingDatabase(settings)
     candidate = create_proposal_candidate(
@@ -176,6 +181,11 @@ def test_proposal_candidate_records_redacted_provider_context(
 
 
 def test_proposal_candidate_blocks_watch_or_low_liquidity_promotion(tmp_path) -> None:
+    """
+    Verifies that promotion of proposal candidates is blocked for watch-only symbols and for candidates with low liquidity.
+    
+    Creates a "volatile" candidate expected to be treated as watch-only and a "momentum" candidate with very low traded volume, then asserts that promoting each candidate raises a ValueError containing "watch-only" and "blocking scanner warnings" respectively.
+    """
     settings = _settings(tmp_path)
     db = TradingDatabase(settings)
     watch = create_proposal_candidate(
@@ -386,6 +396,11 @@ def test_trade_proposal_approval_rejects_inconsistent_risk_controls(tmp_path) ->
 
 
 def test_trade_proposal_approval_requires_review_notes(tmp_path) -> None:
+    """
+    Verifies that approving a trade proposal requires non-empty review notes and leaves the proposal pending when approval fails.
+    
+    Creates a pending trade proposal with stop-loss and take-profit, attempts to approve it using whitespace-only `review_notes` (expecting a `ValueError` matching "approval requires review_notes"), and asserts the stored proposal remains in the "pending" state and that no execution record was created.
+    """
     settings = _settings(tmp_path)
     db = TradingDatabase(settings)
     proposal = create_trade_proposal(
@@ -539,6 +554,11 @@ def test_trade_proposal_journal_keeps_accepted_broker_orders_open(tmp_path) -> N
 def test_trade_proposal_approval_keeps_accepted_order_in_flight(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
+    """
+    Verifies that approving a trade proposal against an external broker that acknowledges (but does not fill) the order leaves the proposal in an in-flight approved state and records an open journal entry.
+    
+    Creates a manual proposal, monkeypatches the broker adapter to return an `ExecutionOutcome` with status `"accepted"`, calls approval, and asserts that the execution outcome and stored proposal reflect the `"accepted"` status and that the trade journal contains a single open entry.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -561,6 +581,15 @@ def test_trade_proposal_approval_keeps_accepted_order_in_flight(
 
     class AcceptedAdapter:
         def place_order(self, intent):
+            """
+            Create an ExecutionOutcome representing an accepted broker order for the given execution intent.
+            
+            Parameters:
+                intent: The execution intent whose `intent_id` will be recorded on the outcome.
+            
+            Returns:
+                ExecutionOutcome: An outcome with `intent_id` taken from `intent.intent_id`, `order_id` set to "alpaca-paper-accepted-approval", `status` set to "accepted", and both `adapter_name` and `execution_backend` set to "alpaca_paper".
+            """
             return ExecutionOutcome(
                 intent_id=intent.intent_id,
                 order_id="alpaca-paper-accepted-approval",
@@ -647,9 +676,28 @@ def test_trade_proposal_refresh_updates_accepted_order_without_resubmit(
 
     class RefreshAdapter:
         def place_order(self, intent):
+            """
+            Fail fast if code attempts to submit a new broker order during an order-refresh operation.
+            
+            Parameters:
+                intent: The execution intent that would have been sent to the broker (not used).
+            
+            Raises:
+                AssertionError: Always raised with message "refresh must not submit a new broker order".
+            """
             raise AssertionError("refresh must not submit a new broker order")
 
         def get_order_outcome(self, *, order_id, intent):
+            """
+            Fetch the execution outcome for a broker order and return an ExecutionOutcome representing a filled alpaca_paper order.
+            
+            Parameters:
+                order_id (str): Broker order identifier to look up.
+                intent (ExecutionIntent): Execution intent associated with the order; its `intent_id` will be copied into the outcome.
+            
+            Returns:
+                ExecutionOutcome: Outcome with `intent_id` from `intent`, the supplied `order_id`, `status` set to `"filled"`, `adapter_name` and `execution_backend` set to `"alpaca_paper"`, `filled_quantity` of 1, and `average_fill_price` of 901.
+            """
             nonlocal refresh_calls
             refresh_calls += 1
             assert order_id == "alpaca-paper-accepted-2"
@@ -748,6 +796,16 @@ def test_repair_missing_position_plans_backfills_from_executed_proposal(
 def test_trade_proposal_approval_persists_in_flight_before_adapter_call(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
+    """
+    Verifies that approving a trade proposal persists an in-flight execution intent before calling the broker adapter and transitions the proposal to failed if the adapter raises.
+    
+    Asserts that after a broker adapter exception:
+    - the stored proposal status is "failed" and has a non-null `execution_intent_id`;
+    - the returned final proposal status is "failed";
+    - the returned execution outcome has `status == "rejected"` and `rejection_reason == "adapter_exception"`;
+    - the broker adapter was invoked exactly once;
+    - subsequent attempts to approve the same proposal raise `ValueError` with "not pending".
+    """
     settings = _settings(tmp_path)
     db = TradingDatabase(settings)
     proposal = create_trade_proposal(

@@ -106,6 +106,13 @@ type DashboardRequestContext = {
   seq: number;
 };
 
+/**
+ * Checks whether a dashboard request corresponds to the current active request.
+ *
+ * @param request - The in-flight dashboard request context containing an AbortController and sequence number
+ * @param latestSeq - The most recent request sequence number to compare against
+ * @returns `true` if the request's abort signal is not aborted and its sequence equals `latestSeq`, `false` otherwise
+ */
 function isDashboardRequestCurrent(
   request: DashboardRequestContext,
   latestSeq: number,
@@ -113,6 +120,12 @@ function isDashboardRequestCurrent(
   return !request.controller.signal.aborted && request.seq === latestSeq;
 }
 
+/**
+ * Convert an unknown error value into a human-readable message.
+ *
+ * @param error - The error value to format; may be an `Error` or any other value.
+ * @returns The `message` property when `error` is an `Error`, otherwise `String(error)`.
+ */
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -472,6 +485,12 @@ export function RuntimeView({
   );
 }
 
+/**
+ * Render the Portfolio tab panels showing portfolio metrics, risk report, trade journal, exit plan coverage, preferences, and desk accounting notes.
+ *
+ * @param dashboard - Dashboard payload used to populate portfolio, risk, journal, preferences, and accounting displays
+ * @returns A React element containing the portfolio-related panels and their contents
+ */
 export function PortfolioView({
   dashboard,
 }: Readonly<{ dashboard: DashboardData }>) {
@@ -621,6 +640,20 @@ export function PortfolioView({
   );
 }
 
+/**
+ * Render the Proposal Desk panel with proposal cards, a review-note composer, and safety metadata.
+ *
+ * The panel lists up to six proposals and exposes action buttons for approve, reject, reconcile, and refresh.
+ * Action buttons are enabled only when the proposal's status and required metadata allow it and a non-empty
+ * review note is present where the UI requires one.
+ *
+ * @param dashboard - Full dashboard payload used to derive proposals, availability flags, and broker safety fields
+ * @param busy - Current busy token that disables interactive buttons when non-null
+ * @param proposalNote - Current text of the review note composer; trimmed emptiness gates certain actions
+ * @param onProposalNoteChange - Called with the updated proposal note when the composer textarea changes
+ * @param onProposalAction - Invoked to perform a proposal action; receives the action kind and the target proposal ID
+ * @returns The Proposal Desk React element
+ */
 export function ProposalDeskView({
   dashboard,
   busy,
@@ -1152,11 +1185,11 @@ export function ActiveView(props: ActiveViewProps) {
 }
 
 /**
- * Render the operator control room UI for viewing dashboard data and interacting with runtime controls, local tools, chat, and operator instructions.
+ * Operator control room UI component for viewing dashboard data and controlling runtime, local tools, chat, and operator instructions.
  *
- * This component manages dashboard polling and session unlocking, presents tabbed views (overview, runtime, portfolio, review, memory, chat, settings), and exposes UI-driven actions that call backend endpoints to control runtime, tools, chat, and instruction workflows.
+ * Handles polling the dashboard, same-origin WebGUI token unlocking, and exposes tabbed views (overview, runtime, portfolio, proposals, review, memory, chat, settings) with actions that invoke backend endpoints.
  *
- * @returns A React element containing the tabbed operator dashboard UI with runtime/tool action controls, chat composer, instruction composer, and status/metadata panels.
+ * @returns A React element containing the tabbed operator dashboard UI and its runtime/tool/chat/instruction controls
  */
 export function ControlRoom() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);

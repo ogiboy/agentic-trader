@@ -68,11 +68,12 @@ const PLUGINS_DIR = path.join(ROOT_DIR, 'plugins');
 const CONFIG_PATH = path.join(ROOT_DIR, 'camofox.config.json');
 
 /**
- * Read plugin configuration from camofox.config.json.
- * Supports two formats:
- *   - Array of strings: ["youtube", "persistence"] (no per-plugin config)
- *   - Object with per-plugin config: { "youtube": { "enabled": true }, "persistence": { "enabled": true, "profileDir": "/data" } }
- * Returns { list: string[] | null, configs: Map<string, object> }
+ * Read plugin configuration from camofox.config.json and derive the allowed plugin list and per-plugin configuration map.
+ *
+ * Supports two shapes for the `plugins` field in the config file:
+ * - An array of plugin names → returns that array as `list` and an empty `configs` map.
+ * - An object mapping plugin names to booleans or config objects → includes names whose value is not `false` (and not an object with `enabled === false`) in `list`, and stores any object values in `configs`.
+ * @returns {{list: string[]|null, configs: Map<string, object>}} `list` is an array of allowed plugin names or `null` when no explicit list is present; `configs` is a Map of per-plugin configuration objects keyed by plugin name.
  */
 function readPluginConfig() {
   const configs = new Map();
@@ -101,7 +102,13 @@ function readPluginConfig() {
 }
 
 /**
- * Create the plugin event bus.
+ * Create an EventEmitter used for plugin lifecycle hooks.
+ *
+ * The emitter's maximum listener count is increased to 50. Adds an
+ * `emitAsync(eventName, payload)` method that calls the current listeners
+ * for `eventName` in parallel and awaits their completion.
+ *
+ * @returns {EventEmitter} The EventEmitter extended with an `emitAsync(eventName, payload)` method.
  */
 export function createPluginEvents() {
   const events = new EventEmitter();

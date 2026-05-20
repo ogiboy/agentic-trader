@@ -10,6 +10,18 @@
 
 import crypto from 'crypto';
 
+/**
+ * Create Fly.io-aware helpers for generating tab IDs, determining tab ownership, and an Express middleware that replays requests to the owning instance.
+ *
+ * @param {Object} config - Configuration object.
+ * @param {string} [config.flyMachineId] - Fly machine ID to prefix generated tab IDs; when falsy, helpers behave as no-ops and IDs are unprefixed.
+ * @returns {{machineId: string, makeTabId: function(): string, parseTabOwner: function(string): (string|null), isLocalTab: function(string): boolean, replayMiddleware: function(function): function}} An object containing:
+ *  - machineId: the configured Fly machine ID (or empty string).
+ *  - makeTabId: generates a UUID, prefixed with `machineId_` when `machineId` is non-empty.
+ *  - parseTabOwner: returns the machine-owner prefix from a tab ID, or `null` when not parseable or not running on Fly.
+ *  - isLocalTab: returns `true` when a tab is unprefixed/unknown or owned by this machine.
+ *  - replayMiddleware: factory that accepts a logger and returns an Express middleware which responds with a 307 and `fly-replay` header for tabs owned by other machines (no-op when not running on Fly).
+ */
 export function createFlyHelpers(config) {
   const machineId = config.flyMachineId || '';
 

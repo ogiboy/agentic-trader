@@ -175,12 +175,12 @@ function renderHuman(payload) {
 }
 
 /**
- * Run the doctor command: perform readiness checks, output results, and exit.
+ * Execute the app:doctor workflow: run readiness checks, emit results, and terminate the process.
  *
- * Parses CLI options, locates the app CLI, and if found runs a fixed sequence of read-only readiness checks.
- * Builds a payload describing the action and step results, writes it to stdout as pretty JSON when `--json` is set,
- * otherwise prints a human-readable summary. Exits the process with code 0 only when the app CLI was found and every
- * step returned exit code 0; exits with code 1 otherwise.
+ * Parses command-line options, locates the Agentic Trader CLI, runs the predefined read-only diagnostic steps
+ * when the CLI is available, and builds a payload describing the action and step results. Writes pretty JSON
+ * to stdout when `--json` is present; otherwise prints a human-readable summary. Exits with status code 0
+ * only when the app CLI was found and every step returned exit code 0, otherwise exits with status code 1.
  */
 function main() {
   const options = parseArgs(process.argv.slice(2));

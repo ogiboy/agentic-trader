@@ -19,6 +19,12 @@ const SUPPORTED_PROPOSAL_ACTIONS = new Set<ProposalActionKind>([
   'refresh',
 ]);
 
+/**
+ * Determines whether a given value is one of the supported proposal action kinds.
+ *
+ * @param value - The value to test
+ * @returns `true` if `value` is one of the supported `ProposalActionKind` values, `false` otherwise.
+ */
 function isProposalActionKind(value: unknown): value is ProposalActionKind {
   return (
     typeof value === 'string' &&

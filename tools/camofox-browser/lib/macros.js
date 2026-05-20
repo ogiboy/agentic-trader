@@ -29,11 +29,21 @@ const MACROS = {
     `https://www.twitch.tv/search?term=${encodeURIComponent(query || '')}`,
 };
 
+/**
+ * Return the URL produced by a named macro or `null` if the macro is not supported.
+ * @param {string} macro - Macro identifier (for example, "@google_search" or "@reddit_subreddit").
+ * @param {string} [query] - Query string passed to the macro; may be omitted or undefined.
+ * @returns {string|null} The expanded URL for the given macro and query, or `null` when the macro key is unknown.
+ */
 function expandMacro(macro, query) {
   const macroFn = MACROS[macro];
   return macroFn ? macroFn(query) : null;
 }
 
+/**
+ * Retrieve the supported macro keys.
+ * @returns {string[]} An array of supported macro key strings (e.g., "@google_search").
+ */
 function getSupportedMacros() {
   return Object.keys(MACROS);
 }

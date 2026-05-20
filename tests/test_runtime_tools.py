@@ -46,6 +46,18 @@ def _model_status(
     model_available: bool = True,
     owner: str | None = "test-host",
 ) -> ModelServiceStatus:
+    """
+    Construct a test ModelServiceStatus representing various app- or host-owned scenarios.
+    
+    Parameters:
+        app_owned (bool): If True, populate ownership, pid, host, port, and app-managed base_url fields; if False, those fields are left as host-owned defaults.
+        reachable (bool): Whether the service is reachable (controls `service_reachable`).
+        model_available (bool): Whether the configured model is available (controls `model_available`, `available_models`, and the `message`).
+        owner (str | None): Host id reported as the owner when `app_owned` is True; ignored when `app_owned` is False.
+    
+    Returns:
+        ModelServiceStatus: A populated status object suitable for tests reflecting the supplied flags.
+    """
     return ModelServiceStatus(
         command_available=True,
         command_path="/opt/homebrew/bin/ollama",
@@ -73,6 +85,17 @@ def _camofox_status(
     healthy: bool = True,
     owner: str | None = "test-host",
 ) -> CamofoxServiceStatus:
+    """
+    Create a synthetic CamofoxServiceStatus for tests with configurable ownership and health.
+    
+    Parameters:
+        app_owned (bool): If True, marks the status as managed by the app and populates `owner` and `pid`.
+        healthy (bool): If True, marks the service as reachable and healthy; otherwise marks it as missing/unhealthy.
+        owner (str | None): Host identifier to set as `owner` when `app_owned` is True.
+    
+    Returns:
+        CamofoxServiceStatus: A populated test instance reflecting the requested ownership and health state.
+    """
     return CamofoxServiceStatus(
         command_available=True,
         command_path="/opt/homebrew/bin/node",
@@ -236,6 +259,11 @@ def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    """
+    Verify that a Camofox service recorded as host-owned does not have its configured base URL overridden when the runtime reports an app-owned service.
+    
+    Sets research Camofox as enabled with a non-default base URL, records tool ownership as host-owned, and monkeypatches the status builder to return an app-owned status; asserts the returned status exists and is app-owned while the settings.research_camofox_base_url remains unchanged.
+    """
     settings = _settings(
         tmp_path,
         research_camofox_enabled=True,
@@ -847,6 +875,15 @@ def test_model_service_http_probes_and_port_selection(
     def fake_post(
         _url: str, *, json: dict[str, object], **_kwargs: object
     ) -> FakeResponse:
+        """
+        Test helper that records JSON POST payloads and returns a successful FakeResponse.
+        
+        Parameters:
+            json (dict[str, object]): JSON body of the simulated POST request to record.
+        
+        Returns:
+            FakeResponse: A response whose JSON body is {"response": "OK"}.
+        """
         post_payloads.append(json)
         return FakeResponse({"response": "OK"})
 
