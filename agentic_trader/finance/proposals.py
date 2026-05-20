@@ -62,6 +62,32 @@ def prepare_trade_proposal(
     *, draft: TradeProposalDraft | None = None, **fields: Any
 ) -> TradeProposalRecord:
     proposal_draft = _coerce_trade_proposal_draft(draft=draft, fields=fields)
+    _validate_trade_proposal_draft(proposal_draft)
+    symbol = proposal_draft.symbol.strip().upper()
+    now = utc_now_iso()
+    proposal = TradeProposalRecord(
+        proposal_id=f"proposal-{uuid4().hex[:12]}",
+        created_at=now,
+        updated_at=now,
+        symbol=symbol,
+        side=proposal_draft.side,
+        order_type=proposal_draft.order_type,
+        quantity=proposal_draft.quantity,
+        notional=proposal_draft.notional,
+        limit_price=proposal_draft.limit_price,
+        reference_price=proposal_draft.reference_price,
+        confidence=proposal_draft.confidence,
+        thesis=proposal_draft.thesis.strip(),
+        stop_loss=proposal_draft.stop_loss,
+        take_profit=proposal_draft.take_profit,
+        invalidation_condition=proposal_draft.invalidation_condition,
+        source=proposal_draft.source,
+        review_notes=proposal_draft.review_notes,
+    )
+    return proposal
+
+
+def _validate_trade_proposal_draft(proposal_draft: TradeProposalDraft) -> None:
     if proposal_draft.quantity is None and proposal_draft.notional is None:
         raise ValueError("Trade proposals require quantity or notional.")
     if proposal_draft.quantity is not None and proposal_draft.notional is not None:
@@ -84,27 +110,6 @@ def prepare_trade_proposal(
     symbol = proposal_draft.symbol.strip().upper()
     if not is_v1_us_equity_symbol(symbol):
         raise ValueError("Trade proposals require a simple V1 US equity symbol.")
-    now = utc_now_iso()
-    proposal = TradeProposalRecord(
-        proposal_id=f"proposal-{uuid4().hex[:12]}",
-        created_at=now,
-        updated_at=now,
-        symbol=symbol,
-        side=proposal_draft.side,
-        order_type=proposal_draft.order_type,
-        quantity=proposal_draft.quantity,
-        notional=proposal_draft.notional,
-        limit_price=proposal_draft.limit_price,
-        reference_price=proposal_draft.reference_price,
-        confidence=proposal_draft.confidence,
-        thesis=proposal_draft.thesis.strip(),
-        stop_loss=proposal_draft.stop_loss,
-        take_profit=proposal_draft.take_profit,
-        invalidation_condition=proposal_draft.invalidation_condition,
-        source=proposal_draft.source,
-        review_notes=proposal_draft.review_notes,
-    )
-    return proposal
 
 
 def create_trade_proposal(

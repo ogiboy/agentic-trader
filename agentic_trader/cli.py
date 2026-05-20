@@ -1459,9 +1459,7 @@ def _position_plan_coverage_payload(settings: Settings) -> dict[str, object]:
             db.close()
         available = True
         error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         positions = []
         plans = []
         available = False
@@ -1571,9 +1569,7 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
             db.close()
         available = True
         error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         entries = []
         available = False
         error = str(exc)
@@ -1788,9 +1784,7 @@ def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]
             db.close()
         available = True
         error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         runs = []
         available = False
         error = str(exc)
@@ -4576,9 +4570,7 @@ def position_plan_repair(
             )
         finally:
             db.close()
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - operator command should degrade on DB locks
+    except Exception as exc:  # noqa: BLE001 - operator command should degrade on DB locks
         console.print(
             Panel(
                 f"Position plan repair is temporarily unavailable while the runtime writer owns the database.\n\n{exc}",
@@ -4685,7 +4677,7 @@ def proposal_candidates(
 
 
 @app.command("proposal-candidate-create")
-def proposal_candidate_create(
+def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the command signature.
     symbol: str = typer.Option(..., "--symbol", help=HELP_SYMBOL),
     preset: str = typer.Option("momentum", "--preset", help="Idea preset to apply."),
     price: float = typer.Option(..., "--price", min=0.01, help="Reference price."),

@@ -126,46 +126,13 @@ def run_research_cycle(
         max_proposals_per_cycle=resolved.max_proposals_per_cycle,
     )
     operator_control = get_research_cycle_control(settings)
-    executions: list[ResearchCycleExecution] = []
-    previous_source_health = _source_health_from_snapshot(prior_snapshot)
-    previous_snapshot_id = (
-        prior_snapshot.snapshot_id if prior_snapshot is not None else None
+    executions = _execute_research_cycles(
+        settings=settings,
+        resolved=resolved,
+        prior_snapshot=prior_snapshot,
+        prior_digest_available=prior_digest is not None,
+        sleep_fn=sleep_fn,
     )
-    previous_digest_available = prior_digest is not None
-    for index in range(resolved.safe_cycles):
-        started_at = utc_now_iso()
-        result = ResearchSidecar(settings).collect_once()
-        record = persist_research_result(settings, result) if resolved.persist else None
-        completed_at = utc_now_iso()
-        is_final_cycle = index == resolved.safe_cycles - 1
-        next_run_at = (
-            _iso_after(completed_at, resolved.safe_cadence)
-            if resolved.sleep_between_cycles and not is_final_cycle
-            else None
-        )
-        source_health_summary = dict(result.state.source_health_summary)
-        executions.append(
-            _build_research_cycle_execution(
-                settings=settings,
-                result=result,
-                record_snapshot_id=record.snapshot_id if record is not None else None,
-                cycle_index=index + 1,
-                started_at=started_at,
-                completed_at=completed_at,
-                next_run_at=next_run_at,
-                previous_source_health=previous_source_health,
-                previous_snapshot_id=previous_snapshot_id,
-                previous_digest_available=previous_digest_available,
-                cadence_seconds=resolved.safe_cadence,
-                sleep_between_cycles=resolved.sleep_between_cycles,
-            )
-        )
-        previous_source_health = source_health_summary
-        previous_snapshot_id = record.snapshot_id if record is not None else None
-        previous_digest_available = resolved.persist
-        if resolved.sleep_between_cycles and index < resolved.safe_cycles - 1:
-            sleep_fn(float(resolved.safe_cadence))
-
     latest_digest = executions[-1].digest if executions else {}
     execution_policy = _execution_policy_payload()
     digest_replay = ResearchDigestReplayRecord(
@@ -207,6 +174,88 @@ def run_research_cycle(
         "latest_digest": latest_digest,
         "executions": [execution.to_payload() for execution in executions],
     }
+
+
+def _execute_research_cycles(
+    *,
+    settings: Settings,
+    resolved: _ResolvedResearchCycleRequest,
+    prior_snapshot: ResearchSnapshotRecord | None,
+    prior_digest_available: bool,
+    sleep_fn: SleepFn,
+) -> list[ResearchCycleExecution]:
+    executions: list[ResearchCycleExecution] = []
+    previous_source_health = _source_health_from_snapshot(prior_snapshot)
+    previous_snapshot_id = (
+        prior_snapshot.snapshot_id if prior_snapshot is not None else None
+    )
+    has_previous_digest = prior_digest_available
+    for index in range(resolved.safe_cycles):
+        execution, record, source_health = _run_one_research_cycle(
+            settings=settings,
+            resolved=resolved,
+            cycle_index=index,
+            previous_source_health=previous_source_health,
+            previous_snapshot_id=previous_snapshot_id,
+            previous_digest_available=has_previous_digest,
+        )
+        executions.append(execution)
+        previous_source_health = source_health
+        previous_snapshot_id = record.snapshot_id if record is not None else None
+        has_previous_digest = resolved.persist
+        if resolved.sleep_between_cycles and index < resolved.safe_cycles - 1:
+            sleep_fn(float(resolved.safe_cadence))
+    return executions
+
+
+def _run_one_research_cycle(
+    *,
+    settings: Settings,
+    resolved: _ResolvedResearchCycleRequest,
+    cycle_index: int,
+    previous_source_health: dict[str, int],
+    previous_snapshot_id: str | None,
+    previous_digest_available: bool,
+) -> tuple[ResearchCycleExecution, ResearchSnapshotRecord | None, dict[str, int]]:
+    started_at = utc_now_iso()
+    result = ResearchSidecar(settings).collect_once()
+    record = persist_research_result(settings, result) if resolved.persist else None
+    completed_at = utc_now_iso()
+    next_run_at = _next_cycle_run_at(
+        completed_at=completed_at,
+        cycle_index=cycle_index,
+        safe_cycles=resolved.safe_cycles,
+        safe_cadence=resolved.safe_cadence,
+        sleep_between_cycles=resolved.sleep_between_cycles,
+    )
+    execution = _build_research_cycle_execution(
+        settings=settings,
+        result=result,
+        record_snapshot_id=record.snapshot_id if record is not None else None,
+        cycle_index=cycle_index + 1,
+        started_at=started_at,
+        completed_at=completed_at,
+        next_run_at=next_run_at,
+        previous_source_health=previous_source_health,
+        previous_snapshot_id=previous_snapshot_id,
+        previous_digest_available=previous_digest_available,
+        cadence_seconds=resolved.safe_cadence,
+        sleep_between_cycles=resolved.sleep_between_cycles,
+    )
+    return execution, record, dict(result.state.source_health_summary)
+
+
+def _next_cycle_run_at(
+    *,
+    completed_at: str,
+    cycle_index: int,
+    safe_cycles: int,
+    safe_cadence: int,
+    sleep_between_cycles: bool,
+) -> str | None:
+    if not sleep_between_cycles or cycle_index == safe_cycles - 1:
+        return None
+    return _iso_after(completed_at, safe_cadence)
 
 
 def _resolve_research_cycle_request(

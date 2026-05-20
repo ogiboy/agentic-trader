@@ -41,10 +41,7 @@ export async function POST(request: Request) {
       return Response.json({ error: 'missing chat message' }, { status: 400 });
     }
     if (message.length > MAX_CHAT_MESSAGE_LENGTH) {
-      return Response.json(
-        { error: 'chat message too large' },
-        { status: 413 },
-      );
+      return Response.json({ error: 'chat message too large' }, { status: 413 });
     }
     const persona = body.persona;
     if (persona !== undefined && !isChatPersona(persona)) {
