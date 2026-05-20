@@ -25,7 +25,6 @@ from agentic_trader.schemas import (
 from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import TradingDatabase
 
-
 ALPACA_PAPER_ENDPOINT_HOST = "paper-api.alpaca.markets"
 PAPER_BROKER_ACTIVE_MESSAGE = "Paper broker adapter is active."
 ALPACA_CANCELLED_STATUSES = {"canceled", "cancelled"}
@@ -40,6 +39,13 @@ def _deterministic_unit_interval(seed: str, label: str) -> float:
 
 def _deterministic_uniform(seed: str, label: str, low: float, high: float) -> float:
     return low + ((high - low) * _deterministic_unit_interval(seed, label))
+
+
+def _alpaca_client_order_id(intent_id: str) -> str:
+    cleaned = "".join(
+        char for char in intent_id if char.isalnum() or char in {"-", "_"}
+    )
+    return (cleaned or f"intent-{uuid4().hex[:12]}")[:48]
 
 
 class BrokerAdapter(Protocol):
@@ -251,7 +257,9 @@ class SimulatedRealBrokerAdapter:
             )
 
         fill_ratio = (
-            self._fill_ratio(intent) if intent.approved and intent.side != "hold" else 1.0
+            self._fill_ratio(intent)
+            if intent.approved and intent.side != "hold"
+            else 1.0
         )
         simulated_intent = intent.model_copy(
             update={
@@ -433,12 +441,31 @@ class AlpacaPaperBrokerAdapter:
                 reason="unsupported_symbol_scope",
                 message="V1 Alpaca paper adapter only accepts simple US equity symbols.",
             )
+        if intent.order_type not in {"market", "limit"}:
+            return self._blocked_outcome(
+                intent,
+                reason="unsupported_order_type",
+                message="V1 Alpaca paper adapter only accepts market or limit orders.",
+            )
         if intent.quantity is None and intent.notional is None:
             return self._blocked_outcome(
                 intent,
                 reason="missing_size",
                 message="Alpaca paper adapter requires quantity or notional.",
             )
+        if intent.order_type == "limit":
+            if intent.limit_price is None:
+                return self._blocked_outcome(
+                    intent,
+                    reason="missing_limit_price",
+                    message="Alpaca paper limit orders require limit_price.",
+                )
+            if intent.quantity is None:
+                return self._blocked_outcome(
+                    intent,
+                    reason="limit_quantity_required",
+                    message="Alpaca paper limit orders require quantity.",
+                )
         if intent.side == "sell" and not self.settings.allow_short:
             short_check = self._shorting_disabled_outcome(intent)
             if short_check is not None:
@@ -487,7 +514,9 @@ class AlpacaPaperBrokerAdapter:
         try:
             account = self.get_account_state()
             positions = self.get_positions()
-        except Exception as exc:  # pragma: no cover - exercised through adapter boundary
+        except (
+            Exception
+        ) as exc:  # pragma: no cover - exercised through adapter boundary
             return self._blocked_outcome(
                 intent,
                 reason="risk_check_unavailable",
@@ -511,7 +540,9 @@ class AlpacaPaperBrokerAdapter:
             if intent.quantity is not None
             else (intent.notional or 0.0) / reference_price
         )
-        signed_order_quantity = order_quantity if intent.side == "buy" else -order_quantity
+        signed_order_quantity = (
+            order_quantity if intent.side == "buy" else -order_quantity
+        )
 
         current_position = next(
             (
@@ -524,16 +555,14 @@ class AlpacaPaperBrokerAdapter:
         current_quantity = current_position.quantity if current_position else 0.0
         projected_quantity = current_quantity + signed_order_quantity
         current_symbol_exposure = (
-            abs(current_position.market_value)
-            if current_position
-            else 0.0
+            abs(current_position.market_value) if current_position else 0.0
         )
         projected_symbol_exposure = abs(projected_quantity * reference_price)
-        current_gross_exposure = sum(abs(position.market_value) for position in positions)
+        current_gross_exposure = sum(
+            abs(position.market_value) for position in positions
+        )
         projected_gross_exposure = (
-            current_gross_exposure
-            - current_symbol_exposure
-            + projected_symbol_exposure
+            current_gross_exposure - current_symbol_exposure + projected_symbol_exposure
         )
 
         max_position_value = equity * self.settings.max_position_pct
@@ -565,16 +594,22 @@ class AlpacaPaperBrokerAdapter:
     def _order_kwargs(intent: ExecutionIntent) -> dict[str, object]:
         from alpaca.trading.enums import OrderSide, OrderType, TimeInForce
 
+        order_type = (
+            OrderType.LIMIT if intent.order_type == "limit" else OrderType.MARKET
+        )
         kwargs: dict[str, object] = {
             "symbol": intent.symbol.upper(),
             "side": OrderSide.BUY if intent.side == "buy" else OrderSide.SELL,
-            "type": OrderType.MARKET,
+            "type": order_type,
             "time_in_force": TimeInForce.DAY,
+            "client_order_id": _alpaca_client_order_id(intent.intent_id),
         }
         if intent.quantity is not None:
             kwargs["qty"] = intent.quantity
         elif intent.notional is not None:
             kwargs["notional"] = intent.notional
+        if intent.order_type == "limit":
+            kwargs["limit_price"] = intent.limit_price
         return kwargs
 
     def _outcome_from_order(
@@ -629,15 +664,20 @@ class AlpacaPaperBrokerAdapter:
             return preflight
 
         try:
-            from alpaca.trading.requests import MarketOrderRequest
+            from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest
         except Exception as exc:  # pragma: no cover - dependency import failure path
             raise RuntimeError(
                 f"alpaca-py trading request types are unavailable: {exc}"
             ) from exc
 
         try:
+            request_cls = (
+                LimitOrderRequest
+                if intent.order_type == "limit"
+                else MarketOrderRequest
+            )
             order = self.client.submit_order(
-                order_data=MarketOrderRequest(**self._order_kwargs(intent))
+                order_data=request_cls(**self._order_kwargs(intent))
             )
         except Exception as exc:
             return ExecutionOutcome(
@@ -915,7 +955,9 @@ def broker_runtime_payload(settings: Settings) -> dict[str, object]:
     elif backend == "alpaca_paper":
         healthcheck = _healthcheck_payload(settings)
         state = "alpaca_paper_ready" if healthcheck.get("ok") else "blocked"
-        message = str(healthcheck.get("message", "Alpaca paper adapter status unknown."))
+        message = str(
+            healthcheck.get("message", "Alpaca paper adapter status unknown.")
+        )
     elif not settings.live_execution_enabled:
         state = "blocked"
         message = "Live backend requested but live execution is disabled."

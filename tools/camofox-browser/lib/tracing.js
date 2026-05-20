@@ -4,7 +4,11 @@ import path from 'path';
 import crypto from 'crypto';
 
 function hashUserId(userId) {
-  return crypto.createHash('sha256').update(String(userId)).digest('hex').slice(0, 16);
+  return crypto
+    .createHash('sha256')
+    .update(String(userId))
+    .digest('hex')
+    .slice(0, 16);
 }
 
 export function userTracesDir(baseDir, userId) {
@@ -28,7 +32,13 @@ export function tracePathFor(baseDir, userId, filename) {
 }
 
 export function resolveTracePath(baseDir, userId, filename) {
-  if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..') || filename.startsWith('.')) {
+  if (
+    !filename ||
+    filename.includes('/') ||
+    filename.includes('\\') ||
+    filename.includes('..') ||
+    filename.startsWith('.')
+  ) {
     return null;
   }
   const userDir = userTracesDir(baseDir, userId);
@@ -81,7 +91,12 @@ export async function deleteTrace(fullPath) {
   await fsp.unlink(fullPath);
 }
 
-export function sweepOldTraces({ baseDir, ttlMs, maxBytesPerFile, now = Date.now() } = {}) {
+export function sweepOldTraces({
+  baseDir,
+  ttlMs,
+  maxBytesPerFile,
+  now = Date.now(),
+} = {}) {
   const result = { scanned: 0, removedTtl: 0, removedOversized: 0, bytes: 0 };
   if (!baseDir) return result;
 
@@ -116,7 +131,7 @@ export function sweepOldTraces({ baseDir, ttlMs, maxBytesPerFile, now = Date.now
       try {
         const fst = fs.statSync(full);
         if (!fst.isFile()) continue;
-        const tooOld = ttlMs && (now - fst.mtimeMs) > ttlMs;
+        const tooOld = ttlMs && now - fst.mtimeMs > ttlMs;
         const tooBig = maxBytesPerFile && fst.size > maxBytesPerFile;
         if (tooOld) {
           fs.unlinkSync(full);

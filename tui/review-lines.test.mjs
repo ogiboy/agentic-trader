@@ -7,10 +7,9 @@ import {
 
 describe('TUI review evidence lines', () => {
   it('formats unavailable, missing, and populated canonical analysis snapshots', () => {
-    expect(getCanonicalAnalysisLines({ available: false, error: 'locked' })).toEqual([
-      'Unavailable in observer mode.',
-      'locked',
-    ]);
+    expect(
+      getCanonicalAnalysisLines({ available: false, error: 'locked' }),
+    ).toEqual(['Unavailable in observer mode.', 'locked']);
     expect(getCanonicalAnalysisLines(null)).toEqual([
       'No canonical analysis snapshot is available yet.',
     ]);

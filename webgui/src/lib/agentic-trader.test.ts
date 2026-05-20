@@ -107,7 +107,11 @@ describe('agentic-trader webgui CLI bridge', () => {
 
     execSuccess(
       JSON.stringify({
-        status: { live_process: true, runtime_state: 'active', state: { pid: 42 } },
+        status: {
+          live_process: true,
+          runtime_state: 'active',
+          state: { pid: 42 },
+        },
       }),
     );
     execSuccess('');
@@ -141,7 +145,11 @@ describe('agentic-trader webgui CLI bridge', () => {
     const { runRuntimeAction } = await import('./agentic-trader');
     execSuccess(
       JSON.stringify({
-        status: { live_process: true, runtime_state: 'active', state: { pid: 99 } },
+        status: {
+          live_process: true,
+          runtime_state: 'active',
+          state: { pid: 99 },
+        },
       }),
     );
     await expect(runRuntimeAction('start')).resolves.toMatchObject({
@@ -231,9 +239,11 @@ describe('agentic-trader webgui CLI bridge', () => {
     execSuccess(JSON.stringify({}));
     execSuccess(JSON.stringify({}));
     execSuccess(JSON.stringify({}));
-    await expect(runToolAction('enable-host-fallbacks')).resolves.toMatchObject({
-      message: 'Host-managed fallback ownership enabled.',
-    });
+    await expect(runToolAction('enable-host-fallbacks')).resolves.toMatchObject(
+      {
+        message: 'Host-managed fallback ownership enabled.',
+      },
+    );
     expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('--ollama-owner');
     expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('host-owned');
 
@@ -241,9 +251,11 @@ describe('agentic-trader webgui CLI bridge', () => {
     execSuccess(JSON.stringify({}));
     execSuccess(JSON.stringify({}));
     execSuccess(JSON.stringify({}));
-    await expect(runToolAction('start-camofox-service')).resolves.toMatchObject({
-      message: 'App-owned Camofox helper started.',
-    });
+    await expect(runToolAction('start-camofox-service')).resolves.toMatchObject(
+      {
+        message: 'App-owned Camofox helper started.',
+      },
+    );
     expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('camofox-service');
   });
 
@@ -287,11 +299,19 @@ describe('agentic-trader webgui CLI bridge', () => {
     );
     execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
     await expect(
-      runProposalAction('reconcile', 'proposal-3'),
+      runProposalAction('reconcile', 'proposal-3', 'repair final state'),
     ).resolves.toMatchObject({
       message: 'NVDA proposal reconciled; status=executed.',
     });
-    expect(execFileMock.mock.calls[4][1]).toContain('proposal-reconcile');
+    expect(execFileMock.mock.calls[4][1]).toEqual([
+      '-m',
+      'agentic_trader.cli',
+      'proposal-reconcile',
+      'proposal-3',
+      '--review-notes',
+      'repair final state',
+      '--json',
+    ]);
 
     execSuccess(
       JSON.stringify({
@@ -316,7 +336,10 @@ describe('agentic-trader webgui CLI bridge', () => {
     ]);
 
     await expect(runProposalAction('reject', 'proposal-4')).rejects.toThrow(
-      'Rejection reason is required.',
+      'Review note is required for reject.',
+    );
+    await expect(runProposalAction('approve', 'proposal-4')).rejects.toThrow(
+      'Review note is required for approve.',
     );
   });
 });

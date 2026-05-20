@@ -86,7 +86,11 @@ function readPluginConfig() {
     if (typeof config.plugins === 'object') {
       const list = [];
       for (const [name, pluginConf] of Object.entries(config.plugins)) {
-        if (pluginConf === false || (typeof pluginConf === 'object' && pluginConf.enabled === false)) continue;
+        if (
+          pluginConf === false ||
+          (typeof pluginConf === 'object' && pluginConf.enabled === false)
+        )
+          continue;
         list.push(name);
         if (typeof pluginConf === 'object') configs.set(name, pluginConf);
       }
@@ -110,7 +114,7 @@ export function createPluginEvents() {
    */
   events.emitAsync = async function emitAsync(eventName, payload) {
     const listeners = this.listeners(eventName);
-    await Promise.all(listeners.map(fn => fn(payload)));
+    await Promise.all(listeners.map((fn) => fn(payload)));
   };
 
   return events;
@@ -144,7 +148,10 @@ export async function loadPlugins(app, ctx) {
 
     // If camofox.config.json specifies a plugins list, only load those
     if (allowList && !allowList.includes(name)) {
-      ctx.log('debug', `plugin "${name}" not in camofox.config.json plugins list, skipping`);
+      ctx.log(
+        'debug',
+        `plugin "${name}" not in camofox.config.json plugins list, skipping`,
+      );
       continue;
     }
 
@@ -158,7 +165,10 @@ export async function loadPlugins(app, ctx) {
       const mod = await import(indexPath);
       const register = mod.default || mod.register;
       if (typeof register !== 'function') {
-        ctx.log('warn', `plugin "${name}" does not export a register function, skipping`);
+        ctx.log(
+          'warn',
+          `plugin "${name}" does not export a register function, skipping`,
+        );
         continue;
       }
 
@@ -167,7 +177,11 @@ export async function loadPlugins(app, ctx) {
       loaded.push(name);
       ctx.log('info', 'plugin loaded', { plugin: name });
     } catch (err) {
-      ctx.log('error', 'plugin load failed', { plugin: name, error: err.message, stack: err.stack });
+      ctx.log('error', 'plugin load failed', {
+        plugin: name,
+        error: err.message,
+        stack: err.stack,
+      });
     }
   }
 

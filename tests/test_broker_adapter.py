@@ -62,7 +62,9 @@ def test_get_broker_adapter_respects_kill_switch(tmp_path) -> None:
         get_broker_adapter(db=db, settings=settings)
 
 
-def test_broker_order_reader_does_not_expose_mutators_under_kill_switch(tmp_path) -> None:
+def test_broker_order_reader_does_not_expose_mutators_under_kill_switch(
+    tmp_path,
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -444,7 +446,9 @@ def test_paper_broker_adapter_healthcheck(tmp_path) -> None:
     assert health.blocked is False
 
 
-def test_simulated_real_broker_adapter_get_open_orders_after_state_access(tmp_path) -> None:
+def test_simulated_real_broker_adapter_get_open_orders_after_state_access(
+    tmp_path,
+) -> None:
     """Test SimulatedRealBrokerAdapter.get_open_orders returns empty list (line 251)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -680,6 +684,7 @@ def test_alpaca_paper_adapter_healthcheck_ready(tmp_path) -> None:
             class Account:
                 status = "active"
                 trading_blocked = False
+
             return Account()
 
     adapter._client = MockClient()
@@ -733,6 +738,7 @@ def test_get_broker_adapter_simulated_real(tmp_path) -> None:
 
     adapter = get_broker_adapter(db=db, settings=settings)
     from agentic_trader.engine.broker import SimulatedRealBrokerAdapter
+
     assert isinstance(adapter, SimulatedRealBrokerAdapter)
     assert adapter.backend_name == "simulated_real"
 
@@ -776,6 +782,7 @@ def test_broker_runtime_payload_live_requested(tmp_path) -> None:
     assert payload["backend"] == "live"
     assert payload["state"] == "blocked"
     assert payload["live_requested"] is True
+
 
 def test_paper_broker_adapter_cancel_order(tmp_path) -> None:
     """Test PaperBrokerAdapter.cancel_order returns False (line 242)."""
@@ -1034,6 +1041,13 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
     )
 
     assert submitted_orders
+    from alpaca.trading.enums import OrderType
+    from alpaca.trading.requests import MarketOrderRequest
+
+    submitted_order = submitted_orders[0]
+    assert isinstance(submitted_order, MarketOrderRequest)
+    assert submitted_order.client_order_id == intent.intent_id
+    assert submitted_order.type == OrderType.MARKET
     assert outcome.status == "filled"
     assert refreshed_outcome.status == "partially_filled"
     assert refreshed_outcome.filled_quantity == pytest.approx(1.0)
@@ -1046,6 +1060,74 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
     assert open_orders[0].side == "sell"
     assert healthcheck.ok is True
     assert close_id == "close-AAPL"
+
+
+def test_alpaca_paper_adapter_submits_limit_order_with_client_order_id(
+    tmp_path,
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="key",
+        alpaca_secret_key="secret",
+        alpaca_paper_trading_enabled=True,
+    )
+    settings.ensure_directories()
+    submitted_orders: list[object] = []
+
+    class FakeClient:
+        def submit_order(self, *, order_data):
+            submitted_orders.append(order_data)
+            return SimpleNamespace(
+                id="order-limit-1",
+                filled_qty="0",
+                filled_avg_price=None,
+                status="accepted",
+            )
+
+        def get_all_positions(self):
+            return []
+
+        def get_account(self):
+            return SimpleNamespace(
+                cash="100000",
+                long_market_value="0",
+                short_market_value="0",
+                portfolio_value="100000",
+                status="ACTIVE",
+                trading_blocked=False,
+            )
+
+    adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
+    adapter._client = FakeClient()
+    intent = ExecutionIntent(
+        symbol="aapl",
+        side="buy",
+        order_type="limit",
+        quantity=1,
+        limit_price=99.5,
+        reference_price=101.25,
+        confidence=0.8,
+        thesis="External paper limit submission.",
+        approved=True,
+        execution_backend="alpaca_paper",
+        adapter_name="alpaca_paper",
+    )
+
+    outcome = adapter.place_order(intent)
+
+    from alpaca.trading.enums import OrderType
+    from alpaca.trading.requests import LimitOrderRequest
+
+    assert outcome.status == "accepted"
+    assert submitted_orders
+    submitted_order = submitted_orders[0]
+    assert isinstance(submitted_order, LimitOrderRequest)
+    assert submitted_order.client_order_id == intent.intent_id
+    assert submitted_order.type == OrderType.LIMIT
+    assert submitted_order.limit_price is not None
+    assert float(submitted_order.limit_price) == pytest.approx(99.5)
 
 
 def test_alpaca_paper_adapter_blocks_oversize_order_before_submit(tmp_path) -> None:

@@ -179,7 +179,9 @@ def build_contract_output(request: ResearchFlowRequest) -> ResearchFlowContractO
     """Build the deterministic sidecar contract without running LLM-backed tasks."""
     now = utc_now_iso()
     provider_ids = [output.metadata.provider_id for output in request.provider_outputs]
-    missing_count = sum(1 for output in request.provider_outputs if output.missing_reasons)
+    missing_count = sum(
+        1 for output in request.provider_outputs if output.missing_reasons
+    )
     payload_count = sum(
         len(output.raw_evidence) + len(output.macro_events) + len(output.social_signals)
         for output in request.provider_outputs

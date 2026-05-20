@@ -6,7 +6,9 @@ from agentic_trader.researchd.cycle_plan import research_cycle_plan_payload
 
 
 def test_research_cycle_plan_preserves_manual_approval_boundary() -> None:
-    payload = research_cycle_plan_payload(symbols=["aapl", " msft "], cadence_seconds=30)
+    payload = research_cycle_plan_payload(
+        symbols=["aapl", " msft "], cadence_seconds=30
+    )
 
     assert payload["watchlist"] == ["AAPL", "MSFT"]
     assert payload["cadence_seconds"] == 60

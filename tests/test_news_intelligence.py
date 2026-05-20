@@ -22,16 +22,13 @@ def test_news_research_plan_builds_source_attributed_queries() -> None:
     assert payload["preferred_engine"] == "google_news"
     queries = cast(list[dict[str, object]], payload["query_templates"])
     assert any(
-        query["kind"] == "company"
-        and "Apple AAPL news May 2026" in str(query["query"])
+        query["kind"] == "company" and "Apple AAPL news May 2026" in str(query["query"])
         for query in queries
     )
     freshness_policy = cast(dict[str, object], payload["freshness_policy"])
     assert freshness_policy["archive_fetcher_source_is_stale"] is True
     prompt_policy = cast(dict[str, object], payload["prompt_policy"])
-    assert (
-        prompt_policy["raw_article_text_allowed_in_core_trading_prompt"] is False
-    )
+    assert prompt_policy["raw_article_text_allowed_in_core_trading_prompt"] is False
     evidence_contract = cast(dict[str, object], payload["evidence_contract"])
     assert evidence_contract["schema_name"] == "NewsEvidenceContract"
     schema = cast(dict[str, object], evidence_contract["json_schema"])

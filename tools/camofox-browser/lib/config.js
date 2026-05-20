@@ -26,12 +26,17 @@ function readCrashReporterConfig() {
 function parseProxyPorts(portsEnv, singlePort) {
   if (portsEnv) {
     if (portsEnv.includes('-')) {
-      const [start, end] = portsEnv.split('-').map(s => parseInt(s.trim(), 10));
+      const [start, end] = portsEnv
+        .split('-')
+        .map((s) => parseInt(s.trim(), 10));
       if (!isNaN(start) && !isNaN(end) && end >= start) {
         return Array.from({ length: end - start + 1 }, (_, i) => start + i);
       }
     }
-    const parsed = portsEnv.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+    const parsed = portsEnv
+      .split(',')
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n));
     if (parsed.length > 0) return parsed;
   }
   if (singlePort) {
@@ -57,10 +62,19 @@ function loadConfig() {
     adminKey: process.env.CAMOFOX_ADMIN_KEY || '',
     apiKey: process.env.CAMOFOX_API_KEY || '',
     accessKey: (process.env.CAMOFOX_ACCESS_KEY || '').trim(),
-    cookiesDir: process.env.CAMOFOX_COOKIES_DIR || join(os.homedir(), '.camofox', 'cookies'),
-    profileDir: process.env.CAMOFOX_PROFILE_DIR || join(os.homedir(), '.camofox', 'profiles'),
-    tracesDir: process.env.CAMOFOX_TRACES_DIR || join(os.homedir(), '.camofox', 'traces'),
-    tracesMaxBytes: parseInt(process.env.CAMOFOX_TRACES_MAX_BYTES || String(50 * 1024 * 1024), 10),
+    cookiesDir:
+      process.env.CAMOFOX_COOKIES_DIR ||
+      join(os.homedir(), '.camofox', 'cookies'),
+    profileDir:
+      process.env.CAMOFOX_PROFILE_DIR ||
+      join(os.homedir(), '.camofox', 'profiles'),
+    tracesDir:
+      process.env.CAMOFOX_TRACES_DIR ||
+      join(os.homedir(), '.camofox', 'traces'),
+    tracesMaxBytes: parseInt(
+      process.env.CAMOFOX_TRACES_MAX_BYTES || String(50 * 1024 * 1024),
+      10,
+    ),
     tracesTtlHours: parseInt(process.env.CAMOFOX_TRACES_TTL_HOURS || '24', 10),
     handlerTimeoutMs: parseInt(process.env.HANDLER_TIMEOUT_MS) || 30000,
     maxConcurrentPerUser: parseInt(process.env.MAX_CONCURRENT_PER_USER) || 3,
@@ -71,12 +85,16 @@ function loadConfig() {
     maxTabsGlobal: parseInt(process.env.MAX_TABS_GLOBAL) || 50,
     navigateTimeoutMs: parseInt(process.env.NAVIGATE_TIMEOUT_MS) || 25000,
     buildrefsTimeoutMs: parseInt(process.env.BUILDREFS_TIMEOUT_MS) || 12000,
-    browserIdleTimeoutMs: parseInt(process.env.BROWSER_IDLE_TIMEOUT_MS) || 300000,
+    browserIdleTimeoutMs:
+      parseInt(process.env.BROWSER_IDLE_TIMEOUT_MS) || 300000,
     browserPrewarmEnabled:
-      process.env.CAMOFOX_BROWSER_PREWARM === '1'
-      || process.env.CAMOFOX_BROWSER_PREWARM === 'true',
-    nativeMemRestartThresholdMb: parseInt(process.env.NATIVE_MEM_RESTART_THRESHOLD_MB) || 200,
-    prometheusEnabled: process.env.PROMETHEUS_ENABLED === '1' || process.env.PROMETHEUS_ENABLED === 'true',
+      process.env.CAMOFOX_BROWSER_PREWARM === '1' ||
+      process.env.CAMOFOX_BROWSER_PREWARM === 'true',
+    nativeMemRestartThresholdMb:
+      parseInt(process.env.NATIVE_MEM_RESTART_THRESHOLD_MB) || 200,
+    prometheusEnabled:
+      process.env.PROMETHEUS_ENABLED === '1' ||
+      process.env.PROMETHEUS_ENABLED === 'true',
     proxy: {
       strategy: inferProxyStrategy(process.env.PROXY_STRATEGY || ''),
       providerName: process.env.PROXY_PROVIDER || 'decodo',
@@ -86,12 +104,18 @@ function loadConfig() {
       username: process.env.PROXY_USERNAME || '',
       password: process.env.PROXY_PASSWORD || '',
       backconnectHost: process.env.PROXY_BACKCONNECT_HOST || '',
-      backconnectPort: parseInt(process.env.PROXY_BACKCONNECT_PORT || '7000', 10),
+      backconnectPort: parseInt(
+        process.env.PROXY_BACKCONNECT_PORT || '7000',
+        10,
+      ),
       country: process.env.PROXY_COUNTRY || '',
       state: process.env.PROXY_STATE || '',
       city: process.env.PROXY_CITY || '',
       zip: process.env.PROXY_ZIP || '',
-      sessionDurationMinutes: parseInt(process.env.PROXY_SESSION_DURATION_MINUTES || '10', 10),
+      sessionDurationMinutes: parseInt(
+        process.env.PROXY_SESSION_DURATION_MINUTES || '10',
+        10,
+      ),
     },
     // Env vars forwarded to the server subprocess
     serverEnv: {
@@ -120,16 +144,18 @@ function loadConfig() {
       PROXY_STATE: process.env.PROXY_STATE,
       PROXY_CITY: process.env.PROXY_CITY,
       PROXY_ZIP: process.env.PROXY_ZIP,
-      PROXY_SESSION_DURATION_MINUTES: process.env.PROXY_SESSION_DURATION_MINUTES,
+      PROXY_SESSION_DURATION_MINUTES:
+        process.env.PROXY_SESSION_DURATION_MINUTES,
     },
     // Crash reporter is disabled by default in Agentic Trader's local-first fork.
     crashReportEnabled:
-      process.env.CAMOFOX_CRASH_REPORT_ENABLED === '1'
-      || process.env.CAMOFOX_CRASH_REPORT_ENABLED === 'true',
-    crashReportUrl:       process.env.CAMOFOX_CRASH_REPORT_URL || '',
-    crashReportRepo:      process.env.CAMOFOX_CRASH_REPORT_REPO,
-    crashReportRateLimit: parseInt(process.env.CAMOFOX_CRASH_REPORT_RATE_LIMIT, 10) || 10,
-    crashReporterConfig:  readCrashReporterConfig(),
+      process.env.CAMOFOX_CRASH_REPORT_ENABLED === '1' ||
+      process.env.CAMOFOX_CRASH_REPORT_ENABLED === 'true',
+    crashReportUrl: process.env.CAMOFOX_CRASH_REPORT_URL || '',
+    crashReportRepo: process.env.CAMOFOX_CRASH_REPORT_REPO,
+    crashReportRateLimit:
+      parseInt(process.env.CAMOFOX_CRASH_REPORT_RATE_LIMIT, 10) || 10,
+    crashReporterConfig: readCrashReporterConfig(),
   };
 }
 

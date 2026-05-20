@@ -3,8 +3,8 @@
  * preserving pagination/navigation links at the tail.
  */
 
-const MAX_SNAPSHOT_CHARS = 80000;  // ~20K tokens
-const SNAPSHOT_TAIL_CHARS = 5000;  // keep last ~5K for pagination/nav links
+const MAX_SNAPSHOT_CHARS = 80000; // ~20K tokens
+const SNAPSHOT_TAIL_CHARS = 5000; // keep last ~5K for pagination/nav links
 
 /**
  * Return a window of the snapshot YAML.
@@ -15,11 +15,15 @@ const SNAPSHOT_TAIL_CHARS = 5000;  // keep last ~5K for pagination/nav links
 function windowSnapshot(yaml, offset = 0) {
   if (!yaml) return { text: '', truncated: false, totalChars: 0, offset: 0 };
   const total = yaml.length;
-  if (total <= MAX_SNAPSHOT_CHARS) return { text: yaml, truncated: false, totalChars: total, offset: 0 };
+  if (total <= MAX_SNAPSHOT_CHARS)
+    return { text: yaml, truncated: false, totalChars: total, offset: 0 };
 
   const contentBudget = MAX_SNAPSHOT_CHARS - SNAPSHOT_TAIL_CHARS - 200; // room for marker
   const tail = yaml.slice(-SNAPSHOT_TAIL_CHARS);
-  const clampedOffset = Math.min(Math.max(0, offset), total - SNAPSHOT_TAIL_CHARS);
+  const clampedOffset = Math.min(
+    Math.max(0, offset),
+    total - SNAPSHOT_TAIL_CHARS,
+  );
   const chunk = yaml.slice(clampedOffset, clampedOffset + contentBudget);
   const chunkEnd = clampedOffset + contentBudget;
   const hasMore = chunkEnd < total - SNAPSHOT_TAIL_CHARS;
@@ -34,7 +38,7 @@ function windowSnapshot(yaml, offset = 0) {
     totalChars: total,
     offset: clampedOffset,
     hasMore,
-    nextOffset: hasMore ? chunkEnd : null
+    nextOffset: hasMore ? chunkEnd : null,
   };
 }
 

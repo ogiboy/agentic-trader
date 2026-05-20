@@ -115,7 +115,9 @@ def test_guard_uses_manager_action_bias_hold() -> None:
     )
     decision = evaluate_execution(settings, _snapshot(), strategy, risk, manager)
     assert decision.approved is False
-    assert "no-trade" in decision.rationale.lower() or "hold" in decision.rationale.lower()
+    assert (
+        "no-trade" in decision.rationale.lower() or "hold" in decision.rationale.lower()
+    )
 
 
 def test_guard_uses_manager_action_bias_sell() -> None:

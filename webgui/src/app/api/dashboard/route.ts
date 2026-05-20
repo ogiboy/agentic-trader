@@ -1,8 +1,5 @@
 import { getDashboardSnapshot } from '../../../lib/agentic-trader';
-import {
-  redactAndCapText,
-  rejectUnsafeWebguiRequest,
-} from '../../../lib/http';
+import { redactAndCapText, rejectUnsafeWebguiRequest } from '../../../lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,9 +20,6 @@ export async function GET(request: Request) {
     const dashboard = await getDashboardSnapshot();
     return Response.json(dashboard);
   } catch (error) {
-    return Response.json(
-      { error: redactAndCapText(error) },
-      { status: 500 },
-    );
+    return Response.json({ error: redactAndCapText(error) }, { status: 500 });
   }
 }

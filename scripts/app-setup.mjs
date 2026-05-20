@@ -66,7 +66,9 @@ function parseArgs(argv) {
     }
   }
   if (options.yes && !options.core && !options.dryRun) {
-    process.stderr.write('The current app:setup slice requires --core before --yes can mutate setup.\n');
+    process.stderr.write(
+      'The current app:setup slice requires --core before --yes can mutate setup.\n',
+    );
     usage(2);
   }
   return options;
@@ -118,28 +120,58 @@ function deferredStep(id, label, command, reason) {
  */
 function setupPlan() {
   return [
-    coreStep('node-workspace', 'Install and verify root/webgui/docs/tui Node workspace dependencies', [
-      'pnpm',
-      'run',
-      'setup:node',
-    ]),
-    coreStep('python-env', 'Sync the root uv Python 3.13 development environment', [
-      'pnpm',
-      'run',
-      'install:python',
-    ]),
-    deferredStep('research-flow-sidecar', 'CrewAI Flow sidecar dependency setup', ['pnpm', 'run', 'setup:research-flow'], 'Sidecar setup stays explicit until app:setup grows opt-in side-application ownership.'),
-    deferredStep('camofox-deps', 'Camofox helper dependency setup', ['pnpm', 'run', 'setup:camofox'], 'Browser helper setup remains optional and separate from core dependency repair.'),
-    deferredStep('camofox-browser', 'Camofox browser binary fetch', ['pnpm', 'run', 'fetch:camofox'], 'Browser downloads require explicit operator approval and are never hidden in app:setup core repair.'),
-    deferredStep('model-service-start', 'App-owned Ollama/model-service start', ['agentic-trader', 'model-service', 'start'], 'Provider ownership and model choice must be explicit before starting or pulling models.'),
-    deferredStep('camofox-service-start', 'App-owned Camofox service start', ['agentic-trader', 'camofox-service', 'start'], 'Browser-backed helpers require loopback/access-key readiness before service start.'),
-    deferredStep('webgui-service-start', 'App-owned Web GUI service start', ['agentic-trader', 'webgui-service', 'start'], 'Web GUI launch belongs to app:up/app:start, not setup repair.'),
+    coreStep(
+      'node-workspace',
+      'Install and verify root/webgui/docs/tui Node workspace dependencies',
+      ['pnpm', 'run', 'setup:node'],
+    ),
+    coreStep(
+      'python-env',
+      'Sync the root uv Python 3.13 development environment',
+      ['pnpm', 'run', 'install:python'],
+    ),
+    deferredStep(
+      'research-flow-sidecar',
+      'CrewAI Flow sidecar dependency setup',
+      ['pnpm', 'run', 'setup:research-flow'],
+      'Sidecar setup stays explicit until app:setup grows opt-in side-application ownership.',
+    ),
+    deferredStep(
+      'camofox-deps',
+      'Camofox helper dependency setup',
+      ['pnpm', 'run', 'setup:camofox'],
+      'Browser helper setup remains optional and separate from core dependency repair.',
+    ),
+    deferredStep(
+      'camofox-browser',
+      'Camofox browser binary fetch',
+      ['pnpm', 'run', 'fetch:camofox'],
+      'Browser downloads require explicit operator approval and are never hidden in app:setup core repair.',
+    ),
+    deferredStep(
+      'model-service-start',
+      'App-owned Ollama/model-service start',
+      ['agentic-trader', 'model-service', 'start'],
+      'Provider ownership and model choice must be explicit before starting or pulling models.',
+    ),
+    deferredStep(
+      'camofox-service-start',
+      'App-owned Camofox service start',
+      ['agentic-trader', 'camofox-service', 'start'],
+      'Browser-backed helpers require loopback/access-key readiness before service start.',
+    ),
+    deferredStep(
+      'webgui-service-start',
+      'App-owned Web GUI service start',
+      ['agentic-trader', 'webgui-service', 'start'],
+      'Web GUI launch belongs to app:up/app:start, not setup repair.',
+    ),
   ];
 }
 
 /**
  * Human-readable safety notes describing default behavior and the limited mutating scope of the app:setup command.
- * @returns {string[]} An array of note strings included in the setup payload and displayed to users. 
+ * @returns {string[]} An array of note strings included in the setup payload and displayed to users.
  */
 function safetyNotes() {
   return [
@@ -305,14 +337,21 @@ function renderHuman(payload) {
   process.stdout.write(`mode: ${payload.mode}\n`);
   process.stdout.write(`dry-run: ${payload.dry_run ? 'yes' : 'no'}\n`);
   for (const step of payload.steps) {
-    const marker = step.status === 'passed' ? 'ok' : step.status === 'failed' ? 'fail' : step.status;
+    const marker =
+      step.status === 'passed'
+        ? 'ok'
+        : step.status === 'failed'
+          ? 'fail'
+          : step.status;
     process.stdout.write(`${marker} ${step.id}: ${step.label}\n`);
     if (step.reason) {
       process.stdout.write(`  ${step.reason}\n`);
     }
   }
   if (payload.dry_run) {
-    process.stdout.write('Run pnpm run app:setup -- --core --yes to execute only core dependency repair.\n');
+    process.stdout.write(
+      'Run pnpm run app:setup -- --core --yes to execute only core dependency repair.\n',
+    );
   }
 }
 

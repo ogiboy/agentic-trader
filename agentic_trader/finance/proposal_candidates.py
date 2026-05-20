@@ -70,16 +70,14 @@ def create_proposal_candidate(
     if not is_v1_us_equity_symbol(symbol):
         raise ValueError("Proposal candidates require a simple V1 US equity symbol.")
     if draft.quantity is not None and draft.notional is not None:
-        raise ValueError("Proposal candidates require exactly one of quantity or notional.")
+        raise ValueError(
+            "Proposal candidates require exactly one of quantity or notional."
+        )
     if draft.quantity is not None and draft.quantity <= 0:
         raise ValueError("Proposal candidates require quantity greater than zero.")
     if draft.notional is not None and draft.notional <= 0:
         raise ValueError("Proposal candidates require notional greater than zero.")
-    side = (
-        cast(TradeSide, score.signal)
-        if score.signal in {"buy", "sell"}
-        else None
-    )
+    side = cast(TradeSide, score.signal) if score.signal in {"buy", "sell"} else None
     confidence = min(max(score.score / 100.0, 0.0), 1.0)
     context = score_strategy_context(score)
     evidence = _candidate_evidence(
@@ -459,7 +457,9 @@ def _default_risk_notes(warnings: tuple[str, ...]) -> str:
 
 
 def _blocking_warnings(warnings: tuple[str, ...]) -> list[str]:
-    return sorted(warning for warning in warnings if warning in BLOCKING_CANDIDATE_WARNINGS)
+    return sorted(
+        warning for warning in warnings if warning in BLOCKING_CANDIDATE_WARNINGS
+    )
 
 
 def _validate_candidate_promotable(candidate: ProposalCandidateRecord) -> None:

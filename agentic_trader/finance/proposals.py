@@ -35,6 +35,7 @@ class TradeProposalDraft:
     order_type: Literal["market", "limit"] = "market"
     quantity: float | None = None
     notional: float | None = None
+    limit_price: float | None = None
     stop_loss: float | None = None
     take_profit: float | None = None
     invalidation_condition: str | None = None
@@ -69,6 +70,13 @@ def prepare_trade_proposal(
         raise ValueError("Trade proposals require quantity greater than zero.")
     if proposal_draft.notional is not None and proposal_draft.notional <= 0:
         raise ValueError("Trade proposals require notional greater than zero.")
+    if proposal_draft.order_type == "limit":
+        if proposal_draft.limit_price is None:
+            raise ValueError("Limit trade proposals require limit_price.")
+        if proposal_draft.quantity is None:
+            raise ValueError("Limit trade proposals require quantity.")
+    elif proposal_draft.limit_price is not None:
+        raise ValueError("Market trade proposals must not include limit_price.")
     if proposal_draft.reference_price <= 0:
         raise ValueError("Trade proposals require reference_price greater than zero.")
     if not 0 <= proposal_draft.confidence <= 1:
@@ -86,6 +94,7 @@ def prepare_trade_proposal(
         order_type=proposal_draft.order_type,
         quantity=proposal_draft.quantity,
         notional=proposal_draft.notional,
+        limit_price=proposal_draft.limit_price,
         reference_price=proposal_draft.reference_price,
         confidence=proposal_draft.confidence,
         thesis=proposal_draft.thesis.strip(),
@@ -128,13 +137,14 @@ def approve_trade_proposal(
     proposal_id: str,
     review_notes: str = "",
 ) -> tuple[TradeProposalRecord, ExecutionOutcome]:
+    clean_review_notes = _require_review_note("approval", review_notes)
     proposal = _load_mutable_proposal(db, proposal_id)
     _validate_proposal_risk_controls(proposal)
     approved_proposal = proposal.model_copy(
         update={
             "status": "approved",
             "updated_at": utc_now_iso(),
-            "review_notes": _merge_notes(proposal.review_notes, review_notes),
+            "review_notes": _merge_notes(proposal.review_notes, clean_review_notes),
         }
     )
     intent = _intent_from_proposal(approved_proposal, settings=settings)
@@ -216,11 +226,18 @@ def reconcile_trade_proposal(
         )
     outcome_status = str(record["status"])
     final_status = _proposal_status_for_outcome(outcome_status)
+    outcome_payload = record.get("outcome")
+    if not isinstance(outcome_payload, dict):
+        raise ValueError(
+            f"Trade proposal {proposal_id} has no recorded execution outcome payload."
+        )
+    outcome = ExecutionOutcome.model_validate(outcome_payload)
+    clean_review_notes = _require_review_note("reconciliation", review_notes)
     repaired = proposal.model_copy(
         update={
             "status": final_status,
             "updated_at": utc_now_iso(),
-            "review_notes": _merge_notes(proposal.review_notes, review_notes),
+            "review_notes": _merge_notes(proposal.review_notes, clean_review_notes),
             "execution_order_id": _str_or_none(record.get("order_id")),
             "execution_outcome_status": outcome_status,
             "rejection_reason": _str_or_none(record.get("rejection_reason")),
@@ -230,12 +247,6 @@ def reconcile_trade_proposal(
         raise ValueError(
             f"Trade proposal {proposal_id} changed before reconciliation could finish."
         )
-    outcome_payload = record.get("outcome")
-    if not isinstance(outcome_payload, dict):
-        raise ValueError(
-            f"Trade proposal {proposal_id} has no recorded execution outcome payload."
-        )
-    outcome = ExecutionOutcome.model_validate(outcome_payload)
     db.create_trade_journal_from_proposal(
         proposal=repaired,
         outcome=outcome,
@@ -275,6 +286,7 @@ def refresh_trade_proposal_order(
             f"Trade proposal {proposal_id} has no refreshable execution intent payload."
         )
     intent = ExecutionIntent.model_validate(intent_payload)
+    clean_review_notes = _require_review_note("broker refresh", review_notes)
     adapter_settings = settings.model_copy(
         update={"execution_backend": intent.execution_backend}
     )
@@ -303,7 +315,7 @@ def refresh_trade_proposal_order(
         update={
             "status": final_status,
             "updated_at": utc_now_iso(),
-            "review_notes": _merge_notes(proposal.review_notes, review_notes),
+            "review_notes": _merge_notes(proposal.review_notes, clean_review_notes),
             "execution_order_id": outcome.order_id,
             "execution_outcome_status": outcome.status,
             "rejection_reason": outcome.rejection_reason,
@@ -376,9 +388,11 @@ def repair_missing_position_plans(
         item: PositionPlanRepairItem = {
             "symbol": symbol,
             "status": "created" if apply_repair else "candidate",
-            "reason": "repaired from executed proposal"
-            if apply_repair
-            else "dry-run candidate from executed proposal",
+            "reason": (
+                "repaired from executed proposal"
+                if apply_repair
+                else "dry-run candidate from executed proposal"
+            ),
             "proposal_id": candidate.proposal_id,
             "side": candidate.side,
             "entry_price": entry_price,
@@ -447,6 +461,7 @@ def _intent_from_proposal(
         order_type=proposal.order_type,
         quantity=proposal.quantity,
         notional=proposal.notional,
+        limit_price=proposal.limit_price,
         reference_price=proposal.reference_price,
         confidence=proposal.confidence,
         thesis=proposal.thesis,
@@ -471,6 +486,13 @@ def _merge_notes(existing: str, note: str) -> str:
     if not existing:
         return cleaned
     return f"{existing}\n{cleaned}"
+
+
+def _require_review_note(action: str, note: str) -> str:
+    cleaned = note.strip()
+    if not cleaned:
+        raise ValueError(f"Trade proposal {action} requires review_notes.")
+    return cleaned
 
 
 def _save_position_plan_from_proposal(

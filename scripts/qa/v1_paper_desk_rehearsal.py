@@ -13,7 +13,6 @@ import sys
 import time
 from typing import Any
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
 
@@ -65,9 +64,13 @@ def _run_step(
         "exit_code": completed.returncode,
         "duration_ms": duration_ms,
         "expected_success": expect_success,
-        "ok": completed.returncode == 0 if expect_success else completed.returncode != 0,
+        "ok": (
+            completed.returncode == 0 if expect_success else completed.returncode != 0
+        ),
         "stdout_json": _parse_json(completed.stdout),
-        "stdout": completed.stdout if not completed.stdout.strip().startswith("{") else None,
+        "stdout": (
+            completed.stdout if not completed.stdout.strip().startswith("{") else None
+        ),
         "stderr": completed.stderr or None,
     }
     _write_json(artifact_dir / f"{name}.json", payload)
@@ -274,9 +277,7 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
     )
     promoted_payload = promoted.get("stdout_json")
     proposal = (
-        promoted_payload.get("proposal")
-        if isinstance(promoted_payload, dict)
-        else None
+        promoted_payload.get("proposal") if isinstance(promoted_payload, dict) else None
     )
     proposal_id = proposal.get("proposal_id") if isinstance(proposal, dict) else None
     if not proposal_id:
@@ -296,7 +297,9 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
     approved_proposal = (
         approved_payload.get("proposal") if isinstance(approved_payload, dict) else {}
     )
-    outcome = approved_payload.get("outcome") if isinstance(approved_payload, dict) else {}
+    outcome = (
+        approved_payload.get("outcome") if isinstance(approved_payload, dict) else {}
+    )
     outcome_status = outcome.get("status") if isinstance(outcome, dict) else None
     if outcome_status == "accepted":
         refresh = step(
@@ -355,7 +358,9 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
         "candidate_id": candidate_id,
         "proposal_id": proposal_id,
         "approval_status": (
-            approved_proposal.get("status") if isinstance(approved_proposal, dict) else None
+            approved_proposal.get("status")
+            if isinstance(approved_proposal, dict)
+            else None
         ),
         "outcome_status": outcome_status,
         "refresh_check": refresh_check,

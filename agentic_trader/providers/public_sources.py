@@ -15,7 +15,6 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.security import safe_exception_note
 
-
 FUNDAMENTAL_FIELDS = (
     "revenue_growth",
     "profitability_stability",

@@ -70,7 +70,8 @@ def provider_diagnostics_payload(settings: Settings) -> dict[str, object]:
     """Build a network-free snapshot of configured provider/source readiness."""
 
     provider_rows = [
-        _provider_payload(meta) for meta in _provider_metadata(default_provider_set(settings))
+        _provider_payload(meta)
+        for meta in _provider_metadata(default_provider_set(settings))
     ]
     warnings: list[str] = []
     if any(row["provider_id"] == "yahoo_market" for row in provider_rows):
@@ -107,7 +108,9 @@ def provider_diagnostics_payload(settings: Settings) -> dict[str, object]:
         "configured_keys": {
             "finnhub": bool(settings.finnhub_api_key),
             "fmp": bool(settings.fmp_api_key),
-            "polygon_or_massive": bool(settings.polygon_api_key or settings.massive_api_key),
+            "polygon_or_massive": bool(
+                settings.polygon_api_key or settings.massive_api_key
+            ),
             "alpaca": alpaca_credentials_ready(settings),
         },
         "alpaca": {
@@ -186,11 +189,14 @@ def _paper_evidence_payload(
         _check(
             "review_evidence_path_visible",
             True,
-            "Operator review path includes " + ", ".join(REVIEW_EVIDENCE_ARTIFACTS) + ".",
+            "Operator review path includes "
+            + ", ".join(REVIEW_EVIDENCE_ARTIFACTS)
+            + ".",
         ),
         _check(
             "no_live_until_approved_gate",
-            not settings.live_execution_enabled and settings.execution_backend != "live",
+            not settings.live_execution_enabled
+            and settings.execution_backend != "live",
             (
                 "Live execution is blocked until paper evidence, manual approval, "
                 "and a real live adapter are intentionally implemented."
@@ -291,9 +297,11 @@ def v1_readiness_payload(
         _check(
             "credentials_configured",
             alpaca_credentials_ready(settings),
-            "Alpaca paper API key and secret are configured."
-            if alpaca_credentials_ready(settings)
-            else "Alpaca paper credentials are missing.",
+            (
+                "Alpaca paper API key and secret are configured."
+                if alpaca_credentials_ready(settings)
+                else "Alpaca paper credentials are missing."
+            ),
         ),
         _check(
             "paper_endpoint",

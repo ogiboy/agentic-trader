@@ -36,6 +36,7 @@ class ExecutionIntent(BaseModel):
     order_type: OrderType = "market"
     quantity: float | None = Field(default=None, gt=0.0)
     notional: float | None = Field(default=None, gt=0.0)
+    limit_price: float | None = Field(default=None, gt=0.0)
     reference_price: float = Field(gt=0.0)
     confidence: float = Field(ge=0.0, le=1.0)
     thesis: str
@@ -75,6 +76,10 @@ class ExecutionIntent(BaseModel):
         missing_size = self.quantity is None and self.notional is None
         if self.approved and self.side != "hold" and missing_size:
             raise ValueError("Approved execution intents require quantity or notional.")
+        if self.order_type == "limit" and self.limit_price is None:
+            raise ValueError("Limit execution intents require limit_price.")
+        if self.order_type == "market" and self.limit_price is not None:
+            raise ValueError("Market execution intents must not include limit_price.")
         return self
 
 

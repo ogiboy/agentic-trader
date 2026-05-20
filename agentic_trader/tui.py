@@ -624,7 +624,9 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
-    summary.add_row(f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}")
+    summary.add_row(
+        f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}"
+    )
     summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
     summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
     summary.add_row(
@@ -914,7 +916,9 @@ def _render_broker_status(settings: Settings) -> None:
         table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
         blockers = healthcheck.get("blocking_reasons")
         if isinstance(blockers, list):
-            table.add_row("Blocking Reasons", ", ".join(str(item) for item in blockers) or "-")
+            table.add_row(
+                "Blocking Reasons", ", ".join(str(item) for item in blockers) or "-"
+            )
     console.print(table)
 
 
@@ -1110,7 +1114,9 @@ def _show_portfolio(db: TradingDatabase) -> None:
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
-    summary.add_row(f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}")
+    summary.add_row(
+        f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}"
+    )
     summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
     summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
     summary.add_row(
@@ -1661,13 +1667,21 @@ def _portfolio_menu(settings: Settings) -> None:
     Displays a menu of actions, attempts to open a read-only database for views that require persisted data, shows an observer-mode notice when a readable database is unavailable, closes the database after each view, and returns to the caller when the user selects "Back".
     """
     actions = {
-        "1": TuiMenuAction("1", "Show paper portfolio", "Paper portfolio", _show_portfolio),
-        "2": TuiMenuAction("2", "Show trade journal", "Trade journal", _show_trade_journal),
-        "3": TuiMenuAction("3", "Show daily risk report", "Daily risk report", _show_risk_report),
+        "1": TuiMenuAction(
+            "1", "Show paper portfolio", "Paper portfolio", _show_portfolio
+        ),
+        "2": TuiMenuAction(
+            "2", "Show trade journal", "Trade journal", _show_trade_journal
+        ),
+        "3": TuiMenuAction(
+            "3", "Show daily risk report", "Daily risk report", _show_risk_report
+        ),
     }
     while True:
         console.clear()
-        console.print(_menu_table("Portfolio And Risk", [*actions.values(), ("4", "Back")]))
+        console.print(
+            _menu_table("Portfolio And Risk", [*actions.values(), ("4", "Back")])
+        )
         choice = Prompt.ask(
             PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4"], default="1"
         )
@@ -1693,11 +1707,15 @@ def _research_menu(settings: Settings) -> None:
             "Memory explorer",
             lambda db: _show_memory_explorer(settings, db),
         ),
-        "2": TuiMenuAction("2", "Show recent runs and events", "Recent runs", _render_recent_runs),
+        "2": TuiMenuAction(
+            "2", "Show recent runs and events", "Recent runs", _render_recent_runs
+        ),
     }
     while True:
         console.clear()
-        console.print(_menu_table("Research And Memory", [*actions.values(), ("3", "Back")]))
+        console.print(
+            _menu_table("Research And Memory", [*actions.values(), ("3", "Back")])
+        )
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "3":
             return
@@ -1732,7 +1750,9 @@ def _review_menu(settings: Settings) -> None:
     }
     while True:
         console.clear()
-        console.print(_menu_table("Review And Trace", [*actions.values(), ("3", "Back")]))
+        console.print(
+            _menu_table("Review And Trace", [*actions.values(), ("3", "Back")])
+        )
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "3":
             return
@@ -1791,7 +1811,9 @@ def _exit_menu_action(_settings: Settings) -> None:
 
 def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
     return (
-        TuiMainMenuAction("1", "Configure investment preferences", _edit_preferences_action),
+        TuiMainMenuAction(
+            "1", "Configure investment preferences", _edit_preferences_action
+        ),
         TuiMainMenuAction("2", "Runtime control", _runtime_menu_action),
         TuiMainMenuAction("3", "Operator desk", _operator_menu_action),
         TuiMainMenuAction("4", "Portfolio and risk", _portfolio_menu_action),

@@ -813,14 +813,19 @@ def test_dashboard_snapshot_json(
     assert "webGui" in payload
     assert payload["broker"]["external_paper"] is False
     assert "healthcheck" in payload["broker"]
-    assert payload["providerDiagnostics"]["market_data"]["selected_provider"] == "yahoo_market"
+    assert (
+        payload["providerDiagnostics"]["market_data"]["selected_provider"]
+        == "yahoo_market"
+    )
     assert isinstance(payload["providerDiagnostics"]["warnings"], list)
     assert payload["v1Readiness"]["paper_operations"]["allowed"] is False
     assert payload["v1Readiness"]["alpaca_paper"]["ready"] is False
     provider_checked = runner.invoke(app, ["dashboard-snapshot", "--provider-check"])
     assert provider_checked.exit_code == 0
     provider_checked_payload = json.loads(provider_checked.stdout)
-    assert provider_checked_payload["v1Readiness"]["paper_operations"]["allowed"] is True
+    assert (
+        provider_checked_payload["v1Readiness"]["paper_operations"]["allowed"] is True
+    )
     assert (
         provider_checked_payload["v1Readiness"]["provider_health"]["message"] == "ready"
     )
@@ -1385,7 +1390,7 @@ def test_model_service_cli_json_commands(
 ) -> None:
     """
     Exercise the model-service CLI commands in JSON mode and verify their outputs.
-    
+
     Sets up temporary Settings and monkeypatches model service status builders and control functions, then invokes
     `model-service status`, `model-service status --probe-generation`, `model-service start`, `model-service stop`, and
     `model-service pull` in JSON mode and asserts:
@@ -1402,7 +1407,9 @@ def test_model_service_cli_json_commands(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     status_kwargs: list[dict[str, object]] = []
 
-    def fake_build_model_service_status(*_args: object, **kwargs: object) -> ModelServiceStatus:
+    def fake_build_model_service_status(
+        *_args: object, **kwargs: object
+    ) -> ModelServiceStatus:
         status_kwargs.append(kwargs)
         return _model_service_status_fixture()
 
@@ -1453,9 +1460,7 @@ def test_model_service_cli_json_commands(
     assert stop_result.exit_code == 0
     assert json.loads(stop_result.stdout)["app_owned"] is False
 
-    pull_result = runner.invoke(
-        app, ["model-service", "pull", "qwen3:8b", "--json"]
-    )
+    pull_result = runner.invoke(app, ["model-service", "pull", "qwen3:8b", "--json"])
     assert pull_result.exit_code == 0
     assert json.loads(pull_result.stdout)["model"] == "qwen3:8b"
 
@@ -1830,7 +1835,10 @@ def test_research_cycle_run_json_executes_bounded_evidence_only_cycle(
     assert payload["executions"][0]["digest"]["raw_web_text_injected"] is False
     assert payload["latest_digest"] == payload["executions"][-1]["digest"]
     assert payload["operator_control"]["status"] == "running"
-    assert payload["digest_replay"]["snapshot_id"] == payload["latest_digest"]["snapshot_id"]
+    assert (
+        payload["digest_replay"]["snapshot_id"]
+        == payload["latest_digest"]["snapshot_id"]
+    )
     assert research_digest_replay_path(settings).exists()
     assert research_latest_snapshot_path(settings).exists()
     assert settings.database_path.exists() is False
@@ -2115,8 +2123,7 @@ def test_v1_readiness_allows_alpaca_paper_backend_when_enabled(
     assert payload["paper_operations"]["allowed"] is True
     assert payload["alpaca_paper"]["ready"] is True
     assert any(
-        check["name"] == "paper_or_external_paper_backend"
-        and check["passed"] is True
+        check["name"] == "paper_or_external_paper_backend" and check["passed"] is True
         for check in payload["paper_operations"]["checks"]
     )
 
@@ -2144,7 +2151,10 @@ def test_finance_ops_json_reports_read_only_desk_checks(
     assert payload["accounting"]["currency"] == "USD"
     assert payload["accounting"]["mark_status"] == "mark_time_unavailable"
     assert payload["accounting"]["cost_model"]["fees"] == "not modeled"
-    assert payload["reconciliation"]["audit_policy"]["distinguish_zero_from_missing"] is True
+    assert (
+        payload["reconciliation"]["audit_policy"]["distinguish_zero_from_missing"]
+        is True
+    )
     assert payload["positionPlanCoverage"]["missing_symbols"] == []
     assert any(
         item["name"] == "corporate_actions"
@@ -2262,8 +2272,7 @@ def test_finance_ops_flags_open_positions_without_exit_plans(
     assert payload["ready"] is False
     assert payload["positionPlanCoverage"]["missing_symbols"] == ["MSFT"]
     assert any(
-        check["name"] == "open_position_exit_plans_visible"
-        and check["passed"] is False
+        check["name"] == "open_position_exit_plans_visible" and check["passed"] is False
         for check in payload["checks"]
     )
 
@@ -2294,6 +2303,7 @@ def test_position_plan_repair_cli_backfills_executed_proposal_plan(
         db=db,
         settings=settings,
         proposal_id=proposal.proposal_id,
+        review_notes="repair fixture approval",
     )
     db.delete_position_plan("MSFT")
     db.close()
@@ -2563,6 +2573,73 @@ def test_trade_proposal_cli_create_rejects_invalid_symbol_json(
     assert payload["error"] == "Trade proposals require a simple V1 US equity symbol."
 
 
+def test_trade_proposal_cli_create_limit_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+
+    create_result = runner.invoke(
+        app,
+        [
+            "proposal-create",
+            "--symbol",
+            "AAPL",
+            "--side",
+            "buy",
+            "--order-type",
+            "limit",
+            "--quantity",
+            "1",
+            "--limit-price",
+            "99.50",
+            "--reference-price",
+            "100",
+            "--confidence",
+            "0.8",
+            "--thesis",
+            "Limit proposal smoke.",
+            "--json",
+        ],
+    )
+
+    assert create_result.exit_code == 0
+    created = json.loads(create_result.stdout)
+    assert created["order_type"] == "limit"
+    assert created["limit_price"] == pytest.approx(99.5)
+
+    missing_price = runner.invoke(
+        app,
+        [
+            "proposal-create",
+            "--symbol",
+            "AAPL",
+            "--side",
+            "buy",
+            "--order-type",
+            "limit",
+            "--quantity",
+            "1",
+            "--reference-price",
+            "100",
+            "--confidence",
+            "0.8",
+            "--thesis",
+            "Limit proposal without price.",
+            "--json",
+        ],
+    )
+
+    assert missing_price.exit_code == 2
+    assert "limit_price" in json.loads(missing_price.stdout)["error"]
+
+
 def test_trade_proposal_cli_approve_json_records_paper_execution(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -2689,6 +2766,39 @@ def test_trade_proposal_cli_refresh_missing_stays_json(
     assert payload["error"] == "Trade proposal not found: proposal-missing"
 
 
+def test_trade_proposal_cli_refresh_redacts_json_errors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    def fail_refresh(**_kwargs):
+        raise RuntimeError("BROKER_TOKEN=secret-value failed")
+
+    monkeypatch.setattr("agentic_trader.cli.refresh_trade_proposal_order", fail_refresh)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "proposal-refresh",
+            "proposal-1",
+            "--review-notes",
+            "broker status check",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert json.loads(result.stdout) == {
+        "error": "BROKER_TOKEN=<redacted> failed",
+    }
+
+
 def test_trade_proposal_cli_reconcile_terminal_error_stays_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -2715,6 +2825,7 @@ def test_trade_proposal_cli_reconcile_terminal_error_stays_json(
         db=db,
         settings=settings,
         proposal_id=proposal.proposal_id,
+        review_notes="terminal fixture approval",
     )
     db.close()
 
@@ -2868,9 +2979,7 @@ def test_strategy_catalog_and_news_intelligence_cli_json() -> None:
     )
     assert all(item["status"] == "implemented" for item in catalog_payload["profiles"])
 
-    profile_result = runner.invoke(
-        app, ["strategy-profile", "vwap-breakout", "--json"]
-    )
+    profile_result = runner.invoke(app, ["strategy-profile", "vwap-breakout", "--json"])
     assert profile_result.exit_code == 0
     profile_payload = json.loads(profile_result.stdout)
     assert profile_payload["profile"]["family"] == "breakout"

@@ -330,6 +330,7 @@ def test_trade_proposal_expire_terminalizes_pending_proposal(tmp_path) -> None:
             db=db,
             settings=settings,
             proposal_id=proposal.proposal_id,
+            review_notes="expired proposal audit",
         )
 
 
@@ -351,6 +352,7 @@ def test_trade_proposal_approval_requires_exit_risk_controls(tmp_path) -> None:
             db=db,
             settings=settings,
             proposal_id=proposal.proposal_id,
+            review_notes="risk control audit",
         )
 
     stored = db.get_trade_proposal(proposal.proposal_id)
@@ -379,7 +381,37 @@ def test_trade_proposal_approval_rejects_inconsistent_risk_controls(tmp_path) ->
             db=db,
             settings=settings,
             proposal_id=proposal.proposal_id,
+            review_notes="risk geometry audit",
         )
+
+
+def test_trade_proposal_approval_requires_review_notes(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.81,
+        thesis="Manual paper desk approval candidate.",
+        stop_loss=95,
+        take_profit=110,
+    )
+
+    with pytest.raises(ValueError, match="approval requires review_notes"):
+        approve_trade_proposal(
+            db=db,
+            settings=settings,
+            proposal_id=proposal.proposal_id,
+            review_notes=" ",
+        )
+
+    stored = db.get_trade_proposal(proposal.proposal_id)
+    assert stored is not None
+    assert stored.status == "pending"
+    assert db.latest_execution_record() is None
 
 
 def test_trade_proposal_approval_records_execution_and_terminal_state(tmp_path) -> None:
@@ -426,11 +458,48 @@ def test_trade_proposal_approval_records_execution_and_terminal_state(tmp_path) 
     intent = latest["intent"]
     assert isinstance(intent, dict)
     assert intent["approved"] is True
+    assert intent["order_type"] == "market"
+    assert intent["limit_price"] is None
     assert intent["backend_metadata"]["source"] == "proposal_queue"
     assert intent["backend_metadata"]["proposal_id"] == proposal.proposal_id
 
     with pytest.raises(ValueError, match="not pending"):
         reject_trade_proposal(db=db, proposal_id=proposal.proposal_id, reason="late")
+
+
+def test_trade_proposal_limit_order_records_limit_intent(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        order_type="limit",
+        quantity=1,
+        limit_price=99.5,
+        reference_price=100,
+        confidence=0.81,
+        thesis="Manual paper desk limit approval candidate.",
+        stop_loss=95,
+        take_profit=110,
+    )
+
+    approved, outcome = approve_trade_proposal(
+        db=db,
+        settings=settings,
+        proposal_id=proposal.proposal_id,
+        review_notes="limit paper desk approval",
+    )
+
+    latest = db.latest_execution_record()
+    assert approved.status == "executed"
+    assert approved.limit_price == pytest.approx(99.5)
+    assert outcome.status == "filled"
+    assert latest is not None
+    intent = latest["intent"]
+    assert isinstance(intent, dict)
+    assert intent["order_type"] == "limit"
+    assert intent["limit_price"] == pytest.approx(99.5)
 
 
 def test_trade_proposal_journal_keeps_accepted_broker_orders_open(tmp_path) -> None:
@@ -645,6 +714,7 @@ def test_repair_missing_position_plans_backfills_from_executed_proposal(
         db=db,
         settings=settings,
         proposal_id=proposal.proposal_id,
+        review_notes="repair fixture approval",
     )
     db.delete_position_plan("MSFT")
 
@@ -725,6 +795,7 @@ def test_trade_proposal_approval_persists_in_flight_before_adapter_call(
             db=db,
             settings=settings,
             proposal_id=proposal.proposal_id,
+            review_notes="second approval attempt",
         )
     assert place_order_attempts == 1
 
@@ -770,6 +841,7 @@ def test_trade_proposal_approval_requires_atomic_pending_transition(
             db=db,
             settings=settings,
             proposal_id=proposal.proposal_id,
+            review_notes="atomic pending audit",
         )
 
     stored = db.get_trade_proposal(proposal.proposal_id)
@@ -809,6 +881,7 @@ def test_trade_proposal_approval_requires_atomic_final_transition(
             db=db,
             settings=settings,
             proposal_id=proposal.proposal_id,
+            review_notes="atomic final audit",
         )
 
     stored = db.get_trade_proposal(proposal.proposal_id)
@@ -887,7 +960,9 @@ def test_trade_proposal_reconcile_repairs_in_flight_from_execution_record(
     assert position_plan.take_profit == pytest.approx(110)
 
 
-def test_trade_proposal_reconcile_fails_closed_without_execution_record(tmp_path) -> None:
+def test_trade_proposal_reconcile_fails_closed_without_execution_record(
+    tmp_path,
+) -> None:
     settings = _settings(tmp_path)
     db = TradingDatabase(settings)
     proposal = create_trade_proposal(
@@ -909,7 +984,11 @@ def test_trade_proposal_reconcile_fails_closed_without_execution_record(tmp_path
     assert db.update_trade_proposal(approved, expected_status="pending")
 
     with pytest.raises(ValueError, match="no recorded execution outcome"):
-        reconcile_trade_proposal(db=db, proposal_id=proposal.proposal_id)
+        reconcile_trade_proposal(
+            db=db,
+            proposal_id=proposal.proposal_id,
+            review_notes="repair check",
+        )
 
 
 def test_trade_proposal_rejected_when_size_missing(tmp_path) -> None:
@@ -941,6 +1020,49 @@ def test_trade_proposal_rejects_ambiguous_size(tmp_path) -> None:
             reference_price=100,
             confidence=0.7,
             thesis="Ambiguous sizing should not enter the queue.",
+        )
+
+
+def test_trade_proposal_rejects_invalid_limit_contract(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    db = TradingDatabase(settings)
+
+    with pytest.raises(ValueError, match="Limit trade proposals require limit_price"):
+        create_trade_proposal(
+            db=db,
+            symbol="AAPL",
+            side="buy",
+            order_type="limit",
+            quantity=1,
+            reference_price=100,
+            confidence=0.7,
+            thesis="Limit proposal without explicit price.",
+        )
+
+    with pytest.raises(ValueError, match="Limit trade proposals require quantity"):
+        create_trade_proposal(
+            db=db,
+            symbol="AAPL",
+            side="buy",
+            order_type="limit",
+            notional=100,
+            limit_price=99.5,
+            reference_price=100,
+            confidence=0.7,
+            thesis="Limit proposal sized by notional.",
+        )
+
+    with pytest.raises(ValueError, match="must not include limit_price"):
+        create_trade_proposal(
+            db=db,
+            symbol="AAPL",
+            side="buy",
+            order_type="market",
+            quantity=1,
+            limit_price=99.5,
+            reference_price=100,
+            confidence=0.7,
+            thesis="Market proposal with stray limit price.",
         )
 
 
@@ -1004,11 +1126,13 @@ def test_trade_proposal_row_survives_json_round_trip(tmp_path) -> None:
     proposal = create_trade_proposal(
         db=db,
         symbol="NVDA",
-        side="sell",
-        notional=250,
+        side="buy",
+        order_type="limit",
+        quantity=2,
+        limit_price=124.25,
         reference_price=125,
         confidence=0.64,
-        thesis="Risk desk hedge candidate.",
+        thesis="Risk desk limit candidate.",
         source="manual",
     )
 
@@ -1016,8 +1140,10 @@ def test_trade_proposal_row_survives_json_round_trip(tmp_path) -> None:
     hydrated = db.get_trade_proposal(payload["proposal_id"])
 
     assert hydrated is not None
-    assert hydrated.notional == pytest.approx(250)
-    assert hydrated.side == "sell"
+    assert hydrated.quantity == pytest.approx(2)
+    assert hydrated.side == "buy"
+    assert hydrated.order_type == "limit"
+    assert hydrated.limit_price == pytest.approx(124.25)
 
 
 def test_trade_proposal_reads_legacy_database_without_table(tmp_path) -> None:

@@ -438,6 +438,7 @@ class TradingDatabase:
         """
         self._create_core_tables()
         self._create_execution_tables()
+        self._migrate_trade_proposal_columns()
         self._create_service_tables()
         self._migrate_service_state_columns()
         self._create_memory_tables()
@@ -446,8 +447,7 @@ class TradingDatabase:
         self._ensure_default_preferences()
 
     def _create_core_tables(self) -> None:
-        self.conn.execute(
-            """
+        self.conn.execute("""
             create table if not exists runs (
                 run_id varchar primary key,
                 created_at varchar not null,
@@ -456,10 +456,8 @@ class TradingDatabase:
                 approved boolean not null,
                 payload_json varchar not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists orders (
                 order_id varchar primary key,
                 created_at varchar not null,
@@ -473,20 +471,16 @@ class TradingDatabase:
                 confidence double not null,
                 rationale varchar not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists account_state (
                 account_id varchar primary key,
                 updated_at varchar not null,
                 cash double not null,
                 realized_pnl double not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists positions (
                 symbol varchar primary key,
                 quantity double not null,
@@ -494,10 +488,8 @@ class TradingDatabase:
                 market_price double not null,
                 updated_at varchar not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists fills (
                 fill_id varchar primary key,
                 order_id varchar not null,
@@ -509,10 +501,8 @@ class TradingDatabase:
                 cash_delta double not null,
                 realized_pnl_delta double not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists position_plans (
                 symbol varchar primary key,
                 side varchar not null,
@@ -524,19 +514,15 @@ class TradingDatabase:
                 invalidation_logic varchar not null,
                 updated_at varchar not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists preferences (
                 profile_id varchar primary key,
                 updated_at varchar not null,
                 payload_json varchar not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists account_marks (
                 mark_id varchar primary key,
                 created_at varchar not null,
@@ -551,10 +537,8 @@ class TradingDatabase:
                 unrealized_pnl double not null,
                 open_positions integer not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists trade_journal (
                 trade_id varchar primary key,
                 opened_at varchar not null,
@@ -580,10 +564,8 @@ class TradingDatabase:
                 realized_pnl double,
                 notes varchar not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists trade_contexts (
                 trade_id varchar primary key,
                 created_at varchar not null,
@@ -591,12 +573,10 @@ class TradingDatabase:
                 symbol varchar not null,
                 payload_json varchar not null
             )
-            """
-        )
+            """)
 
     def _create_execution_tables(self) -> None:
-        self.conn.execute(
-            """
+        self.conn.execute("""
             create table if not exists execution_records (
                 intent_id varchar primary key,
                 created_at varchar not null,
@@ -610,10 +590,8 @@ class TradingDatabase:
                 intent_json varchar not null,
                 outcome_json varchar not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists trade_proposals (
                 proposal_id varchar primary key,
                 created_at varchar not null,
@@ -635,12 +613,11 @@ class TradingDatabase:
                 rejection_reason varchar,
                 execution_intent_id varchar,
                 execution_order_id varchar,
-                execution_outcome_status varchar
+                execution_outcome_status varchar,
+                limit_price double
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists proposal_candidates (
                 candidate_id varchar primary key,
                 created_at varchar not null,
@@ -668,12 +645,10 @@ class TradingDatabase:
                 evidence_json varchar not null,
                 proposal_id varchar
             )
-            """
-        )
+            """)
 
     def _create_service_tables(self) -> None:
-        self.conn.execute(
-            """
+        self.conn.execute("""
             create table if not exists service_state (
                 service_name varchar primary key,
                 state varchar not null,
@@ -701,10 +676,8 @@ class TradingDatabase:
                 stderr_log_path varchar,
                 message varchar not null
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists service_events (
                 event_id varchar primary key,
                 created_at varchar not null,
@@ -715,10 +688,8 @@ class TradingDatabase:
                 cycle_count integer,
                 symbol varchar
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create table if not exists operator_chat_history (
                 entry_id varchar primary key,
                 created_at varchar not null,
@@ -726,13 +697,14 @@ class TradingDatabase:
                 user_message varchar not null,
                 response_text varchar not null
             )
-            """
-        )
+            """)
 
     def _column_names(self, table_name: str) -> set[str]:
         return {
             str(row[1])
-            for row in self.conn.execute(f"pragma table_info('{table_name}')").fetchall()
+            for row in self.conn.execute(
+                f"pragma table_info('{table_name}')"
+            ).fetchall()
         }
 
     def _add_missing_columns(
@@ -765,8 +737,7 @@ class TradingDatabase:
         )
 
     def _create_memory_tables(self) -> None:
-        self.conn.execute(
-            """
+        self.conn.execute("""
             create table if not exists memory_vectors (
                 run_id varchar primary key,
                 created_at varchar not null,
@@ -778,8 +749,7 @@ class TradingDatabase:
                 embedding_json varchar not null,
                 document_text varchar not null
             )
-            """
-        )
+            """)
 
     def _migrate_memory_vector_columns(self) -> None:
         self._add_missing_columns(
@@ -789,6 +759,14 @@ class TradingDatabase:
                 "embedding_model": "alter table memory_vectors add column embedding_model varchar default 'agentic-hash-v1'",
                 "embedding_version": "alter table memory_vectors add column embedding_version varchar default '1'",
                 "embedding_dimensions": "alter table memory_vectors add column embedding_dimensions integer default 64",
+            },
+        )
+
+    def _migrate_trade_proposal_columns(self) -> None:
+        self._add_missing_columns(
+            "trade_proposals",
+            {
+                "limit_price": "alter table trade_proposals add column limit_price double",
             },
         )
 
@@ -866,15 +844,13 @@ class TradingDatabase:
         )
 
     def latest_order(self) -> OrderRow | None:
-        result = self.conn.execute(
-            """
+        result = self.conn.execute("""
             select order_id, created_at, symbol, side, approved, entry_price,
                    stop_loss, take_profit, position_size_pct, confidence
             from orders
             order by created_at desc
             limit 1
-            """
-        ).fetchone()
+            """).fetchone()
         if result is None:
             return None
 
@@ -902,9 +878,9 @@ class TradingDatabase:
                 quantity, notional, reference_price, confidence, thesis, stop_loss,
                 take_profit, invalidation_condition, source, status, review_notes,
                 rejection_reason, execution_intent_id, execution_order_id,
-                execution_outcome_status
+                execution_outcome_status, limit_price
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 proposal.proposal_id,
@@ -928,6 +904,7 @@ class TradingDatabase:
                 proposal.execution_intent_id,
                 proposal.execution_order_id,
                 proposal.execution_outcome_status,
+                proposal.limit_price,
             ],
         )
 
@@ -1170,7 +1147,7 @@ class TradingDatabase:
     def _trade_proposal_rows(
         self, query: str, params: list[object]
     ) -> list[TradeProposalRecord]:
-        rows = self.conn.execute(query, params).fetchall()
+        rows = cast(list[tuple[Any, ...]], self.conn.execute(query, params).fetchall())
         return [
             TradeProposalRecord(
                 proposal_id=str(row[0]),
@@ -1181,6 +1158,9 @@ class TradingDatabase:
                 order_type=cast(Literal["market", "limit"], str(row[5])),
                 quantity=float(row[6]) if row[6] is not None else None,
                 notional=float(row[7]) if row[7] is not None else None,
+                limit_price=(
+                    float(row[21]) if len(row) > 21 and row[21] is not None else None
+                ),
                 reference_price=float(row[8]),
                 confidence=float(row[9]),
                 thesis=str(row[10]),
@@ -1247,13 +1227,11 @@ class TradingDatabase:
         )
 
     def load_preferences(self) -> InvestmentPreferences:
-        row = self.conn.execute(
-            """
+        row = self.conn.execute("""
             select payload_json
             from preferences
             where profile_id = 'default'
-            """
-        ).fetchone()
+            """).fetchone()
         if row is None:
             preferences = InvestmentPreferences()
             self.save_preferences(preferences)
@@ -1306,14 +1284,12 @@ class TradingDatabase:
         )
 
     def latest_run(self) -> RunRecord | None:
-        row = self.conn.execute(
-            """
+        row = self.conn.execute("""
             select run_id
             from runs
             order by created_at desc
             limit 1
-            """
-        ).fetchone()
+            """).fetchone()
         if row is None:
             return None
         return self.get_run(str(row[0]))
@@ -1850,15 +1826,13 @@ class TradingDatabase:
         )
 
     def latest_execution_record(self) -> dict[str, object] | None:
-        row = self.conn.execute(
-            """
+        row = self.conn.execute("""
             select intent_id, created_at, run_id, order_id, symbol, execution_backend,
                    adapter_name, status, rejection_reason, intent_json, outcome_json
             from execution_records
             order by created_at desc
             limit 1
-            """
-        ).fetchone()
+            """).fetchone()
         return self._execution_record_from_row(row)
 
     def get_execution_record(self, intent_id: str) -> dict[str, object] | None:
@@ -1873,7 +1847,9 @@ class TradingDatabase:
         ).fetchone()
         return self._execution_record_from_row(row)
 
-    def _execution_record_from_row(self, row: object | None) -> dict[str, object] | None:
+    def _execution_record_from_row(
+        self, row: object | None
+    ) -> dict[str, object] | None:
         if row is None:
             return None
         values = cast(tuple[object, ...], row)
@@ -2007,14 +1983,12 @@ class TradingDatabase:
         return TradeContextRecord.model_validate_json(str(row[0]))
 
     def latest_trade_context(self) -> TradeContextRecord | None:
-        row = self.conn.execute(
-            """
+        row = self.conn.execute("""
             select payload_json
             from trade_contexts
             order by created_at desc
             limit 1
-            """
-        ).fetchone()
+            """).fetchone()
         if row is None:
             return None
         return TradeContextRecord.model_validate_json(str(row[0]))
@@ -2041,12 +2015,10 @@ class TradingDatabase:
             """,
             [f"{resolved_date}%"],
         ).fetchone()
-        peak_row = self.conn.execute(
-            """
+        peak_row = self.conn.execute("""
             select coalesce(max(equity), 0)
             from account_marks
-            """
-        ).fetchone()
+            """).fetchone()
         fills_today = int(fills_row[0]) if fills_row is not None else 0
         daily_realized_pnl = float(fills_row[1]) if fills_row is not None else 0.0
         marks_recorded = int(marks_row[0]) if marks_row is not None else 0
@@ -2060,7 +2032,10 @@ class TradingDatabase:
         )
         equity = snapshot.equity if snapshot.equity != 0 else 1.0
         portfolio_hhi = (
-            sum((abs(position.market_value) / gross_exposure) ** 2 for position in positions)
+            sum(
+                (abs(position.market_value) / gross_exposure) ** 2
+                for position in positions
+            )
             if gross_exposure > 0
             else 0.0
         )
@@ -2469,13 +2444,11 @@ class TradingDatabase:
         return events
 
     def get_account_snapshot(self) -> PortfolioSnapshot:
-        row = self.conn.execute(
-            """
+        row = self.conn.execute("""
             select cash, realized_pnl
             from account_state
             where account_id = 'paper'
-            """
-        ).fetchone()
+            """).fetchone()
         if row is None:
             raise RuntimeError("Paper account state is missing")
 
@@ -2523,14 +2496,12 @@ class TradingDatabase:
         )
 
     def list_positions(self) -> list[PositionSnapshot]:
-        rows = self.conn.execute(
-            """
+        rows = self.conn.execute("""
             select symbol, quantity, average_price, market_price
             from positions
             where abs(quantity) > 0
             order by symbol
-            """
-        ).fetchall()
+            """).fetchall()
         positions: list[PositionSnapshot] = []
         for row in rows:
             quantity = float(row[1])
@@ -2633,14 +2604,12 @@ class TradingDatabase:
         Returns:
             list[PositionPlanSnapshot]: Position plans ordered by symbol.
         """
-        rows = self.conn.execute(
-            """
+        rows = self.conn.execute("""
             select symbol, side, entry_price, stop_loss, take_profit,
                    max_holding_bars, holding_bars, invalidation_logic, updated_at
             from position_plans
             order by symbol
-            """
-        ).fetchall()
+            """).fetchall()
         plans: list[PositionPlanSnapshot] = []
         for row in rows:
             plans.append(

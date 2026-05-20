@@ -358,9 +358,7 @@ def test_health_check_generation_probe_reports_model_load_failure(
     monkeypatch.setattr(
         llm.client,
         "get",
-        lambda *_args, **_kwargs: _FakeResponse(
-            {"models": [{"name": "qwen3:8b"}]}
-        ),
+        lambda *_args, **_kwargs: _FakeResponse({"models": [{"name": "qwen3:8b"}]}),
     )
     monkeypatch.setattr(
         llm.client,

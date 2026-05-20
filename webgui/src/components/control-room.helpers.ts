@@ -150,13 +150,9 @@ export function proposalHeadline(proposal: Record<string, any>): string {
 export function proposalLines(dashboard: DashboardData): string[] {
   const payload = dashboard.tradeProposals;
   if (payload?.available === false) {
-    return [
-      `Proposal desk unavailable: ${payload.error || 'Unknown error.'}`,
-    ];
+    return [`Proposal desk unavailable: ${payload.error || 'Unknown error.'}`];
   }
-  const proposals = Array.isArray(payload?.proposals)
-    ? payload.proposals
-    : [];
+  const proposals = Array.isArray(payload?.proposals) ? payload.proposals : [];
   if (!proposals.length) {
     return ['No manual-review proposals are queued yet.'];
   }
@@ -319,7 +315,9 @@ export function providerWarningLines(dashboard: DashboardData): string[] {
 }
 
 function ownershipMode(dashboard: DashboardData, tool: string): string {
-  return dashboard.toolOwnership?.decisions_by_tool?.[tool]?.mode ?? 'undecided';
+  return (
+    dashboard.toolOwnership?.decisions_by_tool?.[tool]?.mode ?? 'undecided'
+  );
 }
 
 function withOpenAiSuffix(baseUrl: unknown): string {

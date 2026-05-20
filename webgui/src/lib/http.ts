@@ -63,7 +63,9 @@ function compactTraceback(value: string): string {
 
 function sensitiveEnvValues(): string[] {
   return Object.entries(process.env)
-    .filter(([key, value]) => SECRET_ENV_NAME_PATTERN.test(key) && Boolean(value))
+    .filter(
+      ([key, value]) => SECRET_ENV_NAME_PATTERN.test(key) && Boolean(value),
+    )
     .map(([, value]) => String(value))
     .filter((value) => value.length >= 4)
     .sort((left, right) => right.length - left.length);

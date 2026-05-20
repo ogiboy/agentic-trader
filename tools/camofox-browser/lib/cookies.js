@@ -36,7 +36,15 @@ function parseNetscapeCookieFile(text) {
     const name = parts[5];
     const value = parts.slice(6).join('\t');
 
-    cookies.push({ name, value, domain, path: cookiePath, expires, httpOnly, secure });
+    cookies.push({
+      name,
+      value,
+      domain,
+      path: cookiePath,
+      expires,
+      httpOnly,
+      secure,
+    });
   }
 
   return cookies;
@@ -51,10 +59,17 @@ function parseNetscapeCookieFile(text) {
  * @param {number} [opts.maxBytes=5242880] - Maximum file size in bytes
  * @returns {Promise<Array<{name: string, value: string, domain: string, path: string, expires: number, httpOnly: boolean, secure: boolean}>>}
  */
-async function readCookieFile({ cookiesDir, cookiesPath, domainSuffix, maxBytes = 5 * 1024 * 1024 }) {
+async function readCookieFile({
+  cookiesDir,
+  cookiesPath,
+  domainSuffix,
+  maxBytes = 5 * 1024 * 1024,
+}) {
   const resolved = path.resolve(cookiesDir, cookiesPath);
   if (!resolved.startsWith(cookiesDir + path.sep)) {
-    throw new Error('cookiesPath must be a relative path within the cookies directory');
+    throw new Error(
+      'cookiesPath must be a relative path within the cookies directory',
+    );
   }
 
   const stat = await fs.stat(resolved);
@@ -90,7 +105,12 @@ async function readCookieFile({ cookiesDir, cookiesPath, domainSuffix, maxBytes 
  * @param {object} [opts.logger=console] - Logger with warn()
  * @returns {Promise<{imported: number, source: string|null}>}
  */
-async function importBootstrapCookies({ cookiesDir, context, cookiesPath = 'cookies.txt', logger = console }) {
+async function importBootstrapCookies({
+  cookiesDir,
+  context,
+  cookiesPath = 'cookies.txt',
+  logger = console,
+}) {
   if (!cookiesDir || !context) {
     return { imported: 0, source: null };
   }

@@ -2,17 +2,18 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const ORPHAN_PATTERNS = [
-  /^\.fea5[a-f0-9]+\.so$/,
-  /^\.5ef7[a-f0-9]+\.node$/,
-];
+const ORPHAN_PATTERNS = [/^\.fea5[a-f0-9]+\.so$/, /^\.5ef7[a-f0-9]+\.node$/];
 
 // Firefox temp profile directories created by Playwright/Camoufox
 const FIREFOX_PROFILE_PATTERN = /^playwright_firefoxdev_profile-/;
 // Camoufox also creates these
 const CAMOUFOX_TMP_PATTERN = /^camoufox[-_]/;
 
-export function cleanupOrphanedTempFiles({ tmpDir, minAgeMs = 5 * 60 * 1000, now = Date.now() } = {}) {
+export function cleanupOrphanedTempFiles({
+  tmpDir,
+  minAgeMs = 5 * 60 * 1000,
+  now = Date.now(),
+} = {}) {
   const result = { scanned: 0, removed: 0, bytes: 0, skipped: 0 };
   if (!tmpDir) return result;
 
@@ -53,7 +54,11 @@ export function cleanupOrphanedTempFiles({ tmpDir, minAgeMs = 5 * 60 * 1000, now
  * Only removes profiles older than minAgeMs (default 2 minutes)
  * to avoid killing profiles belonging to an actively launching browser.
  */
-export function cleanupStaleFirefoxProfiles({ tmpDir, minAgeMs = 2 * 60 * 1000, now = Date.now() } = {}) {
+export function cleanupStaleFirefoxProfiles({
+  tmpDir,
+  minAgeMs = 2 * 60 * 1000,
+  now = Date.now(),
+} = {}) {
   const dir = tmpDir || os.tmpdir();
   const result = { scanned: 0, removed: 0, bytes: 0, skipped: 0 };
 
@@ -65,7 +70,8 @@ export function cleanupStaleFirefoxProfiles({ tmpDir, minAgeMs = 2 * 60 * 1000, 
   }
 
   for (const name of entries) {
-    if (!FIREFOX_PROFILE_PATTERN.test(name) && !CAMOUFOX_TMP_PATTERN.test(name)) continue;
+    if (!FIREFOX_PROFILE_PATTERN.test(name) && !CAMOUFOX_TMP_PATTERN.test(name))
+      continue;
     result.scanned++;
     const full = path.join(dir, name);
     try {
@@ -101,8 +107,12 @@ function _dirSizeSync(dirPath) {
         } else {
           total += fs.statSync(full).size;
         }
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
-  } catch { /* skip */ }
+  } catch {
+    /* skip */
+  }
   return total;
 }

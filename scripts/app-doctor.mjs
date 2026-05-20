@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-import { parseJsonPayload, resolveAgenticTrader, ROOT_DIR, runLifecycleCommand } from './lib/app-lifecycle.mjs';
+import {
+  parseJsonPayload,
+  resolveAgenticTrader,
+  ROOT_DIR,
+  runLifecycleCommand,
+} from './lib/app-lifecycle.mjs';
 
 /**
  * Write the CLI usage/help text to stdout and exit the process with the provided code.
@@ -67,12 +72,33 @@ function step(id, label, args) {
  */
 function doctorSteps() {
   return [
-    step('setup-status', 'Workspace setup and optional tool readiness', ['setup-status', '--json']),
-    step('model-service', 'App-owned model-service readiness', ['model-service', 'status', '--json']),
-    step('camofox-service', 'App-owned Camofox helper readiness', ['camofox-service', 'status', '--json']),
-    step('webgui-service', 'App-owned Web GUI readiness', ['webgui-service', 'status', '--json']),
-    step('provider-diagnostics', 'Provider/source ladder diagnostics', ['provider-diagnostics', '--json']),
-    step('v1-readiness', 'Network-light V1 paper readiness gates', ['v1-readiness', '--json']),
+    step('setup-status', 'Workspace setup and optional tool readiness', [
+      'setup-status',
+      '--json',
+    ]),
+    step('model-service', 'App-owned model-service readiness', [
+      'model-service',
+      'status',
+      '--json',
+    ]),
+    step('camofox-service', 'App-owned Camofox helper readiness', [
+      'camofox-service',
+      'status',
+      '--json',
+    ]),
+    step('webgui-service', 'App-owned Web GUI readiness', [
+      'webgui-service',
+      'status',
+      '--json',
+    ]),
+    step('provider-diagnostics', 'Provider/source ladder diagnostics', [
+      'provider-diagnostics',
+      '--json',
+    ]),
+    step('v1-readiness', 'Network-light V1 paper readiness gates', [
+      'v1-readiness',
+      '--json',
+    ]),
   ];
 }
 
@@ -136,11 +162,15 @@ function safetyNotes() {
 function renderHuman(payload) {
   process.stdout.write('Agentic Trader app:doctor\n');
   if (!payload.cli_path) {
-    process.stdout.write('agentic-trader entrypoint was not found. Run make setup, then retry app:doctor.\n');
+    process.stdout.write(
+      'agentic-trader entrypoint was not found. Run make setup, then retry app:doctor.\n',
+    );
     return;
   }
   for (const result of payload.steps) {
-    process.stdout.write(`${result.status === 'passed' ? 'ok' : 'fail'} ${result.id}: ${result.label}\n`);
+    process.stdout.write(
+      `${result.status === 'passed' ? 'ok' : 'fail'} ${result.id}: ${result.label}\n`,
+    );
   }
 }
 
@@ -155,8 +185,11 @@ function renderHuman(payload) {
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const cliPath = resolveAgenticTrader();
-  const steps = cliPath ? doctorSteps().map((stepInfo) => runStep(cliPath, stepInfo)) : [];
-  const exitCode = cliPath && steps.every((result) => result.exit_code === 0) ? 0 : 1;
+  const steps = cliPath
+    ? doctorSteps().map((stepInfo) => runStep(cliPath, stepInfo))
+    : [];
+  const exitCode =
+    cliPath && steps.every((result) => result.exit_code === 0) ? 0 : 1;
   const payload = {
     action: 'doctor',
     dry_run: false,

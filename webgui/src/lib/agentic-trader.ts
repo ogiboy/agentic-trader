@@ -451,7 +451,9 @@ export type ProposalActionKind = 'approve' | 'reject' | 'reconcile' | 'refresh';
  * @returns The model name from `modelService.configured_model` if present, otherwise `doctor.model`, otherwise the default `"qwen3:8b"`
  */
 function modelNameFromDashboard(data: Record<string, any>): string {
-  return data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b';
+  return (
+    data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b'
+  );
 }
 
 /**
@@ -559,14 +561,16 @@ function proposalActionMessage(kind: ProposalActionKind, result: any): string {
   const symbol = proposal?.symbol || 'Proposal';
   const status = proposal?.status || kind;
   if (kind === 'approve') {
-    const outcome = result?.outcome?.status || proposal?.execution_outcome_status || '-';
+    const outcome =
+      result?.outcome?.status || proposal?.execution_outcome_status || '-';
     return `${symbol} proposal approved; proposal=${status}, broker=${outcome}.`;
   }
   if (kind === 'reject') {
     return `${symbol} proposal rejected.`;
   }
   if (kind === 'refresh') {
-    const outcome = result?.outcome?.status || proposal?.execution_outcome_status || '-';
+    const outcome =
+      result?.outcome?.status || proposal?.execution_outcome_status || '-';
     return `${symbol} proposal refreshed; proposal=${status}, broker=${outcome}.`;
   }
   return `${symbol} proposal reconciled; status=${status}.`;
@@ -593,33 +597,42 @@ export async function runProposalAction(
   if (!cleanProposalId) {
     throw new Error('Proposal id is required.');
   }
+  if (!cleanNotes) {
+    throw new Error(`Review note is required for ${kind}.`);
+  }
 
   let result: any;
   if (kind === 'approve') {
-    const args = ['proposal-approve', cleanProposalId, '--json'];
-    if (cleanNotes) {
-      args.splice(2, 0, '--review-notes', cleanNotes);
-    }
+    const args = [
+      'proposal-approve',
+      cleanProposalId,
+      '--review-notes',
+      cleanNotes,
+      '--json',
+    ];
     result = await execTrader(args, { expectJson: true, timeoutMs: 90_000 });
   } else if (kind === 'reject') {
-    if (!cleanNotes) {
-      throw new Error('Rejection reason is required.');
-    }
     result = await execTrader(
       ['proposal-reject', cleanProposalId, '--reason', cleanNotes, '--json'],
       { expectJson: true, timeoutMs: 45_000 },
     );
   } else if (kind === 'reconcile') {
-    const args = ['proposal-reconcile', cleanProposalId, '--json'];
-    if (cleanNotes) {
-      args.splice(2, 0, '--review-notes', cleanNotes);
-    }
+    const args = [
+      'proposal-reconcile',
+      cleanProposalId,
+      '--review-notes',
+      cleanNotes,
+      '--json',
+    ];
     result = await execTrader(args, { expectJson: true, timeoutMs: 45_000 });
   } else if (kind === 'refresh') {
-    const args = ['proposal-refresh', cleanProposalId, '--json'];
-    if (cleanNotes) {
-      args.splice(2, 0, '--review-notes', cleanNotes);
-    }
+    const args = [
+      'proposal-refresh',
+      cleanProposalId,
+      '--review-notes',
+      cleanNotes,
+      '--json',
+    ];
     result = await execTrader(args, { expectJson: true, timeoutMs: 45_000 });
   } else {
     throw new Error(`Unsupported proposal action: ${kind}`);

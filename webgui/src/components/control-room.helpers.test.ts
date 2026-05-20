@@ -233,7 +233,9 @@ afterEach(() => {
 
 function renderActiveView(
   tab: Parameters<typeof ActiveView>[0]['tab'],
-  dashboard: typeof dashboardFixture | Record<string, unknown> = dashboardFixture,
+  dashboard:
+    | typeof dashboardFixture
+    | Record<string, unknown> = dashboardFixture,
 ) {
   return renderToStaticMarkup(
     React.createElement(ActiveView, {
@@ -544,7 +546,9 @@ describe('control-room formatting helpers', () => {
 
     expect(markup).toContain('proposal-refresh-1');
     expect(markup).toContain('Refresh');
-    expect(markup).toContain('Refresh accepted broker order without resubmitting');
+    expect(markup).toContain(
+      'Refresh accepted broker order without resubmitting',
+    );
   });
 
   it('loads the control room and exercises runtime, chat, and instruction actions', async () => {
@@ -620,7 +624,9 @@ describe('control-room formatting helpers', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Proposals' }));
     fireEvent.change(
-      screen.getByPlaceholderText('Approval note or rejection reason.'),
+      screen.getByPlaceholderText(
+        'Review note required for approve, reject, reconcile, or refresh.',
+      ),
       { target: { value: 'spread widened' } },
     );
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }));

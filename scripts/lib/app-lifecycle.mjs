@@ -1,10 +1,26 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  chmodSync,
+} from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-export const OWNERSHIP_MODES = ['undecided', 'host-owned', 'app-owned', 'api-key-only', 'skipped'];
+export const ROOT_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+);
+export const OWNERSHIP_MODES = [
+  'undecided',
+  'host-owned',
+  'app-owned',
+  'api-key-only',
+  'skipped',
+];
 export const OWNERSHIP_TOOL_IDS = ['ollama', 'firecrawl', 'camofox'];
 export const TOOL_OWNERSHIP_SCHEMA_VERSION = 'tool-ownership/v1';
 
@@ -94,11 +110,16 @@ export function toolOwnershipPath() {
  */
 export function ownershipNote(tool, mode) {
   const notes = {
-    'undecided': 'No ownership decision is recorded yet; setup may report degraded readiness instead of claiming this helper.',
-    'host-owned': 'Use a host-managed tool or endpoint; app lifecycle commands must not install, start, stop, update, or delete it.',
-    'app-owned': 'The app may manage repo/local loopback helper setup or service state only through explicit lifecycle commands.',
-    'api-key-only': 'Use ignored environment/keychain credentials only; no CLI install or local service ownership is implied.',
-    skipped: 'Keep this helper disabled or degraded; core paper-first workflows must remain understandable without it.',
+    undecided:
+      'No ownership decision is recorded yet; setup may report degraded readiness instead of claiming this helper.',
+    'host-owned':
+      'Use a host-managed tool or endpoint; app lifecycle commands must not install, start, stop, update, or delete it.',
+    'app-owned':
+      'The app may manage repo/local loopback helper setup or service state only through explicit lifecycle commands.',
+    'api-key-only':
+      'Use ignored environment/keychain credentials only; no CLI install or local service ownership is implied.',
+    skipped:
+      'Keep this helper disabled or degraded; core paper-first workflows must remain understandable without it.',
   };
   if (tool === 'firecrawl' && mode === 'app-owned') {
     return 'Firecrawl app-owned uses the repo dependency path first; credentials still belong in ignored env/keychain state and host CLI fallback requires host-owned mode.';
@@ -142,24 +163,28 @@ export function readToolOwnership() {
     try {
       const payload = JSON.parse(readFileSync(statePath, 'utf8'));
       if (payload && typeof payload === 'object') {
-        updatedAt = typeof payload.updated_at === 'string' ? payload.updated_at : null;
-        records = payload.decisions && typeof payload.decisions === 'object'
-          ? payload.decisions
-          : {};
+        updatedAt =
+          typeof payload.updated_at === 'string' ? payload.updated_at : null;
+        records =
+          payload.decisions && typeof payload.decisions === 'object'
+            ? payload.decisions
+            : {};
       }
     } catch {
       records = {};
     }
   }
   const decisions = OWNERSHIP_TOOL_IDS.map((tool) => {
-    const record = records[tool] && typeof records[tool] === 'object' ? records[tool] : {};
+    const record =
+      records[tool] && typeof records[tool] === 'object' ? records[tool] : {};
     const rawMode = typeof record.mode === 'string' ? record.mode : 'undecided';
     const mode = OWNERSHIP_MODES.includes(rawMode) ? rawMode : 'undecided';
     return {
       tool,
       mode,
       source: typeof record.source === 'string' ? record.source : 'default',
-      updated_at: typeof record.updated_at === 'string' ? record.updated_at : null,
+      updated_at:
+        typeof record.updated_at === 'string' ? record.updated_at : null,
       note: ownershipNote(tool, mode),
     };
   });
@@ -168,7 +193,9 @@ export function readToolOwnership() {
     state_path: statePath,
     updated_at: updatedAt,
     decisions,
-    decisions_by_tool: Object.fromEntries(decisions.map((decision) => [decision.tool, decision])),
+    decisions_by_tool: Object.fromEntries(
+      decisions.map((decision) => [decision.tool, decision]),
+    ),
   };
 }
 
@@ -180,7 +207,14 @@ export function readToolOwnership() {
  */
 export function explicitOwnershipUpdates(owners) {
   const knownToolIds = new Set(OWNERSHIP_TOOL_IDS);
-  const allowedModes = new Set(['accepted', 'rejected', 'host-owned', 'app-owned', 'api-key-only', 'skipped']);
+  const allowedModes = new Set([
+    'accepted',
+    'rejected',
+    'host-owned',
+    'app-owned',
+    'api-key-only',
+    'skipped',
+  ]);
   return Object.fromEntries(
     Object.entries(owners).filter(([toolId, mode]) => {
       if (!knownToolIds.has(toolId)) {

@@ -128,7 +128,9 @@ def run_research_cycle(
     operator_control = get_research_cycle_control(settings)
     executions: list[ResearchCycleExecution] = []
     previous_source_health = _source_health_from_snapshot(prior_snapshot)
-    previous_snapshot_id = prior_snapshot.snapshot_id if prior_snapshot is not None else None
+    previous_snapshot_id = (
+        prior_snapshot.snapshot_id if prior_snapshot is not None else None
+    )
     previous_digest_available = prior_digest is not None
     for index in range(resolved.safe_cycles):
         started_at = utc_now_iso()
@@ -175,7 +177,9 @@ def run_research_cycle(
             else None
         ),
         mode=settings.research_mode,
-        backend=executions[-1].backend if executions else settings.research_sidecar_backend,
+        backend=(
+            executions[-1].backend if executions else settings.research_sidecar_backend
+        ),
         watched_symbols=list(resolved.symbols),
         digest=dict(latest_digest),
         executions=[execution.to_payload() for execution in executions],

@@ -271,7 +271,10 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
     console.print(
         _menu_table(
             "Test Menu",
-            [TuiMenuAction("1", "Render thing", "Thing", lambda _db: None), ("2", "Back")],
+            [
+                TuiMenuAction("1", "Render thing", "Thing", lambda _db: None),
+                ("2", "Back"),
+            ],
         )
     )
     actions = _main_menu_actions()
@@ -293,7 +296,9 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
         "1",
         actions=[
             type(actions[0])("1", "Do work", lambda _settings: called.append("work")),
-            type(actions[0])("2", "Exit", lambda _settings: called.append("exit"), True),
+            type(actions[0])(
+                "2", "Exit", lambda _settings: called.append("exit"), True
+            ),
         ],
     )
     assert keep_running is True
@@ -303,7 +308,9 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
         "2",
         actions=[
             type(actions[0])("1", "Do work", lambda _settings: called.append("work")),
-            type(actions[0])("2", "Exit", lambda _settings: called.append("exit"), True),
+            type(actions[0])(
+                "2", "Exit", lambda _settings: called.append("exit"), True
+            ),
         ],
     )
     assert keep_running is False

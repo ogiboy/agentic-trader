@@ -335,7 +335,7 @@ def test_sec_edgar_companyfacts_growth_ignores_non_research_forms() -> None:
                         "end": "2025-02-28",
                         "filed": "2025-03-01",
                         "form": "8-K",
-                    }
+                    },
                 ]
             )
         raise AssertionError(f"unexpected SEC URL: {url}")

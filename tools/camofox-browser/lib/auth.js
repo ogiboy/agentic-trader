@@ -38,7 +38,10 @@ function timingSafeCompare(a, b) {
  */
 function isLoopbackAddress(address) {
   if (!address) return false;
-  const normalized = String(address).trim().replace(/^\[|\]$/g, '').toLowerCase();
+  const normalized = String(address)
+    .trim()
+    .replace(/^\[|\]$/g, '')
+    .toLowerCase();
   return (
     normalized === 'localhost' ||
     normalized.endsWith('.localhost') ||
@@ -62,7 +65,8 @@ function isLoopbackAddress(address) {
  * @returns {function} Express middleware (req, res, next)
  */
 export function requireAuth(config, options = {}) {
-  const errorMessage = options.errorMessage ||
+  const errorMessage =
+    options.errorMessage ||
     'This endpoint requires CAMOFOX_API_KEY except for loopback requests in non-production environments.';
 
   return function requireAuthCheck(req, res, next) {
@@ -76,7 +80,11 @@ export function requireAuth(config, options = {}) {
     }
 
     // Accept access key as alternative (superkey)
-    if (config.accessKey && token && timingSafeCompare(token, config.accessKey)) {
+    if (
+      config.accessKey &&
+      token &&
+      timingSafeCompare(token, config.accessKey)
+    ) {
       return next();
     }
 
@@ -87,7 +95,8 @@ export function requireAuth(config, options = {}) {
 
     // No keys configured -- allow loopback in non-production
     const remoteAddress = req.socket?.remoteAddress || '';
-    const allowUnauthedLocal = config.nodeEnv !== 'production' && isLoopbackAddress(remoteAddress);
+    const allowUnauthedLocal =
+      config.nodeEnv !== 'production' && isLoopbackAddress(remoteAddress);
     if (!allowUnauthedLocal) {
       return res.status(403).json({ error: errorMessage });
     }
@@ -122,14 +131,21 @@ export function accessKeyMiddleware(config) {
 
     // Exempt routes with their own dedicated auth -- but only when their key is configured.
     // If the dedicated key is NOT set, the access key gates the route (defense-in-depth).
-    if (config.apiKey && req.method === 'POST' && /^\/sessions\/[^/]+\/cookies$/.test(req.path)) return next();
-    if (config.adminKey && req.method === 'POST' && req.path === '/stop') return next();
+    if (
+      config.apiKey &&
+      req.method === 'POST' &&
+      /^\/sessions\/[^/]+\/cookies$/.test(req.path)
+    )
+      return next();
+    if (config.adminKey && req.method === 'POST' && req.path === '/stop')
+      return next();
 
     const auth = String(req.headers['authorization'] || '');
     const match = auth.match(/^Bearer\s+(.+)$/i);
     const token = match ? match[1]?.trim() : null;
     if (!token || !timingSafeCompare(token, config.accessKey)) {
-      return res.status(401)
+      return res
+        .status(401)
         .set('WWW-Authenticate', 'Bearer realm="camofox"')
         .json({ error: 'Unauthorized' });
     }

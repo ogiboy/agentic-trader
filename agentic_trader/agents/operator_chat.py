@@ -88,8 +88,7 @@ def build_chat_context(db: TradingDatabase, settings: Settings) -> str:
 def build_persona_system_prompt(
     persona: ChatPersona, preferences: InvestmentPreferences
 ) -> str:
-    shared = dedent(
-        f"""
+    shared = dedent(f"""
         You are part of Agentic Trader, a strict local-first multi-agent paper trading system.
         You are in a read-only operator chat surface.
         Do not claim to have executed trades, modified runtime state, or changed settings unless the user explicitly sees that in the provided context.
@@ -99,8 +98,7 @@ def build_persona_system_prompt(
         Operator preferred tone: {preferences.agent_tone}
         Operator strictness preset: {preferences.strictness_preset}
         Operator intervention style: {preferences.intervention_style}
-        """
-    ).strip()
+        """).strip()
 
     role_overrides: dict[ChatPersona, str] = {
         "operator_liaison": "Act as the operator liaison. Explain what the system is doing in plain language and suggest the next operator action when useful.",
@@ -133,15 +131,13 @@ def chat_with_persona(
     preferences = db.load_preferences()
     context = build_chat_context(db, settings)
     system_prompt = build_persona_system_prompt(persona, preferences)
-    user_prompt = dedent(
-        f"""
+    user_prompt = dedent(f"""
         Current system context:
         {context}
 
         Operator message:
         {user_message}
-        """
-    ).strip()
+        """).strip()
     return llm.for_role(_persona_to_role(persona)).complete_text(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
@@ -283,8 +279,7 @@ def interpret_operator_instruction(
 ) -> OperatorInstruction:
     preferences = db.load_preferences()
     context = build_chat_context(db, settings)
-    system_prompt = dedent(
-        f"""
+    system_prompt = dedent(f"""
         You convert operator requests into a safe structured instruction for Agentic Trader.
         Only propose preference updates through the provided schema.
         Do not invent runtime actions or hidden side effects.
@@ -293,17 +288,14 @@ def interpret_operator_instruction(
         Current tone: {preferences.agent_tone}
         Current strictness preset: {preferences.strictness_preset}
         Current intervention style: {preferences.intervention_style}
-        """
-    ).strip()
-    user_prompt = dedent(
-        f"""
+        """).strip()
+    user_prompt = dedent(f"""
         Current system context:
         {context}
 
         Operator request:
         {user_message}
-        """
-    ).strip()
+        """).strip()
     try:
         return llm.for_role("instruction").complete_structured(
             system_prompt=system_prompt,

@@ -98,10 +98,18 @@ def test_build_operator_launcher_status_reports_existing_runtime(
     )
     monkeypatch.setattr(operator_launcher, "read_service_state", lambda _: state)
     monkeypatch.setattr(operator_launcher, "is_process_alive", lambda pid: pid == 12345)
-    monkeypatch.setattr(operator_launcher, "build_setup_status", lambda _: _setup_status(tmp_path))
-    monkeypatch.setattr(operator_launcher, "build_model_service_status", lambda _: _model_status())
-    monkeypatch.setattr(operator_launcher, "build_camofox_service_status", lambda _: _camofox_status())
-    monkeypatch.setattr(operator_launcher, "build_webgui_service_status", lambda _: _webgui_status())
+    monkeypatch.setattr(
+        operator_launcher, "build_setup_status", lambda _: _setup_status(tmp_path)
+    )
+    monkeypatch.setattr(
+        operator_launcher, "build_model_service_status", lambda _: _model_status()
+    )
+    monkeypatch.setattr(
+        operator_launcher, "build_camofox_service_status", lambda _: _camofox_status()
+    )
+    monkeypatch.setattr(
+        operator_launcher, "build_webgui_service_status", lambda _: _webgui_status()
+    )
 
     status = operator_launcher.build_operator_launcher_status(settings)
 

@@ -66,7 +66,9 @@ describe('tools route', () => {
 
     const second = await POST(toolRequest({ kind: 'enable-local-tools' }));
     expect(second.status).toBe(200);
-    expect(vi.mocked(runToolAction)).toHaveBeenCalledWith('start-model-service');
+    expect(vi.mocked(runToolAction)).toHaveBeenCalledWith(
+      'start-model-service',
+    );
     expect(vi.mocked(runToolAction)).toHaveBeenCalledWith('enable-local-tools');
   });
 

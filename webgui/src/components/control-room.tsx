@@ -372,7 +372,10 @@ export function OverviewView({
             </button>
             <button
               className="button"
-              disabled={busy !== null || dashboard.camofoxService?.access_key_configured === false}
+              disabled={
+                busy !== null ||
+                dashboard.camofoxService?.access_key_configured === false
+              }
               onClick={() => onToolAction('start-camofox-service')}
               type="button"
             >
@@ -623,6 +626,7 @@ export function ProposalDeskView({
     : [];
   const proposalUnavailable = dashboard.tradeProposals?.available === false;
   const approvalBlockedReason = proposalApprovalBlockedReason(dashboard);
+  const hasProposalNote = Boolean(proposalNote.trim());
 
   return (
     <div className="grid grid--2">
@@ -638,15 +642,18 @@ export function ProposalDeskView({
                 {proposals.slice(0, 6).map((proposal: Record<string, any>) => {
                   const proposalId = String(proposal.proposal_id ?? '');
                   const isPending = proposal.status === 'pending';
-                  const canApprove = isPending && !approvalBlockedReason;
+                  const canApprove =
+                    isPending && !approvalBlockedReason && hasProposalNote;
                   const canReconcile =
                     proposal.status === 'approved' &&
-                    Boolean(proposal.execution_intent_id);
+                    Boolean(proposal.execution_intent_id) &&
+                    hasProposalNote;
                   const canRefresh =
                     (proposal.status === 'approved' ||
                       proposal.status === 'executed') &&
                     proposal.execution_outcome_status === 'accepted' &&
-                    Boolean(proposal.execution_order_id);
+                    Boolean(proposal.execution_order_id) &&
+                    hasProposalNote;
                   return (
                     <article className="proposal-card" key={proposalId}>
                       <div className="proposal-card__head">
@@ -680,7 +687,7 @@ export function ProposalDeskView({
                         <button
                           className="button"
                           disabled={
-                            !isPending || Boolean(busy) || !proposalNote.trim()
+                            !isPending || Boolean(busy) || !hasProposalNote
                           }
                           onClick={() =>
                             void onProposalAction('reject', proposalId)
@@ -723,10 +730,8 @@ export function ProposalDeskView({
             ) : null}
             <div className="composer">
               <textarea
-                onChange={(event) =>
-                  onProposalNoteChange(event.target.value)
-                }
-                placeholder="Approval note or rejection reason."
+                onChange={(event) => onProposalNoteChange(event.target.value)}
+                placeholder="Review note required for approve, reject, reconcile, or refresh."
                 value={proposalNote}
               />
             </div>
@@ -738,12 +743,12 @@ export function ProposalDeskView({
           items={[
             ['Backend', dashboard.broker?.backend ?? '-'],
             ['State', dashboard.broker?.state ?? '-'],
-            [
-              'External Paper',
-              dashboard.broker?.external_paper ? 'yes' : 'no',
-            ],
+            ['External Paper', dashboard.broker?.external_paper ? 'yes' : 'no'],
             ['Live Requested', dashboard.broker?.live_requested ? 'yes' : 'no'],
-            ['Kill Switch', dashboard.broker?.kill_switch_active ? 'on' : 'off'],
+            [
+              'Kill Switch',
+              dashboard.broker?.kill_switch_active ? 'on' : 'off',
+            ],
             ['Message', dashboard.broker?.message ?? '-'],
           ]}
         />

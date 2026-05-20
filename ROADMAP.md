@@ -429,6 +429,7 @@ Status: in progress.
 - [x] enforce strict risk caps, kill switch, and unsupported-backend failures before live adapter activation
 - [x] enforce simple V1 US-equity symbol scope at proposal creation and across local/external paper broker submissions
 - [x] enforce Alpaca paper max-position and gross-exposure caps before external paper order submission
+- [x] preserve explicit order semantics for approved proposals: limit proposals require quantity plus `limit_price`, market proposals reject stray `limit_price`, and Alpaca paper orders carry `client_order_id` from the execution intent
 - [x] keep externally accepted paper orders visible as open journal entries instead of mislabeling broker acknowledgements as no-fill outcomes
 - [x] add a read-only proposal refresh path that rechecks accepted broker orders without resubmitting an order
 - [x] add account, order, position, and feed health checks before any Alpaca live-readiness banner can pass
@@ -443,7 +444,7 @@ Status: in progress.
 - V1 must be active-trading ready for the supported US path; default operation remains paper-first and any real-money activation remains explicit, manually approved, audited, and kill-switch protected
 - `paper` remains the default; `alpaca_paper` is an explicit external-paper backend gated by credentials, paper endpoint, and `AGENTIC_TRADER_ALPACA_PAPER_TRADING_ENABLED=true`
 - real-money execution remains gated; V1 readiness is expressed through `v1-readiness`, `provider-diagnostics`, `broker-status`, dashboard/observer payloads, the Alpaca paper adapter health path, and the persisted execution intent/outcome audit trail, not through hidden brokerage
-- proposal approval submits through the existing broker adapter boundary and paper/external-paper safety gates; the Web GUI Proposal Desk can invoke only explicit approve/reject/reconcile/refresh commands, while scanner, sidecar, chat, and Web surfaces must not approve or execute implicitly
+- proposal approval submits through the existing broker adapter boundary and paper/external-paper safety gates; approve/reject/reconcile/refresh all require operator review notes, and the Web GUI Proposal Desk can invoke only those explicit commands while scanner, sidecar, chat, and Web surfaces must not approve or execute implicitly
 - scanner/research candidates enter the broker-free `proposal_candidates` bridge first; promotion may create a pending proposal, but broker submission remains a separate approval action
 - broker acknowledgements such as Alpaca paper `accepted` remain in-flight approved proposals with operator-visible open journal entries; `proposal-refresh` can read the original broker order without resubmitting and update proposal/execution/position-plan truth when the broker later reports fill, partial-fill, cancel, or reject state
 - `proposal-reconcile` repairs an already approved in-flight proposal from the idempotent `execution_records.intent_id` row without resubmitting to the broker, covering interrupted final-status writes before external paper/live adapters grow broader

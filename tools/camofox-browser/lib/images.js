@@ -10,13 +10,17 @@ import { MAX_DOWNLOAD_INLINE_BYTES } from './downloads.js';
 /**
  * Extract image metadata (and optionally inline data) from visible <img> elements.
  */
-async function extractPageImages(page, { includeData = false, maxBytes = MAX_DOWNLOAD_INLINE_BYTES, limit = 8 } = {}) {
+async function extractPageImages(
+  page,
+  { includeData = false, maxBytes = MAX_DOWNLOAD_INLINE_BYTES, limit = 8 } = {},
+) {
   return page.evaluate(
     async ({ includeData, maxBytes, limit }) => {
       const toDataUrl = (blob) =>
         new Promise((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+          reader.onload = () =>
+            resolve(typeof reader.result === 'string' ? reader.result : '');
           reader.onerror = () => reject(new Error('file_reader_failed'));
           reader.readAsDataURL(blob);
         });
@@ -26,7 +30,9 @@ async function extractPageImages(page, { includeData = false, maxBytes = MAX_DOW
       const candidates = [];
 
       for (const node of nodes) {
-        const src = String(node.currentSrc || node.src || node.getAttribute('src') || '').trim();
+        const src = String(
+          node.currentSrc || node.src || node.getAttribute('src') || '',
+        ).trim();
         if (!src || seen.has(src)) continue;
         seen.add(src);
         candidates.push({
@@ -40,7 +46,12 @@ async function extractPageImages(page, { includeData = false, maxBytes = MAX_DOW
 
       const results = [];
       for (const image of candidates) {
-        const entry = { src: image.src, alt: image.alt, width: image.width, height: image.height };
+        const entry = {
+          src: image.src,
+          alt: image.alt,
+          width: image.width,
+          height: image.height,
+        };
 
         if (includeData) {
           try {
@@ -48,8 +59,12 @@ async function extractPageImages(page, { includeData = false, maxBytes = MAX_DOW
               const mimeMatch = image.src.match(/^data:([^;,]+)[;,]/i);
               const isBase64 = /;base64,/i.test(image.src);
               const payload = image.src.slice(image.src.indexOf(',') + 1);
-              const estimatedBytes = isBase64 ? Math.floor((payload.length * 3) / 4) : payload.length;
-              entry.mimeType = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+              const estimatedBytes = isBase64
+                ? Math.floor((payload.length * 3) / 4)
+                : payload.length;
+              entry.mimeType = mimeMatch
+                ? mimeMatch[1]
+                : 'application/octet-stream';
               entry.bytes = estimatedBytes;
               if (estimatedBytes <= maxBytes) {
                 entry.dataUrl = image.src;
@@ -57,7 +72,9 @@ async function extractPageImages(page, { includeData = false, maxBytes = MAX_DOW
                 entry.dataSkipped = 'max_bytes_exceeded';
               }
             } else {
-              const response = await fetch(image.src, { credentials: 'include' });
+              const response = await fetch(image.src, {
+                credentials: 'include',
+              });
               if (response.ok) {
                 const blob = await response.blob();
                 entry.mimeType = blob.type || 'application/octet-stream';
@@ -72,7 +89,9 @@ async function extractPageImages(page, { includeData = false, maxBytes = MAX_DOW
               }
             }
           } catch (err) {
-            entry.fetchError = String(err?.message || err || 'image_fetch_failed');
+            entry.fetchError = String(
+              err?.message || err || 'image_fetch_failed',
+            );
           }
         }
 

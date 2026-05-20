@@ -7,10 +7,19 @@ import fs from 'fs';
 import os from 'os';
 import { expandMacro } from './lib/macros.js';
 import { loadConfig } from './lib/config.js';
-import { normalizePlaywrightProxy, createProxyPool, buildProxyUrl } from './lib/proxy.js';
+import {
+  normalizePlaywrightProxy,
+  createProxyPool,
+  buildProxyUrl,
+} from './lib/proxy.js';
 import { createFlyHelpers } from './lib/fly.js';
 import { createPluginEvents, loadPlugins } from './lib/plugins.js';
-import { requireAuth, accessKeyMiddleware, timingSafeCompare as _timingSafeCompare, isLoopbackAddress as _isLoopbackAddress } from './lib/auth.js';
+import {
+  requireAuth,
+  accessKeyMiddleware,
+  timingSafeCompare as _timingSafeCompare,
+  isLoopbackAddress as _isLoopbackAddress,
+} from './lib/auth.js';
 import { windowSnapshot } from './lib/snapshot.js';
 import {
   MAX_DOWNLOAD_INLINE_BYTES,
@@ -20,27 +29,56 @@ import {
   getDownloadsList,
 } from './lib/downloads.js';
 import { extractPageImages } from './lib/images.js';
-import { extractDeterministic, validateSchema as validateExtractSchema } from './lib/extract.js';
 import {
-  ensureTracesDir, resolveTracePath, tracePathFor, makeTraceFilename,
-  listUserTraces, statTrace, deleteTrace, sweepOldTraces,
+  extractDeterministic,
+  validateSchema as validateExtractSchema,
+} from './lib/extract.js';
+import {
+  ensureTracesDir,
+  resolveTracePath,
+  tracePathFor,
+  makeTraceFilename,
+  listUserTraces,
+  statTrace,
+  deleteTrace,
+  sweepOldTraces,
 } from './lib/tracing.js';
 
 import {
-  initMetrics, getRegister, isMetricsEnabled, createMetric,
-  startMemoryReporter, stopMemoryReporter,
+  initMetrics,
+  getRegister,
+  isMetricsEnabled,
+  createMetric,
+  startMemoryReporter,
+  stopMemoryReporter,
 } from './lib/metrics.js';
 import { actionFromReq, classifyError } from './lib/request-utils.js';
-import { cleanupOrphanedTempFiles, cleanupStaleFirefoxProfiles } from './lib/tmp-cleanup.js';
+import {
+  cleanupOrphanedTempFiles,
+  cleanupStaleFirefoxProfiles,
+} from './lib/tmp-cleanup.js';
 import { coalesceInflight } from './lib/inflight.js';
-import { createReporter, createTabHealthTracker, collectResourceSnapshot, classifyProxyError } from './lib/reporter.js';
+import {
+  createReporter,
+  createTabHealthTracker,
+  collectResourceSnapshot,
+  classifyProxyError,
+} from './lib/reporter.js';
 import { mountDocs } from './lib/openapi.js';
 
 const CONFIG = loadConfig();
 
 // --- Local reporter facade (no external telemetry in Agentic Trader) ---
 import { readFileSync } from 'fs';
-const _pkgVersion = (() => { try { return JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version; } catch { return 'unknown'; } })();
+const _pkgVersion = (() => {
+  try {
+    return JSON.parse(
+      readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+    ).version;
+  } catch {
+    return 'unknown';
+  }
+})();
 const reporter = createReporter({ ...CONFIG, version: _pkgVersion });
 function _countTabs() {
   let total = 0;
@@ -50,10 +88,18 @@ function _countTabs() {
   return total;
 }
 function _browserPid() {
-  try { return browser?.process?.()?.pid ?? null; } catch { return null; }
+  try {
+    return browser?.process?.()?.pid ?? null;
+  } catch {
+    return null;
+  }
 }
 function _resourceOpts() {
-  return { sessionCount: sessions.size, tabCount: _countTabs(), browserPid: _browserPid() };
+  return {
+    sessionCount: sessions.size,
+    tabCount: _countTabs(),
+    browserPid: _browserPid(),
+  };
 }
 reporter.startWatchdog(30_000, () => {
   const summary = [];
@@ -63,9 +109,12 @@ reporter.startWatchdog(30_000, () => {
       try {
         const url = tab.page?.url?.() || 'unknown';
         tabUrls.push(url);
-      } catch { tabUrls.push('error'); }
+      } catch {
+        tabUrls.push('error');
+      }
     }
-    if (tabUrls.length > 0) summary.push({ session: sid, tabs: tabUrls.length, urls: tabUrls });
+    if (tabUrls.length > 0)
+      summary.push({ session: sid, tabs: tabUrls.length, urls: tabUrls });
   }
   return { resourceOpts: _resourceOpts(), sessions: summary.length, summary };
 });
@@ -77,11 +126,19 @@ const pluginEvents = createPluginEvents();
 const authMiddleware = () => requireAuth(CONFIG);
 
 const {
-  requestsTotal, requestDuration, pageLoadDuration, snapshotBytes,
-  activeTabsGauge, tabLockQueueDepth,
+  requestsTotal,
+  requestDuration,
+  pageLoadDuration,
+  snapshotBytes,
+  activeTabsGauge,
+  tabLockQueueDepth,
   tabLockTimeoutsTotal,
-  failuresTotal, browserRestartsTotal, tabsDestroyedTotal,
-  sessionsExpiredTotal, tabsReapedTotal, tabsRecycledTotal,
+  failuresTotal,
+  browserRestartsTotal,
+  tabsDestroyedTotal,
+  sessionsExpiredTotal,
+  tabsReapedTotal,
+  tabsRecycledTotal,
 } = await initMetrics({ enabled: CONFIG.prometheusEnabled });
 
 // --- Structured logging ---
@@ -153,15 +210,22 @@ const ALLOWED_URL_SCHEMES = ['http:', 'https:'];
 // Interactive roles to include - exclude combobox to avoid opening complex widgets
 // (date pickers, dropdowns) that can interfere with navigation
 const INTERACTIVE_ROLES = [
-  'button', 'link', 'textbox', 'checkbox', 'radio',
-  'menuitem', 'tab', 'searchbox', 'slider', 'spinbutton', 'switch'
+  'button',
+  'link',
+  'textbox',
+  'checkbox',
+  'radio',
+  'menuitem',
+  'tab',
+  'searchbox',
+  'slider',
+  'spinbutton',
+  'switch',
   // 'combobox' excluded - can trigger date pickers and complex dropdowns
 ];
 
 // Patterns to skip (date pickers, calendar widgets)
-const SKIP_PATTERNS = [
-  /date/i, /calendar/i, /picker/i, /datepicker/i
-];
+const SKIP_PATTERNS = [/date/i, /calendar/i, /picker/i, /datepicker/i];
 
 // timingSafeCompare and isLoopbackAddress imported from lib/auth.js
 const timingSafeCompare = _timingSafeCompare;
@@ -170,7 +234,9 @@ const isLoopbackAddress = _isLoopbackAddress;
 // Custom error for stale/unknown element refs -- returned as 422 instead of 500
 class StaleRefsError extends Error {
   constructor(ref, maxRef, totalRefs) {
-    super(`Unknown ref: ${ref} (valid refs: e1-${maxRef}, ${totalRefs} total). Refs reset after navigation - call snapshot first.`);
+    super(
+      `Unknown ref: ${ref} (valid refs: e1-${maxRef}, ${totalRefs} total). Refs reset after navigation - call snapshot first.`,
+    );
     this.name = 'StaleRefsError';
     this.code = 'stale_refs';
     this.ref = ref;
@@ -187,7 +253,7 @@ function safeError(err) {
 
 // Send error response with appropriate status code (422 for stale refs, 500 otherwise)
 function sendError(res, err, extraFields = {}) {
-  const status = err instanceof StaleRefsError ? 422 : (err.statusCode || 500);
+  const status = err instanceof StaleRefsError ? 422 : err.statusCode || 500;
   const body = { error: safeError(err), ...extraFields };
   if (err instanceof StaleRefsError) {
     body.code = 'stale_refs';
@@ -290,80 +356,113 @@ function validateUrl(url) {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-app.post('/sessions/:userId/cookies', express.json({ limit: '512kb' }), async (req, res) => {
-  try {
-    if (CONFIG.apiKey) {
-      const apiKey = CONFIG.apiKey;
-      const auth = String(req.headers['authorization'] || '');
-      const match = auth.match(/^Bearer\s+(.+)$/i);
-      if (!match || !timingSafeCompare(match[1], apiKey)) {
-        return res.status(403).json({ error: 'Forbidden' });
+app.post(
+  '/sessions/:userId/cookies',
+  express.json({ limit: '512kb' }),
+  async (req, res) => {
+    try {
+      if (CONFIG.apiKey) {
+        const apiKey = CONFIG.apiKey;
+        const auth = String(req.headers['authorization'] || '');
+        const match = auth.match(/^Bearer\s+(.+)$/i);
+        if (!match || !timingSafeCompare(match[1], apiKey)) {
+          return res.status(403).json({ error: 'Forbidden' });
+        }
+      } else {
+        const remoteAddress = req.socket?.remoteAddress || '';
+        const allowUnauthedLocal =
+          CONFIG.nodeEnv !== 'production' && isLoopbackAddress(remoteAddress);
+        if (!allowUnauthedLocal) {
+          return res.status(403).json({
+            error:
+              'Cookie import is disabled without CAMOFOX_API_KEY except for loopback requests in non-production environments.',
+          });
+        }
       }
-    } else {
-      const remoteAddress = req.socket?.remoteAddress || '';
-      const allowUnauthedLocal = CONFIG.nodeEnv !== 'production' && isLoopbackAddress(remoteAddress);
-      if (!allowUnauthedLocal) {
-        return res.status(403).json({
+
+      const userId = req.params.userId;
+      if (!req.body || !('cookies' in req.body)) {
+        return res
+          .status(400)
+          .json({ error: 'Missing "cookies" field in request body' });
+      }
+      const cookies = req.body.cookies;
+      if (!Array.isArray(cookies)) {
+        return res.status(400).json({ error: 'cookies must be an array' });
+      }
+
+      if (cookies.length > 500) {
+        return res
+          .status(400)
+          .json({ error: 'Too many cookies. Maximum 500 per request.' });
+      }
+
+      const invalid = [];
+      for (let i = 0; i < cookies.length; i++) {
+        const c = cookies[i];
+        const missing = [];
+        if (!c || typeof c !== 'object') {
+          invalid.push({ index: i, error: 'cookie must be an object' });
+          continue;
+        }
+        if (typeof c.name !== 'string' || !c.name) missing.push('name');
+        if (typeof c.value !== 'string') missing.push('value');
+        if (typeof c.domain !== 'string' || !c.domain) missing.push('domain');
+        if (missing.length) invalid.push({ index: i, missing });
+      }
+      if (invalid.length) {
+        return res.status(400).json({
           error:
-            'Cookie import is disabled without CAMOFOX_API_KEY except for loopback requests in non-production environments.',
+            'Invalid cookie objects: each cookie must include name, value, and domain',
+          invalid,
         });
       }
-    }
 
-    const userId = req.params.userId;
-    if (!req.body || !('cookies' in req.body)) {
-      return res.status(400).json({ error: 'Missing "cookies" field in request body' });
-    }
-    const cookies = req.body.cookies;
-    if (!Array.isArray(cookies)) {
-      return res.status(400).json({ error: 'cookies must be an array' });
-    }
-
-    if (cookies.length > 500) {
-      return res.status(400).json({ error: 'Too many cookies. Maximum 500 per request.' });
-    }
-
-    const invalid = [];
-    for (let i = 0; i < cookies.length; i++) {
-      const c = cookies[i];
-      const missing = [];
-      if (!c || typeof c !== 'object') {
-        invalid.push({ index: i, error: 'cookie must be an object' });
-        continue;
-      }
-      if (typeof c.name !== 'string' || !c.name) missing.push('name');
-      if (typeof c.value !== 'string') missing.push('value');
-      if (typeof c.domain !== 'string' || !c.domain) missing.push('domain');
-      if (missing.length) invalid.push({ index: i, missing });
-    }
-    if (invalid.length) {
-      return res.status(400).json({
-        error: 'Invalid cookie objects: each cookie must include name, value, and domain',
-        invalid,
+      const allowedFields = [
+        'name',
+        'value',
+        'domain',
+        'path',
+        'expires',
+        'httpOnly',
+        'secure',
+        'sameSite',
+      ];
+      const sanitized = cookies.map((c) => {
+        const clean = {};
+        for (const k of allowedFields) {
+          if (c[k] !== undefined) clean[k] = c[k];
+        }
+        return clean;
       });
+
+      const session = await getSession(userId);
+      await session.context.addCookies(sanitized);
+      const result = {
+        ok: true,
+        userId: String(userId),
+        count: sanitized.length,
+      };
+      log('info', 'cookies imported', {
+        reqId: req.reqId,
+        userId: String(userId),
+        count: sanitized.length,
+      });
+      pluginEvents.emit('session:cookies:import', {
+        userId: String(userId),
+        count: sanitized.length,
+      });
+      res.json(result);
+    } catch (err) {
+      failuresTotal.labels(classifyError(err), 'set_cookies').inc();
+      log('error', 'cookie import failed', {
+        reqId: req.reqId,
+        error: err.message,
+      });
+      res.status(500).json({ error: safeError(err) });
     }
-
-    const allowedFields = ['name', 'value', 'domain', 'path', 'expires', 'httpOnly', 'secure', 'sameSite'];
-    const sanitized = cookies.map(c => {
-      const clean = {};
-      for (const k of allowedFields) {
-        if (c[k] !== undefined) clean[k] = c[k];
-      }
-      return clean;
-    });
-
-    const session = await getSession(userId);
-    await session.context.addCookies(sanitized);
-    const result = { ok: true, userId: String(userId), count: sanitized.length };
-    log('info', 'cookies imported', { reqId: req.reqId, userId: String(userId), count: sanitized.length });
-    pluginEvents.emit('session:cookies:import', { userId: String(userId), count: sanitized.length });
-    res.json(result);
-  } catch (err) {
-    failuresTotal.labels(classifyError(err), 'set_cookies').inc();
-    log('error', 'cookie import failed', { reqId: req.reqId, error: err.message });
-    res.status(500).json({ error: safeError(err) });
-  }
-});
+  },
+);
 
 let browser = null;
 let _lastBrowserPid = null; // Track PID independently for force-kill after close
@@ -389,8 +488,6 @@ let _nativeMemBaseline = null; // RSS - heapUsed at first idle measurement
 const FAILURE_THRESHOLD = 3;
 const MAX_CONSECUTIVE_TIMEOUTS = 3;
 const TAB_LOCK_TIMEOUT_MS = 35000; // Must be > HANDLER_TIMEOUT_MS so active op times out first
-
-
 
 // Proper mutex for tab serialization. The old Promise-chain lock on timeout proceeded
 // WITHOUT the lock, allowing concurrent Playwright operations that corrupt CDP state.
@@ -466,8 +563,11 @@ function withTimeout(promise, ms, label) {
   return Promise.race([
     promise,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-    )
+      setTimeout(
+        () => reject(new Error(`${label} timed out after ${ms}ms`)),
+        ms,
+      ),
+    ),
   ]);
 }
 
@@ -486,8 +586,14 @@ async function withUserLimit(userId, operation) {
   }
   if (state.active >= MAX_CONCURRENT_PER_USER) {
     await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('User concurrency limit reached, try again')), 30000);
-      state.queue.push(() => { clearTimeout(timer); resolve(); });
+      const timer = setTimeout(
+        () => reject(new Error('User concurrency limit reached, try again')),
+        30000,
+      );
+      state.queue.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
     });
   }
   state.active++;
@@ -513,7 +619,7 @@ async function safePageClose(page) {
   try {
     await Promise.race([
       page.close(),
-      new Promise(resolve => setTimeout(resolve, PAGE_CLOSE_TIMEOUT_MS))
+      new Promise((resolve) => setTimeout(resolve, PAGE_CLOSE_TIMEOUT_MS)),
     ]);
   } catch (e) {
     log('warn', 'page close failed', { error: e.message });
@@ -534,8 +640,12 @@ const proxyPool = createProxyPool(CONFIG.proxy);
 if (proxyPool) {
   log('info', 'proxy pool created', {
     mode: proxyPool.mode,
-    host: proxyPool.canRotateSessions ? CONFIG.proxy.backconnectHost : CONFIG.proxy.host,
-    ports: proxyPool.canRotateSessions ? [CONFIG.proxy.backconnectPort] : CONFIG.proxy.ports,
+    host: proxyPool.canRotateSessions
+      ? CONFIG.proxy.backconnectHost
+      : CONFIG.proxy.host,
+    ports: proxyPool.canRotateSessions
+      ? [CONFIG.proxy.backconnectPort]
+      : CONFIG.proxy.ports,
     poolSize: proxyPool.size,
     country: CONFIG.proxy.country || null,
     state: CONFIG.proxy.state || null,
@@ -577,9 +687,14 @@ function scheduleBrowserWarmRetry(delayMs = 5000) {
     try {
       const start = Date.now();
       await ensureBrowser();
-      log('info', 'background browser warm retry succeeded', { ms: Date.now() - start });
+      log('info', 'background browser warm retry succeeded', {
+        ms: Date.now() - start,
+      });
     } catch (err) {
-      log('warn', 'background browser warm retry failed', { error: err.message, nextDelayMs: delayMs });
+      log('warn', 'background browser warm retry failed', {
+        error: err.message,
+        nextDelayMs: delayMs,
+      });
       scheduleBrowserWarmRetry(Math.min(delayMs * 2, 30000));
     }
   }, delayMs);
@@ -607,10 +722,16 @@ async function restartBrowser(reason) {
   if (healthState.isRecovering) return;
   healthState.isRecovering = true;
   browserRestartsTotal.labels(reason).inc();
-  log('error', 'restarting browser', { reason, failures: healthState.consecutiveNavFailures });
+  log('error', 'restarting browser', {
+    reason,
+    failures: healthState.consecutiveNavFailures,
+  });
   pluginEvents.emit('browser:restart', { reason });
   try {
-    await closeAllSessions(`browser_restart:${reason}`, { clearDownloads: true, clearLocks: true });
+    await closeAllSessions(`browser_restart:${reason}`, {
+      clearDownloads: true,
+      clearLocks: true,
+    });
     await closeBrowserFully(`browser_restart:${reason}`);
     pluginEvents.emit('browser:closed', { reason });
     browserLaunchPromise = null;
@@ -649,9 +770,15 @@ async function probeGoogleSearch(candidateBrowser) {
       permissions: ['geolocation'],
     });
     const page = await context.newPage();
-    await page.goto('https://www.google.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto('https://www.google.com/', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
     await page.waitForTimeout(1200);
-    await page.goto('https://www.google.com/search?q=weather%20today', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto('https://www.google.com/search?q=weather%20today', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
     await page.waitForTimeout(4000);
 
     const blocked = await isGoogleSearchBlocked(page);
@@ -714,10 +841,19 @@ async function _closeBrowserFullyImpl(reason) {
   try {
     await Promise.race([
       b.close(),
-      new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('browser.close() timeout')), 10000); }),
+      new Promise((_, reject) => {
+        closeTimer = setTimeout(
+          () => reject(new Error('browser.close() timeout')),
+          10000,
+        );
+      }),
     ]);
   } catch (err) {
-    log('warn', 'browser.close() failed or timed out', { reason, error: err.message, pid });
+    log('warn', 'browser.close() failed or timed out', {
+      reason,
+      error: err.message,
+      pid,
+    });
   } finally {
     clearTimeout(closeTimer);
   }
@@ -731,9 +867,15 @@ async function _closeBrowserFullyImpl(reason) {
   try {
     const cleaned = cleanupStaleFirefoxProfiles();
     if (cleaned.removed > 0) {
-      log('info', 'cleaned stale firefox profiles after browser close', cleaned);
+      log(
+        'info',
+        'cleaned stale firefox profiles after browser close',
+        cleaned,
+      );
     }
-  } catch { /* best effort */ }
+  } catch {
+    /* best effort */
+  }
 
   // Reset native memory baseline so next browser measures from fresh
   reporter.resetNativeMemBaseline();
@@ -747,13 +889,22 @@ async function _closeBrowserFullyImpl(reason) {
     // After close we expect fewer FDs. If more leaked, warn.
     if (fdDelta > 10) {
       log('warn', 'FD leak detected after browser close', {
-        reason, preCloseFds, postCloseFds, delta: fdDelta,
-        preCloseHandles, postCloseHandles,
+        reason,
+        preCloseFds,
+        postCloseFds,
+        delta: fdDelta,
+        preCloseHandles,
+        postCloseHandles,
       });
     }
   }
   log('info', 'browser closed fully', {
-    reason, pid, preCloseFds, postCloseFds, preCloseHandles, postCloseHandles,
+    reason,
+    pid,
+    preCloseFds,
+    postCloseFds,
+    preCloseHandles,
+    postCloseHandles,
   });
 }
 
@@ -770,7 +921,10 @@ async function _forceKillProcessTree(pid, reason) {
     log('info', 'sent SIGKILL to browser process', { pid, reason });
   } catch (err) {
     if (err.code !== 'ESRCH') {
-      log('warn', 'failed to kill browser process', { pid, error: err.message });
+      log('warn', 'failed to kill browser process', {
+        pid,
+        error: err.message,
+      });
     }
   }
 
@@ -783,7 +937,7 @@ async function _forceKillProcessTree(pid, reason) {
   }
 
   // Wait for kernel to reparent children to PID 1 before scanning
-  await new Promise(r => setTimeout(r, 200));
+  await new Promise((r) => setTimeout(r, 200));
 
   // On Linux: scan /proc for orphaned children that escaped the process group
   // (reparented to PID 1 by init/systemd, common with Firefox content processes).
@@ -793,12 +947,13 @@ async function _forceKillProcessTree(pid, reason) {
     // Snapshot the current browser PID to avoid killing a newly launched browser
     const currentBrowserPid = _lastBrowserPid;
     try {
-      const procDirs = fs.readdirSync('/proc').filter(d => /^\d+$/.test(d));
+      const procDirs = fs.readdirSync('/proc').filter((d) => /^\d+$/.test(d));
       const orphans = [];
       for (const procPid of procDirs) {
         const numPid = parseInt(procPid);
         // Never kill ourselves, the old PID (already killed), or the new browser
-        if (numPid === myPid || numPid === pid || numPid === currentBrowserPid) continue;
+        if (numPid === myPid || numPid === pid || numPid === currentBrowserPid)
+          continue;
         try {
           const status = fs.readFileSync(`/proc/${procPid}/status`, 'utf8');
           const ppidMatch = status.match(/PPid:\s+(\d+)/);
@@ -807,36 +962,58 @@ async function _forceKillProcessTree(pid, reason) {
           if (ppid === 1 || ppid === myPid) {
             const cmdline = fs.readFileSync(`/proc/${procPid}/cmdline`, 'utf8');
             // Firefox-specific: binary name or Gecko child process marker
-            if (/firefox-esr|firefox|camoufox|libxul\.so|GeckoChildProcess/i.test(cmdline)) {
+            if (
+              /firefox-esr|firefox|camoufox|libxul\.so|GeckoChildProcess/i.test(
+                cmdline,
+              )
+            ) {
               orphans.push(numPid);
             }
           }
-        } catch { /* process vanished or permission denied */ }
+        } catch {
+          /* process vanished or permission denied */
+        }
       }
       if (orphans.length > 0) {
-        log('warn', 'killing orphaned browser child processes', { orphans, reason });
+        log('warn', 'killing orphaned browser child processes', {
+          orphans,
+          reason,
+        });
         for (const orphanPid of orphans) {
-          try { process.kill(orphanPid, 'SIGKILL'); } catch { /* already dead */ }
+          try {
+            process.kill(orphanPid, 'SIGKILL');
+          } catch {
+            /* already dead */
+          }
         }
       }
     } catch (err) {
-      log('warn', 'failed to scan for orphaned browser processes', { error: err.message });
+      log('warn', 'failed to scan for orphaned browser processes', {
+        error: err.message,
+      });
     }
   }
 
   // Give the OS a moment to reclaim resources
-  await new Promise(r => setTimeout(r, 300));
+  await new Promise((r) => setTimeout(r, 300));
 }
 
 function _countOpenFds() {
   try {
-    if (process.platform === 'linux') return fs.readdirSync('/proc/self/fd').length;
-  } catch { /* unavailable */ }
+    if (process.platform === 'linux')
+      return fs.readdirSync('/proc/self/fd').length;
+  } catch {
+    /* unavailable */
+  }
   return null;
 }
 
 function _countActiveHandles() {
-  try { return process._getActiveHandles().length; } catch { return null; }
+  try {
+    return process._getActiveHandles().length;
+  } catch {
+    return null;
+  }
 }
 
 async function launchBrowserInstance() {
@@ -846,7 +1023,11 @@ async function launchBrowserInstance() {
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const launchProxy = proxyPool
-      ? proxyPool.getLaunchProxy(proxyPool.canRotateSessions ? `browser-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}` : undefined)
+      ? proxyPool.getLaunchProxy(
+          proxyPool.canRotateSessions
+            ? `browser-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
+            : undefined,
+        )
       : null;
 
     let localVirtualDisplay = null;
@@ -857,10 +1038,16 @@ async function launchBrowserInstance() {
       if (os.platform() === 'linux') {
         localVirtualDisplay = pluginCtx.createVirtualDisplay();
         vdDisplay = localVirtualDisplay.get();
-        log('info', 'xvfb virtual display started', { display: vdDisplay, attempt });
+        log('info', 'xvfb virtual display started', {
+          display: vdDisplay,
+          attempt,
+        });
       }
     } catch (err) {
-      log('warn', 'xvfb not available, falling back to headless', { error: err.message, attempt });
+      log('warn', 'xvfb not available, falling back to headless', {
+        error: err.message,
+        attempt,
+      });
       localVirtualDisplay = null;
     }
 
@@ -908,10 +1095,14 @@ async function launchBrowserInstance() {
           }
           // Last attempt: accept browser in degraded mode rather than death-spiraling.
           // Non-Google sites will still work; Google requests will get blocked responses.
-          log('error', 'all proxy sessions Google-blocked, accepting browser in degraded mode', {
-            maxAttempts,
-            proxySession: launchProxy?.sessionId || null,
-          });
+          log(
+            'error',
+            'all proxy sessions Google-blocked, accepting browser in degraded mode',
+            {
+              maxAttempts,
+              proxySession: launchProxy?.sessionId || null,
+            },
+          );
         }
       }
 
@@ -951,10 +1142,17 @@ async function ensureBrowser() {
   clearBrowserIdleTimer();
   if (browser && !browser.isConnected()) {
     failuresTotal.labels('browser_disconnected', 'internal').inc();
-    log('warn', 'browser disconnected, clearing dead sessions and relaunching', {
-      deadSessions: sessions.size,
+    log(
+      'warn',
+      'browser disconnected, clearing dead sessions and relaunching',
+      {
+        deadSessions: sessions.size,
+      },
+    );
+    await closeAllSessions('browser_disconnected', {
+      clearDownloads: true,
+      clearLocks: true,
     });
-    await closeAllSessions('browser_disconnected', { clearDownloads: true, clearLocks: true });
     await closeBrowserFully('browser_disconnected');
   }
   if (browser) return browser;
@@ -962,8 +1160,20 @@ async function ensureBrowser() {
   const launchTimeoutMs = proxyPool?.launchTimeoutMs ?? 60000;
   browserLaunchPromise = Promise.race([
     launchBrowserInstance(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error(`Browser launch timeout (${Math.round(launchTimeoutMs / 1000)}s)`)), launchTimeoutMs)),
-  ]).finally(() => { browserLaunchPromise = null; });
+    new Promise((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Browser launch timeout (${Math.round(launchTimeoutMs / 1000)}s)`,
+            ),
+          ),
+        launchTimeoutMs,
+      ),
+    ),
+  ]).finally(() => {
+    browserLaunchPromise = null;
+  });
   return browserLaunchPromise;
 }
 
@@ -988,11 +1198,11 @@ function clearSessionLocks(session) {
   refreshTabLockQueueDepth();
 }
 
-async function closeSession(userId, session, {
-  reason = 'session_closed',
-  clearDownloads = true,
-  clearLocks = true,
-} = {}) {
+async function closeSession(
+  userId,
+  session,
+  { reason = 'session_closed', clearDownloads = true, clearLocks = true } = {},
+) {
   if (!session) return;
 
   const key = normalizeUserId(userId);
@@ -1022,7 +1232,10 @@ async function closeSession(userId, session, {
   refreshActiveTabsGauge();
 }
 
-async function closeAllSessions(reason, { clearDownloads = true, clearLocks = true } = {}) {
+async function closeAllSessions(
+  reason,
+  { clearDownloads = true, clearLocks = true } = {},
+) {
   const openSessions = Array.from(sessions.entries());
   for (const [userId, session] of openSessions) {
     await closeSession(userId, session, { reason, clearDownloads, clearLocks });
@@ -1043,8 +1256,15 @@ async function getSession(userId, { trace = false } = {}) {
         // Lightweight probe: pages() is synchronous-ish and throws if context is dead
         session.context.pages();
       } catch (err) {
-        log('warn', 'session context dead, recreating', { userId: key, error: err.message });
-        await closeSession(key, session, { reason: 'dead_context', clearDownloads: true, clearLocks: true });
+        log('warn', 'session context dead, recreating', {
+          userId: key,
+          error: err.message,
+        });
+        await closeSession(key, session, {
+          reason: 'dead_context',
+          clearDownloads: true,
+          clearLocks: true,
+        });
         session = null;
       }
     }
@@ -1065,19 +1285,33 @@ async function getSession(userId, { trace = false } = {}) {
       if (!CONFIG.proxy.host) {
         contextOptions.locale = 'en-US';
         contextOptions.timezoneId = 'America/Los_Angeles';
-        contextOptions.geolocation = { latitude: 37.7749, longitude: -122.4194 };
+        contextOptions.geolocation = {
+          latitude: 37.7749,
+          longitude: -122.4194,
+        };
       }
       let sessionProxy = null;
       if (proxyPool?.canRotateSessions) {
-        sessionProxy = proxyPool.getNext(`ctx-${key}-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`);
+        sessionProxy = proxyPool.getNext(
+          `ctx-${key}-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`,
+        );
         contextOptions.proxy = normalizePlaywrightProxy(sessionProxy);
-        log('info', 'session proxy assigned', { userId: key, sessionId: sessionProxy.sessionId });
+        log('info', 'session proxy assigned', {
+          userId: key,
+          sessionId: sessionProxy.sessionId,
+        });
       } else if (proxyPool) {
         sessionProxy = proxyPool.getNext();
         contextOptions.proxy = normalizePlaywrightProxy(sessionProxy);
-        log('info', 'session proxy assigned', { userId: key, proxy: sessionProxy.server });
+        log('info', 'session proxy assigned', {
+          userId: key,
+          proxy: sessionProxy.server,
+        });
       }
-      await pluginEvents.emitAsync('session:creating', { userId: key, contextOptions });
+      await pluginEvents.emitAsync('session:creating', {
+        userId: key,
+        contextOptions,
+      });
       const context = await b.newContext(contextOptions);
 
       let tracePath = null;
@@ -1085,22 +1319,40 @@ async function getSession(userId, { trace = false } = {}) {
         const traceDir = ensureTracesDir(CONFIG.tracesDir, key);
         tracePath = tracePathFor(CONFIG.tracesDir, key, makeTraceFilename());
         try {
-          await context.tracing.start({ screenshots: true, snapshots: true, sources: false });
-          log('info', 'tracing enabled for session', { userId: key, traceDir, tracePath });
+          await context.tracing.start({
+            screenshots: true,
+            snapshots: true,
+            sources: false,
+          });
+          log('info', 'tracing enabled for session', {
+            userId: key,
+            traceDir,
+            tracePath,
+          });
         } catch (err) {
-          log('warn', 'tracing.start failed; session will not be traced', { userId: key, error: err.message });
+          log('warn', 'tracing.start failed; session will not be traced', {
+            userId: key,
+            error: err.message,
+          });
           tracePath = null;
         }
       }
 
-      const created = { context, tabGroups: new Map(), lastAccess: Date.now(), proxySessionId: sessionProxy?.sessionId || null, tracePath };
+      const created = {
+        context,
+        tabGroups: new Map(),
+        lastAccess: Date.now(),
+        proxySessionId: sessionProxy?.sessionId || null,
+        tracePath,
+      };
       sessions.set(key, created);
       await pluginEvents.emitAsync('session:created', { userId: key, context });
       log('info', 'session created', {
         userId: key,
         proxyMode: proxyPool?.mode || null,
         proxyServer: sessionProxy?.server || browserLaunchProxy?.server || null,
-        proxySession: sessionProxy?.sessionId || browserLaunchProxy?.sessionId || null,
+        proxySession:
+          sessionProxy?.sessionId || browserLaunchProxy?.sessionId || null,
       });
       return created;
     });
@@ -1119,17 +1371,21 @@ function getTabGroup(session, listItemId) {
 }
 
 function isDeadContextError(err) {
-  const msg = err && err.message || '';
-  return msg.includes('Target page, context or browser has been closed') ||
-         msg.includes('browser has been closed') ||
-         msg.includes('Context closed') ||
-         msg.includes('Browser closed');
+  const msg = (err && err.message) || '';
+  return (
+    msg.includes('Target page, context or browser has been closed') ||
+    msg.includes('browser has been closed') ||
+    msg.includes('Context closed') ||
+    msg.includes('Browser closed')
+  );
 }
 
 function isTimeoutError(err) {
-  const msg = err && err.message || '';
-  return msg.includes('timed out after') ||
-         (msg.includes('Timeout') && msg.includes('exceeded'));
+  const msg = (err && err.message) || '';
+  return (
+    msg.includes('timed out after') ||
+    (msg.includes('Timeout') && msg.includes('exceeded'))
+  );
 }
 
 function isTabLockQueueTimeout(err) {
@@ -1145,7 +1401,11 @@ function isTabDestroyedError(err) {
 function isProxyError(err) {
   if (!err) return false;
   const msg = err.message || '';
-  return msg.includes('NS_ERROR_PROXY') || msg.includes('proxy connection') || msg.includes('Proxy connection');
+  return (
+    msg.includes('NS_ERROR_PROXY') ||
+    msg.includes('proxy connection') ||
+    msg.includes('Proxy connection')
+  );
 }
 
 function handleRouteError(err, req, res, extraFields = {}) {
@@ -1164,9 +1424,15 @@ function handleRouteError(err, req, res, extraFields = {}) {
   // Proxy errors mean the session is dead -- rotate at context level.
   // Destroy the user's session so the next request gets a fresh context with a new proxy.
   if (isProxyError(err) && proxyPool?.canRotateSessions && userId) {
-    log('warn', 'proxy error detected, destroying user session for fresh proxy on next request', {
-      action, userId, error: err.message,
-    });
+    log(
+      'warn',
+      'proxy error detected, destroying user session for fresh proxy on next request',
+      {
+        action,
+        userId,
+        error: err.message,
+      },
+    );
     browserRestartsTotal.labels('proxy_error').inc();
     destroySession(userId);
   }
@@ -1179,7 +1445,10 @@ function handleRouteError(err, req, res, extraFields = {}) {
       if (found) {
         found.tabState.consecutiveTimeouts++;
         if (found.tabState.consecutiveTimeouts >= MAX_CONSECUTIVE_TIMEOUTS) {
-          log('warn', 'auto-destroying tab after consecutive timeouts', { tabId, count: found.tabState.consecutiveTimeouts });
+          log('warn', 'auto-destroying tab after consecutive timeouts', {
+            tabId,
+            count: found.tabState.consecutiveTimeouts,
+          });
           destroyTab(session, tabId, 'consecutive_timeouts', userId);
         }
       }
@@ -1191,11 +1460,18 @@ function handleRouteError(err, req, res, extraFields = {}) {
     if (session && tabId) {
       destroyTab(session, tabId, 'lock_queue', userId);
     }
-    return res.status(503).json({ error: 'Tab unresponsive and has been destroyed. Open a new tab.', ...extraFields });
+    return res
+      .status(503)
+      .json({
+        error: 'Tab unresponsive and has been destroyed. Open a new tab.',
+        ...extraFields,
+      });
   }
   // Tab was destroyed while this request was queued in the lock
   if (isTabDestroyedError(err)) {
-    return res.status(410).json({ error: 'Tab was destroyed. Open a new tab.', ...extraFields });
+    return res
+      .status(410)
+      .json({ error: 'Tab was destroyed. Open a new tab.', ...extraFields });
   }
   // --- Frustration detection: report when a tab hits a streak of failures ---
   // Individual failures are noise. 3+ consecutive = the site is persistently broken.
@@ -1208,29 +1484,38 @@ function handleRouteError(err, req, res, extraFields = {}) {
       ts.consecutiveFailures = (ts.consecutiveFailures || 0) + 1;
       if (!ts.failureJournal) ts.failureJournal = [];
       ts.failureJournal.push({ type: failureType, action, at: Date.now() });
-      if (ts.failureJournal.length > 20) ts.failureJournal = ts.failureJournal.slice(-20);
+      if (ts.failureJournal.length > 20)
+        ts.failureJournal = ts.failureJournal.slice(-20);
 
       if (ts.consecutiveFailures === 3) {
         const _proxyErr = classifyProxyError(err?.message);
-        reporter.reportHang(action, req.startTime ? Date.now() - req.startTime : 0, {
-          error: err,
-          healthSnapshot: ts.healthTracker ? ts.healthTracker.snapshot() : undefined,
-          healthTracker: ts.healthTracker || null,
-          resourceOpts: _resourceOpts(),
-          proxy: proxyPool ? {
-            configured: true,
-            type: proxyPool.mode || null,
-            authConfigured: !!CONFIG.proxy?.username,
-            error: _proxyErr.proxyError,
-            tlsError: _proxyErr.proxyTlsError,
-          } : { configured: false },
-          context: {
-            failureType,
-            consecutiveFailures: ts.consecutiveFailures,
-            toolCalls: ts.toolCalls,
-            journal: ts.failureJournal.map(j => `${j.type}:${j.action}`),
+        reporter.reportHang(
+          action,
+          req.startTime ? Date.now() - req.startTime : 0,
+          {
+            error: err,
+            healthSnapshot: ts.healthTracker
+              ? ts.healthTracker.snapshot()
+              : undefined,
+            healthTracker: ts.healthTracker || null,
+            resourceOpts: _resourceOpts(),
+            proxy: proxyPool
+              ? {
+                  configured: true,
+                  type: proxyPool.mode || null,
+                  authConfigured: !!CONFIG.proxy?.username,
+                  error: _proxyErr.proxyError,
+                  tlsError: _proxyErr.proxyTlsError,
+                }
+              : { configured: false },
+            context: {
+              failureType,
+              consecutiveFailures: ts.consecutiveFailures,
+              toolCalls: ts.toolCalls,
+              journal: ts.failureJournal.map((j) => `${j.type}:${j.action}`),
+            },
           },
-        });
+        );
       }
     }
   }
@@ -1247,13 +1532,22 @@ function destroyTab(session, tabId, reason, userId) {
   for (const [listItemId, group] of session.tabGroups) {
     if (group.has(tabId)) {
       const tabState = group.get(tabId);
-      log('warn', 'destroying stuck tab', { tabId, listItemId, toolCalls: tabState.toolCalls, reason: reason || 'unknown' });
+      log('warn', 'destroying stuck tab', {
+        tabId,
+        listItemId,
+        toolCalls: tabState.toolCalls,
+        reason: reason || 'unknown',
+      });
       safePageClose(tabState.page);
       group.delete(tabId);
       if (group.size === 0) session.tabGroups.delete(listItemId);
       refreshActiveTabsGauge();
       if (reason) tabsDestroyedTotal.labels(reason).inc();
-      pluginEvents.emit('tab:destroyed', { userId: userId || null, tabId, reason: reason || 'unknown' });
+      pluginEvents.emit('tab:destroyed', {
+        userId: userId || null,
+        tabId,
+        reason: reason || 'unknown',
+      });
       return true;
     }
   }
@@ -1286,11 +1580,21 @@ async function recycleOldestTab(session, reqId, userId) {
   oldestGroup.delete(oldestTabId);
   if (oldestGroup.size === 0) session.tabGroups.delete(oldestGroupKey);
   const lock = tabLocks.get(oldestTabId);
-  if (lock) { lock.drain(); tabLocks.delete(oldestTabId); }
+  if (lock) {
+    lock.drain();
+    tabLocks.delete(oldestTabId);
+  }
   refreshTabLockQueueDepth();
   tabsRecycledTotal.inc();
-  pluginEvents.emit('tab:recycled', { userId: userId || null, tabId: oldestTabId });
-  log('info', 'tab recycled (limit reached)', { reqId, recycledTabId: oldestTabId, recycledFromGroup: oldestGroupKey });
+  pluginEvents.emit('tab:recycled', {
+    userId: userId || null,
+    tabId: oldestTabId,
+  });
+  log('info', 'tab recycled (limit reached)', {
+    reqId,
+    recycledTabId: oldestTabId,
+    recycledFromGroup: oldestGroupKey,
+  });
   return { recycledTabId: oldestTabId, recycledFromGroup: oldestGroupKey };
 }
 
@@ -1300,7 +1604,11 @@ function destroySession(userId) {
   if (!session) return;
   log('warn', 'destroying dead session', { userId: key });
   sessions.delete(key);
-  closeSession(key, session, { reason: 'destroy_session', clearDownloads: true, clearLocks: true }).catch(() => {});
+  closeSession(key, session, {
+    reason: 'destroy_session',
+    clearDownloads: true,
+    clearLocks: true,
+  }).catch(() => {});
 }
 
 function findTab(session, tabId) {
@@ -1334,12 +1642,27 @@ function createTabState(page) {
 
 async function isGoogleUnavailable(page) {
   if (!page || page.isClosed()) return false;
-  const bodyText = await page.evaluate(() => document.body?.innerText?.slice(0, 600) || '').catch(() => '');
-  return /Unable to connect|502 Bad Gateway or Proxy Error|Camoufox can't establish a connection/.test(bodyText);
+  const bodyText = await page
+    .evaluate(() => document.body?.innerText?.slice(0, 600) || '')
+    .catch(() => '');
+  return /Unable to connect|502 Bad Gateway or Proxy Error|Camoufox can't establish a connection/.test(
+    bodyText,
+  );
 }
 
-async function rotateGoogleTab(userId, sessionKey, tabId, previousTabState, reason, reqId) {
-  if (!previousTabState?.lastRequestedUrl || !isGoogleSearchUrl(previousTabState.lastRequestedUrl)) return null;
+async function rotateGoogleTab(
+  userId,
+  sessionKey,
+  tabId,
+  previousTabState,
+  reason,
+  reqId,
+) {
+  if (
+    !previousTabState?.lastRequestedUrl ||
+    !isGoogleSearchUrl(previousTabState.lastRequestedUrl)
+  )
+    return null;
   if ((previousTabState.googleRetryCount || 0) >= 3) return null;
 
   browserRestartsTotal.labels(reason).inc(); // track rotation events (not a full restart)
@@ -1349,7 +1672,11 @@ async function rotateGoogleTab(userId, sessionKey, tabId, previousTabState, reas
   const key = normalizeUserId(userId);
   const oldSession = sessions.get(key);
   if (oldSession) {
-    await closeSession(key, oldSession, { reason: 'google_rotate_context', clearDownloads: true, clearLocks: true });
+    await closeSession(key, oldSession, {
+      reason: 'google_rotate_context',
+      clearDownloads: true,
+      clearLocks: true,
+    });
   }
   const session = await getSession(userId);
   const group = getTabGroup(session, sessionKey);
@@ -1361,18 +1688,32 @@ async function rotateGoogleTab(userId, sessionKey, tabId, previousTabState, reas
   group.set(tabId, tabState);
   refreshActiveTabsGauge();
 
-  log('warn', 'replaying google search on fresh context (per-context proxy rotation)', {
-    reqId,
-    tabId,
-    retryCount: tabState.googleRetryCount,
-    url: tabState.lastRequestedUrl,
-    proxySession: session.proxySessionId || null,
-  });
+  log(
+    'warn',
+    'replaying google search on fresh context (per-context proxy rotation)',
+    {
+      reqId,
+      tabId,
+      retryCount: tabState.googleRetryCount,
+      url: tabState.lastRequestedUrl,
+      proxySession: session.proxySessionId || null,
+    },
+  );
 
-  await withPageLoadDuration('navigate', () => page.goto('https://www.google.com/', { waitUntil: 'domcontentloaded', timeout: 30000 }));
+  await withPageLoadDuration('navigate', () =>
+    page.goto('https://www.google.com/', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    }),
+  );
   tabState.visitedUrls.add('https://www.google.com/');
   await page.waitForTimeout(1200);
-  await withPageLoadDuration('navigate', () => page.goto(tabState.lastRequestedUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }));
+  await withPageLoadDuration('navigate', () =>
+    page.goto(tabState.lastRequestedUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    }),
+  );
   tabState.visitedUrls.add(tabState.lastRequestedUrl);
   return { session, tabState };
 }
@@ -1398,8 +1739,6 @@ async function withPageLoadDuration(action, fn) {
   }
 }
 
-
-
 async function waitForPageReady(page, options = {}) {
   const {
     timeout = 10000,
@@ -1414,28 +1753,42 @@ async function waitForPageReady(page, options = {}) {
     await page.waitForLoadState('domcontentloaded', { timeout });
 
     if (waitForNetwork) {
-      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
-        log('warn', 'networkidle timeout, continuing');
-      });
+      await page
+        .waitForLoadState('networkidle', { timeout: 5000 })
+        .catch(() => {
+          log('warn', 'networkidle timeout, continuing');
+        });
     }
 
     if (waitForHydration) {
-      const maxIterations = Math.max(1, Math.floor(hydrationTimeoutMs / hydrationPollMs));
-      await page.evaluate(async ({ maxIterations, hydrationPollMs }) => {
-        for (let i = 0; i < maxIterations; i++) {
-          const entries = performance.getEntriesByType('resource');
-          const recentEntries = entries.slice(-5);
-          const netQuiet = recentEntries.every(e => (performance.now() - e.responseEnd) > 400);
+      const maxIterations = Math.max(
+        1,
+        Math.floor(hydrationTimeoutMs / hydrationPollMs),
+      );
+      await page
+        .evaluate(
+          async ({ maxIterations, hydrationPollMs }) => {
+            for (let i = 0; i < maxIterations; i++) {
+              const entries = performance.getEntriesByType('resource');
+              const recentEntries = entries.slice(-5);
+              const netQuiet = recentEntries.every(
+                (e) => performance.now() - e.responseEnd > 400,
+              );
 
-          if (document.readyState === 'complete' && netQuiet) {
-            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-            break;
-          }
-          await new Promise(r => setTimeout(r, hydrationPollMs));
-        }
-      }, { maxIterations, hydrationPollMs }).catch(() => {
-        log('warn', 'hydration wait failed, continuing');
-      });
+              if (document.readyState === 'complete' && netQuiet) {
+                await new Promise((r) =>
+                  requestAnimationFrame(() => requestAnimationFrame(r)),
+                );
+                break;
+              }
+              await new Promise((r) => setTimeout(r, hydrationPollMs));
+            }
+          },
+          { maxIterations, hydrationPollMs },
+        )
+        .catch(() => {
+          log('warn', 'hydration wait failed, continuing');
+        });
     }
 
     if (settleMs > 0) {
@@ -1522,8 +1875,12 @@ async function isGoogleSearchBlocked(page) {
   const url = page.url();
   if (url.includes('google.com/sorry/')) return true;
 
-  const bodyText = await page.evaluate(() => document.body?.innerText?.slice(0, 600) || '').catch(() => '');
-  return /Our systems have detected unusual traffic|About this page|If you're having trouble accessing Google Search|SG_REL/.test(bodyText);
+  const bodyText = await page
+    .evaluate(() => document.body?.innerText?.slice(0, 600) || '')
+    .catch(() => '');
+  return /Our systems have detected unusual traffic|About this page|If you're having trouble accessing Google Search|SG_REL/.test(
+    bodyText,
+  );
 }
 
 // --- Google SERP: combined extraction (refs + snapshot in one DOM pass) ---
@@ -1534,13 +1891,22 @@ async function extractGoogleSerp(page) {
 
   const start = Date.now();
 
-  const alreadyRendered = await page.evaluate(() => !!document.querySelector('#rso h3, #search h3, #rso [data-snhf]')).catch(() => false);
+  const alreadyRendered = await page
+    .evaluate(
+      () => !!document.querySelector('#rso h3, #search h3, #rso [data-snhf]'),
+    )
+    .catch(() => false);
   if (!alreadyRendered) {
     try {
-      await page.waitForSelector('#rso h3, #search h3, #rso [data-snhf]', { timeout: 5000 });
+      await page.waitForSelector('#rso h3, #search h3, #rso [data-snhf]', {
+        timeout: 5000,
+      });
     } catch {
       try {
-        await page.waitForSelector('#rso a[href]:not([href^="/search"]), #search a[href]:not([href^="/search"])', { timeout: 2000 });
+        await page.waitForSelector(
+          '#rso a[href]:not([href^="/search"]), #search a[href]:not([href^="/search"])',
+          { timeout: 2000 },
+        );
       } catch {}
     }
   }
@@ -1558,19 +1924,30 @@ async function extractGoogleSerp(page) {
 
     snapshot.push('- heading "' + document.title.replace(/"/g, '\\"') + '"');
 
-    const searchInput = document.querySelector('input[name="q"], textarea[name="q"]');
+    const searchInput = document.querySelector(
+      'input[name="q"], textarea[name="q"]',
+    );
     if (searchInput) {
       const name = 'Search';
       const refId = addRef('searchbox', name);
-      snapshot.push('- searchbox "' + name + '" [' + refId + ']: ' + (searchInput.value || ''));
+      snapshot.push(
+        '- searchbox "' +
+          name +
+          '" [' +
+          refId +
+          ']: ' +
+          (searchInput.value || ''),
+      );
     }
 
-    const navContainer = document.querySelector('div[role="navigation"], div[role="list"]');
+    const navContainer = document.querySelector(
+      'div[role="navigation"], div[role="list"]',
+    );
     if (navContainer) {
       const navLinks = navContainer.querySelectorAll('a');
       if (navLinks.length > 0) {
         snapshot.push('- navigation:');
-        navLinks.forEach(a => {
+        navLinks.forEach((a) => {
           const text = (a.textContent || '').trim();
           if (!text || text.length < 1) return;
           if (/^\d+$/.test(text) && parseInt(text) < 50) return;
@@ -1580,7 +1957,8 @@ async function extractGoogleSerp(page) {
       }
     }
 
-    const resultContainer = document.querySelector('#rso') || document.querySelector('#search');
+    const resultContainer =
+      document.querySelector('#rso') || document.querySelector('#search');
     if (resultContainer) {
       const resultBlocks = resultContainer.querySelectorAll(':scope > div');
       for (const block of resultBlocks) {
@@ -1594,13 +1972,23 @@ async function extractGoogleSerp(page) {
           const displayUrl = cite ? cite.textContent.trim() : '';
 
           let snippet = '';
-          for (const sel of ['[data-sncf]', '[data-content-feature="1"]', '.VwiC3b', 'div[style*="-webkit-line-clamp"]', 'span.aCOpRe']) {
+          for (const sel of [
+            '[data-sncf]',
+            '[data-content-feature="1"]',
+            '.VwiC3b',
+            'div[style*="-webkit-line-clamp"]',
+            'span.aCOpRe',
+          ]) {
             const el = block.querySelector(sel);
-            if (el) { snippet = el.textContent.trim().slice(0, 300); break; }
+            if (el) {
+              snippet = el.textContent.trim().slice(0, 300);
+              break;
+            }
           }
           if (!snippet) {
             const allText = block.textContent.trim().replace(/\s+/g, ' ');
-            const titleLen = title.length + (displayUrl ? displayUrl.length : 0);
+            const titleLen =
+              title.length + (displayUrl ? displayUrl.length : 0);
             if (allText.length > titleLen + 20) {
               snippet = allText.slice(titleLen).trim().slice(0, 300);
             }
@@ -1612,14 +2000,22 @@ async function extractGoogleSerp(page) {
           if (displayUrl) snapshot.push('  - cite: ' + displayUrl);
           if (snippet) snapshot.push('  - text: ' + snippet);
         } else {
-          const blockLinks = block.querySelectorAll('a[href^="http"]:not([href*="google.com/search"])');
+          const blockLinks = block.querySelectorAll(
+            'a[href^="http"]:not([href*="google.com/search"])',
+          );
           if (blockLinks.length > 0) {
-            const blockText = block.textContent.trim().replace(/\s+/g, ' ').slice(0, 200);
+            const blockText = block.textContent
+              .trim()
+              .replace(/\s+/g, ' ')
+              .slice(0, 200);
             if (blockText.length > 10) {
               snapshot.push('- group:');
               snapshot.push('  - text: ' + blockText);
-              blockLinks.forEach(a => {
-                const linkText = (a.textContent || '').trim().replace(/"/g, '\\"').slice(0, 100);
+              blockLinks.forEach((a) => {
+                const linkText = (a.textContent || '')
+                  .trim()
+                  .replace(/"/g, '\\"')
+                  .slice(0, 100);
                 if (linkText.length > 2) {
                   const refId = addRef('link', linkText);
                   snapshot.push('  - link "' + linkText + '" [' + refId + ']:');
@@ -1632,11 +2028,16 @@ async function extractGoogleSerp(page) {
       }
     }
 
-    const paaItems = document.querySelectorAll('[jsname="Cpkphb"], div.related-question-pair');
+    const paaItems = document.querySelectorAll(
+      '[jsname="Cpkphb"], div.related-question-pair',
+    );
     if (paaItems.length > 0) {
       snapshot.push('- heading "People also ask"');
-      paaItems.forEach(q => {
-        const text = (q.textContent || '').trim().replace(/"/g, '\\"').slice(0, 150);
+      paaItems.forEach((q) => {
+        const text = (q.textContent || '')
+          .trim()
+          .replace(/"/g, '\\"')
+          .slice(0, 150);
         if (text) {
           const refId = addRef('button', text);
           snapshot.push('  - button "' + text + '" [' + refId + ']');
@@ -1644,7 +2045,9 @@ async function extractGoogleSerp(page) {
       });
     }
 
-    const nextLink = document.querySelector('#botstuff a[aria-label="Next page"], td.d6cvqb a, a#pnnext');
+    const nextLink = document.querySelector(
+      '#botstuff a[aria-label="Next page"], td.d6cvqb a, a#pnnext',
+    );
     if (nextLink) {
       const refId = addRef('link', 'Next');
       snapshot.push('- navigation "pagination":');
@@ -1662,7 +2065,10 @@ async function extractGoogleSerp(page) {
     refs.set(el.id, { role: el.role, name: el.name, nth });
   }
 
-  log('info', 'extractGoogleSerp', { elapsed: Date.now() - start, refs: refs.size });
+  log('info', 'extractGoogleSerp', {
+    elapsed: Date.now() - start,
+    refs: refs.size,
+  });
   return { refs, snapshot: extracted.snapshot };
 }
 
@@ -1688,20 +2094,25 @@ async function buildRefs(page) {
   // Hard total timeout on the entire buildRefs operation
   let timerId;
   const timeoutPromise = new Promise((_, reject) => {
-    timerId = setTimeout(() => reject(new Error('buildRefs_timeout')), BUILDREFS_TIMEOUT_MS);
+    timerId = setTimeout(
+      () => reject(new Error('buildRefs_timeout')),
+      BUILDREFS_TIMEOUT_MS,
+    );
   });
 
   try {
     const result = await Promise.race([
       _buildRefsInner(page, refs, start),
-      timeoutPromise
+      timeoutPromise,
     ]);
     clearTimeout(timerId);
     return result;
   } catch (err) {
     clearTimeout(timerId);
     if (err.message === 'buildRefs_timeout') {
-      log('warn', 'buildRefs: total timeout exceeded', { elapsed: Date.now() - start });
+      log('warn', 'buildRefs: total timeout exceeded', {
+        elapsed: Date.now() - start,
+      });
       return refs;
     }
     throw err;
@@ -1726,15 +2137,21 @@ async function _buildRefsInner(page, refs, start) {
 
   let ariaYaml;
   try {
-    ariaYaml = await page.locator('body').ariaSnapshot({ timeout: Math.min(remaining - 1000, 5000) });
+    ariaYaml = await page
+      .locator('body')
+      .ariaSnapshot({ timeout: Math.min(remaining - 1000, 5000) });
   } catch (err) {
     log('warn', 'ariaSnapshot failed, retrying');
     const retryBudget = BUILDREFS_TIMEOUT_MS - (Date.now() - start);
     if (retryBudget < 2000) return refs;
     try {
-      ariaYaml = await page.locator('body').ariaSnapshot({ timeout: Math.min(retryBudget - 500, 5000) });
+      ariaYaml = await page
+        .locator('body')
+        .ariaSnapshot({ timeout: Math.min(retryBudget - 500, 5000) });
     } catch (retryErr) {
-      log('warn', 'ariaSnapshot retry failed, returning empty refs', { error: retryErr.message });
+      log('warn', 'ariaSnapshot retry failed, returning empty refs', {
+        error: retryErr.message,
+      });
       return refs;
     }
   }
@@ -1760,7 +2177,7 @@ async function _buildRefsInner(page, refs, start) {
 
       if (normalizedRole === 'combobox') continue;
 
-      if (name && SKIP_PATTERNS.some(p => p.test(name))) continue;
+      if (name && SKIP_PATTERNS.some((p) => p.test(name))) continue;
 
       if (INTERACTIVE_ROLES.includes(normalizedRole)) {
         const normalizedName = name || '';
@@ -1827,14 +2244,21 @@ async function refreshTabRefs(tabState, options = {}) {
     const timeoutLabel = `${reason}_refs_timeout`;
     refreshedRefs = await Promise.race([
       refreshPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error(timeoutLabel)), timeoutMs)),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(timeoutLabel)), timeoutMs),
+      ),
     ]);
   } else {
     refreshedRefs = await refreshPromise;
   }
 
   const afterUrl = tabState.page?.url?.() || beforeUrl;
-  if (preserveExistingOnEmpty && refreshedRefs.size === 0 && existingRefs.size > 0 && beforeUrl === afterUrl) {
+  if (
+    preserveExistingOnEmpty &&
+    refreshedRefs.size === 0 &&
+    existingRefs.size > 0 &&
+    beforeUrl === afterUrl
+  ) {
     log('warn', 'preserving previous refs after empty rebuild', {
       reason,
       url: afterUrl,
@@ -1845,7 +2269,6 @@ async function refreshTabRefs(tabState, options = {}) {
 
   return refreshedRefs;
 }
-
 
 /**
  * @openapi
@@ -1890,7 +2313,9 @@ async function refreshTabRefs(tabState, options = {}) {
  */
 app.get('/health', (req, res) => {
   if (healthState.isRecovering) {
-    return res.status(503).json({ ok: false, engine: 'camoufox', recovering: true });
+    return res
+      .status(503)
+      .json({ ok: false, engine: 'camoufox', recovering: true });
   }
   const running = browser !== null && (browser.isConnected?.() ?? false);
   if (proxyPool?.canRotateSessions && !running) {
@@ -1945,7 +2370,12 @@ app.get('/health', (req, res) => {
 app.get('/metrics', async (_req, res) => {
   const reg = getRegister();
   if (!reg) {
-    res.status(404).json({ error: 'Prometheus metrics disabled. Set PROMETHEUS_ENABLED=1 to enable.' });
+    res
+      .status(404)
+      .json({
+        error:
+          'Prometheus metrics disabled. Set PROMETHEUS_ENABLED=1 to enable.',
+      });
     return;
   }
   res.set('Content-Type', reg.contentType);
@@ -2023,48 +2453,73 @@ app.post('/tabs', async (req, res) => {
       return res.status(400).json({ error: 'userId and sessionKey required' });
     }
 
-    const result = await withTimeout((async () => {
-      const existing = sessions.get(normalizeUserId(userId));
-      if (trace && existing && !existing.tracePath) {
-        throw Object.assign(
-          new Error('trace must be set on session creation. DELETE /sessions/:userId first to restart with tracing.'),
-          { statusCode: 409 },
-        );
-      }
-      const session = await getSession(userId, { trace: !!trace });
-
-      let totalTabs = 0;
-      for (const group of session.tabGroups.values()) totalTabs += group.size;
-
-      // Recycle oldest tab when limits are reached instead of rejecting
-      if (totalTabs >= MAX_TABS_PER_SESSION || getTotalTabCount() >= MAX_TABS_GLOBAL) {
-        const recycled = await recycleOldestTab(session, req.reqId, userId);
-        if (!recycled) {
-          throw Object.assign(new Error('Maximum tabs per session reached'), { statusCode: 429 });
+    const result = await withTimeout(
+      (async () => {
+        const existing = sessions.get(normalizeUserId(userId));
+        if (trace && existing && !existing.tracePath) {
+          throw Object.assign(
+            new Error(
+              'trace must be set on session creation. DELETE /sessions/:userId first to restart with tracing.',
+            ),
+            { statusCode: 409 },
+          );
         }
-      }
+        const session = await getSession(userId, { trace: !!trace });
 
-      const group = getTabGroup(session, resolvedSessionKey);
+        let totalTabs = 0;
+        for (const group of session.tabGroups.values()) totalTabs += group.size;
 
-      const page = await session.context.newPage();
-      const tabId = fly.makeTabId();
-      const tabState = createTabState(page);
-      attachDownloadListener(tabState, tabId, log, pluginEvents, userId);
-      group.set(tabId, tabState);
-      refreshActiveTabsGauge();
+        // Recycle oldest tab when limits are reached instead of rejecting
+        if (
+          totalTabs >= MAX_TABS_PER_SESSION ||
+          getTotalTabCount() >= MAX_TABS_GLOBAL
+        ) {
+          const recycled = await recycleOldestTab(session, req.reqId, userId);
+          if (!recycled) {
+            throw Object.assign(new Error('Maximum tabs per session reached'), {
+              statusCode: 429,
+            });
+          }
+        }
 
-      if (url) {
-        const urlErr = validateUrl(url);
-        if (urlErr) throw Object.assign(new Error(urlErr), { statusCode: 400 });
-        tabState.lastRequestedUrl = url;
-        await withPageLoadDuration('open_url', () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }));
-        tabState.visitedUrls.add(url);
-      }
+        const group = getTabGroup(session, resolvedSessionKey);
 
-      pluginEvents.emit('tab:created', { userId, tabId, page, url: page.url() });
-      log('info', 'tab created', { reqId: req.reqId, tabId, userId, sessionKey: resolvedSessionKey, url: page.url() });
-      return { tabId, url: page.url() };
-    })(), requestTimeoutMs(), 'tab create');
+        const page = await session.context.newPage();
+        const tabId = fly.makeTabId();
+        const tabState = createTabState(page);
+        attachDownloadListener(tabState, tabId, log, pluginEvents, userId);
+        group.set(tabId, tabState);
+        refreshActiveTabsGauge();
+
+        if (url) {
+          const urlErr = validateUrl(url);
+          if (urlErr)
+            throw Object.assign(new Error(urlErr), { statusCode: 400 });
+          tabState.lastRequestedUrl = url;
+          await withPageLoadDuration('open_url', () =>
+            page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }),
+          );
+          tabState.visitedUrls.add(url);
+        }
+
+        pluginEvents.emit('tab:created', {
+          userId,
+          tabId,
+          page,
+          url: page.url(),
+        });
+        log('info', 'tab created', {
+          reqId: req.reqId,
+          tabId,
+          userId,
+          sessionKey: resolvedSessionKey,
+          url: page.url(),
+        });
+        return { tabId, url: page.url() };
+      })(),
+      requestTimeoutMs(),
+      'tab create',
+    );
 
     res.json(result);
   } catch (err) {
@@ -2136,139 +2591,244 @@ app.post('/tabs/:tabId/navigate', async (req, res) => {
     const { userId, url, macro, query, sessionKey, listItemId } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
 
-    const result = await withUserLimit(userId, () => withTimeout((async () => {
-      await ensureBrowser();
-      const resolvedSessionKey = sessionKey || listItemId || 'default';
-      let session = sessions.get(normalizeUserId(userId));
-      let found = session && findTab(session, tabId);
+    const result = await withUserLimit(userId, () =>
+      withTimeout(
+        (async () => {
+          await ensureBrowser();
+          const resolvedSessionKey = sessionKey || listItemId || 'default';
+          let session = sessions.get(normalizeUserId(userId));
+          let found = session && findTab(session, tabId);
 
-      let tabState;
-      if (!found) {
-        session = await getSession(userId);
-        let sessionTabs = 0;
-        for (const g of session.tabGroups.values()) sessionTabs += g.size;
-        if (getTotalTabCount() >= MAX_TABS_GLOBAL || sessionTabs >= MAX_TABS_PER_SESSION) {
-          // Recycle oldest tab to free a slot, then create new page
-          const recycled = await recycleOldestTab(session, req.reqId, userId);
-          if (!recycled) {
-            throw new Error('Maximum tabs per session reached');
+          let tabState;
+          if (!found) {
+            session = await getSession(userId);
+            let sessionTabs = 0;
+            for (const g of session.tabGroups.values()) sessionTabs += g.size;
+            if (
+              getTotalTabCount() >= MAX_TABS_GLOBAL ||
+              sessionTabs >= MAX_TABS_PER_SESSION
+            ) {
+              // Recycle oldest tab to free a slot, then create new page
+              const recycled = await recycleOldestTab(
+                session,
+                req.reqId,
+                userId,
+              );
+              if (!recycled) {
+                throw new Error('Maximum tabs per session reached');
+              }
+            }
+            {
+              const page = await session.context.newPage();
+              tabState = createTabState(page);
+              attachDownloadListener(
+                tabState,
+                tabId,
+                log,
+                pluginEvents,
+                userId,
+              );
+              const group = getTabGroup(session, resolvedSessionKey);
+              group.set(tabId, tabState);
+              refreshActiveTabsGauge();
+              log('info', 'tab auto-created on navigate', {
+                reqId: req.reqId,
+                tabId,
+                userId,
+              });
+            }
+          } else {
+            tabState = found.tabState;
           }
-        }
-        {
-          const page = await session.context.newPage();
-          tabState = createTabState(page);
-          attachDownloadListener(tabState, tabId, log, pluginEvents, userId);
-          const group = getTabGroup(session, resolvedSessionKey);
-          group.set(tabId, tabState);
-          refreshActiveTabsGauge();
-          log('info', 'tab auto-created on navigate', { reqId: req.reqId, tabId, userId });
-        }
-      } else {
-        tabState = found.tabState;
-      }
-      tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+          tabState.toolCalls++;
+          tabState.consecutiveTimeouts = 0;
+          tabState.consecutiveFailures = 0;
 
-      let targetUrl = url;
-      if (macro && macro !== '__NO__' && macro !== 'none' && macro !== 'null') {
-        targetUrl = expandMacro(macro, query) || url;
-      }
-
-      if (!targetUrl) throw new Error('url or macro required');
-
-      const urlErr = validateUrl(targetUrl);
-      if (urlErr) throw new Error(urlErr);
-
-      return await withTabLock(tabId, async () => {
-        const currentSessionKey = found?.listItemId || resolvedSessionKey;
-        const isGoogleSearch = isGoogleSearchUrl(targetUrl);
-
-        const navigateCurrentPage = async () => {
-          tabState.lastRequestedUrl = targetUrl;
-          const ac = tabState.navigateAbort = new AbortController();
-          const gotoP = withPageLoadDuration('navigate', () => tabState.page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }));
-          try {
-            await Promise.race([
-              gotoP,
-              new Promise((_, reject) => ac.signal.addEventListener('abort', () => reject(new Error('Navigation aborted: tab deleted')), { once: true })),
-            ]);
-            tabState.visitedUrls.add(targetUrl);
-            tabState.lastSnapshot = null;
-          } catch (err) {
-            gotoP.catch(() => {}); // suppress unhandled rejection from still-pending goto
-            throw err;
-          } finally {
-            tabState.navigateAbort = null;
+          let targetUrl = url;
+          if (
+            macro &&
+            macro !== '__NO__' &&
+            macro !== 'none' &&
+            macro !== 'null'
+          ) {
+            targetUrl = expandMacro(macro, query) || url;
           }
-        };
 
-        const prewarmGoogleHome = async () => {
-          if (!isGoogleSearch || tabState.visitedUrls.has('https://www.google.com/')) return;
-          await withPageLoadDuration('navigate', () => tabState.page.goto('https://www.google.com/', { waitUntil: 'domcontentloaded', timeout: 30000 }));
-          tabState.visitedUrls.add('https://www.google.com/');
-          await tabState.page.waitForTimeout(1200);
-        };
+          if (!targetUrl) throw new Error('url or macro required');
 
-        const recreateTabOnFreshContext = async () => {
-          const previousRetryCount = tabState.googleRetryCount || 0;
-          browserRestartsTotal.labels('google_search_block').inc();
-          // Rotate at context level -- destroy this user's session and create
-          // a fresh one with a new proxy session. Does NOT restart the browser.
-          const key = normalizeUserId(userId);
-          const oldSession = sessions.get(key);
-          if (oldSession) {
-            await closeSession(key, oldSession, { reason: 'google_blocked_context_rotate', clearDownloads: true, clearLocks: true });
-          }
-          session = await getSession(userId);
-          const group = getTabGroup(session, currentSessionKey);
-          const page = await session.context.newPage();
-          tabState = createTabState(page);
-          tabState.googleRetryCount = previousRetryCount + 1;
-          attachDownloadListener(tabState, tabId, log, pluginEvents, userId);
-          group.set(tabId, tabState);
-          refreshActiveTabsGauge();
-        };
+          const urlErr = validateUrl(targetUrl);
+          if (urlErr) throw new Error(urlErr);
 
-        if (isGoogleSearch && proxyPool?.canRotateSessions) {
-          await prewarmGoogleHome();
-        }
-
-        await navigateCurrentPage();
-
-        if (isGoogleSearch && proxyPool?.canRotateSessions && await isGoogleSearchBlocked(tabState.page)) {
-          log('warn', 'google search blocked, rotating browser proxy session', {
-            reqId: req.reqId,
+          return await withTabLock(
             tabId,
-            url: tabState.page.url(),
-            proxySession: browserLaunchProxy?.sessionId || null,
-          });
-          await recreateTabOnFreshContext();
-          await prewarmGoogleHome();
-          await navigateCurrentPage();
-        }
+            async () => {
+              const currentSessionKey = found?.listItemId || resolvedSessionKey;
+              const isGoogleSearch = isGoogleSearchUrl(targetUrl);
 
-        // For Google SERP: skip eager ref building during navigate.
-        // Results render asynchronously after DOMContentLoaded -- the snapshot
-        // call will wait for and extract them.
-        if (isGoogleSerp(tabState.page.url())) {
-          tabState.refs = new Map();
-          return { ok: true, tabId, url: tabState.page.url(), refsAvailable: false, googleSerp: true };
-        }
+              const navigateCurrentPage = async () => {
+                tabState.lastRequestedUrl = targetUrl;
+                const ac = (tabState.navigateAbort = new AbortController());
+                const gotoP = withPageLoadDuration('navigate', () =>
+                  tabState.page.goto(targetUrl, {
+                    waitUntil: 'domcontentloaded',
+                    timeout: 30000,
+                  }),
+                );
+                try {
+                  await Promise.race([
+                    gotoP,
+                    new Promise((_, reject) =>
+                      ac.signal.addEventListener(
+                        'abort',
+                        () =>
+                          reject(new Error('Navigation aborted: tab deleted')),
+                        { once: true },
+                      ),
+                    ),
+                  ]);
+                  tabState.visitedUrls.add(targetUrl);
+                  tabState.lastSnapshot = null;
+                } catch (err) {
+                  gotoP.catch(() => {}); // suppress unhandled rejection from still-pending goto
+                  throw err;
+                } finally {
+                  tabState.navigateAbort = null;
+                }
+              };
 
-        if (isGoogleSearch && await isGoogleSearchBlocked(tabState.page)) {
-          return { ok: false, tabId, url: tabState.page.url(), refsAvailable: false, googleBlocked: true };
-        }
+              const prewarmGoogleHome = async () => {
+                if (
+                  !isGoogleSearch ||
+                  tabState.visitedUrls.has('https://www.google.com/')
+                )
+                  return;
+                await withPageLoadDuration('navigate', () =>
+                  tabState.page.goto('https://www.google.com/', {
+                    waitUntil: 'domcontentloaded',
+                    timeout: 30000,
+                  }),
+                );
+                tabState.visitedUrls.add('https://www.google.com/');
+                await tabState.page.waitForTimeout(1200);
+              };
 
-        tabState.refs = await buildRefs(tabState.page);
-        return { ok: true, tabId, url: tabState.page.url(), refsAvailable: tabState.refs.size > 0 };
-      }, requestTimeoutMs());
-    })(), requestTimeoutMs(), 'navigate'));
+              const recreateTabOnFreshContext = async () => {
+                const previousRetryCount = tabState.googleRetryCount || 0;
+                browserRestartsTotal.labels('google_search_block').inc();
+                // Rotate at context level -- destroy this user's session and create
+                // a fresh one with a new proxy session. Does NOT restart the browser.
+                const key = normalizeUserId(userId);
+                const oldSession = sessions.get(key);
+                if (oldSession) {
+                  await closeSession(key, oldSession, {
+                    reason: 'google_blocked_context_rotate',
+                    clearDownloads: true,
+                    clearLocks: true,
+                  });
+                }
+                session = await getSession(userId);
+                const group = getTabGroup(session, currentSessionKey);
+                const page = await session.context.newPage();
+                tabState = createTabState(page);
+                tabState.googleRetryCount = previousRetryCount + 1;
+                attachDownloadListener(
+                  tabState,
+                  tabId,
+                  log,
+                  pluginEvents,
+                  userId,
+                );
+                group.set(tabId, tabState);
+                refreshActiveTabsGauge();
+              };
+
+              if (isGoogleSearch && proxyPool?.canRotateSessions) {
+                await prewarmGoogleHome();
+              }
+
+              await navigateCurrentPage();
+
+              if (
+                isGoogleSearch &&
+                proxyPool?.canRotateSessions &&
+                (await isGoogleSearchBlocked(tabState.page))
+              ) {
+                log(
+                  'warn',
+                  'google search blocked, rotating browser proxy session',
+                  {
+                    reqId: req.reqId,
+                    tabId,
+                    url: tabState.page.url(),
+                    proxySession: browserLaunchProxy?.sessionId || null,
+                  },
+                );
+                await recreateTabOnFreshContext();
+                await prewarmGoogleHome();
+                await navigateCurrentPage();
+              }
+
+              // For Google SERP: skip eager ref building during navigate.
+              // Results render asynchronously after DOMContentLoaded -- the snapshot
+              // call will wait for and extract them.
+              if (isGoogleSerp(tabState.page.url())) {
+                tabState.refs = new Map();
+                return {
+                  ok: true,
+                  tabId,
+                  url: tabState.page.url(),
+                  refsAvailable: false,
+                  googleSerp: true,
+                };
+              }
+
+              if (
+                isGoogleSearch &&
+                (await isGoogleSearchBlocked(tabState.page))
+              ) {
+                return {
+                  ok: false,
+                  tabId,
+                  url: tabState.page.url(),
+                  refsAvailable: false,
+                  googleBlocked: true,
+                };
+              }
+
+              tabState.refs = await buildRefs(tabState.page);
+              return {
+                ok: true,
+                tabId,
+                url: tabState.page.url(),
+                refsAvailable: tabState.refs.size > 0,
+              };
+            },
+            requestTimeoutMs(),
+          );
+        })(),
+        requestTimeoutMs(),
+        'navigate',
+      ),
+    );
 
     log('info', 'navigated', { reqId: req.reqId, tabId, url: result.url });
-    pluginEvents.emit('tab:navigated', { userId: req.body.userId, tabId, url: result.url, prevUrl: null });
+    pluginEvents.emit('tab:navigated', {
+      userId: req.body.userId,
+      tabId,
+      url: result.url,
+      prevUrl: null,
+    });
     res.json(result);
   } catch (err) {
-    log('error', 'navigate failed', { reqId: req.reqId, tabId, error: err.message });
-    const is400 = err.message && (err.message.startsWith('Blocked URL scheme') || err.message === 'url or macro required');
+    log('error', 'navigate failed', {
+      reqId: req.reqId,
+      tabId,
+      error: err.message,
+    });
+    const is400 =
+      err.message &&
+      (err.message.startsWith('Blocked URL scheme') ||
+        err.message === 'url or macro required');
     if (is400) {
       return res.status(400).json({ error: safeError(err) });
     }
@@ -2351,107 +2911,13 @@ app.get('/tabs/:tabId/snapshot', async (req, res) => {
     if (!found) return res.status(404).json({ error: 'Tab not found' });
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     // Cached chunk retrieval for offset>0 requests
     if (offset > 0 && tabState.lastSnapshot) {
       const win = windowSnapshot(tabState.lastSnapshot, offset);
-      const response = { url: tabState.page.url(), snapshot: win.text, refsCount: tabState.refs.size, truncated: win.truncated, totalChars: win.totalChars, hasMore: win.hasMore, nextOffset: win.nextOffset };
-      if (req.query.includeScreenshot === 'true') {
-        const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-        response.screenshot = { data: pngBuffer.toString('base64'), mimeType: 'image/png' };
-      }
-      log('info', 'snapshot (cached offset)', { reqId: req.reqId, tabId: req.params.tabId, offset, totalChars: win.totalChars });
-      return res.json(response);
-    }
-
-    const result = await withUserLimit(userId, () => withTimeout((async () => {
-      if (proxyPool?.canRotateSessions && isGoogleSearchUrl(tabState.lastRequestedUrl || '')) {
-        const blocked = await isGoogleSearchBlocked(tabState.page);
-        const unavailable = !blocked && await isGoogleUnavailable(tabState.page);
-        if (blocked || unavailable) {
-          const rotated = await rotateGoogleTab(userId, found.listItemId, req.params.tabId, tabState, blocked ? 'google_search_block_snapshot' : 'google_search_unavailable_snapshot', req.reqId);
-          if (rotated) {
-            tabState.page = rotated.tabState.page;
-            tabState.refs = rotated.tabState.refs;
-            tabState.visitedUrls = rotated.tabState.visitedUrls;
-            tabState.downloads = rotated.tabState.downloads;
-            tabState.toolCalls = rotated.tabState.toolCalls;
-            tabState.consecutiveTimeouts = rotated.tabState.consecutiveTimeouts;
-            tabState.lastSnapshot = rotated.tabState.lastSnapshot;
-            tabState.lastRequestedUrl = rotated.tabState.lastRequestedUrl;
-            tabState.googleRetryCount = rotated.tabState.googleRetryCount;
-          }
-        }
-      }
-
-      const pageUrl = tabState.page.url();
-
-      // Google SERP fast path -- DOM extraction instead of ariaSnapshot
-      if (isGoogleSerp(pageUrl)) {
-        const { refs: googleRefs, snapshot: googleSnapshot } = await extractGoogleSerp(tabState.page);
-        tabState.refs = googleRefs;
-        tabState.lastSnapshot = googleSnapshot;
-        snapshotBytes.labels('google_serp').observe(Buffer.byteLength(googleSnapshot, 'utf8'));
-        const annotatedYaml = googleSnapshot;
-        const win = windowSnapshot(annotatedYaml, 0);
-        const response = {
-          url: pageUrl,
-          snapshot: win.text,
-          refsCount: tabState.refs.size,
-          truncated: win.truncated,
-          totalChars: win.totalChars,
-          hasMore: win.hasMore,
-          nextOffset: win.nextOffset,
-        };
-        if (req.query.includeScreenshot === 'true') {
-          const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-          response.screenshot = { data: pngBuffer.toString('base64'), mimeType: 'image/png' };
-        }
-        return response;
-      }
-
-      tabState.refs = await refreshTabRefs(tabState, { reason: 'snapshot' });
-      const ariaYaml = await getAriaSnapshot(tabState.page);
-
-      let annotatedYaml = ariaYaml || '';
-      if (annotatedYaml && tabState.refs.size > 0) {
-        const refsByKey = new Map();
-        for (const [refId, info] of tabState.refs) {
-          const key = `${info.role}:${info.name}:${info.nth}`;
-          refsByKey.set(key, refId);
-        }
-
-        const annotationCounts = new Map();
-        const lines = annotatedYaml.split('\n');
-
-        annotatedYaml = lines.map(line => {
-          const match = line.match(/^(\s*-\s+)(\w+)(\s+"([^"]*)")?(.*)$/);
-          if (match) {
-            const [, prefix, role, nameMatch, name, suffix] = match;
-            const normalizedRole = role.toLowerCase();
-            if (normalizedRole === 'combobox') return line;
-            if (name && SKIP_PATTERNS.some(p => p.test(name))) return line;
-            if (INTERACTIVE_ROLES.includes(normalizedRole)) {
-              const normalizedName = name || '';
-              const countKey = `${normalizedRole}:${normalizedName}`;
-              const nth = annotationCounts.get(countKey) || 0;
-              annotationCounts.set(countKey, nth + 1);
-              const key = `${normalizedRole}:${normalizedName}:${nth}`;
-              const refId = refsByKey.get(key);
-              if (refId) {
-                return `${prefix}${role}${nameMatch || ''} [${refId}]${suffix}`;
-              }
-            }
-          }
-          return line;
-        }).join('\n');
-      }
-
-      tabState.lastSnapshot = annotatedYaml;
-      if (annotatedYaml) snapshotBytes.labels('full').observe(Buffer.byteLength(annotatedYaml, 'utf8'));
-      const win = windowSnapshot(annotatedYaml, 0);
-
       const response = {
         url: tabState.page.url(),
         snapshot: win.text,
@@ -2461,20 +2927,185 @@ app.get('/tabs/:tabId/snapshot', async (req, res) => {
         hasMore: win.hasMore,
         nextOffset: win.nextOffset,
       };
-
       if (req.query.includeScreenshot === 'true') {
         const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-        response.screenshot = { data: pngBuffer.toString('base64'), mimeType: 'image/png' };
+        response.screenshot = {
+          data: pngBuffer.toString('base64'),
+          mimeType: 'image/png',
+        };
       }
+      log('info', 'snapshot (cached offset)', {
+        reqId: req.reqId,
+        tabId: req.params.tabId,
+        offset,
+        totalChars: win.totalChars,
+      });
+      return res.json(response);
+    }
 
-      return response;
-    })(), requestTimeoutMs(), 'snapshot'));
+    const result = await withUserLimit(userId, () =>
+      withTimeout(
+        (async () => {
+          if (
+            proxyPool?.canRotateSessions &&
+            isGoogleSearchUrl(tabState.lastRequestedUrl || '')
+          ) {
+            const blocked = await isGoogleSearchBlocked(tabState.page);
+            const unavailable =
+              !blocked && (await isGoogleUnavailable(tabState.page));
+            if (blocked || unavailable) {
+              const rotated = await rotateGoogleTab(
+                userId,
+                found.listItemId,
+                req.params.tabId,
+                tabState,
+                blocked
+                  ? 'google_search_block_snapshot'
+                  : 'google_search_unavailable_snapshot',
+                req.reqId,
+              );
+              if (rotated) {
+                tabState.page = rotated.tabState.page;
+                tabState.refs = rotated.tabState.refs;
+                tabState.visitedUrls = rotated.tabState.visitedUrls;
+                tabState.downloads = rotated.tabState.downloads;
+                tabState.toolCalls = rotated.tabState.toolCalls;
+                tabState.consecutiveTimeouts =
+                  rotated.tabState.consecutiveTimeouts;
+                tabState.lastSnapshot = rotated.tabState.lastSnapshot;
+                tabState.lastRequestedUrl = rotated.tabState.lastRequestedUrl;
+                tabState.googleRetryCount = rotated.tabState.googleRetryCount;
+              }
+            }
+          }
 
-    pluginEvents.emit('tab:snapshot', { userId: req.query.userId, tabId: req.params.tabId, snapshot: result.snapshot });
-    log('info', 'snapshot', { reqId: req.reqId, tabId: req.params.tabId, url: result.url, snapshotLen: result.snapshot?.length, refsCount: result.refsCount, hasScreenshot: !!result.screenshot, truncated: result.truncated });
+          const pageUrl = tabState.page.url();
+
+          // Google SERP fast path -- DOM extraction instead of ariaSnapshot
+          if (isGoogleSerp(pageUrl)) {
+            const { refs: googleRefs, snapshot: googleSnapshot } =
+              await extractGoogleSerp(tabState.page);
+            tabState.refs = googleRefs;
+            tabState.lastSnapshot = googleSnapshot;
+            snapshotBytes
+              .labels('google_serp')
+              .observe(Buffer.byteLength(googleSnapshot, 'utf8'));
+            const annotatedYaml = googleSnapshot;
+            const win = windowSnapshot(annotatedYaml, 0);
+            const response = {
+              url: pageUrl,
+              snapshot: win.text,
+              refsCount: tabState.refs.size,
+              truncated: win.truncated,
+              totalChars: win.totalChars,
+              hasMore: win.hasMore,
+              nextOffset: win.nextOffset,
+            };
+            if (req.query.includeScreenshot === 'true') {
+              const pngBuffer = await tabState.page.screenshot({ type: 'png' });
+              response.screenshot = {
+                data: pngBuffer.toString('base64'),
+                mimeType: 'image/png',
+              };
+            }
+            return response;
+          }
+
+          tabState.refs = await refreshTabRefs(tabState, {
+            reason: 'snapshot',
+          });
+          const ariaYaml = await getAriaSnapshot(tabState.page);
+
+          let annotatedYaml = ariaYaml || '';
+          if (annotatedYaml && tabState.refs.size > 0) {
+            const refsByKey = new Map();
+            for (const [refId, info] of tabState.refs) {
+              const key = `${info.role}:${info.name}:${info.nth}`;
+              refsByKey.set(key, refId);
+            }
+
+            const annotationCounts = new Map();
+            const lines = annotatedYaml.split('\n');
+
+            annotatedYaml = lines
+              .map((line) => {
+                const match = line.match(/^(\s*-\s+)(\w+)(\s+"([^"]*)")?(.*)$/);
+                if (match) {
+                  const [, prefix, role, nameMatch, name, suffix] = match;
+                  const normalizedRole = role.toLowerCase();
+                  if (normalizedRole === 'combobox') return line;
+                  if (name && SKIP_PATTERNS.some((p) => p.test(name)))
+                    return line;
+                  if (INTERACTIVE_ROLES.includes(normalizedRole)) {
+                    const normalizedName = name || '';
+                    const countKey = `${normalizedRole}:${normalizedName}`;
+                    const nth = annotationCounts.get(countKey) || 0;
+                    annotationCounts.set(countKey, nth + 1);
+                    const key = `${normalizedRole}:${normalizedName}:${nth}`;
+                    const refId = refsByKey.get(key);
+                    if (refId) {
+                      return `${prefix}${role}${nameMatch || ''} [${refId}]${suffix}`;
+                    }
+                  }
+                }
+                return line;
+              })
+              .join('\n');
+          }
+
+          tabState.lastSnapshot = annotatedYaml;
+          if (annotatedYaml)
+            snapshotBytes
+              .labels('full')
+              .observe(Buffer.byteLength(annotatedYaml, 'utf8'));
+          const win = windowSnapshot(annotatedYaml, 0);
+
+          const response = {
+            url: tabState.page.url(),
+            snapshot: win.text,
+            refsCount: tabState.refs.size,
+            truncated: win.truncated,
+            totalChars: win.totalChars,
+            hasMore: win.hasMore,
+            nextOffset: win.nextOffset,
+          };
+
+          if (req.query.includeScreenshot === 'true') {
+            const pngBuffer = await tabState.page.screenshot({ type: 'png' });
+            response.screenshot = {
+              data: pngBuffer.toString('base64'),
+              mimeType: 'image/png',
+            };
+          }
+
+          return response;
+        })(),
+        requestTimeoutMs(),
+        'snapshot',
+      ),
+    );
+
+    pluginEvents.emit('tab:snapshot', {
+      userId: req.query.userId,
+      tabId: req.params.tabId,
+      snapshot: result.snapshot,
+    });
+    log('info', 'snapshot', {
+      reqId: req.reqId,
+      tabId: req.params.tabId,
+      url: result.url,
+      snapshotLen: result.snapshot?.length,
+      refsCount: result.refsCount,
+      hasScreenshot: !!result.screenshot,
+      truncated: result.truncated,
+    });
     res.json(result);
   } catch (err) {
-    log('error', 'snapshot failed', { reqId: req.reqId, tabId: req.params.tabId, error: err.message });
+    log('error', 'snapshot failed', {
+      reqId: req.reqId,
+      tabId: req.params.tabId,
+      error: err.message,
+    });
     handleRouteError(err, req, res);
   }
 });
@@ -2532,7 +3163,10 @@ app.post('/tabs/:tabId/wait', async (req, res) => {
     if (!found) return res.status(404).json({ error: 'Tab not found' });
 
     const { tabState } = found;
-    const ready = await waitForPageReady(tabState.page, { timeout, waitForNetwork });
+    const ready = await waitForPageReady(tabState.page, {
+      timeout,
+      waitForNetwork,
+    });
 
     res.json({ ok: true, ready });
   } catch (err) {
@@ -2611,150 +3245,199 @@ app.post('/tabs/:tabId/click', async (req, res) => {
     if (!found) return res.status(404).json({ error: 'Tab not found' });
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     if (!ref && !selector) {
       return res.status(400).json({ error: 'ref or selector required' });
     }
 
-    const result = await withUserLimit(userId, () => withTabLock(tabId, async () => {
-      const clickStart = Date.now();
-      const remainingBudget = () => Math.max(0, HANDLER_TIMEOUT_MS - 2000 - (Date.now() - clickStart));
-      // Full mouse event sequence for stubborn JS click handlers (mirrors Swift WebView.swift)
-      // Dispatches: mouseover -> mouseenter -> mousedown -> mouseup -> click
-      const dispatchMouseSequence = async (locator) => {
-        const box = await locator.boundingBox();
-        if (!box) throw new Error('Element not visible (no bounding box)');
+    const result = await withUserLimit(userId, () =>
+      withTabLock(tabId, async () => {
+        const clickStart = Date.now();
+        const remainingBudget = () =>
+          Math.max(0, HANDLER_TIMEOUT_MS - 2000 - (Date.now() - clickStart));
+        // Full mouse event sequence for stubborn JS click handlers (mirrors Swift WebView.swift)
+        // Dispatches: mouseover -> mouseenter -> mousedown -> mouseup -> click
+        const dispatchMouseSequence = async (locator) => {
+          const box = await locator.boundingBox();
+          if (!box) throw new Error('Element not visible (no bounding box)');
 
-        const x = box.x + box.width / 2;
-        const y = box.y + box.height / 2;
+          const x = box.x + box.width / 2;
+          const y = box.y + box.height / 2;
 
-        // Move mouse to element (triggers mouseover/mouseenter)
-        await tabState.page.mouse.move(x, y);
-        await tabState.page.waitForTimeout(50);
+          // Move mouse to element (triggers mouseover/mouseenter)
+          await tabState.page.mouse.move(x, y);
+          await tabState.page.waitForTimeout(50);
 
-        // Full click sequence
-        await tabState.page.mouse.down();
-        await tabState.page.waitForTimeout(50);
-        await tabState.page.mouse.up();
+          // Full click sequence
+          await tabState.page.mouse.down();
+          await tabState.page.waitForTimeout(50);
+          await tabState.page.mouse.up();
 
-        log('info', 'mouse sequence dispatched', { x: x.toFixed(0), y: y.toFixed(0) });
-      };
+          log('info', 'mouse sequence dispatched', {
+            x: x.toFixed(0),
+            y: y.toFixed(0),
+          });
+        };
 
-      // On Google SERPs, skip the normal click attempt (always intercepted by overlays)
-      // and go directly to force click -- saves 5s timeout per click
-      const onGoogleSerp = isGoogleSerp(tabState.page.url());
+        // On Google SERPs, skip the normal click attempt (always intercepted by overlays)
+        // and go directly to force click -- saves 5s timeout per click
+        const onGoogleSerp = isGoogleSerp(tabState.page.url());
 
-      const doClick = async (locatorOrSelector, isLocator) => {
-        const locator = isLocator ? locatorOrSelector : tabState.page.locator(locatorOrSelector);
+        const doClick = async (locatorOrSelector, isLocator) => {
+          const locator = isLocator
+            ? locatorOrSelector
+            : tabState.page.locator(locatorOrSelector);
 
-        if (onGoogleSerp) {
-          try {
-            await locator.click({ timeout: 3000, force: true });
-          } catch (forceErr) {
-            log('warn', 'google force click failed, trying mouse sequence');
-            await dispatchMouseSequence(locator);
-          }
-          return;
-        }
-
-        try {
-          // First try normal click (respects visibility, enabled, not-obscured)
-          await locator.click({ timeout: 3000 });
-        } catch (err) {
-          // Fallback 1: If intercepted by overlay, retry with force
-          if (err.message.includes('intercepts pointer events')) {
-            log('warn', 'click intercepted, retrying with force');
+          if (onGoogleSerp) {
             try {
               await locator.click({ timeout: 3000, force: true });
             } catch (forceErr) {
-              // Fallback 2: Full mouse event sequence for stubborn JS handlers
-              log('warn', 'force click failed, trying mouse sequence');
+              log('warn', 'google force click failed, trying mouse sequence');
               await dispatchMouseSequence(locator);
             }
-          } else if (err.message.includes('not visible') || err.message.toLowerCase().includes('timeout')) {
-            // Fallback 2: Element not responding to click, try mouse sequence
-            log('warn', 'click timeout, trying mouse sequence');
-            await dispatchMouseSequence(locator);
-          } else {
-            throw err;
+            return;
           }
-        }
-      };
 
-      if (ref) {
-        let locator = refToLocator(tabState.page, ref, tabState.refs);
-        if (!locator) {
-          // Use tight timeout (4s max) to leave budget for click + post-click buildRefs
-          log('info', 'auto-refreshing refs before click', { ref, hadRefs: tabState.refs.size });
           try {
-            const preClickBudget = Math.min(4000, remainingBudget());
-            tabState.refs = await refreshTabRefs(tabState, { reason: 'pre_click', timeoutMs: preClickBudget });
-          } catch (e) {
-            if (e.message === 'pre_click_refs_timeout' || e.message === 'buildRefs_timeout') {
-              log('warn', 'pre-click buildRefs timed out, proceeding without refresh');
+            // First try normal click (respects visibility, enabled, not-obscured)
+            await locator.click({ timeout: 3000 });
+          } catch (err) {
+            // Fallback 1: If intercepted by overlay, retry with force
+            if (err.message.includes('intercepts pointer events')) {
+              log('warn', 'click intercepted, retrying with force');
+              try {
+                await locator.click({ timeout: 3000, force: true });
+              } catch (forceErr) {
+                // Fallback 2: Full mouse event sequence for stubborn JS handlers
+                log('warn', 'force click failed, trying mouse sequence');
+                await dispatchMouseSequence(locator);
+              }
+            } else if (
+              err.message.includes('not visible') ||
+              err.message.toLowerCase().includes('timeout')
+            ) {
+              // Fallback 2: Element not responding to click, try mouse sequence
+              log('warn', 'click timeout, trying mouse sequence');
+              await dispatchMouseSequence(locator);
             } else {
-              throw e;
+              throw err;
             }
           }
-          locator = refToLocator(tabState.page, ref, tabState.refs);
-        }
-        if (!locator) {
-          const maxRef = tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none';
-          throw new StaleRefsError(ref, maxRef, tabState.refs.size);
-        }
-        await doClick(locator, true);
-      } else {
-        await doClick(selector, false);
-      }
+        };
 
-      // If clicking on a Google SERP, wait for potential navigation to complete
-      if (onGoogleSerp) {
-        try {
-          await tabState.page.waitForLoadState('domcontentloaded', { timeout: 3000 });
-        } catch {}
-        await tabState.page.waitForTimeout(200);
-        // Skip buildRefs here -- SERP clicks typically navigate to a new page,
-        // and the caller always requests /snapshot next which rebuilds refs.
+        if (ref) {
+          let locator = refToLocator(tabState.page, ref, tabState.refs);
+          if (!locator) {
+            // Use tight timeout (4s max) to leave budget for click + post-click buildRefs
+            log('info', 'auto-refreshing refs before click', {
+              ref,
+              hadRefs: tabState.refs.size,
+            });
+            try {
+              const preClickBudget = Math.min(4000, remainingBudget());
+              tabState.refs = await refreshTabRefs(tabState, {
+                reason: 'pre_click',
+                timeoutMs: preClickBudget,
+              });
+            } catch (e) {
+              if (
+                e.message === 'pre_click_refs_timeout' ||
+                e.message === 'buildRefs_timeout'
+              ) {
+                log(
+                  'warn',
+                  'pre-click buildRefs timed out, proceeding without refresh',
+                );
+              } else {
+                throw e;
+              }
+            }
+            locator = refToLocator(tabState.page, ref, tabState.refs);
+          }
+          if (!locator) {
+            const maxRef =
+              tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none';
+            throw new StaleRefsError(ref, maxRef, tabState.refs.size);
+          }
+          await doClick(locator, true);
+        } else {
+          await doClick(selector, false);
+        }
+
+        // If clicking on a Google SERP, wait for potential navigation to complete
+        if (onGoogleSerp) {
+          try {
+            await tabState.page.waitForLoadState('domcontentloaded', {
+              timeout: 3000,
+            });
+          } catch {}
+          await tabState.page.waitForTimeout(200);
+          // Skip buildRefs here -- SERP clicks typically navigate to a new page,
+          // and the caller always requests /snapshot next which rebuilds refs.
+          tabState.lastSnapshot = null;
+          tabState.refs = new Map();
+          const newUrl = tabState.page.url();
+          tabState.visitedUrls.add(newUrl);
+          return { ok: true, url: newUrl, refsAvailable: false };
+        } else {
+          await tabState.page.waitForTimeout(500);
+        }
         tabState.lastSnapshot = null;
-        tabState.refs = new Map();
+        // buildRefs after click -- use remaining budget (min 2s) so we don't blow the handler timeout.
+        // If it times out, return without refs (caller's next /snapshot will rebuild them).
+        const postClickBudget = Math.max(2000, remainingBudget());
+        try {
+          tabState.refs = await refreshTabRefs(tabState, {
+            reason: 'post_click',
+            timeoutMs: postClickBudget,
+          });
+        } catch (e) {
+          if (
+            e.message === 'post_click_refs_timeout' ||
+            e.message === 'buildRefs_timeout'
+          ) {
+            log(
+              'warn',
+              'post-click buildRefs timed out, returning without refs',
+              { budget: postClickBudget, elapsed: Date.now() - clickStart },
+            );
+            tabState.refs = new Map();
+          } else {
+            throw e;
+          }
+        }
+
         const newUrl = tabState.page.url();
         tabState.visitedUrls.add(newUrl);
-        return { ok: true, url: newUrl, refsAvailable: false };
-      } else {
-        await tabState.page.waitForTimeout(500);
-      }
-      tabState.lastSnapshot = null;
-      // buildRefs after click -- use remaining budget (min 2s) so we don't blow the handler timeout.
-      // If it times out, return without refs (caller's next /snapshot will rebuild them).
-      const postClickBudget = Math.max(2000, remainingBudget());
-      try {
-        tabState.refs = await refreshTabRefs(tabState, { reason: 'post_click', timeoutMs: postClickBudget });
-      } catch (e) {
-        if (e.message === 'post_click_refs_timeout' || e.message === 'buildRefs_timeout') {
-          log('warn', 'post-click buildRefs timed out, returning without refs', { budget: postClickBudget, elapsed: Date.now() - clickStart });
-          tabState.refs = new Map();
-        } else {
-          throw e;
-        }
-      }
-
-      const newUrl = tabState.page.url();
-      tabState.visitedUrls.add(newUrl);
-      return { ok: true, url: newUrl, refsAvailable: tabState.refs.size > 0 };
-    }));
+        return { ok: true, url: newUrl, refsAvailable: tabState.refs.size > 0 };
+      }),
+    );
 
     log('info', 'clicked', { reqId: req.reqId, tabId, url: result.url });
-    pluginEvents.emit('tab:click', { userId: req.body.userId, tabId, ref: req.body.ref, selector: req.body.selector });
+    pluginEvents.emit('tab:click', {
+      userId: req.body.userId,
+      tabId,
+      ref: req.body.ref,
+      selector: req.body.selector,
+    });
     res.json(result);
   } catch (err) {
-    log('error', 'click failed', { reqId: req.reqId, tabId, error: err.message });
+    log('error', 'click failed', {
+      reqId: req.reqId,
+      tabId,
+      error: err.message,
+    });
     if (err.message?.includes('timed out')) {
       try {
         const session = sessions.get(normalizeUserId(req.body.userId));
         const found = session && findTab(session, tabId);
         if (found?.tabState?.page && !found.tabState.page.isClosed()) {
-          found.tabState.refs = await refreshTabRefs(found.tabState, { reason: 'click_timeout' });
+          found.tabState.refs = await refreshTabRefs(found.tabState, {
+            reason: 'click_timeout',
+          });
           found.tabState.lastSnapshot = null;
           return res.status(500).json({
             error: safeError(err),
@@ -2764,7 +3447,9 @@ app.post('/tabs/:tabId/click', async (req, res) => {
           });
         }
       } catch (refreshErr) {
-        log('warn', 'post-timeout refresh failed', { error: refreshErr.message });
+        log('warn', 'post-timeout refresh failed', {
+          error: refreshErr.message,
+        });
       }
     }
     handleRouteError(err, req, res);
@@ -2831,23 +3516,38 @@ app.post('/tabs/:tabId/type', async (req, res) => {
   const tabId = req.params.tabId;
 
   try {
-    const { userId, ref, selector, text, mode = 'fill', delay = 30, submit = false, pressEnter = false } = req.body;
+    const {
+      userId,
+      ref,
+      selector,
+      text,
+      mode = 'fill',
+      delay = 30,
+      submit = false,
+      pressEnter = false,
+    } = req.body;
     const session = sessions.get(normalizeUserId(userId));
     const found = session && findTab(session, tabId);
     if (!found) return res.status(404).json({ error: 'Tab not found' });
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     if (mode !== 'fill' && mode !== 'keyboard') {
-      return res.status(400).json({ error: "mode must be 'fill' or 'keyboard'" });
+      return res
+        .status(400)
+        .json({ error: "mode must be 'fill' or 'keyboard'" });
     }
     if (typeof text !== 'string') {
       return res.status(400).json({ error: 'text is required' });
     }
     // keyboard mode: ref/selector are optional (types into current focus)
     if (mode === 'fill' && !ref && !selector) {
-      return res.status(400).json({ error: 'ref or selector required for mode=fill' });
+      return res
+        .status(400)
+        .json({ error: 'ref or selector required for mode=fill' });
     }
     const shouldSubmit = submit || pressEnter;
 
@@ -2857,11 +3557,19 @@ app.post('/tabs/:tabId/type', async (req, res) => {
       if (ref) {
         locator = refToLocator(tabState.page, ref, tabState.refs);
         if (!locator) {
-          log('info', 'auto-refreshing refs before type', { ref, hadRefs: tabState.refs.size, mode });
+          log('info', 'auto-refreshing refs before type', {
+            ref,
+            hadRefs: tabState.refs.size,
+            mode,
+          });
           tabState.refs = await refreshTabRefs(tabState, { reason: 'type' });
           locator = refToLocator(tabState.page, ref, tabState.refs);
         }
-        if (!locator) { const maxRef = tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none'; throw new StaleRefsError(ref, maxRef, tabState.refs.size); }
+        if (!locator) {
+          const maxRef =
+            tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none';
+          throw new StaleRefsError(ref, maxRef, tabState.refs.size);
+        }
       }
 
       if (mode === 'fill') {
@@ -2882,16 +3590,27 @@ app.post('/tabs/:tabId/type', async (req, res) => {
       if (shouldSubmit) await tabState.page.keyboard.press('Enter');
     });
 
-    pluginEvents.emit('tab:type', { userId: req.body.userId, tabId, text: req.body.text, ref: req.body.ref, mode: req.body.mode || 'fill' });
+    pluginEvents.emit('tab:type', {
+      userId: req.body.userId,
+      tabId,
+      text: req.body.text,
+      ref: req.body.ref,
+      mode: req.body.mode || 'fill',
+    });
     res.json({ ok: true });
   } catch (err) {
     log('error', 'type failed', { reqId: req.reqId, error: err.message });
-    if (err.message?.includes('timed out') || err.message?.includes('not an <input>')) {
+    if (
+      err.message?.includes('timed out') ||
+      err.message?.includes('not an <input>')
+    ) {
       try {
         const session = sessions.get(normalizeUserId(req.body.userId));
         const found = session && findTab(session, tabId);
         if (found?.tabState?.page && !found.tabState.page.isClosed()) {
-          found.tabState.refs = await refreshTabRefs(found.tabState, { reason: 'type_timeout' });
+          found.tabState.refs = await refreshTabRefs(found.tabState, {
+            reason: 'type_timeout',
+          });
           found.tabState.lastSnapshot = null;
           return res.status(500).json({
             error: safeError(err),
@@ -2901,7 +3620,9 @@ app.post('/tabs/:tabId/type', async (req, res) => {
           });
         }
       } catch (refreshErr) {
-        log('warn', 'post-timeout refresh failed', { error: refreshErr.message });
+        log('warn', 'post-timeout refresh failed', {
+          error: refreshErr.message,
+        });
       }
     }
     handleRouteError(err, req, res);
@@ -2961,7 +3682,9 @@ app.post('/tabs/:tabId/press', async (req, res) => {
     if (!found) return res.status(404).json({ error: 'Tab not found' });
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     await withTabLock(tabId, async () => {
       await tabState.page.keyboard.press(key);
@@ -3029,14 +3752,24 @@ app.post('/tabs/:tabId/scroll', async (req, res) => {
     if (!found) return res.status(404).json({ error: 'Tab not found' });
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     const isVertical = direction === 'up' || direction === 'down';
-    const delta = (direction === 'up' || direction === 'left') ? -amount : amount;
-    await tabState.page.mouse.wheel(isVertical ? 0 : delta, isVertical ? delta : 0);
+    const delta = direction === 'up' || direction === 'left' ? -amount : amount;
+    await tabState.page.mouse.wheel(
+      isVertical ? 0 : delta,
+      isVertical ? delta : 0,
+    );
     await tabState.page.waitForTimeout(300);
 
-    pluginEvents.emit('tab:scroll', { userId, tabId: req.params.tabId, direction, amount });
+    pluginEvents.emit('tab:scroll', {
+      userId,
+      tabId: req.params.tabId,
+      direction,
+      amount,
+    });
     res.json({ ok: true });
   } catch (err) {
     log('error', 'scroll failed', { reqId: req.reqId, error: err.message });
@@ -3096,7 +3829,9 @@ app.post('/tabs/:tabId/back', async (req, res) => {
     if (!found) return res.status(404).json({ error: 'Tab not found' });
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     const result = await withTabLock(tabId, async () => {
       try {
@@ -3105,7 +3840,10 @@ app.post('/tabs/:tabId/back', async (req, res) => {
         // NS_BINDING_CANCELLED_OLD_LOAD: Firefox cancels the old load when going back.
         // The navigation itself succeeded -- just the prior page's load was interrupted.
         if (navErr.message && navErr.message.includes('NS_BINDING_CANCELLED')) {
-          log('info', 'goBack cancelled old load (expected)', { reqId: req.reqId, tabId });
+          log('info', 'goBack cancelled old load (expected)', {
+            reqId: req.reqId,
+            tabId,
+          });
         } else {
           throw navErr;
         }
@@ -3173,7 +3911,9 @@ app.post('/tabs/:tabId/forward', async (req, res) => {
     if (!found) return res.status(404).json({ error: 'Tab not found' });
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     const result = await withTabLock(tabId, async () => {
       await tabState.page.goForward({ timeout: 10000 });
@@ -3240,7 +3980,9 @@ app.post('/tabs/:tabId/refresh', async (req, res) => {
     if (!found) return res.status(404).json({ error: 'Tab not found' });
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     const result = await withTabLock(tabId, async () => {
       await tabState.page.reload({ timeout: 30000 });
@@ -3307,16 +4049,23 @@ app.get('/tabs/:tabId/links', async (req, res) => {
     const session = sessions.get(normalizeUserId(userId));
     const found = session && findTab(session, req.params.tabId);
     if (!found) {
-      log('warn', 'links: tab not found', { reqId: req.reqId, tabId: req.params.tabId, userId, hasSession: !!session });
+      log('warn', 'links: tab not found', {
+        reqId: req.reqId,
+        tabId: req.params.tabId,
+        userId,
+        hasSession: !!session,
+      });
       return res.status(404).json({ error: 'Tab not found' });
     }
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     const allLinks = await tabState.page.evaluate(() => {
       const links = [];
-      document.querySelectorAll('a[href]').forEach(a => {
+      document.querySelectorAll('a[href]').forEach((a) => {
         const href = a.href;
         const text = a.textContent?.trim().slice(0, 100) || '';
         if (href && href.startsWith('http')) {
@@ -3331,7 +4080,7 @@ app.get('/tabs/:tabId/links', async (req, res) => {
 
     res.json({
       links: paginated,
-      pagination: { total, offset, limit, hasMore: offset + limit < total }
+      pagination: { total, offset, limit, hasMore: offset + limit < total },
     });
   } catch (err) {
     log('error', 'links failed', { reqId: req.reqId, error: err.message });
@@ -3389,7 +4138,10 @@ app.get('/tabs/:tabId/downloads', async (req, res) => {
     const includeData = req.query.includeData === 'true';
     const consume = req.query.consume === 'true';
     const maxBytesRaw = Number(req.query.maxBytes);
-    const maxBytes = Number.isFinite(maxBytesRaw) && maxBytesRaw > 0 ? maxBytesRaw : MAX_DOWNLOAD_INLINE_BYTES;
+    const maxBytes =
+      Number.isFinite(maxBytesRaw) && maxBytesRaw > 0
+        ? maxBytesRaw
+        : MAX_DOWNLOAD_INLINE_BYTES;
     const session = sessions.get(normalizeUserId(userId));
     const found = session && findTab(session, req.params.tabId);
     if (!found) return res.status(404).json({ error: 'Tab not found' });
@@ -3397,7 +4149,10 @@ app.get('/tabs/:tabId/downloads', async (req, res) => {
     const { tabState } = found;
     tabState.toolCalls++;
 
-    const downloads = await getDownloadsList(tabState, { includeData, maxBytes });
+    const downloads = await getDownloadsList(tabState, {
+      includeData,
+      maxBytes,
+    });
 
     if (consume) {
       await clearTabDownloads(tabState);
@@ -3463,8 +4218,14 @@ app.get('/tabs/:tabId/images', async (req, res) => {
     const includeData = req.query.includeData === 'true';
     const maxBytesRaw = Number(req.query.maxBytes);
     const limitRaw = Number(req.query.limit);
-    const maxBytes = Number.isFinite(maxBytesRaw) && maxBytesRaw > 0 ? maxBytesRaw : MAX_DOWNLOAD_INLINE_BYTES;
-    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 20) : 8;
+    const maxBytes =
+      Number.isFinite(maxBytesRaw) && maxBytesRaw > 0
+        ? maxBytesRaw
+        : MAX_DOWNLOAD_INLINE_BYTES;
+    const limit =
+      Number.isFinite(limitRaw) && limitRaw > 0
+        ? Math.min(Math.floor(limitRaw), 20)
+        : 8;
     const session = sessions.get(normalizeUserId(userId));
     const found = session && findTab(session, req.params.tabId);
     if (!found) return res.status(404).json({ error: 'Tab not found' });
@@ -3472,7 +4233,11 @@ app.get('/tabs/:tabId/images', async (req, res) => {
     const { tabState } = found;
     tabState.toolCalls++;
 
-    const images = await extractPageImages(tabState.page, { includeData, maxBytes, limit });
+    const images = await extractPageImages(tabState.page, {
+      includeData,
+      maxBytes,
+      limit,
+    });
 
     res.json({ tabId: req.params.tabId, images });
   } catch (err) {
@@ -3533,7 +4298,11 @@ app.get('/tabs/:tabId/screenshot', async (req, res) => {
 
     const { tabState } = found;
     const buffer = await tabState.page.screenshot({ type: 'png', fullPage });
-    pluginEvents.emit('tab:screenshot', { userId, tabId: req.params.tabId, buffer });
+    pluginEvents.emit('tab:screenshot', {
+      userId,
+      tabId: req.params.tabId,
+      buffer,
+    });
     res.set('Content-Type', 'image/png');
     res.send(buffer);
   } catch (err) {
@@ -3604,9 +4373,11 @@ app.get('/tabs/:tabId/stats', async (req, res) => {
       listItemId, // Legacy compatibility
       url: tabState.page.url(),
       visitedUrls: Array.from(tabState.visitedUrls),
-      downloadsCount: Array.isArray(tabState.downloads) ? tabState.downloads.length : 0,
+      downloadsCount: Array.isArray(tabState.downloads)
+        ? tabState.downloads.length
+        : 0,
       toolCalls: tabState.toolCalls,
-      refsCount: tabState.refs.size
+      refsCount: tabState.refs.size,
     });
   } catch (err) {
     log('error', 'stats failed', { reqId: req.reqId, error: err.message });
@@ -3665,31 +4436,51 @@ app.get('/tabs/:tabId/stats', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-app.post('/tabs/:tabId/evaluate', express.json({ limit: '1mb' }), async (req, res) => {
-  try {
-    const { userId, expression } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId is required' });
-    if (!expression) return res.status(400).json({ error: 'expression is required' });
+app.post(
+  '/tabs/:tabId/evaluate',
+  express.json({ limit: '1mb' }),
+  async (req, res) => {
+    try {
+      const { userId, expression } = req.body;
+      if (!userId) return res.status(400).json({ error: 'userId is required' });
+      if (!expression)
+        return res.status(400).json({ error: 'expression is required' });
 
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, req.params.tabId);
-    if (!found) return res.status(404).json({ error: 'Tab not found' });
+      const session = sessions.get(normalizeUserId(userId));
+      const found = session && findTab(session, req.params.tabId);
+      if (!found) return res.status(404).json({ error: 'Tab not found' });
 
-    session.lastAccess = Date.now();
-    const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+      session.lastAccess = Date.now();
+      const { tabState } = found;
+      tabState.toolCalls++;
+      tabState.consecutiveTimeouts = 0;
+      tabState.consecutiveFailures = 0;
 
-    pluginEvents.emit('tab:evaluate', { userId, tabId: req.params.tabId, expression });
-    const result = await tabState.page.evaluate(expression);
-    pluginEvents.emit('tab:evaluated', { userId, tabId: req.params.tabId, result });
-    log('info', 'evaluate', { reqId: req.reqId, tabId: req.params.tabId, userId, resultType: typeof result });
-    res.json({ ok: true, result });
-  } catch (err) {
-    failuresTotal.labels(classifyError(err), 'evaluate').inc();
-    log('error', 'evaluate failed', { reqId: req.reqId, error: err.message });
-    res.status(500).json({ error: safeError(err) });
-  }
-});
+      pluginEvents.emit('tab:evaluate', {
+        userId,
+        tabId: req.params.tabId,
+        expression,
+      });
+      const result = await tabState.page.evaluate(expression);
+      pluginEvents.emit('tab:evaluated', {
+        userId,
+        tabId: req.params.tabId,
+        result,
+      });
+      log('info', 'evaluate', {
+        reqId: req.reqId,
+        tabId: req.params.tabId,
+        userId,
+        resultType: typeof result,
+      });
+      res.json({ ok: true, result });
+    } catch (err) {
+      failuresTotal.labels(classifyError(err), 'evaluate').inc();
+      log('error', 'evaluate failed', { reqId: req.reqId, error: err.message });
+      res.status(500).json({ error: safeError(err) });
+    }
+  },
+);
 
 // Structured extraction using JSON Schema with x-ref hints
 /**
@@ -3803,44 +4594,64 @@ app.post('/tabs/:tabId/evaluate', express.json({ limit: '1mb' }), async (req, re
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-app.post('/tabs/:tabId/extract', express.json({ limit: '256kb' }), async (req, res) => {
-  try {
-    const { userId, schema } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId is required' });
-    if (!schema) return res.status(400).json({ error: 'schema is required' });
-
-    const check = validateExtractSchema(schema);
-    if (!check.ok) return res.status(400).json({ error: check.error });
-
-    const session = sessions.get(normalizeUserId(userId));
-    const found = session && findTab(session, req.params.tabId);
-    if (!found) return res.status(404).json({ error: 'Tab not found' });
-
-    session.lastAccess = Date.now();
-    const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0;
-
-    if (!tabState.refs || tabState.refs.size === 0) {
-      return res.status(409).json({
-        error: 'no refs available -- call GET /tabs/:tabId/snapshot first to build the ref table',
-        snapshot: tabState.lastSnapshot || null,
-      });
-    }
-
+app.post(
+  '/tabs/:tabId/extract',
+  express.json({ limit: '256kb' }),
+  async (req, res) => {
     try {
-      const data = extractDeterministic({ schema, refs: tabState.refs });
-      log('info', 'extract', { reqId: req.reqId, tabId: req.params.tabId, userId, keys: Object.keys(data) });
-      res.json({ ok: true, data });
-    } catch (extractErr) {
-      log('warn', 'extract failed', { reqId: req.reqId, error: extractErr.message });
-      res.status(422).json({ ok: false, error: extractErr.message, snapshot: tabState.lastSnapshot || null });
+      const { userId, schema } = req.body;
+      if (!userId) return res.status(400).json({ error: 'userId is required' });
+      if (!schema) return res.status(400).json({ error: 'schema is required' });
+
+      const check = validateExtractSchema(schema);
+      if (!check.ok) return res.status(400).json({ error: check.error });
+
+      const session = sessions.get(normalizeUserId(userId));
+      const found = session && findTab(session, req.params.tabId);
+      if (!found) return res.status(404).json({ error: 'Tab not found' });
+
+      session.lastAccess = Date.now();
+      const { tabState } = found;
+      tabState.toolCalls++;
+      tabState.consecutiveTimeouts = 0;
+
+      if (!tabState.refs || tabState.refs.size === 0) {
+        return res.status(409).json({
+          error:
+            'no refs available -- call GET /tabs/:tabId/snapshot first to build the ref table',
+          snapshot: tabState.lastSnapshot || null,
+        });
+      }
+
+      try {
+        const data = extractDeterministic({ schema, refs: tabState.refs });
+        log('info', 'extract', {
+          reqId: req.reqId,
+          tabId: req.params.tabId,
+          userId,
+          keys: Object.keys(data),
+        });
+        res.json({ ok: true, data });
+      } catch (extractErr) {
+        log('warn', 'extract failed', {
+          reqId: req.reqId,
+          error: extractErr.message,
+        });
+        res
+          .status(422)
+          .json({
+            ok: false,
+            error: extractErr.message,
+            snapshot: tabState.lastSnapshot || null,
+          });
+      }
+    } catch (err) {
+      failuresTotal.labels(classifyError(err), 'extract').inc();
+      log('error', 'extract error', { reqId: req.reqId, error: err.message });
+      res.status(500).json({ error: safeError(err) });
     }
-  } catch (err) {
-    failuresTotal.labels(classifyError(err), 'extract').inc();
-    log('error', 'extract error', { reqId: req.reqId, error: err.message });
-    res.status(500).json({ error: safeError(err) });
-  }
-});
+  },
+);
 
 // Close tab
 /**
@@ -3880,7 +4691,8 @@ app.post('/tabs/:tabId/extract', express.json({ limit: '256kb' }), async (req, r
 app.delete('/tabs/:tabId', async (req, res) => {
   try {
     const userId = req.query.userId || req.body?.userId;
-    if (!userId) return res.status(400).json({ error: 'userId required (query or body)' });
+    if (!userId)
+      return res.status(400).json({ error: 'userId required (query or body)' });
     const session = sessions.get(normalizeUserId(userId));
     const found = session && findTab(session, req.params.tabId);
     if (found) {
@@ -3888,12 +4700,21 @@ app.delete('/tabs/:tabId', async (req, res) => {
       await clearTabDownloads(found.tabState);
       await safePageClose(found.tabState.page);
       found.group.delete(req.params.tabId);
-      { const _l = tabLocks.get(req.params.tabId); if (_l) _l.drain(); tabLocks.delete(req.params.tabId); refreshTabLockQueueDepth(); }
+      {
+        const _l = tabLocks.get(req.params.tabId);
+        if (_l) _l.drain();
+        tabLocks.delete(req.params.tabId);
+        refreshTabLockQueueDepth();
+      }
       if (found.group.size === 0) {
         session.tabGroups.delete(found.listItemId);
       }
       refreshActiveTabsGauge();
-      log('info', 'tab closed', { reqId: req.reqId, tabId: req.params.tabId, userId });
+      log('info', 'tab closed', {
+        reqId: req.reqId,
+        tabId: req.params.tabId,
+        userId,
+      });
     }
     res.json({ ok: true });
   } catch (err) {
@@ -3942,7 +4763,8 @@ app.delete('/tabs/:tabId', async (req, res) => {
 app.delete('/tabs/group/:listItemId', async (req, res) => {
   try {
     const userId = req.query.userId || req.body?.userId;
-    if (!userId) return res.status(400).json({ error: 'userId required (query or body)' });
+    if (!userId)
+      return res.status(400).json({ error: 'userId required (query or body)' });
     const session = sessions.get(normalizeUserId(userId));
     const group = session?.tabGroups.get(req.params.listItemId);
     if (group) {
@@ -3958,11 +4780,18 @@ app.delete('/tabs/group/:listItemId', async (req, res) => {
       session.tabGroups.delete(req.params.listItemId);
       refreshTabLockQueueDepth();
       refreshActiveTabsGauge();
-      log('info', 'tab group closed', { reqId: req.reqId, listItemId: req.params.listItemId, userId });
+      log('info', 'tab group closed', {
+        reqId: req.reqId,
+        listItemId: req.params.listItemId,
+        userId,
+      });
     }
     res.json({ ok: true });
   } catch (err) {
-    log('error', 'tab group close failed', { reqId: req.reqId, error: err.message });
+    log('error', 'tab group close failed', {
+      reqId: req.reqId,
+      error: err.message,
+    });
     handleRouteError(err, req, res);
   }
 });
@@ -4085,26 +4914,34 @@ app.get('/sessions/:userId/traces', authMiddleware(), async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-app.get('/sessions/:userId/traces/:filename', authMiddleware(), async (req, res) => {
-  try {
-    const userId = normalizeUserId(req.params.userId);
-    const full = resolveTracePath(CONFIG.tracesDir, userId, req.params.filename);
-    if (!full) return res.status(400).json({ error: 'invalid filename' });
-    const st = await statTrace(full);
-    if (!st) return res.status(404).json({ error: 'not found' });
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Length', String(st.size));
-    const stream = fs.createReadStream(full);
-    stream.on('error', (err) => {
-      if (!res.headersSent) res.status(404).json({ error: 'not found' });
-      else res.destroy();
-    });
-    stream.pipe(res);
-  } catch (err) {
-    log('error', 'stream trace failed', { error: err.message });
-    res.status(500).json({ error: err.message });
-  }
-});
+app.get(
+  '/sessions/:userId/traces/:filename',
+  authMiddleware(),
+  async (req, res) => {
+    try {
+      const userId = normalizeUserId(req.params.userId);
+      const full = resolveTracePath(
+        CONFIG.tracesDir,
+        userId,
+        req.params.filename,
+      );
+      if (!full) return res.status(400).json({ error: 'invalid filename' });
+      const st = await statTrace(full);
+      if (!st) return res.status(404).json({ error: 'not found' });
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Length', String(st.size));
+      const stream = fs.createReadStream(full);
+      stream.on('error', (err) => {
+        if (!res.headersSent) res.status(404).json({ error: 'not found' });
+        else res.destroy();
+      });
+      stream.pipe(res);
+    } catch (err) {
+      log('error', 'stream trace failed', { error: err.message });
+      res.status(500).json({ error: err.message });
+    }
+  },
+);
 
 // Delete one trace file
 /**
@@ -4164,23 +5001,32 @@ app.get('/sessions/:userId/traces/:filename', authMiddleware(), async (req, res)
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-app.delete('/sessions/:userId/traces/:filename', authMiddleware(), async (req, res) => {
-  try {
-    const userId = normalizeUserId(req.params.userId);
-    const full = resolveTracePath(CONFIG.tracesDir, userId, req.params.filename);
-    if (!full) return res.status(400).json({ error: 'invalid filename' });
+app.delete(
+  '/sessions/:userId/traces/:filename',
+  authMiddleware(),
+  async (req, res) => {
     try {
-      await deleteTrace(full);
+      const userId = normalizeUserId(req.params.userId);
+      const full = resolveTracePath(
+        CONFIG.tracesDir,
+        userId,
+        req.params.filename,
+      );
+      if (!full) return res.status(400).json({ error: 'invalid filename' });
+      try {
+        await deleteTrace(full);
+      } catch (err) {
+        if (err.code === 'ENOENT')
+          return res.status(404).json({ error: 'not found' });
+        throw err;
+      }
+      res.json({ ok: true });
     } catch (err) {
-      if (err.code === 'ENOENT') return res.status(404).json({ error: 'not found' });
-      throw err;
+      log('error', 'delete trace failed', { error: err.message });
+      res.status(500).json({ error: err.message });
     }
-    res.json({ ok: true });
-  } catch (err) {
-    log('error', 'delete trace failed', { error: err.message });
-    res.status(500).json({ error: err.message });
-  }
-});
+  },
+);
 
 // Close session
 /**
@@ -4220,7 +5066,11 @@ app.delete('/sessions/:userId', async (req, res) => {
     const userId = normalizeUserId(req.params.userId);
     const session = sessions.get(userId);
     if (session) {
-      await closeSession(userId, session, { reason: 'api_delete_session', clearDownloads: true, clearLocks: true });
+      await closeSession(userId, session, {
+        reason: 'api_delete_session',
+        clearDownloads: true,
+        clearLocks: true,
+      });
       log('info', 'session closed', { userId });
     }
     if (sessions.size === 0) scheduleBrowserIdleShutdown();
@@ -4240,7 +5090,11 @@ setInterval(() => {
       const idleMs = now - session.lastAccess;
       sessionsExpiredTotal.inc();
       pluginEvents.emit('session:expired', { userId, idleMs });
-      closeSession(userId, session, { reason: 'session_timeout', clearDownloads: true, clearLocks: true }).catch(() => {});
+      closeSession(userId, session, {
+        reason: 'session_timeout',
+        clearDownloads: true,
+        clearLocks: true,
+      }).catch(() => {});
       log('info', 'session expired', { userId });
     }
   }
@@ -4266,10 +5120,20 @@ setInterval(() => {
           const idleMs = now - tabState._lastReaperCheck;
           if (idleMs >= TAB_INACTIVITY_MS) {
             tabsReapedTotal.inc();
-            log('info', 'tab reaped (inactive)', { userId, tabId, listItemId, idleMs, toolCalls: tabState.toolCalls });
+            log('info', 'tab reaped (inactive)', {
+              userId,
+              tabId,
+              listItemId,
+              idleMs,
+              toolCalls: tabState.toolCalls,
+            });
             safePageClose(tabState.page);
             group.delete(tabId);
-            { const _l = tabLocks.get(tabId); if (_l) _l.drain(); tabLocks.delete(tabId); }
+            {
+              const _l = tabLocks.get(tabId);
+              if (_l) _l.drain();
+              tabLocks.delete(tabId);
+            }
             refreshTabLockQueueDepth();
             refreshActiveTabsGauge();
           }
@@ -4286,7 +5150,11 @@ setInterval(() => {
     if (session.tabGroups.size === 0) {
       session._closing = true;
       log('info', 'session empty after tab reaper, closing', { userId });
-      closeSession(userId, session, { reason: 'tab_reaper_empty_session', clearDownloads: true, clearLocks: true }).catch(() => {});
+      closeSession(userId, session, {
+        reason: 'tab_reaper_empty_session',
+        clearDownloads: true,
+        clearLocks: true,
+      }).catch(() => {});
       sessionsExpiredTotal.inc();
     }
   }
@@ -4316,7 +5184,9 @@ setInterval(() => {
     });
     browserRestartsTotal.labels('memory_pressure').inc();
     closeBrowserFully('memory_pressure').catch((err) => {
-      log('error', 'memory pressure browser close failed', { error: err.message });
+      log('error', 'memory pressure browser close failed', {
+        error: err.message,
+      });
     });
   }
 }, 30_000);
@@ -4424,7 +5294,7 @@ app.get('/tabs', async (req, res) => {
           tabId,
           url: tabState.page.url(),
           title: await tabState.page.title().catch(() => ''),
-          listItemId
+          listItemId,
         });
       }
     }
@@ -4490,10 +5360,15 @@ app.post('/tabs/open', async (req, res) => {
     // Recycle oldest tab when limits are reached instead of rejecting
     let totalTabs = 0;
     for (const g of session.tabGroups.values()) totalTabs += g.size;
-    if (totalTabs >= MAX_TABS_PER_SESSION || getTotalTabCount() >= MAX_TABS_GLOBAL) {
+    if (
+      totalTabs >= MAX_TABS_PER_SESSION ||
+      getTotalTabCount() >= MAX_TABS_GLOBAL
+    ) {
       const recycled = await recycleOldestTab(session, req.reqId, userId);
       if (!recycled) {
-        return res.status(429).json({ error: 'Maximum tabs per session reached' });
+        return res
+          .status(429)
+          .json({ error: 'Maximum tabs per session reached' });
       }
     }
 
@@ -4506,19 +5381,28 @@ app.post('/tabs/open', async (req, res) => {
     group.set(tabId, tabState);
     refreshActiveTabsGauge();
 
-    await withPageLoadDuration('open_url', () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }));
+    await withPageLoadDuration('open_url', () =>
+      page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }),
+    );
     tabState.visitedUrls.add(url);
 
-    log('info', 'openclaw tab opened', { reqId: req.reqId, tabId, url: page.url() });
+    log('info', 'openclaw tab opened', {
+      reqId: req.reqId,
+      tabId,
+      url: page.url(),
+    });
     res.json({
       ok: true,
       targetId: tabId,
       tabId,
       url: page.url(),
-      title: await page.title().catch(() => '')
+      title: await page.title().catch(() => ''),
     });
   } catch (err) {
-    log('error', 'openclaw tab open failed', { reqId: req.reqId, error: err.message });
+    log('error', 'openclaw tab open failed', {
+      reqId: req.reqId,
+      error: err.message,
+    });
     handleRouteError(err, req, res);
   }
 });
@@ -4597,7 +5481,10 @@ app.post('/stop', async (req, res) => {
     if (!adminKey || !timingSafeCompare(adminKey, CONFIG.adminKey)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    await closeAllSessions('admin_stop', { clearDownloads: true, clearLocks: true });
+    await closeAllSessions('admin_stop', {
+      clearDownloads: true,
+      clearLocks: true,
+    });
     await closeBrowserFully('admin_stop');
     res.json({ ok: true, stopped: true, profile: 'camoufox' });
   } catch (err) {
@@ -4668,17 +5555,29 @@ app.post('/navigate', async (req, res) => {
     }
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     const result = await withTabLock(targetId, async () => {
-      await withPageLoadDuration('navigate', () => tabState.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }));
+      await withPageLoadDuration('navigate', () =>
+        tabState.page.goto(url, {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
+        }),
+      );
       tabState.visitedUrls.add(url);
       tabState.lastSnapshot = null;
 
       // Google SERP: defer extraction to snapshot call
       if (isGoogleSerp(tabState.page.url())) {
         tabState.refs = new Map();
-        return { ok: true, targetId, url: tabState.page.url(), googleSerp: true };
+        return {
+          ok: true,
+          targetId,
+          url: tabState.page.url(),
+          googleSerp: true,
+        };
       }
 
       tabState.refs = await buildRefs(tabState.page);
@@ -4687,7 +5586,10 @@ app.post('/navigate', async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    log('error', 'openclaw navigate failed', { reqId: req.reqId, error: err.message });
+    log('error', 'openclaw navigate failed', {
+      reqId: req.reqId,
+      error: err.message,
+    });
     handleRouteError(err, req, res);
   }
 });
@@ -4760,15 +5662,31 @@ app.get('/snapshot', async (req, res) => {
     }
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     // Cached chunk retrieval
     if (offset > 0 && tabState.lastSnapshot) {
       const win = windowSnapshot(tabState.lastSnapshot, offset);
-      const response = { ok: true, format: 'aria', targetId, url: tabState.page.url(), snapshot: win.text, refsCount: tabState.refs.size, truncated: win.truncated, totalChars: win.totalChars, hasMore: win.hasMore, nextOffset: win.nextOffset };
+      const response = {
+        ok: true,
+        format: 'aria',
+        targetId,
+        url: tabState.page.url(),
+        snapshot: win.text,
+        refsCount: tabState.refs.size,
+        truncated: win.truncated,
+        totalChars: win.totalChars,
+        hasMore: win.hasMore,
+        nextOffset: win.nextOffset,
+      };
       if (req.query.includeScreenshot === 'true') {
         const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-        response.screenshot = { data: pngBuffer.toString('base64'), mimeType: 'image/png' };
+        response.screenshot = {
+          data: pngBuffer.toString('base64'),
+          mimeType: 'image/png',
+        };
       }
       return res.json(response);
     }
@@ -4777,21 +5695,33 @@ app.get('/snapshot', async (req, res) => {
 
     // Google SERP fast path
     if (isGoogleSerp(pageUrl)) {
-      const { refs: googleRefs, snapshot: googleSnapshot } = await extractGoogleSerp(tabState.page);
+      const { refs: googleRefs, snapshot: googleSnapshot } =
+        await extractGoogleSerp(tabState.page);
       tabState.refs = googleRefs;
       tabState.lastSnapshot = googleSnapshot;
-      snapshotBytes.labels('google_serp').observe(Buffer.byteLength(googleSnapshot, 'utf8'));
+      snapshotBytes
+        .labels('google_serp')
+        .observe(Buffer.byteLength(googleSnapshot, 'utf8'));
       const annotatedYaml = googleSnapshot;
       const win = windowSnapshot(annotatedYaml, 0);
       const response = {
-        ok: true, format: 'aria', targetId, url: pageUrl,
-        snapshot: win.text, refsCount: tabState.refs.size,
-        truncated: win.truncated, totalChars: win.totalChars,
-        hasMore: win.hasMore, nextOffset: win.nextOffset,
+        ok: true,
+        format: 'aria',
+        targetId,
+        url: pageUrl,
+        snapshot: win.text,
+        refsCount: tabState.refs.size,
+        truncated: win.truncated,
+        totalChars: win.totalChars,
+        hasMore: win.hasMore,
+        nextOffset: win.nextOffset,
       };
       if (req.query.includeScreenshot === 'true') {
         const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-        response.screenshot = { data: pngBuffer.toString('base64'), mimeType: 'image/png' };
+        response.screenshot = {
+          data: pngBuffer.toString('base64'),
+          mimeType: 'image/png',
+        };
       }
       return res.json(response);
     }
@@ -4810,22 +5740,27 @@ app.get('/snapshot', async (req, res) => {
       }
 
       const lines = annotatedYaml.split('\n');
-      annotatedYaml = lines.map(line => {
-        const match = line.match(/^(\s*)-\s+(\w+)(?:\s+"([^"]*)")?/);
-        if (match) {
-          const [, indent, role, name] = match;
-          const key = `${role}:${name || ''}`;
-          const refId = refsByKey.get(key);
-          if (refId) {
-            return line.replace(/^(\s*-\s+\w+)/, `$1 [${refId}]`);
+      annotatedYaml = lines
+        .map((line) => {
+          const match = line.match(/^(\s*)-\s+(\w+)(?:\s+"([^"]*)")?/);
+          if (match) {
+            const [, indent, role, name] = match;
+            const key = `${role}:${name || ''}`;
+            const refId = refsByKey.get(key);
+            if (refId) {
+              return line.replace(/^(\s*-\s+\w+)/, `$1 [${refId}]`);
+            }
           }
-        }
-        return line;
-      }).join('\n');
+          return line;
+        })
+        .join('\n');
     }
 
     tabState.lastSnapshot = annotatedYaml;
-    if (annotatedYaml) snapshotBytes.labels('full').observe(Buffer.byteLength(annotatedYaml, 'utf8'));
+    if (annotatedYaml)
+      snapshotBytes
+        .labels('full')
+        .observe(Buffer.byteLength(annotatedYaml, 'utf8'));
     const win = windowSnapshot(annotatedYaml, 0);
 
     const response = {
@@ -4843,12 +5778,18 @@ app.get('/snapshot', async (req, res) => {
 
     if (req.query.includeScreenshot === 'true') {
       const pngBuffer = await tabState.page.screenshot({ type: 'png' });
-      response.screenshot = { data: pngBuffer.toString('base64'), mimeType: 'image/png' };
+      response.screenshot = {
+        data: pngBuffer.toString('base64'),
+        mimeType: 'image/png',
+      };
     }
 
     res.json(response);
   } catch (err) {
-    log('error', 'openclaw snapshot failed', { reqId: req.reqId, error: err.message });
+    log('error', 'openclaw snapshot failed', {
+      reqId: req.reqId,
+      error: err.message,
+    });
     handleRouteError(err, req, res);
   }
 });
@@ -4928,7 +5869,9 @@ app.post('/act', async (req, res) => {
     }
 
     const { tabState } = found;
-    tabState.toolCalls++; tabState.consecutiveTimeouts = 0; tabState.consecutiveFailures = 0;
+    tabState.toolCalls++;
+    tabState.consecutiveTimeouts = 0;
+    tabState.consecutiveFailures = 0;
 
     const result = await withTabLock(targetId, async () => {
       switch (kind) {
@@ -4939,7 +5882,9 @@ app.post('/act', async (req, res) => {
           }
 
           const doClick = async (locatorOrSelector, isLocator) => {
-            const locator = isLocator ? locatorOrSelector : tabState.page.locator(locatorOrSelector);
+            const locator = isLocator
+              ? locatorOrSelector
+              : tabState.page.locator(locatorOrSelector);
             const clickOpts = { timeout: 3000 };
             if (doubleClick) clickOpts.clickCount = 2;
 
@@ -4957,11 +5902,18 @@ app.post('/act', async (req, res) => {
           if (ref) {
             let locator = refToLocator(tabState.page, ref, tabState.refs);
             if (!locator) {
-              log('info', 'auto-refreshing refs before click (openclaw)', { ref, hadRefs: tabState.refs.size });
+              log('info', 'auto-refreshing refs before click (openclaw)', {
+                ref,
+                hadRefs: tabState.refs.size,
+              });
               tabState.refs = await buildRefs(tabState.page);
               locator = refToLocator(tabState.page, ref, tabState.refs);
             }
-            if (!locator) { const maxRef = tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none'; throw new StaleRefsError(ref, maxRef, tabState.refs.size); }
+            if (!locator) {
+              const maxRef =
+                tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none';
+              throw new StaleRefsError(ref, maxRef, tabState.refs.size);
+            }
             await doClick(locator, true);
           } else {
             await doClick(selector, false);
@@ -4973,7 +5925,14 @@ app.post('/act', async (req, res) => {
         }
 
         case 'type': {
-          const { ref, selector, text, submit, mode = 'fill', delay = 30 } = params;
+          const {
+            ref,
+            selector,
+            text,
+            submit,
+            mode = 'fill',
+            delay = 30,
+          } = params;
           if (mode === 'fill' && !ref && !selector) {
             throw new Error('ref or selector required for mode=fill');
           }
@@ -4988,11 +5947,19 @@ app.post('/act', async (req, res) => {
           if (ref) {
             locator = refToLocator(tabState.page, ref, tabState.refs);
             if (!locator) {
-              log('info', 'auto-refreshing refs before type (openclaw)', { ref, hadRefs: tabState.refs.size, mode });
+              log('info', 'auto-refreshing refs before type (openclaw)', {
+                ref,
+                hadRefs: tabState.refs.size,
+                mode,
+              });
               tabState.refs = await buildRefs(tabState.page);
               locator = refToLocator(tabState.page, ref, tabState.refs);
             }
-            if (!locator) { const maxRef = tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none'; throw new StaleRefsError(ref, maxRef, tabState.refs.size); }
+            if (!locator) {
+              const maxRef =
+                tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none';
+              throw new StaleRefsError(ref, maxRef, tabState.refs.size);
+            }
           }
 
           if (mode === 'fill') {
@@ -5029,12 +5996,20 @@ app.post('/act', async (req, res) => {
               tabState.refs = await buildRefs(tabState.page);
               locator = refToLocator(tabState.page, ref, tabState.refs);
             }
-            if (!locator) { const maxRef = tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none'; throw new StaleRefsError(ref, maxRef, tabState.refs.size); }
+            if (!locator) {
+              const maxRef =
+                tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none';
+              throw new StaleRefsError(ref, maxRef, tabState.refs.size);
+            }
             await locator.scrollIntoViewIfNeeded({ timeout: 5000 });
           } else {
             const isVertical = direction === 'up' || direction === 'down';
-            const delta = (direction === 'up' || direction === 'left') ? -amount : amount;
-            await tabState.page.mouse.wheel(isVertical ? 0 : delta, isVertical ? delta : 0);
+            const delta =
+              direction === 'up' || direction === 'left' ? -amount : amount;
+            await tabState.page.mouse.wheel(
+              isVertical ? 0 : delta,
+              isVertical ? delta : 0,
+            );
           }
           await tabState.page.waitForTimeout(300);
           return { ok: true, targetId };
@@ -5050,7 +6025,11 @@ app.post('/act', async (req, res) => {
               tabState.refs = await buildRefs(tabState.page);
               locator = refToLocator(tabState.page, ref, tabState.refs);
             }
-            if (!locator) { const maxRef = tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none'; throw new StaleRefsError(ref, maxRef, tabState.refs.size); }
+            if (!locator) {
+              const maxRef =
+                tabState.refs.size > 0 ? `e${tabState.refs.size}` : 'none';
+              throw new StaleRefsError(ref, maxRef, tabState.refs.size);
+            }
             await locator.hover({ timeout: 5000 });
           } else {
             await tabState.page.locator(selector).hover({ timeout: 5000 });
@@ -5063,7 +6042,9 @@ app.post('/act', async (req, res) => {
           if (timeMs) {
             await tabState.page.waitForTimeout(timeMs);
           } else if (text) {
-            await tabState.page.waitForSelector(`text=${text}`, { timeout: 30000 });
+            await tabState.page.waitForSelector(`text=${text}`, {
+              timeout: 30000,
+            });
           } else if (loadState) {
             await tabState.page.waitForLoadState(loadState, { timeout: 30000 });
           }
@@ -5073,7 +6054,11 @@ app.post('/act', async (req, res) => {
         case 'close': {
           await safePageClose(tabState.page);
           found.group.delete(targetId);
-          { const _l = tabLocks.get(targetId); if (_l) _l.drain(); tabLocks.delete(targetId); }
+          {
+            const _l = tabLocks.get(targetId);
+            if (_l) _l.drain();
+            tabLocks.delete(targetId);
+          }
           return { ok: true, targetId };
         }
 
@@ -5084,7 +6069,11 @@ app.post('/act', async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    log('error', 'act failed', { reqId: req.reqId, kind: req.body?.kind, error: err.message });
+    log('error', 'act failed', {
+      reqId: req.reqId,
+      kind: req.body?.kind,
+      error: err.message,
+    });
     handleRouteError(err, req, res);
   }
 });
@@ -5116,13 +6105,18 @@ setInterval(async () => {
   // If it's been >120s since any successful operation, probe anyway --
   // active ops are likely stuck on a frozen browser and will time out eventually.
   if (healthState.activeOps > 0 && timeSinceSuccess < 120000) {
-    log('info', 'health probe skipped, operations active', { activeOps: healthState.activeOps });
+    log('info', 'health probe skipped, operations active', {
+      activeOps: healthState.activeOps,
+    });
     return;
   }
   if (timeSinceSuccess < 120000) return;
 
   if (healthState.activeOps > 0) {
-    log('warn', 'health probe forced despite active ops', { activeOps: healthState.activeOps, timeSinceSuccessMs: timeSinceSuccess });
+    log('warn', 'health probe forced despite active ops', {
+      activeOps: healthState.activeOps,
+      timeSinceSuccessMs: timeSinceSuccess,
+    });
   }
 
   let testContext;
@@ -5135,7 +6129,10 @@ setInterval(async () => {
     healthState.lastSuccessfulNav = Date.now();
   } catch (err) {
     failuresTotal.labels('health_probe', 'internal').inc();
-    log('warn', 'health probe failed', { error: err.message, timeSinceSuccessMs: timeSinceSuccess });
+    log('warn', 'health probe failed', {
+      error: err.message,
+      timeSinceSuccessMs: timeSinceSuccess,
+    });
     if (testContext) await testContext.close().catch(() => {});
     restartBrowser('health probe failed').catch(() => {});
   }
@@ -5193,7 +6190,9 @@ if (CONFIG.nodeEnv === 'production' && !CONFIG.accessKey) {
   throw new Error('CAMOFOX_ACCESS_KEY is required when NODE_ENV=production');
 }
 if (!_isLoopbackAddress(HOST) && !CONFIG.accessKey) {
-  throw new Error('CAMOFOX_ACCESS_KEY is required when CAMOFOX_HOST is not loopback');
+  throw new Error(
+    'CAMOFOX_ACCESS_KEY is required when CAMOFOX_HOST is not loopback',
+  );
 }
 pluginEvents.emit('server:starting', { host: HOST, port: PORT });
 
@@ -5232,11 +6231,27 @@ const server = app.listen(PORT, HOST, async () => {
   startMemoryReporter();
   refreshActiveTabsGauge();
   refreshTabLockQueueDepth();
-  pluginEvents.emit('server:started', { host: HOST, port: PORT, pid: process.pid, plugins: loadedPlugins });
+  pluginEvents.emit('server:started', {
+    host: HOST,
+    port: PORT,
+    pid: process.pid,
+    plugins: loadedPlugins,
+  });
   if (FLY_MACHINE_ID) {
-    log('info', 'server started (fly)', { host: HOST, port: PORT, pid: process.pid, machineId: FLY_MACHINE_ID, nodeVersion: process.version });
+    log('info', 'server started (fly)', {
+      host: HOST,
+      port: PORT,
+      pid: process.pid,
+      machineId: FLY_MACHINE_ID,
+      nodeVersion: process.version,
+    });
   } else {
-    log('info', 'server started', { host: HOST, port: PORT, pid: process.pid, nodeVersion: process.version });
+    log('info', 'server started', {
+      host: HOST,
+      port: PORT,
+      pid: process.pid,
+      nodeVersion: process.version,
+    });
   }
   const tmpCleanup = cleanupOrphanedTempFiles({ tmpDir: os.tmpdir() });
   if (tmpCleanup.removed > 0) {
@@ -5248,14 +6263,19 @@ const server = app.listen(PORT, HOST, async () => {
   }
 
   // Periodic temp profile cleanup every 10 minutes
-  setInterval(() => {
-    try {
-      const cleaned = cleanupStaleFirefoxProfiles();
-      if (cleaned.removed > 0) {
-        log('info', 'periodic firefox profile cleanup', cleaned);
+  setInterval(
+    () => {
+      try {
+        const cleaned = cleanupStaleFirefoxProfiles();
+        if (cleaned.removed > 0) {
+          log('info', 'periodic firefox profile cleanup', cleaned);
+        }
+      } catch {
+        /* best effort */
       }
-    } catch { /* best effort */ }
-  }, 10 * 60 * 1000).unref();
+    },
+    10 * 60 * 1000,
+  ).unref();
   const traceSweep = sweepOldTraces({
     baseDir: CONFIG.tracesDir,
     ttlMs: CONFIG.tracesTtlHours * 3600 * 1000,
@@ -5274,7 +6294,9 @@ const server = app.listen(PORT, HOST, async () => {
       log('info', 'browser pre-warmed', { ms: Date.now() - start });
       scheduleBrowserIdleShutdown();
     } catch (err) {
-      log('error', 'browser pre-warm failed (will retry in background)', { error: err.message });
+      log('error', 'browser pre-warm failed (will retry in background)', {
+        error: err.message,
+      });
       scheduleBrowserWarmRetry();
     }
   } else {

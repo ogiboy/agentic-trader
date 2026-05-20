@@ -50,7 +50,9 @@ describe('proposals route', () => {
 
     const missingId = await POST(proposalRequest({ kind: 'reject' }));
     expect(missingId.status).toBe(400);
-    expect(await missingId.json()).toEqual({ error: 'proposal id is required' });
+    expect(await missingId.json()).toEqual({
+      error: 'proposal id is required',
+    });
   });
 
   it('runs supported manual-review actions through the allowlist', async () => {
@@ -102,14 +104,33 @@ describe('proposals route', () => {
       proposalRequest({
         kind: 'refresh',
         proposalId: 'proposal-3',
+        reviewNotes: 'broker status check',
       }),
     );
     expect(third.status).toBe(200);
     expect(vi.mocked(runProposalAction)).toHaveBeenCalledWith(
       'refresh',
       'proposal-3',
-      '',
+      'broker status check',
     );
+  });
+
+  it('requires review notes for state-changing proposal actions', async () => {
+    process.env.AGENTIC_TRADER_WEBGUI_TOKEN = 'local-token';
+
+    for (const kind of ['approve', 'reject', 'reconcile', 'refresh'] as const) {
+      const response = await POST(
+        proposalRequest({
+          kind,
+          proposalId: `proposal-${kind}`,
+          reviewNotes: ' ',
+        }),
+      );
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        error: `review note is required for ${kind}`,
+      });
+    }
   });
 
   it('redacts thrown proposal errors', async () => {
@@ -121,7 +142,11 @@ describe('proposals route', () => {
     );
 
     const response = await POST(
-      proposalRequest({ kind: 'approve', proposalId: 'proposal-1' }),
+      proposalRequest({
+        kind: 'approve',
+        proposalId: 'proposal-1',
+        reviewNotes: 'operator approved',
+      }),
     );
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({

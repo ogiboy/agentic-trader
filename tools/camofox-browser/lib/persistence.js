@@ -29,7 +29,8 @@ async function loadPersistedStorageState(profileDir, userId, logger = console) {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return undefined;
     if (!Array.isArray(parsed.cookies)) return undefined;
-    if (parsed.origins !== undefined && !Array.isArray(parsed.origins)) return undefined;
+    if (parsed.origins !== undefined && !Array.isArray(parsed.origins))
+      return undefined;
     return storageStatePath;
   } catch (err) {
     if (err?.code === 'ENOENT') return undefined;
@@ -42,12 +43,20 @@ async function loadPersistedStorageState(profileDir, userId, logger = console) {
   }
 }
 
-async function persistStorageState({ profileDir, userId, context, logger = console }) {
+async function persistStorageState({
+  profileDir,
+  userId,
+  context,
+  logger = console,
+}) {
   if (!profileDir || !context) {
     return { persisted: false, reason: 'disabled' };
   }
 
-  const { userDir, storageStatePath, metaPath } = getUserPersistencePaths(profileDir, userId);
+  const { userDir, storageStatePath, metaPath } = getUserPersistencePaths(
+    profileDir,
+    userId,
+  );
   const suffix = `.tmp-${process.pid}-${Date.now()}`;
   const tmpStoragePath = `${storageStatePath}${suffix}`;
   const tmpMetaPath = `${metaPath}${suffix}`;
@@ -65,8 +74,8 @@ async function persistStorageState({ profileDir, userId, context, logger = conso
           storageStatePath,
         },
         null,
-        2
-      )
+        2,
+      ),
     );
     await fs.rename(tmpMetaPath, metaPath);
     return { persisted: true, userDir, storageStatePath, metaPath };

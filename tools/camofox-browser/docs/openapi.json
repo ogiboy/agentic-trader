@@ -65,9 +65,7 @@
     "schemas": {
       "Error": {
         "type": "object",
-        "required": [
-          "error"
-        ],
+        "required": ["error"],
         "properties": {
           "error": {
             "type": "string"
@@ -79,9 +77,7 @@
   "paths": {
     "/sessions/{userId}/cookies": {
       "post": {
-        "tags": [
-          "Sessions"
-        ],
+        "tags": ["Sessions"],
         "summary": "Import cookies into a user session",
         "description": "Import cookies for authenticated browsing. Requires BearerAuth in production.",
         "security": [
@@ -106,20 +102,14 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "cookies"
-                ],
+                "required": ["cookies"],
                 "properties": {
                   "cookies": {
                     "type": "array",
                     "maxItems": 500,
                     "items": {
                       "type": "object",
-                      "required": [
-                        "name",
-                        "value",
-                        "domain"
-                      ],
+                      "required": ["name", "value", "domain"],
                       "properties": {
                         "name": {
                           "type": "string"
@@ -144,11 +134,7 @@
                         },
                         "sameSite": {
                           "type": "string",
-                          "enum": [
-                            "Strict",
-                            "Lax",
-                            "None"
-                          ]
+                          "enum": ["Strict", "Lax", "None"]
                         }
                       }
                     }
@@ -205,9 +191,7 @@
     },
     "/health": {
       "get": {
-        "tags": [
-          "System"
-        ],
+        "tags": ["System"],
         "summary": "Health check",
         "description": "Detailed health with tab/session counts and failure tracking.",
         "responses": {
@@ -267,9 +251,7 @@
     },
     "/metrics": {
       "get": {
-        "tags": [
-          "System"
-        ],
+        "tags": ["System"],
         "summary": "Prometheus metrics",
         "description": "Returns Prometheus text exposition format. Requires PROMETHEUS_ENABLED=1.",
         "responses": {
@@ -298,9 +280,7 @@
     },
     "/tabs": {
       "post": {
-        "tags": [
-          "Tabs"
-        ],
+        "tags": ["Tabs"],
         "summary": "Create a new tab",
         "description": "Creates a tab in the given session. Optionally navigates to an initial URL.",
         "requestBody": {
@@ -309,10 +289,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId",
-                  "sessionKey"
-                ],
+                "required": ["userId", "sessionKey"],
                 "properties": {
                   "userId": {
                     "type": "string",
@@ -391,9 +368,7 @@
         }
       },
       "get": {
-        "tags": [
-          "Tabs"
-        ],
+        "tags": ["Tabs"],
         "summary": "List open tabs",
         "description": "Returns all tabs for a given userId.",
         "parameters": [
@@ -450,9 +425,7 @@
     },
     "/tabs/{tabId}/navigate": {
       "post": {
-        "tags": [
-          "Navigation"
-        ],
+        "tags": ["Navigation"],
         "summary": "Navigate a tab to a URL or macro",
         "description": "Navigate to a URL or expand a search macro. Auto-creates tab if not found.",
         "parameters": [
@@ -471,9 +444,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId"
-                ],
+                "required": ["userId"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -536,9 +507,7 @@
     },
     "/tabs/{tabId}/snapshot": {
       "get": {
-        "tags": [
-          "Content"
-        ],
+        "tags": ["Content"],
         "summary": "Accessibility snapshot",
         "description": "Returns accessibility tree with element refs. Supports pagination via offset.",
         "parameters": [
@@ -563,10 +532,7 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": [
-                "text",
-                "json"
-              ],
+              "enum": ["text", "json"],
               "default": "text"
             }
           },
@@ -583,10 +549,7 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ]
+              "enum": ["true", "false"]
             }
           }
         ],
@@ -639,9 +602,7 @@
     },
     "/tabs/{tabId}/wait": {
       "post": {
-        "tags": [
-          "Interaction"
-        ],
+        "tags": ["Interaction"],
         "summary": "Wait for a selector or timeout",
         "parameters": [
           {
@@ -659,9 +620,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId"
-                ],
+                "required": ["userId"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -709,9 +668,7 @@
     },
     "/tabs/{tabId}/click": {
       "post": {
-        "tags": [
-          "Interaction"
-        ],
+        "tags": ["Interaction"],
         "summary": "Click an element",
         "description": "Click by element ref, CSS selector, or coordinates.",
         "parameters": [
@@ -730,9 +687,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId"
-                ],
+                "required": ["userId"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -800,9 +755,7 @@
     },
     "/tabs/{tabId}/type": {
       "post": {
-        "tags": [
-          "Interaction"
-        ],
+        "tags": ["Interaction"],
         "summary": "Type text into an element",
         "description": "Types text into a focused element or a specific ref/selector.",
         "parameters": [
@@ -821,10 +774,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId",
-                  "text"
-                ],
+                "required": ["userId", "text"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -887,9 +837,7 @@
     },
     "/tabs/{tabId}/press": {
       "post": {
-        "tags": [
-          "Interaction"
-        ],
+        "tags": ["Interaction"],
         "summary": "Press a keyboard key",
         "parameters": [
           {
@@ -907,10 +855,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId",
-                  "key"
-                ],
+                "required": ["userId", "key"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -955,9 +900,7 @@
     },
     "/tabs/{tabId}/scroll": {
       "post": {
-        "tags": [
-          "Interaction"
-        ],
+        "tags": ["Interaction"],
         "summary": "Scroll the page",
         "parameters": [
           {
@@ -975,9 +918,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId"
-                ],
+                "required": ["userId"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -1026,9 +967,7 @@
     },
     "/tabs/{tabId}/back": {
       "post": {
-        "tags": [
-          "Navigation"
-        ],
+        "tags": ["Navigation"],
         "summary": "Go back",
         "parameters": [
           {
@@ -1046,9 +985,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId"
-                ],
+                "required": ["userId"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -1092,9 +1029,7 @@
     },
     "/tabs/{tabId}/forward": {
       "post": {
-        "tags": [
-          "Navigation"
-        ],
+        "tags": ["Navigation"],
         "summary": "Go forward",
         "parameters": [
           {
@@ -1112,9 +1047,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId"
-                ],
+                "required": ["userId"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -1158,9 +1091,7 @@
     },
     "/tabs/{tabId}/refresh": {
       "post": {
-        "tags": [
-          "Navigation"
-        ],
+        "tags": ["Navigation"],
         "summary": "Refresh page",
         "parameters": [
           {
@@ -1178,9 +1109,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId"
-                ],
+                "required": ["userId"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -1224,9 +1153,7 @@
     },
     "/tabs/{tabId}/links": {
       "get": {
-        "tags": [
-          "Content"
-        ],
+        "tags": ["Content"],
         "summary": "Extract page links",
         "parameters": [
           {
@@ -1291,9 +1218,7 @@
     },
     "/tabs/{tabId}/downloads": {
       "get": {
-        "tags": [
-          "Content"
-        ],
+        "tags": ["Content"],
         "summary": "List tab downloads",
         "parameters": [
           {
@@ -1358,9 +1283,7 @@
     },
     "/tabs/{tabId}/images": {
       "get": {
-        "tags": [
-          "Content"
-        ],
+        "tags": ["Content"],
         "summary": "Extract page images",
         "parameters": [
           {
@@ -1428,9 +1351,7 @@
     },
     "/tabs/{tabId}/screenshot": {
       "get": {
-        "tags": [
-          "Content"
-        ],
+        "tags": ["Content"],
         "summary": "Take a screenshot",
         "description": "Returns a base64-encoded PNG screenshot.",
         "parameters": [
@@ -1490,9 +1411,7 @@
     },
     "/tabs/{tabId}/stats": {
       "get": {
-        "tags": [
-          "Tabs"
-        ],
+        "tags": ["Tabs"],
         "summary": "Tab statistics",
         "description": "Returns tab metadata including URL, tool call count, visited URLs, download/failure counts.",
         "parameters": [
@@ -1562,9 +1481,7 @@
     },
     "/tabs/{tabId}/evaluate": {
       "post": {
-        "tags": [
-          "Interaction"
-        ],
+        "tags": ["Interaction"],
         "summary": "Evaluate JavaScript in tab",
         "description": "Runs arbitrary JS in the page context and returns the result.",
         "parameters": [
@@ -1583,10 +1500,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId",
-                  "expression"
-                ],
+                "required": ["userId", "expression"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -1642,9 +1556,7 @@
     },
     "/tabs/{tabId}/extract": {
       "post": {
-        "tags": [
-          "Content"
-        ],
+        "tags": ["Content"],
         "summary": "Structured data extraction via JSON Schema",
         "description": "Extracts structured data from the current page using a JSON Schema whose properties\ncarry `x-ref` hints pointing at snapshot element refs (e.g. `e1`, `e2`).  \nCall `GET /tabs/{tabId}/snapshot` first to populate the ref table.\n",
         "parameters": [
@@ -1663,10 +1575,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId",
-                  "schema"
-                ],
+                "required": ["userId", "schema"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -1674,16 +1583,11 @@
                   "schema": {
                     "type": "object",
                     "description": "JSON Schema with `type: \"object\"` and a `properties` map.  \nEach property may include `x-ref` (a snapshot element ref) and an optional\n`type` (`string`, `number`, `integer`, `boolean`).\n",
-                    "required": [
-                      "type",
-                      "properties"
-                    ],
+                    "required": ["type", "properties"],
                     "properties": {
                       "type": {
                         "type": "string",
-                        "enum": [
-                          "object"
-                        ]
+                        "enum": ["object"]
                       },
                       "properties": {
                         "type": "object",
@@ -1818,9 +1722,7 @@
     },
     "/tabs/{tabId}": {
       "delete": {
-        "tags": [
-          "Tabs"
-        ],
+        "tags": ["Tabs"],
         "summary": "Close a tab",
         "parameters": [
           {
@@ -1871,9 +1773,7 @@
     },
     "/tabs/group/{listItemId}": {
       "delete": {
-        "tags": [
-          "Tabs"
-        ],
+        "tags": ["Tabs"],
         "summary": "Close all tabs in a group",
         "parameters": [
           {
@@ -1927,9 +1827,7 @@
     },
     "/sessions/{userId}/traces": {
       "get": {
-        "tags": [
-          "Sessions"
-        ],
+        "tags": ["Sessions"],
         "summary": "List trace files",
         "description": "Returns all Playwright trace zip files for the given user session, sorted newest first.",
         "security": [
@@ -2006,9 +1904,7 @@
     },
     "/sessions/{userId}/traces/{filename}": {
       "get": {
-        "tags": [
-          "Sessions"
-        ],
+        "tags": ["Sessions"],
         "summary": "Download a trace file",
         "description": "Streams a Playwright trace zip for viewing in trace.playwright.dev.",
         "security": [
@@ -2091,9 +1987,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Sessions"
-        ],
+        "tags": ["Sessions"],
         "summary": "Delete a trace file",
         "description": "Removes a specific Playwright trace zip from the server.",
         "security": [
@@ -2182,9 +2076,7 @@
     },
     "/sessions/{userId}": {
       "delete": {
-        "tags": [
-          "Sessions"
-        ],
+        "tags": ["Sessions"],
         "summary": "Destroy a user session",
         "description": "Closes all tabs and cleans up state for the given userId.",
         "parameters": [
@@ -2231,9 +2123,7 @@
     },
     "/": {
       "get": {
-        "tags": [
-          "System"
-        ],
+        "tags": ["System"],
         "summary": "Server status",
         "description": "Returns basic server liveness and browser state.",
         "responses": {
@@ -2272,9 +2162,7 @@
     },
     "/tabs/open": {
       "post": {
-        "tags": [
-          "Legacy"
-        ],
+        "tags": ["Legacy"],
         "summary": "Open tab (OpenClaw format)",
         "deprecated": true,
         "requestBody": {
@@ -2283,10 +2171,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId",
-                  "url"
-                ],
+                "required": ["userId", "url"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -2328,9 +2213,7 @@
     },
     "/start": {
       "post": {
-        "tags": [
-          "Browser"
-        ],
+        "tags": ["Browser"],
         "summary": "Start browser",
         "description": "Ensures the browser process is running. Idempotent.",
         "responses": {
@@ -2367,9 +2250,7 @@
     },
     "/stop": {
       "post": {
-        "tags": [
-          "Browser"
-        ],
+        "tags": ["Browser"],
         "summary": "Stop browser",
         "description": "Stops the browser and closes all sessions. Requires x-admin-key header.",
         "security": [
@@ -2414,9 +2295,7 @@
     },
     "/navigate": {
       "post": {
-        "tags": [
-          "Legacy"
-        ],
+        "tags": ["Legacy"],
         "summary": "Navigate (OpenClaw format)",
         "description": "Navigate with targetId in body instead of path param.",
         "deprecated": true,
@@ -2426,10 +2305,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId",
-                  "url"
-                ],
+                "required": ["userId", "url"],
                 "properties": {
                   "userId": {
                     "type": "string"
@@ -2481,9 +2357,7 @@
     },
     "/snapshot": {
       "get": {
-        "tags": [
-          "Legacy"
-        ],
+        "tags": ["Legacy"],
         "summary": "Snapshot (OpenClaw format)",
         "description": "Snapshot with targetId/userId as query params.",
         "deprecated": true,
@@ -2523,10 +2397,7 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ]
+              "enum": ["true", "false"]
             }
           }
         ],
@@ -2566,9 +2437,7 @@
     },
     "/act": {
       "post": {
-        "tags": [
-          "Legacy"
-        ],
+        "tags": ["Legacy"],
         "summary": "Combined action (OpenClaw format)",
         "description": "Routes to click/type/scroll/press/etc based on \"kind\" parameter.",
         "deprecated": true,
@@ -2578,10 +2447,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "userId",
-                  "kind"
-                ],
+                "required": ["userId", "kind"],
                 "properties": {
                   "userId": {
                     "type": "string"
