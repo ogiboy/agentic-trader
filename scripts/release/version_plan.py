@@ -18,7 +18,6 @@ import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SEMVER_RE = re.compile(
     r"^[Vv]?(?P<core>\d+\.\d+\.\d+)"

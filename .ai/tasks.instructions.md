@@ -21,8 +21,12 @@ Now:
 - keep `sidecars/research_flow/` as a tracked but isolated CrewAI Flow uv project; root `pnpm check` should stay focused on the core runtime until the sidecar is mature enough for a separate CI job
 - keep the CrewAI subprocess contract deterministic and no-sync at runtime: setup/check commands may run `uv sync`, but runtime backend calls should only use an already-installed sidecar environment
 - grow the V1 research sidecar as a local-first evidence companion that writes normalized evidence packets and world-state snapshots before any trading memory integration
-- keep the new V1 proposal queue manual-review only: scanners, research providers, chat, Web routes, and sidecars may surface or explain proposals, but only explicit approval commands should submit to the configured paper/external-paper broker adapter
-- keep proposal reconciliation in the safety loop: `proposal-reconcile` can mark an already approved in-flight proposal terminal from the idempotent `execution_records.intent_id` row without broker resubmission; the Web GUI Proposal Desk can surface and trigger reconcile explicitly, while next passes should add richer Rich/Ink parity and smoke QA
+- keep proposal candidates broker-free: scanners, research providers, chat, Web routes, and sidecars may surface candidates or pending proposal evidence, but candidate promotion only creates a pending manual-review proposal, and only explicit approval commands may submit to the configured paper/external-paper broker adapter
+- treat V1 as an active US trading product goal, not a passive research demo: the supported Alpaca path must be able to submit approved buy/sell intents once provider, broker, account, risk, audit, and kill-switch gates pass; V2 is the Turkey expansion track
+- keep broker/journal truth conservative: externally accepted paper orders should remain in-flight approved proposals plus operator-visible open journal entries, and `proposal-refresh` should read the original broker order without resubmission before marking a later fill, no-fill, cancel, or reject state
+- keep proposal reconciliation in the safety loop: `proposal-reconcile` can mark an already approved in-flight proposal terminal from the idempotent `execution_records.intent_id` row without broker resubmission, and the Web GUI Proposal Desk can surface reconcile plus refresh explicitly; next passes should add richer Rich/Ink parity and smoke QA
+- keep proposal audit and broker order semantics strict: approve/reject/reconcile/refresh require operator review notes, limit proposals require explicit limit price plus quantity, market proposals must not carry limit prices, and Alpaca paper submissions should remain traceable through `client_order_id == execution_intent_id`
+- keep position-plan repair in the paper-desk recovery loop: `position-plan-repair` must remain broker-free, dry-run by default, and limited to executed proposals with valid stop/take controls for currently open positions that are missing stored exit plans
 - keep Firecrawl and Camofox optional under `researchd`: they may help collect source-attributed evidence or browser health, but they must stay disabled by default, redacted, raw-text-free for prompts, and outside the broker/runtime-mode boundary
 - keep deterministic idea-scanner presets as research/screening tools until provider/news/fundamental enrichment and proposal-review UX are mature enough for broader operator workflows
 - keep the new market-intelligence runtime surfaces aligned with the same safety boundary: `strategy-catalog`, `strategy-profile`, `news-intelligence`, `research-cycle-plan`, and `idea-score` readiness explain strategy/source/evidence/loop gates but cannot create, approve, or execute trades
@@ -31,16 +35,18 @@ Now:
 - use `.ai/agents/market-strategist.agent.md`, `.ai/strategies/v1-strategy-catalog.instructions.md`, and `.ai/playbooks/strategy-research-and-sweeps.instructions.md` when adding scanner presets, strategy-family hints, proposal enrichment, backtest baselines, or sweep plans
 - use `.ai/playbooks/news-intelligence.instructions.md` and `.ai/skills/market-news-research.instructions.md` when adding ticker/news/macro/browser evidence so source tier, fetcher source, attempts, freshness, materiality, and redaction survive into snapshots and proposal notes
 - use `.ai/playbooks/finance-evidence-reconciliation.instructions.md` when broker/accounting/reporting changes touch account truth, fills, fees, slippage, PnL, exposure, or evidence-bundle payloads
-- keep the new `docs/` Fumadocs site aligned with README, `dev/code-map.md`, and `.ai/*` while making it the operator-first product guide, not only a developer entrypoint
+- keep the new `docs/` Fumadocs site aligned with README, `dev-docs/code-map.md`, and `.ai/*` while making it the operator-first product guide, not only a developer entrypoint
 - keep docs language clear about the difference between product trading memory/review evidence and contributor `.ai` project notes
 - keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's uv-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
 - keep development-agent handoffs honest about version ownership before push: product-impacting branch pushes should bump the tracked app patch version consistently across Python, workspace package manifests, sidecar metadata, and lockfile metadata, then run `pnpm run version:plan`; `CHANGELOG.md` remains release-flow owned unless explicitly requested
+- investigate the current "CHANGELOG.md does not change" complaint as a release-flow task: verify whether the branch path is expected not to mutate changelog, whether semantic-release lacks a trigger or baseline, and what stable-release evidence should prove before V1 is promoted
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
 - keep local setup/cleanup semantics explicit: `setup` must install and verify root/webgui/docs/tui node workspace deps, `clean` should remain artifact-only, and dependency removal should go through explicit `clean:deps` or `clean:all`
 - keep the first user-facing accelerated lifecycle slices conservative: `app:doctor` is read-only and must not call `uv run`, install deps, start/stop app-owned services, pull models, open browsers, or launch trading; `app:setup` defaults to dry-run planning and only mutates through explicit `--core --yes` root dependency repair; `app:start` and `app:stop` default to dry-run, require selected app-owned services plus `--yes`, never install/fetch/pull/open browsers by default, and delegate ownership checks to existing service commands; `app:update` defaults to dry-run and can run selected native dependency-owner lanes only after explicit scope plus `--yes`, without browser fetch, model pull, service start/stop, daemon start, secrets, brokerage config, or runtime-state deletion; `app:uninstall` defaults to dry-run and removes only selected generated/dependency/service-state scopes after `--yes`, blocking service-state cleanup while recorded state files remain; `app:up` now composes the safe first-run path through existing lifecycle commands and requires explicit optional-helper ownership flags before Camofox/browser/model-service lanes
 - keep maturing `app:up` as the guided first-run path: repair Python/root pnpm workspace, docs/WebGUI/TUI, CrewAI Flow sidecar, optional tool roots, app-owned helper services, PATH entrypoint, and final Web GUI launch through explicit scopes and ownership decisions; daemon/trading start remains explicit
 - keep optional tool ownership as a shared setup contract: Ollama, Firecrawl, and Camofox decisions persist under runtime setup state, surface through CLI/dashboard/Web/TUI readiness, expose internal-first app-owned and explicit host-fallback choices in the Web GUI, and block app-owned model/Camofox starts unless the persisted mode is `app-owned`
 - keep `tools/camofox-browser` setup on pnpm-owned commands (`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`, `pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser`, and `pnpm --dir tools/camofox-browser --ignore-workspace run test`); npm lock/script assumptions are removed after the pnpm tool-root smoke passes
+- keep root `pnpm-workspace.yaml` scoped to always-installed app packages (`webgui`, `docs`, `tui`) unless a future setup decision makes an optional tool root a normal workspace package; Camofox remains explicit tool-root setup so `pnpm install` does not silently install browser-helper dependencies
 - add an explicit update path: root pnpm workspace update, Camofox tool-root pnpm update, root uv lock upgrade/sync, CrewAI sidecar uv lock upgrade/sync, rebuilds, and setup/service status output should be one planned `app:update` lane rather than scattered manual commands
 - keep the explicit uninstall path conservative: app-owned dependency directories, generated artifacts, sidecar venvs, repo-local pnpm store, and service log/state directories may be removed only after confirmation; secrets, provider accounts, brokerage config, trading evidence, and host-owned services must be preserved unless a separate destructive action is requested
 - keep the root uv migration boring and complete: root `uv.lock`, `.python-version`, install/check/qa/release scripts, CI workflows, docs, and `.codex` environment actions must stay aligned
@@ -52,6 +58,8 @@ Now:
 - if RuFlo or another assistant init creates `.claude/`, `.claude-flow/`, `.swarm/`, `.mcp.json`, `CLAUDE.md`, or similar tool-state folders, harvest useful workflow ideas into self-contained `.ai/agents/`, `.ai/workflows/`, `.ai/playbooks/`, `.ai/helpers/`, or `.ai/skills/` guidance and delete the generated artifacts instead of tracking or ignoring them
 - use the new `.ai/workflows/` and `.ai/playbooks/` pack for feature, security, release/PR, QA, performance, setup, browser, and memory-retrieval work
 - use external advisory routing pragmatically: security changes should get a security/audit lens, feature changes should get test-gap review, performance changes should get performance/diff-risk review, and 5+ file changes should get a map/reviewer pass when the tool is available
+- keep the aggregate `V1` to `main` readiness PR stable once it is reviewable; if the diff is near or above external reviewer file limits, do not keep appending unrelated fixes to it, and instead open focused V1-based follow-up branches that each stay comfortably under the CodeRabbit/Sonar review budget
+- use `.ai/playbooks/code-review.instructions.md` for sectional CodeRabbit/Sonar review: review runtime/safety, trading/persistence, providers/sidecars, operator surfaces, and docs/setup/release as separate sections, and record stale findings with reasons instead of copying bot comments blindly
 - when RuFlo is available, prefer `.ai/skills/ruflo-codex.instructions.md` command recipes: MCP status first, safe advisory tools before CLI, serial smoke before experimental swarm/agent/memory tools, and no init/daemon/workflow-run without explicit approval
 - use Context7 as a system-level docs helper through `npx ctx7 library ...` and `npx ctx7 docs ...` when library/API guidance is needed; do not run `ctx7 setup` in this repo or add Context7 artifacts unless explicitly requested
 - run `pnpm run qa:prompts` whenever `.prompt.md`, `.agent.md`, or
@@ -85,6 +93,10 @@ Now:
   affects first-run behavior, app-owned helper services, agent-cycle claims,
   memory persistence, visual surfaces, or security boundaries
 - start a maintainability cleanup track for large files and repeated strings: extract constants, render helpers, command helpers, and service-specific modules as touched; keep names domain-oriented and preserve existing contracts rather than doing a risky one-shot rewrite
+- prioritize the Web GUI control-room modularity track before polishing small UI issues: split dashboard/proposal/tools/runtime/finance/auth/chat concerns into focused components, hooks, and helpers with matching tests, while keeping the route handlers as thin runtime-contract delegates
+- make whole-app shutdown a first-class V1 follow-up: first extend `stop-service` with machine-readable `--json` plus a bounded wait result, then add an explicit `app:stop --runtime` step that stops the trading daemon before optional helper services and refuses to tear down model/browser helpers while a runtime cycle is still live unless the operator asks for a force path
+- treat TUI flicker as a runtime-trust issue, not polish only: add an in-flight or sequence guard around Ink dashboard refreshes, verify Rich monitor DB ownership is closed per tick, and keep visual QA tied to dashboard JSON truth
+- keep LM Studio and other OpenAI-compatible endpoints as explicit adapter/profile work: the managed local service layer remains app-owned Ollama only, while `openai-compatible` or a future `lm-studio` alias should use the OpenAI chat-completions adapter without app-owned Ollama auto-start/adoption
 - use `provider-diagnostics` and `v1-readiness` as the V1 operator gate before longer paper-operation runs or Alpaca paper-readiness checks; `v1-readiness.paper_evidence` must keep source attribution, context-pack explainability, review artifacts, broker health, and no-live-until-approved state visible
 - use `--provider-check` on `v1-readiness`, `dashboard-snapshot`, or
   `evidence-bundle` when collecting product-readiness evidence; default
@@ -98,11 +110,11 @@ Now:
 Next:
 
 - extend the file-backed research snapshot feed when real providers start returning raw evidence references, normalized events, findings, and entity dossiers
-- extend real official/structured providers behind the sidecar source ladder: SEC EDGAR submissions metadata and compact company facts are first; next are SEC full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
-- connect idea-scanner output to provider/news/fundamental context and then to proposal records with audit-friendly materiality, freshness, liquidity, and risk/sizing fields
+- extend real official/structured providers behind the source ladder: SEC EDGAR submissions metadata plus canonical companyfacts fundamentals are first; next are SEC full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
+- continue enriching proposal candidates with real provider/news/fundamental evidence; the candidate queue now carries redacted network-light canonical source-attribution context, but live provider-backed materiality and broader review UX are still open
 - extend the first runtime strategy catalog slice into feature bundle enrichment, backtest comparison, proposal records, and guard/risk layers only after evidence and validation checks are green
 - add no-lookahead and confidence-review checks before treating opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble ideas as more than research candidates
-- expand proposal queue parity across Rich, Ink, docs, and smoke QA before treating it as the default paper-desk workflow; the Web GUI now has the first explicit Proposal Desk surface over the existing CLI contracts
+- expand proposal queue parity across Rich, Ink, docs, and smoke QA before treating it as the default paper-desk workflow; the Web GUI now has the first explicit Proposal Desk surface over the existing CLI approve/reject/reconcile/refresh contracts
 - grow risk/sizing from the current HHI/top-position concentration signal toward ATR/confidence sizing, liquidity/ADV/spread penalties, group budgets, and correlation cluster warnings
 - add optional V1 CrewAI Flow/Crew adapters only behind the sidecar backend boundary, with native replay and QA remaining valid when CrewAI is absent
 - turn the planned CrewAI task definitions into executable Flow/Crew steps only after real normalized provider evidence exists and contract tests cover failures
@@ -114,10 +126,12 @@ Next:
 - keep exercising `alpaca_paper` only as external paper readiness until paper evidence, operator approval, and live adapter scope are explicitly reviewed
 - expand docs feature deep dives for paper operation, broker/account truth, memory/review, research sidecar, runtime modes, and evidence bundles with user-facing examples before adding more contributor-only pages
 - keep an eye on local MCP hygiene: several `mcp/sonarqube` client containers can be active at once, and stale clients should be stopped only after confirming no current Codex/VS Code session depends on them
-- keep raising full-suite coverage toward an 80 percent V1 target; the current
-  enforced branch baseline is 75 percent and the latest full coverage run was
-  about 75.8 percent, with the largest remaining gaps in CLI, TUI, LLM client,
-  broker, service workflow, and market-data paths
+- keep full-suite coverage at or above the 80 percent V1 target; the enforced
+  branch baseline is still 75 percent, and the latest sandbox full coverage run
+  reached about 80.2 percent, though the run itself was not green because three
+  loopback socket-bind tests are blocked by sandbox permissions. The largest
+  remaining gaps are still CLI, TUI, LLM client, service workflow, observer API,
+  and market-data paths.
 
 ### 1. Financial Intelligence Layer
 
@@ -128,19 +142,19 @@ Current state:
 - `DecisionFeatureBundle` now carries symbol identity, technical features, fundamental feature placeholders, and macro/news context
 - deterministic technical summaries include 30d, 90d, and 180d returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
 - provider contracts now cover market, fundamental, news, disclosure, and macro sources with canonical source attribution and freshness metadata
-- explicit SEC EDGAR, Finnhub, FMP, and KAP scaffold providers now feed canonical attribution while marking missing fields instead of pretending live ingestion exists
+- explicit SEC EDGAR, Finnhub, FMP, and KAP providers now feed canonical attribution; SEC companyfacts can return opt-in live US fundamental snapshots, while missing provider data stays visible instead of pretending ingestion exists
 - source scaffold metadata now names SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX readiness without pretending those ingestors are implemented
 - fundamental and macro/news analyst stages now run before regime, strategy, risk, and manager synthesis
 - consensus excludes fallback-generated fundamental and macro/news assessments from support, keeping unavailable finance evidence visible without overstating alignment
 - fundamental assessment output now separates direct evidence, inference, and uncertainty across growth, profitability, cash flow, balance sheet, FX, business quality, macro fit, and forward outlook
 - feature-first prompts now expose the underlying fundamental metrics, and Ink review/trade-context surfaces show fundamental bias, red flags, evidence, inference, and uncertainty
 - trade context and memory documents now persist canonical analysis snapshots, decision features, and fundamental/macro summaries
-- SEC EDGAR submissions metadata and compact company facts are the first opt-in live research sources; full filing parsing plus Finnhub, FMP, Polygon/Massive, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
+- SEC EDGAR submissions metadata and compact company facts are the first opt-in live research/canonical fundamental sources; full filing parsing plus Finnhub, FMP, Polygon/Massive, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
 
 Next desired shape:
 
-- implement real provider-backed fundamental fetchers behind the canonical provider interfaces without placing secrets in tracked files or QA artifacts
-- expand structured SEC ingestion from submissions metadata into company facts, filing text references, transcript links, insider/context packets, then add macro, KAP, CBRT, inflation, and FX ingestion
+- continue real provider-backed fundamental fetchers behind the canonical provider interfaces without placing secrets in tracked files or QA artifacts
+- expand structured SEC ingestion beyond submissions metadata and companyfacts into filing text references, transcript links, insider/context packets, then add macro, KAP, CBRT, inflation, and FX ingestion
 - keep Yahoo as a degraded fallback only once richer market/news providers are available
 - surface technical/fundamental/macro/memory/guard evidence side by side in operator review surfaces
 - strengthen risk with volatility sizing, sector concentration, portfolio exposure, and macro override checks
@@ -214,6 +228,7 @@ Desired direction:
 - fail smoke evidence when raw provider output or LLM retry diagnostics leak into operator-facing terminal output
 - keep generated `qa-report.md` summaries in every smoke artifact directory so agents can inspect pass/fail evidence without reconstructing it from JSON first
 - use `agentic-trader evidence-bundle` before V1 release review to package dashboard, status, broker, provider diagnostics, V1 readiness, logs, runtime-mode checklist, research status, and the latest smoke report into one timestamped evidence directory
+- use `pnpm run qa:v1-paper-desk` for the product-shaped V1 paper desk rehearsal: isolated runtime, provider/readiness/finance checks, two research cycles, memory inspection, proposal create/approve, journal verification, and an evidence bundle
 - use `agentic-trader hardware-profile` before long paper-operation sessions; treat recommendations as operator hints and keep actual runtime overrides explicit
 - use `agentic-trader operator-workflow` as the canonical V1 review order before background paper operation; it is descriptive and must not execute hidden runtime actions
 - keep the one-cycle runtime check as an explicit opt-in tier because it needs live market data and a healthy local model
@@ -330,8 +345,8 @@ Desired direction:
 
 - preserve paper as the default execution backend
 - keep live execution blocked unless explicitly enabled and implemented
-- keep V1 focused on Alpaca-ready US equities with manual approval and strict safety checks; do not pull IBKR/global/FX work into V1
-- defer IBKR, global markets, and multi-currency/FX execution accounting to V2
+- keep V1 focused on Alpaca-ready US equities with active buy/sell capability behind manual approval, strict safety checks, audit persistence, and paper-to-real promotion gates
+- defer Turkey-specific symbols, KAP/CBRT evidence, TRY/FX accounting, and the Turkey broker/data route to V2; broader IBKR/global work is not the next expansion target unless a later decision changes it
 - surface broker backend, execution outcome, rejection reason, kill-switch, and readiness state in operator review/status surfaces
 - add one real live adapter only after paper evaluation quality is stable
 

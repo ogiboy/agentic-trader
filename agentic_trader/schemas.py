@@ -47,9 +47,8 @@ ExecutionBackend = Literal["paper", "simulated_real", "alpaca_paper", "live"]
 TradeProposalStatus = Literal[
     "pending", "approved", "rejected", "executed", "failed", "expired"
 ]
-NewsClassification = Literal[
-    "company_specific", "sector_level", "macro_level"
-]
+ProposalCandidateStatus = Literal["candidate", "promoted", "rejected", "expired"]
+NewsClassification = Literal["company_specific", "sector_level", "macro_level"]
 AnalysisSignal = Literal["supportive", "neutral", "cautious", "avoid"]
 DataProviderKind = Literal[
     "market", "fundamental", "news", "disclosure", "macro", "social"
@@ -184,6 +183,7 @@ class TradeProposalRecord(BaseModel):
     order_type: Literal["market", "limit"] = "market"
     quantity: float | None = Field(default=None, gt=0.0)
     notional: float | None = Field(default=None, gt=0.0)
+    limit_price: float | None = Field(default=None, gt=0.0)
     reference_price: float = Field(gt=0.0)
     confidence: float = Field(ge=0.0, le=1.0)
     thesis: str
@@ -200,8 +200,79 @@ class TradeProposalRecord(BaseModel):
 
     @model_validator(mode="after")
     def require_quantity_or_notional(self) -> "TradeProposalRecord":
+        """
+        Ensure exactly one of `quantity` or `notional` is provided and that `limit_price` is consistent with `order_type`.
+        
+        Raises:
+            ValueError: if both or neither of `quantity` and `notional` are set; if `order_type == "limit"` and `limit_price` is missing or `quantity` is missing; if `order_type != "limit"` and `limit_price` is provided.
+        
+        Returns:
+            TradeProposalRecord: the validated instance (`self`).
+        """
         if self.quantity is None and self.notional is None:
             raise ValueError("Trade proposals require quantity or notional.")
+        if self.quantity is not None and self.notional is not None:
+            raise ValueError(
+                "Trade proposals require exactly one of quantity or notional."
+            )
+        if self.order_type == "limit":
+            if self.limit_price is None:
+                raise ValueError("Limit trade proposals require limit_price.")
+            if self.quantity is None:
+                raise ValueError("Limit trade proposals require quantity.")
+        elif self.limit_price is not None:
+            raise ValueError("Market trade proposals must not include limit_price.")
+        return self
+
+
+class ProposalCandidateRecord(BaseModel):
+    candidate_id: str
+    created_at: str
+    updated_at: str
+    symbol: str
+    preset: str
+    signal: Literal["buy", "sell", "watch"]
+    side: TradeSide | None = None
+    score: float = Field(ge=0.0, le=100.0)
+    reference_price: float = Field(gt=0.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    quantity: float | None = Field(default=None, gt=0.0)
+    notional: float | None = Field(default=None, gt=0.0)
+    thesis: str
+    stop_loss: float | None = Field(default=None, gt=0.0)
+    take_profit: float | None = Field(default=None, gt=0.0)
+    invalidation_condition: str | None = None
+    source: str = "idea-scanner"
+    status: ProposalCandidateStatus = "candidate"
+    materiality: str
+    freshness: str
+    liquidity: str
+    spread_pct: float = Field(ge=0.0)
+    risk_notes: str
+    evidence: dict[str, object] = Field(default_factory=dict)
+    proposal_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_sizing(self) -> "ProposalCandidateRecord":
+        """
+        Validate sizing constraints for a proposal candidate.
+        
+        Ensures exactly one of `quantity` or `notional` is provided. If `side` is specified, requires one of `quantity` or `notional` to be present.
+        
+        Returns:
+            ProposalCandidateRecord: The instance (`self`) when validation succeeds.
+        
+        Raises:
+            ValueError: If both `quantity` and `notional` are set, or if `side` is provided without either sizing field.
+        """
+        if self.quantity is not None and self.notional is not None:
+            raise ValueError(
+                "Proposal candidates require exactly one of quantity or notional."
+            )
+        if self.side is not None and self.quantity is None and self.notional is None:
+            raise ValueError(
+                "Proposal candidates with a side require quantity or notional."
+            )
         return self
 
 

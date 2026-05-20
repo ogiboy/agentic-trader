@@ -6,15 +6,15 @@ Agentic Trader
 
 ## What It Is
 
-A strict, local-first, multi-agent paper trading system for Ollama-class models.
+A strict, local-first, multi-agent trading system for Ollama-class models, paper-first by default and V1-focused on an approved US-equities buy/sell path.
 
 ## What It Is Not
 
 - not a generic chat agent project
 - not an OpenClaw-style external orchestrator
 - not a CrewAI-owned runtime
-- not a live broker system yet
-- not live broker automation hidden behind research or training mode
+- not an ungated real-money broker system
+- not broker automation hidden behind research or training mode
 - not a report generator pretending to be a trading engine
 
 ## Repository Intent

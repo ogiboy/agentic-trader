@@ -50,6 +50,11 @@ type ExecOptions = {
   timeoutMs?: number;
 };
 
+const TRANSIENT_DUCKDB_LOCK_PATTERN =
+  /Could not set lock on file|Conflicting lock is held/i;
+const DB_LOCK_RETRY_DELAYS_MS =
+  process.env.NODE_ENV === 'test' ? [0, 0, 0] : [500, 1_500, 3_000, 5_000];
+
 /**
  * Reads the local Codex environment manifest and returns a legacy declared Conda environment name when present.
  *
@@ -271,6 +276,26 @@ function extractError(error: unknown): string {
 }
 
 /**
+ * Detects whether an error corresponds to a transient DuckDB lock condition.
+ *
+ * @param error - The error value to inspect (may be any type)
+ * @returns `true` if the error message matches known transient DuckDB lock patterns, `false` otherwise.
+ */
+function isTransientDuckDbLockError(error: unknown): boolean {
+  return TRANSIENT_DUCKDB_LOCK_PATTERN.test(extractError(error));
+}
+
+/**
+ * Delays execution for the specified duration.
+ *
+ * @param ms - Delay duration in milliseconds
+ * @returns Resolves with no value after the delay
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
  * Execute the Agentic Trader CLI with the provided arguments, trying configured executable entrypoints until one succeeds.
  *
  * @param args - Command-line arguments to pass to the Agentic Trader CLI (e.g., `["run", "--symbol", "AAPL"]`)
@@ -316,15 +341,47 @@ export async function execTrader(
 }
 
 /**
+ * Invoke the Agentic Trader CLI and retry on transient DuckDB lock errors using configured backoff delays.
+ *
+ * @param args - CLI arguments forwarded to the Agentic Trader invocation
+ * @param options - Execution options (e.g., `expectJson`, `timeoutMs`)
+ * @returns The successful CLI invocation result: parsed JSON when `expectJson` is set, otherwise an object containing `stdout` and `stderr`
+ * @throws The last encountered error if all retries fail; non-transient errors are rethrown immediately
+ */
+async function execTraderWithDbLockRetry(
+  args: string[],
+  options: ExecOptions,
+): Promise<any> {
+  let lastError: unknown;
+  for (const retryDelayMs of [0, ...DB_LOCK_RETRY_DELAYS_MS]) {
+    if (retryDelayMs > 0) {
+      await sleep(retryDelayMs);
+    }
+    try {
+      return await execTrader(args, options);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientDuckDbLockError(error)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
+}
+
+/**
  * Fetches the Agentic Trader dashboard snapshot.
  *
  * @returns The dashboard data parsed from the CLI's JSON output.
  */
 export async function getDashboardSnapshot(): Promise<any> {
-  return execTrader(['dashboard-snapshot', '--log-limit', '14'], {
-    expectJson: true,
-    timeoutMs: 30_000,
-  });
+  return execTrader(
+    ['dashboard-snapshot', '--log-limit', '14', '--provider-check'],
+    {
+      expectJson: true,
+      timeoutMs: 30_000,
+    },
+  );
 }
 
 /**
@@ -352,7 +409,7 @@ export async function runRuntimeAction(kind: string): Promise<{
     const symbols = defaultSymbolsFromPreferences(data?.preferences || {});
     const interval = defaultRuntimeInterval(data);
     const lookback = defaultRuntimeLookback(data);
-    await execTrader(
+    await execTraderWithDbLockRetry(
       [
         'launch',
         '--symbols',
@@ -381,7 +438,7 @@ export async function runRuntimeAction(kind: string): Promise<{
         dashboard: data,
       };
     }
-    await execTrader(['stop-service'], { timeoutMs: 30_000 });
+    await execTraderWithDbLockRetry(['stop-service'], { timeoutMs: 30_000 });
     return {
       message: `Stop requested for PID ${data.status.state.pid}.`,
       dashboard: await getDashboardSnapshot(),
@@ -390,7 +447,9 @@ export async function runRuntimeAction(kind: string): Promise<{
 
   if (kind === 'restart') {
     if ((data?.status?.state?.symbols || []).length) {
-      await execTrader(['restart-service'], { timeoutMs: 30_000 });
+      await execTraderWithDbLockRetry(['restart-service'], {
+        timeoutMs: 30_000,
+      });
       return {
         message: 'Background runtime restart requested.',
         dashboard: await getDashboardSnapshot(),
@@ -412,7 +471,7 @@ export async function runRuntimeAction(kind: string): Promise<{
     const symbol = defaultSingleSymbol(data);
     const interval = defaultRuntimeInterval(data);
     const lookback = defaultRuntimeLookback(data);
-    await execTrader(
+    await execTraderWithDbLockRetry(
       [
         'run',
         '--symbol',
@@ -439,7 +498,7 @@ export type ToolActionKind =
   | 'start-model-service'
   | 'start-camofox-service';
 
-export type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
+export type ProposalActionKind = 'approve' | 'reject' | 'reconcile' | 'refresh';
 
 /**
  * Selects the model name configured in the provided dashboard snapshot.
@@ -448,7 +507,9 @@ export type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
  * @returns The model name from `modelService.configured_model` if present, otherwise `doctor.model`, otherwise the default `"qwen3:8b"`
  */
 function modelNameFromDashboard(data: Record<string, any>): string {
-  return data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b';
+  return (
+    data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b'
+  );
 }
 
 /**
@@ -551,26 +612,48 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
   throw new Error(`Unsupported tool action: ${kind}`);
 }
 
+/**
+ * Build a human-readable status message for a proposal action result.
+ *
+ * The message references the proposal symbol (or "Proposal"), the proposal status, and when applicable the broker execution outcome.
+ *
+ * @param kind - The proposal action performed (`approve`, `reject`, `reconcile`, or `refresh`)
+ * @param result - The CLI result object; may be the proposal itself or an object with a `proposal` property, and may include `outcome.status` or `proposal.execution_outcome_status` for broker outcome information
+ * @returns A single-line message summarizing the action outcome (e.g., approval with broker status, rejection, refresh, or reconciliation)
+ */
 function proposalActionMessage(kind: ProposalActionKind, result: any): string {
   const proposal = result?.proposal || result;
   const symbol = proposal?.symbol || 'Proposal';
   const status = proposal?.status || kind;
   if (kind === 'approve') {
-    const outcome = result?.outcome?.status || proposal?.execution_outcome_status || '-';
+    const outcome =
+      result?.outcome?.status || proposal?.execution_outcome_status || '-';
     return `${symbol} proposal approved; proposal=${status}, broker=${outcome}.`;
   }
   if (kind === 'reject') {
     return `${symbol} proposal rejected.`;
   }
+  if (kind === 'refresh') {
+    const outcome =
+      result?.outcome?.status || proposal?.execution_outcome_status || '-';
+    return `${symbol} proposal refreshed; proposal=${status}, broker=${outcome}.`;
+  }
   return `${symbol} proposal reconciled; status=${status}.`;
 }
 
 /**
- * Execute an explicit manual-review proposal action through existing CLI commands.
+ * Perform a manual-review action (approve, reject, reconcile, or refresh) for a proposal and return the action result with an updated dashboard snapshot.
  *
- * The Web GUI remains a thin operator surface: approval still goes through
- * `proposal-approve`, which records the proposal transition and submits only
- * through the configured broker adapter boundary.
+ * @param kind - The proposal action to perform: `'approve' | 'reject' | 'reconcile' | 'refresh'`.
+ * @param proposalId - The identifier of the proposal (whitespace will be trimmed).
+ * @param reviewNotes - Review notes required for the action (whitespace will be trimmed).
+ * @returns An object containing:
+ *   - `message`: a human-readable summary of the action outcome,
+ *   - `dashboard`: the refreshed dashboard snapshot,
+ *   - `result`: the raw CLI-parsed result for the action.
+ * @throws Error if `proposalId` is empty after trimming.
+ * @throws Error if `reviewNotes` is empty after trimming.
+ * @throws Error if `kind` is not one of the supported actions.
  */
 export async function runProposalAction(
   kind: ProposalActionKind,
@@ -586,28 +669,52 @@ export async function runProposalAction(
   if (!cleanProposalId) {
     throw new Error('Proposal id is required.');
   }
+  if (!cleanNotes) {
+    throw new Error(`Review note is required for ${kind}.`);
+  }
 
   let result: any;
   if (kind === 'approve') {
-    const args = ['proposal-approve', cleanProposalId, '--json'];
-    if (cleanNotes) {
-      args.splice(2, 0, '--review-notes', cleanNotes);
-    }
-    result = await execTrader(args, { expectJson: true, timeoutMs: 90_000 });
+    const args = [
+      'proposal-approve',
+      cleanProposalId,
+      '--review-notes',
+      cleanNotes,
+      '--json',
+    ];
+    result = await execTraderWithDbLockRetry(args, {
+      expectJson: true,
+      timeoutMs: 90_000,
+    });
   } else if (kind === 'reject') {
-    if (!cleanNotes) {
-      throw new Error('Rejection reason is required.');
-    }
-    result = await execTrader(
+    result = await execTraderWithDbLockRetry(
       ['proposal-reject', cleanProposalId, '--reason', cleanNotes, '--json'],
       { expectJson: true, timeoutMs: 45_000 },
     );
   } else if (kind === 'reconcile') {
-    const args = ['proposal-reconcile', cleanProposalId, '--json'];
-    if (cleanNotes) {
-      args.splice(2, 0, '--review-notes', cleanNotes);
-    }
-    result = await execTrader(args, { expectJson: true, timeoutMs: 45_000 });
+    const args = [
+      'proposal-reconcile',
+      cleanProposalId,
+      '--review-notes',
+      cleanNotes,
+      '--json',
+    ];
+    result = await execTraderWithDbLockRetry(args, {
+      expectJson: true,
+      timeoutMs: 45_000,
+    });
+  } else if (kind === 'refresh') {
+    const args = [
+      'proposal-refresh',
+      cleanProposalId,
+      '--review-notes',
+      cleanNotes,
+      '--json',
+    ];
+    result = await execTraderWithDbLockRetry(args, {
+      expectJson: true,
+      timeoutMs: 45_000,
+    });
   } else {
     throw new Error(`Unsupported proposal action: ${kind}`);
   }

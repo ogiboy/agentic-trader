@@ -1,3 +1,5 @@
+# Agentic Trader
+
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
@@ -31,9 +33,7 @@
    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 ```
 
-# Agentic Trader
-
-Agentic Trader is a strict, local-first, multi-agent paper trading system for Ollama-class models. It keeps the Python runtime as the source of truth, uses deterministic guardrails before any paper order, and records decision context so operator-facing surfaces can be inspected instead of trusted blindly.
+Agentic Trader is a strict, local-first, multi-agent trading system for Ollama-class models, paper-first by default and V1-focused on an approved US-equities buy/sell path. It keeps the Python runtime as the source of truth, uses deterministic guardrails before any broker intent, and records decision context so operator-facing surfaces can be inspected instead of trusted blindly.
 
 ## Navigation
 
@@ -52,7 +52,7 @@ Agentic Trader is a strict, local-first, multi-agent paper trading system for Ol
 
 ## Overview
 
-Agentic Trader is not a generic chat bot or a live broker. The runtime uses a staged specialist graph, structured model outputs, a deterministic execution guard, DuckDB-backed persistence, and paper broker accounting. The default posture is local-first, paper-first, and explicit about missing data, model readiness, and blocked execution paths.
+Agentic Trader is not a generic chat bot or hidden brokerage switch. The runtime uses a staged specialist graph, structured model outputs, a deterministic execution guard, DuckDB-backed persistence, and broker accounting. The default posture is local-first, paper-first, and explicit about missing data, model readiness, and blocked execution paths; V1 still targets an active US-equities buy/sell path through approved paper and Alpaca readiness gates.
 
 The repository is now a small monorepo-style workspace:
 
@@ -143,6 +143,12 @@ make setup
 and `tui/` each have their workspace `node_modules` links before syncing the
 root uv Python environment. If you only need the JavaScript side, run
 `pnpm run setup:node` or `make setup-node`.
+
+Optional helper tools under `tools/` are not root workspace packages by
+default. Camofox is installed through explicit tool-root commands such as
+`make setup-camofox` or `pnpm --dir tools/camofox-browser install
+--ignore-workspace --ignore-scripts`, so a normal `pnpm install` does not fetch
+browser-helper dependencies or blur app-package ownership.
 
 For a read-only lifecycle check that does not install dependencies, start
 services, pull models, open a browser, or start trading, run:
@@ -314,11 +320,11 @@ pnpm run check:research-flow
 message unless `OPENAI_API_KEY` is present in the shell, present in the sidecar's
 ignored `.env`, or the local no-op flag is set for scaffold validation.
 
-### Optional SEC EDGAR Research Source
+### Optional SEC EDGAR Research And Fundamentals Source
 
-The research sidecar can read recent SEC submissions metadata from the official
-EDGAR JSON APIs, but it is off by default. Enable it only from an ignored local
-env file and include an identifying SEC User-Agent/contact string:
+The research sidecar and the canonical fundamental provider can read official
+SEC JSON APIs, but SEC access is off by default. Enable it only from an ignored
+local env file and include an identifying SEC User-Agent/contact string:
 
 ```bash
 AGENTIC_TRADER_RESEARCH_MODE=training
@@ -328,9 +334,11 @@ AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true
 AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT="Agentic Trader local contact@example.com"
 ```
 
-This first provider normalizes recent filing metadata plus compact official
-company-facts metrics into source-attributed research evidence. It does not
-download full filing text, and it does not write directly into trading memory.
+The sidecar normalizes recent filing metadata plus compact official
+company-facts metrics into source-attributed research evidence. The runtime
+canonical provider can also turn SEC companyfacts into structured V1
+fundamental fields for US issuers. Neither path downloads full filing text, and
+neither path writes directly into trading memory.
 
 ### Optional Firecrawl And Camofox Research Helpers
 
@@ -394,31 +402,31 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 
 ## Quick Start
 
-| Command                                                          | Purpose                                                           |
-| ---------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `python main.py doctor`                                          | Check local runtime, model, database, and configuration readiness |
-| `agentic-trader doctor --json`                                   | Emit the same health check as machine-readable JSON               |
-| `python main.py run --symbol AAPL --interval 1d --lookback 180d` | Run one strict paper-trading cycle                                |
-| `agentic-trader`                                                 | Open the operator launcher for Web GUI, daemon, Ink, Rich, setup, and model-service choices |
-| `agentic-trader tui`                                             | Open the primary Ink terminal control room directly               |
-| `agentic-trader menu`                                            | Open the Rich/admin fallback menu                                 |
+| Command                                                          | Purpose                                                                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `python main.py doctor`                                          | Check local runtime, model, database, and configuration readiness                                             |
+| `agentic-trader doctor --json`                                   | Emit the same health check as machine-readable JSON                                                           |
+| `python main.py run --symbol AAPL --interval 1d --lookback 180d` | Run one strict paper-trading cycle                                                                            |
+| `agentic-trader`                                                 | Open the operator launcher for Web GUI, daemon, Ink, Rich, setup, and model-service choices                   |
+| `agentic-trader tui`                                             | Open the primary Ink terminal control room directly                                                           |
+| `agentic-trader menu`                                            | Open the Rich/admin fallback menu                                                                             |
 | `agentic-trader dashboard-snapshot`                              | Print the shared dashboard payload used by UI surfaces; add `--provider-check` for product-readiness evidence |
-| `agentic-trader setup-status --json`                             | Inspect source, side-application, and optional-tool readiness     |
-| `agentic-trader tool-ownership status --json`                    | Inspect persisted Ollama/Firecrawl/Camofox ownership choices      |
-| `pnpm --silent run app:doctor -- --json`                         | Read setup, provider, V1, and app-owned service readiness without mutating local state |
-| `pnpm --silent run app:up -- --json --dry-run`                   | Preview the guided first-run setup/start path and ownership decisions |
-| `pnpm --silent run app:up -- --json --all --yes`                 | Run the safe first-run lane: core repair, sidecar setup, Web GUI start, final doctor |
-| `pnpm --silent run app:setup -- --json --dry-run`                 | Preview setup lifecycle steps without installing, starting services, pulling models, or fetching browsers |
-| `pnpm --silent run app:setup -- --json --core --yes`              | Run only explicit core repair: root Node workspace setup plus root uv Python sync |
-| `pnpm --silent run app:start -- --json --webgui --yes`            | Start only the selected app-owned service surfaces; Web GUI browser open stays opt-in |
-| `pnpm --silent run app:stop -- --json --all --yes`                | Stop only app-owned service PIDs recorded by the app                 |
-| `pnpm --silent run app:update -- --json --dry-run`                | Preview the scoped update lane across native dependency owners       |
-| `pnpm --silent run app:uninstall -- --json --dry-run`             | Preview app-owned artifact/dependency/service-state removal          |
-| `agentic-trader model-service status --probe-generation --json`  | Inspect configured/app-managed Ollama readiness, generation, and log tails |
-| `agentic-trader model-service start`                             | Start only an app-owned loopback Ollama process                   |
-| `agentic-trader model-service pull qwen3:8b`                     | Pull an Ollama model through the configured/app-owned service     |
-| `agentic-trader webgui-service status --json`                    | Inspect app-owned Web GUI readiness and log tails                 |
-| `agentic-trader webgui-service start`                            | Start/open the loopback Web GUI command center                    |
+| `agentic-trader setup-status --json`                             | Inspect source, side-application, and optional-tool readiness                                                 |
+| `agentic-trader tool-ownership status --json`                    | Inspect persisted Ollama/Firecrawl/Camofox ownership choices                                                  |
+| `pnpm --silent run app:doctor -- --json`                         | Read setup, provider, V1, and app-owned service readiness without mutating local state                        |
+| `pnpm --silent run app:up -- --json --dry-run`                   | Preview the guided first-run setup/start path and ownership decisions                                         |
+| `pnpm --silent run app:up -- --json --all --yes`                 | Run the safe first-run lane: core repair, sidecar setup, Web GUI start, final doctor                          |
+| `pnpm --silent run app:setup -- --json --dry-run`                | Preview setup lifecycle steps without installing, starting services, pulling models, or fetching browsers     |
+| `pnpm --silent run app:setup -- --json --core --yes`             | Run only explicit core repair: root Node workspace setup plus root uv Python sync                             |
+| `pnpm --silent run app:start -- --json --webgui --yes`           | Start only the selected app-owned service surfaces; Web GUI browser open stays opt-in                         |
+| `pnpm --silent run app:stop -- --json --all --yes`               | Stop only app-owned service PIDs recorded by the app                                                          |
+| `pnpm --silent run app:update -- --json --dry-run`               | Preview the scoped update lane across native dependency owners                                                |
+| `pnpm --silent run app:uninstall -- --json --dry-run`            | Preview app-owned artifact/dependency/service-state removal                                                   |
+| `agentic-trader model-service status --probe-generation --json`  | Inspect configured/app-managed Ollama readiness, generation, and log tails                                    |
+| `agentic-trader model-service start`                             | Start only an app-owned loopback Ollama process                                                               |
+| `agentic-trader model-service pull qwen3:8b`                     | Pull an Ollama model through the configured/app-owned service                                                 |
+| `agentic-trader webgui-service status --json`                    | Inspect app-owned Web GUI readiness and log tails                                                             |
+| `agentic-trader webgui-service start`                            | Start/open the loopback Web GUI command center                                                                |
 
 `--provider-check` readiness performs a tiny generation probe, not just a
 reachability/model-list check. If Ollama can list a model but cannot load it,
@@ -436,50 +444,56 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 
 ## Usage
 
-| Command                                                                                | Notes                                      |
-| -------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `agentic-trader doctor`                                                                | Human-readable environment check           |
-| `agentic-trader operator-workflow`                                                     | Show the canonical V1 review order         |
-| `agentic-trader hardware-profile --json`                                               | Inspect local hardware/runtime sizing hints |
-| `agentic-trader run --symbol AAPL --interval 1d --lookback 180d`                       | One paper cycle with strict gates          |
-| `agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous` | Continuous paper runtime                   |
-| `agentic-trader monitor --refresh-seconds 1`                                           | Attach to runtime status                   |
-| `agentic-trader supervisor-status --json`                                              | Inspect daemon state and log tails         |
-| `agentic-trader broker-status --json`                                                  | Inspect paper/live/simulated backend truth |
-| `agentic-trader finance-ops --json`                                                    | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check |
-| `agentic-trader setup-status --json`                                                   | Inspect root/sidecar/tool readiness without installing anything |
-| `agentic-trader tool-ownership status --json`                                          | Inspect persisted optional helper ownership choices |
-| `pnpm --silent run app:doctor -- --json`                                               | Inspect setup, service, provider, and V1 readiness without installing or starting anything |
-| `pnpm --silent run app:up -- --json --dry-run`                                         | Preview guided first-run setup/start orchestration and ownership decisions |
-| `pnpm --silent run app:up -- --json --all --yes`                                       | Run the safe first-run lane without hidden model pulls, browser fetches, or daemon start |
-| `pnpm --silent run app:setup -- --json --dry-run`                                      | Preview setup lifecycle steps and deferred optional tool/service actions |
-| `pnpm --silent run app:setup -- --json --core --yes`                                   | Repair only core root dependencies after explicit approval |
-| `pnpm --silent run app:start -- --json --webgui --yes`                                 | Start selected app-owned helper services without installing, pulling models, or launching a trading daemon |
-| `pnpm --silent run app:stop -- --json --all --yes`                                     | Stop only app-owned helper services recorded by the app |
-| `pnpm --silent run app:update -- --json --dry-run`                                     | Preview root/sidecar/tool-root update, build, and status lanes |
-| `pnpm --silent run app:uninstall -- --json --dry-run`                                  | Preview app-owned generated artifact and dependency removal |
-| `agentic-trader model-service status --probe-generation --json`                        | Inspect local Ollama/service/model/generation readiness |
-| `agentic-trader webgui-service status --json`                                          | Inspect loopback Web GUI service readiness |
-| `agentic-trader provider-diagnostics --json`                                           | Inspect model, source, key, and fallback readiness |
-| `agentic-trader v1-readiness --json`                                                   | Inspect V1 paper-operation and Alpaca paper-readiness checks; add `--provider-check` before longer paper runs and to verify local-model generation |
-| `agentic-trader trade-proposals --json`                                                | Inspect the manual-review proposal queue |
-| `agentic-trader proposal-create ...`                                                   | Queue a non-executing paper proposal for approval |
-| `agentic-trader proposal-approve PROPOSAL_ID --json` / `agentic-trader proposal-reject PROPOSAL_ID --reason "..." --json` | Approve or reject a pending proposal through the explicit manual-review gate |
-| `agentic-trader proposal-reconcile PROPOSAL_ID --json`                                 | Repair an in-flight proposal from a recorded execution outcome without resubmitting |
-| `agentic-trader idea-presets` / `agentic-trader idea-score ...`                        | Explore V1 idea-scanner presets without creating orders |
-| `agentic-trader strategy-catalog --json` / `agentic-trader strategy-profile NAME`       | Inspect strategy-family evidence, risk, and validation gates |
-| `agentic-trader news-intelligence --symbol AAPL --json`                                | Build a source-tiered news/materiality research plan without fetching the web |
-| `agentic-trader research-cycle-plan --symbols AAPL,MSFT --json`                        | Inspect the safe PRE-FLIGHT/MONITOR/ANALYZE/PROPOSE/DIGEST cycle contract |
-| `agentic-trader research-cycle-run --symbols AAPL,MSFT --cycles 2 --no-sleep --json`    | Run bounded evidence-only research cycles with preflight, source-health delta, cadence, and digest output but no broker authority |
-| `agentic-trader evidence-bundle --provider-check --json`                               | Package read-only QA/release evidence with active model/provider readiness |
-| `agentic-trader research-status --json`                                                | Inspect optional research sidecar health   |
-| `agentic-trader research-refresh --json`                                               | Run one isolated sidecar snapshot pass     |
-| `agentic-trader research-flow-setup --json`                                            | Inspect optional CrewAI Flow sidecar readiness |
-| `agentic-trader review-run`                                                            | Review the latest persisted run            |
+| Command                                                                                                                   | Notes                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `agentic-trader doctor`                                                                                                   | Human-readable environment check                                                                                                                                               |
+| `agentic-trader operator-workflow`                                                                                        | Show the canonical V1 review order                                                                                                                                             |
+| `agentic-trader hardware-profile --json`                                                                                  | Inspect local hardware/runtime sizing hints                                                                                                                                    |
+| `agentic-trader run --symbol AAPL --interval 1d --lookback 180d`                                                          | One paper cycle with strict gates                                                                                                                                              |
+| `agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous`                                    | Continuous paper runtime                                                                                                                                                       |
+| `agentic-trader monitor --refresh-seconds 1`                                                                              | Attach to runtime status                                                                                                                                                       |
+| `agentic-trader supervisor-status --json`                                                                                 | Inspect daemon state and log tails                                                                                                                                             |
+| `agentic-trader broker-status --json`                                                                                     | Inspect paper/live/simulated backend truth                                                                                                                                     |
+| `agentic-trader finance-ops --json`                                                                                       | Inspect broker/account/PnL/exposure evidence as a read-only trading-desk check                                                                                                 |
+| `agentic-trader position-plan-repair --json` / `--apply --json`                                                           | Dry-run or apply a broker-free backfill for missing exit plans from executed proposals                                                                                         |
+| `agentic-trader setup-status --json`                                                                                      | Inspect root/sidecar/tool readiness without installing anything                                                                                                                |
+| `agentic-trader tool-ownership status --json`                                                                             | Inspect persisted optional helper ownership choices                                                                                                                            |
+| `pnpm --silent run app:doctor -- --json`                                                                                  | Inspect setup, service, provider, and V1 readiness without installing or starting anything                                                                                     |
+| `pnpm --silent run app:up -- --json --dry-run`                                                                            | Preview guided first-run setup/start orchestration and ownership decisions                                                                                                     |
+| `pnpm --silent run app:up -- --json --all --yes`                                                                          | Run the safe first-run lane without hidden model pulls, browser fetches, or daemon start                                                                                       |
+| `pnpm --silent run app:setup -- --json --dry-run`                                                                         | Preview setup lifecycle steps and deferred optional tool/service actions                                                                                                       |
+| `pnpm --silent run app:setup -- --json --core --yes`                                                                      | Repair only core root dependencies after explicit approval                                                                                                                     |
+| `pnpm --silent run app:start -- --json --webgui --yes`                                                                    | Start selected app-owned helper services without installing, pulling models, or launching a trading daemon                                                                     |
+| `pnpm --silent run app:stop -- --json --all --yes`                                                                        | Stop only app-owned helper services recorded by the app                                                                                                                        |
+| `pnpm --silent run app:update -- --json --dry-run`                                                                        | Preview root/sidecar/tool-root update, build, and status lanes                                                                                                                 |
+| `pnpm --silent run app:uninstall -- --json --dry-run`                                                                     | Preview app-owned generated artifact and dependency removal                                                                                                                    |
+| `agentic-trader model-service status --probe-generation --json`                                                           | Inspect local Ollama/service/model/generation readiness                                                                                                                        |
+| `agentic-trader webgui-service status --json`                                                                             | Inspect loopback Web GUI service readiness                                                                                                                                     |
+| `agentic-trader provider-diagnostics --json`                                                                              | Inspect model, source, key, and fallback readiness                                                                                                                             |
+| `agentic-trader v1-readiness --json`                                                                                      | Inspect V1 paper-operation and Alpaca paper-readiness checks; add `--provider-check` before longer paper runs and to verify local-model generation                             |
+| `agentic-trader trade-proposals --json`                                                                                   | Inspect the manual-review proposal queue                                                                                                                                       |
+| `agentic-trader proposal-candidates --json`                                                                               | Inspect broker-free scanner/research candidates before proposal promotion                                                                                                      |
+| `agentic-trader proposal-candidate-create ...`                                                                            | Persist a candidate without approval or broker submission; adds redacted network-light provider context by default, with `--fetch-provider-news` as an explicit refresh opt-in |
+| `agentic-trader proposal-candidate-promote CANDIDATE_ID --json`                                                           | Promote a checked candidate into a pending manual-review proposal                                                                                                              |
+| `agentic-trader proposal-create ...`                                                                                      | Queue a non-executing paper proposal for approval                                                                                                                              |
+| `agentic-trader proposal-approve PROPOSAL_ID --json` / `agentic-trader proposal-reject PROPOSAL_ID --reason "..." --json` | Approve or reject a pending proposal through the explicit manual-review gate                                                                                                   |
+| `agentic-trader proposal-refresh PROPOSAL_ID --json`                                                                      | Recheck an accepted broker order without resubmitting                                                                                                                          |
+| `agentic-trader proposal-reconcile PROPOSAL_ID --json`                                                                    | Repair an in-flight proposal from a recorded execution outcome without resubmitting                                                                                            |
+| `agentic-trader idea-presets` / `agentic-trader idea-score ...`                                                           | Explore V1 idea-scanner presets without creating orders                                                                                                                        |
+| `agentic-trader strategy-catalog --json` / `agentic-trader strategy-profile NAME`                                         | Inspect strategy-family evidence, risk, and validation gates                                                                                                                   |
+| `agentic-trader news-intelligence --symbol AAPL --json`                                                                   | Build a source-tiered news/materiality research plan without fetching the web                                                                                                  |
+| `agentic-trader research-cycle-plan --symbols AAPL,MSFT --json`                                                           | Inspect the safe PRE-FLIGHT/MONITOR/ANALYZE/PROPOSE/DIGEST cycle contract                                                                                                      |
+| `agentic-trader research-cycle-run --symbols AAPL,MSFT --cycles 2 --no-sleep --json`                                      | Run bounded evidence-only research cycles with preflight, source-health delta, cadence, and digest output but no broker authority                                              |
+| `agentic-trader evidence-bundle --provider-check --json`                                                                  | Package read-only QA/release evidence with active model/provider readiness                                                                                                     |
+| `pnpm run qa:v1-paper-desk`                                                                                               | Run an isolated V1 paper-desk rehearsal with proposal and evidence artifacts                                                                                                   |
+| `agentic-trader research-status --json`                                                                                   | Inspect optional research sidecar health                                                                                                                                       |
+| `agentic-trader research-refresh --json`                                                                                  | Run one isolated sidecar snapshot pass                                                                                                                                         |
+| `agentic-trader research-flow-setup --json`                                                                               | Inspect optional CrewAI Flow sidecar readiness                                                                                                                                 |
+| `agentic-trader review-run`                                                                                               | Review the latest persisted run                                                                                                                                                |
 
 ## Web GUI
 
-`webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction/proposal contracts from server-side route handlers. It is intentionally not a second orchestrator, and its Proposal Desk can only call the same explicit approve/reject/reconcile gates that the CLI exposes.
+`webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction/proposal contracts from server-side route handlers. It is intentionally not a second orchestrator, and its Proposal Desk can only call the same explicit approve/reject/reconcile/refresh gates that the CLI exposes.
 
 ```bash
 pnpm dev:webgui
@@ -582,4 +596,4 @@ later (`LGPL-3.0-or-later`). See [LICENSE](LICENSE).
 Bundled or adapted third-party helper components keep their own notices when
 their package metadata says so.
 
-Agentic Trader is a paper-trading research and operator-tooling project. It does not provide financial advice, and it must not be treated as a live brokerage system. Live execution remains blocked unless a real adapter, explicit approval gates, and operator-visible safety checks are implemented.
+Agentic Trader is a trading research and operator-tooling project with paper-first execution controls. It does not provide financial advice, and it must not be treated as an ungated live brokerage system. Real-money execution remains blocked unless a real adapter, explicit approval gates, and operator-visible safety checks are implemented and intentionally enabled.

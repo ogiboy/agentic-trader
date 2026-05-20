@@ -9,11 +9,11 @@ handling, execution gating, or research/provider isolation.
 The project is pre-1.0. Security fixes target the active development branches
 and the latest published release artifacts when they exist.
 
-| Version / branch | Supported |
-| ---------------- | --------- |
-| `main`           | yes       |
-| active V1 branch | yes       |
-| older prerelease branches | best effort |
+| Version / branch                                | Supported    |
+| ----------------------------------------------- | ------------ |
+| `main`                                          | yes          |
+| active V1 branch                                | yes          |
+| older prerelease branches                       | best effort  |
 | unsupported forks or modified local deployments | no guarantee |
 
 ## What To Report

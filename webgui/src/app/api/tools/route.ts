@@ -1,4 +1,7 @@
-import { runToolAction, type ToolActionKind } from '../../../lib/agentic-trader';
+import {
+  runToolAction,
+  type ToolActionKind,
+} from '../../../lib/agentic-trader';
 import {
   beginRequestGuard,
   parseJsonObjectBody,
@@ -23,7 +26,10 @@ const SUPPORTED_TOOL_ACTIONS = new Set<ToolActionKind>([
  * @returns `true` if `value` is one of the supported `ToolActionKind` values, `false` otherwise.
  */
 function isToolActionKind(value: unknown): value is ToolActionKind {
-  return typeof value === 'string' && SUPPORTED_TOOL_ACTIONS.has(value as ToolActionKind);
+  return (
+    typeof value === 'string' &&
+    SUPPORTED_TOOL_ACTIONS.has(value as ToolActionKind)
+  );
 }
 
 /**

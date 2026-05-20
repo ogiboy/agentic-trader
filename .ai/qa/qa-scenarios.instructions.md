@@ -97,6 +97,8 @@ agentic-trader operator-workflow --json
 agentic-trader hardware-profile --json
 agentic-trader provider-diagnostics --json
 agentic-trader v1-readiness --json
+agentic-trader finance-ops --json
+agentic-trader position-plan-repair --json
 agentic-trader evidence-bundle --json
 agentic-trader dashboard-snapshot > .ai/qa/artifacts/dashboard.json
 python main.py doctor
@@ -115,6 +117,9 @@ Expected:
   readiness without printing secret values
 - V1 readiness reports paper-operation and Alpaca paper checks, with provider
   readiness marked unchecked unless `--provider-check` is used
+- finance operations reports missing open-position exit plans as blocking, and
+  `position-plan-repair --json` reports only dry-run candidates unless
+  `--apply` is explicitly provided
 - evidence bundle writes dashboard/status/broker/provider/readiness/log artifacts
   plus a manifest under `.ai/qa/artifacts/` without mutating runtime state
 - supervisor status exposes daemon metadata and log tails without requiring the runtime writer lock
@@ -334,7 +339,7 @@ Expected:
 
 ## Scenario 8: Broker Safety Gate
 
-Purpose: verify live execution is blocked and paper remains default.
+Purpose: verify paper remains default, approved active trading stays gated, and ungated real-money execution is blocked.
 
 Steps:
 
@@ -591,4 +596,4 @@ Expected:
 - repeated runtime/chat/instruction API calls are cooldown or single-flight guarded
 - CLI supervisor tails, Web errors, provider exception notes, and sidecar errors redact fake key/token values
 - runtime feed and service log artifacts prefer owner-only permissions on local filesystems
-- operation/live gates are unchanged: paper remains default and live execution remains blocked
+- operation/live gates are unchanged: paper remains default, supported V1 active trading must pass approval/readiness gates, and ungated real-money execution remains blocked

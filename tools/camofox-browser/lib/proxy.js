@@ -79,7 +79,9 @@ export const decodoProvider = {
     const city = sanitizeBackconnectValue(options.city);
     const zip = sanitizeBackconnectValue(options.zip);
     const sessionId = sanitizeBackconnectValue(options.sessionId);
-    const sessionDurationMinutes = Number.isFinite(options.sessionDurationMinutes)
+    const sessionDurationMinutes = Number.isFinite(
+      options.sessionDurationMinutes,
+    )
       ? Math.max(1, Math.min(1440, Math.trunc(options.sessionDurationMinutes)))
       : null;
 
@@ -88,7 +90,8 @@ export const decodoProvider = {
     if (city) parts.push(`city-${city}`);
     if (zip) parts.push(`zip-${zip}`);
     if (sessionId) parts.push(`session-${sessionId}`);
-    if (sessionDurationMinutes) parts.push(`sessionduration-${sessionDurationMinutes}`);
+    if (sessionDurationMinutes)
+      parts.push(`sessionduration-${sessionDurationMinutes}`);
 
     return parts.join('-');
   },
@@ -117,7 +120,9 @@ export const genericBackconnectProvider = {
   buildSessionUsername(baseUsername, options = {}) {
     // Simple pass-through: base username + session suffix
     const base = String(baseUsername || '').trim();
-    const sessionId = options.sessionId ? `-${String(options.sessionId).trim()}` : '';
+    const sessionId = options.sessionId
+      ? `-${String(options.sessionId).trim()}`
+      : '';
     return `${base}${sessionId}`;
   },
 
@@ -168,9 +173,20 @@ function buildBackconnectProxy(config, provider, sessionId) {
 }
 
 /**
- * Create proxy strategy helpers.
- * - round_robin: per-context port rotation across a fixed pool
- * - backconnect: residential backconnect endpoint with sticky sessions (provider-shaped)
+ * Build a proxy pool helper configured for either round-robin or backconnect strategies.
+ *
+ * The returned pool exposes `mode`, strategy-specific metadata, `size`, and methods
+ * `getLaunchProxy()` and `getNext()` to obtain proxy connection objects.
+ * @param {object} config - Proxy configuration.
+ * @param {'round_robin'|'backconnect'} [config.strategy='round_robin'] - Pool strategy.
+ * @param {string} [config.host] - Host for round-robin proxies.
+ * @param {number[]} [config.ports] - Ports for round-robin proxies.
+ * @param {string} [config.username] - Username for proxy authentication.
+ * @param {string} [config.password] - Password for proxy authentication.
+ * @param {string} [config.backconnectHost] - Host for backconnect provider.
+ * @param {number} [config.backconnectPort] - Port for backconnect provider.
+ * @param {string} [config.providerName] - Registered provider name to use for backconnect.
+ * @returns {object|null} A pool object configured for the selected strategy, or `null` if required config is missing.
  */
 export function createProxyPool(config) {
   const {
@@ -185,7 +201,8 @@ export function createProxyPool(config) {
   } = config;
 
   if (strategy === 'backconnect') {
-    if (!backconnectHost || !backconnectPort || !username || !password) return null;
+    if (!backconnectHost || !backconnectPort || !username || !password)
+      return null;
 
     const provider = getProvider(providerName || 'decodo') || decodoProvider;
 

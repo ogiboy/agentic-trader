@@ -27,7 +27,7 @@ A separate sidecar database can be reconsidered only after real provider volume,
 Reason:
 The first live research source should be official, structured, and easy to audit without pulling raw filings into prompts.
 SEC EDGAR submissions metadata can produce source-attributed filing evidence for watched US symbols, but it must remain disabled by default, require an identifying User-Agent, respect fair-access expectations, and surface missing/network/user-agent failures instead of silently falling back.
-The provider may summarize compact official XBRL company facts from the SEC companyfacts API, but it still must not download raw filing text, parse arbitrary filing HTML, or mutate trading policy; it only writes normalized research evidence packets for sidecar snapshots.
+The provider may summarize compact official XBRL company facts from the SEC companyfacts API for both sidecar research evidence and canonical US fundamental snapshots, but it still must not download raw filing text, parse arbitrary filing HTML, or mutate trading policy.
 When providers return normalized evidence, world-state source attribution must stay fresh and source-attributed rather than being collapsed into missing-source scaffolding.
 
 ### CrewAI setup stays isolated until the dependency boundary is proven
@@ -73,6 +73,14 @@ Reason:
 The root pnpm workspace should not leave operators guessing whether `webgui`, `docs`, or `tui` dependencies were installed.
 `pnpm run setup` and `make setup` now run a node workspace setup script that installs the workspace, approves allowed builds, and checks expected dependency directories before Python sync.
 Normal `clean` remains artifact/cache-only to avoid unexpectedly deleting large installs, while `clean:deps` and `clean:all` make dependency removal intentional.
+
+### Optional helper tool roots are not app workspace packages by default
+
+Reason:
+The root pnpm workspace represents app surfaces that should be installed by the normal developer/operator setup path: `webgui`, `docs`, and `tui`.
+Browser/model/fetcher helpers under `tools/` have different ownership, security, download, and lifecycle rules.
+Camofox therefore remains a standalone tool root installed with explicit `pnpm --dir tools/camofox-browser --ignore-workspace ...` commands, with browser binary fetches staying opt-in.
+Adding Camofox to `pnpm-workspace.yaml` would make normal workspace setup install browser-helper dependencies and blur optional-helper ownership before the product decides that Camofox should be always-installed infrastructure.
 
 ### Guided app lifecycle commands compose existing owners
 
@@ -137,10 +145,16 @@ UI surfaces must show missing mark time or missing external broker evidence as m
 Reason:
 V1 needs explicit proposal discipline without giving scanners, sidecars, chat, or Web routes direct broker authority.
 Trade ideas may be queued as structured `TradeProposalRecord` rows with thesis, size, reference price, source, and review notes, but they remain pending until an explicit operator approval command submits through the existing broker adapter boundary.
+V1 proposal creation and paper/external-paper broker submissions accept only the supported simple US-equity symbol shape; Turkey/global symbols and malformed symbol strings stay blocked until a later scoped expansion.
+State-changing proposal actions require non-empty operator review notes at the CLI/Web/API boundary: approve, reject, reconcile, and refresh should all leave an audit sentence before mutating proposal state.
+Limit proposals are explicit order intents, not soft hints: they require quantity plus `limit_price`, market proposals cannot carry `limit_price`, and Alpaca paper submissions must preserve the order type and carry `client_order_id` from the execution intent so broker orders can be correlated without inference.
 Approval records the broker-facing `ExecutionIntent` and `ExecutionOutcome`; rejection, execution, failure, and expiry are terminal states.
+External paper broker acknowledgements such as Alpaca paper `accepted` are in-flight approved proposals and open/operator-visible journal orders, not no-fill or executed outcomes; `proposal-refresh` may read the original broker order and update the stored execution/proposal/position-plan state, but it must never resubmit the order.
 If a process records the broker execution outcome but exits before the final proposal status update, reconciliation may only read the existing `execution_records.intent_id` row and mark the approved proposal terminal; it must not call the broker adapter again.
-The Web GUI Proposal Desk may call only the allowlisted CLI contracts for approve, reject, and reconcile, with same-origin/token route guards and no generic command execution or proposal creation surface.
+The Web GUI Proposal Desk may call only the allowlisted CLI contracts for approve, reject, reconcile, and refresh, with same-origin/token route guards and no generic command execution or proposal creation surface.
 This keeps proposal generation useful for a paper desk while preserving paper-first/manual-approval safety and keeping live execution blocked.
+Missing exit-plan recovery is also explicit and non-executing: `position-plan-repair` may backfill stored position plans only from already executed proposal records with valid stop-loss/take-profit controls and matching open positions, defaults to dry-run, and must never resubmit orders or infer risk controls from a thesis alone.
+Proposal candidates are a pre-review evidence layer, not agent authority. Scanner/research output may be persisted as `ProposalCandidateRecord` rows with score, materiality, freshness, liquidity, sizing intent, controls, redacted evidence, and compact canonical source-attribution context. Promotion may create a pending `TradeProposalRecord` only after deterministic checks pass, and the candidate/proposal handoff must happen inside one database transaction to avoid duplicate pending proposals; it must not approve, execute, or bypass the proposal gate.
 
 ### Optional web research helpers stay evidence-only and fail closed
 
@@ -191,8 +205,8 @@ Those surfaces are read-only decision-preparation contracts; they do not fetch
 the web by themselves, create proposals, approve proposals, submit orders, or
 let raw article text enter core trading prompts.
 IBKR/global/FX/multi-currency execution, options execution, and flex-style
-broker reporting remain V2 unless a later decision explicitly accepts a narrow
-read-only V1 slice.
+broker reporting remain later expansion work, not the default V2 path, unless a
+later decision explicitly accepts a narrow read-only slice.
 
 ### Provider expansion should happen through adapters
 
@@ -426,7 +440,7 @@ Provider payloads differ by source, market, region, and availability.
 The runtime now uses provider interfaces for market, fundamental, news, disclosure, and macro data, then aggregates them into a `CanonicalAnalysisSnapshot`.
 Agents still consume the compact `DecisionFeatureBundle`, but the canonical snapshot preserves source attribution, freshness, completeness, and explicit missing sections for prompts, persistence, memory, dashboard JSON, and future UI review surfaces.
 Yahoo remains a fallback market/news source rather than the sole source of truth, while SEC EDGAR, KAP, macro indicators, transcripts, and vendor APIs can be added behind the same adapter seam.
-Provider scaffolds for SEC EDGAR, KAP, Finnhub, and FMP should return explicit missing snapshots or empty-source attributions until real ingestion exists; absence of provider data must remain visible and must not be converted into neutral supporting evidence.
+SEC companyfacts is the first opt-in live canonical fundamental provider for US issuers; KAP, Finnhub, FMP, and future providers should still return explicit missing snapshots or empty-source attributions until their real ingestion exists. Absence of provider data must remain visible and must not be converted into neutral supporting evidence.
 
 ### Yahoo is degraded fallback evidence, not the target source of truth
 
@@ -435,12 +449,14 @@ Yahoo/yfinance is useful for local-first bootstrap, tests, and fallback market/n
 SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX sources should normalize into canonical snapshots before reaching agents.
 Finnhub, FMP, Polygon/Massive, and similar APIs are optional enrichers; their keys must remain configuration-only and their absence must be visible as missing/degraded evidence rather than hidden fallback completeness.
 
-### V1 is Alpaca-ready and paper-first; V2 owns IBKR/global/FX expansion
+### V1 is Alpaca-ready and active-trading capable; V2 owns Turkey expansion
 
 Reason:
 The execution boundary is ready for future broker adapters, but V1 should remain narrow enough to ship reliably.
-Alpaca readiness belongs to V1 as US-equities-only preparation with manual approval, paper defaults, strict safety gates, kill switch, and broker/readiness health checks.
-Interactive Brokers, global markets, multi-currency account state, FX conversion assumptions, and region-specific market QA belong in V2 so V1 does not become a broad multi-broker production rewrite.
+Alpaca readiness belongs to V1 as the US-equities active trading path with manual approval, paper defaults, external-paper rehearsal, strict safety gates, kill switch, broker/readiness health checks, and an auditable paper-to-real promotion gate.
+V1 should not be described as a non-trading demo or only a research shell: it must be capable of submitting approved buy/sell intents through the supported broker boundary once the configured gates pass.
+V2 is the Turkey expansion track: Turkish symbols, KAP/company disclosures, CBRT-style macro context, TRY/FX accounting, local session calendars, and the eventual Turkey broker/data route.
+Broader IBKR/global expansion is deferred unless a later decision explicitly changes the product sequence.
 
 ### Alpaca paper is an explicit external-paper backend
 
@@ -456,7 +472,8 @@ surfaces for seeing whether those gates are satisfied, and their network-free
 payloads should also travel through dashboard, observer, Rich, Ink, and Web GUI
 surfaces. The generic `live` backend still fails closed until a real live
 adapter, manual approval gate, and paper-operation evidence are intentionally
-implemented.
+implemented. This gating language must not be misread as "V1 will not trade";
+it means V1 trades only through explicit, approved, auditable supported paths.
 
 ### Python dependencies should be locked with uv
 
@@ -508,6 +525,9 @@ Reason:
 Branch artifact identity from `pnpm run version:plan` is useful, but the project owner expects pushed product work to also advance the visible application version in tracked metadata.
 When a feature/V1 branch push changes runtime behavior, operator surfaces, docs, sidecars, setup, or workflow contracts, agents should bump the patch version consistently across `pyproject.toml`, `agentic_trader/__init__.py`, root/workspace `package.json` files, `sidecars/research_flow/pyproject.toml`, and lockfile metadata before pushing.
 `CHANGELOG.md` remains release-flow owned unless the user explicitly asks for a changelog update.
+If `CHANGELOG.md` does not change when a stable release is expected to update it,
+that is a release-flow finding to investigate rather than a reason to hand-edit
+the changelog on V1 feature work.
 The Python runtime loads root `.env` and `.env.local` through Pydantic settings, so root API keys and model/runtime overrides should stay at the repository root.
 The Web GUI may run without `webgui/.env.local` because it auto-detects the worktree and managed Python runtime; that app-local env file should only override command execution details.
 The docs app should keep local `GITHUB_PAGES=false`; GitHub Actions and `pnpm build:docs:pages` set `GITHUB_PAGES=true` at build time so Pages gets the `/agentic-trader` base path without committing production env files.
@@ -536,6 +556,11 @@ listeners for operator diagnostics and stale app-managed cleanup. Cleanup may
 target app-owned alternate ports 11435-11465, but host-default 11434 remains a
 user-managed service unless the operator explicitly chooses otherwise.
 If a user-managed Ollama is already running, app-managed startup should choose another loopback port and make the base-url mismatch visible instead of killing or hijacking the external service.
+Runtime adoption of an app-owned model-service or Camofox endpoint must also
+match the current host identity. App-owned state copied from another checkout or
+machine should remain inspectable, but it must not override host-owned or
+explicitly configured endpoints unless the persisted service owner equals the
+current `AGENTIC_TRADER_HOST_ID`.
 
 ### Strict model readiness must verify generation, not just tags
 
@@ -643,7 +668,7 @@ This is still incremental architecture cleanup, not a license for broad rewrites
 ### The existing docs scaffold should be activated, not replaced
 
 Reason:
-The repository already contains a `docs/` Next.js scaffold, while developer orientation still partly lives in repo notes such as `dev/code-map.md`.
+The repository already contains a `docs/` Next.js scaffold, while developer orientation still partly lives in repo notes such as `dev-docs/code-map.md`.
 The right next step is to refresh links, migrate/update content, and grow the existing docs site into the canonical documentation surface instead of creating a second documentation project.
 Fumadocs is a good fit for that work because it gives the existing app a docs-native MDX layout, page tree, and search flow without changing the repository's runtime architecture.
 

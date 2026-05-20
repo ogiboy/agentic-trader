@@ -6,9 +6,13 @@ import fs from 'fs/promises';
 import path from 'path';
 
 /**
- * Parse a Netscape-format cookie file into structured cookie objects.
- * @param {string} text - Raw cookie file content
- * @returns {Array<{name: string, value: string, domain: string, path: string, expires: number, httpOnly?: boolean, secure?: boolean}>}
+ * Parse Netscape-format cookie file text into an array of cookie objects.
+ *
+ * Supports an optional UTF-8 BOM, skips empty lines and comment lines (lines
+ * starting with `#` except `#HttpOnly_`), recognizes the `#HttpOnly_` prefix,
+ * and parses tab-separated fields where the cookie value may contain tabs.
+ * @param {string} text - Raw contents of a Netscape-format cookie file.
+ * @returns {Array<{name: string, value: string, domain: string, path: string, expires: number, httpOnly: boolean, secure: boolean}>} An array of parsed cookies; each object contains `name`, `value`, `domain`, `path`, `expires` (numeric UNIX timestamp), and boolean `httpOnly` and `secure` flags.
  */
 function parseNetscapeCookieFile(text) {
   const cookies = [];
@@ -36,25 +40,43 @@ function parseNetscapeCookieFile(text) {
     const name = parts[5];
     const value = parts.slice(6).join('\t');
 
-    cookies.push({ name, value, domain, path: cookiePath, expires, httpOnly, secure });
+    cookies.push({
+      name,
+      value,
+      domain,
+      path: cookiePath,
+      expires,
+      httpOnly,
+      secure,
+    });
   }
 
   return cookies;
 }
 
 /**
- * Read and parse cookies from a Netscape cookie file.
+ * Parse a Netscape-format cookie file and return its cookies.
+ *
  * @param {object} opts
- * @param {string} opts.cookiesDir - Base directory for cookie files
- * @param {string} opts.cookiesPath - Relative path to the cookie file within cookiesDir
- * @param {string} [opts.domainSuffix] - Only include cookies whose domain ends with this suffix
- * @param {number} [opts.maxBytes=5242880] - Maximum file size in bytes
- * @returns {Promise<Array<{name: string, value: string, domain: string, path: string, expires: number, httpOnly: boolean, secure: boolean}>>}
+ * @param {string} opts.cookiesDir - Base directory for cookie files.
+ * @param {string} opts.cookiesPath - Relative path to the cookie file within `cookiesDir`.
+ * @param {string} [opts.domainSuffix] - If provided, only include cookies whose domain ends with this suffix.
+ * @param {number} [opts.maxBytes=5242880] - Maximum allowed file size in bytes.
+ * @throws {Error} If `cookiesPath` resolves outside `cookiesDir`.
+ * @throws {Error} If the file size exceeds `maxBytes`.
+ * @returns {Promise<Array<{name: string, value: string, domain: string, path: string, expires: number, httpOnly: boolean, secure: boolean}>>} An array of cookie objects with the listed fields.
  */
-async function readCookieFile({ cookiesDir, cookiesPath, domainSuffix, maxBytes = 5 * 1024 * 1024 }) {
+async function readCookieFile({
+  cookiesDir,
+  cookiesPath,
+  domainSuffix,
+  maxBytes = 5 * 1024 * 1024,
+}) {
   const resolved = path.resolve(cookiesDir, cookiesPath);
   if (!resolved.startsWith(cookiesDir + path.sep)) {
-    throw new Error('cookiesPath must be a relative path within the cookies directory');
+    throw new Error(
+      'cookiesPath must be a relative path within the cookies directory',
+    );
   }
 
   const stat = await fs.stat(resolved);
@@ -80,17 +102,20 @@ async function readCookieFile({ cookiesDir, cookiesPath, domainSuffix, maxBytes 
 }
 
 /**
- * Import all cookies from the default bootstrap cookie file into a Playwright context.
- * Intended for first-run session seeding before any persistent storage state exists.
- * Missing file is treated as a no-op.
+ * Import cookies from a Netscape-format bootstrap file into a Playwright BrowserContext.
+ *
  * @param {object} opts
- * @param {string} opts.cookiesDir - Base directory for cookie files
- * @param {object} opts.context - Playwright BrowserContext
- * @param {string} [opts.cookiesPath='cookies.txt'] - Relative cookie file path within cookiesDir
- * @param {object} [opts.logger=console] - Logger with warn()
- * @returns {Promise<{imported: number, source: string|null}>}
- */
-async function importBootstrapCookies({ cookiesDir, context, cookiesPath = 'cookies.txt', logger = console }) {
+ * @param {string} opts.cookiesDir - Base directory containing the cookie file.
+ * @param {object} opts.context - Playwright BrowserContext to receive the cookies.
+ * @param {string} [opts.cookiesPath='cookies.txt'] - Relative path to the cookie file inside `cookiesDir`.
+ * @param {object} [opts.logger=console] - Logger object with a `warn` method used for non-ENOENT errors.
+ * @returns {{ imported: number, source: string|null }} Object with the number of imported cookies and the resolved source path, or `null` if no file was used.
+async function importBootstrapCookies({
+  cookiesDir,
+  context,
+  cookiesPath = 'cookies.txt',
+  logger = console,
+}) {
   if (!cookiesDir || !context) {
     return { imported: 0, source: null };
   }

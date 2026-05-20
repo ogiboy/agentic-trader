@@ -14,7 +14,7 @@ behavior, while this map explains where to look and how the pieces connect.
 ## Web And Docs Surfaces
 
 - `webgui/` is the local Web GUI. It uses Next.js App Router route handlers to call the same dashboard, runtime, chat, and instruction contracts that power the terminal surfaces.
-- `docs/` is the developer docs app. It now uses Fumadocs plus MDX for curated setup, architecture, runtime, operator-surface, and QA documentation.
+- `docs/` is the separate operator-first docs app. It now uses Fumadocs plus MDX for curated setup, architecture, runtime, operator-surface, QA, and contributor-maintenance documentation.
 - `docs/source.config.ts`, `docs/lib/source.ts`, and `docs/content/docs/` own the Fumadocs content pipeline.
 - `docs/app/[lang]/docs/[[...slug]]/page.tsx` renders the generated MDX pages under locale-prefixed routes such as `/en/...` and `/tr/...`, while `docs/app/page.tsx` is the project-facing landing page for developers.
 
@@ -51,19 +51,20 @@ behavior, while this map explains where to look and how the pieces connect.
 - `agentic_trader/engine/broker.py` defines the broker adapter boundary.
 - `agentic_trader/engine/paper_broker.py` implements paper fills, positions, cash, journals, and position plans.
 - `agentic_trader/engine/position_manager.py` manages open position exits bar by bar.
+- `agentic_trader/finance/proposal_candidates.py` owns the broker-free scanner/research candidate bridge before promotion into pending manual-review proposals.
 
 ## Persistence And Schemas
 
 - `agentic_trader/schemas.py` is the contract layer. Add new agent/runtime payload fields here before wiring them into storage or UI. `MarketContextPack` lives here so agents, storage, dashboards, and future UI clients share the same lookback-truth contract.
-- `agentic_trader/storage/db.py` is the DuckDB persistence boundary. It stores runs, orders, fills, service state/events, preferences, memory vectors with embedding metadata, trade context, and journals.
+- `agentic_trader/storage/db.py` is the DuckDB persistence boundary. It stores runs, orders, fills, service state/events, preferences, memory vectors with embedding metadata, trade context, proposal candidates, trade proposals, and journals.
 - `agentic_trader/config.py` centralizes environment-driven settings, runtime paths, runtime mode, provider routing, and directory setup.
 - `agentic_trader/ui_text.py` is the first shared UI text catalog. Put repeated operator-facing labels/prompts here instead of duplicating them across CLI, Rich, Ink, and future WebUI surfaces.
 
 ## QA And Developer Tooling
 
 - `scripts/qa/smoke_qa.py` is the terminal smoke harness. It checks installed CLI commands, Ink/Rich entrypoints, `python main.py`, optional `ruff`, `pytest`, `pyright`, coverage XML, and optional SonarQube submission.
-- `.ai/qa/qa-smoke-script.md` documents how to run the smoke harness and where artifacts are written.
-- `.ai/current-state.md`, `.ai/tasks.md`, and `.ai/decisions.md` should be updated when architecture or workflow assumptions change.
+- `.ai/qa/qa-smoke-script.instructions.md` documents how to run the smoke harness and where artifacts are written.
+- `.ai/current-state.instructions.md`, `.ai/tasks.instructions.md`, and `.ai/decisions.instructions.md` should be updated when architecture or workflow assumptions change.
 - `pyrightconfig.json` scopes static type checking to source, tests, and scripts while excluding generated/build/runtime artifacts.
 
 ## Documentation Conventions

@@ -11,14 +11,14 @@ from agentic_trader.system.tool_ownership import write_tool_ownership
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
     """
-    Create a Settings instance rooted at the provided temporary path and ensure its required directories exist.
+    Construct a Settings object rooted at the provided temporary path and create its required directories.
     
     Parameters:
-        tmp_path (Path): Base directory used for runtime files; also used to locate the database and market cache.
-        **overrides: Additional Settings attributes to override the default values (e.g., paths, credentials).
+        tmp_path (Path): Base directory for runtime files and storage (used for runtime_dir, database_path, and market_data_cache_dir).
+        **overrides: Additional Settings attributes to override the defaults (for example, alternate paths or credentials).
     
     Returns:
-        Settings: A configured Settings object with runtime_dir, database_path, and market_data_cache_dir set and required directories created.
+        Settings: A Settings configured with runtime_dir set to `tmp_path`, database_path set to `tmp_path / "agentic_trader.duckdb"`, and market_data_cache_dir set to `tmp_path / "market_cache"`.
     """
     settings = Settings(
         runtime_dir=tmp_path,
@@ -34,7 +34,9 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = _settings(tmp_path)
-    write_tool_ownership(settings, {"ollama": "host-owned", "firecrawl": "api-key-only"}, source="test")
+    write_tool_ownership(
+        settings, {"ollama": "host-owned", "firecrawl": "api-key-only"}, source="test"
+    )
     tool_paths = {
         "uv": "/opt/homebrew/bin/uv",
         "pnpm": "/opt/homebrew/bin/pnpm",
@@ -43,7 +45,9 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     }
 
     monkeypatch.setattr(setup.shutil, "which", lambda command: tool_paths.get(command))
-    monkeypatch.setattr(setup, "_command_version", lambda command, args=None: f"{command}-version")
+    monkeypatch.setattr(
+        setup, "_command_version", lambda command, args=None: f"{command}-version"
+    )
     monkeypatch.setattr(
         setup,
         "crewai_setup_status",
@@ -100,7 +104,7 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     status = setup.build_setup_status(settings)
 
     assert status.core_ready is True
-    assert status.optional_ready is True
+    assert status.optional_ready is False
     tool_ids = {tool.tool_id: tool for tool in status.tools}
     assert tool_ids["uv"].required_for_core is True
     assert tool_ids["firecrawl_cli"].available is False
@@ -110,6 +114,79 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     assert status.tool_ownership.decisions_by_tool["ollama"].mode == "host-owned"
     assert tool_ids["research_flow_sidecar"].status == "needs_setup"
     assert "make bootstrap" in status.recommended_commands
+
+
+def test_setup_status_requires_reachable_owned_runtime(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = _settings(tmp_path)
+    write_tool_ownership(
+        settings, {"ollama": "app-owned", "camofox": "app-owned"}, source="test"
+    )
+
+    monkeypatch.setattr(setup.shutil, "which", lambda command: f"/bin/{command}")
+    monkeypatch.setattr(
+        setup, "_command_version", lambda command, args=None: f"{command}-version"
+    )
+    monkeypatch.setattr(
+        setup,
+        "crewai_setup_status",
+        lambda _: {
+            "environment_exists": True,
+            "flow_dir": str(tmp_path / "sidecars" / "research_flow"),
+            "version": "0.1.0",
+            "notes": [],
+        },
+    )
+    monkeypatch.setattr(
+        setup,
+        "build_model_service_status",
+        lambda _: type(
+            "Status",
+            (),
+            {
+                "model_dump": lambda self, mode="json": {
+                    "provider": "ollama",
+                    "service_reachable": True,
+                    "model_available": True,
+                }
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        setup,
+        "build_camofox_service_status",
+        lambda _: type(
+            "Status",
+            (),
+            {
+                "model_dump": lambda self, mode="json": {
+                    "service_reachable": False,
+                    "message": "not running",
+                }
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        setup,
+        "build_webgui_service_status",
+        lambda _: type(
+            "Status",
+            (),
+            {
+                "model_dump": lambda self, mode="json": {
+                    "service_reachable": True,
+                    "message": "ready",
+                }
+            },
+        )(),
+    )
+
+    status = setup.build_setup_status(settings)
+
+    assert status.optional_ready is False
+    assert status.model_service["service_reachable"] is True
+    assert status.camofox_service["service_reachable"] is False
 
 
 def test_camofox_tool_reports_package_and_health(
@@ -214,7 +291,11 @@ def test_agentic_trader_entrypoint_reports_path_drift(
     stale.write_text("#!/bin/sh\n", encoding="utf-8")
 
     monkeypatch.setattr(setup, "_repo_root", lambda: repo_root)
-    monkeypatch.setattr(setup.shutil, "which", lambda command: str(stale) if command == "agentic-trader" else None)
+    monkeypatch.setattr(
+        setup.shutil,
+        "which",
+        lambda command: str(stale) if command == "agentic-trader" else None,
+    )
     monkeypatch.setattr(setup, "_command_version", lambda _command, _args=None: "help")
 
     tool = setup._agentic_trader_entrypoint()

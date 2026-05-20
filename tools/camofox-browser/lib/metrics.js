@@ -8,9 +8,29 @@ let _metrics = null;
 let _register = null;
 
 // No-op stubs when prometheus is disabled.
-const noopCounter = { inc() {}, labels() { return this; } };
-const noopHistogram = { observe() {}, startTimer() { return () => {}; }, labels() { return this; } };
-const noopGauge = { set() {}, inc() {}, dec() {}, labels() { return this; } };
+const noopCounter = {
+  inc() {},
+  labels() {
+    return this;
+  },
+};
+const noopHistogram = {
+  observe() {},
+  startTimer() {
+    return () => {};
+  },
+  labels() {
+    return this;
+  },
+};
+const noopGauge = {
+  set() {},
+  inc() {},
+  dec() {},
+  labels() {
+    return this;
+  },
+};
 
 /**
  * Create a metric (Counter, Histogram, or Gauge) registered to the shared registry.
@@ -27,9 +47,12 @@ export async function createMetric(type, opts) {
     return noopCounter;
   }
   const client = (await import('prom-client')).default;
-  const MetricClass = type === 'histogram' ? client.Histogram
-    : type === 'gauge' ? client.Gauge
-    : client.Counter;
+  const MetricClass =
+    type === 'histogram'
+      ? client.Histogram
+      : type === 'gauge'
+        ? client.Gauge
+        : client.Counter;
   return new MetricClass({ ...opts, registers: [_register] });
 }
 
@@ -150,9 +173,15 @@ export async function initMetrics({ enabled = false } = {}) {
   return _metrics;
 }
 
-/** Get the initialized metrics object. Throws if initMetrics() hasn't been called. */
+/**
+ * Retrieve the initialized metrics object.
+ *
+ * @returns {Object} The metrics instance previously created by `initMetrics()`.
+ * @throws {Error} If metrics have not been initialized; call `initMetrics()` first.
+ */
 export function getMetrics() {
-  if (!_metrics) throw new Error('Metrics not initialized -- call initMetrics() first');
+  if (!_metrics)
+    throw new Error('Metrics not initialized -- call initMetrics() first');
   return _metrics;
 }
 
@@ -170,15 +199,29 @@ export function isMetricsEnabled() {
 const MEMORY_INTERVAL_MS = 30_000;
 let memoryTimer = null;
 
+/**
+ * Begin periodic reporting of RSS memory into the `memoryUsageBytes` gauge.
+ *
+ * Schedules a recurring task that sets `memoryUsageBytes` to `process.memoryUsage().rss` every MEMORY_INTERVAL_MS; does nothing if a reporter is already running or metrics are disabled. The underlying interval is unref'ed so it does not keep the process alive.
+ */
 export function startMemoryReporter() {
   if (memoryTimer || !isMetricsEnabled()) return;
   const m = getMetrics();
-  const report = () => m.memoryUsageBytes.set(globalThis.process.memoryUsage().rss);
+  const report = () =>
+    m.memoryUsageBytes.set(globalThis.process.memoryUsage().rss);
   report();
   memoryTimer = setInterval(report, MEMORY_INTERVAL_MS);
   memoryTimer.unref();
 }
 
+/**
+ * Stop the periodic memory reporter and clear its interval timer.
+ *
+ * If the reporter is not running, this function does nothing.
+ */
 export function stopMemoryReporter() {
-  if (memoryTimer) { clearInterval(memoryTimer); memoryTimer = null; }
+  if (memoryTimer) {
+    clearInterval(memoryTimer);
+    memoryTimer = null;
+  }
 }

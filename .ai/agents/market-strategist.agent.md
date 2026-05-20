@@ -59,9 +59,9 @@ news/fundamental context, and explicit risk controls:
 
 Keep the following out of V1 unless a separate decision expands scope:
 
-- live execution
+- ungated real-money execution
 - options execution
-- IBKR/global/FX/multi-currency execution
+- IBKR/global/FX/multi-currency execution outside a later explicit expansion decision
 - latency arbitrage or high-frequency claims
 - hidden auto-approval
 - social-media-only conviction

@@ -20,7 +20,7 @@ after the change. Missing or stale memory must not override runtime contracts.
   developer environment with `uv sync --locked --all-extras --group dev`
 - The tracked CrewAI Flow project lives under `sidecars/research_flow/` and uses uv independently of the root uv environment
 - The root runtime may call the CrewAI Flow sidecar only through a subprocess JSON contract; it should not import CrewAI directly
-- SEC EDGAR submissions metadata is the first opt-in live research source, gated by `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED` and `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT`
+- SEC EDGAR submissions metadata and canonical companyfacts fundamentals are the first opt-in live official sources, gated by `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED` and `AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT`
 - Optional Firecrawl and Camofox research helpers are disabled by default under `researchd`; they produce redacted/source-attributed evidence or provider health only and must not inject raw web text into prompts
 - V1 trade proposals are explicit manual-review records; proposal approval is the only path from a queued idea into broker adapter submission, and terminal proposal states should not be reopened
 - V1 idea-scanner presets score research/watch candidates only; scanner output should be enriched and converted into a proposal before any approval path is available
@@ -69,7 +69,7 @@ after the change. Missing or stale memory must not override runtime contracts.
 - evolve the CrewAI Flow sidecar through explicit JSON contracts, not direct imports from the core trading runtime
 - keep root uv migration aligned across scripts, CI, docs, and release automation
 - add provider adapters rather than changing agent workflow semantics
-- expand SEC ingestion from metadata-only submissions into company facts and filing parsing only after the normalized evidence contract stays green
+- expand SEC ingestion beyond metadata submissions and companyfacts into filing parsing only after the normalized evidence contract stays green
 - grow financial intelligence through proposal review, idea screening, source materiality, liquidity, sizing, and concentration controls before adding direct execution automation
 - grow strategy intelligence through data requirements, no-lookahead checks,
   declarative sweeps, confidence intervals, source/news vetoes, and manual

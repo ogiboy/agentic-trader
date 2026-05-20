@@ -14,7 +14,6 @@ from agentic_trader.schemas import (
     MarketSnapshot,
 )
 
-
 FxRisk = Literal["low", "medium", "high", "unknown"]
 FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON = (
     "Structured fundamental provider data is unavailable."

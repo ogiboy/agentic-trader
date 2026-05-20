@@ -62,9 +62,6 @@ export async function POST(request: Request) {
       guard.release();
     }
   } catch (error) {
-    return Response.json(
-      { error: redactAndCapText(error) },
-      { status: 500 },
-    );
+    return Response.json({ error: redactAndCapText(error) }, { status: 500 });
   }
 }

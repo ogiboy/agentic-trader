@@ -6,7 +6,6 @@ from urllib.parse import urlsplit
 
 from agentic_trader.security import is_loopback_host
 
-
 PayloadResolver = Callable[[str], tuple[int, dict[str, object]]]
 
 

@@ -42,6 +42,7 @@ agentic-trader v1-readiness --json
 agentic-trader broker-status --json
 agentic-trader finance-ops --json
 agentic-trader supervisor-status --json
+agentic-trader proposal-candidates --json
 agentic-trader trade-proposals --json
 ```
 
@@ -51,16 +52,24 @@ için yeterince görünür olup olmadığını gösterir.
 
 ### Bir trade fikrini execute edilebilir hâle gelmeden incele
 
-Scanner veya research çıktısı doğrudan order olmamalı; önce proposal'a
-dönüşmeli. `proposal-create` paper-desk fikrini kuyruğa alır,
-`trade-proposals` pending ve terminal kararları gösterir, `proposal-approve`
-veya `proposal-reject` ise açık insan review adımıdır. Onay hâlâ yapılandırılan
-paper veya external-paper broker adapter'ından geçer ve execution
-intent/outcome audit trail'i bırakır.
+Scanner veya research çıktısı doğrudan order olmamalı; önce broker-free
+proposal candidate olmalı. `proposal-candidate-create` adayı persist eder,
+`proposal-candidates` scanner/research evidence'ını gösterir ve
+`proposal-candidate-promote` kontrol edilmiş adayı pending manual-review
+proposal'a dönüştürür. `proposal-create` yalnızca manuel paper-desk fikirleri
+içindir; `trade-proposals` pending ve terminal kararları gösterir,
+`proposal-approve` veya `proposal-reject` ise açık insan review adımıdır. Onay
+hâlâ yapılandırılan paper veya external-paper broker adapter'ından geçer ve
+execution intent/outcome audit trail'i bırakır.
 
-Web GUI Proposal Desk aynı kuyruğu okur ve yalnızca explicit approve, reject
-veya reconcile kontratlarını çağırabilir. Generic broker console değildir ve
-proposal kuyruğu dışında order oluşturmaz.
+External-paper broker `accepted` acknowledgement'ları fill sayılmaz; in-flight
+kalır ve `proposal-refresh` orijinal broker order'ını okuyup fill,
+partial-fill, cancel veya reject durumunu kanıtlayana kadar yeniden order
+göndermez.
+
+Web GUI Proposal Desk aynı kuyruğu okur ve yalnızca explicit approve, reject,
+reconcile veya refresh kontratlarını çağırabilir. Generic broker console
+değildir ve proposal kuyruğu dışında order oluşturmaz.
 
 ### Paper cycle çalıştır veya incele
 

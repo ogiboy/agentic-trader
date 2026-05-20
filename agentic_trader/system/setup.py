@@ -168,11 +168,11 @@ def _firecrawl_tool() -> ToolStatus:
 def _with_manifest_note(tool: ToolStatus, tool_id: LocalToolId) -> ToolStatus:
     """
     Append manifest-derived notes for the given local tool identifier to a ToolStatus and return an updated copy.
-    
+
     Parameters:
         tool (ToolStatus): The original tool status to augment; unchanged by this function.
         tool_id (LocalToolId): Identifier of the local tool whose manifest notes will be appended.
-    
+
     Returns:
         ToolStatus: A copy of `tool` with `notes` extended by the manifest-derived notes for `tool_id`.
     """
@@ -188,12 +188,12 @@ def _with_ownership_note(
 ) -> ToolStatus:
     """
     Attach ownership decision metadata to a ToolStatus and return an updated copy.
-    
+
     Parameters:
         tool (ToolStatus): Existing tool status to augment.
         tool_id (LocalToolId): Local tool identifier used to look up the ownership decision.
         ownership (ToolOwnershipPayload): Ownership payload containing decisions indexed by ownership tool id.
-    
+
     Returns:
         ToolStatus: A copy of `tool` with `ownership_tool`, `ownership_mode`, and `ownership_note` set from the decision,
         and with ownership-related entries appended to the `notes` list.
@@ -218,9 +218,9 @@ def _with_ownership_note(
 def _ollama_tool() -> ToolStatus:
     """
     Report readiness and metadata for the Ollama CLI tool.
-    
+
     Builds a ToolStatus representing whether the local `ollama` executable is available, its resolved path/version if present, and any manifest-derived notes relevant to the tool.
-    
+
     Returns:
         ToolStatus: Readiness and metadata for the Ollama CLI, including availability, path, version, status, notes, and manifest notes when applicable.
     """
@@ -348,15 +348,45 @@ def _agentic_trader_entrypoint() -> ToolStatus:
     return tool
 
 
+def _ownership_mode(ownership: ToolOwnershipPayload, tool: str) -> str:
+    decision = ownership.decisions_by_tool.get(tool)
+    return decision.mode if decision is not None else "undecided"
+
+
+def _model_service_ready(
+    settings: Settings,
+    ownership: ToolOwnershipPayload,
+    model_service: dict[str, object],
+) -> bool:
+    if settings.llm_provider != "ollama":
+        return True
+    mode = _ownership_mode(ownership, "ollama")
+    if mode in {"undecided", "skipped"}:
+        return False
+    return bool(model_service.get("service_reachable")) and bool(
+        model_service.get("model_available")
+    )
+
+
+def _camofox_service_ready(
+    ownership: ToolOwnershipPayload,
+    camofox_service: dict[str, object],
+) -> bool:
+    mode = _ownership_mode(ownership, "camofox")
+    if mode in {"app-owned", "host-owned"}:
+        return bool(camofox_service.get("service_reachable"))
+    return mode != "undecided"
+
+
 def build_setup_status(settings: Settings) -> SetupStatus:
     """
     Build an operator-facing read-only setup and readiness report for the current workspace.
-    
+
     Constructs a snapshot of platform and workspace information, per-tool readiness (core, runtime-optional, developer-optional), optional tool ownership metadata, and service status summaries without installing, mutating, or performing persistent changes.
-    
+
     Parameters:
         settings (Settings): Runtime configuration used to resolve tool locations, service endpoints, and ownership payloads.
-    
+
     Returns:
         SetupStatus: Aggregated readiness report containing platform and workspace root, booleans `core_ready` and `optional_ready`, a list of `ToolStatus` entries (including ownership fields when available), optional `tool_ownership` payload, JSON-serializable service status objects for model/camofox/webgui, and recommended operator commands.
     """
@@ -426,12 +456,12 @@ def build_setup_status(settings: Settings) -> SetupStatus:
         ),
     ]
     core_ready = all(tool.available for tool in tools if tool.required_for_core)
-    optional_ready = all(
-        tool.available
-        for tool in tools
-        if tool.category == "runtime_optional"
-        and tool.tool_id in {local_tool_definition("ollama").status_tool_id}
-    )
+    model_service = build_model_service_status(settings).model_dump(mode="json")
+    camofox_service = build_camofox_service_status(settings).model_dump(mode="json")
+    webgui_service = build_webgui_service_status(settings).model_dump(mode="json")
+    optional_ready = _model_service_ready(
+        settings, ownership, model_service
+    ) and _camofox_service_ready(ownership, camofox_service)
     return SetupStatus(
         platform=platform.system(),
         workspace_root=str(root),
@@ -439,8 +469,8 @@ def build_setup_status(settings: Settings) -> SetupStatus:
         optional_ready=optional_ready,
         tools=tools,
         tool_ownership=ownership,
-        model_service=build_model_service_status(settings).model_dump(mode="json"),
-        camofox_service=build_camofox_service_status(settings).model_dump(mode="json"),
+        model_service=model_service,
+        camofox_service=camofox_service,
         recommended_commands=[
             "make bootstrap",
             "make setup",
@@ -453,5 +483,5 @@ def build_setup_status(settings: Settings) -> SetupStatus:
             "agentic-trader webgui-service status --json",
             "agentic-trader webgui-service start",
         ],
-        webgui_service=build_webgui_service_status(settings).model_dump(mode="json"),
+        webgui_service=webgui_service,
     )

@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-import { parseJsonPayload, resolveAgenticTrader, ROOT_DIR, runLifecycleCommand } from './lib/app-lifecycle.mjs';
+import {
+  parseJsonPayload,
+  resolveAgenticTrader,
+  ROOT_DIR,
+  runLifecycleCommand,
+} from './lib/app-lifecycle.mjs';
 
 /**
  * Write the CLI usage/help text to stdout and exit the process with the provided code.
@@ -67,12 +72,33 @@ function step(id, label, args) {
  */
 function doctorSteps() {
   return [
-    step('setup-status', 'Workspace setup and optional tool readiness', ['setup-status', '--json']),
-    step('model-service', 'App-owned model-service readiness', ['model-service', 'status', '--json']),
-    step('camofox-service', 'App-owned Camofox helper readiness', ['camofox-service', 'status', '--json']),
-    step('webgui-service', 'App-owned Web GUI readiness', ['webgui-service', 'status', '--json']),
-    step('provider-diagnostics', 'Provider/source ladder diagnostics', ['provider-diagnostics', '--json']),
-    step('v1-readiness', 'Network-light V1 paper readiness gates', ['v1-readiness', '--json']),
+    step('setup-status', 'Workspace setup and optional tool readiness', [
+      'setup-status',
+      '--json',
+    ]),
+    step('model-service', 'App-owned model-service readiness', [
+      'model-service',
+      'status',
+      '--json',
+    ]),
+    step('camofox-service', 'App-owned Camofox helper readiness', [
+      'camofox-service',
+      'status',
+      '--json',
+    ]),
+    step('webgui-service', 'App-owned Web GUI readiness', [
+      'webgui-service',
+      'status',
+      '--json',
+    ]),
+    step('provider-diagnostics', 'Provider/source ladder diagnostics', [
+      'provider-diagnostics',
+      '--json',
+    ]),
+    step('v1-readiness', 'Network-light V1 paper readiness gates', [
+      'v1-readiness',
+      '--json',
+    ]),
   ];
 }
 
@@ -136,27 +162,34 @@ function safetyNotes() {
 function renderHuman(payload) {
   process.stdout.write('Agentic Trader app:doctor\n');
   if (!payload.cli_path) {
-    process.stdout.write('agentic-trader entrypoint was not found. Run make setup, then retry app:doctor.\n');
+    process.stdout.write(
+      'local agentic-trader entrypoint was not found. Run make setup, set AGENTIC_TRADER_CLI, or set AGENTIC_TRADER_ALLOW_GLOBAL_CLI=1 intentionally.\n',
+    );
     return;
   }
   for (const result of payload.steps) {
-    process.stdout.write(`${result.status === 'passed' ? 'ok' : 'fail'} ${result.id}: ${result.label}\n`);
+    process.stdout.write(
+      `${result.status === 'passed' ? 'ok' : 'fail'} ${result.id}: ${result.label}\n`,
+    );
   }
 }
 
 /**
- * Run the doctor command: perform readiness checks, output results, and exit.
+ * Execute the app:doctor workflow: run readiness checks, emit results, and terminate the process.
  *
- * Parses CLI options, locates the app CLI, and if found runs a fixed sequence of read-only readiness checks.
- * Builds a payload describing the action and step results, writes it to stdout as pretty JSON when `--json` is set,
- * otherwise prints a human-readable summary. Exits the process with code 0 only when the app CLI was found and every
- * step returned exit code 0; exits with code 1 otherwise.
+ * Parses command-line options, locates the Agentic Trader CLI, runs the predefined read-only diagnostic steps
+ * when the CLI is available, and builds a payload describing the action and step results. Writes pretty JSON
+ * to stdout when `--json` is present; otherwise prints a human-readable summary. Exits with status code 0
+ * only when the app CLI was found and every step returned exit code 0, otherwise exits with status code 1.
  */
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const cliPath = resolveAgenticTrader();
-  const steps = cliPath ? doctorSteps().map((stepInfo) => runStep(cliPath, stepInfo)) : [];
-  const exitCode = cliPath && steps.every((result) => result.exit_code === 0) ? 0 : 1;
+  const steps = cliPath
+    ? doctorSteps().map((stepInfo) => runStep(cliPath, stepInfo))
+    : [];
+  const exitCode =
+    cliPath && steps.every((result) => result.exit_code === 0) ? 0 : 1;
   const payload = {
     action: 'doctor',
     dry_run: false,

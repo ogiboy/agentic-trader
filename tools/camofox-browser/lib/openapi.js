@@ -21,9 +21,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let version = 'unknown';
 try {
-  const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
+  const pkg = JSON.parse(
+    readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
+  );
   version = pkg.version;
-} catch { /* ignore */ }
+} catch {
+  /* ignore */
+}
 
 const swaggerDefinition = {
   openapi: '3.0.3',
@@ -39,25 +43,46 @@ const swaggerDefinition = {
   servers: [{ url: 'http://localhost:9377', description: 'Local development' }],
   tags: [
     { name: 'System', description: 'Server health, metrics, and status.' },
-    { name: 'Tabs', description: 'Create, list, inspect, and destroy browser tabs.' },
-    { name: 'Navigation', description: 'Navigate tabs to URLs or via search macros.' },
-    { name: 'Interaction', description: 'Click, type, scroll, press keys, evaluate JS.' },
-    { name: 'Content', description: 'Accessibility snapshots, screenshots, links, images, downloads.' },
-    { name: 'Sessions', description: 'Per-user session state: cookies, teardown.' },
+    {
+      name: 'Tabs',
+      description: 'Create, list, inspect, and destroy browser tabs.',
+    },
+    {
+      name: 'Navigation',
+      description: 'Navigate tabs to URLs or via search macros.',
+    },
+    {
+      name: 'Interaction',
+      description: 'Click, type, scroll, press keys, evaluate JS.',
+    },
+    {
+      name: 'Content',
+      description:
+        'Accessibility snapshots, screenshots, links, images, downloads.',
+    },
+    {
+      name: 'Sessions',
+      description: 'Per-user session state: cookies, teardown.',
+    },
     { name: 'Browser', description: 'Global browser lifecycle (start/stop).' },
-    { name: 'Legacy', description: 'OpenClaw-compatible endpoints (deprecated).' },
+    {
+      name: 'Legacy',
+      description: 'OpenClaw-compatible endpoints (deprecated).',
+    },
   ],
   components: {
     securitySchemes: {
       BearerAuth: {
         type: 'http',
         scheme: 'bearer',
-        description: 'Bearer token matching CAMOFOX_API_KEY (per-route auth for sensitive endpoints like cookie import and traces).',
+        description:
+          'Bearer token matching CAMOFOX_API_KEY (per-route auth for sensitive endpoints like cookie import and traces).',
       },
       AccessKeyAuth: {
         type: 'http',
         scheme: 'bearer',
-        description: 'Bearer token matching CAMOFOX_ACCESS_KEY. When set, gates all routes except /health, cookie import, and /stop. Acts as a superkey -- also accepted by endpoints that normally require CAMOFOX_API_KEY.',
+        description:
+          'Bearer token matching CAMOFOX_ACCESS_KEY. When set, gates all routes except /health, cookie import, and /stop. Acts as a superkey -- also accepted by endpoints that normally require CAMOFOX_API_KEY.',
       },
     },
     schemas: {

@@ -36,9 +36,9 @@ rewritten". First verify what data, state, and evidence the system actually saw.
 
 Agentic Trader also has contributor-facing repo memory. That includes:
 
-- `.ai/current-state.md`
-- `.ai/tasks.md`
-- `.ai/decisions.md`
+- `.ai/current-state.instructions.md`
+- `.ai/tasks.instructions.md`
+- `.ai/decisions.instructions.md`
 - `.ai/qa/*`
 - docs pages that explain current working assumptions
 
@@ -65,9 +65,9 @@ Whenever a durable decision changes, the right follow-up is usually:
 
 - update the implementation
 - update the relevant docs page
-- update `.ai/current-state.md`
-- update `.ai/decisions.md`
-- update `.ai/tasks.md` if work remains
+- update `.ai/current-state.instructions.md`
+- update `.ai/decisions.instructions.md`
+- update `.ai/tasks.instructions.md` if work remains
 
 The key wording rule: describe product memory as decision/review evidence, and
 describe `.ai` files as contributor notes.

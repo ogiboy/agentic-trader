@@ -65,13 +65,20 @@ RESEARCH_CYCLE_PHASES: tuple[ResearchCyclePhase, ...] = (
             "agentic-trader risk-report --json",
             "agentic-trader news-intelligence --symbol <SYMBOL> --json",
         ),
-        produce=("watchlist_monitor_summary", "source_health_delta", "proposal_queue_state"),
+        produce=(
+            "watchlist_monitor_summary",
+            "source_health_delta",
+            "proposal_queue_state",
+        ),
         fail_closed_on=(
             "dashboard_unavailable",
             "unredacted_provider_error",
             "news_plan_missing_source_policy",
         ),
-        forbidden=("create_trade_without_operator_thesis", "ignore_pending_terminal_state"),
+        forbidden=(
+            "create_trade_without_operator_thesis",
+            "ignore_pending_terminal_state",
+        ),
     ),
     ResearchCyclePhase(
         name="ANALYZE",
@@ -82,7 +89,11 @@ RESEARCH_CYCLE_PHASES: tuple[ResearchCyclePhase, ...] = (
             "agentic-trader idea-score --symbol <SYMBOL> --preset <PRESET> ... --json",
             "agentic-trader research-refresh --json",
         ),
-        produce=("idea_score_cards", "missing_evidence_list", "strategy_readiness_context"),
+        produce=(
+            "idea_score_cards",
+            "missing_evidence_list",
+            "strategy_readiness_context",
+        ),
         fail_closed_on=(
             "scanner_warning_unreviewed",
             "freshness_unknown_for_event_trade",
@@ -103,7 +114,11 @@ RESEARCH_CYCLE_PHASES: tuple[ResearchCyclePhase, ...] = (
             "missing_manual_thesis",
             "wide_spread_or_low_volume_unaccepted",
         ),
-        forbidden=("proposal_approve", "broker_submit", "implicit_web_or_chat_approval"),
+        forbidden=(
+            "proposal_approve",
+            "broker_submit",
+            "implicit_web_or_chat_approval",
+        ),
     ),
     ResearchCyclePhase(
         name="DIGEST",

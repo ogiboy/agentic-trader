@@ -88,9 +88,7 @@ def utc_now_iso() -> str:
 def parse_research_symbols(raw_symbols: str) -> list[str]:
     """Parse comma-separated watch symbols from settings."""
     return [
-        symbol.strip().upper()
-        for symbol in raw_symbols.split(",")
-        if symbol.strip()
+        symbol.strip().upper() for symbol in raw_symbols.split(",") if symbol.strip()
     ]
 
 
@@ -218,6 +216,19 @@ class CrewAiResearchBackend:
         symbols: list[str],
         provider_outputs: list[ResearchProviderOutput],
     ) -> ResearchPipelineResult:
+        """
+        Invoke the configured CrewAI Flow sidecar to synthesize a research pipeline result for the given symbols and provider outputs.
+        
+        Runs the CrewAI Flow contract (using the configured flow directory and uv executable), supplies a JSON request built from the provided settings, symbols, and normalized provider outputs, and translates the contract response into a ResearchPipelineResult. On detection of missing prerequisites, non-JSON or failing contract output, timeouts, or startup errors, returns a failed ResearchPipelineResult describing the problem.
+        
+        Parameters:
+            settings (Settings): Runtime settings that control mode and backend configuration.
+            symbols (list[str]): List of watched symbol identifiers for the research run.
+            provider_outputs (list[ResearchProviderOutput]): Normalized outputs from research providers to include in the request payload.
+        
+        Returns:
+            ResearchPipelineResult: The pipeline result produced from the CrewAI Flow contract output, or a failed result explaining why the sidecar run did not complete.
+        """
         flow_dir = self.flow_dir or default_crewai_flow_dir(settings)
         uv_path = self.uv_path or shutil.which("uv")
         now = utc_now_iso()
@@ -253,8 +264,7 @@ class CrewAiResearchBackend:
             "mode": settings.research_mode,
             "symbols": symbols,
             "provider_outputs": [
-                self._provider_output_payload(output)
-                for output in provider_outputs
+                self._provider_output_payload(output) for output in provider_outputs
             ],
         }
         env = _sidecar_process_env()

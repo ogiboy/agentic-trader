@@ -28,13 +28,13 @@ class RuntimeToolBootstrapReport(BaseModel):
 
 def _base_url_for_ollama_api(status: ModelServiceStatus) -> str | None:
     """
-    Constructs the Ollama API base URL from a model service status.
+    Construct the Ollama API base URL from a model service status.
     
     Parameters:
         status (ModelServiceStatus): Service status whose `base_url` is used to build the API endpoint.
     
     Returns:
-        str | None: "`{base_url_without_trailing_slash}/v1`" if `status.base_url` is set, `None` otherwise.
+        `{base_url_without_trailing_slash}/v1` if `status.base_url` is set, `None` otherwise.
     """
     if not status.base_url:
         return None
@@ -45,10 +45,21 @@ def _should_adopt_model_endpoint(
     settings: Settings,
     status: ModelServiceStatus,
 ) -> bool:
+    """
+    Decides whether the application should adopt the detected Ollama model service endpoint.
+    
+    Parameters:
+        settings (Settings): Current runtime/settings object used to determine configured LLM provider, ownership mode, and host identity.
+        status (ModelServiceStatus): Observed model service status containing `app_owned` and ownership information.
+    
+    Returns:
+        bool: `True` if the LLM provider is configured as "ollama", the tool's ownership mode is "app-owned", the service reports `app_owned`, and the service is owned by the current host; `False` otherwise.
+    """
     return (
         settings.llm_provider == "ollama"
         and ownership_mode_for_tool(settings, "ollama") == "app-owned"
         and status.app_owned
+        and _service_state_is_current_or_legacy_host(status, settings.host_id)
     )
 
 
@@ -56,10 +67,26 @@ def _should_adopt_camofox_endpoint(
     settings: Settings,
     status: CamofoxServiceStatus,
 ) -> bool:
+    """
+    Determine whether the Camofox runtime endpoint should be adopted into the application's settings.
+    
+    Returns:
+        `True` if the tool's ownership mode is "app-owned", the detected Camofox service reports `app_owned`, and the service is owned by the current host; `False` otherwise.
+    """
     return (
         ownership_mode_for_tool(settings, "camofox") == "app-owned"
         and status.app_owned
+        and _service_state_is_current_or_legacy_host(status, settings.host_id)
     )
+
+
+def _service_state_is_current_or_legacy_host(
+    status: ModelServiceStatus | CamofoxServiceStatus,
+    host_id: str,
+) -> bool:
+    if status.owner is None:
+        return True
+    return status.is_owned_by_host(host_id)
 
 
 def apply_app_owned_service_settings(
@@ -69,16 +96,16 @@ def apply_app_owned_service_settings(
 ) -> RuntimeToolBootstrapReport:
     """
     Point Settings at endpoints of already-running app-owned helper services.
-    
+
     Adjusts in-memory Settings to use the base URLs of app-owned model (and optionally
     Camofox) services when those services are detected as app-owned. This function
     does not start, stop, or modify any processes or files; it only updates in-memory
     settings and returns status information suitable for dashboards or diagnostics.
-    
+
     Parameters:
         settings (Settings): Application settings object to read from and modify in memory.
         include_camofox (bool): If true, also inspect and apply the app-owned Camofox service URL.
-    
+
     Returns:
         RuntimeToolBootstrapReport: Contains `model_service` (ModelServiceStatus),
         `camofox_service` (CamofoxServiceStatus or None), and `messages` (list of
@@ -111,9 +138,9 @@ def apply_app_owned_service_settings(
 
 def ensure_model_service_if_configured(settings: Settings) -> ModelServiceStatus:
     """
-    Ensure an app-owned Ollama model service is running if configured and return its status.
+    Ensure an app-owned Ollama model service is running when configured.
     
-    If Ollama is the configured LLM provider and auto-start and ownership are set to app-owned, this may start the model service when the configured endpoint is unreachable or the model is unavailable. When the resulting status indicates an app-owned service with a valid runtime base URL, `settings.base_url` will be updated to point at that service.
+    May start the service if Ollama is the selected LLM provider, app-owned ownership and runtime auto-start are enabled, and the configured endpoint is unreachable or the model is unavailable. If the detected runtime service is app-owned by this host and exposes a valid API base URL, `settings.base_url` will be updated to that runtime endpoint.
     
     Parameters:
         settings (Settings): In-memory settings that may be modified to set `base_url` for an app-owned Ollama service.
@@ -137,12 +164,14 @@ def ensure_model_service_if_configured(settings: Settings) -> ModelServiceStatus
     return status
 
 
-def ensure_camofox_service_if_configured(settings: Settings) -> CamofoxServiceStatus | None:
+def ensure_camofox_service_if_configured(
+    settings: Settings,
+) -> CamofoxServiceStatus | None:
     """
     Start or adopt an app-owned Camofox research service when configured.
-    
+
     If research Camofox is enabled and ownership is set to "app-owned", this will start the app-owned Camofox service when auto-start is enabled and the service is not reachable or its health is not OK. When the resulting status indicates the service is app-owned, the function updates `settings.research_camofox_base_url` to the service's base URL.
-    
+
     Returns:
         CamofoxServiceStatus: The current or newly-started Camofox service status.
         `None` if research Camofox is disabled.

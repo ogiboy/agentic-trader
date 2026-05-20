@@ -149,12 +149,18 @@ def _score_gap_down(candidate: IdeaCandidate) -> tuple[float, list[str]]:
 
 
 def _score_mean_reversion(candidate: IdeaCandidate) -> tuple[float, list[str]]:
+    """
+    Compute a mean-reversion score and explanatory reason codes for the given candidate.
+    
+    The score increases when the candidate's RSI is below 40 (scaled by an RSI multiplier), when the price is below the 20- or 50-period simple moving averages (contribution proportional to the percent distance, capped), and with higher relative volume (capped). Reason strings describe which conditions contributed (e.g., `oversold_rsi=...`, `below_sma20`, `below_sma50`).
+    
+    Returns:
+        tuple: (`score`: float) the computed mean-reversion score, (`reasons`: list[str]) list of reason codes.
+    """
     score = 0.0
     reasons: list[str] = []
     if candidate.rsi is not None and candidate.rsi < 40:
-        score += (40 - candidate.rsi) * _mean_reversion_rsi_multiplier(
-            candidate.rsi
-        )
+        score += (40 - candidate.rsi) * _mean_reversion_rsi_multiplier(candidate.rsi)
         reasons.append(f"oversold_rsi={candidate.rsi:.1f}")
     for label, average in (("sma20", candidate.sma_20), ("sma50", candidate.sma_50)):
         if average is not None and candidate.price < average:

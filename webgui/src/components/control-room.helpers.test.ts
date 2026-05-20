@@ -23,9 +23,11 @@ import {
   formatPercent,
   formatSourceHealthCount,
   formatTimestamp,
+  localToolActionLines,
   localToolLines,
   marketContextLines,
   normalizeChatHistory,
+  positionPlanCoverageLines,
   proposalLines,
   providerWarningLines,
   readJson,
@@ -79,7 +81,16 @@ const dashboardFixture = {
     ],
   },
   doctor: { model: 'qwen3:8b', runtime_mode: 'training' },
-  financeOps: { accounting: { currency: 'USD' } },
+  financeOps: {
+    accounting: { currency: 'USD' },
+    positionPlanCoverage: {
+      available: true,
+      coverage_ratio: 0.5,
+      missing_symbols: ['MSFT'],
+      open_symbols: ['AAPL', 'MSFT'],
+      planned_symbols: ['AAPL'],
+    },
+  },
   logs: [
     {
       created_at: '2026-05-10T00:00:00Z',
@@ -217,12 +228,15 @@ const dashboardFixture = {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 function renderActiveView(
   tab: Parameters<typeof ActiveView>[0]['tab'],
-  dashboard: typeof dashboardFixture | Record<string, unknown> = dashboardFixture,
+  dashboard:
+    | typeof dashboardFixture
+    | Record<string, unknown> = dashboardFixture,
 ) {
   return renderToStaticMarkup(
     React.createElement(ActiveView, {
@@ -391,9 +405,41 @@ describe('control-room formatting helpers', () => {
     expect(localToolLines(dashboardFixture)).toContain(
       'Firecrawl Runtime: internal SDK first; host CLI fallback disabled by ownership',
     );
+    expect(
+      localToolActionLines({
+        ...dashboardFixture,
+        camofoxService: {
+          app_owned: true,
+          message: 'not running',
+          service_reachable: false,
+        },
+        modelService: {
+          app_owned: true,
+          configured_model: 'qwen3:8b',
+          message: 'offline',
+          model_available: false,
+          service_reachable: false,
+        },
+        toolOwnership: {
+          decisions_by_tool: {
+            camofox: { mode: 'app-owned' },
+            ollama: { mode: 'app-owned' },
+          },
+        },
+      }),
+    ).toEqual([
+      'Ollama is app-managed but not running. Start it from Ollama.',
+      'Camofox is app-managed but not running. Start it from Camofox.',
+    ]);
     expect(proposalLines(dashboardFixture)).toContain(
       'proposal-1 | AAPL BUY | pending | $250.00 | confidence=0.82 | source=scanner',
     );
+    expect(positionPlanCoverageLines(dashboardFixture)).toContain(
+      'Missing Plans: MSFT',
+    );
+    expect(positionPlanCoverageLines({})).toEqual([
+      'No position plan coverage snapshot is available yet.',
+    ]);
   });
 
   it('reads JSON with same-origin credentials and typed failures', async () => {
@@ -440,6 +486,7 @@ describe('control-room formatting helpers', () => {
     expect(renderActiveView('overview')).toContain('Agentic Trader Web GUI');
     expect(renderActiveView('runtime')).toContain('Runtime State');
     expect(renderActiveView('portfolio')).toContain('Portfolio');
+    expect(renderActiveView('portfolio')).toContain('Exit Plan Coverage');
     expect(renderActiveView('proposals')).toContain('Proposal Desk');
     expect(renderActiveView('review')).toContain('Latest Review');
     expect(renderActiveView('memory')).toContain('Similar Past Runs');
@@ -493,6 +540,41 @@ describe('control-room formatting helpers', () => {
     );
     expect(renderActiveView('settings', sparseDashboard)).toContain(
       'No recent runs recorded yet.',
+    );
+  });
+
+  it('shows accepted broker orders as refreshable proposal desk items', () => {
+    const dashboardWithAcceptedOrder = {
+      ...dashboardFixture,
+      tradeProposals: {
+        available: true,
+        error: null,
+        proposals: [
+          {
+            confidence: 0.77,
+            execution_order_id: 'alpaca-paper-order-1',
+            execution_outcome_status: 'accepted',
+            notional: 500,
+            proposal_id: 'proposal-refresh-1',
+            reference_price: 250,
+            side: 'buy',
+            source: 'manual',
+            status: 'approved',
+            stop_loss: 240,
+            symbol: 'NVDA',
+            take_profit: 275,
+            thesis: 'Accepted external paper order needs broker refresh.',
+          },
+        ],
+      },
+    };
+
+    const markup = renderActiveView('proposals', dashboardWithAcceptedOrder);
+
+    expect(markup).toContain('proposal-refresh-1');
+    expect(markup).toContain('Refresh');
+    expect(markup).toContain(
+      'Refresh accepted broker order without resubmitting',
     );
   });
 
@@ -569,7 +651,9 @@ describe('control-room formatting helpers', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Proposals' }));
     fireEvent.change(
-      screen.getByPlaceholderText('Approval note or rejection reason.'),
+      screen.getByPlaceholderText(
+        'Review note required for approve, reject, reconcile, or refresh.',
+      ),
       { target: { value: 'spread widened' } },
     );
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
@@ -632,6 +716,24 @@ describe('control-room formatting helpers', () => {
     await screen.findByText('Agentic Trader Web GUI');
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     vi.unstubAllGlobals();
+  });
+
+  it('does not abort a slow dashboard request on every polling tick', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(ControlRoom));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7_500);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('renders the initial control room shell while loading', () => {

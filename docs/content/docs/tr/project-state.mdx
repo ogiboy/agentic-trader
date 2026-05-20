@@ -13,7 +13,8 @@ Bugün şunları yapabilir:
   oluşturup persist edebilir
 - runtime, provider, broker, research ve supervisor durumunu CLI, Rich, Ink,
   observer API ve Web GUI yüzeylerinde gösterebilir
-- lokal paper backend'i varsayılan tutarken live execution'ı bloklu tutabilir
+- lokal paper backend'i varsayılan tutarken gerçek para aktivasyonunu açık,
+  manuel onaylı, audit'li ve kill-switch korumalı tutabilir
 - model/provider sağlığı, runtime mode ve Alpaca paper hazırlığı için readiness
   gate'lerini gösterebilir
 - smoke koşuları ve evidence bundle'lar ile QA kanıtı paketleyebilir
@@ -34,8 +35,10 @@ Mevcut hardening hattı şunlara odaklanıyor:
 
 ## Hazır olmayan veya V1 kapsamı dışında kalanlar
 
-- Live trading hâlâ bloklu.
-- IBKR, global marketler, FX ve multi-currency accounting V2 kapsamı.
+- Gate'siz live trading hâlâ bloklu; V1 aktif al-sat yolu desteklenen broker,
+  onay, audit, risk ve kill-switch kapılarından geçmeli.
+- Türkiye sembolleri, KAP/CBRT evidence, TRY/FX accounting ve Türkiye broker/data
+  rotası V2 kapsamı.
 - CrewAI research flow izole sidecar'dır; ana runtime değildir.
 - SEC EDGAR submissions metadata opt-in ve metadata-first çalışır; full filing
   text, transcript, macro series, KAP ve daha zengin vendor ingestion hâlâ

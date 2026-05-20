@@ -13,8 +13,8 @@ Today it can:
   runtime artifacts
 - expose runtime, provider, broker, research, and supervisor status through CLI,
   Rich, Ink, observer API, and Web GUI surfaces
-- keep local paper as the default broker backend while keeping live execution
-  blocked
+- keep local paper as the default broker backend while making real-money
+  activation explicit, manually approved, audited, and kill-switch protected
 - show readiness gates for model/provider health, runtime mode, and Alpaca paper
   preparation
 - package QA evidence through smoke runs and evidence bundles
@@ -35,8 +35,10 @@ The current hardening track is focused on:
 
 ## What is not ready or not in V1
 
-- Live trading is still blocked.
-- IBKR, global markets, FX, and multi-currency accounting are V2 scope.
+- Ungated live trading is still blocked; V1 active trading must pass the
+  supported broker, approval, audit, risk, and kill-switch gates.
+- Turkey-specific symbols, KAP/CBRT evidence, TRY/FX accounting, and the Turkey
+  broker/data route are V2 scope.
 - CrewAI research flow is an isolated sidecar, not the main runtime.
 - SEC EDGAR submissions metadata is opt-in and metadata-first; full filing text,
   transcripts, macro series, KAP, and richer vendor ingestion are still future

@@ -11,11 +11,17 @@ from types import ModuleType
 
 
 def _load_version_plan() -> ModuleType:
+    """
+    Load and return the release `version_plan` module located at `scripts/release/version_plan.py`
+    relative to this file's parent directory.
+    
+    The module is imported under the name "version_plan" and registered in `sys.modules`.
+    
+    Returns:
+        ModuleType: The imported `version_plan` module object.
+    """
     script_path = (
-        Path(__file__).resolve().parents[1]
-        / "scripts"
-        / "release"
-        / "version_plan.py"
+        Path(__file__).resolve().parents[1] / "scripts" / "release" / "version_plan.py"
     )
     spec = importlib.util.spec_from_file_location("version_plan", script_path)
     assert spec is not None
@@ -70,19 +76,31 @@ def test_version_plan_marks_explicit_release_ref_for_attachment() -> None:
 
 
 def test_tracked_product_versions_match_pyproject() -> None:
+    """
+    Verify that the repository's tracked product versions are consistent with the version declared in the root pyproject.toml.
+    
+    Asserts that:
+    - root package.json and package.json files in webgui, docs, and tui have the same "version" value;
+    - sidecars/research_flow/pyproject.toml's project.version matches;
+    - agentic_trader.__init__.__version__ matches;
+    - the semantic-release configuration includes "agentic_trader/__init__.py:__version__" in its version_variables.
+    """
     root = Path(__file__).resolve().parents[1]
     pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     version = str(pyproject["project"]["version"])
 
-    assert json.loads((root / "package.json").read_text(encoding="utf-8"))[
-        "version"
-    ] == version
+    assert (
+        json.loads((root / "package.json").read_text(encoding="utf-8"))["version"]
+        == version
+    )
     for package_path in (
         root / "webgui" / "package.json",
         root / "docs" / "package.json",
         root / "tui" / "package.json",
     ):
-        assert json.loads(package_path.read_text(encoding="utf-8"))["version"] == version
+        assert (
+            json.loads(package_path.read_text(encoding="utf-8"))["version"] == version
+        )
 
     sidecar = tomllib.loads(
         (root / "sidecars" / "research_flow" / "pyproject.toml").read_text(
@@ -97,6 +115,6 @@ def test_tracked_product_versions_match_pyproject() -> None:
     assert match.group(1) == version
 
     release_config = pyproject["tool"]["semantic_release"]
-    assert "agentic_trader/__init__.py:__version__" in release_config[
-        "version_variables"
-    ]
+    assert (
+        "agentic_trader/__init__.py:__version__" in release_config["version_variables"]
+    )

@@ -1,4 +1,5 @@
 from pathlib import Path
+import socket
 from typing import Literal
 
 from pydantic import AliasChoices, Field
@@ -45,6 +46,7 @@ class Settings(BaseSettings):
     max_retries: int = 2
     request_timeout_seconds: float = 180.0
     max_output_tokens: int = 2048
+    host_id: str = Field(default_factory=socket.gethostname)
     model_service_host: str = "127.0.0.1"
     model_service_port: int = Field(default=11434, ge=1, le=65535)
     model_service_models_dir: Path | None = None

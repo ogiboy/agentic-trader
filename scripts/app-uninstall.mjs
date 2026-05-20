@@ -4,7 +4,9 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DEFAULT_ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
-const ROOT_DIR = resolve(process.env.AGENTIC_TRADER_APP_UNINSTALL_ROOT ?? DEFAULT_ROOT_DIR);
+const ROOT_DIR = resolve(
+  process.env.AGENTIC_TRADER_APP_UNINSTALL_ROOT ?? DEFAULT_ROOT_DIR,
+);
 const SCOPE_IDS = ['artifacts', 'deps', 'service-state'];
 
 /**
@@ -81,7 +83,9 @@ function parseArgs(argv) {
   }
 
   if (options.yes && !options.dryRun && options.selectedScopes.size === 0) {
-    process.stderr.write('Select at least one uninstall scope before using --yes.\n');
+    process.stderr.write(
+      'Select at least one uninstall scope before using --yes.\n',
+    );
     usage(2);
   }
 
@@ -94,7 +98,10 @@ function parseArgs(argv) {
  * @returns {boolean} `true` if both `package.json` and `pyproject.toml` exist in `rootDir`, `false` otherwise.
  */
 function rootLooksLikeAgenticTrader(rootDir) {
-  return existsSync(join(rootDir, 'package.json')) && existsSync(join(rootDir, 'pyproject.toml'));
+  return (
+    existsSync(join(rootDir, 'package.json')) &&
+    existsSync(join(rootDir, 'pyproject.toml'))
+  );
 }
 
 /**
@@ -133,7 +140,9 @@ function targetPath(relativePath) {
   const resolvedPath = resolve(ROOT_DIR, relativePath);
   const rootWithSep = ROOT_DIR.endsWith(sep) ? ROOT_DIR : `${ROOT_DIR}${sep}`;
   if (resolvedPath !== ROOT_DIR && !resolvedPath.startsWith(rootWithSep)) {
-    throw new Error(`Refusing to target path outside app root: ${relativePath}`);
+    throw new Error(
+      `Refusing to target path outside app root: ${relativePath}`,
+    );
   }
   return resolvedPath;
 }
@@ -214,35 +223,150 @@ function uninstallTargetGroup(id, label, relativePaths, scope) {
  */
 function staticTargets() {
   return [
-    uninstallTarget('pytest-cache', 'Pytest cache', '.pytest_cache', 'artifacts'),
+    uninstallTarget(
+      'pytest-cache',
+      'Pytest cache',
+      '.pytest_cache',
+      'artifacts',
+    ),
     uninstallTarget('ruff-cache', 'Ruff cache', '.ruff_cache', 'artifacts'),
     uninstallTarget('mypy-cache', 'Mypy cache', '.mypy_cache', 'artifacts'),
     uninstallTarget('pyright-cache', 'Pyright cache', '.pyright', 'artifacts'),
-    uninstallTarget('coverage-file', 'Coverage data file', '.coverage', 'artifacts'),
-    uninstallTarget('coverage-xml', 'Coverage XML report', 'coverage.xml', 'artifacts'),
+    uninstallTarget(
+      'coverage-file',
+      'Coverage data file',
+      '.coverage',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'coverage-xml',
+      'Coverage XML report',
+      'coverage.xml',
+      'artifacts',
+    ),
     uninstallTarget('htmlcov', 'HTML coverage report', 'htmlcov', 'artifacts'),
-    uninstallTarget('build-dir', 'Python build directory', 'build', 'artifacts'),
+    uninstallTarget(
+      'build-dir',
+      'Python build directory',
+      'build',
+      'artifacts',
+    ),
     uninstallTarget('dist-dir', 'Python dist directory', 'dist', 'artifacts'),
-    uninstallTarget('docs-next', 'Docs Next.js build output', 'docs/.next', 'artifacts'),
-    uninstallTarget('docs-out', 'Docs static export output', 'docs/out', 'artifacts'),
-    uninstallTarget('docs-source', 'Generated docs source cache', 'docs/.source', 'artifacts'),
-    uninstallTarget('webgui-next', 'Web GUI Next.js build output', 'webgui/.next', 'artifacts'),
-    uninstallTarget('webgui-out', 'Web GUI static output', 'webgui/out', 'artifacts'),
-    uninstallTarget('tui-dist', 'Terminal UI build output', 'tui/dist', 'artifacts'),
-    uninstallTarget('camofox-dist', 'Camofox helper dist output', 'tools/camofox-browser/dist', 'artifacts'),
-    uninstallTarget('camofox-build', 'Camofox helper build output', 'tools/camofox-browser/build', 'artifacts'),
-    uninstallTarget('camofox-coverage', 'Camofox helper coverage output', 'tools/camofox-browser/coverage', 'artifacts'),
-    uninstallTarget('camofox-cache', 'Camofox helper local cache', 'tools/camofox-browser/.cache', 'artifacts'),
-    uninstallTarget('camofox-test-results', 'Camofox helper test results', 'tools/camofox-browser/test-results', 'artifacts'),
-    uninstallTarget('camofox-playwright-report', 'Camofox helper Playwright report', 'tools/camofox-browser/playwright-report', 'artifacts'),
+    uninstallTarget(
+      'docs-next',
+      'Docs Next.js build output',
+      'docs/.next',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'docs-out',
+      'Docs static export output',
+      'docs/out',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'docs-source',
+      'Generated docs source cache',
+      'docs/.source',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'webgui-next',
+      'Web GUI Next.js build output',
+      'webgui/.next',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'webgui-out',
+      'Web GUI static output',
+      'webgui/out',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'tui-dist',
+      'Terminal UI build output',
+      'tui/dist',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'camofox-dist',
+      'Camofox helper dist output',
+      'tools/camofox-browser/dist',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'camofox-build',
+      'Camofox helper build output',
+      'tools/camofox-browser/build',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'camofox-coverage',
+      'Camofox helper coverage output',
+      'tools/camofox-browser/coverage',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'camofox-cache',
+      'Camofox helper local cache',
+      'tools/camofox-browser/.cache',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'camofox-test-results',
+      'Camofox helper test results',
+      'tools/camofox-browser/test-results',
+      'artifacts',
+    ),
+    uninstallTarget(
+      'camofox-playwright-report',
+      'Camofox helper Playwright report',
+      'tools/camofox-browser/playwright-report',
+      'artifacts',
+    ),
     uninstallTarget('root-venv', 'Root uv Python environment', '.venv', 'deps'),
-    uninstallTarget('root-node-modules', 'Root pnpm workspace dependencies', 'node_modules', 'deps'),
-    uninstallTarget('docs-node-modules', 'Docs workspace dependencies', 'docs/node_modules', 'deps'),
-    uninstallTarget('webgui-node-modules', 'Web GUI workspace dependencies', 'webgui/node_modules', 'deps'),
-    uninstallTarget('tui-node-modules', 'Terminal UI workspace dependencies', 'tui/node_modules', 'deps'),
-    uninstallTarget('camofox-node-modules', 'Camofox helper dependencies', 'tools/camofox-browser/node_modules', 'deps'),
-    uninstallTarget('research-flow-venv', 'CrewAI Flow sidecar uv environment', 'sidecars/research_flow/.venv', 'deps'),
-    uninstallTarget('pnpm-store', 'Repo-local pnpm store cache', '.pnpm-store', 'deps'),
+    uninstallTarget(
+      'root-node-modules',
+      'Root pnpm workspace dependencies',
+      'node_modules',
+      'deps',
+    ),
+    uninstallTarget(
+      'docs-node-modules',
+      'Docs workspace dependencies',
+      'docs/node_modules',
+      'deps',
+    ),
+    uninstallTarget(
+      'webgui-node-modules',
+      'Web GUI workspace dependencies',
+      'webgui/node_modules',
+      'deps',
+    ),
+    uninstallTarget(
+      'tui-node-modules',
+      'Terminal UI workspace dependencies',
+      'tui/node_modules',
+      'deps',
+    ),
+    uninstallTarget(
+      'camofox-node-modules',
+      'Camofox helper dependencies',
+      'tools/camofox-browser/node_modules',
+      'deps',
+    ),
+    uninstallTarget(
+      'research-flow-venv',
+      'CrewAI Flow sidecar uv environment',
+      'sidecars/research_flow/.venv',
+      'deps',
+    ),
+    uninstallTarget(
+      'pnpm-store',
+      'Repo-local pnpm store cache',
+      '.pnpm-store',
+      'deps',
+    ),
     uninstallTarget(
       'model-service-state',
       'App-owned model-service state and logs',
@@ -250,7 +374,8 @@ function staticTargets() {
       'service-state',
       {
         blockingFiles: ['runtime/model_service/ollama_service.json'],
-        reason: 'Run pnpm run app:stop -- --model-service --yes before deleting recorded model-service state.',
+        reason:
+          'Run pnpm run app:stop -- --model-service --yes before deleting recorded model-service state.',
       },
     ),
     uninstallTarget(
@@ -260,7 +385,8 @@ function staticTargets() {
       'service-state',
       {
         blockingFiles: ['runtime/camofox_service/camofox_service.json'],
-        reason: 'Run pnpm run app:stop -- --camofox-service --yes before deleting recorded Camofox service state.',
+        reason:
+          'Run pnpm run app:stop -- --camofox-service --yes before deleting recorded Camofox service state.',
       },
     ),
     uninstallTarget(
@@ -270,7 +396,8 @@ function staticTargets() {
       'service-state',
       {
         blockingFiles: ['runtime/webgui_service/webgui_service.json'],
-        reason: 'Run pnpm run app:stop -- --webgui --yes before deleting recorded Web GUI service state.',
+        reason:
+          'Run pnpm run app:stop -- --webgui --yes before deleting recorded Web GUI service state.',
       },
     ),
   ];
@@ -356,12 +483,22 @@ function discoverDynamicTargets() {
   const targets = [];
   if (pycachePaths.length > 0) {
     targets.push(
-      uninstallTargetGroup('python-bytecode-caches', 'Python bytecode caches', pycachePaths, 'artifacts'),
+      uninstallTargetGroup(
+        'python-bytecode-caches',
+        'Python bytecode caches',
+        pycachePaths,
+        'artifacts',
+      ),
     );
   }
   if (eggInfoPaths.length > 0) {
     targets.push(
-      uninstallTargetGroup('python-package-metadata', 'Python package metadata directories', eggInfoPaths, 'artifacts'),
+      uninstallTargetGroup(
+        'python-package-metadata',
+        'Python package metadata directories',
+        eggInfoPaths,
+        'artifacts',
+      ),
     );
   }
   return targets;
@@ -439,9 +576,7 @@ function plannedTarget(target, selectedScopes) {
     ...target,
     exists: targetExists(target),
     status:
-      selectedScopes.size === 0 || target.selected
-        ? 'planned'
-        : 'deferred',
+      selectedScopes.size === 0 || target.selected ? 'planned' : 'deferred',
     exit_code: null,
     stdout: '',
     stderr: '',
@@ -567,17 +702,17 @@ function removeTarget(target) {
 }
 
 /**
- * Construct an uninstall payload and compute an exit code by planning and (optionally) executing selected uninstall targets under the repository root.
+ * Build the uninstall execution payload for the repository and determine the process exit code.
  *
- * The function validates the repository root, determines whether actions should actually mutate the filesystem (based on `options.yes` and `options.dryRun`), selects targets by scope, and then for each target either records a planned entry, skips it due to a prior failure, marks it blocked if a service-state blocker file exists, or removes it and records the result. If any selected service-state target is blocked, the returned `exitCode` is `1`.
+ * Validates the repository root, resolves whether mutations are permitted (based on `options.yes` and `options.dryRun`), selects targets by scope, and records each target's planned, skipped, blocked, or removal result into the payload.
  *
  * @param {Object} options - Execution options controlling selection and approval.
- * @param {Set<string>} options.selectedScopes - Set of scope IDs chosen for execution (elements from SCOPE_IDS).
- * @param {boolean} options.yes - Whether the user approved destructive actions (corresponds to `--yes`).
- * @param {boolean} options.dryRun - Whether to request a dry-run (corresponds to `--dry-run`); combined with `yes` to determine actual mutation.
+ * @param {Set<string>} options.selectedScopes - Scope IDs to include in the operation (elements from SCOPE_IDS).
+ * @param {boolean} options.yes - User approval for destructive actions (`--yes`); required for actual mutations.
+ * @param {boolean} options.dryRun - Request a dry-run (`--dry-run`); when true no filesystem mutations are performed.
  * @returns {{ payload: Object, exitCode: number }} An object containing:
- *  - `payload`: the uninstall payload object with metadata (`action`, `mode`, `root`, `dry_run`, `approved`), flags (`mutated`), `selected_scopes`, `safety_notes`, an array of per-target `targets` describing planned/skipped/blocked/removed statuses, and `next_commands` suggestions;
- *  - `exitCode`: `0` on success (no blocked selected service-state targets), `1` if any selected service-state target was blocked.
+ *  - `payload`: the uninstall payload with keys `action`, `mode`, `root`, `dry_run`, `approved`, `mutated`, `selected_scopes`, `safety_notes`, `targets`, and `next_commands`;
+ *  - `exitCode`: `0` on success, `1` if any selected service-state target was blocked or a selected target failed (nonzero target `exit_code`).
  */
 function buildPayload(options) {
   assertSafeRoot(ROOT_DIR);
@@ -595,7 +730,12 @@ function buildPayload(options) {
       continue;
     }
     if (previousFailure) {
-      targets.push(skippedTarget(target, 'A previous selected uninstall target failed or was blocked.'));
+      targets.push(
+        skippedTarget(
+          target,
+          'A previous selected uninstall target failed or was blocked.',
+        ),
+      );
       continue;
     }
 
@@ -675,7 +815,9 @@ function renderHuman(payload) {
     }
   }
   if (payload.dry_run) {
-    process.stdout.write('Run pnpm run app:uninstall -- --artifacts --deps --yes to remove selected local artifacts/dependencies.\n');
+    process.stdout.write(
+      'Run pnpm run app:uninstall -- --artifacts --deps --yes to remove selected local artifacts/dependencies.\n',
+    );
   }
 }
 

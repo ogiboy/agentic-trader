@@ -50,7 +50,9 @@ describe('Ink TUI dashboard helpers', () => {
     expect(defaultSymbolsFromPreferences({ exchanges: ['BIST'] })).toBe(
       'THYAO.IS,GARAN.IS',
     );
-    expect(defaultSymbolsFromPreferences({ regions: ['US'] })).toBe('AAPL,MSFT');
+    expect(defaultSymbolsFromPreferences({ regions: ['US'] })).toBe(
+      'AAPL,MSFT',
+    );
     expect(defaultSymbolsFromPreferences({})).toBe('BTC-USD,ETH-USD');
 
     const dashboard = {
@@ -66,22 +68,18 @@ describe('Ink TUI dashboard helpers', () => {
   });
 
   it('formats supervisor, trade-context, and market-context evidence lines', () => {
-    expect(getSupervisorLogLines({ stderr_tail: ['one', 'two', 'three', 'four'] })).toEqual([
-      'stderr:',
-      'two',
-      'three',
-      'four',
-    ]);
+    expect(
+      getSupervisorLogLines({ stderr_tail: ['one', 'two', 'three', 'four'] }),
+    ).toEqual(['stderr:', 'two', 'three', 'four']);
     expect(getSupervisorLogLines({ stdout_tail: ['started'] })).toEqual([
       'stdout:',
       'started',
     ]);
     expect(getSupervisorLogLines({})).toEqual(['No daemon log tail yet.']);
 
-    expect(getTradeContextLines({ available: false, error: 'database offline' })).toEqual([
-      'unavailable',
-      'database offline',
-    ]);
+    expect(
+      getTradeContextLines({ available: false, error: 'database offline' }),
+    ).toEqual(['unavailable', 'database offline']);
     expect(getTradeContextLines({})).toEqual([
       'No persisted trade context is available yet.',
     ]);
@@ -104,10 +102,9 @@ describe('Ink TUI dashboard helpers', () => {
       }),
     ).toContain('Routed Models: manager:qwen3:8b');
 
-    expect(getMarketContextLines({ available: false, error: 'no source' })).toEqual([
-      'unavailable',
-      'no source',
-    ]);
+    expect(
+      getMarketContextLines({ available: false, error: 'no source' }),
+    ).toEqual(['unavailable', 'no source']);
     expect(getMarketContextLines({})).toEqual([
       'No persisted Market Context Pack is available yet.',
     ]);
@@ -121,7 +118,14 @@ describe('Ink TUI dashboard helpers', () => {
           data_quality_flags: ['short_window'],
           higher_timeframe: '1wk',
           higher_timeframe_used: true,
-          horizons: [{ horizon_bars: 5, max_drawdown_pct: -2, return_pct: 1, trend_vote: 'up' }],
+          horizons: [
+            {
+              horizon_bars: 5,
+              max_drawdown_pct: -2,
+              return_pct: 1,
+              trend_vote: 'up',
+            },
+          ],
           interval: '1d',
           interval_semantics: 'cash',
           lookback: '30d',
@@ -184,13 +188,13 @@ describe('Ink TUI dashboard helpers', () => {
         instructionMode = updater(instructionMode);
       },
     };
-    expect(
-      handleSettingsInput('', { return: true }, settingsHandlers),
-    ).toBe(true);
+    expect(handleSettingsInput('', { return: true }, settingsHandlers)).toBe(
+      true,
+    );
     expect(instructionSent).toBe(1);
-    expect(
-      handleSettingsInput('', { delete: true }, settingsHandlers),
-    ).toBe(true);
+    expect(handleSettingsInput('', { delete: true }, settingsHandlers)).toBe(
+      true,
+    );
     expect(instructionDraft).toBe('ris');
     expect(handleSettingsInput(']', {}, settingsHandlers)).toBe(true);
     expect(instructionMode).toBe('apply');
@@ -229,7 +233,10 @@ describe('Ink TUI dashboard helpers', () => {
         consensus: { alignment_level: 'aligned' },
         coordinator: { market_focus: 'trend' },
         fundamental: {
-          evidence_vs_inference: { evidence: ['filing'], inference: ['margin'] },
+          evidence_vs_inference: {
+            evidence: ['filing'],
+            inference: ['margin'],
+          },
           overall_bias: 'constructive',
           red_flags: [],
         },
@@ -375,7 +382,10 @@ describe('Ink TUI dashboard helpers', () => {
       getInstructionResultLines({
         applied: true,
         instruction: {
-          preference_update: { risk_profile: 'conservative', sectors: ['tech'] },
+          preference_update: {
+            risk_profile: 'conservative',
+            sectors: ['tech'],
+          },
           rationale: 'safer',
           requires_confirmation: false,
           should_update_preferences: true,
@@ -410,9 +420,9 @@ describe('Ink TUI dashboard helpers', () => {
     );
     expect(sourceHealthSummaryLine()).toBe('-');
     expect(formatMarketSession()).toBe('unavailable');
-    expect(
-      formatMarketSession({ session_state: 'open', venue: 'NYSE' }),
-    ).toBe('NYSE open');
+    expect(formatMarketSession({ session_state: 'open', venue: 'NYSE' })).toBe(
+      'NYSE open',
+    );
     expect(
       formatMarketSessionWithTradable({
         session_state: 'closed',
@@ -528,9 +538,7 @@ describe('Ink TUI dashboard helpers', () => {
     );
     expect(getSystemLines(data, true)).toContain('Ollama Reachable: yes');
     expect(getSystemLines(data, false)).toContain('Cached Snapshots: 4');
-    expect(getAgentEventLines([])).toEqual([
-      'No live agent stage events yet.',
-    ]);
+    expect(getAgentEventLines([])).toEqual(['No live agent stage events yet.']);
     expect(
       getAgentEventLines([
         {

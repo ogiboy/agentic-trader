@@ -78,6 +78,7 @@ CAMOFOX_PROXY_KEYS = (
 class CamofoxServiceState(BaseModel):
     """Persisted state for an app-owned Camofox process."""
 
+    owner: str | None = None
     pid: int
     host: str
     port: int
@@ -107,6 +108,7 @@ class CamofoxServiceStatus(BaseModel):
     dependency_path: str | None = None
     access_key_configured: bool
     app_owned: bool = False
+    owner: str | None = None
     pid: int | None = None
     host: str | None = None
     port: int | None = None
@@ -121,8 +123,30 @@ class CamofoxServiceStatus(BaseModel):
     tool_dir: str
     message: str
 
+    def is_owned_by_host(self, host_id: str) -> bool:
+        """
+        Determine whether this app-owned service status is owned by the specified host.
+        
+        Parameters:
+            host_id (str): Host identifier to compare against the recorded owner.
+        
+        Returns:
+            bool: `True` if `app_owned` is `True` and `owner` equals `host_id`, `False` otherwise.
+        """
+
+        return self.app_owned and self.owner == host_id
+
 
 def camofox_service_dir(settings: Settings) -> Path:
+    """
+    Get the runtime directory path where Camofox service state and artifacts are stored.
+    
+    Parameters:
+        settings (Settings): Application settings containing the `runtime_dir` base path.
+    
+    Returns:
+        Path: Path to the Camofox service runtime directory (runtime_dir / "camofox_service").
+    """
     return settings.runtime_dir / "camofox_service"
 
 
@@ -299,13 +323,13 @@ def _camofox_env(settings: Settings, *, host: str, port: int) -> dict[str, str]:
 def _runtime_command(tool_dir: Path) -> list[str]:
     """
     Builds the command to launch the Camofox Node.js helper.
-    
+
     Parameters:
         tool_dir (Path): Filesystem path to the Camofox tool directory.
-    
+
     Returns:
         command (list[str]): The node executable path followed by the server script name.
-    
+
     Raises:
         RuntimeError: If the `node` executable is not found on PATH.
         RuntimeError: If the Camofox tool package is missing at `tool_dir`.
@@ -454,14 +478,14 @@ def _camofox_blocking_status_message(
     Determine whether startup should be blocked and provide a human-readable message for the first missing prerequisite.
 
     Parameters:
-    	probe_host (str): Host portion of the configured base URL to validate as loopback.
-    	package_available (bool): Whether the tool's package files (package.json, server.js) are present.
-    	command_path (str | None): Path to the Node.js executable, or None if not found.
-    	dependency_available (bool): Whether the tool's node_modules dependencies are installed.
-    	tool_dir (Path): The resolved Camofox tool directory path.
+        probe_host (str): Host portion of the configured base URL to validate as loopback.
+        package_available (bool): Whether the tool's package files (package.json, server.js) are present.
+        command_path (str | None): Path to the Node.js executable, or None if not found.
+        dependency_available (bool): Whether the tool's node_modules dependencies are installed.
+        tool_dir (Path): The resolved Camofox tool directory path.
 
     Returns:
-    	blocking_message (str | None): A short message describing the first blocking issue, or `None` if no blocking issues are detected.
+        blocking_message (str | None): A short message describing the first blocking issue, or `None` if no blocking issues are detected.
     """
     if not is_loopback_host(probe_host):
         return "Camofox base URL must remain loopback."
@@ -508,7 +532,17 @@ def _camofox_probe_status(
 def build_camofox_service_status(
     settings: Settings, *, tail_limit: int = 12
 ) -> CamofoxServiceStatus:
-    """Build a read-only Camofox service status payload."""
+    """
+    Builds the current read-only status for the app-owned Camofox helper.
+    
+    Parameters:
+    	tail_limit (int): Maximum number of lines to include from each log tail.
+    
+    Returns:
+    	CamofoxServiceStatus: Aggregated operator-facing status including tool availability,
+    	ownership/process info (only when the app-owned process is verified alive),
+    	connectivity/health flags, log paths and tails, and a human-readable message.
+    """
 
     state = _read_state(settings)
     app_state = state if _state_process_alive(state) else None
@@ -547,6 +581,7 @@ def build_camofox_service_status(
         ),
         access_key_configured=bool(_camofox_access_token(settings)),
         app_owned=app_state is not None,
+        owner=app_state.owner if app_state is not None else None,
         pid=app_state.pid if app_state is not None else None,
         host=app_state.host if app_state is not None else host,
         port=app_state.port if app_state is not None else port,
@@ -601,7 +636,22 @@ def start_camofox_service(
     host: str | None = None,
     port: int | None = None,
 ) -> CamofoxServiceStatus:
-    """Start an app-owned loopback Camofox process."""
+    """
+    Start and persist an app-owned loopback Camofox helper process.
+    
+    Validates that the chosen host is loopback and that an access token is configured, spawns the tool subprocess in the resolved tool directory with a minimal, secret-filtered environment, persists owner-only runtime state (including PID, host, port, log paths, and command), and waits briefly for the service to become healthy. If an existing recorded app-owned process is already alive, the call returns the current service status instead of starting a new process.
+    
+    Parameters:
+        settings (Settings): Application settings and runtime configuration.
+        host (str | None): Optional override for the loopback host to bind; when omitted the configured host is used.
+        port (int | None): Optional preferred port to bind; when omitted the configured port is used.
+    
+    Returns:
+        CamofoxServiceStatus: Operator-facing status describing the service after the start attempt.
+    
+    Raises:
+        RuntimeError: If the resolved host is not a loopback address or if no CAMOFOX access token is available.
+    """
 
     desired_host, configured_port = _configured_host_port(settings)
     desired_host = host or desired_host
@@ -638,6 +688,7 @@ def start_camofox_service(
             start_new_session=True,
         )
     state = CamofoxServiceState(
+        owner=settings.host_id,
         pid=process.pid,
         host=desired_host,
         port=chosen_port,

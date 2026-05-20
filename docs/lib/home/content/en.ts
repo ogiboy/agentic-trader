@@ -106,7 +106,7 @@ export const homeContentEn: HomeContent = {
         },
         {
           title: 'Architecture track',
-          body: 'Use `dev/code-map.md` plus the architecture docs to find the smallest owning module before editing.',
+          body: 'Use `dev-docs/code-map.md` plus the architecture docs to find the smallest owning module before editing.',
         },
         {
           title: 'Frontend track',
@@ -146,7 +146,7 @@ export const homeContentEn: HomeContent = {
         },
         {
           title: 'Docs track',
-          body: 'Whenever runtime behavior or assumptions move, update `.ai/current-state.md`, `.ai/tasks.md`, `.ai/decisions.md`, and the matching docs page together.',
+          body: 'Whenever runtime behavior or assumptions move, update `.ai/current-state.instructions.md`, `.ai/tasks.instructions.md`, `.ai/decisions.instructions.md`, and the matching docs page together.',
         },
       ],
     },

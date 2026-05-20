@@ -38,8 +38,10 @@ configured model routing, source ladder, degraded Yahoo fallback warning, and
 API-key readiness. Use `agentic-trader v1-readiness --json` before longer paper
 operation or Alpaca paper checks, and add `--provider-check` when the evidence
 bundle should actively call the configured model service. The default backend remains local `paper`;
-`alpaca_paper` is external paper only and requires credentials, the paper
-endpoint, and explicit enablement. `live` remains blocked.
+`alpaca_paper` is the external paper rehearsal path and requires credentials,
+the paper endpoint, and explicit enablement. V1 active trading must still pass
+the supported broker, manual approval, audit, risk, and kill-switch gates; there
+is no hidden live brokerage path.
 
 The same network-free readiness truth is also part of `dashboard-snapshot`, the
 observer API (`/provider-diagnostics` and `/v1-readiness`), Rich runtime menu,
@@ -51,7 +53,8 @@ Ink overview/runtime pages, and the Web GUI overview. For product-readiness QA,
 
 The research sidecar is moving toward a safe loop: pre-flight, monitor, analyze,
 propose, digest, then sleep. The loop can keep a watchlist fresh, explain source
-health, score ideas, and queue manual-review proposals.
+health, and score or queue broker-free proposal candidates; an explicit operator
+promotion step is still required before a candidate becomes a pending proposal.
 
 It must not approve proposals, place orders, mutate policy, weaken runtime
 gates, or treat raw web text as instructions. Research output remains evidence;

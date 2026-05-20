@@ -38,7 +38,6 @@ from agentic_trader.system.camofox_service import (
 from agentic_trader.system.tool_ownership import ownership_mode_for_tool
 from agentic_trader.system.tool_roots import local_tool_manifest_notes
 
-
 SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_COMPANY_FACTS_URL_TEMPLATE = (
     "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
@@ -101,6 +100,17 @@ class CommandRunner(Protocol):
         timeout_seconds: float,
         env: Mapping[str, str],
     ) -> subprocess.CompletedProcess[str]:
+        """
+        Execute a subprocess command and return the completed process result.
+
+        Parameters:
+            command (list[str]): Command and arguments to execute.
+            timeout_seconds (float): Maximum time in seconds to allow the command to run before timing out.
+            env (Mapping[str, str]): Environment variables to use for the subprocess; typically a minimal, controlled env.
+
+        Returns:
+            subprocess.CompletedProcess[str]: Completed process including return code, stdout, and stderr.
+        """
         ...
 
 
@@ -279,9 +289,26 @@ class SecEdgarSubmissionsProvider:
 
     @staticmethod
     def _watched_symbols(symbols: list[str]) -> list[str]:
-        return [symbol for symbol in (_normalize_symbol(item) for item in symbols) if symbol]
+        """
+        Normalize and filter a list of symbol strings into uppercase, trimmed tickers.
+        
+        Parameters:
+            symbols (list[str]): Iterable of raw symbol strings (may include whitespace or empty values).
+        
+        Returns:
+            list[str]: A list of normalized symbols (uppercase, whitespace-trimmed) with empty results removed, preserving input order.
+        """
+        return [
+            symbol for symbol in (_normalize_symbol(item) for item in symbols) if symbol
+        ]
 
     def _headers(self) -> dict[str, str]:
+        """
+        Return HTTP headers used for SEC API requests, including the configured `User-Agent`.
+        
+        Returns:
+            dict[str, str]: Mapping of header names to values (includes `"Accept": "application/json"` and `"User-Agent": <configured user agent>`).
+        """
         return {
             "Accept": "application/json",
             "User-Agent": self._user_agent,
@@ -399,10 +426,14 @@ class FirecrawlNewsResearchProvider:
         sdk_searcher: FirecrawlSdkSearcher | None = None,
     ) -> None:
         """
-        Initialize the FirecrawlNewsResearchProvider using application settings and optional execution/search hooks.
+        Initialize the provider from application settings and optional execution/search hooks.
+        
+        Sets provider enablement, API key, CLI path, ownership mode, country (uppercased), a clamped timeout (1–300s), the command runner (injected or default), optional SDK searcher, a preference flag for SDK usage when no custom runner is supplied, and provider metadata/notes reflecting configuration and ownership.
         
         Parameters:
-            settings (Settings): Configuration source for provider enablement, API key, CLI path, country, timeout, and ownership mode which influence network usage and CLI fallback behavior.
+            settings: Application settings object that supplies provider flags, API key, CLI path, country, timeout, and ownership configuration.
+            command_runner: Optional subprocess runner used to execute the Firecrawl CLI; when None the internal `_run_command` is used.
+            sdk_searcher: Optional SDK search callable used to perform Firecrawl searches directly; when provided it will be preferred when a command_runner is not supplied.
         """
         self._enabled = settings.research_firecrawl_enabled
         self._api_key = settings.firecrawl_api_key
@@ -521,9 +552,9 @@ class FirecrawlNewsResearchProvider:
         per_symbol_limit: int,
     ) -> tuple[list[RawEvidenceRecord], list[str]]:
         """
-        Attempt to obtain Firecrawl news for a single symbol using the CLI fallback and convert the CLI JSON output into evidence records.
+        Obtain Firecrawl news for a single symbol via the CLI fallback and convert the CLI JSON output into normalized evidence records.
         
-        If the provider is not allowed to run the CLI by ownership mode, if the CLI executable cannot be resolved, if the command fails, or if the CLI output cannot be parsed, this returns an empty record list and one or more provider-specific missing-reason strings describing the failure.
+        If the provider is not permitted to run the CLI, the CLI executable cannot be resolved, the command fails, the CLI exits non‑zero, or its output cannot be parsed as JSON, this returns an empty record list and one or more provider-specific missing-reason strings identifying the failure.
         
         Parameters:
             symbol (str): Uppercased symbol to query.
@@ -580,16 +611,27 @@ class CamofoxBrowserResearchProvider:
         health_fetcher: HealthFetcher | None = None,
         service_status_builder: CamofoxServiceStatusBuilder | None = None,
     ) -> None:
+        """
+        Initialize the CamofoxBrowserResearchProvider with configuration and injectable helpers.
+        
+        Parameters:
+            settings (Settings): Application settings used to determine enabled state, base URL, timeouts, and provider configuration.
+            health_fetcher (callable | None): Optional function to fetch the Camofox health JSON from a URL; if omitted a default HTTP fetcher is used.
+            service_status_builder (callable | None): Optional factory that builds a CamofoxServiceStatus from settings; if omitted a default builder is used.
+        """
         self._settings = settings
         self._enabled = settings.research_camofox_enabled
         self._base_url = settings.research_camofox_base_url.rstrip("/")
         parsed_base_url = urlparse(self._base_url)
-        self._loopback_only = parsed_base_url.scheme in {"http", "https"} and is_loopback_host(
-            parsed_base_url.hostname or ""
-        )
+        self._loopback_only = parsed_base_url.scheme in {
+            "http",
+            "https",
+        } and is_loopback_host(parsed_base_url.hostname or "")
         self._timeout = min(max(settings.request_timeout_seconds, 1.0), 10.0)
         self._fetcher = health_fetcher or _fetch_camofox_health
-        self._service_status_builder = service_status_builder or build_camofox_service_status
+        self._service_status_builder = (
+            service_status_builder or build_camofox_service_status
+        )
         self._metadata = metadata(
             provider_id="camofox_browser_research",
             name="Camofox Browser Research",
@@ -695,7 +737,15 @@ class CamofoxBrowserResearchProvider:
 
 
 def default_research_providers(settings: Settings) -> list[ResearchEvidenceProvider]:
-    """Return the local-first research source ladder for the sidecar."""
+    """
+    Builds the local-first ordered ladder of research sidecar providers based on Settings.
+    
+    Parameters:
+        settings (Settings): Application settings used to configure each provider (feature flags, timeouts, API keys, and watchlist).
+    
+    Returns:
+        list[ResearchEvidenceProvider]: Providers in priority order; includes SEC EDGAR, scaffold placeholders, Firecrawl news, Camofox health, and a social-watchlist scaffold that is enabled only when `settings.research_symbols` is truthy.
+    """
     social_configured = bool(settings.research_symbols)
     return [
         SecEdgarSubmissionsProvider(settings=settings),
@@ -741,10 +791,22 @@ def default_research_providers(settings: Settings) -> list[ResearchEvidenceProvi
     ]
 
 
-def provider_health_from_output(output: ResearchProviderOutput) -> ResearchProviderHealth:
-    """Convert provider output into an operator-safe health summary."""
+def provider_health_from_output(
+    output: ResearchProviderOutput,
+) -> ResearchProviderHealth:
+    """
+    Produce an operator-facing health summary derived from a provider's normalized output.
+    
+    Parameters:
+        output (ResearchProviderOutput): Normalized output from a research provider.
+    
+    Returns:
+        ResearchProviderHealth: Health summary that reflects whether the provider returned any payload (affects `freshness`, `source_role`, and `last_successful_update_at`), includes a human-readable `message`, and merges provider metadata notes with any `missing_reasons`.
+    """
     meta = output.metadata
-    has_payload = bool(output.raw_evidence or output.macro_events or output.social_signals)
+    has_payload = bool(
+        output.raw_evidence or output.macro_events or output.social_signals
+    )
     freshness = "fresh" if has_payload else "missing"
     source_role = meta.role if has_payload else "missing"
     fetched_at = utc_now_iso() if has_payload else None
@@ -834,10 +896,19 @@ def _run_command(
 
 
 def _minimal_firecrawl_env(api_key: str | None = None) -> dict[str, str]:
+    """
+    Build an environment dict suitable for running the Firecrawl CLI by copying a minimal set of whitelisted variables and optionally injecting a Firecrawl API key.
+    
+    Parameters:
+        api_key (str | None): Optional API key to set as `FIRECRAWL_API_KEY`. If `None`, the function uses the current process environment's `FIRECRAWL_API_KEY` when present.
+    
+    Returns:
+        dict[str, str]: A mapping of environment variable names to their values containing:
+            - all keys from MINIMAL_COMMAND_ENV_KEYS that exist in the current process environment, and
+            - `FIRECRAWL_API_KEY` set to `api_key` or the existing environment value when available.
+    """
     env = {
-        key: os.environ[key]
-        for key in MINIMAL_COMMAND_ENV_KEYS
-        if key in os.environ
+        key: os.environ[key] for key in MINIMAL_COMMAND_ENV_KEYS if key in os.environ
     }
     resolved_api_key = api_key or os.environ.get("FIRECRAWL_API_KEY")
     if resolved_api_key:
@@ -1361,16 +1432,31 @@ def _sec_missing_fields(
     report_date: str,
     primary_document: str,
 ) -> list[str]:
+    """
+    Identify which SEC submission fields are missing for a given filing.
+    
+    Parameters:
+        cik (str): Zero-padded 10-character CIK for the company.
+        accession (str): Accession number for the filing.
+        report_date (str): Filing's report date string; empty if not present.
+        primary_document (str): Primary document filename; empty if not present.
+    
+    Returns:
+        missing_fields (list[str]): List of missing field keys among "report_date", "primary_document", and "url" where "url" indicates the archive URL could not be constructed from the provided inputs.
+    """
     missing_fields = []
     if not report_date:
         missing_fields.append("report_date")
     if not primary_document:
         missing_fields.append("primary_document")
-    if _sec_archive_url(
-        cik=cik,
-        accession=accession,
-        primary_document=primary_document,
-    ) is None:
+    if (
+        _sec_archive_url(
+            cik=cik,
+            accession=accession,
+            primary_document=primary_document,
+        )
+        is None
+    ):
         missing_fields.append("url")
     return missing_fields
 
@@ -1410,6 +1496,18 @@ def _company_fact_candidates(
     *,
     concepts: tuple[str, ...],
 ) -> list[tuple[tuple[str, str, str], str, str, dict[str, Any]]]:
+    """
+    Collect candidate company-fact entries for the requested GAAP concepts.
+    
+    Parameters:
+        us_gaap (dict[str, Any]): The `"facts"` → `"us-gaap"` mapping from a company facts payload.
+        concepts (tuple[str, ...]): GAAP concept keys to extract candidates for.
+    
+    Returns:
+        list[tuple[tuple[str, str, str], str, str, dict[str, Any]]]: A list of candidates where each item is a tuple
+        `(sort_key, concept, unit, item)`. `sort_key` is a tuple used to order candidates, `concept` is the requested GAAP
+        concept name, `unit` is the reported unit string, and `item` is the raw fact entry dictionary.
+    """
     candidates: list[tuple[tuple[str, str, str], str, str, dict[str, Any]]] = []
     for concept in concepts:
         for unit, item in _usd_company_fact_items(us_gaap.get(concept)):
@@ -1417,7 +1515,18 @@ def _company_fact_candidates(
     return candidates
 
 
-def _usd_company_fact_items(concept_payload: object) -> list[tuple[str, dict[str, Any]]]:
+def _usd_company_fact_items(
+    concept_payload: object,
+) -> list[tuple[str, dict[str, Any]]]:
+    """
+    Extract USD-denominated fact items from a company fact concept payload.
+    
+    Parameters:
+        concept_payload (object): Parsed JSON value for a single company fact concept (as returned by SEC company facts); may be any Python object.
+    
+    Returns:
+        list[tuple[str, dict[str, Any]]]: A list of tuples where the first element is the unit string `"USD"` and the second element is the item dictionary for each USD-valued fact that contains a non-null `"val"` field.
+    """
     units = _company_fact_units(concept_payload)
     if units is None:
         return []

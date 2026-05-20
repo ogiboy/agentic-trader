@@ -61,9 +61,19 @@ function compactTraceback(value: string): string {
   return 'Agentic Trader command failed. Check local runtime logs for details.';
 }
 
+/**
+ * Collects configured environment variable values whose names match secret-name patterns.
+ *
+ * Filters out empty or short values, coerces values to strings, and returns them sorted
+ * from longest to shortest.
+ *
+ * @returns An array of environment variable values that likely contain secrets (each length >= 4), sorted by descending length
+ */
 function sensitiveEnvValues(): string[] {
   return Object.entries(process.env)
-    .filter(([key, value]) => SECRET_ENV_NAME_PATTERN.test(key) && Boolean(value))
+    .filter(
+      ([key, value]) => SECRET_ENV_NAME_PATTERN.test(key) && Boolean(value),
+    )
     .map(([, value]) => String(value))
     .filter((value) => value.length >= 4)
     .sort((left, right) => right.length - left.length);

@@ -24,7 +24,7 @@ from agentic_trader.diagnostics import (
     provider_diagnostics_payload,
     v1_readiness_payload,
 )
-from agentic_trader.engine.broker import broker_runtime_payload
+from agentic_trader.engine.broker import broker_runtime_payload, get_broker_adapter
 from agentic_trader.finance.ideas import (
     IdeaCandidate,
     IdeaPresetName,
@@ -36,7 +36,14 @@ from agentic_trader.finance.proposals import (
     approve_trade_proposal,
     create_trade_proposal,
     reconcile_trade_proposal,
+    refresh_trade_proposal_order,
     reject_trade_proposal,
+    repair_missing_position_plans,
+)
+from agentic_trader.finance.proposal_candidates import (
+    ProposalCandidateDraft,
+    create_proposal_candidate,
+    promote_proposal_candidate,
 )
 from agentic_trader.finance.strategy_catalog import (
     StrategyStatus,
@@ -107,7 +114,6 @@ from agentic_trader.system.model_service import (
 )
 from agentic_trader.system.operator_launcher import (
     build_operator_launcher_status,
-    start_default_background_runtime,
     start_operator_webgui,
 )
 from agentic_trader.system.runtime_tools import apply_app_owned_service_settings
@@ -146,6 +152,8 @@ from agentic_trader.schemas import (
     RuntimeModeTransitionPlan,
     ServiceEvent,
     ServiceStateSnapshot,
+    ProposalCandidateRecord,
+    ProposalCandidateStatus,
     TradeContextRecord,
     TradeJournalEntry,
     TradeProposalRecord,
@@ -214,41 +222,193 @@ type NodeCommandSet = tuple[list[str], list[str], Path, str]
 
 
 def _proposal_create_params() -> list[click.Parameter]:
+    """
+    Declare Click parameters for the `proposal-create` CLI command.
+    
+    Each returned Option corresponds to a CLI flag used to build a trade proposal:
+    symbol, side, quantity or notional, limit/reference prices, confidence,
+    thesis, order type, stop-loss/take-profit, invalidation condition, source,
+    review notes, and a JSON output flag.
+    
+    Returns:
+        list[click.Parameter]: Click Option objects for registering the command's options.
+    """
     return [
         click.Option(["--symbol"], required=True, help=HELP_SYMBOL),
-        click.Option(["--side"], default="buy", show_default=True, help="Trade side: buy or sell."),
-        click.Option(["--quantity"], type=click.FloatRange(min=0.0), default=None, help="Share quantity. Either quantity or notional is required."),
-        click.Option(["--notional"], type=click.FloatRange(min=0.0), default=None, help="Dollar notional. Either quantity or notional is required."),
-        click.Option(["--reference-price", "reference_price"], type=click.FloatRange(min=0.01), required=True, help="Reference price used for the proposal."),
-        click.Option(["--confidence"], type=click.FloatRange(min=0.0, max=1.0), default=0.5, show_default=True, help="Proposal confidence from 0.0 to 1.0."),
-        click.Option(["--thesis"], required=True, help="Short operator-readable proposal thesis."),
-        click.Option(["--order-type", "order_type"], default="market", show_default=True, help="Proposal order type. V1 supports market or limit."),
-        click.Option(["--stop-loss", "stop_loss"], type=click.FloatRange(min=0.01), default=None, help="Optional stop loss."),
-        click.Option(["--take-profit", "take_profit"], type=click.FloatRange(min=0.01), default=None, help="Optional take profit."),
-        click.Option(["--invalidation-condition", "invalidation_condition"], default=None, help="Optional condition that invalidates the trade idea."),
-        click.Option(["--source"], default="manual", show_default=True, help="Source label such as manual, scanner, or research-sidecar."),
-        click.Option(["--review-notes", "review_notes"], default="", help="Optional review notes."),
-        click.Option(["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON),
+        click.Option(
+            ["--side"],
+            default="buy",
+            show_default=True,
+            help="Trade side: buy or sell.",
+        ),
+        click.Option(
+            ["--quantity"],
+            type=click.FloatRange(min=0.0),
+            default=None,
+            help="Share quantity. Either quantity or notional is required.",
+        ),
+        click.Option(
+            ["--notional"],
+            type=click.FloatRange(min=0.0),
+            default=None,
+            help="Dollar notional. Either quantity or notional is required.",
+        ),
+        click.Option(
+            ["--limit-price", "limit_price"],
+            type=click.FloatRange(min=0.01),
+            default=None,
+            help="Limit price. Required with --order-type limit.",
+        ),
+        click.Option(
+            ["--reference-price", "reference_price"],
+            type=click.FloatRange(min=0.01),
+            required=True,
+            help="Reference price used for the proposal.",
+        ),
+        click.Option(
+            ["--confidence"],
+            type=click.FloatRange(min=0.0, max=1.0),
+            default=0.5,
+            show_default=True,
+            help="Proposal confidence from 0.0 to 1.0.",
+        ),
+        click.Option(
+            ["--thesis"], required=True, help="Short operator-readable proposal thesis."
+        ),
+        click.Option(
+            ["--order-type", "order_type"],
+            default="market",
+            show_default=True,
+            help="Proposal order type. V1 supports market or limit.",
+        ),
+        click.Option(
+            ["--stop-loss", "stop_loss"],
+            type=click.FloatRange(min=0.01),
+            default=None,
+            help="Optional stop loss.",
+        ),
+        click.Option(
+            ["--take-profit", "take_profit"],
+            type=click.FloatRange(min=0.01),
+            default=None,
+            help="Optional take profit.",
+        ),
+        click.Option(
+            ["--invalidation-condition", "invalidation_condition"],
+            default=None,
+            help="Optional condition that invalidates the trade idea.",
+        ),
+        click.Option(
+            ["--source"],
+            default="manual",
+            show_default=True,
+            help="Source label such as manual, scanner, or research-sidecar.",
+        ),
+        click.Option(
+            ["--review-notes", "review_notes"],
+            default="",
+            help="Optional review notes.",
+        ),
+        click.Option(
+            ["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON
+        ),
     ]
 
 
 def _idea_score_params() -> list[click.Parameter]:
+    """
+    Return the list of Click parameters (options) used by the `idea-score` CLI command.
+    
+    Each returned `click.Option` defines a named CLI flag for providing market/indicator inputs
+    used when scoring an idea (symbol, preset, price, volume, change_pct, relative_volume,
+    gap_pct, range_pct, optional indicators like RSI/EMA/SMA/VWAP, spread_pct, and `--json`).
+    Returns:
+        list[click.Parameter]: Configured Click `Option` objects for the `idea-score` command.
+    """
     return [
         click.Option(["--symbol"], required=True, help=HELP_SYMBOL),
-        click.Option(["--preset"], default="momentum", show_default=True, help="Idea preset to apply."),
-        click.Option(["--price"], type=click.FloatRange(min=0.01), required=True, help="Last or reference price."),
-        click.Option(["--volume"], type=click.FloatRange(min=0.0), required=True, help="Latest volume."),
-        click.Option(["--change-pct", "change_pct"], type=float, required=True, help="Percent change over the scan window."),
-        click.Option(["--relative-volume", "relative_volume"], type=click.FloatRange(min=0.0), default=0.0, show_default=True, help="Relative volume."),
-        click.Option(["--gap-pct", "gap_pct"], type=float, default=0.0, show_default=True, help="Opening gap percent."),
-        click.Option(["--range-pct", "range_pct"], type=click.FloatRange(min=0.0), default=0.0, show_default=True, help="Intraday range percent."),
-        click.Option(["--rsi"], type=click.FloatRange(min=0.0, max=100.0), default=None, help="RSI value."),
-        click.Option(["--ema-9", "ema_9"], type=click.FloatRange(min=0.0), default=None, help="9 EMA value."),
-        click.Option(["--sma-20", "sma_20"], type=click.FloatRange(min=0.0), default=None, help="20 SMA value."),
-        click.Option(["--sma-50", "sma_50"], type=click.FloatRange(min=0.0), default=None, help="50 SMA value."),
-        click.Option(["--vwap"], type=click.FloatRange(min=0.0), default=None, help="VWAP value."),
-        click.Option(["--spread-pct", "spread_pct"], type=click.FloatRange(min=0.0), default=0.0, show_default=True, help="Bid/ask spread percent."),
-        click.Option(["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON),
+        click.Option(
+            ["--preset"],
+            default="momentum",
+            show_default=True,
+            help="Idea preset to apply.",
+        ),
+        click.Option(
+            ["--price"],
+            type=click.FloatRange(min=0.01),
+            required=True,
+            help="Last or reference price.",
+        ),
+        click.Option(
+            ["--volume"],
+            type=click.FloatRange(min=0.0),
+            required=True,
+            help="Latest volume.",
+        ),
+        click.Option(
+            ["--change-pct", "change_pct"],
+            type=float,
+            required=True,
+            help="Percent change over the scan window.",
+        ),
+        click.Option(
+            ["--relative-volume", "relative_volume"],
+            type=click.FloatRange(min=0.0),
+            default=0.0,
+            show_default=True,
+            help="Relative volume.",
+        ),
+        click.Option(
+            ["--gap-pct", "gap_pct"],
+            type=float,
+            default=0.0,
+            show_default=True,
+            help="Opening gap percent.",
+        ),
+        click.Option(
+            ["--range-pct", "range_pct"],
+            type=click.FloatRange(min=0.0),
+            default=0.0,
+            show_default=True,
+            help="Intraday range percent.",
+        ),
+        click.Option(
+            ["--rsi"],
+            type=click.FloatRange(min=0.0, max=100.0),
+            default=None,
+            help="RSI value.",
+        ),
+        click.Option(
+            ["--ema-9", "ema_9"],
+            type=click.FloatRange(min=0.0),
+            default=None,
+            help="9 EMA value.",
+        ),
+        click.Option(
+            ["--sma-20", "sma_20"],
+            type=click.FloatRange(min=0.0),
+            default=None,
+            help="20 SMA value.",
+        ),
+        click.Option(
+            ["--sma-50", "sma_50"],
+            type=click.FloatRange(min=0.0),
+            default=None,
+            help="50 SMA value.",
+        ),
+        click.Option(
+            ["--vwap"], type=click.FloatRange(min=0.0), default=None, help="VWAP value."
+        ),
+        click.Option(
+            ["--spread-pct", "spread_pct"],
+            type=click.FloatRange(min=0.0),
+            default=0.0,
+            show_default=True,
+            help="Bid/ask spread percent.",
+        ),
+        click.Option(
+            ["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON
+        ),
     ]
 
 
@@ -274,18 +434,19 @@ class IdeaScoreCommand(TyperCommand):
 
 def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
     """
-    Resolve package-manager install and start command vectors and a working directory for the bundled Ink TUI.
+    Determine the package manager and produce the install and start command vectors plus working directory for the bundled Ink TUI.
     
     Parameters:
         tui_dir (Path): Path to the bundled TUI directory.
     
     Returns:
-        NodeCommandSet | None: A tuple (install_command, start_command, command_cwd, manager_name) where
-            - install_command (list[str]) is the package-manager install command to run,
-            - start_command (list[str]) is the command to start the TUI,
-            - command_cwd (Path) is the directory where the start command should be executed,
-            - manager_name (str) is a short identifier for the chosen package manager/workflow.
-        Returns `None` if no supported Node package manager can be resolved.
+        tuple[list[str], list[str], Path, str] | None:
+            A tuple (install_command, start_command, command_cwd, manager_name):
+            - install_command: command vector to install dependencies.
+            - start_command: command vector to start the TUI.
+            - command_cwd: directory where the start command should be executed.
+            - manager_name: short identifier for the chosen package manager/workflow.
+            Returns `None` if no supported Node package manager is available on PATH.
     """
     repo_root = tui_dir.parent
     pnpm = shutil.which("pnpm")
@@ -356,16 +517,16 @@ def _tui_dependencies_installed(tui_dir: Path, command_cwd: Path) -> bool:
 
 def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
     """
-    Read up to the last `limit` lines from a UTF-8 text file and return them as a list of lines.
+    Return the last up to `limit` lines from a UTF-8 text file with sensitive content redacted.
     
-    If `path` is None or the file does not exist, an empty list is returned. Lines are decoded using UTF-8 with replacement for invalid bytes.
+    If `path` is None or the file does not exist, an empty list is returned. Lines are decoded using UTF-8 with replacement for invalid bytes and each returned line is redacted for sensitive content.
     
     Parameters:
         path (Path | None): Path to the text file to read, or None to indicate absence.
-        limit (int): Maximum number of trailing lines to return (default 12).
+        limit (int): Maximum number of trailing lines to return.
     
     Returns:
-        list[str]: The last up to `limit` lines from the file, or an empty list if unavailable.
+        list[str]: Up to `limit` trailing lines from the file with sensitive content redacted, or an empty list if the file is unavailable.
     """
     if path is None or not path.exists():
         return []
@@ -375,13 +536,10 @@ def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
 
 def _format_latest_order(order: OrderRow | None) -> str:
     """
-    Format an OrderRow into a single-line human-readable summary.
-    
-    Parameters:
-        order (OrderRow | None): An order tuple or None.
+    Formats an OrderRow into a compact single-line human-readable summary.
     
     Returns:
-        str: A single-line summary for the given order in the form
+        str: Single-line summary in the form
         "order_id | SYMBOL SIDE | approved=<bool> | entry=<price> | size=<pct> | confidence=<score>",
         or the literal string "None" when `order` is None.
     """
@@ -409,12 +567,12 @@ def _format_latest_order(order: OrderRow | None) -> str:
 def _render_health_panel(status: str, body: str, *, border_style: str) -> Panel:
     """
     Create a rich Panel with the given title text and border style.
-    
+
     Parameters:
         status (str): Text to use as the panel title.
         body (str): Text content to display inside the panel.
         border_style (str): Rich style string applied to the panel border.
-    
+
     Returns:
         panel (Panel): A `rich.panel.Panel` containing `body`, titled with `status`, and using `border_style`.
     """
@@ -425,11 +583,11 @@ def _render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
     """
     Render execution summary panels for a completed run to the console.
     
-    Displays an "Execution Summary" table (order id, approval, side, confidence, entry/stop/take-profit, and decision path), a "Pipeline" table showing each agent stage's source and any fallback reason, a warning panel if any fallbacks occurred (otherwise a green LLM-status panel), and a JSON panel containing the serialized run artifacts.
+    Shows an "Execution Summary" table, a "Pipeline" table listing each agent stage and its source/notes, a warning panel if any stages used a fallback (otherwise an LLM-status panel), and a JSON "Run Artifacts" panel.
     
     Parameters:
-        order_id (str): The identifier of the order to display in the summary.
-        artifacts (RunArtifacts): RunArtifacts object containing coordinator, regime, strategy, risk, manager, and execution details used to populate the panels.
+        order_id (str): Identifier of the order shown in the summary.
+        artifacts (RunArtifacts): RunArtifacts containing coordinator, regime, strategy, risk, manager, and execution details used to populate the panels.
     """
     fallback_components: list[str] = artifacts.fallback_components()
     summary = Table(title="Execution Summary")
@@ -522,12 +680,12 @@ def _render_instruction(instruction: OperatorInstruction) -> None:
 
 def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     """
-    Render the service runtime status to the console.
+    Render the supervisor/service runtime status to the console.
     
-    If `state` is None or contains no recorded runtime state, prints a yellow panel indicating no runtime state is recorded. Otherwise prints a table summarizing runtime fields such as service name, runtime mode/state, live process flag, heartbeat and its age, start/updated times, polling/cycle settings, symbol/interval/lookback configuration, PID and stop-requested flag, and the last recorded message/error.
+    If `state` is None or contains no recorded runtime state, prints a yellow panel indicating no runtime state is recorded. Otherwise prints a table summarizing service fields such as service name, runtime mode/state, process liveness, heartbeat and its age, start/updated times, polling and cycle settings, configured symbols/interval/lookback, PID and stop-requested flag, and the last recorded message/error.
     
     Parameters:
-        state (ServiceStateSnapshot | None): Snapshot of the supervisor/service runtime state; pass `None` to indicate no recorded runtime state.
+        state: Snapshot of the supervisor/service runtime state; pass `None` to indicate no recorded runtime state.
     """
     view = build_runtime_status_view(state)
     if view.state is None:
@@ -580,7 +738,7 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
 def _render_service_events(events: list[ServiceEvent]) -> None:
     """
     Render a list of runtime service events as a rich table, or show a yellow placeholder panel when no events exist.
-    
+
     Parameters:
         events (list[ServiceEvent]): Sequence of service event records to display; each event should provide created time, level, type, cycle count, symbol, and message.
     """
@@ -650,9 +808,9 @@ def _render_trade_journal(entries: list[TradeJournalEntry]) -> None:
 def _render_risk_report(report: DailyRiskReport) -> None:
     """
     Render a DailyRiskReport to the console as a formatted table and a risk-warnings panel.
-    
+
     Displays a table titled with the report date containing generated time, cash, market value, equity, realized/unrealized PnL, counts (open positions, fills, marks), daily realized PnL, exposure metrics, largest position, and drawdown. After the table, prints a yellow "Risk Warnings" panel listing each warning if any exist, otherwise prints a green panel indicating no elevated warnings.
-    
+
     Parameters:
         report (DailyRiskReport): The risk report data to render.
     """
@@ -694,7 +852,7 @@ def _render_risk_report(report: DailyRiskReport) -> None:
 def _render_run_review(record: RunRecord) -> None:
     """
     Render a human-readable run review to the console, showing metadata, agent decisions, manager override notes, manager conflicts, and the structured review note.
-    
+
     Parameters:
         record (RunRecord): Persisted run record whose metadata and artifacts will be rendered.
     """
@@ -774,15 +932,15 @@ def _render_run_review(record: RunRecord) -> None:
 def _render_run_markdown(record: RunRecord) -> str:
     """
     Builds a Markdown-formatted run review document from a persisted RunRecord.
-    
+
     Generates a human-readable Markdown summary that includes metadata, coordinator,
     fundamental analysis, regime, strategy, risk, consensus, manager decisions and
     conflicts, execution details, and reviewer notes derived from the record's
     artifacts.
-    
+
     Parameters:
         record (RunRecord): Persisted run record containing artifacts to serialize.
-    
+
     Returns:
         markdown (str): A Markdown document string summarizing the run review.
     """
@@ -904,10 +1062,10 @@ def _markdown_bullets(values: list[str], *, fallback: str) -> list[str]:
 def _manager_override_notes(artifacts: RunArtifacts) -> list[str]:
     """
     Produce a list of human-readable notes describing any manager overrides present in the run artifacts.
-    
+
     Parameters:
         artifacts (RunArtifacts): Run artifacts containing manager, strategy, and execution decisions to inspect.
-    
+
     Returns:
         list[str]: A list of note strings describing each detected override. If no overrides are detected, returns a single-item list with an acceptance message.
     """
@@ -1050,9 +1208,9 @@ def _render_run_replay(replay: RunReplay) -> None:
 def _render_backtest_report(report: BacktestReport) -> None:
     """
     Render a walk-forward backtest summary and a table of recent trades to the console using rich tables.
-    
+
     The summary table shows key backtest metadata and aggregated metrics (interval, lookback, warmup bars, cycle and trade counts, win rate, expectancy, total return, max drawdown, exposure, and fallback cycles). The trades table lists up to the last 12 trades with entry/exit times, side, entry/exit prices, PnL, and exit reason.
-    
+
     Parameters:
         report (BacktestReport): Backtest results and associated trade records to display.
     """
@@ -1100,7 +1258,7 @@ def _render_backtest_report(report: BacktestReport) -> None:
 def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
     """
     Render a Rich table comparing agent and baseline backtest metrics for the report's symbol.
-    
+
     Parameters:
         report (BacktestComparisonReport): Comparison report containing the agent and baseline metrics and symbol.
     """
@@ -1163,7 +1321,7 @@ def _render_backtest_comparison(report: BacktestComparisonReport) -> None:
 def _render_backtest_ablation(report: BacktestAblationReport) -> None:
     """
     Render a memory-ablation backtest comparison table to the console.
-    
+
     Parameters:
         report (BacktestAblationReport): Backtest results containing `with_memory` and `without_memory` metrics and the tested symbol; used to populate metric rows (trades, win rate, expectancy, return, ending equity).
     """
@@ -1241,19 +1399,73 @@ def _render_memory_matches(matches) -> None:
 
 
 def _emit_json(payload: object) -> None:
+    """
+    Emit an object as indented JSON to standard output for CLI consumers.
+    
+    Parameters:
+        payload (object): The Python object to serialize to JSON.
+    """
     typer.echo(json.dumps(payload, indent=2))
 
 
+def _emit_json_error(error: Exception | str) -> None:
+    """
+    Emit a JSON-formatted error payload with sensitive content redacted.
+    
+    Writes a JSON object of the form `{"error": "<redacted message>"}` where the provided exception or message
+    is passed through sensitive-text redaction before emission.
+    """
+    _emit_json({"error": redact_sensitive_text(error, max_length=240)})
+
+
 def _open_db(settings: Settings, *, read_only: bool = False) -> TradingDatabase:
+    """
+    Open and return a TradingDatabase instance configured from the given settings.
+    
+    If `read_only` is True the database wrapper is initialized for read-only access to avoid acquiring writer locks.
+    
+    Parameters:
+        read_only (bool): `True` to open the database in read-only mode, `False` to allow mutations.
+    
+    Returns:
+        TradingDatabase: A database wrapper initialized using `settings`.
+    """
     return TradingDatabase(settings, read_only=read_only)
 
 
 def _portfolio_payload(settings: Settings) -> dict[str, object]:
+    """
+    Builds an observer-friendly portfolio payload containing the account snapshot, open positions, and accounting metadata.
+    
+    The returned payload includes an availability flag and a redacted error message when data cannot be read. The `source` field identifies where data was retrieved from (e.g., broker adapter or runtime database) when available.
+    
+    Returns:
+        dict: A mapping with the following keys:
+            - `available` (bool): `True` when a live snapshot was obtained, `False` on error.
+            - `error` (str | None): Error message when `available` is `False`, otherwise `None`.
+            - `source` (str): Data source identifier when available, otherwise `"unavailable"`.
+            - `snapshot` (dict): Account snapshot fields (cash, market_value, equity, realized_pnl, unrealized_pnl, open_positions) serialized as JSON.
+            - `positions` (list[dict]): List of open position objects serialized as JSON.
+            - `accounting` (dict): Accounting metadata with:
+                - `currency` (str): Primary account currency.
+                - `mark_created_at` (str | None): Timestamp of the latest account mark, if present.
+                - `mark_source` (str | None): Source label for the latest mark, if present.
+                - `mark_note` (str | None): Note attached to the latest mark, if present.
+                - `mark_status` (str): `"marked"` when a mark exists, otherwise `"mark_time_unavailable"`.
+    """
+    source = "unavailable"
     try:
         db = _open_db(settings, read_only=True)
         try:
-            snapshot = db.get_account_snapshot()
-            positions = db.list_positions()
+            if settings.execution_backend == "alpaca_paper":
+                broker = get_broker_adapter(db=db, settings=settings)
+                snapshot = broker.get_account_state()
+                positions = broker.get_positions()
+                source = "broker_adapter"
+            else:
+                snapshot = db.get_account_snapshot()
+                positions = db.list_positions()
+                source = "runtime_database"
             latest_marks = db.list_account_marks(limit=1)
         finally:
             db.close()
@@ -1277,6 +1489,7 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
     return {
         "available": available,
         "error": error,
+        "source": source if available else "unavailable",
         "snapshot": snapshot.model_dump(mode="json"),
         "positions": [position.model_dump(mode="json") for position in positions],
         "accounting": {
@@ -1289,7 +1502,74 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
     }
 
 
+def _position_plan_coverage_payload(settings: Settings) -> dict[str, object]:
+    """
+    Compute coverage between currently open positions and configured position plans.
+    
+    Returns:
+        payload (dict): A dictionary with:
+            available (bool): True if the underlying data source was read successfully, False on failure.
+            error (str | None): Error message when `available` is False, otherwise None.
+            source (str): Which source provided positions when available: "broker_adapter" or "runtime_database"; "unavailable" if data could not be read.
+            open_symbols (list[str]): Sorted list of symbols with a non-zero open position.
+            planned_symbols (list[str]): Sorted list of symbols that are both open and have a configured position plan.
+            missing_symbols (list[str]): Sorted list of open symbols that lack a corresponding position plan.
+            extra_plan_symbols (list[str]): Sorted list of symbols that have position plans but no open position.
+            coverage_ratio (float): Fraction of open symbols that have a position plan, rounded to 4 decimal places (1.0 when there are no open symbols).
+    """
+    source = "unavailable"
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            if settings.execution_backend == "alpaca_paper":
+                positions = get_broker_adapter(db=db, settings=settings).get_positions()
+                source = "broker_adapter"
+            else:
+                positions = db.list_positions()
+                source = "runtime_database"
+            plans = db.list_position_plans()
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+        positions = []
+        plans = []
+        available = False
+        error = str(exc)
+
+    open_symbols = sorted(
+        position.symbol for position in positions if position.quantity != 0
+    )
+    open_symbol_set = set(open_symbols)
+    planned_symbol_set = {plan.symbol for plan in plans}
+    planned_open_symbols = sorted(open_symbol_set & planned_symbol_set)
+    missing_symbols = sorted(open_symbol_set - planned_symbol_set)
+    extra_plan_symbols = sorted(planned_symbol_set - open_symbol_set)
+    coverage_ratio = (
+        len(planned_open_symbols) / len(open_symbols) if open_symbols else 1.0
+    )
+    return {
+        "available": available,
+        "error": error,
+        "source": source if available else "unavailable",
+        "open_symbols": open_symbols,
+        "planned_symbols": planned_open_symbols,
+        "missing_symbols": missing_symbols,
+        "extra_plan_symbols": extra_plan_symbols,
+        "coverage_ratio": round(coverage_ratio, 4),
+    }
+
+
 def _preferences_payload(settings: Settings) -> dict[str, object]:
+    """
+    Load persisted investment preferences and include availability and error metadata.
+    
+    Returns:
+        payload (dict): JSON-serializable representation of the loaded InvestmentPreferences with two additional keys:
+            - `available` (`True` if preferences were successfully loaded, `False` otherwise).
+            - `error` (string error message when loading failed, or `None` when successful).
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -1351,16 +1631,16 @@ def _execution_cost_model(settings: Settings) -> dict[str, object]:
 
 def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
     """
-    Builds a JSON-serializable payload containing recent trade journal entries.
+    Builds a payload containing the most recent trade journal entries.
     
     Parameters:
-        limit (int): Maximum number of journal entries to include, ordered from newest to oldest.
+        limit (int): Maximum number of journal entries to include, ordered newest first.
     
     Returns:
-        dict: A payload with:
-            - `available` (bool): `True` when the database read succeeded, `False` on error.
+        dict: Payload with keys:
+            - `available` (bool): `True` if the database read succeeded, `False` on error.
             - `error` (str | None): Error message when `available` is `False`, otherwise `None`.
-            - `entries` (list[dict]): List of journal entries serialized with `model_dump(mode="json")`.
+            - `entries` (list[dict]): Journal entries serialized as JSON-compatible dictionaries.
     """
     try:
         db = _open_db(settings, read_only=True)
@@ -1384,6 +1664,23 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
 def _trade_proposals_payload(
     settings: Settings, *, status: TradeProposalStatus | None = None, limit: int = 50
 ) -> dict[str, object]:
+    """
+    Builds an observer payload with trade proposals optionally filtered by status.
+    
+    If the database cannot be opened or read, `available` will be `False` and `error` will contain a redacted error message.
+    
+    Parameters:
+        settings (Settings): Application settings used to open the trading database.
+        status (TradeProposalStatus | None): Optional status to filter proposals by; `None` returns proposals of any status.
+        limit (int): Maximum number of proposals to return.
+    
+    Returns:
+        dict: Payload containing:
+            - `available` (bool): True when DB read succeeded, False on error.
+            - `error` (str | None): Redacted error message when `available` is False, otherwise None.
+            - `status` (TradeProposalStatus | None): The filter value echoed back.
+            - `proposals` (list[dict]): List of proposals serialized for JSON (one dict per proposal).
+    """
     try:
         db = _open_db(settings, read_only=True)
         try:
@@ -1395,14 +1692,52 @@ def _trade_proposals_payload(
     except Exception as exc:
         proposals = []
         available = False
-        error = str(exc)
+        error = redact_sensitive_text(exc, max_length=240)
     return {
         "available": available,
         "error": error,
         "status": status,
-        "proposals": [
-            proposal.model_dump(mode="json") for proposal in proposals
-        ],
+        "proposals": [proposal.model_dump(mode="json") for proposal in proposals],
+    }
+
+
+def _proposal_candidates_payload(
+    settings: Settings,
+    *,
+    status: ProposalCandidateStatus | None = None,
+    limit: int = 50,
+) -> dict[str, object]:
+    """
+    Builds an observer payload containing the proposal-candidate queue.
+    
+    Parameters:
+        status (ProposalCandidateStatus | None): Optional filter for candidate status to include in the payload.
+        limit (int): Maximum number of candidates to return.
+    
+    Returns:
+        dict: Payload with the following keys:
+            - "available" (bool): `True` if the database read succeeded, `False` on error.
+            - "error" (str | None): Redacted error message when read failed, otherwise `None`.
+            - "status" (ProposalCandidateStatus | None): The status filter that was applied.
+            - "candidates" (list[dict]): List of candidate records serialized to JSON-serializable dicts.
+    """
+    try:
+        db = _open_db(settings, read_only=True)
+        try:
+            candidates = db.list_proposal_candidates(status=status, limit=limit)
+        finally:
+            db.close()
+        available = True
+        error = None
+    except Exception as exc:
+        candidates = []
+        available = False
+        error = redact_sensitive_text(exc, max_length=240)
+    return {
+        "available": available,
+        "error": error,
+        "status": status,
+        "candidates": [candidate.model_dump(mode="json") for candidate in candidates],
     }
 
 
@@ -1421,6 +1756,18 @@ def _parse_order_type(value: str) -> ProposalOrderType:
 
 
 def _parse_proposal_status(value: str | None) -> TradeProposalStatus | None:
+    """
+    Normalize and validate a proposal status string.
+    
+    Parameters:
+        value (str | None): Candidate status string (case/whitespace-insensitive).
+    
+    Returns:
+        TradeProposalStatus | None: The normalized `TradeProposalStatus` corresponding to `value`, or `None` if `value` is `None`.
+    
+    Raises:
+        typer.BadParameter: If `value` is not one of "pending", "approved", "rejected", "executed", "failed", or "expired".
+    """
     if value is None:
         return None
     normalized = value.strip().lower()
@@ -1436,7 +1783,42 @@ def _parse_proposal_status(value: str | None) -> TradeProposalStatus | None:
     return cast(TradeProposalStatus, normalized)
 
 
+def _parse_candidate_status(value: str | None) -> ProposalCandidateStatus | None:
+    """
+    Normalize and validate a proposal candidate status string.
+    
+    Parameters:
+        value: The status string to parse; accepted case-insensitive values are
+            "candidate", "promoted", "rejected", and "expired". If `None`, the
+            function returns `None`.
+    
+    Returns:
+        `ProposalCandidateStatus` if `value` matches a known state, `None` if `value` is `None`.
+    
+    Raises:
+        typer.BadParameter: If `value` is not one of the accepted status strings.
+    """
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized not in {"candidate", "promoted", "rejected", "expired"}:
+        raise typer.BadParameter("status is not a known proposal candidate state")
+    return cast(ProposalCandidateStatus, normalized)
+
+
 def _parse_idea_preset(value: str) -> IdeaPresetName:
+    """
+    Normalize and validate an idea scanner preset name.
+    
+    Parameters:
+        value (str): Candidate preset name; whitespace is trimmed and case is folded to lowercase.
+    
+    Returns:
+        IdeaPresetName: The normalized preset name that is guaranteed to exist in PRESET_DESCRIPTIONS.
+    
+    Raises:
+        typer.BadParameter: If the normalized value is not a known preset.
+    """
     normalized = value.strip().lower()
     if normalized not in PRESET_DESCRIPTIONS:
         raise typer.BadParameter("preset is not a known idea scanner preset")
@@ -1455,6 +1837,12 @@ def _parse_strategy_status(value: str | None) -> StrategyStatus | None:
 
 
 def _render_trade_proposals(proposals: list[TradeProposalRecord]) -> None:
+    """
+    Render a table of trade proposals to the console.
+    
+    Parameters:
+        proposals (list[TradeProposalRecord]): Trade proposal records to display. If the list is empty, a yellow panel indicating "No trade proposals recorded yet." is printed instead.
+    """
     if not proposals:
         console.print(
             Panel(
@@ -1492,14 +1880,53 @@ def _render_trade_proposals(proposals: list[TradeProposalRecord]) -> None:
     console.print(table)
 
 
+def _render_proposal_candidates(candidates: list[ProposalCandidateRecord]) -> None:
+    """
+    Render a terminal table of proposal candidates or show a placeholder panel when none are present.
+    
+    Parameters:
+        candidates (list[ProposalCandidateRecord]): Sequence of proposal candidate records to display; each record's fields (candidate_id, status, symbol, preset, signal, score, reference_price, proposal_id) are shown as table columns.
+    """
+    if not candidates:
+        console.print(
+            Panel(
+                "No proposal candidates recorded yet.",
+                title="Proposal Candidates",
+                border_style="yellow",
+            )
+        )
+        return
+    table = Table(title="Proposal Candidates")
+    table.add_column("ID")
+    table.add_column("Status")
+    table.add_column("Symbol")
+    table.add_column("Preset")
+    table.add_column("Signal")
+    table.add_column("Score")
+    table.add_column("Ref")
+    table.add_column("Proposal")
+    for candidate in candidates:
+        table.add_row(
+            candidate.candidate_id,
+            candidate.status,
+            candidate.symbol,
+            candidate.preset,
+            candidate.signal,
+            f"{candidate.score:.2f}",
+            f"{candidate.reference_price:.4f}",
+            candidate.proposal_id or "-",
+        )
+    console.print(table)
+
+
 def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]:
     """
     Builds a JSON-serializable payload of recent run metadata for CLI/observer consumption.
-    
+
     Parameters:
         settings (Settings): Application settings used to open the database.
         limit (int): Maximum number of recent runs to include.
-    
+
     Returns:
         dict: A mapping with keys:
             - `available` (bool): `True` when runs were loaded successfully, `False` on error.
@@ -1539,25 +1966,121 @@ def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]
     }
 
 
+def _risk_report_from_portfolio(
+    *,
+    settings: Settings,
+    snapshot: PortfolioSnapshot,
+    positions: list[PositionSnapshot],
+    report_date: str | None = None,
+) -> DailyRiskReport:
+    """
+    Builds a DailyRiskReport summarizing portfolio exposure, concentration, and warnings derived from a portfolio snapshot and its positions.
+    
+    Parameters:
+        settings (Settings): Runtime settings containing risk thresholds (e.g., max_open_positions, max_gross_exposure_pct, max_position_pct).
+        snapshot (PortfolioSnapshot): Current portfolio-level metrics (cash, equity, market_value, realized/unrealized P&L, open_positions).
+        positions (list[PositionSnapshot]): List of position snapshots used to compute exposure and concentration.
+        report_date (str | None): ISO date string to label the report; uses current UTC date when omitted.
+    
+    Returns:
+        DailyRiskReport: Risk summary containing:
+          - report_date: report date (ISO string)
+          - generated_at: UTC timestamp of report generation
+          - cash, market_value, equity, realized_pnl, unrealized_pnl, open_positions
+          - fills_today, marks_recorded, daily_realized_pnl (numeric placeholders)
+          - gross_exposure_pct: gross exposure divided by equity
+          - largest_position_pct: largest position market value divided by equity
+          - portfolio_hhi: Herfindahl–Hirschman Index of position weight concentration
+          - top_position_symbols: list of up to five top position symbols by market value
+          - drawdown_from_peak_pct: placeholder drawdown percentage
+          - warnings: list of human-readable warnings triggered by configured thresholds
+    """
+    resolved_date = report_date or datetime.now(timezone.utc).date().isoformat()
+    gross_exposure = sum(abs(position.market_value) for position in positions)
+    largest_position = max(
+        (abs(position.market_value) for position in positions), default=0.0
+    )
+    top_positions = sorted(
+        positions, key=lambda position: abs(position.market_value), reverse=True
+    )
+    equity = snapshot.equity if snapshot.equity != 0 else 1.0
+    portfolio_hhi = (
+        sum(
+            (abs(position.market_value) / gross_exposure) ** 2 for position in positions
+        )
+        if gross_exposure > 0
+        else 0.0
+    )
+
+    warnings: list[str] = []
+    if snapshot.open_positions >= settings.max_open_positions:
+        warnings.append("Open position count is elevated.")
+    if gross_exposure / equity > settings.max_gross_exposure_pct:
+        warnings.append(
+            f"Gross exposure is above {settings.max_gross_exposure_pct:.0%} of equity."
+        )
+    if largest_position / equity > settings.max_position_pct:
+        warnings.append(
+            f"Largest position is above {settings.max_position_pct:.0%} of equity."
+        )
+    if portfolio_hhi > 0.25:
+        warnings.append(
+            f"Portfolio concentration HHI is elevated at {portfolio_hhi:.3f}."
+        )
+
+    return DailyRiskReport(
+        report_date=resolved_date,
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        cash=snapshot.cash,
+        market_value=snapshot.market_value,
+        equity=snapshot.equity,
+        realized_pnl=snapshot.realized_pnl,
+        unrealized_pnl=snapshot.unrealized_pnl,
+        open_positions=snapshot.open_positions,
+        fills_today=0,
+        marks_recorded=0,
+        daily_realized_pnl=0.0,
+        gross_exposure_pct=gross_exposure / equity,
+        largest_position_pct=largest_position / equity,
+        portfolio_hhi=portfolio_hhi,
+        top_position_symbols=[position.symbol for position in top_positions[:5]],
+        drawdown_from_peak_pct=0.0,
+        warnings=warnings,
+    )
+
+
 def _risk_report_payload(
     settings: Settings, *, report_date: str | None = None
 ) -> dict[str, object]:
     """
-    Builds a payload containing the daily risk report (or an error indicator) for CLI/observer use.
+    Builds the daily risk report payload for CLI/observer consumption.
     
     Parameters:
-        report_date (str | None): ISO date string (YYYY-MM-DD) to generate the report for. If None, uses the default/latest date.
+        report_date (str | None): ISO date string (YYYY-MM-DD) to generate the report for. If None, uses the latest available date.
     
     Returns:
         dict: A mapping with keys:
             - "available" (bool): `True` if the report was produced, `False` on error.
             - "error" (str | None): Error message when `available` is `False`, otherwise `None`.
+            - "source" (str): Origin of the report data (e.g., `"broker_adapter"`, `"runtime_database"`, or `"unavailable"`).
             - "report" (dict | None): JSON-serializable representation of the daily risk report when available, otherwise `None`.
     """
+    source = "unavailable"
     try:
         db = _open_db(settings, read_only=True)
         try:
-            report = db.build_daily_risk_report(report_date=report_date)
+            if settings.execution_backend == "alpaca_paper":
+                broker = get_broker_adapter(db=db, settings=settings)
+                report = _risk_report_from_portfolio(
+                    settings=settings,
+                    snapshot=broker.get_account_state(),
+                    positions=broker.get_positions(),
+                    report_date=report_date,
+                )
+                source = "broker_adapter"
+            else:
+                report = db.build_daily_risk_report(report_date=report_date)
+                source = "runtime_database"
         finally:
             db.close()
         available = True
@@ -1569,6 +2092,7 @@ def _risk_report_payload(
     return {
         "available": available,
         "error": error,
+        "source": source if available else "unavailable",
         "report": report.model_dump(mode="json") if report is not None else None,
     }
 
@@ -1578,10 +2102,10 @@ def _run_record_payload(
 ) -> dict[str, object]:
     """
     Builds a payload containing a persisted run record (or the latest run) and availability metadata.
-    
+
     Parameters:
         run_id (str | None): Optional run identifier; when None the latest persisted run is loaded.
-    
+
     Returns:
         dict[str, object]: Payload with keys:
             - "available": `True` if the database read succeeded, `False` on error.
@@ -1612,11 +2136,11 @@ def _trade_context_payload(
 ) -> dict[str, object]:
     """
     Builds a payload containing a persisted trade context record for observer output or APIs.
-    
+
     Parameters:
         settings (Settings): Application settings used to open the read-only database.
         trade_id (str | None): Optional trade identifier; when provided, returns the matching trade context, otherwise returns the latest trade context.
-    
+
     Returns:
         dict: A JSON-serializable mapping with keys:
             - "available" (bool): `True` if the record was loaded successfully, `False` on error.
@@ -1649,7 +2173,7 @@ def _trade_context_payload(
 def _market_context_payload(settings: Settings) -> dict[str, object]:
     """
     Produce the latest persisted market context pack used by the most recent completed run.
-    
+
     Returns:
         payload (dict): A JSON-serializable mapping with keys:
             - "available" (bool): `true` if a persisted context pack was found, `false` otherwise.
@@ -1683,7 +2207,7 @@ def _market_context_payload(settings: Settings) -> dict[str, object]:
 def _canonical_analysis_payload(settings: Settings) -> dict[str, object]:
     """
     Retrieve the most recently persisted canonical provider aggregation snapshot, if any.
-    
+
     Returns:
         dict: A payload with keys:
             - available (bool): `True` if a canonical snapshot was found, `False` otherwise.
@@ -1728,10 +2252,10 @@ def _canonical_analysis_lines(
 ) -> list[str]:
     """
     Builds a list of human-readable lines summarizing a canonical analysis snapshot for terminal display.
-    
+
     Parameters:
         canonical_snapshot (CanonicalAnalysisSnapshot | None): The canonical analysis snapshot to summarize; pass None when no snapshot is attached.
-    
+
     Returns:
         list[str]: Ordered lines suitable for printing or panel rendering. If `canonical_snapshot` is None, returns a single-line message indicating no snapshot is attached.
     """
@@ -1764,10 +2288,10 @@ def _canonical_analysis_lines(
 def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
     """
     Builds a JSON-serializable supervisor payload describing the orchestrator runtime status, recent log tails, and the serialized service state.
-    
+
     Parameters:
         settings (Settings): Application settings used to locate persisted service state and log files.
-    
+
     Returns:
         dict[str, object]: Dictionary with the following keys:
             - runtime_state: Short runtime status identifier for the service view.
@@ -1801,10 +2325,10 @@ def _service_supervisor_payload(settings: Settings) -> dict[str, object]:
 
 def _broker_payload(settings: Settings) -> dict[str, object]:
     """
-    Build a JSON-serializable payload describing the broker runtime and safety-gate state.
+    Builds a JSON-serializable payload describing broker runtime metadata and safety-gate flags.
     
     Returns:
-        dict: A dictionary containing broker runtime metadata and safety gate flags.
+        dict: Broker runtime and safety-gate fields suitable for JSON serialization.
     """
     return broker_runtime_payload(settings)
 
@@ -1812,6 +2336,19 @@ def _broker_payload(settings: Settings) -> dict[str, object]:
 def _finance_check(
     name: str, passed: bool, details: str, *, blocking: bool = True
 ) -> dict[str, object]:
+    """
+    Builds a standardized finance readiness check record.
+    
+    Parameters:
+        blocking (bool): Whether a failing check should be considered blocking for overall readiness.
+    
+    Returns:
+        dict[str, object]: A record with keys:
+            - "name": the check name (str)
+            - "passed": the check outcome (`True` if passed, `False` otherwise)
+            - "details": human-readable details or diagnostics (str)
+            - "blocking": whether failure of this check is blocking (bool)
+    """
     return {
         "name": name,
         "passed": passed,
@@ -1820,17 +2357,62 @@ def _finance_check(
     }
 
 
+def _position_plan_coverage_details(payload: dict[str, object]) -> str:
+    """
+    Format a position-plan-coverage payload into a concise human-readable summary string.
+    
+    Parameters:
+        payload (dict): Observer payload expected to contain:
+            - "available" (bool): whether coverage data is available.
+            - "error" (str, optional): error message when unavailable.
+            - "open_symbols" (list[str], optional): currently open position symbols.
+            - "planned_symbols" (list[str], optional): planned position symbols.
+            - "missing_symbols" (list[str], optional): planned symbols missing from open positions.
+    
+    Returns:
+        str: If `available` is false, returns the payload's `error` or "position plan coverage unavailable".
+             Otherwise returns a single-line summary in the form
+             "open=[...] planned=[...] missing=[...]".
+    """
+    if not bool(payload.get("available")):
+        return str(payload.get("error") or "position plan coverage unavailable")
+    open_symbols = payload.get("open_symbols")
+    missing_symbols = payload.get("missing_symbols")
+    planned_symbols = payload.get("planned_symbols")
+    return (
+        f"open={open_symbols if isinstance(open_symbols, list) else []} "
+        f"planned={planned_symbols if isinstance(planned_symbols, list) else []} "
+        f"missing={missing_symbols if isinstance(missing_symbols, list) else []}"
+    )
+
+
 def _finance_ops_payload(settings: Settings) -> dict[str, object]:
-    """Build a read-only trading-desk view of broker, account, PnL, and evidence truth."""
+    """
+    Build a dashboard-ready finance-operations payload summarizing broker/account state, reconciliation, risk, and readiness evidence.
+    
+    Returns:
+        dict: Payload with keys:
+            - ready: `True` if all blocking finance checks pass, `False` otherwise.
+            - mode: Runtime mode from settings.
+            - backend: Execution backend identifier from settings.
+            - checks: List of check objects describing individual finance readiness gates.
+            - broker: Broker health and metadata payload.
+            - portfolio: Account snapshot and accounting metadata.
+            - positionPlanCoverage: Coverage payload comparing open positions to planned exit plans.
+            - riskReport: Daily risk report payload and availability/error metadata.
+            - paperEvidence: V1 readiness evidence (source-attributed, review artifacts, no-live evidence).
+            - reconciliation: Finance reconciliation contract payload (ledger categories, etc.).
+            - accounting: Aggregated accounting fields (currency, mark metadata, cost model, ledger categories, rejection evidence).
+            - summary: Human-readable summary of overall finance operations readiness.
+    """
     broker = _broker_payload(settings)
     portfolio = _portfolio_payload(settings)
+    position_plan_coverage = _position_plan_coverage_payload(settings)
     risk_report = _risk_report_payload(settings)
     readiness = v1_readiness_payload(settings, check_provider=False)
     reconciliation = finance_reconciliation_contract_payload()
     snapshot = portfolio.get("snapshot") if isinstance(portfolio, dict) else None
-    accounting = (
-        portfolio.get("accounting") if isinstance(portfolio, dict) else {}
-    )
+    accounting = portfolio.get("accounting") if isinstance(portfolio, dict) else {}
     if not isinstance(accounting, dict):
         accounting = {}
     checks = [
@@ -1856,8 +2438,15 @@ def _finance_ops_payload(settings: Settings) -> dict[str, object]:
             "cash/equity/PnL/position fields are present on the portfolio snapshot.",
         ),
         _finance_check(
+            "open_position_exit_plans_visible",
+            bool(position_plan_coverage.get("available"))
+            and not bool(position_plan_coverage.get("missing_symbols")),
+            _position_plan_coverage_details(position_plan_coverage),
+        ),
+        _finance_check(
             "risk_report_visible",
-            bool(risk_report.get("available")) and risk_report.get("report") is not None,
+            bool(risk_report.get("available"))
+            and risk_report.get("report") is not None,
             str(risk_report.get("error") or "daily risk report available"),
             blocking=False,
         ),
@@ -1877,6 +2466,7 @@ def _finance_ops_payload(settings: Settings) -> dict[str, object]:
         "checks": checks,
         "broker": broker,
         "portfolio": portfolio,
+        "positionPlanCoverage": position_plan_coverage,
         "riskReport": risk_report,
         "paperEvidence": readiness.get("paper_evidence"),
         "reconciliation": reconciliation,
@@ -1915,6 +2505,18 @@ def _finance_snapshot_fields_visible(snapshot: object) -> bool:
 
 
 def _render_finance_ops(payload: dict[str, object]) -> None:
+    """
+    Render the finance operations view to the console.
+    
+    Displays a summary panel titled "Finance Operations" (border colored green when `payload["ready"]` is truthy, yellow otherwise), followed by a checks table, an accounting table, and an optional ledger table when `accounting["ledger_categories"]` is present.
+    
+    Parameters:
+        payload (dict[str, object]): Viewer payload containing:
+            - "summary" (str): Human-readable summary message.
+            - "ready" (bool): Readiness flag used to choose panel border color.
+            - "checks" (list): List of check rows for the finance checks table.
+            - "accounting" (dict): Accounting data consumed by the accounting and ledger tables; may include "ledger_categories".
+    """
     checks = payload.get("checks", [])
     accounting = payload.get("accounting", {})
     if not isinstance(accounting, dict):
@@ -1933,7 +2535,86 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
         console.print(ledger_table)
 
 
+def _render_position_plan_repair(payload: dict[str, object]) -> None:
+    """
+    Render a terminal summary and table describing the results of a position-plan repair operation.
+    
+    Parameters:
+        payload (dict): Repair payload containing at least:
+            - "applied" (bool): Whether the repair changes were applied.
+            - "summary" (str): Human-readable summary shown as a panel title/body.
+            - "repairs" (list[dict]): Per-symbol repair entries. Each entry may include:
+                - "symbol" (str)
+                - "status" (str)
+                - "proposal_id" (str)
+                - "entry_price" (float | None)
+                - "stop_loss" (float | None)
+                - "take_profit" (float | None)
+                - "reason" (str)
+    """
+    applied = bool(payload.get("applied"))
+    table = Table(title="Position Plan Repair")
+    table.add_column("Symbol")
+    table.add_column("Status")
+    table.add_column("Proposal")
+    table.add_column("Entry")
+    table.add_column("Stop")
+    table.add_column("Take")
+    table.add_column("Reason")
+    repairs = payload.get("repairs", [])
+    if isinstance(repairs, list):
+        for item in repairs:
+            if not isinstance(item, dict):
+                continue
+            table.add_row(
+                str(item.get("symbol", "-")),
+                str(item.get("status", "-")),
+                str(item.get("proposal_id", "-")),
+                _format_optional_float(item.get("entry_price")),
+                _format_optional_float(item.get("stop_loss")),
+                _format_optional_float(item.get("take_profit")),
+                str(item.get("reason", "")),
+            )
+    console.print(
+        Panel(
+            str(payload.get("summary", "Position plan repair status unavailable.")),
+            title="Position Plan Repair",
+            border_style="green" if applied else "yellow",
+        )
+    )
+    console.print(table)
+
+
+def _format_optional_float(value: object) -> str:
+    """
+    Format a numeric value to four decimal places or return a dash for non-numeric input.
+    
+    Parameters:
+        value (object): The value to format. If `value` is an int or float it will be converted
+            to a float and rendered with four decimal places; any other input yields a dash.
+    
+    Returns:
+        str: The formatted numeric string (e.g. "1.2345") or "-" when `value` is not a number.
+    """
+    if isinstance(value, (int, float)):
+        return f"{float(value):.4f}"
+    return "-"
+
+
 def _finance_checks_table(checks: object) -> Table:
+    """
+    Builds a Rich Table summarizing finance operation checks for display.
+    
+    Parameters:
+        checks (object): Expected to be a list of dicts where each dict may contain:
+            - "name": check name
+            - "passed": truthy value indicates pass (rendered as green "pass"); falsy indicates fail (red "fail")
+            - "blocking": whether the check is blocking (defaults to True if missing)
+            - "details": additional details to show
+    
+    Returns:
+        Table: A Rich Table with columns "Check", "State", "Blocking", and "Details". If `checks` is not a list, the table is returned empty.
+    """
     table = Table(title="Finance Operations Checks")
     table.add_column("Check")
     table.add_column("State")
@@ -1952,6 +2633,23 @@ def _finance_checks_table(checks: object) -> Table:
 
 
 def _finance_accounting_table(accounting: dict[object, object]) -> Table:
+    """
+    Builds a Rich Table summarizing desk accounting context from an accounting payload.
+    
+    Parameters:
+        accounting (dict): A mapping containing accounting fields used to populate the table. Recognized keys:
+            - "currency": str, primary account currency (defaults to "USD" when missing).
+            - "mark_created_at": timestamp or str, mark/valuation time.
+            - "mark_source": str, source of the mark.
+            - "mark_status": str, status of the mark.
+            - "rejection_evidence": any, evidence for rejected accounting items.
+            - "cost_model": dict, optional nested cost fields:
+                - "fees": any, formatted fee summary.
+                - "slippage_bps": number, slippage in basis points.
+    
+    Returns:
+        Table: A Rich Table titled "Desk Accounting Context" with rows for Currency, Marked At, Mark Source, Mark Status, Fees, Slippage, and Rejection Evidence.
+    """
     cost_model = accounting.get("cost_model", {})
     if not isinstance(cost_model, dict):
         cost_model = {}
@@ -1967,9 +2665,11 @@ def _finance_accounting_table(accounting: dict[object, object]) -> Table:
     context.add_row("Fees", str(cost_model.get("fees", "-")))
     context.add_row(
         "Slippage",
-        "-"
-        if cost_model.get("slippage_bps") is None
-        else f"{cost_model.get('slippage_bps')} bps",
+        (
+            "-"
+            if cost_model.get("slippage_bps") is None
+            else f"{cost_model.get('slippage_bps')} bps"
+        ),
     )
     context.add_row(
         "Rejection Evidence", str(accounting.get("rejection_evidence") or "-")
@@ -1996,15 +2696,15 @@ def _finance_ledger_table(ledger_categories: object) -> Table | None:
 
 def _training_backtest_allow_fallback(settings: Settings) -> bool:
     """
-    Determine whether a backtest running under the current settings may use deterministic diagnostic fallbacks.
+    Decides whether a backtest may run with deterministic diagnostic fallbacks under the current settings.
     
-    Attempts to verify LLM readiness; if the readiness check fails and the configured runtime mode is "training", a training diagnostic panel is displayed and fallback execution is permitted. In any other mode the readiness failure is propagated and fallbacks are not allowed.
+    Attempts to ensure LLM readiness; if readiness fails and `settings.runtime_mode` is `"training"`, displays a "Training Diagnostic Mode" panel and permits fallback execution. If readiness fails in any other runtime mode, the readiness error is propagated.
     
     Parameters:
-        settings (Settings): Runtime configuration used to determine the current mode and for contextual diagnostics.
+        settings (Settings): Runtime configuration used to determine the current mode and context for readiness checks.
     
     Returns:
-        bool: `True` if fallback execution is permitted for this backtest, `False` otherwise.
+        bool: `True` if fallback execution is permitted, `False` otherwise.
     """
     try:
         ensure_llm_ready(settings)
@@ -2030,14 +2730,14 @@ def _runtime_mode_transition_plan(
 ) -> RuntimeModeTransitionPlan:
     """
     Builds a checklist of preconditions required to transition the runtime to the given target mode.
-    
+
     Evaluates mode-specific conditions (for "operation" this includes strict-LLM, provider/model health when requested, execution backend and kill-switch state; for "training" this includes diagnostic constraints and operator-safety requirements). Each checklist entry indicates its name, pass/fail state, human-readable details, and whether it is blocking. The plan's `allowed` field is true only if all blocking checks pass, and the returned `RuntimeModeTransitionPlan` contains the current and target modes, the computed `allowed` flag, the list of checks, and a short summary.
-    
+
     Parameters:
         settings (Settings): Runtime configuration used to read current mode and relevant flags.
         target_mode (RuntimeMode): Desired runtime mode to transition to.
         check_provider (bool): If true, perform LLM provider health checks (reachability and model availability); if false, provider checks are added as blocking unknowns.
-    
+
     Returns:
         RuntimeModeTransitionPlan: A plan object containing `current_mode`, `target_mode`, `allowed`, `checks`, and `summary`.
     """
@@ -2048,13 +2748,13 @@ def _runtime_mode_transition_plan(
     ) -> None:
         """
         Append a runtime mode transition check to the module-level checklist.
-        
+
         Parameters:
             name (str): Human-readable name of the check.
             passed (bool): `True` if the check passed, `False` otherwise.
             details (str): Operator-facing explanation or diagnostic message for the check.
             blocking (bool): If `True`, a failing check blocks the transition; defaults to `True`.
-        
+
         Side effects:
             Appends a `RuntimeModeTransitionCheck` instance to the `checks` list.
         """
@@ -2145,12 +2845,12 @@ def _runtime_mode_transition_plan(
 
 def _render_runtime_mode_transition_plan(plan: RuntimeModeTransitionPlan) -> None:
     """
-    Render a runtime-mode transition checklist and summary to the console for operator review.
+    Render a runtime-mode transition checklist and summary for operator review.
     
-    Prints a table of each transition check (name, whether it passed, whether it is blocking, and details) and a summary panel showing the current mode, target mode, whether the transition is allowed, and the plan summary.
+    Prints a table of transition checks (name, pass status, blocking flag, and details) and a summary panel showing current mode, target mode, whether the transition is allowed, and the plan's human-readable summary.
     
     Parameters:
-        plan (RuntimeModeTransitionPlan): Plan containing the current and target modes, computed checks, overall allowance flag, and a human-readable summary.
+        plan (RuntimeModeTransitionPlan): Transition plan containing current and target modes, an ordered sequence of checks (each with name, passed, blocking, details), an overall `allowed` flag, and a short `summary` suitable for operator display.
     """
     table = Table(title="Runtime Mode Transition Checklist")
     table.add_column("Check")
@@ -2193,15 +2893,15 @@ def _runtime_status_payload(
 
 def _default_symbol_from_preferences(preferences: InvestmentPreferences) -> str:
     """
-    Selects a sensible default trading symbol based on the given investment preferences.
+    Select a sensible default trading symbol based on investment preferences.
     
-    Prefers a Turkish exchange symbol ("THYAO.IS") when preferences indicate BIST or TR; prefers a US equity ("AAPL") when NASDAQ/NYSE or US region is present; otherwise returns a crypto USD symbol ("BTC-USD").
+    Prefers "THYAO.IS" if preferences indicate the BIST exchange or Turkish region; prefers "AAPL" if NASDAQ/NYSE or US region is present; otherwise returns "BTC-USD".
     
     Parameters:
-        preferences (InvestmentPreferences): Saved investment preferences with `exchanges` and `regions` used to determine a representative default symbol.
+        preferences (InvestmentPreferences): Preferences whose `exchanges` and `regions` are used to choose a representative default symbol.
     
     Returns:
-        str: A default symbol string chosen from "THYAO.IS", "AAPL", or "BTC-USD".
+        str: `"THYAO.IS"`, `"AAPL"`, or `"BTC-USD"` depending on detected exchanges/regions.
     """
     if "BIST" in preferences.exchanges or "TR" in preferences.regions:
         return "THYAO.IS"
@@ -2218,16 +2918,16 @@ def _calendar_payload(
     settings: Settings, *, symbol: str | None = None
 ) -> dict[str, object]:
     """
-    Builds a payload describing the market session for a resolved symbol and whether it could be retrieved.
+    Builds a payload describing the inferred market session for a resolved symbol.
     
     Parameters:
-        symbol (str | None): Optional explicit symbol to use. If None, the function uses the latest run's symbol when available, otherwise derives a default from saved investment preferences.
+        symbol (str | None): Optional explicit symbol to resolve; when omitted the latest run's symbol is used if available, otherwise a default from investment preferences is used.
     
     Returns:
-        dict[str, object]: A dictionary with:
-            - "available" (bool): True when a session was successfully inferred, False on error.
-            - "error" (str | None): The exception message when unavailable, otherwise None.
-            - "session" (dict | None): JSON-serializable market session data when available, otherwise None.
+        dict[str, object]: Payload with keys:
+            - "available" (bool): `True` if a session was inferred, `False` otherwise.
+            - "error" (str | None): Error message when unavailable, otherwise `None`.
+            - "session" (dict | None): JSON-serializable market session data when available, otherwise `None`.
     """
     try:
         preferences = InvestmentPreferences()
@@ -2262,11 +2962,11 @@ def _news_payload(
 ) -> dict[str, object]:
     """
     Builds a payload containing recent news headlines for a resolved trading symbol.
-    
+
     Parameters:
         settings (Settings): Application settings used to determine news mode and I/O behavior.
         symbol (str | None): Optional explicit symbol to fetch headlines for; when omitted the symbol is resolved from the latest run record or from saved preferences.
-    
+
     Returns:
         dict[str, object]: A mapping with keys:
             - "available": `True` if headlines were retrieved, `False` otherwise.
@@ -2339,25 +3039,24 @@ def _memory_explorer_payload(
     use_latest_run: bool = False,
 ) -> dict[str, object]:
     """
-    Builds a payload containing a market snapshot and similar memory matches for a symbol/interval.
+    Builds a market snapshot for a symbol/interval and returns similar memory matches.
+    
+    If `use_latest_run` is True or no `symbol` is provided, prefers the latest persisted run snapshot; otherwise fetches OHLCV and constructs a new snapshot. The returned snapshot and matches are JSON-serializable.
     
     Parameters:
         settings (Settings): Application settings and environment.
-        symbol (str | None): Optional symbol to build or fetch the snapshot for. If omitted and
-            `use_latest_run` is True or a latest run exists, the latest run's snapshot symbol is used.
-        interval (str | None): Optional interval (e.g., "1d", "1h"). If omitted and a latest run
-            snapshot is used, the latest run's interval is used.
-        lookback (str): Historical range to include when building the snapshot (e.g., "180d").
+        symbol (str | None): Symbol to target; when omitted and `use_latest_run` is False, a latest run snapshot is required.
+        interval (str | None): Time interval (e.g., "1d", "1h"); when omitted and `use_latest_run` is False, a latest run snapshot is required.
+        lookback (str): Historical range to include when building a snapshot (e.g., "180d").
         limit (int): Maximum number of similar memories to retrieve.
-        use_latest_run (bool): When True, prefer the latest persisted run snapshot instead of
-            fetching/building a new market snapshot.
+        use_latest_run (bool): When True, prefer the latest persisted run snapshot instead of fetching/building a new one.
     
     Returns:
-        dict: A JSON-serializable payload with keys:
-            - "available" (bool): `True` if the payload was built successfully, `False` on error.
-            - "error" (str | None): Error message when `available` is `False`, otherwise `None`.
-            - "snapshot" (dict | None): Snapshot serialized to JSON-compatible dict, or `None` if unavailable.
-            - "matches" (list[dict]): List of retrieved memory matches serialized as JSON-compatible dicts.
+        dict: Payload with keys:
+            - "available" (bool): True when payload built successfully, False on error.
+            - "error" (str | None): Error message when not available, otherwise None.
+            - "snapshot" (dict | None): JSON-serializable snapshot object or None.
+            - "matches" (list[dict]): List of JSON-serializable memory match objects (may be empty).
     """
     try:
         db = _open_db(settings, read_only=True)
@@ -2410,6 +3109,31 @@ def _memory_explorer_payload(
 def _retrieval_inspection_payload(
     settings: Settings, *, run_id: str | None = None
 ) -> dict[str, object]:
+    """
+    Builds an inspection payload describing retrieval stages and memory-related data from a persisted run record.
+    
+    Parameters:
+        settings (Settings): Application settings used to locate and read persisted run records.
+        run_id (str | None): Optional run identifier; when omitted the latest run record is used.
+    
+    Returns:
+        dict[str, object]: A payload with the following keys:
+            - available (bool): Whether a run record was found and parsed.
+            - error (str | None): Error message when unavailable, otherwise None.
+            - run_id (str | None): The run identifier associated with the payload or None.
+            - symbol (str | None): The run's trading symbol when available.
+            - interval (str | None): The run's interval when available.
+            - stages (list[dict]): Ordered list of retrieval stages; each stage contains:
+                - role (str): Agent role that produced the trace.
+                - model_name (str | None): Model name used by the agent.
+                - used_fallback (bool): Whether the agent fell back to a non-preferred codepath.
+                - retrieved_memories (list): Memories retrieved for the stage.
+                - retrieval_explanations (list): Explanatory notes for each retrieval.
+                - memory_notes (list): Additional memory-related notes.
+                - shared_memory_bus (list): Items published to the shared memory bus.
+                - recent_runs (list): References to recent runs included in the context.
+                - tool_outputs (list): Outputs produced by external tools used in the stage.
+    """
     record_payload = _run_record_payload(settings, run_id=run_id)
     record_json = record_payload["record"]
     if record_payload["available"] is False or record_json is None:
@@ -2434,9 +3158,7 @@ def _retrieval_inspection_payload(
                 "model_name": trace.model_name,
                 "used_fallback": trace.used_fallback,
                 "retrieved_memories": context.get("retrieved_memories", []),
-                "retrieval_explanations": context.get(
-                    "retrieval_explanations", []
-                ),
+                "retrieval_explanations": context.get("retrieval_explanations", []),
                 "memory_notes": context.get("memory_notes", []),
                 "shared_memory_bus": context.get("shared_memory_bus", []),
                 "recent_runs": context.get("recent_runs", []),
@@ -2457,10 +3179,10 @@ def _retrieval_inspection_payload(
 def _chat_history_payload(settings: Settings, *, limit: int = 12) -> dict[str, object]:
     """
     Builds a payload containing recent chat history entries for observer/CLI consumption.
-    
+
     Parameters:
         limit (int): Maximum number of most-recent chat history entries to include.
-    
+
     Returns:
         dict: A mapping with keys:
             - "available": `True` if chat history was read successfully, `False` otherwise.
@@ -2487,12 +3209,12 @@ def _run_replay_payload(
 ) -> dict[str, object]:
     """
     Builds a JSON-serializable replay payload for a persisted run record for observer and CLI use.
-    
+
     If a run record is not available or an error occurs while loading it, the payload will indicate availability as `False`, include the error message, and set `replay` to `None`.
-    
+
     Parameters:
         run_id (str | None): Optional run identifier; when `None`, the latest persisted run is used.
-    
+
     Returns:
         dict[str, object]: A payload containing:
             - `available` (bool): `True` when the replay was successfully built, `False` otherwise.
@@ -2563,9 +3285,9 @@ def app_entry(ctx: typer.Context) -> None:
 @app.command()
 def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
     """
-    Check local environment and present LLM and database runtime status.
+    Check local environment and report LLM and database runtime readiness.
     
-    When not emitting JSON, prints a table of environment fields and a readiness panel indicating whether the trading runtime can start with full LLM access. When `json_output` is true, emits an equivalent JSON payload instead of rendering terminal output.
+    When `json_output` is true, emit a JSON payload containing LLM provider/model, runtime and database paths, database status, LLM reachability/availability, and the latest order. Otherwise render a table of environment fields and a readiness panel indicating whether the trading runtime can start with full LLM access.
     
     Parameters:
         json_output (bool): If true, emit the environment payload as JSON rather than rendering terminal output.
@@ -2647,19 +3369,19 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
 
 def _render_setup_status(payload: dict[str, object]) -> None:
     """
-    Display workspace and optional side-application readiness using Rich tables and panels.
+    Render setup and auxiliary service readiness panels and tables to the console.
     
     Parameters:
-        payload (dict[str, object]): Snapshot containing setup information. Expected keys:
-            - "platform": platform description (displayed under "Platform").
-            - "workspace_root": project workspace path.
-            - "core_ready": whether core components are ready.
-            - "optional_ready": whether optional runtime pieces are ready.
-            - "model_service", "camofox_service", "webgui_service": dicts with a "message" key summarizing each service.
-            - "tool_ownership" (optional): ownership snapshot passed to the tool ownership renderer.
-            - "tools": list of tool descriptors; each dict should include "label", "category", "status", optional "ownership_mode", "path", "notes" (list), and "install_hint".
-            - "recommended_commands": list[str] of CLI commands to suggest to the user.
-    
+        payload (dict[str, object]): Snapshot of setup information. Expected keys:
+            - platform: platform description (displayed under "Platform").
+            - workspace_root: project workspace path.
+            - core_ready: boolean indicating core components readiness.
+            - optional_ready: boolean indicating optional runtime readiness.
+            - model_service, camofox_service, webgui_service: dicts (may be empty) with a "message" key summarizing each service.
+            - tool_ownership (optional): dict passed to the tool ownership renderer.
+            - tools: list[dict] of tool descriptors; each dict may include:
+                "label", "category", "status", optional "ownership_mode", "path", "notes" (list[str]), and "install_hint".
+            - recommended_commands: list[str] of CLI commands to suggest to the user.
     """
 
     summary = Table(title="Setup Status")
@@ -2711,18 +3433,16 @@ def _render_setup_status(payload: dict[str, object]) -> None:
 
 def _render_tool_ownership(payload: dict[str, object]) -> None:
     """
-    Render the recorded tool ownership decisions as a Rich table.
+    Render recorded tool ownership decisions as a Rich table.
     
     Parameters:
-        payload (dict[str, object]): Snapshot containing an optional "decisions" key. If present, "decisions"
-            should be a list of mappings with the keys:
+        payload (dict[str, object]): Snapshot that may include a "decisions" key. When present,
+            "decisions" is expected to be a list of mappings with these keys:
                 - "tool": tool identifier or name
                 - "mode": ownership mode
                 - "source": origin of the recorded decision
                 - "updated_at": timestamp of last update
-                - "note": human-readable meaning or note
-    
-    The function prints a table with columns: Tool, Mode, Source, Updated, and Meaning.
+                - "note": human-readable note or meaning
     """
 
     table = Table(title="Tool Ownership")
@@ -2745,30 +3465,17 @@ def _render_tool_ownership(payload: dict[str, object]) -> None:
 
 def _render_model_service_status(payload: dict[str, object]) -> None:
     """
-    Render the app-owned model service status and recent stderr lines to the console.
+    Render model-service status panels to the console.
     
-    The function reads known keys from the supplied payload and prints a two-column status table,
-    an "Available Models" panel, and a stderr tail panel when present.
+    Builds and prints a two-column status table, an "Available Models" panel, and an optional stderr tail panel using values from `payload`.
     
     Parameters:
-    	payload (dict[str, object]): Status payload containing any of the following keys used for display:
-    		- provider
-    		- command_available
-    		- command_path
-    		- configured_base_url
-    		- configured_model
-    		- service_reachable
-    		- model_available
-    		- generation_checked
-    		- generation_available
-    		- generation_message
-    		- app_owned
-    		- pid
-    		- base_url
-    		- message
-    		- runtime_base_url_matches_app_service
-    		- available_models (iterable of model names shown in the "Available Models" panel)
-    		- stderr_tail (iterable of recent stderr lines shown in the stderr panel)
+        payload (dict[str, object]): Status payload whose keys are displayed. Recognized keys include:
+            provider, command_available, command_path, configured_base_url, configured_model,
+            service_reachable, model_available, generation_checked, generation_available,
+            generation_message, app_owned, pid, base_url, message,
+            runtime_base_url_matches_app_service, available_models (iterable of model names),
+            stderr_tail (iterable of recent stderr lines).
     """
 
     table = Table(title=LABEL_MODEL_SERVICE)
@@ -2878,7 +3585,21 @@ def _render_camofox_service_status(payload: dict[str, object]) -> None:
 
 
 def _render_operator_launcher_status(payload: dict[str, object]) -> None:
-    """Render the primary no-argument operator launcher status."""
+    """
+    Render the operator launcher status table and a "Choose A Surface" selection panel to the console.
+    
+    Parameters:
+        payload (dict[str, object]): Observer payload containing state for the launcher view. Expected keys:
+            - "default_runtime_plan": dict with keys "symbols", "interval", "lookback", "poll_seconds" describing the default runtime plan.
+            - "model_service": dict with keys "model_available" and "base_url"/"configured_base_url" or "message".
+            - "camofox_service": dict with keys "health_ok", "base_url", and "message".
+            - "webgui_service": dict with keys "app_owned", "service_reachable", "url", and "message".
+            - "setup": dict with key "core_ready".
+            - "runtime_active": bool indicating whether the runtime daemon is active.
+            - "runtime_state": human-readable runtime state when not active.
+    
+    The function prints a table of surfaces (runtime daemon, web GUI, model service, camofox, setup) with current status and suggested next action, followed by a panel listing operator menu choices.
+    """
 
     plan = cast(dict[str, object], payload["default_runtime_plan"])
     model_service = cast(dict[str, object], payload["model_service"])
@@ -2910,12 +3631,20 @@ def _render_operator_launcher_status(payload: dict[str, object]) -> None:
     )
     table.add_row(
         LABEL_MODEL_SERVICE,
-        "ready" if model_service.get("model_available") else str(model_service.get("message")),
+        (
+            "ready"
+            if model_service.get("model_available")
+            else str(model_service.get("message"))
+        ),
         str(model_service.get("base_url") or model_service.get("configured_base_url")),
     )
     table.add_row(
         "Camofox",
-        "ready" if camofox_service.get("health_ok") else str(camofox_service.get("message")),
+        (
+            "ready"
+            if camofox_service.get("health_ok")
+            else str(camofox_service.get("message"))
+        ),
         str(camofox_service.get("base_url") or "agentic-trader camofox-service start"),
     )
     table.add_row(
@@ -2929,13 +3658,9 @@ def _render_operator_launcher_status(payload: dict[str, object]) -> None:
             "\n".join(
                 [
                     "1  Open/start the local Web GUI command center",
-                    "2  Start the default strict paper daemon",
-                    "3  Open the Ink terminal control room",
-                    "4  Open the Rich/admin fallback menu",
-                    "5  Show local model-service status",
-                    "6  Show Camofox browser helper status",
-                    "7  Show setup/tool readiness",
-                    "8  Exit",
+                    "2  Continue in the Rich terminal control room",
+                    "3  Stay here and refresh this launcher",
+                    "4  Exit",
                 ]
             ),
             title="Choose A Surface",
@@ -2948,67 +3673,37 @@ def _operator_launcher() -> None:
     """Interactive no-argument product launcher."""
 
     settings = get_settings()
-    payload = build_operator_launcher_status(settings).model_dump(mode="json")
-    _render_operator_launcher_status(payload)
-    choice = Prompt.ask(
-        "Select action",
-        choices=["1", "2", "3", "4", "5", "6", "7", "8", "q"],
-        default="3",
+    while True:
+        payload = build_operator_launcher_status(settings).model_dump(mode="json")
+        _render_operator_launcher_status(payload)
+        choice = Prompt.ask(
+            "Select action",
+            choices=["1", "2", "3", "4", "8", "q"],
+            default="2",
+        )
+        if choice == "1":
+            try:
+                status = start_operator_webgui(settings)
+            except Exception as exc:
+                console.print(
+                    _render_health_panel(
+                        "Web GUI Start Failed",
+                        redact_sensitive_text(exc, max_length=240),
+                        border_style="red",
+                    )
+                )
+                raise typer.Exit(code=1) from exc
+            _render_webgui_service_status(status.model_dump(mode="json"))
+            return
+        if choice == "2":
+            run_main_menu()
+            return
+        if choice == "3":
+            continue
+        break
+    console.print(
+        _render_health_panel("Exit", "No action selected.", border_style="blue")
     )
-    if choice == "1":
-        try:
-            status = start_operator_webgui(settings)
-        except Exception as exc:
-            console.print(
-                _render_health_panel(
-                    "Web GUI Start Failed",
-                    redact_sensitive_text(exc, max_length=240),
-                    border_style="red",
-                )
-            )
-            raise typer.Exit(code=1) from exc
-        _render_webgui_service_status(status.model_dump(mode="json"))
-        return
-    if choice == "2":
-        try:
-            pid = start_default_background_runtime(settings)
-        except Exception as exc:
-            console.print(
-                _render_health_panel(
-                    "Daemon Start Blocked",
-                    redact_sensitive_text(exc, max_length=240),
-                    border_style="red",
-                )
-            )
-            raise typer.Exit(code=1) from exc
-        console.print(
-            _render_health_panel(
-                "Background Daemon Started",
-                f"Paper-runtime daemon is running with PID {pid}.",
-                border_style="green",
-            )
-        )
-        return
-    if choice == "3":
-        ink_tui()
-        return
-    if choice == "4":
-        run_main_menu()
-        return
-    if choice == "5":
-        _render_model_service_status(
-            build_model_service_status(settings).model_dump(mode="json")
-        )
-        return
-    if choice == "6":
-        _render_camofox_service_status(
-            build_camofox_service_status(settings).model_dump(mode="json")
-        )
-        return
-    if choice == "7":
-        _render_setup_status(build_setup_status(settings).model_dump(mode="json"))
-        return
-    console.print(_render_health_panel("Exit", "No action selected.", border_style="blue"))
 
 
 @app.command("setup-status")
@@ -3017,9 +3712,9 @@ def setup_status(
 ) -> None:
     """
     Display system setup and tool/model-service readiness.
-    
+
     When json_output is True, emit a structured JSON payload of the setup status; otherwise render human-friendly console panels summarizing source setup, optional tool ownership/readiness, and model-service state.
-    
+
     Parameters:
         json_output (bool): `True` to output a machine-readable JSON payload, `False` to render console output.
     """
@@ -3067,15 +3762,15 @@ def tool_ownership_set(
 ) -> None:
     """
     Persist explicit ownership decisions for optional helper tools.
-    
+
     Accepts ownership mode overrides for Ollama, Firecrawl, and Camofox, validates each mode, and writes the persisted ownership choices to application settings. When --json is set, emits the persisted payload as JSON; otherwise renders a human-friendly panel.
-    
+
     Parameters:
         ollama_owner (str | None): Ownership mode for Ollama. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
         firecrawl_owner (str | None): Ownership mode for Firecrawl. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
         camofox_owner (str | None): Ownership mode for Camofox. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
         json_output (bool): If true, emit the persisted ownership payload as compact JSON instead of rendering a panel.
-    
+
     Raises:
         typer.BadParameter: If no ownership decisions are provided or if any provided mode is invalid.
     """
@@ -3116,15 +3811,15 @@ def setup_command(
     ),
 ) -> None:
     """
-    Show local system setup status and guidance.
+    Display local system setup status and guidance.
     
-    When run normally, renders a human-friendly setup status view and a guidance panel.
-    When `json_output` is true, emits a JSON payload with `dry_run`, `mutated`, `status`,
-    and `message` keys instead of rendering.
+    If `json_output` is true, emit a JSON payload containing the keys
+    `dry_run`, `mutated`, `status`, and `message`. Otherwise render a human-friendly
+    setup status view and a guidance panel.
     
     Parameters:
-        json_output (bool): If true, output a JSON payload rather than rendering UI.
-        dry_run (bool): If true, report status without performing interactive or system installs.
+        json_output (bool): If true, emit the JSON payload instead of rendering UI.
+        dry_run (bool): If true, only report status without performing interactive or system installs.
     """
 
     settings = get_settings()
@@ -3573,7 +4268,19 @@ def research_cycle_control(
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Read or update the advisory operator control state for research cycles."""
+    """
+    Show or modify the advisory operator control state for automated research cycles.
+    
+    If called without an action flag, displays the current persisted control state.
+    If one of `--pause`, `--resume`, or `--trigger-now` is provided, persists that control action with an optional operator `reason` and returns the updated state. Only one action flag may be selected; supplying more than one raises a `typer.BadParameter`. When `json_output` is true, emits a JSON payload containing the control state, whether the action was persisted, and the effective execution policy.
+    
+    Parameters:
+        pause (bool): If true, persist a request to pause future automated research-cycle runs.
+        resume (bool): If true, persist a request to resume future automated research-cycle runs.
+        trigger_now (bool): If true, request one immediate research-cycle run for the next runner.
+        reason (str | None): Optional operator note to persist with the control state.
+        json_output (bool): If true, emit the response as JSON instead of printing a panel.
+    """
     selected_actions = [
         action
         for action, enabled in (
@@ -3584,7 +4291,9 @@ def research_cycle_control(
         if enabled
     ]
     if len(selected_actions) > 1:
-        raise typer.BadParameter("Choose only one of --pause, --resume, or --trigger-now.")
+        raise typer.BadParameter(
+            "Choose only one of --pause, --resume, or --trigger-now."
+        )
     settings = get_settings()
     action = (
         cast(ResearchCycleControlAction, selected_actions[0])
@@ -3835,7 +4544,7 @@ def launch(
 
 @app.command()
 def portfolio(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show the current paper portfolio and open positions."""
     settings = get_settings()
@@ -3901,12 +4610,12 @@ def portfolio(
 def status(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
     """
     Show the current orchestrator runtime state.
-    
+
     When json_output is True, emit a JSON payload containing keys
     `runtime_state`, `live_process`, `is_stale`, `age_seconds`,
     `status_message`, and `state`. Otherwise render a human-readable
     runtime status view to the terminal.
-    
+
     Parameters:
         json_output (bool): If True, output the status as machine-readable JSON; if False, render rich terminal panels.
     """
@@ -3921,7 +4630,7 @@ def status(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
 
 @app.command("supervisor-status")
 def supervisor_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show daemon supervision metadata and recent background log tails."""
     settings = get_settings()
@@ -3976,9 +4685,18 @@ def supervisor_status(
 
 @app.command("broker-status")
 def broker_status(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show the active broker backend and execution safety gates."""
+    """
+    Display broker backend status and execution safety gates.
+    
+    When `json_output` is True, emit the observer payload as JSON; otherwise render a human-readable table
+    showing backend, adapter, state flags (simulated, live execution enabled/ready/requested), kill switch,
+    and any healthcheck message.
+    
+    Parameters:
+        json_output (bool): If True, output JSON instead of a rich table.
+    """
     settings = get_settings()
     payload = _broker_payload(settings)
     if json_output:
@@ -4026,9 +4744,16 @@ def _render_readiness_checks(title: str, payload: dict[str, object]) -> None:
 
 @app.command("provider-diagnostics")
 def provider_diagnostics(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show configured model, market, research, and data-provider readiness."""
+    """
+    Display diagnostics for configured external providers (LLM, market data, news, Alpaca) and their readiness.
+    
+    When `json_output` is true, emit the full diagnostics payload as JSON. Otherwise render a human-readable summary table and a provider source ladder showing provider type, role, enabled state, API key readiness, freshness, and notes.
+    
+    Parameters:
+        json_output (bool): If true, emit the raw diagnostics payload as JSON instead of printing formatted tables.
+    """
     settings = get_settings()
     payload = provider_diagnostics_payload(settings)
     if json_output:
@@ -4123,13 +4848,88 @@ def v1_readiness(
 def finance_ops(
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show read-only broker/account/PnL/exposure/evidence checks for paper operation."""
+    """
+    Display finance operations checks and account/portfolio snapshots for operator inspection.
+    
+    When called with json_output True, emit the finance operations payload as machine-readable JSON;
+    otherwise render a human-friendly terminal view showing broker/account snapshot, P&L and exposure checks, and readiness evidence.
+    
+    Parameters:
+        json_output (bool): If True, output the payload as JSON instead of rendering terminal panels.
+    """
     settings = get_settings()
     payload = _finance_ops_payload(settings)
     if json_output:
         _emit_json(payload)
         return
     _render_finance_ops(payload)
+
+
+@app.command("position-plan-repair")
+def position_plan_repair(
+    apply_changes: bool = typer.Option(
+        False,
+        "--apply",
+        help="Write repairable missing position plans. Defaults to dry-run.",
+    ),
+    max_holding_bars: int = typer.Option(
+        20,
+        min=1,
+        max=500,
+        help="Maximum holding bars for repaired position plans.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """
+    Backfill missing exit plans by repairing or proposing position plans derived from executed proposals.
+    
+    Runs a reconciliation that either writes repaired position plans into the database (when `apply_changes` is True) or reports repair candidates without persisting changes. The command emits a JSON payload when `json_output` is True; otherwise it renders a terminal report.
+    
+    Parameters:
+        apply_changes (bool): If True, persist repaired position plans. Defaults to False (dry-run).
+        max_holding_bars (int): Maximum holding bars to apply to repaired plans.
+        json_output (bool): If True, emit the result as JSON instead of rendering to the terminal.
+    """
+    settings = get_settings()
+    try:
+        db = _open_db(settings, read_only=not apply_changes)
+        try:
+            repairs = repair_missing_position_plans(
+                db=db,
+                apply_repair=apply_changes,
+                max_holding_bars=max_holding_bars,
+            )
+        finally:
+            db.close()
+    except Exception as exc:  # noqa: BLE001 - operator command should degrade on DB locks
+        console.print(
+            Panel(
+                f"Position plan repair is temporarily unavailable while the runtime writer owns the database.\n\n{exc}",
+                title=LABEL_OBSERVER_MODE,
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0) from exc
+
+    created = sum(1 for item in repairs if item["status"] == "created")
+    candidates = sum(1 for item in repairs if item["status"] == "candidate")
+    skipped = sum(1 for item in repairs if item["status"] == "skipped")
+    payload = {
+        "applied": apply_changes,
+        "created": created,
+        "candidates": candidates,
+        "skipped": skipped,
+        "repairs": repairs,
+        "summary": (
+            f"Created {created} repaired position plan(s)."
+            if apply_changes
+            else f"Found {candidates} repair candidate(s)."
+        ),
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    _render_position_plan_repair(payload)
 
 
 @app.command("trade-proposals")
@@ -4144,7 +4944,15 @@ def trade_proposals(
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show the manual-review trade proposal queue."""
+    """
+    Display the manual-review trade proposal queue.
+    
+    Parameters:
+        status (str | None): Optional filter for proposal state; allowed values are
+            "pending", "approved", "rejected", "executed", "failed", or "expired".
+        limit (int): Maximum number of trade proposals to show (1–200).
+        json_output (bool): If True, emit the full payload as JSON instead of rendering.
+    """
     settings = get_settings()
     parsed_status = _parse_proposal_status(status)
     payload = _trade_proposals_payload(settings, status=parsed_status, limit=limit)
@@ -4167,9 +4975,241 @@ def trade_proposals(
     _render_trade_proposals(proposals)
 
 
+@app.command("proposal-candidates")
+def proposal_candidates(
+    status: str | None = typer.Option(
+        None,
+        "--status",
+        help="Filter by candidate state: candidate, promoted, rejected, expired.",
+    ),
+    limit: int = typer.Option(
+        50, min=1, max=200, help="Maximum number of proposal candidates to show."
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show scanner/research candidates that may be promoted into proposals."""
+    settings = get_settings()
+    parsed_status = _parse_candidate_status(status)
+    payload = _proposal_candidates_payload(
+        settings,
+        status=parsed_status,
+        limit=limit,
+    )
+    if json_output:
+        _emit_json(payload)
+        return
+    candidates = [
+        ProposalCandidateRecord.model_validate(item)
+        for item in cast(list[dict[str, object]], payload["candidates"])
+    ]
+    if not payload["available"]:
+        console.print(
+            Panel(
+                "Proposal candidates are temporarily unavailable while the runtime "
+                f"writer owns the database.\n\n{payload['error']}",
+                title=LABEL_OBSERVER_MODE,
+                border_style="yellow",
+            )
+        )
+        raise typer.Exit(code=0)
+    _render_proposal_candidates(candidates)
+
+
+@app.command("proposal-candidate-create")
+def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the command signature.
+    symbol: str = typer.Option(..., "--symbol", help=HELP_SYMBOL),  # NOSONAR
+    preset: str = typer.Option("momentum", "--preset", help="Idea preset to apply."),
+    price: float = typer.Option(..., "--price", min=0.01, help="Reference price."),
+    volume: float = typer.Option(..., "--volume", min=0.0, help="Latest volume."),
+    change_pct: float = typer.Option(
+        ..., "--change-pct", help="Scan-window change percent."
+    ),
+    relative_volume: float = typer.Option(0.0, "--relative-volume", min=0.0),
+    gap_pct: float = typer.Option(0.0, "--gap-pct", help="Opening gap percent."),
+    range_pct: float = typer.Option(0.0, "--range-pct", min=0.0),
+    rsi: float | None = typer.Option(None, "--rsi", min=0.0, max=100.0),
+    ema_9: float | None = typer.Option(None, "--ema-9", min=0.0),
+    sma_20: float | None = typer.Option(None, "--sma-20", min=0.0),
+    sma_50: float | None = typer.Option(None, "--sma-50", min=0.0),
+    vwap: float | None = typer.Option(None, "--vwap", min=0.0),
+    spread_pct: float = typer.Option(0.0, "--spread-pct", min=0.0),
+    quantity: float | None = typer.Option(None, "--quantity", min=0.0),
+    notional: float | None = typer.Option(None, "--notional", min=0.0),
+    stop_loss: float | None = typer.Option(None, "--stop-loss", min=0.01),
+    take_profit: float | None = typer.Option(None, "--take-profit", min=0.01),
+    invalidation_condition: str | None = typer.Option(
+        None,
+        "--invalidation-condition",
+        help="Condition that invalidates the candidate.",
+    ),
+    thesis: str = typer.Option("", "--thesis", help="Operator-readable thesis."),
+    materiality: str = typer.Option("", "--materiality", help="Materiality note."),
+    freshness: str = typer.Option(
+        "operator_supplied_current",
+        "--freshness",
+        help="Freshness note for the scanner inputs.",
+    ),
+    liquidity: str = typer.Option("", "--liquidity", help="Liquidity note."),
+    risk_notes: str = typer.Option("", "--risk-notes", help="Risk note."),
+    source: str = typer.Option("idea-scanner", "--source", help="Candidate source."),
+    enrich_provider_context: bool = typer.Option(
+        True,
+        "--enrich-provider-context/--no-enrich-provider-context",
+        help=(
+            "Attach a compact, broker-free canonical provider context. "
+            "Defaults to network-light evidence."
+        ),
+    ),
+    fetch_provider_news: bool = typer.Option(
+        False,
+        "--fetch-provider-news/--no-fetch-provider-news",
+        help="Allow configured news providers to refresh headlines for this candidate.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Persist a scanner/research candidate without approving or submitting it."""
+    settings = get_settings()
+    draft = ProposalCandidateDraft(
+        idea=IdeaCandidate(
+            symbol=symbol,
+            price=price,
+            volume=volume,
+            change_pct=change_pct,
+            relative_volume=relative_volume,
+            gap_pct=gap_pct,
+            range_pct=range_pct,
+            rsi=rsi,
+            ema_9=ema_9,
+            sma_20=sma_20,
+            sma_50=sma_50,
+            vwap=vwap,
+            spread_pct=spread_pct,
+        ),
+        preset=_parse_idea_preset(preset),
+        quantity=quantity,
+        notional=notional,
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        invalidation_condition=invalidation_condition,
+        thesis=thesis,
+        materiality=materiality,
+        freshness=freshness,
+        liquidity=liquidity,
+        risk_notes=risk_notes,
+        source=source,
+    )
+    try:
+        db = _open_db(settings)
+        try:
+            candidate = create_proposal_candidate(
+                db=db,
+                draft=draft,
+                settings=settings,
+                enrich_provider_context=enrich_provider_context,
+                fetch_provider_news=fetch_provider_news,
+            )
+        finally:
+            db.close()
+    except ValueError as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
+        console.print(Panel(str(exc), title="Candidate Rejected", border_style="red"))
+        raise typer.Exit(code=2) from exc
+    if json_output:
+        _emit_json(candidate.model_dump(mode="json"))
+        return
+    console.print(
+        Panel(
+            f"{candidate.candidate_id} recorded for review.\n\n"
+            f"{candidate.symbol} {candidate.signal.upper()} score={candidate.score:.2f}",
+            title="Proposal Candidate Created",
+            border_style="green",
+        )
+    )
+
+
+@app.command("proposal-candidate-promote")
+def proposal_candidate_promote(
+    candidate_id: str = typer.Argument(..., help="Proposal candidate id to promote."),
+    review_notes: str = typer.Option("", help="Optional promotion notes."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """
+    Promote a proposal candidate into a pending manual-review trade proposal.
+    
+    Promotes the candidate identified by `candidate_id` into a stored trade proposal awaiting manual review.
+    On success emits a JSON payload when `json_output` is true, otherwise prints a success panel.
+    If promotion validation fails the command exits with code 2 and either prints a rejection panel or emits a redacted JSON error when `json_output` is true.
+    
+    Parameters:
+        candidate_id (str): Proposal candidate id to promote.
+        review_notes (str): Optional promotion notes to record with the promotion.
+        json_output (bool): When true, emit machine-readable JSON output instead of printing terminal UI.
+    """
+    settings = get_settings()
+    try:
+        db = _open_db(settings)
+        try:
+            candidate, proposal = promote_proposal_candidate(
+                db=db,
+                candidate_id=candidate_id,
+                review_notes=review_notes,
+            )
+        finally:
+            db.close()
+    except ValueError as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
+        console.print(Panel(str(exc), title="Promotion Blocked", border_style="red"))
+        raise typer.Exit(code=2) from exc
+    payload = {
+        "candidate": candidate.model_dump(mode="json"),
+        "proposal": proposal.model_dump(mode="json"),
+        "submitted_to_broker": False,
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"{candidate.candidate_id} -> {proposal.proposal_id}\n"
+            "Queued as pending proposal. No broker submission was attempted.",
+            title="Proposal Candidate Promoted",
+            border_style="green",
+        )
+    )
+
+
 @app.command("proposal-create", cls=ProposalCreateCommand)
 def proposal_create(**options: str) -> None:
-    """Create a pending trade proposal; this does not execute an order."""
+    """
+    Create a pending trade proposal for manual review without sending any order.
+    
+    Parameters:
+        **options: str
+            A mapping of CLI option names to their string values. Recognized keys:
+            - symbol: trading symbol (e.g., "AAPL")
+            - side: "buy" or "sell"
+            - order_type: "market" or "limit"
+            - quantity: numeric quantity or empty
+            - notional: numeric notional or empty
+            - limit_price: numeric limit price or empty
+            - reference_price: numeric reference price
+            - confidence: numeric confidence score
+            - thesis: short rationale for the proposal
+            - stop_loss: numeric stop-loss price or empty
+            - take_profit: numeric take-profit price or empty
+            - invalidation_condition: optional string condition to invalidate the proposal
+            - source: provenance/source string
+            - review_notes: reviewer notes or rationale
+            - json_output: truthy value to emit JSON instead of formatted console output
+    
+    Raises:
+        typer.Exit: exits with code 2 when proposal validation fails; when `json_output`
+        is set, a redacted JSON error is emitted before exit.
+    """
     settings = get_settings()
     symbol = str(options["symbol"])
     side = str(options["side"])
@@ -4184,6 +5224,7 @@ def proposal_create(**options: str) -> None:
                     order_type=_parse_order_type(str(options["order_type"])),
                     quantity=cast(float | None, options["quantity"]),
                     notional=cast(float | None, options["notional"]),
+                    limit_price=cast(float | None, options["limit_price"]),
                     reference_price=cast(float, options["reference_price"]),
                     confidence=cast(float, options["confidence"]),
                     thesis=str(options["thesis"]),
@@ -4199,6 +5240,9 @@ def proposal_create(**options: str) -> None:
         finally:
             db.close()
     except ValueError as exc:
+        if bool(options["json_output"]):
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
         console.print(Panel(str(exc), title="Proposal Rejected", border_style="red"))
         raise typer.Exit(code=2) from exc
     payload = proposal.model_dump(mode="json")
@@ -4218,10 +5262,22 @@ def proposal_create(**options: str) -> None:
 @app.command("proposal-approve")
 def proposal_approve(
     proposal_id: str = typer.Argument(..., help="Trade proposal id to approve."),
-    review_notes: str = typer.Option("", help="Optional approval notes."),
+    review_notes: str = typer.Option("", help="Required approval audit notes."),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Approve a pending proposal and submit it to the configured paper broker."""
+    """
+    Approve a pending trade proposal and submit it to the configured paper broker.
+    
+    Persists the provided approval audit notes, attempts to submit the proposal to the broker,
+    and either prints a human-readable result panel or emits a JSON payload when json_output is True.
+    On validation or runtime failures, emits a redacted JSON error if json_output is True or displays
+    an "Approval Blocked" panel, then exits with code 2.
+    
+    Parameters:
+        proposal_id (str): Identifier of the trade proposal to approve.
+        review_notes (str): Approval audit notes persisted with the approval; used for audit/history.
+        json_output (bool): When True, emit a machine-readable JSON payload instead of printing panels.
+    """
     settings = get_settings()
     try:
         db = _open_db(settings)
@@ -4235,6 +5291,9 @@ def proposal_approve(
         finally:
             db.close()
     except (RuntimeError, ValueError) as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
         console.print(Panel(str(exc), title="Approval Blocked", border_style="red"))
         raise typer.Exit(code=2) from exc
     payload = {
@@ -4259,10 +5318,19 @@ def proposal_reconcile(
     proposal_id: str = typer.Argument(
         ..., help="In-flight approved proposal id to reconcile."
     ),
-    review_notes: str = typer.Option("", help="Optional reconciliation notes."),
+    review_notes: str = typer.Option("", help="Required reconciliation audit notes."),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Repair an approved proposal from a recorded execution outcome without resubmitting."""
+    """
+    Reconcile an approved trade proposal against a recorded execution outcome without resubmitting an order to the broker.
+    
+    Attempts to match and record an execution outcome for the given proposal; on success prints a reconciliation summary (or emits a JSON payload when `json_output` is true). On validation failure emits a redacted JSON error (if `json_output`) or prints a blocked panel, then exits with code 2.
+    
+    Parameters:
+        proposal_id (str): In-flight approved proposal id to reconcile.
+        review_notes (str): Reconciliation audit notes describing why the reconciliation is being performed.
+        json_output (bool): If true, emit machine-readable JSON output instead of human-oriented console panels.
+    """
     settings = get_settings()
     try:
         db = _open_db(settings)
@@ -4275,6 +5343,9 @@ def proposal_reconcile(
         finally:
             db.close()
     except ValueError as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
         console.print(
             Panel(str(exc), title="Reconciliation Blocked", border_style="red")
         )
@@ -4299,13 +5370,84 @@ def proposal_reconcile(
     )
 
 
+@app.command("proposal-refresh")
+def proposal_refresh(
+    proposal_id: str = typer.Argument(
+        ..., help="Executed proposal id with an accepted broker order to refresh."
+    ),
+    review_notes: str = typer.Option("", help="Required refresh audit notes."),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """
+    Refreshes an executed trade proposal's broker order metadata without submitting a new order.
+    
+    Parameters:
+        proposal_id (str): Executed proposal identifier to refresh.
+        review_notes (str): Audit notes required for the refresh operation.
+        json_output (bool): If true, emit a JSON payload instead of printing human-readable output.
+    
+    Notes:
+        On runtime or validation errors the command emits a redacted JSON error when `json_output` is true
+        (or a red error panel otherwise) and exits the CLI with code 2.
+    """
+    settings = get_settings()
+    try:
+        db = _open_db(settings)
+        try:
+            proposal, outcome = refresh_trade_proposal_order(
+                db=db,
+                settings=settings,
+                proposal_id=proposal_id,
+                review_notes=review_notes,
+            )
+        finally:
+            db.close()
+    except (RuntimeError, ValueError) as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
+        console.print(Panel(str(exc), title="Refresh Blocked", border_style="red"))
+        raise typer.Exit(code=2) from exc
+    payload = {
+        "proposal": proposal.model_dump(mode="json"),
+        "outcome": outcome.model_dump(mode="json"),
+        "resubmitted": False,
+        "refreshed": True,
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    console.print(
+        Panel(
+            f"{proposal.proposal_id} -> {proposal.status}\n"
+            f"order={proposal.execution_order_id or '-'} status={outcome.status}\n"
+            "No broker resubmission was attempted.",
+            title="Trade Proposal Refreshed",
+            border_style="green" if proposal.status == "executed" else "yellow",
+        )
+    )
+
+
 @app.command("proposal-reject")
 def proposal_reject(
     proposal_id: str = typer.Argument(..., help="Trade proposal id to reject."),
     reason: str = typer.Option(..., help="Human-readable rejection reason."),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Reject a pending proposal and make the terminal decision auditable."""
+    """
+    Rejects a pending trade proposal and records the decision for audit.
+    
+    When successful, the updated proposal is emitted as JSON if `json_output` is True;
+    otherwise a human-readable confirmation panel is printed.
+    
+    Parameters:
+        proposal_id (str): Identifier of the trade proposal to reject.
+        reason (str): Human-readable reason for rejecting the proposal.
+        json_output (bool): If True, emit machine-readable JSON output instead of printing a panel.
+    
+    Raises:
+        typer.Exit: Exits with code 2 when rejection is blocked (validation or business-rule failure).
+    """
     settings = get_settings()
     try:
         db = _open_db(settings)
@@ -4316,6 +5458,9 @@ def proposal_reject(
         finally:
             db.close()
     except ValueError as exc:
+        if json_output:
+            _emit_json_error(exc)
+            raise typer.Exit(code=2) from exc
         console.print(Panel(str(exc), title="Rejection Blocked", border_style="red"))
         raise typer.Exit(code=2) from exc
     if json_output:
@@ -4497,7 +5642,16 @@ def news_intelligence(
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Build a source-attributed news research plan without fetching the web."""
+    """
+    Builds a source-attributed news research plan for a symbol without fetching external web content.
+    
+    Parameters:
+        symbol (str): Ticker symbol to build the research plan for.
+        company_name (str | None): Optional company name to disambiguate the ticker.
+        sector (str | None): Optional sector to include sector-level news checks.
+        classify_source (str | None): Optional source domain or URL to classify into the source-tier policy; if provided, classification is added to the payload.
+        json_output (bool): If true, emit the assembled payload as JSON; otherwise render a human-readable summary and query plan.
+    """
     try:
         payload = news_research_plan(
             symbol=symbol, company_name=company_name, sector=sector
@@ -4524,9 +5678,7 @@ def news_intelligence(
     table.add_column("Query")
     table.add_column("Materiality")
     for query in cast(list[dict[str, str]], payload["query_templates"]):
-        table.add_row(
-            query["kind"], query["query"], query["materiality_hint"]
-        )
+        table.add_row(query["kind"], query["query"], query["materiality_hint"])
     console.print(table)
 
 
@@ -4553,9 +5705,7 @@ def research_cycle_plan(
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show the safe continuous research cycle contract without starting a daemon."""
-    symbol_list = [
-        item.strip().upper() for item in symbols.split(",") if item.strip()
-    ]
+    symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
     try:
         payload = research_cycle_plan_payload(
             symbols=symbol_list,
@@ -4619,11 +5769,23 @@ def research_cycle_run(
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Run a bounded evidence-only research cycle without broker authority."""
+    """
+    Run a bounded, evidence-only research cycle over a watchlist and present the results.
+    
+    Parameters:
+        symbols (str): Comma-separated watchlist symbols to evaluate (case-insensitive).
+        cycles (int): Number of cycles to execute (1–24).
+        cadence_seconds (int): Seconds to wait between cycles when sleeping is enabled.
+        max_proposals_per_cycle (int): Maximum pending proposals allowed in the run's plan per cycle.
+        persist (bool): If True, persist each research snapshot to the runtime research JSON feed.
+        sleep_between_cycles (bool): If True, wait cadence_seconds between cycles; disable for rapid QA runs.
+        json_output (bool): If True, emit the aggregated payload as JSON instead of printing a summary.
+    
+    Raises:
+        typer.BadParameter: If provided arguments are invalid (propagated from validation errors).
+    """
     settings = get_settings()
-    symbol_list = [
-        item.strip().upper() for item in symbols.split(",") if item.strip()
-    ]
+    symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
     try:
         payload = run_research_cycle(
             settings,
@@ -4658,7 +5820,7 @@ def logs(
 ) -> None:
     """
     Display recent orchestrator runtime events.
-    
+
     Parameters:
         limit (int): Maximum number of runtime events to return.
         json_output (bool): If True, output the events as JSON instead of rendering rich panels.
@@ -4673,9 +5835,7 @@ def logs(
 
 @app.command("dashboard-snapshot")
 def dashboard_snapshot(
-    log_limit: int = typer.Option(
-        14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT
-    ),
+    log_limit: int = typer.Option(14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT),
     provider_check: bool = typer.Option(
         False,
         "--provider-check/--no-provider-check",
@@ -4698,13 +5858,13 @@ def build_dashboard_snapshot_payload(
 ) -> dict[str, object]:
     """
     Assembles a JSON-serializable dashboard snapshot containing runtime, service, agent activity, and persisted payloads for the observer API.
-    
+
     Builds health/doctor info, runtime status, supervisor, broker, model-service, and Web GUI payloads, recent service events and agent activity summary, and a collection of read-only payloads (portfolio, preferences, recent runs, journal, risk report, run review/trace/replay, trade/market context, canonical analysis, memory inspection, retrieval inspection, memory policy, chat history, calendar, news, and market cache).
-    
+
     Parameters:
         settings (Settings): Application settings used to read service state, access the database, and resolve runtime paths.
         log_limit (int): Maximum number of recent service events to include in the `logs` section (default 14).
-    
+
     Returns:
         dict[str, object]: A JSON-serializable snapshot keyed by sections including (but not limited to) `doctor`, `status`, `supervisor`, `broker`, `modelService`, `webGui`, `logs`, `agentActivity`, `portfolio`, `preferences`, `recentRuns`, `journal`, `riskReport`, `review`, `trace`, `tradeContext`, `marketContext`, `canonicalAnalysis`, `replay`, `memoryExplorer`, `retrievalInspection`, `memoryPolicy`, `chatHistory`, `calendar`, `news`, and `marketCache`.
     """
@@ -4797,6 +5957,7 @@ def build_dashboard_snapshot_payload(
         "portfolio": _portfolio_payload(settings),
         "preferences": _preferences_payload(settings),
         "recentRuns": _recent_runs_payload(settings, limit=8),
+        "proposalCandidates": _proposal_candidates_payload(settings, limit=8),
         "tradeProposals": _trade_proposals_payload(settings, limit=8),
         "journal": _journal_payload(settings, limit=8),
         "riskReport": _risk_report_payload(settings),
@@ -4988,7 +6149,22 @@ def _recommended_parallel_agents(
 
 
 def build_hardware_profile_payload(settings: Settings) -> dict[str, object]:
-    """Build a local, read-only hardware/runtime capacity snapshot."""
+    """
+    Build a local read-only snapshot of platform, hardware, and runtime recommendations.
+    
+    Produces a payload describing detected platform and hardware, configured model/runtime settings, safe parallelism and other operator-facing recommendations, and explanatory notes.
+    
+    Parameters:
+        settings (Settings): Application settings containing runtime/model configuration used to estimate recommendations.
+    
+    Returns:
+        dict: A mapping with these top-level keys:
+            - "platform": system and Python version information.
+            - "hardware": detected CPU count, total memory (bytes and GB), and accelerator details.
+            - "configured_runtime": model name and related request/configuration fields from `settings`.
+            - "recommendations": suggested safe parallel agents, adjusted token/timeout limits, and a profile hint.
+            - "notes": human-readable operator guidance.
+    """
     cpu_count = os.cpu_count() or 1
     memory_bytes = _total_memory_bytes()
     memory_gb = round(memory_bytes / (1024**3), 2) if memory_bytes else None
@@ -5018,9 +6194,11 @@ def build_hardware_profile_payload(settings: Settings) -> dict[str, object]:
         },
         "recommendations": {
             "safe_parallel_agents": safe_parallel_agents,
-            "max_output_tokens": min(settings.max_output_tokens, 2048)
-            if constrained
-            else settings.max_output_tokens,
+            "max_output_tokens": (
+                min(settings.max_output_tokens, 2048)
+                if constrained
+                else settings.max_output_tokens
+            ),
             "request_timeout_seconds": max(settings.request_timeout_seconds, 180.0),
             "profile": "constrained-local" if constrained else "standard-local",
         },
@@ -5185,8 +6363,33 @@ def build_evidence_bundle(
     include_latest_smoke: bool = True,
     check_provider: bool = False,
 ) -> dict[str, object]:
-    """Create a read-only QA evidence bundle from shared runtime contracts."""
-    artifacts_root = output_dir.expanduser() if output_dir is not None else QA_ARTIFACTS_ROOT
+    """
+    Builds a read-only QA evidence bundle containing observer and runtime artifacts.
+    
+    Creates a timestamped directory under `output_dir` (or the default QA artifacts root) and writes JSON/markdown artifacts such as the dashboard snapshot, runtime/supervisor/broker status, finance checks, provider diagnostics, v1 readiness, research and hardware profiles, recent logs, and an operator workflow manifest. Optionally includes the latest smoke test summary and QA report if available.
+    
+    Parameters:
+        settings (Settings): Application runtime settings used to locate runtime and database paths and to assemble payloads.
+        output_dir (Path | None): Directory to place the bundle; defaults to the configured QA artifacts root.
+        label (str | None): Custom label for the bundle directory; if omitted a timestamped label is generated.
+        log_limit (int): Number of recent service events to include in the logs artifact.
+        include_latest_smoke (bool): If True, copy the most recent smoke test summary and QA markdown into the bundle when present.
+        check_provider (bool): If True, include provider checks when building provider-sensitive payloads.
+    
+    Returns:
+        dict[str, object]: A manifest describing the created bundle, including:
+            - "bundle_version": bundle schema version string
+            - "generated_at": ISO timestamp of creation
+            - "bundle_dir": path to the created bundle directory
+            - "runtime_dir": runtime directory from settings
+            - "database_path": database path from settings
+            - "log_limit": the log_limit used
+            - "latest_smoke_dir": path to the latest smoke artifacts directory if found, otherwise null
+            - "files": mapping of logical artifact keys to file paths within the bundle (includes "manifest")
+    """
+    artifacts_root = (
+        output_dir.expanduser() if output_dir is not None else QA_ARTIFACTS_ROOT
+    )
     if not artifacts_root.is_absolute():
         artifacts_root = PROJECT_ROOT / artifacts_root
     run_label = label or f"evidence-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -5269,7 +6472,11 @@ def build_evidence_bundle(
         latest_smoke_dir = _latest_smoke_artifact_dir(artifacts_root)
         if latest_smoke_dir is not None:
             for source_name, target_name, key in (
-                ("smoke-summary.json", "latest-smoke-summary.json", "latest_smoke_summary"),
+                (
+                    "smoke-summary.json",
+                    "latest-smoke-summary.json",
+                    "latest_smoke_summary",
+                ),
                 ("qa-report.md", "latest-qa-report.md", "latest_qa_report"),
             ):
                 source = latest_smoke_dir / source_name
@@ -5308,9 +6515,7 @@ def evidence_bundle_command(
         "--label",
         help="Bundle directory label. Defaults to evidence-YYYYMMDD-HHMMSS.",
     ),
-    log_limit: int = typer.Option(
-        20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT
-    ),
+    log_limit: int = typer.Option(20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT),
     include_latest_smoke: bool = typer.Option(
         True,
         "--include-latest-smoke/--no-latest-smoke",
@@ -5323,7 +6528,19 @@ def evidence_bundle_command(
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Collect read-only runtime, broker, readiness, and QA evidence into a bundle."""
+    """
+    Create a QA evidence bundle containing runtime, broker, readiness, and diagnostic artifacts.
+    
+    The command writes a bundle directory (under `output_dir` or the default `.ai/qa/artifacts`) and produces a manifest mapping artifact names to file paths. When `json_output` is true the manifest is emitted as JSON; otherwise a summary panel and table of artifact paths are printed.
+    
+    Parameters:
+        output_dir (Path | None): Root directory for the bundle. If not provided, the default artifacts directory is used.
+        label (str | None): Optional label for the bundle directory name; a timestamped name is used when omitted.
+        log_limit (int): Maximum number of recent runtime events to include in the bundle.
+        include_latest_smoke (bool): If true, copy the latest smoke test summary/report into the bundle when available.
+        provider_check (bool): If true, include provider diagnostics in the bundle.
+        json_output (bool): If true, emit the bundle manifest as JSON instead of printing a human-readable summary.
+    """
     settings = get_settings()
     manifest = build_evidence_bundle(
         settings,
@@ -5357,7 +6574,7 @@ def build_observer_api_payload(
 ) -> tuple[int, dict[str, object]]:
     """
     Resolve an observer API request path into an HTTP status code and a JSON-serializable payload.
-    
+
     Supported paths:
     - "/" or "/dashboard": returns a full dashboard snapshot payload.
     - "/health": returns service name, basic OK flag, and the runtime status sub-object.
@@ -5369,13 +6586,14 @@ def build_observer_api_payload(
     - "/provider-diagnostics": returns network-free provider/source readiness.
     - "/v1-readiness": returns V1 paper-operation and Alpaca paper-readiness gates.
     - "/research": returns optional research sidecar mode and provider health.
+    - "/proposal-candidates": returns read-only scanner/research proposal candidates.
     - "/trade-proposals": returns the read-only manual-review proposal queue.
     - any other path: returns 404 with {"error": "not_found", "path": <requested path>}.
-    
+
     Parameters:
         path (str): The requested API path.
         log_limit (int): Maximum number of log events to include for the "/logs" path.
-    
+
     Returns:
         tuple[int, dict[str, object]]: A pair of (HTTP status code, payload dictionary) appropriate for the given path.
     """
@@ -5412,6 +6630,8 @@ def build_observer_api_payload(
         return 200, v1_readiness_payload(settings, check_provider=False)
     if path == "/research":
         return 200, _research_sidecar_payload(settings)
+    if path == "/proposal-candidates":
+        return 200, _proposal_candidates_payload(settings, limit=50)
     if path == "/trade-proposals":
         return 200, _trade_proposals_payload(settings, limit=50)
     return 404, {"error": "not_found", "path": path}
@@ -5425,9 +6645,7 @@ def observer_api_command(
     port: int = typer.Option(
         8765, min=1, max=65535, help="Bind port for the local observer API."
     ),
-    log_limit: int = typer.Option(
-        14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT
-    ),
+    log_limit: int = typer.Option(14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT),
     allow_nonlocal: bool = typer.Option(
         False,
         "--allow-nonlocal",
@@ -5437,12 +6655,20 @@ def observer_api_command(
         ),
     ),
 ) -> None:
-    """Start the local read-only observer API with loopback-first safety gates."""
+    """
+    Start the local read-only observer API and serve dashboard and diagnostic endpoints.
+    
+    If the requested bind address is not loopback, the command enforces safety checks: it requires `--allow-nonlocal` and a configured `AGENTIC_TRADER_OBSERVER_API_TOKEN` to proceed. On success the command prints an informational panel listing available endpoints and runs the observer API server.
+    
+    Parameters:
+        allow_nonlocal (bool): When True, permit binding to a non-loopback host only if an observer API token is configured.
+    
+    Raises:
+        typer.Exit: Exits with code 2 when a nonlocal bind is blocked or when startup is denied due to validation errors.
+    """
     settings = get_settings()
     nonlocal_bind = not is_loopback_host(host)
-    if nonlocal_bind and (
-        not allow_nonlocal or not settings.observer_api_token
-    ):
+    if nonlocal_bind and (not allow_nonlocal or not settings.observer_api_token):
         console.print(
             Panel(
                 (
@@ -5457,7 +6683,7 @@ def observer_api_command(
         raise typer.Exit(code=2)
     console.print(
         Panel(
-            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /finance-ops\n- /provider-diagnostics\n- /v1-readiness\n- /research\n- /trade-proposals",
+            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /finance-ops\n- /provider-diagnostics\n- /v1-readiness\n- /research\n- /proposal-candidates\n- /trade-proposals",
             title="Observer API",
             border_style="cyan",
         )
@@ -5473,9 +6699,7 @@ def observer_api_command(
             token=settings.observer_api_token,
         )
     except ValueError as exc:
-        console.print(
-            Panel(str(exc), title="Observer API Blocked", border_style="red")
-        )
+        console.print(Panel(str(exc), title="Observer API Blocked", border_style="red"))
         raise typer.Exit(code=2) from exc
 
 
@@ -5489,9 +6713,9 @@ def calendar_status(
 ) -> None:
     """
     Display the inferred market session status for a symbol.
-    
+
     If `symbol` is omitted the function resolves a symbol from the latest run or user preferences. If `json_output` is true the command emits the raw payload as JSON. When session data is unavailable the command prints a notice and exits with code 0.
-    
+
     Parameters:
         symbol (str | None): Optional ticker symbol; if None the latest run symbol or a preference-derived default is used.
         json_output (bool): When true, emit the raw payload as JSON instead of rendering a table.
@@ -5529,11 +6753,12 @@ def news_brief(
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
-    Show a news brief for a resolved trading symbol or emit the raw payload as JSON.
+    Display a short news brief for a resolved trading symbol.
     
-    If no symbol is provided, the CLI resolves one from saved preferences or the latest run. With --json the function prints the underlying payload; otherwise it renders a short summary table and one panel per headline.
-    @param symbol: Optional symbol override; when omitted the command resolves a default symbol from preferences or the latest run.
-    @param json_output: When true, emit the raw payload as JSON instead of human-readable tables and panels.
+    If no symbol is provided, the command resolves a default symbol from saved preferences or the latest run. When invoked with --json the command emits the underlying payload as JSON instead of rendering human-readable tables and panels.
+    
+    Parameters:
+    	symbol (str | None): Optional symbol override; when omitted a default symbol is resolved from preferences or the latest run.
     """
     settings = get_settings()
     payload = _news_payload(settings, symbol=symbol)
@@ -5593,12 +6818,15 @@ def cache_market_data(
 
 @app.command("market-cache")
 def market_cache(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
-    Show cached market snapshot metadata as a human-readable table or, when requested, emit the full payload as JSON.
+    Display metadata about cached market snapshots as a human-readable table or, when requested, emit the observer-style payload as JSON.
     
-    If the `--json` option is provided, the function emits the observer-style payload produced by the market cache payload builder; otherwise it prints a summarized table of recent cache entries and a compact cache status panel.
+    When `json_output` is True, emits the full observer payload produced by the market cache payload builder. Otherwise prints a summarized table of recent cache entries (up to 20) and a compact cache status panel.
+    
+    Parameters:
+        json_output (bool): If True, emit the observer payload as JSON; if False, render a human-readable table and status panel.
     """
     settings = get_settings()
     payload = _market_cache_payload(settings)
@@ -5631,9 +6859,19 @@ def market_cache(
 
 @app.command("preferences")
 def preferences_command(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON)
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
-    """Show the saved investment preferences."""
+    """
+    Display the saved investment preferences as a human-readable table or emit the observer payload as JSON.
+    
+    When `json_output` is True, emits the raw observer payload for preferences. If preferences are temporarily unavailable because the runtime writer owns the database, prints an observer-mode panel and exits with code 0.
+    
+    Parameters:
+        json_output (bool): If True, output the raw preferences payload as JSON instead of rendering a table.
+    
+    Raises:
+        typer.Exit: Exits with code 0 when preferences are unavailable due to the runtime writer owning the database.
+    """
     settings = get_settings()
     payload = _preferences_payload(settings)
     preferences = InvestmentPreferences.model_validate(payload)
@@ -5678,13 +6916,13 @@ def journal(
 ) -> None:
     """
     Display recent trade journal entries.
-    
+
     Emits a formatted terminal table of up to `limit` journal entries, or emits the raw payload as JSON when `json_output` is true. If the journal is unavailable because the runtime writer owns the database, prints an observer-mode panel containing the error and exits.
-    
+
     Parameters:
         limit (int): Maximum number of journal entries to show.
         json_output (bool): If true, output the full payload as JSON instead of rendering the table.
-    
+
     Raises:
         typer.Exit: Raised with exit code 0 when the journal is unavailable.
     """
@@ -5719,9 +6957,11 @@ def risk_report(
     """
     Display the daily risk report for the paper portfolio.
     
+    Emits a human-readable risk table and warnings to the console, or the raw observer payload as JSON when `json_output` is true.
+    
     Parameters:
-        report_date (str | None): UTC date in `YYYY-MM-DD` format to report on. If None, uses today.
-        json_output (bool): If true, emit the raw observer payload as JSON instead of rendering a human-readable report.
+        report_date (str | None): UTC date in YYYY-MM-DD format to report on; when None, uses today's date.
+        json_output (bool): If true, emit the observer payload as JSON instead of rendering the human-readable report.
     """
     settings = get_settings()
     payload = _risk_report_payload(settings, report_date=report_date)
@@ -5754,9 +6994,9 @@ def review_run(
 ) -> None:
     """
     Show a detailed review of the latest persisted run or a specific run by ID.
-    
+
     If run data is temporarily unavailable because the runtime writer owns the database, prints an observer-mode panel and exits with code 0. If no persisted run is found, prints a notice panel and exits with code 0. When `json_output` is true, emits the raw payload as JSON instead of rendering the human-friendly review.
-    
+
     Parameters:
         run_id (str | None): Optional run identifier; when omitted the latest run is used.
         json_output (bool): If true, output the underlying payload as JSON rather than rendering panels.
@@ -5886,6 +7126,19 @@ def _render_unavailable_trade_context(
 
 
 def _render_trade_context(record: TradeContextRecord) -> None:
+    """
+    Render a rich console view of a trade context record.
+    
+    Prints formatted tables and panels that summarize metadata (IDs, symbol, consensus,
+    rationales, execution outcome and rejection reason), routed models, retrieval/tool/shared
+    role summaries, review warnings, and the canonical analysis snapshot.
+    
+    Parameters:
+        record (TradeContextRecord): Trade context containing identifiers, timestamps,
+            consensus and rationale fields, execution outcome and rejection reason,
+            routed model mapping, retrieved/tool/shared role summaries, review warnings,
+            and a canonical analysis snapshot.
+    """
     summary = Table(title=f"Trade Context / {record.trade_id}")
     summary.add_column("Field")
     summary.add_column("Value")
@@ -5897,8 +7150,12 @@ def _render_trade_context(record: TradeContextRecord) -> None:
     summary.add_row("Execution Rationale", record.execution_rationale)
     summary.add_row("Execution Backend", _value_or_dash(record.execution_backend))
     summary.add_row("Execution Adapter", _value_or_dash(record.execution_adapter))
-    summary.add_row("Execution Outcome", _value_or_dash(record.execution_outcome_status))
-    summary.add_row("Rejection Reason", _value_or_dash(record.execution_rejection_reason))
+    summary.add_row(
+        "Execution Outcome", _value_or_dash(record.execution_outcome_status)
+    )
+    summary.add_row(
+        "Rejection Reason", _value_or_dash(record.execution_rejection_reason)
+    )
     summary.add_row("Review Summary", record.review_summary)
     console.print(summary)
 
@@ -6025,9 +7282,9 @@ def backtest(
 ) -> None:
     """
     Run a backtest using the agent pipeline in one of three modes: walk‑forward, baseline comparison, or memory ablation.
-    
+
     Exactly one mode is executed per call: baseline comparison (when --compare-baseline), memory ablation (when --compare-memory), or the default walk‑forward backtest. Raises a parameter error if both comparison flags are set. When `output` is provided, writes a compact Markdown summary of the selected report to the given file path.
-    
+
     Parameters:
         symbol (str): Ticker or symbol to backtest.
         interval (str): OHLCV interval (e.g., "1d").
@@ -6161,9 +7418,9 @@ def memory_explorer(
 ) -> None:
     """
     Display historically similar recorded market memories for a resolved market snapshot.
-    
+
     Resolves a symbol/interval/lookback snapshot (optionally using the latest run snapshot), retrieves up to `limit` similar historical memory matches, and renders them to the terminal. If `json_output` is true, emits the raw payload as JSON instead of rendering. If the explorer is unavailable, prints an observer-mode panel and exits the CLI with code 0.
-    
+
     Parameters:
         symbol (str | None): Symbol override for the snapshot; when None the command will attempt to infer a symbol.
         interval (str | None): Time interval for the snapshot (e.g., "1d", "1h"); when None a default or inferred interval is used.
@@ -6202,19 +7459,25 @@ def _retrieval_stage_counts(
     stage: dict[str, object],
 ) -> tuple[str, str, str, str, str, str]:
     """
-    Extracts display-ready string values for a retrieval stage's role and counts of various retrieval-related lists.
+    Produce display-ready string values for a retrieval stage's role and counts of its retrieval-related lists.
     
     Parameters:
-    	stage (dict[str, object]): A stage mapping expected to contain the keys:
-    		- "role": role identifier
-    		- "retrieved_memories": list of retrieved memory ids/entries
-    		- "memory_notes": list of memory note strings
-    		- "shared_memory_bus": list of shared-memory entry dicts
-    		- "recent_runs": list of recent run identifiers
+        stage (dict[str, object]): Mapping expected to contain the keys:
+            - "role": role identifier
+            - "retrieved_memories": list of retrieved memory entries
+            - "retrieval_explanations": list of retrieval explanation entries
+            - "memory_notes": list of memory note strings
+            - "shared_memory_bus": list of shared-memory entry dicts
+            - "recent_runs": list of recent run identifiers
     
     Returns:
-    	tuple[str, str, str, str, str]: A 5-tuple of strings:
-    		(role, retrieved_memories_count, memory_notes_count, shared_memory_bus_count, recent_runs_count)
+        tuple[str, str, str, str, str, str]: Six strings in the order:
+            (role,
+             retrieved_memories_count,
+             retrieval_explanations_count,
+             memory_notes_count,
+             shared_memory_bus_count,
+             recent_runs_count)
     """
     return (
         str(stage["role"]),
@@ -6229,17 +7492,17 @@ def _retrieval_stage_counts(
 def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
     """
     Builds human-readable lines describing retrieval and memory-related fields for a single retrieval stage.
-    
+
     The input mapping is expected to contain the following keys:
     - "retrieved_memories": list[str] — similar memories retrieved for the stage.
     - "memory_notes": list[str] — notes derived from trade memory for the stage.
     - "shared_memory_bus": list[dict] — entries with at least "role" and "summary" keys describing shared memory items.
     - "recent_runs": list[str] — identifiers or summaries of recent runs relevant to the stage.
     - "tool_outputs": list[str] — outputs produced by tools during the stage.
-    
+
     Parameters:
         stage (dict[str, object]): A stage payload containing retrieval/memory/tool fields as described above.
-    
+
     Returns:
         list[str]: A list of formatted text lines suitable for display. If no relevant fields are present, returns a single-item list with the message "No retrieval or memory context was attached for this stage."
     """
@@ -6276,6 +7539,18 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
 def _retrieval_explanation_lines(
     explanations: list[dict[str, object]],
 ) -> list[str]:
+    """
+    Format retrieval-stage explanation records into compact human-readable lines.
+    
+    Parameters:
+        explanations (list[dict[str, object]]): Sequence of explanation records. Each record may contain a top-level
+            `run_id` and an `explanation` mapping with optional keys `eligibility_reason`, `freshness`,
+            `outcome_tag`, and `diversity_bucket`. Non-dict `explanation` entries are skipped.
+    
+    Returns:
+        list[str]: Lines formatted as "<run_id>: reason=<eligibility_reason> freshness=<freshness> outcome=<outcome_tag> bucket=<diversity_bucket>",
+        using "-" for missing values.
+    """
     lines: list[str] = []
     for item in explanations:
         run_id = str(item.get("run_id") or "-")
@@ -6293,15 +7568,17 @@ def _retrieval_explanation_lines(
     return lines
 
 
-def _render_retrieval_inspection(stages: list[dict[str, object]], run_id: object) -> None:
+def _render_retrieval_inspection(
+    stages: list[dict[str, object]], run_id: object
+) -> None:
     """
-    Render a retrieval-inspection summary and detailed panels for each agent stage to the console.
+    Render a retrieval-inspection summary table and detailed panels for each agent stage to the console.
     
-    Prints a table titled with the run identifier that summarizes retrieval counts per stage, then prints a detailed panel for each stage containing retrieval lines and context information.
+    Builds a table titled with the run identifier that summarizes retrieval counts per stage, then emits a detailed panel per stage containing the retrieval lines and context information.
     
     Parameters:
-        stages (list[dict[str, object]]): A list of stage records where each dict represents an agent stage (each must include a 'role' key and the retrieval-related fields used to build the summary and detail lines).
-        run_id (object): Identifier of the run displayed in the table title.
+        stages (list[dict[str, object]]): List of stage records. Each record must include a 'role' key and the retrieval-related fields consumed by `_retrieval_stage_counts` and `_retrieval_stage_lines`.
+        run_id (object): Identifier displayed in the table title.
     """
     table = Table(title=f"Retrieval Inspection / {run_id}")
     table.add_column("Role")
@@ -6330,9 +7607,9 @@ def retrieval_inspection(
 ) -> None:
     """
     Render an inspection of which memories and context bundles were injected into each agent stage for a given run.
-    
+
     If --json is passed, emit the raw payload as JSON instead of rendering. When no run or stages are available the command prints a yellow observer-mode panel and exits with code 0.
-    
+
     Parameters:
         run_id (str | None): Optional run identifier to inspect; when None the latest run is used.
         json_output (bool): If True, output the inspection payload as JSON rather than rendered panels.
@@ -6400,16 +7677,16 @@ def chat(
 ) -> None:
     """
     Send a message to a chosen operator persona and display or emit the persona's reply.
-    
+
     If `message` is omitted an interactive prompt is shown. The interaction is recorded
     in persistent chat history. Output is printed as a terminal panel unless
     `json_output` is true, in which case a JSON payload containing `persona`,
     `message`, and `response` is emitted.
-    
+
     Parameters:
-    	persona (ChatPersona): Which agent persona should answer.
-    	message (str | None): Optional message text; when None an interactive prompt is used.
-    	json_output (bool): When true, emit a JSON payload instead of printing a panel.
+        persona (ChatPersona): Which agent persona should answer.
+        message (str | None): Optional message text; when None an interactive prompt is used.
+        json_output (bool): When true, emit a JSON payload instead of printing a panel.
     """
     settings = get_settings()
     ensure_llm_ready(settings)
@@ -6454,15 +7731,9 @@ def instruct(
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
-    Interpret an operator instruction and optionally apply any parsed preference update.
+    Interpret a natural-language operator instruction and optionally persist a resulting preference update.
     
-    Processes a natural-language operator instruction using the configured LLM and the trading
-    database. If the parsed instruction proposes a preference update and `apply` is True,
-    the update is persisted to the database. When `json_output` is True, emits a JSON object
-    with keys `instruction` (the interpreted instruction), `applied` (true if an update was
-    persisted), and `updated_preferences` (the new preferences or `null`). Otherwise the
-    instruction is rendered to the console and any updated preferences are displayed.
-    The database connection opened for this operation is closed before the function exits.
+    Interprets the provided operator instruction into an actionable instruction. If the interpreted instruction proposes a preference update and `apply` is True, the update is persisted. When `json_output` is True, emits a JSON object with keys `instruction` (the interpreted instruction), `applied` (`true` if a preference update was persisted, `false` otherwise), and `updated_preferences` (the new preferences or `null`); otherwise the instruction and any updated preferences are rendered to the console.
     
     Parameters:
         message (str): Natural-language operator instruction to interpret.
@@ -6512,9 +7783,14 @@ def instruct(
 def monitor(
     refresh_seconds: float = typer.Option(
         1.0, min=0.2, help="Dashboard refresh interval in seconds."
-    )
+    ),
 ) -> None:
-    """Attach to the live runtime monitor."""
+    """
+    Open and attach to the live runtime monitor.
+    
+    Parameters:
+        refresh_seconds (float): Dashboard refresh interval in seconds (minimum 0.2).
+    """
     settings = get_settings()
     console.print(build_monitor_renderable(settings))
     run_live_monitor(settings, refresh_seconds=refresh_seconds)
@@ -6569,9 +7845,18 @@ def ink_tui() -> None:
 
 @app.command("stop-service")
 def stop_service(
-    force: bool = typer.Option(False, help="Send SIGTERM after marking stop requested.")
+    force: bool = typer.Option(
+        False, help="Send SIGTERM after marking stop requested."
+    ),
 ) -> None:
-    """Request a graceful stop for the background orchestrator."""
+    """
+    Request a graceful stop for the background orchestrator and update persisted runtime state.
+    
+    If no managed service is active, exits with code 0 and prints a notice. If the recorded PID is not alive, marks the runtime state as stopped, clears the stale PID, records a `stale_service_recovered` event, prints a notice, and exits with code 0. Otherwise, signals the running service to stop via the runtime control channel and records a stop request in the database; if `force` is True, sends a SIGTERM to the service process after requesting stop.
+    
+    Parameters:
+        force (bool): If True, send SIGTERM to the service process after requesting a graceful stop.
+    """
     settings = get_settings()
     state = read_service_state(settings)
     if state is None or state.pid is None:
@@ -6644,9 +7929,14 @@ def stop_service(
 def restart_service(
     grace_seconds: float = typer.Option(
         3.0, min=0.0, help="How long to wait for a graceful stop before relaunch."
-    )
+    ),
 ) -> None:
-    """Restart the managed background orchestrator using its last recorded launch config."""
+    """
+    Restart the managed background orchestrator using its last recorded launch configuration.
+    
+    Parameters:
+        grace_seconds (float): Seconds to wait for a graceful stop before forcing relaunch.
+    """
     settings = get_settings()
     try:
         pid = restart_background_service(settings=settings, grace_seconds=grace_seconds)

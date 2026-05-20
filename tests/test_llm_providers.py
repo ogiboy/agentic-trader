@@ -39,7 +39,7 @@ class FakeClient:
     def __init__(self) -> None:
         """
         Initialize a FakeClient used by tests to simulate HTTP interactions.
-        
+
         Creates:
         - `posts`: an empty list that records copies of JSON payloads sent to `post`.
         - `get_response`: default `FakeResponse` returned by `get` calls, initialized with `{"models": []}`.
@@ -51,20 +51,18 @@ class FakeClient:
 
     def get(self, _url: str, **_kwargs: Any) -> FakeResponse:
         """
-        Return the client's configured FakeResponse for any GET request.
+        Provide the preconfigured FakeResponse used for any GET request.
         
-        Parameters:
-        	_url (str): The requested URL (ignored by this fake client).
-        	_kwargs (Any): Additional request options (ignored by this fake client).
+        All arguments are ignored by this fake client.
         
         Returns:
-        	FakeResponse: The preconfigured response object stored on the client.
+            FakeResponse: The client's stored response instance returned for every GET.
         """
         return self.get_response
 
     def post(self, _url: str, *, json: dict[str, Any], **_kwargs: Any) -> FakeResponse:
         """
-        Record the posted JSON payload and return the next queued fake response or a default success response.
+        Record the JSON payload and return the next queued fake response or a default success response.
         
         Parameters:
             _url (str): Ignored request URL.
@@ -72,7 +70,7 @@ class FakeClient:
             _kwargs: Ignored keyword arguments.
         
         Returns:
-            FakeResponse: The next response from the client's response queue if available; otherwise a default FakeResponse with payload {"response": "OK"}.
+            FakeResponse: The next response from the client's post_responses queue if present; otherwise a default FakeResponse with payload `{"response": "OK"}`.
         """
         self.posts.append(dict(json))
         if self.post_responses:
@@ -91,7 +89,7 @@ def test_generate_retries_schema_format_as_json_on_ollama_400() -> None:
     provider, client = _provider()
     client.post_responses = [
         FakeResponse({"error": "schema unsupported"}, status_code=400),
-        FakeResponse({"response": "{\"ok\": true}"}),
+        FakeResponse({"response": '{"ok": true}'}),
     ]
 
     payload = provider.generate(
@@ -100,7 +98,7 @@ def test_generate_retries_schema_format_as_json_on_ollama_400() -> None:
         json_schema={"type": "object"},
     )
 
-    assert payload["response"] == "{\"ok\": true}"
+    assert payload["response"] == '{"ok": true}'
     assert client.posts[0]["format"] == {"type": "object"}
     assert client.posts[1]["format"] == "json"
 
@@ -125,7 +123,9 @@ def test_health_check_reports_generation_states_without_network() -> None:
     assert healthy.service_reachable is True
     assert healthy.model_available is True
     assert healthy.generation_available is True
-    assert healthy.message == "Ollama is reachable and the configured model can generate."
+    assert (
+        healthy.message == "Ollama is reachable and the configured model can generate."
+    )
 
     provider_missing, client_missing = _provider(Settings(model_name="missing-model"))
     client_missing.get_response = FakeResponse({"models": [{"name": "qwen3:8b"}]})
@@ -168,7 +168,7 @@ def test_openai_compatible_provider_generates_and_checks_health() -> None:
     client.get_response = FakeResponse({"data": [{"id": "local-qwen"}]})
     client.post_responses = [
         FakeResponse({"choices": [{"message": {"content": "OK"}}]}),
-        FakeResponse({"choices": [{"message": {"content": "{\"ok\": true}"}}]}),
+        FakeResponse({"choices": [{"message": {"content": '{"ok": true}'}}]}),
     ]
     object.__setattr__(provider, "client", client)
 
@@ -182,7 +182,13 @@ def test_openai_compatible_provider_generates_and_checks_health() -> None:
     assert payload["response"] == '{"ok": true}'
     assert client.posts[1]["response_format"] == {"type": "json_object"}
 
+
 def test_openai_compatible_provider_uses_schema_and_content_parts() -> None:
+    """
+    Verifies that OpenAICompatibleProvider applies a JSON schema and concatenates multipart text content into a single response.
+    
+    Queues a POST response whose `choices[0].message.content` is a list of parts, confirms that only `type == "text"` parts are concatenated (skipping non-text parts), that the assembled response equals the expected JSON string, and that the outgoing request used a `response_format` of type `json_schema` with the `agentic_trader_response` name and the provided schema.
+    """
     provider = OpenAICompatibleProvider(
         Settings(llm_provider="openai-compatible", model_name="local-qwen")
     )
@@ -194,7 +200,7 @@ def test_openai_compatible_provider_uses_schema_and_content_parts() -> None:
                     {
                         "message": {
                             "content": [
-                                {"type": "text", "text": "{\"ok\":"},
+                                {"type": "text", "text": '{"ok":'},
                                 {"type": "text", "text": " true}"},
                                 {"type": "ignored", "value": "no text"},
                             ]
@@ -228,7 +234,7 @@ def test_openai_compatible_provider_uses_schema_and_content_parts() -> None:
 def test_openai_compatible_provider_reports_missing_model() -> None:
     """
     Verifies health_check reports a missing model when the configured model ID is not present in the OpenAI-compatible service response.
-    
+
     Asserts that the service is reachable, that the configured model is reported as unavailable, that generation is skipped, and that the health message indicates the model is not listed.
     """
     provider = OpenAICompatibleProvider(
@@ -244,6 +250,7 @@ def test_openai_compatible_provider_reports_missing_model() -> None:
     assert health.model_available is False
     assert health.generation_available is False
     assert "not listed" in health.message
+
 
 def test_openai_compatible_provider_surfaces_errors_without_network() -> None:
     provider = OpenAICompatibleProvider(
@@ -262,9 +269,7 @@ def test_openai_compatible_provider_surfaces_errors_without_network() -> None:
 
     health = provider.health_check(include_generation=True)
     http_ok, http_message = provider._probe_generation(model_available=True)
-    malformed_ok, malformed_message = provider._probe_generation(
-        model_available=True
-    )
+    malformed_ok, malformed_message = provider._probe_generation(model_available=True)
 
     assert health.service_reachable is False
     assert health.generation_available is False
@@ -345,9 +350,7 @@ def test_openai_compatible_health_check_without_include_generation() -> None:
 
 def test_openai_compatible_health_check_when_unreachable() -> None:
     provider, client = _compat_provider()
-    client.get_response = FakeResponse(
-        None, raise_error=ConnectionError("refused")
-    )
+    client.get_response = FakeResponse(None, raise_error=ConnectionError("refused"))
 
     health = provider.health_check()
 
@@ -358,9 +361,7 @@ def test_openai_compatible_health_check_when_unreachable() -> None:
 
 def test_openai_compatible_health_check_unreachable_with_generation_flag() -> None:
     provider, client = _compat_provider()
-    client.get_response = FakeResponse(
-        None, raise_error=ConnectionError("refused")
-    )
+    client.get_response = FakeResponse(None, raise_error=ConnectionError("refused"))
 
     health = provider.health_check(include_generation=True)
 
@@ -575,6 +576,18 @@ def test_openai_compatible_error_from_response_dict_error_with_message() -> None
     )
     result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
     assert result == "model not found"
+
+
+def test_openai_compatible_error_from_response_redacts_secret_shapes() -> None:
+    response = _FakeHttpxResponse(
+        {"error": {"message": "provider failed api_key=llm-secret-token"}},
+        status_code=401,
+    )
+
+    result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
+
+    assert "llm-secret-token" not in result
+    assert "api_key=<redacted>" in result
 
 
 def test_openai_compatible_error_from_response_fallback_on_no_error_key() -> None:

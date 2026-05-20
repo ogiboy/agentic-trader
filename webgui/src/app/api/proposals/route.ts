@@ -16,8 +16,15 @@ const SUPPORTED_PROPOSAL_ACTIONS = new Set<ProposalActionKind>([
   'approve',
   'reject',
   'reconcile',
+  'refresh',
 ]);
 
+/**
+ * Determines whether a given value is one of the supported proposal action kinds.
+ *
+ * @param value - The value to test
+ * @returns `true` if `value` is one of the supported `ProposalActionKind` values, `false` otherwise.
+ */
 function isProposalActionKind(value: unknown): value is ProposalActionKind {
   return (
     typeof value === 'string' &&
@@ -59,12 +66,15 @@ export async function POST(request: Request) {
     }
     const proposalId = stringField(body.proposalId).trim();
     if (!proposalId) {
-      return Response.json({ error: 'proposal id is required' }, { status: 400 });
+      return Response.json(
+        { error: 'proposal id is required' },
+        { status: 400 },
+      );
     }
     const reviewNotes = stringField(body.reviewNotes).trim();
-    if (body.kind === 'reject' && !reviewNotes) {
+    if (!reviewNotes) {
       return Response.json(
-        { error: 'review note is required for reject' },
+        { error: `review note is required for ${body.kind}` },
         { status: 400 },
       );
     }

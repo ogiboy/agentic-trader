@@ -605,14 +605,15 @@ def _system_status_table(
 
 def _portfolio_renderable(db: TradingDatabase) -> Group:
     """
-    Builds a renderable containing a portfolio summary and positions table.
-
+    Create a Rich renderable containing a portfolio summary and a positions table.
+    
+    The summary table shows cash, market value, equity, realized PnL, unrealized PnL (paper mark), number of open positions, and the latest mark timestamp and source. The positions table lists each position's symbol, quantity, average price, market price, market value, and unrealized PnL; a placeholder row is used when there are no positions.
+    
     Parameters:
-        db (TradingDatabase): Database instance used to retrieve the account snapshot and current positions.
-
+        db (TradingDatabase): Database used to retrieve the account snapshot, user preferences (for currency), latest account mark, and current positions.
+    
     Returns:
-        rich.console.Group: A Group with a "Portfolio" summary table (cash, market value, equity, PnL, open positions)
-        followed by a "Positions" table listing symbol, quantity, prices, market value, and unrealized PnL.
+        Group: A Rich Group containing the "Portfolio" summary table followed by the "Positions" table.
     """
     snapshot = db.get_account_snapshot()
     preferences = db.load_preferences()
@@ -624,7 +625,9 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
-    summary.add_row(f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}")
+    summary.add_row(
+        f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}"
+    )
     summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
     summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
     summary.add_row(
@@ -888,6 +891,16 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
 
 
 def _render_broker_status(settings: Settings) -> None:
+    """
+    Render the broker backend runtime status as a Rich table to the console.
+    
+    Fetches the broker runtime payload from the current settings and prints a "Broker Status"
+    table that includes adapter/backend information, execution flags, Alpaca-related settings,
+    an informational message, and optional healthcheck message and blocking reasons.
+    
+    Parameters:
+        settings (Settings): Application settings used to obtain the broker runtime payload.
+    """
     payload = broker_runtime_payload(settings)
     table = Table(title="Broker Status")
     table.add_column("Field", style=STYLE_KEY_COLUMN)
@@ -914,7 +927,9 @@ def _render_broker_status(settings: Settings) -> None:
         table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
         blockers = healthcheck.get("blocking_reasons")
         if isinstance(blockers, list):
-            table.add_row("Blocking Reasons", ", ".join(str(item) for item in blockers) or "-")
+            table.add_row(
+                "Blocking Reasons", ", ".join(str(item) for item in blockers) or "-"
+            )
     console.print(table)
 
 
@@ -1110,7 +1125,9 @@ def _show_portfolio(db: TradingDatabase) -> None:
     summary.add_column("Metric")
     summary.add_column("Value")
     summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
-    summary.add_row(f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}")
+    summary.add_row(
+        f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}"
+    )
     summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
     summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
     summary.add_row(
@@ -1656,18 +1673,26 @@ def _run_readonly_db_menu_action(settings: Settings, action: TuiMenuAction) -> N
 
 def _portfolio_menu(settings: Settings) -> None:
     """
-    Present an interactive "Portfolio and Risk" menu, allowing the operator to view portfolio, trade journal, or daily risk reports.
-
-    Displays a menu of actions, attempts to open a read-only database for views that require persisted data, shows an observer-mode notice when a readable database is unavailable, closes the database after each view, and returns to the caller when the user selects "Back".
+    Present an interactive "Portfolio and Risk" menu that lets the operator view the paper portfolio, trade journal, or daily risk report.
+    
+    Opens a read-only database when a selected view requires persisted data, displays an observer-mode notice if the database is unavailable, closes the database after each view, and returns when the user selects "Back".
     """
     actions = {
-        "1": TuiMenuAction("1", "Show paper portfolio", "Paper portfolio", _show_portfolio),
-        "2": TuiMenuAction("2", "Show trade journal", "Trade journal", _show_trade_journal),
-        "3": TuiMenuAction("3", "Show daily risk report", "Daily risk report", _show_risk_report),
+        "1": TuiMenuAction(
+            "1", "Show paper portfolio", "Paper portfolio", _show_portfolio
+        ),
+        "2": TuiMenuAction(
+            "2", "Show trade journal", "Trade journal", _show_trade_journal
+        ),
+        "3": TuiMenuAction(
+            "3", "Show daily risk report", "Daily risk report", _show_risk_report
+        ),
     }
     while True:
         console.clear()
-        console.print(_menu_table("Portfolio And Risk", [*actions.values(), ("4", "Back")]))
+        console.print(
+            _menu_table("Portfolio And Risk", [*actions.values(), ("4", "Back")])
+        )
         choice = Prompt.ask(
             PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4"], default="1"
         )
@@ -1679,10 +1704,10 @@ def _portfolio_menu(settings: Settings) -> None:
 
 def _research_menu(settings: Settings) -> None:
     """
-    Display the Research and Memory menu and handle user selections.
-
-    Prompts the operator to choose between opening the memory explorer, viewing recent runs (with a short runtime events list), or returning to the previous menu. When a readable database is required, the function attempts a safe read-only open and shows an observer-mode panel if the runtime writer prevents access. Any opened database is closed before continuing. The function loops until the user selects "Back".
-
+    Display the Research and Memory menu and handle the operator's selection loop.
+    
+    Presents options to open the memory explorer, show recent runs (followed by a short runtime events list), or return to the previous menu. When a readable database is required the function attempts a safe read-only open and displays an observer-mode notice if the runtime writer prevents access; any opened database is closed before continuing.
+    
     Parameters:
         settings (Settings): Application settings used to locate and open the trading database and service state.
     """
@@ -1693,11 +1718,15 @@ def _research_menu(settings: Settings) -> None:
             "Memory explorer",
             lambda db: _show_memory_explorer(settings, db),
         ),
-        "2": TuiMenuAction("2", "Show recent runs and events", "Recent runs", _render_recent_runs),
+        "2": TuiMenuAction(
+            "2", "Show recent runs and events", "Recent runs", _render_recent_runs
+        ),
     }
     while True:
         console.clear()
-        console.print(_menu_table("Research And Memory", [*actions.values(), ("3", "Back")]))
+        console.print(
+            _menu_table("Research And Memory", [*actions.values(), ("3", "Back")])
+        )
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "3":
             return
@@ -1709,12 +1738,10 @@ def _research_menu(settings: Settings) -> None:
 
 def _review_menu(settings: Settings) -> None:
     """
-    Present an interactive "Review and Trace" menu allowing inspection of the latest persisted run review or its trace.
-
-    Displays a 3-option menu, opens a read-only database when available, and shows an observer-mode panel when the runtime writer prevents safe reads. Choosing "Inspect latest run review" or "Inspect latest run trace" will open the DB, render the corresponding view, and always close the DB afterward. Selecting "Back" exits the menu.
-
+    Present an interactive "Review and Trace" menu to inspect the latest persisted run review or its trace.
+    
     Parameters:
-        settings (Settings): Application settings used to locate and open the trading database and to configure UI behavior.
+        settings (Settings): Application settings used to locate the trading database and configure UI behavior.
     """
     actions = {
         "1": TuiMenuAction(
@@ -1732,7 +1759,9 @@ def _review_menu(settings: Settings) -> None:
     }
     while True:
         console.clear()
-        console.print(_menu_table("Review And Trace", [*actions.values(), ("3", "Back")]))
+        console.print(
+            _menu_table("Review And Trace", [*actions.values(), ("3", "Back")])
+        )
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "3":
             return
@@ -1790,8 +1819,16 @@ def _exit_menu_action(_settings: Settings) -> None:
 
 
 def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
+    """
+    Define the main menu actions used by the TUI.
+    
+    Returns:
+        A tuple of `TuiMainMenuAction` entries representing the main menu items in order: configure investment preferences, runtime control, operator desk, portfolio and risk, research and memory, review and trace, and exit (the exit action is marked to leave the menu).
+    """
     return (
-        TuiMainMenuAction("1", "Configure investment preferences", _edit_preferences_action),
+        TuiMainMenuAction(
+            "1", "Configure investment preferences", _edit_preferences_action
+        ),
         TuiMainMenuAction("2", "Runtime control", _runtime_menu_action),
         TuiMainMenuAction("3", "Operator desk", _operator_menu_action),
         TuiMainMenuAction("4", "Portfolio and risk", _portfolio_menu_action),

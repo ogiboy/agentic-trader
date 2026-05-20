@@ -35,6 +35,7 @@ agentic-trader v1-readiness --provider-check --json
 agentic-trader finance-ops --json
 agentic-trader research-status --json
 agentic-trader dashboard-snapshot --provider-check
+pnpm run qa:v1-paper-desk
 ```
 
 Expected:
@@ -44,6 +45,8 @@ Expected:
 - Firecrawl/Camofox/CrewAI sidecar state remains evidence-only
 - WebGUI, Ink, Rich, observer, and CLI use the same dashboard/runtime truth
 - proposal approval remains manual and auditable
+- the V1 paper desk rehearsal proves the product-shaped proposal path in an
+  isolated runtime before PR approval
 
 ## Tier 3: Behavioral Runtime Gate
 

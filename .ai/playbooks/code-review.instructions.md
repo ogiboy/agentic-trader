@@ -15,6 +15,44 @@ copy a bot finding into the review unless the current source still supports it.
 4. Operator evidence: CLI/TUI/Web/docs claims match contracts.
 5. Maintainability: complexity, duplication, names, boundaries.
 
+## Sectional External Review Workflow
+
+Use this when the diff is too large for one useful CodeRabbit/Sonar pass, or
+when the current PR risks a reviewer file limit.
+
+1. Resolve the intended base and count changed files:
+
+   ```bash
+   git diff --name-only <base>...HEAD | sort -u
+   ```
+
+2. If the section is over 120 meaningful files, split it before asking an
+   external reviewer. Keep each section comfortably under 150 files.
+3. Review sections in this order:
+   - runtime and safety: `agentic_trader/system/`, `agentic_trader/workflows/`,
+     `agentic_trader/runtime_feed.py`, `agentic_trader/observer_api.py`,
+     `agentic_trader/cli.py`, and nearest tests
+   - trading and persistence: `agentic_trader/engine/`,
+     `agentic_trader/execution/`, `agentic_trader/finance/`,
+     `agentic_trader/storage/`, and nearest tests
+   - providers and sidecars: `agentic_trader/providers/`,
+     `agentic_trader/researchd/`, `sidecars/`, `tools/`, and nearest tests
+   - operator surfaces: `webgui/src/app/api/`, `webgui/src/lib/`,
+     `webgui/src/components/`, `tui/`, `agentic_trader/tui.py`, and nearest
+     tests
+   - docs, setup, and release: `.ai/`, `docs/`, `dev-docs/`, scripts,
+     workflows, package metadata, and lockfiles
+4. For CodeRabbit, prefer a real branch/PR per section when the aggregate PR is
+   too large. Use `coderabbit review --agent --base <base>` only after checking
+   the section branch is under the file budget. Do not rely on path-scoped CLI
+   flags unless `coderabbit review --help` in the current install shows them.
+5. For Sonar, treat findings as project backlog signals, not as latest-commit
+   truth. Verify each issue against the current checkout before fixing or
+   accepting it.
+6. Record a short section report with: base/head, file count, commands, still
+   valid findings, skipped stale findings with reasons, fixes, tests, and
+   residual risk.
+
 ## Evidence
 
 - Include file and line references.

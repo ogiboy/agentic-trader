@@ -135,7 +135,14 @@ STRATEGY_PROFILES: tuple[StrategyProfile, ...] = (
         status="implemented",
         summary="Oversold mean-reversion scan using RSI and moving-average distance.",
         idea_presets=("mean-reversion",),
-        required_inputs=("last_price", "volume", "relative_volume", "rsi", "sma_20", "sma_50"),
+        required_inputs=(
+            "last_price",
+            "volume",
+            "relative_volume",
+            "rsi",
+            "sma_20",
+            "sma_50",
+        ),
         evidence_requirements=(
             "news_risk_absence_or_positive_resolution",
             "support_level_context",
@@ -185,7 +192,13 @@ STRATEGY_PROFILES: tuple[StrategyProfile, ...] = (
         status="implemented",
         summary="High range and relative-volume triage for operator watchlists.",
         idea_presets=("volatile",),
-        required_inputs=("last_price", "range_pct", "change_pct", "relative_volume", "rsi"),
+        required_inputs=(
+            "last_price",
+            "range_pct",
+            "change_pct",
+            "relative_volume",
+            "rsi",
+        ),
         evidence_requirements=(
             "material_event_classification",
             "staleness_and_source_tier",
@@ -289,7 +302,11 @@ STRATEGY_PROFILES: tuple[StrategyProfile, ...] = (
         family="pairs",
         status="v2_deferred",
         summary="Pairs/statistical-arbitrage candidate deferred until multi-leg, shorting, borrow, and correlation risk are first-class.",
-        required_inputs=("paired_symbol_history", "spread_model", "borrow_and_shorting_policy"),
+        required_inputs=(
+            "paired_symbol_history",
+            "spread_model",
+            "borrow_and_shorting_policy",
+        ),
         evidence_requirements=(
             "correlation_stability",
             "borrow_availability",
@@ -308,7 +325,14 @@ LEDGER_CATEGORIES: tuple[FinanceLedgerCategory, ...] = (
         name="trades",
         purpose="Executed order/fill evidence for realized PnL and audit trails.",
         v1_source="paper broker executions and execution_records",
-        expected_fields=("order_id", "symbol", "side", "quantity", "price", "timestamp"),
+        expected_fields=(
+            "order_id",
+            "symbol",
+            "side",
+            "quantity",
+            "price",
+            "timestamp",
+        ),
         v2_extension="external broker statement/flex-style order confirmations",
     ),
     FinanceLedgerCategory(
@@ -343,7 +367,13 @@ LEDGER_CATEGORIES: tuple[FinanceLedgerCategory, ...] = (
         name="corporate_actions",
         purpose="Splits, mergers, symbol changes, and adjustments that can invalidate raw PnL.",
         v1_source="missing unless official/provider evidence is configured",
-        expected_fields=("symbol", "action_type", "ratio_or_amount", "effective_date", "source"),
+        expected_fields=(
+            "symbol",
+            "action_type",
+            "ratio_or_amount",
+            "effective_date",
+            "source",
+        ),
         v2_extension="broker and official corporate-action feeds",
     ),
 )
@@ -396,11 +426,30 @@ def strategy_catalog_payload(
 
 
 def score_strategy_context(score: IdeaScore) -> dict[str, object]:
-    """Explain which strategy profile and evidence gates apply to an idea score."""
+    """
+    Map an IdeaScore to its strategy profile and proposal-readiness payload.
+    
+    Parameters:
+        score (IdeaScore): Evaluation containing `preset`, `signal`, and `warnings` used to select a profile and compute readiness gates.
+    
+    Returns:
+        dict[str, object]: Payload with:
+            - `strategy_profile`: dict payload of the matched StrategyProfile.
+            - `proposal_readiness`: dict containing:
+                - `state` (ReadinessState): either `"watch_only"` or `"needs_evidence"`.
+                - `proposal_candidate` (bool): always `False`.
+                - `blocking_warnings` (list[str]): sorted subset of `["low_volume","wide_spread","invalid_price"]` present in `score.warnings`.
+                - `missing_evidence` (list[str]): evidence requirements from the profile.
+                - `required_risk_controls` (list[str]): required risk controls from the profile.
+                - `next_action` (str): `"keep_on_watchlist"` when `state` is `"watch_only"`, otherwise an enrichment instruction.
+                - `manual_approval_required` (bool): always `True`.
+    """
 
     profile = strategy_profile_for_preset(score.preset)
     blocking_warnings = sorted(
-        warning for warning in score.warnings if warning in {"low_volume", "wide_spread", "invalid_price"}
+        warning
+        for warning in score.warnings
+        if warning in {"low_volume", "wide_spread", "invalid_price"}
     )
     if score.signal == "watch":
         state: ReadinessState = "watch_only"

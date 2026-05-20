@@ -36,6 +36,7 @@ class ExecutionIntent(BaseModel):
     order_type: OrderType = "market"
     quantity: float | None = Field(default=None, gt=0.0)
     notional: float | None = Field(default=None, gt=0.0)
+    limit_price: float | None = Field(default=None, gt=0.0)
     reference_price: float = Field(gt=0.0)
     confidence: float = Field(ge=0.0, le=1.0)
     thesis: str
@@ -70,11 +71,28 @@ class ExecutionIntent(BaseModel):
 
     @model_validator(mode="after")
     def _require_size_for_approved_trade(self) -> Self:
+        """
+        Validate and finalize size and price constraints for an ExecutionIntent instance.
+        
+        Sets `created_at` to `timestamp` if missing. Ensures that an approved intent with a non-"hold" side includes either `quantity` or `notional`. Enforces that `limit` orders include `limit_price` and that `market` orders do not include `limit_price`.
+        
+        Returns:
+            Self: The validated model instance.
+        
+        Raises:
+            ValueError: If an approved non-"hold" intent is missing both `quantity` and `notional`.
+            ValueError: If `order_type` is "limit" and `limit_price` is not provided.
+            ValueError: If `order_type` is "market" and `limit_price` is provided.
+        """
         if self.created_at is None:
             self.created_at = self.timestamp
         missing_size = self.quantity is None and self.notional is None
         if self.approved and self.side != "hold" and missing_size:
             raise ValueError("Approved execution intents require quantity or notional.")
+        if self.order_type == "limit" and self.limit_price is None:
+            raise ValueError("Limit execution intents require limit_price.")
+        if self.order_type == "market" and self.limit_price is not None:
+            raise ValueError("Market execution intents must not include limit_price.")
         return self
 
 

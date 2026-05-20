@@ -1,3 +1,5 @@
+import pytest
+
 from agentic_trader.execution.intent import ExecutionIntent, _utc_now
 
 
@@ -136,6 +138,52 @@ def test_intent_with_notional_when_approved():
     )
     assert intent.notional == 1000.0
     assert intent.approved is True
+
+
+def test_limit_intent_requires_limit_price_when_approved() -> None:
+    with pytest.raises(ValueError, match="require limit_price"):
+        ExecutionIntent(
+            symbol="AAPL",
+            side="buy",
+            order_type="limit",
+            quantity=10.0,
+            reference_price=100.0,
+            confidence=0.8,
+            thesis="Limit order without explicit price.",
+            approved=True,
+        )
+
+
+def test_limit_intent_accepts_limit_price() -> None:
+    intent = ExecutionIntent(
+        symbol="AAPL",
+        side="buy",
+        order_type="limit",
+        quantity=10.0,
+        limit_price=99.5,
+        reference_price=100.0,
+        confidence=0.8,
+        thesis="Limit order with explicit price.",
+        approved=True,
+    )
+
+    assert intent.order_type == "limit"
+    assert intent.limit_price == pytest.approx(99.5)
+
+
+def test_market_intent_rejects_limit_price() -> None:
+    with pytest.raises(ValueError, match="must not include limit_price"):
+        ExecutionIntent(
+            symbol="AAPL",
+            side="buy",
+            order_type="market",
+            quantity=10.0,
+            limit_price=99.5,
+            reference_price=100.0,
+            confidence=0.8,
+            thesis="Market order with stray limit price.",
+            approved=True,
+        )
 
 
 def test_intent_auto_assigns_created_at():

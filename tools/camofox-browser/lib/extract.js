@@ -1,5 +1,17 @@
-const SUPPORTED_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'object', 'null']);
+const SUPPORTED_TYPES = new Set([
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'object',
+  'null',
+]);
 
+/**
+ * Validates a simple JSON-schema-like object ensuring top-level `type: 'object'` and well-formed property definitions.
+ * @param {object} schema - Schema expected to have `type: 'object'` and a `properties` object mapping property names to property definitions.
+ * @returns {{ok: true}|{ok: false, error: string}} `{ok: true}` when schema is valid; otherwise `{ok: false, error}` with a short validation message.
+ */
 export function validateSchema(schema) {
   if (!schema || typeof schema !== 'object') {
     return { ok: false, error: 'schema must be an object' };
@@ -15,7 +27,10 @@ export function validateSchema(schema) {
       return { ok: false, error: `property "${prop}" must be an object` };
     }
     if (def.type && !SUPPORTED_TYPES.has(def.type)) {
-      return { ok: false, error: `property "${prop}" has unsupported type "${def.type}"` };
+      return {
+        ok: false,
+        error: `property "${prop}" has unsupported type "${def.type}"`,
+      };
     }
   }
   return { ok: true };
@@ -47,6 +62,19 @@ function extractFromRef(refs, refId) {
   return info.name || null;
 }
 
+/**
+ * Extract deterministic values for each property in a schema, optionally using `x-ref` lookups.
+ *
+ * Given a top-level object schema, attempts to extract a value for every property by resolving
+ * `def['x-ref']` against `refs`. When a referenced value is found and the property defines a
+ * primitive `type` (not `object`), the value is coerced to that type. Required properties that
+ * cannot be extracted cause an error.
+ *
+ * @param {Object} schema - Top-level JSON Schema object (must have `type: "object"` and a `properties` object).
+ * @param {Map<string, Object>} refs - Map of reference metadata keyed by reference id, used to resolve `x-ref`.
+ * @returns {Object} An object mapping property names to extracted values (coerced primitives or `null` when absent).
+ * @throws {Error} If `schema` is invalid or a required property could not be extracted.
+ */
 export function extractDeterministic({ schema, refs }) {
   const check = validateSchema(schema);
   if (!check.ok) throw new Error(check.error);
@@ -63,8 +91,14 @@ export function extractDeterministic({ schema, refs }) {
       }
     }
 
-    if (value == null && Array.isArray(schema.required) && schema.required.includes(prop)) {
-      throw new Error(`required property "${prop}" could not be extracted (x-ref=${refId || 'n/a'})`);
+    if (
+      value == null &&
+      Array.isArray(schema.required) &&
+      schema.required.includes(prop)
+    ) {
+      throw new Error(
+        `required property "${prop}" could not be extracted (x-ref=${refId || 'n/a'})`,
+      );
     }
 
     result[prop] = value;

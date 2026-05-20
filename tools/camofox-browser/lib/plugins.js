@@ -68,11 +68,12 @@ const PLUGINS_DIR = path.join(ROOT_DIR, 'plugins');
 const CONFIG_PATH = path.join(ROOT_DIR, 'camofox.config.json');
 
 /**
- * Read plugin configuration from camofox.config.json.
- * Supports two formats:
- *   - Array of strings: ["youtube", "persistence"] (no per-plugin config)
- *   - Object with per-plugin config: { "youtube": { "enabled": true }, "persistence": { "enabled": true, "profileDir": "/data" } }
- * Returns { list: string[] | null, configs: Map<string, object> }
+ * Read plugin configuration from camofox.config.json and derive the allowed plugin list and per-plugin configuration map.
+ *
+ * Supports two shapes for the `plugins` field in the config file:
+ * - An array of plugin names → returns that array as `list` and an empty `configs` map.
+ * - An object mapping plugin names to booleans or config objects → includes names whose value is not `false` (and not an object with `enabled === false`) in `list`, and stores any object values in `configs`.
+ * @returns {{list: string[]|null, configs: Map<string, object>}} `list` is an array of allowed plugin names or `null` when no explicit list is present; `configs` is a Map of per-plugin configuration objects keyed by plugin name.
  */
 function readPluginConfig() {
   const configs = new Map();
@@ -86,7 +87,11 @@ function readPluginConfig() {
     if (typeof config.plugins === 'object') {
       const list = [];
       for (const [name, pluginConf] of Object.entries(config.plugins)) {
-        if (pluginConf === false || (typeof pluginConf === 'object' && pluginConf.enabled === false)) continue;
+        if (
+          pluginConf === false ||
+          (typeof pluginConf === 'object' && pluginConf.enabled === false)
+        )
+          continue;
         list.push(name);
         if (typeof pluginConf === 'object') configs.set(name, pluginConf);
       }
@@ -97,7 +102,13 @@ function readPluginConfig() {
 }
 
 /**
- * Create the plugin event bus.
+ * Create an EventEmitter used for plugin lifecycle hooks.
+ *
+ * The emitter's maximum listener count is increased to 50. Adds an
+ * `emitAsync(eventName, payload)` method that calls the current listeners
+ * for `eventName` in parallel and awaits their completion.
+ *
+ * @returns {EventEmitter} The EventEmitter extended with an `emitAsync(eventName, payload)` method.
  */
 export function createPluginEvents() {
   const events = new EventEmitter();
@@ -110,7 +121,7 @@ export function createPluginEvents() {
    */
   events.emitAsync = async function emitAsync(eventName, payload) {
     const listeners = this.listeners(eventName);
-    await Promise.all(listeners.map(fn => fn(payload)));
+    await Promise.all(listeners.map((fn) => fn(payload)));
   };
 
   return events;
@@ -144,7 +155,10 @@ export async function loadPlugins(app, ctx) {
 
     // If camofox.config.json specifies a plugins list, only load those
     if (allowList && !allowList.includes(name)) {
-      ctx.log('debug', `plugin "${name}" not in camofox.config.json plugins list, skipping`);
+      ctx.log(
+        'debug',
+        `plugin "${name}" not in camofox.config.json plugins list, skipping`,
+      );
       continue;
     }
 
@@ -158,7 +172,10 @@ export async function loadPlugins(app, ctx) {
       const mod = await import(indexPath);
       const register = mod.default || mod.register;
       if (typeof register !== 'function') {
-        ctx.log('warn', `plugin "${name}" does not export a register function, skipping`);
+        ctx.log(
+          'warn',
+          `plugin "${name}" does not export a register function, skipping`,
+        );
         continue;
       }
 
@@ -167,7 +184,11 @@ export async function loadPlugins(app, ctx) {
       loaded.push(name);
       ctx.log('info', 'plugin loaded', { plugin: name });
     } catch (err) {
-      ctx.log('error', 'plugin load failed', { plugin: name, error: err.message, stack: err.stack });
+      ctx.log('error', 'plugin load failed', {
+        plugin: name,
+        error: err.message,
+        stack: err.stack,
+      });
     }
   }
 

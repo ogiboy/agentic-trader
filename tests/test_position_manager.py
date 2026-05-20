@@ -153,7 +153,13 @@ def test_long_exit_invalidation_triggered():
 def test_long_exit_no_exit_when_conditions_not_met():
     """Long position should not exit when no conditions are triggered."""
     snapshot = make_market_snapshot(last_close=100.0, ema_20=98.0, return_5=0.01)
-    plan = make_position_plan(side="buy", stop_loss=95.0, take_profit=110.0, holding_bars=1, max_holding_bars=10)
+    plan = make_position_plan(
+        side="buy",
+        stop_loss=95.0,
+        take_profit=110.0,
+        holding_bars=1,
+        max_holding_bars=10,
+    )
     decision = _long_exit(snapshot, plan)
     assert decision is None
 
@@ -186,7 +192,13 @@ def test_short_exit_take_profit_triggered():
 def test_short_exit_time_exit_triggered():
     """Short position should exit when holding bars exceed max."""
     snapshot = make_market_snapshot(last_close=100.0, ema_20=102.0, return_5=0.01)
-    plan = make_position_plan(side="sell", stop_loss=105.0, take_profit=95.0, holding_bars=10, max_holding_bars=10)
+    plan = make_position_plan(
+        side="sell",
+        stop_loss=105.0,
+        take_profit=95.0,
+        holding_bars=10,
+        max_holding_bars=10,
+    )
     decision = _short_exit(snapshot, plan)
     assert decision is not None
     assert decision.should_exit is True
@@ -210,7 +222,13 @@ def test_short_exit_invalidation_triggered():
 def test_short_exit_no_exit_when_conditions_not_met():
     """Short position should not exit when no conditions are triggered."""
     snapshot = make_market_snapshot(last_close=100.0, ema_20=102.0, return_5=-0.01)
-    plan = make_position_plan(side="sell", stop_loss=105.0, take_profit=95.0, holding_bars=1, max_holding_bars=10)
+    plan = make_position_plan(
+        side="sell",
+        stop_loss=105.0,
+        take_profit=95.0,
+        holding_bars=1,
+        max_holding_bars=10,
+    )
     decision = _short_exit(snapshot, plan)
     assert decision is None
 
@@ -244,7 +262,13 @@ def test_evaluate_position_exit_long_position_no_exit():
     """Evaluate exit for long position where no exit condition is met."""
     snapshot = make_market_snapshot(last_close=100.0, ema_20=98.0, return_5=0.01)
     position = make_position_snapshot(symbol="AAPL")
-    plan = make_position_plan(side="buy", stop_loss=95.0, take_profit=110.0, holding_bars=1, max_holding_bars=10)
+    plan = make_position_plan(
+        side="buy",
+        stop_loss=95.0,
+        take_profit=110.0,
+        holding_bars=1,
+        max_holding_bars=10,
+    )
     decision = evaluate_position_exit(snapshot, position, plan)
     assert decision.should_exit is False
     assert decision.side == "hold"
@@ -257,7 +281,13 @@ def test_evaluate_position_exit_short_position_no_exit():
     """Evaluate exit for short position where no exit condition is met."""
     snapshot = make_market_snapshot(last_close=100.0, ema_20=102.0, return_5=-0.01)
     position = make_position_snapshot(symbol="AAPL")
-    plan = make_position_plan(side="sell", stop_loss=105.0, take_profit=95.0, holding_bars=1, max_holding_bars=10)
+    plan = make_position_plan(
+        side="sell",
+        stop_loss=105.0,
+        take_profit=95.0,
+        holding_bars=1,
+        max_holding_bars=10,
+    )
     decision = evaluate_position_exit(snapshot, position, plan)
     assert decision.should_exit is False
     assert decision.side == "hold"

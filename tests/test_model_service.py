@@ -54,6 +54,23 @@ def test_start_model_service_uses_minimal_env_and_owner_state(
         env: dict[str, str],
         start_new_session: bool,
     ) -> FakeProcess:
+        """
+        Act as a test replacement for subprocess.Popen that records the invocation and returns a FakeProcess.
+        
+        Parameters:
+            command (list[str]): The command and arguments passed to the process.
+            stdout: The stdout stream/redirect passed to Popen.
+            stderr: The stderr stream/redirect passed to Popen.
+            env (dict[str, str]): Environment variables passed to the process.
+            start_new_session (bool): Whether the process is started in a new session.
+        
+        Returns:
+            FakeProcess: A new FakeProcess instance.
+        
+        Notes:
+            Invocation details are saved into the surrounding `captured` mapping under the keys
+            "command", "stdout", "stderr", "env", and "start_new_session".
+        """
         captured["command"] = command
         captured["stdout"] = stdout
         captured["stderr"] = stderr
@@ -62,7 +79,9 @@ def test_start_model_service_uses_minimal_env_and_owner_state(
         return FakeProcess()
 
     monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "secret-value")
-    monkeypatch.setattr(model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama")
+    monkeypatch.setattr(
+        model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama"
+    )
     monkeypatch.setattr(model_service, "_external_ollama_serve_pids", lambda _path: [])
     monkeypatch.setattr(model_service, "_is_port_available", lambda _host, _port: True)
     monkeypatch.setattr(model_service.subprocess, "Popen", fake_popen)
@@ -85,6 +104,8 @@ def test_start_model_service_uses_minimal_env_and_owner_state(
     status = model_service.start_model_service(settings)
 
     assert status.app_owned is True
+    assert status.owner == settings.host_id
+    assert status.is_owned_by_host(settings.host_id) is True
     assert status.service_reachable is True
     assert status.model_available is True
     assert status.base_url == "http://127.0.0.1:11434"
@@ -132,16 +153,34 @@ def test_start_model_service_waits_for_app_owned_endpoint_when_host_exists(
         api_root: str,
         timeout_seconds: float = 2.0,
     ) -> tuple[bool, list[str], str]:
+        """
+        Stub implementation used in tests that records the probed API root and returns a deterministic "reachable" response with example model tags.
+        
+        Parameters:
+            api_root (str): The API root URL being probed; this value is appended to captured_urls.
+            timeout_seconds (float): Ignored by this stub (present to match the real function's signature).
+        
+        Returns:
+            tuple: `(reachable, tags, message)` where `reachable` is `True` if the API root is considered reachable, `tags` is a list of available model tags (e.g., `["qwen3:8b"]`), and `message` is a human-readable status string that includes the probed `api_root`.
+        """
         _ = timeout_seconds
         captured_urls.append(api_root)
         return True, ["qwen3:8b"], f"{api_root} reachable"
 
-    monkeypatch.setattr(model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama")
+    monkeypatch.setattr(
+        model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama"
+    )
     monkeypatch.setattr(model_service, "_external_ollama_serve_pids", lambda _path: [])
-    monkeypatch.setattr(model_service, "_is_port_available", lambda _host, port: port != 11434)
+    monkeypatch.setattr(
+        model_service, "_is_port_available", lambda _host, port: port != 11434
+    )
     monkeypatch.setattr(model_service.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(model_service, "is_process_alive", lambda pid: pid == FakeProcess.pid)
-    monkeypatch.setattr(model_service, "_process_matches_state", fake_process_matches_state)
+    monkeypatch.setattr(
+        model_service, "is_process_alive", lambda pid: pid == FakeProcess.pid
+    )
+    monkeypatch.setattr(
+        model_service, "_process_matches_state", fake_process_matches_state
+    )
     monkeypatch.setattr(model_service, "_fetch_ollama_tags", fake_fetch)
     monkeypatch.setattr(model_service.time, "sleep", lambda _seconds: None)
 
@@ -171,11 +210,15 @@ def test_model_service_process_match_requires_listening_port(
         "_process_command_line",
         lambda _pid: "/opt/homebrew/bin/ollama serve",
     )
-    monkeypatch.setattr(model_service, "_listen_port_owner_pid", lambda _host, _port: 12345)
+    monkeypatch.setattr(
+        model_service, "_listen_port_owner_pid", lambda _host, _port: 12345
+    )
 
     assert model_service._process_matches_state(state) is True
 
-    monkeypatch.setattr(model_service, "_listen_port_owner_pid", lambda _host, _port: 54321)
+    monkeypatch.setattr(
+        model_service, "_listen_port_owner_pid", lambda _host, _port: 54321
+    )
 
     assert model_service._process_matches_state(state) is False
 
@@ -195,7 +238,9 @@ def test_model_service_process_match_accepts_port_owner_when_command_unavailable
     )
 
     monkeypatch.setattr(model_service, "_process_command_line", lambda _pid: None)
-    monkeypatch.setattr(model_service, "_listen_port_owner_pid", lambda _host, _port: 12345)
+    monkeypatch.setattr(
+        model_service, "_listen_port_owner_pid", lambda _host, _port: 12345
+    )
 
     assert model_service._process_matches_state(state) is True
 
@@ -226,6 +271,17 @@ def test_pull_model_uses_app_owned_host_without_provider_secrets(
         check: bool,
         env: dict[str, str],
     ) -> object:
+        """
+        Test helper that simulates subprocess.run for command capture.
+        
+        Records the invoked `command` and `env` into the external `captured` mapping and returns a fake completed-process object with `returncode`, `stdout`, and `stderr` attributes.
+        
+        Returns:
+            An object with attributes:
+                - `returncode` (int): the process exit code (0).
+                - `stdout` (str): simulated standard output ("ok").
+                - `stderr` (str): simulated standard error (empty string).
+        """
         captured["command"] = command
         captured["env"] = env
 
@@ -238,7 +294,9 @@ def test_pull_model_uses_app_owned_host_without_provider_secrets(
         return Completed()
 
     monkeypatch.setenv("AGENTIC_TRADER_FMP_API_KEY", "secret-value")
-    monkeypatch.setattr(model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama")
+    monkeypatch.setattr(
+        model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama"
+    )
     monkeypatch.setattr(model_service, "is_process_alive", lambda pid: pid == 12345)
     monkeypatch.setattr(model_service, "_process_matches_state", lambda _state: True)
     monkeypatch.setattr(model_service.subprocess, "run", fake_run)
@@ -273,7 +331,9 @@ def test_stop_model_service_does_not_kill_unmatched_reused_pid(
     monkeypatch.setattr(model_service, "is_process_alive", lambda pid: pid == 77777)
     monkeypatch.setattr(model_service, "_process_matches_state", lambda _state: False)
     monkeypatch.setattr(model_service, "_external_ollama_serve_pids", lambda _path: [])
-    monkeypatch.setattr(model_service.os, "kill", lambda pid, _signal: killed.append(pid))
+    monkeypatch.setattr(
+        model_service.os, "kill", lambda pid, _signal: killed.append(pid)
+    )
     monkeypatch.setattr(
         model_service,
         "_fetch_ollama_tags",
@@ -313,7 +373,9 @@ def test_stop_model_service_escalates_to_kill_when_sigterm_does_not_stop(
 
     wait_results = iter([False, True])
 
-    monkeypatch.setattr(model_service, "is_process_alive", lambda pid: alive and pid == 88888)
+    monkeypatch.setattr(
+        model_service, "is_process_alive", lambda pid: alive and pid == 88888
+    )
     monkeypatch.setattr(model_service, "_process_matches_state", lambda _state: alive)
     monkeypatch.setattr(model_service, "_external_ollama_serve_pids", lambda _path: [])
     monkeypatch.setattr(model_service.os, "kill", fake_kill)
@@ -362,7 +424,11 @@ def test_stop_model_service_keeps_state_when_process_cannot_be_killed(
     monkeypatch.setattr(
         model_service,
         "_fetch_ollama_tags",
-        lambda api_root, timeout_seconds=2.0: (True, ["qwen3:8b"], f"{api_root} reachable"),
+        lambda api_root, timeout_seconds=2.0: (
+            True,
+            ["qwen3:8b"],
+            f"{api_root} reachable",
+        ),
     )
 
     status = model_service.stop_model_service(settings)
@@ -521,7 +587,9 @@ def test_model_service_status_warns_about_duplicate_external_ollama(
 ) -> None:
     settings = _settings(tmp_path)
 
-    monkeypatch.setattr(model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama")
+    monkeypatch.setattr(
+        model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama"
+    )
     monkeypatch.setattr(
         model_service,
         "_external_ollama_serve_pids",
@@ -562,6 +630,21 @@ def test_ollama_pid_detection_falls_back_to_lsof_when_ps_is_unavailable(
         timeout: int,
         check: bool,
     ) -> object:
+        """
+        Fake subprocess.run used in tests to simulate `ps` and `lsof` invocations.
+        
+        Parameters:
+            command (list[str]): The command that would be run. Only the command prefix is inspected.
+            capture_output (bool): Ignored (kept for signature compatibility).
+            text (bool): Ignored (kept for signature compatibility).
+            timeout (int): Ignored (kept for signature compatibility).
+            check (bool): Ignored (kept for signature compatibility).
+        
+        Returns:
+            An object with attributes:
+              - `returncode` (int): Simulated process exit code.
+              - `stdout` (str): Simulated standard output. For `["ps","-ax"]` returns `returncode=1` and empty stdout. For `["lsof","-nP","-iTCP"]` returns `returncode=0` and a multi-line stdout containing pseudo `p<uid>`, `c...`, `f...`, and `n<addr:port>` lines. For any other command returns `returncode=0` and empty stdout.
+        """
         _ = (capture_output, text, timeout, check)
 
         class Completed:
@@ -589,7 +672,7 @@ def test_ollama_pid_detection_falls_back_to_lsof_when_ps_is_unavailable(
                 "p444\n"
                 "collama\n"
                 "f3\n"
-                "n127.0.0.1:11434\n"
+                "n127.0.0.1:11434\n",
             )
         return Completed(0)
 
@@ -601,6 +684,67 @@ def test_ollama_pid_detection_falls_back_to_lsof_when_ps_is_unavailable(
     ]
 
 
+def test_ollama_pid_detection_ignores_model_runner_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(
+        command: list[str],
+        *,
+        capture_output: bool,
+        text: bool,
+        timeout: int,
+        check: bool,
+    ) -> object:
+        """
+        Test helper that simulates subprocess.run responses for `ps -ax` and `lsof -nP -iTCP` calls.
+        
+        For `["ps", "-ax"]` it returns a result with stdout containing two process lines:
+        - a normal `ollama serve` process (PID 111)
+        - an `ollama runner` child process (PID 222) including a `--port 60443` fragment
+        
+        For `["lsof", "-nP", "-iTCP"]` it returns stdout representing an lsof-style block that references port `127.0.0.1:60443` tied to PID 222.
+        
+        For any other command it returns a successful result with empty stdout.
+        
+        Returns:
+            An object with attributes `returncode` (int) and `stdout` (str) representing the simulated command result.
+        """
+        _ = (capture_output, text, timeout, check)
+
+        class Completed:
+            def __init__(self, returncode: int, stdout: str = "") -> None:
+                """
+                Initialize the result with a process return code and captured standard output.
+                
+                Parameters:
+                    returncode (int): Process exit code; 0 typically indicates success.
+                    stdout (str): Captured standard output text (empty string by default).
+                """
+                self.returncode = returncode
+                self.stdout = stdout
+
+        if command[:2] == ["ps", "-ax"]:
+            return Completed(
+                0,
+                "111 /opt/homebrew/bin/ollama serve\n"
+                "222 /opt/homebrew/Cellar/ollama/0.24.0/libexec/ollama "
+                "runner --ollama-engine --model "
+                "/Users/me/.ollama/models/blobs/sha256-abc --port 60443\n",
+            )
+        if command[:3] == ["lsof", "-nP", "-iTCP"]:
+            return Completed(
+                0,
+                "p222\ncollama\nf3\nn127.0.0.1:60443\n",
+            )
+        return Completed(0)
+
+    monkeypatch.setattr(model_service.subprocess, "run", fake_run)
+
+    assert model_service._external_ollama_serve_pids("/opt/homebrew/bin/ollama") == [
+        111,
+    ]
+
+
 def test_stop_model_service_does_not_kill_unrecorded_managed_ports(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -608,7 +752,9 @@ def test_stop_model_service_does_not_kill_unrecorded_managed_ports(
     settings = _settings(tmp_path)
     killed: list[int] = []
 
-    monkeypatch.setattr(model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama")
+    monkeypatch.setattr(
+        model_service.shutil, "which", lambda _: "/opt/homebrew/bin/ollama"
+    )
     monkeypatch.setattr(
         model_service,
         "_external_ollama_serve_pids",
@@ -619,14 +765,18 @@ def test_stop_model_service_does_not_kill_unrecorded_managed_ports(
         "_listening_loopback_ports_for_pid",
         lambda pid: {11435} if pid == 111 else {11434},
     )
-    monkeypatch.setattr(model_service, "is_process_alive", lambda pid: pid not in killed)
+    monkeypatch.setattr(
+        model_service, "is_process_alive", lambda pid: pid not in killed
+    )
 
     def fake_kill(pid: int, sent_signal: int) -> None:
         if sent_signal == signal.SIGTERM:
             killed.append(pid)
 
     monkeypatch.setattr(model_service.os, "kill", fake_kill)
-    monkeypatch.setattr(model_service, "_wait_for_pid_exit", lambda pid, timeout_seconds: pid in killed)
+    monkeypatch.setattr(
+        model_service, "_wait_for_pid_exit", lambda pid, timeout_seconds: pid in killed
+    )
     monkeypatch.setattr(
         model_service,
         "_fetch_ollama_tags",
@@ -649,38 +799,53 @@ def test_stop_model_service_does_not_kill_unrecorded_managed_ports(
 
 
 def test_same_loopback_api_root_identical_urls() -> None:
-    assert _same_loopback_api_root(
-        "http://127.0.0.1:11434",
-        "http://127.0.0.1:11434",
-    ) is True
+    assert (
+        _same_loopback_api_root(
+            "http://127.0.0.1:11434",
+            "http://127.0.0.1:11434",
+        )
+        is True
+    )
 
 
 def test_same_loopback_api_root_localhost_and_127_same_port() -> None:
-    assert _same_loopback_api_root(
-        "http://localhost:11434",
-        "http://127.0.0.1:11434",
-    ) is True
+    assert (
+        _same_loopback_api_root(
+            "http://localhost:11434",
+            "http://127.0.0.1:11434",
+        )
+        is True
+    )
 
 
 def test_same_loopback_api_root_different_ports_returns_false() -> None:
-    assert _same_loopback_api_root(
-        "http://127.0.0.1:11434",
-        "http://127.0.0.1:11435",
-    ) is False
+    assert (
+        _same_loopback_api_root(
+            "http://127.0.0.1:11434",
+            "http://127.0.0.1:11435",
+        )
+        is False
+    )
 
 
 def test_same_loopback_api_root_different_scheme_returns_false() -> None:
-    assert _same_loopback_api_root(
-        "http://127.0.0.1:11434",
-        "https://127.0.0.1:11434",
-    ) is False
+    assert (
+        _same_loopback_api_root(
+            "http://127.0.0.1:11434",
+            "https://127.0.0.1:11434",
+        )
+        is False
+    )
 
 
 def test_same_loopback_api_root_non_loopback_host_returns_false() -> None:
-    assert _same_loopback_api_root(
-        "http://example.com:11434",
-        "http://127.0.0.1:11434",
-    ) is False
+    assert (
+        _same_loopback_api_root(
+            "http://example.com:11434",
+            "http://127.0.0.1:11434",
+        )
+        is False
+    )
 
 
 def test_same_loopback_api_root_schemeless_strings_use_exact_match() -> None:
@@ -689,14 +854,20 @@ def test_same_loopback_api_root_schemeless_strings_use_exact_match() -> None:
 
 
 def test_same_loopback_api_root_path_mismatch_returns_false() -> None:
-    assert _same_loopback_api_root(
-        "http://127.0.0.1:11434/api",
-        "http://127.0.0.1:11434/other",
-    ) is False
+    assert (
+        _same_loopback_api_root(
+            "http://127.0.0.1:11434/api",
+            "http://127.0.0.1:11434/other",
+        )
+        is False
+    )
 
 
 def test_same_loopback_api_root_trailing_slash_ignored_in_path() -> None:
-    assert _same_loopback_api_root(
-        "http://127.0.0.1:11434/api/",
-        "http://127.0.0.1:11434/api",
-    ) is True
+    assert (
+        _same_loopback_api_root(
+            "http://127.0.0.1:11434/api/",
+            "http://127.0.0.1:11434/api",
+        )
+        is True
+    )

@@ -175,10 +175,17 @@ def test_retrieve_similar_memories_prefers_closest_snapshot(tmp_path: Path) -> N
 
 
 def test_memory_vector_schema_migrates_legacy_rows(tmp_path: Path) -> None:
+    """
+    Verify that legacy `memory_vectors` rows lacking embedding metadata are migrated and populated with expected embedding schema fields.
+    
+    Creates a legacy `memory_vectors` table (missing embedding metadata), inserts a legacy row, initializes `TradingDatabase`, then queries the migrated row to assert `embedding_provider == "local_hashing"`, `embedding_model == "agentic-hash-v1"`, `embedding_version == "1"`, and `embedding_dimensions == 64`.
+    
+    Parameters:
+        tmp_path (Path): Temporary filesystem path provided by pytest for creating the test database.
+    """
     database_path = tmp_path / "agentic_trader.duckdb"
     legacy = duckdb.connect(str(database_path))
-    legacy.execute(
-        """
+    legacy.execute("""
         create table memory_vectors (
             run_id varchar primary key,
             created_at varchar not null,
@@ -186,27 +193,22 @@ def test_memory_vector_schema_migrates_legacy_rows(tmp_path: Path) -> None:
             embedding_json varchar not null,
             document_text varchar not null
         )
-        """
-    )
-    legacy.execute(
-        """
+        """)
+    legacy.execute("""
         insert into memory_vectors (
             run_id, created_at, symbol, embedding_json, document_text
         )
         values ('legacy-run', '2026-04-15T00:00:00+00:00', 'AAPL', '[0.0]', 'legacy')
-        """
-    )
+        """)
     legacy.close()
     settings = Settings(runtime_dir=tmp_path, database_path=database_path)
 
     db = TradingDatabase(settings)
-    row = db.conn.execute(
-        """
+    row = db.conn.execute("""
         select embedding_provider, embedding_model, embedding_version, embedding_dimensions
         from memory_vectors
         where run_id = 'legacy-run'
-        """
-    ).fetchone()
+        """).fetchone()
 
     assert row is not None
     assert row[0] == "local_hashing"

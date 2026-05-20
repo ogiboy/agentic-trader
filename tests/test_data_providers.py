@@ -191,6 +191,15 @@ def test_decision_bundle_consumes_canonical_snapshot() -> None:
 
 
 def test_default_provider_ladder_names_public_sources() -> None:
+    """
+    Verifies the default provider ladder exposes the expected public provider IDs.
+    
+    Asserts that the provider IDs returned by default_provider_set for market,
+    fundamental, and disclosures match the canonical public lists:
+    - market: ["yahoo_market"]
+    - fundamental: ["sec_edgar_fundamentals", "finnhub_fundamentals", "fmp_fundamentals", "local_fundamental_scaffold"]
+    - disclosures: ["kap_disclosures", "local_disclosure_scaffold"]
+    """
     default_set = default_provider_set(_settings())
 
     assert [item.metadata().provider_id for item in default_set.market] == [
@@ -206,6 +215,400 @@ def test_default_provider_ladder_names_public_sources() -> None:
         "kap_disclosures",
         "local_disclosure_scaffold",
     ]
+
+
+def test_sec_edgar_fundamental_provider_normalizes_companyfacts() -> None:
+    """
+    Verifies that SecEdgarFundamentalProvider fetches SEC companyfacts, normalizes them, and produces a fully attributed fundamental snapshot for a US ticker.
+    
+    Asserts that the provider:
+    - Calls the expected SEC endpoints with the configured `User-Agent`, `Accept: application/json`, and a 30.0s internal timeout.
+    - Marks the snapshot attribution as `source_role == "primary"`, `freshness == "fresh"`, and `completeness == 1.0`.
+    - Records notes mentioning `sec_companyfacts_api` and `raw_filing_text_not_downloaded`.
+    - Reports no missing fundamental fields.
+    - Computes derived metrics (revenue growth, profitability stability, cash flow alignment, debt risk, reinvestment potential) matching expected ranges/values.
+    - Includes the company name ("Apple Inc.") in the snapshot summary.
+    """
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+        request_timeout_seconds=999,
+    )
+    calls: list[str] = []
+
+    def fake_fetcher(url, headers, timeout_seconds):
+        """
+        Test fetcher used by SEC-related unit tests.
+        
+        Appends the requested URL to the outer `calls` list, validates that the request headers include the expected `User-Agent` and `Accept` values and that `timeout_seconds` is 30.0, and returns canned payloads for the SEC company tickers and companyfacts endpoints.
+        
+        Parameters:
+            url (str): The requested URL.
+            headers (dict): Request headers; must include `User-Agent` and `Accept`.
+            timeout_seconds (float): Request timeout; must equal 30.0.
+        
+        Returns:
+            dict: A mocked JSON-like payload for the requested SEC endpoint:
+                - If `url` is the company tickers endpoint, returns a mapping containing AAPL → CIK entry.
+                - If `url` is the companyfacts endpoint for AAPL, returns the payload produced by `_sec_companyfacts_payload()`.
+        
+        Raises:
+            AssertionError: If headers or timeout do not match expectations, or if an unexpected `url` is requested.
+        """
+        calls.append(url)
+        assert headers["User-Agent"] == "Agentic Trader test contact@example.com"
+        assert headers["Accept"] == "application/json"
+        assert timeout_seconds == 30.0
+        if url == "https://www.sec.gov/files/company_tickers.json":
+            return {
+                "0": {
+                    "cik_str": 320193,
+                    "ticker": "AAPL",
+                    "title": "Apple Inc.",
+                }
+            }
+        if url == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json":
+            return _sec_companyfacts_payload()
+        raise AssertionError(f"unexpected SEC URL: {url}")
+
+    provider = SecEdgarFundamentalProvider(settings, fetcher=fake_fetcher)
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    assert calls == [
+        "https://www.sec.gov/files/company_tickers.json",
+        "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+    ]
+    assert snapshot.attribution.source_role == "primary"
+    assert snapshot.attribution.freshness == "fresh"
+    assert snapshot.attribution.completeness == 1.0
+    assert "sec_companyfacts_api" in snapshot.attribution.notes
+    assert "raw_filing_text_not_downloaded" in snapshot.attribution.notes
+    assert snapshot.missing_fields == []
+    assert snapshot.revenue_growth is not None
+    assert 0.19 < snapshot.revenue_growth < 0.21
+    assert snapshot.profitability_stability == 0.25
+    assert snapshot.cash_flow_alignment == 1.0
+    assert snapshot.debt_risk == 0.3
+    assert snapshot.reinvestment_potential == 0.2
+    assert "Apple Inc." in snapshot.summary
+
+
+def test_sec_edgar_fundamental_provider_requires_opt_in_before_network() -> None:
+    provider = SecEdgarFundamentalProvider(
+        Settings(news_mode="off", research_sec_edgar_enabled=False),
+        fetcher=_rejecting_sec_fetcher,
+    )
+
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    assert snapshot.attribution.source_role == "missing"
+    assert "provider_disabled" in snapshot.attribution.notes
+
+
+def test_sec_edgar_fundamental_provider_requires_user_agent_before_network() -> None:
+    provider = SecEdgarFundamentalProvider(
+        Settings(
+            news_mode="off",
+            research_sec_edgar_enabled=True,
+            research_sec_edgar_user_agent="",
+        ),
+        fetcher=_rejecting_sec_fetcher,
+    )
+
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    assert snapshot.attribution.source_role == "missing"
+    assert "sec_user_agent_missing" in snapshot.attribution.notes
+
+
+def test_sec_edgar_fundamental_provider_skips_non_us_symbols_before_network() -> None:
+    """
+    Verifies the SEC EDGAR fundamental provider does not perform network requests for non-US symbols and records a missing attribution.
+    
+    Asserts that the returned snapshot's attribution has role "missing" and that its notes include "unsupported_region=TR".
+    """
+    provider = SecEdgarFundamentalProvider(
+        Settings(
+            news_mode="off",
+            research_sec_edgar_enabled=True,
+            research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+        ),
+        fetcher=_rejecting_sec_fetcher,
+    )
+
+    snapshot = provider.get_fundamental_data(
+        SymbolIdentity(symbol="AKBNK.IS", region="TR", currency="TRY")
+    )
+
+    assert snapshot.attribution.source_role == "missing"
+    assert "unsupported_region=TR" in snapshot.attribution.notes
+
+
+def test_sec_edgar_companyfacts_growth_ignores_non_research_forms() -> None:
+    """
+    Verifies that revenue growth calculation ignores companyfacts entries from non-research forms.
+    
+    Constructs a SecEdgarFundamentalProvider with a fake SEC fetcher that injects extra revenue facts from non-10-K forms (e.g., 10-Q, 8-K) and asserts the computed `revenue_growth` remains within the expected range derived from valid research-form facts.
+    """
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+    )
+
+    def fake_fetcher(url, headers, timeout_seconds):
+        """
+        Fake HTTP fetcher that returns mocked SEC JSON payloads for two specific endpoints used in tests.
+        
+        Parameters:
+            url (str): The requested SEC URL.
+            headers (dict): Request headers (ignored by this fake).
+            timeout_seconds (float): Request timeout (ignored by this fake).
+        
+        Returns:
+            dict: A JSON-like dictionary matching the SEC response for the requested URL:
+                - For "https://www.sec.gov/files/company_tickers.json": a mapping containing a single ticker→CIK entry for AAPL.
+                - For "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json": a companyfacts payload produced by `_sec_companyfacts_payload`, augmented with extra revenue facts (including non-10-K forms).
+        
+        Raises:
+            AssertionError: If an unexpected SEC URL is requested.
+        """
+        _ = (headers, timeout_seconds)
+        if url == "https://www.sec.gov/files/company_tickers.json":
+            return {
+                "0": {
+                    "cik_str": 320193,
+                    "ticker": "AAPL",
+                    "title": "Apple Inc.",
+                }
+            }
+        if url == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json":
+            return _sec_companyfacts_payload(
+                extra_revenue_facts=[
+                    {
+                        "val": 999.0,
+                        "end": "2025-01-31",
+                        "filed": "2025-02-01",
+                        "form": "10-Q",
+                        "fp": "Q1",
+                        "frame": "CY2025Q1",
+                    },
+                    {
+                        "val": 888.0,
+                        "end": "2025-02-28",
+                        "filed": "2025-03-01",
+                        "form": "8-K",
+                    },
+                ]
+            )
+        raise AssertionError(f"unexpected SEC URL: {url}")
+
+    provider = SecEdgarFundamentalProvider(settings, fetcher=fake_fetcher)
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    assert snapshot.revenue_growth is not None
+    assert 0.19 < snapshot.revenue_growth < 0.21
+
+
+def test_canonical_snapshot_selects_sec_companyfacts_fundamentals() -> None:
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+    )
+    provider = SecEdgarFundamentalProvider(
+        settings,
+        fetcher=_sec_success_fetcher(_sec_companyfacts_payload()),
+    )
+
+    canonical = build_canonical_analysis_snapshot(
+        _snapshot(),
+        settings=settings,
+        providers=ProviderSet(fundamental=[provider]),
+    )
+
+    assert canonical.fundamental.attribution.source_name == "sec_edgar"
+    assert canonical.fundamental.attribution.source_role == "primary"
+    assert "fundamentals" not in canonical.missing_sections
+    assert any(
+        source.source_name == "sec_edgar" for source in canonical.source_attributions
+    )
+
+
+def test_canonical_snapshot_marks_partial_sec_companyfacts_missing_sections() -> None:
+    """
+    Verifies that a canonical snapshot marks missing fundamental sections when the SEC companyfacts payload omits cash-related data.
+    
+    Builds a canonical analysis snapshot using a SecEdgarFundamentalProvider fed with a companyfacts payload that excludes cash, then asserts the snapshot selects SEC as the primary fundamental source, records "fundamentals" in overall missing sections, and lists the expected missing fundamental fields (`company_fact:cash` and `reinvestment_potential`).
+    """
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+    )
+    provider = SecEdgarFundamentalProvider(
+        settings,
+        fetcher=_sec_success_fetcher(_sec_companyfacts_payload(include_cash=False)),
+    )
+
+    canonical = build_canonical_analysis_snapshot(
+        _snapshot(),
+        settings=settings,
+        providers=ProviderSet(fundamental=[provider]),
+    )
+
+    assert canonical.fundamental.attribution.source_name == "sec_edgar"
+    assert canonical.fundamental.attribution.source_role == "primary"
+    assert "fundamentals" in canonical.missing_sections
+    assert "company_fact:cash" in canonical.fundamental.missing_fields
+    assert "reinvestment_potential" in canonical.fundamental.missing_fields
+
+
+def test_sec_edgar_fundamental_provider_redacts_fetch_errors() -> None:
+    """
+    Verifies that SEC fetch errors containing secrets are redacted from the serialized fundamental snapshot.
+    
+    Asserts that when the provider's fetcher raises an exception whose message contains a secret, the provider reports the fundamental source as missing and the serialized snapshot does not contain the secret text but includes the literal "<redacted>".
+    """
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+    )
+
+    def fake_fetcher(url, headers, timeout_seconds):
+        """
+        A test fetcher that simulates a failing network call by always raising a ValueError.
+        
+        This helper is intended for tests that verify error handling and secret redaction when an HTTP fetch fails. It unconditionally raises a ValueError containing the string "api_key=secret-sec".
+        
+        Parameters:
+            url: The requested URL (ignored).
+            headers: The request headers (ignored).
+            timeout_seconds: The request timeout in seconds (ignored).
+        
+        Raises:
+            ValueError: Always raised with the message "api_key=secret-sec".
+        """
+        _ = (url, headers, timeout_seconds)
+        raise ValueError("api_key=secret-sec")
+
+    provider = SecEdgarFundamentalProvider(settings, fetcher=fake_fetcher)
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    payload = snapshot.model_dump_json()
+    assert snapshot.attribution.source_role == "missing"
+    assert "secret-sec" not in payload
+    assert "<redacted>" in payload
+
+
+def _rejecting_sec_fetcher(url, headers, timeout_seconds):
+    """
+    Test fetcher that fails if invoked to ensure no SEC network calls occur.
+    
+    Parameters:
+        url (str): Requested URL passed by the caller.
+        headers (dict): Request headers passed by the caller.
+        timeout_seconds (float): Timeout value passed by the caller.
+    
+    Raises:
+        AssertionError: Always raised with the message "SEC fetcher should not be called".
+    """
+    _ = (url, headers, timeout_seconds)
+    raise AssertionError("SEC fetcher should not be called")
+
+
+def _sec_success_fetcher(payload: dict[str, object]):
+    """
+    Return a fake SEC fetcher callable that simulates two SEC endpoints for testing.
+    
+    The returned callable accepts (url, headers, timeout_seconds) and:
+    - Returns a mocked company tickers mapping when called with the SEC tickers URL.
+    - Returns the provided `payload` when called with the companyfacts URL for Apple (CIK 0000320193).
+    - Raises AssertionError for any other URL.
+    
+    Parameters:
+        payload (dict[str, object]): The JSON-like object to return for the companyfacts endpoint.
+    
+    Returns:
+        callable: A function with signature (url, headers, timeout_seconds) -> dict that simulates SEC responses.
+    """
+    def fake_fetcher(url, headers, timeout_seconds):
+        _ = (headers, timeout_seconds)
+        if url == "https://www.sec.gov/files/company_tickers.json":
+            return {
+                "0": {
+                    "cik_str": 320193,
+                    "ticker": "AAPL",
+                    "title": "Apple Inc.",
+                }
+            }
+        if url == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json":
+            return payload
+        raise AssertionError(f"unexpected SEC URL: {url}")
+
+    return fake_fetcher
+
+
+def _sec_companyfacts_payload(
+    *,
+    include_cash: bool = True,
+    extra_revenue_facts: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    """
+    Builds a mocked SEC companyfacts payload for testing normalization and growth calculations.
+    
+    Parameters:
+        include_cash (bool): If True, include `CashAndCashEquivalentsAtCarryingValue` in the payload.
+        extra_revenue_facts (list[dict[str, object]] | None): Optional additional revenue fact entries to append to the Revenue facts list.
+            Each fact dict should follow the shape produced by the inner `fact(...)` helper (keys like `val`, `end`, `filed`, `form`, `fy`, `fp`).
+    
+    Returns:
+        dict[str, object]: A mapping with keys:
+            - `entityName`: company name (fixed to "Apple Inc.").
+            - `facts`: contains an `us-gaap` mapping with entries for:
+                - `RevenueFromContractWithCustomerExcludingAssessedTax` (USD units, list of revenue facts),
+                - `NetIncomeLoss`, `Assets`, `Liabilities`, `NetCashProvidedByUsedInOperatingActivities`,
+                - optionally `CashAndCashEquivalentsAtCarryingValue` when `include_cash` is True.
+    """
+    def fact(value: float, filed: str) -> dict[str, object]:
+        return {
+            "val": value,
+            "end": filed.removesuffix("-01") + "-28",
+            "filed": filed,
+            "form": "10-K",
+            "fy": int(filed[:4]),
+            "fp": "FY",
+        }
+
+    revenue_facts = [
+        fact(100.0, "2023-11-01"),
+        fact(120.0, "2024-11-01"),
+        *(extra_revenue_facts or []),
+    ]
+    us_gaap: dict[str, object] = {
+        "RevenueFromContractWithCustomerExcludingAssessedTax": {
+            "units": {"USD": revenue_facts}
+        },
+        "NetIncomeLoss": {"units": {"USD": [fact(30.0, "2024-11-01")]}},
+        "Assets": {"units": {"USD": [fact(200.0, "2024-11-01")]}},
+        "Liabilities": {"units": {"USD": [fact(60.0, "2024-11-01")]}},
+        "NetCashProvidedByUsedInOperatingActivities": {
+            "units": {"USD": [fact(35.0, "2024-11-01")]}
+        },
+    }
+    if include_cash:
+        us_gaap["CashAndCashEquivalentsAtCarryingValue"] = {
+            "units": {"USD": [fact(40.0, "2024-11-01")]}
+        }
+
+    return {
+        "entityName": "Apple Inc.",
+        "facts": {
+            "us-gaap": us_gaap,
+        },
+    }
 
 
 def test_empty_provider_outputs_are_visible_in_canonical_attribution() -> None:

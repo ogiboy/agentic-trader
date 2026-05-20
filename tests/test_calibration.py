@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import uuid4
 import pytest
 
 from agentic_trader.agents.calibration import build_confidence_calibration
@@ -119,7 +120,7 @@ def _close_recent_trade(
     """
     trade_id = db.create_trade_journal(
         run_id="historic-run",
-        order_id="order-historic",
+        order_id=f"order-historic-{uuid4().hex[:8]}",
         artifacts=artifacts,
         journal_status="open",
         notes="historic trade",
