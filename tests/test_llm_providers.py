@@ -51,28 +51,26 @@ class FakeClient:
 
     def get(self, _url: str, **_kwargs: Any) -> FakeResponse:
         """
-        Return the client's configured FakeResponse for any GET request.
-
-        Parameters:
-                _url (str): The requested URL (ignored by this fake client).
-                _kwargs (Any): Additional request options (ignored by this fake client).
-
+        Provide the preconfigured FakeResponse used for any GET request.
+        
+        All arguments are ignored by this fake client.
+        
         Returns:
-                FakeResponse: The preconfigured response object stored on the client.
+            FakeResponse: The client's stored response instance returned for every GET.
         """
         return self.get_response
 
     def post(self, _url: str, *, json: dict[str, Any], **_kwargs: Any) -> FakeResponse:
         """
-        Record the posted JSON payload and return the next queued fake response or a default success response.
-
+        Record the JSON payload and return the next queued fake response or a default success response.
+        
         Parameters:
             _url (str): Ignored request URL.
             json (dict[str, Any]): JSON body to record; a shallow copy is appended to the client's recorded posts.
             _kwargs: Ignored keyword arguments.
-
+        
         Returns:
-            FakeResponse: The next response from the client's response queue if available; otherwise a default FakeResponse with payload {"response": "OK"}.
+            FakeResponse: The next response from the client's post_responses queue if present; otherwise a default FakeResponse with payload `{"response": "OK"}`.
         """
         self.posts.append(dict(json))
         if self.post_responses:
@@ -186,6 +184,11 @@ def test_openai_compatible_provider_generates_and_checks_health() -> None:
 
 
 def test_openai_compatible_provider_uses_schema_and_content_parts() -> None:
+    """
+    Verifies that OpenAICompatibleProvider applies a JSON schema and concatenates multipart text content into a single response.
+    
+    Queues a POST response whose `choices[0].message.content` is a list of parts, confirms that only `type == "text"` parts are concatenated (skipping non-text parts), that the assembled response equals the expected JSON string, and that the outgoing request used a `response_format` of type `json_schema` with the `agentic_trader_response` name and the provided schema.
+    """
     provider = OpenAICompatibleProvider(
         Settings(llm_provider="openai-compatible", model_name="local-qwen")
     )
@@ -573,6 +576,18 @@ def test_openai_compatible_error_from_response_dict_error_with_message() -> None
     )
     result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
     assert result == "model not found"
+
+
+def test_openai_compatible_error_from_response_redacts_secret_shapes() -> None:
+    response = _FakeHttpxResponse(
+        {"error": {"message": "provider failed api_key=llm-secret-token"}},
+        status_code=401,
+    )
+
+    result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
+
+    assert "llm-secret-token" not in result
+    assert "api_key=<redacted>" in result
 
 
 def test_openai_compatible_error_from_response_fallback_on_no_error_key() -> None:

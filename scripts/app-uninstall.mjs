@@ -702,17 +702,17 @@ function removeTarget(target) {
 }
 
 /**
- * Construct an uninstall payload and compute an exit code by planning and (optionally) executing selected uninstall targets under the repository root.
+ * Build the uninstall execution payload for the repository and determine the process exit code.
  *
- * The function validates the repository root, determines whether actions should actually mutate the filesystem (based on `options.yes` and `options.dryRun`), selects targets by scope, and then for each target either records a planned entry, skips it due to a prior failure, marks it blocked if a service-state blocker file exists, or removes it and records the result. If any selected service-state target is blocked, the returned `exitCode` is `1`.
+ * Validates the repository root, resolves whether mutations are permitted (based on `options.yes` and `options.dryRun`), selects targets by scope, and records each target's planned, skipped, blocked, or removal result into the payload.
  *
  * @param {Object} options - Execution options controlling selection and approval.
- * @param {Set<string>} options.selectedScopes - Set of scope IDs chosen for execution (elements from SCOPE_IDS).
- * @param {boolean} options.yes - Whether the user approved destructive actions (corresponds to `--yes`).
- * @param {boolean} options.dryRun - Whether to request a dry-run (corresponds to `--dry-run`); combined with `yes` to determine actual mutation.
+ * @param {Set<string>} options.selectedScopes - Scope IDs to include in the operation (elements from SCOPE_IDS).
+ * @param {boolean} options.yes - User approval for destructive actions (`--yes`); required for actual mutations.
+ * @param {boolean} options.dryRun - Request a dry-run (`--dry-run`); when true no filesystem mutations are performed.
  * @returns {{ payload: Object, exitCode: number }} An object containing:
- *  - `payload`: the uninstall payload object with metadata (`action`, `mode`, `root`, `dry_run`, `approved`), flags (`mutated`), `selected_scopes`, `safety_notes`, an array of per-target `targets` describing planned/skipped/blocked/removed statuses, and `next_commands` suggestions;
- *  - `exitCode`: `0` on success (no blocked selected service-state targets), `1` if any selected service-state target was blocked.
+ *  - `payload`: the uninstall payload with keys `action`, `mode`, `root`, `dry_run`, `approved`, `mutated`, `selected_scopes`, `safety_notes`, `targets`, and `next_commands`;
+ *  - `exitCode`: `0` on success, `1` if any selected service-state target was blocked or a selected target failed (nonzero target `exit_code`).
  */
 function buildPayload(options) {
   assertSafeRoot(ROOT_DIR);

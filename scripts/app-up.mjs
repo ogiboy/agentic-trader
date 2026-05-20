@@ -217,6 +217,9 @@ function parseArgs(argv) {
     );
     usage(2);
   }
+  if (options.selectedScopes.has('camofox-browser')) {
+    options.selectedScopes.add('camofox-deps');
+  }
 
   return options;
 }
@@ -484,7 +487,7 @@ function plannedStep(step, selectedScopes, owners) {
     ...step,
     status: blocker
       ? 'blocked'
-      : selectedScopes.size === 0 || step.selected
+      : step.selected
         ? 'planned'
         : 'deferred',
     reason: blocker ?? step.reason,
@@ -552,20 +555,41 @@ function runStep(step) {
   };
 }
 
+function stepSummary(steps) {
+  const bucket = (step) => ({
+    id: step.id,
+    label: step.label,
+    reason:
+      step.reason ||
+      (step.status === 'deferred'
+        ? `Not selected; pass --${step.scope} to include this step.`
+        : ''),
+  });
+  return {
+    done: steps
+      .filter((step) => step.status === 'passed')
+      .map(bucket),
+    not_done: steps
+      .filter((step) => ['blocked', 'failed', 'skipped'].includes(step.status))
+      .map(bucket),
+    deferred: steps
+      .filter((step) => step.status === 'deferred')
+      .map(bucket),
+  };
+}
+
 /**
- * Build the execution payload and exit code for the guided "app up" workflow based on provided options.
+ * Construct the planned and (optionally) executed app-up payload and determine the process exit code for the guided workflow.
  *
- * @param {Object} options - Parsed CLI/runtime options that control planning and execution.
+ * @param {Object} options - Parsed CLI/runtime options used to build and run the plan.
  * @param {Set<string>} options.selectedScopes - Scopes explicitly selected for execution.
- * @param {boolean} options.yes - Whether the user approved actual execution (not a dry run).
+ * @param {boolean} options.yes - Whether the user approved performing actions (enables execution when true).
  * @param {boolean} options.dryRun - Whether dry-run mode was requested.
  * @param {Object} options.owners - Current tool ownership decisions keyed by tool name.
  * @param {boolean} options.openBrowser - Whether the webgui step should open the browser.
- * @returns {{ payload: Object, exitCode: number }} An object containing:
- *  - `payload`: a machine-readable payload describing action metadata (`action`, `mode`, `dry_run`, `approved`),
- *    whether any ownership/service state was mutated, the list of selected scopes, ownership decisions and tool
- *    ownership state, safety notes, the full ordered `steps` array with per-step status/output, and suggested
- *    `next_commands`.
+ * @returns {{payload: Object, exitCode: number}} An object containing:
+ *  - `payload`: a structured report of the run including `action`, `mode`, `dry_run`, `approved`, whether any state was `mutated`,
+ *    the ordered `steps` with per-step status/output, selected scopes, ownership decisions/state, safety notes, and suggested `next_commands`.
  *  - `exitCode`: numeric exit code (0 when all selected executed steps passed; 1 if any selected step failed or was blocked).
  */
 function buildPayload(options) {
@@ -631,6 +655,7 @@ function buildPayload(options) {
       open_browser: options.openBrowser,
       safety_notes: safetyNotes(),
       steps,
+      summary: stepSummary(steps),
       next_commands: [
         'pnpm run app:up -- --dry-run',
         'pnpm run app:up -- --all --yes',
@@ -682,6 +707,14 @@ function renderHuman(payload) {
     process.stdout.write(`${marker} ${step.id}: ${step.label}\n`);
     if (step.reason) {
       process.stdout.write(`  ${step.reason}\n`);
+    }
+  }
+  process.stdout.write('summary:\n');
+  for (const key of ['done', 'not_done', 'deferred']) {
+    const items = payload.summary?.[key] ?? [];
+    process.stdout.write(`  ${key}: ${items.length}\n`);
+    for (const item of items) {
+      process.stdout.write(`    - ${item.id}: ${item.reason || item.label}\n`);
     }
   }
   if (payload.dry_run) {

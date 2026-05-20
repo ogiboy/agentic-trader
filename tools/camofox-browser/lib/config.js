@@ -19,9 +19,13 @@ function readCrashReporterConfig() {
 }
 
 /**
- * Parse PROXY_PORTS env var into an array of port numbers.
- * Supports range ("10001-10010") or comma-separated ("10001,10002,10003").
- * Falls back to single PROXY_PORT if PROXY_PORTS is not set.
+ * Produce an array of proxy port numbers from environment-style input.
+ *
+ * Supports a range format ("start-end") or a comma-separated list ("p1,p2,...").
+ * If `portsEnv` yields no valid ports, `singlePort` is used as a fallback.
+ * @param {string|undefined} portsEnv - The `PROXY_PORTS` value to parse.
+ * @param {string|undefined} singlePort - Fallback `PROXY_PORT` value to use if `portsEnv` is not valid.
+ * @returns {number[]} Parsed port numbers; empty array if no valid ports are found.
  */
 function parseProxyPorts(portsEnv, singlePort) {
   if (portsEnv) {
@@ -51,6 +55,15 @@ function inferProxyStrategy(explicitStrategy) {
   return 'round_robin';
 }
 
+/**
+ * Builds the application's runtime configuration by reading and normalizing environment variables.
+ *
+ * The returned object aggregates server settings (port, host, nodeEnv, keys, and Fly metadata),
+ * directory paths and trace settings, timing and resource limits, proxy configuration (including
+ * parsed port lists and strategy), a `serverEnv` map of forwarded environment variables for a
+ * subprocess, and crash-reporting options and metadata.
+ *
+ * @returns {Object} The normalized configuration object used by the application.
 function loadConfig() {
   return {
     port: parseInt(process.env.CAMOFOX_PORT || process.env.PORT || '9377', 10),

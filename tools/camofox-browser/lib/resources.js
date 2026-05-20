@@ -9,8 +9,24 @@ import fs from 'fs';
 // ============================================================================
 
 /**
- * Collect process-level resource metrics. Safe to call at any time.
- * Returns anonymized metrics -- no PIDs, paths, or user data.
+ * Collect current process (and optionally browser) resource metrics as an anonymized numeric snapshot.
+ *
+ * @param {Object} [opts] - Optional probes and caller-provided counts.
+ * @param {number} [opts.browserPid] - If a positive integer and running on Linux, attempt to read the browser process RSS (kB -> rounded MB). Failures are swallowed.
+ * @param {number} [opts.sessionCount] - If provided, included as `browserContexts` in the snapshot.
+ * @param {number} [opts.tabCount] - If provided, included as `activeTabs` in the snapshot.
+ * @returns {Object} An object with anonymized numeric metrics (missing or unavailable values are `null`).
+ * @property {number} nodeRssMb - Rounded MB of Node's RSS.
+ * @property {number} nodeHeapUsedMb - Rounded MB of Node's heap used.
+ * @property {number} nodeHeapTotalMb - Rounded MB of Node's heap total.
+ * @property {number} nodeExternalMb - Rounded MB of Node's external memory.
+ * @property {number|null} eventLoopLagMs - Placeholder for event-loop lag in milliseconds (currently `null`).
+ * @property {number|null} activeHandles - Count of active libuv handles if available, otherwise `null`.
+ * @property {number|null} activeRequests - Count of active libuv requests if available, otherwise `null`.
+ * @property {number|null} openFds - Count of open file descriptors on Linux if accessible, otherwise `null`.
+ * @property {number|null} browserRssMb - Rounded MB of the browser process RSS when `opts.browserPid` is provided and accessible, otherwise `null`.
+ * @property {number|undefined} browserContexts - Caller-provided session count when `opts.sessionCount` is supplied.
+ * @property {number|undefined} activeTabs - Caller-provided tab count when `opts.tabCount` is supplied.
  */
 export function collectResourceSnapshot(opts = {}) {
   const mem = process.memoryUsage();
@@ -80,8 +96,12 @@ export function collectResourceSnapshot(opts = {}) {
 // ============================================================================
 
 /**
- * Classify proxy errors from Playwright navigation error messages.
- * Returns { proxyError: string|null, proxyTlsError: bool } -- no IPs or credentials.
+ * Determines proxy-related classification from a navigation or network error message.
+ * @param {string} errorMessage - Error message text to classify; may be null or non-string.
+ * @returns {{proxyError: string|null, proxyTlsError: boolean}} `proxyError` is one of
+ * `'ERR_PROXY_CONNECTION_FAILED'`, `'ERR_TUNNEL_CONNECTION_FAILED'`, `'ERR_PROXY_AUTH_REQUESTED'`,
+ * `'ERR_PROXY_TLS'`, `'ECONNREFUSED'`, `'ETIMEDOUT'`, or `null` when no proxy pattern is detected.
+ * `proxyTlsError` is `true` when the failure indicates a proxy TLS/certificate issue, otherwise `false`.
  */
 export function classifyProxyError(errorMessage) {
   if (!errorMessage || typeof errorMessage !== 'string')

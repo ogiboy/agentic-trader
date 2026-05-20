@@ -52,10 +52,25 @@ class SecEdgarFundamentalProvider:
         *,
         fetcher: JsonFetcher | None = None,
     ) -> None:
+        """
+        Initialize the SecEdgarFundamentalProvider with configuration and an optional HTTP JSON fetcher.
+        
+        Parameters:
+            settings (Settings): Provider configuration and feature flags used to determine enablement, user-agent, and API keys.
+            fetcher (JsonFetcher | None): Optional override for the HTTP JSON fetch function used to retrieve SEC endpoints. If omitted, the internal `_fetch_json` implementation is used. The fetcher must accept `(url: str, headers: dict, timeout_seconds: float)` and return a parsed `dict`.
+        """
         self._settings = settings
         self._fetcher = fetcher or _fetch_json
 
     def metadata(self) -> ProviderMetadata:
+        """
+        Builds ProviderMetadata for the SEC EDGAR fundamentals provider.
+        
+        Reads provider configuration to determine enabled state and whether network access is required (based on the configured User-Agent). The returned metadata includes provider identifiers, role, priority, enabled/requires_network flags, and notes indicating the data sources and SEC configuration status.
+        
+        Returns:
+            ProviderMetadata: Metadata describing the SEC EDGAR fundamentals provider, including provider_id, name, provider_type, role, priority, enabled, requires_network, and notes.
+        """
         enabled = self._settings.research_sec_edgar_enabled
         user_agent = bool((self._settings.research_sec_edgar_user_agent or "").strip())
         return metadata(
@@ -74,6 +89,17 @@ class SecEdgarFundamentalProvider:
         )
 
     def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
+        """
+        Fetches and returns a V1 FundamentalSnapshot for the given symbol using SEC EDGAR companyfacts.
+        
+        This will return either a populated FundamentalSnapshot derived from the SEC companyfacts JSON for the symbol's CIK, or a "missing" snapshot describing why structured fundamentals could not be provided. Failure reasons that produce a missing snapshot include: the symbol's region is not "US", the SEC provider is disabled in settings, an identifying User-Agent is not configured, failure to resolve the symbol to a CIK, or failure to fetch/parse the companyfacts payload.
+        
+        Parameters:
+            symbol (SymbolIdentity): Identifier for the target security; only US-region symbols are supported.
+        
+        Returns:
+            FundamentalSnapshot: A snapshot containing derived V1 fundamental metrics and attribution when successful, or a missing snapshot with explanatory notes and summary when not.
+        """
         notes = ["sec_10k_10q_8k_source", "sec_companyfacts_api"]
         if symbol.region != "US":
             return _missing_fundamental_snapshot(
@@ -330,16 +356,14 @@ class KapDisclosureProvider:
         self, symbol: SymbolIdentity, *, limit: int
     ) -> list[DisclosureEvent]:
         """
-        Return disclosure events for the given symbol (currently unimplemented and always returns an empty list).
-
-        This provider scaffold does not perform any ingestion yet; the function accepts a symbol and a limit but ignores them and yields no disclosure events.
-
+        Return disclosure events for the given symbol (scaffold; not implemented).
+        
         Parameters:
-            symbol (SymbolIdentity): Identifier for the security whose disclosures would be requested.
-            limit (int): Maximum number of disclosure events to return (currently ignored).
-
+            symbol (SymbolIdentity): Security identifier (ignored).
+            limit (int): Maximum number of events requested (ignored).
+        
         Returns:
-            list[DisclosureEvent]: An empty list (no disclosure events).
+            list[DisclosureEvent]: An empty list because disclosure ingestion is not implemented.
         """
         _ = (symbol, limit, self._settings)
         return []
@@ -352,6 +376,21 @@ def _missing_fundamental_snapshot(
     notes: list[str],
     summary: str,
 ) -> FundamentalSnapshot:
+    """
+    Builds a FundamentalSnapshot representing unavailable or missing fundamental data for a symbol.
+    
+    Parameters:
+        symbol (SymbolIdentity): The symbol identity for which the snapshot is created.
+        source_name (str): Source identifier used in the attribution entry (e.g., "sec_edgar").
+        notes (list[str]): Attribution notes describing why data is missing or any contextual details.
+        summary (str): Human-readable summary explaining the missing-data state.
+    
+    Returns:
+        FundamentalSnapshot: A snapshot with `fx_exposure="unknown"`, attribution set with
+        `provider_type="fundamental"`, `source_role="missing"`, `freshness="missing"`,
+        `fetched_at` set to the current UTC time, `missing_fields` populated from FUNDAMENTAL_FIELDS,
+        and the provided `summary`.
+    """
     return FundamentalSnapshot(
         symbol_identity=symbol,
         fx_exposure="unknown",
@@ -375,6 +414,20 @@ def _fundamental_snapshot_from_sec_companyfacts(
     entity_name: str,
     payload: dict[str, Any],
 ) -> FundamentalSnapshot:
+    """
+    Convert an SEC companyfacts JSON payload into a V1 FundamentalSnapshot containing derived fundamental metrics, source attribution, completeness, and a human-readable summary.
+    
+    The function extracts US-GAAP facts from the provided payload, selects the latest reported facts for each target metric, derives five V1 ratios (revenue_growth, profitability_stability, cash_flow_alignment, debt_risk, reinvestment_potential), and computes an overall completeness score. If the payload lacks usable US-GAAP facts or does not provide enough metrics to produce a positive completeness score, a missing-style FundamentalSnapshot (attributed to "sec_edgar") is returned instead.
+    
+    Parameters:
+        symbol (SymbolIdentity): Identity for the requested symbol; used in the returned snapshot.
+        cik (str): Normalized 10-digit SEC CIK for the entity; included in attribution notes.
+        entity_name (str): Fallback entity name used when payload does not include an entityName.
+        payload (dict[str, Any]): Parsed SEC companyfacts JSON for the CIK.
+    
+    Returns:
+        FundamentalSnapshot: A snapshot populated with derived metrics, attribution (including completeness and confidence), missing_fields and a formatted summary; or a missing snapshot attributed to "sec_edgar" when US-GAAP facts are unavailable or insufficient.
+    """
     facts = payload.get("facts")
     us_gaap = facts.get("us-gaap") if isinstance(facts, dict) else None
     if not isinstance(us_gaap, dict):
@@ -466,6 +519,23 @@ def _fundamental_snapshot_from_sec_companyfacts(
 def _fetch_json(
     url: str, headers: Mapping[str, str], timeout_seconds: float
 ) -> dict[str, Any]:
+    """
+    Fetches JSON from the given URL via HTTP GET and returns the parsed JSON object.
+    
+    Performs a blocking GET request using the provided headers and timeout, calls raise_for_status() on the response, and ensures the parsed JSON is a mapping.
+    
+    Parameters:
+        url (str): The request URL.
+        headers (Mapping[str, str]): Headers to include with the request; will be copied into a plain dict.
+        timeout_seconds (float): Request timeout in seconds.
+    
+    Returns:
+        dict[str, Any]: The parsed JSON object.
+    
+    Raises:
+        httpx.HTTPError: If the HTTP request failed or returned a non-success status.
+        ValueError: If the response JSON is not a JSON object (mapping).
+    """
     response = httpx.get(url, headers=dict(headers), timeout=timeout_seconds)
     response.raise_for_status()
     payload = response.json()
@@ -475,6 +545,19 @@ def _fetch_json(
 
 
 def _sec_configuration_note(*, enabled: bool, user_agent: bool) -> str:
+    """
+    Produce a short configuration note describing whether the SEC provider is enabled and whether a User-Agent is configured.
+    
+    Parameters:
+        enabled (bool): True if SEC ingestion is enabled in settings.
+        user_agent (bool): True if a non-empty User-Agent is configured.
+    
+    Returns:
+        str: One of:
+            - "sec_provider_disabled" when `enabled` is False.
+            - "sec_user_agent_configured" when `enabled` is True and `user_agent` is True.
+            - "sec_user_agent_missing" when `enabled` is True and `user_agent` is False.
+    """
     if not enabled:
         return "sec_provider_disabled"
     if user_agent:
@@ -483,6 +566,18 @@ def _sec_configuration_note(*, enabled: bool, user_agent: bool) -> str:
 
 
 def _sec_ticker_index(payload: dict[str, Any]) -> dict[str, dict[str, str]]:
+    """
+    Construct an index mapping normalized ticker symbols to their CIK and entity name from an SEC company-tickers payload.
+    
+    Parameters:
+        payload (dict[str, Any]): Parsed JSON object from the SEC company_tickers endpoint where each value may describe a company (expected keys include "ticker", "cik_str", and "title").
+    
+    Returns:
+        dict[str, dict[str, str]]: A mapping keyed by uppercase ticker symbol to a dictionary with:
+            - "cik": the 10-digit zero-padded CIK string
+            - "entity_name": the company's title (or the ticker if title is missing)
+        Only entries with a non-empty ticker and a successfully normalized CIK are included.
+    """
     result: dict[str, dict[str, str]] = {}
     for item in payload.values():
         if not isinstance(item, dict):
@@ -499,6 +594,17 @@ def _sec_ticker_index(payload: dict[str, Any]) -> dict[str, dict[str, str]]:
 
 
 def _normalize_cik(value: object) -> str | None:
+    """
+    Normalize various CIK representations into a 10-digit, zero-padded CIK string.
+    
+    Accepts integers, numeric strings, or strings containing digits; leading/trailing whitespace is ignored. If the input is None, empty after stripping, or contains no digits, returns None.
+    
+    Parameters:
+        value (object): Input CIK representation (e.g., int, str, or other object with a digit-containing string form).
+    
+    Returns:
+        str | None: A 10-digit zero-padded CIK string when digits are present, `None` otherwise.
+    """
     if value is None:
         return None
     text = str(value).strip()
@@ -514,6 +620,16 @@ def _normalize_cik(value: object) -> str | None:
 def _latest_company_fact(
     us_gaap: dict[str, Any], *, concepts: tuple[str, ...]
 ) -> tuple[str, str, dict[str, Any]] | None:
+    """
+    Select the most recent company fact entry from the provided US-GAAP facts for the given concepts.
+    
+    Parameters:
+        us_gaap (dict[str, Any]): The `"us-gaap"` section from an SEC companyfacts payload.
+        concepts (tuple[str, ...]): Candidate US-GAAP concept names to consider.
+    
+    Returns:
+        tuple[str, str, dict[str, Any]] | None: A `(concept, unit, item)` tuple for the latest matching fact, or `None` if no matching entries are found.
+    """
     entries = _company_fact_entries(us_gaap, concepts=concepts)
     if not entries:
         return None
@@ -523,6 +639,16 @@ def _latest_company_fact(
 def _company_fact_entries(
     us_gaap: dict[str, Any], *, concepts: tuple[str, ...]
 ) -> list[tuple[str, str, dict[str, Any]]]:
+    """
+    Collect all company fact entries from a US-GAAP payload for the provided candidate concepts.
+    
+    Parameters:
+        us_gaap (dict[str, Any]): The `facts["us-gaap"]` section of a companyfacts payload.
+        concepts (tuple[str, ...]): Candidate US-GAAP concept identifiers to collect entries for.
+    
+    Returns:
+        entries (list[tuple[str, str, dict[str, Any]]]): A list of tuples `(concept, unit, item)` for every supported fact item found for the given concepts.
+    """
     entries: list[tuple[str, str, dict[str, Any]]] = []
     for concept in concepts:
         entries.extend(_company_fact_entries_for_concept(us_gaap, concept))
@@ -532,6 +658,17 @@ def _company_fact_entries(
 def _company_fact_entries_for_concept(
     us_gaap: dict[str, Any], concept: str
 ) -> list[tuple[str, str, dict[str, Any]]]:
+    """
+    Collect supported company-fact entries for a specific US-GAAP concept across all reported units.
+    
+    Parameters:
+        us_gaap (dict[str, Any]): The "us-gaap" section of an SEC companyfacts payload.
+        concept (str): The US-GAAP concept name to collect entries for.
+    
+    Returns:
+        entries (list[tuple[str, str, dict[str, Any]]]): A list of tuples `(concept, unit, item)` for each supported fact item found.
+        Returns an empty list if the concept is missing or its `units` structure is not a dict.
+    """
     concept_payload = us_gaap.get(concept)
     if not isinstance(concept_payload, dict):
         return []
@@ -547,6 +684,17 @@ def _company_fact_entries_for_concept(
 def _company_fact_entries_for_unit(
     concept: str, unit: str, unit_entries: object
 ) -> list[tuple[str, str, dict[str, Any]]]:
+    """
+    Collects supported company fact entries for a specific concept and unit.
+    
+    Parameters:
+        concept (str): US-GAAP concept identifier to associate with each entry.
+        unit (str): Unit key (e.g., "USD") to associate with each entry.
+        unit_entries (object): Raw entries for the unit; expected to be a list of item dicts.
+    
+    Returns:
+        list[tuple[str, str, dict[str, Any]]]: List of `(concept, unit, item)` tuples for items that are supported company fact entries. Returns an empty list if `unit_entries` is not a list or contains no supported items.
+    """
     if not isinstance(unit_entries, list):
         return []
     entries: list[tuple[str, str, dict[str, Any]]] = []
@@ -559,6 +707,17 @@ def _company_fact_entries_for_unit(
 def _is_supported_company_fact_item(
     item: object, *, concept: str, unit: str
 ) -> TypeGuard[dict[str, Any]]:
+    """
+    Determine whether a company fact item is supported for inclusion.
+    
+    Parameters:
+        item: Candidate company fact item to test; may be any object.
+        concept: The US-GAAP concept identifier associated with the item (used when extracting the numeric value).
+        unit: The unit identifier associated with the item (used when extracting the numeric value).
+    
+    Returns:
+        `True` if `item` is a dict, contains a numeric `val` for the given `concept`/`unit`, and its `form` is empty or is listed in `SEC_RESEARCH_FORMS`; `False` otherwise.
+    """
     if not isinstance(item, dict):
         return False
     if _fact_number((concept, unit, item)) is None:
@@ -568,6 +727,18 @@ def _is_supported_company_fact_item(
 
 
 def _growth_ratio(us_gaap: dict[str, Any], concepts: tuple[str, ...]) -> float | None:
+    """
+    Compute year-over-year growth using the two most recent annual US-GAAP fact entries for the provided concepts.
+    
+    Selects annual fact entries for the given concepts, picks the two most recent by filing/end dates, and returns (latest - previous) / abs(previous). Returns `None` if fewer than two annual entries exist, if the latest or previous value cannot be parsed as a number, or if the previous value is zero.
+    
+    Parameters:
+        us_gaap (dict[str, Any]): The `us-gaap` section from an SEC companyfacts payload.
+        concepts (tuple[str, ...]): Candidate US-GAAP concept names to search for (in priority order).
+    
+    Returns:
+        float | None: Growth rate as a signed fraction (e.g., 0.10 for 10% growth) if computable, `None` otherwise.
+    """
     entries = [
         item
         for item in _company_fact_entries(us_gaap, concepts=concepts)
@@ -584,6 +755,15 @@ def _growth_ratio(us_gaap: dict[str, Any], concepts: tuple[str, ...]) -> float |
 
 
 def _is_annual_fact(item: dict[str, Any]) -> bool:
+    """
+    Determine whether a companyfact item represents an annual (yearly) fact.
+    
+    Parameters:
+        item (dict[str, Any]): A single companyfact entry as returned in the SEC `companyfacts` payload.
+    
+    Returns:
+        bool: `True` if the item is reported on an annual basis (annual filing indicator, fiscal period "FY", or a calendar-year frame that is not quarterly and not an interim), `False` otherwise.
+    """
     form = str(item.get("form") or "").upper()
     fiscal_period = str(item.get("fp") or "").upper()
     frame = str(item.get("frame") or "").upper()
@@ -595,12 +775,32 @@ def _is_annual_fact(item: dict[str, Any]) -> bool:
 
 
 def _fact_sort_key(item: dict[str, Any]) -> tuple[str, str]:
+    """
+    Produce a deterministic sort key for a company fact item based on its filing and period end timestamps.
+    
+    Parameters:
+        item (dict[str, Any]): A company-fact mapping; keys `"filed"` and `"end"` are read and coerced to strings (missing or falsy values become empty strings).
+    
+    Returns:
+        tuple[str, str]: A `(filed, end)` tuple of strings suitable for chronological sorting.
+    """
     filed = str(item.get("filed") or "")
     end = str(item.get("end") or "")
     return filed, end
 
 
 def _fact_number(fact: tuple[str, str, dict[str, Any]] | None) -> float | None:
+    """
+    Extract a numeric value from a company fact tuple.
+    
+    Reads the third element's `val` field from `fact` and converts it to a float. Accepts integer or float values and numeric strings (commas allowed). Returns `None` when `fact` is `None`, the `val` field is missing, or the value cannot be parsed as a number.
+    
+    Parameters:
+        fact (tuple[str, str, dict] | None): A company fact tuple `(concept, unit, item)` where `item` is a dict containing a `val` key, or `None`.
+    
+    Returns:
+        float | None: The parsed numeric value from `fact[2]['val']` if parseable, `None` otherwise.
+    """
     if fact is None:
         return None
     value = fact[2].get("val")
@@ -615,16 +815,44 @@ def _fact_number(fact: tuple[str, str, dict[str, Any]] | None) -> float | None:
 
 
 def _ratio(numerator: float | None, denominator: float | None) -> float | None:
+    """
+    Compute a bounded ratio of numerator to denominator.
+    
+    Parameters:
+        numerator (float | None): The numerator value; if `None` the result is `None`.
+        denominator (float | None): The denominator value; if `None` or zero the result is `None`.
+    
+    Returns:
+        float: A value between 0.0 and 1.0 equal to numerator / abs(denominator) and clamped to [0.0, 1.0], or `None` if `numerator` is `None` or `denominator` is `None` or zero.
+    """
     if numerator is None or denominator in (None, 0):
         return None
     return _clamp_ratio(numerator / abs(denominator))
 
 
 def _clamp_ratio(value: float) -> float:
+    """
+    Clamp a numeric ratio into the inclusive range [0.0, 1.0].
+    
+    Parameters:
+        value (float): The ratio to clamp; may be outside the [0.0, 1.0] range.
+    
+    Returns:
+        float: The input constrained to be no less than 0.0 and no greater than 1.0.
+    """
     return min(max(value, 0.0), 1.0)
 
 
 def _format_optional_ratio(value: float | None) -> str:
+    """
+    Format an optional numeric ratio as a three-decimal string or `"missing"`.
+    
+    Parameters:
+        value (float | None): Ratio value (typically between 0.0 and 1.0) or `None` when missing.
+    
+    Returns:
+        str: `"missing"` if `value` is `None`, otherwise `value` formatted to three decimal places (e.g., `"0.123"`).
+    """
     if value is None:
         return "missing"
     return f"{value:.3f}"

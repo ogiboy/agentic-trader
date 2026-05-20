@@ -7,6 +7,7 @@ from agentic_trader.engine.broker import (
     AlpacaPaperBrokerAdapter,
     PaperBrokerAdapter,
     SimulatedRealBrokerAdapter,
+    alpaca_uses_paper_endpoint,
     broker_runtime_payload,
     get_broker_adapter,
     get_broker_order_reader,
@@ -133,6 +134,19 @@ def test_broker_runtime_payload_reports_alpaca_paper_blockers(tmp_path) -> None:
     assert "explicit_enablement_missing" in healthcheck["message"]
 
 
+def test_alpaca_paper_endpoint_check_requires_exact_host(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        alpaca_base_url="https://paper-api.alpaca.markets.evil.example",
+    )
+
+    assert alpaca_uses_paper_endpoint(settings) is False
+
+    settings.alpaca_base_url = "https://paper-api.alpaca.markets/v2"
+    assert alpaca_uses_paper_endpoint(settings) is True
+
+
 def test_alpaca_paper_adapter_blocks_non_us_symbol_without_network(tmp_path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -166,9 +180,27 @@ def test_alpaca_paper_adapter_blocks_non_us_symbol_without_network(tmp_path) -> 
 def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(tmp_path) -> None:
     class FailingClient:
         def get_all_positions(self):
+            """
+            Return the list of positions currently tracked by the client.
+            
+            Returns:
+                A list of position objects; an empty list if there are no positions.
+            """
             return []
 
         def get_account(self):
+            """
+            Return a fake account snapshot for tests.
+            
+            The returned object models account fields as stringified numeric values.
+            
+            Returns:
+                SimpleNamespace: An object with attributes:
+                    - cash (str): "100000"
+                    - long_market_value (str): "0"
+                    - short_market_value (str): "0"
+                    - portfolio_value (str): "100000"
+            """
             return SimpleNamespace(
                 cash="100000",
                 long_market_value="0",
@@ -177,6 +209,15 @@ def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(tmp_path) ->
             )
 
         def submit_order(self, *, order_data):
+            """
+            Simulate submitting an order to the paper API and always raise an authorization error.
+            
+            Parameters:
+                order_data (dict): The order payload that would be sent to the API.
+            
+            Raises:
+                RuntimeError: Always raised to simulate an API authorization failure; message includes "Authorization: Bearer alpaca-secret-token".
+            """
             raise RuntimeError(
                 "paper api failed Authorization: Bearer alpaca-secret-token"
             )
@@ -268,6 +309,8 @@ def test_is_v1_us_equity_symbol():
     assert is_v1_us_equity_symbol("VERYLONGSYMBOL") is False
     assert is_v1_us_equity_symbol("AAPL.IS") is False  # Non-US format
     assert is_v1_us_equity_symbol("invalid@symbol") is False
+    assert is_v1_us_equity_symbol("-") is False
+    assert is_v1_us_equity_symbol(".A") is False
     assert is_v1_us_equity_symbol("A.B.C") is False  # Too many parts
 
 
@@ -324,6 +367,9 @@ def test_paper_broker_adapter_blocks_invalid_symbol(tmp_path) -> None:
     assert outcome.status == "blocked"
     assert outcome.rejection_reason == "unsupported_symbol_scope"
     assert db.get_position("AAPL;BAD") is None
+    order = db.latest_order()
+    assert order is not None
+    assert order[2] == "AAPL;BAD"
 
 
 def test_simulated_real_broker_adapter(tmp_path) -> None:
@@ -681,6 +727,12 @@ def test_alpaca_paper_adapter_healthcheck_ready(tmp_path) -> None:
     # Mock the client
     class MockClient:
         def get_account(self):
+            """
+            Return a minimal account snapshot indicating active status and trading block state.
+            
+            Returns:
+                account (object): An object with attributes `status` set to "active" and `trading_blocked` set to False.
+            """
             class Account:
                 status = "active"
                 trading_blocked = False
@@ -727,7 +779,9 @@ def test_get_broker_adapter_kill_switch(tmp_path) -> None:
 
 
 def test_get_broker_adapter_simulated_real(tmp_path) -> None:
-    """Test get_broker_adapter returns SimulatedRealBrokerAdapter."""
+    """
+    Verify broker selection chooses the simulated-real backend when execution_backend is set to "simulated_real".
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -939,6 +993,15 @@ def test_broker_runtime_payload_pending_live(tmp_path) -> None:
 
 
 def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -> None:
+    """
+    Validate that AlpacaPaperBrokerAdapter correctly maps a fake Alpaca client state into adapter outcomes and API-like responses without network access.
+    
+    This test replaces the adapter's client with a FakeClient that simulates order submission, order refresh, positions, account snapshot, open orders, and close-position behavior. It asserts that:
+    - submitted request objects are the expected Alpaca request types with the intent's client_order_id,
+    - initial place_order outcome reflects the client's filled response,
+    - refreshed get_order_outcome reflects a later partially filled state with correct filled quantity and message suffix,
+    - positions, account snapshot, open orders, healthcheck, and close_position responses are mapped and returned as expected.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -952,6 +1015,19 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
 
     class FakeClient:
         def submit_order(self, *, order_data):
+            """
+            Record the provided order data and return a simulated filled order response.
+            
+            Parameters:
+                order_data: The order request object or payload to record; appended to the surrounding `submitted_orders` collection.
+            
+            Returns:
+                A SimpleNamespace representing the broker response with fields:
+                    id (str): The broker-assigned order identifier ("order-1").
+                    filled_qty (str): Quantity filled ("2").
+                    filled_avg_price (str): Average fill price ("101.25").
+                    status (str): Order status ("filled").
+            """
             submitted_orders.append(order_data)
             return SimpleNamespace(
                 id="order-1",
@@ -961,6 +1037,15 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
             )
 
         def get_order_by_id(self, order_id):
+            """
+            Fetches a snapshot of the broker order for the provided order identifier.
+            
+            Returns:
+                A SimpleNamespace representing the order state with fields `id`, `filled_qty`, `filled_avg_price`, and `status`.
+            
+            Raises:
+                AssertionError: If `order_id` is not equal to "order-1".
+            """
             assert order_id == "order-1"
             return SimpleNamespace(
                 id="order-1",
@@ -970,6 +1055,20 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
             )
 
         def get_all_positions(self):
+            """
+            Return a single-item list representing a sample position snapshot for the symbol "AAPL".
+            
+            The returned list contains one object with the following attributes:
+            - symbol (str): ticker symbol, "AAPL"
+            - qty (str): quantity held, "2"
+            - avg_entry_price (str): average entry price, "100"
+            - current_price (str): current market price, "101"
+            - market_value (str): market value of the position, "202"
+            - unrealized_pl (str): unrealized profit/loss, "2"
+            
+            Returns:
+                list: A list containing a SimpleNamespace with the described attributes.
+            """
             return [
                 SimpleNamespace(
                     symbol="AAPL",
@@ -1078,6 +1177,19 @@ def test_alpaca_paper_adapter_submits_limit_order_with_client_order_id(
 
     class FakeClient:
         def submit_order(self, *, order_data):
+            """
+            Record the provided order data for inspection and return a stubbed accepted order response.
+            
+            Parameters:
+                order_data: The order request object to record; appended to an external `submitted_orders` list for test inspection.
+            
+            Returns:
+                A SimpleNamespace representing the broker's response with the following fields:
+                - id: The broker-assigned order identifier (e.g., "order-limit-1").
+                - filled_qty: The quantity filled so far as a string (here "0").
+                - filled_avg_price: The average fill price or None if not filled.
+                - status: The broker-reported order status (here "accepted").
+            """
             submitted_orders.append(order_data)
             return SimpleNamespace(
                 id="order-limit-1",
@@ -1087,9 +1199,29 @@ def test_alpaca_paper_adapter_submits_limit_order_with_client_order_id(
             )
 
         def get_all_positions(self):
+            """
+            Return the list of positions currently tracked by the client.
+            
+            Returns:
+                A list of position objects; an empty list if there are no positions.
+            """
             return []
 
         def get_account(self):
+            """
+            Return a fake account snapshot used by tests.
+            
+            The snapshot models a brokerage account summary with string-typed numeric fields and basic status flags.
+            
+            Returns:
+                SimpleNamespace: An object with the following attributes:
+                    cash (str): Available cash balance, e.g. "100000".
+                    long_market_value (str): Total long positions market value, e.g. "0".
+                    short_market_value (str): Total short positions market value, e.g. "0".
+                    portfolio_value (str): Total portfolio value, e.g. "100000".
+                    status (str): Account status, e.g. "ACTIVE".
+                    trading_blocked (bool): Whether trading is blocked.
+            """
             return SimpleNamespace(
                 cash="100000",
                 long_market_value="0",
@@ -1131,6 +1263,11 @@ def test_alpaca_paper_adapter_submits_limit_order_with_client_order_id(
 
 
 def test_alpaca_paper_adapter_blocks_oversize_order_before_submit(tmp_path) -> None:
+    """
+    Verify that AlpacaPaperBrokerAdapter blocks oversize orders before attempting to submit to the broker client.
+    
+    Constructs settings with restrictive position limits and a FakeClient whose submit_order would raise if invoked; ensures adapter.place_order returns an outcome with status "blocked" and rejection_reason "max_position_exceeded".
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -1145,12 +1282,39 @@ def test_alpaca_paper_adapter_blocks_oversize_order_before_submit(tmp_path) -> N
 
     class FakeClient:
         def submit_order(self, *, order_data):
+            """
+            Placeholder submission method for orders that should never reach the submit step when oversized.
+            
+            Parameters:
+                order_data: The payload representing the order to be submitted.
+            
+            Raises:
+                AssertionError: Always raised to indicate oversized orders must be blocked before submission.
+            """
             raise AssertionError("oversize order must be blocked before submit")
 
         def get_all_positions(self):
+            """
+            Return the list of positions currently tracked by the client.
+            
+            Returns:
+                A list of position objects; an empty list if there are no positions.
+            """
             return []
 
         def get_account(self):
+            """
+            Return a fake account snapshot for tests.
+            
+            The returned object models account fields as stringified numeric values.
+            
+            Returns:
+                SimpleNamespace: An object with attributes:
+                    - cash (str): "100000"
+                    - long_market_value (str): "0"
+                    - short_market_value (str): "0"
+                    - portfolio_value (str): "100000"
+            """
             return SimpleNamespace(
                 cash="100000",
                 long_market_value="0",
@@ -1195,6 +1359,20 @@ def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> 
 
     class FakeClient:
         def submit_order(self, *, order_data):
+            """
+            Record the outgoing order request and return a fake filled-order response.
+            
+            Parameters:
+                order_data: The order request object or payload to be submitted; it is appended to the outer
+                    `submitted_orders` list for inspection by tests.
+            
+            Returns:
+                SimpleNamespace: An object representing a filled order with the following attributes:
+                    - id (str): The broker-assigned order id, "close-order-1".
+                    - filled_qty (str): The filled quantity as a string, "200".
+                    - filled_avg_price (str): The average filled price as a string, "250".
+                    - status (str): The broker status, "filled".
+            """
             submitted_orders.append(order_data)
             return SimpleNamespace(
                 id="close-order-1",
@@ -1204,6 +1382,18 @@ def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> 
             )
 
         def get_all_positions(self):
+            """
+            Return a list of current account positions as simple objects.
+            
+            Returns:
+                list: A list of position objects where each object has the attributes:
+                    - symbol (str): Ticker symbol.
+                    - qty (str): Quantity held.
+                    - avg_entry_price (str): Average entry price.
+                    - current_price (str): Current market price.
+                    - market_value (str): Market value of the position.
+                    - unrealized_pl (str): Unrealized profit or loss.
+            """
             return [
                 SimpleNamespace(
                     symbol="AAPL",
@@ -1216,6 +1406,18 @@ def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> 
             ]
 
         def get_account(self):
+            """
+            Return a mock account snapshot representing available cash and portfolio values.
+            
+            The returned object contains string-typed numeric fields meant to mimic an external API shape:
+            - `cash`: available cash balance.
+            - `long_market_value`: total value of long positions.
+            - `short_market_value`: total value of short positions.
+            - `portfolio_value`: total portfolio value.
+            
+            Returns:
+                SimpleNamespace: An object with `cash`, `long_market_value`, `short_market_value`, and `portfolio_value` fields (all strings).
+            """
             return SimpleNamespace(
                 cash="50000",
                 long_market_value="50000",
@@ -1259,6 +1461,15 @@ def test_alpaca_paper_adapter_maps_cancelled_and_redacts_rejection_reason(
 
     class FakeClient:
         def get_order_by_id(self, order_id):
+            """
+            Return a fake broker order object representing a canceled order used by tests.
+            
+            Parameters:
+                order_id (str): Expected order identifier; must equal "cancelled-order-1" or an AssertionError is raised.
+            
+            Returns:
+                SimpleNamespace: An object with fields `id="cancelled-order-1"`, `filled_qty="0"`, `filled_avg_price=None`, `status="canceled"`, and `reject_reason="BROKER_TOKEN=secret-value cancelled"`.
+            """
             assert order_id == "cancelled-order-1"
             return SimpleNamespace(
                 id="cancelled-order-1",
@@ -1303,6 +1514,23 @@ def test_alpaca_paper_adapter_preserves_partial_fill_on_cancelled_order(
 
     class FakeClient:
         def get_order_by_id(self, order_id):
+            """
+            Return a mocked canceled order with a partial fill for the test order id "cancelled-partial-order-1".
+            
+            Parameters:
+                order_id (str): The id of the order to fetch; must equal "cancelled-partial-order-1".
+            
+            Returns:
+                types.SimpleNamespace: An object with the following attributes:
+                    - id (str): "cancelled-partial-order-1"
+                    - filled_qty (str): "0.5"
+                    - filled_avg_price (str): "250"
+                    - status (str): "canceled"
+                    - reject_reason (str): "unfilled remainder canceled"
+            
+            Raises:
+                AssertionError: If `order_id` is not "cancelled-partial-order-1".
+            """
             assert order_id == "cancelled-partial-order-1"
             return SimpleNamespace(
                 id="cancelled-partial-order-1",
@@ -1337,6 +1565,11 @@ def test_alpaca_paper_adapter_preserves_partial_fill_on_cancelled_order(
 
 
 def test_alpaca_paper_adapter_blocks_close_without_exit_or_us_symbol(tmp_path) -> None:
+    """
+    Verifies that the Alpaca paper adapter rejects close-position requests when no exit is requested or the symbol is not a US equity.
+    
+    Creates an AlpacaPaperBrokerAdapter with trading enabled but a non-network client, calls close_position with (a) should_exit=False for a US symbol and (b) should_exit=True for a non-US symbol, and asserts the returned identifiers start with the expected noop and blocked prefixes respectively.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

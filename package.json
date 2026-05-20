@@ -10,6 +10,7 @@
   "scripts": {
     "bootstrap": "scripts/bootstrap-system-tools.sh",
     "bootstrap:dry-run": "scripts/bootstrap-system-tools.sh --dry-run",
+    "launch:main": "scripts/launch-main.sh",
     "setup": "pnpm run setup:node && pnpm run install:python",
     "setup:tools": "uv run --locked --all-extras --group dev agentic-trader setup-status",
     "app:doctor": "node scripts/app-doctor.mjs",

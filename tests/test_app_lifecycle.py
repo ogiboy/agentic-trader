@@ -11,20 +11,21 @@ SERVICES_SCRIPT = ROOT / "scripts" / "app-services.mjs"
 UPDATE_SCRIPT = ROOT / "scripts" / "app-update.mjs"
 UNINSTALL_SCRIPT = ROOT / "scripts" / "app-uninstall.mjs"
 UP_SCRIPT = ROOT / "scripts" / "app-up.mjs"
+BOOTSTRAP_SCRIPT = ROOT / "scripts" / "bootstrap-system-tools.sh"
 
 
 def _fake_cli(tmp_path: Path, exit_code: int = 0) -> Path:
     """
-    Create an executable fake `agentic-trader` CLI script in `tmp_path` that returns controlled JSON responses for testing.
-
-    The generated script prints specific JSON payloads for certain argument patterns (e.g., `setup-status`, `model-service`, `camofox-service`, `webgui-service`, `provider-diagnostics`, `v1-readiness`) and a generic `{"ok": true}` for other invocations, then exits with `exit_code`.
-
+    Create an executable fake `agentic-trader` CLI in `tmp_path` that emits deterministic JSON payloads for tests.
+    
+    The script writes specific JSON responses based on the invoked arguments (e.g., `*setup-status*` → `{"core_ready":true}`, `*model-service*`, `*camofox-service*`, `*webgui-service*` → `{"service_reachable":false}`, `*provider-diagnostics*` → `{"provider":"ollama"}`, `*v1-readiness*` → `{"ready":false}`) and prints `{"ok":true}` for other invocations, then exits with the given code.
+    
     Parameters:
-        tmp_path (Path): Directory where the fake `agentic-trader` script will be written.
+        tmp_path (Path): Directory where the fake `agentic-trader` script will be created.
         exit_code (int): Exit code the script will use when invoked.
-
+    
     Returns:
-        Path: Path to the created executable script `agentic-trader`.
+        Path: Path to the created executable `agentic-trader` script.
     """
     script = tmp_path / "agentic-trader"
     script.write_text(
@@ -51,15 +52,16 @@ def _run_doctor(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
-    Run the Node-based app-doctor script with the given arguments and an environment merged over the current process environment, capturing stdout and stderr as text.
-
+    Run the app-doctor Node script with the provided arguments and an environment overlay.
+    
+    Merges the current process environment with `env` (if provided) and invokes the doctor script from the repository root, capturing stdout and stderr as text.
+    
     Parameters:
-        tmp_path (Path): Temporary directory fixture (accepted for test helper consistency; not used by this function).
-        *args (str): Arguments to pass to the doctor script.
-        env (dict[str, str] | None): Environment variables to merge over os.environ before invoking the process.
-
+        *args (str): Arguments forwarded to the doctor script.
+        env (dict[str, str] | None): Environment variables to merge over the current process environment.
+    
     Returns:
-        subprocess.CompletedProcess[str]: Completed process with `stdout` and `stderr` captured as text and `returncode` reflecting the script's exit status.
+        subprocess.CompletedProcess[str]: Completed process whose `stdout` and `stderr` are captured as text; `returncode` is the script's exit status.
     """
     merged_env = os.environ.copy()
     if env is not None:
@@ -99,14 +101,16 @@ def _fake_pnpm(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
 
 def _fake_update_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
     """
-    Create a fake toolchain directory containing mock `pnpm` and `uv` executables that log invocations.
-
+    Create a fake toolchain `bin/` directory with mock `pnpm` and `uv` executables that record invocations.
+    
+    Each fake executable appends a line of the form `<tool>|<cwd>|<args>` to the file referenced by the `UPDATE_LOG` environment variable and exits with the provided `exit_code`.
+    
     Parameters:
-        tmp_path (Path): Temporary directory in which to create a `bin/` folder and log file.
-        exit_code (int): Exit code the fake tools will return when invoked.
-
+        tmp_path (Path): Directory in which to create the `bin/` folder and the update log file.
+        exit_code (int): Exit code the fake executables will return when invoked.
+    
     Returns:
-        tuple[Path, Path]: A tuple `(bin_dir, log_path)` where `bin_dir` is the created `bin/` directory containing the fake `pnpm` and `uv` scripts, and `log_path` is the path to the update log file that those scripts append to.
+        tuple[Path, Path]: `(bin_dir, log_path)` where `bin_dir` is the created `bin/` directory containing the fake `pnpm` and `uv` scripts, and `log_path` is the path to the update log file (`update.log`) under `tmp_path`.
     """
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -156,6 +160,16 @@ def _fake_app_up_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Pa
     return bin_dir, log_path
 
 
+def _fake_path_commands(tmp_path: Path, *names: str) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    for name in names:
+        script = bin_dir / name
+        script.write_text("#!/usr/bin/env sh\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+    return bin_dir
+
+
 def _fake_service_cli(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
     """
     Create a fake `agentic-trader` CLI script in tmp_path that records invocations and emits controlled JSON responses.
@@ -201,14 +215,14 @@ def _run_setup(
 ) -> subprocess.CompletedProcess[str]:
     """
     Run the Node-based app setup script with the given arguments and environment.
-
+    
     Parameters:
-        tmp_path (Path): test temporary directory fixture (unused by this helper; present for API consistency).
+        tmp_path (Path): Temporary test directory fixture; unused by this helper but accepted for API consistency.
         *args (str): Arguments forwarded to the setup script.
-        env (dict[str, str] | None): Environment variables merged over the current process environment; values here override existing keys.
-
+        env (dict[str, str] | None): Environment variables merged on top of the current process environment; provided keys override existing values.
+    
     Returns:
-        subprocess.CompletedProcess[str]: The completed process containing stdout, stderr, and the exit code.
+        subprocess.CompletedProcess[str]: Completed process containing `stdout`, `stderr`, and `returncode`.
     """
     merged_env = os.environ.copy()
     if env is not None:
@@ -229,15 +243,15 @@ def _run_services(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
-    Run the repository's Node "services" script with the given mode and additional arguments, returning the completed subprocess result.
-
+    Invoke the repository's Node "services" script with the specified mode and arguments and return the completed process.
+    
     Parameters:
-        mode (str): The mode argument passed to the services script (e.g., "start", "stop").
-        *args (str): Additional command-line arguments to forward to the script.
-        env (dict[str, str] | None): Optional environment variables to merge over the current process environment before running the command.
-
+        mode (str): Mode to pass to the services script (e.g., "start", "stop").
+        *args (str): Additional command-line arguments forwarded to the script.
+        env (dict[str, str] | None): Optional environment variables to overlay on the current process environment before execution.
+    
     Returns:
-        subprocess.CompletedProcess[str]: The completed process containing exit code, captured `stdout`, and `stderr`.
+        subprocess.CompletedProcess[str]: Completed process containing the exit code and captured `stdout` and `stderr`.
     """
     merged_env = os.environ.copy()
     if env is not None:
@@ -284,14 +298,16 @@ def _run_uninstall(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
-    Run the Node-based uninstall script with the given command-line arguments and environment, returning the subprocess result.
-
+    Invoke the Node-based uninstall script with the given command-line arguments and environment.
+    
+    Merges `env` over the current process environment and runs `node <UNINSTALL_SCRIPT>` from the repository root.
+    
     Parameters:
-        *args (str): Extra arguments passed to the uninstall script.
-        env (dict[str, str] | None): Environment variables to merge over the current process environment.
-
+        *args (str): Additional command-line arguments passed to the uninstall script.
+        env (dict[str, str] | None): Environment variables to overlay on the current environment before running.
+    
     Returns:
-        subprocess.CompletedProcess[str]: Completed process containing return code, stdout, and stderr.
+        subprocess.CompletedProcess[str]: Completed process containing `returncode`, `stdout`, and `stderr`.
     """
     merged_env = os.environ.copy()
     if env is not None:
@@ -311,20 +327,15 @@ def _run_up(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
-    Run the app 'up' Node script with a merged environment and return its completed process.
-
-    Executes `node <UP_SCRIPT> <args>` from the repository root, ensuring `AGENTIC_TRADER_RUNTIME_DIR`
-    is set to a temporary runtime directory when not provided in `env`. Any keys in `env` override
-    the current process environment.
-
+    Run the app `up` Node script from the repository root with a merged environment.
+    
+    If `env` does not provide `AGENTIC_TRADER_RUNTIME_DIR`, a temporary runtime directory is created and injected into the environment before running the script. Keys in `env` override the current process environment.
+    
     Parameters:
-        env (dict[str, str] | None): Additional environment variables to merge over the current
-            process environment; if omitted, the current environment is used (with a default
-            `AGENTIC_TRADER_RUNTIME_DIR` injected).
-
+        env (dict[str, str] | None): Additional environment variables to merge over the current process environment; may include `AGENTIC_TRADER_RUNTIME_DIR` to control the runtime directory.
+    
     Returns:
-        subprocess.CompletedProcess[str]: The completed process containing captured stdout/stderr,
-        the exit code, and related execution metadata.
+        subprocess.CompletedProcess[str]: The completed process with captured stdout/stderr and the exit code.
     """
     merged_env = os.environ.copy()
     merged_env.setdefault(
@@ -335,6 +346,23 @@ def _run_up(
         merged_env.update(env)
     return subprocess.run(
         ["node", str(UP_SCRIPT), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=merged_env,
+    )
+
+
+def _run_bootstrap(
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    if env is not None:
+        merged_env.update(env)
+    return subprocess.run(
+        [str(BOOTSTRAP_SCRIPT), *args],
         check=False,
         capture_output=True,
         text=True,
@@ -696,6 +724,14 @@ def test_app_stop_fails_when_service_payload_remains_app_owned(
 def test_app_start_webgui_treats_external_reachable_listener_as_noop(
     tmp_path: Path,
 ) -> None:
+    """
+    Verifies that starting the web GUI treats an externally reachable listener as a no-op.
+    
+    Runs the `app start --webgui --yes` flow with a fake service CLI that reports
+    `app_owned: false` and `service_reachable: true`, and asserts the webgui step
+    is marked `passed` and its payload reflects the external listener (`app_owned`
+    is False and `service_reachable` is True).
+    """
     log_path = tmp_path / "agentic-trader.log"
     fake_cli = tmp_path / "agentic-trader"
     fake_cli.write_text(
@@ -850,8 +886,63 @@ def test_app_up_dry_run_plans_guided_first_run_without_mutation() -> None:
     assert "pnpm run fetch:camofox" in commands
     assert "pnpm run app:start -- --json --webgui --yes" in commands
     assert "pnpm run app:doctor -- --json" in commands
+    assert all(step["status"] == "deferred" for step in payload["steps"])
+    assert len(payload["summary"]["deferred"]) == len(payload["steps"])
     assert not any("model-service pull" in command for command in commands)
     assert any("No trading daemon" in note for note in payload["safety_notes"])
+
+
+def test_bootstrap_dry_run_prompts_tool_ownership_and_camofox_by_default(
+    tmp_path: Path,
+) -> None:
+    bin_dir = _fake_path_commands(
+        tmp_path,
+        "agentic-trader",
+        "node",
+        "ollama",
+        "pnpm",
+        "uv",
+    )
+    result = _run_bootstrap(
+        "--dry-run",
+        "--yes",
+        env={"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "+ record ollama ownership as app-owned" in result.stdout
+    assert "+ record camofox ownership as app-owned" in result.stdout
+    assert "Camofox dependencies" in result.stdout
+    assert "Bootstrap summary" in result.stdout
+    assert "planned  Ollama ownership" in result.stdout
+
+
+def test_app_up_camofox_browser_selects_deps_first(tmp_path: Path) -> None:
+    bin_dir, log_path = _fake_app_up_toolchain(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    result = _run_up(
+        "--json",
+        "--camofox-browser",
+        "--camofox-owner=app-owned",
+        "--yes",
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "APP_UP_LOG": str(log_path),
+            "AGENTIC_TRADER_RUNTIME_DIR": str(runtime_dir),
+        },
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["selected_scopes"] == ["camofox-deps", "camofox-browser"]
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        f"{ROOT}|run setup:camofox",
+        f"{ROOT}|run fetch:camofox",
+    ]
+    assert [step["id"] for step in payload["summary"]["done"]] == [
+        "camofox-deps",
+        "camofox-browser",
+    ]
 
 
 def test_app_up_rejects_yes_without_scope() -> None:
@@ -970,6 +1061,14 @@ def test_app_up_dry_run_does_not_persist_owner_flags(tmp_path: Path) -> None:
 
 
 def test_app_uninstall_dry_run_plans_safe_scopes() -> None:
+    """
+    Verify that running `app uninstall --dry-run` plans safe removal targets and reports safety notes.
+    
+    Asserts that the payload indicates the `uninstall` action with `dry_run` true and no mutation,
+    that no scopes are selected, that planned targets include `.venv`, `node_modules`, and
+    `runtime/webgui_service` while excluding `runtime/agentic_trader.duckdb` and `.env`, and that
+    safety notes mention "User secrets".
+    """
     result = _run_uninstall("--json", "--dry-run")
     payload = json.loads(result.stdout)
 
@@ -988,6 +1087,11 @@ def test_app_uninstall_dry_run_plans_safe_scopes() -> None:
 
 
 def test_app_uninstall_rejects_yes_without_scope() -> None:
+    """
+    Verifies uninstall rejects confirmation when no scope is selected.
+    
+    Asserts the CLI exits with code 2 and emits "Select at least one uninstall scope" on stderr.
+    """
     result = _run_uninstall("--json", "--yes")
 
     assert result.returncode == 2

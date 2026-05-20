@@ -346,13 +346,13 @@ def _process_matches_state(state: WebGUIServiceState) -> bool:
 
 def _state_process_alive(state: WebGUIServiceState | None) -> bool:
     """
-    Determine whether the persisted Web GUI state corresponds to a currently running, matching process.
-
+    Return whether the persisted Web GUI state corresponds to a running process that matches the recorded state.
+    
     Parameters:
-        state (WebGUIServiceState | None): Persisted runtime state to verify.
-
+        state (WebGUIServiceState | None): Persisted runtime state to verify; may be None.
+    
     Returns:
-        `true` if `state` is not `None`, the recorded PID is alive, and the running process matches the recorded state; `false` otherwise.
+        True if state is not None, the recorded PID is alive, and the running process matches the recorded state; False otherwise.
     """
     return bool(
         state is not None
@@ -421,8 +421,12 @@ def _verified_stop_pids(state: WebGUIServiceState) -> list[int]:
 
 def _send_state_signal(state: WebGUIServiceState, signal_number: int) -> bool:
     """
-    Send the signal to the recorded process group, then to any verified child or launcher PIDs.
-
+    Send the given signal to the recorded service process group and to any additional verified PIDs.
+    
+    Parameters:
+        state (WebGUIServiceState): Persisted service state containing the primary PID and optional launcher PID.
+        signal_number (int): Numeric signal value to send (e.g., signal.SIGTERM, signal.SIGKILL).
+    
     Returns:
         `true` if any signal was successfully sent, `false` otherwise.
     """
@@ -693,14 +697,14 @@ def start_webgui_service(
 def stop_webgui_service(settings: Settings) -> WebGUIServiceStatus:
     """
     Stop the app-owned Web GUI process recorded in persisted runtime state.
-
-    Attempts to gracefully stop the recorded app-owned process and removes the persisted state if the process is no longer alive. If the process cannot be stopped, the persisted state is preserved and the returned status contains a message indicating the preserved state for retry.
-
+    
+    Attempts a graceful shutdown of the recorded app-owned process; if the process does not exit, escalates to a stronger signal. If the process cannot be stopped, the persisted state is left intact so the operation can be retried later.
+    
     Parameters:
-        settings (Settings): Runtime settings that determine state and storage paths.
-
+        settings (Settings): Runtime settings that determine where the service state and logs are stored.
+    
     Returns:
-        WebGUIServiceStatus: Current service status after the stop attempt; when shutdown fails the status message indicates the state was preserved for retry.
+        WebGUIServiceStatus: Current service status after the stop attempt. If shutdown failed, the status message indicates the persisted state was preserved for retry.
     """
 
     state = _read_state(settings)

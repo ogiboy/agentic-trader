@@ -1,8 +1,13 @@
-import fs from 'fs';
-import fsp from 'fs/promises';
-import path from 'path';
-import crypto from 'crypto';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
 
+/**
+ * Produce a short, deterministic identifier for a user based on their ID.
+ * @param {*} userId - Value identifying the user; will be converted to a string.
+ * @returns {string} Hex-encoded SHA-256 digest of `String(userId)`, truncated to the first 16 characters.
+ */
 function hashUserId(userId) {
   return crypto
     .createHash('sha256')
@@ -11,6 +16,12 @@ function hashUserId(userId) {
     .slice(0, 16);
 }
 
+/**
+ * Compute the filesystem path for a user's traces subdirectory.
+ * @param {string} baseDir - Base directory where per-user trace directories are stored.
+ * @param {string|number} userId - User identifier used to derive the directory name.
+ * @returns {string} Absolute or relative path to the user's traces subdirectory.
+ */
 export function userTracesDir(baseDir, userId) {
   return path.join(baseDir, hashUserId(userId));
 }
@@ -27,17 +38,32 @@ export function makeTraceFilename() {
   return `trace-${ts}-${suffix}.zip`;
 }
 
+/**
+ * Build the filesystem path for a trace file belonging to a specific user.
+ * @param {string} baseDir - Root directory where per-user traces are stored.
+ * @param {string|number} userId - Identifier for the user; used to derive the user's traces subdirectory.
+ * @param {string} filename - Name of the trace file (must be a single filename, not a path).
+ * @returns {string} The joined path to the user's traces directory and the provided filename.
+ */
 export function tracePathFor(baseDir, userId, filename) {
   return path.join(ensureTracesDir(baseDir, userId), filename);
 }
 
+/**
+ * Resolve a safe absolute path to a user's trace file or return `null` for unsafe names.
+ * @param {string} baseDir - Root traces directory.
+ * @param {string|number} userId - User identifier used to locate the user's traces subdirectory.
+ * @param {string} filename - Trace filename; must be non-empty, must not contain `/`, `\`, `..`, or start with `.`.
+ * @returns {string|null} The resolved absolute path within the user's traces directory, or `null` if the filename is invalid or resolves outside the user directory.
+ */
 export function resolveTracePath(baseDir, userId, filename) {
   if (
     !filename ||
     filename.includes('/') ||
     filename.includes('\\') ||
     filename.includes('..') ||
-    filename.startsWith('.')
+    filename.startsWith('.') ||
+    !filename.endsWith('.zip')
   ) {
     return null;
   }
@@ -87,10 +113,26 @@ export async function statTrace(fullPath) {
   }
 }
 
+/**
+ * Delete the trace file at the given filesystem path.
+ * @param {string} fullPath - Absolute path to the `.zip` trace file to remove.
+ */
 export async function deleteTrace(fullPath) {
   await fsp.unlink(fullPath);
 }
 
+/**
+ * Remove outdated or oversized trace ZIP files under per-user subdirectories.
+ *
+ * Scans each user subdirectory of `baseDir` for files ending with `.zip`, deletes files older than `ttlMs` or larger than `maxBytesPerFile`, and accumulates statistics.
+ *
+ * @param {Object} [options] - Sweep options.
+ * @param {string} options.baseDir - Root directory containing per-user trace subdirectories.
+ * @param {number} [options.ttlMs] - Time-to-live in milliseconds; files with modified time older than `now - ttlMs` are removed.
+ * @param {number} [options.maxBytesPerFile] - Maximum allowed file size in bytes; files larger than this are removed.
+ * @param {number} [options.now=Date.now()] - Reference timestamp in milliseconds for TTL comparisons.
+ * @returns {{ scanned: number, removedTtl: number, removedOversized: number, bytes: number }} An object summarizing the sweep: `scanned` files examined, `removedTtl` files removed for age, `removedOversized` files removed for size, and `bytes` total freed. 
+ */
 export function sweepOldTraces({
   baseDir,
   ttlMs,
@@ -111,7 +153,7 @@ export function sweepOldTraces({
     const dir = path.join(baseDir, userDir);
     let st;
     try {
-      st = fs.statSync(dir);
+      st = fs.lstatSync(dir);
     } catch {
       continue;
     }
@@ -131,8 +173,8 @@ export function sweepOldTraces({
       try {
         const fst = fs.statSync(full);
         if (!fst.isFile()) continue;
-        const tooOld = ttlMs && now - fst.mtimeMs > ttlMs;
-        const tooBig = maxBytesPerFile && fst.size > maxBytesPerFile;
+        const tooOld = ttlMs != null && now - fst.mtimeMs > ttlMs;
+        const tooBig = maxBytesPerFile != null && fst.size > maxBytesPerFile;
         if (tooOld) {
           fs.unlinkSync(full);
           result.removedTtl++;
