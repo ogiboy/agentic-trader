@@ -99,14 +99,15 @@ class CommandRunner(Protocol):
         command: list[str],
         timeout_seconds: float,
         env: Mapping[str, str],
-    ) -> subprocess.CompletedProcess[str]: """
+    ) -> subprocess.CompletedProcess[str]:
+        """
         Execute a subprocess command and return the completed process result.
-        
+
         Parameters:
             command (list[str]): Command and arguments to execute.
             timeout_seconds (float): Maximum time in seconds to allow the command to run before timing out.
             env (Mapping[str, str]): Environment variables to use for the subprocess; typically a minimal, controlled env.
-        
+
         Returns:
             subprocess.CompletedProcess[str]: Completed process including return code, stdout, and stderr.
         """

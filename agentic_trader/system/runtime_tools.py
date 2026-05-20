@@ -59,7 +59,7 @@ def _should_adopt_model_endpoint(
         settings.llm_provider == "ollama"
         and ownership_mode_for_tool(settings, "ollama") == "app-owned"
         and status.app_owned
-        and status.is_owned_by_host(settings.host_id)
+        and _service_state_is_current_or_legacy_host(status, settings.host_id)
     )
 
 
@@ -76,8 +76,17 @@ def _should_adopt_camofox_endpoint(
     return (
         ownership_mode_for_tool(settings, "camofox") == "app-owned"
         and status.app_owned
-        and status.is_owned_by_host(settings.host_id)
+        and _service_state_is_current_or_legacy_host(status, settings.host_id)
     )
+
+
+def _service_state_is_current_or_legacy_host(
+    status: ModelServiceStatus | CamofoxServiceStatus,
+    host_id: str,
+) -> bool:
+    if status.owner is None:
+        return True
+    return status.is_owned_by_host(host_id)
 
 
 def apply_app_owned_service_settings(

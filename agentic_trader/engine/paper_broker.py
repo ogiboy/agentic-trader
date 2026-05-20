@@ -221,7 +221,7 @@ class PaperBroker:
                 current_qty=current_qty,
                 current_avg=current_avg,
             )
-        elif self.settings.allow_short or current_qty > 0:
+        elif self.settings.allow_short or (current_qty > 0 and quantity <= current_qty):
             values = self._apply_sell(
                 quantity=quantity,
                 price=decision.entry_price,
@@ -418,6 +418,8 @@ class PaperBroker:
         )
         order_id = f"{prefix}-{uuid4().hex[:12]}"
         if intent.side != "hold" and not is_v1_us_equity_symbol(intent.symbol):
+            decision = self._decision_from_intent(intent)
+            self._record_order(order_id, decision)
             return self._outcome(
                 intent,
                 order_id=order_id,

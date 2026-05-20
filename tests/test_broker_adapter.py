@@ -7,6 +7,7 @@ from agentic_trader.engine.broker import (
     AlpacaPaperBrokerAdapter,
     PaperBrokerAdapter,
     SimulatedRealBrokerAdapter,
+    alpaca_uses_paper_endpoint,
     broker_runtime_payload,
     get_broker_adapter,
     get_broker_order_reader,
@@ -131,6 +132,19 @@ def test_broker_runtime_payload_reports_alpaca_paper_blockers(tmp_path) -> None:
     healthcheck = payload["healthcheck"]
     assert isinstance(healthcheck, dict)
     assert "explicit_enablement_missing" in healthcheck["message"]
+
+
+def test_alpaca_paper_endpoint_check_requires_exact_host(tmp_path) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        alpaca_base_url="https://paper-api.alpaca.markets.evil.example",
+    )
+
+    assert alpaca_uses_paper_endpoint(settings) is False
+
+    settings.alpaca_base_url = "https://paper-api.alpaca.markets/v2"
+    assert alpaca_uses_paper_endpoint(settings) is True
 
 
 def test_alpaca_paper_adapter_blocks_non_us_symbol_without_network(tmp_path) -> None:
@@ -295,6 +309,8 @@ def test_is_v1_us_equity_symbol():
     assert is_v1_us_equity_symbol("VERYLONGSYMBOL") is False
     assert is_v1_us_equity_symbol("AAPL.IS") is False  # Non-US format
     assert is_v1_us_equity_symbol("invalid@symbol") is False
+    assert is_v1_us_equity_symbol("-") is False
+    assert is_v1_us_equity_symbol(".A") is False
     assert is_v1_us_equity_symbol("A.B.C") is False  # Too many parts
 
 
@@ -351,6 +367,9 @@ def test_paper_broker_adapter_blocks_invalid_symbol(tmp_path) -> None:
     assert outcome.status == "blocked"
     assert outcome.rejection_reason == "unsupported_symbol_scope"
     assert db.get_position("AAPL;BAD") is None
+    order = db.latest_order()
+    assert order is not None
+    assert order[2] == "AAPL;BAD"
 
 
 def test_simulated_real_broker_adapter(tmp_path) -> None:

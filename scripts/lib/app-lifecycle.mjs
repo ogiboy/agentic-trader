@@ -49,7 +49,10 @@ export function resolveAgenticTrader() {
   if (existsSync(worktreeEntrypoint)) {
     return worktreeEntrypoint;
   }
-  return commandExists('agentic-trader');
+  if (process.env.AGENTIC_TRADER_ALLOW_GLOBAL_CLI === '1') {
+    return commandExists('agentic-trader');
+  }
+  return null;
 }
 
 /**

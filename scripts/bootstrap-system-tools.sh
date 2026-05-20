@@ -7,6 +7,8 @@ DRY_RUN=0
 CORE_ONLY=0
 INCLUDE_DEV_TOOLS=0
 INCLUDE_BROWSER_TOOLS=0
+SUMMARY_FILE="${TMPDIR:-/tmp}/agentic-trader-bootstrap-summary.$$"
+trap 'rm -f "$SUMMARY_FILE"' EXIT INT TERM
 
 usage() {
   cat <<'EOF'
@@ -20,7 +22,7 @@ Options:
   --dry-run                 Print intended actions without running installers.
   --core-only               Skip optional runtime/developer/browser tools.
   --include-dev-tools       Offer developer advisory tools such as RuFlo.
-  --include-browser-tools   Offer optional Camofox browser dependency install.
+  --include-browser-tools   Legacy alias; Camofox setup is offered by default.
   -h, --help                Show this help.
 EOF
 }
@@ -61,9 +63,34 @@ run_cmd() {
   fi
 }
 
+record_summary() {
+  status=$1
+  label=$2
+  reason=${3:-}
+  printf '%s\t%s\t%s\n' "$status" "$label" "$reason" >> "$SUMMARY_FILE"
+}
+
+render_summary() {
+  printf '\n%s\n' "Bootstrap summary"
+  if [ ! -s "$SUMMARY_FILE" ]; then
+    printf '%s\n' "  No bootstrap actions were recorded."
+    return 0
+  fi
+  while IFS='	' read -r status label reason; do
+    printf '  %-8s %s\n' "$status" "$label"
+    if [ -n "$reason" ]; then
+      printf '           %s\n' "$reason"
+    fi
+  done < "$SUMMARY_FILE"
+}
+
 ask_yes() {
   prompt=$1
   if [ "$YES" -eq 1 ]; then
+    return 0
+  fi
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf '? %s [dry-run assumes yes]\n' "$prompt"
     return 0
   fi
   printf '%s [y/N] ' "$prompt"
@@ -88,12 +115,24 @@ install_brew_tool() {
   label=$3
   if has_cmd "$command_name"; then
     printf '✓ %s found at %s\n' "$label" "$(command -v "$command_name")"
+    record_summary done "$label" "found at $(command -v "$command_name")"
     return 0
   fi
   printf '✗ %s not found\n' "$label"
   if ask_yes "Install $label with Homebrew ($formula)?"; then
     require_homebrew || return 1
-    run_cmd brew install "$formula"
+    if run_cmd brew install "$formula"; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        record_summary planned "$label" "would install with Homebrew formula $formula"
+      else
+        record_summary done "$label" "installed with Homebrew formula $formula"
+      fi
+    else
+      record_summary not_done "$label" "Homebrew install failed for formula $formula"
+      return 1
+    fi
+  else
+    record_summary deferred "$label" "not installed; user declined Homebrew install"
   fi
 }
 
@@ -103,15 +142,59 @@ install_npm_global() {
   label=$3
   if has_cmd "$command_name"; then
     printf '✓ %s found at %s\n' "$label" "$(command -v "$command_name")"
+    record_summary done "$label" "found at $(command -v "$command_name")"
     return 0
   fi
   printf '✗ %s not found\n' "$label"
   if ! has_cmd npm; then
     printf '%s\n' "npm is required before installing $label." >&2
+    record_summary deferred "$label" "npm is required before installing $package_name"
     return 0
   fi
   if ask_yes "Install $label globally with npm ($package_name)?"; then
-    run_cmd npm install -g "$package_name"
+    if run_cmd npm install -g "$package_name"; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        record_summary planned "$label" "would install npm package $package_name globally"
+      else
+        record_summary done "$label" "installed npm package $package_name globally"
+      fi
+    else
+      record_summary not_done "$label" "npm global install failed for $package_name"
+      return 1
+    fi
+  else
+    record_summary deferred "$label" "not installed; user declined npm global install"
+  fi
+}
+
+record_tool_ownership() {
+  tool=$1
+  mode=$2
+  label=$3
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf '+ record %s ownership as %s\n' "$tool" "$mode"
+    record_summary planned "$label ownership" "would record $mode in runtime/setup/tool-ownership.json"
+    return 0
+  fi
+  if ! has_cmd node; then
+    record_summary deferred "$label ownership" "Node.js is required to persist tool ownership"
+    return 0
+  fi
+  if node --input-type=module -e 'import { persistToolOwnership } from "./scripts/lib/app-lifecycle.mjs"; persistToolOwnership({ [process.argv[1]]: process.argv[2] }, "bootstrap");' "$tool" "$mode"; then
+    record_summary done "$label ownership" "recorded $mode in runtime/setup/tool-ownership.json"
+  else
+    record_summary not_done "$label ownership" "could not persist $mode"
+    return 1
+  fi
+}
+
+choose_tool_ownership() {
+  tool=$1
+  label=$2
+  if ask_yes "Use app-managed $label for Agentic Trader lifecycle? Choose no to keep using host-managed $label."; then
+    record_tool_ownership "$tool" app-owned "$label"
+  else
+    record_tool_ownership "$tool" host-owned "$label"
   fi
 }
 
@@ -127,18 +210,27 @@ setup_agentic_trader_path() {
         run_cmd mkdir -p "$target_dir"
         if [ "$DRY_RUN" -eq 1 ]; then
           printf '+ ln -sf %s %s\n' "$entrypoint" "$target"
-        else
-          ln -sf "$entrypoint" "$target"
-        fi
+      else
+        ln -sf "$entrypoint" "$target"
+      fi
+      if [ "$DRY_RUN" -eq 1 ]; then
+        record_summary planned "agentic-trader PATH entrypoint" "would update $target to this worktree"
+      else
+        record_summary done "agentic-trader PATH entrypoint" "updated $target to this worktree"
+      fi
         printf '%s\n' "Ensure $target_dir appears before stale global installs in PATH."
+      else
+        record_summary deferred "agentic-trader PATH entrypoint" "still resolves to $resolved_entrypoint"
       fi
       return 0
     fi
     printf '✓ agentic-trader already resolves at %s\n' "$resolved_entrypoint"
+    record_summary done "agentic-trader PATH entrypoint" "resolves at $resolved_entrypoint"
     return 0
   fi
   if [ ! -x "$entrypoint" ]; then
     printf '%s\n' "agentic-trader entrypoint is not installed yet. Run make setup first, then rerun make bootstrap."
+    record_summary deferred "agentic-trader PATH entrypoint" "local .venv entrypoint is not installed yet"
     return 0
   fi
   if ask_yes "Create/update $target so agentic-trader works from any shell?"; then
@@ -148,7 +240,14 @@ setup_agentic_trader_path() {
     else
       ln -sf "$entrypoint" "$target"
     fi
+    if [ "$DRY_RUN" -eq 1 ]; then
+      record_summary planned "agentic-trader PATH entrypoint" "would create or update $target"
+    else
+      record_summary done "agentic-trader PATH entrypoint" "created or updated $target"
+    fi
     printf '%s\n' "Ensure $target_dir is in PATH."
+  else
+    record_summary deferred "agentic-trader PATH entrypoint" "user declined shell entrypoint update"
   fi
 }
 
@@ -157,23 +256,54 @@ setup_camofox_browser() {
   camofox_dir="$ROOT_DIR/tools/camofox-browser"
   if [ ! -f "$camofox_dir/package.json" ]; then
     printf '%s\n' "Camofox browser helper is not present under tools/camofox-browser."
+    record_summary deferred "Camofox browser helper" "tools/camofox-browser/package.json is missing"
     return 0
   fi
+  if ! ask_yes "Configure Camofox as an app-managed browser helper?"; then
+    record_tool_ownership camofox host-owned "Camofox"
+    record_summary deferred "Camofox browser helper" "host-managed Camofox selected; app-managed dependency install skipped"
+    return 0
+  fi
+  record_tool_ownership camofox app-owned "Camofox"
   if ! has_cmd pnpm; then
-    printf '%s\n' "pnpm is required for optional Camofox helper setup. Install pnpm first, then rerun make bootstrap -- --browser-tools."
+    printf '%s\n' "pnpm is required for optional Camofox helper setup. Install pnpm first, then rerun make bootstrap ARGS=\"--include-browser-tools\"."
+    record_summary deferred "Camofox browser helper" "pnpm is required for local dependency setup"
     return 0
   fi
   if [ -d "$camofox_dir/node_modules" ]; then
     printf '✓ Camofox browser dependencies appear installed\n'
+    record_summary done "Camofox dependencies" "node_modules already present"
   else
     printf '%s\n' "Camofox dependency install is local and skips browser downloads by default."
     if ask_yes "Install optional Camofox browser helper dependencies now?"; then
-      run_cmd pnpm --dir "$camofox_dir" install --ignore-workspace --ignore-scripts
+      if run_cmd pnpm --dir "$camofox_dir" install --ignore-workspace --ignore-scripts; then
+        if [ "$DRY_RUN" -eq 1 ]; then
+          record_summary planned "Camofox dependencies" "would run local pnpm install without browser download"
+        else
+          record_summary done "Camofox dependencies" "installed local helper dependencies without browser download"
+        fi
+      else
+        record_summary not_done "Camofox dependencies" "pnpm install failed"
+        return 1
+      fi
+    else
+      record_summary deferred "Camofox dependencies" "user skipped local helper dependency install"
     fi
   fi
   printf '%s\n' "Camoufox browser binary download is separate and can be large."
   if ask_yes "Download/update the Camoufox browser binary now?"; then
-    run_cmd pnpm --dir "$camofox_dir" --ignore-workspace run fetch:browser
+    if run_cmd pnpm --dir "$camofox_dir" --ignore-workspace run fetch:browser; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        record_summary planned "Camoufox browser binary" "would fetch optional browser binary"
+      else
+        record_summary done "Camoufox browser binary" "download/update completed"
+      fi
+    else
+      record_summary not_done "Camoufox browser binary" "browser binary fetch failed"
+      return 1
+    fi
+  else
+    record_summary deferred "Camoufox browser binary" "large browser download was skipped"
   fi
 }
 
@@ -186,6 +316,9 @@ if has_cmd corepack && ! has_cmd pnpm; then
   if ask_yes "Enable Corepack before checking pnpm? This runs 'corepack enable' and may require elevated privileges."; then
     if ! run_cmd corepack enable; then
       printf '%s\n' "corepack enable failed. You may need sudo or a manual pnpm install; continuing to the Homebrew pnpm check."
+      record_summary not_done "Corepack" "corepack enable failed"
+    else
+      record_summary done "Corepack" "corepack enable completed"
     fi
   fi
 fi
@@ -195,17 +328,19 @@ setup_agentic_trader_path
 if [ "$CORE_ONLY" -eq 0 ]; then
   install_brew_tool ollama ollama "Ollama"
   if has_cmd ollama; then
+    choose_tool_ownership ollama "Ollama"
     printf '%s\n' "Use agentic-trader model-service status/start/pull to inspect or run app-managed Ollama."
+  else
+    record_summary deferred "Ollama ownership" "Ollama is not available yet"
   fi
   install_npm_global firecrawl firecrawl-cli "Firecrawl CLI"
   if has_cmd firecrawl; then
+    choose_tool_ownership firecrawl "Firecrawl"
     printf '%s\n' "Firecrawl needs auth before use: run firecrawl login --browser or set FIRECRAWL_API_KEY in .env.local."
   else
     printf '%s\n' "Firecrawl is optional. Get an API key from https://www.firecrawl.dev/ when you want web research helpers."
+    record_summary deferred "Firecrawl ownership" "Firecrawl CLI is unavailable; set FIRECRAWL_API_KEY or rerun bootstrap later"
   fi
-fi
-
-if [ "$INCLUDE_BROWSER_TOOLS" -eq 1 ]; then
   setup_camofox_browser
   printf '%s\n' "Start Camofox only when needed with a loopback/auth wrapper:"
   printf '%s\n' "  CAMOFOX_ACCESS_KEY=\$(openssl rand -hex 24) scripts/start-camofox-browser.sh"
@@ -216,3 +351,4 @@ if [ "$INCLUDE_DEV_TOOLS" -eq 1 ]; then
 fi
 
 printf '%s\n' "Bootstrap check complete. Run agentic-trader setup-status --json for machine-readable readiness."
+render_summary

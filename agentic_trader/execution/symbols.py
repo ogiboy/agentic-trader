@@ -18,6 +18,10 @@ def is_v1_us_equity_symbol(symbol: str) -> bool:
     parts = normalized.split(".")
     if len(parts) > 2:
         return False
+    if normalized.startswith(".") or any(part == "" for part in parts):
+        return False
+    if not any(char.isalnum() for char in parts[0]):
+        return False
     if len(parts) == 2 and len(parts[1]) != 1:
         return False
     return True

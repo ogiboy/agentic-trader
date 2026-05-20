@@ -1689,11 +1689,12 @@ def test_no_arg_entrypoint_opens_operator_launcher(
         lambda _: LauncherStatus(),
     )
 
-    result = CliRunner().invoke(app, [], input="8\n")
+    result = CliRunner().invoke(app, [], input="4\n")
 
     assert result.exit_code == 0
     assert "Operator Launcher" in result.stdout
     assert "Select action" in result.stdout
+    assert "Open/start the local Web GUI command center" in result.stdout
 
 
 def test_research_status_json_reports_sidecar_state(
@@ -2584,6 +2585,8 @@ def test_proposal_candidate_cli_blocks_watch_promotion_json(
             "8.0",
             "--spread-pct",
             "0.05",
+            "--notional",
+            "250",
             "--json",
         ],
     )

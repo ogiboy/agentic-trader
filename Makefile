@@ -1,10 +1,12 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap bootstrap-dry-run setup setup-tools app-doctor app-up app-setup app-start app-stop app-update app-uninstall setup-camofox fetch-camofox check-camofox setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-prompts qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai start-camofox webgui docs tui clean clean-deps clean-all
+.PHONY: help launch launch-dry-run bootstrap bootstrap-dry-run setup setup-tools app-doctor app-up app-setup app-start app-stop app-update app-uninstall setup-camofox fetch-camofox check-camofox setup-node setup-research-flow setup-research-crewai check check-python check-research-flow check-research-crewai check-node build qa qa-prompts qa-quality qa-sonar version-plan release-preview sonar sonar-local sonar-cloud sonar-py sonar-js sonar-start sonar-stop sonar-status sonar-secret-check sonarcloud-secret-check sonar-mcp-dry-run sonar-mcp-status sonar-mcp-install-wrapper run-research-flow run-research-crewai start-camofox webgui docs tui clean clean-deps clean-all
 
 help:
 	@printf '%s\n' \
 		'Agentic Trader aliases:' \
+		'  make launch       bootstrap, setup, then open main.py launcher' \
+		'  make launch-dry-run show the full first-run launch sequence' \
 		'  make bootstrap    inspect/install system tools with prompts' \
 		'  make bootstrap-dry-run show system-tool installer actions' \
 		'  make setup        install Python and Node dependencies' \
@@ -36,11 +38,17 @@ help:
 		'  make clean-deps   remove installed dependency directories' \
 		'  make clean-all    remove artifacts and installed dependencies'
 
+launch:
+	scripts/launch-main.sh $(ARGS)
+
+launch-dry-run:
+	scripts/launch-main.sh --dry-run $(ARGS)
+
 bootstrap:
-	pnpm run bootstrap
+	scripts/bootstrap-system-tools.sh $(ARGS)
 
 bootstrap-dry-run:
-	pnpm run bootstrap:dry-run
+	scripts/bootstrap-system-tools.sh --dry-run $(ARGS)
 
 setup:
 	pnpm run setup

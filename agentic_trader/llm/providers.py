@@ -6,6 +6,7 @@ import httpx
 
 from agentic_trader.config import Settings
 from agentic_trader.schemas import LLMHealthStatus
+from agentic_trader.security import redact_sensitive_text
 
 
 class LLMProvider(Protocol):
@@ -21,36 +22,33 @@ class LLMProvider(Protocol):
         prompt: str,
         json_mode: bool = False,
         json_schema: dict[str, Any] | None = None,
-    ) -> dict[str, Any]: """
+    ) -> dict[str, Any]:
+        """
         Generate a completion from the configured LLM for the given prompt.
-        
+
         When `json_mode` is enabled the provider will attempt to return structured JSON output; if `json_schema` is supplied the provider will try to produce output conforming to that schema.
-        
+
         Parameters:
             prompt (str): The user prompt to send to the model.
             json_mode (bool): If true, request the model produce JSON-structured output.
             json_schema (dict[str, Any] | None): Optional JSON Schema or format hint describing the desired structured output when `json_mode` is true.
-        
+
         Returns:
             dict[str, Any]: The provider's parsed response payload (including generated text or structured JSON and any raw metadata).
         """
         ...
 
-    def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus: """
-Check reachability and availability of the LLM service and, optionally, verify that the configured model can generate.
+    def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
+        """
+        Check reachability and availability of the LLM service.
 
-Parameters:
-    include_generation (bool): If True, perform a lightweight generation probe to determine whether the configured model can produce output; if False, skip the probe.
+        Parameters:
+            include_generation: If true, run a lightweight generation probe.
 
-Returns:
-    LLMHealthStatus: Structured health information with the following notable fields:
-        - service_reachable: `True` if the service endpoint is reachable, `False` otherwise.
-        - model_available: `True` if the configured model is listed by the service, `False` otherwise.
-        - generation_available: `True` if a generation probe succeeded, `False` if it failed, or `None` when `include_generation` is False.
-        - message: A human-readable summary of the overall health.
-        - generation_message: A human-readable detail about the generation probe result, or `None` when `include_generation` is False.
-"""
-...
+        Returns:
+            Structured LLM health information for reachability, model availability, and optional generation.
+        """
+        ...
 
 
 class OllamaProvider:
@@ -147,6 +145,7 @@ class OllamaProvider:
                 message=message,
             )
         except Exception as exc:
+            detail = _short_redacted_error(str(exc)) or type(exc).__name__
             return LLMHealthStatus(
                 provider=self.provider_name,
                 base_url=self.settings.base_url,
@@ -155,9 +154,11 @@ class OllamaProvider:
                 model_available=False,
                 generation_available=False if include_generation else None,
                 generation_message=(
-                    f"Unable to reach Ollama: {exc}" if include_generation else None
+                    f"Unable to reach Ollama: {detail}"
+                    if include_generation
+                    else None
                 ),
-                message=f"Unable to reach Ollama: {exc}",
+                message=f"Unable to reach Ollama: {detail}",
             )
 
     def _probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
@@ -194,10 +195,10 @@ class OllamaProvider:
             if isinstance(payload, dict):
                 error_obj = payload.get("error")
                 if isinstance(error_obj, str) and error_obj.strip():
-                    return False, error_obj.strip()[:240]
+                    return False, _short_redacted_error(error_obj)
             return True, "Generation probe completed."
         except Exception as exc:
-            return False, str(exc).strip()[:240] or type(exc).__name__
+            return False, _short_redacted_error(str(exc)) or type(exc).__name__
 
     @staticmethod
     def _error_from_response(response: httpx.Response) -> str:
@@ -208,11 +209,11 @@ class OllamaProvider:
         if isinstance(payload, dict):
             error_obj = payload.get("error")
             if isinstance(error_obj, str) and error_obj.strip():
-                return error_obj.strip()[:240]
+                return _short_redacted_error(error_obj)
             if isinstance(error_obj, dict):
                 message = error_obj.get("message")
                 if isinstance(message, str) and message.strip():
-                    return message.strip()[:240]
+                    return _short_redacted_error(message)
         return f"HTTP {getattr(response, 'status_code', 'error')}"
 
     @staticmethod
@@ -340,7 +341,7 @@ class OpenAICompatibleProvider:
             if response.status_code >= 400:
                 status_code = getattr(response, "status_code", "unknown")
                 try:
-                    response_text = response.text[:240]
+                    response_text = _short_redacted_error(response.text)
                 except Exception:
                     response_text = ""
                 return LLMHealthStatus(
@@ -383,6 +384,7 @@ class OpenAICompatibleProvider:
                 message=message,
             )
         except Exception as exc:
+            detail = _short_redacted_error(str(exc)) or type(exc).__name__
             return LLMHealthStatus(
                 provider=self.provider_name,
                 base_url=self.settings.base_url,
@@ -391,11 +393,11 @@ class OpenAICompatibleProvider:
                 model_available=False,
                 generation_available=False if include_generation else None,
                 generation_message=(
-                    f"Unable to reach OpenAI-compatible endpoint: {exc}"
+                    f"Unable to reach OpenAI-compatible endpoint: {detail}"
                     if include_generation
                     else None
                 ),
-                message=f"Unable to reach OpenAI-compatible endpoint: {exc}",
+                message=f"Unable to reach OpenAI-compatible endpoint: {detail}",
             )
 
     def _probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
@@ -433,7 +435,7 @@ class OpenAICompatibleProvider:
                 _openai_compatible_content(payload)
             return True, "Generation probe completed."
         except Exception as exc:
-            return False, str(exc).strip()[:240] or type(exc).__name__
+            return False, _short_redacted_error(str(exc)) or type(exc).__name__
 
     @staticmethod
     def _health_message(
@@ -579,12 +581,16 @@ def _openai_compatible_error_from_response(response: httpx.Response) -> str:
     if isinstance(payload, dict):
         error_obj = payload.get("error")
         if isinstance(error_obj, str) and error_obj.strip():
-            return error_obj.strip()[:240]
+            return _short_redacted_error(error_obj)
         if isinstance(error_obj, dict):
             message = error_obj.get("message")
             if isinstance(message, str) and message.strip():
-                return message.strip()[:240]
+                return _short_redacted_error(message)
     return f"HTTP {getattr(response, 'status_code', 'error')}"
+
+
+def _short_redacted_error(value: str) -> str:
+    return redact_sensitive_text(value).strip()[:240]
 
 
 def build_provider(settings: Settings, *, model_name: str | None = None) -> LLMProvider:
