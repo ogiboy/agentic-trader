@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from dataclasses import dataclass
+from collections.abc import Sequence
 import json
 from typing import Any, Literal, cast, get_args
 from uuid import uuid4
@@ -1147,36 +1148,40 @@ class TradingDatabase:
     def _trade_proposal_rows(
         self, query: str, params: list[object]
     ) -> list[TradeProposalRecord]:
-        rows = cast(list[tuple[Any, ...]], self.conn.execute(query, params).fetchall())
-        return [
-            TradeProposalRecord(
-                proposal_id=str(row[0]),
-                created_at=str(row[1]),
-                updated_at=str(row[2]),
-                symbol=str(row[3]),
-                side=cast(TradeSide, str(row[4])),
-                order_type=cast(Literal["market", "limit"], str(row[5])),
-                quantity=float(row[6]) if row[6] is not None else None,
-                notional=float(row[7]) if row[7] is not None else None,
-                limit_price=(
-                    float(row[21]) if len(row) > 21 and row[21] is not None else None
-                ),
-                reference_price=float(row[8]),
-                confidence=float(row[9]),
-                thesis=str(row[10]),
-                stop_loss=float(row[11]) if row[11] is not None else None,
-                take_profit=float(row[12]) if row[12] is not None else None,
-                invalidation_condition=_str_or_none(row[13]),
-                source=str(row[14]),
-                status=cast(TradeProposalStatus, str(row[15])),
-                review_notes=str(row[16]),
-                rejection_reason=_str_or_none(row[17]),
-                execution_intent_id=_str_or_none(row[18]),
-                execution_order_id=_str_or_none(row[19]),
-                execution_outcome_status=_str_or_none(row[20]),
-            )
-            for row in rows
-        ]
+        rows = self.conn.execute(query, params).fetchall()
+        return [self._trade_proposal_record_from_row(row) for row in rows]
+
+    @staticmethod
+    def _trade_proposal_record_from_row(row: object) -> TradeProposalRecord:
+        values = list(cast(Sequence[Any], row))
+        return TradeProposalRecord(
+            proposal_id=str(values[0]),
+            created_at=str(values[1]),
+            updated_at=str(values[2]),
+            symbol=str(values[3]),
+            side=cast(TradeSide, str(values[4])),
+            order_type=cast(Literal["market", "limit"], str(values[5])),
+            quantity=float(values[6]) if values[6] is not None else None,
+            notional=float(values[7]) if values[7] is not None else None,
+            limit_price=(
+                float(values[21])
+                if len(values) > 21 and values[21] is not None
+                else None
+            ),
+            reference_price=float(values[8]),
+            confidence=float(values[9]),
+            thesis=str(values[10]),
+            stop_loss=float(values[11]) if values[11] is not None else None,
+            take_profit=float(values[12]) if values[12] is not None else None,
+            invalidation_condition=_str_or_none(values[13]),
+            source=str(values[14]),
+            status=cast(TradeProposalStatus, str(values[15])),
+            review_notes=str(values[16]),
+            rejection_reason=_str_or_none(values[17]),
+            execution_intent_id=_str_or_none(values[18]),
+            execution_order_id=_str_or_none(values[19]),
+            execution_outcome_status=_str_or_none(values[20]),
+        )
 
     def _proposal_candidate_rows(
         self, query: str, params: list[object]
