@@ -27,7 +27,7 @@ A separate sidecar database can be reconsidered only after real provider volume,
 Reason:
 The first live research source should be official, structured, and easy to audit without pulling raw filings into prompts.
 SEC EDGAR submissions metadata can produce source-attributed filing evidence for watched US symbols, but it must remain disabled by default, require an identifying User-Agent, respect fair-access expectations, and surface missing/network/user-agent failures instead of silently falling back.
-The provider may summarize compact official XBRL company facts from the SEC companyfacts API, but it still must not download raw filing text, parse arbitrary filing HTML, or mutate trading policy; it only writes normalized research evidence packets for sidecar snapshots.
+The provider may summarize compact official XBRL company facts from the SEC companyfacts API for both sidecar research evidence and canonical US fundamental snapshots, but it still must not download raw filing text, parse arbitrary filing HTML, or mutate trading policy.
 When providers return normalized evidence, world-state source attribution must stay fresh and source-attributed rather than being collapsed into missing-source scaffolding.
 
 ### CrewAI setup stays isolated until the dependency boundary is proven
@@ -438,7 +438,7 @@ Provider payloads differ by source, market, region, and availability.
 The runtime now uses provider interfaces for market, fundamental, news, disclosure, and macro data, then aggregates them into a `CanonicalAnalysisSnapshot`.
 Agents still consume the compact `DecisionFeatureBundle`, but the canonical snapshot preserves source attribution, freshness, completeness, and explicit missing sections for prompts, persistence, memory, dashboard JSON, and future UI review surfaces.
 Yahoo remains a fallback market/news source rather than the sole source of truth, while SEC EDGAR, KAP, macro indicators, transcripts, and vendor APIs can be added behind the same adapter seam.
-Provider scaffolds for SEC EDGAR, KAP, Finnhub, and FMP should return explicit missing snapshots or empty-source attributions until real ingestion exists; absence of provider data must remain visible and must not be converted into neutral supporting evidence.
+SEC companyfacts is the first opt-in live canonical fundamental provider for US issuers; KAP, Finnhub, FMP, and future providers should still return explicit missing snapshots or empty-source attributions until their real ingestion exists. Absence of provider data must remain visible and must not be converted into neutral supporting evidence.
 
 ### Yahoo is degraded fallback evidence, not the target source of truth
 

@@ -208,6 +208,281 @@ def test_default_provider_ladder_names_public_sources() -> None:
     ]
 
 
+def test_sec_edgar_fundamental_provider_normalizes_companyfacts() -> None:
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+        request_timeout_seconds=999,
+    )
+    calls: list[str] = []
+
+    def fake_fetcher(url, headers, timeout_seconds):
+        calls.append(url)
+        assert headers["User-Agent"] == "Agentic Trader test contact@example.com"
+        assert headers["Accept"] == "application/json"
+        assert timeout_seconds == 30.0
+        if url == "https://www.sec.gov/files/company_tickers.json":
+            return {
+                "0": {
+                    "cik_str": 320193,
+                    "ticker": "AAPL",
+                    "title": "Apple Inc.",
+                }
+            }
+        if url == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json":
+            return _sec_companyfacts_payload()
+        raise AssertionError(f"unexpected SEC URL: {url}")
+
+    provider = SecEdgarFundamentalProvider(settings, fetcher=fake_fetcher)
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    assert calls == [
+        "https://www.sec.gov/files/company_tickers.json",
+        "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+    ]
+    assert snapshot.attribution.source_role == "primary"
+    assert snapshot.attribution.freshness == "fresh"
+    assert snapshot.attribution.completeness == 1.0
+    assert "sec_companyfacts_api" in snapshot.attribution.notes
+    assert "raw_filing_text_not_downloaded" in snapshot.attribution.notes
+    assert snapshot.missing_fields == []
+    assert snapshot.revenue_growth is not None
+    assert 0.19 < snapshot.revenue_growth < 0.21
+    assert snapshot.profitability_stability == 0.25
+    assert snapshot.cash_flow_alignment == 1.0
+    assert snapshot.debt_risk == 0.3
+    assert snapshot.reinvestment_potential == 0.2
+    assert "Apple Inc." in snapshot.summary
+
+
+def test_sec_edgar_fundamental_provider_requires_opt_in_before_network() -> None:
+    provider = SecEdgarFundamentalProvider(
+        Settings(news_mode="off", research_sec_edgar_enabled=False),
+        fetcher=_rejecting_sec_fetcher,
+    )
+
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    assert snapshot.attribution.source_role == "missing"
+    assert "provider_disabled" in snapshot.attribution.notes
+
+
+def test_sec_edgar_fundamental_provider_requires_user_agent_before_network() -> None:
+    provider = SecEdgarFundamentalProvider(
+        Settings(
+            news_mode="off",
+            research_sec_edgar_enabled=True,
+            research_sec_edgar_user_agent="",
+        ),
+        fetcher=_rejecting_sec_fetcher,
+    )
+
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    assert snapshot.attribution.source_role == "missing"
+    assert "sec_user_agent_missing" in snapshot.attribution.notes
+
+
+def test_sec_edgar_fundamental_provider_skips_non_us_symbols_before_network() -> None:
+    provider = SecEdgarFundamentalProvider(
+        Settings(
+            news_mode="off",
+            research_sec_edgar_enabled=True,
+            research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+        ),
+        fetcher=_rejecting_sec_fetcher,
+    )
+
+    snapshot = provider.get_fundamental_data(
+        SymbolIdentity(symbol="AKBNK.IS", region="TR", currency="TRY")
+    )
+
+    assert snapshot.attribution.source_role == "missing"
+    assert "unsupported_region=TR" in snapshot.attribution.notes
+
+
+def test_sec_edgar_companyfacts_growth_ignores_non_research_forms() -> None:
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+    )
+
+    def fake_fetcher(url, headers, timeout_seconds):
+        _ = (headers, timeout_seconds)
+        if url == "https://www.sec.gov/files/company_tickers.json":
+            return {
+                "0": {
+                    "cik_str": 320193,
+                    "ticker": "AAPL",
+                    "title": "Apple Inc.",
+                }
+            }
+        if url == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json":
+            return _sec_companyfacts_payload(
+                extra_revenue_facts=[
+                    {
+                        "val": 999.0,
+                        "end": "2025-01-31",
+                        "filed": "2025-02-01",
+                        "form": "10-Q",
+                        "fp": "Q1",
+                        "frame": "CY2025Q1",
+                    },
+                    {
+                        "val": 888.0,
+                        "end": "2025-02-28",
+                        "filed": "2025-03-01",
+                        "form": "8-K",
+                    }
+                ]
+            )
+        raise AssertionError(f"unexpected SEC URL: {url}")
+
+    provider = SecEdgarFundamentalProvider(settings, fetcher=fake_fetcher)
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    assert snapshot.revenue_growth is not None
+    assert 0.19 < snapshot.revenue_growth < 0.21
+
+
+def test_canonical_snapshot_selects_sec_companyfacts_fundamentals() -> None:
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+    )
+    provider = SecEdgarFundamentalProvider(
+        settings,
+        fetcher=_sec_success_fetcher(_sec_companyfacts_payload()),
+    )
+
+    canonical = build_canonical_analysis_snapshot(
+        _snapshot(),
+        settings=settings,
+        providers=ProviderSet(fundamental=[provider]),
+    )
+
+    assert canonical.fundamental.attribution.source_name == "sec_edgar"
+    assert canonical.fundamental.attribution.source_role == "primary"
+    assert "fundamentals" not in canonical.missing_sections
+    assert any(
+        source.source_name == "sec_edgar" for source in canonical.source_attributions
+    )
+
+
+def test_canonical_snapshot_marks_partial_sec_companyfacts_missing_sections() -> None:
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+    )
+    provider = SecEdgarFundamentalProvider(
+        settings,
+        fetcher=_sec_success_fetcher(_sec_companyfacts_payload(include_cash=False)),
+    )
+
+    canonical = build_canonical_analysis_snapshot(
+        _snapshot(),
+        settings=settings,
+        providers=ProviderSet(fundamental=[provider]),
+    )
+
+    assert canonical.fundamental.attribution.source_name == "sec_edgar"
+    assert canonical.fundamental.attribution.source_role == "primary"
+    assert "fundamentals" in canonical.missing_sections
+    assert "company_fact:cash" in canonical.fundamental.missing_fields
+    assert "reinvestment_potential" in canonical.fundamental.missing_fields
+
+
+def test_sec_edgar_fundamental_provider_redacts_fetch_errors() -> None:
+    settings = Settings(
+        news_mode="off",
+        research_sec_edgar_enabled=True,
+        research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
+    )
+
+    def fake_fetcher(url, headers, timeout_seconds):
+        _ = (url, headers, timeout_seconds)
+        raise ValueError("api_key=secret-sec")
+
+    provider = SecEdgarFundamentalProvider(settings, fetcher=fake_fetcher)
+    snapshot = provider.get_fundamental_data(SymbolIdentity(symbol="AAPL"))
+
+    payload = snapshot.model_dump_json()
+    assert snapshot.attribution.source_role == "missing"
+    assert "secret-sec" not in payload
+    assert "<redacted>" in payload
+
+
+def _rejecting_sec_fetcher(url, headers, timeout_seconds):
+    _ = (url, headers, timeout_seconds)
+    raise AssertionError("SEC fetcher should not be called")
+
+
+def _sec_success_fetcher(payload: dict[str, object]):
+    def fake_fetcher(url, headers, timeout_seconds):
+        _ = (headers, timeout_seconds)
+        if url == "https://www.sec.gov/files/company_tickers.json":
+            return {
+                "0": {
+                    "cik_str": 320193,
+                    "ticker": "AAPL",
+                    "title": "Apple Inc.",
+                }
+            }
+        if url == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json":
+            return payload
+        raise AssertionError(f"unexpected SEC URL: {url}")
+
+    return fake_fetcher
+
+
+def _sec_companyfacts_payload(
+    *,
+    include_cash: bool = True,
+    extra_revenue_facts: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    def fact(value: float, filed: str) -> dict[str, object]:
+        return {
+            "val": value,
+            "end": filed.removesuffix("-01") + "-28",
+            "filed": filed,
+            "form": "10-K",
+            "fy": int(filed[:4]),
+            "fp": "FY",
+        }
+
+    revenue_facts = [
+        fact(100.0, "2023-11-01"),
+        fact(120.0, "2024-11-01"),
+        *(extra_revenue_facts or []),
+    ]
+    us_gaap: dict[str, object] = {
+        "RevenueFromContractWithCustomerExcludingAssessedTax": {
+            "units": {"USD": revenue_facts}
+        },
+        "NetIncomeLoss": {"units": {"USD": [fact(30.0, "2024-11-01")]}},
+        "Assets": {"units": {"USD": [fact(200.0, "2024-11-01")]}},
+        "Liabilities": {"units": {"USD": [fact(60.0, "2024-11-01")]}},
+        "NetCashProvidedByUsedInOperatingActivities": {
+            "units": {"USD": [fact(35.0, "2024-11-01")]}
+        },
+    }
+    if include_cash:
+        us_gaap["CashAndCashEquivalentsAtCarryingValue"] = {
+            "units": {"USD": [fact(40.0, "2024-11-01")]}
+        }
+
+    return {
+        "entityName": "Apple Inc.",
+        "facts": {
+            "us-gaap": us_gaap,
+        },
+    }
+
+
 def test_empty_provider_outputs_are_visible_in_canonical_attribution() -> None:
     canonical = build_canonical_analysis_snapshot(
         _snapshot(),

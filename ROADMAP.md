@@ -392,7 +392,8 @@ Status: in progress.
 - [x] add deterministic idea-scanner presets for momentum, gap-up/down, mean-reversion, breakout, and volatile candidates as research-only scoring surfaces
 - [x] add first concentration visibility in daily risk reports through portfolio HHI and top-position symbols
 - [x] translate external market-intelligence benchmark patterns into repo-native `.ai` guidance for continuous research loops, source-attributed news, strategy research/sweeps, finance evidence reconciliation, and a V1 strategy catalog
-- [ ] implement real fundamental providers behind the feature interface, starting with API-backed US equities and SEC filings
+- [x] add an opt-in SEC companyfacts fundamental provider behind the canonical feature interface for US equities, with User-Agent gating, no raw filing text, redacted failures, and missing-section truth
+- [ ] continue implementing real fundamental providers behind the feature interface beyond the first SEC companyfacts slice, including richer SEC filing references and optional vendor APIs
 - [ ] implement structured news and macro ingestion from Finnhub, FMP, Polygon/Massive, SEC, earnings transcripts, macro indicators, KAP, CBRT, inflation, and FX feeds
 - [x] turn the first V1 strategy/catalog/news/loop slice into incremental code through existing contracts: idea-scanner metadata, `strategy-catalog`, `strategy-profile`, `idea-score` readiness context, `news-intelligence`, `research-cycle-plan`, and `finance-ops` ledger categories
 - [x] add a broker-free proposal-candidate queue that records scanner materiality, freshness, liquidity, spread, sizing intent, risk controls, and evidence before promotion into pending paper proposals
@@ -472,7 +473,7 @@ Status: in progress.
       Notes:
 - this is a local-first V1 evidence companion for the current runtime, not a re-platforming
 - the sidecar may eventually run beside the daemon, but it must not submit orders, mutate trading policy, or weaken strict runtime gates
-- SEC EDGAR submissions and compact companyfacts ingestion are disabled by default and require a configured User-Agent; full filing text and downstream memory writes remain separate planned steps
+- SEC EDGAR submissions and canonical companyfacts ingestion are disabled by default and require a configured User-Agent; full filing text and downstream memory writes remain separate planned steps
 - Firecrawl/Camofox support is optional helper infrastructure, not a mandatory runtime dependency or broker-capable sidecar
 - `research-cycle-run` now executes bounded evidence-only sidecar cycles, can persist research snapshots, supports QA-friendly `--no-sleep`, and reports preflight status, source-health delta, cadence/next-run, digest, and disabled broker/proposal/raw-web-prompt authority
 - `research-cycle-control` persists advisory operator intent without starting a daemon; future continuous runners may consume the pause/resume/trigger-now file, while the latest digest replay artifact stays raw-text-free and broker-disabled

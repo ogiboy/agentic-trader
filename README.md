@@ -320,11 +320,11 @@ pnpm run check:research-flow
 message unless `OPENAI_API_KEY` is present in the shell, present in the sidecar's
 ignored `.env`, or the local no-op flag is set for scaffold validation.
 
-### Optional SEC EDGAR Research Source
+### Optional SEC EDGAR Research And Fundamentals Source
 
-The research sidecar can read recent SEC submissions metadata from the official
-EDGAR JSON APIs, but it is off by default. Enable it only from an ignored local
-env file and include an identifying SEC User-Agent/contact string:
+The research sidecar and the canonical fundamental provider can read official
+SEC JSON APIs, but SEC access is off by default. Enable it only from an ignored
+local env file and include an identifying SEC User-Agent/contact string:
 
 ```bash
 AGENTIC_TRADER_RESEARCH_MODE=training
@@ -334,9 +334,11 @@ AGENTIC_TRADER_RESEARCH_SEC_EDGAR_ENABLED=true
 AGENTIC_TRADER_RESEARCH_SEC_EDGAR_USER_AGENT="Agentic Trader local contact@example.com"
 ```
 
-This first provider normalizes recent filing metadata plus compact official
-company-facts metrics into source-attributed research evidence. It does not
-download full filing text, and it does not write directly into trading memory.
+The sidecar normalizes recent filing metadata plus compact official
+company-facts metrics into source-attributed research evidence. The runtime
+canonical provider can also turn SEC companyfacts into structured V1
+fundamental fields for US issuers. Neither path downloads full filing text, and
+neither path writes directly into trading memory.
 
 ### Optional Firecrawl And Camofox Research Helpers
 

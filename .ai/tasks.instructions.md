@@ -104,7 +104,7 @@ Now:
 Next:
 
 - extend the file-backed research snapshot feed when real providers start returning raw evidence references, normalized events, findings, and entity dossiers
-- extend real official/structured providers behind the sidecar source ladder: SEC EDGAR submissions metadata and compact company facts are first; next are SEC full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
+- extend real official/structured providers behind the source ladder: SEC EDGAR submissions metadata plus canonical companyfacts fundamentals are first; next are SEC full filing parsing, KAP, macro series, and news/event feeds; keep missing provider data visible
 - continue enriching proposal candidates with real provider/news/fundamental evidence; the candidate queue now carries redacted network-light canonical source-attribution context, but live provider-backed materiality and broader review UX are still open
 - extend the first runtime strategy catalog slice into feature bundle enrichment, backtest comparison, proposal records, and guard/risk layers only after evidence and validation checks are green
 - add no-lookahead and confidence-review checks before treating opening-range, VWAP, Keltner/Bollinger, regime-adaptive, pairs, or ensemble ideas as more than research candidates
@@ -136,19 +136,19 @@ Current state:
 - `DecisionFeatureBundle` now carries symbol identity, technical features, fundamental feature placeholders, and macro/news context
 - deterministic technical summaries include 30d, 90d, and 180d returns, volatility, drawdown, support/resistance, trend classification, and momentum indicators
 - provider contracts now cover market, fundamental, news, disclosure, and macro sources with canonical source attribution and freshness metadata
-- explicit SEC EDGAR, Finnhub, FMP, and KAP scaffold providers now feed canonical attribution while marking missing fields instead of pretending live ingestion exists
+- explicit SEC EDGAR, Finnhub, FMP, and KAP providers now feed canonical attribution; SEC companyfacts can return opt-in live US fundamental snapshots, while missing provider data stays visible instead of pretending ingestion exists
 - source scaffold metadata now names SEC 10-K/10-Q/8-K, earnings transcripts, macro indicators, KAP, Turkey company disclosures, CBRT-style macro data, inflation, and FX readiness without pretending those ingestors are implemented
 - fundamental and macro/news analyst stages now run before regime, strategy, risk, and manager synthesis
 - consensus excludes fallback-generated fundamental and macro/news assessments from support, keeping unavailable finance evidence visible without overstating alignment
 - fundamental assessment output now separates direct evidence, inference, and uncertainty across growth, profitability, cash flow, balance sheet, FX, business quality, macro fit, and forward outlook
 - feature-first prompts now expose the underlying fundamental metrics, and Ink review/trade-context surfaces show fundamental bias, red flags, evidence, inference, and uncertainty
 - trade context and memory documents now persist canonical analysis snapshots, decision features, and fundamental/macro summaries
-- SEC EDGAR submissions metadata and compact company facts are the first opt-in live research sources; full filing parsing plus Finnhub, FMP, Polygon/Massive, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
+- SEC EDGAR submissions metadata and compact company facts are the first opt-in live research/canonical fundamental sources; full filing parsing plus Finnhub, FMP, Polygon/Massive, KAP, CBRT, macro indicators, FX, and transcript ingestion remain provider-level future work
 
 Next desired shape:
 
-- implement real provider-backed fundamental fetchers behind the canonical provider interfaces without placing secrets in tracked files or QA artifacts
-- expand structured SEC ingestion from submissions metadata into company facts, filing text references, transcript links, insider/context packets, then add macro, KAP, CBRT, inflation, and FX ingestion
+- continue real provider-backed fundamental fetchers behind the canonical provider interfaces without placing secrets in tracked files or QA artifacts
+- expand structured SEC ingestion beyond submissions metadata and companyfacts into filing text references, transcript links, insider/context packets, then add macro, KAP, CBRT, inflation, and FX ingestion
 - keep Yahoo as a degraded fallback only once richer market/news providers are available
 - surface technical/fundamental/macro/memory/guard evidence side by side in operator review surfaces
 - strengthen risk with volatility sizing, sector concentration, portfolio exposure, and macro override checks
