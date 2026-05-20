@@ -168,11 +168,11 @@ def _firecrawl_tool() -> ToolStatus:
 def _with_manifest_note(tool: ToolStatus, tool_id: LocalToolId) -> ToolStatus:
     """
     Append manifest-derived notes for the given local tool identifier to a ToolStatus and return an updated copy.
-    
+
     Parameters:
         tool (ToolStatus): The original tool status to augment; unchanged by this function.
         tool_id (LocalToolId): Identifier of the local tool whose manifest notes will be appended.
-    
+
     Returns:
         ToolStatus: A copy of `tool` with `notes` extended by the manifest-derived notes for `tool_id`.
     """
@@ -188,12 +188,12 @@ def _with_ownership_note(
 ) -> ToolStatus:
     """
     Attach ownership decision metadata to a ToolStatus and return an updated copy.
-    
+
     Parameters:
         tool (ToolStatus): Existing tool status to augment.
         tool_id (LocalToolId): Local tool identifier used to look up the ownership decision.
         ownership (ToolOwnershipPayload): Ownership payload containing decisions indexed by ownership tool id.
-    
+
     Returns:
         ToolStatus: A copy of `tool` with `ownership_tool`, `ownership_mode`, and `ownership_note` set from the decision,
         and with ownership-related entries appended to the `notes` list.
@@ -218,9 +218,9 @@ def _with_ownership_note(
 def _ollama_tool() -> ToolStatus:
     """
     Report readiness and metadata for the Ollama CLI tool.
-    
+
     Builds a ToolStatus representing whether the local `ollama` executable is available, its resolved path/version if present, and any manifest-derived notes relevant to the tool.
-    
+
     Returns:
         ToolStatus: Readiness and metadata for the Ollama CLI, including availability, path, version, status, notes, and manifest notes when applicable.
     """
@@ -351,12 +351,12 @@ def _agentic_trader_entrypoint() -> ToolStatus:
 def build_setup_status(settings: Settings) -> SetupStatus:
     """
     Build an operator-facing read-only setup and readiness report for the current workspace.
-    
+
     Constructs a snapshot of platform and workspace information, per-tool readiness (core, runtime-optional, developer-optional), optional tool ownership metadata, and service status summaries without installing, mutating, or performing persistent changes.
-    
+
     Parameters:
         settings (Settings): Runtime configuration used to resolve tool locations, service endpoints, and ownership payloads.
-    
+
     Returns:
         SetupStatus: Aggregated readiness report containing platform and workspace root, booleans `core_ready` and `optional_ready`, a list of `ToolStatus` entries (including ownership fields when available), optional `tool_ownership` payload, JSON-serializable service status objects for model/camofox/webgui, and recommended operator commands.
     """

@@ -1,4 +1,11 @@
-const SUPPORTED_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'object', 'null']);
+const SUPPORTED_TYPES = new Set([
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'object',
+  'null',
+]);
 
 export function validateSchema(schema) {
   if (!schema || typeof schema !== 'object') {
@@ -15,7 +22,10 @@ export function validateSchema(schema) {
       return { ok: false, error: `property "${prop}" must be an object` };
     }
     if (def.type && !SUPPORTED_TYPES.has(def.type)) {
-      return { ok: false, error: `property "${prop}" has unsupported type "${def.type}"` };
+      return {
+        ok: false,
+        error: `property "${prop}" has unsupported type "${def.type}"`,
+      };
     }
   }
   return { ok: true };
@@ -63,8 +73,14 @@ export function extractDeterministic({ schema, refs }) {
       }
     }
 
-    if (value == null && Array.isArray(schema.required) && schema.required.includes(prop)) {
-      throw new Error(`required property "${prop}" could not be extracted (x-ref=${refId || 'n/a'})`);
+    if (
+      value == null &&
+      Array.isArray(schema.required) &&
+      schema.required.includes(prop)
+    ) {
+      throw new Error(
+        `required property "${prop}" could not be extracted (x-ref=${refId || 'n/a'})`,
+      );
     }
 
     result[prop] = value;

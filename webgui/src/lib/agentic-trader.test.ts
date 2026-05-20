@@ -41,6 +41,28 @@ describe('agentic-trader webgui CLI bridge', () => {
     );
   });
 
+  it('requests provider-checked dashboard snapshots for readiness truth', async () => {
+    const { getDashboardSnapshot } = await import('./agentic-trader');
+    execSuccess('{"v1Readiness":{"paper_operations":{"allowed":true}}}');
+
+    await expect(getDashboardSnapshot()).resolves.toMatchObject({
+      v1Readiness: { paper_operations: { allowed: true } },
+    });
+    expect(execFileMock).toHaveBeenCalledWith(
+      '/usr/bin/python-test',
+      [
+        '-m',
+        'agentic_trader.cli',
+        'dashboard-snapshot',
+        '--log-limit',
+        '14',
+        '--provider-check',
+      ],
+      expect.objectContaining({ timeout: 30_000 }),
+      expect.any(Function),
+    );
+  });
+
   it('falls back past missing executables and redacts command failures', async () => {
     const { execTrader } = await import('./agentic-trader');
     const missing = Object.assign(new Error('missing'), { code: 'ENOENT' });
@@ -85,7 +107,11 @@ describe('agentic-trader webgui CLI bridge', () => {
 
     execSuccess(
       JSON.stringify({
-        status: { live_process: true, runtime_state: 'active', state: { pid: 42 } },
+        status: {
+          live_process: true,
+          runtime_state: 'active',
+          state: { pid: 42 },
+        },
       }),
     );
     execSuccess('');
@@ -119,7 +145,11 @@ describe('agentic-trader webgui CLI bridge', () => {
     const { runRuntimeAction } = await import('./agentic-trader');
     execSuccess(
       JSON.stringify({
-        status: { live_process: true, runtime_state: 'active', state: { pid: 99 } },
+        status: {
+          live_process: true,
+          runtime_state: 'active',
+          state: { pid: 99 },
+        },
       }),
     );
     await expect(runRuntimeAction('start')).resolves.toMatchObject({
@@ -178,6 +208,33 @@ describe('agentic-trader webgui CLI bridge', () => {
     });
   });
 
+  it('retries transient DuckDB lock races for runtime actions', async () => {
+    const { runRuntimeAction } = await import('./agentic-trader');
+    execSuccess(
+      JSON.stringify({
+        review: { record: { symbol: 'AAPL' } },
+        status: { live_process: false, runtime_state: 'inactive', state: {} },
+      }),
+    );
+    execFailure(
+      Object.assign(new Error('locked'), {
+        code: 'EFAIL',
+        stderr:
+          'IO Error: Could not set lock on file "runtime/agentic_trader.duckdb": Conflicting lock is held',
+      }),
+    );
+    execSuccess('');
+    execSuccess(JSON.stringify({ status: { runtime_state: 'idle' } }));
+
+    await expect(runRuntimeAction('one-shot')).resolves.toMatchObject({
+      message: 'Strict one-shot cycle completed for AAPL (1d, 180d).',
+    });
+    const runAttempts = execFileMock.mock.calls.filter((call) =>
+      call[1].includes('run'),
+    );
+    expect(runAttempts).toHaveLength(2);
+  });
+
   it('runs app-owned local tool actions through explicit CLI contracts', async () => {
     const { runToolAction } = await import('./agentic-trader');
     execSuccess(
@@ -209,9 +266,11 @@ describe('agentic-trader webgui CLI bridge', () => {
     execSuccess(JSON.stringify({}));
     execSuccess(JSON.stringify({}));
     execSuccess(JSON.stringify({}));
-    await expect(runToolAction('enable-host-fallbacks')).resolves.toMatchObject({
-      message: 'Host-managed fallback ownership enabled.',
-    });
+    await expect(runToolAction('enable-host-fallbacks')).resolves.toMatchObject(
+      {
+        message: 'Host-managed fallback ownership enabled.',
+      },
+    );
     expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('--ollama-owner');
     expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('host-owned');
 
@@ -219,9 +278,11 @@ describe('agentic-trader webgui CLI bridge', () => {
     execSuccess(JSON.stringify({}));
     execSuccess(JSON.stringify({}));
     execSuccess(JSON.stringify({}));
-    await expect(runToolAction('start-camofox-service')).resolves.toMatchObject({
-      message: 'App-owned Camofox helper started.',
-    });
+    await expect(runToolAction('start-camofox-service')).resolves.toMatchObject(
+      {
+        message: 'App-owned Camofox helper started.',
+      },
+    );
     expect(execFileMock.mock.calls.at(-2)?.[1]).toContain('camofox-service');
   });
 
@@ -265,14 +326,47 @@ describe('agentic-trader webgui CLI bridge', () => {
     );
     execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
     await expect(
-      runProposalAction('reconcile', 'proposal-3'),
+      runProposalAction('reconcile', 'proposal-3', 'repair final state'),
     ).resolves.toMatchObject({
       message: 'NVDA proposal reconciled; status=executed.',
     });
-    expect(execFileMock.mock.calls[4][1]).toContain('proposal-reconcile');
+    expect(execFileMock.mock.calls[4][1]).toEqual([
+      '-m',
+      'agentic_trader.cli',
+      'proposal-reconcile',
+      'proposal-3',
+      '--review-notes',
+      'repair final state',
+      '--json',
+    ]);
+
+    execSuccess(
+      JSON.stringify({
+        outcome: { status: 'filled' },
+        proposal: { status: 'executed', symbol: 'NVDA' },
+      }),
+    );
+    execSuccess(JSON.stringify({ tradeProposals: { proposals: [] } }));
+    await expect(
+      runProposalAction('refresh', 'proposal-3', 'broker status check'),
+    ).resolves.toMatchObject({
+      message: 'NVDA proposal refreshed; proposal=executed, broker=filled.',
+    });
+    expect(execFileMock.mock.calls[6][1]).toEqual([
+      '-m',
+      'agentic_trader.cli',
+      'proposal-refresh',
+      'proposal-3',
+      '--review-notes',
+      'broker status check',
+      '--json',
+    ]);
 
     await expect(runProposalAction('reject', 'proposal-4')).rejects.toThrow(
-      'Rejection reason is required.',
+      'Review note is required for reject.',
+    );
+    await expect(runProposalAction('approve', 'proposal-4')).rejects.toThrow(
+      'Review note is required for approve.',
     );
   });
 });

@@ -9,6 +9,7 @@ from agentic_trader.execution.intent import (
     ExecutionOutcomeStatus,
     build_execution_intent,
 )
+from agentic_trader.execution.symbols import is_v1_us_equity_symbol
 from agentic_trader.schemas import ExecutionDecision, PositionExitDecision, StrategyPlan
 from agentic_trader.storage.db import TradingDatabase
 
@@ -400,6 +401,15 @@ class PaperBroker:
             "paper" if intent.execution_backend == "paper" else "simulated"
         )
         order_id = f"{prefix}-{uuid4().hex[:12]}"
+        if intent.side != "hold" and not is_v1_us_equity_symbol(intent.symbol):
+            return self._outcome(
+                intent,
+                order_id=order_id,
+                status="blocked",
+                message="Paper broker only accepts simple V1 US equity symbols.",
+                rejection_reason="unsupported_symbol_scope",
+                simulated_metadata=simulated_metadata,
+            )
         decision = self._decision_from_intent(intent)
         self._record_order(order_id, decision)
 

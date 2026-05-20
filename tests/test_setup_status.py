@@ -12,11 +12,11 @@ from agentic_trader.system.tool_ownership import write_tool_ownership
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
     """
     Create a Settings instance rooted at the provided temporary path and ensure its required directories exist.
-    
+
     Parameters:
         tmp_path (Path): Base directory used for runtime files; also used to locate the database and market cache.
         **overrides: Additional Settings attributes to override the default values (e.g., paths, credentials).
-    
+
     Returns:
         Settings: A configured Settings object with runtime_dir, database_path, and market_data_cache_dir set and required directories created.
     """
@@ -34,7 +34,9 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = _settings(tmp_path)
-    write_tool_ownership(settings, {"ollama": "host-owned", "firecrawl": "api-key-only"}, source="test")
+    write_tool_ownership(
+        settings, {"ollama": "host-owned", "firecrawl": "api-key-only"}, source="test"
+    )
     tool_paths = {
         "uv": "/opt/homebrew/bin/uv",
         "pnpm": "/opt/homebrew/bin/pnpm",
@@ -43,7 +45,9 @@ def test_build_setup_status_classifies_core_and_optional_tools(
     }
 
     monkeypatch.setattr(setup.shutil, "which", lambda command: tool_paths.get(command))
-    monkeypatch.setattr(setup, "_command_version", lambda command, args=None: f"{command}-version")
+    monkeypatch.setattr(
+        setup, "_command_version", lambda command, args=None: f"{command}-version"
+    )
     monkeypatch.setattr(
         setup,
         "crewai_setup_status",
@@ -214,7 +218,11 @@ def test_agentic_trader_entrypoint_reports_path_drift(
     stale.write_text("#!/bin/sh\n", encoding="utf-8")
 
     monkeypatch.setattr(setup, "_repo_root", lambda: repo_root)
-    monkeypatch.setattr(setup.shutil, "which", lambda command: str(stale) if command == "agentic-trader" else None)
+    monkeypatch.setattr(
+        setup.shutil,
+        "which",
+        lambda command: str(stale) if command == "agentic-trader" else None,
+    )
     monkeypatch.setattr(setup, "_command_version", lambda _command, _args=None: "help")
 
     tool = setup._agentic_trader_entrypoint()

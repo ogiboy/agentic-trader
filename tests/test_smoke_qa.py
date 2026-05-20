@@ -117,9 +117,7 @@ def test_market_context_edge_case_check_records_v1_context_contract(
     assert "coverage is too thin" in artifact
 
 
-def test_resolve_smoke_python_prefers_repo_uv_venv(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_resolve_smoke_python_prefers_repo_uv_venv(tmp_path: Path, monkeypatch) -> None:
     repo_root = tmp_path / "repo"
     python_path = repo_root / ".venv" / "bin" / "python"
     python_path.parent.mkdir(parents=True)

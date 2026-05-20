@@ -5,6 +5,7 @@ import Image from 'next/image';
 import {
   CheckCircle2,
   Power,
+  RefreshCw,
   RotateCcw,
   SlidersHorizontal,
   Wrench,
@@ -24,324 +25,71 @@ import {
   formatChatPersona,
   type ChatPersona,
 } from '@/lib/chat-personas';
+import {
+  accountCurrency,
+  canonicalLines,
+  cx,
+  formatList,
+  formatNumber,
+  formatPercent,
+  formatTimestamp,
+  localToolLines,
+  marketContextLines,
+  marketLensImage,
+  normalizeChatHistory,
+  positionPlanCoverageLines,
+  proposalApprovalBlockedReason,
+  proposalHeadline,
+  proposalLines,
+  providerWarningLines,
+  readinessLines,
+  systemStatusItems,
+  tabs,
+  tradeContextLines,
+  unavailableSectionLines,
+} from './control-room.helpers';
+import type {
+  DashboardData,
+  InstructionMode,
+  KeyValueItems,
+  MessageTone,
+  PanelAccent,
+  ProposalActionKind,
+  TabId,
+  ToolActionKind,
+} from './control-room.helpers';
 
-type DashboardData = Record<string, any>;
-type TabId =
-  | 'overview'
-  | 'runtime'
-  | 'portfolio'
-  | 'proposals'
-  | 'review'
-  | 'memory'
-  | 'chat'
-  | 'settings';
-type MessageTone = 'neutral' | 'good' | 'warn' | 'bad';
-type InstructionMode = 'preview' | 'apply';
-type PanelAccent = 'lime' | 'amber' | 'cyan' | 'rose';
-type KeyValueItems = Array<[string, string]>;
-type ToolActionKind =
-  | 'enable-local-tools'
-  | 'enable-host-fallbacks'
-  | 'start-model-service'
-  | 'start-camofox-service';
-type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
-
-const tabs: Array<{ id: TabId; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'runtime', label: 'Runtime' },
-  { id: 'portfolio', label: 'Portfolio' },
-  { id: 'proposals', label: 'Proposals' },
-  { id: 'review', label: 'Review' },
-  { id: 'memory', label: 'Decision Evidence' },
-  { id: 'chat', label: 'Chat' },
-  { id: 'settings', label: 'Settings' },
-];
-
-const marketLensImage =
-  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1600&q=80';
-
-/**
- * Builds a space-separated className string from the provided fragments, ignoring falsy entries.
- *
- * @param values - Class name fragments; falsy values (false, null, undefined, or empty string) are omitted
- * @returns The concatenated className or an empty string if no fragments remain
- */
-function cx(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(' ');
-}
-
-/**
- * Formats a numeric input using en-US locale with a fixed number of fraction digits.
- *
- * @param value - The value to format; non-number or `NaN` yields `"-"`.
- * @param digits - Number of fraction digits to display (default: `2`).
- * @returns `"-"` for non-number or `NaN`, otherwise the number formatted with exactly `digits` fraction digits.
- */
-export function formatNumber(value: unknown, digits = 2): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return '-';
-  }
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: digits,
-    minimumFractionDigits: digits,
-  }).format(value);
-}
-
-function accountCurrency(dashboard: DashboardData): string {
-  return (
-    dashboard.financeOps?.accounting?.currency ||
-    dashboard.portfolio?.accounting?.currency ||
-    dashboard.preferences?.currencies?.[0] ||
-    'USD'
-  );
-}
-
-/**
- * Format a numeric ratio as a percent string.
- *
- * @param value - The numeric ratio to format (e.g., `0.12` for 12%). Non-number or `NaN` values produce `"-"`.
- * @param digits - Number of digits after the decimal point in the formatted percent (default: `2`).
- * @returns `"-"` for non-number or `NaN`, otherwise the percentage string with a trailing `%` (e.g., `"12.00%"`).
- */
-export function formatPercent(value: unknown, digits = 2): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return '-';
-  }
-  return `${(value * 100).toFixed(digits)}%`;
-}
-
-/**
- * Produce a comma-separated display string from an array or a placeholder when missing.
- *
- * @param value - The value expected to be an array of items; elements are joined with ", ". If `value` is not an array or is empty, the placeholder `"-"` is returned.
- * @returns The joined string of `value` elements separated by ", " when `value` is a non-empty array, otherwise `"-"`.
- */
-export function formatList(value: unknown): string {
-  if (!Array.isArray(value) || value.length === 0) {
-    return '-';
-  }
-  return value.join(', ');
-}
-
-export function sourceHealthSummaryLine(
-  summary: Record<string, unknown> | undefined,
-): string {
-  if (!summary) {
-    return '-';
-  }
-  const fresh = formatSourceHealthCount(summary.fresh);
-  const missing = formatSourceHealthCount(summary.missing);
-  const unknown = formatSourceHealthCount(summary.unknown);
-  return `fresh ${fresh} / missing ${missing} / unknown ${unknown}`;
-}
-
-export function formatSourceHealthCount(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '0';
-  }
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
-    return String(value);
-  }
-  return '0';
-}
-
-/**
- * Format a timestamp string into the current locale's readable date and time.
- *
- * @param value - The input timestamp to format. If `value` is falsy or not a string, the function returns `"-"`. If `value` is a string that cannot be parsed as a valid Date, the original string is returned.
- * @returns A localized date/time string when `value` is a parseable date string; the original `value` string if it cannot be parsed; `"-"` when `value` is falsy or not a string.
- */
-export function formatTimestamp(value: unknown): string {
-  if (typeof value !== 'string' || !value) {
-    return '-';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString();
-}
-
-/**
- * Builds an array of human-readable lines summarizing a persisted trade context record for UI display.
- *
- * @param record - The trade context object (may be `null`/`undefined`). Expected fields include `trade_id`, `run_id`, `consensus.alignment_level`, `manager_rationale`, `execution_rationale`, `execution_backend`, `execution_adapter`, `execution_outcome_status`, `execution_rejection_reason`, `review_summary`, and `routed_models`.
- * @returns An array of labeled strings for trade/run IDs, consensus, rationales, execution details, review summary, and routed models; if `record` is missing returns a single line stating no persisted trade context is available.
- */
-export function tradeContextLines(
-  record: Record<string, any> | null | undefined,
-): string[] {
-  if (!record) {
-    return ['No persisted trade context is available yet.'];
-  }
-  const routedModels = Object.entries(record.routed_models || {})
-    .map(([role, model]) => `${role}:${model}`)
-    .join(' | ');
-  return [
-    `Trade ID: ${record.trade_id ?? '-'}`,
-    `Run ID: ${record.run_id ?? '-'}`,
-    `Consensus: ${record.consensus?.alignment_level ?? '-'}`,
-    `Manager Rationale: ${record.manager_rationale ?? '-'}`,
-    `Execution Rationale: ${record.execution_rationale ?? '-'}`,
-    `Execution Backend: ${record.execution_backend ?? '-'}`,
-    `Execution Adapter: ${record.execution_adapter ?? '-'}`,
-    `Execution Outcome: ${record.execution_outcome_status ?? '-'}`,
-    `Rejection Reason: ${record.execution_rejection_reason ?? '-'}`,
-    `Review Summary: ${record.review_summary ?? '-'}`,
-    `Routed Models: ${routedModels || '-'}`,
-  ];
-}
-
-function proposalSizeLabel(proposal: Record<string, any>): string {
-  if (typeof proposal.quantity === 'number') {
-    return `qty ${formatNumber(proposal.quantity, 4)}`;
-  }
-  if (typeof proposal.notional === 'number') {
-    return `$${formatNumber(proposal.notional, 2)}`;
-  }
-  return '-';
-}
-
-function proposalHeadline(proposal: Record<string, any>): string {
-  return `${proposal.symbol ?? '-'} ${String(proposal.side ?? '-').toUpperCase()} | ${proposal.status ?? '-'} | ${proposalSizeLabel(proposal)}`;
-}
-
-export function proposalLines(dashboard: DashboardData): string[] {
-  const payload = dashboard.tradeProposals;
-  if (payload?.available === false) {
-    return [
-      `Proposal desk unavailable: ${payload.error || 'Unknown error.'}`,
-    ];
-  }
-  const proposals = Array.isArray(payload?.proposals)
-    ? payload.proposals
-    : [];
-  if (!proposals.length) {
-    return ['No manual-review proposals are queued yet.'];
-  }
-  return proposals.map(
-    (proposal: Record<string, any>) =>
-      `${proposal.proposal_id ?? '-'} | ${proposalHeadline(proposal)} | confidence=${formatNumber(proposal.confidence, 2)} | source=${proposal.source ?? '-'}`,
-  );
-}
-
-function proposalApprovalBlockedReason(dashboard: DashboardData): string {
-  const broker = dashboard.broker || {};
-  if (broker.kill_switch_active) {
-    return 'Execution kill switch is active.';
-  }
-  if (broker.live_requested || broker.live) {
-    return 'Live backend is not proposal-approval ready in V1.';
-  }
-  if (broker.state === 'blocked') {
-    return broker.message || 'Broker state is blocked.';
-  }
-  return '';
-}
-
-/**
- * Builds display lines summarizing a canonical analysis snapshot.
- *
- * @param snapshot - Snapshot object containing analysis fields; if `null` or `undefined` a placeholder line is returned
- * @returns An array of human-readable lines: summary, completeness score, missing sections, market/fundamental/macro source names, counts for news events and disclosures, and up to six source attribution lines
- */
-export function canonicalLines(
-  snapshot: Record<string, any> | null | undefined,
-): string[] {
-  if (!snapshot) {
-    return ['No canonical analysis snapshot is available yet.'];
-  }
-  const sources = (snapshot.source_attributions || [])
-    .slice(0, 6)
-    .map(
-      (source: Record<string, any>) =>
-        `${source.provider_type}:${source.source_name} (${source.source_role}, ${source.freshness})`,
-    );
-  return [
-    `Summary: ${snapshot.summary || '-'}`,
-    `Completeness: ${snapshot.completeness_score ?? '-'}`,
-    `Missing Sections: ${formatList(snapshot.missing_sections)}`,
-    `Market Source: ${snapshot.market?.attribution?.source_name ?? '-'}`,
-    `Fundamental Source: ${snapshot.fundamental?.attribution?.source_name ?? '-'}`,
-    `Macro Source: ${snapshot.macro?.attribution?.source_name ?? '-'}`,
-    `News Events: ${(snapshot.news_events || []).length}`,
-    `Disclosures: ${(snapshot.disclosures || []).length}`,
-    ...sources.map((source: string) => `Source: ${source}`),
-  ];
-}
-
-/**
- * Builds an array of human-readable lines summarizing a market context pack for display.
- *
- * @param pack - Market context pack object (or `null`/`undefined`). Expected fields used:
- *   `summary`, `lookback`, `interval`, `window_start`, `window_end`,
- *   `bars_analyzed`, `bars_expected`, `coverage_ratio`,
- *   `data_quality_flags`, `anomaly_flags`, and `horizons` (each horizon may include
- *   `horizon_bars`, `trend_vote`, `return_pct`, `max_drawdown_pct`).
- * @returns An array of formatted strings representing the pack summary, window, coverage,
- * quality/anomaly flags, and up to four horizon lines. If `pack` is `null`/`undefined`,
- * returns a single line stating that no persisted market context pack is available yet.
- */
-export function marketContextLines(
-  pack: Record<string, any> | null | undefined,
-): string[] {
-  if (!pack) {
-    return ['No persisted market context pack is available yet.'];
-  }
-  const horizons = (pack.horizons || [])
-    .slice(0, 4)
-    .map(
-      (item: Record<string, any>) =>
-        `${item.horizon_bars} bars | ${item.trend_vote} | return=${item.return_pct ?? '-'} | drawdown=${item.max_drawdown_pct ?? '-'}`,
-    );
-  return [
-    `Summary: ${pack.summary || '-'}`,
-    `Lookback: ${pack.lookback ?? '-'} | Interval: ${pack.interval ?? '-'}`,
-    `Window: ${pack.window_start ?? '-'} -> ${pack.window_end ?? '-'}`,
-    `Coverage: ${pack.bars_analyzed ?? '-'} / ${pack.bars_expected ?? '-'} (${pack.coverage_ratio ?? '-'})`,
-    `Quality: ${formatList(pack.data_quality_flags)}`,
-    `Anomalies: ${formatList(pack.anomaly_flags)}`,
-    ...horizons,
-  ];
-}
-
-/**
- * Returns a single explicit operator-facing error line when a dashboard section is unavailable.
- *
- * @param section - Dashboard section object that may expose `available` and `error`
- * @param label - Human-readable section label used in the message
- * @returns A one-line array when the section is explicitly unavailable; otherwise `null`
- */
-export function unavailableSectionLines(
-  section: Record<string, any> | null | undefined,
-  label: string,
-): null | string[] {
-  if (section?.available === false) {
-    return [`${label} unavailable: ${section.error || 'Unknown error.'}`];
-  }
-  return null;
-}
-
-/**
- * Convert dashboard chat history into a simplified, normalized list of message objects.
- *
- * @param data - The dashboard payload (or `null`) containing optional `chatHistory.entries`.
- * @returns An array of objects each with `user` (the user's message), `persona`, and `response` (the agent's reply); the order is the source entries reversed.
- */
-export function normalizeChatHistory(
-  data: DashboardData | null,
-): Array<Record<string, string>> {
-  const entries = data?.chatHistory?.entries || [];
-  return [...entries].reverse().map((entry: Record<string, any>) => ({
-    user: entry.user_message,
-    persona: entry.persona,
-    response: entry.response_text,
-  }));
-}
+export {
+  canonicalLines,
+  failedCheckNames,
+  formatList,
+  formatNumber,
+  formatPercent,
+  formatSourceHealthCount,
+  formatTimestamp,
+  localToolLines,
+  marketContextLines,
+  normalizeChatHistory,
+  positionPlanCoverageLines,
+  proposalHeadline,
+  proposalLines,
+  providerWarningLines,
+  readinessLines,
+  sourceHealthSummaryLine,
+  systemStatusItems,
+  tradeContextLines,
+  unavailableSectionLines,
+} from './control-room.helpers';
+export type {
+  DashboardData,
+  InstructionMode,
+  KeyValueItems,
+  MessageTone,
+  PanelAccent,
+  ProposalActionKind,
+  TabId,
+  ToolActionKind,
+} from './control-room.helpers';
 
 export class WebguiHttpError extends Error {
   readonly status: number;
@@ -351,6 +99,22 @@ export class WebguiHttpError extends Error {
     this.name = 'WebguiHttpError';
     this.status = status;
   }
+}
+
+type DashboardRequestContext = {
+  controller: AbortController;
+  seq: number;
+};
+
+function isDashboardRequestCurrent(
+  request: DashboardRequestContext,
+  latestSeq: number,
+): boolean {
+  return !request.controller.signal.aborted && request.seq === latestSeq;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /**
@@ -517,220 +281,6 @@ function JsonPreview({ value }: Readonly<{ value: unknown }>) {
   return <pre className="json-preview">{JSON.stringify(value, null, 2)}</pre>;
 }
 
-export function failedCheckNames(
-  section: Record<string, any> | undefined,
-): string {
-  const failed = (section?.checks || [])
-    .filter(
-      (item: Record<string, any>) => item.blocking !== false && !item.passed,
-    )
-    .map((item: Record<string, any>) => item.name)
-    .slice(0, 3);
-  return failed.length ? failed.join(', ') : '-';
-}
-
-export function readinessLines(dashboard: DashboardData): string[] {
-  const readiness = dashboard.v1Readiness || {};
-  const broker = dashboard.broker || {};
-  const paper = readiness.paper_operations || {};
-  const alpaca = readiness.alpaca_paper || {};
-  return [
-    `Can run local paper cycle: ${paper.allowed ? 'yes' : 'no'}`,
-    `Why paper cycle is blocked: ${failedCheckNames(paper)}`,
-    `Can use Alpaca paper: ${alpaca.ready ? 'yes' : 'no'}`,
-    `Why Alpaca paper is blocked: ${failedCheckNames(alpaca)}`,
-    `Backend: ${broker.backend ?? '-'}`,
-    `External paper mode active: ${broker.external_paper ? 'yes' : 'no'}`,
-    `Kill Switch: ${broker.kill_switch_active ? 'active' : 'inactive'}`,
-    `Broker Health: ${broker.healthcheck?.message ?? broker.message ?? '-'}`,
-  ];
-}
-
-/**
- * Builds human-readable lines summarizing provider configuration and warnings from the dashboard.
- *
- * Reads provider diagnostics from the `dashboard` payload and returns lines for selected market provider,
- * provider role, news mode, whether Finnhub/FMP/Alpaca API keys are configured, and up to three provider warnings.
- *
- * @param dashboard - Dashboard payload containing `providerDiagnostics` used to derive provider and key status
- * @returns An array of status lines describing provider selection, news mode, key configuration, and up to three warnings (or `"No provider warnings."` when none)
- */
-export function providerWarningLines(dashboard: DashboardData): string[] {
-  const diagnostics = dashboard.providerDiagnostics || {};
-  const market = diagnostics.market_data || {};
-  const keys = diagnostics.configured_keys || {};
-  const warnings = Array.isArray(diagnostics.warnings)
-    ? diagnostics.warnings
-    : [];
-  return [
-    `Market Provider: ${market.selected_provider ?? '-'}`,
-    `Market Role: ${market.selected_role ?? '-'}`,
-    `News Mode: ${diagnostics.news?.mode ?? '-'}`,
-    `Finnhub Key: ${keys.finnhub ? 'configured' : 'missing'}`,
-    `FMP Key: ${keys.fmp ? 'configured' : 'missing'}`,
-    `Alpaca Key: ${keys.alpaca ? 'configured' : 'missing'}`,
-    ...(warnings.length ? warnings.slice(0, 3) : ['No provider warnings.']),
-  ];
-}
-
-/**
- * Get the ownership decision mode for a specified tool.
- *
- * @param dashboard - The dashboard payload containing tool ownership decisions
- * @param tool - The tool key to look up in `dashboard.toolOwnership.decisions_by_tool`
- * @returns The `mode` value for the given tool, or `'undecided'` if no mode is recorded
- */
-function ownershipMode(dashboard: DashboardData, tool: string): string {
-  return dashboard.toolOwnership?.decisions_by_tool?.[tool]?.mode ?? 'undecided';
-}
-
-/**
- * Normalize a model service base URL so it consistently ends with `/v1`, or return `-` for invalid input.
- *
- * @param baseUrl - The value to normalize into a base URL; may be any type.
- * @returns The input URL with a trailing slash removed and `/v1` appended when missing, or `-` if `baseUrl` is not a non-empty string.
- */
-function withOpenAiSuffix(baseUrl: unknown): string {
-  if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
-    return '-';
-  }
-  const trimmed = baseUrl.replace(/\/$/, '');
-  return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`;
-}
-
-/**
- * Determines the effective base URL to use for model service requests.
- *
- * @param dashboard - The dashboard payload containing modelService and doctor configuration
- * @returns The model service base URL with an OpenAI `/v1` suffix when the app-owned model service is configured, otherwise the doctor's base URL, or `'-'` if neither is available
- */
-function effectiveModelBaseUrl(dashboard: DashboardData | null): string {
-  const modelService = dashboard?.modelService || {};
-  if (modelService.app_owned && modelService.base_url) {
-    return withOpenAiSuffix(modelService.base_url);
-  }
-  if (dashboard?.doctor?.base_url) {
-    return withOpenAiSuffix(dashboard.doctor.base_url);
-  }
-  return '-';
-}
-
-/**
- * Selects the primary value when defined, otherwise the fallback, and yields `"yes"` if that chosen value is truthy, `"no"` otherwise.
- *
- * @param appOwnedValue - Primary value to consider first (used when not `null` or `undefined`)
- * @param fallbackValue - Secondary value used when `appOwnedValue` is `null` or `undefined`
- * @returns `"yes"` if the selected value is truthy, `"no"` otherwise
- */
-function effectiveBoolean(
-  appOwnedValue: unknown,
-  fallbackValue: unknown,
-): string {
-  return (appOwnedValue ?? fallbackValue) ? 'yes' : 'no';
-}
-
-/**
- * Build a list of labeled system status key/value pairs derived from the dashboard payload.
- *
- * Uses model service, doctor, research, broker, calendar, and auxiliary service fields to produce
- * human-readable status entries (provider, model, base URL, reachability, availability, service
- * messages, research and broker states, and market session).
- *
- * @param dashboard - The dashboard payload (may be null) from which status values are extracted
- * @returns A KeyValueItems array where each tuple is [label, value] describing a system status item
- */
-export function systemStatusItems(dashboard: DashboardData | null): KeyValueItems {
-  const modelService = dashboard?.modelService || {};
-  const provider = dashboard?.doctor?.provider ?? 'ollama';
-  const reachabilityLabel =
-    provider === 'ollama' ? 'Ollama Reachable' : 'LLM Reachable';
-  return [
-    ['Provider', provider],
-    ['Model', dashboard?.doctor?.model ?? modelService.configured_model ?? '-'],
-    ['Base URL', effectiveModelBaseUrl(dashboard)],
-    [
-      reachabilityLabel,
-      effectiveBoolean(
-        modelService.app_owned ? modelService.service_reachable : undefined,
-        dashboard?.doctor?.llm_reachable ?? dashboard?.doctor?.ollama_reachable,
-      ),
-    ],
-    [
-      'Model Available',
-      effectiveBoolean(
-        modelService.app_owned ? modelService.model_available : undefined,
-        dashboard?.doctor?.model_available,
-      ),
-    ],
-    ['Model Service', modelService.message ?? '-'],
-    ['Camofox Service', dashboard?.camofoxService?.message ?? '-'],
-    ['Web GUI Service', dashboard?.webGui?.message ?? '-'],
-    ['Research', dashboard?.research?.status ?? '-'],
-    ['Research Control', dashboard?.research?.cycleControl?.status ?? '-'],
-    [
-      'Research Trigger',
-      dashboard?.research?.cycleControl?.trigger_now_requested
-        ? 'requested'
-        : 'clear',
-    ],
-    [
-      'Research Digest Replay',
-      dashboard?.research?.latestDigestReplay?.available ? 'available' : '-',
-    ],
-    [
-      'Research Sources',
-      sourceHealthSummaryLine(dashboard?.research?.source_health_summary),
-    ],
-    ['Broker Backend', dashboard?.broker?.backend ?? '-'],
-    ['Broker State', dashboard?.broker?.state ?? '-'],
-    ['Execution Mode', dashboard?.broker?.execution_mode ?? '-'],
-    ['Market Session', dashboard?.calendar?.session?.session_state ?? '-'],
-  ];
-}
-
-/**
- * Builds human-readable status lines describing local tool, model service, and related ownership/reachability state from the dashboard payload.
- *
- * @param dashboard - The dashboard payload containing runtime, service, and ownership metadata
- * @returns An array of labeled status strings suitable for display in the "Local Tools" panel (e.g., model adapter, service reachability, ownership, URLs, and research source summary)
- */
-export function localToolLines(dashboard: DashboardData): string[] {
-  const modelService = dashboard.modelService || {};
-  const camofox = dashboard.camofoxService || {};
-  const provider = dashboard.doctor?.provider ?? 'ollama';
-  const firecrawlMode = ownershipMode(dashboard, 'firecrawl');
-  let camofoxBlocker = 'Camofox Access Key: -';
-  if (camofox.access_key_configured === false) {
-    camofoxBlocker =
-      'Camofox Blocker: set CAMOFOX_ACCESS_KEY or CAMOFOX_API_KEY in ignored local env before start';
-  } else if (camofox.access_key_configured) {
-    camofoxBlocker = 'Camofox Access Key: configured';
-  }
-  return [
-    `Model Adapter: ${provider}`,
-    `LLM Runtime: internal-first${modelService.app_owned ? ' app-owned' : ''}`,
-    `Model Service: ${modelService.message ?? '-'}`,
-    `Ollama Ownership: ${ownershipMode(dashboard, 'ollama')}`,
-    `Model Service Owned: ${modelService.app_owned ? 'yes' : 'no'}`,
-    `Model Service Reachable: ${modelService.service_reachable ? 'yes' : 'no'}`,
-    `Model Available: ${modelService.model_available ? 'yes' : 'no'}`,
-    `Model Service URL: ${withOpenAiSuffix(modelService.base_url ?? modelService.configured_base_url)}`,
-    `Firecrawl Ownership: ${firecrawlMode}`,
-    `Firecrawl Runtime: internal SDK first; host CLI fallback ${firecrawlMode === 'host-owned' ? 'enabled' : 'disabled by ownership'}`,
-    `Camofox: ${camofox.message ?? '-'}`,
-    `Camofox Ownership: ${ownershipMode(dashboard, 'camofox')}`,
-    `Camofox Owned: ${camofox.app_owned ? 'yes' : 'no'}`,
-    `Camofox Reachable: ${camofox.service_reachable ? 'yes' : 'no'}`,
-    camofoxBlocker,
-    `Camofox URL: ${camofox.base_url ?? '-'}`,
-    `Web GUI: ${dashboard.webGui?.message ?? '-'}`,
-    `Web GUI Owned: ${dashboard.webGui?.app_owned ? 'yes' : 'no'}`,
-    `Web GUI URL: ${dashboard.webGui?.url ?? '-'}`,
-    `Research: ${dashboard.research?.status ?? '-'} (${dashboard.research?.backend ?? '-'})`,
-    `Research Sources: ${sourceHealthSummaryLine(dashboard.research?.source_health_summary)}`,
-  ];
-}
-
 /**
  * Render the Overview tab, including market ribbon, current cycle, system status, readiness gates, local tool controls, provider warnings, and recent decision workflow events.
  *
@@ -838,7 +388,10 @@ export function OverviewView({
             </button>
             <button
               className="button"
-              disabled={busy !== null || dashboard.camofoxService?.access_key_configured === false}
+              disabled={
+                busy !== null ||
+                dashboard.camofoxService?.access_key_configured === false
+              }
               onClick={() => onToolAction('start-camofox-service')}
               type="button"
             >
@@ -1031,6 +584,9 @@ export function PortfolioView({
       <Panel title="Trade Journal" accent="amber">
         <TextList items={journalLines} />
       </Panel>
+      <Panel title="Exit Plan Coverage" accent="rose">
+        <TextList items={positionPlanCoverageLines(dashboard)} />
+      </Panel>
       <Panel title="Preferences" accent="cyan">
         <KeyValueList
           items={[
@@ -1086,6 +642,7 @@ export function ProposalDeskView({
     : [];
   const proposalUnavailable = dashboard.tradeProposals?.available === false;
   const approvalBlockedReason = proposalApprovalBlockedReason(dashboard);
+  const hasProposalNote = Boolean(proposalNote.trim());
 
   return (
     <div className="grid grid--2">
@@ -1101,10 +658,18 @@ export function ProposalDeskView({
                 {proposals.slice(0, 6).map((proposal: Record<string, any>) => {
                   const proposalId = String(proposal.proposal_id ?? '');
                   const isPending = proposal.status === 'pending';
-                  const canApprove = isPending && !approvalBlockedReason;
+                  const canApprove =
+                    isPending && !approvalBlockedReason && hasProposalNote;
                   const canReconcile =
                     proposal.status === 'approved' &&
-                    Boolean(proposal.execution_intent_id);
+                    Boolean(proposal.execution_intent_id) &&
+                    hasProposalNote;
+                  const canRefresh =
+                    (proposal.status === 'approved' ||
+                      proposal.status === 'executed') &&
+                    proposal.execution_outcome_status === 'accepted' &&
+                    Boolean(proposal.execution_order_id) &&
+                    hasProposalNote;
                   return (
                     <article className="proposal-card" key={proposalId}>
                       <div className="proposal-card__head">
@@ -1138,7 +703,7 @@ export function ProposalDeskView({
                         <button
                           className="button"
                           disabled={
-                            !isPending || Boolean(busy) || !proposalNote.trim()
+                            !isPending || Boolean(busy) || !hasProposalNote
                           }
                           onClick={() =>
                             void onProposalAction('reject', proposalId)
@@ -1161,6 +726,18 @@ export function ProposalDeskView({
                           <RotateCcw aria-hidden size={16} />
                           Reconcile
                         </button>
+                        <button
+                          className="button"
+                          disabled={!canRefresh || Boolean(busy)}
+                          onClick={() =>
+                            void onProposalAction('refresh', proposalId)
+                          }
+                          title="Refresh accepted broker order without resubmitting"
+                          type="button"
+                        >
+                          <RefreshCw aria-hidden size={16} />
+                          Refresh
+                        </button>
                       </div>
                     </article>
                   );
@@ -1169,10 +746,8 @@ export function ProposalDeskView({
             ) : null}
             <div className="composer">
               <textarea
-                onChange={(event) =>
-                  onProposalNoteChange(event.target.value)
-                }
-                placeholder="Approval note or rejection reason."
+                onChange={(event) => onProposalNoteChange(event.target.value)}
+                placeholder="Review note required for approve, reject, reconcile, or refresh."
                 value={proposalNote}
               />
             </div>
@@ -1184,12 +759,12 @@ export function ProposalDeskView({
           items={[
             ['Backend', dashboard.broker?.backend ?? '-'],
             ['State', dashboard.broker?.state ?? '-'],
-            [
-              'External Paper',
-              dashboard.broker?.external_paper ? 'yes' : 'no',
-            ],
+            ['External Paper', dashboard.broker?.external_paper ? 'yes' : 'no'],
             ['Live Requested', dashboard.broker?.live_requested ? 'yes' : 'no'],
-            ['Kill Switch', dashboard.broker?.kill_switch_active ? 'on' : 'off'],
+            [
+              'Kill Switch',
+              dashboard.broker?.kill_switch_active ? 'on' : 'off',
+            ],
             ['Message', dashboard.broker?.message ?? '-'],
           ]}
         />
@@ -1593,6 +1168,7 @@ export function ControlRoom() {
     tone: MessageTone;
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const busyRef = useRef<string | null>(null);
   const [chatDraft, setChatDraft] = useState('');
   const [chatPersona, setChatPersona] =
     useState<ChatPersona>('operator_liaison');
@@ -1621,6 +1197,11 @@ export function ControlRoom() {
     setMessage(null);
   }, []);
 
+  const setBusyState = useCallback((nextBusy: string | null) => {
+    busyRef.current = nextBusy;
+    setBusy(nextBusy);
+  }, []);
+
   const applyDashboardPayload = useCallback((payload: DashboardData) => {
     setDashboard(payload);
     setChatHistory(normalizeChatHistory(payload));
@@ -1641,42 +1222,70 @@ export function ControlRoom() {
     [applyDashboardPayload],
   );
 
-  const loadDashboard = useCallback(async () => {
-    const seq = lastRequestSeqRef.current + 1;
-    lastRequestSeqRef.current = seq;
-    dashboardAbortRef.current?.abort();
-    const controller = new AbortController();
-    dashboardAbortRef.current = controller;
-    try {
-      const payload = await readJson<DashboardData>('/api/dashboard', {
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
-        return;
+  const beginDashboardRequest = useCallback(
+    (force: boolean): DashboardRequestContext | null => {
+      if (!force && busyRef.current) {
+        return null;
       }
-      applyDashboardPayload(payload);
-    } catch (nextError) {
-      if (controller.signal.aborted || seq !== lastRequestSeqRef.current) {
-        return;
+      const activeRequest = dashboardAbortRef.current;
+      if (activeRequest && !activeRequest.signal.aborted) {
+        if (!force) {
+          return null;
+        }
+        activeRequest.abort();
       }
-      if (nextError instanceof WebguiHttpError && nextError.status === 401) {
-        setAuthRequired(true);
-        setAuthError(null);
-        setDashboard(null);
-        return;
-      }
-      setError(
-        nextError instanceof Error ? nextError.message : String(nextError),
-      );
-    } finally {
+      const seq = lastRequestSeqRef.current + 1;
+      lastRequestSeqRef.current = seq;
+      const controller = new AbortController();
+      dashboardAbortRef.current = controller;
+      return { controller, seq };
+    },
+    [],
+  );
+
+  const completeDashboardRequest = useCallback(
+    ({ controller, seq }: DashboardRequestContext) => {
       if (dashboardAbortRef.current === controller) {
         dashboardAbortRef.current = null;
       }
       if (seq === lastRequestSeqRef.current) {
         setLoading(false);
       }
-    }
-  }, [applyDashboardPayload]);
+    },
+    [],
+  );
+
+  const loadDashboard = useCallback(
+    async ({ force = false }: { force?: boolean } = {}) => {
+      const request = beginDashboardRequest(force);
+      if (!request) {
+        return;
+      }
+      try {
+        const payload = await readJson<DashboardData>('/api/dashboard', {
+          signal: request.controller.signal,
+        });
+        if (!isDashboardRequestCurrent(request, lastRequestSeqRef.current)) {
+          return;
+        }
+        applyDashboardPayload(payload);
+      } catch (nextError) {
+        if (!isDashboardRequestCurrent(request, lastRequestSeqRef.current)) {
+          return;
+        }
+        if (nextError instanceof WebguiHttpError && nextError.status === 401) {
+          setAuthRequired(true);
+          setAuthError(null);
+          setDashboard(null);
+          return;
+        }
+        setError(errorMessage(nextError));
+      } finally {
+        completeDashboardRequest(request);
+      }
+    },
+    [applyDashboardPayload, beginDashboardRequest, completeDashboardRequest],
+  );
   useEffect(() => {
     const initialRefresh = setTimeout(() => {
       void loadDashboard();
@@ -1705,7 +1314,7 @@ export function ControlRoom() {
         await authenticateWebguiSession(token);
         setWebguiToken('');
         setAuthRequired(false);
-        await loadDashboard();
+        await loadDashboard({ force: true });
       } catch (nextError) {
         setAuthRequired(true);
         setAuthError(
@@ -1721,13 +1330,15 @@ export function ControlRoom() {
   const runAction = useCallback(
     async (kind: 'refresh' | 'start' | 'stop' | 'restart' | 'one-shot') => {
       if (kind === 'refresh') {
-        setBusy('refresh');
-        await loadDashboard();
+        setBusyState('refresh');
+        await loadDashboard({ force: true });
         setMessage({ text: 'Dashboard refreshed.', tone: 'neutral' });
-        setBusy(null);
+        setBusyState(null);
         return;
       }
-      setBusy(kind);
+      setBusyState(kind);
+      dashboardAbortRef.current?.abort();
+      dashboardAbortRef.current = null;
       try {
         const result = await readJson<{
           message: string;
@@ -1748,15 +1359,17 @@ export function ControlRoom() {
           tone: 'bad',
         });
       } finally {
-        setBusy(null);
+        setBusyState(null);
       }
     },
-    [applyLatestDashboard, loadDashboard],
+    [applyLatestDashboard, loadDashboard, setBusyState],
   );
 
   const runToolAction = useCallback(
     async (kind: ToolActionKind) => {
-      setBusy(kind);
+      setBusyState(kind);
+      dashboardAbortRef.current?.abort();
+      dashboardAbortRef.current = null;
       try {
         const result = await readJson<{
           message: string;
@@ -1777,16 +1390,18 @@ export function ControlRoom() {
           tone: 'bad',
         });
       } finally {
-        setBusy(null);
+        setBusyState(null);
       }
     },
-    [applyLatestDashboard],
+    [applyLatestDashboard, setBusyState],
   );
 
   const runProposalAction = useCallback(
     async (kind: ProposalActionKind, proposalId: string) => {
       const reviewNotes = proposalNote.trim();
-      setBusy(`proposal-${kind}`);
+      setBusyState(`proposal-${kind}`);
+      dashboardAbortRef.current?.abort();
+      dashboardAbortRef.current = null;
       try {
         const result = await readJson<{
           message: string;
@@ -1808,10 +1423,10 @@ export function ControlRoom() {
           tone: 'bad',
         });
       } finally {
-        setBusy(null);
+        setBusyState(null);
       }
     },
-    [applyLatestDashboard, proposalNote],
+    [applyLatestDashboard, proposalNote, setBusyState],
   );
 
   const sendChat = useCallback(async () => {
@@ -1819,7 +1434,9 @@ export function ControlRoom() {
     if (!messageText) {
       return;
     }
-    setBusy('chat');
+    setBusyState('chat');
+    dashboardAbortRef.current?.abort();
+    dashboardAbortRef.current = null;
     try {
       await readJson<Record<string, string>>('/api/chat', {
         method: 'POST',
@@ -1830,7 +1447,7 @@ export function ControlRoom() {
       });
       setChatDraft('');
       setMessage({ text: 'Operator reply received.', tone: 'good' });
-      await loadDashboard();
+      await loadDashboard({ force: true });
     } catch (nextError) {
       if (nextError instanceof WebguiHttpError && nextError.status === 401) {
         setAuthRequired(true);
@@ -1841,16 +1458,18 @@ export function ControlRoom() {
         tone: 'bad',
       });
     } finally {
-      setBusy(null);
+      setBusyState(null);
     }
-  }, [chatDraft, chatPersona, loadDashboard]);
+  }, [chatDraft, chatPersona, loadDashboard, setBusyState]);
 
   const sendInstruction = useCallback(async () => {
     const messageText = instructionDraft.trim();
     if (!messageText) {
       return;
     }
-    setBusy('instruction');
+    setBusyState('instruction');
+    dashboardAbortRef.current?.abort();
+    dashboardAbortRef.current = null;
     try {
       const result = await readJson<{
         result: Record<string, any>;
@@ -1882,9 +1501,9 @@ export function ControlRoom() {
         tone: 'bad',
       });
     } finally {
-      setBusy(null);
+      setBusyState(null);
     }
-  }, [applyLatestDashboard, instructionDraft, instructionMode]);
+  }, [applyLatestDashboard, instructionDraft, instructionMode, setBusyState]);
 
   const currentCycle = useMemo<KeyValueItems>(
     () => [

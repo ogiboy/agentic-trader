@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { CHAT_PERSONAS, formatChatPersona, isChatPersona } from './chat-personas';
+import {
+  CHAT_PERSONAS,
+  formatChatPersona,
+  isChatPersona,
+} from './chat-personas';
 
 describe('chat persona formatting', () => {
   it('recognizes known personas and preserves primitive fallbacks', () => {

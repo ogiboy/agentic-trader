@@ -131,8 +131,7 @@ def test_service_state_migration_allows_legacy_duckdb_file(tmp_path: Path) -> No
     )
     settings.ensure_directories()
     conn = duckdb.connect(str(settings.database_path))
-    conn.execute(
-        """
+    conn.execute("""
         create table service_state (
             service_name varchar primary key,
             state varchar not null,
@@ -146,18 +145,15 @@ def test_service_state_migration_allows_legacy_duckdb_file(tmp_path: Path) -> No
             last_error varchar,
             message varchar not null
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         insert into service_state (
             service_name, state, updated_at, continuous, poll_seconds,
             cycle_count, message
         )
         values ('orchestrator', 'running', '2026-04-11T00:00:00+00:00',
                 true, 300, 3, 'Legacy state.')
-        """
-    )
+        """)
     conn.close()
 
     db = TradingDatabase(settings)
@@ -551,9 +547,7 @@ def test_sleep_until_next_cycle_is_interruptible(
         stop_requested=False,
     )
 
-    monkeypatch.setattr(
-        "agentic_trader.workflows.service.time.monotonic", lambda: 0.0
-    )
+    monkeypatch.setattr("agentic_trader.workflows.service.time.monotonic", lambda: 0.0)
     monkeypatch.setattr(
         "agentic_trader.workflows.service.time.sleep",
         lambda seconds: db.request_stop_service(),

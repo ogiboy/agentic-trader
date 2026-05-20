@@ -50,6 +50,11 @@ type ExecOptions = {
   timeoutMs?: number;
 };
 
+const TRANSIENT_DUCKDB_LOCK_PATTERN =
+  /Could not set lock on file|Conflicting lock is held/i;
+const DB_LOCK_RETRY_DELAYS_MS =
+  process.env.NODE_ENV === 'test' ? [0, 0, 0] : [500, 1_500, 3_000, 5_000];
+
 /**
  * Reads the local Codex environment manifest and returns a legacy declared Conda environment name when present.
  *
@@ -270,6 +275,14 @@ function extractError(error: unknown): string {
   return String(error);
 }
 
+function isTransientDuckDbLockError(error: unknown): boolean {
+  return TRANSIENT_DUCKDB_LOCK_PATTERN.test(extractError(error));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Execute the Agentic Trader CLI with the provided arguments, trying configured executable entrypoints until one succeeds.
  *
@@ -315,16 +328,40 @@ export async function execTrader(
   );
 }
 
+async function execTraderWithDbLockRetry(
+  args: string[],
+  options: ExecOptions,
+): Promise<any> {
+  let lastError: unknown;
+  for (const retryDelayMs of [0, ...DB_LOCK_RETRY_DELAYS_MS]) {
+    if (retryDelayMs > 0) {
+      await sleep(retryDelayMs);
+    }
+    try {
+      return await execTrader(args, options);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientDuckDbLockError(error)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Fetches the Agentic Trader dashboard snapshot.
  *
  * @returns The dashboard data parsed from the CLI's JSON output.
  */
 export async function getDashboardSnapshot(): Promise<any> {
-  return execTrader(['dashboard-snapshot', '--log-limit', '14'], {
-    expectJson: true,
-    timeoutMs: 30_000,
-  });
+  return execTrader(
+    ['dashboard-snapshot', '--log-limit', '14', '--provider-check'],
+    {
+      expectJson: true,
+      timeoutMs: 30_000,
+    },
+  );
 }
 
 /**
@@ -352,7 +389,7 @@ export async function runRuntimeAction(kind: string): Promise<{
     const symbols = defaultSymbolsFromPreferences(data?.preferences || {});
     const interval = defaultRuntimeInterval(data);
     const lookback = defaultRuntimeLookback(data);
-    await execTrader(
+    await execTraderWithDbLockRetry(
       [
         'launch',
         '--symbols',
@@ -381,7 +418,7 @@ export async function runRuntimeAction(kind: string): Promise<{
         dashboard: data,
       };
     }
-    await execTrader(['stop-service'], { timeoutMs: 30_000 });
+    await execTraderWithDbLockRetry(['stop-service'], { timeoutMs: 30_000 });
     return {
       message: `Stop requested for PID ${data.status.state.pid}.`,
       dashboard: await getDashboardSnapshot(),
@@ -390,7 +427,9 @@ export async function runRuntimeAction(kind: string): Promise<{
 
   if (kind === 'restart') {
     if ((data?.status?.state?.symbols || []).length) {
-      await execTrader(['restart-service'], { timeoutMs: 30_000 });
+      await execTraderWithDbLockRetry(['restart-service'], {
+        timeoutMs: 30_000,
+      });
       return {
         message: 'Background runtime restart requested.',
         dashboard: await getDashboardSnapshot(),
@@ -412,7 +451,7 @@ export async function runRuntimeAction(kind: string): Promise<{
     const symbol = defaultSingleSymbol(data);
     const interval = defaultRuntimeInterval(data);
     const lookback = defaultRuntimeLookback(data);
-    await execTrader(
+    await execTraderWithDbLockRetry(
       [
         'run',
         '--symbol',
@@ -439,7 +478,7 @@ export type ToolActionKind =
   | 'start-model-service'
   | 'start-camofox-service';
 
-export type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
+export type ProposalActionKind = 'approve' | 'reject' | 'reconcile' | 'refresh';
 
 /**
  * Selects the model name configured in the provided dashboard snapshot.
@@ -448,7 +487,9 @@ export type ProposalActionKind = 'approve' | 'reject' | 'reconcile';
  * @returns The model name from `modelService.configured_model` if present, otherwise `doctor.model`, otherwise the default `"qwen3:8b"`
  */
 function modelNameFromDashboard(data: Record<string, any>): string {
-  return data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b';
+  return (
+    data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b'
+  );
 }
 
 /**
@@ -556,11 +597,17 @@ function proposalActionMessage(kind: ProposalActionKind, result: any): string {
   const symbol = proposal?.symbol || 'Proposal';
   const status = proposal?.status || kind;
   if (kind === 'approve') {
-    const outcome = result?.outcome?.status || proposal?.execution_outcome_status || '-';
+    const outcome =
+      result?.outcome?.status || proposal?.execution_outcome_status || '-';
     return `${symbol} proposal approved; proposal=${status}, broker=${outcome}.`;
   }
   if (kind === 'reject') {
     return `${symbol} proposal rejected.`;
+  }
+  if (kind === 'refresh') {
+    const outcome =
+      result?.outcome?.status || proposal?.execution_outcome_status || '-';
+    return `${symbol} proposal refreshed; proposal=${status}, broker=${outcome}.`;
   }
   return `${symbol} proposal reconciled; status=${status}.`;
 }
@@ -586,28 +633,52 @@ export async function runProposalAction(
   if (!cleanProposalId) {
     throw new Error('Proposal id is required.');
   }
+  if (!cleanNotes) {
+    throw new Error(`Review note is required for ${kind}.`);
+  }
 
   let result: any;
   if (kind === 'approve') {
-    const args = ['proposal-approve', cleanProposalId, '--json'];
-    if (cleanNotes) {
-      args.splice(2, 0, '--review-notes', cleanNotes);
-    }
-    result = await execTrader(args, { expectJson: true, timeoutMs: 90_000 });
+    const args = [
+      'proposal-approve',
+      cleanProposalId,
+      '--review-notes',
+      cleanNotes,
+      '--json',
+    ];
+    result = await execTraderWithDbLockRetry(args, {
+      expectJson: true,
+      timeoutMs: 90_000,
+    });
   } else if (kind === 'reject') {
-    if (!cleanNotes) {
-      throw new Error('Rejection reason is required.');
-    }
-    result = await execTrader(
+    result = await execTraderWithDbLockRetry(
       ['proposal-reject', cleanProposalId, '--reason', cleanNotes, '--json'],
       { expectJson: true, timeoutMs: 45_000 },
     );
   } else if (kind === 'reconcile') {
-    const args = ['proposal-reconcile', cleanProposalId, '--json'];
-    if (cleanNotes) {
-      args.splice(2, 0, '--review-notes', cleanNotes);
-    }
-    result = await execTrader(args, { expectJson: true, timeoutMs: 45_000 });
+    const args = [
+      'proposal-reconcile',
+      cleanProposalId,
+      '--review-notes',
+      cleanNotes,
+      '--json',
+    ];
+    result = await execTraderWithDbLockRetry(args, {
+      expectJson: true,
+      timeoutMs: 45_000,
+    });
+  } else if (kind === 'refresh') {
+    const args = [
+      'proposal-refresh',
+      cleanProposalId,
+      '--review-notes',
+      cleanNotes,
+      '--json',
+    ];
+    result = await execTraderWithDbLockRetry(args, {
+      expectJson: true,
+      timeoutMs: 45_000,
+    });
   } else {
     throw new Error(`Unsupported proposal action: ${kind}`);
   }

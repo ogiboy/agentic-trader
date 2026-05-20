@@ -79,7 +79,9 @@ export const decodoProvider = {
     const city = sanitizeBackconnectValue(options.city);
     const zip = sanitizeBackconnectValue(options.zip);
     const sessionId = sanitizeBackconnectValue(options.sessionId);
-    const sessionDurationMinutes = Number.isFinite(options.sessionDurationMinutes)
+    const sessionDurationMinutes = Number.isFinite(
+      options.sessionDurationMinutes,
+    )
       ? Math.max(1, Math.min(1440, Math.trunc(options.sessionDurationMinutes)))
       : null;
 
@@ -88,7 +90,8 @@ export const decodoProvider = {
     if (city) parts.push(`city-${city}`);
     if (zip) parts.push(`zip-${zip}`);
     if (sessionId) parts.push(`session-${sessionId}`);
-    if (sessionDurationMinutes) parts.push(`sessionduration-${sessionDurationMinutes}`);
+    if (sessionDurationMinutes)
+      parts.push(`sessionduration-${sessionDurationMinutes}`);
 
     return parts.join('-');
   },
@@ -117,7 +120,9 @@ export const genericBackconnectProvider = {
   buildSessionUsername(baseUsername, options = {}) {
     // Simple pass-through: base username + session suffix
     const base = String(baseUsername || '').trim();
-    const sessionId = options.sessionId ? `-${String(options.sessionId).trim()}` : '';
+    const sessionId = options.sessionId
+      ? `-${String(options.sessionId).trim()}`
+      : '';
     return `${base}${sessionId}`;
   },
 
@@ -185,7 +190,8 @@ export function createProxyPool(config) {
   } = config;
 
   if (strategy === 'backconnect') {
-    if (!backconnectHost || !backconnectPort || !username || !password) return null;
+    if (!backconnectHost || !backconnectPort || !username || !password)
+      return null;
 
     const provider = getProvider(providerName || 'decodo') || decodoProvider;
 

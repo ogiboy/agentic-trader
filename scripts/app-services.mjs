@@ -10,13 +10,14 @@ const SERVICE_IDS = ['model-service', 'camofox-service', 'webgui-service'];
 
 /**
  * Print the CLI usage help to stdout and exit the process.
- * 
+ *
  * Writes the command synopsis, option descriptions, and behavioral notes to standard
  * output, then terminates the process with the provided exit code.
  * @param {number} exitCode - The process exit code to use when terminating (defaults to 0).
  */
 function usage(exitCode = 0) {
-  process.stdout.write(`Usage: node scripts/app-services.mjs <start|stop> [options]
+  process.stdout
+    .write(`Usage: node scripts/app-services.mjs <start|stop> [options]
 
 Plan or run app-owned service lifecycle slices.
 
@@ -99,11 +100,15 @@ function parseArgs(argv) {
   }
 
   if (options.openBrowser && mode !== 'start') {
-    process.stderr.write('--open-browser only applies to app-services start.\n');
+    process.stderr.write(
+      '--open-browser only applies to app-services start.\n',
+    );
     usage(2);
   }
   if (options.openBrowser && !options.selectedServices.has('webgui-service')) {
-    process.stderr.write('--open-browser requires selecting --webgui or --all.\n');
+    process.stderr.write(
+      '--open-browser requires selecting --webgui or --all.\n',
+    );
     usage(2);
   }
   if (options.yes && !options.dryRun && options.selectedServices.size === 0) {
@@ -365,8 +370,10 @@ function commandSucceeded(mode, payload, step = null) {
  */
 function runStep(cliPath, step, mode) {
   const completed = runLifecycleCommand([cliPath, ...step.command.slice(1)]);
-  const payload = completed.status === 0 ? parseJsonPayload(completed.stdout) : null;
-  const passed = completed.status === 0 && commandSucceeded(mode, payload, step);
+  const payload =
+    completed.status === 0 ? parseJsonPayload(completed.stdout) : null;
+  const passed =
+    completed.status === 0 && commandSucceeded(mode, payload, step);
   return {
     ...step,
     resolved_command: [cliPath, ...step.command.slice(1)],
@@ -407,8 +414,11 @@ function runStep(cliPath, step, mode) {
 function buildPayload(options) {
   const dryRun = !(options.yes && !options.dryRun);
   const cliPath = resolveAgenticTrader();
-  const plan = options.mode === 'start' ? startPlan(options) : stopPlan(options);
-  const selectedServices = SERVICE_IDS.filter((serviceId) => options.selectedServices.has(serviceId));
+  const plan =
+    options.mode === 'start' ? startPlan(options) : stopPlan(options);
+  const selectedServices = SERVICE_IDS.filter((serviceId) =>
+    options.selectedServices.has(serviceId),
+  );
   const results = [];
   let exitCode = 0;
   let attemptedMutation = false;
@@ -425,7 +435,12 @@ function buildPayload(options) {
       continue;
     }
     if (!cliPath) {
-      results.push(blockedStep(step, 'agentic-trader entrypoint was not found. Run make setup, then retry the lifecycle command.'));
+      results.push(
+        blockedStep(
+          step,
+          'agentic-trader entrypoint was not found. Run make setup, then retry the lifecycle command.',
+        ),
+      );
       exitCode = 1;
       continue;
     }
@@ -496,7 +511,12 @@ function renderHuman(payload) {
     process.stdout.write('selected: none\n');
   }
   for (const step of payload.steps) {
-    const marker = step.status === 'passed' ? 'ok' : step.status === 'failed' ? 'fail' : step.status;
+    const marker =
+      step.status === 'passed'
+        ? 'ok'
+        : step.status === 'failed'
+          ? 'fail'
+          : step.status;
     process.stdout.write(`${marker} ${step.id}: ${step.label}\n`);
     if (step.status === 'deferred' && step.reason) {
       process.stdout.write(`  ${step.reason}\n`);
@@ -506,7 +526,9 @@ function renderHuman(payload) {
     }
   }
   if (payload.dry_run) {
-    process.stdout.write(`Run pnpm run app:${payload.action} -- --webgui --yes to ${payload.action} the Web GUI service only.\n`);
+    process.stdout.write(
+      `Run pnpm run app:${payload.action} -- --webgui --yes to ${payload.action} the Web GUI service only.\n`,
+    );
   }
 }
 

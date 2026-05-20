@@ -10,7 +10,6 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 CHANGELOG = ROOT / "CHANGELOG.md"
 CATEGORIES = {
@@ -43,7 +42,9 @@ def _display_version(value: str) -> str:
 def changelog_has_version(text: str, version: str) -> bool:
     display = re.escape(_display_version(version))
     plain = re.escape(_display_version(version).removeprefix("v"))
-    return re.search(rf"^##\s+\[?(?:{display}|{plain})\]?", text, re.MULTILINE) is not None
+    return (
+        re.search(rf"^##\s+\[?(?:{display}|{plain})\]?", text, re.MULTILINE) is not None
+    )
 
 
 def _commit_category(subject: str) -> str | None:
@@ -72,9 +73,7 @@ def collect_commit_entries(*, since: str | None = None) -> dict[str, list[str]]:
     return dict(entries)
 
 
-def render_section(
-    *, version: str, date: str, entries: dict[str, list[str]]
-) -> str:
+def render_section(*, version: str, date: str, entries: dict[str, list[str]]) -> str:
     lines = [f"## {_display_version(version)} - {date}", ""]
     if not entries:
         lines.extend(["### Maintenance", "", "- Baseline release tag."])

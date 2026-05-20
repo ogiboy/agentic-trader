@@ -18,7 +18,13 @@ const SCOPE_IDS = [
   'webgui',
   'status',
 ];
-const OWNER_MODES = ['undecided', 'host-owned', 'app-owned', 'api-key-only', 'skipped'];
+const OWNER_MODES = [
+  'undecided',
+  'host-owned',
+  'app-owned',
+  'api-key-only',
+  'skipped',
+];
 
 /**
  * Print the CLI usage/help text and terminate the process.
@@ -150,11 +156,17 @@ function parseArgs(argv) {
       options.ownerOverrides.add('ollama');
       index = ollamaOwner.nextIndex;
     } else if (firecrawlOwner) {
-      options.owners.firecrawl = parseOwner(firecrawlOwner.value, '--firecrawl-owner');
+      options.owners.firecrawl = parseOwner(
+        firecrawlOwner.value,
+        '--firecrawl-owner',
+      );
       options.ownerOverrides.add('firecrawl');
       index = firecrawlOwner.nextIndex;
     } else if (camofoxOwner) {
-      options.owners.camofox = parseOwner(camofoxOwner.value, '--camofox-owner');
+      options.owners.camofox = parseOwner(
+        camofoxOwner.value,
+        '--camofox-owner',
+      );
       options.ownerOverrides.add('camofox');
       index = camofoxOwner.nextIndex;
     } else if (arg === '--core') {
@@ -194,11 +206,15 @@ function parseArgs(argv) {
   }
 
   if (options.openBrowser && !options.selectedScopes.has('webgui')) {
-    process.stderr.write('--open-browser requires selecting --webgui or --all.\n');
+    process.stderr.write(
+      '--open-browser requires selecting --webgui or --all.\n',
+    );
     usage(2);
   }
   if (options.yes && !options.dryRun && options.selectedScopes.size === 0) {
-    process.stderr.write('Select at least one app:up scope before using --yes.\n');
+    process.stderr.write(
+      'Select at least one app:up scope before using --yes.\n',
+    );
     usage(2);
   }
 
@@ -261,7 +277,8 @@ function upPlan(options) {
       ['pnpm', 'run', 'setup:research-flow'],
       'sidecar',
       {
-        reason: 'Sidecar remains isolated under sidecars/research_flow and is not imported by the core runtime.',
+        reason:
+          'Sidecar remains isolated under sidecars/research_flow and is not imported by the core runtime.',
       },
     ),
     upStep(
@@ -271,7 +288,8 @@ function upPlan(options) {
       'camofox-deps',
       {
         requiresOwner: { tool: 'camofox', mode: 'app-owned' },
-        reason: 'Camofox helper dependencies are repo-local app-owned tool infrastructure.',
+        reason:
+          'Camofox helper dependencies are repo-local app-owned tool infrastructure.',
       },
     ),
     upStep(
@@ -282,7 +300,8 @@ function upPlan(options) {
       {
         requiresOwner: { tool: 'camofox', mode: 'app-owned' },
         largeDownload: true,
-        reason: 'Browser binary fetch can be large and platform-specific, so it requires explicit --camofox-browser.',
+        reason:
+          'Browser binary fetch can be large and platform-specific, so it requires explicit --camofox-browser.',
       },
     ),
     upStep(
@@ -292,17 +311,27 @@ function upPlan(options) {
       'model-service',
       {
         requiresOwner: { tool: 'ollama', mode: 'app-owned' },
-        reason: 'Host-owned or skipped Ollama choices are respected and are never claimed by app:up.',
+        reason:
+          'Host-owned or skipped Ollama choices are respected and are never claimed by app:up.',
       },
     ),
     upStep(
       'camofox-service-start',
       'Start app-owned loopback Camofox helper service',
-      ['pnpm', 'run', 'app:start', '--', '--json', '--camofox-service', '--yes'],
+      [
+        'pnpm',
+        'run',
+        'app:start',
+        '--',
+        '--json',
+        '--camofox-service',
+        '--yes',
+      ],
       'camofox-service',
       {
         requiresOwner: { tool: 'camofox', mode: 'app-owned' },
-        reason: 'Camofox service start requires app-owned loopback/access-key readiness.',
+        reason:
+          'Camofox service start requires app-owned loopback/access-key readiness.',
       },
     ),
     upStep(
@@ -358,11 +387,16 @@ function safetyNotes() {
  */
 function ownerDecision(tool, mode) {
   const notes = {
-    'undecided': 'No ownership choice supplied yet; app:up will defer ownership-sensitive actions.',
-    'host-owned': 'Connect/readiness only; app:up must not start, stop, install, or delete this host-owned tool.',
-    'app-owned': 'App-owned setup/start may run only for explicitly selected scopes and records owner-only state through existing services.',
-    'api-key-only': 'Use ignored environment/keychain authentication only; no CLI install or service ownership is implied.',
-    skipped: 'Feature remains degraded/skipped while the paper-first product can still open.',
+    undecided:
+      'No ownership choice supplied yet; app:up will defer ownership-sensitive actions.',
+    'host-owned':
+      'Connect/readiness only; app:up must not start, stop, install, or delete this host-owned tool.',
+    'app-owned':
+      'App-owned setup/start may run only for explicitly selected scopes and records owner-only state through existing services.',
+    'api-key-only':
+      'Use ignored environment/keychain authentication only; no CLI install or service ownership is implied.',
+    skipped:
+      'Feature remains degraded/skipped while the paper-first product can still open.',
   };
   return {
     tool,
@@ -375,7 +409,7 @@ function ownerDecision(tool, mode) {
  * Builds the ownership decision records for the known tools.
  * @param {Object} options - CLI options and state.
  * @param {Object} options.owners - Mapping of tool -> ownership mode.
- * @returns {Array<Object>} An array of ownership decision objects (one each for `ollama`, `firecrawl`, and `camofox`). Each object has `tool`, `mode`, and `note` fields. 
+ * @returns {Array<Object>} An array of ownership decision objects (one each for `ollama`, `firecrawl`, and `camofox`). Each object has `tool`, `mode`, and `note` fields.
  */
 function ownershipDecisions(options) {
   return [
@@ -506,7 +540,8 @@ function blockedStep(step, reason) {
  */
 function runStep(step) {
   const completed = runLifecycleCommand(step.command, { cwd: step.cwd });
-  const payload = completed.status === 0 ? parseJsonPayload(completed.stdout) : null;
+  const payload =
+    completed.status === 0 ? parseJsonPayload(completed.stdout) : null;
   return {
     ...step,
     status: completed.status === 0 ? 'passed' : 'failed',
@@ -557,7 +592,12 @@ function buildPayload(options) {
     }
 
     if (previousFailure) {
-      steps.push(skippedStep(step, 'A previous selected app:up step failed or was blocked.'));
+      steps.push(
+        skippedStep(
+          step,
+          'A previous selected app:up step failed or was blocked.',
+        ),
+      );
       continue;
     }
 
@@ -645,7 +685,9 @@ function renderHuman(payload) {
     }
   }
   if (payload.dry_run) {
-    process.stdout.write('Run pnpm run app:up -- --all --yes for the safe first-run setup path.\n');
+    process.stdout.write(
+      'Run pnpm run app:up -- --all --yes for the safe first-run setup path.\n',
+    );
   }
 }
 

@@ -44,7 +44,12 @@ export function createFlyHelpers(config) {
       const tabId = req.params.tabId;
       if (!tabId || isLocalTab(tabId)) return next();
       const owner = parseTabOwner(tabId);
-      log('info', 'fly-replay', { reqId: req.reqId, tabId, owner, self: machineId });
+      log('info', 'fly-replay', {
+        reqId: req.reqId,
+        tabId,
+        owner,
+        self: machineId,
+      });
       res.set('fly-replay', `instance=${owner}`);
       res.status(307).send();
     };

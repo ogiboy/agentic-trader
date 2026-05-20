@@ -7,7 +7,10 @@ def test_repo_tool_paths_are_under_tools_root() -> None:
     root = tool_roots.repo_root()
 
     assert tool_roots.tools_root() == root / "tools"
-    assert tool_roots.repo_tool_path("camofox-browser") == root / "tools" / "camofox-browser"
+    assert (
+        tool_roots.repo_tool_path("camofox-browser")
+        == root / "tools" / "camofox-browser"
+    )
     assert tool_roots.repo_tool_path("ollama") == root / "tools" / "ollama"
     assert tool_roots.repo_tool_path("firecrawl") == root / "tools" / "firecrawl"
 
@@ -25,10 +28,13 @@ def test_resolve_configured_tool_path_keeps_absolute_path() -> None:
 
 
 def test_resolve_configured_tool_path_uses_repo_root_for_relative_path() -> None:
-    assert tool_roots.resolve_configured_tool_path(
-        "tools/camofox-browser",
-        default_tool="camofox-browser",
-    ) == tool_roots.repo_root() / "tools" / "camofox-browser"
+    assert (
+        tool_roots.resolve_configured_tool_path(
+            "tools/camofox-browser",
+            default_tool="camofox-browser",
+        )
+        == tool_roots.repo_root() / "tools" / "camofox-browser"
+    )
 
 
 def test_repo_tool_manifests_are_valid_json() -> None:
@@ -43,7 +49,7 @@ def test_repo_tool_manifests_are_valid_json() -> None:
 def test_local_tool_definitions_expose_runtime_consumers_and_fallbacks() -> None:
     """
     Validate local tool definitions expose expected status IDs, runtime consumers, fallback orders, and install hints.
-    
+
     Asserts that the ordered local tool definitions are ("ollama", "firecrawl", "camofox-browser") and checks:
     - "ollama" has status_tool_id "ollama_cli", includes "model-service" in consumers, and its first fallback is "app_managed_repo_config".
     - "firecrawl" has status_tool_id "firecrawl_cli", includes "researchd" in consumers, and its fallback_order contains "pure_python_or_js_fetcher".
@@ -64,9 +70,10 @@ def test_local_tool_definitions_expose_runtime_consumers_and_fallbacks() -> None
     assert definitions["camofox-browser"].status_tool_id == "camofox_browser"
     assert "camofox-service" in definitions["camofox-browser"].consumers
     assert definitions["camofox-browser"].fallback_order[0] == "repo_tools"
-    assert "pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts" in definitions[
-        "camofox-browser"
-    ].install_hint
+    assert (
+        "pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts"
+        in definitions["camofox-browser"].install_hint
+    )
     assert "npm install" not in definitions["camofox-browser"].install_hint
 
 

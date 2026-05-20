@@ -96,7 +96,14 @@ LOCAL_TOOL_DEFINITIONS: dict[LocalToolId, LocalToolDefinition] = {
         status_tool_id="camofox_browser",
         label="Camofox Browser",
         category="runtime_optional",
-        consumers=("setup", "researchd", "camofox-service", "operator-launcher", "qa", "docs"),
+        consumers=(
+            "setup",
+            "researchd",
+            "camofox-service",
+            "operator-launcher",
+            "qa",
+            "docs",
+        ),
         install_hint=(
             "Keep the optional browser helper under tools/camofox-browser, run "
             "`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`, "
@@ -174,7 +181,10 @@ def read_repo_tool_manifest(tool_id: LocalToolId) -> dict[str, Any] | None:
 def iter_local_tool_definitions() -> tuple[LocalToolDefinition, ...]:
     """Return all known optional local tools in stable display order."""
 
-    return tuple(LOCAL_TOOL_DEFINITIONS[tool_id] for tool_id in ("ollama", "firecrawl", "camofox-browser"))
+    return tuple(
+        LOCAL_TOOL_DEFINITIONS[tool_id]
+        for tool_id in ("ollama", "firecrawl", "camofox-browser")
+    )
 
 
 def local_tool_definition(tool_id: LocalToolId) -> LocalToolDefinition:
@@ -211,7 +221,7 @@ def local_tool_manifest_notes(tool_id: LocalToolId) -> list[str]:
 def local_tool_status_payload(tool_id: LocalToolId) -> LocalToolStatusPayload:
     """
     Builds the status payload for a repo-local optional helper tool.
-    
+
     Returns:
         payload (LocalToolStatusPayload): Dictionary containing status and manifest metadata:
             - `tool_id`: canonical local tool identifier.
@@ -235,7 +245,9 @@ def local_tool_status_payload(tool_id: LocalToolId) -> LocalToolStatusPayload:
     }
 
 
-def resolve_configured_tool_path(configured_path: str | Path, *, default_tool: LocalToolId) -> Path:
+def resolve_configured_tool_path(
+    configured_path: str | Path, *, default_tool: LocalToolId
+) -> Path:
     """Resolve a configured tool path relative to the repo root when needed."""
 
     path = Path(configured_path)

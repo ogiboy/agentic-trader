@@ -96,7 +96,9 @@ function parseArgs(argv) {
   }
 
   if (options.yes && !options.dryRun && options.selectedScopes.size === 0) {
-    process.stderr.write('Select at least one update scope before using --yes.\n');
+    process.stderr.write(
+      'Select at least one update scope before using --yes.\n',
+    );
     usage(2);
   }
 
@@ -172,10 +174,17 @@ function updatePlan() {
     updateStep(
       'camofox-tool-root',
       'Update optional Camofox helper package dependencies without fetching browser binaries',
-      ['pnpm', '--dir', 'tools/camofox-browser', '--ignore-workspace', 'update'],
+      [
+        'pnpm',
+        '--dir',
+        'tools/camofox-browser',
+        '--ignore-workspace',
+        'update',
+      ],
       'camofox',
       {
-        reason: 'Browser binary fetch remains explicit through fetch:camofox and is not part of app:update.',
+        reason:
+          'Browser binary fetch remains explicit through fetch:camofox and is not part of app:update.',
       },
     ),
     updateStep(
@@ -248,10 +257,7 @@ function selectSteps(plan, selectedScopes) {
 function plannedStep(step, selectedScopes) {
   return {
     ...step,
-    status:
-      selectedScopes.size === 0 || step.selected
-        ? 'planned'
-        : 'deferred',
+    status: selectedScopes.size === 0 || step.selected ? 'planned' : 'deferred',
     exit_code: null,
     stdout: '',
     stderr: '',
@@ -415,7 +421,9 @@ function renderHuman(payload) {
     }
   }
   if (payload.dry_run) {
-    process.stdout.write('Run pnpm run app:update -- --core --build --status --yes to execute a scoped update lane.\n');
+    process.stdout.write(
+      'Run pnpm run app:update -- --core --build --status --yes to execute a scoped update lane.\n',
+    );
   }
 }
 

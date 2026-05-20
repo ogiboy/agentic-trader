@@ -2235,7 +2235,8 @@ function StaticDashboardApp() {
 }
 
 const isDirectRun =
-  Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
+  Boolean(process.argv[1]) &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isDirectRun) {
   await import('ink').then(({ render }) => {

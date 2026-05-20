@@ -38,7 +38,6 @@ from agentic_trader.system.camofox_service import (
 from agentic_trader.system.tool_ownership import ownership_mode_for_tool
 from agentic_trader.system.tool_roots import local_tool_manifest_notes
 
-
 SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_COMPANY_FACTS_URL_TEMPLATE = (
     "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
@@ -100,8 +99,7 @@ class CommandRunner(Protocol):
         command: list[str],
         timeout_seconds: float,
         env: Mapping[str, str],
-    ) -> subprocess.CompletedProcess[str]:
-        ...
+    ) -> subprocess.CompletedProcess[str]: ...
 
 
 MINIMAL_COMMAND_ENV_KEYS = (
@@ -279,7 +277,9 @@ class SecEdgarSubmissionsProvider:
 
     @staticmethod
     def _watched_symbols(symbols: list[str]) -> list[str]:
-        return [symbol for symbol in (_normalize_symbol(item) for item in symbols) if symbol]
+        return [
+            symbol for symbol in (_normalize_symbol(item) for item in symbols) if symbol
+        ]
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -400,7 +400,7 @@ class FirecrawlNewsResearchProvider:
     ) -> None:
         """
         Initialize the FirecrawlNewsResearchProvider using application settings and optional execution/search hooks.
-        
+
         Parameters:
             settings (Settings): Configuration source for provider enablement, API key, CLI path, country, timeout, and ownership mode which influence network usage and CLI fallback behavior.
         """
@@ -522,13 +522,13 @@ class FirecrawlNewsResearchProvider:
     ) -> tuple[list[RawEvidenceRecord], list[str]]:
         """
         Attempt to obtain Firecrawl news for a single symbol using the CLI fallback and convert the CLI JSON output into evidence records.
-        
+
         If the provider is not allowed to run the CLI by ownership mode, if the CLI executable cannot be resolved, if the command fails, or if the CLI output cannot be parsed, this returns an empty record list and one or more provider-specific missing-reason strings describing the failure.
-        
+
         Parameters:
             symbol (str): Uppercased symbol to query.
             per_symbol_limit (int): Maximum number of records to produce for this symbol.
-        
+
         Returns:
             tuple[list[RawEvidenceRecord], list[str]]: A pair where the first element is the list of evidence records produced from the CLI payload (possibly empty), and the second element is a list of missing-reason strings (empty when records were produced successfully).
         """
@@ -584,12 +584,15 @@ class CamofoxBrowserResearchProvider:
         self._enabled = settings.research_camofox_enabled
         self._base_url = settings.research_camofox_base_url.rstrip("/")
         parsed_base_url = urlparse(self._base_url)
-        self._loopback_only = parsed_base_url.scheme in {"http", "https"} and is_loopback_host(
-            parsed_base_url.hostname or ""
-        )
+        self._loopback_only = parsed_base_url.scheme in {
+            "http",
+            "https",
+        } and is_loopback_host(parsed_base_url.hostname or "")
         self._timeout = min(max(settings.request_timeout_seconds, 1.0), 10.0)
         self._fetcher = health_fetcher or _fetch_camofox_health
-        self._service_status_builder = service_status_builder or build_camofox_service_status
+        self._service_status_builder = (
+            service_status_builder or build_camofox_service_status
+        )
         self._metadata = metadata(
             provider_id="camofox_browser_research",
             name="Camofox Browser Research",
@@ -741,10 +744,14 @@ def default_research_providers(settings: Settings) -> list[ResearchEvidenceProvi
     ]
 
 
-def provider_health_from_output(output: ResearchProviderOutput) -> ResearchProviderHealth:
+def provider_health_from_output(
+    output: ResearchProviderOutput,
+) -> ResearchProviderHealth:
     """Convert provider output into an operator-safe health summary."""
     meta = output.metadata
-    has_payload = bool(output.raw_evidence or output.macro_events or output.social_signals)
+    has_payload = bool(
+        output.raw_evidence or output.macro_events or output.social_signals
+    )
     freshness = "fresh" if has_payload else "missing"
     source_role = meta.role if has_payload else "missing"
     fetched_at = utc_now_iso() if has_payload else None
@@ -835,9 +842,7 @@ def _run_command(
 
 def _minimal_firecrawl_env(api_key: str | None = None) -> dict[str, str]:
     env = {
-        key: os.environ[key]
-        for key in MINIMAL_COMMAND_ENV_KEYS
-        if key in os.environ
+        key: os.environ[key] for key in MINIMAL_COMMAND_ENV_KEYS if key in os.environ
     }
     resolved_api_key = api_key or os.environ.get("FIRECRAWL_API_KEY")
     if resolved_api_key:
@@ -1366,11 +1371,14 @@ def _sec_missing_fields(
         missing_fields.append("report_date")
     if not primary_document:
         missing_fields.append("primary_document")
-    if _sec_archive_url(
-        cik=cik,
-        accession=accession,
-        primary_document=primary_document,
-    ) is None:
+    if (
+        _sec_archive_url(
+            cik=cik,
+            accession=accession,
+            primary_document=primary_document,
+        )
+        is None
+    ):
         missing_fields.append("url")
     return missing_fields
 
@@ -1417,7 +1425,9 @@ def _company_fact_candidates(
     return candidates
 
 
-def _usd_company_fact_items(concept_payload: object) -> list[tuple[str, dict[str, Any]]]:
+def _usd_company_fact_items(
+    concept_payload: object,
+) -> list[tuple[str, dict[str, Any]]]:
     units = _company_fact_units(concept_payload)
     if units is None:
         return []

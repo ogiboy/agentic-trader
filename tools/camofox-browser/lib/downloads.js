@@ -14,16 +14,19 @@ const MAX_DOWNLOAD_RECORDS_PER_TAB = 20;
 const MAX_DOWNLOAD_INLINE_BYTES = 20 * 1024 * 1024;
 
 function sanitizeFilename(value) {
-  return String(value || 'download.bin')
-    .replace(/[\\/:*?"<>|\u0000-\u001F]/g, '_')
-    .trim()
-    .slice(0, 200) || 'download.bin';
+  return (
+    String(value || 'download.bin')
+      .replace(/[\\/:*?"<>|\u0000-\u001F]/g, '_')
+      .trim()
+      .slice(0, 200) || 'download.bin'
+  );
 }
 
 function guessMimeTypeFromName(value) {
   const normalized = String(value || '').toLowerCase();
   if (normalized.endsWith('.png')) return 'image/png';
-  if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) return 'image/jpeg';
+  if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg'))
+    return 'image/jpeg';
   if (normalized.endsWith('.webp')) return 'image/webp';
   if (normalized.endsWith('.gif')) return 'image/gif';
   if (normalized.endsWith('.svg')) return 'image/svg+xml';
@@ -44,7 +47,9 @@ async function trimTabDownloads(tabState) {
 }
 
 async function clearTabDownloads(tabState) {
-  const entries = Array.isArray(tabState.downloads) ? [...tabState.downloads] : [];
+  const entries = Array.isArray(tabState.downloads)
+    ? [...tabState.downloads]
+    : [];
   tabState.downloads = [];
   await Promise.all(entries.map(removeDownloadFileIfPresent));
 }
@@ -66,12 +71,22 @@ function attachDownloadListener(tabState, tabId, log, pluginEvents, userId) {
 
   tabState.page.on('download', async (download) => {
     const downloadId = crypto.randomUUID();
-    const suggestedFilename = sanitizeFilename(download.suggestedFilename?.() || `download-${downloadId}.bin`);
-    const filePath = path.join(os.tmpdir(), `camofox-download-${downloadId}-${suggestedFilename}`);
+    const suggestedFilename = sanitizeFilename(
+      download.suggestedFilename?.() || `download-${downloadId}.bin`,
+    );
+    const filePath = path.join(
+      os.tmpdir(),
+      `camofox-download-${downloadId}-${suggestedFilename}`,
+    );
 
     const url = String(download.url?.() || '').trim();
     if (pluginEvents) {
-      pluginEvents.emit('tab:download:start', { userId: userId || null, tabId, filename: suggestedFilename, url });
+      pluginEvents.emit('tab:download:start', {
+        userId: userId || null,
+        tabId,
+        filename: suggestedFilename,
+        url,
+      });
     }
 
     let failure = null;
@@ -95,7 +110,8 @@ function attachDownloadListener(tabState, tabId, log, pluginEvents, userId) {
       tabState.visitedUrls.add(url);
     }
 
-    const mimeType = guessMimeTypeFromName(suggestedFilename) || guessMimeTypeFromName(url);
+    const mimeType =
+      guessMimeTypeFromName(suggestedFilename) || guessMimeTypeFromName(url);
     tabState.downloads.push({
       id: downloadId,
       tabId,
@@ -109,13 +125,24 @@ function attachDownloadListener(tabState, tabId, log, pluginEvents, userId) {
     });
 
     if (pluginEvents && !failure) {
-      pluginEvents.emit('tab:download:complete', { userId: userId || null, tabId, filename: suggestedFilename, path: filePath, size: bytes });
+      pluginEvents.emit('tab:download:complete', {
+        userId: userId || null,
+        tabId,
+        filename: suggestedFilename,
+        path: filePath,
+        size: bytes,
+      });
     }
 
     await trimTabDownloads(tabState);
     log('info', 'download captured', {
-      tabId, downloadId, suggestedFilename, mimeType, bytes,
-      hasUrl: Boolean(url), failure,
+      tabId,
+      downloadId,
+      suggestedFilename,
+      mimeType,
+      bytes,
+      hasUrl: Boolean(url),
+      failure,
     });
   });
 }
@@ -123,8 +150,13 @@ function attachDownloadListener(tabState, tabId, log, pluginEvents, userId) {
 /**
  * Build the response array for GET /tabs/:tabId/downloads.
  */
-async function getDownloadsList(tabState, { includeData = false, maxBytes = MAX_DOWNLOAD_INLINE_BYTES } = {}) {
-  const snapshot = Array.isArray(tabState.downloads) ? [...tabState.downloads] : [];
+async function getDownloadsList(
+  tabState,
+  { includeData = false, maxBytes = MAX_DOWNLOAD_INLINE_BYTES } = {},
+) {
+  const snapshot = Array.isArray(tabState.downloads)
+    ? [...tabState.downloads]
+    : [];
   const downloads = [];
 
   for (const entry of snapshot) {
@@ -146,7 +178,9 @@ async function getDownloadsList(tabState, { includeData = false, maxBytes = MAX_
           const raw = await fs.readFile(entry.filePath);
           item.dataBase64 = raw.toString('base64');
         } catch (err) {
-          item.readError = String(err?.message || err || 'download_read_failed');
+          item.readError = String(
+            err?.message || err || 'download_read_failed',
+          );
         }
       }
     }

@@ -30,8 +30,12 @@ export function createTabHealthTracker(page) {
     };
   }
 
-  page.on('crash', () => { health.crashes += 1; });
-  page.on('pageerror', () => { health.pageErrors += 1; });
+  page.on('crash', () => {
+    health.crashes += 1;
+  });
+  page.on('pageerror', () => {
+    health.pageErrors += 1;
+  });
   page.on('requestfailed', () => {
     health.requestFailures += 1;
     health.inflightRequests = Math.max(0, health.inflightRequests - 1);
@@ -41,7 +45,10 @@ export function createTabHealthTracker(page) {
     if (request.isNavigationRequest?.()) {
       if (request.redirectedFrom?.()) {
         health._redirectDepth += 1;
-        health.maxRedirectDepth = Math.max(health.maxRedirectDepth, health._redirectDepth);
+        health.maxRedirectDepth = Math.max(
+          health.maxRedirectDepth,
+          health._redirectDepth,
+        );
       } else {
         health._redirectDepth = 0;
         health.redirectStatusCodes = [];
@@ -55,12 +62,14 @@ export function createTabHealthTracker(page) {
   page.on('response', (response) => {
     try {
       const status = response.status();
-      if (status >= 400) health.statusCounts[status] = (health.statusCounts[status] || 0) + 1;
+      if (status >= 400)
+        health.statusCounts[status] = (health.statusCounts[status] || 0) + 1;
       const request = response.request?.();
       if (request?.isNavigationRequest?.()) {
         health.redirectStatusCodes.push(status);
         const contentLength = response.headers?.()['content-length'];
-        if (contentLength) health.lastNavResponseSize = parseInt(contentLength, 10) || 0;
+        if (contentLength)
+          health.lastNavResponseSize = parseInt(contentLength, 10) || 0;
       }
     } catch {
       // The page may have closed while Playwright was emitting the event.
@@ -84,7 +93,9 @@ export function createTabHealthTracker(page) {
       try {
         return await Promise.race([
           page.evaluate(() => document.readyState),
-          new Promise((resolve) => setTimeout(() => resolve('unresponsive'), 1000)),
+          new Promise((resolve) =>
+            setTimeout(() => resolve('unresponsive'), 1000),
+          ),
         ]);
       } catch {
         return 'unresponsive';

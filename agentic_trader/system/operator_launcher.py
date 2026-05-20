@@ -17,8 +17,14 @@ from pydantic import BaseModel, Field
 from agentic_trader.config import Settings
 from agentic_trader.runtime_feed import read_service_state
 from agentic_trader.runtime_status import is_process_alive
-from agentic_trader.system.camofox_service import CamofoxServiceStatus, build_camofox_service_status
-from agentic_trader.system.model_service import ModelServiceStatus, build_model_service_status
+from agentic_trader.system.camofox_service import (
+    CamofoxServiceStatus,
+    build_camofox_service_status,
+)
+from agentic_trader.system.model_service import (
+    ModelServiceStatus,
+    build_model_service_status,
+)
 from agentic_trader.system.setup import SetupStatus, build_setup_status
 from agentic_trader.system.webgui_service import (
     WebGUIServiceStatus,
@@ -72,7 +78,9 @@ def build_operator_launcher_status(settings: Settings) -> OperatorLauncherStatus
     """Build the status payload used by the primary launcher."""
 
     state = read_service_state(settings)
-    runtime_active = bool(state is not None and state.pid is not None and is_process_alive(state.pid))
+    runtime_active = bool(
+        state is not None and state.pid is not None and is_process_alive(state.pid)
+    )
     plan = RuntimeLaunchPlan()
     return OperatorLauncherStatus(
         runtime_active=runtime_active,

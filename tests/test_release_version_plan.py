@@ -12,10 +12,7 @@ from types import ModuleType
 
 def _load_version_plan() -> ModuleType:
     script_path = (
-        Path(__file__).resolve().parents[1]
-        / "scripts"
-        / "release"
-        / "version_plan.py"
+        Path(__file__).resolve().parents[1] / "scripts" / "release" / "version_plan.py"
     )
     spec = importlib.util.spec_from_file_location("version_plan", script_path)
     assert spec is not None
@@ -74,15 +71,18 @@ def test_tracked_product_versions_match_pyproject() -> None:
     pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     version = str(pyproject["project"]["version"])
 
-    assert json.loads((root / "package.json").read_text(encoding="utf-8"))[
-        "version"
-    ] == version
+    assert (
+        json.loads((root / "package.json").read_text(encoding="utf-8"))["version"]
+        == version
+    )
     for package_path in (
         root / "webgui" / "package.json",
         root / "docs" / "package.json",
         root / "tui" / "package.json",
     ):
-        assert json.loads(package_path.read_text(encoding="utf-8"))["version"] == version
+        assert (
+            json.loads(package_path.read_text(encoding="utf-8"))["version"] == version
+        )
 
     sidecar = tomllib.loads(
         (root / "sidecars" / "research_flow" / "pyproject.toml").read_text(
@@ -97,6 +97,6 @@ def test_tracked_product_versions_match_pyproject() -> None:
     assert match.group(1) == version
 
     release_config = pyproject["tool"]["semantic_release"]
-    assert "agentic_trader/__init__.py:__version__" in release_config[
-        "version_variables"
-    ]
+    assert (
+        "agentic_trader/__init__.py:__version__" in release_config["version_variables"]
+    )

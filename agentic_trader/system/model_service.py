@@ -34,6 +34,7 @@ from agentic_trader.system.tool_roots import local_tool_status_payload
 
 DEFAULT_APP_MANAGED_PORT = 11435
 APP_MANAGED_ORPHAN_PORTS = (DEFAULT_APP_MANAGED_PORT, *range(11436, 11466))
+KNOWN_OLLAMA_SERVICE_PORTS = (11434, *APP_MANAGED_ORPHAN_PORTS)
 LOCAL_HTTP_SCHEME = "http"
 LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
 DEFAULT_MODEL_CHOICES = (
@@ -61,6 +62,7 @@ class ModelServiceState(BaseModel):
     """Persisted state for an app-owned model-service process."""
 
     provider: str = "ollama"
+    owner: str | None = None
     pid: int
     host: str
     port: int
@@ -94,6 +96,7 @@ class ModelServiceStatus(BaseModel):
     generation_message: str | None = None
     available_models: list[str] = Field(default_factory=list)
     app_owned: bool = False
+    owner: str | None = None
     pid: int | None = None
     host: str | None = None
     port: int | None = None
@@ -108,6 +111,11 @@ class ModelServiceStatus(BaseModel):
         default_factory=lambda: list(DEFAULT_MODEL_CHOICES)
     )
     runtime_base_url_matches_app_service: bool = False
+
+    def is_owned_by_host(self, host_id: str) -> bool:
+        """Return true only when this app-owned status belongs to this runtime host."""
+
+        return self.app_owned and self.owner == host_id
 
 
 def model_service_dir(settings: Settings) -> Path:
@@ -165,7 +173,7 @@ def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
 def _api_root_from_base_url(base_url: str) -> str:
     """
     Normalize a base URL to its API root by removing a trailing `/v1` segment and extraneous trailing slashes.
-    
+
     Returns:
         The API root string with a trailing `/v1` removed if present and without trailing slashes. If `base_url` includes a scheme and netloc, the returned value preserves them (and any path preceding `/v1`); otherwise the function operates on the input as a path-like string.
     """
@@ -182,9 +190,9 @@ def _api_root_from_base_url(base_url: str) -> str:
 def _same_loopback_api_root(left: str, right: str) -> bool:
     """
     Determine whether two API base URLs refer to the same root by comparing scheme, effective port, and path, treating loopback hostnames (e.g., "localhost", "127.0.0.1", "::1") as interchangeable.
-    
+
     If either input lacks a URL scheme, the function falls back to a plain trailing-slash-insensitive string comparison. When a scheme is present, default ports (443 for https, 80 for http) are used if no port is specified.
-    
+
     Returns:
         `true` if the URLs represent the same API root under the rules above, `false` otherwise.
     """
@@ -210,7 +218,7 @@ def _same_loopback_api_root(left: str, right: str) -> bool:
 def _base_url(host: str, port: int) -> str:
     """
     Constructs an HTTP base URL from the given host and port.
-    
+
     Returns:
         The base URL string in the form `http://{host}:{port}`.
     """
@@ -278,19 +286,30 @@ def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
         pid_text, _, command_line = stripped.partition(" ")
         if not pid_text.isdigit():
             continue
-        normalized = command_line.replace("\\", "/").lower()
-        if "serve" not in normalized:
-            continue
-        if any(f"/{name} " in f"/{normalized}" for name in executable_names):
+        if _is_ollama_serve_command(command_line, executable_names):
             pids.append(int(pid_text))
     return sorted(set(pids) | set(_ollama_listener_pids_from_lsof()))
+
+
+def _is_ollama_serve_command(command_line: str, executable_names: set[str]) -> bool:
+    parts = command_line.replace("\\", "/").lower().split()
+    if len(parts) < 2:
+        return False
+    return Path(parts[0]).name in executable_names and parts[1] == "serve"
 
 
 def _ollama_listener_pids_from_lsof() -> list[int]:
     """Return Ollama listener PIDs without relying on process-list permissions."""
 
-    if sys.platform.startswith("win"):
+    output = _run_lsof_listener_scan()
+    if output is None:
         return []
+    return sorted(_parse_ollama_listener_pids(output))
+
+
+def _run_lsof_listener_scan() -> str | None:
+    if sys.platform.startswith("win"):
+        return None
     try:
         completed = subprocess.run(
             ["lsof", "-nP", "-iTCP", LSOF_LISTEN_FILTER, "-Fpcn"],
@@ -300,13 +319,17 @@ def _ollama_listener_pids_from_lsof() -> list[int]:
             check=False,
         )
     except Exception:
-        return []
+        return None
     if completed.returncode != 0:
-        return []
+        return None
+    return completed.stdout
+
+
+def _parse_ollama_listener_pids(output: str) -> set[int]:
     current_pid: int | None = None
     current_command: str | None = None
     pids: set[int] = set()
-    for line in completed.stdout.splitlines():
+    for line in output.splitlines():
         if line.startswith("p") and line[1:].isdigit():
             current_pid = int(line[1:])
             current_command = None
@@ -318,13 +341,18 @@ def _ollama_listener_pids_from_lsof() -> list[int]:
             continue
         endpoint = line[1:].strip()
         host, _, port_text = endpoint.rpartition(":")
-        if (
-            current_command == "ollama"
-            and port_text.isdigit()
-            and is_loopback_host(host)
-        ):
+        if _is_known_ollama_listener(current_command, host, port_text):
             pids.add(current_pid)
-    return sorted(pids)
+    return pids
+
+
+def _is_known_ollama_listener(command: str | None, host: str, port_text: str) -> bool:
+    port = int(port_text) if port_text.isdigit() else None
+    return (
+        command == "ollama"
+        and port in KNOWN_OLLAMA_SERVICE_PORTS
+        and is_loopback_host(host)
+    )
 
 
 def _listening_loopback_ports_for_pid(pid: int) -> set[int]:
@@ -721,14 +749,14 @@ def build_model_service_status(
 ) -> ModelServiceStatus:
     """
     Assemble the current operator-facing model-service status for the Ollama tool.
-    
+
     Reads persisted model-service state (if any), probes the configured or app-owned Ollama API for reachability and available models, optionally performs a short generation probe, and collects process, log-tail, and note information into a single read-only status payload.
-    
+
     Parameters:
         settings (Settings): Runtime settings used to derive configured base URL, configured model name, and state/log paths.
         tail_limit (int): Maximum number of lines to include for stdout/stderr tails.
         include_generation (bool): If True, perform a short generation request to verify model generation capability.
-    
+
     Returns:
         ModelServiceStatus: Read-only status payload containing command availability and path, configured base URL and model, service reachability, model availability, optional generation results, available model list, ownership and process/log details (pid, host, port, base_url, stdout/stderr paths and tails), notes, a user-facing message, and the persisted state file path.
     """
@@ -807,6 +835,7 @@ def build_model_service_status(
         generation_message=generation_message,
         available_models=models,
         app_owned=app_owned,
+        owner=app_state.owner if app_state is not None else None,
         pid=app_state.pid if app_state is not None else None,
         host=app_state.host if app_state is not None else None,
         port=app_state.port if app_state is not None else None,
@@ -870,6 +899,7 @@ def start_model_service(
             start_new_session=True,
         )
     state = ModelServiceState(
+        owner=settings.host_id,
         pid=process.pid,
         host=desired_host,
         port=chosen_port,

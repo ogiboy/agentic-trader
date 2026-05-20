@@ -152,9 +152,7 @@ def _score_mean_reversion(candidate: IdeaCandidate) -> tuple[float, list[str]]:
     score = 0.0
     reasons: list[str] = []
     if candidate.rsi is not None and candidate.rsi < 40:
-        score += (40 - candidate.rsi) * _mean_reversion_rsi_multiplier(
-            candidate.rsi
-        )
+        score += (40 - candidate.rsi) * _mean_reversion_rsi_multiplier(candidate.rsi)
         reasons.append(f"oversold_rsi={candidate.rsi:.1f}")
     for label, average in (("sma20", candidate.sma_20), ("sma50", candidate.sma_50)):
         if average is not None and candidate.price < average:

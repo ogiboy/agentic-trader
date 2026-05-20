@@ -177,8 +177,7 @@ def test_retrieve_similar_memories_prefers_closest_snapshot(tmp_path: Path) -> N
 def test_memory_vector_schema_migrates_legacy_rows(tmp_path: Path) -> None:
     database_path = tmp_path / "agentic_trader.duckdb"
     legacy = duckdb.connect(str(database_path))
-    legacy.execute(
-        """
+    legacy.execute("""
         create table memory_vectors (
             run_id varchar primary key,
             created_at varchar not null,
@@ -186,27 +185,22 @@ def test_memory_vector_schema_migrates_legacy_rows(tmp_path: Path) -> None:
             embedding_json varchar not null,
             document_text varchar not null
         )
-        """
-    )
-    legacy.execute(
-        """
+        """)
+    legacy.execute("""
         insert into memory_vectors (
             run_id, created_at, symbol, embedding_json, document_text
         )
         values ('legacy-run', '2026-04-15T00:00:00+00:00', 'AAPL', '[0.0]', 'legacy')
-        """
-    )
+        """)
     legacy.close()
     settings = Settings(runtime_dir=tmp_path, database_path=database_path)
 
     db = TradingDatabase(settings)
-    row = db.conn.execute(
-        """
+    row = db.conn.execute("""
         select embedding_provider, embedding_model, embedding_version, embedding_dimensions
         from memory_vectors
         where run_id = 'legacy-run'
-        """
-    ).fetchone()
+        """).fetchone()
 
     assert row is not None
     assert row[0] == "local_hashing"

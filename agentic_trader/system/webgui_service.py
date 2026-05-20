@@ -347,10 +347,10 @@ def _process_matches_state(state: WebGUIServiceState) -> bool:
 def _state_process_alive(state: WebGUIServiceState | None) -> bool:
     """
     Determine whether the persisted Web GUI state corresponds to a currently running, matching process.
-    
+
     Parameters:
         state (WebGUIServiceState | None): Persisted runtime state to verify.
-    
+
     Returns:
         `true` if `state` is not `None`, the recorded PID is alive, and the running process matches the recorded state; `false` otherwise.
     """
@@ -366,14 +366,14 @@ def _send_process_signal(
 ) -> bool:
     """
     Send a POSIX signal to a process or its process group.
-    
+
     Attempts to send `signal_number` to the process group of `pid` when `process_group=True` and the platform supports process-group signaling; otherwise sends the signal to the single process `pid`. Treats a missing process (ProcessLookupError) as success. Returns `True` if the signal was delivered or the target process was already absent, `False` if an operating-system error prevented sending the signal.
-    
+
     Parameters:
         pid (int): PID of the target process.
         signal_number (int): Numeric signal to send (e.g., `signal.SIGTERM`).
         process_group (bool): If `True`, attempt to signal the process group of `pid` instead of the single process; falls back to signaling the single process on failure.
-        
+
     Returns:
         bool: `True` if the signal was sent or the process was not found, `False` if an error prevented sending the signal.
     """
@@ -397,14 +397,14 @@ def _send_process_signal(
 def _verified_stop_pids(state: WebGUIServiceState) -> list[int]:
     """
     Identify PIDs associated with the recorded app-owned Web GUI that are safe to signal individually.
-    
+
     Inspects the provided persisted state and returns PIDs that are verified to belong to the Web GUI process:
     - Includes `state.pid` when the recorded process is alive and still matches the recorded state.
     - Includes `state.launcher_pid` when its command line indicates it belongs to the Web GUI and it is not already included.
-    
+
     Parameters:
         state (WebGUIServiceState): Persisted Web GUI service state to verify.
-    
+
     Returns:
         list[int]: Verified PIDs safe to signal individually; may be empty.
     """
@@ -422,7 +422,7 @@ def _verified_stop_pids(state: WebGUIServiceState) -> list[int]:
 def _send_state_signal(state: WebGUIServiceState, signal_number: int) -> bool:
     """
     Send the signal to the recorded process group, then to any verified child or launcher PIDs.
-    
+
     Returns:
         `true` if any signal was successfully sent, `false` otherwise.
     """
@@ -437,11 +437,11 @@ def _send_state_signal(state: WebGUIServiceState, signal_number: int) -> bool:
 def _wait_for_state_exit(state: WebGUIServiceState, *, timeout: float) -> bool:
     """
     Waits until the recorded Web GUI process is no longer alive or the timeout elapses.
-    
+
     Parameters:
         state (WebGUIServiceState): Persisted app-owned Web GUI state whose `pid` and process ownership are checked.
         timeout (float): Maximum number of seconds to wait.
-    
+
     Returns:
         bool: `true` if the process is no longer alive by the end of the wait, `false` otherwise.
     """
@@ -693,12 +693,12 @@ def start_webgui_service(
 def stop_webgui_service(settings: Settings) -> WebGUIServiceStatus:
     """
     Stop the app-owned Web GUI process recorded in persisted runtime state.
-    
+
     Attempts to gracefully stop the recorded app-owned process and removes the persisted state if the process is no longer alive. If the process cannot be stopped, the persisted state is preserved and the returned status contains a message indicating the preserved state for retry.
-    
+
     Parameters:
         settings (Settings): Runtime settings that determine state and storage paths.
-    
+
     Returns:
         WebGUIServiceStatus: Current service status after the stop attempt; when shutdown fails the status message indicates the state was preserved for retry.
     """

@@ -6,13 +6,19 @@ from typer.testing import CliRunner
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
+from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
-from agentic_trader.finance.proposals import create_trade_proposal, utc_now_iso
+from agentic_trader.finance.proposals import (
+    approve_trade_proposal,
+    create_trade_proposal,
+    utc_now_iso,
+)
 from agentic_trader.runtime_feed import (
     append_chat_history,
     research_cycle_control_path,
     research_digest_replay_path,
     research_latest_snapshot_path,
+    research_snapshots_path,
 )
 from agentic_trader.schemas import (
     AgentStageTrace,
@@ -23,6 +29,8 @@ from agentic_trader.schemas import (
     ManagerDecision,
     MarketSnapshot,
     OperatorInstruction,
+    PortfolioSnapshot,
+    PositionSnapshot,
     PreferenceUpdate,
     RegimeAssessment,
     ResearchCoordinatorBrief,
@@ -68,6 +76,8 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["broker-status", "-h"],
         ["finance-ops", "--help"],
         ["finance-ops", "-h"],
+        ["position-plan-repair", "--help"],
+        ["position-plan-repair", "-h"],
         ["provider-diagnostics", "--help"],
         ["provider-diagnostics", "-h"],
         ["v1-readiness", "--help"],
@@ -104,6 +114,12 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         ["webgui-service", "stop", "-h"],
         ["trade-proposals", "--help"],
         ["trade-proposals", "-h"],
+        ["proposal-candidates", "--help"],
+        ["proposal-candidates", "-h"],
+        ["proposal-candidate-create", "--help"],
+        ["proposal-candidate-create", "-h"],
+        ["proposal-candidate-promote", "--help"],
+        ["proposal-candidate-promote", "-h"],
         ["proposal-create", "--help"],
         ["proposal-create", "-h"],
         ["proposal-approve", "--help"],
@@ -797,14 +813,19 @@ def test_dashboard_snapshot_json(
     assert "webGui" in payload
     assert payload["broker"]["external_paper"] is False
     assert "healthcheck" in payload["broker"]
-    assert payload["providerDiagnostics"]["market_data"]["selected_provider"] == "yahoo_market"
+    assert (
+        payload["providerDiagnostics"]["market_data"]["selected_provider"]
+        == "yahoo_market"
+    )
     assert isinstance(payload["providerDiagnostics"]["warnings"], list)
     assert payload["v1Readiness"]["paper_operations"]["allowed"] is False
     assert payload["v1Readiness"]["alpaca_paper"]["ready"] is False
     provider_checked = runner.invoke(app, ["dashboard-snapshot", "--provider-check"])
     assert provider_checked.exit_code == 0
     provider_checked_payload = json.loads(provider_checked.stdout)
-    assert provider_checked_payload["v1Readiness"]["paper_operations"]["allowed"] is True
+    assert (
+        provider_checked_payload["v1Readiness"]["paper_operations"]["allowed"] is True
+    )
     assert (
         provider_checked_payload["v1Readiness"]["provider_health"]["message"] == "ready"
     )
@@ -1369,7 +1390,7 @@ def test_model_service_cli_json_commands(
 ) -> None:
     """
     Exercise the model-service CLI commands in JSON mode and verify their outputs.
-    
+
     Sets up temporary Settings and monkeypatches model service status builders and control functions, then invokes
     `model-service status`, `model-service status --probe-generation`, `model-service start`, `model-service stop`, and
     `model-service pull` in JSON mode and asserts:
@@ -1386,7 +1407,9 @@ def test_model_service_cli_json_commands(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     status_kwargs: list[dict[str, object]] = []
 
-    def fake_build_model_service_status(*_args: object, **kwargs: object) -> ModelServiceStatus:
+    def fake_build_model_service_status(
+        *_args: object, **kwargs: object
+    ) -> ModelServiceStatus:
         status_kwargs.append(kwargs)
         return _model_service_status_fixture()
 
@@ -1437,9 +1460,7 @@ def test_model_service_cli_json_commands(
     assert stop_result.exit_code == 0
     assert json.loads(stop_result.stdout)["app_owned"] is False
 
-    pull_result = runner.invoke(
-        app, ["model-service", "pull", "qwen3:8b", "--json"]
-    )
+    pull_result = runner.invoke(app, ["model-service", "pull", "qwen3:8b", "--json"])
     assert pull_result.exit_code == 0
     assert json.loads(pull_result.stdout)["model"] == "qwen3:8b"
 
@@ -1814,9 +1835,54 @@ def test_research_cycle_run_json_executes_bounded_evidence_only_cycle(
     assert payload["executions"][0]["digest"]["raw_web_text_injected"] is False
     assert payload["latest_digest"] == payload["executions"][-1]["digest"]
     assert payload["operator_control"]["status"] == "running"
-    assert payload["digest_replay"]["snapshot_id"] == payload["latest_digest"]["snapshot_id"]
+    assert (
+        payload["digest_replay"]["snapshot_id"]
+        == payload["latest_digest"]["snapshot_id"]
+    )
     assert research_digest_replay_path(settings).exists()
     assert research_latest_snapshot_path(settings).exists()
+    assert settings.database_path.exists() is False
+
+
+def test_research_cycle_run_replays_previous_snapshot_between_invocations(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL,MSFT,NVDA",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+    command = [
+        "research-cycle-run",
+        "--symbols",
+        "AAPL,MSFT,NVDA",
+        "--cycles",
+        "1",
+        "--cadence-seconds",
+        "1",
+        "--no-sleep",
+        "--json",
+    ]
+    first_result = runner.invoke(app, command)
+    first_payload = json.loads(first_result.stdout)
+    first_snapshot_id = first_payload["latest_digest"]["snapshot_id"]
+
+    second_result = runner.invoke(app, command)
+    second_payload = json.loads(second_result.stdout)
+    second_execution = second_payload["executions"][0]
+
+    assert first_result.exit_code == 0
+    assert second_result.exit_code == 0
+    assert second_execution["prior_snapshot_id"] == first_snapshot_id
+    assert second_execution["prior_digest_available"] is True
+    assert second_execution["source_health_delta"]["previous"]["missing"] == 7
+    assert "prior_research_snapshot_replayed" in second_execution["notes"]
+    assert len(research_snapshots_path(settings).read_text().splitlines()) == 2
     assert settings.database_path.exists() is False
 
 
@@ -2022,6 +2088,46 @@ def test_v1_readiness_json_reports_paper_and_alpaca_sections(
     )
 
 
+def test_v1_readiness_allows_alpaca_paper_backend_when_enabled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="configured",
+        alpaca_secret_key="configured",
+        alpaca_paper_trading_enabled=True,
+        live_execution_enabled=False,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.diagnostics.LocalLLM.health_check",
+        lambda self, **_kwargs: LLMHealthStatus(
+            provider="ollama",
+            base_url=self.settings.base_url,
+            model_name=self.settings.model_name,
+            service_reachable=True,
+            model_available=True,
+            generation_available=True,
+            message="ready",
+        ),
+    )
+
+    result = CliRunner().invoke(app, ["v1-readiness", "--provider-check", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["execution_backend"] == "alpaca_paper"
+    assert payload["paper_operations"]["allowed"] is True
+    assert payload["alpaca_paper"]["ready"] is True
+    assert any(
+        check["name"] == "paper_or_external_paper_backend" and check["passed"] is True
+        for check in payload["paper_operations"]["checks"]
+    )
+
+
 def test_finance_ops_json_reports_read_only_desk_checks(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -2045,7 +2151,11 @@ def test_finance_ops_json_reports_read_only_desk_checks(
     assert payload["accounting"]["currency"] == "USD"
     assert payload["accounting"]["mark_status"] == "mark_time_unavailable"
     assert payload["accounting"]["cost_model"]["fees"] == "not modeled"
-    assert payload["reconciliation"]["audit_policy"]["distinguish_zero_from_missing"] is True
+    assert (
+        payload["reconciliation"]["audit_policy"]["distinguish_zero_from_missing"]
+        is True
+    )
+    assert payload["positionPlanCoverage"]["missing_symbols"] == []
     assert any(
         item["name"] == "corporate_actions"
         for item in payload["accounting"]["ledger_categories"]
@@ -2055,6 +2165,177 @@ def test_finance_ops_json_reports_read_only_desk_checks(
         check["name"] == "paper_or_external_paper_only" and check["passed"] is True
         for check in payload["checks"]
     )
+
+
+def test_finance_ops_uses_alpaca_paper_adapter_account_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+        alpaca_api_key="configured",
+        alpaca_secret_key="configured",
+        alpaca_paper_trading_enabled=True,
+        live_execution_enabled=False,
+    )
+    settings.ensure_directories()
+    db = TradingDatabase(settings)
+    db.save_position_plan(
+        symbol="AAPL",
+        side="buy",
+        entry_price=190.0,
+        stop_loss=180.0,
+        take_profit=210.0,
+        max_holding_bars=20,
+        holding_bars=0,
+        invalidation_logic="QA adapter-backed position plan.",
+    )
+    db.close()
+
+    class FakeAlpacaPaperAdapter:
+        def get_account_state(self) -> PortfolioSnapshot:
+            return PortfolioSnapshot(
+                cash=99995.0,
+                market_value=5.0,
+                equity=100000.0,
+                realized_pnl=0.0,
+                unrealized_pnl=0.25,
+                open_positions=1,
+            )
+
+        def get_positions(self) -> list[PositionSnapshot]:
+            return [
+                PositionSnapshot(
+                    symbol="AAPL",
+                    quantity=0.025,
+                    average_price=190.0,
+                    market_price=200.0,
+                    market_value=5.0,
+                    unrealized_pnl=0.25,
+                )
+            ]
+
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "agentic_trader.cli.get_broker_adapter",
+        lambda **_kwargs: FakeAlpacaPaperAdapter(),
+    )
+
+    result = CliRunner().invoke(app, ["finance-ops", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["backend"] == "alpaca_paper"
+    assert payload["portfolio"]["source"] == "broker_adapter"
+    assert payload["portfolio"]["snapshot"]["market_value"] == pytest.approx(5.0)
+    assert payload["portfolio"]["positions"][0]["quantity"] == pytest.approx(0.025)
+    assert payload["positionPlanCoverage"]["source"] == "broker_adapter"
+    assert payload["positionPlanCoverage"]["open_symbols"] == ["AAPL"]
+    assert payload["positionPlanCoverage"]["missing_symbols"] == []
+    assert payload["riskReport"]["source"] == "broker_adapter"
+    assert payload["riskReport"]["report"]["market_value"] == pytest.approx(5.0)
+    assert payload["riskReport"]["report"]["top_position_symbols"] == ["AAPL"]
+
+
+def test_finance_ops_flags_open_positions_without_exit_plans(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+        live_execution_enabled=False,
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    db = TradingDatabase(settings)
+    PaperBroker(db, settings).place_order(
+        ExecutionIntent(
+            symbol="MSFT",
+            side="buy",
+            quantity=1,
+            reference_price=100,
+            confidence=0.7,
+            thesis="Legacy unmanaged position should block finance readiness.",
+            approved=True,
+            execution_backend="paper",
+            adapter_name="paper",
+        )
+    )
+    db.close()
+
+    result = CliRunner().invoke(app, ["finance-ops", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["ready"] is False
+    assert payload["positionPlanCoverage"]["missing_symbols"] == ["MSFT"]
+    assert any(
+        check["name"] == "open_position_exit_plans_visible" and check["passed"] is False
+        for check in payload["checks"]
+    )
+
+
+def test_position_plan_repair_cli_backfills_executed_proposal_plan(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.82,
+        thesis="Executed proposal without a persisted exit plan.",
+        stop_loss=95,
+        take_profit=110,
+    )
+    approve_trade_proposal(
+        db=db,
+        settings=settings,
+        proposal_id=proposal.proposal_id,
+        review_notes="repair fixture approval",
+    )
+    db.delete_position_plan("MSFT")
+    db.close()
+    runner = CliRunner()
+
+    dry_run = runner.invoke(app, ["position-plan-repair", "--json"])
+
+    assert dry_run.exit_code == 0
+    dry_payload = json.loads(dry_run.stdout)
+    assert dry_payload["applied"] is False
+    assert dry_payload["candidates"] == 1
+    assert dry_payload["repairs"][0]["proposal_id"] == proposal.proposal_id
+    dry_db = TradingDatabase(settings)
+    try:
+        assert dry_db.get_position_plan("MSFT") is None
+    finally:
+        dry_db.close()
+
+    applied = runner.invoke(app, ["position-plan-repair", "--apply", "--json"])
+
+    assert applied.exit_code == 0
+    apply_payload = json.loads(applied.stdout)
+    assert apply_payload["applied"] is True
+    assert apply_payload["created"] == 1
+    repaired_db = TradingDatabase(settings)
+    try:
+        plan = repaired_db.get_position_plan("MSFT")
+    finally:
+        repaired_db.close()
+    assert plan is not None
+    assert plan.stop_loss == pytest.approx(95)
+    assert plan.take_profit == pytest.approx(110)
 
 
 def test_trade_proposal_cli_create_list_reject_json(
@@ -2116,6 +2397,249 @@ def test_trade_proposal_cli_create_list_reject_json(
     assert rejected["rejection_reason"] == "operator declined"
 
 
+def test_proposal_candidate_cli_create_promote_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+
+    create_result = runner.invoke(
+        app,
+        [
+            "proposal-candidate-create",
+            "--symbol",
+            "AAPL",
+            "--preset",
+            "momentum",
+            "--price",
+            "190",
+            "--volume",
+            "5000000",
+            "--change-pct",
+            "6.2",
+            "--relative-volume",
+            "3.4",
+            "--rsi",
+            "63",
+            "--ema-9",
+            "184",
+            "--quantity",
+            "1",
+            "--stop-loss",
+            "182",
+            "--take-profit",
+            "205",
+            "--thesis",
+            "Momentum candidate with scanner evidence.",
+            "--freshness",
+            "same_session_quote",
+            "--json",
+        ],
+    )
+
+    assert create_result.exit_code == 0
+    candidate = json.loads(create_result.stdout)
+    assert candidate["status"] == "candidate"
+    assert candidate["signal"] == "buy"
+    assert candidate["proposal_id"] is None
+    assert candidate["evidence"]["authority"] == {
+        "broker_access": False,
+        "proposal_approval": False,
+        "manual_review_required": True,
+    }
+    canonical = candidate["evidence"]["canonical_analysis"]
+    assert canonical["available"] is True
+    assert canonical["policy"]["network_light_default"] is True
+    assert canonical["policy"]["fetch_provider_news"] is False
+    assert "fundamentals" in canonical["missing_sections"]
+    assert "news" in canonical["missing_sections"]
+
+    promote_result = runner.invoke(
+        app,
+        [
+            "proposal-candidate-promote",
+            candidate["candidate_id"],
+            "--review-notes",
+            "operator reviewed scanner evidence",
+            "--json",
+        ],
+    )
+
+    assert promote_result.exit_code == 0
+    promoted = json.loads(promote_result.stdout)
+    assert promoted["submitted_to_broker"] is False
+    assert promoted["candidate"]["status"] == "promoted"
+    assert promoted["proposal"]["status"] == "pending"
+    assert promoted["proposal"]["execution_order_id"] is None
+    assert candidate["candidate_id"] in promoted["proposal"]["review_notes"]
+    assert "missing_sections=" in promoted["proposal"]["review_notes"]
+
+    list_result = runner.invoke(app, ["proposal-candidates", "--json"])
+    assert list_result.exit_code == 0
+    listed = json.loads(list_result.stdout)
+    assert listed["available"] is True
+    assert listed["candidates"][0]["candidate_id"] == candidate["candidate_id"]
+
+
+def test_proposal_candidate_cli_blocks_watch_promotion_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+
+    create_result = runner.invoke(
+        app,
+        [
+            "proposal-candidate-create",
+            "--symbol",
+            "MSFT",
+            "--preset",
+            "volatile",
+            "--price",
+            "420",
+            "--volume",
+            "4000000",
+            "--change-pct",
+            "2.0",
+            "--relative-volume",
+            "2.5",
+            "--range-pct",
+            "8.0",
+            "--spread-pct",
+            "0.05",
+            "--json",
+        ],
+    )
+    assert create_result.exit_code == 0
+    candidate_id = json.loads(create_result.stdout)["candidate_id"]
+
+    promote_result = runner.invoke(
+        app,
+        ["proposal-candidate-promote", candidate_id, "--json"],
+    )
+
+    assert promote_result.exit_code == 2
+    error_payload = json.loads(promote_result.stdout)
+    assert "watch-only" in error_payload["error"]
+
+
+def test_trade_proposal_cli_create_rejects_invalid_symbol_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "proposal-create",
+            "--symbol",
+            "AAPL;BAD",
+            "--side",
+            "buy",
+            "--order-type",
+            "market",
+            "--notional",
+            "10",
+            "--reference-price",
+            "100",
+            "--confidence",
+            "0.8",
+            "--thesis",
+            "Invalid symbol smoke.",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert payload["error"] == "Trade proposals require a simple V1 US equity symbol."
+
+
+def test_trade_proposal_cli_create_limit_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+
+    create_result = runner.invoke(
+        app,
+        [
+            "proposal-create",
+            "--symbol",
+            "AAPL",
+            "--side",
+            "buy",
+            "--order-type",
+            "limit",
+            "--quantity",
+            "1",
+            "--limit-price",
+            "99.50",
+            "--reference-price",
+            "100",
+            "--confidence",
+            "0.8",
+            "--thesis",
+            "Limit proposal smoke.",
+            "--json",
+        ],
+    )
+
+    assert create_result.exit_code == 0
+    created = json.loads(create_result.stdout)
+    assert created["order_type"] == "limit"
+    assert created["limit_price"] == pytest.approx(99.5)
+
+    missing_price = runner.invoke(
+        app,
+        [
+            "proposal-create",
+            "--symbol",
+            "AAPL",
+            "--side",
+            "buy",
+            "--order-type",
+            "limit",
+            "--quantity",
+            "1",
+            "--reference-price",
+            "100",
+            "--confidence",
+            "0.8",
+            "--thesis",
+            "Limit proposal without price.",
+            "--json",
+        ],
+    )
+
+    assert missing_price.exit_code == 2
+    assert "limit_price" in json.loads(missing_price.stdout)["error"]
+
+
 def test_trade_proposal_cli_approve_json_records_paper_execution(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -2143,6 +2667,10 @@ def test_trade_proposal_cli_approve_json_records_paper_execution(
             "0.82",
             "--thesis",
             "Proposal approval smoke.",
+            "--stop-loss",
+            "95",
+            "--take-profit",
+            "110",
             "--json",
         ],
     )
@@ -2164,6 +2692,155 @@ def test_trade_proposal_cli_approve_json_records_paper_execution(
     assert payload["proposal"]["status"] == "executed"
     assert payload["outcome"]["status"] == "filled"
     assert payload["proposal"]["execution_order_id"] == payload["outcome"]["order_id"]
+
+
+def test_trade_proposal_cli_approve_blocks_missing_exit_controls(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+    create_result = runner.invoke(
+        app,
+        [
+            "proposal-create",
+            "--symbol",
+            "GOOG",
+            "--side",
+            "buy",
+            "--quantity",
+            "1",
+            "--reference-price",
+            "170",
+            "--confidence",
+            "0.72",
+            "--thesis",
+            "Missing risk controls should block approval.",
+            "--json",
+        ],
+    )
+    proposal_id = json.loads(create_result.stdout)["proposal_id"]
+
+    approve_result = runner.invoke(
+        app,
+        [
+            "proposal-approve",
+            proposal_id,
+            "--review-notes",
+            "operator attempted unsafe approval",
+            "--json",
+        ],
+    )
+
+    assert approve_result.exit_code == 2
+    error_payload = json.loads(approve_result.stdout)
+    assert "requires stop_loss and take_profit" in error_payload["error"]
+    list_result = runner.invoke(app, ["trade-proposals", "--json"])
+    payload = json.loads(list_result.stdout)
+    assert payload["proposals"][0]["status"] == "pending"
+    assert payload["proposals"][0]["execution_order_id"] is None
+
+
+def test_trade_proposal_cli_refresh_missing_stays_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+    )
+    settings.ensure_directories()
+    TradingDatabase(settings).close()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["proposal-refresh", "proposal-missing", "--json"])
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert payload["error"] == "Trade proposal not found: proposal-missing"
+
+
+def test_trade_proposal_cli_refresh_redacts_json_errors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="alpaca_paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    def fail_refresh(**_kwargs):
+        raise RuntimeError("BROKER_TOKEN=secret-value failed")
+
+    monkeypatch.setattr("agentic_trader.cli.refresh_trade_proposal_order", fail_refresh)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "proposal-refresh",
+            "proposal-1",
+            "--review-notes",
+            "broker status check",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert json.loads(result.stdout) == {
+        "error": "BROKER_TOKEN=<redacted> failed",
+    }
+
+
+def test_trade_proposal_cli_reconcile_terminal_error_stays_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        execution_backend="paper",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+    db = TradingDatabase(settings)
+    proposal = create_trade_proposal(
+        db=db,
+        symbol="MSFT",
+        side="buy",
+        quantity=1,
+        reference_price=100,
+        confidence=0.82,
+        thesis="Already terminal proposal.",
+        stop_loss=95,
+        take_profit=110,
+    )
+    approve_trade_proposal(
+        db=db,
+        settings=settings,
+        proposal_id=proposal.proposal_id,
+        review_notes="terminal fixture approval",
+    )
+    db.close()
+
+    reconcile_result = CliRunner().invoke(
+        app,
+        [
+            "proposal-reconcile",
+            proposal.proposal_id,
+            "--json",
+        ],
+    )
+
+    assert reconcile_result.exit_code == 2
+    error_payload = json.loads(reconcile_result.stdout)
+    assert "already terminal" in error_payload["error"]
 
 
 def test_trade_proposal_cli_reconcile_json_repairs_without_resubmission(
@@ -2302,9 +2979,7 @@ def test_strategy_catalog_and_news_intelligence_cli_json() -> None:
     )
     assert all(item["status"] == "implemented" for item in catalog_payload["profiles"])
 
-    profile_result = runner.invoke(
-        app, ["strategy-profile", "vwap-breakout", "--json"]
-    )
+    profile_result = runner.invoke(app, ["strategy-profile", "vwap-breakout", "--json"])
     assert profile_result.exit_code == 0
     profile_payload = json.loads(profile_result.stdout)
     assert profile_payload["profile"]["family"] == "breakout"

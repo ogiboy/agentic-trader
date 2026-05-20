@@ -29,11 +29,11 @@ from agentic_trader.system.tool_ownership import write_tool_ownership
 def _settings(tmp_path, **overrides) -> Settings:
     """
     Builds a Settings instance rooted at the given temporary path and ensures required directories exist.
-    
+
     Parameters:
         tmp_path (pathlib.Path): Base directory used for runtime, database, and market data cache.
         **overrides: Additional Settings fields to override the defaults (e.g., mode flags or provider toggles).
-    
+
     Returns:
         Settings: A Settings object with runtime_dir set to tmp_path, database_path set to tmp_path / "agentic_trader.duckdb", market_data_cache_dir set to tmp_path / "market_cache", and required directories created.
     """
@@ -50,10 +50,10 @@ def _settings(tmp_path, **overrides) -> Settings:
 def _host_owned_firecrawl(settings: Settings) -> Settings:
     """
     Mark the Firecrawl tool as host-owned in the provided settings and return the updated settings.
-    
+
     Parameters:
         settings (Settings): Settings object to update.
-    
+
     Returns:
         Settings: The same Settings instance with Firecrawl ownership set to "host-owned".
     """
@@ -68,11 +68,11 @@ def _camofox_service_status(
 ) -> CamofoxServiceStatus:
     """
     Builds a test CamofoxServiceStatus representing a local Camofox browser service.
-    
+
     Parameters:
         app_owned (bool): If True, mark the service as launched by the application and include a PID.
         health_ok (bool): If True, indicate the browser health is OK; otherwise indicate a browser launch failure.
-    
+
     Returns:
         CamofoxServiceStatus: A status object configured for loopback host 127.0.0.1:9377 with service reachability set and a message reflecting health.
     """
@@ -92,7 +92,11 @@ def _camofox_service_status(
         health_ok=health_ok,
         state_path="/tmp/camofox_service.json",
         tool_dir="/repo/tools/camofox-browser",
-        message="ok" if health_ok else "Camofox server is reachable, but browser launch is failing.",
+        message=(
+            "ok"
+            if health_ok
+            else "Camofox server is reachable, but browser launch is failing."
+        ),
     )
 
 
@@ -109,7 +113,9 @@ def test_research_sidecar_defaults_to_disabled(tmp_path) -> None:
     assert state.source_health_summary["missing"] >= 1
 
 
-def test_enabled_research_sidecar_uses_scaffolds_without_fake_evidence(tmp_path) -> None:
+def test_enabled_research_sidecar_uses_scaffolds_without_fake_evidence(
+    tmp_path,
+) -> None:
     settings = _settings(
         tmp_path,
         research_mode="training",
@@ -370,7 +376,7 @@ def test_sec_edgar_provider_requires_explicit_user_agent(tmp_path) -> None:
 def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(tmp_path) -> None:
     """
     Verifies the Firecrawl news provider is opt-in and reports appropriate missing reasons when the CLI or host-owned tool is not available.
-    
+
     This test checks three scenarios:
     1. With no API key and default settings the provider is disabled and reports `"provider_disabled"`, and its metadata notes include `local_tool_id=firecrawl`.
     2. When enabled via settings but the configured CLI path is missing, the provider reports a fallback-missing reason containing `"firecrawl_cli_fallback_disabled:undecided"` and returns no raw evidence.
@@ -443,8 +449,7 @@ def test_firecrawl_news_provider_sanitizes_search_results(
                         "source": "Example News",
                         "publishedAt": "2026-05-01T10:00:00Z",
                         "snippet": (
-                            "Apple supplier update. "
-                            "FIRECRAWL_API_KEY=fake-token"
+                            "Apple supplier update. " "FIRECRAWL_API_KEY=fake-token"
                         ),
                     }
                 ]
@@ -481,7 +486,7 @@ def test_firecrawl_news_provider_ignores_raw_body_fields(
 ) -> None:
     """
     Verifies that Firecrawl provider discards raw `markdown`/`content` fields and does not use them as the normalized summary.
-    
+
     Creates a host-owned Firecrawl configuration with a CLI-based command runner that returns a payload containing `markdown` and `content` fields; asserts the provider produces one raw evidence record whose `normalized_summary` is empty and whose `missing_fields` includes `"summary"`.
     """
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
@@ -498,12 +503,12 @@ def test_firecrawl_news_provider_ignores_raw_body_fields(
     ) -> subprocess.CompletedProcess[str]:
         """
         Simulate a subprocess runner for tests that returns a successful CompletedProcess with a JSON web payload.
-        
+
         Parameters:
             command (list[str]): Ignored command list used to construct the CompletedProcess.
             timeout_seconds (float): Ignored timeout value.
             env (Mapping[str, str]): Ignored environment mapping.
-        
+
         Returns:
             subprocess.CompletedProcess[str]: CompletedProcess with returncode 0, stdout containing a JSON object with a single `data.web` entry (fields: `title`, `url`, `source`, `publishedAt`, `markdown`, `content`), and empty stderr.
         """
@@ -522,9 +527,13 @@ def test_firecrawl_news_provider_ignores_raw_body_fields(
                 ]
             }
         }
-        return subprocess.CompletedProcess(command, 0, stdout=json.dumps(payload), stderr="")
+        return subprocess.CompletedProcess(
+            command, 0, stdout=json.dumps(payload), stderr=""
+        )
 
-    provider = FirecrawlNewsResearchProvider(settings=settings, command_runner=fake_runner)
+    provider = FirecrawlNewsResearchProvider(
+        settings=settings, command_runner=fake_runner
+    )
 
     output = provider.collect(symbols=["AAPL"], limit=3)
 
@@ -595,7 +604,7 @@ def test_firecrawl_news_provider_redacts_nonzero_stderr(
     ) -> subprocess.CompletedProcess[str]:
         """
         Test command runner that simulates a subprocess failing with an authorization token emitted on stderr.
-        
+
         Returns:
             CompletedProcess[str]: A completed process with return code `2`, empty `stdout`, and `stderr` set to `"Authorization: fake-token"`.
         """
@@ -731,7 +740,9 @@ def test_camofox_browser_provider_respects_app_owned_browser_launch_failure(
     settings = _settings(tmp_path, research_camofox_enabled=True)
 
     def fake_health(url: str, timeout_seconds: float) -> dict[str, object]:
-        raise AssertionError(f"browser-launch-failed Camofox should not be fetched: {url}")
+        raise AssertionError(
+            f"browser-launch-failed Camofox should not be fetched: {url}"
+        )
 
     provider = CamofoxBrowserResearchProvider(
         settings=settings,
@@ -770,7 +781,9 @@ def test_camofox_browser_provider_rejects_non_loopback_url(tmp_path) -> None:
     assert output.missing_reasons == ["camofox_base_url_must_be_loopback"]
 
 
-def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(tmp_path) -> None:
+def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(
+    tmp_path,
+) -> None:
     settings = _settings(
         tmp_path,
         research_sec_edgar_enabled=True,
@@ -950,11 +963,13 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(tmp_path)
     assert record.entity_name == "Apple Inc."
     assert record.region == "US"
     assert (
-        record.url
-        == "https://www.sec.gov/Archives/edgar/data/320193/"
+        record.url == "https://www.sec.gov/Archives/edgar/data/320193/"
         "000032019324000123/aapl-20240928.htm"
     )
-    assert record.source_payload_ref == "sec-submissions://CIK0000320193/0000320193-24-000123"
+    assert (
+        record.source_payload_ref
+        == "sec-submissions://CIK0000320193/0000320193-24-000123"
+    )
     assert "Filing text and XBRL facts were not downloaded" in (
         record.evidence_vs_inference.uncertainty[0]
     )

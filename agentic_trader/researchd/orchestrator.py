@@ -88,9 +88,7 @@ def utc_now_iso() -> str:
 def parse_research_symbols(raw_symbols: str) -> list[str]:
     """Parse comma-separated watch symbols from settings."""
     return [
-        symbol.strip().upper()
-        for symbol in raw_symbols.split(",")
-        if symbol.strip()
+        symbol.strip().upper() for symbol in raw_symbols.split(",") if symbol.strip()
     ]
 
 
@@ -253,8 +251,7 @@ class CrewAiResearchBackend:
             "mode": settings.research_mode,
             "symbols": symbols,
             "provider_outputs": [
-                self._provider_output_payload(output)
-                for output in provider_outputs
+                self._provider_output_payload(output) for output in provider_outputs
             ],
         }
         env = _sidecar_process_env()

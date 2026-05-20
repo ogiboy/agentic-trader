@@ -17,8 +17,12 @@ from agentic_trader.researchd.orchestrator import (
     utc_now_iso,
 )
 from agentic_trader.researchd.persistence import persist_research_result
-from agentic_trader.runtime_feed import write_research_digest_replay
-from agentic_trader.schemas import ResearchDigestReplayRecord
+from agentic_trader.runtime_feed import (
+    read_latest_research_snapshot,
+    read_research_digest_replay,
+    write_research_digest_replay,
+)
+from agentic_trader.schemas import ResearchDigestReplayRecord, ResearchSnapshotRecord
 
 SleepFn = Callable[[float], None]
 
@@ -57,6 +61,8 @@ class ResearchCycleExecution:
     raw_evidence_count: int
     macro_event_count: int
     social_signal_count: int
+    prior_snapshot_id: str | None = None
+    prior_digest_available: bool = False
     persisted_snapshot_id: str | None = None
     next_run_at: str | None = None
     preflight: dict[str, object] = field(default_factory=dict)
@@ -76,6 +82,8 @@ class ResearchCycleExecution:
             "raw_evidence_count": self.raw_evidence_count,
             "macro_event_count": self.macro_event_count,
             "social_signal_count": self.social_signal_count,
+            "prior_snapshot_id": self.prior_snapshot_id,
+            "prior_digest_available": self.prior_digest_available,
             "persisted_snapshot_id": self.persisted_snapshot_id,
             "next_run_at": self.next_run_at,
             "preflight": dict(self.preflight),
@@ -110,44 +118,21 @@ def run_research_cycle(
         sleep_between_cycles=sleep_between_cycles,
     )
     settings.research_symbols = ",".join(resolved.symbols)
+    prior_snapshot = read_latest_research_snapshot(settings)
+    prior_digest = read_research_digest_replay(settings)
     plan = research_cycle_plan_payload(
         symbols=resolved.symbols,
         cadence_seconds=resolved.safe_cadence,
         max_proposals_per_cycle=resolved.max_proposals_per_cycle,
     )
     operator_control = get_research_cycle_control(settings)
-    executions: list[ResearchCycleExecution] = []
-    previous_source_health: dict[str, int] = {}
-    for index in range(resolved.safe_cycles):
-        started_at = utc_now_iso()
-        result = ResearchSidecar(settings).collect_once()
-        record = persist_research_result(settings, result) if resolved.persist else None
-        completed_at = utc_now_iso()
-        is_final_cycle = index == resolved.safe_cycles - 1
-        next_run_at = (
-            _iso_after(completed_at, resolved.safe_cadence)
-            if resolved.sleep_between_cycles and not is_final_cycle
-            else None
-        )
-        source_health_summary = dict(result.state.source_health_summary)
-        executions.append(
-            _build_research_cycle_execution(
-                settings=settings,
-                result=result,
-                record_snapshot_id=record.snapshot_id if record is not None else None,
-                cycle_index=index + 1,
-                started_at=started_at,
-                completed_at=completed_at,
-                next_run_at=next_run_at,
-                previous_source_health=previous_source_health,
-                cadence_seconds=resolved.safe_cadence,
-                sleep_between_cycles=resolved.sleep_between_cycles,
-            )
-        )
-        previous_source_health = source_health_summary
-        if resolved.sleep_between_cycles and index < resolved.safe_cycles - 1:
-            sleep_fn(float(resolved.safe_cadence))
-
+    executions = _execute_research_cycles(
+        settings=settings,
+        resolved=resolved,
+        prior_snapshot=prior_snapshot,
+        prior_digest_available=prior_digest is not None,
+        sleep_fn=sleep_fn,
+    )
     latest_digest = executions[-1].digest if executions else {}
     execution_policy = _execution_policy_payload()
     digest_replay = ResearchDigestReplayRecord(
@@ -159,7 +144,9 @@ def run_research_cycle(
             else None
         ),
         mode=settings.research_mode,
-        backend=executions[-1].backend if executions else settings.research_sidecar_backend,
+        backend=(
+            executions[-1].backend if executions else settings.research_sidecar_backend
+        ),
         watched_symbols=list(resolved.symbols),
         digest=dict(latest_digest),
         executions=[execution.to_payload() for execution in executions],
@@ -187,6 +174,88 @@ def run_research_cycle(
         "latest_digest": latest_digest,
         "executions": [execution.to_payload() for execution in executions],
     }
+
+
+def _execute_research_cycles(
+    *,
+    settings: Settings,
+    resolved: _ResolvedResearchCycleRequest,
+    prior_snapshot: ResearchSnapshotRecord | None,
+    prior_digest_available: bool,
+    sleep_fn: SleepFn,
+) -> list[ResearchCycleExecution]:
+    executions: list[ResearchCycleExecution] = []
+    previous_source_health = _source_health_from_snapshot(prior_snapshot)
+    previous_snapshot_id = (
+        prior_snapshot.snapshot_id if prior_snapshot is not None else None
+    )
+    has_previous_digest = prior_digest_available
+    for index in range(resolved.safe_cycles):
+        execution, record, source_health = _run_one_research_cycle(
+            settings=settings,
+            resolved=resolved,
+            cycle_index=index,
+            previous_source_health=previous_source_health,
+            previous_snapshot_id=previous_snapshot_id,
+            previous_digest_available=has_previous_digest,
+        )
+        executions.append(execution)
+        previous_source_health = source_health
+        previous_snapshot_id = record.snapshot_id if record is not None else None
+        has_previous_digest = resolved.persist
+        if resolved.sleep_between_cycles and index < resolved.safe_cycles - 1:
+            sleep_fn(float(resolved.safe_cadence))
+    return executions
+
+
+def _run_one_research_cycle(
+    *,
+    settings: Settings,
+    resolved: _ResolvedResearchCycleRequest,
+    cycle_index: int,
+    previous_source_health: dict[str, int],
+    previous_snapshot_id: str | None,
+    previous_digest_available: bool,
+) -> tuple[ResearchCycleExecution, ResearchSnapshotRecord | None, dict[str, int]]:
+    started_at = utc_now_iso()
+    result = ResearchSidecar(settings).collect_once()
+    record = persist_research_result(settings, result) if resolved.persist else None
+    completed_at = utc_now_iso()
+    next_run_at = _next_cycle_run_at(
+        completed_at=completed_at,
+        cycle_index=cycle_index,
+        safe_cycles=resolved.safe_cycles,
+        safe_cadence=resolved.safe_cadence,
+        sleep_between_cycles=resolved.sleep_between_cycles,
+    )
+    execution = _build_research_cycle_execution(
+        settings=settings,
+        result=result,
+        record_snapshot_id=record.snapshot_id if record is not None else None,
+        cycle_index=cycle_index + 1,
+        started_at=started_at,
+        completed_at=completed_at,
+        next_run_at=next_run_at,
+        previous_source_health=previous_source_health,
+        previous_snapshot_id=previous_snapshot_id,
+        previous_digest_available=previous_digest_available,
+        cadence_seconds=resolved.safe_cadence,
+        sleep_between_cycles=resolved.sleep_between_cycles,
+    )
+    return execution, record, dict(result.state.source_health_summary)
+
+
+def _next_cycle_run_at(
+    *,
+    completed_at: str,
+    cycle_index: int,
+    safe_cycles: int,
+    safe_cadence: int,
+    sleep_between_cycles: bool,
+) -> str | None:
+    if not sleep_between_cycles or cycle_index == safe_cycles - 1:
+        return None
+    return _iso_after(completed_at, safe_cadence)
 
 
 def _resolve_research_cycle_request(
@@ -237,6 +306,8 @@ def _build_research_cycle_execution(
     completed_at: str,
     next_run_at: str | None,
     previous_source_health: dict[str, int],
+    previous_snapshot_id: str | None,
+    previous_digest_available: bool,
     cadence_seconds: int,
     sleep_between_cycles: bool,
 ) -> ResearchCycleExecution:
@@ -251,6 +322,8 @@ def _build_research_cycle_execution(
         raw_evidence_count=len(result.raw_evidence),
         macro_event_count=len(result.macro_events),
         social_signal_count=len(result.social_signals),
+        prior_snapshot_id=previous_snapshot_id,
+        prior_digest_available=previous_digest_available,
         persisted_snapshot_id=record_snapshot_id,
         next_run_at=next_run_at,
         preflight=_preflight_payload(
@@ -271,16 +344,37 @@ def _build_research_cycle_execution(
             result=result,
             snapshot_id=record_snapshot_id,
         ),
-        notes=_research_cycle_notes(settings),
+        notes=_research_cycle_notes(
+            settings,
+            prior_snapshot_id=previous_snapshot_id,
+            prior_digest_available=previous_digest_available,
+        ),
     )
 
 
-def _research_cycle_notes(settings: Settings) -> list[str]:
+def _source_health_from_snapshot(
+    record: ResearchSnapshotRecord | None,
+) -> dict[str, int]:
+    if record is None:
+        return {}
+    return dict(record.state.source_health_summary)
+
+
+def _research_cycle_notes(
+    settings: Settings,
+    *,
+    prior_snapshot_id: str | None,
+    prior_digest_available: bool,
+) -> list[str]:
     notes = [
         "broker_access=false",
         "proposal_approval=false",
         "raw_web_text_in_core_prompt=false",
     ]
+    if prior_snapshot_id is not None:
+        notes.append("prior_research_snapshot_replayed")
+    if prior_digest_available:
+        notes.append("prior_digest_replay_available")
     if not settings.research_sidecar_enabled or settings.research_mode == "off":
         notes.append("research_sidecar_disabled")
     return notes

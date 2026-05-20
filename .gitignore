@@ -36,6 +36,9 @@ tui/.env
 .ai/qa/artifacts/tmux-*
 .ai/qa/artifacts/edge-*
 .ai/qa/artifacts/evidence-*
+.ai/qa/artifacts/*v1-paper-desk*/
+.ai/qa/artifacts/*v1-candidate*/
+.ai/qa/artifacts/*v1-provider*/
 .ai/qa/artifacts/webgui-visual-*
 .sonarlint/connectedMode.json
 ruvector.db
@@ -106,6 +109,9 @@ htmlcov/
 .ai/qa/artifacts/ollama-*/
 /.claude/
 /.claude-flow/
+/.ruflo/
 /.swarm/
 /.mcp.json
 /CLAUDE.md
+
+/.playwright-cli/

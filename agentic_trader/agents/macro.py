@@ -3,7 +3,6 @@ from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import AgentContext, MacroAssessment, MarketSnapshot
 
-
 MACRO_PROVIDER_UNAVAILABLE_REASON = (
     "Structured macro/news provider data is unavailable."
 )
