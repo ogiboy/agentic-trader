@@ -59,7 +59,7 @@ Status: in progress.
 - [x] let the user choose regions, exchanges, currencies, sectors, and default strategy posture
 - [x] let the user define portfolio preferences from the TUI instead of editing files
 - [x] let the user choose high-level investment behavior presets from curated options rather than raw free-form config only
-- [ ] prepare a future model/provider menu so Ollama, remote APIs, and agent profiles can be switched from the operator surface
+- [ ] prepare a future model/provider menu so Ollama, LM Studio/OpenAI-compatible endpoints, remote APIs, and agent profiles can be switched from the operator surface
 - [x] introduce memory injection into market context so agents can retrieve historically similar regimes and conditions
 - [x] ensure all external knowledge such as news, events, and macro signals is accessed only via tools rather than being assumed by the model
       Notes:
@@ -332,12 +332,13 @@ Status: completed.
 Status: in progress.
 
 - [x] expand `scripts/qa/smoke_qa.py` into a tiered terminal regression harness while keeping the fast smoke path lightweight (fast smoke plus optional quality, Sonar, and runtime-cycle tiers)
-- [ ] map `.ai/qa/qa-scenarios.md` scenarios to deterministic pexpect flows with fixed terminal size, environment, and artifact naming
+- [ ] map `.ai/qa/qa-scenarios.instructions.md` scenarios to deterministic pexpect flows with fixed terminal size, environment, and artifact naming
 - [x] capture core CLI JSON snapshots, status payloads, broker state, provider diagnostics, V1 readiness, and dashboard contract sections in fast smoke QA
-- [ ] expand captured keypress transcripts, service events, and context-pack excerpts across every `.ai/qa/qa-scenarios.md` scenario
+- [ ] expand captured keypress transcripts, service events, and context-pack excerpts across every `.ai/qa/qa-scenarios.instructions.md` scenario
 - [ ] use Computer Use for visual CLI/Rich/Ink inspection when available, with pexpect, tmux, asciinema, and text artifacts as the fallback path
 - [ ] optionally capture tmux pane dumps and asciinema recordings for Ink and Rich visual regressions
 - [x] generate a human-readable `qa-report.md` from structured check results for each smoke run
+- [ ] add a sectional external-review workflow for large V1 diffs so CodeRabbit/Sonar review stays under per-tool file limits while still covering runtime, trading, provider, operator-surface, and docs/setup risk
 - [x] add an evidence bundle command or mode that packages recent logs, dashboard snapshot, readiness, broker state, observer-compatible payloads, and QA results under a timestamped artifact directory
 - [ ] keep quality gates tiered: CI-safe CLI/static checks first, local interactive TUI checks second, manual visual recordings third
 - [ ] include daemon lifecycle, mode banner, memory retrieval, and observer API consistency in regression coverage
@@ -358,6 +359,7 @@ Status: in progress.
 - [x] add a hardware capability probe that records CPU, RAM, GPU/accelerator, model size, and safe parallelism recommendations before starting long-running operation
 - [ ] make live monitor stage progress show agent stage, current symbol, data context, last tool usage, current model call, terminal outcome, and safety gate result
 - [ ] redesign the Ink control room toward an htop-like operator console with stable panes, visible controls, resize-safe layout, and less scrollback noise
+- [ ] stabilize terminal UI refresh behavior by preventing overlapping Ink dashboard polls and closing Rich monitor DB handles per refresh tick
 - [ ] reduce Rich/admin visual density or keep it as a compact fallback surface once Ink reaches full operational parity
 - [x] add a paper-operations readiness checklist that must pass before longer continuous runs
 - [x] tie V1 readiness to paper evidence, provider health, source attribution, context-pack explainability, broker health checks, and an explicit no-live-until-approved gate
@@ -524,7 +526,7 @@ Status: in progress.
 - [ ] expand docs with contributing and deeper reference pages without duplicating repository truth
 - [ ] add feature deep dives for paper operation, broker/account truth, memory/review evidence, research sidecar, runtime modes, and evidence bundles
 - [ ] add a guided `app:up` flow for macOS, Linux, and Windows that checks prerequisites, installs or repairs Python/Node/sidecar/tool dependencies, asks provider/tool ownership questions, starts app-owned services where configured, and opens the Web GUI
-- [ ] add explicit accelerated lifecycle commands for normal operators: `app:setup`, `app:start`, `app:stop`, `app:update`, `app:doctor`, and `app:uninstall`, with matching Make aliases; keep the existing focused scripts available for debugging
+- [x] add explicit accelerated lifecycle commands for normal operators: `app:setup`, `app:start`, `app:stop`, `app:update`, `app:doctor`, and `app:uninstall`, with matching Make aliases; keep the existing focused scripts available for debugging
 - [x] add the first read-only `app:doctor` lifecycle facade so operators can inspect setup, provider, V1 readiness, and app-owned service status without hidden installs, starts, model pulls, browser opens, or trading-daemon launches
 - [x] add the first conservative `app:setup` lifecycle facade with dry-run planning by default and explicit `--core --yes` repair for only the root pnpm workspace plus root uv Python environment
 - [x] add conservative `app:start` and `app:stop` lifecycle facades that default to dry-run, require explicit service selection plus `--yes`, and call only selected app-owned service commands without installs, browser fetches, model pulls, browser opens by default, or trading-daemon starts
@@ -532,6 +534,7 @@ Status: in progress.
 - [x] add a conservative `app:uninstall` lifecycle facade that defaults to dry-run, requires explicit removal scopes plus `--yes`, removes only generated/app-owned local artifacts, and blocks service-state cleanup while recorded service state remains
 - [x] add the first guided `app:up` lifecycle orchestrator with dry-run-first planning, safe `--all` first-run composition, explicit ownership flags for optional helpers, Web GUI launch through app-owned service safeguards, and no hidden model pulls, browser fetches, provider accounts, broker config, or trading-daemon starts
 - [x] persist optional Ollama/Firecrawl/Camofox ownership decisions in owner-only runtime setup state, expose them through setup-status, dashboard/Web/TUI readiness, and require persisted app-owned ownership before app:start can start model or Camofox helper services
+- [ ] add a whole-app stop path that requests runtime shutdown with a bounded wait before stopping app-owned Web GUI, Camofox, and model-service helpers
 - [ ] add a V1 side-application installer/check script for the local tools needed to run the full app experience: WebGUI/docs/TUI workspace deps, CrewAI Flow sidecar setup, optional Ollama/default-model setup, optional Firecrawl API/CLI readiness, optional Camofox dependency plus browser-binary setup, and clear post-install service checks
 - [x] migrate optional Camofox helper setup from npm-owned commands to a pnpm-owned tool-root flow using `pnpm --dir tools/camofox-browser --ignore-workspace ...`, with browser binary fetch remaining explicit and opt-in
 - [ ] keep optional helper package ownership documented and enforceable: root `pnpm-workspace.yaml` includes always-installed app packages (`webgui`, `docs`, `tui`), while `tools/camofox-browser` stays a standalone tool-root installed through explicit `pnpm --dir ... --ignore-workspace` commands until a future decision makes it a normal workspace package
