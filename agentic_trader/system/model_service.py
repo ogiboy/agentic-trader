@@ -34,6 +34,7 @@ from agentic_trader.system.tool_roots import local_tool_status_payload
 
 DEFAULT_APP_MANAGED_PORT = 11435
 APP_MANAGED_ORPHAN_PORTS = (DEFAULT_APP_MANAGED_PORT, *range(11436, 11466))
+KNOWN_OLLAMA_SERVICE_PORTS = (11434, *APP_MANAGED_ORPHAN_PORTS)
 LOCAL_HTTP_SCHEME = "http"
 LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
 DEFAULT_MODEL_CHOICES = (
@@ -285,12 +286,16 @@ def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
         pid_text, _, command_line = stripped.partition(" ")
         if not pid_text.isdigit():
             continue
-        normalized = command_line.replace("\\", "/").lower()
-        if "serve" not in normalized:
-            continue
-        if any(f"/{name} " in f"/{normalized}" for name in executable_names):
+        if _is_ollama_serve_command(command_line, executable_names):
             pids.append(int(pid_text))
     return sorted(set(pids) | set(_ollama_listener_pids_from_lsof()))
+
+
+def _is_ollama_serve_command(command_line: str, executable_names: set[str]) -> bool:
+    parts = command_line.replace("\\", "/").lower().split()
+    if len(parts) < 2:
+        return False
+    return Path(parts[0]).name in executable_names and parts[1] == "serve"
 
 
 def _ollama_listener_pids_from_lsof() -> list[int]:
@@ -325,9 +330,10 @@ def _ollama_listener_pids_from_lsof() -> list[int]:
             continue
         endpoint = line[1:].strip()
         host, _, port_text = endpoint.rpartition(":")
+        port = int(port_text) if port_text.isdigit() else None
         if (
             current_command == "ollama"
-            and port_text.isdigit()
+            and port in KNOWN_OLLAMA_SERVICE_PORTS
             and is_loopback_host(host)
         ):
             pids.add(current_pid)

@@ -50,6 +50,11 @@ type ExecOptions = {
   timeoutMs?: number;
 };
 
+const TRANSIENT_DUCKDB_LOCK_PATTERN =
+  /Could not set lock on file|Conflicting lock is held/i;
+const DB_LOCK_RETRY_DELAYS_MS =
+  process.env.NODE_ENV === 'test' ? [0, 0, 0] : [500, 1_500, 3_000, 5_000];
+
 /**
  * Reads the local Codex environment manifest and returns a legacy declared Conda environment name when present.
  *
@@ -270,6 +275,14 @@ function extractError(error: unknown): string {
   return String(error);
 }
 
+function isTransientDuckDbLockError(error: unknown): boolean {
+  return TRANSIENT_DUCKDB_LOCK_PATTERN.test(extractError(error));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Execute the Agentic Trader CLI with the provided arguments, trying configured executable entrypoints until one succeeds.
  *
@@ -315,6 +328,27 @@ export async function execTrader(
   );
 }
 
+async function execTraderWithDbLockRetry(
+  args: string[],
+  options: ExecOptions,
+): Promise<any> {
+  let lastError: unknown;
+  for (const retryDelayMs of [0, ...DB_LOCK_RETRY_DELAYS_MS]) {
+    if (retryDelayMs > 0) {
+      await sleep(retryDelayMs);
+    }
+    try {
+      return await execTrader(args, options);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientDuckDbLockError(error)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Fetches the Agentic Trader dashboard snapshot.
  *
@@ -355,7 +389,7 @@ export async function runRuntimeAction(kind: string): Promise<{
     const symbols = defaultSymbolsFromPreferences(data?.preferences || {});
     const interval = defaultRuntimeInterval(data);
     const lookback = defaultRuntimeLookback(data);
-    await execTrader(
+    await execTraderWithDbLockRetry(
       [
         'launch',
         '--symbols',
@@ -384,7 +418,7 @@ export async function runRuntimeAction(kind: string): Promise<{
         dashboard: data,
       };
     }
-    await execTrader(['stop-service'], { timeoutMs: 30_000 });
+    await execTraderWithDbLockRetry(['stop-service'], { timeoutMs: 30_000 });
     return {
       message: `Stop requested for PID ${data.status.state.pid}.`,
       dashboard: await getDashboardSnapshot(),
@@ -393,7 +427,9 @@ export async function runRuntimeAction(kind: string): Promise<{
 
   if (kind === 'restart') {
     if ((data?.status?.state?.symbols || []).length) {
-      await execTrader(['restart-service'], { timeoutMs: 30_000 });
+      await execTraderWithDbLockRetry(['restart-service'], {
+        timeoutMs: 30_000,
+      });
       return {
         message: 'Background runtime restart requested.',
         dashboard: await getDashboardSnapshot(),
@@ -415,7 +451,7 @@ export async function runRuntimeAction(kind: string): Promise<{
     const symbol = defaultSingleSymbol(data);
     const interval = defaultRuntimeInterval(data);
     const lookback = defaultRuntimeLookback(data);
-    await execTrader(
+    await execTraderWithDbLockRetry(
       [
         'run',
         '--symbol',
@@ -610,9 +646,12 @@ export async function runProposalAction(
       cleanNotes,
       '--json',
     ];
-    result = await execTrader(args, { expectJson: true, timeoutMs: 90_000 });
+    result = await execTraderWithDbLockRetry(args, {
+      expectJson: true,
+      timeoutMs: 90_000,
+    });
   } else if (kind === 'reject') {
-    result = await execTrader(
+    result = await execTraderWithDbLockRetry(
       ['proposal-reject', cleanProposalId, '--reason', cleanNotes, '--json'],
       { expectJson: true, timeoutMs: 45_000 },
     );
@@ -624,7 +663,10 @@ export async function runProposalAction(
       cleanNotes,
       '--json',
     ];
-    result = await execTrader(args, { expectJson: true, timeoutMs: 45_000 });
+    result = await execTraderWithDbLockRetry(args, {
+      expectJson: true,
+      timeoutMs: 45_000,
+    });
   } else if (kind === 'refresh') {
     const args = [
       'proposal-refresh',
@@ -633,7 +675,10 @@ export async function runProposalAction(
       cleanNotes,
       '--json',
     ];
-    result = await execTrader(args, { expectJson: true, timeoutMs: 45_000 });
+    result = await execTraderWithDbLockRetry(args, {
+      expectJson: true,
+      timeoutMs: 45_000,
+    });
   } else {
     throw new Error(`Unsupported proposal action: ${kind}`);
   }

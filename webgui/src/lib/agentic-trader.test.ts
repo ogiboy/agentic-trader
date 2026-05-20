@@ -208,6 +208,33 @@ describe('agentic-trader webgui CLI bridge', () => {
     });
   });
 
+  it('retries transient DuckDB lock races for runtime actions', async () => {
+    const { runRuntimeAction } = await import('./agentic-trader');
+    execSuccess(
+      JSON.stringify({
+        review: { record: { symbol: 'AAPL' } },
+        status: { live_process: false, runtime_state: 'inactive', state: {} },
+      }),
+    );
+    execFailure(
+      Object.assign(new Error('locked'), {
+        code: 'EFAIL',
+        stderr:
+          'IO Error: Could not set lock on file "runtime/agentic_trader.duckdb": Conflicting lock is held',
+      }),
+    );
+    execSuccess('');
+    execSuccess(JSON.stringify({ status: { runtime_state: 'idle' } }));
+
+    await expect(runRuntimeAction('one-shot')).resolves.toMatchObject({
+      message: 'Strict one-shot cycle completed for AAPL (1d, 180d).',
+    });
+    const runAttempts = execFileMock.mock.calls.filter((call) =>
+      call[1].includes('run'),
+    );
+    expect(runAttempts).toHaveLength(2);
+  });
+
   it('runs app-owned local tool actions through explicit CLI contracts', async () => {
     const { runToolAction } = await import('./agentic-trader');
     execSuccess(

@@ -1152,6 +1152,7 @@ export function ControlRoom() {
     tone: MessageTone;
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const busyRef = useRef<string | null>(null);
   const [chatDraft, setChatDraft] = useState('');
   const [chatPersona, setChatPersona] =
     useState<ChatPersona>('operator_liaison');
@@ -1180,6 +1181,11 @@ export function ControlRoom() {
     setMessage(null);
   }, []);
 
+  const setBusyState = useCallback((nextBusy: string | null) => {
+    busyRef.current = nextBusy;
+    setBusy(nextBusy);
+  }, []);
+
   const applyDashboardPayload = useCallback((payload: DashboardData) => {
     setDashboard(payload);
     setChatHistory(normalizeChatHistory(payload));
@@ -1202,6 +1208,9 @@ export function ControlRoom() {
 
   const loadDashboard = useCallback(
     async ({ force = false }: { force?: boolean } = {}) => {
+      if (!force && busyRef.current) {
+        return;
+      }
       if (
         dashboardAbortRef.current &&
         !dashboardAbortRef.current.signal.aborted
@@ -1291,13 +1300,15 @@ export function ControlRoom() {
   const runAction = useCallback(
     async (kind: 'refresh' | 'start' | 'stop' | 'restart' | 'one-shot') => {
       if (kind === 'refresh') {
-        setBusy('refresh');
+        setBusyState('refresh');
         await loadDashboard({ force: true });
         setMessage({ text: 'Dashboard refreshed.', tone: 'neutral' });
-        setBusy(null);
+        setBusyState(null);
         return;
       }
-      setBusy(kind);
+      setBusyState(kind);
+      dashboardAbortRef.current?.abort();
+      dashboardAbortRef.current = null;
       try {
         const result = await readJson<{
           message: string;
@@ -1318,15 +1329,17 @@ export function ControlRoom() {
           tone: 'bad',
         });
       } finally {
-        setBusy(null);
+        setBusyState(null);
       }
     },
-    [applyLatestDashboard, loadDashboard],
+    [applyLatestDashboard, loadDashboard, setBusyState],
   );
 
   const runToolAction = useCallback(
     async (kind: ToolActionKind) => {
-      setBusy(kind);
+      setBusyState(kind);
+      dashboardAbortRef.current?.abort();
+      dashboardAbortRef.current = null;
       try {
         const result = await readJson<{
           message: string;
@@ -1347,16 +1360,18 @@ export function ControlRoom() {
           tone: 'bad',
         });
       } finally {
-        setBusy(null);
+        setBusyState(null);
       }
     },
-    [applyLatestDashboard],
+    [applyLatestDashboard, setBusyState],
   );
 
   const runProposalAction = useCallback(
     async (kind: ProposalActionKind, proposalId: string) => {
       const reviewNotes = proposalNote.trim();
-      setBusy(`proposal-${kind}`);
+      setBusyState(`proposal-${kind}`);
+      dashboardAbortRef.current?.abort();
+      dashboardAbortRef.current = null;
       try {
         const result = await readJson<{
           message: string;
@@ -1378,10 +1393,10 @@ export function ControlRoom() {
           tone: 'bad',
         });
       } finally {
-        setBusy(null);
+        setBusyState(null);
       }
     },
-    [applyLatestDashboard, proposalNote],
+    [applyLatestDashboard, proposalNote, setBusyState],
   );
 
   const sendChat = useCallback(async () => {
@@ -1389,7 +1404,9 @@ export function ControlRoom() {
     if (!messageText) {
       return;
     }
-    setBusy('chat');
+    setBusyState('chat');
+    dashboardAbortRef.current?.abort();
+    dashboardAbortRef.current = null;
     try {
       await readJson<Record<string, string>>('/api/chat', {
         method: 'POST',
@@ -1400,7 +1417,7 @@ export function ControlRoom() {
       });
       setChatDraft('');
       setMessage({ text: 'Operator reply received.', tone: 'good' });
-      await loadDashboard();
+      await loadDashboard({ force: true });
     } catch (nextError) {
       if (nextError instanceof WebguiHttpError && nextError.status === 401) {
         setAuthRequired(true);
@@ -1411,16 +1428,18 @@ export function ControlRoom() {
         tone: 'bad',
       });
     } finally {
-      setBusy(null);
+      setBusyState(null);
     }
-  }, [chatDraft, chatPersona, loadDashboard]);
+  }, [chatDraft, chatPersona, loadDashboard, setBusyState]);
 
   const sendInstruction = useCallback(async () => {
     const messageText = instructionDraft.trim();
     if (!messageText) {
       return;
     }
-    setBusy('instruction');
+    setBusyState('instruction');
+    dashboardAbortRef.current?.abort();
+    dashboardAbortRef.current = null;
     try {
       const result = await readJson<{
         result: Record<string, any>;
@@ -1452,9 +1471,9 @@ export function ControlRoom() {
         tone: 'bad',
       });
     } finally {
-      setBusy(null);
+      setBusyState(null);
     }
-  }, [applyLatestDashboard, instructionDraft, instructionMode]);
+  }, [applyLatestDashboard, instructionDraft, instructionMode, setBusyState]);
 
   const currentCycle = useMemo<KeyValueItems>(
     () => [

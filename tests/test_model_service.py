@@ -631,6 +631,46 @@ def test_ollama_pid_detection_falls_back_to_lsof_when_ps_is_unavailable(
     ]
 
 
+def test_ollama_pid_detection_ignores_model_runner_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(
+        command: list[str],
+        *,
+        capture_output: bool,
+        text: bool,
+        timeout: int,
+        check: bool,
+    ) -> object:
+        _ = (capture_output, text, timeout, check)
+
+        class Completed:
+            def __init__(self, returncode: int, stdout: str = "") -> None:
+                self.returncode = returncode
+                self.stdout = stdout
+
+        if command[:2] == ["ps", "-ax"]:
+            return Completed(
+                0,
+                "111 /opt/homebrew/bin/ollama serve\n"
+                "222 /opt/homebrew/Cellar/ollama/0.24.0/libexec/ollama "
+                "runner --ollama-engine --model "
+                "/Users/me/.ollama/models/blobs/sha256-abc --port 60443\n",
+            )
+        if command[:3] == ["lsof", "-nP", "-iTCP"]:
+            return Completed(
+                0,
+                "p222\ncollama\nf3\nn127.0.0.1:60443\n",
+            )
+        return Completed(0)
+
+    monkeypatch.setattr(model_service.subprocess, "run", fake_run)
+
+    assert model_service._external_ollama_serve_pids("/opt/homebrew/bin/ollama") == [
+        111,
+    ]
+
+
 def test_stop_model_service_does_not_kill_unrecorded_managed_ports(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
