@@ -34,7 +34,13 @@ function timingSafeCompare(a, b) {
 }
 
 /**
- * Check if an address is loopback.
+ * Determine whether a host/address represents a loopback interface.
+ *
+ * Normalizes the input by converting to string, trimming whitespace, removing surrounding `[`/`]`, and lowercasing before matching.
+ * Matches `localhost`, any subdomain ending with `.localhost`, `127.0.0.1`, `::1`, and `::ffff:127.0.0.1`.
+ *
+ * @param {string|undefined|null} address - Hostname or IP address to test.
+ * @returns {boolean} `true` if the normalized address is a loopback address, `false` otherwise.
  */
 function isLoopbackAddress(address) {
   if (!address) return false;

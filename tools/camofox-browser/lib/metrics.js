@@ -173,7 +173,12 @@ export async function initMetrics({ enabled = false } = {}) {
   return _metrics;
 }
 
-/** Get the initialized metrics object. Throws if initMetrics() hasn't been called. */
+/**
+ * Retrieve the initialized metrics object.
+ *
+ * @returns {Object} The metrics instance previously created by `initMetrics()`.
+ * @throws {Error} If metrics have not been initialized; call `initMetrics()` first.
+ */
 export function getMetrics() {
   if (!_metrics)
     throw new Error('Metrics not initialized -- call initMetrics() first');
@@ -194,6 +199,11 @@ export function isMetricsEnabled() {
 const MEMORY_INTERVAL_MS = 30_000;
 let memoryTimer = null;
 
+/**
+ * Begin periodic reporting of RSS memory into the `memoryUsageBytes` gauge.
+ *
+ * Schedules a recurring task that sets `memoryUsageBytes` to `process.memoryUsage().rss` every MEMORY_INTERVAL_MS; does nothing if a reporter is already running or metrics are disabled. The underlying interval is unref'ed so it does not keep the process alive.
+ */
 export function startMemoryReporter() {
   if (memoryTimer || !isMetricsEnabled()) return;
   const m = getMetrics();
@@ -204,6 +214,11 @@ export function startMemoryReporter() {
   memoryTimer.unref();
 }
 
+/**
+ * Stop the periodic memory reporter and clear its interval timer.
+ *
+ * If the reporter is not running, this function does nothing.
+ */
 export function stopMemoryReporter() {
   if (memoryTimer) {
     clearInterval(memoryTimer);

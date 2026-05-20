@@ -275,10 +275,22 @@ function extractError(error: unknown): string {
   return String(error);
 }
 
+/**
+ * Detects whether an error corresponds to a transient DuckDB lock condition.
+ *
+ * @param error - The error value to inspect (may be any type)
+ * @returns `true` if the error message matches known transient DuckDB lock patterns, `false` otherwise.
+ */
 function isTransientDuckDbLockError(error: unknown): boolean {
   return TRANSIENT_DUCKDB_LOCK_PATTERN.test(extractError(error));
 }
 
+/**
+ * Delays execution for the specified duration.
+ *
+ * @param ms - Delay duration in milliseconds
+ * @returns Resolves with no value after the delay
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -328,6 +340,14 @@ export async function execTrader(
   );
 }
 
+/**
+ * Invoke the Agentic Trader CLI and retry on transient DuckDB lock errors using configured backoff delays.
+ *
+ * @param args - CLI arguments forwarded to the Agentic Trader invocation
+ * @param options - Execution options (e.g., `expectJson`, `timeoutMs`)
+ * @returns The successful CLI invocation result: parsed JSON when `expectJson` is set, otherwise an object containing `stdout` and `stderr`
+ * @throws The last encountered error if all retries fail; non-transient errors are rethrown immediately
+ */
 async function execTraderWithDbLockRetry(
   args: string[],
   options: ExecOptions,
@@ -592,6 +612,15 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
   throw new Error(`Unsupported tool action: ${kind}`);
 }
 
+/**
+ * Build a human-readable status message for a proposal action result.
+ *
+ * The message references the proposal symbol (or "Proposal"), the proposal status, and when applicable the broker execution outcome.
+ *
+ * @param kind - The proposal action performed (`approve`, `reject`, `reconcile`, or `refresh`)
+ * @param result - The CLI result object; may be the proposal itself or an object with a `proposal` property, and may include `outcome.status` or `proposal.execution_outcome_status` for broker outcome information
+ * @returns A single-line message summarizing the action outcome (e.g., approval with broker status, rejection, refresh, or reconciliation)
+ */
 function proposalActionMessage(kind: ProposalActionKind, result: any): string {
   const proposal = result?.proposal || result;
   const symbol = proposal?.symbol || 'Proposal';
@@ -613,11 +642,18 @@ function proposalActionMessage(kind: ProposalActionKind, result: any): string {
 }
 
 /**
- * Execute an explicit manual-review proposal action through existing CLI commands.
+ * Perform a manual-review action (approve, reject, reconcile, or refresh) for a proposal and return the action result with an updated dashboard snapshot.
  *
- * The Web GUI remains a thin operator surface: approval still goes through
- * `proposal-approve`, which records the proposal transition and submits only
- * through the configured broker adapter boundary.
+ * @param kind - The proposal action to perform: `'approve' | 'reject' | 'reconcile' | 'refresh'`.
+ * @param proposalId - The identifier of the proposal (whitespace will be trimmed).
+ * @param reviewNotes - Review notes required for the action (whitespace will be trimmed).
+ * @returns An object containing:
+ *   - `message`: a human-readable summary of the action outcome,
+ *   - `dashboard`: the refreshed dashboard snapshot,
+ *   - `result`: the raw CLI-parsed result for the action.
+ * @throws Error if `proposalId` is empty after trimming.
+ * @throws Error if `reviewNotes` is empty after trimming.
+ * @throws Error if `kind` is not one of the supported actions.
  */
 export async function runProposalAction(
   kind: ProposalActionKind,

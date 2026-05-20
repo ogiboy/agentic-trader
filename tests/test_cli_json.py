@@ -1410,6 +1410,16 @@ def test_model_service_cli_json_commands(
     def fake_build_model_service_status(
         *_args: object, **kwargs: object
     ) -> ModelServiceStatus:
+        """
+        Record any provided keyword arguments into the test recorder and return a canned ModelServiceStatus.
+        
+        Parameters:
+        	*_args (object): Positional arguments are ignored.
+        	**kwargs (object): Keyword arguments captured and appended to the external `status_kwargs` list for inspection by tests.
+        
+        Returns:
+        	ModelServiceStatus: A predefined test status object produced by the `_model_service_status_fixture` helper.
+        """
         status_kwargs.append(kwargs)
         return _model_service_status_fixture()
 
@@ -1798,6 +1808,20 @@ def test_research_refresh_json_persists_snapshot(
 def test_research_cycle_run_json_executes_bounded_evidence_only_cycle(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verifies that the `research-cycle-run` CLI command executes a bounded, evidence-only research cycle and returns the expected JSON payload.
+    
+    Asserts that:
+    - the command completes successfully and reports two executed cycles,
+    - execution policy disallows broker access and proposal approval,
+    - each execution records the provided watched symbols and a persisted snapshot id,
+    - preflight phase is "PRE-FLIGHT" and a `source_health_delta` is present,
+    - the digest indicates `raw_web_text_injected == False`,
+    - `latest_digest` matches the last execution's digest and a digest replay snapshot is created,
+    - operator control is running,
+    - research snapshot files are persisted to the expected sidecar paths,
+    - no database file is created as part of the research-only run.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -1847,6 +1871,15 @@ def test_research_cycle_run_json_executes_bounded_evidence_only_cycle(
 def test_research_cycle_run_replays_previous_snapshot_between_invocations(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verifies that consecutive `research-cycle-run` invocations replay the previous research snapshot and record linked replay metadata.
+    
+    Runs `research-cycle-run` twice with the same symbols and a single cycle, then asserts:
+    - the second run references the first run's snapshot id as `prior_snapshot_id` and reports `prior_digest_available == True`;
+    - the `source_health_delta.previous.missing` value equals 7 and notes include `"prior_research_snapshot_replayed"`;
+    - exactly two snapshot records were written to the research snapshots file; and
+    - no on-disk database file was created during the runs.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -1889,6 +1922,11 @@ def test_research_cycle_run_replays_previous_snapshot_between_invocations(
 def test_research_flow_setup_json_reports_optional_boundary(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verify the `research-flow-setup --json` CLI command reports that the research flow is optional and includes environment and setup recommendations.
+    
+    Asserts the JSON payload marks the flow as not a core dependency, exposes the flow directory path ending with `sidecars/research_flow`, includes an `environment_exists` field, reports `python_version` as "3.13", lists the `pnpm run setup:research-flow` command among recommendations, and contains notes mentioning that the flow is optional.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -2131,6 +2169,11 @@ def test_v1_readiness_allows_alpaca_paper_backend_when_enabled(
 def test_finance_ops_json_reports_read_only_desk_checks(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verify the finance-ops CLI JSON output reports read-only desk checks and accounting summaries for the paper execution backend.
+    
+    Asserts that the reported backend and broker backend are "paper", the portfolio is available, `paperEvidence` is present, accounting fields (currency == "USD", mark_status, and cost_model fees) are populated, the reconciliation audit policy distinguishes zero from missing, `positionPlanCoverage.missing_symbols` is empty, the ledger includes a "corporate_actions" category, portfolio accounting uses USD, and the readiness check `paper_or_external_paper_only` passes.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -2195,6 +2238,12 @@ def test_finance_ops_uses_alpaca_paper_adapter_account_state(
 
     class FakeAlpacaPaperAdapter:
         def get_account_state(self) -> PortfolioSnapshot:
+            """
+            Return a deterministic PortfolioSnapshot representing a sample broker account state used in tests.
+            
+            Returns:
+                PortfolioSnapshot: Snapshot with cash=99995.0, market_value=5.0, equity=100000.0, realized_pnl=0.0, unrealized_pnl=0.25, open_positions=1.
+            """
             return PortfolioSnapshot(
                 cash=99995.0,
                 market_value=5.0,
@@ -2205,6 +2254,12 @@ def test_finance_ops_uses_alpaca_paper_adapter_account_state(
             )
 
         def get_positions(self) -> list[PositionSnapshot]:
+            """
+            Return a synthetic list of position snapshots used for testing.
+            
+            Returns:
+                list[PositionSnapshot]: A list containing a single PositionSnapshot for symbol "AAPL" with quantity 0.025, average_price 190.0, market_price 200.0, market_value 5.0, and unrealized_pnl 0.25.
+            """
             return [
                 PositionSnapshot(
                     symbol="AAPL",
@@ -2341,6 +2396,11 @@ def test_position_plan_repair_cli_backfills_executed_proposal_plan(
 def test_trade_proposal_cli_create_list_reject_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verify the CLI can create a trade proposal, list it, and reject it while returning JSON payloads.
+    
+    Sets up temporary Settings using the paper execution backend, creates a proposal via `proposal-create --json` and asserts the created record is pending and has the expected symbol, lists proposals with `trade-proposals --json` and asserts the created proposal appears, then rejects the proposal with `proposal-reject <id> --reason ... --json` and asserts the returned record reports status `rejected` with the provided rejection reason.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -2490,6 +2550,11 @@ def test_proposal_candidate_cli_create_promote_json(
 def test_proposal_candidate_cli_blocks_watch_promotion_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verifies that promoting a proposal candidate without required watch-only conditions is rejected in JSON mode.
+    
+    Creates a candidate via the CLI, then attempts to promote it and asserts the promotion fails with exit code 2 and the JSON error message contains "watch-only".
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -2643,6 +2708,14 @@ def test_trade_proposal_cli_create_limit_json(
 def test_trade_proposal_cli_approve_json_records_paper_execution(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verifies that approving a trade proposal with paper execution records a filled execution and links the proposal to the execution order.
+    
+    Creates a temporary Settings configured for the `paper` execution backend, creates a trade proposal (including stop-loss and take-profit), approves the proposal via the CLI, and asserts that:
+    - the proposal status becomes `"executed"`,
+    - the execution outcome status is `"filled"`,
+    - the proposal's `execution_order_id` matches the recorded execution `order_id`.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -2778,6 +2851,12 @@ def test_trade_proposal_cli_refresh_redacts_json_errors(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
 
     def fail_refresh(**_kwargs):
+        """
+        Simulate a broker refresh failure by always raising a runtime error.
+        
+        Raises:
+            RuntimeError: Always raised with the message "BROKER_TOKEN=secret-value failed".
+        """
         raise RuntimeError("BROKER_TOKEN=secret-value failed")
 
     monkeypatch.setattr("agentic_trader.cli.refresh_trade_proposal_order", fail_refresh)
@@ -2802,6 +2881,11 @@ def test_trade_proposal_cli_refresh_redacts_json_errors(
 def test_trade_proposal_cli_reconcile_terminal_error_stays_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Sets up an already-executed trade proposal and asserts the CLI `proposal-reconcile` command (JSON mode) returns a JSON error stating the proposal is already terminal.
+    
+    The test creates temporary settings and a trading database, creates and approves a proposal so it becomes terminal, invokes `proposal-reconcile --json` for that proposal, and verifies the process exits with code 2 and the returned JSON `error` contains "already terminal".
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

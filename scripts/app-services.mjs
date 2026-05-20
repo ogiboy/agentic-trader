@@ -39,19 +39,17 @@ Options:
 }
 
 /**
- * Parse CLI arguments into an options object for app service lifecycle commands.
+ * Parse CLI arguments and validate options for app-owned service lifecycle commands.
  *
- * Parses a list of arguments, validates the lifecycle mode (`start` or `stop`),
- * processes flags (`--webgui`, `--model-service`, `--camofox-service`, `--all`,
- * `--dry-run`, `--json`, `--open-browser`, `--yes`, `-h/--help`), and returns
- * a populated options object. On invalid or conflicting input the function
- * writes an error to stderr and calls `usage()` which exits the process.
+ * On invalid or conflicting input this function writes an error message to stderr
+ * and calls `usage()` (which exits the process). Recognized flags select services,
+ * control dry-run/confirmation behavior, JSON output, and whether to request the
+ * web GUI be opened.
  *
- * @param {string[]} argv - CLI arguments (typically process.argv.slice(2)).
+ * @param {string[]} argv - CLI arguments (typically `process.argv.slice(2)`).
  * @returns {{mode: string, dryRun: boolean, json: boolean, openBrowser: boolean, selectedServices: Set<string>, yes: boolean}}
- *          An options object where `mode` is "start" or "stop", `selectedServices`
- *          is a Set containing any of the SERVICE_IDS, and boolean flags reflect
- *          the parsed options.
+ *          An options object where `mode` is `"start"` or `"stop"`, `selectedServices`
+ *          is a Set of any of the SERVICE_IDS, and booleans reflect the parsed flags.
  */
 function parseArgs(argv) {
   const [mode, ...rest] = argv.filter((arg) => arg !== '--');
@@ -355,18 +353,18 @@ function commandSucceeded(mode, payload, step = null) {
 }
 
 /**
- * Executes the lifecycle command for a step and returns the step result with execution details.
+ * Execute a lifecycle step command and return the step's execution result.
  *
- * @param {string} cliPath - Filesystem path to the lifecycle CLI entrypoint used to resolve the command.
- * @param {Object} step - Step descriptor containing at least a `command` array and metadata to preserve.
- * @param {string} mode - Lifecycle mode, e.g. `'start'` or `'stop'`, used to evaluate success semantics.
- * @returns {Object} Result object based on the original step augmented with:
- *  - `resolved_command` (string[]) — the full command executed,
- *  - `status` (`'passed'|'failed'`) — outcome determined from the process exit code and payload semantics,
- *  - `exit_code` (number|null) — process exit code (defaults to `1` when not provided),
- *  - `payload` (Object|null) — parsed JSON payload from stdout when available, otherwise `null`,
- *  - `stdout` (string) — process standard output,
- *  - `stderr` (string) — process standard error.
+ * @param {string} cliPath - Filesystem path to the lifecycle CLI entrypoint used to run the step command.
+ * @param {Object} step - Step descriptor containing a `command` array and metadata; returned fields from the original step are preserved.
+ * @param {string} mode - Lifecycle mode (e.g., `'start'` or `'stop'`) used to evaluate success semantics.
+ * @returns {Object} Result object derived from the original step and augmented with:
+ *  - `resolved_command` {string[]} — the exact command array executed,
+ *  - `status` {'passed'|'failed'} — `'passed'` when the process exit code is 0 and payload semantics indicate success, `'failed'` otherwise,
+ *  - `exit_code` {number|null} — the process exit code (defaults to `1` when not provided),
+ *  - `payload` {Object|null} — parsed JSON payload from stdout when available, otherwise `null`,
+ *  - `stdout` {string} — captured standard output,
+ *  - `stderr` {string} — captured standard error.
  */
 function runStep(cliPath, step, mode) {
   const completed = runLifecycleCommand([cliPath, ...step.command.slice(1)]);

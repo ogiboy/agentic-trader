@@ -40,6 +40,18 @@ def _display_version(value: str) -> str:
 
 
 def changelog_has_version(text: str, version: str) -> bool:
+    """
+    Check whether the changelog text contains a top-level header for the given version.
+    
+    Matches headings that start with "##", optionally wrapped in square brackets, and accepts the version with or without a leading "v".
+    
+    Parameters:
+        text (str): Full changelog contents to search.
+        version (str): Version identifier to look for; may include or omit a leading "v".
+    
+    Returns:
+        bool: `True` if a matching version header is present, `False` otherwise.
+    """
     display = re.escape(_display_version(version))
     plain = re.escape(_display_version(version).removeprefix("v"))
     return (
@@ -48,6 +60,15 @@ def changelog_has_version(text: str, version: str) -> bool:
 
 
 def _commit_category(subject: str) -> str | None:
+    """
+    Map a git commit subject line to a changelog category or indicate it should be excluded.
+    
+    Parameters:
+    	subject (str): The commit subject line (the first line of a commit message).
+    
+    Returns:
+    	str | None: The matched category name from CATEGORIES, `"Other Changes"` when the subject is a conventional commit type not in CATEGORIES or not matching conventional commit format, or `None` to indicate the commit should be excluded (for `chore(release):` and merge commits).
+    """
     match = re.match(r"(?P<type>[a-z]+)(?:\([^)]+\))?!?:\s+(?P<title>.+)", subject)
     if match:
         return CATEGORIES.get(match.group("type"), "Other Changes")
@@ -59,6 +80,15 @@ def _commit_category(subject: str) -> str | None:
 
 
 def collect_commit_entries(*, since: str | None = None) -> dict[str, list[str]]:
+    """
+    Collects commit subjects from git history and groups them into changelog categories.
+    
+    Parameters:
+        since (str | None): A git revision (commit, tag, or ref) used as the start of the log range. If provided the range is "<since>..HEAD"; if omitted the log is taken starting at "HEAD".
+    
+    Returns:
+        dict[str, list[str]]: Mapping from changelog category title to a list of entries. Each entry is a formatted bullet string: "- <subject> (<short_hash>)".
+    """
     range_arg = f"{since}..HEAD" if since else "HEAD"
     raw = _run_git(["log", "--reverse", "--format=%H%x1f%s", range_arg])
     entries: dict[str, list[str]] = defaultdict(list)
@@ -74,6 +104,17 @@ def collect_commit_entries(*, since: str | None = None) -> dict[str, list[str]]:
 
 
 def render_section(*, version: str, date: str, entries: dict[str, list[str]]) -> str:
+    """
+    Render a changelog section for the given version and date from categorized entries.
+    
+    Parameters:
+    	version (str): Version label (will be normalized to start with `v`).
+    	date (str): Release date as an ISO-formatted string (YYYY-MM-DD).
+    	entries (dict[str, list[str]]): Mapping of subsection titles to lists of bullet lines; use an empty dict to generate a Maintenance baseline entry.
+    
+    Returns:
+    	section (str): The formatted changelog section text ready to insert into CHANGELOG.md. If `entries` is empty, the section contains a `Maintenance` subsection with a baseline note; otherwise it contains subsections in the configured category order and an `Other Changes` subsection when present.
+    """
     lines = [f"## {_display_version(version)} - {date}", ""]
     if not entries:
         lines.extend(["### Maintenance", "", "- Baseline release tag."])

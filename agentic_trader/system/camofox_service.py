@@ -124,12 +124,29 @@ class CamofoxServiceStatus(BaseModel):
     message: str
 
     def is_owned_by_host(self, host_id: str) -> bool:
-        """Return true only when this app-owned status belongs to this runtime host."""
+        """
+        Determine whether this app-owned service status is owned by the specified host.
+        
+        Parameters:
+            host_id (str): Host identifier to compare against the recorded owner.
+        
+        Returns:
+            bool: `True` if `app_owned` is `True` and `owner` equals `host_id`, `False` otherwise.
+        """
 
         return self.app_owned and self.owner == host_id
 
 
 def camofox_service_dir(settings: Settings) -> Path:
+    """
+    Get the runtime directory path where Camofox service state and artifacts are stored.
+    
+    Parameters:
+        settings (Settings): Application settings containing the `runtime_dir` base path.
+    
+    Returns:
+        Path: Path to the Camofox service runtime directory (runtime_dir / "camofox_service").
+    """
     return settings.runtime_dir / "camofox_service"
 
 
@@ -515,7 +532,17 @@ def _camofox_probe_status(
 def build_camofox_service_status(
     settings: Settings, *, tail_limit: int = 12
 ) -> CamofoxServiceStatus:
-    """Build a read-only Camofox service status payload."""
+    """
+    Builds the current read-only status for the app-owned Camofox helper.
+    
+    Parameters:
+    	tail_limit (int): Maximum number of lines to include from each log tail.
+    
+    Returns:
+    	CamofoxServiceStatus: Aggregated operator-facing status including tool availability,
+    	ownership/process info (only when the app-owned process is verified alive),
+    	connectivity/health flags, log paths and tails, and a human-readable message.
+    """
 
     state = _read_state(settings)
     app_state = state if _state_process_alive(state) else None
@@ -609,7 +636,22 @@ def start_camofox_service(
     host: str | None = None,
     port: int | None = None,
 ) -> CamofoxServiceStatus:
-    """Start an app-owned loopback Camofox process."""
+    """
+    Start and persist an app-owned loopback Camofox helper process.
+    
+    Validates that the chosen host is loopback and that an access token is configured, spawns the tool subprocess in the resolved tool directory with a minimal, secret-filtered environment, persists owner-only runtime state (including PID, host, port, log paths, and command), and waits briefly for the service to become healthy. If an existing recorded app-owned process is already alive, the call returns the current service status instead of starting a new process.
+    
+    Parameters:
+        settings (Settings): Application settings and runtime configuration.
+        host (str | None): Optional override for the loopback host to bind; when omitted the configured host is used.
+        port (int | None): Optional preferred port to bind; when omitted the configured port is used.
+    
+    Returns:
+        CamofoxServiceStatus: Operator-facing status describing the service after the start attempt.
+    
+    Raises:
+        RuntimeError: If the resolved host is not a loopback address or if no CAMOFOX access token is available.
+    """
 
     desired_host, configured_port = _configured_host_port(settings)
     desired_host = host or desired_host

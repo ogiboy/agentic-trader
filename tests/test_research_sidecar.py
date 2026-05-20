@@ -49,11 +49,8 @@ def _settings(tmp_path, **overrides) -> Settings:
 
 def _host_owned_firecrawl(settings: Settings) -> Settings:
     """
-    Mark the Firecrawl tool as host-owned in the provided settings and return the updated settings.
-
-    Parameters:
-        settings (Settings): Settings object to update.
-
+    Mark Firecrawl as host-owned in the given Settings.
+    
     Returns:
         Settings: The same Settings instance with Firecrawl ownership set to "host-owned".
     """
@@ -116,6 +113,11 @@ def test_research_sidecar_defaults_to_disabled(tmp_path) -> None:
 def test_enabled_research_sidecar_uses_scaffolds_without_fake_evidence(
     tmp_path,
 ) -> None:
+    """
+    Verifies an enabled research sidecar in training mode initializes scaffolding without producing raw evidence.
+    
+    Asserts that the sidecar transitions to completed training mode, watches the configured symbols in both state and world_state, produces an empty world_state.findings and no raw_evidence, leaves memory update flags indicating raw web text was not injected and status as not written, and reports all provider health entries as missing.
+    """
     settings = _settings(
         tmp_path,
         research_mode="training",
@@ -425,6 +427,11 @@ def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(tmp_path) -> 
 def test_firecrawl_news_provider_sanitizes_search_results(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
+    """
+    Verifies that FirecrawlNewsResearchProvider redacts API keys from CLI search output.
+    
+    Asserts that the provider invokes the configured CLI search command, produces a single news evidence record for the requested symbol, reports no missing reasons, and replaces any embedded FIRECRAWL_API_KEY token in the returned snippet with the "<redacted>" marker. Also checks that the record includes correct source metadata (kind, symbol, URL) and that attribution notes indicate raw web text was not injected.
+    """
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
     settings = _host_owned_firecrawl(
         _settings(
@@ -438,6 +445,12 @@ def test_firecrawl_news_provider_sanitizes_search_results(
     def fake_runner(
         command: list[str], timeout_seconds: float, env: Mapping[str, str]
     ) -> subprocess.CompletedProcess[str]:
+        """
+        Simulates a subprocess runner that returns a successful JSON search payload containing a single web result.
+        
+        Returns:
+            subprocess.CompletedProcess[str]: Completed process with return code 0 and stdout set to a JSON object whose `data.web` list contains one entry with `title`, `url`, `source`, `publishedAt`, and a `snippet` that includes the token `FIRECRAWL_API_KEY=fake-token`.
+        """
         _ = (timeout_seconds, env)
         captured_command.extend(command)
         payload = {
@@ -740,6 +753,16 @@ def test_camofox_browser_provider_respects_app_owned_browser_launch_failure(
     settings = _settings(tmp_path, research_camofox_enabled=True)
 
     def fake_health(url: str, timeout_seconds: float) -> dict[str, object]:
+        """
+        Test helper that fails the test if a Camofox health fetch is attempted.
+        
+        Parameters:
+            url (str): The health endpoint URL that was attempted.
+            timeout_seconds (float): The timeout value passed to the health check.
+        
+        Raises:
+            AssertionError: Always raised to indicate the health check must not be called; message includes the attempted URL.
+        """
         raise AssertionError(
             f"browser-launch-failed Camofox should not be fetched: {url}"
         )

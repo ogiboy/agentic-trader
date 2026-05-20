@@ -395,7 +395,23 @@ class PaperBroker:
         simulated_metadata: dict[str, object] | None = None,
     ) -> ExecutionOutcome:
         """
-        Persist an execution intent and apply the paper fill rules when allowed.
+        Persist an execution intent and, if allowed, simulate and record an immediate paper fill according to broker rules.
+        
+        Evaluates the provided intent against broker constraints (symbol scope, approval, quantity resolution, shorting rules,
+        cash and exposure limits, and open position limits), records the decision and any order/fill artifacts in the trading
+        database, and returns an ExecutionOutcome describing the final disposition.
+        
+        Parameters:
+            intent (ExecutionIntent): The execution intent to persist and evaluate.
+            order_prefix (str | None): Optional prefix to use when generating the order identifier; if omitted a default
+                prefix is chosen based on the intent's execution_backend.
+            simulated_metadata (dict[str, object] | None): Optional metadata to attach to simulated outcomes.
+        
+        Returns:
+            ExecutionOutcome: Outcome describing the placement result. Possible statuses include:
+                - `filled`: a paper fill was applied and persisted (includes fill quantities/prices),
+                - `blocked`: the intent was rejected due to broker constraints (includes a rejection_reason),
+                - `no_fill`: no fill was performed (e.g., resolved to zero quantity or decision was hold).
         """
         prefix = order_prefix or (
             "paper" if intent.execution_backend == "paper" else "simulated"

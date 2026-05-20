@@ -73,20 +73,23 @@ class ToolOwnershipPayload(BaseModel):
 
 def _utc_now_iso() -> str:
     """
-    Return the current UTC time as an ISO-8601 formatted string.
-
+    Get the current UTC time as an ISO-8601 formatted string with a UTC timezone offset.
+    
     Returns:
-        str: Current UTC time in ISO-8601 format with UTC timezone offset.
+        str: ISO-8601 formatted UTC timestamp including the UTC timezone offset.
     """
     return datetime.now(timezone.utc).isoformat()
 
 
 def tool_ownership_path(settings: Settings) -> Path:
     """
-    Get the file path used to store owner-only tool ownership state.
-
+    Compute the path to the runtime's tool-ownership.json file inside the setup directory.
+    
+    Parameters:
+        settings (Settings): Runtime settings providing the `runtime_dir` base path.
+    
     Returns:
-        Path: Path to the `tool-ownership.json` file inside the runtime `setup` directory.
+        Path: Path to the `tool-ownership.json` file under `<runtime_dir>/setup`.
     """
 
     return settings.runtime_dir / "setup" / "tool-ownership.json"
@@ -94,13 +97,15 @@ def tool_ownership_path(settings: Settings) -> Path:
 
 def normalize_ownership_tool(tool: str) -> OwnershipToolId:
     """
-    Convert a user or registry tool identifier to the canonical ownership tool ID.
-
+    Normalize a tool identifier to the canonical ownership tool ID.
+    
+    Accepts the alias "camofox-browser" and maps it to "camofox".
+    
     Returns:
-        The ownership tool ID corresponding to the input (one of "ollama", "firecrawl", "camofox").
-
+        The canonical ownership tool ID: one of "ollama", "firecrawl", or "camofox".
+    
     Raises:
-        ValueError: If the provided `tool` is not a recognized ownership tool identifier.
+        ValueError: If the input is not a recognized ownership tool identifier.
             The exception message is formatted as "unknown_tool_ownership_id:<tool>".
     """
 
@@ -139,14 +144,14 @@ def validate_ownership_mode(mode: str) -> OwnershipMode:
 
 def ownership_note(tool: OwnershipToolId, mode: OwnershipMode) -> str:
     """
-    Provide an operator-facing explanatory note describing the meaning and implications of a tool's ownership mode.
-
+    Provide an operator-facing explanation of a tool's ownership mode.
+    
     Parameters:
-        tool (OwnershipToolId): The normalized ownership tool identifier (e.g., "ollama", "firecrawl", "camofox").
-        mode (OwnershipMode): The ownership mode whose explanation is requested.
-
+        tool (OwnershipToolId): Canonical tool identifier (e.g., "ollama", "firecrawl", "camofox").
+        mode (OwnershipMode): Ownership mode to explain.
+    
     Returns:
-        str: A human-readable note explaining the operator-facing meaning of the specified ownership mode. For the combination of `tool == "firecrawl"` and `mode == "app-owned"`, a more specific Firecrawl-focused note is returned.
+        str: Human-readable note describing the operator-facing meaning of `mode` for `tool`. For the combination `tool == "firecrawl"` and `mode == "app-owned"`, returns a Firecrawl-specific explanation.
     """
 
     notes: dict[OwnershipMode, str] = {
@@ -182,13 +187,10 @@ def ownership_note(tool: OwnershipToolId, mode: OwnershipMode) -> str:
 
 def _default_decision(tool: OwnershipToolId) -> ToolOwnershipDecision:
     """
-    Create the default undecided ownership decision for a given tool.
-
-    Parameters:
-        tool (OwnershipToolId): The ownership tool identifier to produce a decision for.
-
+    Return a normalized undecided ownership decision for the specified tool.
+    
     Returns:
-        ToolOwnershipDecision: A decision with mode "undecided", source "default", updated_at set to None, and a generated note describing the undecided state for the tool.
+        ToolOwnershipDecision: Decision with mode "undecided", source "default", updated_at set to None, and an operator-facing note describing the undecided state.
     """
     return ToolOwnershipDecision(
         tool=tool,

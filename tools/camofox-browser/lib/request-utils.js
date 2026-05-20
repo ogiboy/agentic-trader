@@ -2,7 +2,9 @@
 // Separated from server.js to keep HTTP method classification in its own module.
 
 /**
- * Derive a short action name from an Express request for metrics labeling.
+ * Produce a short action label from an Express request for metrics.
+ * @param {import('express').Request} req - Express request; uses `req.method` and `req.route?.path || req.path` to determine the label.
+ * @returns {string} The derived action label (e.g. `create_tab`, `navigate`, `youtube_transcript`, `health`, or a normalized `method_path` fallback). 
  */
 export function actionFromReq(req) {
   const method = req.method;
@@ -30,7 +32,9 @@ export function actionFromReq(req) {
 }
 
 /**
- * Classify an error into a failure type string for metrics labeling.
+ * Map an Error-like object to a short failure label used for metrics.
+ * @param {any} err - The error object to classify; may be falsy.
+ * @returns {string} A concise failure label such as 'timeout', 'network', or 'browser_launch'. Returns 'unknown' if `err` is falsy or no known pattern matches.
  */
 export function classifyError(err) {
   if (!err) return 'unknown';

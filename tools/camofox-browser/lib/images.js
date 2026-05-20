@@ -8,7 +8,18 @@
 import { MAX_DOWNLOAD_INLINE_BYTES } from './downloads.js';
 
 /**
- * Extract image metadata (and optionally inline data) from visible <img> elements.
+ * Collects metadata for visible <img> elements on the given page and optionally fetches & inlines image bytes.
+ * @param {import('playwright').Page} page - Playwright page used to inspect the document.
+ * @param {Object} [options]
+ * @param {boolean} [options.includeData=false] - If `true`, attempts to fetch or inline image data for each image.
+ * @param {number} [options.maxBytes=MAX_DOWNLOAD_INLINE_BYTES] - Maximum byte size allowed for inlining image data; larger images will be skipped and marked with `dataSkipped: 'max_bytes_exceeded'`.
+ * @param {number} [options.limit=8] - Maximum number of unique images to consider.
+ * @returns {Array<Object>} An array of image entries. Each entry always contains `src`, `alt`, `width`, and `height`. When `includeData` is `true`, entries may also include:
+ * - `mimeType`: reported MIME type for the image (string).
+ * - `bytes`: estimated or actual byte size (number).
+ * - `dataUrl`: a data URL with the inlined image when `bytes <= maxBytes` (string).
+ * - `dataSkipped`: set to `'max_bytes_exceeded'` when data was not inlined due to size (string).
+ * - `fetchError`: error identifier or message when fetching/conversion failed (string).
  */
 async function extractPageImages(
   page,

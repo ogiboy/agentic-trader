@@ -553,19 +553,17 @@ function runStep(step) {
 }
 
 /**
- * Build the execution payload and exit code for the guided "app up" workflow based on provided options.
+ * Construct the planned and (optionally) executed app-up payload and determine the process exit code for the guided workflow.
  *
- * @param {Object} options - Parsed CLI/runtime options that control planning and execution.
+ * @param {Object} options - Parsed CLI/runtime options used to build and run the plan.
  * @param {Set<string>} options.selectedScopes - Scopes explicitly selected for execution.
- * @param {boolean} options.yes - Whether the user approved actual execution (not a dry run).
+ * @param {boolean} options.yes - Whether the user approved performing actions (enables execution when true).
  * @param {boolean} options.dryRun - Whether dry-run mode was requested.
  * @param {Object} options.owners - Current tool ownership decisions keyed by tool name.
  * @param {boolean} options.openBrowser - Whether the webgui step should open the browser.
- * @returns {{ payload: Object, exitCode: number }} An object containing:
- *  - `payload`: a machine-readable payload describing action metadata (`action`, `mode`, `dry_run`, `approved`),
- *    whether any ownership/service state was mutated, the list of selected scopes, ownership decisions and tool
- *    ownership state, safety notes, the full ordered `steps` array with per-step status/output, and suggested
- *    `next_commands`.
+ * @returns {{payload: Object, exitCode: number}} An object containing:
+ *  - `payload`: a structured report of the run including `action`, `mode`, `dry_run`, `approved`, whether any state was `mutated`,
+ *    the ordered `steps` with per-step status/output, selected scopes, ownership decisions/state, safety notes, and suggested `next_commands`.
  *  - `exitCode`: numeric exit code (0 when all selected executed steps passed; 1 if any selected step failed or was blocked).
  */
 function buildPayload(options) {

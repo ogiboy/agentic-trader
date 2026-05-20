@@ -8,6 +8,15 @@ import { classifyProxyError, collectResourceSnapshot } from './resources.js';
 
 export { classifyProxyError, collectResourceSnapshot };
 
+/**
+ * Track and expose live tab/browser health metrics for a Playwright-like page.
+ *
+ * @param {object} page - Playwright-like page object (expected to support `on(event, handler)`, `evaluate`, and relevant request/response/dialog methods). If omitted or invalid, returned methods operate as no-ops and `getReadyState` yields `null`.
+ * @returns {{health: object, snapshot: function(): object, getReadyState: function(): string|null}} An object containing:
+ *   - `health`: live metrics (crashes, pageErrors, requestFailures, inflightRequests, maxRedirectDepth, redirectStatusCodes, statusCounts, botDetection, lastNavResponseSize, _redirectDepth).
+ *   - `snapshot()`: returns a shallow copy of `health` with the internal `_redirectDepth` omitted.
+ *   - `getReadyState()`: returns the page's `document.readyState` string, the literal `'unresponsive'` if the page does not respond or evaluation fails, or `null` when no valid `page` was provided.
+ */
 export function createTabHealthTracker(page) {
   const health = {
     crashes: 0,

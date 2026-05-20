@@ -9,6 +9,14 @@ const FIREFOX_PROFILE_PATTERN = /^playwright_firefoxdev_profile-/;
 // Camoufox also creates these
 const CAMOUFOX_TMP_PATTERN = /^camoufox[-_]/;
 
+/**
+ * Removes orphaned native-module temp files that match known filename patterns and are older than a specified age.
+ * @param {Object} [opts] - Options.
+ * @param {string} [opts.tmpDir] - Directory to scan; if falsy, the function performs no work.
+ * @param {number} [opts.minAgeMs=300000] - Minimum file age in milliseconds required for removal.
+ * @param {number} [opts.now=Date.now()] - Reference timestamp in milliseconds used to evaluate file age.
+ * @returns {{scanned: number, removed: number, bytes: number, skipped: number}} Summary counts: `scanned` entries matching orphan patterns, `removed` files deleted, total `bytes` freed, and `skipped` entries that were too recent.
+ */
 export function cleanupOrphanedTempFiles({
   tmpDir,
   minAgeMs = 5 * 60 * 1000,
@@ -47,12 +55,21 @@ export function cleanupOrphanedTempFiles({
 }
 
 /**
- * Clean up stale Firefox/Camoufox temp profile directories.
- * These accumulate when browser.close() doesn't fully clean up
- * (especially with enable_cache: true). Each profile can be 10-100MB+.
+ * Remove stale Playwright/Camoufox Firefox temporary profile directories from the system temp directory.
  *
- * Only removes profiles older than minAgeMs (default 2 minutes)
- * to avoid killing profiles belonging to an actively launching browser.
+ * Scans the provided temp directory (or the OS temp directory when `tmpDir` is omitted) for entries matching
+ * known Firefox/Camoufox profile/name patterns and deletes directories whose modification time is older than
+ * `minAgeMs`. Deletions are best-effort and individual failures are skipped.
+ *
+ * @param {Object} [opts] - Options.
+ * @param {string} [opts.tmpDir] - Directory to scan; uses the OS temp directory when omitted.
+ * @param {number} [opts.minAgeMs=120000] - Minimum age in milliseconds for a profile to be considered stale.
+ * @param {number} [opts.now=Date.now()] - Reference timestamp (milliseconds since epoch) used to measure age.
+ * @returns {{scanned: number, removed: number, bytes: number, skipped: number}} Summary of the cleanup:
+ *          `scanned` — number of matching entries inspected,
+ *          `removed` — number of directories deleted,
+ *          `bytes` — total bytes freed (best-effort),
+ *          `skipped` — number of entries skipped due to being too recent.
  */
 export function cleanupStaleFirefoxProfiles({
   tmpDir,
@@ -94,7 +111,11 @@ export function cleanupStaleFirefoxProfiles({
   return result;
 }
 
-/** Recursively calculate directory size (best effort, fast). */
+/**
+ * Compute the total size in bytes of a directory and its contents using a best-effort synchronous scan that skips entries it cannot read.
+ * @param {string} dirPath - Path of the directory to measure.
+ * @returns {number} Total size in bytes of all readable files under `dirPath`; unreadable entries are ignored.
+ */
 function _dirSizeSync(dirPath) {
   let total = 0;
   try {

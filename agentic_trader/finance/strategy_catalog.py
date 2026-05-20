@@ -426,7 +426,24 @@ def strategy_catalog_payload(
 
 
 def score_strategy_context(score: IdeaScore) -> dict[str, object]:
-    """Explain which strategy profile and evidence gates apply to an idea score."""
+    """
+    Map an IdeaScore to its strategy profile and proposal-readiness payload.
+    
+    Parameters:
+        score (IdeaScore): Evaluation containing `preset`, `signal`, and `warnings` used to select a profile and compute readiness gates.
+    
+    Returns:
+        dict[str, object]: Payload with:
+            - `strategy_profile`: dict payload of the matched StrategyProfile.
+            - `proposal_readiness`: dict containing:
+                - `state` (ReadinessState): either `"watch_only"` or `"needs_evidence"`.
+                - `proposal_candidate` (bool): always `False`.
+                - `blocking_warnings` (list[str]): sorted subset of `["low_volume","wide_spread","invalid_price"]` present in `score.warnings`.
+                - `missing_evidence` (list[str]): evidence requirements from the profile.
+                - `required_risk_controls` (list[str]): required risk controls from the profile.
+                - `next_action` (str): `"keep_on_watchlist"` when `state` is `"watch_only"`, otherwise an enrichment instruction.
+                - `manual_approval_required` (bool): always `True`.
+    """
 
     profile = strategy_profile_for_preset(score.preset)
     blocking_warnings = sorted(

@@ -200,10 +200,9 @@ export function readToolOwnership() {
 }
 
 /**
- * Produce a map containing only explicit (non-'undecided') ownership decisions.
- *
- * @param {Object<string, string>} owners - Map of tool IDs to ownership mode strings.
- * @returns {Object<string, string>} A new map with entries where the mode is truthy and not 'undecided'.
+ * Filter an ownership map to only include explicit, allowed ownership modes for known tools.
+ * @param {Object<string,string>} owners - Map of tool IDs to ownership mode strings.
+ * @returns {Object<string,string>} Map containing only entries for known tool IDs whose mode is one of: `'accepted'`, `'rejected'`, `'host-owned'`, `'app-owned'`, `'api-key-only'`, or `'skipped'`.
  */
 export function explicitOwnershipUpdates(owners) {
   const knownToolIds = new Set(OWNERSHIP_TOOL_IDS);

@@ -67,7 +67,21 @@ def _provider_payload(meta: ProviderMetadata) -> dict[str, object]:
 
 
 def provider_diagnostics_payload(settings: Settings) -> dict[str, object]:
-    """Build a network-free snapshot of configured provider/source readiness."""
+    """
+    Build a network-free snapshot of configured provider and source readiness.
+    
+    Returns:
+        payload (dict[str, object]): Diagnostic snapshot with keys:
+            - `llm`: selected LLM provider, base URL, default model, and routing.
+            - `market_data`: configured market mode, a selected provider role, and a fallback warning.
+            - `news`: news ingestion mode, headline limit, and enabled flag.
+            - `configured_keys`: booleans indicating presence of API keys for finnhub, fmp,
+              polygon/massive, and Alpaca credential readiness.
+            - `alpaca`: Alpaca-related settings and readiness flags (paper endpoint, data feed,
+              paper trading enablement, and credentials).
+            - `providers`: list of normalized provider records derived from configured providers.
+            - `warnings`: list of operator-facing warning messages about optional or degraded settings.
+    """
 
     provider_rows = [
         _provider_payload(meta)
@@ -157,6 +171,22 @@ def _paper_evidence_payload(
     settings: Settings,
     provider_payload: dict[str, object],
 ) -> dict[str, object]:
+    """
+    Assembles a paper-evidence payload that summarizes provider/source visibility and the gates that block live execution.
+    
+    Parameters:
+        settings (Settings): Runtime/settings object used to evaluate live execution and backend gating.
+        provider_payload (dict[str, object]): Provider diagnostics payload (expected to include a `providers` list, `market_data.selected_provider`, and optional `warnings`).
+    
+    Returns:
+        dict[str, object]: A payload containing:
+            - ready: `True` if all blocking checks pass, `False` otherwise.
+            - checks: List of check records produced for provider/source ladder, source attribution, context pack visibility, review evidence path, and live-execution gate.
+            - source_ladder: Dict with `provider_count` (int), `selected_market_provider` (str), and `warnings` (list).
+            - context_pack: Dict describing required Market Context Pack fields and fixed visibility flags.
+            - review_artifacts: List of operator review artifact paths expected on the review path.
+            - no_live_until_approved: Summary of live-execution settings including `live_execution_enabled`, `execution_backend`, and computed `live_blocked`.
+    """
     provider_rows = _provider_rows(provider_payload)
     source_attribution_visible = all(
         row.get("provider_id") and row.get("provider_type") and row.get("role")
@@ -229,7 +259,26 @@ def _paper_evidence_payload(
 def v1_readiness_payload(
     settings: Settings, *, check_provider: bool = False
 ) -> dict[str, object]:
-    """Build a V1 paper-operation and Alpaca-readiness checklist."""
+    """
+    Assemble a V1 readiness payload summarizing paper-operation checks and Alpaca paper readiness.
+    
+    Builds a diagnostic payload that includes broker and provider diagnostics, paper-operation checks (gate conditions required for V1 paper-only operation), Alpaca-specific readiness checks, and a human-readable summary.
+    
+    Parameters:
+        settings (Settings): Configuration used to evaluate runtime, execution, broker, provider, and Alpaca readiness.
+        check_provider (bool): If True, perform an actual LLM provider health check and populate `provider_health`; if False, `provider_health` will be None and the `llm_provider_ready` check will indicate that provider verification was not performed.
+    
+    Returns:
+        dict[str, object]: A mapping with the following top-level keys:
+          - `runtime_mode`: the configured runtime mode string.
+          - `execution_backend`: the configured execution backend string.
+          - `paper_operations`: object with `allowed` (bool) and `checks` (list of check records) for paper-operation gating.
+          - `paper_evidence`: evidence payload used to evaluate source/provider visibility.
+          - `alpaca_paper`: object with `ready` (bool) and `checks` (list of Alpaca readiness check records).
+          - `broker`: broker runtime payload.
+          - `provider_health`: provider health details when `check_provider` is True, otherwise None.
+          - `summary`: a short message reflecting whether paper-operation checks passed.
+    """
 
     broker_payload = broker_runtime_payload(settings)
     provider_payload = provider_diagnostics_payload(settings)
