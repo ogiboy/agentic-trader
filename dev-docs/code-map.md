@@ -63,7 +63,7 @@ behavior, while this map explains where to look and how the pieces connect.
 ## QA And Developer Tooling
 
 - `scripts/qa/smoke_qa.py` is the terminal smoke harness. It checks installed CLI commands, Ink/Rich entrypoints, `python main.py`, optional `ruff`, `pytest`, `pyright`, coverage XML, and optional SonarQube submission.
-- `.ai/qa/qa-smoke-script.md` documents how to run the smoke harness and where artifacts are written.
+- `.ai/qa/qa-smoke-script.instructions.md` documents how to run the smoke harness and where artifacts are written.
 - `.ai/current-state.instructions.md`, `.ai/tasks.instructions.md`, and `.ai/decisions.instructions.md` should be updated when architecture or workflow assumptions change.
 - `pyrightconfig.json` scopes static type checking to source, tests, and scripts while excluding generated/build/runtime artifacts.
 
