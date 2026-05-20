@@ -23,7 +23,7 @@
 
 This ensures generated code always matches the version actually installed, not stale training data.
 
-### What changed since older versions:
+### What changed since older versions
 
 - Agent **`kickoff()` / `kickoff_async()`** for direct agent usage (no crew needed)
 - **`response_format`** parameter on agent kickoff for structured Pydantic outputs
@@ -38,13 +38,13 @@ This ensures generated code always matches the version actually installed, not s
 - **Structured outputs / `response_format`** across all LLM providers (v1.9.0+)
 - **`inject_date=True`** agent parameter to auto-inject current date awareness
 
-### Patterns to NEVER use (outdated/removed):
+### Patterns to NEVER use (outdated/removed)
 
 - ❌ `ChatOpenAI(model_name=...)` → ✅ `LLM(model="openai/gpt-4o")`
 - ❌ `Agent(llm=ChatOpenAI(...))` → ✅ `Agent(llm="openai/gpt-4o")` or `Agent(llm=LLM(model="..."))`
 - ❌ Passing raw OpenAI client objects → ✅ Use `crewai.LLM` wrapper
 
-### How to verify you're using current patterns:
+### How to verify you're using current patterns
 
 1. You ran the version check and docs lookup steps above before writing code
 2. All LLM references use `crewai.LLM` or string shorthand (`"openai/gpt-4o"`)
@@ -106,7 +106,7 @@ crewai deploy remove <id>             # Delete a deployment
 
 ### Crew Project
 
-```
+```.md
 my_crew/
 ├── src/my_crew/
 │   ├── config/
@@ -123,7 +123,7 @@ my_crew/
 
 ### Flow Project
 
-```
+```.md
 my_flow/
 ├── src/my_flow/
 │   ├── crews/                 # Multiple crew definitions
@@ -263,7 +263,7 @@ class ResearchCrew:
         )
 ```
 
-### Key formatting rules:
+### Key formatting rules
 
 - Always add `# type: ignore[index]` for config dictionary access
 - Agent/task method names must match YAML keys exactly
@@ -630,7 +630,7 @@ class QualityFlow(Flow):
         print("Revising...")
 ```
 
-### Parallel Triggers with or* and and*
+### Parallel Triggers with or*and and*
 
 ```python
 from crewai.flow.flow import or_, and_
@@ -820,7 +820,7 @@ Code: CodeInterpreterTool, CodeDocsSearchTool, GithubSearchTool
 Media: DALL-E Tool, YoutubeChannelSearchTool, YoutubeVideoSearchTool
 Other: RagTool, ApifyActorsTool, ComposioTool, LlamaIndexTool
 
-Always check https://docs.crewai.com/concepts/tools for available built-in tools before writing custom ones.
+Always check <https://docs.crewai.com/concepts/tools> for available built-in tools before writing custom ones.
 
 ---
 
@@ -946,7 +946,7 @@ crewai deploy remove <id>       # Delete deployment
 ### Web Interface Deployment
 
 1. Push code to GitHub
-2. Log into https://app.crewai.com
+2. Log into <https://app.crewai.com>
 3. Connect GitHub and select repository
 4. Configure environment variables (KEY=VALUE, one per line)
 5. Click Deploy and monitor via dashboard
@@ -1018,7 +1018,7 @@ jobs:
 
 ### Required `.env`
 
-```
+```.env
 OPENAI_API_KEY=sk-...
 # Optional depending on tools/providers:
 SERPER_API_KEY=...

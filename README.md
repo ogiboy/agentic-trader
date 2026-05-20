@@ -1,3 +1,5 @@
+# Agentic Trader
+
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
@@ -30,8 +32,6 @@
    ██║   ██║  ██║██║  ██║██████╔╝███████╗██║  ██║
    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 ```
-
-# Agentic Trader
 
 Agentic Trader is a strict, local-first, multi-agent trading system for Ollama-class models, paper-first by default and V1-focused on an approved US-equities buy/sell path. It keeps the Python runtime as the source of truth, uses deterministic guardrails before any broker intent, and records decision context so operator-facing surfaces can be inspected instead of trusted blindly.
 
