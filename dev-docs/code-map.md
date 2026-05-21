@@ -13,7 +13,7 @@ behavior, while this map explains where to look and how the pieces connect.
 
 ## Web And Docs Surfaces
 
-- `webgui/` is the local Web GUI. It uses Next.js App Router route handlers to call the same dashboard, runtime, chat, and instruction contracts that power the terminal surfaces.
+- `webgui/` is the local Web GUI. It uses Next.js App Router route handlers to call the same dashboard, runtime, chat, and instruction contracts that power the terminal surfaces. The control-room UI is split under `webgui/src/components/control-room/`: views, shell chrome, dashboard polling, actions, request/auth helpers, primitives, and per-locale typed copy modules stay separate while `control-room.tsx` coordinates state wiring and render composition.
 - `docs/` is the separate operator-first docs app. It now uses Fumadocs plus MDX for curated setup, architecture, runtime, operator-surface, QA, and contributor-maintenance documentation.
 - `docs/source.config.ts`, `docs/lib/source.ts`, and `docs/content/docs/` own the Fumadocs content pipeline.
 - `docs/app/[lang]/docs/[[...slug]]/page.tsx` renders the generated MDX pages under locale-prefixed routes such as `/en/...` and `/tr/...`, while `docs/app/page.tsx` is the project-facing landing page for developers.
@@ -58,7 +58,7 @@ behavior, while this map explains where to look and how the pieces connect.
 - `agentic_trader/schemas.py` is the contract layer. Add new agent/runtime payload fields here before wiring them into storage or UI. `MarketContextPack` lives here so agents, storage, dashboards, and future UI clients share the same lookback-truth contract.
 - `agentic_trader/storage/db.py` is the DuckDB persistence boundary. It stores runs, orders, fills, service state/events, preferences, memory vectors with embedding metadata, trade context, proposal candidates, trade proposals, and journals.
 - `agentic_trader/config.py` centralizes environment-driven settings, runtime paths, runtime mode, provider routing, and directory setup.
-- `agentic_trader/ui_text.py` is the first shared UI text catalog. Put repeated operator-facing labels/prompts here instead of duplicating them across CLI, Rich, Ink, and future WebUI surfaces.
+- `agentic_trader/ui_text.py` is the shared Python UI text catalog. Put repeated operator-facing labels/prompts here instead of duplicating them across CLI, Rich, Ink, and future Python UI surfaces; keep legacy constants available while new code prefers `get_ui_text(locale)`.
 
 ## QA And Developer Tooling
 
@@ -66,6 +66,7 @@ behavior, while this map explains where to look and how the pieces connect.
 - `.ai/qa/qa-smoke-script.instructions.md` documents how to run the smoke harness and where artifacts are written.
 - `.ai/current-state.instructions.md`, `.ai/tasks.instructions.md`, and `.ai/decisions.instructions.md` should be updated when architecture or workflow assumptions change.
 - `pyrightconfig.json` scopes static type checking to source, tests, and scripts while excluding generated/build/runtime artifacts.
+- Strict Pyright/Pylance adoption is an incremental hardening track. Classify diagnostics by rule and file first, fix source/runtime risks before test-fixture noise, and add third-party stub packages only when they match the locked dependency versions.
 
 ## Documentation Conventions
 

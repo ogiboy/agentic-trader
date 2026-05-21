@@ -95,6 +95,7 @@ Status: in progress.
 - [x] add agent decision trace viewer to inspect reasoning, tool calls, and outputs per cycle
 - [x] add retrieval inspection view to show why specific memories were used in a decision
 - [x] prepare a UI text catalog and localization boundary for CLI, Rich, Ink, and future WebUI surfaces
+- [x] add a first Web GUI i18n catalog with stable tab ids, English/Turkish copy, persisted language selection, and localized shell/overview/auth labels
 - [ ] add full multi-language support after operator flows stabilize
 - [ ] run a designer-style visual audit for Ink and Rich surfaces, including first-launch logo fit, resize behavior, visual density, and hotkey visibility
 - [ ] run a CLI ergonomics audit for `--help`, `-h`, examples, option naming, and short/long flag consistency
@@ -112,7 +113,8 @@ Status: in progress.
 - the Ink control room now also includes an operator chat page with persona switching
 - the Ink control room now also includes a memory page backed by similar-run retrieval and stage-level retrieval inspection
 - the Ink chat page now embeds live agent activity, recent tool-role usage, and reasoning-stage context beside the transcript
-- a lightweight shared UI text catalog now exists as the first step toward future multi-language operator surfaces
+- a typed shared Python UI text catalog now exists as the first step toward future multi-language operator surfaces while preserving legacy CLI/Rich/Ink constants
+- the Web GUI now has a first local i18n seam plus per-view control-room modules; shell, auth, overview, runtime, portfolio, proposals, review, memory, chat, and settings copy now flow through typed per-locale English/Turkish modules, while helper-generated evidence lines still need a deeper catalog pass
 - the Ink overview and review pages now surface context-pack summaries, lookback coverage, quality flags, anomalies, and horizon votes from the Python dashboard contract
 - the next operator trust upgrade is adding a Training/Operation mode banner and deeper retrieval explanations beside the context pack
 - richer trace inspection and deeper Ink feature parity are still open
@@ -251,6 +253,7 @@ Status: completed.
 Status: in progress.
 
 - keep type checking and tests green before moving to the next slice
+- adopt Pyright/Pylance strictness as a staged hardening track: classify the current strict backlog by real runtime risk vs test/mock noise, add narrow third-party stubs where they match installed packages, and fix source diagnostics before chasing broad unknown-type noise
 - prefer schema-first agent contracts over free-form text coupling
 - add reproducible fixtures for data-heavy tests
 - keep CLI, TUI, and service behavior aligned so operator surfaces do not drift
@@ -543,7 +546,10 @@ Status: in progress.
 - [x] add a first setup-status and macOS bootstrap script foundation that detects core tools, optional Ollama/Firecrawl/Camofox/RuFlo readiness, and the `agentic-trader` PATH entrypoint without hidden installs
 - [x] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
 - [ ] split oversized runtime/CLI/helper files incrementally into domain modules, constants, render helpers, and service helpers so V1 remains inspectable as a product codebase rather than a single-developer script pile
-- [ ] split the Web GUI control room incrementally into domain panels, typed view-model helpers, and focused hooks/services so `webgui/src/components/control-room.tsx` no longer owns dashboard polling, proposal desk, tools, finance, runtime controls, auth, chat, and rendering in one file
+- [ ] continue splitting the Web GUI control room into typed view-model helpers and screen-scoped style modules so `webgui/src/components/control-room.tsx` stays a small state/render coordinator
+- [x] extract the first Web GUI control-room primitives and copy catalog so shared panel/list/JSON rendering and shell/overview labels no longer live inside the monolithic control-room component
+- [x] split the Web GUI control room into per-view modules plus dedicated shell chrome, dashboard polling, runtime/proposal/tool/chat/instruction actions, request/auth helpers, shared primitives, and a typed English/Turkish copy catalog, leaving `control-room.tsx` as the state/render coordinator
+- [x] move the main Web GUI control-room view copy for runtime, portfolio, proposal desk, review, memory, chat, and settings into the typed English/Turkish catalog so new view work has one localization boundary
 - [ ] investigate why `CHANGELOG.md` is not changing in the observed release/branch flow; confirm whether this is expected feature-branch behavior, missing semantic-release trigger, or a release workflow defect, then document the fix path before the next stable release
 - [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, using a local-first monospace typography stack without build-time Google Fonts fetches
 - [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
@@ -563,6 +569,7 @@ Status: in progress.
 - `pnpm run app:update` now provides the first scoped update lane: dry-run by default, `--core`/`--sidecar`/`--camofox`/`--build`/`--status`/`--all` plus `--yes` before mutation, with root pnpm, root uv, sidecar uv, Camofox pnpm, build, and app:doctor steps narrated separately
 - `pnpm run app:uninstall` now provides the first conservative cleanup lane: dry-run by default, `--artifacts`/`--deps`/`--service-state`/`--all` plus `--yes` before removal, preserving secrets, host services, brokerage config, global tools, and trading runtime evidence while blocking service-state deletion if recorded service state remains
 - Camofox helper setup commands now use standalone `pnpm --dir tools/camofox-browser --ignore-workspace ...`; the npm lockfile was replaced by a tool-root `pnpm-lock.yaml` after install/test smoke, and browser binary fetch stays explicit
+- Camofox helper setup uses `camoufox-js` as the expected Node.js Camoufox bridge/fetch CLI; bootstrap and helper docs should call this out so the package name does not look like an unrelated install
 - Camofox is intentionally not listed in root `pnpm-workspace.yaml` today: it is optional helper infrastructure under `tools/`, not an always-installed app surface, and adding it to the workspace should wait until setup policy changes from explicit opt-in tool-root install to normal workspace ownership
 - `agentic_trader.system.tool_roots` now provides the first central registry for optional repo tools, including status IDs, consumers, fallback order, manifest notes, and install hints for Ollama, Firecrawl, and Camofox; setup-status, model-service status, Camofox-service status, dashboard snapshot, Web overview, Ink overview, and research provider metadata consume or display this registry-backed truth, while QA/docs parity remains open
 - side-application setup must be explicit and opt-in for paid/browser/provider helpers; missing optional tools should be reported as degraded readiness, not silently installed, auto-started, or treated as blockers for core paper operation

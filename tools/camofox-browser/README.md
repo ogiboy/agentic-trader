@@ -5,6 +5,11 @@ MIT-licensed `jo-inc/camofox-browser` project. Agentic Trader uses it as an
 optional loopback-only research helper when Firecrawl/API providers are not
 enough and a browser snapshot is explicitly needed.
 
+The local helper depends on the `camoufox-js` npm package. That package is the
+Node.js Camoufox bridge/fetch CLI used to locate, download, and launch the
+Camoufox browser cache; seeing `camoufox-js` during setup is expected and is
+not a separate product install.
+
 Local policy:
 
 - bind only to `127.0.0.1`, `localhost`, or `::1`

@@ -338,6 +338,7 @@ Sonar findings are full-repository review signals, not latest-commit-only signal
 Reason:
 The CLI, Rich menu, Ink TUI, and future WebUI need consistent operator language, but the product flows are still moving.
 A lightweight shared UI text catalog avoids duplicated labels today and creates a safe seam for future multi-language support without introducing translation machinery too early.
+Keep legacy constants exported until CLI/Rich/Ink call sites are migrated, but prefer typed catalog access for new Python UI code and typed copy modules for Web GUI components. Web GUI view modules should receive copy through the control-room boundary rather than importing ad hoc strings.
 
 ### Lookback must become an operator-verifiable artifact
 
@@ -623,6 +624,7 @@ Reason:
 The root JavaScript policy is pnpm, and `tools/camofox-browser` is optional tool infrastructure rather than a root workspace package.
 Camofox should remain outside the root workspace until it needs shared package ownership, but its local dependency commands should use standalone `pnpm --dir tools/camofox-browser --ignore-workspace ...` commands so install, update, test, and lockfile behavior match the rest of the repo without accidentally running the root workspace install.
 Dependency install stays separate from `camoufox-js fetch`: browser binary downloads are large, platform-sensitive, and should only run after explicit approval.
+`camoufox-js` is the expected Node.js Camoufox bridge/fetch CLI for this helper, so installer output and docs should identify it clearly instead of leaving the operator to infer why that package appears.
 The secure runtime boundary remains unchanged: loopback host only, access-key required, telemetry/prewarm off by default, narrowed environment, owner-only state/logs, and no raw browser content in trading prompts or broker/policy paths.
 
 ### Update and uninstall are first-class product workflows
@@ -662,7 +664,7 @@ Every fallback path must remain explicit, redacted, source-attributed, loopback-
 
 Reason:
 The early solo-developer bias kept changes small, but several files have grown large enough that auditability now matters more than keeping everything in one place.
-When touching complex areas, prefer extracting domain constants, render helpers, service helpers, and provider/fetcher adapters into named modules with focused tests.
+When touching complex areas, prefer extracting domain constants, render helpers, service helpers, typed copy catalogs, and provider/fetcher adapters into named modules with focused tests.
 This is still incremental architecture cleanup, not a license for broad rewrites or a new orchestration framework.
 
 ### The existing docs scaffold should be activated, not replaced

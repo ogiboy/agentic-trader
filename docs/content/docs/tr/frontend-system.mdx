@@ -41,11 +41,13 @@ Dosya bölmek için iyi nedenler:
 - locale-aware ya da feature-aware copy'yi ayrı test etmek kolaylaşıyorsa
 
 Docs uygulaması artık bu yaklaşımı `components/home`, `components/feedback`, `components/layout`, `lib/i18n` ve `lib/home/content` ayrımıyla uyguluyor.
+Web GUI control room da aynı yöne gidiyor: üst seviye component state/render coordinator olarak kalmalı; view dosyaları, shell chrome, dashboard polling, action handler'ları, request helper'ları, primitive'ler ve typed dil bazlı İngilizce/Türkçe copy ayrı modüllerde durmalı.
 
 ## Web GUI migration gerçeği
 
 `webgui/` hâlâ geçiş sürecinde.
 Modern temel orada da hazır; ama bazı ekranlar hâlâ eski global CSS'e dayanıyor.
+İlk control-room bölünmesi ve ana view-copy katalogu tamam; sonraki işler coordinator'u tekrar büyütmeden typed view model'leri, katalog-aware helper satırlarını ve ekran kapsamlı stilleri ayırmalı.
 
 Güvenli migration kuralları:
 

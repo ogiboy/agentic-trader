@@ -17,7 +17,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/ogiboy/agentic-trader?sort=semver&display_name=tag)](https://github.com/ogiboy/agentic-trader/releases)
 [![License: LGPL-3.0-or-later](https://img.shields.io/badge/license-LGPL--3.0--or--later-blue.svg)](LICENSE)
 
-```text
+```ascii
  █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗
 ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║██╔════╝
 ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ██║██║
@@ -89,6 +89,15 @@ make bootstrap-dry-run
 make bootstrap
 ```
 
+For the full first-run product path, use the launcher alias. It runs the
+interactive bootstrap, project setup, and then opens `main.py`:
+
+```bash
+make launch
+# or preview without mutating local state
+make launch-dry-run
+```
+
 `bootstrap` can offer macOS installs for `uv`, Node, `pnpm`, Ollama, Firecrawl,
 and the optional Camofox/RuFlo tooling when requested. It also offers a
 `~/.local/bin/agentic-trader` symlink after the uv environment has created the
@@ -99,7 +108,9 @@ Runtime auto-start flags only supervise already-installed local helpers; they
 do not install tools, pull models, create accounts, or mutate trading policy.
 For Camofox, `make setup-camofox` installs helper dependencies without running
 browser-download scripts; `make fetch-camofox` downloads the optional Camoufox
-browser binary only when you approve that step.
+browser binary only when you approve that step. The Camofox helper uses the
+`camoufox-js` npm package as its Node.js Camoufox bridge/fetch CLI, so seeing
+that package during helper setup is expected.
 
 ### Python / uv From Source
 
@@ -422,6 +433,7 @@ Download packaged CLI binaries from [GitHub Releases](https://github.com/ogiboy/
 | `pnpm --silent run app:stop -- --json --all --yes`               | Stop only app-owned service PIDs recorded by the app                                                          |
 | `pnpm --silent run app:update -- --json --dry-run`               | Preview the scoped update lane across native dependency owners                                                |
 | `pnpm --silent run app:uninstall -- --json --dry-run`            | Preview app-owned artifact/dependency/service-state removal                                                   |
+| `make launch`                                                    | Run interactive bootstrap, setup, and the primary `main.py` launcher                                          |
 | `agentic-trader model-service status --probe-generation --json`  | Inspect configured/app-managed Ollama readiness, generation, and log tails                                    |
 | `agentic-trader model-service start`                             | Start only an app-owned loopback Ollama process                                                               |
 | `agentic-trader model-service pull qwen3:8b`                     | Pull an Ollama model through the configured/app-owned service                                                 |
@@ -494,6 +506,8 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 ## Web GUI
 
 `webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction/proposal contracts from server-side route handlers. It is intentionally not a second orchestrator, and its Proposal Desk can only call the same explicit approve/reject/reconcile/refresh gates that the CLI exposes.
+
+The control-room UI is split into focused view, shell, dashboard-polling, action, request/auth, primitive, and typed-copy modules under `webgui/src/components/control-room/`; keep new screen work on that modular path instead of growing the coordinator component again.
 
 ```bash
 pnpm dev:webgui

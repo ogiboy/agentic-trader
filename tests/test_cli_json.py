@@ -1771,6 +1771,35 @@ def test_research_cycle_control_json_persists_pause_and_trigger(
     assert settings.database_path.exists() is False
 
 
+def test_research_cycle_control_rejects_reason_without_action(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path,
+        database_path=tmp_path / "agentic_trader.duckdb",
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_symbols="AAPL",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "research-cycle-control",
+            "--reason",
+            "operator review",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--reason requires --pause, --resume, or --trigger-now." in result.stdout
+    assert research_cycle_control_path(settings).exists() is False
+    assert settings.database_path.exists() is False
+
+
 def test_research_refresh_json_persists_snapshot(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

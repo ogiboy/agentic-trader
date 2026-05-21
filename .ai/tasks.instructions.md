@@ -93,7 +93,7 @@ Now:
   affects first-run behavior, app-owned helper services, agent-cycle claims,
   memory persistence, visual surfaces, or security boundaries
 - start a maintainability cleanup track for large files and repeated strings: extract constants, render helpers, command helpers, and service-specific modules as touched; keep names domain-oriented and preserve existing contracts rather than doing a risky one-shot rewrite
-- prioritize the Web GUI control-room modularity track before polishing small UI issues: split dashboard/proposal/tools/runtime/finance/auth/chat concerns into focused components, hooks, and helpers with matching tests, while keeping the route handlers as thin runtime-contract delegates
+- continue the Web GUI control-room modularity track before polishing small UI issues: views, shell chrome, dashboard polling, actions, request/auth helpers, primitives, and per-locale view copy modules are now split behind a small facade, so the next pass should focus on typed view models, screen-scoped styles, and catalog-aware helper-generated evidence lines while keeping route handlers as thin runtime-contract delegates
 - make whole-app shutdown a first-class V1 follow-up: first extend `stop-service` with machine-readable `--json` plus a bounded wait result, then add an explicit `app:stop --runtime` step that stops the trading daemon before optional helper services and refuses to tear down model/browser helpers while a runtime cycle is still live unless the operator asks for a force path
 - treat TUI flicker as a runtime-trust issue, not polish only: add an in-flight or sequence guard around Ink dashboard refreshes, verify Rich monitor DB ownership is closed per tick, and keep visual QA tied to dashboard JSON truth
 - keep LM Studio and other OpenAI-compatible endpoints as explicit adapter/profile work: the managed local service layer remains app-owned Ollama only, while `openai-compatible` or a future `lm-studio` alias should use the OpenAI chat-completions adapter without app-owned Ollama auto-start/adoption
@@ -313,9 +313,10 @@ Keep all operator surfaces aligned with the same underlying runtime and status t
 
 Desired direction:
 
-- reuse the shared UI text catalog for recurring CLI, Rich, Ink, and future WebUI labels
-- defer full localization until operator flows stabilize, but avoid adding new scattered duplicate labels
+- reuse the shared UI text catalog for recurring CLI, Rich, Ink, and WebGUI labels
+- defer full product localization until operator flows stabilize, but route new repeated WebGUI view copy and helper-generated labels through typed copy/catalog seams instead of scattered duplicate labels
 - keep pyright, ruff, pytest, and smoke QA green as surface contracts evolve
+- treat the new strict Pyright/Pylance backlog as staged type-hardening work, not as a reason to hide diagnostics: classify strict errors by rule/file, fix source-level runtime risks first, add package stubs only when compatible with the locked dependency versions, then migrate tests/mocks through typed factories instead of blanket ignores
 - keep root `pyproject.toml` and `uv.lock` in sync when Python dependencies change; use uv for root add/remove/lock/sync/build operations rather than ad hoc pip installs, and keep the CrewAI Flow sidecar's `sidecars/research_flow/uv.lock` independent
 
 ### 11. Future External Provider Readiness

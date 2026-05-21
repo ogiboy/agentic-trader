@@ -4294,6 +4294,10 @@ def research_cycle_control(
         raise typer.BadParameter(
             "Choose only one of --pause, --resume, or --trigger-now."
         )
+    if reason is not None and not selected_actions:
+        raise typer.BadParameter(
+            "--reason requires --pause, --resume, or --trigger-now."
+        )
     settings = get_settings()
     action = (
         cast(ResearchCycleControlAction, selected_actions[0])

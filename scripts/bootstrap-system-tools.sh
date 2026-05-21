@@ -251,7 +251,10 @@ setup_agentic_trader_path() {
   fi
 }
 
-# setup_camofox_browser ensures the tools/camofox-browser helper exists, offers to install its local dependencies, and optionally downloads or updates the Camofox browser binary.
+# setup_camofox_browser ensures the tools/camofox-browser helper exists, offers
+# to install its local dependencies, and optionally downloads or updates the
+# Camoufox browser binary. The helper uses the `camoufox-js` npm package as the
+# Node.js bridge/fetch CLI for Camoufox; that package name is expected.
 setup_camofox_browser() {
   camofox_dir="$ROOT_DIR/tools/camofox-browser"
   if [ ! -f "$camofox_dir/package.json" ]; then
@@ -275,6 +278,7 @@ setup_camofox_browser() {
     record_summary done "Camofox dependencies" "node_modules already present"
   else
     printf '%s\n' "Camofox dependency install is local and skips browser downloads by default."
+    printf '%s\n' "It installs the helper's Node dependencies, including camoufox-js: the Camoufox JS bridge/fetch CLI."
     if ask_yes "Install optional Camofox browser helper dependencies now?"; then
       if run_cmd pnpm --dir "$camofox_dir" install --ignore-workspace --ignore-scripts; then
         if [ "$DRY_RUN" -eq 1 ]; then
@@ -291,6 +295,7 @@ setup_camofox_browser() {
     fi
   fi
   printf '%s\n' "Camoufox browser binary download is separate and can be large."
+  printf '%s\n' "The fetch command is provided by camoufox-js and downloads the Camoufox browser cache used by this helper."
   if ask_yes "Download/update the Camoufox browser binary now?"; then
     if run_cmd pnpm --dir "$camofox_dir" --ignore-workspace run fetch:browser; then
       if [ "$DRY_RUN" -eq 1 ]; then
