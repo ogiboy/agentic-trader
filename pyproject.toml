@@ -7,7 +7,7 @@ authors = [
   {name = "Oğuzcan Toptaş", email = "oguzcantoptas@gmail.com"},
 ]
 dependencies = [
-  "duckdb>=1.2.2",
+  "duckdb>=1.5.3",
   "httpx>=0.28.1",
   "pandas>=2.2.3",
   "pydantic>=2.11.0",
