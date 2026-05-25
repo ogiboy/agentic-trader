@@ -1,9 +1,9 @@
 import { launchOptions } from 'camoufox-js';
 import { VirtualDisplay } from 'camoufox-js/dist/virtdisplay.js';
-import crypto from 'crypto';
 import express from 'express';
-import fs from 'fs';
-import os from 'os';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
 import { firefox } from 'playwright-core';
 import {
   isLoopbackAddress as _isLoopbackAddress,

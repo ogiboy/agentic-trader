@@ -5,8 +5,8 @@ from agentic_trader.config import Settings
 from agentic_trader.schemas import (
     MacroContext,
     MacroSnapshot,
-    NewsEvent,
     NewsClassification,
+    NewsEvent,
     NewsSignal,
     StructuredNewsSignal,
     SymbolIdentity,

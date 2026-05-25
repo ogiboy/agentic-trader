@@ -4,14 +4,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Sequence, cast
 
+from rich.align import Align
+from rich.columns import Columns
 from rich.console import Console, Group
 from rich.live import Live
-from rich.table import Table
 from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt, Prompt
+from rich.table import Table
 from rich.text import Text
-from rich.columns import Columns
-from rich.align import Align
 
 from agentic_trader.agents.operator_chat import (
     apply_preference_update,
@@ -46,9 +46,9 @@ from agentic_trader.schemas import (
     BehaviorPreset,
     ChatPersona,
     HistoricalMemoryMatch,
-    LLMHealthStatus,
-    InvestmentPreferences,
     InterventionStyle,
+    InvestmentPreferences,
+    LLMHealthStatus,
     OperatorInstruction,
     RiskProfile,
     ServiceEvent,

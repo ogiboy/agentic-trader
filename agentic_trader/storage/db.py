@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
-from dataclasses import dataclass
-from collections.abc import Sequence
 import json
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Literal, cast, get_args
 from uuid import uuid4
 
@@ -19,8 +19,8 @@ from agentic_trader.runtime_feed import append_service_event, write_service_stat
 from agentic_trader.schemas import (
     AccountMark,
     AgentStageTrace,
-    ChatPersona,
     ChatHistoryEntry,
+    ChatPersona,
     CoordinatorFocus,
     DailyRiskReport,
     ExecutionSide,
@@ -29,20 +29,20 @@ from agentic_trader.schemas import (
     PortfolioSnapshot,
     PositionPlanSnapshot,
     PositionSnapshot,
-    RunRecord,
-    RunArtifacts,
-    ServiceEventLevel,
-    ServiceState,
-    ServiceEvent,
-    ServiceStateSnapshot,
-    RuntimeMode,
-    TradeSide,
     ProposalCandidateRecord,
     ProposalCandidateStatus,
-    TradeProposalRecord,
-    TradeProposalStatus,
+    RunArtifacts,
+    RunRecord,
+    RuntimeMode,
+    ServiceEvent,
+    ServiceEventLevel,
+    ServiceState,
+    ServiceStateSnapshot,
     TradeContextRecord,
     TradeJournalEntry,
+    TradeProposalRecord,
+    TradeProposalStatus,
+    TradeSide,
 )
 
 type OrderRow = tuple[str, str, str, str, bool, float, float, float, float, float]

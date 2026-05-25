@@ -5,6 +5,7 @@ from typing import Any, Literal, Self, cast
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
+
 from agentic_trader.config import Settings
 from agentic_trader.schemas import ExecutionBackend, ExecutionDecision, ExecutionSide
 

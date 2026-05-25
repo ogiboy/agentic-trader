@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from agentic_trader.config import Settings

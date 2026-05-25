@@ -1,12 +1,12 @@
 from pathlib import Path
-import pytest
 
 import pandas as pd
+import pytest
 
 from agentic_trader.backtest.walk_forward import (
-    run_memory_ablation_backtest,
     run_backtest_comparison,
     run_deterministic_baseline_backtest,
+    run_memory_ablation_backtest,
     run_walk_forward_backtest,
 )
 from agentic_trader.config import Settings
@@ -17,8 +17,8 @@ from agentic_trader.schemas import (
     MarketSnapshot,
     RegimeAssessment,
     ResearchCoordinatorBrief,
-    RiskPlan,
     ReviewNote,
+    RiskPlan,
     RunArtifacts,
     StrategyPlan,
 )

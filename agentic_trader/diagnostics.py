@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from typing import Any, cast
+
 from agentic_trader.config import Settings
 from agentic_trader.engine.broker import (
     alpaca_credentials_ready,

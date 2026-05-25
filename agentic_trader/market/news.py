@@ -1,7 +1,7 @@
+import yfinance as yf  # type: ignore[import-untyped]
+
 from agentic_trader.config import Settings
 from agentic_trader.schemas import NewsSignal
-
-import yfinance as yf  # type: ignore[import-untyped]
 
 
 def fetch_news_brief(symbol: str, settings: Settings) -> list[NewsSignal]:

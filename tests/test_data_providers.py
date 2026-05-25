@@ -35,15 +35,16 @@ from agentic_trader.providers.public_sources import (
 from agentic_trader.providers.yahoo import YahooMarketDataProvider, YahooNewsProvider
 from agentic_trader.schemas import (
     CanonicalAnalysisSnapshot,
-    ExecutionDecision,
     DisclosureEvent,
+    ExecutionDecision,
     FundamentalSnapshot,
     InvestmentPreferences,
     MacroSnapshot,
+    ManagerDecision,
     MarketContextPack,
     MarketSnapshot,
-    NewsSignal,
     NewsEvent,
+    NewsSignal,
     ProviderMetadata,
     RegimeAssessment,
     ResearchCoordinatorBrief,
@@ -51,7 +52,6 @@ from agentic_trader.schemas import (
     RiskPlan,
     RunArtifacts,
     StrategyPlan,
-    ManagerDecision,
     SymbolIdentity,
 )
 from agentic_trader.storage.db import TradingDatabase

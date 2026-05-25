@@ -1,5 +1,5 @@
-from rich.console import Console
 import pytest
+from rich.console import Console
 
 from agentic_trader.runtime_status import (
     build_agent_activity_view,

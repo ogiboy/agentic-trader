@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from argparse import Namespace
 import importlib.util
 import json
-from pathlib import Path
 import re
 import sys
 import tomllib
+from argparse import Namespace
+from pathlib import Path
 from types import ModuleType
 
 

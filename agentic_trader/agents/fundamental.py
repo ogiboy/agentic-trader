@@ -8,8 +8,8 @@ from agentic_trader.schemas import (
     AgentContext,
     AnalysisSignal,
     EvidenceInferenceBreakdown,
-    FundamentalFeatureSet,
     FundamentalAssessment,
+    FundamentalFeatureSet,
     MacroContext,
     MarketSnapshot,
 )

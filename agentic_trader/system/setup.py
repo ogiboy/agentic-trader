@@ -19,17 +19,17 @@ from agentic_trader.researchd.crewai_setup import crewai_setup_status
 from agentic_trader.security import is_loopback_host, redact_sensitive_text
 from agentic_trader.system.camofox_service import build_camofox_service_status
 from agentic_trader.system.model_service import build_model_service_status
+from agentic_trader.system.tool_ownership import (
+    ToolOwnershipPayload,
+    ownership_tool_for_local_tool,
+    read_tool_ownership_payload,
+)
 from agentic_trader.system.tool_roots import (
     LocalToolId,
     local_tool_definition,
     local_tool_manifest_notes,
     repo_root,
     resolve_configured_tool_path,
-)
-from agentic_trader.system.tool_ownership import (
-    ToolOwnershipPayload,
-    ownership_tool_for_local_tool,
-    read_tool_ownership_payload,
 )
 from agentic_trader.system.webgui_service import build_webgui_service_status
 

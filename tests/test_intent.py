@@ -59,8 +59,9 @@ def test_intent_creation_with_both_timestamps_matching():
 
 def test_intent_creation_with_conflicting_timestamps():
     """Test that conflicting timestamps raise ValueError (line 68)."""
-    import pytest
     from datetime import datetime, timezone
+
+    import pytest
 
     timestamp = datetime.now(timezone.utc).isoformat()
     created_at = datetime.now(timezone.utc).isoformat()

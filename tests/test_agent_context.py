@@ -22,8 +22,8 @@ from agentic_trader.schemas import (
     PortfolioSnapshot,
     RegimeAssessment,
     ResearchCoordinatorBrief,
-    RiskPlan,
     ReviewNote,
+    RiskPlan,
     RunArtifacts,
     StrategyPlan,
 )

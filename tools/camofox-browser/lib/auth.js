@@ -16,7 +16,7 @@
  *   - If not set, pass through (backward-compatible).
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * Timing-safe string comparison.

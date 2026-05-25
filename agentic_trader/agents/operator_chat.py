@@ -4,8 +4,8 @@ from typing import Any
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
-    ChatPersona,
     AgentRole,
+    ChatPersona,
     InvestmentPreferences,
     OperatorInstruction,
     PreferenceUpdate,

@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from agentic_trader.agents.calibration import build_confidence_calibration
 from agentic_trader.config import Settings
 from agentic_trader.market.calendar import infer_market_session
-from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.market.news import fetch_news_brief
+from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.schemas import (
     AgentContext,
     AgentRole,

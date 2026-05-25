@@ -5,14 +5,14 @@ research evidence and world-state packets, but it does not call broker,
 execution, run persistence, or strict trading-gate code.
 """
 
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol
 from uuid import uuid4
 
@@ -25,7 +25,6 @@ from agentic_trader.researchd.providers import (
     provider_health_from_output,
     source_attributions_from_output,
 )
-from agentic_trader.security import redact_sensitive_text
 from agentic_trader.schemas import (
     EntityDossier,
     MacroEvent,
@@ -36,6 +35,7 @@ from agentic_trader.schemas import (
     SocialSignal,
     WorldStateSnapshot,
 )
+from agentic_trader.security import redact_sensitive_text
 
 ContractRunner = Callable[
     [list[str], str, Path, dict[str, str], float],

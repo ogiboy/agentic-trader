@@ -11,25 +11,40 @@ from uuid import uuid4
 
 import click
 import typer
-from typer.core import TyperCommand
 from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
+from typer.core import TyperCommand
 
-from agentic_trader.config import get_settings, Settings
+from agentic_trader.agents.operator_chat import (
+    apply_preference_update,
+    chat_with_persona,
+    interpret_operator_instruction,
+)
+from agentic_trader.backtest.walk_forward import (
+    run_backtest_comparison,
+    run_memory_ablation_backtest,
+    run_walk_forward_backtest,
+)
+from agentic_trader.config import Settings, get_settings
 from agentic_trader.diagnostics import (
     provider_diagnostics_payload,
     v1_readiness_payload,
 )
 from agentic_trader.engine.broker import broker_runtime_payload, get_broker_adapter
 from agentic_trader.finance.ideas import (
+    PRESET_DESCRIPTIONS,
     IdeaCandidate,
     IdeaPresetName,
-    PRESET_DESCRIPTIONS,
     rank_candidates,
+)
+from agentic_trader.finance.proposal_candidates import (
+    ProposalCandidateDraft,
+    create_proposal_candidate,
+    promote_proposal_candidate,
 )
 from agentic_trader.finance.proposals import (
     TradeProposalDraft,
@@ -40,11 +55,6 @@ from agentic_trader.finance.proposals import (
     reject_trade_proposal,
     repair_missing_position_plans,
 )
-from agentic_trader.finance.proposal_candidates import (
-    ProposalCandidateDraft,
-    create_proposal_candidate,
-    promote_proposal_candidate,
-)
 from agentic_trader.finance.strategy_catalog import (
     StrategyStatus,
     finance_reconciliation_contract_payload,
@@ -53,44 +63,19 @@ from agentic_trader.finance.strategy_catalog import (
     strategy_catalog_payload,
     strategy_profile_for_preset,
 )
-from agentic_trader.agents.operator_chat import (
-    apply_preference_update,
-    chat_with_persona,
-    interpret_operator_instruction,
-)
-from agentic_trader.backtest.walk_forward import (
-    run_memory_ablation_backtest,
-    run_backtest_comparison,
-    run_walk_forward_backtest,
-)
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
 from agentic_trader.market.news import fetch_news_brief
-from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.memory.policy import memory_write_policy_snapshot
-from agentic_trader.runtime_feed import (
-    append_chat_history,
-    read_latest_research_snapshot,
-    read_research_digest_replay,
-    read_service_events,
-    read_service_state,
-    read_chat_history,
-    request_stop,
-)
-from agentic_trader.runtime_status import (
-    build_agent_activity_view,
-    build_runtime_status_view,
-    is_process_alive,
-    RuntimeStatusView,
-)
+from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.observer_api import serve_observer_api
-from agentic_trader.researchd.crewai_setup import crewai_setup_status
 from agentic_trader.researchd.control import (
     get_research_cycle_control,
     set_research_cycle_control,
 )
+from agentic_trader.researchd.crewai_setup import crewai_setup_status
 from agentic_trader.researchd.cycle_plan import research_cycle_plan_payload
 from agentic_trader.researchd.cycle_runner import run_research_cycle
 from agentic_trader.researchd.news_intelligence import (
@@ -100,7 +85,56 @@ from agentic_trader.researchd.news_intelligence import (
 from agentic_trader.researchd.orchestrator import ResearchSidecar
 from agentic_trader.researchd.persistence import persist_research_result
 from agentic_trader.researchd.status import build_research_sidecar_state
+from agentic_trader.runtime_feed import (
+    append_chat_history,
+    read_chat_history,
+    read_latest_research_snapshot,
+    read_research_digest_replay,
+    read_service_events,
+    read_service_state,
+    request_stop,
+)
+from agentic_trader.runtime_status import (
+    RuntimeStatusView,
+    build_agent_activity_view,
+    build_runtime_status_view,
+    is_process_alive,
+)
+from agentic_trader.schemas import (
+    BacktestAblationReport,
+    BacktestComparisonReport,
+    BacktestReport,
+    CanonicalAnalysisSnapshot,
+    ChatHistoryEntry,
+    ChatPersona,
+    DailyRiskReport,
+    HistoricalMemoryMatch,
+    InvestmentPreferences,
+    ManagerDecision,
+    MarketSessionStatus,
+    OperatorInstruction,
+    PortfolioSnapshot,
+    PositionSnapshot,
+    ProposalCandidateRecord,
+    ProposalCandidateStatus,
+    ResearchCycleControlAction,
+    RunArtifacts,
+    RunRecord,
+    RunReplay,
+    RunReplayStage,
+    RuntimeMode,
+    RuntimeModeTransitionCheck,
+    RuntimeModeTransitionPlan,
+    ServiceEvent,
+    ServiceStateSnapshot,
+    TradeContextRecord,
+    TradeJournalEntry,
+    TradeProposalRecord,
+    TradeProposalStatus,
+    TradeSide,
+)
 from agentic_trader.security import is_loopback_host, redact_sensitive_text
+from agentic_trader.storage.db import OrderRow, TradingDatabase
 from agentic_trader.system.camofox_service import (
     build_camofox_service_status,
     start_camofox_service,
@@ -128,40 +162,6 @@ from agentic_trader.system.webgui_service import (
     build_webgui_service_status,
     stop_webgui_service,
 )
-from agentic_trader.schemas import (
-    ChatPersona,
-    CanonicalAnalysisSnapshot,
-    DailyRiskReport,
-    HistoricalMemoryMatch,
-    InvestmentPreferences,
-    MarketSessionStatus,
-    OperatorInstruction,
-    BacktestReport,
-    BacktestAblationReport,
-    BacktestComparisonReport,
-    ChatHistoryEntry,
-    ManagerDecision,
-    PositionSnapshot,
-    PortfolioSnapshot,
-    RunRecord,
-    RunReplay,
-    RunReplayStage,
-    RunArtifacts,
-    RuntimeMode,
-    RuntimeModeTransitionCheck,
-    RuntimeModeTransitionPlan,
-    ServiceEvent,
-    ServiceStateSnapshot,
-    ProposalCandidateRecord,
-    ProposalCandidateStatus,
-    TradeContextRecord,
-    TradeJournalEntry,
-    TradeProposalRecord,
-    TradeProposalStatus,
-    TradeSide,
-    ResearchCycleControlAction,
-)
-from agentic_trader.storage.db import OrderRow, TradingDatabase
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
 from agentic_trader.ui_text import (
     HELP_INTERVAL,
@@ -432,7 +432,7 @@ class IdeaScoreCommand(TyperCommand):
         super().__init__(*args, params=_idea_score_params(), **kwargs)
 
 
-def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
+def resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
     """
     Determine the package manager and produce the install and start command vectors plus working directory for the bundled Ink TUI.
 
@@ -500,7 +500,7 @@ def _resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
     return None
 
 
-def _tui_dependencies_installed(tui_dir: Path, command_cwd: Path) -> bool:
+def tui_dependencies_installed(tui_dir: Path, command_cwd: Path) -> bool:
     """
     Check whether TUI-specific Node dependencies appear installed.
 
@@ -7823,7 +7823,7 @@ def ink_tui() -> None:
         run_main_menu()
         return
 
-    node_commands = _resolve_tui_node_commands(tui_dir)
+    node_commands = resolve_tui_node_commands(tui_dir)
     if node_commands is None:
         console.print(
             _render_health_panel(
@@ -7836,7 +7836,7 @@ def ink_tui() -> None:
         return
     install_command, start_command, command_cwd, package_manager = node_commands
 
-    if not _tui_dependencies_installed(tui_dir, command_cwd):
+    if not tui_dependencies_installed(tui_dir, command_cwd):
         console.print(
             _render_health_panel(
                 "Installing TUI Dependencies",

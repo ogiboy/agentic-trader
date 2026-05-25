@@ -47,7 +47,7 @@ def _coerce_numeric_strings(obj: Any) -> Any:
 
 def _get_by_loc(obj: Any, path: tuple[str | int, ...]) -> Any:
     """Navigate nested dict/list by path tuple."""
-    current = obj
+    current: object = obj
     for part in path:
         if isinstance(current, dict) and isinstance(part, str):
             current = current.get(part)

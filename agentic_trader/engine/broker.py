@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import hashlib
-from urllib.parse import urlparse
+from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from agentic_trader.config import Settings

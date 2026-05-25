@@ -11,8 +11,8 @@ from agentic_trader.schemas import (
     RegimeAssessment,
     RegimeName,
     ResearchCoordinatorBrief,
-    RiskPlan,
     ReviewNote,
+    RiskPlan,
     RunArtifacts,
     StrategyPlan,
 )

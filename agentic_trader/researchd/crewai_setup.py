@@ -1,8 +1,8 @@
 """CrewAI setup detection for the optional research sidecar backend."""
 
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 
 from agentic_trader.config import Settings
 from agentic_trader.security import redact_sensitive_text

@@ -1,5 +1,5 @@
-from collections.abc import Callable, Iterator
 import math
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest

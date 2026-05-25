@@ -4,8 +4,8 @@ import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
-from agentic_trader.execution.intent import ExecutionIntent
 from agentic_trader.engine.position_manager import evaluate_position_exit
+from agentic_trader.execution.intent import ExecutionIntent
 from agentic_trader.schemas import ExecutionDecision, MarketSnapshot
 from agentic_trader.storage.db import TradingDatabase
 

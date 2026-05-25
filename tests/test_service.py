@@ -1,10 +1,13 @@
 from pathlib import Path
 from typing import Any
+
 import duckdb
 import pytest
+from typer.testing import CliRunner
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
+from agentic_trader.runtime_status import RuntimeStatusView
 from agentic_trader.schemas import (
     ExecutionDecision,
     LLMHealthStatus,
@@ -12,8 +15,8 @@ from agentic_trader.schemas import (
     MarketSnapshot,
     RegimeAssessment,
     ResearchCoordinatorBrief,
-    RiskPlan,
     ReviewNote,
+    RiskPlan,
     RunArtifacts,
     StrategyPlan,
 )
@@ -26,8 +29,6 @@ from agentic_trader.workflows.service import (
     run_service,
     start_background_service,
 )
-from agentic_trader.runtime_status import RuntimeStatusView
-from typer.testing import CliRunner
 
 
 def _artifacts(symbol: str) -> RunArtifacts:

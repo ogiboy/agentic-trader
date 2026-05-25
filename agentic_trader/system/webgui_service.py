@@ -8,8 +8,8 @@ state/logs, and keeps the bind host loopback-only.
 from __future__ import annotations
 
 import os
-import signal
 import shutil
+import signal
 import socket
 import subprocess
 import sys

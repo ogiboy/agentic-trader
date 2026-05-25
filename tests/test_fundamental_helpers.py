@@ -23,8 +23,8 @@ from agentic_trader.agents.fundamental import (
 from agentic_trader.config import Settings
 from agentic_trader.features import build_decision_feature_bundle
 from agentic_trader.schemas import (
-    AnalysisSignal,
     AgentContext,
+    AnalysisSignal,
     EvidenceInferenceBreakdown,
     FundamentalAssessment,
     FundamentalFeatureSet,

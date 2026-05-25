@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import pytest
 
 from agentic_trader.agents.operator_chat import (

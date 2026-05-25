@@ -18,7 +18,6 @@ from agentic_trader.finance.proposals import (
 )
 from agentic_trader.finance.strategy_catalog import score_strategy_context
 from agentic_trader.providers.aggregation import build_canonical_analysis_snapshot
-from agentic_trader.security import redact_sensitive_text, safe_exception_note
 from agentic_trader.schemas import (
     CanonicalAnalysisSnapshot,
     DataSourceAttribution,
@@ -33,6 +32,7 @@ from agentic_trader.schemas import (
     TradeProposalRecord,
     TradeSide,
 )
+from agentic_trader.security import redact_sensitive_text, safe_exception_note
 from agentic_trader.storage.db import TradingDatabase
 
 BLOCKING_CANDIDATE_WARNINGS = {"invalid_price", "low_volume", "wide_spread"}

@@ -9,8 +9,7 @@ import httpx
 import pytest
 
 from agentic_trader.config import Settings
-from agentic_trader.system import runtime_tools
-from agentic_trader.system import model_service
+from agentic_trader.system import model_service, runtime_tools
 from agentic_trader.system.camofox_service import CamofoxServiceStatus
 from agentic_trader.system.model_service import ModelServiceState, ModelServiceStatus
 from agentic_trader.system.tool_ownership import write_tool_ownership
