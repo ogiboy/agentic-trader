@@ -49,162 +49,77 @@ class _ProbeStatusFn(Protocol):
     ) -> tuple[bool, bool, str]: ...
 
 
-def _read_state(settings: Settings) -> camofox_service.CamofoxServiceState | None:
-    fn = cast(
-        Callable[[Settings], camofox_service.CamofoxServiceState | None],
-        getattr(camofox_service, "_read_state"),
-    )
-    return fn(settings)
-
-
-def _write_state(
-    settings: Settings, state: camofox_service.CamofoxServiceState
-) -> None:
-    fn = cast(
-        Callable[[Settings, camofox_service.CamofoxServiceState], None],
-        getattr(camofox_service, "_write_state"),
-    )
-    fn(settings, state)
-
-
-def _remove_state(settings: Settings) -> None:
-    fn = cast(Callable[[Settings], None], getattr(camofox_service, "_remove_state"))
-    fn(settings)
-
-
-def _tail_text(path: str | None) -> list[str]:
-    fn = cast(Callable[[str | None], list[str]], getattr(camofox_service, "_tail_text"))
-    return fn(path)
-
-
-def _tail_contains_browser_launch_failure(
-    state: camofox_service.CamofoxServiceState | None,
-) -> bool:
-    fn = cast(
-        Callable[[camofox_service.CamofoxServiceState | None], bool],
-        getattr(camofox_service, "_tail_contains_browser_launch_failure"),
-    )
-    return fn(state)
-
-
-def _configured_host_port(settings: Settings) -> tuple[str, int]:
-    fn = cast(
-        Callable[[Settings], tuple[str, int]],
-        getattr(camofox_service, "_configured_host_port"),
-    )
-    return fn(settings)
-
-
-def _configured_base_url(settings: Settings) -> str:
-    fn = cast(
-        Callable[[Settings], str], getattr(camofox_service, "_configured_base_url")
-    )
-    return fn(settings)
-
-
-def _camofox_env(settings: Settings, *, host: str, port: int) -> dict[str, str]:
-    fn = cast(_CamofoxEnvFn, getattr(camofox_service, "_camofox_env"))
-    return fn(settings, host=host, port=port)
-
-
-def _runtime_command(tool_dir: Path) -> list[str]:
-    fn = cast(Callable[[Path], list[str]], getattr(camofox_service, "_runtime_command"))
-    return fn(tool_dir)
-
-
-def _health(base_url: str) -> tuple[bool, bool, str]:
-    fn = cast(
-        Callable[[str], tuple[bool, bool, str]],
-        getattr(camofox_service, "_health"),
-    )
-    return fn(base_url)
-
-
-def _process_command_line(pid: int) -> str | None:
-    fn = cast(
-        Callable[[int], str | None],
-        getattr(camofox_service, "_process_command_line"),
-    )
-    return fn(pid)
-
-
-def _listen_port_owner_pid(host: str, port: int) -> int | None:
-    fn = cast(
-        Callable[[str, int], int | None],
-        getattr(camofox_service, "_listen_port_owner_pid"),
-    )
-    return fn(host, port)
-
-
-def _process_cwd(pid: int) -> Path | None:
-    fn = cast(Callable[[int], Path | None], getattr(camofox_service, "_process_cwd"))
-    return fn(pid)
-
-
-def _process_matches_state(state: camofox_service.CamofoxServiceState) -> bool:
-    fn = cast(
-        Callable[[camofox_service.CamofoxServiceState], bool],
-        getattr(camofox_service, "_process_matches_state"),
-    )
-    return fn(state)
-
-
-def _state_process_alive(
-    state: camofox_service.CamofoxServiceState | None,
-) -> bool:
-    fn = cast(
-        Callable[[camofox_service.CamofoxServiceState | None], bool],
-        getattr(camofox_service, "_state_process_alive"),
-    )
-    return fn(state)
-
-
-def _wait_for_state_exit(
-    state: camofox_service.CamofoxServiceState, *, timeout: float
-) -> bool:
-    fn = cast(_WaitForStateExitFn, getattr(camofox_service, "_wait_for_state_exit"))
-    return fn(state, timeout=timeout)
-
-
-def _camofox_blocking_status_message(
-    *,
-    probe_host: str,
-    package_available: bool,
-    command_path: str | None,
-    dependency_available: bool,
-    tool_dir: Path,
-) -> str | None:
-    fn = cast(
-        _BlockingStatusMessageFn,
-        getattr(camofox_service, "_camofox_blocking_status_message"),
-    )
-    return fn(
-        probe_host=probe_host,
-        package_available=package_available,
-        command_path=command_path,
-        dependency_available=dependency_available,
-        tool_dir=tool_dir,
-    )
-
-
-def _camofox_probe_status(
-    *,
-    base_url: str,
-    state: camofox_service.CamofoxServiceState | None,
-    app_state: camofox_service.CamofoxServiceState | None,
-) -> tuple[bool, bool, str]:
-    fn = cast(_ProbeStatusFn, getattr(camofox_service, "_camofox_probe_status"))
-    return fn(base_url=base_url, state=state, app_state=app_state)
-
-
-def _stop_camofox_state_process(
-    state: camofox_service.CamofoxServiceState,
-) -> tuple[bool, str | None]:
-    fn = cast(
-        Callable[[camofox_service.CamofoxServiceState], tuple[bool, str | None]],
-        getattr(camofox_service, "_stop_camofox_state_process"),
-    )
-    return fn(state)
+_read_state = cast(
+    Callable[[Settings], camofox_service.CamofoxServiceState | None],
+    getattr(camofox_service, "_read_state"),
+)
+_write_state = cast(
+    Callable[[Settings, camofox_service.CamofoxServiceState], None],
+    getattr(camofox_service, "_write_state"),
+)
+_remove_state = cast(
+    Callable[[Settings], None], getattr(camofox_service, "_remove_state")
+)
+_tail_text = cast(
+    Callable[[str | None], list[str]], getattr(camofox_service, "_tail_text")
+)
+_tail_contains_browser_launch_failure = cast(
+    Callable[[camofox_service.CamofoxServiceState | None], bool],
+    getattr(camofox_service, "_tail_contains_browser_launch_failure"),
+)
+_configured_host_port = cast(
+    Callable[[Settings], tuple[str, int]],
+    getattr(camofox_service, "_configured_host_port"),
+)
+_configured_base_url = cast(
+    Callable[[Settings], str],
+    getattr(camofox_service, "_configured_base_url"),
+)
+_camofox_env = cast(_CamofoxEnvFn, getattr(camofox_service, "_camofox_env"))
+_runtime_command = cast(
+    Callable[[Path], list[str]],
+    getattr(camofox_service, "_runtime_command"),
+)
+_health = cast(
+    Callable[[str], tuple[bool, bool, str]],
+    getattr(camofox_service, "_health"),
+)
+_process_command_line = cast(
+    Callable[[int], str | None],
+    getattr(camofox_service, "_process_command_line"),
+)
+_listen_port_owner_pid = cast(
+    Callable[[str, int], int | None],
+    getattr(camofox_service, "_listen_port_owner_pid"),
+)
+_process_cwd = cast(
+    Callable[[int], Path | None],
+    getattr(camofox_service, "_process_cwd"),
+)
+_process_matches_state = cast(
+    Callable[[camofox_service.CamofoxServiceState], bool],
+    getattr(camofox_service, "_process_matches_state"),
+)
+_state_process_alive = cast(
+    Callable[[camofox_service.CamofoxServiceState | None], bool],
+    getattr(camofox_service, "_state_process_alive"),
+)
+_wait_for_state_exit = cast(
+    _WaitForStateExitFn,
+    getattr(camofox_service, "_wait_for_state_exit"),
+)
+_camofox_blocking_status_message = cast(
+    _BlockingStatusMessageFn,
+    getattr(camofox_service, "_camofox_blocking_status_message"),
+)
+_camofox_probe_status = cast(
+    _ProbeStatusFn,
+    getattr(camofox_service, "_camofox_probe_status"),
+)
+_stop_camofox_state_process = cast(
+    Callable[[camofox_service.CamofoxServiceState], tuple[bool, str | None]],
+    getattr(camofox_service, "_stop_camofox_state_process"),
+)
 
 
 def _reachable_health(base_url: str) -> tuple[bool, bool, str]:
