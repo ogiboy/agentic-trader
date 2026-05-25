@@ -296,7 +296,7 @@ def test_render_agent_context_prefers_structured_features_when_available(
     assert "Market Snapshot:" not in rendered
 
 
-def testrender_decision_feature_summary_returns_placeholder_when_no_features(
+def test_render_decision_feature_summary_returns_placeholder_when_no_features(
     tmp_path: Path,
 ) -> None:
     snapshot = _artifacts().snapshot
@@ -321,7 +321,7 @@ def testrender_decision_feature_summary_returns_placeholder_when_no_features(
     assert result == "No decision feature bundle is attached."
 
 
-def testrender_decision_feature_summary_includes_fundamental_metrics_and_source_sections(
+def test_render_decision_feature_summary_includes_fundamental_metrics_and_source_sections(
     tmp_path: Path,
 ) -> None:
     settings = Settings(
@@ -446,7 +446,7 @@ def test_render_agent_context_fallback_no_context_pack_message(
     assert "Market Context Pack:" in rendered
 
 
-def testrender_decision_feature_summary_includes_price_anchor_and_quality_flags(
+def test_render_decision_feature_summary_includes_price_anchor_and_quality_flags(
     tmp_path: Path,
 ) -> None:
     settings = Settings(
