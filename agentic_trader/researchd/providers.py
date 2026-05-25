@@ -12,7 +12,7 @@ import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Protocol, cast, runtime_checkable
+from typing import Callable, Protocol, TypeAlias, cast, runtime_checkable
 from urllib.parse import urlparse
 
 import httpx
@@ -86,7 +86,8 @@ SEC_COMPANY_FACT_CONCEPTS = (
         ("CashAndCashEquivalentsAtCarryingValue",),
     ),
 )
-JsonFetcher = Callable[[str, Mapping[str, str], float], dict[str, Any]]
+JsonObject: TypeAlias = dict[str, object]
+JsonFetcher = Callable[[str, Mapping[str, str], float], JsonObject]
 FirecrawlSdkSearcher = Callable[[str, int, float], object]
 CamofoxServiceStatusBuilder = Callable[[Settings], CamofoxServiceStatus]
 
@@ -127,7 +128,23 @@ MINIMAL_COMMAND_ENV_KEYS = (
     "SYSTEMROOT",
     "WINDIR",
 )
-HealthFetcher = Callable[[str, float], dict[str, Any]]
+HealthFetcher = Callable[[str, float], JsonObject]
+
+
+def _empty_raw_evidence_records() -> list[RawEvidenceRecord]:
+    return []
+
+
+def _empty_macro_events() -> list[MacroEvent]:
+    return []
+
+
+def _empty_social_signals() -> list[SocialSignal]:
+    return []
+
+
+def _empty_missing_reasons() -> list[str]:
+    return []
 
 
 @dataclass(frozen=True)
@@ -135,10 +152,12 @@ class ResearchProviderOutput:
     """Normalized output shape returned by sidecar research providers."""
 
     metadata: ProviderMetadata
-    raw_evidence: list[RawEvidenceRecord] = field(default_factory=list)
-    macro_events: list[MacroEvent] = field(default_factory=list)
-    social_signals: list[SocialSignal] = field(default_factory=list)
-    missing_reasons: list[str] = field(default_factory=list)
+    raw_evidence: list[RawEvidenceRecord] = field(
+        default_factory=_empty_raw_evidence_records
+    )
+    macro_events: list[MacroEvent] = field(default_factory=_empty_macro_events)
+    social_signals: list[SocialSignal] = field(default_factory=_empty_social_signals)
+    missing_reasons: list[str] = field(default_factory=_empty_missing_reasons)
 
 
 @runtime_checkable
@@ -869,17 +888,64 @@ def source_attributions_from_output(
     return _unique_attributions(attributions)
 
 
+def _json_object(value: object) -> JsonObject | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        str(key): item for key, item in cast(Mapping[object, object], value).items()
+    }
+
+
+def _object_sequence(value: object) -> list[object] | None:
+    if isinstance(value, list):
+        return cast(list[object], value)
+    if isinstance(value, tuple):
+        return list(cast(tuple[object, ...], value))
+    return None
+
+
+def _object_list(value: object) -> list[object] | None:
+    if not isinstance(value, list):
+        return None
+    return cast(list[object], value)
+
+
+def _json_object_list(value: object) -> list[JsonObject] | None:
+    items = _object_list(value)
+    if items is None:
+        return None
+    objects: list[JsonObject] = []
+    for item in items:
+        item_object = _json_object(item)
+        if item_object is not None:
+            objects.append(item_object)
+    return objects
+
+
+def _callable_attr(value: object, name: str) -> Callable[[], object] | None:
+    candidate: object = getattr(value, name, None)
+    if not callable(candidate):
+        return None
+    return cast(Callable[[], object], candidate)
+
+
+def _object_attr(value: object, name: str) -> object | None:
+    attribute: object | None = getattr(value, name, None)
+    return attribute
+
+
 def _fetch_json(
     url: str,
     headers: Mapping[str, str],
     timeout_seconds: float,
-) -> dict[str, Any]:
+) -> JsonObject:
     response = httpx.get(url, headers=dict(headers), timeout=timeout_seconds)
     response.raise_for_status()
-    payload = response.json()
-    if not isinstance(payload, dict):
+    payload: object = response.json()
+    json_payload = _json_object(payload)
+    if json_payload is None:
         raise ValueError("json_payload_not_object")
-    return payload
+    return json_payload
 
 
 def _run_command(
@@ -970,19 +1036,25 @@ def _firecrawl_sdk_search_payload(
 
 
 def _firecrawl_sdk_payload(value: object) -> object:
-    if isinstance(value, dict):
-        return {str(key): _firecrawl_sdk_payload(item) for key, item in value.items()}
-    if isinstance(value, list | tuple):
-        return [_firecrawl_sdk_payload(item) for item in value]
-    model_dump = getattr(value, "model_dump", None)
-    if callable(model_dump):
-        return _firecrawl_sdk_payload(cast(Callable[[], object], model_dump)())
-    if hasattr(value, "data"):
-        return {"data": _firecrawl_sdk_payload(getattr(value, "data"))}
+    mapping = _json_object(value)
+    if mapping is not None:
+        return {key: _firecrawl_sdk_payload(item) for key, item in mapping.items()}
+    sequence = _object_sequence(value)
+    if sequence is not None:
+        return [_firecrawl_sdk_payload(item) for item in sequence]
+    model_dump = _callable_attr(value, "model_dump")
+    if model_dump is not None:
+        return _firecrawl_sdk_payload(model_dump())
+    data = _object_attr(value, "data")
+    if data is not None:
+        return {"data": _firecrawl_sdk_payload(data)}
     if hasattr(value, "__dict__"):
+        object_vars = _json_object(vars(value))
+        if object_vars is None:
+            return value
         return {
             key: _firecrawl_sdk_payload(item)
-            for key, item in vars(value).items()
+            for key, item in object_vars.items()
             if not key.startswith("_")
         }
     return value
@@ -1002,13 +1074,14 @@ def _resolve_cli(raw_cli: str) -> str | None:
     return shutil.which(raw_cli)
 
 
-def _fetch_camofox_health(url: str, timeout_seconds: float) -> dict[str, Any]:
+def _fetch_camofox_health(url: str, timeout_seconds: float) -> JsonObject:
     response = httpx.get(url, timeout=timeout_seconds)
     response.raise_for_status()
-    payload = response.json()
-    if not isinstance(payload, dict):
+    payload: object = response.json()
+    json_payload = _json_object(payload)
+    if json_payload is None:
         raise ValueError("camofox_health_payload_not_object")
-    return payload
+    return json_payload
 
 
 def _normalize_symbol(symbol: str) -> str:
@@ -1044,22 +1117,26 @@ def _records_from_firecrawl_payload(
     return records
 
 
-def _firecrawl_results(payload: object) -> list[dict[str, Any]]:
-    if isinstance(payload, list):
-        return [item for item in payload if isinstance(item, dict)]
-    if not isinstance(payload, dict):
+def _firecrawl_results(payload: object) -> list[JsonObject]:
+    items = _json_object_list(payload)
+    if items is not None:
+        return items
+    payload_object = _json_object(payload)
+    if payload_object is None:
         return []
     for key in ("data", "results", "items", "web", "news"):
-        value = payload.get(key)
-        if isinstance(value, list):
-            return [item for item in value if isinstance(item, dict)]
-        if isinstance(value, dict):
-            nested = _firecrawl_results(value)
+        value = payload_object.get(key)
+        nested_items = _json_object_list(value)
+        if nested_items is not None:
+            return nested_items
+        nested_object = _json_object(value)
+        if nested_object is not None:
+            nested = _firecrawl_results(nested_object)
             if nested:
                 return nested
-    value = payload.get("success")
-    if isinstance(value, dict):
-        return _firecrawl_results(value)
+    success = _json_object(payload_object.get("success"))
+    if success is not None:
+        return _firecrawl_results(success)
     return []
 
 
@@ -1067,7 +1144,7 @@ def _record_from_firecrawl_item(
     *,
     provider: ProviderMetadata,
     symbol: str,
-    item: dict[str, Any],
+    item: Mapping[str, object],
     fetched_at: str,
     index: int,
 ) -> RawEvidenceRecord | None:
@@ -1133,7 +1210,7 @@ def _record_from_firecrawl_item(
     )
 
 
-def _first_text(item: dict[str, Any], *keys: str) -> str:
+def _first_text(item: Mapping[str, object], *keys: str) -> str:
     for key in keys:
         value = item.get(key)
         if value is None:
@@ -1169,17 +1246,18 @@ def _sec_configuration_note(*, enabled: bool, user_agent: str) -> str:
     return "sec_user_agent_missing"
 
 
-def _sec_ticker_index(payload: dict[str, Any]) -> dict[str, _SecTickerMatch]:
+def _sec_ticker_index(payload: Mapping[str, object]) -> dict[str, _SecTickerMatch]:
     index: dict[str, _SecTickerMatch] = {}
     for value in payload.values():
-        if not isinstance(value, dict):
+        row = _json_object(value)
+        if row is None:
             continue
-        ticker = str(value.get("ticker") or "").strip().upper()
-        cik_value = value.get("cik_str")
-        entity_name = str(value.get("title") or ticker).strip()
+        ticker = _string_value(row.get("ticker")).upper()
+        cik_value = row.get("cik_str")
+        entity_name = _string_value(row.get("title")) or ticker
         if not ticker or cik_value is None:
             continue
-        cik = str(cik_value).zfill(10)
+        cik = _string_value(cik_value).zfill(10)
         index[ticker] = _SecTickerMatch(
             symbol=ticker,
             cik=cik,
@@ -1193,7 +1271,7 @@ def _records_from_submissions(
     provider: ProviderMetadata,
     symbol: str,
     match: _SecTickerMatch,
-    payload: dict[str, Any],
+    payload: Mapping[str, object],
     limit: int,
 ) -> list[RawEvidenceRecord]:
     if limit <= 0:
@@ -1209,7 +1287,7 @@ def _records_from_submissions(
     primary_documents = _list_value(recent.get("primaryDocument"))
     primary_descriptions = _list_value(recent.get("primaryDocDescription"))
     fetched_at = utc_now_iso()
-    entity_name = str(payload.get("name") or match.entity_name).strip()
+    entity_name = _string_value(payload.get("name")) or match.entity_name
     records: list[RawEvidenceRecord] = []
 
     for index, accession_value in enumerate(accessions):
@@ -1241,14 +1319,14 @@ def _record_from_company_facts(
     provider: ProviderMetadata,
     symbol: str,
     match: _SecTickerMatch,
-    payload: dict[str, Any],
+    payload: Mapping[str, object],
 ) -> RawEvidenceRecord | None:
     us_gaap = _us_gaap_facts(payload)
     if not us_gaap:
         return None
 
     fetched_at = utc_now_iso()
-    entity_name = str(payload.get("entityName") or match.entity_name).strip()
+    entity_name = _string_value(payload.get("entityName")) or match.entity_name
     evidence: list[str] = []
     concept_notes: list[str] = []
     missing_fields: list[str] = []
@@ -1328,12 +1406,11 @@ def _record_from_company_facts(
     )
 
 
-def _recent_filings(payload: dict[str, Any]) -> dict[str, Any] | None:
-    filings = payload.get("filings")
-    if not isinstance(filings, dict):
+def _recent_filings(payload: Mapping[str, object]) -> JsonObject | None:
+    filings = _json_object(payload.get("filings"))
+    if filings is None:
         return None
-    recent = filings.get("recent")
-    return recent if isinstance(recent, dict) else None
+    return _json_object(filings.get("recent"))
 
 
 def _record_from_submission_row(
@@ -1444,7 +1521,7 @@ def _sec_missing_fields(
     Returns:
         missing_fields (list[str]): List of missing field keys among "report_date", "primary_document", and "url" where "url" indicates the archive URL could not be constructed from the provided inputs.
     """
-    missing_fields = []
+    missing_fields: list[str] = []
     if not report_date:
         missing_fields.append("report_date")
     if not primary_document:
@@ -1468,22 +1545,22 @@ def _primary_document_note(primary_description: str) -> str:
 
 
 def _list_value(value: object) -> list[object]:
-    return value if isinstance(value, list) else []
+    values = _object_list(value)
+    return values if values is not None else []
 
 
-def _us_gaap_facts(payload: dict[str, Any]) -> dict[str, Any] | None:
-    facts = payload.get("facts")
-    if not isinstance(facts, dict):
+def _us_gaap_facts(payload: Mapping[str, object]) -> JsonObject | None:
+    facts = _json_object(payload.get("facts"))
+    if facts is None:
         return None
-    us_gaap = facts.get("us-gaap")
-    return us_gaap if isinstance(us_gaap, dict) else None
+    return _json_object(facts.get("us-gaap"))
 
 
 def _latest_company_fact(
-    us_gaap: dict[str, Any],
+    us_gaap: Mapping[str, object],
     *,
     concepts: tuple[str, ...],
-) -> tuple[str, str, dict[str, Any]] | None:
+) -> tuple[str, str, JsonObject] | None:
     candidates = list(_company_fact_candidates(us_gaap, concepts=concepts))
     if not candidates:
         return None
@@ -1492,23 +1569,23 @@ def _latest_company_fact(
 
 
 def _company_fact_candidates(
-    us_gaap: dict[str, Any],
+    us_gaap: Mapping[str, object],
     *,
     concepts: tuple[str, ...],
-) -> list[tuple[tuple[str, str, str], str, str, dict[str, Any]]]:
+) -> list[tuple[tuple[str, str, str], str, str, JsonObject]]:
     """
     Collect candidate company-fact entries for the requested GAAP concepts.
 
     Parameters:
-        us_gaap (dict[str, Any]): The `"facts"` → `"us-gaap"` mapping from a company facts payload.
+        us_gaap (Mapping[str, object]): The `"facts"` → `"us-gaap"` mapping from a company facts payload.
         concepts (tuple[str, ...]): GAAP concept keys to extract candidates for.
 
     Returns:
-        list[tuple[tuple[str, str, str], str, str, dict[str, Any]]]: A list of candidates where each item is a tuple
+        list[tuple[tuple[str, str, str], str, str, JsonObject]]: A list of candidates where each item is a tuple
         `(sort_key, concept, unit, item)`. `sort_key` is a tuple used to order candidates, `concept` is the requested GAAP
         concept name, `unit` is the reported unit string, and `item` is the raw fact entry dictionary.
     """
-    candidates: list[tuple[tuple[str, str, str], str, str, dict[str, Any]]] = []
+    candidates: list[tuple[tuple[str, str, str], str, str, JsonObject]] = []
     for concept in concepts:
         for unit, item in _usd_company_fact_items(us_gaap.get(concept)):
             candidates.append((_company_fact_sort_key(item), concept, unit, item))
@@ -1517,7 +1594,7 @@ def _company_fact_candidates(
 
 def _usd_company_fact_items(
     concept_payload: object,
-) -> list[tuple[str, dict[str, Any]]]:
+) -> list[tuple[str, JsonObject]]:
     """
     Extract USD-denominated fact items from a company fact concept payload.
 
@@ -1525,29 +1602,30 @@ def _usd_company_fact_items(
         concept_payload (object): Parsed JSON value for a single company fact concept (as returned by SEC company facts); may be any Python object.
 
     Returns:
-        list[tuple[str, dict[str, Any]]]: A list of tuples where the first element is the unit string `"USD"` and the second element is the item dictionary for each USD-valued fact that contains a non-null `"val"` field.
+        list[tuple[str, JsonObject]]: A list of tuples where the first element is the unit string `"USD"` and the second element is the item dictionary for each USD-valued fact that contains a non-null `"val"` field.
     """
     units = _company_fact_units(concept_payload)
     if units is None:
         return []
-    values = units.get("USD")
-    if not isinstance(values, list):
+    values = _object_list(units.get("USD"))
+    if values is None:
         return []
-    return [
-        ("USD", item)
-        for item in values
-        if isinstance(item, dict) and item.get("val") is not None
-    ]
+    items: list[tuple[str, JsonObject]] = []
+    for value in values:
+        item = _json_object(value)
+        if item is not None and item.get("val") is not None:
+            items.append(("USD", item))
+    return items
 
 
-def _company_fact_units(concept_payload: object) -> dict[str, Any] | None:
-    if not isinstance(concept_payload, dict):
+def _company_fact_units(concept_payload: object) -> JsonObject | None:
+    payload = _json_object(concept_payload)
+    if payload is None:
         return None
-    units = concept_payload.get("units")
-    return units if isinstance(units, dict) else None
+    return _json_object(payload.get("units"))
 
 
-def _company_fact_sort_key(item: dict[str, Any]) -> tuple[str, str, str]:
+def _company_fact_sort_key(item: Mapping[str, object]) -> tuple[str, str, str]:
     return (
         _string_value(item.get("filed")),
         _string_value(item.get("end")),
@@ -1555,7 +1633,7 @@ def _company_fact_sort_key(item: dict[str, Any]) -> tuple[str, str, str]:
     )
 
 
-def _company_fact_period(item: dict[str, Any]) -> str:
+def _company_fact_period(item: Mapping[str, object]) -> str:
     fy = _string_value(item.get("fy"))
     fp = _string_value(item.get("fp"))
     if fy and fp:
