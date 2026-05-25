@@ -18,19 +18,40 @@ from agentic_trader.system.tool_ownership import write_tool_ownership
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
-    settings = Settings(
-        runtime_dir=tmp_path,
-        database_path=tmp_path / "agentic_trader.duckdb",
-        market_data_cache_dir=tmp_path / "market_cache",
-        research_firecrawl_enabled=True,
+    settings_kwargs: dict[str, Any] = {
+        "runtime_dir": tmp_path,
+        "database_path": tmp_path / "agentic_trader.duckdb",
+        "market_data_cache_dir": tmp_path / "market_cache",
+        "research_firecrawl_enabled": True,
         **overrides,
-    )
+    }
+    settings = Settings(**settings_kwargs)
     settings.ensure_directories()
     return settings
 
 
 def _make_provider(settings: Settings) -> FirecrawlNewsResearchProvider:
     return FirecrawlNewsResearchProvider(settings=settings)
+
+
+def test_firecrawl_cli_records_respects_provider_disabled(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI helper should not bypass the provider opt-in gate."""
+    settings = _settings(tmp_path, research_firecrawl_enabled=False)
+    write_tool_ownership(settings, {"firecrawl": "host-owned"}, source="test")
+
+    def _unexpected_cli(_name: str) -> str | None:
+        raise AssertionError("disabled Firecrawl provider should not resolve the CLI")
+
+    monkeypatch.setattr(researchd_providers.shutil, "which", _unexpected_cli)
+    provider = _make_provider(settings)
+
+    records, notes = provider.cli_symbol_records(symbol="AAPL", per_symbol_limit=5)
+
+    assert records == []
+    assert notes == ["provider_disabled"]
 
 
 def test_firecrawl_cli_fallback_disabled_when_undecided(tmp_path: Path) -> None:

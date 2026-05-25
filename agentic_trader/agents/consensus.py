@@ -10,6 +10,7 @@ from agentic_trader.schemas import (
 
 
 def _fallback_evidence_note(role: str) -> str:
+    """Return the audit note used when a role only has fallback evidence."""
     return f"{role} evidence was fallback-generated and was not counted as support."
 
 

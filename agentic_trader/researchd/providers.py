@@ -625,6 +625,8 @@ class FirecrawlNewsResearchProvider:
         symbol: str,
         per_symbol_limit: int,
     ) -> tuple[list[RawEvidenceRecord], list[str]]:
+        if not self._enabled:
+            return [], ["provider_disabled"]
         return self._cli_symbol_records(
             symbol=symbol,
             per_symbol_limit=per_symbol_limit,
