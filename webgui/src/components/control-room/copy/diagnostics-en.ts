@@ -100,8 +100,15 @@ export const EN_DIAGNOSTICS_COPY = {
       'Ollama is app-managed but not running. Start it from Ollama.',
     ollamaHostManagedUnreachable:
       'Ollama is host-managed but unreachable. Start it on the host or switch to App Tools.',
-    ollamaModelMissing: (model) =>
-      `Ollama is reachable but ${model ?? 'the configured model'} is not available yet.`,
+    ollamaModelMissing: (model) => {
+      const displayModel =
+        typeof model === 'string' ||
+        typeof model === 'number' ||
+        typeof model === 'boolean'
+          ? String(model)
+          : 'the configured model';
+      return `Ollama is reachable but ${displayModel} is not available yet.`;
+    },
     ollamaOwnershipUndecided:
       'Ollama ownership is undecided. Choose App Tools or Host Fallback before first run.',
   },

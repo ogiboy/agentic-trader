@@ -47,7 +47,7 @@ function jsonError(
 }
 
 function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 function compactTraceback(value: string): string {
@@ -56,7 +56,7 @@ function compactTraceback(value: string): string {
   }
   const match = PYTHON_EXCEPTION_PATTERN.exec(value);
   if (match?.[0]) {
-    return match[0].replace(/\s+/g, ' ').trim();
+    return match[0].replaceAll(/\s+/g, ' ').trim();
   }
   return 'Agentic Trader command failed. Check local runtime logs for details.';
 }

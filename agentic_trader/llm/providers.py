@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Protocol, TypeAlias, cast
+from typing import Any, Protocol, cast
 
 import httpx
 
@@ -9,7 +9,7 @@ from agentic_trader.config import Settings
 from agentic_trader.schemas import LLMHealthStatus
 from agentic_trader.security import redact_sensitive_text
 
-JsonObject: TypeAlias = dict[str, object]
+type JsonObject = dict[str, object]
 
 
 class ErrorResponsePayload(Protocol):

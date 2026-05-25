@@ -14,6 +14,35 @@ def default_crewai_flow_dir(settings: Settings) -> Path:
     return Path(__file__).resolve().parents[2] / "sidecars" / "research_flow"
 
 
+def _crewai_cli_version(cli_path: str) -> tuple[str | None, str, str | None]:
+    try:
+        completed = subprocess.run(
+            [cli_path, "--version"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception as exc:
+        return None, "failed", redact_sensitive_text(str(exc), max_length=200)
+
+    output = (completed.stdout or completed.stderr).strip()
+    first_line = next(
+        (line.strip() for line in output.splitlines() if line.strip()),
+        "",
+    )
+    if completed.returncode == 0:
+        return redact_sensitive_text(first_line, max_length=160) or None, "ok", None
+    if "Traceback" in output:
+        return None, "failed", "crewai --version failed before returning a version"
+    return (
+        None,
+        "failed",
+        redact_sensitive_text(first_line, max_length=200)
+        or "crewai --version returned a non-zero exit code",
+    )
+
+
 def crewai_setup_status(settings: Settings) -> dict[str, object]:
     """Report optional CrewAI CLI/setup state without importing CrewAI."""
     cli_path = shutil.which("crewai")
@@ -22,34 +51,7 @@ def crewai_setup_status(settings: Settings) -> dict[str, object]:
     version_status = "missing" if cli_path is None else "not_checked"
     version_error: str | None = None
     if cli_path:
-        try:
-            completed = subprocess.run(
-                [cli_path, "--version"],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            output = (completed.stdout or completed.stderr).strip()
-            first_line = next(
-                (line.strip() for line in output.splitlines() if line.strip()),
-                "",
-            )
-            if completed.returncode == 0:
-                version = redact_sensitive_text(first_line, max_length=160) or None
-                version_status = "ok"
-            else:
-                version_status = "failed"
-                if "Traceback" in output:
-                    version_error = "crewai --version failed before returning a version"
-                else:
-                    version_error = (
-                        redact_sensitive_text(first_line, max_length=200)
-                        or "crewai --version returned a non-zero exit code"
-                    )
-        except Exception as exc:
-            version_status = "failed"
-            version_error = redact_sensitive_text(str(exc), max_length=200)
+        version, version_status, version_error = _crewai_cli_version(cli_path)
 
     flow_dir = default_crewai_flow_dir(settings)
     python_version_file = flow_dir / ".python-version"

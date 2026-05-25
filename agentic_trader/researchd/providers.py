@@ -12,7 +12,7 @@ import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Protocol, TypeAlias, cast, runtime_checkable
+from typing import Callable, Protocol, cast, runtime_checkable
 from urllib.parse import urlparse
 
 import httpx
@@ -86,7 +86,7 @@ SEC_COMPANY_FACT_CONCEPTS = (
         ("CashAndCashEquivalentsAtCarryingValue",),
     ),
 )
-JsonObject: TypeAlias = dict[str, object]
+type JsonObject = dict[str, object]
 JsonFetcher = Callable[[str, Mapping[str, str], float], JsonObject]
 FirecrawlSdkSearcher = Callable[[str, int, float], object]
 CamofoxServiceStatusBuilder = Callable[[Settings], CamofoxServiceStatus]

@@ -4703,12 +4703,8 @@ def broker_status(
     """
     Display broker backend status and execution safety gates.
 
-    When `json_output` is True, emit the observer payload as JSON; otherwise render a human-readable table
-    showing backend, adapter, state flags (simulated, live execution enabled/ready/requested), kill switch,
-    and any healthcheck message.
-
-    Parameters:
-        json_output (bool): If True, output JSON instead of a rich table.
+    Use `--json` for the observer payload, or the default table for backend, adapter, state flags,
+    kill switch state, and healthcheck details.
     """
     settings = get_settings()
     payload = _broker_payload(settings)
@@ -6656,13 +6652,8 @@ def observer_api_command(
     """
     Start the local read-only observer API and serve dashboard and diagnostic endpoints.
 
-    If the requested bind address is not loopback, the command enforces safety checks: it requires `--allow-nonlocal` and a configured `AGENTIC_TRADER_OBSERVER_API_TOKEN` to proceed. On success the command prints an informational panel listing available endpoints and runs the observer API server.
-
-    Parameters:
-        allow_nonlocal (bool): When True, permit binding to a non-loopback host only if an observer API token is configured.
-
-    Raises:
-        typer.Exit: Exits with code 2 when a nonlocal bind is blocked or when startup is denied due to validation errors.
+    Non-loopback binds require `--allow-nonlocal` and `AGENTIC_TRADER_OBSERVER_API_TOKEN`.
+    On success, the command prints the available endpoints and runs the observer API server.
     """
     settings = get_settings()
     nonlocal_bind = not is_loopback_host(host)
