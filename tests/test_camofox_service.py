@@ -1,10 +1,239 @@
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn, Protocol, cast
 
 import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.system import camofox_service
+from tests.typing_helpers import (
+    constant,
+    pid_is,
+    port_available_only,
+    process_command_line,
+    process_cwd,
+)
+
+
+class _CamofoxEnvFn(Protocol):
+    def __call__(
+        self, settings: Settings, *, host: str, port: int
+    ) -> dict[str, str]: ...
+
+
+class _WaitForStateExitFn(Protocol):
+    def __call__(
+        self, state: camofox_service.CamofoxServiceState, *, timeout: float
+    ) -> bool: ...
+
+
+class _BlockingStatusMessageFn(Protocol):
+    def __call__(
+        self,
+        *,
+        probe_host: str,
+        package_available: bool,
+        command_path: str | None,
+        dependency_available: bool,
+        tool_dir: Path,
+    ) -> str | None: ...
+
+
+class _ProbeStatusFn(Protocol):
+    def __call__(
+        self,
+        *,
+        base_url: str,
+        state: camofox_service.CamofoxServiceState | None,
+        app_state: camofox_service.CamofoxServiceState | None,
+    ) -> tuple[bool, bool, str]: ...
+
+
+def _read_state(settings: Settings) -> camofox_service.CamofoxServiceState | None:
+    fn = cast(
+        Callable[[Settings], camofox_service.CamofoxServiceState | None],
+        getattr(camofox_service, "_read_state"),
+    )
+    return fn(settings)
+
+
+def _write_state(
+    settings: Settings, state: camofox_service.CamofoxServiceState
+) -> None:
+    fn = cast(
+        Callable[[Settings, camofox_service.CamofoxServiceState], None],
+        getattr(camofox_service, "_write_state"),
+    )
+    fn(settings, state)
+
+
+def _remove_state(settings: Settings) -> None:
+    fn = cast(Callable[[Settings], None], getattr(camofox_service, "_remove_state"))
+    fn(settings)
+
+
+def _tail_text(path: str | None) -> list[str]:
+    fn = cast(Callable[[str | None], list[str]], getattr(camofox_service, "_tail_text"))
+    return fn(path)
+
+
+def _tail_contains_browser_launch_failure(
+    state: camofox_service.CamofoxServiceState | None,
+) -> bool:
+    fn = cast(
+        Callable[[camofox_service.CamofoxServiceState | None], bool],
+        getattr(camofox_service, "_tail_contains_browser_launch_failure"),
+    )
+    return fn(state)
+
+
+def _configured_host_port(settings: Settings) -> tuple[str, int]:
+    fn = cast(
+        Callable[[Settings], tuple[str, int]],
+        getattr(camofox_service, "_configured_host_port"),
+    )
+    return fn(settings)
+
+
+def _configured_base_url(settings: Settings) -> str:
+    fn = cast(
+        Callable[[Settings], str], getattr(camofox_service, "_configured_base_url")
+    )
+    return fn(settings)
+
+
+def _camofox_env(settings: Settings, *, host: str, port: int) -> dict[str, str]:
+    fn = cast(_CamofoxEnvFn, getattr(camofox_service, "_camofox_env"))
+    return fn(settings, host=host, port=port)
+
+
+def _runtime_command(tool_dir: Path) -> list[str]:
+    fn = cast(Callable[[Path], list[str]], getattr(camofox_service, "_runtime_command"))
+    return fn(tool_dir)
+
+
+def _health(base_url: str) -> tuple[bool, bool, str]:
+    fn = cast(
+        Callable[[str], tuple[bool, bool, str]],
+        getattr(camofox_service, "_health"),
+    )
+    return fn(base_url)
+
+
+def _process_command_line(pid: int) -> str | None:
+    fn = cast(
+        Callable[[int], str | None],
+        getattr(camofox_service, "_process_command_line"),
+    )
+    return fn(pid)
+
+
+def _listen_port_owner_pid(host: str, port: int) -> int | None:
+    fn = cast(
+        Callable[[str, int], int | None],
+        getattr(camofox_service, "_listen_port_owner_pid"),
+    )
+    return fn(host, port)
+
+
+def _process_cwd(pid: int) -> Path | None:
+    fn = cast(Callable[[int], Path | None], getattr(camofox_service, "_process_cwd"))
+    return fn(pid)
+
+
+def _process_matches_state(state: camofox_service.CamofoxServiceState) -> bool:
+    fn = cast(
+        Callable[[camofox_service.CamofoxServiceState], bool],
+        getattr(camofox_service, "_process_matches_state"),
+    )
+    return fn(state)
+
+
+def _state_process_alive(
+    state: camofox_service.CamofoxServiceState | None,
+) -> bool:
+    fn = cast(
+        Callable[[camofox_service.CamofoxServiceState | None], bool],
+        getattr(camofox_service, "_state_process_alive"),
+    )
+    return fn(state)
+
+
+def _wait_for_state_exit(
+    state: camofox_service.CamofoxServiceState, *, timeout: float
+) -> bool:
+    fn = cast(_WaitForStateExitFn, getattr(camofox_service, "_wait_for_state_exit"))
+    return fn(state, timeout=timeout)
+
+
+def _camofox_blocking_status_message(
+    *,
+    probe_host: str,
+    package_available: bool,
+    command_path: str | None,
+    dependency_available: bool,
+    tool_dir: Path,
+) -> str | None:
+    fn = cast(
+        _BlockingStatusMessageFn,
+        getattr(camofox_service, "_camofox_blocking_status_message"),
+    )
+    return fn(
+        probe_host=probe_host,
+        package_available=package_available,
+        command_path=command_path,
+        dependency_available=dependency_available,
+        tool_dir=tool_dir,
+    )
+
+
+def _camofox_probe_status(
+    *,
+    base_url: str,
+    state: camofox_service.CamofoxServiceState | None,
+    app_state: camofox_service.CamofoxServiceState | None,
+) -> tuple[bool, bool, str]:
+    fn = cast(_ProbeStatusFn, getattr(camofox_service, "_camofox_probe_status"))
+    return fn(base_url=base_url, state=state, app_state=app_state)
+
+
+def _stop_camofox_state_process(
+    state: camofox_service.CamofoxServiceState,
+) -> tuple[bool, str | None]:
+    fn = cast(
+        Callable[[camofox_service.CamofoxServiceState], tuple[bool, str | None]],
+        getattr(camofox_service, "_stop_camofox_state_process"),
+    )
+    return fn(state)
+
+
+def _reachable_health(base_url: str) -> tuple[bool, bool, str]:
+    return True, True, f"{base_url} reachable"
+
+
+def _health_response(message: str) -> Callable[[str], tuple[bool, bool, str]]:
+    def _health(_base_url: str) -> tuple[bool, bool, str]:
+        return True, True, message
+
+    return _health
+
+
+def _permission_denied_kill(_pid: int, _signal: int) -> NoReturn:
+    raise PermissionError("denied")
+
+
+def _record_kill_call(calls: list[int]) -> Callable[[int, int], None]:
+    def _kill(pid: int, _signal: int) -> None:
+        calls.append(pid)
+
+    return _kill
+
+
+def _record_state_removal(calls: list[str]) -> Callable[[Settings], None]:
+    def _remove(_settings: Settings) -> None:
+        calls.append("state")
+
+    return _remove
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
@@ -91,18 +320,14 @@ def test_start_camofox_service_uses_loopback_keyed_minimal_env(
     monkeypatch.setattr(
         camofox_service, "_node_command_path", lambda: "/opt/homebrew/bin/node"
     )
-    monkeypatch.setattr(
-        camofox_service, "_is_port_available", lambda _host, _port: True
-    )
+    monkeypatch.setattr(camofox_service, "_is_port_available", constant(True))
     monkeypatch.setattr(camofox_service.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(
-        camofox_service, "is_process_alive", lambda pid: pid == FakeProcess.pid
-    )
-    monkeypatch.setattr(camofox_service, "_process_matches_state", lambda _state: True)
+    monkeypatch.setattr(camofox_service, "is_process_alive", pid_is(FakeProcess.pid))
+    monkeypatch.setattr(camofox_service, "_process_matches_state", constant(True))
     monkeypatch.setattr(
         camofox_service,
         "_health",
-        lambda base_url: (True, True, f"{base_url} reachable"),
+        _reachable_health,
     )
 
     status = camofox_service.start_camofox_service(settings)
@@ -155,7 +380,7 @@ def test_camofox_env_uses_api_key_as_access_token_when_access_key_missing(
     monkeypatch.delenv("CAMOFOX_ACCESS_KEY", raising=False)
     monkeypatch.delenv("CAMOFOX_API_KEY", raising=False)
 
-    env = camofox_service._camofox_env(settings, host="127.0.0.1", port=9377)
+    env = _camofox_env(settings, host="127.0.0.1", port=9377)
 
     assert env["CAMOFOX_API_KEY"] == "api-key"
     assert env["CAMOFOX_ACCESS_KEY"] == "api-key"
@@ -193,13 +418,13 @@ def test_camofox_process_match_accepts_expected_cwd(
     monkeypatch.setattr(
         camofox_service,
         "_process_command_line",
-        lambda _pid: "/opt/homebrew/bin/node server.js",
+        process_command_line("/opt/homebrew/bin/node server.js"),
     )
     monkeypatch.setattr(
-        camofox_service, "_process_cwd", lambda _pid: tool_dir.resolve()
+        camofox_service, "_process_cwd", process_cwd(tool_dir.resolve())
     )
 
-    assert camofox_service._process_matches_state(state) is True
+    assert _process_matches_state(state) is True
 
 
 def test_camofox_status_does_not_probe_non_loopback_url(
@@ -256,21 +481,19 @@ def test_stop_camofox_service_keeps_state_when_process_cannot_be_killed(
         command=["node", "server.js"],
         tool_dir=str(tool_dir),
     )
-    camofox_service._write_state(settings, state)
+    _write_state(settings, state)
 
-    monkeypatch.setattr(camofox_service, "is_process_alive", lambda pid: pid == 99991)
-    monkeypatch.setattr(camofox_service, "_process_matches_state", lambda _state: True)
+    monkeypatch.setattr(camofox_service, "is_process_alive", pid_is(99991))
+    monkeypatch.setattr(camofox_service, "_process_matches_state", constant(True))
     monkeypatch.setattr(
         camofox_service.os,
         "kill",
-        lambda _pid, _signal: (_ for _ in ()).throw(PermissionError("denied")),
+        _permission_denied_kill,
     )
     monkeypatch.setattr(
         camofox_service, "_node_command_path", lambda: "/opt/homebrew/bin/node"
     )
-    monkeypatch.setattr(
-        camofox_service, "_health", lambda _base_url: (True, True, "reachable")
-    )
+    monkeypatch.setattr(camofox_service, "_health", _health_response("reachable"))
 
     status = camofox_service.stop_camofox_service(settings)
 
@@ -303,16 +526,14 @@ def test_camofox_status_marks_browser_launch_failure_from_logs(
         command=["node", "server.js"],
         tool_dir=str(tool_dir),
     )
-    camofox_service._write_state(settings, state)
+    _write_state(settings, state)
 
     monkeypatch.setattr(
         camofox_service, "_node_command_path", lambda: "/opt/homebrew/bin/node"
     )
-    monkeypatch.setattr(camofox_service, "is_process_alive", lambda pid: pid == 24681)
-    monkeypatch.setattr(camofox_service, "_process_matches_state", lambda _state: True)
-    monkeypatch.setattr(
-        camofox_service, "_health", lambda _base_url: (True, True, "reachable")
-    )
+    monkeypatch.setattr(camofox_service, "is_process_alive", pid_is(24681))
+    monkeypatch.setattr(camofox_service, "_process_matches_state", constant(True))
+    monkeypatch.setattr(camofox_service, "_health", _health_response("reachable"))
 
     status = camofox_service.build_camofox_service_status(settings)
 
@@ -354,11 +575,9 @@ def test_camofox_health_allows_on_demand_browser_launch(
                 "browserRunning": False,
             }
 
-    monkeypatch.setattr(
-        camofox_service.httpx, "get", lambda *_args, **_kwargs: FakeResponse()
-    )
+    monkeypatch.setattr(camofox_service.httpx, "get", constant(FakeResponse()))
 
-    reachable, health_ok, message = camofox_service._health("http://127.0.0.1:9377")
+    reachable, health_ok, message = _health("http://127.0.0.1:9377")
 
     assert reachable is True
     assert health_ok is True
@@ -379,9 +598,9 @@ def test_camofox_helper_paths_are_defensive(
     state_path = camofox_service.camofox_service_state_path(settings)
     state_path.parent.mkdir(parents=True)
     state_path.write_text("{not-json", encoding="utf-8")
-    assert camofox_service._read_state(settings) is None
-    camofox_service._remove_state(settings)
-    camofox_service._remove_state(settings)
+    assert _read_state(settings) is None
+    _remove_state(settings)
+    _remove_state(settings)
     assert not state_path.exists()
 
     stdout_path = tmp_path / "out.log"
@@ -399,18 +618,18 @@ def test_camofox_helper_paths_are_defensive(
         command=["node", "server.js"],
         tool_dir=str(tool_dir),
     )
-    assert camofox_service._tail_contains_browser_launch_failure(state) is True
-    assert "secret-value" not in camofox_service._tail_text(str(stderr_path))[0]
-    assert camofox_service._tail_text(None) == []
-    assert camofox_service._tail_contains_browser_launch_failure(None) is False
+    assert _tail_contains_browser_launch_failure(state) is True
+    assert "secret-value" not in _tail_text(str(stderr_path))[0]
+    assert _tail_text(None) == []
+    assert _tail_contains_browser_launch_failure(None) is False
 
-    assert camofox_service._configured_host_port(settings) == ("localhost", 9378)
-    assert camofox_service._configured_base_url(settings) == "http://localhost:9378"
+    assert _configured_host_port(settings) == ("localhost", 9378)
+    assert _configured_base_url(settings) == "http://localhost:9378"
 
     monkeypatch.setenv("CAMOFOX_COOKIES_DIR", "/tmp/cookies")
     monkeypatch.setenv("PROXY_HOST", "127.0.0.1")
     monkeypatch.setenv("CAMOFOX_CRASH_REPORT_ENABLED", "true")
-    env = camofox_service._camofox_env(settings, host="127.0.0.1", port=9390)
+    env = _camofox_env(settings, host="127.0.0.1", port=9390)
     assert env["CAMOFOX_ACCESS_KEY"] == "configured-access"
     assert env["CAMOFOX_COOKIES_DIR"] == "/tmp/cookies"
     assert env["PROXY_HOST"] == "127.0.0.1"
@@ -418,12 +637,12 @@ def test_camofox_helper_paths_are_defensive(
     assert env["CAMOFOX_PORT"] == "9390"
 
     monkeypatch.setattr(
-        camofox_service, "_is_port_available", lambda _host, port: port == 9379
+        camofox_service, "_is_port_available", port_available_only(9379)
     )
     assert camofox_service.choose_camofox_port("127.0.0.1", 9377) == 9379
     with pytest.raises(ValueError, match="loopback"):
         camofox_service.choose_camofox_port("0.0.0.0")
-    monkeypatch.setattr(camofox_service, "_is_port_available", lambda *_args: False)
+    monkeypatch.setattr(camofox_service, "_is_port_available", constant(False))
     with pytest.raises(RuntimeError, match="no_free"):
         camofox_service.choose_camofox_port("127.0.0.1")
 
@@ -443,23 +662,23 @@ def test_camofox_runtime_command_and_probe_messages(
     tool_dir = _tool_dir(tmp_path)
     monkeypatch.setattr(camofox_service, "_node_command_path", lambda: None)
     with pytest.raises(RuntimeError, match="node"):
-        camofox_service._runtime_command(tool_dir)
+        _runtime_command(tool_dir)
 
     monkeypatch.setattr(camofox_service, "_node_command_path", lambda: "/usr/bin/node")
     (tool_dir / "server.js").unlink()
     with pytest.raises(RuntimeError, match="missing"):
-        camofox_service._runtime_command(tool_dir)
+        _runtime_command(tool_dir)
     (tool_dir / "server.js").write_text("console.log('ok')", encoding="utf-8")
     for child in (tool_dir / "node_modules").iterdir():
         child.unlink()
     (tool_dir / "node_modules").rmdir()
     with pytest.raises(RuntimeError, match="dependencies"):
-        camofox_service._runtime_command(tool_dir)
+        _runtime_command(tool_dir)
     (tool_dir / "node_modules").mkdir()
-    assert camofox_service._runtime_command(tool_dir) == ["/usr/bin/node", "server.js"]
+    assert _runtime_command(tool_dir) == ["/usr/bin/node", "server.js"]
 
     assert (
-        camofox_service._camofox_blocking_status_message(
+        _camofox_blocking_status_message(
             probe_host="0.0.0.0",
             package_available=True,
             command_path="/usr/bin/node",
@@ -469,7 +688,7 @@ def test_camofox_runtime_command_and_probe_messages(
         == "Camofox base URL must remain loopback."
     )
     assert (
-        camofox_service._camofox_blocking_status_message(
+        _camofox_blocking_status_message(
             probe_host="127.0.0.1",
             package_available=False,
             command_path="/usr/bin/node",
@@ -479,7 +698,7 @@ def test_camofox_runtime_command_and_probe_messages(
         == "Camofox browser helper is missing."
     )
     assert (
-        camofox_service._camofox_blocking_status_message(
+        _camofox_blocking_status_message(
             probe_host="127.0.0.1",
             package_available=True,
             command_path=None,
@@ -488,7 +707,7 @@ def test_camofox_runtime_command_and_probe_messages(
         )
         == "node is not installed or not on PATH."
     )
-    assert camofox_service._camofox_blocking_status_message(
+    assert _camofox_blocking_status_message(
         probe_host="127.0.0.1",
         package_available=True,
         command_path="/usr/bin/node",
@@ -499,7 +718,7 @@ def test_camofox_runtime_command_and_probe_messages(
         f"`pnpm --dir {tool_dir} install --ignore-workspace --ignore-scripts`."
     )
     assert (
-        camofox_service._camofox_blocking_status_message(
+        _camofox_blocking_status_message(
             probe_host="127.0.0.1",
             package_available=True,
             command_path="/usr/bin/node",
@@ -520,25 +739,25 @@ def test_camofox_runtime_command_and_probe_messages(
         command=["node", "server.js"],
         tool_dir=str(tool_dir),
     )
-    monkeypatch.setattr(camofox_service, "_health", lambda _url: (True, True, "ok"))
-    assert camofox_service._camofox_probe_status(
+    monkeypatch.setattr(camofox_service, "_health", _health_response("ok"))
+    assert _camofox_probe_status(
         base_url=state.base_url, state=state, app_state=state
     ) == (True, True, "App-owned Camofox is running.")
     monkeypatch.setattr(
         camofox_service,
         "_tail_contains_browser_launch_failure",
-        lambda _state: True,
+        constant(True),
     )
-    assert camofox_service._camofox_probe_status(
+    assert _camofox_probe_status(
         base_url=state.base_url, state=state, app_state=state
     ) == (
         True,
         False,
         "Camofox server is reachable, but browser launch is failing.",
     )
-    assert camofox_service._camofox_probe_status(
-        base_url=state.base_url, state=state, app_state=None
-    )[2].startswith("Recorded Camofox state is stale")
+    assert _camofox_probe_status(base_url=state.base_url, state=state, app_state=None)[
+        2
+    ].startswith("Recorded Camofox state is stale")
 
 
 def test_camofox_process_and_stop_helpers(
@@ -573,20 +792,18 @@ def test_camofox_process_and_stop_helpers(
         raise AssertionError(command)
 
     monkeypatch.setattr(camofox_service.subprocess, "run", fake_run)
-    assert camofox_service._process_command_line(456) == "/usr/bin/node server.js"
-    assert camofox_service._process_cwd(456) == tool_dir.resolve()
-    assert camofox_service._listen_port_owner_pid("localhost", 9377) == 456
-    assert camofox_service._process_matches_state(state) is True
-    monkeypatch.setattr(camofox_service, "is_process_alive", lambda pid: pid == 456)
-    assert camofox_service._state_process_alive(state) is True
-    monkeypatch.setattr(camofox_service, "_state_process_alive", lambda _state: False)
-    assert camofox_service._wait_for_state_exit(state, timeout=0.01) is True
+    assert _process_command_line(456) == "/usr/bin/node server.js"
+    assert _process_cwd(456) == tool_dir.resolve()
+    assert _listen_port_owner_pid("localhost", 9377) == 456
+    assert _process_matches_state(state) is True
+    monkeypatch.setattr(camofox_service, "is_process_alive", pid_is(456))
+    assert _state_process_alive(state) is True
+    monkeypatch.setattr(camofox_service, "_state_process_alive", constant(False))
+    assert _wait_for_state_exit(state, timeout=0.01) is True
 
     kill_calls: list[int] = []
-    monkeypatch.setattr(
-        camofox_service.os, "kill", lambda pid, _signal: kill_calls.append(pid)
-    )
-    stopped, error = camofox_service._stop_camofox_state_process(state)
+    monkeypatch.setattr(camofox_service.os, "kill", _record_kill_call(kill_calls))
+    stopped, error = _stop_camofox_state_process(state)
     assert stopped is True
     assert error is None
     assert kill_calls == [456]
@@ -616,22 +833,22 @@ def test_camofox_start_and_stop_short_circuit_paths(
     status = _status(app_owned=True)
 
     monkeypatch.setattr(
-        camofox_service, "_runtime_command", lambda _tool_dir: ["node", "server.js"]
+        camofox_service, "_runtime_command", constant(["node", "server.js"])
     )
-    monkeypatch.setattr(camofox_service, "_read_state", lambda _settings: state)
-    monkeypatch.setattr(camofox_service, "_state_process_alive", lambda _state: True)
+    monkeypatch.setattr(camofox_service, "_read_state", constant(state))
+    monkeypatch.setattr(camofox_service, "_state_process_alive", constant(True))
     monkeypatch.setattr(
-        camofox_service, "build_camofox_service_status", lambda _settings: status
+        camofox_service, "build_camofox_service_status", constant(status)
     )
     assert camofox_service.start_camofox_service(settings) == status
 
     removed: list[str] = []
-    monkeypatch.setattr(camofox_service, "_state_process_alive", lambda _state: False)
+    monkeypatch.setattr(camofox_service, "_state_process_alive", constant(False))
     monkeypatch.setattr(
-        camofox_service, "_remove_state", lambda _settings: removed.append("state")
+        camofox_service, "_remove_state", _record_state_removal(removed)
     )
     assert camofox_service.stop_camofox_service(settings) == status
     assert removed == ["state"]
 
-    monkeypatch.setattr(camofox_service, "_read_state", lambda _settings: None)
+    monkeypatch.setattr(camofox_service, "_read_state", constant(None))
     assert camofox_service.stop_camofox_service(settings) == status
