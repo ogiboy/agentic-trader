@@ -3,6 +3,8 @@ import subprocess
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -26,7 +28,7 @@ from agentic_trader.system.camofox_service import CamofoxServiceStatus
 from agentic_trader.system.tool_ownership import write_tool_ownership
 
 
-def _settings(tmp_path, **overrides) -> Settings:
+def _settings(tmp_path: Path, **overrides: Any) -> Settings:
     """
     Builds a Settings instance rooted at the given temporary path and ensures required directories exist.
 
@@ -97,7 +99,7 @@ def _camofox_service_status(
     )
 
 
-def test_research_sidecar_defaults_to_disabled(tmp_path) -> None:
+def test_research_sidecar_defaults_to_disabled(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
 
     state = build_research_sidecar_state(settings)
@@ -111,7 +113,7 @@ def test_research_sidecar_defaults_to_disabled(tmp_path) -> None:
 
 
 def test_enabled_research_sidecar_uses_scaffolds_without_fake_evidence(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     """
     Verifies an enabled research sidecar in training mode initializes scaffolding without producing raw evidence.
@@ -140,7 +142,7 @@ def test_enabled_research_sidecar_uses_scaffolds_without_fake_evidence(
     assert all(item.freshness == "missing" for item in result.state.provider_health)
 
 
-def test_crewai_backend_reports_missing_sidecar_environment(tmp_path) -> None:
+def test_crewai_backend_reports_missing_sidecar_environment(tmp_path: Path) -> None:
     settings = _settings(
         tmp_path,
         research_mode="training",
@@ -161,7 +163,7 @@ def test_crewai_backend_reports_missing_sidecar_environment(tmp_path) -> None:
 
 
 def test_crewai_backend_uses_subprocess_contract_without_core_imports(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "broker-secret")
     monkeypatch.setenv("OPENAI_API_KEY", "model-secret")
@@ -180,7 +182,7 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(
     def fake_runner(
         command: list[str],
         stdin_payload: str,
-        cwd,
+        cwd: Path,
         env: dict[str, str],
         timeout_seconds: float,
     ) -> subprocess.CompletedProcess[str]:
@@ -245,10 +247,10 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(
     assert result.memory_update["contract_version"] == "research-flow.v1"
     assert result.memory_update["raw_web_text_injected"] is False
     assert result.memory_update["broker_access"] is False
-    planned_tasks = result.memory_update["planned_tasks"]
-    assert isinstance(planned_tasks, list)
+    planned_tasks = cast(
+        "list[dict[str, object]]", result.memory_update["planned_tasks"]
+    )
     first_task = planned_tasks[0]
-    assert isinstance(first_task, dict)
     assert first_task["kind"] == "company_dossier"
     assert captured["command"] == [
         "uv",
@@ -261,16 +263,14 @@ def test_crewai_backend_uses_subprocess_contract_without_core_imports(
     assert captured["tracing"] == "false"
     assert captured["broker_secret"] is None
     assert captured["model_secret"] == "model-secret"
-    request = captured["request"]
-    assert isinstance(request, dict)
+    request = cast("dict[str, object]", captured["request"])
     assert request["symbols"] == ["AAPL"]
-    provider_outputs = request["provider_outputs"]
-    assert isinstance(provider_outputs, list)
+    provider_outputs = cast("list[dict[str, Any]]", request["provider_outputs"])
     assert provider_outputs[0]["metadata"]["provider_id"] == "sec_edgar_research"
 
 
 def test_crewai_backend_redacts_non_json_process_output(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "secret-openai")
     settings = _settings(
@@ -287,7 +287,7 @@ def test_crewai_backend_redacts_non_json_process_output(
     def fake_runner(
         command: list[str],
         stdin_payload: str,
-        cwd,
+        cwd: Path,
         env: dict[str, str],
         timeout_seconds: float,
     ) -> subprocess.CompletedProcess[str]:
@@ -338,7 +338,7 @@ def test_research_schema_tracks_staleness_and_uncertainty() -> None:
     assert record.missing_fields == ["url"]
 
 
-def test_research_provider_health_keeps_missing_sources_visible(tmp_path) -> None:
+def test_research_provider_health_keeps_missing_sources_visible(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     provider = default_research_providers(settings)[0]
 
@@ -353,10 +353,12 @@ def test_research_provider_health_keeps_missing_sources_visible(tmp_path) -> Non
     assert "Provider is disabled by configuration" in health.message
 
 
-def test_sec_edgar_provider_requires_explicit_user_agent(tmp_path) -> None:
+def test_sec_edgar_provider_requires_explicit_user_agent(tmp_path: Path) -> None:
     settings = _settings(tmp_path, research_sec_edgar_enabled=True)
 
-    def forbidden_fetcher(url, headers, timeout_seconds):
+    def forbidden_fetcher(
+        url: str, headers: Mapping[str, str], timeout_seconds: float
+    ) -> dict[str, Any]:
         _ = (url, headers, timeout_seconds)
         raise AssertionError("SEC provider should not fetch without a User-Agent")
 
@@ -375,7 +377,9 @@ def test_sec_edgar_provider_requires_explicit_user_agent(tmp_path) -> None:
     assert "required SEC User-Agent" in health.message
 
 
-def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(tmp_path) -> None:
+def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(
+    tmp_path: Path,
+) -> None:
     """
     Verifies the Firecrawl news provider is opt-in and reports appropriate missing reasons when the CLI or host-owned tool is not available.
 
@@ -425,7 +429,7 @@ def test_firecrawl_news_provider_is_opt_in_and_missing_without_cli(tmp_path) -> 
 
 
 def test_firecrawl_news_provider_sanitizes_search_results(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """
     Verifies that FirecrawlNewsResearchProvider redacts API keys from CLI search output.
@@ -462,7 +466,7 @@ def test_firecrawl_news_provider_sanitizes_search_results(
                         "source": "Example News",
                         "publishedAt": "2026-05-01T10:00:00Z",
                         "snippet": (
-                            "Apple supplier update. " "FIRECRAWL_API_KEY=fake-token"
+                            "Apple supplier update. FIRECRAWL_API_KEY=fake-token"
                         ),
                     }
                 ]
@@ -495,7 +499,7 @@ def test_firecrawl_news_provider_sanitizes_search_results(
 
 
 def test_firecrawl_news_provider_ignores_raw_body_fields(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """
     Verifies that Firecrawl provider discards raw `markdown`/`content` fields and does not use them as the normalized summary.
@@ -558,7 +562,7 @@ def test_firecrawl_news_provider_ignores_raw_body_fields(
 
 
 def test_firecrawl_news_provider_uses_python_sdk_when_available(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
     settings = _settings(tmp_path, research_firecrawl_enabled=True)
@@ -601,7 +605,7 @@ def test_firecrawl_news_provider_uses_python_sdk_when_available(
 
 
 def test_firecrawl_news_provider_redacts_nonzero_stderr(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
     settings = _host_owned_firecrawl(
@@ -643,7 +647,7 @@ def test_firecrawl_news_provider_redacts_nonzero_stderr(
 
 
 def test_firecrawl_news_provider_passes_minimal_env(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("FIRECRAWL_API_KEY", "fake-token")
     monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "fake-alpaca")
@@ -682,7 +686,7 @@ def test_firecrawl_news_provider_passes_minimal_env(
 
 
 def test_firecrawl_news_provider_uses_settings_api_key_without_export(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.delenv("FIRECRAWL_API_KEY", raising=False)
     settings = _host_owned_firecrawl(
@@ -717,7 +721,7 @@ def test_firecrawl_news_provider_uses_settings_api_key_without_export(
     assert captured_env["FIRECRAWL_API_KEY"] == "settings-token"
 
 
-def test_camofox_browser_provider_reports_local_health(tmp_path) -> None:
+def test_camofox_browser_provider_reports_local_health(tmp_path: Path) -> None:
     settings = _settings(tmp_path, research_camofox_enabled=True)
 
     def fake_health(url: str, timeout_seconds: float) -> dict[str, object]:
@@ -748,7 +752,7 @@ def test_camofox_browser_provider_reports_local_health(tmp_path) -> None:
 
 
 def test_camofox_browser_provider_respects_app_owned_browser_launch_failure(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, research_camofox_enabled=True)
 
@@ -782,7 +786,7 @@ def test_camofox_browser_provider_respects_app_owned_browser_launch_failure(
     assert output.missing_reasons == ["camofox_browser_launch_failed"]
 
 
-def test_camofox_browser_provider_rejects_non_loopback_url(tmp_path) -> None:
+def test_camofox_browser_provider_rejects_non_loopback_url(tmp_path: Path) -> None:
     settings = _settings(
         tmp_path,
         research_camofox_enabled=True,
@@ -805,7 +809,7 @@ def test_camofox_browser_provider_rejects_non_loopback_url(tmp_path) -> None:
 
 
 def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     settings = _settings(
         tmp_path,
@@ -815,11 +819,13 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(
     )
     calls: list[str] = []
 
-    def fake_fetcher(url, headers, timeout_seconds):
+    def fake_fetcher(
+        url: str, headers: Mapping[str, str], timeout_seconds: float
+    ) -> dict[str, Any]:
         calls.append(url)
         assert headers["User-Agent"] == "Agentic Trader test contact@example.com"
         assert headers["Accept"] == "application/json"
-        assert timeout_seconds == pytest.approx(30.0)
+        assert abs(timeout_seconds - 30.0) < 1e-9
         if url == "https://www.sec.gov/files/company_tickers.json":
             return {
                 "0": {
@@ -970,12 +976,13 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(
     assert facts_record.source_payload_ref == "sec-companyfacts://CIK0000320193"
     assert "Revenue: 391,035,000,000 USD" in facts_record.normalized_summary
     assert facts_record.evidence_vs_inference.inference == []
-    assert "Company-specific extension taxonomy concepts" in (
-        facts_record.evidence_vs_inference.uncertainty[1]
+    assert (
+        "Company-specific extension taxonomy concepts"
+        in (facts_record.evidence_vs_inference.uncertainty[1])
     )
     assert facts_record.missing_fields == []
     assert "sec_companyfacts_api" in facts_record.source_attributions[0].notes
-    assert facts_record.source_attributions[0].completeness == pytest.approx(1.0)
+    assert abs(facts_record.source_attributions[0].completeness - 1.0) < 1e-9
 
     record = output.raw_evidence[1]
     assert record.record_id == "sec:AAPL:0000320193-24-000123"
@@ -993,11 +1000,12 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(
         record.source_payload_ref
         == "sec-submissions://CIK0000320193/0000320193-24-000123"
     )
-    assert "Filing text and XBRL facts were not downloaded" in (
-        record.evidence_vs_inference.uncertainty[0]
+    assert (
+        "Filing text and XBRL facts were not downloaded"
+        in (record.evidence_vs_inference.uncertainty[0])
     )
     assert record.evidence_vs_inference.inference == []
-    assert record.source_attributions[0].confidence == pytest.approx(0.95)
+    assert abs(record.source_attributions[0].confidence - 0.95) < 1e-9
     assert "form=10-K" in record.source_attributions[0].notes
     assert record.missing_fields == []
     assert health.freshness == "fresh"
@@ -1005,7 +1013,7 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(
     assert "Provider returned normalized research evidence" in health.message
 
 
-def test_sec_evidence_flows_to_fresh_world_state_attribution(tmp_path) -> None:
+def test_sec_evidence_flows_to_fresh_world_state_attribution(tmp_path: Path) -> None:
     settings = _settings(
         tmp_path,
         research_mode="training",
@@ -1015,7 +1023,9 @@ def test_sec_evidence_flows_to_fresh_world_state_attribution(tmp_path) -> None:
         research_sec_edgar_user_agent="Agentic Trader test contact@example.com",
     )
 
-    def fake_fetcher(url, headers, timeout_seconds):
+    def fake_fetcher(
+        url: str, headers: Mapping[str, str], timeout_seconds: float
+    ) -> dict[str, Any]:
         _ = (headers, timeout_seconds)
         if url == "https://www.sec.gov/files/company_tickers.json":
             return {
@@ -1048,7 +1058,7 @@ def test_sec_evidence_flows_to_fresh_world_state_attribution(tmp_path) -> None:
                 },
             }
         if url == "https://data.sec.gov/submissions/CIK0000320193.json":
-            return {"name": "Apple Inc.", "filings": {"recent": {}}}
+            return {"name": "Apple Inc.", "filings": {"recent": dict[str, object]()}}
         raise AssertionError(f"unexpected SEC URL: {url}")
 
     provider = SecEdgarSubmissionsProvider(settings=settings, fetcher=fake_fetcher)
@@ -1069,7 +1079,9 @@ def test_sec_evidence_flows_to_fresh_world_state_attribution(tmp_path) -> None:
     assert result.memory_update["raw_web_text_injected"] is False
 
 
-def test_research_result_persists_to_runtime_feed_without_database(tmp_path) -> None:
+def test_research_result_persists_to_runtime_feed_without_database(
+    tmp_path: Path,
+) -> None:
     settings = _settings(
         tmp_path,
         research_mode="training",

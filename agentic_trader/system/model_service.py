@@ -174,6 +174,18 @@ def _remove_state(settings: Settings) -> None:
         return
 
 
+def read_model_service_state(settings: Settings) -> ModelServiceState | None:
+    return _read_state(settings)
+
+
+def write_model_service_state(settings: Settings, state: ModelServiceState) -> None:
+    _write_state(settings, state)
+
+
+def remove_model_service_state(settings: Settings) -> None:
+    _remove_state(settings)
+
+
 def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
     if not path:
         return []
@@ -234,6 +246,10 @@ def _same_loopback_api_root(left: str, right: str) -> bool:
     return is_loopback_host(left_host) and is_loopback_host(right_host)
 
 
+def same_loopback_api_root(left: str, right: str) -> bool:
+    return _same_loopback_api_root(left, right)
+
+
 def _base_url(host: str, port: int) -> str:
     """
     Constructs an HTTP base URL from the given host and port.
@@ -277,6 +293,10 @@ def _process_command_line(pid: int) -> str | None:
     return completed.stdout.strip() or None
 
 
+def model_service_process_command_line(pid: int) -> str | None:
+    return _process_command_line(pid)
+
+
 def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
     """
     Locate host-owned "ollama serve" process PIDs for diagnostics.
@@ -316,6 +336,10 @@ def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
         if _is_ollama_serve_command(command_line, executable_names):
             pids.append(int(pid_text))
     return sorted(set(pids) | set(_ollama_listener_pids_from_lsof()))
+
+
+def external_ollama_serve_pids(command_path: str | None) -> list[int]:
+    return _external_ollama_serve_pids(command_path)
 
 
 def _is_ollama_serve_command(command_line: str, executable_names: set[str]) -> bool:
@@ -570,6 +594,10 @@ def _process_matches_state(state: ModelServiceState) -> bool:
     if executable not in command_line or "serve" not in command_line:
         return False
     return True
+
+
+def model_service_process_matches_state(state: ModelServiceState) -> bool:
+    return _process_matches_state(state)
 
 
 def _state_process_alive(state: ModelServiceState | None) -> bool:
