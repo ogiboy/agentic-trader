@@ -11,7 +11,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import cast
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
@@ -50,7 +50,24 @@ def _write_json(path: Path, payload: object) -> None:
     )
 
 
-def _parse_json(stdout: str) -> Any:
+def _object_mapping(value: object) -> dict[str, object] | None:
+    if not isinstance(value, dict):
+        return None
+    return cast(dict[str, object], value)
+
+
+def _object_mapping_list(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    rows: list[dict[str, object]] = []
+    for item in cast(list[object], value):
+        row = _object_mapping(item)
+        if row is not None:
+            rows.append(row)
+    return rows
+
+
+def _parse_json(stdout: str) -> object | None:
     """
     Attempt to parse a stdout string as JSON and return the resulting value.
 
@@ -110,7 +127,7 @@ def _run_step(
         check=False,
     )
     duration_ms = round((time.monotonic() - started) * 1000)
-    payload = {
+    payload: dict[str, object] = {
         "name": name,
         "command": ["agentic-trader", *args],
         "exit_code": completed.returncode,
@@ -214,8 +231,6 @@ def _build_markdown_report(summary: dict[str, object]) -> str:
     Returns:
         str: A Markdown-formatted string with rehearshal metadata, a per-step PASS/FAIL listing, proposal fields, and notes.
     """
-    steps = summary["steps"]
-    assert isinstance(steps, list)
     lines = [
         "# V1 Paper Desk Rehearsal",
         "",
@@ -228,8 +243,7 @@ def _build_markdown_report(summary: dict[str, object]) -> str:
         "## Steps",
         "",
     ]
-    for step in steps:
-        assert isinstance(step, dict)
+    for step in _object_mapping_list(summary.get("steps")):
         status = "PASS" if step.get("ok") else "FAIL"
         lines.append(
             f"- {status}: `{step.get('name')}` exit={step.get('exit_code')} duration_ms={step.get('duration_ms')}"
@@ -406,10 +420,8 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
             "--json",
         ],
     )
-    candidate = candidate_created.get("stdout_json")
-    candidate_id = (
-        candidate.get("candidate_id") if isinstance(candidate, dict) else None
-    )
+    candidate = _object_mapping(candidate_created.get("stdout_json"))
+    candidate_id = candidate.get("candidate_id") if candidate is not None else None
     if not candidate_id:
         raise RuntimeError("proposal-candidate-create did not return a candidate_id")
     promoted = step(
@@ -422,11 +434,11 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
             "--json",
         ],
     )
-    promoted_payload = promoted.get("stdout_json")
-    proposal = (
-        promoted_payload.get("proposal") if isinstance(promoted_payload, dict) else None
+    promoted_payload = _object_mapping(promoted.get("stdout_json"))
+    proposal = _object_mapping(
+        promoted_payload.get("proposal") if promoted_payload is not None else None
     )
-    proposal_id = proposal.get("proposal_id") if isinstance(proposal, dict) else None
+    proposal_id = proposal.get("proposal_id") if proposal is not None else None
     if not proposal_id:
         raise RuntimeError("proposal-candidate-promote did not return a proposal_id")
     approved = step(
@@ -440,14 +452,17 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
         ],
         timeout=180,
     )
-    approved_payload = approved.get("stdout_json")
-    approved_proposal = (
-        approved_payload.get("proposal") if isinstance(approved_payload, dict) else {}
+    approved_payload = _object_mapping(approved.get("stdout_json"))
+    approved_proposal = _object_mapping(
+        approved_payload.get("proposal") if approved_payload is not None else None
     )
-    outcome = (
-        approved_payload.get("outcome") if isinstance(approved_payload, dict) else {}
+    outcome = _object_mapping(
+        approved_payload.get("outcome") if approved_payload is not None else None
     )
-    outcome_status = outcome.get("status") if isinstance(outcome, dict) else None
+    outcome_status_value = outcome.get("status") if outcome is not None else None
+    outcome_status = (
+        outcome_status_value if isinstance(outcome_status_value, str) else None
+    )
     if outcome_status == "accepted":
         refresh = step(
             "proposal-refresh",
@@ -491,24 +506,28 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
         timeout=180,
     )
 
-    readiness_payload = readiness.get("stdout_json")
+    readiness_payload = _object_mapping(readiness.get("stdout_json"))
+    paper_operations = _object_mapping(
+        readiness_payload.get("paper_operations")
+        if readiness_payload is not None
+        else None
+    )
     readiness_allowed = (
-        readiness_payload.get("paper_operations", {}).get("allowed")
-        if isinstance(readiness_payload, dict)
+        paper_operations.get("allowed") is True
+        if paper_operations is not None
         else False
     )
-    summary = {
+    approval_status = (
+        approved_proposal.get("status") if approved_proposal is not None else None
+    )
+    summary: dict[str, object] = {
         "created_at": datetime.now(UTC).isoformat(),
         "artifact_dir": str(artifact_dir),
         "execution_backend": args.execution_backend,
         "symbols": ",".join(symbols),
         "candidate_id": candidate_id,
         "proposal_id": proposal_id,
-        "approval_status": (
-            approved_proposal.get("status")
-            if isinstance(approved_proposal, dict)
-            else None
-        ),
+        "approval_status": approval_status,
         "outcome_status": outcome_status,
         "refresh_check": refresh_check,
         "refresh_ok": refresh.get("ok"),
