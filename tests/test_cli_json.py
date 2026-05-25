@@ -1795,7 +1795,7 @@ def test_research_cycle_control_rejects_reason_without_action(
     )
 
     assert result.exit_code != 0
-    assert "--reason requires --pause, --resume, or --trigger-now." in result.stdout
+    assert "--reason requires --pause, --resume, or --trigger-now." in result.output
     assert research_cycle_control_path(settings).exists() is False
     assert settings.database_path.exists() is False
 
