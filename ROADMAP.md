@@ -17,7 +17,7 @@ companion rather than only a runtime shell. V2 is the Turkey expansion track.
 
 ### V1 Commercial Readiness Blockers
 
-Research checked on 2026-05-26 keeps V1 paper-first until the product can prove
+Research refreshed during the type-safety branch audit keeps V1 paper-first until the product can prove
 operator trust, compliance posture, and unit economics without overpromising
 autonomous advice or live execution. This is not legal advice; it is the
 engineering blocker ledger that must be reviewed with qualified counsel before
