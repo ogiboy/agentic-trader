@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run strict Pyright while blocking regressions above the current backlog."""
+"""Run strict Pyright and require a clean diagnostic set."""
 
 from __future__ import annotations
 
@@ -12,16 +12,13 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-STRICT_BASELINE_ERROR_COUNT = 1776
-DEFAULT_TARGETS = ("agentic_trader", "tests", "scripts")
+STRICT_BASELINE_ERROR_COUNT = 0
+DEFAULT_TARGETS = ("agentic_trader", "tests", "scripts", "sidecars/research_flow/src")
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Run strict Pyright and fail only when diagnostics exceed the "
-            "documented staged-hardening baseline."
-        )
+        description=("Run strict Pyright and fail when any diagnostics are reported.")
     )
     parser.add_argument(
         "--max-errors",
@@ -43,7 +40,10 @@ def _parse_args() -> argparse.Namespace:
         "targets",
         nargs="*",
         default=list(DEFAULT_TARGETS),
-        help="Pyright targets. Defaults to agentic_trader tests scripts.",
+        help=(
+            "Pyright targets. Defaults to agentic_trader tests scripts "
+            "sidecars/research_flow/src."
+        ),
     )
     return parser.parse_args()
 
@@ -108,10 +108,7 @@ def main() -> int:
 
     if error_count > args.max_errors:
         print(
-            "Strict Pyright backlog regressed above the accepted baseline. "
-            "Fix new diagnostics or intentionally raise the documented "
-            "baseline in ROADMAP.md, .ai/current-state.instructions.md, and "
-            "this script.",
+            "Strict Pyright reported errors. Fix diagnostics before publishing.",
             file=sys.stderr,
         )
         return 1
