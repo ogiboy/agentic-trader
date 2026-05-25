@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Collection, Mapping
 from pathlib import Path
-from typing import NoReturn, Protocol, TypeVar
+from typing import Any, NoReturn, Protocol, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -23,6 +24,20 @@ def raising(error: Exception) -> Callable[..., NoReturn]:
         raise error
 
     return _raise
+
+
+def json_object(payload: str) -> dict[str, Any]:
+    data = json.loads(payload)
+    if not isinstance(data, dict):
+        raise AssertionError("expected JSON object")
+    return cast(dict[str, Any], data)
+
+
+def json_list(payload: str) -> list[Any]:
+    data = json.loads(payload)
+    if not isinstance(data, list):
+        raise AssertionError("expected JSON list")
+    return cast(list[Any], data)
 
 
 def empty_int_list(*_args: object, **_kwargs: object) -> list[int]:

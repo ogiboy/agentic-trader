@@ -1,6 +1,7 @@
 import json
 import re
 from pathlib import Path
+from typing import Protocol
 
 import pytest
 from typer.testing import CliRunner
@@ -46,6 +47,7 @@ from agentic_trader.system.model_service import ModelServiceStatus
 from agentic_trader.system.setup import SetupStatus, ToolStatus
 from agentic_trader.system.webgui_service import WebGUIServiceStatus
 from agentic_trader.workflows.run_once import persist_run
+from tests.typing_helpers import constant, json_list, json_object
 
 _ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
@@ -64,6 +66,50 @@ def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
         RuntimeError: with the message "db locked".
     """
     raise RuntimeError("db locked")
+
+
+class _LLMWithSettings(Protocol):
+    settings: Settings
+
+
+def _healthy_llm_health(self: _LLMWithSettings, **_kwargs: object) -> LLMHealthStatus:
+    return LLMHealthStatus(
+        provider="ollama",
+        base_url=self.settings.base_url,
+        model_name=self.settings.model_name,
+        service_reachable=True,
+        model_available=True,
+        message="ready",
+    )
+
+
+def _healthy_llm_generation_health(
+    self: _LLMWithSettings, **_kwargs: object
+) -> LLMHealthStatus:
+    return LLMHealthStatus(
+        provider="ollama",
+        base_url=self.settings.base_url,
+        model_name=self.settings.model_name,
+        service_reachable=True,
+        model_available=True,
+        generation_available=True,
+        message="ready",
+    )
+
+
+def _pull_model_payload(_settings: Settings, model_name: str) -> dict[str, object]:
+    return {
+        "model": model_name,
+        "exit_code": 0,
+        "stdout": "pulled",
+        "stderr": "",
+    }
+
+
+def _assert_close(actual: object, expected: float, abs_tol: float = 1e-9) -> None:
+    if not isinstance(actual, int | float):
+        raise AssertionError(f"expected numeric value, got {type(actual).__name__}")
+    assert abs(float(actual) - expected) <= abs_tol
 
 
 def test_cli_help_supports_short_and_long_forms() -> None:
@@ -328,7 +374,7 @@ def test_status_preferences_and_portfolio_json(
 
     status_result = runner.invoke(app, ["status", "--json"])
     assert status_result.exit_code == 0
-    status_payload = json.loads(status_result.stdout)
+    status_payload = json_object(status_result.stdout)
     assert status_payload["runtime_state"] == "inactive"
     assert status_payload["runtime_mode"] == "operation"
     assert status_payload["state"]["state"] == "completed"
@@ -336,12 +382,12 @@ def test_status_preferences_and_portfolio_json(
 
     preferences_result = runner.invoke(app, ["preferences", "--json"])
     assert preferences_result.exit_code == 0
-    preferences_payload = json.loads(preferences_result.stdout)
+    preferences_payload = json_object(preferences_result.stdout)
     assert preferences_payload["risk_profile"] == "balanced"
 
     portfolio_result = runner.invoke(app, ["portfolio", "--json"])
     assert portfolio_result.exit_code == 0
-    portfolio_payload = json.loads(portfolio_result.stdout)
+    portfolio_payload = json_object(portfolio_result.stdout)
     assert portfolio_payload["snapshot"]["cash"] == settings.default_cash
     assert portfolio_payload["positions"] == []
 
@@ -364,18 +410,11 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.LocalLLM.health_check",
-        lambda self, **_kwargs: LLMHealthStatus(
-            provider="ollama",
-            base_url=self.settings.base_url,
-            model_name=self.settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ready",
-        ),
+        _healthy_llm_health,
     )
     monkeypatch.setattr(
         "agentic_trader.cli.build_model_service_status",
-        lambda *_args, **_kwargs: _model_service_status_fixture(),
+        constant(_model_service_status_fixture()),
     )
 
     db = TradingDatabase(settings)
@@ -403,7 +442,7 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
 
     doctor_result = runner.invoke(app, ["doctor", "--json"])
     assert doctor_result.exit_code == 0
-    doctor_payload = json.loads(doctor_result.stdout)
+    doctor_payload = json_object(doctor_result.stdout)
     assert doctor_payload["ollama_reachable"] is True
     assert doctor_payload["model_available"] is True
     assert doctor_payload["runtime_mode"] == "operation"
@@ -412,7 +451,7 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
 
     logs_result = runner.invoke(app, ["logs", "--json", "--limit", "5"])
     assert logs_result.exit_code == 0
-    logs_payload = json.loads(logs_result.stdout)
+    logs_payload = json_list(logs_result.stdout)
     assert logs_payload[0]["event_type"] == "service_started"
 
 
@@ -428,20 +467,13 @@ def test_runtime_mode_checklist_blocks_operation_without_strict_gate(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.LocalLLM.health_check",
-        lambda self, **_kwargs: LLMHealthStatus(
-            provider="ollama",
-            base_url=self.settings.base_url,
-            model_name=self.settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ready",
-        ),
+        _healthy_llm_health,
     )
 
     result = CliRunner().invoke(app, ["runtime-mode-checklist", "operation", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["target_mode"] == "operation"
     assert payload["allowed"] is False
     strict_check = next(
@@ -468,7 +500,7 @@ def test_runtime_mode_checklist_blocks_operation_when_provider_check_skipped(
     )
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["target_mode"] == "operation"
     assert payload["allowed"] is False
     provider_check = next(
@@ -492,7 +524,7 @@ def test_runtime_mode_checklist_allows_training_without_provider_check(
     result = CliRunner().invoke(app, ["runtime-mode-checklist", "training", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["current_mode"] == "operation"
     assert payload["target_mode"] == "training"
     assert payload["allowed"] is True
@@ -514,14 +546,7 @@ def test_rich_menu_eof_exits_cleanly(
     monkeypatch.setattr("agentic_trader.tui.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.tui.LocalLLM.health_check",
-        lambda self, **_kwargs: LLMHealthStatus(
-            provider="ollama",
-            base_url=self.settings.base_url,
-            model_name=self.settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ready",
-        ),
+        _healthy_llm_health,
     )
 
     runner = CliRunner()
@@ -554,13 +579,13 @@ def test_preferences_and_portfolio_json_survive_db_lock(
 
     preferences_result = runner.invoke(app, ["preferences", "--json"])
     assert preferences_result.exit_code == 0
-    preferences_payload = json.loads(preferences_result.stdout)
+    preferences_payload = json_object(preferences_result.stdout)
     assert preferences_payload["available"] is False
     assert preferences_payload["risk_profile"] == "balanced"
 
     portfolio_result = runner.invoke(app, ["portfolio", "--json"])
     assert portfolio_result.exit_code == 0
-    portfolio_payload = json.loads(portfolio_result.stdout)
+    portfolio_payload = json_object(portfolio_result.stdout)
     assert portfolio_payload["available"] is False
     assert portfolio_payload["positions"] == []
 
@@ -579,25 +604,25 @@ def test_journal_risk_review_and_trace_json(
 
     journal_result = runner.invoke(app, ["journal", "--json", "--limit", "5"])
     assert journal_result.exit_code == 0
-    journal_payload = json.loads(journal_result.stdout)
+    journal_payload = json_object(journal_result.stdout)
     assert journal_payload["available"] is True
     assert journal_payload["entries"] == []
 
     risk_result = runner.invoke(app, ["risk-report", "--json"])
     assert risk_result.exit_code == 0
-    risk_payload = json.loads(risk_result.stdout)
+    risk_payload = json_object(risk_result.stdout)
     assert risk_payload["available"] is True
     assert risk_payload["report"]["equity"] == settings.default_cash
 
     review_result = runner.invoke(app, ["review-run", "--json"])
     assert review_result.exit_code == 0
-    review_payload = json.loads(review_result.stdout)
+    review_payload = json_object(review_result.stdout)
     assert review_payload["available"] is True
     assert review_payload["record"] is None
 
     trace_result = runner.invoke(app, ["trace-run", "--json"])
     assert trace_result.exit_code == 0
-    trace_payload = json.loads(trace_result.stdout)
+    trace_payload = json_object(trace_result.stdout)
     assert trace_payload["available"] is True
     assert trace_payload["record"] is None
 
@@ -614,9 +639,9 @@ def test_chat_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     )
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
-    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", lambda settings: None)
+    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", constant(None))
     monkeypatch.setattr(
-        "agentic_trader.cli.chat_with_persona", lambda **kwargs: "runtime is healthy"
+        "agentic_trader.cli.chat_with_persona", constant("runtime is healthy")
     )
 
     runner = CliRunner()
@@ -625,7 +650,7 @@ def test_chat_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         ["chat", "--json", "--persona", "operator_liaison", "--message", "status?"],
     )
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["persona"] == "operator_liaison"
     assert payload["message"] == "status?"
     assert payload["response"] == "runtime is healthy"
@@ -773,14 +798,7 @@ def test_dashboard_snapshot_json(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.LocalLLM.health_check",
-        lambda self, **_kwargs: LLMHealthStatus(
-            provider="ollama",
-            base_url=self.settings.base_url,
-            model_name=self.settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ready",
-        ),
+        _healthy_llm_health,
     )
 
     db = TradingDatabase(settings)
@@ -808,7 +826,7 @@ def test_dashboard_snapshot_json(
     runner = CliRunner()
     result = runner.invoke(app, ["dashboard-snapshot"])
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["doctor"]["ollama_reachable"] is True
     assert payload["doctor"]["runtime_mode"] == "operation"
     assert payload["status"]["runtime_mode"] == "operation"
@@ -829,7 +847,7 @@ def test_dashboard_snapshot_json(
     assert payload["v1Readiness"]["alpaca_paper"]["ready"] is False
     provider_checked = runner.invoke(app, ["dashboard-snapshot", "--provider-check"])
     assert provider_checked.exit_code == 0
-    provider_checked_payload = json.loads(provider_checked.stdout)
+    provider_checked_payload = json_object(provider_checked.stdout)
     assert (
         provider_checked_payload["v1Readiness"]["paper_operations"]["allowed"] is True
     )
@@ -863,18 +881,11 @@ def test_evidence_bundle_json_creates_read_only_artifacts(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.LocalLLM.health_check",
-        lambda self, **_kwargs: LLMHealthStatus(
-            provider="ollama",
-            base_url=self.settings.base_url,
-            model_name=self.settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ready",
-        ),
+        _healthy_llm_health,
     )
     monkeypatch.setattr(
         "agentic_trader.cli.build_model_service_status",
-        lambda *_args, **_kwargs: _model_service_status_fixture(),
+        constant(_model_service_status_fixture()),
     )
 
     artifacts_root = tmp_path / "artifacts"
@@ -893,7 +904,7 @@ def test_evidence_bundle_json_creates_read_only_artifacts(
     )
 
     assert result.exit_code == 0
-    manifest = json.loads(result.stdout)
+    manifest = json_object(result.stdout)
     bundle_dir = Path(manifest["bundle_dir"])
     assert bundle_dir == artifacts_root / "evidence-test"
     files = manifest["files"]
@@ -913,16 +924,16 @@ def test_evidence_bundle_json_creates_read_only_artifacts(
     ):
         assert Path(files[key]).exists()
 
-    dashboard = json.loads(Path(files["dashboard"]).read_text(encoding="utf-8"))
+    dashboard = json_object(Path(files["dashboard"]).read_text(encoding="utf-8"))
     assert "providerDiagnostics" in dashboard
     assert "v1Readiness" in dashboard
     assert dashboard["v1Readiness"]["paper_operations"]["allowed"] is True
     assert "modelService" in dashboard
     assert "webGui" in dashboard
-    readiness = json.loads(Path(files["v1_readiness"]).read_text(encoding="utf-8"))
+    readiness = json_object(Path(files["v1_readiness"]).read_text(encoding="utf-8"))
     assert readiness["paper_operations"]["allowed"] is True
     assert readiness["provider_health"]["message"] == "ready"
-    broker = json.loads(Path(files["broker"]).read_text(encoding="utf-8"))
+    broker = json_object(Path(files["broker"]).read_text(encoding="utf-8"))
     assert broker["backend"] == "paper"
 
 
@@ -937,21 +948,23 @@ def test_hardware_profile_json_reports_recommendations(
     )
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
-    monkeypatch.setattr("agentic_trader.cli.os.cpu_count", lambda: 8)
-    monkeypatch.setattr("agentic_trader.cli._total_memory_bytes", lambda: 32 * 1024**3)
+    monkeypatch.setattr("agentic_trader.cli.os.cpu_count", constant(8))
+    monkeypatch.setattr(
+        "agentic_trader.cli._total_memory_bytes", constant(32 * 1024**3)
+    )
     monkeypatch.setattr(
         "agentic_trader.cli._accelerator_payload",
-        lambda: {"type": "test", "detail": "deterministic"},
+        constant({"type": "test", "detail": "deterministic"}),
     )
 
     result = CliRunner().invoke(app, ["hardware-profile", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["hardware"]["cpu_count"] == 8
-    assert payload["hardware"]["memory_gb"] == pytest.approx(32.0)
+    _assert_close(payload["hardware"]["memory_gb"], 32.0)
     assert payload["hardware"]["accelerator"]["type"] == "test"
-    assert payload["configured_runtime"]["estimated_model_size_b"] == pytest.approx(8.0)
+    _assert_close(payload["configured_runtime"]["estimated_model_size_b"], 8.0)
     assert payload["recommendations"]["safe_parallel_agents"] == 2
     assert payload["recommendations"]["profile"] == "standard-local"
 
@@ -971,7 +984,7 @@ def test_operator_workflow_json_reports_v1_sequence(
     result = CliRunner().invoke(app, ["operator-workflow", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["workflow_version"] == "operator-workflow.v1"
     assert payload["paper_first"] is True
     commands = [step["command"] for step in payload["steps"]]
@@ -989,18 +1002,20 @@ def test_instruct_json_reports_instruction_and_applied_preferences(
     )
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
-    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", lambda _settings: None)
+    monkeypatch.setattr("agentic_trader.cli.ensure_llm_ready", constant(None))
     monkeypatch.setattr(
         "agentic_trader.cli.interpret_operator_instruction",
-        lambda **_kwargs: OperatorInstruction(
-            summary="Move to a more conservative profile.",
-            should_update_preferences=True,
-            preference_update=PreferenceUpdate(
-                risk_profile="conservative",
-                behavior_preset="capital_preservation",
-            ),
-            requires_confirmation=False,
-            rationale="Structured test instruction.",
+        constant(
+            OperatorInstruction(
+                summary="Move to a more conservative profile.",
+                should_update_preferences=True,
+                preference_update=PreferenceUpdate(
+                    risk_profile="conservative",
+                    behavior_preset="capital_preservation",
+                ),
+                requires_confirmation=False,
+                rationale="Structured test instruction.",
+            )
         ),
     )
 
@@ -1017,7 +1032,7 @@ def test_instruct_json_reports_instruction_and_applied_preferences(
     )
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["instruction"]["summary"] == "Move to a more conservative profile."
     assert payload["instruction"]["should_update_preferences"] is True
     assert payload["applied"] is True
@@ -1051,12 +1066,12 @@ def test_memory_explorer_and_retrieval_inspection_json(
 
     memory_result = runner.invoke(app, ["memory-explorer", "--json"])
     assert memory_result.exit_code == 0
-    memory_payload = json.loads(memory_result.stdout)
+    memory_payload = json_object(memory_result.stdout)
     assert memory_payload["available"] is False
 
     retrieval_result = runner.invoke(app, ["retrieval-inspection", "--json"])
     assert retrieval_result.exit_code == 0
-    retrieval_payload = json.loads(retrieval_result.stdout)
+    retrieval_payload = json_object(retrieval_result.stdout)
     assert retrieval_payload["available"] is True
     assert retrieval_payload["stages"] == []
 
@@ -1074,7 +1089,7 @@ def test_replay_run_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     runner = CliRunner()
     result = runner.invoke(app, ["replay-run", "--json"])
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["available"] is True
     assert payload["replay"]["symbol"] == "MSFT"
     assert payload["replay"]["consensus"]["alignment_level"] == "mixed"
@@ -1113,7 +1128,7 @@ def test_trade_context_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     runner = CliRunner()
     result = runner.invoke(app, ["trade-context", "--json"])
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["available"] is True
     assert payload["record"]["symbol"] == "NVDA"
     assert payload["record"]["execution_rationale"] == "Execution approved."
@@ -1183,7 +1198,7 @@ def test_supervisor_status_json_includes_log_tails(
     runner = CliRunner()
     result = runner.invoke(app, ["supervisor-status", "--json"])
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["state"]["background_mode"] is True
     assert payload["state"]["launch_count"] == 2
     assert payload["state"]["restart_count"] == 1
@@ -1212,7 +1227,7 @@ def test_broker_status_json_reports_execution_guardrails(
     runner = CliRunner()
     result = runner.invoke(app, ["broker-status", "--json"])
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["backend"] == "live"
     assert payload["state"] == "blocked"
     assert payload["live_requested"] is True
@@ -1337,13 +1352,13 @@ def test_setup_status_json_reports_side_application_readiness(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.build_setup_status",
-        lambda _: _setup_status_fixture(tmp_path),
+        constant(_setup_status_fixture(tmp_path)),
     )
 
     runner = CliRunner()
     result = runner.invoke(app, ["setup-status", "--json"])
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["core_ready"] is True
     assert payload["optional_ready"] is False
     assert payload["tools"][0]["tool_id"] == "uv"
@@ -1351,7 +1366,7 @@ def test_setup_status_json_reports_side_application_readiness(
 
     setup_result = runner.invoke(app, ["setup", "--json"])
     assert setup_result.exit_code == 0
-    setup_payload = json.loads(setup_result.stdout)
+    setup_payload = json_object(setup_result.stdout)
     assert setup_payload["dry_run"] is True
     assert setup_payload["mutated"] is False
     assert setup_payload["status"]["tools"][1]["tool_id"] == "firecrawl_cli"
@@ -1370,7 +1385,7 @@ def test_tool_ownership_cli_status_and_set_json(
     runner = CliRunner()
     status_result = runner.invoke(app, ["tool-ownership", "status", "--json"])
     assert status_result.exit_code == 0
-    status_payload = json.loads(status_result.stdout)
+    status_payload = json_object(status_result.stdout)
     assert status_payload["decisions_by_tool"]["ollama"]["mode"] == "undecided"
 
     set_result = runner.invoke(
@@ -1386,7 +1401,7 @@ def test_tool_ownership_cli_status_and_set_json(
         ],
     )
     assert set_result.exit_code == 0
-    set_payload = json.loads(set_result.stdout)
+    set_payload = json_object(set_result.stdout)
     assert set_payload["decisions_by_tool"]["ollama"]["mode"] == "host-owned"
     assert set_payload["decisions_by_tool"]["firecrawl"]["mode"] == "api-key-only"
     assert (tmp_path / "setup" / "tool-ownership.json").exists()
@@ -1436,26 +1451,21 @@ def test_model_service_cli_json_commands(
     )
     monkeypatch.setattr(
         "agentic_trader.cli.start_model_service",
-        lambda *_args, **_kwargs: _model_service_status_fixture(app_owned=True),
+        constant(_model_service_status_fixture(app_owned=True)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.stop_model_service",
-        lambda *_args, **_kwargs: _model_service_status_fixture(),
+        constant(_model_service_status_fixture()),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.pull_model",
-        lambda _settings, model_name: {
-            "model": model_name,
-            "exit_code": 0,
-            "stdout": "pulled",
-            "stderr": "",
-        },
+        _pull_model_payload,
     )
 
     runner = CliRunner()
     status_result = runner.invoke(app, ["model-service", "status", "--json"])
     assert status_result.exit_code == 0
-    status_payload = json.loads(status_result.stdout)
+    status_payload = json_object(status_result.stdout)
     assert status_payload["provider"] == "ollama"
     assert status_payload["command_available"] is True
     assert status_kwargs[-1]["include_generation"] is False
@@ -1469,17 +1479,17 @@ def test_model_service_cli_json_commands(
 
     start_result = runner.invoke(app, ["model-service", "start", "--json"])
     assert start_result.exit_code == 0
-    start_payload = json.loads(start_result.stdout)
+    start_payload = json_object(start_result.stdout)
     assert start_payload["app_owned"] is True
     assert "Bearer <redacted>" in start_payload["stderr_tail"][0]
 
     stop_result = runner.invoke(app, ["model-service", "stop", "--json"])
     assert stop_result.exit_code == 0
-    assert json.loads(stop_result.stdout)["app_owned"] is False
+    assert json_object(stop_result.stdout)["app_owned"] is False
 
     pull_result = runner.invoke(app, ["model-service", "pull", "qwen3:8b", "--json"])
     assert pull_result.exit_code == 0
-    assert json.loads(pull_result.stdout)["model"] == "qwen3:8b"
+    assert json_object(pull_result.stdout)["model"] == "qwen3:8b"
 
 
 def test_webgui_service_cli_json_commands(
@@ -1493,33 +1503,33 @@ def test_webgui_service_cli_json_commands(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.build_webgui_service_status",
-        lambda _: _webgui_service_status_fixture(),
+        constant(_webgui_service_status_fixture()),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.start_operator_webgui",
-        lambda *_args, **_kwargs: _webgui_service_status_fixture(app_owned=True),
+        constant(_webgui_service_status_fixture(app_owned=True)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.stop_webgui_service",
-        lambda *_args, **_kwargs: _webgui_service_status_fixture(),
+        constant(_webgui_service_status_fixture()),
     )
 
     runner = CliRunner()
     status_result = runner.invoke(app, ["webgui-service", "status", "--json"])
     assert status_result.exit_code == 0
-    assert json.loads(status_result.stdout)["command_available"] is True
+    assert json_object(status_result.stdout)["command_available"] is True
 
     start_result = runner.invoke(
         app, ["webgui-service", "start", "--no-open-browser", "--json"]
     )
     assert start_result.exit_code == 0
-    start_payload = json.loads(start_result.stdout)
+    start_payload = json_object(start_result.stdout)
     assert start_payload["app_owned"] is True
     assert start_payload["url"] == "http://127.0.0.1:3210"
 
     stop_result = runner.invoke(app, ["webgui-service", "stop", "--json"])
     assert stop_result.exit_code == 0
-    assert json.loads(stop_result.stdout)["app_owned"] is False
+    assert json_object(stop_result.stdout)["app_owned"] is False
 
 
 def test_camofox_service_cli_json_commands(
@@ -1533,31 +1543,31 @@ def test_camofox_service_cli_json_commands(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.build_camofox_service_status",
-        lambda _: _camofox_service_status_fixture(),
+        constant(_camofox_service_status_fixture()),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.start_camofox_service",
-        lambda *_args, **_kwargs: _camofox_service_status_fixture(app_owned=True),
+        constant(_camofox_service_status_fixture(app_owned=True)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.stop_camofox_service",
-        lambda *_args, **_kwargs: _camofox_service_status_fixture(),
+        constant(_camofox_service_status_fixture()),
     )
 
     runner = CliRunner()
     status_result = runner.invoke(app, ["camofox-service", "status", "--json"])
     assert status_result.exit_code == 0
-    assert json.loads(status_result.stdout)["command_available"] is True
+    assert json_object(status_result.stdout)["command_available"] is True
 
     start_result = runner.invoke(app, ["camofox-service", "start", "--json"])
     assert start_result.exit_code == 0
-    start_payload = json.loads(start_result.stdout)
+    start_payload = json_object(start_result.stdout)
     assert start_payload["app_owned"] is True
     assert start_payload["base_url"] == "http://127.0.0.1:9377"
 
     stop_result = runner.invoke(app, ["camofox-service", "stop", "--json"])
     assert stop_result.exit_code == 0
-    assert json.loads(stop_result.stdout)["app_owned"] is False
+    assert json_object(stop_result.stdout)["app_owned"] is False
 
 
 def test_setup_and_side_service_cli_render_human_status(
@@ -1571,52 +1581,47 @@ def test_setup_and_side_service_cli_render_human_status(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.build_setup_status",
-        lambda _: _setup_status_fixture(tmp_path),
+        constant(_setup_status_fixture(tmp_path)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.build_model_service_status",
-        lambda *_args, **_kwargs: _model_service_status_fixture(app_owned=True),
+        constant(_model_service_status_fixture(app_owned=True)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.start_model_service",
-        lambda *_args, **_kwargs: _model_service_status_fixture(app_owned=True),
+        constant(_model_service_status_fixture(app_owned=True)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.stop_model_service",
-        lambda *_args, **_kwargs: _model_service_status_fixture(),
+        constant(_model_service_status_fixture()),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.pull_model",
-        lambda _settings, model_name: {
-            "model": model_name,
-            "exit_code": 0,
-            "stdout": "pulled",
-            "stderr": "",
-        },
+        _pull_model_payload,
     )
     monkeypatch.setattr(
         "agentic_trader.cli.build_webgui_service_status",
-        lambda _: _webgui_service_status_fixture(app_owned=True),
+        constant(_webgui_service_status_fixture(app_owned=True)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.start_operator_webgui",
-        lambda *_args, **_kwargs: _webgui_service_status_fixture(app_owned=True),
+        constant(_webgui_service_status_fixture(app_owned=True)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.stop_webgui_service",
-        lambda *_args, **_kwargs: _webgui_service_status_fixture(),
+        constant(_webgui_service_status_fixture()),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.build_camofox_service_status",
-        lambda _: _camofox_service_status_fixture(app_owned=True),
+        constant(_camofox_service_status_fixture(app_owned=True)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.start_camofox_service",
-        lambda *_args, **_kwargs: _camofox_service_status_fixture(app_owned=True),
+        constant(_camofox_service_status_fixture(app_owned=True)),
     )
     monkeypatch.setattr(
         "agentic_trader.cli.stop_camofox_service",
-        lambda *_args, **_kwargs: _camofox_service_status_fixture(),
+        constant(_camofox_service_status_fixture()),
     )
 
     runner = CliRunner()
@@ -1693,7 +1698,7 @@ def test_no_arg_entrypoint_opens_operator_launcher(
 
     monkeypatch.setattr(
         "agentic_trader.cli.build_operator_launcher_status",
-        lambda _: LauncherStatus(),
+        constant(LauncherStatus()),
     )
 
     result = CliRunner().invoke(app, [], input="4\n")
@@ -1721,7 +1726,7 @@ def test_research_status_json_reports_sidecar_state(
     result = runner.invoke(app, ["research-status", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["mode"] == "training"
     assert payload["enabled"] is True
     assert payload["status"] == "idle"
@@ -1759,7 +1764,7 @@ def test_research_cycle_control_json_persists_pause_and_trigger(
     )
 
     assert pause_result.exit_code == 0
-    pause_payload = json.loads(pause_result.stdout)
+    pause_payload = json_object(pause_result.stdout)
     assert pause_payload["persisted"] is True
     assert pause_payload["control"]["status"] == "paused"
     assert pause_payload["control"]["reason"] == "operator review"
@@ -1771,7 +1776,7 @@ def test_research_cycle_control_json_persists_pause_and_trigger(
     )
 
     assert trigger_result.exit_code == 0
-    trigger_payload = json.loads(trigger_result.stdout)
+    trigger_payload = json_object(trigger_result.stdout)
     assert trigger_payload["control"]["status"] == "paused"
     assert trigger_payload["control"]["trigger_now_requested"] is True
     assert trigger_payload["execution_policy"]["broker_access"] is False
@@ -1825,7 +1830,7 @@ def test_research_refresh_json_persists_snapshot(
     result = runner.invoke(app, ["research-refresh", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["persisted"] is True
     assert payload["state"]["status"] == "completed"
     assert payload["record"]["state"]["watched_symbols"] == ["AAPL"]
@@ -1834,7 +1839,7 @@ def test_research_refresh_json_persists_snapshot(
 
     status_result = runner.invoke(app, ["research-status", "--json"])
     assert status_result.exit_code == 0
-    status_payload = json.loads(status_result.stdout)
+    status_payload = json_object(status_result.stdout)
     assert status_payload["latestSnapshot"]["available"] is True
     assert (
         status_payload["latestSnapshot"]["record"]["snapshot_id"]
@@ -1886,7 +1891,7 @@ def test_research_cycle_run_json_executes_bounded_evidence_only_cycle(
     )
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["executed_cycles"] == 2
     assert payload["execution_policy"]["broker_access"] is False
     assert payload["execution_policy"]["proposal_approval"] is False
@@ -1940,11 +1945,11 @@ def test_research_cycle_run_replays_previous_snapshot_between_invocations(
         "--json",
     ]
     first_result = runner.invoke(app, command)
-    first_payload = json.loads(first_result.stdout)
+    first_payload = json_object(first_result.stdout)
     first_snapshot_id = first_payload["latest_digest"]["snapshot_id"]
 
     second_result = runner.invoke(app, command)
-    second_payload = json.loads(second_result.stdout)
+    second_payload = json_object(second_result.stdout)
     second_execution = second_payload["executions"][0]
 
     assert first_result.exit_code == 0
@@ -1976,7 +1981,7 @@ def test_research_flow_setup_json_reports_optional_boundary(
     result = runner.invoke(app, ["research-flow-setup", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["core_dependency"] is False
     assert payload["flow_dir"].endswith("sidecars/research_flow")
     assert "environment_exists" in payload
@@ -1999,7 +2004,7 @@ def test_research_crewai_setup_alias_still_reports_optional_boundary(
     result = runner.invoke(app, ["research-crewai-setup", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["flow_dir"].endswith("sidecars/research_flow")
 
 
@@ -2014,14 +2019,7 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.LocalLLM.health_check",
-        lambda self, **_kwargs: LLMHealthStatus(
-            provider="ollama",
-            base_url=self.settings.base_url,
-            model_name=self.settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ready",
-        ),
+        _healthy_llm_health,
     )
 
     runner = CliRunner()
@@ -2030,7 +2028,7 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
         app, ["calendar-status", "--json", "--symbol", "THYAO.IS"]
     )
     assert calendar_result.exit_code == 0
-    calendar_payload = json.loads(calendar_result.stdout)
+    calendar_payload = json_object(calendar_result.stdout)
     assert calendar_payload["available"] is True
     assert calendar_payload["session"]["venue"] == "BIST"
     append_chat_history(
@@ -2046,7 +2044,7 @@ def test_calendar_status_and_dashboard_snapshot_include_calendar(
 
     snapshot_result = runner.invoke(app, ["dashboard-snapshot"])
     assert snapshot_result.exit_code == 0
-    snapshot_payload = json.loads(snapshot_result.stdout)
+    snapshot_payload = json_object(snapshot_result.stdout)
     assert "calendar" in snapshot_payload
     assert snapshot_payload["calendar"]["available"] is True
     assert "news" in snapshot_payload
@@ -2079,7 +2077,7 @@ def test_market_cache_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     runner = CliRunner()
     result = runner.invoke(app, ["market-cache", "--json"])
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["count"] == 1
     assert payload["entries"][0]["filename"] == "AAPL__1d__180d.csv"
 
@@ -2099,7 +2097,7 @@ def test_news_brief_json_defaults_to_tool_only_disabled(
     result = runner.invoke(app, ["news-brief", "--json", "--symbol", "AAPL"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["mode"] == "off"
     assert payload["symbol"] == "AAPL"
     assert payload["headlines"] == []
@@ -2120,7 +2118,7 @@ def test_provider_diagnostics_json_reports_source_ladder(
     result = runner.invoke(app, ["provider-diagnostics", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["market_data"]["selected_provider"] == "yahoo_market"
     assert payload["market_data"]["selected_role"] == "fallback"
     assert payload["configured_keys"]["alpaca"] is False
@@ -2147,7 +2145,7 @@ def test_v1_readiness_json_reports_paper_and_alpaca_sections(
     result = runner.invoke(app, ["v1-readiness", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["paper_operations"]["allowed"] is False
     assert payload["paper_evidence"]["ready"] is True
     assert payload["alpaca_paper"]["ready"] is False
@@ -2180,21 +2178,13 @@ def test_v1_readiness_allows_alpaca_paper_backend_when_enabled(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.diagnostics.LocalLLM.health_check",
-        lambda self, **_kwargs: LLMHealthStatus(
-            provider="ollama",
-            base_url=self.settings.base_url,
-            model_name=self.settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            generation_available=True,
-            message="ready",
-        ),
+        _healthy_llm_generation_health,
     )
 
     result = CliRunner().invoke(app, ["v1-readiness", "--provider-check", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["execution_backend"] == "alpaca_paper"
     assert payload["paper_operations"]["allowed"] is True
     assert payload["alpaca_paper"]["ready"] is True
@@ -2224,7 +2214,7 @@ def test_finance_ops_json_reports_read_only_desk_checks(
     result = CliRunner().invoke(app, ["finance-ops", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["backend"] == "paper"
     assert payload["broker"]["backend"] == "paper"
     assert payload["portfolio"]["available"] is True
@@ -2312,22 +2302,22 @@ def test_finance_ops_uses_alpaca_paper_adapter_account_state(
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
     monkeypatch.setattr(
         "agentic_trader.cli.get_broker_adapter",
-        lambda **_kwargs: FakeAlpacaPaperAdapter(),
+        constant(FakeAlpacaPaperAdapter()),
     )
 
     result = CliRunner().invoke(app, ["finance-ops", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["backend"] == "alpaca_paper"
     assert payload["portfolio"]["source"] == "broker_adapter"
-    assert payload["portfolio"]["snapshot"]["market_value"] == pytest.approx(5.0)
-    assert payload["portfolio"]["positions"][0]["quantity"] == pytest.approx(0.025)
+    _assert_close(payload["portfolio"]["snapshot"]["market_value"], 5.0)
+    _assert_close(payload["portfolio"]["positions"][0]["quantity"], 0.025)
     assert payload["positionPlanCoverage"]["source"] == "broker_adapter"
     assert payload["positionPlanCoverage"]["open_symbols"] == ["AAPL"]
     assert payload["positionPlanCoverage"]["missing_symbols"] == []
     assert payload["riskReport"]["source"] == "broker_adapter"
-    assert payload["riskReport"]["report"]["market_value"] == pytest.approx(5.0)
+    _assert_close(payload["riskReport"]["report"]["market_value"], 5.0)
     assert payload["riskReport"]["report"]["top_position_symbols"] == ["AAPL"]
 
 
@@ -2361,7 +2351,7 @@ def test_finance_ops_flags_open_positions_without_exit_plans(
     result = CliRunner().invoke(app, ["finance-ops", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["ready"] is False
     assert payload["positionPlanCoverage"]["missing_symbols"] == ["MSFT"]
     assert any(
@@ -2405,7 +2395,7 @@ def test_position_plan_repair_cli_backfills_executed_proposal_plan(
     dry_run = runner.invoke(app, ["position-plan-repair", "--json"])
 
     assert dry_run.exit_code == 0
-    dry_payload = json.loads(dry_run.stdout)
+    dry_payload = json_object(dry_run.stdout)
     assert dry_payload["applied"] is False
     assert dry_payload["candidates"] == 1
     assert dry_payload["repairs"][0]["proposal_id"] == proposal.proposal_id
@@ -2418,7 +2408,7 @@ def test_position_plan_repair_cli_backfills_executed_proposal_plan(
     applied = runner.invoke(app, ["position-plan-repair", "--apply", "--json"])
 
     assert applied.exit_code == 0
-    apply_payload = json.loads(applied.stdout)
+    apply_payload = json_object(applied.stdout)
     assert apply_payload["applied"] is True
     assert apply_payload["created"] == 1
     repaired_db = TradingDatabase(settings)
@@ -2427,8 +2417,8 @@ def test_position_plan_repair_cli_backfills_executed_proposal_plan(
     finally:
         repaired_db.close()
     assert plan is not None
-    assert plan.stop_loss == pytest.approx(95)
-    assert plan.take_profit == pytest.approx(110)
+    _assert_close(plan.stop_loss, 95.0)
+    _assert_close(plan.take_profit, 110.0)
 
 
 def test_trade_proposal_cli_create_list_reject_json(
@@ -2469,13 +2459,13 @@ def test_trade_proposal_cli_create_list_reject_json(
     )
 
     assert create_result.exit_code == 0
-    created = json.loads(create_result.stdout)
+    created = json_object(create_result.stdout)
     assert created["status"] == "pending"
     assert created["symbol"] == "AAPL"
 
     list_result = runner.invoke(app, ["trade-proposals", "--json"])
     assert list_result.exit_code == 0
-    listed = json.loads(list_result.stdout)
+    listed = json_object(list_result.stdout)
     assert listed["available"] is True
     assert listed["proposals"][0]["proposal_id"] == created["proposal_id"]
 
@@ -2490,7 +2480,7 @@ def test_trade_proposal_cli_create_list_reject_json(
         ],
     )
     assert reject_result.exit_code == 0
-    rejected = json.loads(reject_result.stdout)
+    rejected = json_object(reject_result.stdout)
     assert rejected["status"] == "rejected"
     assert rejected["rejection_reason"] == "operator declined"
 
@@ -2542,7 +2532,7 @@ def test_proposal_candidate_cli_create_promote_json(
     )
 
     assert create_result.exit_code == 0
-    candidate = json.loads(create_result.stdout)
+    candidate = json_object(create_result.stdout)
     assert candidate["status"] == "candidate"
     assert candidate["signal"] == "buy"
     assert candidate["proposal_id"] is None
@@ -2570,7 +2560,7 @@ def test_proposal_candidate_cli_create_promote_json(
     )
 
     assert promote_result.exit_code == 0
-    promoted = json.loads(promote_result.stdout)
+    promoted = json_object(promote_result.stdout)
     assert promoted["submitted_to_broker"] is False
     assert promoted["candidate"]["status"] == "promoted"
     assert promoted["proposal"]["status"] == "pending"
@@ -2580,7 +2570,7 @@ def test_proposal_candidate_cli_create_promote_json(
 
     list_result = runner.invoke(app, ["proposal-candidates", "--json"])
     assert list_result.exit_code == 0
-    listed = json.loads(list_result.stdout)
+    listed = json_object(list_result.stdout)
     assert listed["available"] is True
     assert listed["candidates"][0]["candidate_id"] == candidate["candidate_id"]
 
@@ -2628,7 +2618,7 @@ def test_proposal_candidate_cli_blocks_watch_promotion_json(
         ],
     )
     assert create_result.exit_code == 0
-    candidate_id = json.loads(create_result.stdout)["candidate_id"]
+    candidate_id = json_object(create_result.stdout)["candidate_id"]
 
     promote_result = runner.invoke(
         app,
@@ -2636,7 +2626,7 @@ def test_proposal_candidate_cli_blocks_watch_promotion_json(
     )
 
     assert promote_result.exit_code == 2
-    error_payload = json.loads(promote_result.stdout)
+    error_payload = json_object(promote_result.stdout)
     assert "watch-only" in error_payload["error"]
 
 
@@ -2674,7 +2664,7 @@ def test_trade_proposal_cli_create_rejects_invalid_symbol_json(
     )
 
     assert result.exit_code == 2
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["error"] == "Trade proposals require a simple V1 US equity symbol."
 
 
@@ -2715,9 +2705,9 @@ def test_trade_proposal_cli_create_limit_json(
     )
 
     assert create_result.exit_code == 0
-    created = json.loads(create_result.stdout)
+    created = json_object(create_result.stdout)
     assert created["order_type"] == "limit"
-    assert created["limit_price"] == pytest.approx(99.5)
+    _assert_close(created["limit_price"], 99.5)
 
     missing_price = runner.invoke(
         app,
@@ -2742,7 +2732,7 @@ def test_trade_proposal_cli_create_limit_json(
     )
 
     assert missing_price.exit_code == 2
-    assert "limit_price" in json.loads(missing_price.stdout)["error"]
+    assert "limit_price" in json_object(missing_price.stdout)["error"]
 
 
 def test_trade_proposal_cli_approve_json_records_paper_execution(
@@ -2787,7 +2777,7 @@ def test_trade_proposal_cli_approve_json_records_paper_execution(
             "--json",
         ],
     )
-    proposal_id = json.loads(create_result.stdout)["proposal_id"]
+    proposal_id = json_object(create_result.stdout)["proposal_id"]
 
     approve_result = runner.invoke(
         app,
@@ -2801,7 +2791,7 @@ def test_trade_proposal_cli_approve_json_records_paper_execution(
     )
 
     assert approve_result.exit_code == 0
-    payload = json.loads(approve_result.stdout)
+    payload = json_object(approve_result.stdout)
     assert payload["proposal"]["status"] == "executed"
     assert payload["outcome"]["status"] == "filled"
     assert payload["proposal"]["execution_order_id"] == payload["outcome"]["order_id"]
@@ -2837,7 +2827,7 @@ def test_trade_proposal_cli_approve_blocks_missing_exit_controls(
             "--json",
         ],
     )
-    proposal_id = json.loads(create_result.stdout)["proposal_id"]
+    proposal_id = json_object(create_result.stdout)["proposal_id"]
 
     approve_result = runner.invoke(
         app,
@@ -2851,10 +2841,10 @@ def test_trade_proposal_cli_approve_blocks_missing_exit_controls(
     )
 
     assert approve_result.exit_code == 2
-    error_payload = json.loads(approve_result.stdout)
+    error_payload = json_object(approve_result.stdout)
     assert "requires stop_loss and take_profit" in error_payload["error"]
     list_result = runner.invoke(app, ["trade-proposals", "--json"])
-    payload = json.loads(list_result.stdout)
+    payload = json_object(list_result.stdout)
     assert payload["proposals"][0]["status"] == "pending"
     assert payload["proposals"][0]["execution_order_id"] is None
 
@@ -2875,7 +2865,7 @@ def test_trade_proposal_cli_refresh_missing_stays_json(
     result = runner.invoke(app, ["proposal-refresh", "proposal-missing", "--json"])
 
     assert result.exit_code == 2
-    payload = json.loads(result.stdout)
+    payload = json_object(result.stdout)
     assert payload["error"] == "Trade proposal not found: proposal-missing"
 
 
@@ -2890,7 +2880,7 @@ def test_trade_proposal_cli_refresh_redacts_json_errors(
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
 
-    def fail_refresh(**_kwargs):
+    def fail_refresh(**_kwargs: object) -> None:
         """
         Simulate a broker refresh failure by always raising a runtime error.
 
@@ -2913,7 +2903,7 @@ def test_trade_proposal_cli_refresh_redacts_json_errors(
     )
 
     assert result.exit_code == 2
-    assert json.loads(result.stdout) == {
+    assert json_object(result.stdout) == {
         "error": "BROKER_TOKEN=<redacted> failed",
     }
 
@@ -2963,7 +2953,7 @@ def test_trade_proposal_cli_reconcile_terminal_error_stays_json(
     )
 
     assert reconcile_result.exit_code == 2
-    error_payload = json.loads(reconcile_result.stdout)
+    error_payload = json_object(reconcile_result.stdout)
     assert "already terminal" in error_payload["error"]
 
 
@@ -3035,7 +3025,7 @@ def test_trade_proposal_cli_reconcile_json_repairs_without_resubmission(
     )
 
     assert reconcile_result.exit_code == 0
-    payload = json.loads(reconcile_result.stdout)
+    payload = json_object(reconcile_result.stdout)
     assert payload["resubmitted"] is False
     assert payload["proposal"]["status"] == "executed"
     assert payload["proposal"]["execution_order_id"] == "paper-order-cli-repair"
@@ -3047,7 +3037,7 @@ def test_idea_scanner_cli_outputs_presets_and_scores_json() -> None:
 
     presets_result = runner.invoke(app, ["idea-presets", "--json"])
     assert presets_result.exit_code == 0
-    presets_payload = json.loads(presets_result.stdout)
+    presets_payload = json_object(presets_result.stdout)
     assert any(item["name"] == "momentum" for item in presets_payload["presets"])
     assert any(
         item["strategy_profile"]["name"] == "momentum-volume"
@@ -3079,7 +3069,7 @@ def test_idea_scanner_cli_outputs_presets_and_scores_json() -> None:
     )
 
     assert score_result.exit_code == 0
-    score_payload = json.loads(score_result.stdout)
+    score_payload = json_object(score_result.stdout)
     assert score_payload["score"]["symbol"] == "AAPL"
     assert score_payload["score"]["signal"] == "buy"
     assert score_payload["strategy"]["strategy_profile"]["name"] == "momentum-volume"
@@ -3097,7 +3087,7 @@ def test_strategy_catalog_and_news_intelligence_cli_json() -> None:
         app, ["strategy-catalog", "--status", "implemented", "--json"]
     )
     assert catalog_result.exit_code == 0
-    catalog_payload = json.loads(catalog_result.stdout)
+    catalog_payload = json_object(catalog_result.stdout)
     assert any(
         item["name"] == "momentum-volume" for item in catalog_payload["profiles"]
     )
@@ -3105,7 +3095,7 @@ def test_strategy_catalog_and_news_intelligence_cli_json() -> None:
 
     profile_result = runner.invoke(app, ["strategy-profile", "vwap-breakout", "--json"])
     assert profile_result.exit_code == 0
-    profile_payload = json.loads(profile_result.stdout)
+    profile_payload = json_object(profile_result.stdout)
     assert profile_payload["profile"]["family"] == "breakout"
 
     news_result = runner.invoke(
@@ -3124,7 +3114,7 @@ def test_strategy_catalog_and_news_intelligence_cli_json() -> None:
         ],
     )
     assert news_result.exit_code == 0
-    news_payload = json.loads(news_result.stdout)
+    news_payload = json_object(news_result.stdout)
     assert news_payload["symbol"] == "AAPL"
     assert news_payload["classified_source"]["tier"] == "tier_1_direct"
     assert (
@@ -3145,7 +3135,7 @@ def test_strategy_catalog_and_news_intelligence_cli_json() -> None:
         ],
     )
     assert cycle_result.exit_code == 0
-    cycle_payload = json.loads(cycle_result.stdout)
+    cycle_payload = json_object(cycle_result.stdout)
     assert cycle_payload["watchlist"] == ["AAPL", "MSFT"]
     assert cycle_payload["phases"][0]["name"] == "PRE-FLIGHT"
     assert cycle_payload["safety_policy"]["manual_approval_required"] is True
