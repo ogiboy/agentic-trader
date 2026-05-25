@@ -12,6 +12,12 @@ from agentic_trader.security import redact_sensitive_text
 JsonObject: TypeAlias = dict[str, object]
 
 
+class ErrorResponsePayload(Protocol):
+    status_code: int
+
+    def json(self) -> object: ...
+
+
 def _json_object(value: object) -> JsonObject:
     if not isinstance(value, dict):
         raise RuntimeError(f"LLM provider returned a non-object payload: {value!r}")
@@ -226,6 +232,9 @@ class OllamaProvider:
         except Exception as exc:
             return False, _short_redacted_error(str(exc)) or type(exc).__name__
 
+    def probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
+        return self._probe_generation(model_available=model_available)
+
     @staticmethod
     def _error_from_response(response: httpx.Response) -> str:
         try:
@@ -302,6 +311,9 @@ class OpenAICompatibleProvider:
         if not api_key:
             return None
         return {"Authorization": f"Bearer {api_key}"}
+
+    def headers(self) -> dict[str, str] | None:
+        return self._headers()
 
     def generate(
         self,
@@ -466,6 +478,9 @@ class OpenAICompatibleProvider:
         except Exception as exc:
             return False, _short_redacted_error(str(exc)) or type(exc).__name__
 
+    def probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
+        return self._probe_generation(model_available=model_available)
+
     @staticmethod
     def _health_message(
         *,
@@ -501,6 +516,19 @@ class OpenAICompatibleProvider:
                 "can generate."
             )
         return "OpenAI-compatible endpoint is reachable and the configured model is available."
+
+    @staticmethod
+    def health_message(
+        *,
+        model_available: bool,
+        generation_available: bool | None,
+        generation_message: str | None,
+    ) -> str:
+        return OpenAICompatibleProvider._health_message(
+            model_available=model_available,
+            generation_available=generation_available,
+            generation_message=generation_message,
+        )
 
 
 def _openai_compatible_model_ids(payload: Mapping[str, object]) -> set[str]:
@@ -583,7 +611,7 @@ def _openai_compatible_text_parts(content: list[object]) -> str:
     return "".join(text_parts).strip()
 
 
-def _openai_compatible_error_from_response(response: httpx.Response) -> str:
+def _openai_compatible_error_from_response(response: ErrorResponsePayload) -> str:
     """
     Extract a short, user-facing error message from an OpenAI-compatible HTTP response.
 
@@ -613,6 +641,11 @@ def _openai_compatible_error_from_response(response: httpx.Response) -> str:
             if isinstance(message, str) and message.strip():
                 return _short_redacted_error(message)
     return f"HTTP {getattr(response, 'status_code', 'error')}"
+
+
+openai_compatible_model_ids = _openai_compatible_model_ids
+openai_compatible_content = _openai_compatible_content
+openai_compatible_error_from_response = _openai_compatible_error_from_response
 
 
 def _short_redacted_error(value: str) -> str:

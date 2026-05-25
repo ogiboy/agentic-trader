@@ -26,6 +26,9 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+utc_now = _utc_now
+
+
 class ExecutionIntent(BaseModel):
     """Broker-facing intent derived from agent decisions and guard output."""
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from importlib import import_module
 from importlib.metadata import version
+from typing import TYPE_CHECKING, Any, Generic, ParamSpec, TypeVar, cast
 
-# CrewAI lives in the sidecar's uv environment, not the root runtime env.
-from crewai.flow import Flow, start  # type: ignore[reportMissingImports]
 from pydantic import BaseModel, Field
 
 from research_flow.contracts import (
@@ -12,6 +13,26 @@ from research_flow.contracts import (
     ResearchFlowRequest,
     build_contract_output,
 )
+
+StateT = TypeVar("StateT")
+P = ParamSpec("P")
+R = TypeVar("R")
+
+if TYPE_CHECKING:
+
+    class Flow(Generic[StateT]):
+        def kickoff(self) -> object: ...
+
+        def plot(self) -> object: ...
+
+    def start(
+        *_args: object, **_kwargs: object
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+else:
+    _crewai_flow = import_module("crewai.flow")
+    Flow = cast(type[Any], getattr(_crewai_flow, "Flow"))
+    start = cast(Callable[..., Any], getattr(_crewai_flow, "start"))
 
 
 class ResearchFlowState(BaseModel):

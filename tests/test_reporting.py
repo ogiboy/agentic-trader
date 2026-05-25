@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import pytest
+from tests.typing_helpers import approx
 
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
@@ -170,7 +170,7 @@ def test_risk_report_uses_portfolio_limit_thresholds(tmp_path: Path) -> None:
 
     assert "Open position count is elevated." in report.warnings
     assert "Gross exposure is above 5% of equity." in report.warnings
-    assert report.portfolio_hhi == pytest.approx(1.0)
+    assert report.portfolio_hhi == approx(1.0)
     assert report.top_position_symbols == ["AAPL"]
     assert any(
         warning.startswith("Portfolio concentration HHI is elevated")

@@ -619,6 +619,17 @@ class FirecrawlNewsResearchProvider:
             [],
         )
 
+    def cli_symbol_records(
+        self,
+        *,
+        symbol: str,
+        per_symbol_limit: int,
+    ) -> tuple[list[RawEvidenceRecord], list[str]]:
+        return self._cli_symbol_records(
+            symbol=symbol,
+            per_symbol_limit=per_symbol_limit,
+        )
+
 
 class CamofoxBrowserResearchProvider:
     """Opt-in local Camofox health provider for browser-backed research readiness."""

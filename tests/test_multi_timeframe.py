@@ -1,5 +1,5 @@
-from agentic_trader.agents.coordinator import _fallback_coordinator
-from agentic_trader.agents.regime import _fallback_regime
+from agentic_trader.agents.coordinator import fallback_coordinator
+from agentic_trader.agents.regime import fallback_regime
 from agentic_trader.schemas import MarketSnapshot
 
 
@@ -31,7 +31,7 @@ def _snapshot(**overrides: object) -> MarketSnapshot:
 
 
 def test_fallback_coordinator_prefers_defense_when_timeframes_conflict() -> None:
-    brief = _fallback_coordinator(_snapshot(mtf_alignment="mixed", mtf_confidence=0.35))
+    brief = fallback_coordinator(_snapshot(mtf_alignment="mixed", mtf_confidence=0.35))
 
     assert brief.market_focus == "capital_preservation"
     assert "multi_timeframe_conflict" in brief.caution_flags
@@ -39,7 +39,7 @@ def test_fallback_coordinator_prefers_defense_when_timeframes_conflict() -> None
 
 
 def test_fallback_regime_rewards_aligned_higher_timeframe() -> None:
-    aligned = _fallback_regime(
+    aligned = fallback_regime(
         _snapshot(
             last_close=105.0,
             ema_20=102.0,
@@ -49,7 +49,7 @@ def test_fallback_regime_rewards_aligned_higher_timeframe() -> None:
             mtf_confidence=0.9,
         )
     )
-    mixed = _fallback_regime(
+    mixed = fallback_regime(
         _snapshot(
             last_close=105.0,
             ema_20=102.0,

@@ -1915,3 +1915,19 @@ def run_main_menu() -> None:
         except EOFError:
             _exit_cleanly()
             return
+
+
+split_csv = _split_csv
+style_key = _style_key
+system_status_table = _system_status_table
+runtime_state_table = _runtime_state_table
+runtime_cycle_lines = _runtime_cycle_lines
+last_outcome_lines = _last_outcome_lines
+broker_gate_lines = _broker_gate_lines
+agent_activity_lines = _agent_activity_lines
+agent_activity_table = _agent_activity_table
+memory_explorer_table = _memory_explorer_table
+menu_table = _menu_table
+main_menu_actions = _main_menu_actions
+main_menu_table = _main_menu_table
+run_main_menu_action = _run_main_menu_action

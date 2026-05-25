@@ -2763,7 +2763,7 @@ class TradingDatabase:
         self,
         *,
         service_name: str = "orchestrator",
-        level: str,
+        level: ServiceEventLevel,
         event_type: str,
         message: str,
         cycle_count: int | None = None,
@@ -2794,7 +2794,7 @@ class TradingDatabase:
             ServiceEvent(
                 event_id=event_id,
                 created_at=created_at,
-                level=level,  # type: ignore[arg-type]
+                level=level,
                 event_type=event_type,
                 message=message,
                 cycle_count=cycle_count,

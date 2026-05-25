@@ -5,6 +5,8 @@ from collections.abc import Callable, Collection, Mapping
 from pathlib import Path
 from typing import Any, NoReturn, Protocol, TypeVar, cast
 
+import pytest
+
 T = TypeVar("T")
 
 
@@ -17,6 +19,17 @@ def constant(value: T) -> Callable[..., T]:
         return value
 
     return _inner
+
+
+def approx(
+    expected: object,
+    *,
+    rel: object | None = None,
+    abs: object | None = None,
+    nan_ok: bool = False,
+) -> object:
+    approx_func = cast(Callable[..., object], getattr(pytest, "approx"))
+    return approx_func(expected, rel=rel, abs=abs, nan_ok=nan_ok)
 
 
 def raising(error: Exception) -> Callable[..., NoReturn]:

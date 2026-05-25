@@ -1,5 +1,5 @@
 from agentic_trader.agents.consensus import (
-    _fallback_evidence_note,
+    fallback_evidence_note,
     assess_specialist_consensus,
 )
 from agentic_trader.schemas import (
@@ -140,19 +140,19 @@ def test_consensus_does_not_count_unavailable_finance_fallbacks_as_support() -> 
 
 
 # ---------------------------------------------------------------------------
-# _fallback_evidence_note
+# fallback_evidence_note
 # ---------------------------------------------------------------------------
 
 
-def test_fallback_evidence_note_includes_role_name() -> None:
-    note = _fallback_evidence_note("Fundamental")
+def testfallback_evidence_note_includes_role_name() -> None:
+    note = fallback_evidence_note("Fundamental")
     assert "Fundamental" in note
     assert "fallback-generated" in note
     assert "not counted as support" in note
 
 
-def test_fallback_evidence_note_for_macro() -> None:
-    note = _fallback_evidence_note("Macro/news")
+def testfallback_evidence_note_for_macro() -> None:
+    note = fallback_evidence_note("Macro/news")
     assert "Macro/news" in note
     assert "not counted as support" in note
 

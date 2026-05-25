@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 
 from agentic_trader.agents.context import (
-    _render_decision_feature_summary,
+    render_decision_feature_summary,
     build_agent_context,
     render_agent_context,
 )
@@ -296,7 +296,7 @@ def test_render_agent_context_prefers_structured_features_when_available(
     assert "Market Snapshot:" not in rendered
 
 
-def test_render_decision_feature_summary_returns_placeholder_when_no_features(
+def testrender_decision_feature_summary_returns_placeholder_when_no_features(
     tmp_path: Path,
 ) -> None:
     snapshot = _artifacts().snapshot
@@ -316,12 +316,12 @@ def test_render_decision_feature_summary_returns_placeholder_when_no_features(
         ),
     )
 
-    result = _render_decision_feature_summary(context)
+    result = render_decision_feature_summary(context)
 
     assert result == "No decision feature bundle is attached."
 
 
-def test_render_decision_feature_summary_includes_fundamental_metrics_and_source_sections(
+def testrender_decision_feature_summary_includes_fundamental_metrics_and_source_sections(
     tmp_path: Path,
 ) -> None:
     settings = Settings(
@@ -363,7 +363,7 @@ def test_render_decision_feature_summary_includes_fundamental_metrics_and_source
         ),
     )
 
-    result = _render_decision_feature_summary(context)
+    result = render_decision_feature_summary(context)
 
     assert "Fundamental metrics:" in result
     assert "revenue_growth=0.18" in result
@@ -446,7 +446,7 @@ def test_render_agent_context_fallback_no_context_pack_message(
     assert "Market Context Pack:" in rendered
 
 
-def test_render_decision_feature_summary_includes_price_anchor_and_quality_flags(
+def testrender_decision_feature_summary_includes_price_anchor_and_quality_flags(
     tmp_path: Path,
 ) -> None:
     settings = Settings(
@@ -498,7 +498,7 @@ def test_render_decision_feature_summary_includes_price_anchor_and_quality_flags
         ),
     )
 
-    result = _render_decision_feature_summary(context)
+    result = render_decision_feature_summary(context)
 
     # price_anchor should appear in Technical section
     assert "price_anchor=" in result

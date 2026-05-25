@@ -3,6 +3,8 @@ from typing import cast
 
 import pytest
 
+from tests.typing_helpers import approx
+
 from agentic_trader.config import Settings
 from agentic_trader.engine.broker import (
     PaperBrokerAdapter,
@@ -124,10 +126,10 @@ def test_execution_intent_creation_and_validation(tmp_path: Path) -> None:
     )
 
     assert intent.symbol == "AAPL"
-    assert intent.notional == pytest.approx(1_000.0)
+    assert intent.notional == approx(1_000.0)
     assert intent.source_run_id == "run-test"
     assert intent.invalidation_condition == "Exit on close below EMA20."
-    assert intent.backend_metadata["position_size_pct"] == pytest.approx(0.1)
+    assert intent.backend_metadata["position_size_pct"] == approx(0.1)
     assert intent.timestamp == intent.created_at
 
     legacy_timestamp = "2026-01-01T00:00:00+00:00"

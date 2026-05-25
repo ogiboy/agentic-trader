@@ -90,9 +90,7 @@ def _fake_pnpm(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
     log_path = tmp_path / "pnpm.log"
     script = tmp_path / "pnpm"
     script.write_text(
-        "#!/usr/bin/env sh\n"
-        'printf \'%s\\n\' "$*" >> "$PNPM_LOG"\n'
-        f"exit {exit_code}\n",
+        f'#!/usr/bin/env sh\nprintf \'%s\\n\' "$*" >> "$PNPM_LOG"\nexit {exit_code}\n',
         encoding="utf-8",
     )
     script.chmod(0o755)

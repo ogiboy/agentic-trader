@@ -13,6 +13,9 @@ def _fallback_evidence_note(role: str) -> str:
     return f"{role} evidence was fallback-generated and was not counted as support."
 
 
+fallback_evidence_note = _fallback_evidence_note
+
+
 def _record_regime_alignment(
     regime: RegimeAssessment,
     action: str,
