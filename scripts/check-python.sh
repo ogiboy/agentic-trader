@@ -11,6 +11,7 @@ fi
 
 uv lock --check
 uv run ${RUN_FLAGS} python scripts/release/check_changelog_marker.py
+uv run ${RUN_FLAGS} python scripts/release/check_conventional_release_commits.py
 uv run ${RUN_FLAGS} ruff check .
 # shellcheck disable=SC2086
 uv run ${RUN_FLAGS} python scripts/check_pyright_baseline.py ${PYRIGHT_TARGETS}

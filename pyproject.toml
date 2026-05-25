@@ -123,7 +123,17 @@ prerelease_token = "beta"
 ignore_merge_commits = true
 minor_tags = ["feat"]
 parse_squash_commits = true
-patch_tags = ["fix", "perf", "docs", "build", "ci", "chore"]
+patch_tags = [
+  "fix",
+  "perf",
+  "docs",
+  "build",
+  "ci",
+  "chore",
+  "refactor",
+  "test",
+  "style",
+]
 
 [tool.semantic_release.changelog]
 exclude_commit_patterns = ["^chore\\(release\\):"]
