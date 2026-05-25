@@ -307,7 +307,7 @@ def _decode_object_payload(value: Any) -> dict[str, object]:
         return {}
     if not isinstance(payload, dict):
         return {}
-    return {str(key): item for key, item in payload.items()}
+    return {str(key): item for key, item in cast(dict[object, object], payload).items()}
 
 
 def _int_or_default(value: Any, default: int) -> int:
@@ -329,7 +329,7 @@ def _trace_context(trace: AgentStageTrace) -> dict[str, Any] | None:
         context = json.loads(trace.context_json)
     except json.JSONDecodeError:
         return None
-    return context if isinstance(context, dict) else None
+    return cast(dict[str, Any], context) if isinstance(context, dict) else None
 
 
 def _summarize_trace_contexts(
@@ -353,24 +353,28 @@ def _collect_trace_context_summary(
     retrieved_memories = context.get("retrieved_memories")
     if isinstance(retrieved_memories, list):
         summaries.retrieved_memory_summary[role] = [
-            str(item) for item in retrieved_memories[:5]
+            str(item) for item in cast(list[object], retrieved_memories)[:5]
         ]
 
     retrieval_explanations = context.get("retrieval_explanations")
     if isinstance(retrieval_explanations, list):
         summaries.retrieval_explanation_summary[role] = [
-            item for item in retrieval_explanations[:5] if isinstance(item, dict)
+            cast(dict[str, Any], item)
+            for item in cast(list[object], retrieval_explanations)[:5]
+            if isinstance(item, dict)
         ]
 
     trace_tool_outputs = context.get("tool_outputs")
     if isinstance(trace_tool_outputs, list):
-        summaries.tool_outputs[role] = [str(item) for item in trace_tool_outputs[:5]]
+        summaries.tool_outputs[role] = [
+            str(item) for item in cast(list[object], trace_tool_outputs)[:5]
+        ]
 
     shared_memory_bus = context.get("shared_memory_bus")
     if isinstance(shared_memory_bus, list):
         summaries.shared_memory_summary[role] = [
-            str(item.get("summary", ""))
-            for item in shared_memory_bus[:5]
+            str(cast(dict[str, object], item).get("summary", ""))
+            for item in cast(list[object], shared_memory_bus)[:5]
             if isinstance(item, dict)
         ]
 

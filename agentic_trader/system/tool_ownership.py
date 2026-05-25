@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, cast
 
 from pydantic import BaseModel
 
@@ -112,7 +112,7 @@ def normalize_ownership_tool(tool: str) -> OwnershipToolId:
     if tool == "camofox-browser":
         return "camofox"
     if tool in OWNERSHIP_TOOL_IDS:
-        return tool  # type: ignore[return-value]
+        return tool
     msg = f"unknown_tool_ownership_id:{tool}"
     raise ValueError(msg)
 
@@ -135,7 +135,7 @@ def validate_ownership_mode(mode: str) -> OwnershipMode:
     """
 
     if mode in OWNERSHIP_MODES:
-        return mode  # type: ignore[return-value]
+        return mode
     msg = "ownership mode must be one of: " + ", ".join(
         mode for mode in OWNERSHIP_MODES if mode != "undecided"
     )
@@ -222,13 +222,14 @@ def _decision_from_record(
     """
     if not isinstance(record, dict):
         return _default_decision(tool)
-    raw_mode = str(record.get("mode") or "undecided")
+    record_payload = cast(dict[str, object], record)
+    raw_mode = str(record_payload.get("mode") or "undecided")
     try:
         mode = validate_ownership_mode(raw_mode)
     except ValueError:
         mode = "undecided"
-    source = str(record.get("source") or "file")
-    updated_at = record.get("updated_at")
+    source = str(record_payload.get("source") or "file")
+    updated_at = record_payload.get("updated_at")
     return ToolOwnershipDecision(
         tool=tool,
         mode=mode,
@@ -255,10 +256,18 @@ def read_tool_ownership_payload(settings: Settings) -> ToolOwnershipPayload:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                updated = payload.get("updated_at")
+                payload_object = cast(dict[str, object], payload)
+                updated = payload_object.get("updated_at")
                 updated_at = updated if isinstance(updated, str) else None
-                raw_records = payload.get("decisions")
-                records = raw_records if isinstance(raw_records, dict) else {}
+                raw_records = payload_object.get("decisions")
+                records = (
+                    {
+                        str(key): item
+                        for key, item in cast(dict[object, object], raw_records).items()
+                    }
+                    if isinstance(raw_records, dict)
+                    else {}
+                )
         except (OSError, json.JSONDecodeError):
             records = {}
 

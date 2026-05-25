@@ -17,6 +17,12 @@ _SENSITIVE_PAYLOAD_KEYS = {"thinking", "thought", "thoughts", "reasoning"}
 _NO_TRADE_PHRASE = "no trade"
 
 
+def _object_mapping(value: object) -> dict[str, object] | None:
+    if not isinstance(value, dict):
+        return None
+    return cast(dict[str, object], value)
+
+
 def _coerce_numeric_strings(obj: Any) -> Any:
     """
     Recursively convert strings that represent whole numbers or decimals into int or float values.
@@ -49,11 +55,13 @@ def _get_by_loc(obj: Any, path: tuple[str | int, ...]) -> Any:
     """Navigate nested dict/list by path tuple."""
     current: object = obj
     for part in path:
-        if isinstance(current, dict) and isinstance(part, str):
-            current = current.get(part)
+        current_mapping = _object_mapping(current)
+        if current_mapping is not None and isinstance(part, str):
+            current = current_mapping.get(part)
         elif isinstance(current, list) and isinstance(part, int):
-            if 0 <= part < len(current):
-                current = current[part]
+            current_list = cast(list[object], current)
+            if 0 <= part < len(current_list):
+                current = current_list[part]
             else:
                 return None
         else:
@@ -78,8 +86,9 @@ def _set_by_loc(obj: Any, path: tuple[str | int, ...], value: Any) -> bool:
         current[last_part] = value
         return True
     if isinstance(current, list) and isinstance(last_part, int):
-        if 0 <= last_part < len(current):
-            current[last_part] = value
+        current_list = cast(list[object], current)
+        if 0 <= last_part < len(current_list):
+            current_list[last_part] = value
             return True
     return False
 
@@ -456,10 +465,7 @@ def _mark_llm_source[T: BaseModel](parsed: T) -> T:
         The updated model with `source="llm"` and `fallback_reason=None` if applicable, otherwise the original `parsed`.
     """
     if hasattr(parsed, "source"):
-        return cast(
-            T,
-            parsed.model_copy(update={"source": "llm", "fallback_reason": None}),
-        )
+        return parsed.model_copy(update={"source": "llm", "fallback_reason": None})
     return parsed
 
 
