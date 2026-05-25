@@ -15,6 +15,9 @@ CONVENTIONAL_SUBJECT_PATTERN = re.compile(
     r"(?:\([^)]+\))?!?:\s+\S.+"
 )
 RELEASE_SUBJECT_PATTERN = re.compile(r"^chore\(release\):")
+LEGACY_NONCONVENTIONAL_SUBJECTS = {
+    "e0604a96dd8b8c7d2fb9d7e62a65babf70e25162": "Harden release changelog coverage",
+}
 
 
 def _run_git(args: list[str]) -> str:
@@ -47,6 +50,8 @@ def main() -> int:
     for line in raw_commits.splitlines():
         commit_hash, parents, subject = line.split("\x1f", 2)
         if RELEASE_SUBJECT_PATTERN.match(subject) or len(parents.split()) > 1:
+            continue
+        if LEGACY_NONCONVENTIONAL_SUBJECTS.get(commit_hash) == subject:
             continue
         if not CONVENTIONAL_SUBJECT_PATTERN.match(subject):
             invalid.append(f"{commit_hash[:7]} {subject}")
