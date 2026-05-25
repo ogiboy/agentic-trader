@@ -7,6 +7,14 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.12.2 (2026-05-25)
+
+### Bug Fixes
+
+- Restore changelog generation
+  ([`3b621e0`](https://github.com/ogiboy/agentic-trader/commit/3b621e038ad9eedb648ea7cec04222420ec3f2e5))
+
+
 ## v0.12.1 (2026-05-25)
 
 ### Bug Fixes
