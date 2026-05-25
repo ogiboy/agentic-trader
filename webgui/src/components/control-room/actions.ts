@@ -9,15 +9,16 @@ import type {
   ProposalActionKind,
   ToolActionKind,
 } from '../control-room.helpers';
-import { readJson, WebguiHttpError } from './api';
+import {
+  markAuthRequiredOnUnauthorized,
+  messageFromError,
+  runDashboardMutation,
+  type SetState,
+} from './action-request';
+import { readJson } from './api';
 import type { DashboardLoader } from './dashboard-polling';
 import type { ControlRoomCopy } from './labels';
-import type {
-  ControlRoomMessage,
-  RuntimeActionKind,
-} from './shell';
-
-type SetState<T> = (value: T) => void;
+import type { ControlRoomMessage, RuntimeActionKind } from './shell';
 
 type ControlRoomActionsProps = {
   abortDashboardRequest: () => void;
@@ -37,19 +38,6 @@ type ControlRoomActionsProps = {
   setMessage: SetState<ControlRoomMessage | null>;
   setProposalNote: SetState<string>;
 };
-
-function messageFromError(nextError: unknown): string {
-  return nextError instanceof Error ? nextError.message : String(nextError);
-}
-
-function markAuthRequiredOnUnauthorized(
-  nextError: unknown,
-  setAuthRequired: SetState<boolean>,
-): void {
-  if (nextError instanceof WebguiHttpError && nextError.status === 401) {
-    setAuthRequired(true);
-  }
-}
 
 export function useControlRoomActions({
   abortDashboardRequest,
@@ -81,20 +69,12 @@ export function useControlRoomActions({
       setBusyState(kind);
       abortDashboardRequest();
       try {
-        const result = await readJson<{
-          message: string;
-          dashboard: DashboardData;
-        }>('/api/runtime', {
-          method: 'POST',
-          body: JSON.stringify({ kind }),
-        });
-        applyLatestDashboard(result.dashboard);
-        setMessage({ text: result.message, tone: 'good' });
-      } catch (nextError) {
-        markAuthRequiredOnUnauthorized(nextError, setAuthRequired);
-        setMessage({
-          text: messageFromError(nextError),
-          tone: 'bad',
+        await runDashboardMutation({
+          endpoint: '/api/runtime',
+          body: { kind },
+          applyLatestDashboard,
+          setAuthRequired,
+          setMessage,
         });
       } finally {
         setBusyState(null);
@@ -116,20 +96,12 @@ export function useControlRoomActions({
       setBusyState(kind);
       abortDashboardRequest();
       try {
-        const result = await readJson<{
-          message: string;
-          dashboard: DashboardData;
-        }>('/api/tools', {
-          method: 'POST',
-          body: JSON.stringify({ kind }),
-        });
-        applyLatestDashboard(result.dashboard);
-        setMessage({ text: result.message, tone: 'good' });
-      } catch (nextError) {
-        markAuthRequiredOnUnauthorized(nextError, setAuthRequired);
-        setMessage({
-          text: messageFromError(nextError),
-          tone: 'bad',
+        await runDashboardMutation({
+          endpoint: '/api/tools',
+          body: { kind },
+          applyLatestDashboard,
+          setAuthRequired,
+          setMessage,
         });
       } finally {
         setBusyState(null);
@@ -150,21 +122,13 @@ export function useControlRoomActions({
       setBusyState(`proposal-${kind}`);
       abortDashboardRequest();
       try {
-        const result = await readJson<{
-          message: string;
-          dashboard: DashboardData;
-        }>('/api/proposals', {
-          method: 'POST',
-          body: JSON.stringify({ kind, proposalId, reviewNotes }),
-        });
-        applyLatestDashboard(result.dashboard);
-        setProposalNote('');
-        setMessage({ text: result.message, tone: 'good' });
-      } catch (nextError) {
-        markAuthRequiredOnUnauthorized(nextError, setAuthRequired);
-        setMessage({
-          text: messageFromError(nextError),
-          tone: 'bad',
+        await runDashboardMutation({
+          endpoint: '/api/proposals',
+          body: { kind, proposalId, reviewNotes },
+          applyLatestDashboard,
+          setAuthRequired,
+          setMessage,
+          onSuccess: () => setProposalNote(''),
         });
       } finally {
         setBusyState(null);
@@ -240,7 +204,9 @@ export function useControlRoomActions({
       });
       setInstructionResult(result.result);
       applyLatestDashboard(result.dashboard);
-      setInstructionDraft('');
+      if (instructionMode === 'apply') {
+        setInstructionDraft('');
+      }
       setMessage({
         text:
           instructionMode === 'apply'

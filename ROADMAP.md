@@ -15,6 +15,47 @@ Former V1.1/V1.2 research, CrewAI-sidecar, evaluation, and memory-quality loops
 now belong to the V1 completion track so V1 ends with a stronger evidence
 companion rather than only a runtime shell. V2 is the Turkey expansion track.
 
+### V1 Commercial Readiness Blockers
+
+Research checked on 2026-05-25 keeps V1 paper-first until the product can prove
+operator trust, compliance posture, and unit economics without overpromising
+autonomous advice or live execution.
+
+- [ ] classify the commercial model with counsel before accepting paid users:
+      personalized investment advice, advisory fees, order-routing involvement,
+      or customer-account workflows may trigger SEC investment-adviser,
+      broker-dealer, SRO, custody, books-and-records, disclosure, and state
+      obligations; see SEC investment-adviser registration guidance
+      (https://www.sec.gov/investment/how-to-register-with-sec-investment-adviser),
+      SEC broker-dealer registration guidance
+      (https://www.sec.gov/about/reports-publications/investor-publications/guide-broker-dealer-registration),
+      and FINRA algorithmic-trading supervision notes
+      (https://www.finra.org/rules-guidance/key-topics/algorithmic-trading)
+- [ ] choose a first paid SKU that avoids hidden broker authority: likely
+      local-first paper desk, evidence bundle, operator education, and personal
+      automation tooling before managed live-trading, account opening, copy
+      trading, or performance-fee products
+- [ ] complete Alpaca production-readiness evidence before real-money claims:
+      paper/live credential separation, client order id correlation,
+      order-state websocket/reconciliation, account authorization and
+      insufficient-balance rejection handling, and any account-opening/KYC/CIP
+      responsibilities if the product becomes an end-user brokerage app; see
+      Alpaca trading API, orders, auth, and account-opening docs
+      (https://docs.alpaca.markets/v1.4.2/docs/trading-api,
+      https://docs.alpaca.markets/us/docs/working-with-orders,
+      https://docs.alpaca.markets/v1.3/reference,
+      https://docs.alpaca.markets/us/docs/account-opening)
+- [ ] add a revenue-ready trust layer: onboarding terms, risk disclosure,
+      billing/subscription boundary, support/incident channel, audit export,
+      data-retention policy, privacy/security review, provider-status
+      telemetry, and clear stale/degraded/no-action UX
+- [ ] define model-cost unit economics before cloud AI becomes default:
+      keep local Ollama as the default, add explicit remote model budgets and
+      per-cycle cost telemetry, and route expensive models only where measured
+      quality justifies the cost; use current provider pricing such as OpenAI's
+      API pricing page (https://openai.com/api/pricing/) as an external input,
+      not a hardcoded assumption
+
 ## Phase 1: Guardrailed Core
 
 Status: completed in the initial scaffold.
@@ -114,7 +155,7 @@ Status: in progress.
 - the Ink control room now also includes a memory page backed by similar-run retrieval and stage-level retrieval inspection
 - the Ink chat page now embeds live agent activity, recent tool-role usage, and reasoning-stage context beside the transcript
 - a typed shared Python UI text catalog now exists as the first step toward future multi-language operator surfaces while preserving legacy CLI/Rich/Ink constants
-- the Web GUI now has a first local i18n seam plus per-view control-room modules; shell, auth, overview, runtime, portfolio, proposals, review, memory, chat, and settings copy now flow through typed per-locale English/Turkish modules, while helper-generated evidence lines still need a deeper catalog pass
+- the Web GUI now has a first local i18n seam plus per-view control-room modules; shell, auth, overview, runtime, portfolio, proposals, review, memory, chat, settings, loading/unavailable states, and the overview helper-generated readiness/provider/local-tool evidence lines now flow through typed per-locale English/Turkish modules; deeper review/portfolio/memory evidence strings still need a broader catalog pass
 - the Ink overview and review pages now surface context-pack summaries, lookback coverage, quality flags, anomalies, and horizon votes from the Python dashboard contract
 - the next operator trust upgrade is adding a Training/Operation mode banner and deeper retrieval explanations beside the context pack
 - richer trace inspection and deeper Ink feature parity are still open
@@ -253,7 +294,7 @@ Status: completed.
 Status: in progress.
 
 - keep type checking and tests green before moving to the next slice
-- adopt Pyright/Pylance strictness as a staged hardening track: classify the current strict backlog by real runtime risk vs test/mock noise, add narrow third-party stubs where they match installed packages, and fix source diagnostics before chasing broad unknown-type noise
+- adopt Pyright/Pylance strictness as a staged hardening track: classify the current strict backlog by real runtime risk vs test/mock noise, add narrow third-party stubs where they match installed packages, and fix source diagnostics before chasing broad unknown-type noise; the first stub pass uses `pandas-stubs` plus local `typings/yfinance` and `typings/firecrawl` shims so `reportMissingTypeStubs` is no longer the blocking class, and the setup/lifecycle, broker-adapter, config, position-manager, LLM-client, trade-proposal, data-provider, and ProviderSet default-factory clusters now have 0 Pyright errors; full strict backlog is down to 1776 errors after the data-provider/provider-set pass, and CI/release now use `scripts/check_pyright_baseline.py` as a regression gate until the backlog reaches zero
 - prefer schema-first agent contracts over free-form text coupling
 - add reproducible fixtures for data-heavy tests
 - keep CLI, TUI, and service behavior aligned so operator surfaces do not drift
@@ -529,6 +570,7 @@ Status: in progress.
 - [ ] expand docs with contributing and deeper reference pages without duplicating repository truth
 - [ ] add feature deep dives for paper operation, broker/account truth, memory/review evidence, research sidecar, runtime modes, and evidence bundles
 - [ ] add a guided `app:up` flow for macOS, Linux, and Windows that checks prerequisites, installs or repairs Python/Node/sidecar/tool dependencies, asks provider/tool ownership questions, starts app-owned services where configured, and opens the Web GUI
+- [x] make first-run bootstrap ownership prompts idempotent by reusing persisted Ollama/Firecrawl/Camofox decisions, and make deferred setup summaries show concrete next actions
 - [x] add explicit accelerated lifecycle commands for normal operators: `app:setup`, `app:start`, `app:stop`, `app:update`, `app:doctor`, and `app:uninstall`, with matching Make aliases; keep the existing focused scripts available for debugging
 - [x] add the first read-only `app:doctor` lifecycle facade so operators can inspect setup, provider, V1 readiness, and app-owned service status without hidden installs, starts, model pulls, browser opens, or trading-daemon launches
 - [x] add the first conservative `app:setup` lifecycle facade with dry-run planning by default and explicit `--core --yes` repair for only the root pnpm workspace plus root uv Python environment
@@ -546,7 +588,8 @@ Status: in progress.
 - [x] add a first setup-status and macOS bootstrap script foundation that detects core tools, optional Ollama/Firecrawl/Camofox/RuFlo readiness, and the `agentic-trader` PATH entrypoint without hidden installs
 - [x] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
 - [ ] split oversized runtime/CLI/helper files incrementally into domain modules, constants, render helpers, and service helpers so V1 remains inspectable as a product codebase rather than a single-developer script pile
-- [ ] continue splitting the Web GUI control room into typed view-model helpers and screen-scoped style modules so `webgui/src/components/control-room.tsx` stays a small state/render coordinator
+- [ ] continue splitting the Web GUI control room into screen-scoped style modules so `webgui/src/components/control-room.tsx` stays a small state/render coordinator
+- [x] extract the first Web GUI control-room typed view-model, locale/loading hooks, action request helpers, shared formatting helpers, and diagnostics/context evidence helpers so the facade can keep shrinking without changing runtime contracts
 - [x] extract the first Web GUI control-room primitives and copy catalog so shared panel/list/JSON rendering and shell/overview labels no longer live inside the monolithic control-room component
 - [x] split the Web GUI control room into per-view modules plus dedicated shell chrome, dashboard polling, runtime/proposal/tool/chat/instruction actions, request/auth helpers, shared primitives, and a typed English/Turkish copy catalog, leaving `control-room.tsx` as the state/render coordinator
 - [x] move the main Web GUI control-room view copy for runtime, portfolio, proposal desk, review, memory, chat, and settings into the typed English/Turkish catalog so new view work has one localization boundary

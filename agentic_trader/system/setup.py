@@ -8,7 +8,7 @@ import platform
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 from urllib.parse import urlparse
 
 import httpx
@@ -265,6 +265,11 @@ def _camofox_tool(settings: Settings) -> ToolStatus:
     )
 
 
+def build_camofox_tool_status(settings: Settings) -> ToolStatus:
+    """Build the setup/readiness status for the optional Camofox helper."""
+    return _camofox_tool(settings)
+
+
 def _camofox_package_version(package_json: Path) -> tuple[str | None, list[str]]:
     if not package_json.exists():
         return None, []
@@ -348,6 +353,11 @@ def _agentic_trader_entrypoint() -> ToolStatus:
     return tool
 
 
+def build_agentic_trader_entrypoint_status() -> ToolStatus:
+    """Build the setup/readiness status for the repo CLI entrypoint."""
+    return _agentic_trader_entrypoint()
+
+
 def _ownership_mode(ownership: ToolOwnershipPayload, tool: str) -> str:
     decision = ownership.decisions_by_tool.get(tool)
     return decision.mode if decision is not None else "undecided"
@@ -378,6 +388,19 @@ def _camofox_service_ready(
     return mode != "undecided"
 
 
+def _single_line_optional(value: object, *, max_length: int = 160) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    first_line = next((line.strip() for line in value.splitlines() if line.strip()), "")
+    return redact_sensitive_text(first_line, max_length=max_length) or None
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in cast(list[object], value)]
+
+
 def build_setup_status(settings: Settings) -> SetupStatus:
     """
     Build an operator-facing read-only setup and readiness report for the current workspace.
@@ -394,7 +417,7 @@ def build_setup_status(settings: Settings) -> SetupStatus:
     root = _repo_root()
     ownership = read_tool_ownership_payload(settings)
     crewai = crewai_setup_status(settings)
-    crewai_notes = crewai.get("notes")
+    crewai_notes = _string_list(crewai.get("notes"))
     tools = [
         _command_tool(
             tool_id="uv",
@@ -421,7 +444,7 @@ def build_setup_status(settings: Settings) -> SetupStatus:
             install_hint="Install Node.js >=22 for the WebGUI, docs, and Ink TUI workspace.",
             version_args=["--version"],
         ),
-        _agentic_trader_entrypoint(),
+        build_agentic_trader_entrypoint_status(),
         _with_ownership_note(_ollama_tool(), "ollama", ownership),
         ToolStatus(
             tool_id="research_flow_sidecar",
@@ -429,17 +452,15 @@ def build_setup_status(settings: Settings) -> SetupStatus:
             category="runtime_optional",
             available=bool(crewai.get("environment_exists")),
             path=str(crewai.get("flow_dir")),
-            version=str(crewai.get("version") or "") or None,
+            version=_single_line_optional(crewai.get("version")),
             status="installed" if crewai.get("environment_exists") else "needs_setup",
-            notes=(
-                [str(note) for note in crewai_notes]
-                if isinstance(crewai_notes, list)
-                else []
-            ),
+            notes=crewai_notes,
             install_hint="Run `pnpm run setup:research-flow`.",
         ),
         _with_ownership_note(_firecrawl_tool(), "firecrawl", ownership),
-        _with_ownership_note(_camofox_tool(settings), CAMOFOX_TOOL_ID, ownership),
+        _with_ownership_note(
+            build_camofox_tool_status(settings), CAMOFOX_TOOL_ID, ownership
+        ),
         _command_tool(
             tool_id="ruflo",
             label="RuFlo advisory CLI",

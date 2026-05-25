@@ -202,10 +202,10 @@ class TradeProposalRecord(BaseModel):
     def require_quantity_or_notional(self) -> "TradeProposalRecord":
         """
         Ensure exactly one of `quantity` or `notional` is provided and that `limit_price` is consistent with `order_type`.
-        
+
         Raises:
             ValueError: if both or neither of `quantity` and `notional` are set; if `order_type == "limit"` and `limit_price` is missing or `quantity` is missing; if `order_type != "limit"` and `limit_price` is provided.
-        
+
         Returns:
             TradeProposalRecord: the validated instance (`self`).
         """
@@ -256,12 +256,12 @@ class ProposalCandidateRecord(BaseModel):
     def validate_sizing(self) -> "ProposalCandidateRecord":
         """
         Validate sizing constraints for a proposal candidate.
-        
+
         Ensures exactly one of `quantity` or `notional` is provided. If `side` is specified, requires one of `quantity` or `notional` to be present.
-        
+
         Returns:
             ProposalCandidateRecord: The instance (`self`) when validation succeeds.
-        
+
         Raises:
             ValueError: If both `quantity` and `notional` are set, or if `side` is provided without either sizing field.
         """

@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+'use strict';
+
 import localFont from 'next/font/local';
+import type { ReactNode } from 'react';
 import './globals.css';
 export { docsMetadata as metadata } from '@/lib/site-metadata';
 
@@ -35,7 +37,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang='en' suppressHydrationWarning>
       <body
         className={`${jetBrainsMono.variable} ${jetBrainsMono.className} flex min-h-screen flex-col bg-background text-foreground antialiased`}
       >

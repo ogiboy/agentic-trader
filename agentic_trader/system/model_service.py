@@ -115,10 +115,10 @@ class ModelServiceStatus(BaseModel):
     def is_owned_by_host(self, host_id: str) -> bool:
         """
         Determine whether this status is owned by the given host identifier.
-        
+
         Parameters:
             host_id (str): Runtime host identifier to compare against the persisted owner.
-        
+
         Returns:
             `true` if `app_owned` is true and `owner` equals `host_id`, `false` otherwise.
         """
@@ -129,10 +129,10 @@ class ModelServiceStatus(BaseModel):
 def model_service_dir(settings: Settings) -> Path:
     """
     Get the runtime directory path used to store model service state and logs.
-    
+
     Parameters:
         settings (Settings): Application settings providing `runtime_dir`.
-    
+
     Returns:
         Path: Path pointing to the "model_service" subdirectory under `settings.runtime_dir`.
     """
@@ -190,9 +190,9 @@ def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
 def _api_root_from_base_url(base_url: str) -> str:
     """
     Normalize a base URL to its API root by removing a trailing `/v1` segment and extraneous trailing slashes.
-    
+
     If `base_url` includes a scheme and network location, the returned value preserves them (and any path preceding `/v1`). For inputs without a scheme/netloc the function treats the value as a path-like string.
-    
+
     Returns:
         The normalized API root string with a trailing `/v1` removed if present and without trailing slashes.
     """
@@ -209,9 +209,9 @@ def _api_root_from_base_url(base_url: str) -> str:
 def _same_loopback_api_root(left: str, right: str) -> bool:
     """
     Determine whether two API base URLs refer to the same loopback API root.
-    
+
     When either input lacks a URL scheme, compares the raw strings ignoring a trailing slash. When schemes are present, compares scheme, effective port (uses 443 for https and 80 for http when unspecified), and path ignoring trailing slashes. Treats loopback hostnames (for example, "localhost", "127.0.0.1", "::1") as interchangeable.
-    
+
     Returns:
         `true` if the URLs represent the same API root under the rules above, `false` otherwise.
     """
@@ -280,10 +280,10 @@ def _process_command_line(pid: int) -> str | None:
 def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
     """
     Locate host-owned "ollama serve" process PIDs for diagnostics.
-    
+
     Parameters:
         command_path (str | None): Optional path to an `ollama` executable to include when matching process command names.
-    
+
     Returns:
         list[int]: Sorted, deduplicated list of PIDs for processes that appear to be running `ollama serve`. On Windows this returns an empty list.
     """
@@ -321,11 +321,11 @@ def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
 def _is_ollama_serve_command(command_line: str, executable_names: set[str]) -> bool:
     """
     Determines whether a process command line represents an Ollama "serve" invocation using one of the provided executable names.
-    
+
     Parameters:
         command_line (str): The raw command-line string to inspect.
         executable_names (set[str]): A set of executable base names (filenames, without path) considered valid Ollama executables.
-    
+
     Returns:
         `true` if the command line begins with an executable whose filename is in `executable_names` and the second token is `"serve"`, `false` otherwise.
     """
@@ -347,7 +347,7 @@ def _ollama_listener_pids_from_lsof() -> list[int]:
 def _run_lsof_listener_scan() -> str | None:
     """
     Run a short `lsof` scan for listening TCP sockets and return its raw output.
-    
+
     Returns:
         `str`: Raw stdout from `lsof -nP -iTCP -sTCP:LISTEN -Fpcn` when the command succeeds.
         `None`: If running on Windows, the command fails, times out, or any error occurs.
@@ -372,12 +372,12 @@ def _run_lsof_listener_scan() -> str | None:
 def _parse_ollama_listener_pids(output: str) -> set[int]:
     """
     Parse lsof -F formatted output and return PIDs that own loopback listening endpoints for known Ollama service ports.
-    
+
     The input must be the raw text produced by lsof with field-formatting (records prefixed by `p` for pid, `c` for command, `n` for name/address). This function collects the most-recent `p`/`c` context and, for each `n` record, extracts the host and port; it includes the current PID when the command name is `ollama`, the host is a loopback address, and the port is one of the recognized Ollama service ports.
-    
+
     Parameters:
         output (str): lsof -F output to parse.
-    
+
     Returns:
         set[int]: Set of unique PIDs matching loopback Ollama listener records.
     """
@@ -404,12 +404,12 @@ def _parse_ollama_listener_pids(output: str) -> set[int]:
 def _is_known_ollama_listener(command: str | None, host: str, port_text: str) -> bool:
     """
     Determine whether an lsof listener record represents a known Ollama loopback service.
-    
+
     Parameters:
         command (str | None): The process command name extracted from lsof (`c` record), or None if unavailable.
         host (str): The listener host string extracted from lsof (may be an IP or hostname).
         port_text (str): The listener port text extracted from lsof (may be non-numeric).
-    
+
     Returns:
         `True` if `command` is exactly "ollama", `port_text` is a decimal port contained in KNOWN_OLLAMA_SERVICE_PORTS, and `host` is a loopback address; `False` otherwise.
     """
@@ -424,10 +424,10 @@ def _is_known_ollama_listener(command: str | None, host: str, port_text: str) ->
 def _listening_loopback_ports_for_pid(pid: int) -> set[int]:
     """
     Collects TCP listening port numbers bound to loopback interfaces for the given process ID using `lsof`.
-    
+
     Parameters:
         pid (int): Process ID to inspect.
-    
+
     Returns:
         set[int]: A set of port numbers the process is listening on via loopback, or an empty set if none are found or the `lsof` query fails.
     """
@@ -824,14 +824,14 @@ def build_model_service_status(
 ) -> ModelServiceStatus:
     """
     Assemble the operator-facing model service status for the Ollama tool.
-    
+
     Probe persisted or app-owned Ollama state and the configured API to produce a consolidated read-only status that includes reachability, available models, optional generation probe results, ownership and process details, log tails, notes, and a user-facing message.
-    
+
     Parameters:
         settings (Settings): Runtime settings used to derive the configured base URL, configured model name, and state/log paths.
         tail_limit (int): Maximum number of lines to include for stdout and stderr tails.
         include_generation (bool): If True, perform a short generation request to verify model generation capability.
-    
+
     Returns:
         ModelServiceStatus: Status payload containing command availability and path, configured base URL and model, service reachability and model availability, optional generation results and message, available models list, ownership and process/log details (owner, pid, host, port, base_url, stdout/stderr paths and tails), notes, a user-facing message, and the persisted state file path.
     """
@@ -940,18 +940,18 @@ def start_model_service(
 ) -> ModelServiceStatus:
     """
     Start and persist an app-managed Ollama `serve` process bound to a loopback address.
-    
+
     Attempts to start `ollama serve` using a minimal environment and owner-restricted logs, writes a persisted ModelServiceState, and waits briefly for the process and API to become reachable before returning the computed service status.
-    
+
     Parameters:
         settings (Settings): Application settings used to determine defaults and persist state.
         host (str | None): Optional loopback host to bind the service to; must be a loopback address.
         port (int | None): Optional preferred port to attempt before falling back to configured/default app-managed ports.
         models_dir (Path | None): Optional directory to expose to Ollama via `OLLAMA_MODELS`; created if provided.
-    
+
     Returns:
         ModelServiceStatus: The status of the model service after the start attempt (may reflect a running service, a failed start, or existing state).
-    
+
     Raises:
         RuntimeError: If the Ollama CLI is not found on PATH or if `host` is not a loopback address.
     """

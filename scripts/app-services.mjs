@@ -241,6 +241,53 @@ function safetyNotes(mode, options) {
   ];
 }
 
+function serviceFlag(serviceId) {
+  if (serviceId === 'webgui-service') {
+    return '--webgui';
+  }
+  if (serviceId === 'model-service') {
+    return '--model-service';
+  }
+  if (serviceId === 'camofox-service') {
+    return '--camofox-service';
+  }
+  return null;
+}
+
+function selectedServiceFlags(selectedServices) {
+  if (selectedServices.length === SERVICE_IDS.length) {
+    return ['--all'];
+  }
+  return selectedServices.map(serviceFlag).filter((flag) => flag !== null);
+}
+
+function defaultServiceFlags(mode) {
+  return mode === 'start' ? ['--webgui'] : ['--all'];
+}
+
+function serviceMutationCommand(options, selectedServices) {
+  const flags = selectedServices.length
+    ? selectedServiceFlags(selectedServices)
+    : defaultServiceFlags(options.mode);
+  const args = ['pnpm', 'run', `app:${options.mode}`, '--', ...flags, '--yes'];
+  if (
+    options.mode === 'start' &&
+    options.openBrowser &&
+    flags.includes('--webgui')
+  ) {
+    args.splice(args.length - 1, 0, '--open-browser');
+  }
+  return args.join(' ');
+}
+
+function nextCommands(options, selectedServices) {
+  return [
+    'pnpm run app:doctor',
+    serviceMutationCommand(options, selectedServices),
+    'pnpm run app:stop -- --all --yes',
+  ];
+}
+
 /**
  * Determine whether a selected start step must be blocked due to an ownership mismatch.
  *
@@ -475,11 +522,7 @@ function buildPayload(options) {
       open_browser: options.openBrowser,
       safety_notes: safetyNotes(options.mode, options),
       steps: results,
-      next_commands: [
-        'pnpm run app:doctor',
-        'pnpm run app:start -- --webgui --yes',
-        'pnpm run app:stop -- --all --yes',
-      ],
+      next_commands: nextCommands(options, selectedServices),
     },
     exitCode,
   };
@@ -525,7 +568,7 @@ function renderHuman(payload) {
   }
   if (payload.dry_run) {
     process.stdout.write(
-      `Run pnpm run app:${payload.action} -- --webgui --yes to ${payload.action} the Web GUI service only.\n`,
+      `Run ${payload.next_commands[1]} to ${payload.action} the selected app-owned service scope.\n`,
     );
   }
 }

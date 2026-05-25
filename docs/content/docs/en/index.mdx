@@ -1,12 +1,14 @@
 ---
 title: Agentic Trader Guide
-description: Start here to install Agentic Trader, check readiness, run paper cycles, and review what happened.
+description:
+  Start here to install Agentic Trader, check readiness, run paper cycles, and
+  review what happened.
 ---
 
 ## What Agentic Trader is
 
-Agentic Trader is a local-first trading research and paper-operation system.
-It combines market context, specialist analysis, memory/review evidence, broker
+Agentic Trader is a local-first trading research and paper-operation system. It
+combines market context, specialist analysis, memory/review evidence, broker
 state, and operator controls into one inspectable runtime.
 
 The current V1 posture is deliberately cautious:
@@ -33,8 +35,8 @@ and how to review a decision before trusting the next one.
 
 1. Read [Runtime And Operations](/en/docs/runtime-and-operations).
 2. Check provider, model, broker, and runtime-mode readiness.
-3. Read [Security Posture](/en/docs/security-posture) before exposing Web GUI
-   or observer surfaces beyond localhost.
+3. Read [Security Posture](/en/docs/security-posture) before exposing Web GUI or
+   observer surfaces beyond localhost.
 4. Keep the run paper-first unless the broker, account, approval, risk, and
    kill-switch gates explicitly say otherwise.
 
@@ -48,7 +50,8 @@ and how to review a decision before trusting the next one.
 ### Troubleshoot a confusing state
 
 1. Read [QA And Debugging](/en/docs/qa-and-debugging).
-2. Compare CLI JSON, observer API, Rich/Ink/Web GUI status, and persisted records.
+2. Compare CLI JSON, observer API, Rich/Ink/Web GUI status, and persisted
+   records.
 3. Prefer runtime evidence over what a single UI banner appears to say.
 
 ## Contributor path
@@ -65,15 +68,18 @@ If you are changing code, read these after the operator path:
 - Local-first remains the default operating posture.
 - Paper trading remains the safe default execution mode.
 - Silent fallbacks are not acceptable when they hide degraded truth.
-- CLI, Rich, Ink, observer API, and Web GUI should describe the same runtime state.
-- The docs app and the Web GUI are shells around the existing runtime, not replacements for it.
+- CLI, Rich, Ink, observer API, and Web GUI should describe the same runtime
+  state.
+- The docs app and the Web GUI are shells around the existing runtime, not
+  replacements for it.
 
 ## What this guide should explain
 
 This docs site should answer operator questions first:
 
 - What can Agentic Trader do today?
-- Which mode am I in: training, local paper, external paper readiness, or blocked live?
+- Which mode am I in: training, local paper, external paper readiness, or
+  blocked live?
 - What data did the system actually see?
 - Why did it approve, block, hold, or reject an action?
 - Where can I verify broker/account, runtime, memory, and review truth?

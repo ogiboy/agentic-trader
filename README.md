@@ -106,6 +106,11 @@ another checkout. Firecrawl still requires user-owned authentication through
 `firecrawl login --browser` or `FIRECRAWL_API_KEY` in an ignored env file.
 Runtime auto-start flags only supervise already-installed local helpers; they
 do not install tools, pull models, create accounts, or mutate trading policy.
+When an Ollama, Firecrawl, or Camofox ownership decision is already persisted,
+bootstrap reports that decision instead of asking again; change it explicitly
+with `agentic-trader tool-ownership set ...` before rerunning bootstrap. The
+final bootstrap summary separates completed, deferred, and failed items and
+prints a `next:` action for deferred setup so the next command is visible.
 For Camofox, `make setup-camofox` installs helper dependencies without running
 browser-download scripts; `make fetch-camofox` downloads the optional Camoufox
 browser binary only when you approve that step. The Camofox helper uses the
@@ -194,7 +199,9 @@ matching ownership flags such as `--ollama-owner=app-owned` or
 `--camofox-owner=app-owned`. Host-owned, API/key-only, and skipped choices are
 persisted in `runtime/setup/tool-ownership.json`, surface through
 `setup-status`, Web GUI, and TUI readiness, and remain degraded readiness rather
-than hidden installs.
+than hidden installs. `setup-status` treats optional CrewAI CLI failures as
+bounded setup notes instead of exposing full global-tool tracebacks as version
+strings.
 
 Inspect or adjust those optional-helper choices directly with:
 
@@ -507,7 +514,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 
 `webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction/proposal contracts from server-side route handlers. It is intentionally not a second orchestrator, and its Proposal Desk can only call the same explicit approve/reject/reconcile/refresh gates that the CLI exposes.
 
-The control-room UI is split into focused view, shell, dashboard-polling, action, request/auth, primitive, and typed-copy modules under `webgui/src/components/control-room/`; keep new screen work on that modular path instead of growing the coordinator component again.
+The control-room UI is split into focused view, shell, dashboard-polling, `state-hooks`, `view-model`, action, `action-request`, request/auth, formatting, diagnostics/context evidence, loading-panel, primitive, and typed-copy modules under `webgui/src/components/control-room/`; keep new screen work on that modular path instead of growing the coordinator component again.
 
 ```bash
 pnpm dev:webgui

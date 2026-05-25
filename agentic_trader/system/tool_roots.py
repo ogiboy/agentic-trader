@@ -181,7 +181,7 @@ def read_repo_tool_manifest(tool_id: LocalToolId) -> dict[str, Any] | None:
 def iter_local_tool_definitions() -> tuple[LocalToolDefinition, ...]:
     """
     List local tool definitions in a stable display order.
-    
+
     Returns:
         tuple[LocalToolDefinition, ...]: Local tool definition objects ordered for display (`"ollama"`, `"firecrawl"`, `"camofox-browser"`).
     """
@@ -195,10 +195,10 @@ def iter_local_tool_definitions() -> tuple[LocalToolDefinition, ...]:
 def local_tool_definition(tool_id: LocalToolId) -> LocalToolDefinition:
     """
     Get the repo-level contract for the specified optional helper tool.
-    
+
     Parameters:
         tool_id (LocalToolId): Identifier of the tool to look up.
-    
+
     Returns:
         LocalToolDefinition: The definition object for the given tool_id.
     """
@@ -234,7 +234,7 @@ def local_tool_manifest_notes(tool_id: LocalToolId) -> list[str]:
 def local_tool_status_payload(tool_id: LocalToolId) -> LocalToolStatusPayload:
     """
     Constructs a status payload describing a repo-local optional helper tool.
-    
+
     Returns:
         payload (LocalToolStatusPayload): Dictionary with the following keys:
             - `tool_id`: canonical local tool identifier.
@@ -263,11 +263,11 @@ def resolve_configured_tool_path(
 ) -> Path:
     """
     Resolve a configured tool filesystem path, interpreting absolute, special, and relative values against the repository.
-    
+
     Parameters:
         configured_path (str | Path): Path supplied by configuration. If absolute, it is returned unchanged. If empty string or ".", the repo-local tool directory for `default_tool` is returned. Otherwise the path is resolved relative to the repository root.
         default_tool (LocalToolId): Tool identifier whose repo-local tools subdirectory is used when `configured_path` is empty or ".".
-    
+
     Returns:
         Path: The resolved filesystem path for the tool.
     """

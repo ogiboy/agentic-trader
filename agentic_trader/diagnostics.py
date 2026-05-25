@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
+from collections.abc import Iterable, Mapping
+from typing import Any, cast
 from agentic_trader.config import Settings
 from agentic_trader.engine.broker import (
     alpaca_credentials_ready,
@@ -36,6 +36,31 @@ REVIEW_EVIDENCE_ARTIFACTS = [
     "evidence_bundle",
 ]
 
+Payload = dict[str, Any]
+Check = dict[str, Any]
+
+
+def _payload_from_mapping(value: Mapping[object, object]) -> Payload:
+
+    return {str(key): item for key, item in value.items()}
+
+
+def _payload_list(value: object) -> list[Payload]:
+
+    if not isinstance(value, list):
+
+        return []
+
+    rows: list[Payload] = []
+
+    for item in cast(list[object], value):
+
+        if isinstance(item, Mapping):
+
+            rows.append(_payload_from_mapping(cast(Mapping[object, object], item)))
+
+    return rows
+
 
 def _provider_metadata(provider_set: ProviderSet) -> Iterable[ProviderMetadata]:
     yield from (provider.metadata() for provider in provider_set.market)
@@ -45,7 +70,7 @@ def _provider_metadata(provider_set: ProviderSet) -> Iterable[ProviderMetadata]:
     yield from (provider.metadata() for provider in provider_set.macro)
 
 
-def _provider_payload(meta: ProviderMetadata) -> dict[str, object]:
+def _provider_payload(meta: ProviderMetadata) -> Payload:
     api_key_ready = None
     if "api_key_configured" in meta.notes:
         api_key_ready = True
@@ -66,12 +91,12 @@ def _provider_payload(meta: ProviderMetadata) -> dict[str, object]:
     }
 
 
-def provider_diagnostics_payload(settings: Settings) -> dict[str, object]:
+def provider_diagnostics_payload(settings: Settings) -> Payload:
     """
     Build a network-free snapshot of configured provider and source readiness.
-    
+
     Returns:
-        payload (dict[str, object]): Diagnostic snapshot with keys:
+        payload (Payload): Diagnostic snapshot with keys:
             - `llm`: selected LLM provider, base URL, default model, and routing.
             - `market_data`: configured market mode, a selected provider role, and a fallback warning.
             - `news`: news ingestion mode, headline limit, and enabled flag.
@@ -139,9 +164,7 @@ def provider_diagnostics_payload(settings: Settings) -> dict[str, object]:
     }
 
 
-def _check(
-    name: str, passed: bool, details: str, *, blocking: bool = True
-) -> dict[str, object]:
+def _check(name: str, passed: bool, details: str, *, blocking: bool = True) -> Check:
     return {
         "name": name,
         "passed": passed,
@@ -150,36 +173,38 @@ def _check(
     }
 
 
-def _allowed(checks: list[dict[str, object]]) -> bool:
+def _allowed(checks: list[Check]) -> bool:
     return all(
         bool(check["passed"]) for check in checks if bool(check.get("blocking", True))
     )
 
 
-def _provider_rows(payload: dict[str, object]) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
+def _provider_rows(payload: Payload) -> list[Payload]:
+    rows: list[Payload] = []
     raw_rows = payload.get("providers", [])
+
     if not isinstance(raw_rows, list):
         return rows
+
     for item in raw_rows:
-        if isinstance(item, dict):
+        if isinstance(item, Mapping):
             rows.append({str(key): value for key, value in item.items()})
     return rows
 
 
 def _paper_evidence_payload(
     settings: Settings,
-    provider_payload: dict[str, object],
-) -> dict[str, object]:
+    provider_payload: Payload,
+) -> Payload:
     """
     Assembles a paper-evidence payload that summarizes provider/source visibility and the gates that block live execution.
-    
+
     Parameters:
         settings (Settings): Runtime/settings object used to evaluate live execution and backend gating.
-        provider_payload (dict[str, object]): Provider diagnostics payload (expected to include a `providers` list, `market_data.selected_provider`, and optional `warnings`).
-    
+        provider_payload (Payload): Provider diagnostics payload (expected to include a `providers` list, `market_data.selected_provider`, and optional `warnings`).
+
     Returns:
-        dict[str, object]: A payload containing:
+        Payload: A payload containing:
             - ready: `True` if all blocking checks pass, `False` otherwise.
             - checks: List of check records produced for provider/source ladder, source attribution, context pack visibility, review evidence path, and live-execution gate.
             - source_ladder: Dict with `provider_count` (int), `selected_market_provider` (str), and `warnings` (list).
@@ -198,7 +223,7 @@ def _paper_evidence_payload(
         if isinstance(market_data, dict)
         else "unknown"
     )
-    checks = [
+    checks: list[Check] = [
         _check(
             "provider_source_ladder_visible",
             bool(provider_rows),
@@ -258,18 +283,18 @@ def _paper_evidence_payload(
 
 def v1_readiness_payload(
     settings: Settings, *, check_provider: bool = False
-) -> dict[str, object]:
+) -> Payload:
     """
     Assemble a V1 readiness payload summarizing paper-operation checks and Alpaca paper readiness.
-    
+
     Builds a diagnostic payload that includes broker and provider diagnostics, paper-operation checks (gate conditions required for V1 paper-only operation), Alpaca-specific readiness checks, and a human-readable summary.
-    
+
     Parameters:
         settings (Settings): Configuration used to evaluate runtime, execution, broker, provider, and Alpaca readiness.
         check_provider (bool): If True, perform an actual LLM provider health check and populate `provider_health`; if False, `provider_health` will be None and the `llm_provider_ready` check will indicate that provider verification was not performed.
-    
+
     Returns:
-        dict[str, object]: A mapping with the following top-level keys:
+        Payload: A mapping with the following top-level keys:
           - `runtime_mode`: the configured runtime mode string.
           - `execution_backend`: the configured execution backend string.
           - `paper_operations`: object with `allowed` (bool) and `checks` (list of check records) for paper-operation gating.
@@ -283,7 +308,7 @@ def v1_readiness_payload(
     broker_payload = broker_runtime_payload(settings)
     provider_payload = provider_diagnostics_payload(settings)
     paper_evidence = _paper_evidence_payload(settings, provider_payload)
-    paper_checks = [
+    paper_checks: list[Check] = [
         _check(
             "runtime_mode_operation",
             settings.runtime_mode == "operation",
@@ -317,11 +342,11 @@ def v1_readiness_payload(
     ]
     evidence_checks = paper_evidence.get("checks", [])
     if isinstance(evidence_checks, list):
-        paper_checks.extend(
-            check for check in evidence_checks if isinstance(check, dict)
-        )
+        for check in evidence_checks:
+            if isinstance(check, Mapping):
+                paper_checks.append({str(key): value for key, value in check.items()})
 
-    provider_health: dict[str, object] | None = None
+    provider_health: Payload | None = None
     if check_provider:
         health = LocalLLM(settings).health_check(include_generation=True)
         provider_health = health.model_dump(mode="json")
@@ -342,7 +367,7 @@ def v1_readiness_payload(
                 "Provider/model readiness was not checked; rerun with --provider-check.",
             )
         )
-    alpaca_checks = [
+    alpaca_checks: list[Check] = [
         _check(
             "credentials_configured",
             alpaca_credentials_ready(settings),

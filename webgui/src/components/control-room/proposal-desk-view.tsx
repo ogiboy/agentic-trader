@@ -1,15 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
 import { CheckCircle2, RefreshCw, RotateCcw, XCircle } from 'lucide-react';
 
+import type {
+  DashboardData,
+  ProposalActionKind,
+} from '../control-room.helpers';
 import {
   formatNumber,
   proposalApprovalBlockedReason,
   proposalHeadline,
   proposalLines,
-} from '../control-room.helpers';
-import type {
-  DashboardData,
-  ProposalActionKind,
 } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
@@ -54,17 +53,17 @@ export function ProposalDeskView({
   const hasProposalNote = Boolean(proposalNote.trim());
 
   return (
-    <div className="grid grid--2">
-      <Panel title={copy.proposals.panels.proposalDesk} accent="amber">
+    <div className='grid grid--2'>
+      <Panel title={copy.proposals.panels.proposalDesk} accent='amber'>
         <TextList items={proposalLines(dashboard)} />
         {approvalBlockedReason ? (
-          <div className="banner banner--warn">{approvalBlockedReason}</div>
+          <div className='banner banner--warn'>{approvalBlockedReason}</div>
         ) : null}
         {proposalUnavailable ? null : (
           <>
             {proposals.length ? (
-              <div className="proposal-list">
-                {proposals.slice(0, 6).map((proposal: Record<string, any>) => {
+              <div className='proposal-list'>
+                {proposals.slice(0, 6).map((proposal: DashboardData) => {
                   const proposalId = String(proposal.proposal_id ?? '');
                   const isPending = proposal.status === 'pending';
                   const canApprove =
@@ -80,15 +79,15 @@ export function ProposalDeskView({
                     Boolean(proposal.execution_order_id) &&
                     hasProposalNote;
                   return (
-                    <article className="proposal-card" key={proposalId}>
-                      <div className="proposal-card__head">
+                    <article className='proposal-card' key={proposalId}>
+                      <div className='proposal-card__head'>
                         <strong>{proposalHeadline(proposal)}</strong>
-                        <span className="chip">
+                        <span className='chip'>
                           {formatNumber(proposal.confidence, 2)}
                         </span>
                       </div>
                       <p>{proposal.thesis || '-'}</p>
-                      <div className="proposal-card__meta">
+                      <div className='proposal-card__meta'>
                         <span>{proposalId}</span>
                         <span>{proposal.source || '-'}</span>
                         <span>
@@ -98,21 +97,21 @@ export function ProposalDeskView({
                           )}
                         </span>
                       </div>
-                      <div className="tool-actions">
+                      <div className='tool-actions'>
                         <button
-                          className="button button--solid"
+                          className='button button--solid'
                           disabled={!canApprove || Boolean(busy)}
                           onClick={() =>
                             void onProposalAction('approve', proposalId)
                           }
                           title={copy.proposals.actions.approve.title}
-                          type="button"
+                          type='button'
                         >
                           <CheckCircle2 aria-hidden size={16} />
                           {copy.proposals.actions.approve.label}
                         </button>
                         <button
-                          className="button"
+                          className='button'
                           disabled={
                             !isPending || Boolean(busy) || !hasProposalNote
                           }
@@ -120,31 +119,31 @@ export function ProposalDeskView({
                             void onProposalAction('reject', proposalId)
                           }
                           title={copy.proposals.actions.reject.title}
-                          type="button"
+                          type='button'
                         >
                           <XCircle aria-hidden size={16} />
                           {copy.proposals.actions.reject.label}
                         </button>
                         <button
-                          className="button"
+                          className='button'
                           disabled={!canReconcile || Boolean(busy)}
                           onClick={() =>
                             void onProposalAction('reconcile', proposalId)
                           }
                           title={copy.proposals.actions.reconcile.title}
-                          type="button"
+                          type='button'
                         >
                           <RotateCcw aria-hidden size={16} />
                           {copy.proposals.actions.reconcile.label}
                         </button>
                         <button
-                          className="button"
+                          className='button'
                           disabled={!canRefresh || Boolean(busy)}
                           onClick={() =>
                             void onProposalAction('refresh', proposalId)
                           }
                           title={copy.proposals.actions.refresh.title}
-                          type="button"
+                          type='button'
                         >
                           <RefreshCw aria-hidden size={16} />
                           {copy.proposals.actions.refresh.label}
@@ -155,7 +154,7 @@ export function ProposalDeskView({
                 })}
               </div>
             ) : null}
-            <div className="composer">
+            <div className='composer'>
               <textarea
                 onChange={(event) => onProposalNoteChange(event.target.value)}
                 placeholder={copy.proposals.notePlaceholder}
@@ -165,18 +164,22 @@ export function ProposalDeskView({
           </>
         )}
       </Panel>
-      <Panel title={copy.proposals.panels.deskSafety} accent="cyan">
+      <Panel title={copy.proposals.panels.deskSafety} accent='cyan'>
         <KeyValueList
           items={[
             [copy.proposals.fields.backend, dashboard.broker?.backend ?? '-'],
             [copy.proposals.fields.state, dashboard.broker?.state ?? '-'],
             [
               copy.proposals.fields.externalPaper,
-              dashboard.broker?.external_paper ? copy.common.yes : copy.common.no,
+              dashboard.broker?.external_paper
+                ? copy.common.yes
+                : copy.common.no,
             ],
             [
               copy.proposals.fields.liveRequested,
-              dashboard.broker?.live_requested ? copy.common.yes : copy.common.no,
+              dashboard.broker?.live_requested
+                ? copy.common.yes
+                : copy.common.no,
             ],
             [
               copy.proposals.fields.killSwitch,

@@ -32,6 +32,24 @@ def _exit_decision(
     )
 
 
+def build_position_exit_decision(
+    *,
+    side: ExecutionSide,
+    symbol: str,
+    reason: PositionExitReason,
+    rationale: str,
+    exit_price: float,
+) -> PositionExitDecision:
+    """Create a position exit decision through the public position-manager seam."""
+    return _exit_decision(
+        side=side,
+        symbol=symbol,
+        reason=reason,
+        rationale=rationale,
+        exit_price=exit_price,
+    )
+
+
 def _long_exit(
     snapshot: MarketSnapshot, plan: PositionPlanSnapshot
 ) -> PositionExitDecision | None:
@@ -80,6 +98,13 @@ def _long_exit(
             exit_price=snapshot.last_close,
         )
     return None
+
+
+def evaluate_long_position_exit(
+    snapshot: MarketSnapshot, plan: PositionPlanSnapshot
+) -> PositionExitDecision | None:
+    """Evaluate long-position exit rules through the public position-manager seam."""
+    return _long_exit(snapshot, plan)
 
 
 def _short_exit(
@@ -134,6 +159,13 @@ def _short_exit(
             exit_price=snapshot.last_close,
         )
     return None
+
+
+def evaluate_short_position_exit(
+    snapshot: MarketSnapshot, plan: PositionPlanSnapshot
+) -> PositionExitDecision | None:
+    """Evaluate short-position exit rules through the public position-manager seam."""
+    return _short_exit(snapshot, plan)
 
 
 def evaluate_position_exit(

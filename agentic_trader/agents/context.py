@@ -386,7 +386,7 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
             ]
         )
     if context.upstream_context:
-        rendered = []
+        rendered: list[str] = []
         for key, value in context.upstream_context.items():
             rendered.append(f"{key}:\n{value}")
         sections.extend(["", "Upstream Context:", "\n\n".join(rendered)])

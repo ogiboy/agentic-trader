@@ -428,10 +428,10 @@ def strategy_catalog_payload(
 def score_strategy_context(score: IdeaScore) -> dict[str, object]:
     """
     Map an IdeaScore to its strategy profile and proposal-readiness payload.
-    
+
     Parameters:
         score (IdeaScore): Evaluation containing `preset`, `signal`, and `warnings` used to select a profile and compute readiness gates.
-    
+
     Returns:
         dict[str, object]: Payload with:
             - `strategy_profile`: dict payload of the matched StrategyProfile.

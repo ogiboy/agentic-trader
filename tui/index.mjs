@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { execFile } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getCanonicalAnalysisLines,
   getFundamentalAssessmentLines,
@@ -2267,8 +2267,8 @@ export {
   getReplayLines,
   getReviewLines,
   getStatusBorderColor,
-  getSystemLines,
   getSupervisorLogLines,
+  getSystemLines,
   getTraceLines,
   getTradeContextLines,
   handleChatInput,

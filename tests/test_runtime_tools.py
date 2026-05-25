@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import socket
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -48,13 +49,13 @@ def _model_status(
 ) -> ModelServiceStatus:
     """
     Construct a test ModelServiceStatus representing various app- or host-owned scenarios.
-    
+
     Parameters:
         app_owned (bool): If True, populate ownership, pid, host, port, and app-managed base_url fields; if False, those fields are left as host-owned defaults.
         reachable (bool): Whether the service is reachable (controls `service_reachable`).
         model_available (bool): Whether the configured model is available (controls `model_available`, `available_models`, and the `message`).
         owner (str | None): Host id reported as the owner when `app_owned` is True; ignored when `app_owned` is False.
-    
+
     Returns:
         ModelServiceStatus: A populated status object suitable for tests reflecting the supplied flags.
     """
@@ -87,12 +88,12 @@ def _camofox_status(
 ) -> CamofoxServiceStatus:
     """
     Create a synthetic CamofoxServiceStatus for tests with configurable ownership and health.
-    
+
     Parameters:
         app_owned (bool): If True, marks the status as managed by the app and populates `owner` and `pid`.
         healthy (bool): If True, marks the service as reachable and healthy; otherwise marks it as missing/unhealthy.
         owner (str | None): Host identifier to set as `owner` when `app_owned` is True.
-    
+
     Returns:
         CamofoxServiceStatus: A populated test instance reflecting the requested ownership and health state.
     """
@@ -119,8 +120,46 @@ def _camofox_status(
     )
 
 
+def _model_status_builder(**kwargs: Any) -> Callable[[Settings], ModelServiceStatus]:
+    def _builder(_settings: Settings) -> ModelServiceStatus:
+        return _model_status(**kwargs)
+
+    return _builder
+
+
+def _model_status_starter(
+    starts: list[str] | None = None, **kwargs: Any
+) -> Callable[[Settings], ModelServiceStatus]:
+    def _starter(_settings: Settings) -> ModelServiceStatus:
+        if starts is not None:
+            starts.append("model")
+        return _model_status(**kwargs)
+
+    return _starter
+
+
+def _camofox_status_builder(
+    **kwargs: Any,
+) -> Callable[[Settings], CamofoxServiceStatus]:
+    def _builder(_settings: Settings) -> CamofoxServiceStatus:
+        return _camofox_status(**kwargs)
+
+    return _builder
+
+
+def _camofox_status_starter(
+    starts: list[str] | None = None, **kwargs: Any
+) -> Callable[[Settings], CamofoxServiceStatus]:
+    def _starter(_settings: Settings) -> CamofoxServiceStatus:
+        if starts is not None:
+            starts.append("camofox")
+        return _camofox_status(**kwargs)
+
+    return _starter
+
+
 def test_ensure_model_service_updates_runtime_base_url_for_app_owned_service(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
@@ -129,7 +168,7 @@ def test_ensure_model_service_updates_runtime_base_url_for_app_owned_service(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
 
     status = runtime_tools.ensure_model_service_if_configured(settings)
@@ -139,7 +178,7 @@ def test_ensure_model_service_updates_runtime_base_url_for_app_owned_service(
 
 
 def test_apply_app_owned_service_settings_uses_recorded_helpers_without_starting(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -157,22 +196,22 @@ def test_apply_app_owned_service_settings_uses_recorded_helpers_without_starting
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(app_owned=True),
+        _camofox_status_builder(app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_model_service",
-        lambda _settings: starts.append("model") or _model_status(app_owned=True),
+        _model_status_starter(starts, app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_camofox_service",
-        lambda _settings: starts.append("camofox") or _camofox_status(app_owned=True),
+        _camofox_status_starter(starts, app_owned=True),
     )
 
     report = runtime_tools.apply_app_owned_service_settings(
@@ -188,7 +227,7 @@ def test_apply_app_owned_service_settings_uses_recorded_helpers_without_starting
 
 
 def test_app_owned_model_service_does_not_override_non_ollama_adapter(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -201,12 +240,12 @@ def test_app_owned_model_service_does_not_override_non_ollama_adapter(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_model_service",
-        lambda _settings: starts.append("model") or _model_status(app_owned=True),
+        _model_status_starter(starts, app_owned=True),
     )
 
     report = runtime_tools.apply_app_owned_service_settings(settings)
@@ -219,7 +258,7 @@ def test_app_owned_model_service_does_not_override_non_ollama_adapter(
 
 
 def test_host_owned_model_service_does_not_adopt_app_owned_status(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
@@ -227,7 +266,7 @@ def test_host_owned_model_service_does_not_adopt_app_owned_status(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
 
     status = runtime_tools.ensure_model_service_if_configured(settings)
@@ -237,7 +276,7 @@ def test_host_owned_model_service_does_not_adopt_app_owned_status(
 
 
 def test_app_owned_model_service_from_other_host_does_not_adopt_endpoint(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
@@ -245,7 +284,7 @@ def test_app_owned_model_service_from_other_host_does_not_adopt_endpoint(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True, owner="other-host"),
+        _model_status_builder(app_owned=True, owner="other-host"),
     )
 
     status = runtime_tools.ensure_model_service_if_configured(settings)
@@ -256,7 +295,7 @@ def test_app_owned_model_service_from_other_host_does_not_adopt_endpoint(
 
 
 def test_legacy_app_owned_model_service_adopts_endpoint(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
@@ -264,7 +303,7 @@ def test_legacy_app_owned_model_service_adopts_endpoint(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True, owner=None),
+        _model_status_builder(app_owned=True, owner=None),
     )
 
     status = runtime_tools.ensure_model_service_if_configured(settings)
@@ -275,12 +314,12 @@ def test_legacy_app_owned_model_service_adopts_endpoint(
 
 
 def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     """
     Verify that a Camofox service recorded as host-owned does not have its configured base URL overridden when the runtime reports an app-owned service.
-    
+
     Sets research Camofox as enabled with a non-default base URL, records tool ownership as host-owned, and monkeypatches the status builder to return an app-owned status; asserts the returned status exists and is app-owned while the settings.research_camofox_base_url remains unchanged.
     """
     settings = _settings(
@@ -292,7 +331,7 @@ def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(app_owned=True),
+        _camofox_status_builder(app_owned=True),
     )
 
     status = runtime_tools.ensure_camofox_service_if_configured(settings)
@@ -303,7 +342,7 @@ def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
 
 
 def test_app_owned_camofox_service_from_other_host_does_not_adopt_endpoint(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -315,7 +354,7 @@ def test_app_owned_camofox_service_from_other_host_does_not_adopt_endpoint(
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(app_owned=True, owner="other-host"),
+        _camofox_status_builder(app_owned=True, owner="other-host"),
     )
 
     status = runtime_tools.ensure_camofox_service_if_configured(settings)
@@ -327,7 +366,7 @@ def test_app_owned_camofox_service_from_other_host_does_not_adopt_endpoint(
 
 
 def test_legacy_app_owned_camofox_service_adopts_endpoint(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -339,7 +378,7 @@ def test_legacy_app_owned_camofox_service_adopts_endpoint(
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(app_owned=True, owner=None),
+        _camofox_status_builder(app_owned=True, owner=None),
     )
 
     status = runtime_tools.ensure_camofox_service_if_configured(settings)
@@ -351,7 +390,7 @@ def test_legacy_app_owned_camofox_service_adopts_endpoint(
 
 
 def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -369,22 +408,22 @@ def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(reachable=False, model_available=False),
+        _model_status_builder(reachable=False, model_available=False),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_model_service",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(healthy=False),
+        _camofox_status_builder(healthy=False),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_camofox_service",
-        lambda _settings: _camofox_status(app_owned=True),
+        _camofox_status_builder(app_owned=True),
     )
 
     report = runtime_tools.ensure_runtime_tools(settings, include_camofox=True)
@@ -398,7 +437,7 @@ def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
 
 
 def test_ensure_runtime_tools_does_not_auto_start_host_owned_tools(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -417,22 +456,22 @@ def test_ensure_runtime_tools_does_not_auto_start_host_owned_tools(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(reachable=False, model_available=False),
+        _model_status_builder(reachable=False, model_available=False),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_model_service",
-        lambda _settings: starts.append("model") or _model_status(app_owned=True),
+        _model_status_starter(starts, app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(healthy=False),
+        _camofox_status_builder(healthy=False),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_camofox_service",
-        lambda _settings: starts.append("camofox") or _camofox_status(app_owned=True),
+        _camofox_status_starter(starts, app_owned=True),
     )
 
     report = runtime_tools.ensure_runtime_tools(settings, include_camofox=True)
@@ -920,10 +959,10 @@ def test_model_service_http_probes_and_port_selection(
     ) -> FakeResponse:
         """
         Test helper that records JSON POST payloads and returns a successful FakeResponse.
-        
+
         Parameters:
             json (dict[str, object]): JSON body of the simulated POST request to record.
-        
+
         Returns:
             FakeResponse: A response whose JSON body is {"response": "OK"}.
         """
@@ -1044,7 +1083,7 @@ def test_model_service_lifecycle_paths(
     monkeypatch.setattr(
         model_service,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
 
     status = model_service.start_model_service(settings)
@@ -1083,7 +1122,7 @@ def test_model_service_stop_and_pull_paths(
     monkeypatch.setattr(
         model_service,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=False),
+        _model_status_builder(app_owned=False),
     )
     monkeypatch.setattr(
         model_service,

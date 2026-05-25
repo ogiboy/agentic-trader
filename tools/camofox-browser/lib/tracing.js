@@ -1,7 +1,7 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import crypto from 'node:crypto';
 
 /**
  * Produce a short, deterministic identifier for a user based on their ID.
@@ -131,7 +131,7 @@ export async function deleteTrace(fullPath) {
  * @param {number} [options.ttlMs] - Time-to-live in milliseconds; files with modified time older than `now - ttlMs` are removed.
  * @param {number} [options.maxBytesPerFile] - Maximum allowed file size in bytes; files larger than this are removed.
  * @param {number} [options.now=Date.now()] - Reference timestamp in milliseconds for TTL comparisons.
- * @returns {{ scanned: number, removedTtl: number, removedOversized: number, bytes: number }} An object summarizing the sweep: `scanned` files examined, `removedTtl` files removed for age, `removedOversized` files removed for size, and `bytes` total freed. 
+ * @returns {{ scanned: number, removedTtl: number, removedOversized: number, bytes: number }} An object summarizing the sweep: `scanned` files examined, `removedTtl` files removed for age, `removedOversized` files removed for size, and `bytes` total freed.
  */
 export function sweepOldTraces({
   baseDir,

@@ -1,3 +1,4 @@
+import { TR_DIAGNOSTICS_COPY } from './diagnostics-tr';
 import type { ControlRoomCopy } from './types';
 
 export const TR_CONTROL_ROOM_COPY = {
@@ -8,6 +9,7 @@ export const TR_CONTROL_ROOM_COPY = {
     yes: 'evet',
     working: 'Çalışıyor...',
   },
+  diagnostics: TR_DIAGNOSTICS_COPY,
   auth: {
     body: 'Yerel ortamdaki Web GUI token bilgisini gir. Token aynı origin üzerinde HttpOnly oturum çerezine çevrilir ve sayfada gösterilmez.',
     eyebrow: 'Korumalı yerel komut merkezi',
@@ -33,7 +35,14 @@ export const TR_CONTROL_ROOM_COPY = {
     empty: 'Henüz chat mesajı yok.',
     panels: {
       decisionWorkflowContext: 'Karar Akışı Bağlamı',
-      operatorChat: 'Operatör Chat',
+      operatorChat: 'Operatör Sohbeti',
+    },
+    personas: {
+      operator_liaison: 'Operatör Asistanı',
+      regime_analyst: 'Piyasa Rejimi Analisti',
+      strategy_selector: 'Strateji Seçici',
+      risk_steward: 'Risk Sorumlusu',
+      portfolio_manager: 'Portföy Yöneticisi',
     },
     placeholder: 'İnceleme, durum veya açıklama iste.',
     role: 'Rol',
@@ -50,12 +59,12 @@ export const TR_CONTROL_ROOM_COPY = {
     },
   },
   currentCycle: {
-    cycleCount: 'Cycle Sayısı',
+    cycleCount: 'Döngü Sayısı',
     currentStage: 'Güncel Aşama',
     currentSymbol: 'Güncel Sembol',
     lastOutcome: 'Son Sonuç',
     mode: 'Mod',
-    runtime: 'Runtime',
+    runtime: 'Çalışma Durumu',
     stageStatus: 'Aşama Durumu',
     status: 'Durum',
     waitingOutcome: 'Tamamlanmış sembol veya servis sonucu bekleniyor.',
@@ -63,10 +72,10 @@ export const TR_CONTROL_ROOM_COPY = {
   overview: {
     emptyStageEvents: 'Henüz canlı ajan aşama olayı yok.',
     panels: {
-      currentCycle: 'Güncel Cycle',
+      currentCycle: 'Güncel Döngü',
       decisionWorkflow: 'Karar Akışı',
       localTools: 'Yerel Araçlar',
-      providerWarnings: 'Provider Uyarıları',
+      providerWarnings: 'Sağlayıcı Uyarıları',
       readinessGates: 'Hazırlık Kapıları',
       system: 'Sistem',
     },
@@ -161,7 +170,7 @@ export const TR_CONTROL_ROOM_COPY = {
     },
     fields: {
       backend: 'Backend',
-      externalPaper: 'External Paper',
+      externalPaper: 'Harici Paper',
       killSwitch: 'Kill Switch',
       liveRequested: 'Live İstendi',
       message: 'Mesaj',
@@ -204,18 +213,18 @@ export const TR_CONTROL_ROOM_COPY = {
     },
     fields: {
       currentSymbol: 'Güncel Sembol',
-      cycleCount: 'Cycle Sayısı',
-      liveProcess: 'Canlı Process',
+      cycleCount: 'Döngü Sayısı',
+      liveProcess: 'Canlı Süreç',
       pid: 'PID',
-      runtime: 'Runtime',
+      runtime: 'Çalışma Durumu',
       status: 'Durum',
       stopRequested: 'Durdurma İsteği',
       updated: 'Güncellendi',
     },
     panels: {
-      events: 'Runtime Olayları',
+      events: 'Çalışma Olayları',
       stageFlow: 'Aşama Akışı',
-      state: 'Runtime Durumu',
+      state: 'Çalışma Durumu',
       supervisorTails: 'Supervisor Tail',
     },
   },
@@ -251,7 +260,7 @@ export const TR_CONTROL_ROOM_COPY = {
       preview: 'önizle',
     },
     panels: {
-      composer: 'Composer',
+      composer: 'Talimat Paneli',
       operatorInstruction: 'Operatör Talimatı',
       preferences: 'Tercihler',
       recentRuns: 'Son Runlar',
@@ -261,7 +270,7 @@ export const TR_CONTROL_ROOM_COPY = {
   },
   shell: {
     actions: {
-      oneShot: 'Tek Cycle',
+      oneShot: 'Tek Döngü',
       refresh: 'Yenile',
       restart: 'Yeniden Başlat',
       start: 'Başlat',
@@ -272,9 +281,12 @@ export const TR_CONTROL_ROOM_COPY = {
     language: 'Dil',
     lastRefresh: 'Son yenileme',
     loading: 'Dashboard yükleniyor...',
+    loadingDetail:
+      'Yerel runtime, broker, model, araç ve research durumu toplanıyor. Yavaş provider kontrolleri birkaç saniye sürebilir.',
+    loadingElapsed: (seconds) => `${seconds} sn bekleniyor`,
     mode: 'Mod',
     navAria: 'Bölümler',
-    runtime: 'Runtime',
+    runtime: 'Çalışma',
     runtimeUnavailable: 'runtime kullanılamıyor',
     subtitle: 'Paper-first. Katı. Denetlenebilir.',
     title: 'Agentic Trader',
@@ -282,12 +294,12 @@ export const TR_CONTROL_ROOM_COPY = {
   },
   tabs: {
     overview: 'Özet',
-    runtime: 'Runtime',
+    runtime: 'Çalışma',
     portfolio: 'Portföy',
     proposals: 'Teklifler',
     review: 'İnceleme',
     memory: 'Karar Kanıtı',
-    chat: 'Chat',
+    chat: 'Sohbet',
     settings: 'Ayarlar',
   },
 } satisfies ControlRoomCopy;

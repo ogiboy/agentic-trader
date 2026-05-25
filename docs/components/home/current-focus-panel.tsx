@@ -1,4 +1,3 @@
-import { Bot, FileSearch, LayoutPanelTop } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -7,6 +6,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import type { DocLanguage } from '@/lib/i18n/config';
+import { Bot, FileSearch, LayoutPanelTop } from 'lucide-react';
 
 type CurrentFocusItem = {
   icon: 'bot' | 'layout' | 'inspect';
@@ -29,7 +29,7 @@ export function CurrentFocusPanel({
   items,
 }: Readonly<CurrentFocusPanelProps>) {
   return (
-    <Card className="docs-home-panel sticky top-6">
+    <Card className='docs-home-panel sticky top-6'>
       <CardHeader>
         <CardTitle>
           {locale === 'en' ? 'Current V1 focus' : 'Güncel V1 odağı'}
@@ -40,16 +40,16 @@ export function CurrentFocusPanel({
             : 'Proje şu anda sertleştirme aşamasında; paralel bir sistem icat etme aşamasında değil.'}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
+      <CardContent className='flex flex-col gap-4 text-sm text-muted-foreground'>
         {items.map((item, index) => {
           const Icon = icons[item.icon];
 
           return (
             <div
               key={`${item.icon}-${index}`}
-              className="flex items-start gap-3"
+              className='flex items-start gap-3'
             >
-              <Icon className="mt-0.5 size-4 text-primary" />
+              <Icon className='mt-0.5 size-4 text-primary' />
               {item.text}
             </div>
           );

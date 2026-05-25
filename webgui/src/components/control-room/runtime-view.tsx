@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
-import { formatTimestamp } from '../control-room.helpers';
 import type { DashboardData } from '../control-room.helpers';
+import { formatTimestamp } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
 
@@ -10,7 +9,7 @@ export function RuntimeView({
 }: Readonly<{ copy: ControlRoomCopy; dashboard: DashboardData }>) {
   const runtimeEvents = dashboard.logs?.length
     ? dashboard.logs.map(
-        (event: Record<string, any>) =>
+        (event: Record<string, string>) =>
           `${formatTimestamp(event.created_at)} | ${event.level} | ${event.event_type} | ${event.symbol ?? '-'} | ${event.message}`,
       )
     : [copy.runtime.empty.events];
@@ -24,16 +23,22 @@ export function RuntimeView({
   ];
 
   return (
-    <div className="grid grid--2">
-      <Panel title={copy.runtime.panels.state} accent="lime">
+    <div className='grid grid--2'>
+      <Panel title={copy.runtime.panels.state} accent='lime'>
         <KeyValueList
           items={[
-            [copy.runtime.fields.runtime, dashboard.status?.runtime_state ?? '-'],
+            [
+              copy.runtime.fields.runtime,
+              dashboard.status?.runtime_state ?? '-',
+            ],
             [
               copy.runtime.fields.liveProcess,
               dashboard.status?.live_process ? copy.common.yes : copy.common.no,
             ],
-            [copy.runtime.fields.pid, String(dashboard.status?.state?.pid ?? '-')],
+            [
+              copy.runtime.fields.pid,
+              String(dashboard.status?.state?.pid ?? '-'),
+            ],
             [
               copy.runtime.fields.currentSymbol,
               dashboard.status?.state?.current_symbol ?? '-',
@@ -50,22 +55,25 @@ export function RuntimeView({
               copy.runtime.fields.stopRequested,
               String(dashboard.status?.state?.stop_requested ?? false),
             ],
-            [copy.runtime.fields.status, dashboard.status?.status_message ?? '-'],
+            [
+              copy.runtime.fields.status,
+              dashboard.status?.status_message ?? '-',
+            ],
           ]}
         />
       </Panel>
-      <Panel title={copy.runtime.panels.stageFlow} accent="cyan">
+      <Panel title={copy.runtime.panels.stageFlow} accent='cyan'>
         <TextList
           items={(dashboard.agentActivity?.stage_statuses || []).map(
-            (stage: Record<string, any>) =>
+            (stage: Record<string, string>) =>
               `${stage.stage} | ${stage.status} | ${stage.message}`,
           )}
         />
       </Panel>
-      <Panel title={copy.runtime.panels.events} accent="amber">
+      <Panel title={copy.runtime.panels.events} accent='amber'>
         <TextList items={runtimeEvents} />
       </Panel>
-      <Panel title={copy.runtime.panels.supervisorTails} accent="rose">
+      <Panel title={copy.runtime.panels.supervisorTails} accent='rose'>
         <TextList items={supervisorTails} />
       </Panel>
     </div>

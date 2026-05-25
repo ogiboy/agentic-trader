@@ -124,6 +124,34 @@ base URL, model name, and optional API key.
 App-owned Ollama auto-start or dashboard setting rewrites must not override that
 non-Ollama adapter.
 
+### Strict Pyright is enforced through a regression baseline until the backlog is zero
+
+Reason:
+The repository should keep Pylance/Pyright in strict mode because it exposes
+real runtime and test-contract weaknesses, but turning on strict mode while a
+known 1776-error backlog exists would make every push and release workflow fail
+without distinguishing old debt from new regressions.
+CI, release, and smoke quality checks therefore run
+`scripts/check_pyright_baseline.py`, which executes strict Pyright and fails only
+if the error count rises above the documented baseline.
+This is a temporary hardening contract, not a weaker type policy: every
+type-clean cluster should reduce the baseline in the script, `ROADMAP.md`, and
+`.ai/current-state.instructions.md` in the same change.
+
+### V1 can monetize only after compliance, trust, and unit economics are explicit
+
+Reason:
+Agentic Trader is moving toward an operator-facing product, but paid access,
+personalized trade recommendations, account workflows, or order-routing
+features can change the regulatory and support profile of the project.
+V1 must stay paper-first and manual-approval-first until the commercial model is
+classified with counsel, Alpaca production responsibilities are explicit,
+operator risk disclosures and audit exports exist, and remote-model costs are
+measured per cycle.
+The first paid SKU should therefore favor local-first paper desk, evidence
+bundle, education, and personal automation value before managed live trading,
+copy trading, or performance-fee promises.
+
 ### Operator-facing finance truth must be reconciled evidence, not UI copy
 
 Reason:

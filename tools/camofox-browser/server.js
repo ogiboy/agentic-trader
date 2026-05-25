@@ -1,70 +1,68 @@
-import { Camoufox, launchOptions } from 'camoufox-js';
+import { launchOptions } from 'camoufox-js';
 import { VirtualDisplay } from 'camoufox-js/dist/virtdisplay.js';
-import { firefox } from 'playwright-core';
-import express from 'express';
 import crypto from 'crypto';
+import express from 'express';
 import fs from 'fs';
 import os from 'os';
-import { expandMacro } from './lib/macros.js';
+import { firefox } from 'playwright-core';
+import {
+  isLoopbackAddress as _isLoopbackAddress,
+  timingSafeCompare as _timingSafeCompare,
+  accessKeyMiddleware,
+  requireAuth,
+} from './lib/auth.js';
 import { loadConfig } from './lib/config.js';
 import {
-  normalizePlaywrightProxy,
-  createProxyPool,
-  buildProxyUrl,
-} from './lib/proxy.js';
-import { createFlyHelpers } from './lib/fly.js';
-import { createPluginEvents, loadPlugins } from './lib/plugins.js';
-import {
-  requireAuth,
-  accessKeyMiddleware,
-  timingSafeCompare as _timingSafeCompare,
-  isLoopbackAddress as _isLoopbackAddress,
-} from './lib/auth.js';
-import { windowSnapshot } from './lib/snapshot.js';
-import {
   MAX_DOWNLOAD_INLINE_BYTES,
-  clearTabDownloads,
-  clearSessionDownloads,
   attachDownloadListener,
+  clearSessionDownloads,
+  clearTabDownloads,
   getDownloadsList,
 } from './lib/downloads.js';
-import { extractPageImages } from './lib/images.js';
 import {
   extractDeterministic,
   validateSchema as validateExtractSchema,
 } from './lib/extract.js';
+import { createFlyHelpers } from './lib/fly.js';
+import { extractPageImages } from './lib/images.js';
+import { expandMacro } from './lib/macros.js';
+import { createPluginEvents, loadPlugins } from './lib/plugins.js';
 import {
-  ensureTracesDir,
-  resolveTracePath,
-  tracePathFor,
-  makeTraceFilename,
-  listUserTraces,
-  statTrace,
+  buildProxyUrl,
+  createProxyPool,
+  normalizePlaywrightProxy,
+} from './lib/proxy.js';
+import { windowSnapshot } from './lib/snapshot.js';
+import {
   deleteTrace,
+  ensureTracesDir,
+  listUserTraces,
+  makeTraceFilename,
+  resolveTracePath,
+  statTrace,
   sweepOldTraces,
+  tracePathFor,
 } from './lib/tracing.js';
 
+import { coalesceInflight } from './lib/inflight.js';
 import {
-  initMetrics,
-  getRegister,
-  isMetricsEnabled,
   createMetric,
+  getRegister,
+  initMetrics,
   startMemoryReporter,
   stopMemoryReporter,
 } from './lib/metrics.js';
+import { mountDocs } from './lib/openapi.js';
+import {
+  classifyProxyError,
+  createReporter,
+  createTabHealthTracker,
+} from './lib/reporter.js';
 import { actionFromReq, classifyError } from './lib/request-utils.js';
 import {
   cleanupOrphanedTempFiles,
   cleanupStaleFirefoxProfiles,
 } from './lib/tmp-cleanup.js';
-import { coalesceInflight } from './lib/inflight.js';
-import {
-  createReporter,
-  createTabHealthTracker,
-  collectResourceSnapshot,
-  classifyProxyError,
-} from './lib/reporter.js';
-import { mountDocs } from './lib/openapi.js';
 
 const CONFIG = loadConfig();
 
@@ -1460,12 +1458,10 @@ function handleRouteError(err, req, res, extraFields = {}) {
     if (session && tabId) {
       destroyTab(session, tabId, 'lock_queue', userId);
     }
-    return res
-      .status(503)
-      .json({
-        error: 'Tab unresponsive and has been destroyed. Open a new tab.',
-        ...extraFields,
-      });
+    return res.status(503).json({
+      error: 'Tab unresponsive and has been destroyed. Open a new tab.',
+      ...extraFields,
+    });
   }
   // Tab was destroyed while this request was queued in the lock
   if (isTabDestroyedError(err)) {
@@ -2370,12 +2366,9 @@ app.get('/health', (req, res) => {
 app.get('/metrics', async (_req, res) => {
   const reg = getRegister();
   if (!reg) {
-    res
-      .status(404)
-      .json({
-        error:
-          'Prometheus metrics disabled. Set PROMETHEUS_ENABLED=1 to enable.',
-      });
+    res.status(404).json({
+      error: 'Prometheus metrics disabled. Set PROMETHEUS_ENABLED=1 to enable.',
+    });
     return;
   }
   res.set('Content-Type', reg.contentType);
@@ -4637,13 +4630,11 @@ app.post(
           reqId: req.reqId,
           error: extractErr.message,
         });
-        res
-          .status(422)
-          .json({
-            ok: false,
-            error: extractErr.message,
-            snapshot: tabState.lastSnapshot || null,
-          });
+        res.status(422).json({
+          ok: false,
+          error: extractErr.message,
+          snapshot: tabState.lastSnapshot || null,
+        });
       }
     } catch (err) {
       failuresTotal.labels(classifyError(err), 'extract').inc();

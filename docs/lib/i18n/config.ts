@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
 import { defineI18n } from 'fumadocs-core/i18n';
+import type { Metadata } from 'next';
 
 export const docLanguages = ['en', 'tr'] as const;
 export type DocLanguage = (typeof docLanguages)[number];

@@ -1,6 +1,8 @@
 ---
 title: Security Posture
-description: How Agentic Trader keeps local paper operation, observer surfaces, research evidence, and secrets bounded.
+description:
+  How Agentic Trader keeps local paper operation, observer surfaces, research
+  evidence, and secrets bounded.
 ---
 
 ## What is protected
@@ -13,7 +15,8 @@ inspectable, and hard to misuse by accident.
 
 The strongest default controls are:
 
-- supported active trading is gated, and ungated real-money execution is blocked by default
+- supported active trading is gated, and ungated real-money execution is blocked
+  by default
 - operation mode must fail closed when provider or model readiness is missing
 - research sidecars are evidence companions, not broker or policy owners
 - Web GUI and observer surfaces read existing runtime contracts instead of
@@ -37,14 +40,14 @@ provider diagnostics.
 
 ## Threat model summary
 
-| Surface | Risk | Mitigation |
-| --- | --- | --- |
-| Web GUI route handlers | Direct POSTs can trigger long runtime, chat, or instruction work if the app is exposed | Same-origin checks, loopback-only unauthenticated mode, optional token, body caps, cooldowns |
-| Observer API | Read-only runtime truth can leak if bound outside loopback | Loopback default, nonlocal bind guard, optional token, no-store/security headers |
-| Runtime logs | Provider/model errors can print key-like values | Redaction before supervisor tails and Web error responses |
-| Research sidecar | Sidecar could inherit broker secrets or echo raw stderr | Narrow subprocess env, redacted sidecar failures, broker/policy access remains out of contract |
-| Provider errors | Future providers can throw signed URLs or key-bearing messages | Source attribution stores bounded redacted exception notes |
-| Local artifacts | Shared machines can read default-permission files | Runtime feed/log writes prefer owner-only directories and files |
+| Surface                | Risk                                                                                   | Mitigation                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Web GUI route handlers | Direct POSTs can trigger long runtime, chat, or instruction work if the app is exposed | Same-origin checks, loopback-only unauthenticated mode, optional token, body caps, cooldowns   |
+| Observer API           | Read-only runtime truth can leak if bound outside loopback                             | Loopback default, nonlocal bind guard, optional token, no-store/security headers               |
+| Runtime logs           | Provider/model errors can print key-like values                                        | Redaction before supervisor tails and Web error responses                                      |
+| Research sidecar       | Sidecar could inherit broker secrets or echo raw stderr                                | Narrow subprocess env, redacted sidecar failures, broker/policy access remains out of contract |
+| Provider errors        | Future providers can throw signed URLs or key-bearing messages                         | Source attribution stores bounded redacted exception notes                                     |
+| Local artifacts        | Shared machines can read default-permission files                                      | Runtime feed/log writes prefer owner-only directories and files                                |
 
 ## Verification path
 

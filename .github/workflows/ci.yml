@@ -42,8 +42,8 @@ jobs:
       - name: Run Ruff
         run: uv run --locked --no-sync ruff check .
 
-      - name: Run Pyright
-        run: uv run --locked --no-sync pyright agentic_trader tests scripts
+      - name: Run strict Pyright baseline gate
+        run: uv run --locked --no-sync python scripts/check_pyright_baseline.py agentic_trader tests scripts
 
       - name: Run Pytest
         run: uv run --locked --no-sync python -m pytest -q

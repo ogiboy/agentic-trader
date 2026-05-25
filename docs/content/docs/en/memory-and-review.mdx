@@ -1,6 +1,8 @@
 ---
 title: Memory And Review
-description: How trading memory, review evidence, and contributor notes stay separate and inspectable.
+description:
+  How trading memory, review evidence, and contributor notes stay separate and
+  inspectable.
 ---
 
 ## What memory means to an operator
@@ -14,9 +16,8 @@ For an operator, memory means the evidence that helps explain a decision:
 - persisted traces, trade context, and review snapshots
 - source attribution, freshness, and missing-evidence notes
 
-Memory is inspection support.
-It is not hidden permission to trade, and it should not silently mutate broker,
-risk, or runtime policy.
+Memory is inspection support. It is not hidden permission to trade, and it
+should not silently mutate broker, risk, or runtime policy.
 
 ## Review evidence
 
@@ -60,8 +61,8 @@ Update `.ai` notes when a change affects:
 ## Docs responsibility
 
 This docs site is part of the contributor-maintained knowledge base, but it
-should be written for operators first.
-Whenever a durable decision changes, the right follow-up is usually:
+should be written for operators first. Whenever a durable decision changes, the
+right follow-up is usually:
 
 - update the implementation
 - update the relevant docs page
@@ -74,7 +75,10 @@ describe `.ai` files as contributor notes.
 
 ## Feedback flow in plain language
 
-The GitHub Pages docs build cannot write to the repository filesystem.
-Its feedback widget stores a short browser-local draft and prepares a prefilled GitHub issue link for manual submission.
+The GitHub Pages docs build cannot write to the repository filesystem. Its
+feedback widget stores a short browser-local draft and prepares a prefilled
+GitHub issue link for manual submission.
 
-If a future Node-hosted docs instance re-enables server-side feedback, it should keep local auditability explicit and avoid pretending that external forwarding succeeded when it did not.
+If a future Node-hosted docs instance re-enables server-side feedback, it should
+keep local auditability explicit and avoid pretending that external forwarding
+succeeded when it did not.

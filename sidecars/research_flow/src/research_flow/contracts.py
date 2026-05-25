@@ -178,9 +178,9 @@ def build_task_plan(request: ResearchFlowRequest) -> list[dict[str, Any]]:
 def build_contract_output(request: ResearchFlowRequest) -> ResearchFlowContractOutput:
     """
     Constructs a validated sidecar contract payload that summarizes normalized provider data and planned tasks.
-    
+
     The returned contract uses the current UTC time for both `generated_at` and `observed_at`, mirrors `request.symbols` in `watched_symbols`, contains a human-readable `summary` with provider/payload/missing counts, and includes `planned_tasks` produced from the request. The `memory_update` field is populated with `status="not_written"`, a policy-gate reason, `provider_ids`, `planned_tasks`, `contract_version`, and flags for `raw_web_text_injected` and `broker_access`.
-    
+
     Returns:
         ResearchFlowContractOutput: A complete contract payload ready for JSON serialization and downstream consumption.
     """

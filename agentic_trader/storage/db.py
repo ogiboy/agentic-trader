@@ -276,10 +276,10 @@ def _coerce_runtime_mode(value: Any) -> RuntimeMode:
 def _decode_symbols(value: Any) -> list[str]:
     """
     Parse a JSON-encoded symbols value into a list of strings.
-    
+
     Parameters:
         value (Any): A JSON-serializable value (commonly a JSON string or sequence). If `None`, this returns an empty list.
-    
+
     Returns:
         list[str]: The decoded list of symbol strings, or an empty list when `value` is `None`.
     """
@@ -289,13 +289,13 @@ def _decode_symbols(value: Any) -> list[str]:
 def _decode_object_payload(value: Any) -> dict[str, object]:
     """
     Parse a JSON value and return its object form, or an empty mapping on failure.
-    
+
     Attempts to decode `value` as JSON and return the resulting object as a dict with string keys.
     If `value` is None, is not valid JSON, or the decoded JSON is not an object, an empty dict is returned.
-    
+
     Parameters:
         value: The input to parse (typically a JSON string or a value convertible to string).
-    
+
     Returns:
         A dict mapping string keys to decoded JSON values, or an empty dict if parsing fails or the JSON is not an object.
     """
@@ -313,11 +313,11 @@ def _decode_object_payload(value: Any) -> dict[str, object]:
 def _int_or_default(value: Any, default: int) -> int:
     """
     Convert a value to an int, falling back to the provided default when the value is None.
-    
+
     Parameters:
         value (Any): The value to convert using int(); if None, the default is returned.
         default (int): Integer to return when value is None.
-    
+
     Returns:
         int: The converted integer or the provided default.
     """
@@ -482,7 +482,7 @@ class TradingDatabase:
     def _create_core_tables(self) -> None:
         """
         Create core database tables if they do not already exist.
-        
+
         This initializes the main schema used by the application by ensuring the presence of:
         - runs: metadata and payload for executed runs.
         - orders: persisted order proposals/records and their pricing/position metadata.
@@ -494,7 +494,7 @@ class TradingDatabase:
         - account_marks: saved portfolio snapshots/notes for risk tracking and auditing.
         - trade_journal: open/closed trade journal entries with decision & outcome details.
         - trade_contexts: persisted context/trace payloads associated with trades.
-        
+
         No value is returned.
         """
         self.conn.execute("""
@@ -628,7 +628,7 @@ class TradingDatabase:
     def _create_execution_tables(self) -> None:
         """
         Ensure execution-related database tables exist: `execution_records`, `trade_proposals`, and `proposal_candidates`.
-        
+
         `execution_records` stores adapter intent/outcome metadata for executions (intent/outcome payloads, adapter/backend selection, status, and optional rejection reason). `trade_proposals` persists proposed trades and their lifecycle fields (including `limit_price`). `proposal_candidates` persists candidate signals and metadata, including `evidence_json` for serialized evidence.
         """
         self.conn.execute("""
@@ -705,7 +705,7 @@ class TradingDatabase:
     def _create_service_tables(self) -> None:
         """
         Create the database tables used to persist service runtime state, service events, and operator chat history if they do not already exist.
-        
+
         Creates three tables:
         - `service_state`: stores per-service runtime metadata and control flags (state, runtime mode, timestamps, pid, stop/background controls, symbols, interval/lookback/max_cycles, terminal markers, log paths, and a freeform message).
         - `service_events`: records individual service-level events with level, type, message, optional cycle count and symbol.
@@ -765,7 +765,7 @@ class TradingDatabase:
     def _column_names(self, table_name: str) -> set[str]:
         """
         Return the set of column names for the given table.
-        
+
         @returns set[str]: The column names present in `table_name`; returns an empty set if the table does not exist or has no columns.
         """
         return {
@@ -780,7 +780,7 @@ class TradingDatabase:
     ) -> None:
         """
         Add any missing columns to a table by executing the provided SQL statements for each absent column.
-        
+
         Parameters:
             table_name (str): Name of the table to check.
             column_statements (dict[str, str]): Mapping from column name to the full SQL statement that adds that column; a statement is executed only if its column is not present.
@@ -793,7 +793,7 @@ class TradingDatabase:
     def _migrate_service_state_columns(self) -> None:
         """
         Ensure the `service_state` table has recently added columns, adding any that are missing.
-        
+
         This migration adds the following columns when absent: `pid`, `runtime_mode` (default `'operation'`), `stop_requested`, `symbols_json`, `interval`, `lookback`, `max_cycles`, `background_mode`, `launch_count`, `restart_count`, `last_terminal_state`, `last_terminal_at`, `stdout_log_path`, and `stderr_log_path`.
         """
         self._add_missing_columns(
@@ -819,7 +819,7 @@ class TradingDatabase:
     def _create_memory_tables(self) -> None:
         """
         Ensure the `memory_vectors` table exists in the database with schema for storing run embeddings and associated document text.
-        
+
         The table columns:
         - `run_id`: primary key identifying the run.
         - `created_at`: timestamp string when the embedding was created.
@@ -845,7 +845,7 @@ class TradingDatabase:
     def _migrate_memory_vector_columns(self) -> None:
         """
         Add embedding-related columns to the `memory_vectors` table if they are missing.
-        
+
         Ensures the following columns exist with specified defaults:
         - `embedding_provider` (varchar) default `'local_hashing'`
         - `embedding_model` (varchar) default `'agentic-hash-v1'`
@@ -865,7 +865,7 @@ class TradingDatabase:
     def _migrate_trade_proposal_columns(self) -> None:
         """
         Ensure the `trade_proposals` table contains a `limit_price` column.
-        
+
         Adds the `limit_price` column to the `trade_proposals` table when it is not already present.
         """
         self._add_missing_columns(
@@ -876,8 +876,7 @@ class TradingDatabase:
         )
 
     def _migrate_trade_journal_constraints(self) -> None:
-        self.conn.execute(
-            """
+        self.conn.execute("""
             delete from trade_journal
             where trade_id in (
                 select trade_id
@@ -892,19 +891,20 @@ class TradingDatabase:
                 )
                 where duplicate_rank > 1
             )
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             create unique index if not exists trade_journal_entry_order_id_idx
             on trade_journal(entry_order_id)
-            """
-        )
+            """)
+
+    def repair_trade_journal_constraints(self) -> None:
+        """Deduplicate trade-journal entry order IDs and recreate the unique index."""
+        self._migrate_trade_journal_constraints()
 
     def _ensure_default_account(self) -> None:
         """
         Ensure a default "paper" account row exists in the account_state table.
-        
+
         If no row with account_id 'paper' is present, insert one with updated_at set to the current UTC time, cash set to self.settings.default_cash, and realized_pnl set to 0.
         """
         existing = self.conn.execute(
@@ -958,7 +958,7 @@ class TradingDatabase:
     def insert_order(self, order: dict[str, Any]) -> None:
         """
         Persist an order record into the `orders` table.
-        
+
         Parameters:
             order (dict[str, Any]): Mapping containing order fields to persist. Required keys:
                 - order_id (str): Unique order identifier.
@@ -999,7 +999,7 @@ class TradingDatabase:
     def latest_order(self) -> OrderRow | None:
         """
         Fetch the most recent order row from the orders table.
-        
+
         Returns:
             OrderRow | None: `OrderRow` tuple with fields (order_id, created_at, symbol, side, approved, entry_price, stop_loss, take_profit, position_size_pct, confidence), or `None` if no order row exists.
         """
@@ -1029,7 +1029,7 @@ class TradingDatabase:
     def insert_trade_proposal(self, proposal: TradeProposalRecord) -> None:
         """
         Insert a trade proposal record into the database.
-        
+
         Parameters:
             proposal (TradeProposalRecord): Trade proposal data to persist (includes identifiers, market details, pricing/size, status/review fields, and any execution linkage metadata).
         """
@@ -1038,7 +1038,7 @@ class TradingDatabase:
     def _execute_trade_proposal_insert(self, proposal: TradeProposalRecord) -> None:
         """
         Insert the given trade proposal into the `trade_proposals` database table.
-        
+
         Parameters:
             proposal (TradeProposalRecord): The proposal to persist; its fields (including identifiers, timestamps,
                 market/order details, execution linkage fields, status/review metadata, and `limit_price`) are stored
@@ -1084,9 +1084,9 @@ class TradingDatabase:
     def insert_proposal_candidate(self, candidate: ProposalCandidateRecord) -> None:
         """
         Insert a proposal candidate record into the proposal_candidates table.
-        
+
         The candidate's fields are persisted as a new row; the `evidence` field is JSON-serialized into the `evidence_json` column.
-        
+
         Parameters:
             candidate (ProposalCandidateRecord): The proposal candidate record to persist.
         """
@@ -1135,10 +1135,10 @@ class TradingDatabase:
     ) -> ProposalCandidateRecord | None:
         """
         Retrieve a proposal candidate by its unique identifier.
-        
+
         Parameters:
             candidate_id (str): Identifier of the proposal candidate to fetch.
-        
+
         Returns:
             ProposalCandidateRecord | None: The matching candidate record, or `None` if no matching row exists or the `proposal_candidates` table is absent.
         """
@@ -1159,11 +1159,11 @@ class TradingDatabase:
     ) -> list[ProposalCandidateRecord]:
         """
         List proposal candidates from the database, optionally filtered by their status.
-        
+
         Parameters:
             status (ProposalCandidateStatus | None): If provided, only return candidates with this status; if `None`, return candidates of any status.
             limit (int): Maximum number of candidates to return, ordered by `created_at` descending.
-        
+
         Returns:
             list[ProposalCandidateRecord]: Candidate records ordered by `created_at` (newest first); returns an empty list if the `proposal_candidates` table does not exist or no rows match.
         """
@@ -1193,10 +1193,10 @@ class TradingDatabase:
     def update_proposal_candidate(self, candidate: ProposalCandidateRecord) -> bool:
         """
         Update an existing proposal candidate row in the database.
-        
+
         Parameters:
             candidate (ProposalCandidateRecord): The candidate record carrying the updated fields; its `candidate_id` identifies which row to update.
-        
+
         Returns:
             bool: `True` if the update was performed, `False` if the `proposal_candidates` table does not exist.
         """
@@ -1214,12 +1214,12 @@ class TradingDatabase:
     ) -> bool:
         """
         Atomically promote a proposal candidate by inserting the given trade proposal and updating the candidate only when the candidate's current status matches `expected_status`.
-        
+
         Parameters:
             candidate (ProposalCandidateRecord): The candidate record to be updated.
             proposal (TradeProposalRecord): The trade proposal to insert when promoting the candidate.
             expected_status (ProposalCandidateStatus): The required current status of the candidate for promotion (default: "candidate").
-        
+
         Returns:
             bool: `True` if the proposal was inserted and the candidate updated (promotion committed), `False` if the required tables are missing or the candidate's current status did not match `expected_status`.
         """
@@ -1253,7 +1253,7 @@ class TradingDatabase:
     ) -> None:
         """
         Update an existing proposal candidate row in the database with fields from `candidate`.
-        
+
         Parameters:
             candidate (ProposalCandidateRecord): Record whose `candidate_id` identifies the row to update; its `updated_at`, `status`, `evidence`, and `proposal_id` fields are written to the database.
         """
@@ -1375,13 +1375,13 @@ class TradingDatabase:
     ) -> list[TradeProposalRecord]:
         """
         Execute the given SQL query and map each result row to a TradeProposalRecord.
-        
+
         Parameters:
-        	query (str): SQL query to execute. May contain parameter placeholders.
-        	params (list[object]): Parameters to bind to the query placeholders.
-        
+                query (str): SQL query to execute. May contain parameter placeholders.
+                params (list[object]): Parameters to bind to the query placeholders.
+
         Returns:
-        	records (list[TradeProposalRecord]): List of mapped trade proposal records, one per result row.
+                records (list[TradeProposalRecord]): List of mapped trade proposal records, one per result row.
         """
         rows = self.conn.execute(query, params).fetchall()
         return [self._trade_proposal_record_from_row(row) for row in rows]
@@ -1390,10 +1390,10 @@ class TradingDatabase:
     def _trade_proposal_record_from_row(row: object) -> TradeProposalRecord:
         """
         Convert a database row (sequence/tuple) into a TradeProposalRecord.
-        
+
         Parameters:
             row (Sequence[object] | object): A database row (typically a tuple) from a trade_proposals query; elements may be None for optional columns.
-        
+
         Returns:
             TradeProposalRecord: A record populated from the row. Optional numeric and string columns are converted to Python types (None-preserved). If present, the `limit_price` is read from column index 21; other fields are mapped by their positional indices as expected by the trade_proposals schema.
         """
@@ -1432,11 +1432,11 @@ class TradingDatabase:
     ) -> list[ProposalCandidateRecord]:
         """
         Map database rows from the provided query into a list of ProposalCandidateRecord objects.
-        
+
         Parameters:
             query (str): SQL query that returns candidate rows in the exact column order expected by this mapper (columns 0..24 correspond to: candidate_id, created_at, updated_at, symbol, preset, signal, side, score, reference_price, confidence, quantity, notional, thesis, stop_loss, take_profit, invalidation_condition, source, status, materiality, freshness, liquidity, spread_pct, risk_notes, evidence_json, proposal_id).
             params (list[object]): Parameters for the SQL query.
-        
+
         Returns:
             list[ProposalCandidateRecord]: A list of ProposalCandidateRecord values constructed from each row. Optional numeric and string columns are converted to Python types with NULL mapped to None. The `evidence_json` column is parsed into a dict (returns an empty dict on invalid or non-dict JSON).
         """
@@ -1475,9 +1475,9 @@ class TradingDatabase:
     def save_preferences(self, preferences: InvestmentPreferences) -> None:
         """
         Upserts the default preferences profile into the database.
-        
+
         Stores the given InvestmentPreferences as JSON in the `preferences` table under profile_id `"default"`, updating the `updated_at` timestamp on conflict.
-        
+
         Parameters:
             preferences (InvestmentPreferences): Preferences to persist; will be serialized to JSON.
         """
@@ -1496,9 +1496,9 @@ class TradingDatabase:
     def load_preferences(self) -> InvestmentPreferences:
         """
         Load the default investment preferences from the database, creating and persisting a new default if none exists.
-        
+
         Reads the row where profile_id is 'default' and parses its stored JSON into an InvestmentPreferences instance. If no row is found, creates a new InvestmentPreferences, saves it to the database, and returns it.
-        
+
         Returns:
             preferences (InvestmentPreferences): The loaded or newly created default investment preferences.
         """
@@ -1541,7 +1541,7 @@ class TradingDatabase:
     def get_run(self, run_id: str) -> RunRecord | None:
         """
         Fetches a persisted run by its ID and returns a parsed RunRecord.
-        
+
         Returns:
             A RunRecord built from the stored row (with `artifacts` validated/parsed from `payload_json`), or `None` if no run with the given `run_id` exists.
         """
@@ -1567,7 +1567,7 @@ class TradingDatabase:
     def latest_run(self) -> RunRecord | None:
         """
         Fetches the most recent run record.
-        
+
         Returns:
             The `RunRecord` for the latest run ordered by creation time, or `None` if no run exists.
         """
@@ -1832,14 +1832,14 @@ class TradingDatabase:
     ) -> str:
         """
         Create a new trade journal row from the provided run/order artifacts and return the generated trade id.
-        
+
         Parameters:
             run_id (str | None): Associated run identifier, or `None` if not applicable.
             order_id (str): Entry order id used to link the journal to the executed order.
             artifacts (RunArtifacts): Execution and context artifacts containing snapshot, execution, coordinator, strategy, manager, and review fields used to populate the journal.
             journal_status (str): Initial journal status (e.g., "open", "closed").
             notes (str): Optional freeform notes to store with the journal entry.
-        
+
         Returns:
             str: The generated `trade_id` string for the created trade journal entry (e.g., "trade-...").
         """
@@ -1905,9 +1905,9 @@ class TradingDatabase:
     ) -> str | None:
         """
         Create or update an operator-visible trade journal entry for a proposal-driven execution.
-        
+
         If a journal row already exists for the execution's order id, update that row with the proposal/outcome details; otherwise insert a new journal row. If the execution outcome has no associated order id, no journal is created.
-        
+
         Returns:
             The `trade_id` of the created or updated journal entry, or `None` when no journal was created because `outcome.order_id` is `None`.
         """
@@ -1980,14 +1980,14 @@ class TradingDatabase:
     def _proposal_journal_status(outcome: ExecutionOutcome) -> JournalStatus:
         """
         Map an execution outcome's status to the corresponding journal status.
-        
+
         Maps outcome.status to 'open' for accepted/filled/partially_filled, to 'no_fill' for cancelled/no_fill, and to 'rejected' for any other status.
-        
+
         Parameters:
-        	outcome (ExecutionOutcome): Execution outcome whose `status` field is inspected.
-        
+                outcome (ExecutionOutcome): Execution outcome whose `status` field is inspected.
+
         Returns:
-        	JournalStatus: `'open'` if the status is one of `{'accepted', 'filled', 'partially_filled'}`, `'no_fill'` if the status is one of `{'cancelled', 'no_fill'}`, ` 'rejected'` otherwise.
+                JournalStatus: `'open'` if the status is one of `{'accepted', 'filled', 'partially_filled'}`, `'no_fill'` if the status is one of `{'cancelled', 'no_fill'}`, ` 'rejected'` otherwise.
         """
         if outcome.status in {"accepted", "filled", "partially_filled"}:
             return "open"
@@ -2006,9 +2006,9 @@ class TradingDatabase:
     ) -> None:
         """
         Upsert a consolidated trade context record for `trade_id` into the `trade_contexts` table.
-        
+
         Builds a TradeContextRecord from the provided `artifacts` and optional `execution_intent` / `execution_outcome` (including trace summaries, routed model names, market snapshot, decision/review/manager/execution metadata, and simulated-fill metadata when present) and stores the serialized JSON payload keyed by `trade_id`.
-        
+
         Parameters:
             trade_id (str): Identifier used as the upsert key for the persisted trade context.
             run_id (str | None): Optional run identifier associated with this context.
@@ -2147,7 +2147,7 @@ class TradingDatabase:
     def latest_execution_record(self) -> dict[str, object] | None:
         """
         Fetches the most recent execution record from the database.
-        
+
         Returns:
             dict: A mapping of execution record fields (including parsed `intent` and `outcome` objects and other metadata such as `intent_id`, `created_at`, `run_id`, `order_id`, `symbol`, `execution_backend`, `adapter_name`, `status`, and `rejection_reason`) if a record exists, `None` otherwise.
         """
@@ -2163,10 +2163,10 @@ class TradingDatabase:
     def get_execution_record(self, intent_id: str) -> dict[str, object] | None:
         """
         Retrieve a stored execution record by its intent identifier.
-        
+
         Parameters:
             intent_id (str): Unique identifier of the execution intent to retrieve.
-        
+
         Returns:
             dict[str, object] | None: A dictionary containing the execution record fields:
                 - "intent_id": str
@@ -2198,10 +2198,10 @@ class TradingDatabase:
     ) -> dict[str, object] | None:
         """
         Builds a dictionary representing an execution record from a database row.
-        
+
         Parameters:
             row (object | None): A database row tuple as returned by a query (or `None`).
-        
+
         Returns:
             dict[str, object] | None: A mapping with keys:
                 - `intent_id`: string identifier of the execution intent.
@@ -2215,7 +2215,7 @@ class TradingDatabase:
                 - `rejection_reason`: rejection reason string or `None`.
                 - `intent`: parsed JSON object from the stored intent payload.
                 - `outcome`: parsed JSON object from the stored outcome payload.
-        
+
             Returns `None` when `row` is `None`.
         """
         if row is None:
@@ -2340,10 +2340,10 @@ class TradingDatabase:
     def get_trade_context(self, trade_id: str) -> TradeContextRecord | None:
         """
         Retrieve the persisted trade context for a given trade id.
-        
+
         Parameters:
             trade_id (str): Identifier of the trade whose context is stored.
-        
+
         Returns:
             TradeContextRecord | None: The TradeContextRecord parsed from the stored JSON, or `None` if no context exists for the given trade id.
         """
@@ -2362,9 +2362,9 @@ class TradingDatabase:
     def latest_trade_context(self) -> TradeContextRecord | None:
         """
         Fetches the most recent trade context payload from the database and parses it.
-        
+
         Parses the `payload_json` field of the latest `trade_contexts` row into a `TradeContextRecord`.
-        
+
         Returns:
             A `TradeContextRecord` parsed from the most recent `payload_json`, or `None` if no trade context exists.
         """
@@ -2383,10 +2383,10 @@ class TradingDatabase:
     ) -> DailyRiskReport:
         """
         Builds a daily risk report summarizing portfolio and account metrics for a given date.
-        
+
         Parameters:
             report_date (str | None): Optional ISO date string ("YYYY-MM-DD") to generate the report for. If omitted, the current UTC date is used.
-        
+
         Returns:
             DailyRiskReport: Aggregated metrics for the report date including cash, market value, equity, realized and unrealized P&L, open position count, today's fills and realized P&L, gross exposure and largest position as percentages of equity, portfolio Herfindahl–Hirschman Index (HHI), up to five largest position symbols, drawdown from all-time peak, and any generated warnings when configured thresholds are exceeded.
         """
@@ -2840,10 +2840,10 @@ class TradingDatabase:
     def get_account_snapshot(self) -> PortfolioSnapshot:
         """
         Compute a portfolio snapshot for the 'paper' account.
-        
+
         Raises:
             RuntimeError: If the 'paper' account state is missing from the database.
-        
+
         Returns:
             PortfolioSnapshot: Snapshot with fields:
                 - cash: current cash balance
@@ -2881,7 +2881,7 @@ class TradingDatabase:
     def get_position(self, symbol: str) -> PositionSnapshot | None:
         """
         Return the position snapshot for the given symbol, or None if no position exists.
-        
+
         Returns:
             PositionSnapshot: Snapshot containing symbol, quantity, average_price, market_price, market_value, and unrealized_pnl; or `None` if the symbol is not found.
         """
@@ -2913,10 +2913,10 @@ class TradingDatabase:
     def list_positions(self) -> list[PositionSnapshot]:
         """
         Return snapshots for all positions that have a non-zero quantity, ordered by symbol.
-        
+
         Each returned PositionSnapshot includes computed `market_value` (quantity * market_price) and
         `unrealized_pnl` ((market_price - average_price) * quantity).
-        
+
         Returns:
             list[PositionSnapshot]: List of position snapshots with fields:
                 symbol, quantity, average_price, market_price, market_value, unrealized_pnl.
@@ -3022,10 +3022,10 @@ class TradingDatabase:
     def list_position_plans(self) -> list[PositionPlanSnapshot]:
         """
         List saved position plans ordered by symbol.
-        
+
         Each entry is a PositionPlanSnapshot containing symbol, side, entry_price, stop_loss, take_profit,
         max_holding_bars, holding_bars, invalidation_logic, and updated_at.
-        
+
         Returns:
             list[PositionPlanSnapshot]: Position plans ordered by symbol.
         """

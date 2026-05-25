@@ -1,7 +1,11 @@
 import type { ReactNode, SyntheticEvent } from 'react';
 
-import { cx } from '../control-room.helpers';
-import type { DashboardData, MessageTone, TabId } from '../control-room.helpers';
+import type {
+  DashboardData,
+  MessageTone,
+  TabId,
+} from '../control-room.helpers';
+import { cx, localizedStatusText } from '../control-room.helpers';
 import {
   CONTROL_ROOM_LOCALES,
   normalizeControlRoomLocale,
@@ -45,7 +49,7 @@ export function ControlRoomAuthShell({
   token,
 }: Readonly<ControlRoomAuthShellProps>) {
   return (
-    <div className="auth-shell">
+    <div className='auth-shell'>
       <WebguiTokenPrompt
         busy={authBusy}
         copy={copy.auth}
@@ -92,15 +96,15 @@ export function ControlRoomShell({
   onSelectTab,
 }: Readonly<ControlRoomShellProps>) {
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="sidebar__brand">
-          <div className="sidebar__eyebrow">{copy.shell.eyebrow}</div>
-          <div className="sidebar__title">{copy.shell.title}</div>
-          <div className="sidebar__subtitle">{copy.shell.subtitle}</div>
+    <div className='shell'>
+      <aside className='sidebar'>
+        <div className='sidebar__brand'>
+          <div className='sidebar__eyebrow'>{copy.shell.eyebrow}</div>
+          <div className='sidebar__title'>{copy.shell.title}</div>
+          <div className='sidebar__subtitle'>{copy.shell.subtitle}</div>
         </div>
 
-        <nav className="sidebar__nav" aria-label={copy.shell.navAria}>
+        <nav className='sidebar__nav' aria-label={copy.shell.navAria}>
           {tabs.map((item) => (
             <button
               className={cx(
@@ -109,15 +113,15 @@ export function ControlRoomShell({
               )}
               key={item.id}
               onClick={() => onSelectTab(item.id)}
-              type="button"
+              type='button'
             >
               {item.label}
             </button>
           ))}
         </nav>
 
-        <div className="sidebar__meta">
-          <label className="field-label">
+        <div className='sidebar__meta'>
+          <label className='field-label'>
             <span>{copy.shell.language}</span>
             <select
               value={locale}
@@ -150,59 +154,63 @@ export function ControlRoomShell({
         </div>
       </aside>
 
-      <main className="main">
-        <header className="topbar">
-          <div className="topbar__status">
-            <span className="topbar__headline">{activeTabLabel}</span>
-            <span className="chip">
+      <main className='main'>
+        <header className='topbar'>
+          <div className='topbar__status'>
+            <span className='topbar__headline'>{activeTabLabel}</span>
+            <span className='chip'>
               {dashboard?.status?.runtime_mode ??
                 dashboard?.doctor?.runtime_mode ??
                 '-'}
             </span>
-            <span className="chip">
+            <span className='chip'>
               {dashboard?.broker?.execution_mode ?? '-'}
             </span>
-            <span className="chip">
-              {dashboard?.broker?.message ?? copy.shell.runtimeUnavailable}
+            <span className='chip chip--message'>
+              {localizedStatusText(
+                dashboard?.broker?.message ?? copy.shell.runtimeUnavailable,
+                copy,
+              )}
             </span>
           </div>
-          <div className="topbar__actions">
+          <div className='topbar__actions'>
             <button
-              className="button"
+              className='button'
+              disabled={busy !== null}
               onClick={() => onRunAction('refresh')}
-              type="button"
+              type='button'
             >
               {copy.shell.actions.refresh}
             </button>
             <button
-              className="button"
+              className='button'
               disabled={busy !== null}
               onClick={() => onRunAction('one-shot')}
-              type="button"
+              type='button'
             >
               {copy.shell.actions.oneShot}
             </button>
             <button
-              className="button"
+              className='button'
               disabled={busy !== null}
               onClick={() => onRunAction('start')}
-              type="button"
+              type='button'
             >
               {copy.shell.actions.start}
             </button>
             <button
-              className="button"
+              className='button'
               disabled={busy !== null}
               onClick={() => onRunAction('stop')}
-              type="button"
+              type='button'
             >
               {copy.shell.actions.stop}
             </button>
             <button
-              className="button"
+              className='button'
               disabled={busy !== null}
               onClick={() => onRunAction('restart')}
-              type="button"
+              type='button'
             >
               {copy.shell.actions.restart}
             </button>
@@ -210,11 +218,15 @@ export function ControlRoomShell({
         </header>
 
         {message ? (
-          <div className={cx('banner', `banner--${message.tone}`)}>
+          <div
+            aria-live='polite'
+            className={cx('banner', `banner--${message.tone}`)}
+            role='status'
+          >
             {message.text}
           </div>
         ) : null}
-        {error ? <div className="banner banner--bad">{error}</div> : null}
+        {error ? <div className='banner banner--bad'>{error}</div> : null}
 
         {content}
       </main>

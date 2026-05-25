@@ -12,5 +12,5 @@ fi
 uv lock --check
 uv run ${RUN_FLAGS} ruff check .
 # shellcheck disable=SC2086
-uv run ${RUN_FLAGS} pyright ${PYRIGHT_TARGETS}
+uv run ${RUN_FLAGS} python scripts/check_pyright_baseline.py ${PYRIGHT_TARGETS}
 uv run ${RUN_FLAGS} python -m pytest -q

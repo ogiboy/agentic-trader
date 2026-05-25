@@ -160,4 +160,4 @@ export function accessKeyMiddleware(config) {
 }
 
 // Re-export utilities so server.js can still use them directly
-export { timingSafeCompare, isLoopbackAddress };
+export { isLoopbackAddress, timingSafeCompare };

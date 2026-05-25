@@ -52,9 +52,9 @@ class FakeClient:
     def get(self, _url: str, **_kwargs: Any) -> FakeResponse:
         """
         Provide the preconfigured FakeResponse used for any GET request.
-        
+
         All arguments are ignored by this fake client.
-        
+
         Returns:
             FakeResponse: The client's stored response instance returned for every GET.
         """
@@ -63,12 +63,12 @@ class FakeClient:
     def post(self, _url: str, *, json: dict[str, Any], **_kwargs: Any) -> FakeResponse:
         """
         Record the JSON payload and return the next queued fake response or a default success response.
-        
+
         Parameters:
             _url (str): Ignored request URL.
             json (dict[str, Any]): JSON body to record; a shallow copy is appended to the client's recorded posts.
             _kwargs: Ignored keyword arguments.
-        
+
         Returns:
             FakeResponse: The next response from the client's post_responses queue if present; otherwise a default FakeResponse with payload `{"response": "OK"}`.
         """
@@ -186,7 +186,7 @@ def test_openai_compatible_provider_generates_and_checks_health() -> None:
 def test_openai_compatible_provider_uses_schema_and_content_parts() -> None:
     """
     Verifies that OpenAICompatibleProvider applies a JSON schema and concatenates multipart text content into a single response.
-    
+
     Queues a POST response whose `choices[0].message.content` is a list of parts, confirms that only `type == "text"` parts are concatenated (skipping non-text parts), that the assembled response equals the expected JSON string, and that the outgoing request used a `response_format` of type `json_schema` with the `agentic_trader_response` name and the provided schema.
     """
     provider = OpenAICompatibleProvider(

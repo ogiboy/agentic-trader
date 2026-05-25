@@ -606,12 +606,12 @@ def _system_status_table(
 def _portfolio_renderable(db: TradingDatabase) -> Group:
     """
     Create a Rich renderable containing a portfolio summary and a positions table.
-    
+
     The summary table shows cash, market value, equity, realized PnL, unrealized PnL (paper mark), number of open positions, and the latest mark timestamp and source. The positions table lists each position's symbol, quantity, average price, market price, market value, and unrealized PnL; a placeholder row is used when there are no positions.
-    
+
     Parameters:
         db (TradingDatabase): Database used to retrieve the account snapshot, user preferences (for currency), latest account mark, and current positions.
-    
+
     Returns:
         Group: A Rich Group containing the "Portfolio" summary table followed by the "Positions" table.
     """
@@ -893,11 +893,11 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
 def _render_broker_status(settings: Settings) -> None:
     """
     Render the broker backend runtime status as a Rich table to the console.
-    
+
     Fetches the broker runtime payload from the current settings and prints a "Broker Status"
     table that includes adapter/backend information, execution flags, Alpaca-related settings,
     an informational message, and optional healthcheck message and blocking reasons.
-    
+
     Parameters:
         settings (Settings): Application settings used to obtain the broker runtime payload.
     """
@@ -1674,7 +1674,7 @@ def _run_readonly_db_menu_action(settings: Settings, action: TuiMenuAction) -> N
 def _portfolio_menu(settings: Settings) -> None:
     """
     Present an interactive "Portfolio and Risk" menu that lets the operator view the paper portfolio, trade journal, or daily risk report.
-    
+
     Opens a read-only database when a selected view requires persisted data, displays an observer-mode notice if the database is unavailable, closes the database after each view, and returns when the user selects "Back".
     """
     actions = {
@@ -1705,9 +1705,9 @@ def _portfolio_menu(settings: Settings) -> None:
 def _research_menu(settings: Settings) -> None:
     """
     Display the Research and Memory menu and handle the operator's selection loop.
-    
+
     Presents options to open the memory explorer, show recent runs (followed by a short runtime events list), or return to the previous menu. When a readable database is required the function attempts a safe read-only open and displays an observer-mode notice if the runtime writer prevents access; any opened database is closed before continuing.
-    
+
     Parameters:
         settings (Settings): Application settings used to locate and open the trading database and service state.
     """
@@ -1739,7 +1739,7 @@ def _research_menu(settings: Settings) -> None:
 def _review_menu(settings: Settings) -> None:
     """
     Present an interactive "Review and Trace" menu to inspect the latest persisted run review or its trace.
-    
+
     Parameters:
         settings (Settings): Application settings used to locate the trading database and configure UI behavior.
     """
@@ -1821,7 +1821,7 @@ def _exit_menu_action(_settings: Settings) -> None:
 def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
     """
     Define the main menu actions used by the TUI.
-    
+
     Returns:
         A tuple of `TuiMainMenuAction` entries representing the main menu items in order: configure investment preferences, runtime control, operator desk, portfolio and risk, research and memory, review and trace, and exit (the exit action is marked to leave the menu).
     """

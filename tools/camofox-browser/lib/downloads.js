@@ -5,10 +5,10 @@
  * in-page image source extraction with optional inline data.
  */
 
-import crypto from 'crypto';
-import path from 'path';
-import os from 'os';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 const MAX_DOWNLOAD_RECORDS_PER_TAB = 20;
 const MAX_DOWNLOAD_INLINE_BYTES = 20 * 1024 * 1024;
@@ -245,11 +245,11 @@ async function getDownloadsList(
 }
 
 export {
+  attachDownloadListener,
+  clearSessionDownloads,
+  clearTabDownloads,
+  getDownloadsList,
+  guessMimeTypeFromName,
   MAX_DOWNLOAD_INLINE_BYTES,
   sanitizeFilename,
-  guessMimeTypeFromName,
-  clearTabDownloads,
-  clearSessionDownloads,
-  attachDownloadListener,
-  getDownloadsList,
 };

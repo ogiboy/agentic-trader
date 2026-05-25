@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
+import type { DashboardData } from '../control-room.helpers';
 import {
   accountCurrency,
   formatList,
@@ -8,7 +8,6 @@ import {
   positionPlanCoverageLines,
   unavailableSectionLines,
 } from '../control-room.helpers';
-import type { DashboardData } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 import { JsonPreview, KeyValueList, Panel, TextList } from './primitives';
 
@@ -40,14 +39,14 @@ export function PortfolioView({
     ) ||
     (dashboard.journal?.entries?.length
       ? dashboard.journal.entries.map(
-          (entry: Record<string, any>) =>
+          (entry: DashboardData) =>
             `${formatTimestamp(entry.opened_at)} | ${entry.symbol} | ${entry.journal_status} | ${entry.planned_side} | ${entry.realized_pnl ?? '-'}`,
         )
       : [copy.portfolio.emptyTradeJournal]);
 
   return (
-    <div className="grid grid--2">
-      <Panel title={copy.portfolio.panels.portfolio} accent="lime">
+    <div className='grid grid--2'>
+      <Panel title={copy.portfolio.panels.portfolio} accent='lime'>
         {portfolioUnavailable ? (
           <TextList items={portfolioUnavailable} />
         ) : (
@@ -82,14 +81,17 @@ export function PortfolioView({
                   copy.portfolio.fields.markedAt,
                   formatTimestamp(accounting?.mark_created_at),
                 ],
-                [copy.portfolio.fields.markSource, accounting?.mark_source ?? '-'],
+                [
+                  copy.portfolio.fields.markSource,
+                  accounting?.mark_source ?? '-',
+                ],
               ]}
             />
             <JsonPreview value={dashboard.portfolio?.positions || []} />
           </>
         )}
       </Panel>
-      <Panel title={copy.portfolio.panels.riskReport} accent="rose">
+      <Panel title={copy.portfolio.panels.riskReport} accent='rose'>
         {riskUnavailable ? (
           <TextList items={riskUnavailable} />
         ) : (
@@ -138,16 +140,19 @@ export function PortfolioView({
           </>
         )}
       </Panel>
-      <Panel title={copy.portfolio.panels.tradeJournal} accent="amber">
+      <Panel title={copy.portfolio.panels.tradeJournal} accent='amber'>
         <TextList items={journalLines} />
       </Panel>
-      <Panel title={copy.portfolio.panels.exitPlanCoverage} accent="rose">
+      <Panel title={copy.portfolio.panels.exitPlanCoverage} accent='rose'>
         <TextList items={positionPlanCoverageLines(dashboard)} />
       </Panel>
-      <Panel title={copy.portfolio.panels.preferences} accent="cyan">
+      <Panel title={copy.portfolio.panels.preferences} accent='cyan'>
         <KeyValueList
           items={[
-            [copy.portfolio.fields.regions, formatList(dashboard.preferences?.regions)],
+            [
+              copy.portfolio.fields.regions,
+              formatList(dashboard.preferences?.regions),
+            ],
             [
               copy.portfolio.fields.exchanges,
               formatList(dashboard.preferences?.exchanges),
@@ -156,13 +161,22 @@ export function PortfolioView({
               copy.portfolio.fields.currencies,
               formatList(dashboard.preferences?.currencies),
             ],
-            [copy.portfolio.fields.risk, dashboard.preferences?.risk_profile ?? '-'],
-            [copy.portfolio.fields.style, dashboard.preferences?.trade_style ?? '-'],
+            [
+              copy.portfolio.fields.risk,
+              dashboard.preferences?.risk_profile ?? '-',
+            ],
+            [
+              copy.portfolio.fields.style,
+              dashboard.preferences?.trade_style ?? '-',
+            ],
             [
               copy.portfolio.fields.behavior,
               dashboard.preferences?.behavior_preset ?? '-',
             ],
-            [copy.portfolio.fields.tone, dashboard.preferences?.agent_tone ?? '-'],
+            [
+              copy.portfolio.fields.tone,
+              dashboard.preferences?.agent_tone ?? '-',
+            ],
             [
               copy.portfolio.fields.strictness,
               dashboard.preferences?.strictness_preset ?? '-',
@@ -170,7 +184,7 @@ export function PortfolioView({
           ]}
         />
       </Panel>
-      <Panel title={copy.portfolio.panels.deskAccountingNotes} accent="amber">
+      <Panel title={copy.portfolio.panels.deskAccountingNotes} accent='amber'>
         <KeyValueList
           items={[
             [copy.portfolio.fields.currency, currency],
@@ -178,7 +192,10 @@ export function PortfolioView({
               copy.portfolio.fields.markStatus,
               accounting.mark_status ?? 'mark_time_unavailable',
             ],
-            [copy.portfolio.fields.deskFees, accounting.cost_model?.fees ?? '-'],
+            [
+              copy.portfolio.fields.deskFees,
+              accounting.cost_model?.fees ?? '-',
+            ],
             [
               copy.portfolio.fields.slippage,
               accounting.cost_model?.slippage_bps == null

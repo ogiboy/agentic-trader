@@ -177,9 +177,9 @@ def test_retrieve_similar_memories_prefers_closest_snapshot(tmp_path: Path) -> N
 def test_memory_vector_schema_migrates_legacy_rows(tmp_path: Path) -> None:
     """
     Verify that legacy `memory_vectors` rows lacking embedding metadata are migrated and populated with expected embedding schema fields.
-    
+
     Creates a legacy `memory_vectors` table (missing embedding metadata), inserts a legacy row, initializes `TradingDatabase`, then queries the migrated row to assert `embedding_provider == "local_hashing"`, `embedding_model == "agentic-hash-v1"`, `embedding_version == "1"`, and `embedding_dimensions == 64`.
-    
+
     Parameters:
         tmp_path (Path): Temporary filesystem path provided by pytest for creating the test database.
     """

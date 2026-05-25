@@ -20,12 +20,12 @@ DEFAULT_ARTIFACT_ROOT = REPO_ROOT / ".ai" / "qa" / "artifacts"
 def _json_default(value: object) -> str:
     """
     Convert a value to a JSON-serializable string representation.
-    
+
     Specifically converts pathlib.Path objects to their string path; all other values are converted using `str()`.
-    
+
     Parameters:
         value (object): The value to convert for JSON serialization.
-    
+
     Returns:
         str: A string suitable for JSON encoding representing `value`.
     """
@@ -37,9 +37,9 @@ def _json_default(value: object) -> str:
 def _write_json(path: Path, payload: object) -> None:
     """
     Write a JSON-serializable payload to the given file path using stable formatting.
-    
+
     The file is written with 2-space indentation, keys sorted, non-standard types converted via _json_default, and UTF-8 encoding.
-    
+
     Parameters:
         path (Path): Destination file path to write.
         payload (object): JSON-serializable object to persist.
@@ -53,10 +53,10 @@ def _write_json(path: Path, payload: object) -> None:
 def _parse_json(stdout: str) -> Any:
     """
     Attempt to parse a stdout string as JSON and return the resulting value.
-    
+
     Parameters:
         stdout (str): The stdout text to parse as JSON.
-    
+
     Returns:
         The Python object resulting from JSON decoding of `stdout`, or `None` if `stdout` is not valid JSON.
     """
@@ -77,7 +77,7 @@ def _run_step(
 ) -> dict[str, object]:
     """
     Run a single agentic_trader CLI step, record its outputs and duration, and persist a per-step JSON artifact.
-    
+
     Parameters:
         name (str): Identifier used for the step and artifact filename (written as <name>.json).
         args (list[str]): CLI arguments passed to the agentic_trader module (excluding the Python interpreter).
@@ -85,7 +85,7 @@ def _run_step(
         artifact_dir (Path): Directory where the per-step JSON payload will be written.
         expect_success (bool): If True, `ok` is True when the process exit code is 0; if False, `ok` is True when the exit code is non-zero.
         timeout (int): Subprocess execution timeout in seconds.
-    
+
     Returns:
         dict: A payload dictionary persisted to `{artifact_dir}/{name}.json` containing:
             - name (str): step name
@@ -132,17 +132,17 @@ def _run_step(
 def _env_for_run(args: argparse.Namespace, artifact_dir: Path) -> dict[str, str]:
     """
     Create an environment mapping configured for an isolated rehearsal runtime and return it.
-    
+
     This will ensure a runtime directory exists under `artifact_dir` and populate environment variables
     that point to that runtime, configure the execution backend, and disable live execution and the
     execution kill switch. If `args.execution_backend` equals `"alpaca_paper"`, the Alpaca paper trading
     flag is enabled.
-    
+
     Parameters:
         args (argparse.Namespace): Parsed CLI arguments; uses `args.execution_backend`.
         artifact_dir (Path): Directory under which a `runtime` subdirectory will be created and used
             for runtime artifacts (database path, etc.).
-    
+
     Returns:
         dict[str, str]: A copy of the current environment updated with rehearsal-specific variables.
     """
@@ -166,15 +166,15 @@ def _env_for_run(args: argparse.Namespace, artifact_dir: Path) -> dict[str, str]
 def _symbol_list(raw_symbols: str) -> list[str]:
     """
     Parse a comma-separated string of symbols into a list of uppercase symbol strings.
-    
+
     Empty items and surrounding whitespace are removed. Leading/trailing whitespace on each symbol is stripped and each symbol is converted to uppercase.
-    
+
     Parameters:
         raw_symbols (str): Comma-separated symbols, e.g. "AAPL, msft, GOOG".
-    
+
     Returns:
         list[str]: A list of uppercase symbol tokens.
-    
+
     Raises:
         ValueError: If no valid symbols are found.
     """
@@ -187,10 +187,10 @@ def _symbol_list(raw_symbols: str) -> list[str]:
 def _proposal_risk_defaults(reference_price: float) -> tuple[float, float]:
     """
     Compute default stop-loss and take-profit bounds from a reference price.
-    
+
     Parameters:
         reference_price (float): Price used as the baseline for risk calculations.
-    
+
     Returns:
         tuple[float, float]: (stop_loss, take_profit) where stop_loss is the reference price multiplied by 0.95 and rounded to two decimal places, and take_profit is the reference price multiplied by 1.1 and rounded to two decimal places.
     """
@@ -200,7 +200,7 @@ def _proposal_risk_defaults(reference_price: float) -> tuple[float, float]:
 def _build_markdown_report(summary: dict[str, object]) -> str:
     """
     Build a human-readable Markdown report summarizing a rehearsal run.
-    
+
     Parameters:
         summary (dict[str, object]): Summary mapping produced by run_rehearsal. Expected keys:
             - "created_at": ISO timestamp string.
@@ -210,7 +210,7 @@ def _build_markdown_report(summary: dict[str, object]) -> str:
             - "passed": boolean overall pass status.
             - "steps": list of step dicts; each step should include at least "name", "exit_code", "duration_ms", and "ok".
             - Optional proposal-related keys: "candidate_id", "proposal_id", "approval_status", "outcome_status", "refresh_check".
-    
+
     Returns:
         str: A Markdown-formatted string with rehearshal metadata, a per-step PASS/FAIL listing, proposal fields, and notes.
     """
@@ -258,15 +258,15 @@ def _build_markdown_report(summary: dict[str, object]) -> str:
 def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
     """
     Orchestrates a V1 paper desk rehearsal by running a sequence of agentic_trader CLI steps, recording per-step evidence and producing summary artifacts in an isolated artifact directory.
-    
+
     Runs provider diagnostics, readiness checks, finance/research/memory steps, creates/promotes/approves a proposal candidate, conditionally attempts a refresh, collects post-action artifacts and an evidence bundle, and writes both a JSON summary and a Markdown report to the artifact directory.
-    
+
     Parameters:
         args (argparse.Namespace): Configuration for the rehearsal run (as returned by parse_args).
             Relevant fields used include: symbols, proposal_symbol, reference_price, side,
             quantity, cycles, interval, lookback, thesis, invalidation_condition,
             execution_backend, artifact_root, and label.
-    
+
     Returns:
         summary (dict[str, object]): A dictionary summarizing the rehearsal with keys:
             - created_at (str): ISO 8601 UTC timestamp when the summary was built.
@@ -304,13 +304,13 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
     ) -> dict[str, object]:
         """
         Run a single agentic_trader CLI step, persist its per-step payload to the rehearsal steps list, and return that payload.
-        
+
         Parameters:
             name (str): Human-readable label for the step; used as the per-step artifact filename (name.json).
             command_args (list[str]): CLI arguments passed to the agentic_trader command (excluding the python -m prefix).
             expect_success (bool): Whether an exit code of 0 is considered a successful outcome for this step.
             timeout (int): Maximum seconds to wait for the CLI command to complete.
-        
+
         Returns:
             dict[str, object]: The per-step payload recorded for this step (also appended to the enclosing `steps` list and persisted to disk). The payload includes keys such as `name`, `command`, `exit_code`, `duration_ms`, `expected_success`, `ok`, `stdout_json`, `stdout`, and `stderr`.
         """
@@ -529,10 +529,10 @@ def run_rehearsal(args: argparse.Namespace) -> dict[str, object]:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """
     Create and parse command-line arguments for the V1 paper desk rehearsal CLI.
-    
+
     Parameters:
         argv (list[str]): List of command-line arguments (typically sys.argv[1:]).
-    
+
     Arguments parsed:
         --symbols: Comma-separated list of ticker symbols (default "AAPL,MSFT").
         --cycles: Number of research cycles to run (default 2).
@@ -548,7 +548,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         --execution-backend: Execution backend to configure ("paper" or "alpaca_paper", default "paper").
         --artifact-root: Path to the artifact root directory (default DEFAULT_ARTIFACT_ROOT).
         --label: Optional label to namespace the artifact output directory.
-    
+
     Returns:
         argparse.Namespace: Parsed arguments with attributes corresponding to the options above.
     """
@@ -589,11 +589,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     """
     Run the rehearsal CLI flow and print a compact JSON result to stdout.
-    
+
     Parameters:
         argv (list[str] | None): Command-line arguments to parse; when `None` uses `sys.argv[1:]`.
             If the first argument is `"--"`, that sentinel is removed before parsing.
-    
+
     Returns:
         int: 0 when the rehearsal passed, 1 otherwise. On exceptions the function prints an error JSON
         (`{"passed": False, "error": ...}`) and returns 1.

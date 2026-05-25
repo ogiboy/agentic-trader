@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import hashlib
 from urllib.parse import urlparse
-from typing import Any, Callable, Protocol, cast
+from typing import Any, Callable, Protocol
 from uuid import uuid4
 
 from agentic_trader.config import Settings
@@ -36,11 +36,11 @@ ALPACA_REJECTED_STATUSES = {"rejected"}
 def _deterministic_unit_interval(seed: str, label: str) -> float:
     """
     Deterministically derive a float in the interval [0, 1) from a seed and label.
-    
+
     Parameters:
         seed (str): Primary seed value used to derive the output.
         label (str): Secondary label to produce a distinct value for the same seed.
-    
+
     Returns:
         float: A deterministic pseudorandom value in [0, 1).
     """
@@ -51,15 +51,15 @@ def _deterministic_unit_interval(seed: str, label: str) -> float:
 def _deterministic_uniform(seed: str, label: str, low: float, high: float) -> float:
     """
     Map a deterministic pseudo-random value derived from `seed` and `label` into the interval [low, high).
-    
+
     Parameters:
-    	seed (str): Primary seed string used to derive the deterministic value.
-    	label (str): Secondary label appended to the seed to namespace the result.
-    	low (float): Lower bound of the target interval (inclusive).
-    	high (float): Upper bound of the target interval (exclusive).
-    
+        seed (str): Primary seed string used to derive the deterministic value.
+        label (str): Secondary label appended to the seed to namespace the result.
+        low (float): Lower bound of the target interval (inclusive).
+        high (float): Upper bound of the target interval (exclusive).
+
     Returns:
-    	A float in the interval [low, high).
+        A float in the interval [low, high).
     """
     return low + ((high - low) * _deterministic_unit_interval(seed, label))
 
@@ -67,10 +67,10 @@ def _deterministic_uniform(seed: str, label: str, low: float, high: float) -> fl
 def _alpaca_client_order_id(intent_id: str) -> str:
     """
     Produce a sanitized client order identifier suitable for Alpaca: contains only alphanumeric characters, hyphen, or underscore and is at most 48 characters long.
-    
+
     Parameters:
         intent_id (str): Original intent identifier to sanitize.
-    
+
     Returns:
         str: A client order id containing only letters, digits, '-' and '_' truncated to 48 characters. If `intent_id` contains no allowed characters, returns a generated identifier starting with `"intent-"`.
     """
@@ -185,11 +185,11 @@ class _ReadOnlyOrderOutcomeReader:
     ) -> ExecutionOutcome:
         """
         Fetches the latest execution outcome for the specified order and intent.
-        
+
         Parameters:
             order_id (str): Broker order identifier to refresh.
             intent (ExecutionIntent): The original execution intent associated with the order.
-        
+
         Returns:
             ExecutionOutcome: The persisted or refreshed execution outcome for the specified order.
         """
@@ -209,10 +209,10 @@ class PaperBrokerAdapter:
     def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
         """
         Submit the given execution intent to the paper broker after tagging it with this adapter and the paper execution backend.
-        
+
         Parameters:
             intent (ExecutionIntent): The execution intent to place; a copy will be created with `adapter_name` set to this adapter's backend name and `execution_backend` set to "paper" before submission.
-        
+
         Returns:
             ExecutionOutcome: The recorded outcome of the placed order.
         """
@@ -230,14 +230,14 @@ class PaperBrokerAdapter:
     ) -> ExecutionOutcome:
         """
         Refreshes and returns the persisted ExecutionOutcome for a paper order after validating the stored execution record matches the provided order id.
-        
+
         Parameters:
             order_id (str): The broker order identifier to match against the stored execution record.
             intent (ExecutionIntent): The execution intent whose intent_id is used to locate the persisted execution record.
-        
+
         Returns:
             ExecutionOutcome: The outcome reconstructed from the persisted outcome payload.
-        
+
         Raises:
             RuntimeError: If there is no execution record matching the intent and order_id, or if the persisted outcome payload is not a dictionary.
         """
@@ -252,10 +252,10 @@ class PaperBrokerAdapter:
     def submit(self, decision: ExecutionDecision) -> str:
         """
         Submit an execution decision to the configured broker.
-        
+
         Parameters:
             decision (ExecutionDecision): The execution decision describing the action to perform.
-        
+
         Returns:
             str: Broker-provided identifier for the submitted execution (e.g., an order id or a unique token).
         """
@@ -359,14 +359,14 @@ class SimulatedRealBrokerAdapter:
     def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
         """
         Simulates placing an order using deterministic market-friction rules and returns the resulting execution outcome.
-        
+
         The method either:
         - triggers a deterministic rejection hook (when the intent is approved and not a "hold") and returns an outcome with status `"rejected"` and `rejection_reason` set to `"simulated_rejection_hook"`, or
         - computes a deterministic fill ratio and simulated execution price, submits a modified intent to the underlying paper broker, and returns the broker outcome augmented with `simulated_metadata`. If the broker reports `"filled"` but the simulated fill ratio is less than 1.0, the returned outcome is converted to `"partially_filled"`.
-        
+
         Parameters:
             intent (ExecutionIntent): The execution intent to simulate; approval state, side, quantity/notional, and reference_price influence rejection gating and simulated fill behavior.
-        
+
         Returns:
             ExecutionOutcome: The execution outcome representing the simulated submission, including `simulated_metadata` describing the deterministic simulation parameters and, when applicable, `rejection_reason` or a `"partially_filled"` status.
         """
@@ -452,12 +452,12 @@ class SimulatedRealBrokerAdapter:
     ) -> ExecutionOutcome:
         """
         Refresh an execution outcome by loading and validating the persisted execution record for the given intent.
-        
+
         Loads the execution record for intent.intent_id from the trading database and returns an ExecutionOutcome built from the stored outcome payload.
-        
+
         Returns:
             ExecutionOutcome: The outcome reconstructed from the persisted outcome payload.
-        
+
         Raises:
             RuntimeError: If no execution record exists for the intent or the record's order_id does not match `order_id`.
             RuntimeError: If the persisted outcome payload is missing or not a dictionary.
@@ -477,10 +477,10 @@ class SimulatedRealBrokerAdapter:
     def cancel_order(self, order_id: str) -> bool:
         """
         Check whether an open order with the given order_id exists.
-        
+
         Parameters:
             order_id (str): Broker order identifier to search for.
-        
+
         Returns:
             `True` if an open order with `order_id` exists, `False` otherwise.
         """
@@ -530,6 +530,11 @@ def _coerce_float(value: object, *, default: float = 0.0) -> float:
         return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return default
+
+
+def coerce_broker_float(value: object, *, default: float = 0.0) -> float:
+    """Coerce a broker/API payload value into a float with a deterministic fallback."""
+    return _coerce_float(value, default=default)
 
 
 def alpaca_credentials_ready(settings: Settings) -> bool:
@@ -591,17 +596,21 @@ class AlpacaPaperBrokerAdapter:
             self._client = self._build_client()
         return self._client
 
+    @client.setter
+    def client(self, value: Any) -> None:
+        self._client = value
+
     def _blocked_outcome(
         self, intent: ExecutionIntent, *, reason: str, message: str
     ) -> ExecutionOutcome:
         """
         Create an ExecutionOutcome representing a blocked Alpaca paper order for the given intent.
-        
+
         Parameters:
             intent (ExecutionIntent): The execution intent being blocked; its intent_id will be copied into the outcome.
             reason (str): A short machine-readable rejection reason.
             message (str): A human-readable message describing why the intent was blocked.
-        
+
         Returns:
             ExecutionOutcome: An outcome with status "blocked", a generated Alpaca-paper order_id, adapter/backend set to Alpaca paper, and the provided rejection reason and message.
         """
@@ -618,14 +627,14 @@ class AlpacaPaperBrokerAdapter:
     def _preflight_outcome(self, intent: ExecutionIntent) -> ExecutionOutcome | None:
         """
         Run a sequence of preflight validation checks for an execution intent and return the first blocking outcome.
-        
+
         Performs basic validation, limit-order validation, a shorting-disabled check when selling and shorting is disallowed, and a risk-limit check in that order; returns the first produced `ExecutionOutcome` that represents a blocked or rejected preflight result, or `None` if the intent passes all checks.
-        
+
         Parameters:
-        	intent (ExecutionIntent): The execution intent to validate.
-        
+                intent (ExecutionIntent): The execution intent to validate.
+
         Returns:
-        	ExecutionOutcome | None: An `ExecutionOutcome` describing the blocking preflight failure, or `None` when no preflight check blocks the intent.
+                ExecutionOutcome | None: An `ExecutionOutcome` describing the blocking preflight failure, or `None` when no preflight check blocks the intent.
         """
         basic_outcome = self._basic_preflight_outcome(intent)
         if basic_outcome is not None:
@@ -647,9 +656,9 @@ class AlpacaPaperBrokerAdapter:
     ) -> ExecutionOutcome | None:
         """
         Perform basic preflight checks on an execution intent and return a blocked outcome if any check fails.
-        
+
         Checks include: intent approval and non-hold side, US V1 equity symbol scope, order type being `market` or `limit`, and presence of either `quantity` or `notional`.
-        
+
         Returns:
             `ExecutionOutcome` describing the blocking reason when a check fails, `None` when the intent passes these basic validations.
         """
@@ -684,10 +693,10 @@ class AlpacaPaperBrokerAdapter:
     ) -> ExecutionOutcome | None:
         """
         Validate required fields for limit orders and produce a blocked outcome when a requirement is missing.
-        
+
         Parameters:
             intent (ExecutionIntent): The execution intent to validate; checks are performed only when `intent.order_type` equals `"limit"`.
-        
+
         Returns:
             ExecutionOutcome: An outcome with `status="blocked"` describing the missing requirement when `limit_price` or `quantity` is absent.
             None: When `intent.order_type` is not `"limit"` or all required fields are present.
@@ -713,12 +722,12 @@ class AlpacaPaperBrokerAdapter:
     ) -> ExecutionOutcome | None:
         """
         Determine whether an execution intent must be blocked because it would short a symbol when shorting is disabled.
-        
+
         Parameters:
-        	intent (ExecutionIntent): The order intent whose size and side are evaluated. If `quantity` is absent, `notional` is converted to quantity using `reference_price`.
-        
+                intent (ExecutionIntent): The order intent whose size and side are evaluated. If `quantity` is absent, `notional` is converted to quantity using `reference_price`.
+
         Returns:
-        	ExecutionOutcome | None: An `ExecutionOutcome` with `reason` set to one of `"missing_size"`, `"position_lookup_failed"`, or `"shorting_disabled"` when the intent is blocked; `None` when the intent is allowed.
+                ExecutionOutcome | None: An `ExecutionOutcome` with `reason` set to one of `"missing_size"`, `"position_lookup_failed"`, or `"shorting_disabled"` when the intent is blocked; `None` when the intent is allowed.
         """
         quantity = intent.quantity
         if quantity is None and intent.notional is not None:
@@ -755,10 +764,10 @@ class AlpacaPaperBrokerAdapter:
     def _risk_limit_outcome(self, intent: ExecutionIntent) -> ExecutionOutcome | None:
         """
         Assess whether an execution intent violates account risk limits and produce a blocking outcome when a violation or account-check failure is detected.
-        
+
         Parameters:
             intent (ExecutionIntent): The proposed execution intent to evaluate.
-        
+
         Returns:
             ExecutionOutcome | None: An `ExecutionOutcome` that blocks the intent when a risk check fails (e.g., insufficient equity, projected position size or gross exposure would exceed configured limits, or account/position lookup failed); `None` if the intent passes all risk checks.
         """
@@ -845,10 +854,10 @@ class AlpacaPaperBrokerAdapter:
     def _order_kwargs(intent: ExecutionIntent) -> dict[str, object]:
         """
         Builds a dictionary of keyword arguments suitable for Alpaca order requests from an ExecutionIntent.
-        
+
         Parameters:
             intent (ExecutionIntent): Execution intent containing symbol, side, order type, quantity or notional, limit price, and intent_id.
-        
+
         Returns:
             dict[str, object]: Alpaca order request kwargs including:
                 - symbol: uppercased symbol
@@ -884,12 +893,12 @@ class AlpacaPaperBrokerAdapter:
     ) -> ExecutionOutcome:
         """
         Convert an Alpaca order object into an internal ExecutionOutcome with normalized status and redacted rejection details.
-        
+
         Maps the order's filled quantity, average fill price, raw status, and reject reason into an ExecutionOutcome. Raw Alpaca statuses are mapped into internal status buckets (e.g., `rejected`, `partially_filled`, `cancelled`, `no_fill`, `filled`, `accepted`), and any rejection reason is redacted before inclusion.
-        
+
         Parameters:
             action (str): Short verb describing the context for the outcome message (e.g., "submitted" or "refreshed").
-        
+
         Returns:
             ExecutionOutcome: An ExecutionOutcome populated from the order, including normalized `status`, `filled_quantity`, optional `average_fill_price`, optional `rejection_reason` (redacted) and a human-readable `message` referencing the provided `action` and the broker's raw status.
         """
@@ -939,15 +948,15 @@ class AlpacaPaperBrokerAdapter:
     def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
         """
         Submit the given execution intent to Alpaca Paper Trading after preflight validation.
-        
+
         If a preflight check blocks the intent, that blocked outcome is returned. On success, the function constructs and submits either a `LimitOrderRequest` or `MarketOrderRequest` (based on `intent.order_type`) to the Alpaca TradingClient and converts the resulting Alpaca order into an `ExecutionOutcome`. If the alpaca request types cannot be imported, a `RuntimeError` is raised. If submission to Alpaca fails, an `ExecutionOutcome` with `status="rejected"` and `rejection_reason="alpaca_api_error"` is returned with a redacted error message.
-        
+
         Parameters:
             intent (ExecutionIntent): The order intent to submit.
-        
+
         Returns:
             ExecutionOutcome: The normalized outcome representing the submitted order or a blocked/rejected outcome.
-        
+
         Raises:
             RuntimeError: If Alpaca request types (`LimitOrderRequest`, `MarketOrderRequest`) are unavailable.
         """
@@ -991,14 +1000,14 @@ class AlpacaPaperBrokerAdapter:
     ) -> ExecutionOutcome:
         """
         Refreshes an Alpaca order by ID and converts the retrieved order into an ExecutionOutcome.
-        
+
         Parameters:
             order_id (str): Alpaca order identifier to fetch.
             intent (ExecutionIntent): Execution intent used to contextualize the outcome conversion.
-        
+
         Returns:
             ExecutionOutcome: The normalized outcome representing the refreshed order state.
-        
+
         Raises:
             RuntimeError: If fetching the order from Alpaca fails; the exception message is redacted.
         """
@@ -1014,7 +1023,7 @@ class AlpacaPaperBrokerAdapter:
     def cancel_order(self, order_id: str) -> bool:
         """
         Cancel the Alpaca order identified by the given order ID.
-        
+
         Returns:
             True if the cancellation request was issued.
         """
@@ -1146,12 +1155,12 @@ class AlpacaPaperBrokerAdapter:
     def close_position(self, decision: PositionExitDecision) -> str:
         """
         Close the position described by `decision` via the Alpaca trading client.
-        
+
         Attempts to close when `decision.should_exit` is true and `decision.symbol` is a V1 US equity symbol; otherwise returns a unique token indicating a no-op or blocked outcome.
-        
+
         Parameters:
             decision (PositionExitDecision): Decision carrying `should_exit` and `symbol`; `symbol` will be uppercased before submission.
-        
+
         Returns:
             str: The Alpaca close operation identifier when submitted, or a unique no-op/blocked token when the close was not attempted or was blocked.
         """
@@ -1166,14 +1175,14 @@ class AlpacaPaperBrokerAdapter:
 def _adapter_for_backend(*, db: TradingDatabase, settings: Settings) -> BrokerAdapter:
     """
     Selects and constructs the BrokerAdapter implementation corresponding to the configured execution backend.
-    
+
     Parameters:
         db (TradingDatabase): Database used by the adapter for persistence and lookups.
         settings (Settings): Runtime settings containing `execution_backend` and related flags.
-    
+
     Returns:
         BrokerAdapter: An adapter instance for the configured backend (`paper`, `simulated_real`, or `alpaca_paper`).
-    
+
     Raises:
         RuntimeError: If `execution_backend` is `"live"` but `live_execution_enabled` is false.
         RuntimeError: If `execution_backend` is `"live"` and no live adapter has been implemented.
@@ -1199,16 +1208,16 @@ def _adapter_for_backend(*, db: TradingDatabase, settings: Settings) -> BrokerAd
 def get_broker_adapter(*, db: TradingDatabase, settings: Settings) -> BrokerAdapter:
     """
     Selects and returns the BrokerAdapter implementation appropriate for the configured execution backend.
-    
+
     Determines the adapter from `settings.execution_backend` and constructs it using `db` and `settings`. If the global execution kill switch is enabled, this function raises an error to prevent any adapter that can submit orders from being created.
-    
+
     Parameters:
         db: TradingDatabase used by the adapter for persistence and state lookups.
         settings: Settings that determine which execution backend to use and configure the adapter.
-    
+
     Returns:
         A BrokerAdapter instance matching the configured execution backend.
-    
+
     Raises:
         RuntimeError: If `settings.execution_kill_switch_active` is true, preventing adapter creation.
     """
@@ -1224,11 +1233,11 @@ def get_broker_order_reader(
 ) -> OrderOutcomeReader:
     """
     Create a read-only order outcome reader for the configured execution backend.
-    
+
     This constructs the appropriate backend adapter from the provided database and settings,
     then returns a wrapper that exposes only `get_order_outcome`, preventing access to mutating
     adapter methods.
-    
+
     Returns:
         OrderOutcomeReader: An object that exposes `get_order_outcome(order_id, intent)` for the selected backend.
     """
@@ -1240,14 +1249,14 @@ def get_broker_order_reader(
 def _healthcheck_payload(settings: Settings) -> dict[str, object]:
     """
     Builds a broker healthcheck payload reflecting the configured execution backend and current settings.
-    
+
     Parameters:
         settings (Settings): Application settings used to determine execution backend, kill switch state, Alpaca configuration, and related flags.
-    
+
     Returns:
         dict[str, object]: A JSON-serializable dictionary representing the BrokerHealthcheck payload describing adapter name, execution backend, readiness flags, and a human-readable message.
     """
-    backend = cast(ExecutionBackend, settings.execution_backend)
+    backend: ExecutionBackend = settings.execution_backend
     if settings.execution_kill_switch_active:
         return BrokerHealthcheck(
             adapter_name=backend,
@@ -1311,10 +1320,10 @@ def _healthcheck_payload(settings: Settings) -> dict[str, object]:
 def broker_runtime_payload(settings: Settings) -> dict[str, object]:
     """
     Produce a runtime status payload describing the configured broker backend, high-level readiness, and related Alpaca configuration flags.
-    
+
     Parameters:
         settings (Settings): Application settings that determine execution backend, Alpaca configuration, kill switch, and related flags.
-    
+
     Returns:
         dict[str, object]: A JSON-serializable dictionary containing runtime fields including:
           - "backend"/"adapter_name"/"execution_mode": configured execution backend identifier.
@@ -1330,7 +1339,7 @@ def broker_runtime_payload(settings: Settings) -> dict[str, object]:
           - "live_ready": always `False` (no live adapter implemented).
           - "healthcheck": a broker healthcheck payload produced by _healthcheck_payload(settings).
     """
-    backend = settings.execution_backend
+    backend: ExecutionBackend = settings.execution_backend
     live_requested = backend == "live"
     if settings.execution_kill_switch_active:
         state = "blocked"

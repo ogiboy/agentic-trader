@@ -95,10 +95,10 @@ class OllamaProvider:
     def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
         """
         Check Ollama service reachability and whether the configured model is listed, optionally performing a generation probe.
-        
+
         Parameters:
             include_generation (bool): If True, perform a short generation request to verify the configured model can produce output; defaults to False.
-        
+
         Returns:
             LLMHealthStatus: Structured health information including:
                 - service_reachable: True if the /api/tags endpoint was reachable and returned successfully, False otherwise.
@@ -154,9 +154,7 @@ class OllamaProvider:
                 model_available=False,
                 generation_available=False if include_generation else None,
                 generation_message=(
-                    f"Unable to reach Ollama: {detail}"
-                    if include_generation
-                    else None
+                    f"Unable to reach Ollama: {detail}" if include_generation else None
                 ),
                 message=f"Unable to reach Ollama: {detail}",
             )
@@ -164,12 +162,12 @@ class OllamaProvider:
     def _probe_generation(self, *, model_available: bool) -> tuple[bool, str]:
         """
         Probe whether the configured model can perform a minimal generation request.
-        
+
         Parameters:
-        	model_available (bool): Whether the configured model is listed/available; if False the probe is skipped.
-        
+                model_available (bool): Whether the configured model is listed/available; if False the probe is skipped.
+
         Returns:
-        	tuple[bool, str]: `True` and "Generation probe completed." when a generation succeeds; `False` and a diagnostic message otherwise. When skipped because the model is not listed, returns `False` and the message "Generation probe skipped because the configured model is not listed."
+                tuple[bool, str]: `True` and "Generation probe completed." when a generation succeeds; `False` and a diagnostic message otherwise. When skipped because the model is not listed, returns `False` and the message "Generation probe skipped because the configured model is not listed."
         """
         if not model_available:
             return (
@@ -253,7 +251,7 @@ class OpenAICompatibleProvider:
     def __init__(self, settings: Settings, *, model_name: str | None = None):
         """
         Initialize the provider with configuration, resolve the effective model name, normalize the base URL, and create an HTTP client.
-        
+
         Parameters:
             settings (Settings): Configuration used by the provider (includes model_name, base_url, request timeout, temperature, and other runtime settings).
             model_name (str | None): Optional override for the configured model name; when omitted, `settings.model_name` is used.
@@ -266,7 +264,7 @@ class OpenAICompatibleProvider:
     def _headers(self) -> dict[str, str] | None:
         """
         Provide an Authorization header when an OpenAI-compatible API key is configured.
-        
+
         Returns:
             dict[str, str] | None: A headers dictionary containing `"Authorization": "Bearer <key>"` if the configured `openai_compatible_api_key` is present and non-empty after trimming, otherwise `None`.
         """
@@ -320,12 +318,12 @@ class OpenAICompatibleProvider:
     def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
         """
         Check OpenAI-compatible endpoint reachability and model availability.
-        
+
         If `include_generation` is True, run a lightweight generation probe to verify the configured model can produce responses and capture a short diagnostic message.
-        
+
         Parameters:
             include_generation (bool): If True, run a generation probe after verifying the model is listed.
-        
+
         Returns:
             LLMHealthStatus: Health information with:
                 service_reachable: `True` if the `/models` endpoint was reachable, `False` otherwise.
@@ -596,14 +594,14 @@ def _short_redacted_error(value: str) -> str:
 def build_provider(settings: Settings, *, model_name: str | None = None) -> LLMProvider:
     """
     Selects and constructs an LLM provider implementation based on the configured provider in `settings`.
-    
+
     Parameters:
         settings (Settings): Configuration that includes `llm_provider` and provider-specific settings.
         model_name (str | None): Optional model name to override `settings.model_name`.
-    
+
     Returns:
         An LLMProvider instance corresponding to `settings.llm_provider` (for example, an OllamaProvider or OpenAICompatibleProvider).
-    
+
     Raises:
         RuntimeError: If `settings.llm_provider` is not a supported provider.
     """

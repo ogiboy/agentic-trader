@@ -56,9 +56,9 @@ def test_start_webgui_service_uses_loopback_and_managed_python(
     ) -> FakeProcess:
         """
         Test double for subprocess.Popen that records invocation arguments and returns a fake process.
-        
+
         Records the provided `command`, `cwd`, `stdout`, `stderr`, `env`, and `start_new_session` into the surrounding `captured` mapping and returns a new `FakeProcess` instance.
-        
+
         Parameters:
             command (list[str]): The command that would have been executed.
             cwd (Path): The working directory passed to the process.
@@ -66,7 +66,7 @@ def test_start_webgui_service_uses_loopback_and_managed_python(
             stderr: The stderr argument passed to the process.
             env (dict[str, str]): Environment variables passed to the process.
             start_new_session (bool): Whether the process was requested to start a new session.
-        
+
         Returns:
             FakeProcess: A test double representing the spawned process.
         """
@@ -146,9 +146,9 @@ def test_start_webgui_service_records_listener_pid_instead_of_launcher_pid(
     ) -> FakeProcess:
         """
         Test helper that mimics subprocess.Popen by returning a new FakeProcess.
-        
+
         All provided arguments are accepted for compatibility with Popen but ignored.
-        
+
         Parameters:
             command (list[str]): The command that would be executed (ignored).
             cwd (Path): Working directory for the process (ignored).
@@ -156,7 +156,7 @@ def test_start_webgui_service_records_listener_pid_instead_of_launcher_pid(
             stderr: Stderr target (ignored).
             env (dict[str, str]): Environment variables (ignored).
             start_new_session (bool): Whether to start a new session (ignored).
-        
+
         Returns:
             FakeProcess: A newly created fake process instance.
         """
@@ -305,7 +305,7 @@ def test_status_reports_external_webgui_when_no_state_exists(
 ) -> None:
     """
     Verifies that the service reports an externally-run Web GUI as external when no persisted state file exists.
-    
+
     Simulates an external process owning the default WebGUI port and appearing to be a WebGUI, and verifies that:
     - the service is reported reachable,
     - the service is not marked as app-owned,
@@ -444,7 +444,7 @@ def test_stop_webgui_service_falls_back_to_verified_launcher_and_listener_pids(
 ) -> None:
     """
     Verifies that stopping the WebGUI service falls back to terminating a verified launcher and listener PID pair when direct state-based termination is not sufficient.
-    
+
     Asserts that the process group receives a SIGTERM, that the verified listener PID is terminated and then the launcher PID is terminated (both with SIGTERM), that the returned status indicates the service is not app-owned, and that the persisted service state file is removed.
     """
     settings = _settings(tmp_path)
@@ -590,7 +590,7 @@ def test_stop_webgui_service_kills_next_server_listener_verified_by_cwd(
     def fake_kill(pid: int, sig: int) -> None:
         """
         Simulate sending a signal to a process by recording the (pid, sig) pair and removing the pid from the alive set.
-        
+
         Parameters:
             pid (int): Process ID to signal.
             sig (int): Signal number to record.

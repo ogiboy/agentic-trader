@@ -31,7 +31,9 @@ Recommended core verification:
 pnpm run check
 ```
 
-This wraps `ruff check .`, `pyright agentic_trader tests scripts`, `python -m pytest -q`, and the Node workspace lint/type/build checks.
+This wraps `ruff check .`, the strict Pyright baseline gate for
+`agentic_trader tests scripts`, `python -m pytest -q`, and the Node workspace
+lint/type/build checks.
 
 Recommended onboarding/tooling verification after setup or side-application changes:
 
@@ -224,7 +226,7 @@ Use `ruff`, `pytest`, IDE/Pylance or `pyright`, and SonarQube as complementary s
 ```bash
 python -m ruff check .
 python -m pytest -q -p no:cacheprovider
-pyright
+python scripts/check_pyright_baseline.py agentic_trader tests scripts
 pnpm run sonar
 ```
 

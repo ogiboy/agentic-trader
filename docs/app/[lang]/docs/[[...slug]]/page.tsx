@@ -1,9 +1,9 @@
-import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { DocPageShell } from '@/components/docs/doc-page-shell';
 import { getDocPage } from '@/lib/content/get-doc-page';
 import { getDocLanguage } from '@/lib/i18n/routing';
 import { source } from '@/lib/source';
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 
 type PageProps = {
   params: Promise<{ lang: string; slug?: string[] }>;

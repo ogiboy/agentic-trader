@@ -73,16 +73,16 @@ def create_proposal_candidate(
 ) -> ProposalCandidateRecord:
     """
     Create and persist a validated, scored proposal candidate enriched with optional provider context.
-    
+
     Parameters:
         draft (ProposalCandidateDraft): Operator-provided inputs for the candidate (idea, sizing, risk controls, text fields, and optional evidence).
         settings (Settings | None): Optional provider settings used when enriching canonical provider context; if omitted, provider context will be marked unavailable.
         enrich_provider_context (bool): If True, attempt to include canonical provider analysis in the candidate's evidence; otherwise mark provider context as disabled.
         fetch_provider_news (bool): If True (and provider enrichment is enabled), request provider news items when building the canonical analysis snapshot.
-    
+
     Returns:
         ProposalCandidateRecord: The inserted proposal candidate record, including computed score/confidence, normalized symbol, redacted text fields, assembled evidence, timestamps, and a generated candidate_id.
-    
+
     """
     score = score_candidate(draft.idea, draft.preset)
     symbol = score.symbol.strip().upper()
@@ -156,15 +156,15 @@ def promote_proposal_candidate(
 ) -> tuple[ProposalCandidateRecord, TradeProposalRecord]:
     """
     Promote a stored proposal candidate into an active trade proposal and return the updated candidate and its created proposal.
-    
+
     Parameters:
         db (TradingDatabase): Database interface used to load, update, and persist records.
         candidate_id (str): Identifier of the candidate to promote.
         review_notes (str): Operator review notes appended to the proposal review payload.
-    
+
     Returns:
         tuple[ProposalCandidateRecord, TradeProposalRecord]: The candidate record updated to `promoted` and the created trade proposal.
-    
+
     Raises:
         ValueError: If the candidate is not found, is not in `candidate` status, is watch-only (no trade side), fails promotability validation, or if the candidate changes before promotion completes (promotion race).
     """
@@ -234,14 +234,14 @@ def _candidate_evidence(
 ) -> dict[str, object]:
     """
     Assemble structured, redacted evidence for a proposal candidate, optionally enriched with a canonical provider analysis.
-    
+
     Parameters:
         draft: The operator/scanner-provided ProposalCandidateDraft used to build evidence.
         strategy_context: Derived strategy metadata to include with the candidate (already compacted/redacted).
         settings: Optional Settings used to request provider canonical analysis; when None, provider context is marked unavailable.
         enrich_provider_context: If True, attempt to include canonical provider analysis (subject to `settings`); if False, canonical analysis is marked unavailable with a disabled policy.
         fetch_provider_news: If True and provider enrichment is requested, allow the provider analysis call to fetch news items; otherwise request a lighter network policy.
-    
+
     Returns:
         dict containing redacted evidence for the candidate. Typical top-level keys:
           - "idea": redacted idea payload
@@ -309,14 +309,14 @@ def _candidate_provider_context(
 ) -> dict[str, object]:
     """
     Build a canonical provider analysis snapshot for the given candidate and return a compact, redacted representation suitable for storage.
-    
+
     If provider snapshot construction succeeds, returns a compacted canonical analysis payload (as produced by the module's compaction helpers) optionally including news. If construction raises an exception, returns a dict with "available": False, an "error" note describing the failure, and a "policy" entry describing provider-context settings.
-    
+
     Parameters:
         draft (ProposalCandidateDraft): Candidate inputs used to synthesize the market snapshot.
         settings (Settings): Provider settings and credentials used to build the canonical analysis.
         fetch_provider_news (bool): When True, allow the snapshot to include provider news items; when False, request the snapshot without news.
-    
+
     Returns:
         dict[str, object]: Either a compacted canonical analysis payload, or an availability object of the form:
             {
@@ -346,10 +346,10 @@ def _candidate_provider_context(
 def _provider_context_policy(fetch_provider_news: bool) -> dict[str, object]:
     """
     Builds a policy dictionary that controls how provider canonical analysis is requested.
-    
+
     Parameters:
         fetch_provider_news (bool): If True, the policy enables fetching provider news; if False, it prefers a lighter network policy.
-    
+
     Returns:
         dict[str, object]: Policy flags including:
             - "enabled": whether provider context is allowed.
@@ -370,7 +370,7 @@ def _provider_context_policy(fetch_provider_news: bool) -> dict[str, object]:
 def _market_snapshot_from_idea(candidate: IdeaCandidate) -> MarketSnapshot:
     """
     Synthesize a minimal MarketSnapshot suitable for provider-context building from scanner/operator idea inputs.
-    
+
     Constructs a compact market snapshot for the given candidate where missing or potentially invalid inputs are safely defaulted:
     - Normalizes the symbol to upper-case without surrounding whitespace.
     - Ensures a sensible price floor (at least 0.01) and computes EMA and ATR values using available moving-average-like inputs with sensible fallbacks.
@@ -378,10 +378,10 @@ def _market_snapshot_from_idea(candidate: IdeaCandidate) -> MarketSnapshot:
     - Derives volatility and short-term returns from the candidate's percent fields.
     - Marks higher-timeframe data as not available while providing aligned synthesized higher-timeframe metrics (last_close, ema_20, ema_50, rsi).
     - Includes a MarketContextPack indicating this is a single "scanner" candidate snapshot and that the data was synthesized.
-    
+
     Parameters:
         candidate (IdeaCandidate): Operator/scanner-supplied idea used to synthesize the snapshot.
-    
+
     Returns:
         MarketSnapshot: A compact, self-contained market snapshot with normalized symbol, derived price/indicator fields, synthesized higher-timeframe alignment, and an attached context pack describing the snapshot provenance.
     """
@@ -439,11 +439,11 @@ def _compact_canonical_analysis(
 ) -> dict[str, object]:
     """
     Create a compact, redacted representation of a canonical analysis snapshot suitable for storage as candidate evidence.
-    
+
     Parameters:
         canonical (CanonicalAnalysisSnapshot): The full canonical analysis snapshot to compact.
         fetch_provider_news (bool): Whether provider-news fetching was requested; influences the included `policy` block.
-    
+
     Returns:
         dict[str, object]: A redacted JSON-like payload containing:
             - `available`: availability flag
@@ -453,7 +453,7 @@ def _compact_canonical_analysis(
             - `news_events`: up to 5 compacted news events
             - `disclosures`: up to 5 compacted disclosure events
             - `source_attributions`: up to 12 compacted attributions
-    
+
     The returned payload is truncated and redacted to remove sensitive or overly large content.
     """
     payload = {
@@ -483,10 +483,10 @@ def _compact_canonical_analysis(
 def _compact_market_snapshot(snapshot: MarketDataSnapshot) -> dict[str, object]:
     """
     Create a compact dictionary representation of a MarketDataSnapshot suitable for storage or inclusion in a larger payload.
-    
+
     Parameters:
         snapshot (MarketDataSnapshot): The market snapshot to compact; expected to provide `interval`, `lookback`, `rows`, `last_close`, `missing_fields`, `summary`, and `attribution` attributes.
-    
+
     Returns:
         dict[str, object]: A reduced mapping containing `interval`, `lookback`, `rows`, `last_close`, `missing_fields`, `summary`, and a compacted `attribution`.
     """
@@ -506,10 +506,10 @@ def _compact_fundamental_snapshot(
 ) -> dict[str, object]:
     """
     Produce a compact JSON-serializable representation of a FundamentalSnapshot.
-    
+
     Parameters:
         snapshot (FundamentalSnapshot): The full fundamental snapshot to compact.
-    
+
     Returns:
         dict[str, object]: A reduced mapping with keys:
             - "summary": brief textual summary of fundamentals,
@@ -526,7 +526,7 @@ def _compact_fundamental_snapshot(
 def _compact_macro_snapshot(snapshot: MacroSnapshot) -> dict[str, object]:
     """
     Produce a compact mapping of selected macroeconomic fields from a MacroSnapshot.
-    
+
     Returns:
         dict[str, object]: A dictionary with keys `region`, `currency`, `rates_bias`, `inflation_bias`,
         `fx_risk`, `missing_fields`, `summary`, and `attribution` (the attribution is the result of
@@ -547,10 +547,10 @@ def _compact_macro_snapshot(snapshot: MacroSnapshot) -> dict[str, object]:
 def _compact_news_event(event: NewsEvent) -> dict[str, object]:
     """
     Create a compact, serializable representation of a NewsEvent for storage or inclusion in proposal evidence.
-    
+
     Parameters:
         event (NewsEvent): The source news event to compact.
-    
+
     Returns:
         dict[str, object]: A reduced news-event dictionary containing `title`, `source`, `published_at`, `category`, `relevance_score`, `url`, `summary`, and a compacted `attribution`.
     """
@@ -569,10 +569,10 @@ def _compact_news_event(event: NewsEvent) -> dict[str, object]:
 def _compact_disclosure_event(event: DisclosureEvent) -> dict[str, object]:
     """
     Create a compact dictionary containing key fields from a DisclosureEvent.
-    
+
     Parameters:
         event (DisclosureEvent): The disclosure event to compact.
-    
+
     Returns:
         dict[str, object]: A dictionary with the keys `title`, `published_at`, `disclosure_type`, `url`, `summary`, and `attribution` (the attribution value is a compacted attribution dict).
     """
@@ -589,10 +589,10 @@ def _compact_disclosure_event(event: DisclosureEvent) -> dict[str, object]:
 def _compact_attribution(attribution: DataSourceAttribution) -> dict[str, object]:
     """
     Create a compact, storage-friendly dict from a DataSourceAttribution.
-    
+
     Parameters:
         attribution (DataSourceAttribution): Attribution record to compact.
-    
+
     Returns:
         dict[str, object]: A reduced attribution dictionary containing:
             - `source_name`, `provider_type`, `source_role`: identity fields.
@@ -617,13 +617,13 @@ def _candidate_thesis(
 ) -> str:
     """
     Compose the operator-facing thesis for a proposal candidate.
-    
+
     If the draft includes a non-empty thesis (after trimming), that thesis is returned; otherwise a default thesis is built from the draft's preset and the provided score reasons (or the phrase "scanner score passed" when no reasons are given).
-    
+
     Parameters:
         draft (ProposalCandidateDraft): The candidate draft containing an optional operator thesis and the preset name.
         score_reasons (list[str]): Explanatory reasons produced by scoring to include when building a default thesis.
-    
+
     Returns:
         str: A thesis string suitable for operator display or storage.
     """
@@ -637,10 +637,10 @@ def _candidate_thesis(
 def _default_materiality(score: float) -> str:
     """
     Map a numeric candidate score to a materiality label indicating priority.
-    
+
     Parameters:
         score (float): Candidate score on a 0–100 scale.
-    
+
     Returns:
         str: `'high_score_candidate'` if score >= 70, `'moderate_score_candidate'` if score >= 45, `'low_score_candidate'` otherwise.
     """
@@ -654,10 +654,10 @@ def _default_materiality(score: float) -> str:
 def _default_liquidity(candidate: IdeaCandidate) -> str:
     """
     Format a short liquidity summary string from an idea candidate's market metrics.
-    
+
     Parameters:
         candidate (IdeaCandidate): Idea candidate containing `volume`, `relative_volume`, and `spread_pct`.
-    
+
     Returns:
         str: A single-line summary like "volume=12345; relative_volume=1.23; spread_pct=0.45" with volume rounded to integer and the other values formatted to two decimal places.
     """
@@ -671,10 +671,10 @@ def _default_liquidity(candidate: IdeaCandidate) -> str:
 def _default_risk_notes(warnings: tuple[str, ...]) -> str:
     """
     Build a compact risk-notes string from scanner warnings.
-    
+
     Parameters:
         warnings (tuple[str, ...]): Scanner warning identifiers or messages.
-    
+
     Returns:
         A string equal to "no scanner warnings" when `warnings` is empty, otherwise
         "scanner_warnings=" followed by the warnings joined with commas.
@@ -687,10 +687,10 @@ def _default_risk_notes(warnings: tuple[str, ...]) -> str:
 def _blocking_warnings(warnings: tuple[str, ...]) -> list[str]:
     """
     Filter the provided warnings to those classified as blocking for candidate promotion and return them sorted.
-    
+
     Parameters:
         warnings (tuple[str, ...]): Sequence of warning identifiers to evaluate.
-    
+
     Returns:
         list[str]: Sorted list of warnings that are considered blocking for promotion.
     """
@@ -702,7 +702,7 @@ def _blocking_warnings(warnings: tuple[str, ...]) -> list[str]:
 def _validate_candidate_promotable(candidate: ProposalCandidateRecord) -> None:
     """
     Run the full suite of promotability validations against a proposal candidate.
-    
+
     This invokes blocker, sizing, evidence, and risk-geometry checks in order and raises a ValueError if any validation fails.
     """
     _validate_candidate_blockers(candidate)
@@ -714,7 +714,7 @@ def _validate_candidate_promotable(candidate: ProposalCandidateRecord) -> None:
 def _validate_candidate_blockers(candidate: ProposalCandidateRecord) -> None:
     """
     Ensure the candidate has no blocking scanner warnings and is not watch-only.
-    
+
     Raises:
         ValueError: If `candidate.evidence["blocking_warnings"]` is a list with any entries (the error lists them), or if `candidate.side` is `None` indicating a watch-only candidate.
     """
@@ -734,10 +734,10 @@ def _validate_candidate_blockers(candidate: ProposalCandidateRecord) -> None:
 def _validate_candidate_sizing(candidate: ProposalCandidateRecord) -> None:
     """
     Validate that the candidate contains required sizing and risk-control values for promotion.
-    
+
     Parameters:
         candidate (ProposalCandidateRecord): The proposal candidate to validate.
-    
+
     Raises:
         ValueError: If both `quantity` and `notional` are missing; if `quantity` is present but <= 0; if `notional` is present but <= 0; or if either `stop_loss` or `take_profit` is missing.
     """
@@ -762,10 +762,10 @@ def _validate_candidate_sizing(candidate: ProposalCandidateRecord) -> None:
 def _validate_candidate_evidence(candidate: ProposalCandidateRecord) -> None:
     """
     Ensure the candidate contains current freshness evidence and a positive reference price.
-    
+
     Parameters:
         candidate (ProposalCandidateRecord): The proposal candidate to validate.
-    
+
     Raises:
         ValueError: If the candidate's freshness evidence is missing or stale.
         ValueError: If the candidate's reference_price is less than or equal to zero.
@@ -783,12 +783,12 @@ def _validate_candidate_evidence(candidate: ProposalCandidateRecord) -> None:
 def _validate_candidate_risk_geometry(candidate: ProposalCandidateRecord) -> None:
     """
     Validate that the candidate's stop-loss and take-profit define a correct risk geometry for its trade side.
-    
+
     Checks that both `stop_loss` and `take_profit` are present and, for a buy side, that stop_loss < reference_price < take_profit, or for a sell side, that take_profit < reference_price < stop_loss.
-    
+
     Parameters:
         candidate (ProposalCandidateRecord): Candidate record whose risk controls and reference price will be validated.
-    
+
     Raises:
         ValueError: If either stop-loss or take-profit is missing, or if the numeric relationship between stop-loss, reference price, and take-profit does not match the candidate's side.
     """
@@ -817,10 +817,10 @@ def _validate_candidate_risk_geometry(candidate: ProposalCandidateRecord) -> Non
 def _candidate_has_current_evidence(candidate: ProposalCandidateRecord) -> bool:
     """
     Determine whether a candidate's freshness field indicates current (non-stale) evidence.
-    
+
     Parameters:
         candidate (ProposalCandidateRecord): The proposal candidate whose freshness metadata will be evaluated.
-    
+
     Returns:
         bool: `True` if the candidate's `freshness` is non-empty and does not contain any substring listed in `STALE_FRESHNESS_MARKERS`, `False` otherwise.
     """
@@ -835,11 +835,11 @@ def _promotion_review_notes(
 ) -> str:
     """
     Constructs a single-line promotion review string summarizing key candidate metadata and optional operator notes.
-    
+
     Parameters:
         candidate (ProposalCandidateRecord): The candidate whose identifying fields, score, materiality, freshness, liquidity, risk notes, and canonical-analysis metadata (if present) will be included.
         review_notes (str): Operator-provided freeform review notes; cleaned and truncated to 1000 chars before inclusion.
-    
+
     Returns:
         str: A single string of parts joined with " | " containing candidate_id, preset, score, materiality, freshness, liquidity, risk_notes, optional `canonical_completeness` and `missing_sections`, and optional `operator_notes`.
     """
@@ -871,11 +871,11 @@ def _promotion_review_notes(
 def _safe_note(value: object, *, max_length: int) -> str:
     """
     Produce a redacted, length-limited plain-text note suitable for storage or display.
-    
+
     Parameters:
         value (object): Input value to redact and truncate; may be any JSON-like object or string.
         max_length (int): Maximum length of the returned string in characters.
-    
+
     Returns:
         str: A trimmed string containing the redacted and truncated representation of `value`.
     """
@@ -885,7 +885,7 @@ def _safe_note(value: object, *, max_length: int) -> str:
 def _redacted_json_payload(value: object, *, max_depth: int = 6) -> object:
     """
     Produce a redacted and size-limited JSON-serializable representation of `value` suitable for storage or logging.
-    
+
     This function:
     - Returns the string TRUNCATED_PAYLOAD_MARKER when `max_depth <= 0`.
     - For dicts: includes up to 100 keys (remaining keys replaced by a truncation marker), redacts keys and recursively processes values with `max_depth - 1`.
@@ -893,11 +893,11 @@ def _redacted_json_payload(value: object, *, max_depth: int = 6) -> object:
     - For strings: returns a redacted/truncated string (max length ~1000).
     - For None, bool, int, float: returns the value unchanged.
     - For other object types: returns a redacted string representation (max length ~500).
-    
+
     Parameters:
         value (object): The input object to redact and compact.
         max_depth (int): Maximum recursive depth to traverse; when 0 or below the payload is replaced by the truncation marker.
-    
+
     Returns:
         object: A JSON-serializable, redacted, and truncated representation of `value`.
     """

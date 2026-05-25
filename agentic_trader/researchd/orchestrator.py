@@ -218,14 +218,14 @@ class CrewAiResearchBackend:
     ) -> ResearchPipelineResult:
         """
         Invoke the configured CrewAI Flow sidecar to synthesize a research pipeline result for the given symbols and provider outputs.
-        
+
         Runs the CrewAI Flow contract (using the configured flow directory and uv executable), supplies a JSON request built from the provided settings, symbols, and normalized provider outputs, and translates the contract response into a ResearchPipelineResult. On detection of missing prerequisites, non-JSON or failing contract output, timeouts, or startup errors, returns a failed ResearchPipelineResult describing the problem.
-        
+
         Parameters:
             settings (Settings): Runtime settings that control mode and backend configuration.
             symbols (list[str]): List of watched symbol identifiers for the research run.
             provider_outputs (list[ResearchProviderOutput]): Normalized outputs from research providers to include in the request payload.
-        
+
         Returns:
             ResearchPipelineResult: The pipeline result produced from the CrewAI Flow contract output, or a failed result explaining why the sidecar run did not complete.
         """

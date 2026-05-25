@@ -2217,26 +2217,26 @@ def _quality_checks(
         ),
     ]
 
-    pyright = _resolve_pyright_executable()
-    if pyright is None:
-        results.append(_fail_result(context, "pyright", "pyright not found on PATH"))
-    else:
-        results.append(
-            run_command_capture(
-                context,
-                "pyright",
-                [
-                    pyright,
-                    "--pythonpath",
-                    SMOKE_PYTHON,
-                    "agentic_trader",
-                    "tests",
-                    "scripts",
-                ],
-                timeout=120,
-                display="pyright --pythonpath <smoke-python> agentic_trader tests scripts",
-            )
+    results.append(
+        run_command_capture(
+            context,
+            "pyright",
+            [
+                SMOKE_PYTHON,
+                "scripts/check_pyright_baseline.py",
+                "--pythonpath",
+                SMOKE_PYTHON,
+                "agentic_trader",
+                "tests",
+                "scripts",
+            ],
+            timeout=120,
+            display=(
+                "python scripts/check_pyright_baseline.py "
+                "--pythonpath <smoke-python> agentic_trader tests scripts"
+            ),
         )
+    )
     return results
 
 

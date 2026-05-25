@@ -56,17 +56,17 @@ def test_start_model_service_uses_minimal_env_and_owner_state(
     ) -> FakeProcess:
         """
         Act as a test replacement for subprocess.Popen that records the invocation and returns a FakeProcess.
-        
+
         Parameters:
             command (list[str]): The command and arguments passed to the process.
             stdout: The stdout stream/redirect passed to Popen.
             stderr: The stderr stream/redirect passed to Popen.
             env (dict[str, str]): Environment variables passed to the process.
             start_new_session (bool): Whether the process is started in a new session.
-        
+
         Returns:
             FakeProcess: A new FakeProcess instance.
-        
+
         Notes:
             Invocation details are saved into the surrounding `captured` mapping under the keys
             "command", "stdout", "stderr", "env", and "start_new_session".
@@ -155,11 +155,11 @@ def test_start_model_service_waits_for_app_owned_endpoint_when_host_exists(
     ) -> tuple[bool, list[str], str]:
         """
         Stub implementation used in tests that records the probed API root and returns a deterministic "reachable" response with example model tags.
-        
+
         Parameters:
             api_root (str): The API root URL being probed; this value is appended to captured_urls.
             timeout_seconds (float): Ignored by this stub (present to match the real function's signature).
-        
+
         Returns:
             tuple: `(reachable, tags, message)` where `reachable` is `True` if the API root is considered reachable, `tags` is a list of available model tags (e.g., `["qwen3:8b"]`), and `message` is a human-readable status string that includes the probed `api_root`.
         """
@@ -273,9 +273,9 @@ def test_pull_model_uses_app_owned_host_without_provider_secrets(
     ) -> object:
         """
         Test helper that simulates subprocess.run for command capture.
-        
+
         Records the invoked `command` and `env` into the external `captured` mapping and returns a fake completed-process object with `returncode`, `stdout`, and `stderr` attributes.
-        
+
         Returns:
             An object with attributes:
                 - `returncode` (int): the process exit code (0).
@@ -632,14 +632,14 @@ def test_ollama_pid_detection_falls_back_to_lsof_when_ps_is_unavailable(
     ) -> object:
         """
         Fake subprocess.run used in tests to simulate `ps` and `lsof` invocations.
-        
+
         Parameters:
             command (list[str]): The command that would be run. Only the command prefix is inspected.
             capture_output (bool): Ignored (kept for signature compatibility).
             text (bool): Ignored (kept for signature compatibility).
             timeout (int): Ignored (kept for signature compatibility).
             check (bool): Ignored (kept for signature compatibility).
-        
+
         Returns:
             An object with attributes:
               - `returncode` (int): Simulated process exit code.
@@ -697,15 +697,15 @@ def test_ollama_pid_detection_ignores_model_runner_child(
     ) -> object:
         """
         Test helper that simulates subprocess.run responses for `ps -ax` and `lsof -nP -iTCP` calls.
-        
+
         For `["ps", "-ax"]` it returns a result with stdout containing two process lines:
         - a normal `ollama serve` process (PID 111)
         - an `ollama runner` child process (PID 222) including a `--port 60443` fragment
-        
+
         For `["lsof", "-nP", "-iTCP"]` it returns stdout representing an lsof-style block that references port `127.0.0.1:60443` tied to PID 222.
-        
+
         For any other command it returns a successful result with empty stdout.
-        
+
         Returns:
             An object with attributes `returncode` (int) and `stdout` (str) representing the simulated command result.
         """
@@ -715,7 +715,7 @@ def test_ollama_pid_detection_ignores_model_runner_child(
             def __init__(self, returncode: int, stdout: str = "") -> None:
                 """
                 Initialize the result with a process return code and captured standard output.
-                
+
                 Parameters:
                     returncode (int): Process exit code; 0 typically indicates success.
                     stdout (str): Captured standard output text (empty string by default).

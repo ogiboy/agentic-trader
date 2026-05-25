@@ -1,6 +1,8 @@
 ---
 title: Başlangıç
-description: Lokal runtime'ı kur, hazır oluşu doğrula ve kontrol yüzeylerini hata gizlemeden aç.
+description:
+  Lokal runtime'ı kur, hazır oluşu doğrula ve kontrol yüzeylerini hata
+  gizlemeden aç.
 ---
 
 ## İlk başarılı kurulumun amacı
@@ -16,8 +18,9 @@ service'e güvenmeden önce o katmanı düzelt.
 
 ## Kaynaktan kurulum gereksinimleri
 
-Depo şu anda Python artı Node workflow'u varsayıyor.
-Asıl trading logic hâlâ Python runtime içinde; `webgui/`, `docs/` ve `tui/` root pnpm workspace üzerinden yönetiliyor.
+Depo şu anda Python artı Node workflow'u varsayıyor. Asıl trading logic hâlâ
+Python runtime içinde; `webgui/`, `docs/` ve `tui/` root pnpm workspace
+üzerinden yönetiliyor.
 
 Önerilen temel kurulum:
 
@@ -26,7 +29,8 @@ Asıl trading logic hâlâ Python runtime içinde; `webgui/`, `docs/` ve `tui/` 
 - Node 20+ ve `pnpm`
 - İsteğe bağlı olarak `tmux`, `asciinema` ve QA için tarayıcı araçları
 - Varsayılan lokal model yolunu kullanıyorsan isteğe bağlı Ollama
-- Araştırma helper'larını açıkça etkinleştiriyorsan isteğe bağlı Firecrawl ve Camofox
+- Araştırma helper'larını açıkça etkinleştiriyorsan isteğe bağlı Firecrawl ve
+  Camofox
 
 Her şeyi kurmadan önce system-tool dry-run çalıştır:
 
@@ -83,8 +87,8 @@ Kurulu CLI entrypoint'ine güveniyorsan onu da doğrula:
 agentic-trader doctor
 ```
 
-Bunu Web GUI ya da Ink TUI debug etmeden önce yap.
-`doctor` zaten yanlışsa UI çoğu zaman alt katmandaki gerçek problemi sadece yansıtıyordur.
+Bunu Web GUI ya da Ink TUI debug etmeden önce yap. `doctor` zaten yanlışsa UI
+çoğu zaman alt katmandaki gerçek problemi sadece yansıtıyordur.
 `provider-diagnostics` mevcut source ladder'ı, API-key hazır oluşunu ve fallback
 uyarılarını secret yazmadan ya da eksik evidence'ı tamam sanmadan gösterir.
 `v1-readiness` lokal paper operation ve Alpaca paper readiness kapılarının geçip
@@ -93,20 +97,20 @@ geçmediğini gösterir; özellikle model servisini de çağırmak istiyorsan
 
 ## Readiness ne anlama gelir
 
-| Kontrol | Cevapladığı operatör sorusu |
-| --- | --- |
-| `doctor` | Lokal runtime beklenen ortamla başlayabiliyor mu? |
-| `provider-diagnostics --json` | Hangi data/model provider'ları hazır, eksik veya degraded? |
-| `v1-readiness --json` | Lokal paper operation hazır mı, evidence/review context görünür mü, external Alpaca paper hâlâ gate arkasında mı? |
-| `broker-status --json` | Hangi backend aktif, live/paper güvenlikleri görünür mü? |
-| `finance-ops --json` | Broker, account, PnL, exposure, risk ve evidence kontrolleri paper review için uyumlu mu? |
-| `proposal-candidates --json` | Hangi broker-free scanner/research adayları review veya promotion bekliyor? |
-| `trade-proposals --json` | Hangi fikirler açık onay, ret veya audit review bekliyor? |
-| `idea-presets` / `idea-score ...` | Bir aday proposal'a dönüşmeden önce V1 scanner preset'leriyle nasıl skorlanır? |
-| `supervisor-status --json` | Daemon blocked, running, stale, stopped veya failed durumda mı? |
-| `setup-status --json` | Hangi lokal araçlar ve opsiyonel yan uygulamalar kurulu veya degraded? |
-| `model-service status --json` | Configured ya da app-managed Ollama erişilebilir mi, seçili model var mı? |
-| `webgui-service status --json` | App-owned loopback Web GUI servisi erişilebilir mi, logları nerede? |
+| Kontrol                           | Cevapladığı operatör sorusu                                                                                       |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `doctor`                          | Lokal runtime beklenen ortamla başlayabiliyor mu?                                                                 |
+| `provider-diagnostics --json`     | Hangi data/model provider'ları hazır, eksik veya degraded?                                                        |
+| `v1-readiness --json`             | Lokal paper operation hazır mı, evidence/review context görünür mü, external Alpaca paper hâlâ gate arkasında mı? |
+| `broker-status --json`            | Hangi backend aktif, live/paper güvenlikleri görünür mü?                                                          |
+| `finance-ops --json`              | Broker, account, PnL, exposure, risk ve evidence kontrolleri paper review için uyumlu mu?                         |
+| `proposal-candidates --json`      | Hangi broker-free scanner/research adayları review veya promotion bekliyor?                                       |
+| `trade-proposals --json`          | Hangi fikirler açık onay, ret veya audit review bekliyor?                                                         |
+| `idea-presets` / `idea-score ...` | Bir aday proposal'a dönüşmeden önce V1 scanner preset'leriyle nasıl skorlanır?                                    |
+| `supervisor-status --json`        | Daemon blocked, running, stale, stopped veya failed durumda mı?                                                   |
+| `setup-status --json`             | Hangi lokal araçlar ve opsiyonel yan uygulamalar kurulu veya degraded?                                            |
+| `model-service status --json`     | Configured ya da app-managed Ollama erişilebilir mi, seçili model var mı?                                         |
+| `webgui-service status --json`    | App-owned loopback Web GUI servisi erişilebilir mi, logları nerede?                                               |
 
 ## Ortam dosyalarını yapılandır
 
@@ -117,20 +121,22 @@ Proje örnek artı lokal override düzenini kullanıyor.
 - GitHub Pages docs build'i `docs/.env.local` gerektirmez.
 
 Pages üzerindeki docs feedback, tarayıcı içinde GitHub issue taslağı hazırlar.
-İleride Node-hosted bir docs örneği server-side forwarding'i yeniden açarsa credential'lar `docs/.env.local` içinde kalmalı ve track edilen config'e girmemeli.
+İleride Node-hosted bir docs örneği server-side forwarding'i yeniden açarsa
+credential'lar `docs/.env.local` içinde kalmalı ve track edilen config'e
+girmemeli.
 
 ## Lokal model kurulumu
 
-Depo varsayılan olarak hâlâ Ollama yönelimli, fakat yön giderek provider-aware hâle geliyor.
-Tipik lokal model ayarları şöyle görünebilir:
+Depo varsayılan olarak hâlâ Ollama yönelimli, fakat yön giderek provider-aware
+hâle geliyor. Tipik lokal model ayarları şöyle görünebilir:
 
 ```bash
 export AGENTIC_TRADER_MODEL_NAME=qwen3:8b
 export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
 ```
 
-Sadece Ollama trafiğini görmeyi sistemin sağlıklı olduğunun kanıtı sayma.
-Model erişimi, runtime ready oluşu ve son loglar birbiriyle uyumlu olmalı.
+Sadece Ollama trafiğini görmeyi sistemin sağlıklı olduğunun kanıtı sayma. Model
+erişimi, runtime ready oluşu ve son loglar birbiriyle uyumlu olmalı.
 
 Agentic Trader'ın bu proje için lokal Ollama sürecini yönetmesini istiyorsan,
 önce read-only status'a bak, sonra app-owned servisi başlat:

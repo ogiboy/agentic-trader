@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
-import { formatList, formatTimestamp } from '../control-room.helpers';
 import type { DashboardData, InstructionMode } from '../control-room.helpers';
+import { formatList, formatTimestamp } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
 
@@ -32,7 +31,7 @@ export function SettingsView({
   dashboard: DashboardData;
   instructionDraft: string;
   instructionMode: InstructionMode;
-  instructionResult: Record<string, any> | null;
+  instructionResult: DashboardData | null;
   busy: string | null;
   onInstructionDraftChange: (value: string) => void;
   onInstructionModeChange: (value: InstructionMode) => void;
@@ -40,7 +39,7 @@ export function SettingsView({
 }>) {
   const recentRunLines = dashboard.recentRuns?.runs?.length
     ? dashboard.recentRuns.runs.map(
-        (run: Record<string, any>) =>
+        (run: Record<string, string>) =>
           `${formatTimestamp(run.created_at)} | ${run.symbol} | ${run.interval} | ${copy.settings.fields.approved}=${run.approved}`,
       )
     : [copy.settings.recentRunsEmpty];
@@ -61,11 +60,14 @@ export function SettingsView({
       ];
 
   return (
-    <div className="grid grid--2">
-      <Panel title={copy.settings.panels.preferences} accent="lime">
+    <div className='grid grid--2'>
+      <Panel title={copy.settings.panels.preferences} accent='lime'>
         <KeyValueList
           items={[
-            [copy.settings.fields.regions, formatList(dashboard.preferences?.regions)],
+            [
+              copy.settings.fields.regions,
+              formatList(dashboard.preferences?.regions),
+            ],
             [
               copy.settings.fields.exchanges,
               formatList(dashboard.preferences?.exchanges),
@@ -74,9 +76,18 @@ export function SettingsView({
               copy.settings.fields.currencies,
               formatList(dashboard.preferences?.currencies),
             ],
-            [copy.settings.fields.sectors, formatList(dashboard.preferences?.sectors)],
-            [copy.settings.fields.risk, dashboard.preferences?.risk_profile ?? '-'],
-            [copy.settings.fields.style, dashboard.preferences?.trade_style ?? '-'],
+            [
+              copy.settings.fields.sectors,
+              formatList(dashboard.preferences?.sectors),
+            ],
+            [
+              copy.settings.fields.risk,
+              dashboard.preferences?.risk_profile ?? '-',
+            ],
+            [
+              copy.settings.fields.style,
+              dashboard.preferences?.trade_style ?? '-',
+            ],
             [
               copy.settings.fields.behavior,
               dashboard.preferences?.behavior_preset ?? '-',
@@ -85,7 +96,10 @@ export function SettingsView({
               copy.settings.fields.agentProfile,
               dashboard.preferences?.agent_profile ?? '-',
             ],
-            [copy.settings.fields.tone, dashboard.preferences?.agent_tone ?? '-'],
+            [
+              copy.settings.fields.tone,
+              dashboard.preferences?.agent_tone ?? '-',
+            ],
             [
               copy.settings.fields.strictness,
               dashboard.preferences?.strictness_preset ?? '-',
@@ -93,15 +107,15 @@ export function SettingsView({
           ]}
         />
       </Panel>
-      <Panel title={copy.settings.panels.recentRuns} accent="amber">
+      <Panel title={copy.settings.panels.recentRuns} accent='amber'>
         <TextList items={recentRunLines} />
       </Panel>
-      <Panel title={copy.settings.panels.operatorInstruction} accent="cyan">
+      <Panel title={copy.settings.panels.operatorInstruction} accent='cyan'>
         <TextList items={instructionLines} />
       </Panel>
-      <Panel title={copy.settings.panels.composer} accent="rose">
-        <div className="form-row">
-          <label className="field-label">
+      <Panel title={copy.settings.panels.composer} accent='rose'>
+        <div className='form-row'>
+          <label className='field-label'>
             <span>{copy.settings.fields.mode}</span>
             <select
               value={instructionMode}
@@ -109,22 +123,24 @@ export function SettingsView({
                 onInstructionModeChange(event.target.value as InstructionMode)
               }
             >
-              <option value="preview">{copy.settings.modeOptions.preview}</option>
-              <option value="apply">{copy.settings.modeOptions.apply}</option>
+              <option value='preview'>
+                {copy.settings.modeOptions.preview}
+              </option>
+              <option value='apply'>{copy.settings.modeOptions.apply}</option>
             </select>
           </label>
         </div>
-        <div className="composer">
+        <div className='composer'>
           <textarea
             value={instructionDraft}
             onChange={(event) => onInstructionDraftChange(event.target.value)}
             placeholder={copy.settings.placeholder}
           />
           <button
-            className="button button--solid"
+            className='button button--solid'
             disabled={busy === 'instruction'}
             onClick={() => void onSendInstruction()}
-            type="button"
+            type='button'
           >
             {instructionButtonLabel(busy, instructionMode, copy)}
           </button>

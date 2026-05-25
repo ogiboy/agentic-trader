@@ -49,9 +49,12 @@ That adds:
 
 - `python -m ruff check .`
 - `python -m pytest -q -p no:cacheprovider`
-- `pyright --pythonpath <smoke-python> agentic_trader tests scripts`
+- `python scripts/check_pyright_baseline.py --pythonpath <smoke-python> agentic_trader tests scripts`
 
-`pyright` is required for `--include-quality`; if it is missing, the smoke run fails instead of silently skipping the static type check. The smoke harness resolves `pyright` from `PATH`, the active environment, the repo uv `.venv`, or legacy Conda locations, then points it at the same Python interpreter running the smoke script so installed dependencies are checked consistently.
+`pyright` is required for `--include-quality`; if it is missing, the smoke run
+fails instead of silently skipping the static type check. The smoke harness uses
+the strict Pyright baseline gate and points it at the same Python interpreter
+running the smoke script so installed dependencies are checked consistently.
 
 To include one isolated foreground orchestrator cycle:
 
