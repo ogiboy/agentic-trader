@@ -81,6 +81,16 @@ def _object_list(value: object) -> list[object]:
     return cast(list[object], value) if isinstance(value, list) else []
 
 
+def _contract_error_items(value: object) -> list[object]:
+    if isinstance(value, list):
+        return cast(list[object], value)
+    if isinstance(value, tuple):
+        return list(cast(tuple[object, ...], value))
+    if value is None:
+        return []
+    return [value]
+
+
 def _object_mapping_list(value: object) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for item in _object_list(value):
@@ -364,7 +374,7 @@ class CrewAiResearchBackend:
             )
         if completed.returncode != 0 or contract_payload.get("status") != "completed":
             errors = contract_payload.get("errors")
-            error_items = _object_list(errors)
+            error_items = _contract_error_items(errors)
             return self._failed_result(
                 settings=settings,
                 symbols=symbols,

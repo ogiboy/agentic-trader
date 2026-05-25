@@ -9,7 +9,7 @@ from agentic_trader.config import Settings
 from agentic_trader.schemas import LLMHealthStatus
 from agentic_trader.security import redact_sensitive_text
 
-type JsonObject = dict[str, object]
+JsonObject = dict[str, object]
 
 
 class ErrorResponsePayload(Protocol):

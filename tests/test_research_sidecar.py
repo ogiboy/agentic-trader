@@ -314,6 +314,57 @@ def test_crewai_backend_redacts_non_json_process_output(
     assert "<redacted>" in result.state.last_error
 
 
+@pytest.mark.parametrize(
+    ("errors", "expected_message"),
+    [
+        ({"code": "bad_contract", "detail": "missing summary"}, "bad_contract"),
+        ("sidecar timed out", "sidecar timed out"),
+    ],
+)
+def test_crewai_backend_preserves_non_list_contract_errors(
+    errors: object,
+    expected_message: str,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(
+        tmp_path,
+        research_mode="training",
+        research_sidecar_enabled=True,
+        research_sidecar_backend="crewai",
+        research_symbols="AAPL",
+    )
+    flow_dir = tmp_path / "research_flow"
+    (flow_dir / ".venv").mkdir(parents=True)
+    (flow_dir / "pyproject.toml").write_text("[project]\nname='fake'\n")
+
+    def fake_runner(
+        command: list[str],
+        stdin_payload: str,
+        cwd: Path,
+        env: dict[str, str],
+        timeout_seconds: float,
+    ) -> subprocess.CompletedProcess[str]:
+        _ = (stdin_payload, cwd, env, timeout_seconds)
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            json.dumps({"status": "failed", "errors": errors}),
+            "",
+        )
+
+    backend = CrewAiResearchBackend(
+        flow_dir=flow_dir,
+        uv_path="uv",
+        command_runner=fake_runner,
+    )
+
+    result = ResearchSidecar(settings, backend=backend).collect_once()
+
+    assert result.state.status == "failed"
+    assert result.state.last_error is not None
+    assert expected_message in result.state.last_error
+
+
 def test_research_schema_tracks_staleness_and_uncertainty() -> None:
     now = datetime.now(UTC)
     stale_after = (now - timedelta(minutes=1)).isoformat()

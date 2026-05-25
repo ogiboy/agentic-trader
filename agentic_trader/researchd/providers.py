@@ -86,7 +86,7 @@ SEC_COMPANY_FACT_CONCEPTS = (
         ("CashAndCashEquivalentsAtCarryingValue",),
     ),
 )
-type JsonObject = dict[str, object]
+JsonObject = dict[str, object]
 JsonFetcher = Callable[[str, Mapping[str, str], float], JsonObject]
 FirecrawlSdkSearcher = Callable[[str, int, float], object]
 CamofoxServiceStatusBuilder = Callable[[Settings], CamofoxServiceStatus]
