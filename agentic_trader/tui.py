@@ -1,6 +1,6 @@
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Sequence, cast
 
@@ -10,6 +10,7 @@ from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt, Prompt
+from rich.status import Status
 from rich.table import Table
 from rich.text import Text
 
@@ -74,6 +75,22 @@ from agentic_trader.workflows.service import ensure_llm_ready, start_background_
 
 console = Console()
 LABEL_BASE_URL = "Base URL"
+
+
+def _object_mapping(value: object) -> Mapping[str, object]:
+    return cast(Mapping[str, object], value) if isinstance(value, dict) else {}
+
+
+def _object_list(value: object) -> list[object]:
+    return cast(list[object], value) if isinstance(value, list) else []
+
+
+def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
+    rows: list[Mapping[str, object]] = []
+    for item in _object_list(value):
+        if isinstance(item, dict):
+            rows.append(cast(Mapping[str, object], item))
+    return rows
 
 
 @dataclass(frozen=True, slots=True)
@@ -445,8 +462,8 @@ def _current_activity_panel(
     view = build_runtime_status_view(state)
     activity = build_agent_activity_view(state, events)
     broker = broker_runtime_payload(settings)
-    readiness = v1_readiness_payload(settings, check_provider=False)
-    paper_operations = cast(dict[str, object], readiness.get("paper_operations", {}))
+    readiness = _object_mapping(v1_readiness_payload(settings, check_provider=False))
+    paper_operations = _object_mapping(readiness.get("paper_operations"))
     lines = [
         *_runtime_cycle_lines(settings=settings, state=state, view=view),
         "",
@@ -487,7 +504,7 @@ def _agent_activity_lines(activity: AgentActivityView) -> list[str]:
 
 
 def _broker_gate_lines(
-    *, broker: dict[str, object], paper_operations: dict[str, object]
+    *, broker: Mapping[str, object], paper_operations: Mapping[str, object]
 ) -> list[str]:
     return [
         f"Broker Backend: {broker.get('backend', '-')}",
@@ -846,10 +863,10 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
     runtime_state = read_service_state(settings)
     runtime_view = build_runtime_status_view(runtime_state)
     broker = broker_runtime_payload(settings)
-    provider = provider_diagnostics_payload(settings)
-    readiness = v1_readiness_payload(settings, check_provider=False)
-    paper = cast(dict[str, object], readiness.get("paper_operations", {}))
-    alpaca = cast(dict[str, object], readiness.get("alpaca_paper", {}))
+    provider = _object_mapping(provider_diagnostics_payload(settings))
+    readiness = _object_mapping(v1_readiness_payload(settings, check_provider=False))
+    paper = _object_mapping(readiness.get("paper_operations"))
+    alpaca = _object_mapping(readiness.get("alpaca_paper"))
     table = Table(title="AGENTIC TRADER // System Snapshot", expand=True)
     table.add_column("Key", style="cyan")
     table.add_column("Value")
@@ -874,10 +891,10 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
         "Alpaca Paper Ready",
         "yes" if alpaca.get("ready") else "no",
     )
-    warnings = provider.get("warnings", [])
+    warnings = _object_list(provider.get("warnings"))
     table.add_row(
         "Provider Warnings",
-        str(len(warnings)) if isinstance(warnings, list) else "-",
+        str(len(warnings)),
     )
     table.add_row(
         "Kill Switch",
@@ -923,10 +940,11 @@ def _render_broker_status(settings: Settings) -> None:
     ):
         table.add_row(key.replace("_", " ").title(), str(payload.get(key, "-")))
     healthcheck = payload.get("healthcheck")
-    if isinstance(healthcheck, dict):
-        table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
-        blockers = healthcheck.get("blocking_reasons")
-        if isinstance(blockers, list):
+    healthcheck_mapping = _object_mapping(healthcheck)
+    if healthcheck_mapping:
+        table.add_row("Healthcheck", str(healthcheck_mapping.get("message", "-")))
+        blockers = _object_list(healthcheck_mapping.get("blocking_reasons"))
+        if blockers:
             table.add_row(
                 "Blocking Reasons", ", ".join(str(item) for item in blockers) or "-"
             )
@@ -934,24 +952,24 @@ def _render_broker_status(settings: Settings) -> None:
 
 
 def _render_provider_diagnostics(settings: Settings) -> None:
-    payload = provider_diagnostics_payload(settings)
+    payload = _object_mapping(provider_diagnostics_payload(settings))
     summary = Table(title="Provider Diagnostics")
     summary.add_column("Field", style=STYLE_KEY_COLUMN)
     summary.add_column("Value")
-    llm = payload.get("llm", {})
-    market = payload.get("market_data", {})
-    news = payload.get("news", {})
-    alpaca = payload.get("alpaca", {})
-    if isinstance(llm, dict):
+    llm = _object_mapping(payload.get("llm"))
+    market = _object_mapping(payload.get("market_data"))
+    news = _object_mapping(payload.get("news"))
+    alpaca = _object_mapping(payload.get("alpaca"))
+    if llm:
         summary.add_row("LLM Provider", str(llm.get("provider", "-")))
         summary.add_row("Default Model", str(llm.get("default_model", "-")))
         summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
-    if isinstance(market, dict):
+    if market:
         summary.add_row("Market Provider", str(market.get("selected_provider", "-")))
         summary.add_row("Market Role", str(market.get("selected_role", "-")))
-    if isinstance(news, dict):
+    if news:
         summary.add_row("News Mode", str(news.get("mode", "-")))
-    if isinstance(alpaca, dict):
+    if alpaca:
         summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
         summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
         summary.add_row(
@@ -960,8 +978,8 @@ def _render_provider_diagnostics(settings: Settings) -> None:
         )
     console.print(summary)
 
-    warnings = payload.get("warnings", [])
-    if isinstance(warnings, list) and warnings:
+    warnings = _object_list(payload.get("warnings"))
+    if warnings:
         console.print(
             Panel(
                 "\n".join(str(warning) for warning in warnings),
@@ -977,47 +995,39 @@ def _render_provider_diagnostics(settings: Settings) -> None:
     table.add_column("Enabled")
     table.add_column("API Key")
     table.add_column("Freshness")
-    providers = payload.get("providers", [])
-    if isinstance(providers, list):
-        for row in providers:
-            if not isinstance(row, dict):
-                continue
-            table.add_row(
-                str(row.get("provider_id", "-")),
-                str(row.get("provider_type", "-")),
-                str(row.get("role", "-")),
-                str(row.get("enabled", False)),
-                str(row.get("api_key_ready", "-")),
-                str(row.get("freshness", "-")),
-            )
+    for row in _object_mapping_list(payload.get("providers")):
+        table.add_row(
+            str(row.get("provider_id", "-")),
+            str(row.get("provider_type", "-")),
+            str(row.get("role", "-")),
+            str(row.get("enabled", False)),
+            str(row.get("api_key_ready", "-")),
+            str(row.get("freshness", "-")),
+        )
     console.print(table)
 
 
-def _render_readiness_table(title: str, payload: dict[str, object]) -> None:
+def _render_readiness_table(title: str, payload: Mapping[str, object]) -> None:
     table = Table(title=title)
     table.add_column("Check", style=STYLE_KEY_COLUMN)
     table.add_column("State")
     table.add_column("Blocking")
     table.add_column("Details")
-    checks = payload.get("checks", [])
-    if isinstance(checks, list):
-        for item in checks:
-            if not isinstance(item, dict):
-                continue
-            table.add_row(
-                str(item.get("name", "-")),
-                "[green]pass[/green]" if item.get("passed") else "[red]fail[/red]",
-                str(item.get("blocking", True)),
-                str(item.get("details", "")),
-            )
+    for item in _object_mapping_list(payload.get("checks")):
+        table.add_row(
+            str(item.get("name", "-")),
+            "[green]pass[/green]" if item.get("passed") else "[red]fail[/red]",
+            str(item.get("blocking", True)),
+            str(item.get("details", "")),
+        )
     console.print(table)
 
 
 def _render_v1_readiness(settings: Settings) -> None:
-    payload = v1_readiness_payload(settings, check_provider=False)
-    paper = payload.get("paper_operations", {})
-    alpaca = payload.get("alpaca_paper", {})
-    paper_allowed = isinstance(paper, dict) and bool(paper.get("allowed"))
+    payload = _object_mapping(v1_readiness_payload(settings, check_provider=False))
+    paper = _object_mapping(payload.get("paper_operations"))
+    alpaca = _object_mapping(payload.get("alpaca_paper"))
+    paper_allowed = bool(paper.get("allowed"))
     console.print(
         Panel(
             str(payload.get("summary", "V1 readiness status unavailable.")),
@@ -1025,9 +1035,9 @@ def _render_v1_readiness(settings: Settings) -> None:
             border_style="green" if paper_allowed else "yellow",
         )
     )
-    if isinstance(paper, dict):
+    if paper:
         _render_readiness_table("Paper Operation Checks", paper)
-    if isinstance(alpaca, dict):
+    if alpaca:
         _render_readiness_table("Alpaca Paper Checks", alpaca)
 
 
@@ -1387,7 +1397,7 @@ def _run_one_shot_symbol(
             stage: str,
             event: str,
             message: str,
-            current_status=status,
+            current_status: Status = status,
         ) -> None:
             nonlocal latest_message
             latest_message = f"[{stage}] {message}"
