@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 from urllib.parse import urlparse
 
 import httpx
@@ -56,6 +56,31 @@ MINIMAL_ENV_KEYS = (
     "SYSTEMROOT",
     "WINDIR",
 )
+
+
+def _json_object_or_none(value: object) -> Mapping[str, object] | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        str(key): item for key, item in cast(Mapping[object, object], value).items()
+    }
+
+
+def _object_list(value: object) -> list[object]:
+    return cast(list[object], value) if isinstance(value, list) else []
+
+
+def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
+    rows: list[Mapping[str, object]] = []
+    for item in _object_list(value):
+        row = _json_object_or_none(item)
+        if row is not None:
+            rows.append(row)
+    return rows
+
+
+def _string_list(value: object) -> list[str]:
+    return [item for item in _object_list(value) if isinstance(item, str)]
 
 
 class ModelServiceState(BaseModel):
@@ -542,6 +567,13 @@ def _cleanup_orphan_app_managed_ollama_pids(
     return stopped_pids
 
 
+def cleanup_orphan_app_managed_ollama_pids(
+    command_path: str | None,
+    active_state: ModelServiceState | None,
+) -> list[int]:
+    return _cleanup_orphan_app_managed_ollama_pids(command_path, active_state)
+
+
 def _wait_for_pid_exit(pid: int, *, timeout_seconds: float) -> bool:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
@@ -694,12 +726,14 @@ def _fetch_ollama_tags(
             [],
             f"Unable to reach Ollama: {redact_sensitive_text(exc, max_length=160)}",
         )
-    models_obj: Any = payload.get("models", []) if isinstance(payload, dict) else []
     models: list[str] = []
-    if isinstance(models_obj, list):
-        for item in models_obj:
-            if isinstance(item, dict) and isinstance(item.get("name"), str):
-                models.append(item["name"])
+    payload_object = _json_object_or_none(payload)
+    for item in _object_mapping_list(
+        payload_object.get("models") if payload_object is not None else None
+    ):
+        name = item.get("name")
+        if isinstance(name, str):
+            models.append(name)
     return True, sorted(models), "Ollama is reachable."
 
 
@@ -714,12 +748,14 @@ def _ollama_error_from_response(response: httpx.Response) -> str:
         payload = response.json()
     except Exception:
         return f"HTTP {getattr(response, 'status_code', 'error')}"
-    if isinstance(payload, dict):
-        error_obj = payload.get("error")
+    payload_object = _json_object_or_none(payload)
+    if payload_object is not None:
+        error_obj = payload_object.get("error")
         if isinstance(error_obj, str) and error_obj.strip():
             return error_obj.strip()[:240]
-        if isinstance(error_obj, dict):
-            message = error_obj.get("message")
+        error_mapping = _json_object_or_none(error_obj)
+        if error_mapping is not None:
+            message = error_mapping.get("message")
             if isinstance(message, str) and message.strip():
                 return message.strip()[:240]
     return f"HTTP {getattr(response, 'status_code', 'error')}"
@@ -752,12 +788,13 @@ def _probe_ollama_generation(
         payload = response.json()
     except Exception as exc:
         return False, redact_sensitive_text(exc, max_length=240)
-    if not isinstance(payload, dict):
+    payload_object = _json_object_or_none(payload)
+    if payload_object is None:
         return False, "Ollama generation response was not a JSON object."
-    error = payload.get("error")
+    error = payload_object.get("error")
     if isinstance(error, str) and error.strip():
         return False, redact_sensitive_text(error, max_length=240)
-    generated = payload.get("response")
+    generated = payload_object.get("response")
     if isinstance(generated, str):
         return True, "Generation probe succeeded."
     return False, "Ollama generation response did not include text."
@@ -989,7 +1026,7 @@ def _model_status_notes(
     orphan_app_managed_pids: list[int],
 ) -> list[str]:
     raw_notes = tool_payload.get("notes", [])
-    notes = list(raw_notes) if isinstance(raw_notes, list) else []
+    notes = _string_list(raw_notes)
     if ollama_serve_pids:
         notes.append(f"ollama_process_count={len(ollama_serve_pids)}")
     if len(ollama_serve_pids) > 1:
@@ -1096,7 +1133,13 @@ def build_model_service_status(
         orphan_app_managed_pids=orphan_app_managed_pids,
     )
     return ModelServiceStatus(
-        **{**tool_payload, "notes": notes},
+        tool_id=str(tool_payload.get("tool_id", "ollama")),
+        tool_status_id=str(tool_payload.get("tool_status_id", "ollama_cli")),
+        tool_consumers=_string_list(tool_payload.get("tool_consumers")),
+        tool_fallback_order=_string_list(tool_payload.get("tool_fallback_order")),
+        tool_ownership_modes=_string_list(tool_payload.get("tool_ownership_modes")),
+        install_hint=str(tool_payload.get("install_hint", "")),
+        notes=notes,
         command_available=command_path is not None,
         command_path=command_path,
         configured_base_url=settings.base_url,
@@ -1216,14 +1259,12 @@ def stop_model_service(settings: Settings) -> ModelServiceStatus:
     app_state = state if _state_process_alive(state) else None
     if state is None:
         return build_model_service_status(settings)
-    if state is not None and app_state is None:
+    if app_state is None:
         _remove_state(settings)
         return build_model_service_status(settings)
 
-    stopped = True
-    if app_state is not None:
-        stopped = _stop_pid(app_state.pid)
-    if app_state is not None and (stopped or not _state_process_alive(app_state)):
+    stopped = _stop_pid(app_state.pid)
+    if stopped or not _state_process_alive(app_state):
         _remove_state(settings)
     return build_model_service_status(settings)
 
