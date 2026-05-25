@@ -5,7 +5,7 @@
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
-[![Python](https://img.shields.io/badge/python-3.12--3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-11.0.9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
 [![CI](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml)
@@ -124,10 +124,10 @@ uv python install 3.13
 pnpm run install:python
 ```
 
-Daily source development now defaults to uv-managed Python 3.13 in the root
-`.venv`. The root package still declares `>=3.12,<3.15` support so CI can keep
-exercising the current minimum version signal, but local installs should not
-drift onto the system Python. `scripts/install-python.sh` runs
+Daily source development and GitHub Actions now default to uv-managed Python
+3.13 from the root `.python-version`. The root package metadata still declares
+`>=3.12,<3.15`, but 3.12 compatibility is no longer the primary CI lane unless
+a separate compatibility matrix is added. `scripts/install-python.sh` runs
 `uv sync --locked --python 3.13 --all-extras --group dev`.
 
 When changing Python dependencies, use uv as the source of truth:

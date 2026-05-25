@@ -509,7 +509,7 @@ it means V1 trades only through explicit, approved, auditable supported paths.
 Reason:
 The project is expected to run consistently on multiple machines, but Conda, Poetry, uv sidecars, and ad hoc pip installs created too many overlapping Python ownership layers.
 `pyproject.toml` remains the direct dependency manifest and root `uv.lock` is now the committed resolver output.
-uv owns root package add, remove, lock, sync, run, and build commands; daily root development defaults to Python 3.13 in the root `.venv`, while CI can still sync against Python 3.12 for the current minimum-support signal.
+uv owns root package add, remove, lock, sync, run, and build commands; daily root development and GitHub Actions use Python 3.13 from the root `.python-version`. The root package metadata still allows `>=3.12,<3.15`, but 3.12 compatibility is no longer the primary CI lane unless a separate compatibility matrix is added.
 Poetry is no longer a root package-management requirement.
 New root dependencies must be added with `uv add <package>` so the manifest and
 lockfile change together. Dependency upgrades should use `uv lock --upgrade`

@@ -32,7 +32,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version-file: '.python-version'
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -54,7 +54,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install release dependencies
-        run: uv sync --locked --python 3.12 --all-extras --group dev
+        run: uv sync --locked --python "$(cat .python-version)" --all-extras --group dev
 
       - name: Configure release Git identity
         run: |

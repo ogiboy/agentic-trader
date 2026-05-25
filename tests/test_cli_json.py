@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 import pytest
 
@@ -45,6 +46,13 @@ from agentic_trader.system.model_service import ModelServiceStatus
 from agentic_trader.system.setup import SetupStatus, ToolStatus
 from agentic_trader.system.webgui_service import WebGUIServiceStatus
 from agentic_trader.workflows.run_once import persist_run
+
+
+_ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def _normalize_cli_output(text: str) -> str:
+    return " ".join(_ANSI_ESCAPE_PATTERN.sub("", text).split())
 
 
 def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
@@ -1795,7 +1803,8 @@ def test_research_cycle_control_rejects_reason_without_action(
     )
 
     assert result.exit_code != 0
-    assert "--reason requires --pause, --resume, or --trigger-now." in result.output
+    output = _normalize_cli_output(result.output)
+    assert "--reason requires --pause, --resume, or --trigger-now." in output
     assert research_cycle_control_path(settings).exists() is False
     assert settings.database_path.exists() is False
 
