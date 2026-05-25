@@ -1,12 +1,44 @@
 from __future__ import annotations
 
-from typing import Any, Protocol, cast
+from collections.abc import Mapping
+from typing import Any, Protocol, TypeAlias, cast
 
 import httpx
 
 from agentic_trader.config import Settings
 from agentic_trader.schemas import LLMHealthStatus
 from agentic_trader.security import redact_sensitive_text
+
+JsonObject: TypeAlias = dict[str, object]
+
+
+def _json_object(value: object) -> JsonObject:
+    if not isinstance(value, dict):
+        raise RuntimeError(f"LLM provider returned a non-object payload: {value!r}")
+    return {
+        str(key): item for key, item in cast(Mapping[object, object], value).items()
+    }
+
+
+def _json_object_or_none(value: object) -> JsonObject | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        str(key): item for key, item in cast(Mapping[object, object], value).items()
+    }
+
+
+def _object_list(value: object) -> list[object]:
+    return cast(list[object], value) if isinstance(value, list) else []
+
+
+def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
+    rows: list[Mapping[str, object]] = []
+    for item in _object_list(value):
+        row = _json_object_or_none(item)
+        if row is not None:
+            rows.append(row)
+    return rows
 
 
 class LLMProvider(Protocol):
@@ -87,9 +119,10 @@ class OllamaProvider:
             body["format"] = "json"
             response = self.client.post(f"{self.base_url}/api/generate", json=body)
         response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict):
-            raise RuntimeError(f"Ollama returned a non-object payload: {payload!r}")
+        raw_payload: object = response.json()
+        payload = _json_object_or_none(raw_payload)
+        if payload is None:
+            raise RuntimeError(f"Ollama returned a non-object payload: {raw_payload!r}")
         return cast(dict[str, Any], payload)
 
     def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
@@ -110,16 +143,11 @@ class OllamaProvider:
         try:
             response = self.client.get(f"{self.base_url}/api/tags")
             response.raise_for_status()
-            payload = cast(dict[str, Any], response.json())
-            models_obj: Any = payload.get("models", [])
-            models: list[dict[str, Any]] = []
-            if isinstance(models_obj, list):
-                for raw_item in cast(list[Any], models_obj):
-                    if isinstance(raw_item, dict):
-                        models.append(cast(dict[str, Any], raw_item))
+            payload = _json_object(response.json())
+            models = _object_mapping_list(payload.get("models"))
             available: set[str] = set()
             for item in models:
-                name: Any = item.get("name")
+                name = item.get("name")
                 if isinstance(name, str):
                     available.add(name)
             model_available = self.model_name in available
@@ -189,8 +217,8 @@ class OllamaProvider:
             if status_code >= 400:
                 return False, self._error_from_response(response)
             response.raise_for_status()
-            payload = response.json()
-            if isinstance(payload, dict):
+            payload = _json_object_or_none(response.json())
+            if payload is not None:
                 error_obj = payload.get("error")
                 if isinstance(error_obj, str) and error_obj.strip():
                     return False, _short_redacted_error(error_obj)
@@ -204,12 +232,14 @@ class OllamaProvider:
             payload = response.json()
         except Exception:
             return f"HTTP {getattr(response, 'status_code', 'error')}"
-        if isinstance(payload, dict):
-            error_obj = payload.get("error")
+        payload_object = _json_object_or_none(payload)
+        if payload_object is not None:
+            error_obj = payload_object.get("error")
             if isinstance(error_obj, str) and error_obj.strip():
                 return _short_redacted_error(error_obj)
-            if isinstance(error_obj, dict):
-                message = error_obj.get("message")
+            error_mapping = _json_object_or_none(error_obj)
+            if error_mapping is not None:
+                message = error_mapping.get("message")
                 if isinstance(message, str) and message.strip():
                     return _short_redacted_error(message)
         return f"HTTP {getattr(response, 'status_code', 'error')}"
@@ -307,10 +337,11 @@ class OpenAICompatibleProvider:
             json=body,
         )
         response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict):
+        raw_payload = response.json()
+        payload = _json_object_or_none(raw_payload)
+        if payload is None:
             raise RuntimeError(
-                f"OpenAI-compatible provider returned a non-object payload: {payload!r}"
+                f"OpenAI-compatible provider returned a non-object payload: {raw_payload!r}"
             )
         content = _openai_compatible_content(payload)
         return {"response": content, "raw": payload}
@@ -357,7 +388,7 @@ class OpenAICompatibleProvider:
                     message=f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip(),
                 )
             response.raise_for_status()
-            payload = cast(dict[str, Any], response.json())
+            payload = _json_object(response.json())
             models = _openai_compatible_model_ids(payload)
             model_available = self.model_name in models
             generation_available: bool | None = None
@@ -428,8 +459,8 @@ class OpenAICompatibleProvider:
             if status_code >= 400:
                 return False, _openai_compatible_error_from_response(response)
             response.raise_for_status()
-            payload = response.json()
-            if isinstance(payload, dict):
+            payload = _json_object_or_none(response.json())
+            if payload is not None:
                 _openai_compatible_content(payload)
             return True, "Generation probe completed."
         except Exception as exc:
@@ -472,7 +503,7 @@ class OpenAICompatibleProvider:
         return "OpenAI-compatible endpoint is reachable and the configured model is available."
 
 
-def _openai_compatible_model_ids(payload: dict[str, Any]) -> set[str]:
+def _openai_compatible_model_ids(payload: Mapping[str, object]) -> set[str]:
     """
     Extract model IDs from an OpenAI-compatible `/models` response payload.
 
@@ -482,19 +513,15 @@ def _openai_compatible_model_ids(payload: dict[str, Any]) -> set[str]:
     Returns:
         set[str]: A set of model `id` strings found in `payload["data"]`. Returns an empty set if `data` is missing or not a list.
     """
-    data = payload.get("data")
-    if not isinstance(data, list):
-        return set()
     model_ids: set[str] = set()
-    for item in data:
-        if isinstance(item, dict):
-            model_id = item.get("id")
-            if isinstance(model_id, str):
-                model_ids.add(model_id)
+    for item in _object_mapping_list(payload.get("data")):
+        model_id = item.get("id")
+        if isinstance(model_id, str):
+            model_ids.add(model_id)
     return model_ids
 
 
-def _openai_compatible_content(payload: dict[str, Any]) -> str:
+def _openai_compatible_content(payload: Mapping[str, object]) -> str:
     """
     Extracts the textual response from an OpenAI-style chat-completions payload.
 
@@ -507,11 +534,11 @@ def _openai_compatible_content(payload: dict[str, Any]) -> str:
     Raises:
         RuntimeError: If the payload contains no choices, the first choice is malformed, or no text content can be found.
     """
-    choices = payload.get("choices")
-    if not isinstance(choices, list) or not choices:
+    choices = _object_list(payload.get("choices"))
+    if not choices:
         raise RuntimeError("OpenAI-compatible provider returned no choices.")
-    first = choices[0]
-    if not isinstance(first, dict):
+    first = _json_object_or_none(choices[0])
+    if first is None:
         raise RuntimeError("OpenAI-compatible provider returned malformed choices.")
     message = first.get("message")
     content = _openai_compatible_message_content(message)
@@ -538,22 +565,21 @@ def _openai_compatible_response_format(
 
 
 def _openai_compatible_message_content(message: object) -> str:
-    if not isinstance(message, dict):
+    message_mapping = _json_object_or_none(message)
+    if message_mapping is None:
         return ""
-    content = message.get("content")
+    content = message_mapping.get("content")
     if isinstance(content, str):
         return content.strip()
-    if isinstance(content, list):
-        return _openai_compatible_text_parts(content)
-    return ""
+    return _openai_compatible_text_parts(_object_list(content))
 
 
 def _openai_compatible_text_parts(content: list[object]) -> str:
-    text_parts = [
-        part["text"]
-        for part in content
-        if isinstance(part, dict) and isinstance(part.get("text"), str)
-    ]
+    text_parts: list[str] = []
+    for part in _object_mapping_list(content):
+        text = part.get("text")
+        if isinstance(text, str):
+            text_parts.append(text)
     return "".join(text_parts).strip()
 
 
@@ -576,12 +602,14 @@ def _openai_compatible_error_from_response(response: httpx.Response) -> str:
         payload = response.json()
     except Exception:
         return f"HTTP {getattr(response, 'status_code', 'error')}"
-    if isinstance(payload, dict):
-        error_obj = payload.get("error")
+    payload_object = _json_object_or_none(payload)
+    if payload_object is not None:
+        error_obj = payload_object.get("error")
         if isinstance(error_obj, str) and error_obj.strip():
             return _short_redacted_error(error_obj)
-        if isinstance(error_obj, dict):
-            message = error_obj.get("message")
+        error_mapping = _json_object_or_none(error_obj)
+        if error_mapping is not None:
+            message = error_mapping.get("message")
             if isinstance(message, str) and message.strip():
                 return _short_redacted_error(message)
     return f"HTTP {getattr(response, 'status_code', 'error')}"
