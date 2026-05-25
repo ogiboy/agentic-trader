@@ -5,6 +5,241 @@ All notable changes to Agentic Trader will be recorded here.
 This file is maintained by `python-semantic-release` from conventional commits on
 `main`.
 
+<!-- version list -->
+
+## v0.12.1 (2026-05-25)
+
+### Bug Fixes
+
+- Align CI with Python 3.13
+  ([`8e788d7`](https://github.com/ogiboy/agentic-trader/commit/8e788d7d6232d6c8cd006338796698f5623d539e))
+
+- Stabilize CI and document Next apps
+  ([`864c32c`](https://github.com/ogiboy/agentic-trader/commit/864c32c56c679ebe9897cbcc70d342140ce652a3))
+
+### Refactors
+
+- Refactor control room localization
+  ([`d219801`](https://github.com/ogiboy/agentic-trader/commit/d2198014f8d5bd5cb8f804e40bfd4a278699ffaf))
+
+### Chores
+
+- Improve V1 readiness and strict QA gates
+  ([`b33a07f`](https://github.com/ogiboy/agentic-trader/commit/b33a07f7f9198f38e9d494b4e6c17bb988f3068b))
+
+
+## v0.12.0 (2026-05-20)
+
+### Features
+
+- Align V1 trading readiness
+  ([`199eb30`](https://github.com/ogiboy/agentic-trader/commit/199eb30))
+- Replay research cycle memory
+  ([`2f6cb23`](https://github.com/ogiboy/agentic-trader/commit/2f6cb23))
+- Refresh broker proposal truth
+  ([`07d6cdd`](https://github.com/ogiboy/agentic-trader/commit/07d6cdd))
+- Add proposal candidate promotion
+  ([`d15cdbb`](https://github.com/ogiboy/agentic-trader/commit/d15cdbb))
+- Enrich proposal candidate evidence
+  ([`94a3e1e`](https://github.com/ogiboy/agentic-trader/commit/94a3e1e))
+- Add SEC companyfacts fundamentals
+  ([`f9e4940`](https://github.com/ogiboy/agentic-trader/commit/f9e4940))
+- Harden proposal and broker audit flows
+  ([`ffb64ab`](https://github.com/ogiboy/agentic-trader/commit/ffb64ab))
+
+### Bug Fixes
+
+- Persist proposal position plans
+  ([`eae6962`](https://github.com/ogiboy/agentic-trader/commit/eae6962))
+- Flag unmanaged open positions
+  ([`9f1909d`](https://github.com/ogiboy/agentic-trader/commit/9f1909d))
+- Surface exit plan coverage
+  ([`651d021`](https://github.com/ogiboy/agentic-trader/commit/651d021))
+- Require proposal exit controls
+  ([`e697394`](https://github.com/ogiboy/agentic-trader/commit/e697394))
+- Repair missing paper exit plans
+  ([`ee3a1e9`](https://github.com/ogiboy/agentic-trader/commit/ee3a1e9))
+- Allow Alpaca paper readiness
+  ([`c90d1cf`](https://github.com/ogiboy/agentic-trader/commit/c90d1cf))
+- Use Alpaca paper account state
+  ([`2024dfd`](https://github.com/ogiboy/agentic-trader/commit/2024dfd))
+- Provider-check WebGUI readiness
+  ([`9a0789b`](https://github.com/ogiboy/agentic-trader/commit/9a0789b))
+- Keep slow dashboard polls alive
+  ([`2fee91a`](https://github.com/ogiboy/agentic-trader/commit/2fee91a))
+- Gate app-owned endpoints by host
+  ([`259a136`](https://github.com/ogiboy/agentic-trader/commit/259a136))
+- Type proposal row mapping
+  ([`56d852f`](https://github.com/ogiboy/agentic-trader/commit/56d852f))
+- Stabilize runtime QA flows
+  ([`0b2db46`](https://github.com/ogiboy/agentic-trader/commit/0b2db46))
+- Clear V1 quality gate warnings
+  ([`c69dcea`](https://github.com/ogiboy/agentic-trader/commit/c69dcea))
+- Fix markdown files
+  ([`8f90bdd`](https://github.com/ogiboy/agentic-trader/commit/8f90bdd))
+- Fix branch issues
+  ([`29a016a`](https://github.com/ogiboy/agentic-trader/commit/29a016a))
+- Harden V1 setup and review findings
+  ([`06fc009`](https://github.com/ogiboy/agentic-trader/commit/06fc009))
+
+### Documentation
+
+- Configure agent skills
+  ([`1baa65a`](https://github.com/ogiboy/agentic-trader/commit/1baa65a))
+- Move agent notes to dev docs
+  ([`fe663a0`](https://github.com/ogiboy/agentic-trader/commit/fe663a0))
+- Align maintenance guidance
+  ([`cd98116`](https://github.com/ogiboy/agentic-trader/commit/cd98116))
+- Record V1 paper rehearsal proof
+  ([`40689a0`](https://github.com/ogiboy/agentic-trader/commit/40689a0))
+- Add V1 sectional review workflow
+  ([`a1cd620`](https://github.com/ogiboy/agentic-trader/commit/a1cd620))
+- Add docstrings to `review/v1-code-slice`
+  ([`ba9fcf3`](https://github.com/ogiboy/agentic-trader/commit/ba9fcf3))
+
+### Refactors
+
+- Split control room helpers
+  ([`4201481`](https://github.com/ogiboy/agentic-trader/commit/4201481))
+
+### Tests
+
+- Add V1 paper desk rehearsal
+  ([`95d065e`](https://github.com/ogiboy/agentic-trader/commit/95d065e))
+
+### Chores
+
+- V1 readiness trading runtime
+  ([#50](https://github.com/ogiboy/agentic-trader/pull/50),
+  [`ac660d7`](https://github.com/ogiboy/agentic-trader/commit/ac660d7))
+- Integrate reviewed V1 code slice fixes
+  ([#56](https://github.com/ogiboy/agentic-trader/pull/56),
+  [`da7c1bd`](https://github.com/ogiboy/agentic-trader/commit/da7c1bd))
+- Docs: V1 sectional review workflow
+  ([#52](https://github.com/ogiboy/agentic-trader/pull/52),
+  [`61d35a7`](https://github.com/ogiboy/agentic-trader/commit/61d35a7))
+
+## v0.11.2 (2026-05-20)
+
+### Chores
+
+- **deps**: Bump idna from 3.13 to 3.15 in `/sidecars/research_flow`
+  ([#48](https://github.com/ogiboy/agentic-trader/pull/48),
+  [`ad0ca96`](https://github.com/ogiboy/agentic-trader/commit/ad0ca96495b0475e74f0f8b9e8ec5345f28cf508),
+  [`40c12b6`](https://github.com/ogiboy/agentic-trader/commit/40c12b6))
+
+## v0.11.1 (2026-05-20)
+
+### Chores
+
+- **deps**: Bump idna from 3.13 to 3.15
+  ([#49](https://github.com/ogiboy/agentic-trader/pull/49),
+  [`abb71cc`](https://github.com/ogiboy/agentic-trader/commit/abb71cc7141f4b596e34367625182f51785f0d2a),
+  [`3739565`](https://github.com/ogiboy/agentic-trader/commit/3739565))
+
+## v0.11.0 (2026-05-17)
+
+### Features
+
+- Add read-only app doctor
+  ([`fcb8f3b`](https://github.com/ogiboy/agentic-trader/commit/fcb8f3b))
+- Add conservative app setup facade
+  ([`aa5644c`](https://github.com/ogiboy/agentic-trader/commit/aa5644c))
+- Add app service lifecycle facades
+  ([`fe30429`](https://github.com/ogiboy/agentic-trader/commit/fe30429))
+- Add scoped app update lane
+  ([`2c4b50e`](https://github.com/ogiboy/agentic-trader/commit/2c4b50e))
+- Add conservative app uninstall lane
+  ([`b442f39`](https://github.com/ogiboy/agentic-trader/commit/b442f39))
+- Add guided app up lifecycle
+  ([`a447c49`](https://github.com/ogiboy/agentic-trader/commit/a447c49))
+- Prefer app-owned local tools
+  ([`4a26ba7`](https://github.com/ogiboy/agentic-trader/commit/4a26ba7))
+- Add web proposal desk
+  ([`48d5fc6`](https://github.com/ogiboy/agentic-trader/commit/48d5fc6))
+
+### Bug Fixes
+
+- Override Sonar axios dependency
+  ([`1e7b719`](https://github.com/ogiboy/agentic-trader/commit/1e7b719))
+- Apply CodeRabbit auto-fixes
+  ([`ca68093`](https://github.com/ogiboy/agentic-trader/commit/ca68093),
+  [`36e4f78`](https://github.com/ogiboy/agentic-trader/commit/36e4f78),
+  [`e11ea84`](https://github.com/ogiboy/agentic-trader/commit/e11ea84))
+- Gate runtime endpoint adoption by ownership
+  ([`63edfc7`](https://github.com/ogiboy/agentic-trader/commit/63edfc7))
+- Repair bootstrap script execution
+  ([`49c3d1f`](https://github.com/ogiboy/agentic-trader/commit/49c3d1f))
+- Harden V1 readiness QA blockers
+  ([`84edb70`](https://github.com/ogiboy/agentic-trader/commit/84edb70))
+- Resolve review quality nits
+  ([`19dc16d`](https://github.com/ogiboy/agentic-trader/commit/19dc16d))
+- Harden WebGUI operator error handling
+  ([`8909bf4`](https://github.com/ogiboy/agentic-trader/commit/8909bf4))
+- Satisfy WebGUI traceback Sonar rule
+  ([`b90335e`](https://github.com/ogiboy/agentic-trader/commit/b90335e))
+
+### CI
+
+- Include WebGUI coverage in Sonar
+  ([`4680a79`](https://github.com/ogiboy/agentic-trader/commit/4680a79))
+
+### Documentation
+
+- Add docstrings to `V1`
+  ([`fd1939c`](https://github.com/ogiboy/agentic-trader/commit/fd1939c))
+
+### Tests
+
+- Port generated V1 readiness coverage
+  ([`f15c811`](https://github.com/ogiboy/agentic-trader/commit/f15c811))
+
+### Chores
+
+- Advance V1 readiness setup lifecycle
+  ([#40](https://github.com/ogiboy/agentic-trader/pull/40),
+  [`fb6c561`](https://github.com/ogiboy/agentic-trader/commit/fb6c561))
+- V1 readiness: app-owned tools, QA hardening, proposal desk
+  ([#41](https://github.com/ogiboy/agentic-trader/pull/41),
+  [`4638246`](https://github.com/ogiboy/agentic-trader/commit/4638246))
+- Migrate Camofox helper to pnpm lock
+  ([`0590ad2`](https://github.com/ogiboy/agentic-trader/commit/0590ad2))
+- **deps**: Bump Ink from 5.2.1 to 7.0.3
+  ([#35](https://github.com/ogiboy/agentic-trader/pull/35),
+  [`294aa18`](https://github.com/ogiboy/agentic-trader/commit/294aa183d66c20a6af6a348b894a1f2372a7d17f),
+  [`e2dba6c`](https://github.com/ogiboy/agentic-trader/commit/e2dba6c))
+- **deps**: Bump fumadocs-mdx from 14.3.2 to 15.0.5
+  ([#36](https://github.com/ogiboy/agentic-trader/pull/36),
+  [`9fe1c8e`](https://github.com/ogiboy/agentic-trader/commit/9fe1c8ee371daec48ebbd85990b4897f8807d4b5),
+  [`ed6c4e4`](https://github.com/ogiboy/agentic-trader/commit/ed6c4e4))
+- **deps**: Bump urllib3 from 2.6.3 to 2.7.0 in `/sidecars/research_flow`
+  ([#32](https://github.com/ogiboy/agentic-trader/pull/32),
+  [`88c47f6`](https://github.com/ogiboy/agentic-trader/commit/88c47f6b54fb17f6934bffbc815c46cf3eaaad67),
+  [`7823489`](https://github.com/ogiboy/agentic-trader/commit/7823489))
+- **deps**: Bump urllib3 from 2.6.3 to 2.7.0
+  ([#34](https://github.com/ogiboy/agentic-trader/pull/34),
+  [`c9017a5`](https://github.com/ogiboy/agentic-trader/commit/c9017a5ec45b239e6a9c8622b59a2e81974c0994),
+  [`e0af826`](https://github.com/ogiboy/agentic-trader/commit/e0af826))
+
+## v0.10.1 (2026-05-15)
+
+### Bug Fixes
+
+- Sync release uv locks
+  ([`5813704`](https://github.com/ogiboy/agentic-trader/commit/58137042ed3332fe19e25afab65b1403023e2a24))
+
+## v0.10.0 (2026-05-15)
+
+### Features
+
+- Surface research cycle operator controls
+  ([`300e4da`](https://github.com/ogiboy/agentic-trader/commit/300e4da40d6d84d8d2a8d1d5ee9a4a686bc2e73f))
+
+### Documentation
+
+- Plan setup lifecycle onboarding
+  ([`085e86c`](https://github.com/ogiboy/agentic-trader/commit/085e86ca34b0400612e18ebc83b8728e6e7373f8))
+
 ## v0.9.12 - 2026-05-15
 
 ### Features

@@ -742,6 +742,7 @@ Search should use exported Fumadocs search data, locale routes should remain sta
 Reason:
 The project needs practical solo-maintainer release hygiene without changing the runtime toolchain.
 `python-semantic-release` should read conventional commits on `main`, bump `project.version` in `pyproject.toml`, update `CHANGELOG.md`, and create a `v*` tag without publishing the GitHub Release directly.
+`CHANGELOG.md` must keep the `<!-- version list -->` insertion marker exactly once; semantic-release update mode uses that marker to prepend new release notes and can otherwise leave the changelog unchanged.
 Stable release version stamping should also keep the root, Web GUI, docs, and TUI `package.json` versions aligned with the Python project version so the repo presents one coherent product baseline.
 The binary workflow owns GitHub Release creation so immutable releases can be created with PyInstaller assets attached in one publish step.
 The binary assets are convenience builds for the Python CLI layer; they do not bundle the Web GUI, docs app, Node runtime, Ollama, or external provider services.

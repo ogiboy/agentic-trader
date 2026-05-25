@@ -125,6 +125,10 @@ minor_tags = ["feat"]
 parse_squash_commits = true
 patch_tags = ["fix", "perf", "docs", "build", "ci", "chore"]
 
+[tool.semantic_release.changelog]
+exclude_commit_patterns = ["^chore\\(release\\):"]
+insertion_flag = "<!-- version list -->"
+
 [tool.semantic_release.changelog.default_templates]
 changelog_file = "CHANGELOG.md"
 output_format = "md"
