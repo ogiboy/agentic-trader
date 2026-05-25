@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, cast
 
 LocalToolId = Literal["camofox-browser", "ollama", "firecrawl"]
 LocalToolConsumer = Literal[
@@ -175,7 +175,7 @@ def read_repo_tool_manifest(tool_id: LocalToolId) -> dict[str, Any] | None:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    return payload if isinstance(payload, dict) else None
+    return cast(dict[str, Any], payload) if isinstance(payload, dict) else None
 
 
 def iter_local_tool_definitions() -> tuple[LocalToolDefinition, ...]:
@@ -224,8 +224,9 @@ def local_tool_manifest_notes(tool_id: LocalToolId) -> list[str]:
         notes.append(f"role={role}")
     entrypoints = manifest.get("entrypoints")
     if isinstance(entrypoints, dict):
-        for key in sorted(entrypoints):
-            value = entrypoints.get(key)
+        entrypoint_payload = cast(dict[str, object], entrypoints)
+        for key in sorted(entrypoint_payload):
+            value = entrypoint_payload.get(key)
             if isinstance(value, str) and value:
                 notes.append(f"{key}={value}")
     return notes

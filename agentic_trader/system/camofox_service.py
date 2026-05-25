@@ -14,6 +14,7 @@ import socket
 import subprocess
 import time
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlparse
 
 import httpx
@@ -360,15 +361,14 @@ def _health(base_url: str) -> tuple[bool, bool, str]:
             False,
             f"Unable to reach Camofox: {redact_sensitive_text(exc, max_length=160)}",
         )
-    ok = bool(payload.get("ok")) if isinstance(payload, dict) else False
+    payload_object = (
+        cast(dict[str, object], payload) if isinstance(payload, dict) else {}
+    )
+    ok = bool(payload_object.get("ok"))
     if not ok:
         return True, False, "Camofox health is not ok."
-    browser_running = (
-        payload.get("browserRunning") if isinstance(payload, dict) else None
-    )
-    browser_connected = (
-        payload.get("browserConnected") if isinstance(payload, dict) else None
-    )
+    browser_running = payload_object.get("browserRunning")
+    browser_connected = payload_object.get("browserConnected")
     if browser_running is False or browser_connected is False:
         return True, True, "Camofox server is reachable; browser launches on demand."
     return True, True, "Camofox is reachable."
