@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Collection, Mapping
 from pathlib import Path
-from typing import Protocol, TypeVar
+from typing import NoReturn, Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -16,6 +16,13 @@ def constant(value: T) -> Callable[..., T]:
         return value
 
     return _inner
+
+
+def raising(error: Exception) -> Callable[..., NoReturn]:
+    def _raise(*_args: object, **_kwargs: object) -> NoReturn:
+        raise error
+
+    return _raise
 
 
 def empty_int_list(*_args: object, **_kwargs: object) -> list[int]:
@@ -65,6 +72,15 @@ def port_available_except(*blocked_ports: int) -> Callable[[str, int], bool]:
 
     def _available(_host: str, port: int) -> bool:
         return port not in blocked
+
+    return _available
+
+
+def port_available_only(*available_ports: int) -> Callable[[str, int], bool]:
+    available = set(available_ports)
+
+    def _available(_host: str, port: int) -> bool:
+        return port in available
 
     return _available
 
