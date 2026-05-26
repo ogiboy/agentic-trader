@@ -28,20 +28,25 @@ export const homeContentTr: HomeContent = {
       body: 'CLI, Rich, Ink, observer API ve Web GUI ayrı UI doğruları üretmek yerine aynı sözleşmelerin üstünde çalışır.',
     },
   },
-  currentFocusItems: [
-    {
-      icon: 'bot',
-      text: 'İsteğe bağlı app-managed Ollama supervision mevcut daemon ve log yüzeyini genişletmeli.',
-    },
-    {
-      icon: 'layout',
-      text: '`webgui` ince bir yerel kabuk olarak kalırken `docs` önce operatör rehberi, sonra katkıcı notları olmalı.',
-    },
-    {
-      icon: 'inspect',
-      text: 'Bootstrap, provider hazırlığı ve QA kanıtları daha standart bir onboarding yoluna taşınıyor.',
-    },
-  ],
+  currentFocus: {
+    title: 'Güncel V1 odağı',
+    description:
+      'Proje şu anda sertleştirme aşamasında; paralel bir sistem icat etme aşamasında değil.',
+    items: [
+      {
+        icon: 'bot',
+        text: 'İsteğe bağlı app-managed Ollama supervision mevcut daemon ve log yüzeyini genişletmeli.',
+      },
+      {
+        icon: 'layout',
+        text: '`webgui` ince bir yerel kabuk olarak kalırken `docs` önce operatör rehberi, sonra katkıcı notları olmalı.',
+      },
+      {
+        icon: 'inspect',
+        text: 'Bootstrap, provider hazırlığı ve QA kanıtları daha standart bir onboarding yoluna taşınıyor.',
+      },
+    ],
+  },
   guardrail:
     'Web GUI ve docs sitesi operatör/katkıcı yüzeyleridir. Orkestrasyon sahipliği almazlar; Python runtime sözleşmeleri kaynak gerçektir.',
   entryPoints: [
@@ -151,4 +156,6 @@ export const homeContentTr: HomeContent = {
       ],
     },
   ],
+  workflowNote:
+    'Dokümanlar runtime gerçeğine yakın durmalı; ikinci bir mimari anlatısı olmamalı.',
 };
