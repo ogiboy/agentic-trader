@@ -55,8 +55,11 @@ class UITextCatalog:
     help_trade_thesis: str
     help_trade_side: str
     help_webgui_service_app: str
+    label_agent: str
     label_approved: str
+    label_baseline: str
     label_cash: str
+    label_closed_trades: str
     label_continuous: str
     label_confidence: str
     label_context: str
@@ -64,14 +67,22 @@ class UITextCatalog:
     label_current_symbol: str
     label_cycle: str
     label_cycle_count: str
+    label_cycles: str
     label_daily_realized_pnl: str
     label_decision: str
     label_decision_path: str
+    label_delta: str
     label_drawdown_from_peak: str
+    label_ending_equity: str
     label_entry: str
+    label_entry_px: str
     label_equity: str
+    label_exposure: str
     label_exit: str
+    label_exit_px: str
+    label_expectancy: str
     label_fallback: str
+    label_fallback_cycles: str
     label_field: str
     label_fills_today: str
     label_final_rationale: str
@@ -92,9 +103,11 @@ class UITextCatalog:
     label_lookback: str
     label_market_value: str
     label_marks_recorded: str
+    label_max_drawdown: str
     label_max_cycles: str
     label_memories: str
     label_message: str
+    label_metric: str
     label_mode: str
     label_model: str
     label_multi_timeframe: str
@@ -112,8 +125,10 @@ class UITextCatalog:
     label_preference_update: str
     label_rationale: str
     label_realized_pnl: str
+    label_reason: str
     label_resolution_notes: str
     label_requires_confirmation: str
+    label_return: str
     label_runtime: str
     label_role: str
     label_service: str
@@ -132,11 +147,14 @@ class UITextCatalog:
     label_symbols: str
     label_take_profit: str
     label_tools: str
+    label_total_return: str
+    label_trades: str
     label_type: str
     label_update_preferences: str
     label_updated: str
     label_unrealized_pnl: str
     label_value: str
+    label_warmup_bars: str
     label_warnings: str
     label_win_rate: str
     label_yes: str
@@ -161,6 +179,8 @@ class UITextCatalog:
     title_execution_summary: str
     title_agent_decisions: str
     title_agent_trace: str
+    title_backtest_comparison: str
+    title_backtest_trades: str
     title_llm_status: str
     title_operator_instruction: str
     title_pipeline: str
@@ -181,6 +201,7 @@ class UITextCatalog:
     title_trade_journal: str
     title_trace: str
     title_warning: str
+    title_walk_forward_backtest: str
 
 
 EN_TEXT = UITextCatalog(
@@ -221,8 +242,11 @@ EN_TEXT = UITextCatalog(
     help_trade_thesis="Short operator-readable proposal thesis.",
     help_trade_side="Trade side: buy or sell.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
+    label_agent="Agent",
     label_approved="Approved",
+    label_baseline="Baseline",
     label_cash="Cash",
+    label_closed_trades="Closed Trades",
     label_continuous="Continuous",
     label_confidence="Confidence",
     label_context="Context",
@@ -230,14 +254,22 @@ EN_TEXT = UITextCatalog(
     label_current_symbol="Current Symbol",
     label_cycle="Cycle",
     label_cycle_count="Cycle Count",
+    label_cycles="Cycles",
     label_daily_realized_pnl="Daily Realized PnL",
     label_decision="Decision",
     label_decision_path="Decision Path",
+    label_delta="Delta",
     label_drawdown_from_peak="Drawdown From Peak",
+    label_ending_equity="Ending Equity",
     label_entry="Entry",
+    label_entry_px="Entry Px",
     label_equity="Equity",
+    label_exposure="Exposure",
     label_exit="Exit",
+    label_exit_px="Exit Px",
+    label_expectancy="Expectancy",
     label_fallback="Fallback",
+    label_fallback_cycles="Fallback Cycles",
     label_field="Field",
     label_fills_today="Fills Today",
     label_final_rationale="Final Rationale",
@@ -258,9 +290,11 @@ EN_TEXT = UITextCatalog(
     label_lookback="Lookback",
     label_market_value="Market Value",
     label_marks_recorded="Marks Recorded",
+    label_max_drawdown="Max Drawdown",
     label_max_cycles="Max Cycles",
     label_memories="Memories",
     label_message="Message",
+    label_metric="Metric",
     label_mode="Mode",
     label_model="Model",
     label_multi_timeframe="Multi-Timeframe",
@@ -278,8 +312,10 @@ EN_TEXT = UITextCatalog(
     label_preference_update="Preference Update",
     label_rationale="Rationale",
     label_realized_pnl="Realized PnL",
+    label_reason="Reason",
     label_resolution_notes="Resolution Notes",
     label_requires_confirmation="Requires Confirmation",
+    label_return="Return",
     label_runtime="Runtime",
     label_role="Role",
     label_service="Service",
@@ -298,11 +334,14 @@ EN_TEXT = UITextCatalog(
     label_symbols="Symbols",
     label_take_profit="Take Profit",
     label_tools="Tools",
+    label_total_return="Total Return",
+    label_trades="Trades",
     label_type="Type",
     label_update_preferences="Update Preferences",
     label_updated="Updated",
     label_unrealized_pnl="Unrealized PnL",
     label_value="Value",
+    label_warmup_bars="Warmup Bars",
     label_warnings="Warnings",
     label_win_rate="Win Rate",
     label_yes="yes",
@@ -328,6 +367,8 @@ EN_TEXT = UITextCatalog(
     style_key_column="bold cyan",
     title_agent_decisions="Agent Decisions",
     title_agent_trace="Agent Trace",
+    title_backtest_comparison="Backtest Comparison",
+    title_backtest_trades="Backtest Trades",
     title_execution_summary="Execution Summary",
     title_llm_status="LLM Status",
     title_operator_instruction="Operator Instruction",
@@ -349,6 +390,7 @@ EN_TEXT = UITextCatalog(
     title_trade_journal="Trade Journal",
     title_trace="Trace",
     title_warning="Warning",
+    title_walk_forward_backtest="Walk-Forward Backtest",
 )
 
 # Terminal-facing Turkish copy intentionally remains ASCII-safe until CLI/TUI
@@ -392,8 +434,11 @@ TR_TEXT = UITextCatalog(
     help_trade_thesis="Operator tarafindan okunabilir kisa proposal tezi.",
     help_trade_side="Trade yonu: buy veya sell.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
+    label_agent="Agent",
     label_approved="Onaylandi",
+    label_baseline="Baseline",
     label_cash="Nakit",
+    label_closed_trades="Kapanan Trade'ler",
     label_continuous="Surekli",
     label_confidence="Guven",
     label_context="Baglam",
@@ -401,14 +446,22 @@ TR_TEXT = UITextCatalog(
     label_current_symbol="Gecerli Sembol",
     label_cycle="Dongu",
     label_cycle_count="Dongu Sayisi",
+    label_cycles="Donguler",
     label_daily_realized_pnl="Gunluk Gerceklesen PnL",
     label_decision="Karar",
     label_decision_path="Karar Yolu",
+    label_delta="Delta",
     label_drawdown_from_peak="Zirveden Drawdown",
+    label_ending_equity="Final Equity",
     label_entry="Giris",
+    label_entry_px="Giris Fiyati",
     label_equity="Equity",
+    label_exposure="Exposure",
     label_exit="Cikis",
+    label_exit_px="Cikis Fiyati",
+    label_expectancy="Expectancy",
     label_fallback="Fallback",
+    label_fallback_cycles="Fallback Donguleri",
     label_field="Alan",
     label_fills_today="Bugunku Fill'ler",
     label_final_rationale="Final Gerekce",
@@ -429,9 +482,11 @@ TR_TEXT = UITextCatalog(
     label_lookback="Geriye Donuk Pencere",
     label_market_value="Piyasa Degeri",
     label_marks_recorded="Kayitli Mark'lar",
+    label_max_drawdown="Maksimum Drawdown",
     label_max_cycles="Maksimum Dongu",
     label_memories="Hafizalar",
     label_message="Mesaj",
+    label_metric="Metrik",
     label_mode="Mod",
     label_model="Model",
     label_multi_timeframe="Multi-Timeframe",
@@ -449,8 +504,10 @@ TR_TEXT = UITextCatalog(
     label_preference_update="Preference Guncellemesi",
     label_rationale="Gerekce",
     label_realized_pnl="Gerceklesen PnL",
+    label_reason="Neden",
     label_resolution_notes="Cozum Notlari",
     label_requires_confirmation="Onay Gerektirir",
+    label_return="Return",
     label_runtime="Runtime",
     label_role="Rol",
     label_service="Servis",
@@ -469,11 +526,14 @@ TR_TEXT = UITextCatalog(
     label_symbols="Semboller",
     label_take_profit="Take Profit",
     label_tools="Araclar",
+    label_total_return="Toplam Return",
+    label_trades="Trade'ler",
     label_type="Tip",
     label_update_preferences="Tercihleri Guncelle",
     label_updated="Guncellendi",
     label_unrealized_pnl="Gerceklesmemis PnL",
     label_value="Deger",
+    label_warmup_bars="Warmup Bar'lari",
     label_warnings="Uyarilar",
     label_win_rate="Kazanma Orani",
     label_yes="evet",
@@ -499,6 +559,8 @@ TR_TEXT = UITextCatalog(
     style_key_column=EN_TEXT.style_key_column,
     title_agent_decisions="Agent Kararlari",
     title_agent_trace="Agent Trace",
+    title_backtest_comparison="Backtest Karsilastirma",
+    title_backtest_trades="Backtest Trade'leri",
     title_execution_summary="Execution Ozeti",
     title_llm_status="LLM Durumu",
     title_operator_instruction="Operator Talimati",
@@ -520,6 +582,7 @@ TR_TEXT = UITextCatalog(
     title_trade_journal="Trade Journal",
     title_trace="Trace",
     title_warning="Uyari",
+    title_walk_forward_backtest="Walk-Forward Backtest",
 )
 
 UI_TEXT: dict[UILocale, UITextCatalog] = {
@@ -584,8 +647,11 @@ HELP_TRADE_STOP_LOSS = EN_TEXT.help_trade_stop_loss
 HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
 HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
 
+LABEL_AGENT = EN_TEXT.label_agent
 LABEL_APPROVED = EN_TEXT.label_approved
+LABEL_BASELINE = EN_TEXT.label_baseline
 LABEL_CASH = EN_TEXT.label_cash
+LABEL_CLOSED_TRADES = EN_TEXT.label_closed_trades
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
 LABEL_CONFIDENCE = EN_TEXT.label_confidence
 LABEL_CONTEXT = EN_TEXT.label_context
@@ -593,14 +659,22 @@ LABEL_CREATED = EN_TEXT.label_created
 LABEL_CURRENT_SYMBOL = EN_TEXT.label_current_symbol
 LABEL_CYCLE = EN_TEXT.label_cycle
 LABEL_CYCLE_COUNT = EN_TEXT.label_cycle_count
+LABEL_CYCLES = EN_TEXT.label_cycles
 LABEL_DAILY_REALIZED_PNL = EN_TEXT.label_daily_realized_pnl
 LABEL_DECISION = EN_TEXT.label_decision
 LABEL_DECISION_PATH = EN_TEXT.label_decision_path
+LABEL_DELTA = EN_TEXT.label_delta
 LABEL_DRAWDOWN_FROM_PEAK = EN_TEXT.label_drawdown_from_peak
+LABEL_ENDING_EQUITY = EN_TEXT.label_ending_equity
 LABEL_ENTRY = EN_TEXT.label_entry
+LABEL_ENTRY_PX = EN_TEXT.label_entry_px
 LABEL_EQUITY = EN_TEXT.label_equity
+LABEL_EXPOSURE = EN_TEXT.label_exposure
 LABEL_EXIT = EN_TEXT.label_exit
+LABEL_EXIT_PX = EN_TEXT.label_exit_px
+LABEL_EXPECTANCY = EN_TEXT.label_expectancy
 LABEL_FALLBACK = EN_TEXT.label_fallback
+LABEL_FALLBACK_CYCLES = EN_TEXT.label_fallback_cycles
 LABEL_FIELD = EN_TEXT.label_field
 LABEL_FILLS_TODAY = EN_TEXT.label_fills_today
 LABEL_FINAL_RATIONALE = EN_TEXT.label_final_rationale
@@ -621,9 +695,11 @@ LABEL_LLM = EN_TEXT.label_llm
 LABEL_LOOKBACK = EN_TEXT.label_lookback
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
 LABEL_MARKS_RECORDED = EN_TEXT.label_marks_recorded
+LABEL_MAX_DRAWDOWN = EN_TEXT.label_max_drawdown
 LABEL_MAX_CYCLES = EN_TEXT.label_max_cycles
 LABEL_MEMORIES = EN_TEXT.label_memories
 LABEL_MESSAGE = EN_TEXT.label_message
+LABEL_METRIC = EN_TEXT.label_metric
 LABEL_MODE = EN_TEXT.label_mode
 LABEL_MODEL = EN_TEXT.label_model
 LABEL_MULTI_TIMEFRAME = EN_TEXT.label_multi_timeframe
@@ -641,8 +717,10 @@ LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
 LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
+LABEL_REASON = EN_TEXT.label_reason
 LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
+LABEL_RETURN = EN_TEXT.label_return
 LABEL_RUNTIME = EN_TEXT.label_runtime
 LABEL_ROLE = EN_TEXT.label_role
 LABEL_SERVICE = EN_TEXT.label_service
@@ -661,11 +739,14 @@ LABEL_SYMBOL = EN_TEXT.label_symbol
 LABEL_SYMBOLS = EN_TEXT.label_symbols
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
 LABEL_TOOLS = EN_TEXT.label_tools
+LABEL_TOTAL_RETURN = EN_TEXT.label_total_return
+LABEL_TRADES = EN_TEXT.label_trades
 LABEL_TYPE = EN_TEXT.label_type
 LABEL_UPDATE_PREFERENCES = EN_TEXT.label_update_preferences
 LABEL_UPDATED = EN_TEXT.label_updated
 LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
 LABEL_VALUE = EN_TEXT.label_value
+LABEL_WARMUP_BARS = EN_TEXT.label_warmup_bars
 LABEL_WARNINGS = EN_TEXT.label_warnings
 LABEL_WIN_RATE = EN_TEXT.label_win_rate
 LABEL_YES = EN_TEXT.label_yes
@@ -691,6 +772,8 @@ STAGE_STRATEGY = EN_TEXT.stage_strategy
 
 TITLE_AGENT_DECISIONS = EN_TEXT.title_agent_decisions
 TITLE_AGENT_TRACE = EN_TEXT.title_agent_trace
+TITLE_BACKTEST_COMPARISON = EN_TEXT.title_backtest_comparison
+TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
@@ -712,6 +795,7 @@ TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
 TITLE_TRACE = EN_TEXT.title_trace
 TITLE_WARNING = EN_TEXT.title_warning
+TITLE_WALK_FORWARD_BACKTEST = EN_TEXT.title_walk_forward_backtest
 
 PROMPT_CONTINUE = EN_TEXT.prompt_continue
 PROMPT_SELECT_ACTION = EN_TEXT.prompt_select_action

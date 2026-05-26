@@ -21,6 +21,8 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.title_daily_risk_report == ui_text.TITLE_DAILY_RISK_REPORT
     assert catalog.title_run_review == ui_text.TITLE_RUN_REVIEW
     assert catalog.title_agent_trace == ui_text.TITLE_AGENT_TRACE
+    assert catalog.title_walk_forward_backtest == ui_text.TITLE_WALK_FORWARD_BACKTEST
+    assert catalog.label_closed_trades == ui_text.LABEL_CLOSED_TRADES
     assert catalog.list_separator == ui_text.UI_LIST_SEPARATOR
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
 
@@ -40,6 +42,8 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_fills_today == "Bugunku Fill'ler"
     assert catalog.title_agent_decisions == "Agent Kararlari"
     assert catalog.label_output_preview == "Cikti Onizleme"
+    assert catalog.title_backtest_comparison == "Backtest Karsilastirma"
+    assert catalog.label_warmup_bars == "Warmup Bar'lari"
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 
