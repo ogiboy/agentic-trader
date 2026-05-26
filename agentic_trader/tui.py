@@ -25,6 +25,11 @@ from agentic_trader.diagnostics import (
     v1_readiness_payload,
 )
 from agentic_trader.engine.broker import broker_runtime_payload
+from agentic_trader.json_utils import (
+    object_list as _object_list,
+    object_mapping as _object_mapping,
+    object_mapping_list as _object_mapping_list,
+)
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
@@ -75,22 +80,6 @@ from agentic_trader.workflows.service import ensure_llm_ready, start_background_
 
 console = Console()
 LABEL_BASE_URL = "Base URL"
-
-
-def _object_mapping(value: object) -> Mapping[str, object]:
-    return cast(Mapping[str, object], value) if isinstance(value, dict) else {}
-
-
-def _object_list(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
-
-
-def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
-    rows: list[Mapping[str, object]] = []
-    for item in _object_list(value):
-        if isinstance(item, dict):
-            rows.append(cast(Mapping[str, object], item))
-    return rows
 
 
 @dataclass(frozen=True, slots=True)

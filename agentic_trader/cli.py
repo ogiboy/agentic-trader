@@ -64,6 +64,11 @@ from agentic_trader.finance.strategy_catalog import (
     strategy_catalog_payload,
     strategy_profile_for_preset,
 )
+from agentic_trader.json_utils import (
+    object_list as _object_list,
+    object_mapping as _object_mapping,
+    object_mapping_list as _object_mapping_list,
+)
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.market.data import fetch_ohlcv
@@ -197,26 +202,6 @@ app = typer.Typer(
 )
 console = Console()
 UI_LOCALE_ENV = "AGENTIC_TRADER_UI_LOCALE"
-
-
-def _object_mapping(value: object) -> Mapping[str, object]:
-    if isinstance(value, Mapping):
-        return cast(Mapping[str, object], value)
-    return {}
-
-
-def _object_list(value: object) -> list[object]:
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return list(cast(Sequence[object], value))
-    return []
-
-
-def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
-    rows: list[Mapping[str, object]] = []
-    for item in _object_list(value):
-        if isinstance(item, Mapping):
-            rows.append(cast(Mapping[str, object], item))
-    return rows
 
 
 def object_mapping(value: object) -> Mapping[str, object]:
