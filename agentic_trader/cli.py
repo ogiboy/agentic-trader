@@ -198,6 +198,12 @@ from agentic_trader.ui_text import (
     HELP_MODEL_SERVICE_HOST,
     HELP_MODEL_SERVICE_PORT,
     HELP_OLLAMA_OWNER,
+    HELP_RESEARCH_CYCLE_PAUSE,
+    HELP_RESEARCH_CYCLE_REASON,
+    HELP_RESEARCH_CYCLE_RESUME,
+    HELP_RESEARCH_CYCLE_TRIGGER_NOW,
+    HELP_RESEARCH_PROBE,
+    HELP_RESEARCH_REFRESH_PERSIST,
     HELP_RUN_ID,
     HELP_RUNTIME_MODE_PROVIDER_CHECK,
     HELP_RUNTIME_MODE_TARGET,
@@ -234,6 +240,7 @@ from agentic_trader.ui_text import (
     LABEL_CLOSED_TRADES,
     LABEL_CONFIDENCE,
     LABEL_CONTEXT,
+    LABEL_CORE_DEPENDENCY,
     LABEL_CONTINUOUS,
     LABEL_CORE_READY,
     LABEL_CREATED,
@@ -259,6 +266,7 @@ from agentic_trader.ui_text import (
     LABEL_ENVIRONMENT,
     LABEL_EQUITY,
     LABEL_ENABLED,
+    LABEL_ENVIRONMENT_EXISTS,
     LABEL_EXIT,
     LABEL_EXIT_CODE,
     LABEL_EXIT_PX,
@@ -271,6 +279,7 @@ from agentic_trader.ui_text import (
     LABEL_FILLS_TODAY,
     LABEL_FINAL_RATIONALE,
     LABEL_FINAL_SIDE,
+    LABEL_FLOW_DIR,
     LABEL_FRESHNESS,
     LABEL_GENERATED,
     LABEL_GROSS_EXPOSURE,
@@ -287,6 +296,7 @@ from agentic_trader.ui_text import (
     LABEL_LAST_SUCCESSFUL_UPDATE,
     LABEL_LATEST_ORDER,
     LABEL_LEVEL,
+    LABEL_LOCKFILE_EXISTS,
     LABEL_LIVE_PROCESS,
     LABEL_LLM,
     LABEL_LLM_PROVIDER,
@@ -330,6 +340,7 @@ from agentic_trader.ui_text import (
     LABEL_PREFERENCE_UPDATE,
     LABEL_PRESET,
     LABEL_PROVIDER,
+    LABEL_PYTHON_VERSION,
     LABEL_PROPOSAL,
     LABEL_PURPOSE,
     LABEL_RATIONALE,
@@ -338,6 +349,7 @@ from agentic_trader.ui_text import (
     LABEL_REF,
     LABEL_REJECTION_EVIDENCE,
     LABEL_REQUIRES_CONFIRMATION,
+    LABEL_RESEARCH_CYCLE_CONTROL,
     LABEL_RESOLUTION_NOTES,
     LABEL_RETURN,
     LABEL_ROLE,
@@ -347,7 +359,9 @@ from agentic_trader.ui_text import (
     LABEL_SCORE,
     LABEL_SERVICE,
     LABEL_SETUP,
+    LABEL_SCAFFOLD_EXISTS,
     LABEL_SIDE,
+    LABEL_SIDECAR_AVAILABLE,
     LABEL_SIGNAL,
     LABEL_SIZE,
     LABEL_SLIPPAGE,
@@ -376,13 +390,17 @@ from agentic_trader.ui_text import (
     LABEL_TOTAL_RETURN,
     LABEL_TRADES,
     LABEL_TRIGGER_NOW,
+    LABEL_TRIGGER_NOW_REQUESTED,
     LABEL_TYPE,
     LABEL_UNREALIZED_PNL,
     LABEL_UPDATE_PREFERENCES,
     LABEL_UPDATED,
     LABEL_UPDATED_AT,
+    LABEL_UV_AVAILABLE,
     LABEL_V1_SOURCE,
     LABEL_VALUE,
+    LABEL_VERSION,
+    LABEL_VERSION_SOURCE,
     LABEL_WARMUP_BARS,
     LABEL_WARNINGS,
     LABEL_WATCHED_SYMBOLS,
@@ -413,6 +431,10 @@ from agentic_trader.ui_text import (
     MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
     MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
+    MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION,
+    MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
+    MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
+    MESSAGE_RESEARCH_SNAPSHOT_RECORDED,
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
     MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
@@ -467,10 +489,14 @@ from agentic_trader.ui_text import (
     TITLE_OPERATOR_LAUNCHER,
     TITLE_PIPELINE,
     TITLE_POSITION_PLAN_REPAIR,
+    TITLE_RECOMMENDED_COMMANDS,
     TITLE_PROPOSAL_CANDIDATES,
     TITLE_RECOMMENDED_NEXT_COMMANDS,
+    TITLE_RESEARCH_CREWAI_FLOW_SETUP,
+    TITLE_RESEARCH_CYCLE_CONTROL,
     TITLE_RESEARCH_SIDECAR_STATUS,
     TITLE_RESEARCH_SOURCE_HEALTH,
+    TITLE_RESEARCH_SNAPSHOT_PERSISTED,
     TITLE_REPLAY_STAGES,
     TITLE_REVIEW_NOTE,
     TITLE_RISK_WARNINGS,
@@ -4667,7 +4693,7 @@ def research_status(
     probe: bool = typer.Option(
         False,
         "--probe/--no-probe",
-        help="Run one isolated sidecar provider probe before reporting status.",
+        help=HELP_RESEARCH_PROBE,
     ),
 ) -> None:
     """Show optional research sidecar mode, backend, and source health."""
@@ -4684,22 +4710,22 @@ def research_cycle_control(
     pause: bool = typer.Option(
         False,
         "--pause",
-        help="Pause future automated research-cycle runs.",
+        help=HELP_RESEARCH_CYCLE_PAUSE,
     ),
     resume: bool = typer.Option(
         False,
         "--resume",
-        help="Resume future automated research-cycle runs.",
+        help=HELP_RESEARCH_CYCLE_RESUME,
     ),
     trigger_now: bool = typer.Option(
         False,
         "--trigger-now",
-        help="Request one immediate research-cycle run for the next runner.",
+        help=HELP_RESEARCH_CYCLE_TRIGGER_NOW,
     ),
     reason: str | None = typer.Option(
         None,
         "--reason",
-        help="Optional operator note persisted with the control state.",
+        help=HELP_RESEARCH_CYCLE_REASON,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -4726,13 +4752,9 @@ def research_cycle_control(
         if enabled
     ]
     if len(selected_actions) > 1:
-        raise typer.BadParameter(
-            "Choose only one of --pause, --resume, or --trigger-now."
-        )
+        raise typer.BadParameter(MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION)
     if reason is not None and not selected_actions:
-        raise typer.BadParameter(
-            "--reason requires --pause, --resume, or --trigger-now."
-        )
+        raise typer.BadParameter(MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION)
     settings = get_settings()
     action = (
         cast(ResearchCycleControlAction, selected_actions[0])
@@ -4758,11 +4780,15 @@ def research_cycle_control(
         return
     console.print(
         Panel(
-            (
-                f"Research cycle control: {control.status}\n"
-                f"Trigger now requested: {'yes' if control.trigger_now_requested else 'no'}"
+            MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS.format(
+                label=LABEL_RESEARCH_CYCLE_CONTROL,
+                status=control.status,
+                trigger_label=LABEL_TRIGGER_NOW_REQUESTED,
+                trigger_now=(
+                    LABEL_YES if control.trigger_now_requested else LABEL_NO
+                ),
             ),
-            title="Research Cycle Control",
+            title=TITLE_RESEARCH_CYCLE_CONTROL,
             border_style="cyan",
         )
     )
@@ -4774,7 +4800,7 @@ def research_refresh(
     persist: bool = typer.Option(
         True,
         "--persist/--no-persist",
-        help="Persist the sidecar snapshot to the runtime research JSON feed.",
+        help=HELP_RESEARCH_REFRESH_PERSIST,
     ),
 ) -> None:
     """Run one isolated research sidecar pass without touching broker execution."""
@@ -4802,8 +4828,10 @@ def research_refresh(
     if record_payload is not None:
         console.print(
             _render_health_panel(
-                "Research Snapshot Persisted",
-                f"Snapshot {record_payload['snapshot_id']} recorded in the research feed.",
+                TITLE_RESEARCH_SNAPSHOT_PERSISTED,
+                MESSAGE_RESEARCH_SNAPSHOT_RECORDED.format(
+                    snapshot_id=record_payload["snapshot_id"]
+                ),
                 border_style="green",
             )
         )
@@ -4811,24 +4839,27 @@ def research_refresh(
 
 def _render_research_flow_setup(payload: dict[str, object]) -> None:
     """Render optional CrewAI Flow setup state."""
-    table = Table(title="Research CrewAI Flow Setup")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Sidecar Available", str(payload["available"]))
-    table.add_row("Version Source", str(payload.get("version_source") or "-"))
-    table.add_row("Version", str(payload["version"] or "-"))
-    table.add_row("uv Available", str(payload["uv_available"]))
-    table.add_row("Flow Dir", str(payload["flow_dir"]))
-    table.add_row("Scaffold Exists", str(payload["flow_scaffold_exists"]))
-    table.add_row("Environment Exists", str(payload["environment_exists"]))
-    table.add_row("Python Version", str(payload["python_version"] or "-"))
-    table.add_row("Lockfile Exists", str(payload["lockfile_exists"]))
-    table.add_row("Core Dependency", str(payload["core_dependency"]))
+    version_source = str(payload.get("version_source") or "-")
+    version = str(payload["version"] or "-")
+    python_version = str(payload["python_version"] or "-")
+    table = Table(title=TITLE_RESEARCH_CREWAI_FLOW_SETUP)
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_SIDECAR_AVAILABLE, str(payload["available"]))
+    table.add_row(LABEL_VERSION_SOURCE, version_source)
+    table.add_row(LABEL_VERSION, version)
+    table.add_row(LABEL_UV_AVAILABLE, str(payload["uv_available"]))
+    table.add_row(LABEL_FLOW_DIR, str(payload["flow_dir"]))
+    table.add_row(LABEL_SCAFFOLD_EXISTS, str(payload["flow_scaffold_exists"]))
+    table.add_row(LABEL_ENVIRONMENT_EXISTS, str(payload["environment_exists"]))
+    table.add_row(LABEL_PYTHON_VERSION, python_version)
+    table.add_row(LABEL_LOCKFILE_EXISTS, str(payload["lockfile_exists"]))
+    table.add_row(LABEL_CORE_DEPENDENCY, str(payload["core_dependency"]))
     console.print(table)
     console.print(
         Panel(
             "\n".join(cast(list[str], payload["recommended_commands"])),
-            title="Recommended Commands",
+            title=TITLE_RECOMMENDED_COMMANDS,
             border_style="cyan",
         )
     )

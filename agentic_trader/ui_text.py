@@ -44,6 +44,12 @@ class UITextCatalog:
     help_model_service_host: str
     help_model_service_port: str
     help_ollama_owner: str
+    help_research_cycle_pause: str
+    help_research_cycle_reason: str
+    help_research_cycle_resume: str
+    help_research_cycle_trigger_now: str
+    help_research_probe: str
+    help_research_refresh_persist: str
     help_firecrawl_owner: str
     help_camofox_owner: str
     help_camofox_service_host: str
@@ -85,6 +91,7 @@ class UITextCatalog:
     label_continuous: str
     label_confidence: str
     label_context: str
+    label_core_dependency: str
     label_core_ready: str
     label_created: str
     label_currency: str
@@ -108,6 +115,7 @@ class UITextCatalog:
     label_entry_px: str
     label_equity: str
     label_enabled: str
+    label_environment_exists: str
     label_exposure: str
     label_exit: str
     label_exit_code: str
@@ -121,6 +129,7 @@ class UITextCatalog:
     label_final_rationale: str
     label_final_side: str
     label_freshness: str
+    label_flow_dir: str
     label_generated: str
     label_gross_exposure: str
     label_heartbeat: str
@@ -134,6 +143,7 @@ class UITextCatalog:
     label_last_recorded_state: str
     label_largest_position: str
     label_level: str
+    label_lockfile_exists: str
     label_latest_order: str
     label_last_error: str
     label_last_successful_update: str
@@ -180,6 +190,7 @@ class UITextCatalog:
     label_preset: str
     label_preference_update: str
     label_provider: str
+    label_python_version: str
     label_proposal: str
     label_rationale: str
     label_realized_pnl: str
@@ -188,6 +199,7 @@ class UITextCatalog:
     label_reason: str
     label_resolution_notes: str
     label_requires_confirmation: str
+    label_research_cycle_control: str
     label_return: str
     label_runtime: str
     label_runtime_daemon: str
@@ -198,7 +210,9 @@ class UITextCatalog:
     label_source: str
     label_specialist: str
     label_setup: str
+    label_scaffold_exists: str
     label_signal: str
+    label_sidecar_available: str
     label_size: str
     label_score: str
     label_slippage: str
@@ -225,13 +239,17 @@ class UITextCatalog:
     label_total_return: str
     label_trades: str
     label_trigger_now: str
+    label_trigger_now_requested: str
     label_type: str
     label_purpose: str
     label_update_preferences: str
     label_updated: str
     label_updated_at: str
     label_unrealized_pnl: str
+    label_uv_available: str
     label_value: str
+    label_version: str
+    label_version_source: str
     label_warmup_bars: str
     label_with_memory: str
     label_warnings: str
@@ -260,6 +278,10 @@ class UITextCatalog:
     message_open_position_count_elevated: str
     message_portfolio_concentration_hhi: str
     message_position_plan_repair_unavailable: str
+    message_research_cycle_choose_one_action: str
+    message_research_cycle_control_status: str
+    message_research_cycle_reason_requires_action: str
+    message_research_snapshot_recorded: str
     message_runtime_mode_transition_allowed: str
     message_runtime_mode_transition_blocked: str
     message_setup_bootstrap_guidance: str
@@ -333,8 +355,12 @@ class UITextCatalog:
     title_proposal_candidates: str
     title_position_plan_repair: str
     title_recommended_next_commands: str
+    title_recommended_commands: str
+    title_research_crewai_flow_setup: str
+    title_research_cycle_control: str
     title_research_sidecar_status: str
     title_research_source_health: str
+    title_research_snapshot_persisted: str
     title_setup_status: str
     title_setup_guidance: str
     title_trace: str
@@ -376,6 +402,12 @@ EN_TEXT = UITextCatalog(
     help_model_service_host="Loopback bind host for app-managed Ollama.",
     help_model_service_port="Preferred app-managed Ollama port.",
     help_ollama_owner="Ownership mode for Ollama: host-owned, app-owned, api-key-only, or skipped.",
+    help_research_cycle_pause="Pause future automated research-cycle runs.",
+    help_research_cycle_reason="Optional operator note persisted with the control state.",
+    help_research_cycle_resume="Resume future automated research-cycle runs.",
+    help_research_cycle_trigger_now="Request one immediate research-cycle run for the next runner.",
+    help_research_probe="Run one isolated sidecar provider probe before reporting status.",
+    help_research_refresh_persist="Persist the sidecar snapshot to the runtime research JSON feed.",
     help_firecrawl_owner="Ownership mode for Firecrawl: host-owned, app-owned, api-key-only, or skipped.",
     help_camofox_owner="Ownership mode for Camofox: host-owned, app-owned, api-key-only, or skipped.",
     help_camofox_service_host="Loopback bind host for app-managed Camofox.",
@@ -417,6 +449,7 @@ EN_TEXT = UITextCatalog(
     label_continuous="Continuous",
     label_confidence="Confidence",
     label_context="Context",
+    label_core_dependency="Core Dependency",
     label_core_ready="Core Ready",
     label_created="Created",
     label_currency="Currency",
@@ -440,6 +473,7 @@ EN_TEXT = UITextCatalog(
     label_entry_px="Entry Px",
     label_equity="Equity",
     label_enabled="Enabled",
+    label_environment_exists="Environment Exists",
     label_exposure="Exposure",
     label_exit="Exit",
     label_exit_code="Exit Code",
@@ -453,6 +487,7 @@ EN_TEXT = UITextCatalog(
     label_final_rationale="Final Rationale",
     label_final_side="Final Side",
     label_freshness="Freshness",
+    label_flow_dir="Flow Dir",
     label_generated="Generated",
     label_gross_exposure="Gross Exposure",
     label_heartbeat="Heartbeat",
@@ -468,6 +503,7 @@ EN_TEXT = UITextCatalog(
     label_last_error="Last Error",
     label_last_successful_update="Last Successful Update",
     label_level="Level",
+    label_lockfile_exists="Lockfile Exists",
     label_latest_order="Latest Order",
     label_llm_provider="LLM Provider",
     label_live_process="Live Process",
@@ -512,6 +548,7 @@ EN_TEXT = UITextCatalog(
     label_preset="Preset",
     label_preference_update="Preference Update",
     label_provider="Provider",
+    label_python_version="Python Version",
     label_proposal="Proposal",
     label_rationale="Rationale",
     label_realized_pnl="Realized PnL",
@@ -520,6 +557,7 @@ EN_TEXT = UITextCatalog(
     label_reason="Reason",
     label_resolution_notes="Resolution Notes",
     label_requires_confirmation="Requires Confirmation",
+    label_research_cycle_control="Research cycle control",
     label_return="Return",
     label_runtime="Runtime",
     label_runtime_daemon="Runtime Daemon",
@@ -530,7 +568,9 @@ EN_TEXT = UITextCatalog(
     label_source="Source",
     label_specialist="Specialist",
     label_setup="Setup",
+    label_scaffold_exists="Scaffold Exists",
     label_signal="Signal",
+    label_sidecar_available="Sidecar Available",
     label_size="Size",
     label_score="Score",
     label_slippage="Slippage",
@@ -557,13 +597,17 @@ EN_TEXT = UITextCatalog(
     label_total_return="Total Return",
     label_trades="Trades",
     label_trigger_now="Trigger Now",
+    label_trigger_now_requested="Trigger now requested",
     label_type="Type",
     label_purpose="Purpose",
     label_update_preferences="Update Preferences",
     label_updated="Updated",
     label_updated_at="Updated At",
     label_unrealized_pnl="Unrealized PnL",
+    label_uv_available="uv Available",
     label_value="Value",
+    label_version="Version",
+    label_version_source="Version Source",
     label_warmup_bars="Warmup Bars",
     label_watched_symbols="Watched Symbols",
     label_with_memory="With Memory",
@@ -596,6 +640,10 @@ EN_TEXT = UITextCatalog(
         "Portfolio concentration HHI is elevated at {score:.3f}."
     ),
     message_position_plan_repair_unavailable="Position plan repair status unavailable.",
+    message_research_cycle_choose_one_action="Choose only one of --pause, --resume, or --trigger-now.",
+    message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
+    message_research_cycle_reason_requires_action="--reason requires --pause, --resume, or --trigger-now.",
+    message_research_snapshot_recorded="Snapshot {snapshot_id} recorded in the research feed.",
     message_runtime_mode_transition_allowed=(
         "Runtime mode transition {current_mode} -> {target_mode} is allowed."
     ),
@@ -678,8 +726,12 @@ EN_TEXT = UITextCatalog(
     title_proposal_candidates="Proposal Candidates",
     title_position_plan_repair="Position Plan Repair",
     title_recommended_next_commands="Recommended Next Commands",
+    title_recommended_commands="Recommended Commands",
+    title_research_crewai_flow_setup="Research CrewAI Flow Setup",
+    title_research_cycle_control="Research Cycle Control",
     title_research_sidecar_status="Research Sidecar Status",
     title_research_source_health="Research Source Health",
+    title_research_snapshot_persisted="Research Snapshot Persisted",
     title_setup_status="Setup Status",
     title_setup_guidance="Setup Guidance",
     title_trace="Trace",
@@ -724,6 +776,12 @@ TR_TEXT = UITextCatalog(
     help_model_service_host="App-managed Ollama icin loopback bind host.",
     help_model_service_port="Tercih edilen app-managed Ollama portu.",
     help_ollama_owner="Ollama sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
+    help_research_cycle_pause="Gelecekteki otomatik research-cycle run'larini duraklat.",
+    help_research_cycle_reason="Control state ile kaydedilecek istege bagli operator notu.",
+    help_research_cycle_resume="Gelecekteki otomatik research-cycle run'larini surdur.",
+    help_research_cycle_trigger_now="Sonraki runner icin bir anlik research-cycle run iste.",
+    help_research_probe="Durumu raporlamadan once izole bir sidecar provider probe calistir.",
+    help_research_refresh_persist="Sidecar snapshot'i runtime research JSON feed icine kaydet.",
     help_firecrawl_owner="Firecrawl sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_camofox_owner="Camofox sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_camofox_service_host="App-managed Camofox icin loopback bind host.",
@@ -765,6 +823,7 @@ TR_TEXT = UITextCatalog(
     label_continuous="Surekli",
     label_confidence="Guven",
     label_context="Baglam",
+    label_core_dependency="Core Dependency",
     label_core_ready="Core Hazir",
     label_created="Olusturuldu",
     label_currency="Para Birimi",
@@ -788,6 +847,7 @@ TR_TEXT = UITextCatalog(
     label_entry_px="Giris Fiyati",
     label_equity="Equity",
     label_enabled="Etkin",
+    label_environment_exists="Environment Var",
     label_exposure="Exposure",
     label_exit="Cikis",
     label_exit_code="Exit Code",
@@ -801,6 +861,7 @@ TR_TEXT = UITextCatalog(
     label_final_rationale="Final Gerekce",
     label_final_side="Final Yon",
     label_freshness="Freshness",
+    label_flow_dir="Flow Dir",
     label_generated="Uretildi",
     label_gross_exposure="Brut Exposure",
     label_heartbeat="Heartbeat",
@@ -816,6 +877,7 @@ TR_TEXT = UITextCatalog(
     label_last_error="Son Hata",
     label_last_successful_update="Son Basarili Guncelleme",
     label_level="Seviye",
+    label_lockfile_exists="Lockfile Var",
     label_latest_order="Son Order",
     label_llm_provider="LLM Provider",
     label_live_process="Canli Process",
@@ -860,6 +922,7 @@ TR_TEXT = UITextCatalog(
     label_preset="Preset",
     label_preference_update="Preference Guncellemesi",
     label_provider="Provider",
+    label_python_version="Python Version",
     label_proposal="Proposal",
     label_rationale="Gerekce",
     label_realized_pnl="Gerceklesen PnL",
@@ -868,6 +931,7 @@ TR_TEXT = UITextCatalog(
     label_reason="Neden",
     label_resolution_notes="Cozum Notlari",
     label_requires_confirmation="Onay Gerektirir",
+    label_research_cycle_control="Research cycle control",
     label_return="Return",
     label_runtime="Runtime",
     label_runtime_daemon="Runtime Daemon",
@@ -878,7 +942,9 @@ TR_TEXT = UITextCatalog(
     label_source="Kaynak",
     label_specialist="Specialist",
     label_setup="Setup",
+    label_scaffold_exists="Scaffold Var",
     label_signal="Sinyal",
+    label_sidecar_available="Sidecar Kullanilabilir",
     label_size="Boyut",
     label_score="Skor",
     label_slippage="Slippage",
@@ -905,13 +971,17 @@ TR_TEXT = UITextCatalog(
     label_total_return="Toplam Return",
     label_trades="Trade'ler",
     label_trigger_now="Simdi Tetikle",
+    label_trigger_now_requested="Simdi tetikleme istendi",
     label_type="Tip",
     label_purpose="Amac",
     label_update_preferences="Tercihleri Guncelle",
     label_updated="Guncellendi",
     label_updated_at="Guncelleme Zamani",
     label_unrealized_pnl="Gerceklesmemis PnL",
+    label_uv_available="uv Kullanilabilir",
     label_value="Deger",
+    label_version="Versiyon",
+    label_version_source="Versiyon Kaynagi",
     label_warmup_bars="Warmup Bar'lari",
     label_watched_symbols="Izlenen Semboller",
     label_with_memory="Hafiza Ile",
@@ -944,6 +1014,10 @@ TR_TEXT = UITextCatalog(
         "Portfoy konsantrasyon HHI {score:.3f} ile yuksek."
     ),
     message_position_plan_repair_unavailable="Position plan repair durumu kullanilamiyor.",
+    message_research_cycle_choose_one_action="--pause, --resume veya --trigger-now icinden yalnizca birini secin.",
+    message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
+    message_research_cycle_reason_requires_action="--reason icin --pause, --resume veya --trigger-now gerekir.",
+    message_research_snapshot_recorded="Snapshot {snapshot_id} research feed icine kaydedildi.",
     message_runtime_mode_transition_allowed=(
         "Runtime mode gecisi {current_mode} -> {target_mode} izinli."
     ),
@@ -1026,8 +1100,12 @@ TR_TEXT = UITextCatalog(
     title_proposal_candidates="Proposal Candidate'leri",
     title_position_plan_repair="Position Plan Repair",
     title_recommended_next_commands="Onerilen Sonraki Komutlar",
+    title_recommended_commands="Onerilen Komutlar",
+    title_research_crewai_flow_setup="Research CrewAI Flow Setup",
+    title_research_cycle_control="Research Cycle Control",
     title_research_sidecar_status="Research Sidecar Durumu",
     title_research_source_health="Research Kaynak Sagligi",
+    title_research_snapshot_persisted="Research Snapshot Kaydedildi",
     title_setup_status="Setup Durumu",
     title_setup_guidance="Setup Rehberi",
     title_trace="Trace",
@@ -1078,6 +1156,12 @@ HELP_MODEL_NAME_TO_PULL = EN_TEXT.help_model_name_to_pull
 HELP_MODEL_SERVICE_HOST = EN_TEXT.help_model_service_host
 HELP_MODEL_SERVICE_PORT = EN_TEXT.help_model_service_port
 HELP_OLLAMA_OWNER = EN_TEXT.help_ollama_owner
+HELP_RESEARCH_CYCLE_PAUSE = EN_TEXT.help_research_cycle_pause
+HELP_RESEARCH_CYCLE_REASON = EN_TEXT.help_research_cycle_reason
+HELP_RESEARCH_CYCLE_RESUME = EN_TEXT.help_research_cycle_resume
+HELP_RESEARCH_CYCLE_TRIGGER_NOW = EN_TEXT.help_research_cycle_trigger_now
+HELP_RESEARCH_PROBE = EN_TEXT.help_research_probe
+HELP_RESEARCH_REFRESH_PERSIST = EN_TEXT.help_research_refresh_persist
 HELP_FIRECRAWL_OWNER = EN_TEXT.help_firecrawl_owner
 HELP_CAMOFOX_OWNER = EN_TEXT.help_camofox_owner
 HELP_CAMOFOX_SERVICE_HOST = EN_TEXT.help_camofox_service_host
@@ -1134,6 +1218,7 @@ LABEL_CLOSED_TRADES = EN_TEXT.label_closed_trades
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
 LABEL_CONFIDENCE = EN_TEXT.label_confidence
 LABEL_CONTEXT = EN_TEXT.label_context
+LABEL_CORE_DEPENDENCY = EN_TEXT.label_core_dependency
 LABEL_CORE_READY = EN_TEXT.label_core_ready
 LABEL_CREATED = EN_TEXT.label_created
 LABEL_CURRENCY = EN_TEXT.label_currency
@@ -1157,6 +1242,7 @@ LABEL_ENTRY = EN_TEXT.label_entry
 LABEL_ENTRY_PX = EN_TEXT.label_entry_px
 LABEL_EQUITY = EN_TEXT.label_equity
 LABEL_ENABLED = EN_TEXT.label_enabled
+LABEL_ENVIRONMENT_EXISTS = EN_TEXT.label_environment_exists
 LABEL_EXPOSURE = EN_TEXT.label_exposure
 LABEL_EXIT = EN_TEXT.label_exit
 LABEL_EXIT_CODE = EN_TEXT.label_exit_code
@@ -1170,6 +1256,7 @@ LABEL_FILLS_TODAY = EN_TEXT.label_fills_today
 LABEL_FINAL_RATIONALE = EN_TEXT.label_final_rationale
 LABEL_FINAL_SIDE = EN_TEXT.label_final_side
 LABEL_FRESHNESS = EN_TEXT.label_freshness
+LABEL_FLOW_DIR = EN_TEXT.label_flow_dir
 LABEL_GENERATED = EN_TEXT.label_generated
 LABEL_GROSS_EXPOSURE = EN_TEXT.label_gross_exposure
 LABEL_HEARTBEAT = EN_TEXT.label_heartbeat
@@ -1185,6 +1272,7 @@ LABEL_LARGEST_POSITION = EN_TEXT.label_largest_position
 LABEL_LAST_ERROR = EN_TEXT.label_last_error
 LABEL_LAST_SUCCESSFUL_UPDATE = EN_TEXT.label_last_successful_update
 LABEL_LEVEL = EN_TEXT.label_level
+LABEL_LOCKFILE_EXISTS = EN_TEXT.label_lockfile_exists
 LABEL_LATEST_ORDER = EN_TEXT.label_latest_order
 LABEL_LLM_PROVIDER = EN_TEXT.label_llm_provider
 LABEL_LIVE_PROCESS = EN_TEXT.label_live_process
@@ -1229,6 +1317,7 @@ LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
 LABEL_PRESET = EN_TEXT.label_preset
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
 LABEL_PROVIDER = EN_TEXT.label_provider
+LABEL_PYTHON_VERSION = EN_TEXT.label_python_version
 LABEL_PROPOSAL = EN_TEXT.label_proposal
 LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
@@ -1237,6 +1326,7 @@ LABEL_REJECTION_EVIDENCE = EN_TEXT.label_rejection_evidence
 LABEL_REASON = EN_TEXT.label_reason
 LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
+LABEL_RESEARCH_CYCLE_CONTROL = EN_TEXT.label_research_cycle_control
 LABEL_RETURN = EN_TEXT.label_return
 LABEL_RUNTIME = EN_TEXT.label_runtime
 LABEL_RUNTIME_DAEMON = EN_TEXT.label_runtime_daemon
@@ -1247,7 +1337,9 @@ LABEL_SIDE = EN_TEXT.label_side
 LABEL_SOURCE = EN_TEXT.label_source
 LABEL_SPECIALIST = EN_TEXT.label_specialist
 LABEL_SETUP = EN_TEXT.label_setup
+LABEL_SCAFFOLD_EXISTS = EN_TEXT.label_scaffold_exists
 LABEL_SIGNAL = EN_TEXT.label_signal
+LABEL_SIDECAR_AVAILABLE = EN_TEXT.label_sidecar_available
 LABEL_SIZE = EN_TEXT.label_size
 LABEL_SCORE = EN_TEXT.label_score
 LABEL_SLIPPAGE = EN_TEXT.label_slippage
@@ -1274,13 +1366,17 @@ LABEL_TOOLS = EN_TEXT.label_tools
 LABEL_TOTAL_RETURN = EN_TEXT.label_total_return
 LABEL_TRADES = EN_TEXT.label_trades
 LABEL_TRIGGER_NOW = EN_TEXT.label_trigger_now
+LABEL_TRIGGER_NOW_REQUESTED = EN_TEXT.label_trigger_now_requested
 LABEL_TYPE = EN_TEXT.label_type
 LABEL_PURPOSE = EN_TEXT.label_purpose
 LABEL_UPDATE_PREFERENCES = EN_TEXT.label_update_preferences
 LABEL_UPDATED = EN_TEXT.label_updated
 LABEL_UPDATED_AT = EN_TEXT.label_updated_at
 LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
+LABEL_UV_AVAILABLE = EN_TEXT.label_uv_available
 LABEL_VALUE = EN_TEXT.label_value
+LABEL_VERSION = EN_TEXT.label_version
+LABEL_VERSION_SOURCE = EN_TEXT.label_version_source
 LABEL_WARMUP_BARS = EN_TEXT.label_warmup_bars
 LABEL_WATCHED_SYMBOLS = EN_TEXT.label_watched_symbols
 LABEL_WITH_MEMORY = EN_TEXT.label_with_memory
@@ -1314,6 +1410,16 @@ MESSAGE_PORTFOLIO_CONCENTRATION_HHI = EN_TEXT.message_portfolio_concentration_hh
 MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE = (
     EN_TEXT.message_position_plan_repair_unavailable
 )
+MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION = (
+    EN_TEXT.message_research_cycle_choose_one_action
+)
+MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS = (
+    EN_TEXT.message_research_cycle_control_status
+)
+MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION = (
+    EN_TEXT.message_research_cycle_reason_requires_action
+)
+MESSAGE_RESEARCH_SNAPSHOT_RECORDED = EN_TEXT.message_research_snapshot_recorded
 MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED = (
     EN_TEXT.message_runtime_mode_transition_allowed
 )
@@ -1382,8 +1488,12 @@ TITLE_TRADE_PROPOSALS = EN_TEXT.title_trade_proposals
 TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
 TITLE_RECOMMENDED_NEXT_COMMANDS = EN_TEXT.title_recommended_next_commands
+TITLE_RECOMMENDED_COMMANDS = EN_TEXT.title_recommended_commands
+TITLE_RESEARCH_CREWAI_FLOW_SETUP = EN_TEXT.title_research_crewai_flow_setup
+TITLE_RESEARCH_CYCLE_CONTROL = EN_TEXT.title_research_cycle_control
 TITLE_RESEARCH_SIDECAR_STATUS = EN_TEXT.title_research_sidecar_status
 TITLE_RESEARCH_SOURCE_HEALTH = EN_TEXT.title_research_source_health
+TITLE_RESEARCH_SNAPSHOT_PERSISTED = EN_TEXT.title_research_snapshot_persisted
 TITLE_SETUP_GUIDANCE = EN_TEXT.title_setup_guidance
 TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
 TITLE_TRACE = EN_TEXT.title_trace

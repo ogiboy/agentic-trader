@@ -56,6 +56,11 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.label_last_successful_update == (
         ui_text.LABEL_LAST_SUCCESSFUL_UPDATE
     )
+    assert catalog.title_research_cycle_control == ui_text.TITLE_RESEARCH_CYCLE_CONTROL
+    assert catalog.label_sidecar_available == ui_text.LABEL_SIDECAR_AVAILABLE
+    assert catalog.message_research_snapshot_recorded == (
+        ui_text.MESSAGE_RESEARCH_SNAPSHOT_RECORDED
+    )
     assert catalog.list_separator == ui_text.UI_LIST_SEPARATOR
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
 
@@ -98,6 +103,8 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.help_model_service_port == "Tercih edilen app-managed Ollama portu."
     assert catalog.title_research_source_health == "Research Kaynak Sagligi"
     assert catalog.status_available == "kullanilabilir"
+    assert catalog.title_recommended_commands == "Onerilen Komutlar"
+    assert catalog.label_uv_available == "uv Kullanilabilir"
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 
