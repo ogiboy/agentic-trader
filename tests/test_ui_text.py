@@ -47,6 +47,9 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
         ui_text.MESSAGE_SETUP_BOOTSTRAP_GUIDANCE
     )
     assert catalog.status_ready == ui_text.STATUS_READY
+    assert catalog.title_model_pull == ui_text.TITLE_MODEL_PULL
+    assert catalog.label_exit_code == ui_text.LABEL_EXIT_CODE
+    assert catalog.help_webgui_open_browser == ui_text.HELP_WEBGUI_OPEN_BROWSER
     assert catalog.list_separator == ui_text.UI_LIST_SEPARATOR
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
 
@@ -84,6 +87,9 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_choose_surface == "Yuzey Sec"
     assert catalog.message_no_action_selected == "Aksiyon secilmedi."
     assert catalog.status_needs_attention == "dikkat gerekiyor"
+    assert catalog.title_model_pull == "Model Cekme"
+    assert catalog.title_camofox_start_failed == "Camofox Baslatma Basarisiz"
+    assert catalog.help_model_service_port == "Tercih edilen app-managed Ollama portu."
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 

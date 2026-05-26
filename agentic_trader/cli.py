@@ -170,7 +170,9 @@ from agentic_trader.system.webgui_service import (
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
 from agentic_trader.ui_text import (
     HELP_CAMOFOX_OWNER,
+    HELP_CAMOFOX_SERVICE_HOST,
     HELP_CAMOFOX_SERVICE_APP,
+    HELP_CAMOFOX_SERVICE_PORT,
     HELP_CLI_APP,
     HELP_FIRECRAWL_OWNER,
     HELP_IDEA_CHANGE_PCT,
@@ -191,7 +193,10 @@ from agentic_trader.ui_text import (
     HELP_LOCALE_OVERRIDE,
     HELP_LOCALE_PERSIST,
     HELP_LOOKBACK,
+    HELP_MODEL_NAME_TO_PULL,
     HELP_MODEL_SERVICE_APP,
+    HELP_MODEL_SERVICE_HOST,
+    HELP_MODEL_SERVICE_PORT,
     HELP_OLLAMA_OWNER,
     HELP_RUN_ID,
     HELP_SETUP_DRY_RUN,
@@ -210,6 +215,7 @@ from agentic_trader.ui_text import (
     HELP_TRADE_STOP_LOSS,
     HELP_TRADE_TAKE_PROFIT,
     HELP_TRADE_THESIS,
+    HELP_WEBGUI_OPEN_BROWSER,
     HELP_WEBGUI_SERVICE_APP,
     LABEL_AGENT,
     LABEL_ALLOWED,
@@ -248,6 +254,7 @@ from agentic_trader.ui_text import (
     LABEL_ENVIRONMENT,
     LABEL_EQUITY,
     LABEL_EXIT,
+    LABEL_EXIT_CODE,
     LABEL_EXIT_PX,
     LABEL_EXPECTANCY,
     LABEL_EXPOSURE,
@@ -340,6 +347,8 @@ from agentic_trader.ui_text import (
     LABEL_STARTED,
     LABEL_STATUS,
     LABEL_STATUS_NOTE,
+    LABEL_STDERR,
+    LABEL_STDOUT,
     LABEL_STOP,
     LABEL_STOP_REQUESTED,
     LABEL_STRATEGY,
@@ -421,6 +430,7 @@ from agentic_trader.ui_text import (
     TITLE_BACKTEST_TRADES,
     TITLE_CAMOFOX_BROWSER_HELPER,
     TITLE_CAMOFOX_STDERR_TAIL,
+    TITLE_CAMOFOX_START_FAILED,
     TITLE_CHOOSE_SURFACE,
     TITLE_DAILY_RISK_REPORT,
     TITLE_DESK_ACCOUNTING_CONTEXT,
@@ -436,7 +446,9 @@ from agentic_trader.ui_text import (
     TITLE_MANAGER_OVERRIDE_NOTES,
     TITLE_MEMORY_AWARE_REPLAY,
     TITLE_MEMORY_EXPLORER,
+    TITLE_MODEL_PULL,
     TITLE_MODEL_SERVICE_STDERR_TAIL,
+    TITLE_MODEL_SERVICE_START_FAILED,
     TITLE_OPERATOR_INSTRUCTION,
     TITLE_OPERATOR_LAUNCHER,
     TITLE_PIPELINE,
@@ -4276,14 +4288,14 @@ def model_service_start(
     host: str | None = typer.Option(
         None,
         "--host",
-        help="Loopback bind host for app-managed Ollama.",
+        help=HELP_MODEL_SERVICE_HOST,
     ),
     port: int | None = typer.Option(
         None,
         "--port",
         min=1,
         max=65535,
-        help="Preferred app-managed Ollama port.",
+        help=HELP_MODEL_SERVICE_PORT,
     ),
 ) -> None:
     """Start app-owned Ollama on loopback without touching external services."""
@@ -4305,7 +4317,7 @@ def model_service_start(
         else:
             console.print(
                 _render_health_panel(
-                    f"{LABEL_MODEL_SERVICE} Start Failed",
+                    TITLE_MODEL_SERVICE_START_FAILED,
                     str(error_payload["error"]),
                     border_style="red",
                 )
@@ -4333,7 +4345,7 @@ def model_service_stop(
 
 @model_service_app.command("pull")
 def model_service_pull(
-    model_name: str = typer.Argument(..., help="Ollama model name to pull."),
+    model_name: str = typer.Argument(..., help=HELP_MODEL_NAME_TO_PULL),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Pull an Ollama model for the configured or app-owned local service."""
@@ -4350,13 +4362,15 @@ def model_service_pull(
     if json_output:
         _emit_json(payload)
     else:
-        table = Table(title="Model Pull")
-        table.add_column("Field")
-        table.add_column("Value")
-        table.add_row("Model", str(payload["model"]))
-        table.add_row("Exit Code", str(payload["exit_code"]))
-        table.add_row("Stdout", str(payload.get("stdout", "")) or "-")
-        table.add_row("Stderr", str(payload.get("stderr", "")) or "-")
+        stdout = str(payload.get("stdout", "")) or "-"
+        stderr = str(payload.get("stderr", "")) or "-"
+        table = Table(title=TITLE_MODEL_PULL)
+        table.add_column(LABEL_FIELD)
+        table.add_column(LABEL_VALUE)
+        table.add_row(LABEL_MODEL, str(payload["model"]))
+        table.add_row(LABEL_EXIT_CODE, str(payload["exit_code"]))
+        table.add_row(LABEL_STDOUT, stdout)
+        table.add_row(LABEL_STDERR, stderr)
         console.print(table)
     exit_code_value = payload.get("exit_code", 1)
     exit_code = exit_code_value if isinstance(exit_code_value, int) else 1
@@ -4384,7 +4398,7 @@ def webgui_service_start(
     open_browser: bool = typer.Option(
         True,
         "--open-browser/--no-open-browser",
-        help="Ask the OS to open the Web GUI URL after starting.",
+        help=HELP_WEBGUI_OPEN_BROWSER,
     ),
 ) -> None:
     """Start the app-owned loopback Web GUI process."""
@@ -4451,14 +4465,14 @@ def camofox_service_start(
     host: str | None = typer.Option(
         None,
         "--host",
-        help="Loopback bind host for app-managed Camofox.",
+        help=HELP_CAMOFOX_SERVICE_HOST,
     ),
     port: int | None = typer.Option(
         None,
         "--port",
         min=1,
         max=65535,
-        help="Preferred app-managed Camofox port.",
+        help=HELP_CAMOFOX_SERVICE_PORT,
     ),
 ) -> None:
     """Start app-owned Camofox on loopback without touching external helpers."""
@@ -4480,7 +4494,7 @@ def camofox_service_start(
         else:
             console.print(
                 _render_health_panel(
-                    "Camofox Start Failed",
+                    TITLE_CAMOFOX_START_FAILED,
                     str(error_payload["error"]),
                     border_style="red",
                 )

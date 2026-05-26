@@ -39,10 +39,15 @@ class UITextCatalog:
     help_locale_override: str
     help_locale_persist: str
     help_lookback: str
+    help_model_name_to_pull: str
     help_model_service_app: str
+    help_model_service_host: str
+    help_model_service_port: str
     help_ollama_owner: str
     help_firecrawl_owner: str
     help_camofox_owner: str
+    help_camofox_service_host: str
+    help_camofox_service_port: str
     help_run_id: str
     help_setup_dry_run: str
     help_symbol: str
@@ -60,6 +65,7 @@ class UITextCatalog:
     help_trade_take_profit: str
     help_trade_thesis: str
     help_trade_side: str
+    help_webgui_open_browser: str
     help_webgui_service_app: str
     label_agent: str
     label_allowed: str
@@ -98,6 +104,7 @@ class UITextCatalog:
     label_equity: str
     label_exposure: str
     label_exit: str
+    label_exit_code: str
     label_exit_px: str
     label_expectancy: str
     label_fallback: str
@@ -189,6 +196,8 @@ class UITextCatalog:
     label_started: str
     label_status: str
     label_status_note: str
+    label_stderr: str
+    label_stdout: str
     label_strategy: str
     label_surface: str
     label_stop_requested: str
@@ -273,6 +282,7 @@ class UITextCatalog:
     title_backtest_trades: str
     title_camofox_browser_helper: str
     title_camofox_stderr_tail: str
+    title_camofox_start_failed: str
     title_choose_surface: str
     title_llm_status: str
     title_operator_instruction: str
@@ -290,7 +300,9 @@ class UITextCatalog:
     title_manager_override_notes: str
     title_memory_aware_replay: str
     title_memory_explorer: str
+    title_model_pull: str
     title_model_service_stderr_tail: str
+    title_model_service_start_failed: str
     title_recent_runs: str
     title_risk_warnings: str
     title_review_note: str
@@ -343,10 +355,15 @@ EN_TEXT = UITextCatalog(
     help_locale_override="Override terminal UI locale for this command: en or tr.",
     help_locale_persist="Persist terminal UI locale to .env.local: en or tr.",
     help_lookback="Lookback window accepted by yfinance",
+    help_model_name_to_pull="Ollama model name to pull.",
     help_model_service_app="Manage the optional app-owned local model service.",
+    help_model_service_host="Loopback bind host for app-managed Ollama.",
+    help_model_service_port="Preferred app-managed Ollama port.",
     help_ollama_owner="Ownership mode for Ollama: host-owned, app-owned, api-key-only, or skipped.",
     help_firecrawl_owner="Ownership mode for Firecrawl: host-owned, app-owned, api-key-only, or skipped.",
     help_camofox_owner="Ownership mode for Camofox: host-owned, app-owned, api-key-only, or skipped.",
+    help_camofox_service_host="Loopback bind host for app-managed Camofox.",
+    help_camofox_service_port="Preferred app-managed Camofox port.",
     help_run_id="Run id to inspect. Defaults to the latest recorded run.",
     help_setup_dry_run="Report setup status. Use make bootstrap for interactive installs.",
     help_symbol="Ticker symbol, for example AAPL or BTC-USD",
@@ -364,6 +381,7 @@ EN_TEXT = UITextCatalog(
     help_trade_take_profit="Optional take profit.",
     help_trade_thesis="Short operator-readable proposal thesis.",
     help_trade_side="Trade side: buy or sell.",
+    help_webgui_open_browser="Ask the OS to open the Web GUI URL after starting.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
     label_agent="Agent",
     label_allowed="Allowed",
@@ -402,6 +420,7 @@ EN_TEXT = UITextCatalog(
     label_equity="Equity",
     label_exposure="Exposure",
     label_exit="Exit",
+    label_exit_code="Exit Code",
     label_exit_px="Exit Px",
     label_expectancy="Expectancy",
     label_fallback="Fallback",
@@ -493,6 +512,8 @@ EN_TEXT = UITextCatalog(
     label_started="Started",
     label_status="Status",
     label_status_note="Status Note",
+    label_stderr="Stderr",
+    label_stdout="Stdout",
     label_strategy="Strategy",
     label_surface="Surface",
     label_stop_requested="Stop Requested",
@@ -589,6 +610,7 @@ EN_TEXT = UITextCatalog(
     title_backtest_trades="Backtest Trades",
     title_camofox_browser_helper="Camofox Browser Helper",
     title_camofox_stderr_tail="Camofox Stderr Tail",
+    title_camofox_start_failed="Camofox Start Failed",
     title_choose_surface="Choose A Surface",
     title_execution_summary="Execution Summary",
     title_llm_status="LLM Status",
@@ -607,7 +629,9 @@ EN_TEXT = UITextCatalog(
     title_manager_override_notes="Manager Override Notes",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
+    title_model_pull="Model Pull",
     title_model_service_stderr_tail="Model Service Stderr Tail",
+    title_model_service_start_failed="Model Service Start Failed",
     title_recent_runs="Recent Runs",
     title_risk_warnings="Risk Warnings",
     title_review_note="Review Note",
@@ -663,10 +687,15 @@ TR_TEXT = UITextCatalog(
     help_locale_override="Bu komut icin terminal UI locale override et: en veya tr.",
     help_locale_persist="Terminal UI locale degerini .env.local icine yaz: en veya tr.",
     help_lookback="yfinance tarafindan kabul edilen geriye donuk pencere",
+    help_model_name_to_pull="Cekilecek Ollama model adi.",
     help_model_service_app="Istege bagli app-owned yerel model servisini yonet.",
+    help_model_service_host="App-managed Ollama icin loopback bind host.",
+    help_model_service_port="Tercih edilen app-managed Ollama portu.",
     help_ollama_owner="Ollama sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_firecrawl_owner="Firecrawl sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_camofox_owner="Camofox sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
+    help_camofox_service_host="App-managed Camofox icin loopback bind host.",
+    help_camofox_service_port="Tercih edilen app-managed Camofox portu.",
     help_run_id="Incelenecek run id. Varsayilan son kayitli run.",
     help_setup_dry_run="Setup durumunu raporla. Interaktif kurulumlar icin make bootstrap kullan.",
     help_symbol="Ticker sembolu, ornegin AAPL veya BTC-USD",
@@ -684,6 +713,7 @@ TR_TEXT = UITextCatalog(
     help_trade_take_profit="Istege bagli take profit.",
     help_trade_thesis="Operator tarafindan okunabilir kisa proposal tezi.",
     help_trade_side="Trade yonu: buy veya sell.",
+    help_webgui_open_browser="Baslatmadan sonra Web GUI URL'sini OS ile ac.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
     label_agent="Agent",
     label_allowed="Izinli",
@@ -722,6 +752,7 @@ TR_TEXT = UITextCatalog(
     label_equity="Equity",
     label_exposure="Exposure",
     label_exit="Cikis",
+    label_exit_code="Exit Code",
     label_exit_px="Cikis Fiyati",
     label_expectancy="Expectancy",
     label_fallback="Fallback",
@@ -813,6 +844,8 @@ TR_TEXT = UITextCatalog(
     label_started="Basladi",
     label_status="Durum",
     label_status_note="Durum Notu",
+    label_stderr="Stderr",
+    label_stdout="Stdout",
     label_strategy="Strateji",
     label_surface="Yuzey",
     label_stop_requested="Durdurma Istendi",
@@ -909,6 +942,7 @@ TR_TEXT = UITextCatalog(
     title_backtest_trades="Backtest Trade'leri",
     title_camofox_browser_helper="Camofox Browser Yardimcisi",
     title_camofox_stderr_tail="Camofox Stderr Kuyrugu",
+    title_camofox_start_failed="Camofox Baslatma Basarisiz",
     title_choose_surface="Yuzey Sec",
     title_execution_summary="Execution Ozeti",
     title_llm_status="LLM Durumu",
@@ -927,7 +961,9 @@ TR_TEXT = UITextCatalog(
     title_manager_override_notes="Manager Override Notlari",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
+    title_model_pull="Model Cekme",
     title_model_service_stderr_tail="Model Service Stderr Kuyrugu",
+    title_model_service_start_failed="Model Service Baslatma Basarisiz",
     title_recent_runs="Son Run'lar",
     title_risk_warnings="Risk Uyarilari",
     title_review_note="Review Notu",
@@ -990,9 +1026,14 @@ HELP_SYMBOL = EN_TEXT.help_symbol
 HELP_INTERVAL = EN_TEXT.help_interval
 HELP_LOOKBACK = EN_TEXT.help_lookback
 HELP_RUN_ID = EN_TEXT.help_run_id
+HELP_MODEL_NAME_TO_PULL = EN_TEXT.help_model_name_to_pull
+HELP_MODEL_SERVICE_HOST = EN_TEXT.help_model_service_host
+HELP_MODEL_SERVICE_PORT = EN_TEXT.help_model_service_port
 HELP_OLLAMA_OWNER = EN_TEXT.help_ollama_owner
 HELP_FIRECRAWL_OWNER = EN_TEXT.help_firecrawl_owner
 HELP_CAMOFOX_OWNER = EN_TEXT.help_camofox_owner
+HELP_CAMOFOX_SERVICE_HOST = EN_TEXT.help_camofox_service_host
+HELP_CAMOFOX_SERVICE_PORT = EN_TEXT.help_camofox_service_port
 HELP_SETUP_DRY_RUN = EN_TEXT.help_setup_dry_run
 HELP_CLI_APP = EN_TEXT.cli_app_help
 HELP_MODEL_SERVICE_APP = EN_TEXT.help_model_service_app
@@ -1025,6 +1066,7 @@ HELP_TRADE_SOURCE = EN_TEXT.help_trade_source
 HELP_TRADE_STOP_LOSS = EN_TEXT.help_trade_stop_loss
 HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
 HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
+HELP_WEBGUI_OPEN_BROWSER = EN_TEXT.help_webgui_open_browser
 
 LABEL_AGENT = EN_TEXT.label_agent
 LABEL_ALLOWED = EN_TEXT.label_allowed
@@ -1063,6 +1105,7 @@ LABEL_ENTRY_PX = EN_TEXT.label_entry_px
 LABEL_EQUITY = EN_TEXT.label_equity
 LABEL_EXPOSURE = EN_TEXT.label_exposure
 LABEL_EXIT = EN_TEXT.label_exit
+LABEL_EXIT_CODE = EN_TEXT.label_exit_code
 LABEL_EXIT_PX = EN_TEXT.label_exit_px
 LABEL_EXPECTANCY = EN_TEXT.label_expectancy
 LABEL_FALLBACK = EN_TEXT.label_fallback
@@ -1154,6 +1197,8 @@ LABEL_STAGE = EN_TEXT.label_stage
 LABEL_STARTED = EN_TEXT.label_started
 LABEL_STATUS = EN_TEXT.label_status
 LABEL_STATUS_NOTE = EN_TEXT.label_status_note
+LABEL_STDERR = EN_TEXT.label_stderr
+LABEL_STDOUT = EN_TEXT.label_stdout
 LABEL_STRATEGY = EN_TEXT.label_strategy
 LABEL_SURFACE = EN_TEXT.label_surface
 LABEL_STOP_REQUESTED = EN_TEXT.label_stop_requested
@@ -1236,6 +1281,7 @@ TITLE_BACKTEST_MEMORY_ABLATION = EN_TEXT.title_backtest_memory_ablation
 TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
 TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
 TITLE_CAMOFOX_STDERR_TAIL = EN_TEXT.title_camofox_stderr_tail
+TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
 TITLE_CHOOSE_SURFACE = EN_TEXT.title_choose_surface
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
@@ -1254,7 +1300,9 @@ TITLE_MANAGER_CONFLICT_REPLAY = EN_TEXT.title_manager_conflict_replay
 TITLE_MANAGER_OVERRIDE_NOTES = EN_TEXT.title_manager_override_notes
 TITLE_MEMORY_AWARE_REPLAY = EN_TEXT.title_memory_aware_replay
 TITLE_MEMORY_EXPLORER = EN_TEXT.title_memory_explorer
+TITLE_MODEL_PULL = EN_TEXT.title_model_pull
 TITLE_MODEL_SERVICE_STDERR_TAIL = EN_TEXT.title_model_service_stderr_tail
+TITLE_MODEL_SERVICE_START_FAILED = EN_TEXT.title_model_service_start_failed
 TITLE_RECENT_RUNS = EN_TEXT.title_recent_runs
 TITLE_RISK_WARNINGS = EN_TEXT.title_risk_warnings
 TITLE_REVIEW_NOTE = EN_TEXT.title_review_note
