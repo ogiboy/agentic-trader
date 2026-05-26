@@ -33,6 +33,8 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.label_allowed == ui_text.LABEL_ALLOWED
     assert catalog.title_environment_check == ui_text.TITLE_ENVIRONMENT_CHECK
     assert catalog.label_llm_provider == ui_text.LABEL_LLM_PROVIDER
+    assert catalog.title_setup_status == ui_text.TITLE_SETUP_STATUS
+    assert catalog.label_core_ready == ui_text.LABEL_CORE_READY
     assert catalog.list_separator == ui_text.UI_LIST_SEPARATOR
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
 
@@ -62,6 +64,8 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_runtime_mode_transition_checklist.startswith("Runtime Mode")
     assert catalog.title_ui_locale == "UI Locale"
     assert catalog.label_supported == "Desteklenen"
+    assert catalog.title_tool_readiness == "Tool Readiness"
+    assert catalog.label_workspace == "Workspace"
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 

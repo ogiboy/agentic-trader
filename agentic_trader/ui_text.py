@@ -71,6 +71,7 @@ class UITextCatalog:
     label_continuous: str
     label_confidence: str
     label_context: str
+    label_core_ready: str
     label_created: str
     label_currency: str
     label_current: str
@@ -128,6 +129,7 @@ class UITextCatalog:
     label_max_drawdown: str
     label_max_cycles: str
     label_memories: str
+    label_meaning: str
     label_message: str
     label_metric: str
     label_mode: str
@@ -141,13 +143,17 @@ class UITextCatalog:
     label_open_positions: str
     label_opened: str
     label_order_id: str
+    label_ownership: str
     label_ollama_reachable: str
     label_output: str
     label_output_preview: str
+    label_optional_runtime_ready: str
     label_pid: str
     label_passed: str
     label_persisted: str
+    label_platform: str
     label_pnl: str
+    label_path: str
     label_poll_seconds: str
     label_preset: str
     label_preference_update: str
@@ -186,6 +192,7 @@ class UITextCatalog:
     label_target: str
     label_take: str
     label_take_profit: str
+    label_tool: str
     label_tools: str
     label_total_return: str
     label_trades: str
@@ -201,6 +208,8 @@ class UITextCatalog:
     label_win_rate: str
     label_without_memory: str
     label_v1_source: str
+    label_web_gui: str
+    label_workspace: str
     label_yes: str
     list_separator: str
     message_all_agent_stages_llm_path: str
@@ -270,7 +279,11 @@ class UITextCatalog:
     title_trade_proposals: str
     title_proposal_candidates: str
     title_position_plan_repair: str
+    title_recommended_next_commands: str
+    title_setup_status: str
     title_trace: str
+    title_tool_ownership: str
+    title_tool_readiness: str
     title_training_diagnostic_mode: str
     title_ui_locale: str
     title_warning: str
@@ -331,6 +344,7 @@ EN_TEXT = UITextCatalog(
     label_continuous="Continuous",
     label_confidence="Confidence",
     label_context="Context",
+    label_core_ready="Core Ready",
     label_created="Created",
     label_currency="Currency",
     label_current="Current",
@@ -388,6 +402,7 @@ EN_TEXT = UITextCatalog(
     label_max_drawdown="Max Drawdown",
     label_max_cycles="Max Cycles",
     label_memories="Memories",
+    label_meaning="Meaning",
     label_message="Message",
     label_metric="Metric",
     label_mode="Mode",
@@ -401,13 +416,17 @@ EN_TEXT = UITextCatalog(
     label_open_positions="Open Positions",
     label_opened="Opened",
     label_order_id="Order ID",
+    label_ownership="Ownership",
     label_ollama_reachable="Ollama Reachable",
     label_output="Output",
     label_output_preview="Output Preview",
+    label_optional_runtime_ready="Optional Runtime Ready",
     label_pid="PID",
     label_passed="Passed",
     label_persisted="Persisted",
+    label_platform="Platform",
     label_pnl="PnL",
+    label_path="Path",
     label_poll_seconds="Poll Seconds",
     label_preset="Preset",
     label_preference_update="Preference Update",
@@ -446,6 +465,7 @@ EN_TEXT = UITextCatalog(
     label_target="Target",
     label_take="Take",
     label_take_profit="Take Profit",
+    label_tool="Tool",
     label_tools="Tools",
     label_total_return="Total Return",
     label_trades="Trades",
@@ -461,6 +481,8 @@ EN_TEXT = UITextCatalog(
     label_win_rate="Win Rate",
     label_without_memory="Without Memory",
     label_v1_source="V1 Source",
+    label_web_gui="Web GUI",
+    label_workspace="Workspace",
     label_yes="yes",
     list_separator=", ",
     message_all_agent_stages_llm_path="All agent stages completed through the LLM path.",
@@ -543,7 +565,11 @@ EN_TEXT = UITextCatalog(
     title_trade_proposals="Trade Proposals",
     title_proposal_candidates="Proposal Candidates",
     title_position_plan_repair="Position Plan Repair",
+    title_recommended_next_commands="Recommended Next Commands",
+    title_setup_status="Setup Status",
     title_trace="Trace",
+    title_tool_ownership="Tool Ownership",
+    title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
     title_ui_locale="UI Locale",
     title_warning="Warning",
@@ -607,6 +633,7 @@ TR_TEXT = UITextCatalog(
     label_continuous="Surekli",
     label_confidence="Guven",
     label_context="Baglam",
+    label_core_ready="Core Hazir",
     label_created="Olusturuldu",
     label_currency="Para Birimi",
     label_current="Gecerli",
@@ -664,6 +691,7 @@ TR_TEXT = UITextCatalog(
     label_max_drawdown="Maksimum Drawdown",
     label_max_cycles="Maksimum Dongu",
     label_memories="Hafizalar",
+    label_meaning="Anlam",
     label_message="Mesaj",
     label_metric="Metrik",
     label_mode="Mod",
@@ -677,13 +705,17 @@ TR_TEXT = UITextCatalog(
     label_open_positions="Acik Pozisyonlar",
     label_opened="Acilis",
     label_order_id="Order ID",
+    label_ownership="Sahiplik",
     label_ollama_reachable="Ollama Erisilebilir",
     label_output="Cikti",
     label_output_preview="Cikti Onizleme",
+    label_optional_runtime_ready="Optional Runtime Hazir",
     label_pid="PID",
     label_passed="Gecti",
     label_persisted="Kalici",
+    label_platform="Platform",
     label_pnl="PnL",
+    label_path="Path",
     label_poll_seconds="Poll Saniyesi",
     label_preset="Preset",
     label_preference_update="Preference Guncellemesi",
@@ -722,6 +754,7 @@ TR_TEXT = UITextCatalog(
     label_target="Hedef",
     label_take="Take",
     label_take_profit="Take Profit",
+    label_tool="Tool",
     label_tools="Araclar",
     label_total_return="Toplam Return",
     label_trades="Trade'ler",
@@ -737,6 +770,8 @@ TR_TEXT = UITextCatalog(
     label_win_rate="Kazanma Orani",
     label_without_memory="Hafiza Olmadan",
     label_v1_source="V1 Kaynagi",
+    label_web_gui="Web GUI",
+    label_workspace="Workspace",
     label_yes="evet",
     list_separator=", ",
     message_all_agent_stages_llm_path="Tum agent asamalari LLM yolu ile tamamlandi.",
@@ -819,7 +854,11 @@ TR_TEXT = UITextCatalog(
     title_trade_proposals="Trade Proposal'lari",
     title_proposal_candidates="Proposal Candidate'leri",
     title_position_plan_repair="Position Plan Repair",
+    title_recommended_next_commands="Onerilen Sonraki Komutlar",
+    title_setup_status="Setup Durumu",
     title_trace="Trace",
+    title_tool_ownership="Tool Ownership",
+    title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
     title_ui_locale="UI Locale",
     title_warning="Uyari",
@@ -904,6 +943,7 @@ LABEL_CLOSED_TRADES = EN_TEXT.label_closed_trades
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
 LABEL_CONFIDENCE = EN_TEXT.label_confidence
 LABEL_CONTEXT = EN_TEXT.label_context
+LABEL_CORE_READY = EN_TEXT.label_core_ready
 LABEL_CREATED = EN_TEXT.label_created
 LABEL_CURRENCY = EN_TEXT.label_currency
 LABEL_CURRENT = EN_TEXT.label_current
@@ -961,6 +1001,7 @@ LABEL_MARKS_RECORDED = EN_TEXT.label_marks_recorded
 LABEL_MAX_DRAWDOWN = EN_TEXT.label_max_drawdown
 LABEL_MAX_CYCLES = EN_TEXT.label_max_cycles
 LABEL_MEMORIES = EN_TEXT.label_memories
+LABEL_MEANING = EN_TEXT.label_meaning
 LABEL_MESSAGE = EN_TEXT.label_message
 LABEL_METRIC = EN_TEXT.label_metric
 LABEL_MODE = EN_TEXT.label_mode
@@ -974,13 +1015,17 @@ LABEL_OBSERVER_MODE = EN_TEXT.label_observer_mode
 LABEL_OPEN_POSITIONS = EN_TEXT.label_open_positions
 LABEL_OPENED = EN_TEXT.label_opened
 LABEL_ORDER_ID = EN_TEXT.label_order_id
+LABEL_OWNERSHIP = EN_TEXT.label_ownership
 LABEL_OLLAMA_REACHABLE = EN_TEXT.label_ollama_reachable
 LABEL_OUTPUT = EN_TEXT.label_output
 LABEL_OUTPUT_PREVIEW = EN_TEXT.label_output_preview
+LABEL_OPTIONAL_RUNTIME_READY = EN_TEXT.label_optional_runtime_ready
 LABEL_PASSED = EN_TEXT.label_passed
 LABEL_PERSISTED = EN_TEXT.label_persisted
+LABEL_PLATFORM = EN_TEXT.label_platform
 LABEL_PID = EN_TEXT.label_pid
 LABEL_PNL = EN_TEXT.label_pnl
+LABEL_PATH = EN_TEXT.label_path
 LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
 LABEL_PRESET = EN_TEXT.label_preset
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
@@ -1019,6 +1064,7 @@ LABEL_SUPPORTED = EN_TEXT.label_supported
 LABEL_TARGET = EN_TEXT.label_target
 LABEL_TAKE = EN_TEXT.label_take
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
+LABEL_TOOL = EN_TEXT.label_tool
 LABEL_TOOLS = EN_TEXT.label_tools
 LABEL_TOTAL_RETURN = EN_TEXT.label_total_return
 LABEL_TRADES = EN_TEXT.label_trades
@@ -1034,6 +1080,8 @@ LABEL_WARNINGS = EN_TEXT.label_warnings
 LABEL_WIN_RATE = EN_TEXT.label_win_rate
 LABEL_WITHOUT_MEMORY = EN_TEXT.label_without_memory
 LABEL_V1_SOURCE = EN_TEXT.label_v1_source
+LABEL_WEB_GUI = EN_TEXT.label_web_gui
+LABEL_WORKSPACE = EN_TEXT.label_workspace
 LABEL_YES = EN_TEXT.label_yes
 UI_LIST_SEPARATOR = EN_TEXT.list_separator
 
@@ -1113,7 +1161,11 @@ TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
 TITLE_TRADE_PROPOSALS = EN_TEXT.title_trade_proposals
 TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
+TITLE_RECOMMENDED_NEXT_COMMANDS = EN_TEXT.title_recommended_next_commands
+TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
 TITLE_TRACE = EN_TEXT.title_trace
+TITLE_TOOL_OWNERSHIP = EN_TEXT.title_tool_ownership
+TITLE_TOOL_READINESS = EN_TEXT.title_tool_readiness
 TITLE_TRAINING_DIAGNOSTIC_MODE = EN_TEXT.title_training_diagnostic_mode
 TITLE_UI_LOCALE = EN_TEXT.title_ui_locale
 TITLE_WARNING = EN_TEXT.title_warning

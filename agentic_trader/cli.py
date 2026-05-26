@@ -223,6 +223,7 @@ from agentic_trader.ui_text import (
     LABEL_CONTINUOUS,
     LABEL_CONFIDENCE,
     LABEL_CONTEXT,
+    LABEL_CORE_READY,
     LABEL_CREATED,
     LABEL_CURRENCY,
     LABEL_CURRENT,
@@ -280,6 +281,7 @@ from agentic_trader.ui_text import (
     LABEL_MAX_DRAWDOWN,
     LABEL_MAX_CYCLES,
     LABEL_MEMORIES,
+    LABEL_MEANING,
     LABEL_MESSAGE,
     LABEL_METRIC,
     LABEL_MODE,
@@ -293,13 +295,17 @@ from agentic_trader.ui_text import (
     LABEL_OPEN_POSITIONS,
     LABEL_OPENED,
     LABEL_ORDER_ID,
+    LABEL_OWNERSHIP,
     LABEL_OLLAMA_REACHABLE,
     LABEL_OUTPUT,
     LABEL_OUTPUT_PREVIEW,
+    LABEL_OPTIONAL_RUNTIME_READY,
     LABEL_PASSED,
     LABEL_PERSISTED,
+    LABEL_PLATFORM,
     LABEL_PID,
     LABEL_PNL,
+    LABEL_PATH,
     LABEL_POLL_SECONDS,
     LABEL_PRESET,
     LABEL_PREFERENCE_UPDATE,
@@ -338,6 +344,7 @@ from agentic_trader.ui_text import (
     LABEL_TARGET,
     LABEL_TAKE,
     LABEL_TAKE_PROFIT,
+    LABEL_TOOL,
     LABEL_TOOLS,
     LABEL_TOTAL_RETURN,
     LABEL_TRADES,
@@ -353,6 +360,8 @@ from agentic_trader.ui_text import (
     LABEL_WIN_RATE,
     LABEL_WITHOUT_MEMORY,
     LABEL_V1_SOURCE,
+    LABEL_WEB_GUI,
+    LABEL_WORKSPACE,
     LABEL_YES,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_FALLBACK_USED_IN,
@@ -407,6 +416,8 @@ from agentic_trader.ui_text import (
     TITLE_MEMORY_EXPLORER,
     TITLE_PROPOSAL_CANDIDATES,
     TITLE_POSITION_PLAN_REPAIR,
+    TITLE_RECOMMENDED_NEXT_COMMANDS,
+    TITLE_SETUP_STATUS,
     TITLE_REVIEW_NOTE,
     TITLE_REPLAY_STAGES,
     TITLE_RUN_ARTIFACTS,
@@ -419,6 +430,8 @@ from agentic_trader.ui_text import (
     TITLE_TRADE_JOURNAL,
     TITLE_TRADE_PROPOSALS,
     TITLE_TRACE,
+    TITLE_TOOL_OWNERSHIP,
+    TITLE_TOOL_READINESS,
     TITLE_TRAINING_DIAGNOSTIC_MODE,
     TITLE_UI_LOCALE,
     TITLE_WARNING,
@@ -3741,24 +3754,23 @@ def _render_setup_status(payload: dict[str, object]) -> None:
             - optional_ready: boolean indicating optional runtime readiness.
             - model_service, camofox_service, webgui_service: dicts (may be empty) with a "message" key summarizing each service.
             - tool_ownership (optional): dict passed to the tool ownership renderer.
-            - tools: list[dict] of tool descriptors; each dict may include:
-                "label", "category", "status", optional "ownership_mode", "path", "notes" (list[str]), and "install_hint".
+            - tools: list[dict] of tool descriptors including display label, category, status, optional ownership mode, path, notes, and install hint.
             - recommended_commands: list[str] of CLI commands to suggest to the user.
     """
 
-    summary = Table(title="Setup Status")
-    summary.add_column("Field")
-    summary.add_column("Value")
-    summary.add_row("Platform", str(payload["platform"]))
-    summary.add_row("Workspace", str(payload["workspace_root"]))
-    summary.add_row("Core Ready", str(payload["core_ready"]))
-    summary.add_row("Optional Runtime Ready", str(payload["optional_ready"]))
+    summary = Table(title=TITLE_SETUP_STATUS)
+    summary.add_column(LABEL_FIELD)
+    summary.add_column(LABEL_VALUE)
+    summary.add_row(LABEL_PLATFORM, str(payload["platform"]))
+    summary.add_row(LABEL_WORKSPACE, str(payload["workspace_root"]))
+    summary.add_row(LABEL_CORE_READY, str(payload["core_ready"]))
+    summary.add_row(LABEL_OPTIONAL_RUNTIME_READY, str(payload["optional_ready"]))
     model_service = cast(dict[str, object], payload.get("model_service", {}))
     camofox_service = cast(dict[str, object], payload.get("camofox_service", {}))
     webgui_service = cast(dict[str, object], payload.get("webgui_service", {}))
     summary.add_row(LABEL_MODEL_SERVICE, str(model_service.get("message", "-")))
     summary.add_row("Camofox", str(camofox_service.get("message", "-")))
-    summary.add_row("Web GUI", str(webgui_service.get("message", "-")))
+    summary.add_row(LABEL_WEB_GUI, str(webgui_service.get("message", "-")))
     console.print(summary)
 
     ownership = cast(dict[str, object] | None, payload.get("tool_ownership"))
@@ -3766,13 +3778,13 @@ def _render_setup_status(payload: dict[str, object]) -> None:
         _render_tool_ownership(ownership)
 
     tools = cast(list[dict[str, object]], payload["tools"])
-    table = Table(title="Tool Readiness")
-    table.add_column("Tool")
-    table.add_column("Category")
-    table.add_column("Ownership")
-    table.add_column("Status")
-    table.add_column("Path")
-    table.add_column("Notes")
+    table = Table(title=TITLE_TOOL_READINESS)
+    table.add_column(LABEL_TOOL)
+    table.add_column(LABEL_CATEGORY)
+    table.add_column(LABEL_OWNERSHIP)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_PATH)
+    table.add_column(LABEL_NOTES)
     for tool in tools:
         notes = ", ".join(cast(list[str], tool.get("notes", [])))
         table.add_row(
@@ -3787,7 +3799,7 @@ def _render_setup_status(payload: dict[str, object]) -> None:
     console.print(
         Panel(
             "\n".join(cast(list[str], payload["recommended_commands"])),
-            title="Recommended Next Commands",
+            title=TITLE_RECOMMENDED_NEXT_COMMANDS,
             border_style="cyan",
         )
     )
@@ -3807,12 +3819,12 @@ def _render_tool_ownership(payload: dict[str, object]) -> None:
                 - "note": human-readable note or meaning
     """
 
-    table = Table(title="Tool Ownership")
-    table.add_column("Tool")
-    table.add_column("Mode")
-    table.add_column("Source")
-    table.add_column("Updated")
-    table.add_column("Meaning")
+    table = Table(title=TITLE_TOOL_OWNERSHIP)
+    table.add_column(LABEL_TOOL)
+    table.add_column(LABEL_MODE)
+    table.add_column(LABEL_SOURCE)
+    table.add_column(LABEL_UPDATED)
+    table.add_column(LABEL_MEANING)
     decisions = cast(list[dict[str, object]], payload.get("decisions", []))
     for decision in decisions:
         table.add_row(
