@@ -215,6 +215,24 @@ def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
     return rows
 
 
+def object_mapping(value: object) -> Mapping[str, object]:
+    """Return value as an object-keyed mapping when it already is one."""
+
+    return _object_mapping(value)
+
+
+def object_list(value: object) -> list[object]:
+    """Return value as a list when it is a non-string sequence."""
+
+    return _object_list(value)
+
+
+def object_mapping_list(value: object) -> list[Mapping[str, object]]:
+    """Return mapping rows from a non-string sequence."""
+
+    return _object_mapping_list(value)
+
+
 LABEL_MODEL_SERVICE = "Model Service"
 model_service_app = typer.Typer(
     help="Manage the optional app-owned local model service."

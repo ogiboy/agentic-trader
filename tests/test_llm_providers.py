@@ -144,15 +144,19 @@ def test_probe_generation_surfaces_http_and_payload_errors() -> None:
     client.post_responses = [
         FakeResponse({"error": {"message": "model load failed"}}, status_code=500),
         FakeResponse({"error": "runtime refused"}),
+        FakeResponse(["not-an-object"]),
     ]
 
     first_ok, first_message = provider.probe_generation(model_available=True)
     second_ok, second_message = provider.probe_generation(model_available=True)
+    third_ok, third_message = provider.probe_generation(model_available=True)
 
     assert first_ok is False
     assert first_message == "model load failed"
     assert second_ok is False
     assert second_message == "runtime refused"
+    assert third_ok is False
+    assert third_message == "malformed or non-object probe payload"
 
 
 def test_openai_compatible_provider_generates_and_checks_health() -> None:
@@ -264,12 +268,14 @@ def test_openai_compatible_provider_surfaces_errors_without_network() -> None:
     client.post_responses = [
         FakeResponse({"error": {"message": "model load failed"}}, status_code=500),
         FakeResponse({"choices": []}),
+        FakeResponse(["not-an-object"]),
     ]
     object.__setattr__(provider, "client", client)
 
     health = provider.health_check(include_generation=True)
     http_ok, http_message = provider.probe_generation(model_available=True)
     malformed_ok, malformed_message = provider.probe_generation(model_available=True)
+    non_object_ok, non_object_message = provider.probe_generation(model_available=True)
 
     assert health.service_reachable is False
     assert health.generation_available is False
@@ -278,6 +284,8 @@ def test_openai_compatible_provider_surfaces_errors_without_network() -> None:
     assert http_message == "model load failed"
     assert malformed_ok is False
     assert "no choices" in malformed_message
+    assert non_object_ok is False
+    assert non_object_message == "malformed or non-object probe payload"
 
 
 def test_build_provider_accepts_openai_compatible_adapter() -> None:

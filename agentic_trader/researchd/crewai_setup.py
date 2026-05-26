@@ -64,10 +64,12 @@ def crewai_setup_status(settings: Settings) -> dict[str, object]:
     version: str | None = None
     version_status = "missing_uv" if uv_path is None else "not_checked"
     version_error: str | None = None
-    if uv_path is not None and flow_scaffold_exists and environment_exists:
+    if uv_path is not None and flow_scaffold_exists:
         version, version_status, version_error = _crewai_sidecar_version(
             uv_path, flow_dir
         )
+        if version_status == "ok" and not environment_exists:
+            version_status = "missing_environment"
     elif uv_path is not None and not flow_scaffold_exists:
         version_status = "missing_scaffold"
     elif uv_path is not None and not environment_exists:

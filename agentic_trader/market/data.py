@@ -44,7 +44,7 @@ def _download_ohlcv(
     symbol: str, *, interval: str, lookback: str
 ) -> pd.DataFrame | None:
     buffer = io.StringIO()
-    download = cast(Callable[..., pd.DataFrame], getattr(yf, "download"))
+    download = cast(Callable[..., pd.DataFrame], yf.download)
     with redirect_stdout(buffer), redirect_stderr(buffer):
         raw_data = download(
             tickers=symbol,

@@ -75,15 +75,15 @@ def test_cli_object_helpers_accept_abstract_mappings_and_sequences() -> None:
     """CLI JSON helpers should keep non-dict mappings and non-list sequences."""
     object_mapping = cast(
         Callable[[object], Mapping[str, object]],
-        getattr(cli_module, "_object_mapping"),
+        cli_module.object_mapping,
     )
     object_list = cast(
         Callable[[object], list[object]],
-        getattr(cli_module, "_object_list"),
+        cli_module.object_list,
     )
     object_mapping_list = cast(
         Callable[[object], list[Mapping[str, object]]],
-        getattr(cli_module, "_object_mapping_list"),
+        cli_module.object_mapping_list,
     )
     mapping = UserDict({"symbol": "AAPL", "score": 1})
     rows = (mapping, {"symbol": "MSFT"}, "not-a-row")

@@ -25,11 +25,11 @@ def approx(
     expected: object,
     *,
     rel: object | None = None,
-    abs: object | None = None,
+    abs_tol: object | None = None,
     nan_ok: bool = False,
 ) -> object:
-    approx_func = cast(Callable[..., object], getattr(pytest, "approx"))
-    return approx_func(expected, rel=rel, abs=abs, nan_ok=nan_ok)
+    approx_func = cast(Callable[..., object], vars(pytest)["approx"])
+    return approx_func(expected, rel=rel, abs=abs_tol, nan_ok=nan_ok)
 
 
 def raising(error: Exception) -> Callable[..., NoReturn]:

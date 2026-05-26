@@ -224,10 +224,11 @@ class OllamaProvider:
                 return False, self._error_from_response(response)
             response.raise_for_status()
             payload = _json_object_or_none(response.json())
-            if payload is not None:
-                error_obj = payload.get("error")
-                if isinstance(error_obj, str) and error_obj.strip():
-                    return False, _short_redacted_error(error_obj)
+            if payload is None:
+                return False, _short_redacted_error("malformed or non-object probe payload")
+            error_obj = payload.get("error")
+            if isinstance(error_obj, str) and error_obj.strip():
+                return False, _short_redacted_error(error_obj)
             return True, "Generation probe completed."
         except Exception as exc:
             return False, _short_redacted_error(str(exc)) or type(exc).__name__
@@ -472,8 +473,9 @@ class OpenAICompatibleProvider:
                 return False, _openai_compatible_error_from_response(response)
             response.raise_for_status()
             payload = _json_object_or_none(response.json())
-            if payload is not None:
-                _openai_compatible_content(payload)
+            if payload is None:
+                return False, _short_redacted_error("malformed or non-object probe payload")
+            _openai_compatible_content(payload)
             return True, "Generation probe completed."
         except Exception as exc:
             return False, _short_redacted_error(str(exc)) or type(exc).__name__

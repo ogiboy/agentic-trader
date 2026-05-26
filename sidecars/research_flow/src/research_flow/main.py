@@ -30,9 +30,9 @@ CREWAI_FLOW_COMPATIBILITY_MESSAGE = (
 
 def _load_crewai_flow_symbols() -> tuple[type[Any], Callable[..., Any]]:
     try:
-        crewai_flow = import_module("crewai.flow")
-        flow_class = getattr(crewai_flow, "Flow")
-        start_callable = getattr(crewai_flow, "start")
+        crewai_flow = cast(Any, import_module("crewai.flow"))
+        flow_class = crewai_flow.Flow
+        start_callable = crewai_flow.start
     except (ImportError, AttributeError) as exc:
         raise RuntimeError(CREWAI_FLOW_COMPATIBILITY_MESSAGE) from exc
     return cast(type[Any], flow_class), cast(Callable[..., Any], start_callable)
