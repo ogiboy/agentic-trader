@@ -28,8 +28,17 @@ class UITextCatalog:
     help_run_id: str
     help_symbol: str
     help_tool_ownership_app: str
+    help_trade_confidence: str
+    help_trade_invalidation: str
+    help_trade_limit_price: str
     help_trade_notional: str
+    help_trade_order_type: str
     help_trade_quantity: str
+    help_trade_reference_price: str
+    help_trade_source: str
+    help_trade_stop_loss: str
+    help_trade_take_profit: str
+    help_trade_thesis: str
     help_trade_side: str
     help_webgui_service_app: str
     label_market_value: str
@@ -58,8 +67,17 @@ EN_TEXT = UITextCatalog(
     help_run_id="Run id to inspect. Defaults to the latest recorded run.",
     help_symbol="Ticker symbol, for example AAPL or BTC-USD",
     help_tool_ownership_app="Inspect or record optional helper ownership decisions.",
+    help_trade_confidence="Proposal confidence from 0.0 to 1.0.",
+    help_trade_invalidation="Optional condition that invalidates the trade idea.",
+    help_trade_limit_price="Limit price. Required with --order-type limit.",
     help_trade_notional="Dollar notional. Either quantity or notional is required.",
+    help_trade_order_type="Proposal order type. V1 supports market or limit.",
     help_trade_quantity="Share quantity. Either quantity or notional is required.",
+    help_trade_reference_price="Reference price used for the proposal.",
+    help_trade_source="Source label such as manual, scanner, or research-sidecar.",
+    help_trade_stop_loss="Optional stop loss.",
+    help_trade_take_profit="Optional take profit.",
+    help_trade_thesis="Short operator-readable proposal thesis.",
     help_trade_side="Trade side: buy or sell.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
     label_market_value="Market Value",
@@ -91,8 +109,17 @@ TR_TEXT = UITextCatalog(
     help_run_id="Incelenecek run id. Varsayilan son kayitli run.",
     help_symbol="Ticker sembolu, ornegin AAPL veya BTC-USD",
     help_tool_ownership_app="Istege bagli yardimci arac sahipligi kararlarini incele veya kaydet.",
+    help_trade_confidence="Proposal guveni: 0.0 ile 1.0 arasi.",
+    help_trade_invalidation="Trade fikrini gecersiz kilan istege bagli kosul.",
+    help_trade_limit_price="Limit fiyat. --order-type limit ile gereklidir.",
     help_trade_notional="Dolar notional. Quantity veya notional degerlerinden biri gereklidir.",
+    help_trade_order_type="Proposal emir tipi. V1 market veya limit destekler.",
     help_trade_quantity="Hisse adedi. Quantity veya notional degerlerinden biri gereklidir.",
+    help_trade_reference_price="Proposal icin kullanilan referans fiyat.",
+    help_trade_source="manual, scanner veya research-sidecar gibi kaynak etiketi.",
+    help_trade_stop_loss="Istege bagli stop loss.",
+    help_trade_take_profit="Istege bagli take profit.",
+    help_trade_thesis="Operator tarafindan okunabilir kisa proposal tezi.",
     help_trade_side="Trade yonu: buy veya sell.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
     label_market_value="Piyasa Degeri",
@@ -145,9 +172,18 @@ HELP_MODEL_SERVICE_APP = EN_TEXT.help_model_service_app
 HELP_WEBGUI_SERVICE_APP = EN_TEXT.help_webgui_service_app
 HELP_CAMOFOX_SERVICE_APP = EN_TEXT.help_camofox_service_app
 HELP_TOOL_OWNERSHIP_APP = EN_TEXT.help_tool_ownership_app
+HELP_TRADE_CONFIDENCE = EN_TEXT.help_trade_confidence
+HELP_TRADE_INVALIDATION = EN_TEXT.help_trade_invalidation
+HELP_TRADE_LIMIT_PRICE = EN_TEXT.help_trade_limit_price
 HELP_TRADE_SIDE = EN_TEXT.help_trade_side
 HELP_TRADE_QUANTITY = EN_TEXT.help_trade_quantity
 HELP_TRADE_NOTIONAL = EN_TEXT.help_trade_notional
+HELP_TRADE_ORDER_TYPE = EN_TEXT.help_trade_order_type
+HELP_TRADE_REFERENCE_PRICE = EN_TEXT.help_trade_reference_price
+HELP_TRADE_SOURCE = EN_TEXT.help_trade_source
+HELP_TRADE_STOP_LOSS = EN_TEXT.help_trade_stop_loss
+HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
+HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
 
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
 LABEL_OBSERVER_MODE = EN_TEXT.label_observer_mode
