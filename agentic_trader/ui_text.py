@@ -56,14 +56,24 @@ class UITextCatalog:
     help_trade_side: str
     help_webgui_service_app: str
     label_approved: str
+    label_cash: str
     label_continuous: str
     label_confidence: str
+    label_created: str
     label_current_symbol: str
+    label_cycle: str
     label_cycle_count: str
+    label_daily_realized_pnl: str
     label_decision_path: str
+    label_drawdown_from_peak: str
     label_entry: str
+    label_equity: str
+    label_exit: str
     label_fallback: str
     label_field: str
+    label_fills_today: str
+    label_generated: str
+    label_gross_exposure: str
     label_heartbeat: str
     label_heartbeat_age: str
     label_interval: str
@@ -71,20 +81,28 @@ class UITextCatalog:
     label_last_recorded_error: str
     label_last_recorded_message: str
     label_last_recorded_state: str
+    label_largest_position: str
+    label_level: str
     label_live_process: str
     label_llm: str
     label_lookback: str
     label_market_value: str
+    label_marks_recorded: str
     label_max_cycles: str
+    label_message: str
     label_mode: str
     label_no: str
     label_notes: str
     label_observer_mode: str
+    label_open_positions: str
+    label_opened: str
     label_order_id: str
     label_pid: str
+    label_pnl: str
     label_poll_seconds: str
     label_preference_update: str
     label_rationale: str
+    label_realized_pnl: str
     label_requires_confirmation: str
     label_runtime: str
     label_service: str
@@ -92,13 +110,16 @@ class UITextCatalog:
     label_source: str
     label_stage: str
     label_started: str
+    label_status: str
     label_status_note: str
     label_stop_requested: str
     label_stop: str
     label_structured_llm: str
     label_summary: str
+    label_symbol: str
     label_symbols: str
     label_take_profit: str
+    label_type: str
     label_update_preferences: str
     label_updated: str
     label_unrealized_pnl: str
@@ -108,7 +129,10 @@ class UITextCatalog:
     list_separator: str
     message_all_agent_stages_llm_path: str
     message_fallback_used_in: str
+    message_no_elevated_portfolio_risk_warnings: str
     message_no_runtime_state: str
+    message_no_runtime_events: str
+    message_no_trade_journal_entries: str
     prompt_continue: str
     prompt_select_action: str
     stage_coordinator: str
@@ -121,11 +145,14 @@ class UITextCatalog:
     title_llm_status: str
     title_operator_instruction: str
     title_pipeline: str
+    title_daily_risk_report: str
     title_recent_runs: str
+    title_risk_warnings: str
     title_run_artifacts: str
     title_runtime_events: str
     title_runtime_status: str
     title_service_status: str
+    title_trade_journal: str
     title_warning: str
 
 
@@ -168,14 +195,24 @@ EN_TEXT = UITextCatalog(
     help_trade_side="Trade side: buy or sell.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
     label_approved="Approved",
+    label_cash="Cash",
     label_continuous="Continuous",
     label_confidence="Confidence",
+    label_created="Created",
     label_current_symbol="Current Symbol",
+    label_cycle="Cycle",
     label_cycle_count="Cycle Count",
+    label_daily_realized_pnl="Daily Realized PnL",
     label_decision_path="Decision Path",
+    label_drawdown_from_peak="Drawdown From Peak",
     label_entry="Entry",
+    label_equity="Equity",
+    label_exit="Exit",
     label_fallback="Fallback",
     label_field="Field",
+    label_fills_today="Fills Today",
+    label_generated="Generated",
+    label_gross_exposure="Gross Exposure",
     label_heartbeat="Heartbeat",
     label_heartbeat_age="Heartbeat Age",
     label_interval="Interval",
@@ -183,20 +220,28 @@ EN_TEXT = UITextCatalog(
     label_last_recorded_error="Last Recorded Error",
     label_last_recorded_message="Last Recorded Message",
     label_last_recorded_state="Last Recorded State",
+    label_largest_position="Largest Position",
+    label_level="Level",
     label_live_process="Live Process",
     label_llm="LLM",
     label_lookback="Lookback",
     label_market_value="Market Value",
+    label_marks_recorded="Marks Recorded",
     label_max_cycles="Max Cycles",
+    label_message="Message",
     label_mode="Mode",
     label_no="no",
     label_notes="Notes",
     label_observer_mode="Observer Mode",
+    label_open_positions="Open Positions",
+    label_opened="Opened",
     label_order_id="Order ID",
     label_pid="PID",
+    label_pnl="PnL",
     label_poll_seconds="Poll Seconds",
     label_preference_update="Preference Update",
     label_rationale="Rationale",
+    label_realized_pnl="Realized PnL",
     label_requires_confirmation="Requires Confirmation",
     label_runtime="Runtime",
     label_service="Service",
@@ -204,13 +249,16 @@ EN_TEXT = UITextCatalog(
     label_source="Source",
     label_stage="Stage",
     label_started="Started",
+    label_status="Status",
     label_status_note="Status Note",
     label_stop_requested="Stop Requested",
     label_stop="Stop",
     label_structured_llm="Structured LLM response",
     label_summary="Summary",
+    label_symbol="Symbol",
     label_symbols="Symbols",
     label_take_profit="Take Profit",
+    label_type="Type",
     label_update_preferences="Update Preferences",
     label_updated="Updated",
     label_unrealized_pnl="Unrealized PnL",
@@ -220,7 +268,12 @@ EN_TEXT = UITextCatalog(
     list_separator=", ",
     message_all_agent_stages_llm_path="All agent stages completed through the LLM path.",
     message_fallback_used_in="Fallback was used in",
+    message_no_elevated_portfolio_risk_warnings=(
+        "No elevated portfolio risk warnings for this report."
+    ),
     message_no_runtime_state="No runtime state recorded yet.",
+    message_no_runtime_events="No runtime events recorded yet.",
+    message_no_trade_journal_entries="No trade journal entries recorded yet.",
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
     stage_coordinator="Coordinator",
@@ -233,11 +286,14 @@ EN_TEXT = UITextCatalog(
     title_llm_status="LLM Status",
     title_operator_instruction="Operator Instruction",
     title_pipeline="Pipeline",
+    title_daily_risk_report="Daily Risk Report",
     title_recent_runs="Recent Runs",
+    title_risk_warnings="Risk Warnings",
     title_run_artifacts="Run Artifacts",
     title_runtime_events="Runtime Events",
     title_runtime_status="Runtime Status",
     title_service_status="Service Status",
+    title_trade_journal="Trade Journal",
     title_warning="Warning",
 )
 
@@ -283,14 +339,24 @@ TR_TEXT = UITextCatalog(
     help_trade_side="Trade yonu: buy veya sell.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
     label_approved="Onaylandi",
+    label_cash="Nakit",
     label_continuous="Surekli",
     label_confidence="Guven",
+    label_created="Olusturuldu",
     label_current_symbol="Gecerli Sembol",
+    label_cycle="Dongu",
     label_cycle_count="Dongu Sayisi",
+    label_daily_realized_pnl="Gunluk Gerceklesen PnL",
     label_decision_path="Karar Yolu",
+    label_drawdown_from_peak="Zirveden Drawdown",
     label_entry="Giris",
+    label_equity="Equity",
+    label_exit="Cikis",
     label_fallback="Fallback",
     label_field="Alan",
+    label_fills_today="Bugunku Fill'ler",
+    label_generated="Uretildi",
+    label_gross_exposure="Brut Exposure",
     label_heartbeat="Heartbeat",
     label_heartbeat_age="Heartbeat Yasi",
     label_interval="Aralik",
@@ -298,20 +364,28 @@ TR_TEXT = UITextCatalog(
     label_last_recorded_error="Son Kayitli Hata",
     label_last_recorded_message="Son Kayitli Mesaj",
     label_last_recorded_state="Son Kayitli Durum",
+    label_largest_position="En Buyuk Pozisyon",
+    label_level="Seviye",
     label_live_process="Canli Process",
     label_llm="LLM",
     label_lookback="Geriye Donuk Pencere",
     label_market_value="Piyasa Degeri",
+    label_marks_recorded="Kayitli Mark'lar",
     label_max_cycles="Maksimum Dongu",
+    label_message="Mesaj",
     label_mode="Mod",
     label_no="hayir",
     label_notes="Notlar",
     label_observer_mode="Observer Modu",
+    label_open_positions="Acik Pozisyonlar",
+    label_opened="Acilis",
     label_order_id="Order ID",
     label_pid="PID",
+    label_pnl="PnL",
     label_poll_seconds="Poll Saniyesi",
     label_preference_update="Preference Guncellemesi",
     label_rationale="Gerekce",
+    label_realized_pnl="Gerceklesen PnL",
     label_requires_confirmation="Onay Gerektirir",
     label_runtime="Runtime",
     label_service="Servis",
@@ -319,13 +393,16 @@ TR_TEXT = UITextCatalog(
     label_source="Kaynak",
     label_stage="Asama",
     label_started="Basladi",
+    label_status="Durum",
     label_status_note="Durum Notu",
     label_stop_requested="Durdurma Istendi",
     label_stop="Stop",
     label_structured_llm="Yapilandirilmis LLM yaniti",
     label_summary="Ozet",
+    label_symbol="Sembol",
     label_symbols="Semboller",
     label_take_profit="Take Profit",
+    label_type="Tip",
     label_update_preferences="Tercihleri Guncelle",
     label_updated="Guncellendi",
     label_unrealized_pnl="Gerceklesmemis PnL",
@@ -335,7 +412,12 @@ TR_TEXT = UITextCatalog(
     list_separator=", ",
     message_all_agent_stages_llm_path="Tum agent asamalari LLM yolu ile tamamlandi.",
     message_fallback_used_in="Fallback kullanilan asamalar",
+    message_no_elevated_portfolio_risk_warnings=(
+        "Bu rapor icin yuksek portfoy risk uyarisi yok."
+    ),
     message_no_runtime_state="Henuz runtime durumu kaydedilmedi.",
+    message_no_runtime_events="Henuz runtime olayi kaydedilmedi.",
+    message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
     stage_coordinator="Coordinator",
@@ -348,11 +430,14 @@ TR_TEXT = UITextCatalog(
     title_llm_status="LLM Durumu",
     title_operator_instruction="Operator Talimati",
     title_pipeline="Pipeline",
+    title_daily_risk_report="Gunluk Risk Raporu",
     title_recent_runs="Son Run'lar",
+    title_risk_warnings="Risk Uyarilari",
     title_run_artifacts="Run Artifact'lari",
     title_runtime_events="Runtime Olaylari",
     title_runtime_status="Runtime Durumu",
     title_service_status="Servis Durumu",
+    title_trade_journal="Trade Journal",
     title_warning="Uyari",
 )
 
@@ -419,14 +504,24 @@ HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
 HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
 
 LABEL_APPROVED = EN_TEXT.label_approved
+LABEL_CASH = EN_TEXT.label_cash
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
 LABEL_CONFIDENCE = EN_TEXT.label_confidence
+LABEL_CREATED = EN_TEXT.label_created
 LABEL_CURRENT_SYMBOL = EN_TEXT.label_current_symbol
+LABEL_CYCLE = EN_TEXT.label_cycle
 LABEL_CYCLE_COUNT = EN_TEXT.label_cycle_count
+LABEL_DAILY_REALIZED_PNL = EN_TEXT.label_daily_realized_pnl
 LABEL_DECISION_PATH = EN_TEXT.label_decision_path
+LABEL_DRAWDOWN_FROM_PEAK = EN_TEXT.label_drawdown_from_peak
 LABEL_ENTRY = EN_TEXT.label_entry
+LABEL_EQUITY = EN_TEXT.label_equity
+LABEL_EXIT = EN_TEXT.label_exit
 LABEL_FALLBACK = EN_TEXT.label_fallback
 LABEL_FIELD = EN_TEXT.label_field
+LABEL_FILLS_TODAY = EN_TEXT.label_fills_today
+LABEL_GENERATED = EN_TEXT.label_generated
+LABEL_GROSS_EXPOSURE = EN_TEXT.label_gross_exposure
 LABEL_HEARTBEAT = EN_TEXT.label_heartbeat
 LABEL_HEARTBEAT_AGE = EN_TEXT.label_heartbeat_age
 LABEL_INTERVAL = EN_TEXT.label_interval
@@ -434,20 +529,28 @@ LABEL_KEY = EN_TEXT.label_key
 LABEL_LAST_RECORDED_ERROR = EN_TEXT.label_last_recorded_error
 LABEL_LAST_RECORDED_MESSAGE = EN_TEXT.label_last_recorded_message
 LABEL_LAST_RECORDED_STATE = EN_TEXT.label_last_recorded_state
+LABEL_LARGEST_POSITION = EN_TEXT.label_largest_position
+LABEL_LEVEL = EN_TEXT.label_level
 LABEL_LIVE_PROCESS = EN_TEXT.label_live_process
 LABEL_LLM = EN_TEXT.label_llm
 LABEL_LOOKBACK = EN_TEXT.label_lookback
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
+LABEL_MARKS_RECORDED = EN_TEXT.label_marks_recorded
 LABEL_MAX_CYCLES = EN_TEXT.label_max_cycles
+LABEL_MESSAGE = EN_TEXT.label_message
 LABEL_MODE = EN_TEXT.label_mode
 LABEL_NO = EN_TEXT.label_no
 LABEL_NOTES = EN_TEXT.label_notes
 LABEL_OBSERVER_MODE = EN_TEXT.label_observer_mode
+LABEL_OPEN_POSITIONS = EN_TEXT.label_open_positions
+LABEL_OPENED = EN_TEXT.label_opened
 LABEL_ORDER_ID = EN_TEXT.label_order_id
 LABEL_PID = EN_TEXT.label_pid
+LABEL_PNL = EN_TEXT.label_pnl
 LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
 LABEL_RATIONALE = EN_TEXT.label_rationale
+LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
 LABEL_RUNTIME = EN_TEXT.label_runtime
 LABEL_SERVICE = EN_TEXT.label_service
@@ -455,13 +558,16 @@ LABEL_SIDE = EN_TEXT.label_side
 LABEL_SOURCE = EN_TEXT.label_source
 LABEL_STAGE = EN_TEXT.label_stage
 LABEL_STARTED = EN_TEXT.label_started
+LABEL_STATUS = EN_TEXT.label_status
 LABEL_STATUS_NOTE = EN_TEXT.label_status_note
 LABEL_STOP_REQUESTED = EN_TEXT.label_stop_requested
 LABEL_STOP = EN_TEXT.label_stop
 LABEL_STRUCTURED_LLM = EN_TEXT.label_structured_llm
 LABEL_SUMMARY = EN_TEXT.label_summary
+LABEL_SYMBOL = EN_TEXT.label_symbol
 LABEL_SYMBOLS = EN_TEXT.label_symbols
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
+LABEL_TYPE = EN_TEXT.label_type
 LABEL_UPDATE_PREFERENCES = EN_TEXT.label_update_preferences
 LABEL_UPDATED = EN_TEXT.label_updated
 LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
@@ -472,7 +578,12 @@ UI_LIST_SEPARATOR = EN_TEXT.list_separator
 
 MESSAGE_ALL_AGENT_STAGES_LLM_PATH = EN_TEXT.message_all_agent_stages_llm_path
 MESSAGE_FALLBACK_USED_IN = EN_TEXT.message_fallback_used_in
+MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS = (
+    EN_TEXT.message_no_elevated_portfolio_risk_warnings
+)
 MESSAGE_NO_RUNTIME_STATE = EN_TEXT.message_no_runtime_state
+MESSAGE_NO_RUNTIME_EVENTS = EN_TEXT.message_no_runtime_events
+MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 
 STAGE_COORDINATOR = EN_TEXT.stage_coordinator
 STAGE_MANAGER = EN_TEXT.stage_manager
@@ -484,11 +595,14 @@ TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
 TITLE_PIPELINE = EN_TEXT.title_pipeline
+TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
 TITLE_RECENT_RUNS = EN_TEXT.title_recent_runs
+TITLE_RISK_WARNINGS = EN_TEXT.title_risk_warnings
 TITLE_RUN_ARTIFACTS = EN_TEXT.title_run_artifacts
 TITLE_RUNTIME_EVENTS = EN_TEXT.title_runtime_events
 TITLE_RUNTIME_STATUS = EN_TEXT.title_runtime_status
 TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
+TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
 TITLE_WARNING = EN_TEXT.title_warning
 
 PROMPT_CONTINUE = EN_TEXT.prompt_continue

@@ -208,14 +208,24 @@ from agentic_trader.ui_text import (
     HELP_TRADE_SIDE,
     HELP_WEBGUI_SERVICE_APP,
     LABEL_APPROVED,
+    LABEL_CASH,
     LABEL_CONTINUOUS,
     LABEL_CONFIDENCE,
+    LABEL_CREATED,
     LABEL_CURRENT_SYMBOL,
+    LABEL_CYCLE,
     LABEL_CYCLE_COUNT,
+    LABEL_DAILY_REALIZED_PNL,
     LABEL_DECISION_PATH,
+    LABEL_DRAWDOWN_FROM_PEAK,
     LABEL_ENTRY,
+    LABEL_EQUITY,
+    LABEL_EXIT,
     LABEL_FALLBACK,
     LABEL_FIELD,
+    LABEL_FILLS_TODAY,
+    LABEL_GENERATED,
+    LABEL_GROSS_EXPOSURE,
     LABEL_HEARTBEAT,
     LABEL_HEARTBEAT_AGE,
     LABEL_INTERVAL,
@@ -223,20 +233,28 @@ from agentic_trader.ui_text import (
     LABEL_LAST_RECORDED_ERROR,
     LABEL_LAST_RECORDED_MESSAGE,
     LABEL_LAST_RECORDED_STATE,
+    LABEL_LARGEST_POSITION,
+    LABEL_LEVEL,
     LABEL_LIVE_PROCESS,
     LABEL_LLM,
     LABEL_LOOKBACK,
     LABEL_MARKET_VALUE,
+    LABEL_MARKS_RECORDED,
     LABEL_MAX_CYCLES,
+    LABEL_MESSAGE,
     LABEL_MODE,
     LABEL_NO,
     LABEL_NOTES,
     LABEL_OBSERVER_MODE,
+    LABEL_OPEN_POSITIONS,
+    LABEL_OPENED,
     LABEL_ORDER_ID,
     LABEL_PID,
+    LABEL_PNL,
     LABEL_POLL_SECONDS,
     LABEL_PREFERENCE_UPDATE,
     LABEL_RATIONALE,
+    LABEL_REALIZED_PNL,
     LABEL_REQUIRES_CONFIRMATION,
     LABEL_RUNTIME,
     LABEL_SERVICE,
@@ -244,13 +262,16 @@ from agentic_trader.ui_text import (
     LABEL_SOURCE,
     LABEL_STAGE,
     LABEL_STARTED,
+    LABEL_STATUS,
     LABEL_STATUS_NOTE,
     LABEL_STOP,
     LABEL_STOP_REQUESTED,
     LABEL_STRUCTURED_LLM,
     LABEL_SUMMARY,
+    LABEL_SYMBOL,
     LABEL_SYMBOLS,
     LABEL_TAKE_PROFIT,
+    LABEL_TYPE,
     LABEL_UPDATE_PREFERENCES,
     LABEL_UPDATED,
     LABEL_UNREALIZED_PNL,
@@ -259,7 +280,10 @@ from agentic_trader.ui_text import (
     LABEL_YES,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_FALLBACK_USED_IN,
+    MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
+    MESSAGE_NO_RUNTIME_EVENTS,
     MESSAGE_NO_RUNTIME_STATE,
+    MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
     STAGE_COORDINATOR,
     STAGE_MANAGER,
     STAGE_REGIME,
@@ -268,12 +292,15 @@ from agentic_trader.ui_text import (
     STYLE_KEY_COLUMN,
     SUPPORTED_UI_LOCALES,
     TITLE_EXECUTION_SUMMARY,
+    TITLE_DAILY_RISK_REPORT,
     TITLE_LLM_STATUS,
     TITLE_OPERATOR_INSTRUCTION,
     TITLE_PIPELINE,
     TITLE_RUN_ARTIFACTS,
+    TITLE_RISK_WARNINGS,
     TITLE_RUNTIME_EVENTS,
     TITLE_SERVICE_STATUS,
+    TITLE_TRADE_JOURNAL,
     TITLE_WARNING,
     UILocale,
     UI_LIST_SEPARATOR,
@@ -897,7 +924,7 @@ def _render_service_events(events: list[ServiceEvent]) -> None:
     if not events:
         console.print(
             Panel(
-                "No runtime events recorded yet.",
+                MESSAGE_NO_RUNTIME_EVENTS,
                 title=TITLE_RUNTIME_EVENTS,
                 border_style="yellow",
             )
@@ -905,12 +932,12 @@ def _render_service_events(events: list[ServiceEvent]) -> None:
         return
 
     table = Table(title=TITLE_RUNTIME_EVENTS)
-    table.add_column("Created")
-    table.add_column("Level")
-    table.add_column("Type")
-    table.add_column("Cycle")
-    table.add_column("Symbol")
-    table.add_column("Message")
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_LEVEL)
+    table.add_column(LABEL_TYPE)
+    table.add_column(LABEL_CYCLE)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_MESSAGE)
     for event in events:
         table.add_row(
             event.created_at,
@@ -927,22 +954,22 @@ def _render_trade_journal(entries: list[TradeJournalEntry]) -> None:
     if not entries:
         console.print(
             Panel(
-                "No trade journal entries recorded yet.",
-                title="Trade Journal",
+                MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
+                title=TITLE_TRADE_JOURNAL,
                 border_style="yellow",
             )
         )
         return
 
-    table = Table(title="Trade Journal")
-    table.add_column("Opened")
-    table.add_column("Symbol")
-    table.add_column("Status")
-    table.add_column("Side")
-    table.add_column("Entry")
-    table.add_column("Exit")
-    table.add_column("PnL")
-    table.add_column("Notes")
+    table = Table(title=TITLE_TRADE_JOURNAL)
+    table.add_column(LABEL_OPENED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_SIDE)
+    table.add_column(LABEL_ENTRY)
+    table.add_column(LABEL_EXIT)
+    table.add_column(LABEL_PNL)
+    table.add_column(LABEL_NOTES)
     for entry in entries:
         table.add_row(
             entry.opened_at,
@@ -961,41 +988,41 @@ def _render_risk_report(report: DailyRiskReport) -> None:
     """
     Render a DailyRiskReport to the console as a formatted table and a risk-warnings panel.
 
-    Displays a table titled with the report date containing generated time, cash, market value, equity, realized/unrealized PnL, counts (open positions, fills, marks), daily realized PnL, exposure metrics, largest position, and drawdown. After the table, prints a yellow "Risk Warnings" panel listing each warning if any exist, otherwise prints a green panel indicating no elevated warnings.
+    Displays a table for the report date with portfolio value, realized/unrealized PnL, activity counts, exposure metrics, largest position, and drawdown. After the table, prints a warnings panel when risk warnings exist, otherwise prints a green no-warning panel.
 
     Parameters:
         report (DailyRiskReport): The risk report data to render.
     """
-    table = Table(title=f"Daily Risk Report / {report.report_date}")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Generated", report.generated_at)
-    table.add_row("Cash", f"{report.cash:.2f}")
+    table = Table(title=TITLE_DAILY_RISK_REPORT + " / " + report.report_date)
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_GENERATED, report.generated_at)
+    table.add_row(LABEL_CASH, f"{report.cash:.2f}")
     table.add_row(LABEL_MARKET_VALUE, f"{report.market_value:.2f}")
-    table.add_row("Equity", f"{report.equity:.2f}")
-    table.add_row("Realized PnL", f"{report.realized_pnl:.2f}")
+    table.add_row(LABEL_EQUITY, f"{report.equity:.2f}")
+    table.add_row(LABEL_REALIZED_PNL, f"{report.realized_pnl:.2f}")
     table.add_row(LABEL_UNREALIZED_PNL, f"{report.unrealized_pnl:.2f}")
-    table.add_row("Open Positions", str(report.open_positions))
-    table.add_row("Fills Today", str(report.fills_today))
-    table.add_row("Marks Recorded", str(report.marks_recorded))
-    table.add_row("Daily Realized PnL", f"{report.daily_realized_pnl:.2f}")
-    table.add_row("Gross Exposure", f"{report.gross_exposure_pct:.2%}")
-    table.add_row("Largest Position", f"{report.largest_position_pct:.2%}")
-    table.add_row("Drawdown From Peak", f"{report.drawdown_from_peak_pct:.2%}")
+    table.add_row(LABEL_OPEN_POSITIONS, str(report.open_positions))
+    table.add_row(LABEL_FILLS_TODAY, str(report.fills_today))
+    table.add_row(LABEL_MARKS_RECORDED, str(report.marks_recorded))
+    table.add_row(LABEL_DAILY_REALIZED_PNL, f"{report.daily_realized_pnl:.2f}")
+    table.add_row(LABEL_GROSS_EXPOSURE, f"{report.gross_exposure_pct:.2%}")
+    table.add_row(LABEL_LARGEST_POSITION, f"{report.largest_position_pct:.2%}")
+    table.add_row(LABEL_DRAWDOWN_FROM_PEAK, f"{report.drawdown_from_peak_pct:.2%}")
     console.print(table)
     if report.warnings:
         console.print(
             Panel(
                 "\n".join(f"- {warning}" for warning in report.warnings),
-                title="Risk Warnings",
+                title=TITLE_RISK_WARNINGS,
                 border_style="yellow",
             )
         )
     else:
         console.print(
             Panel(
-                "No elevated portfolio risk warnings for this report.",
-                title="Risk Warnings",
+                MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
+                title=TITLE_RISK_WARNINGS,
                 border_style="green",
             )
         )
