@@ -28,6 +28,9 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_no_trade_proposals == ui_text.MESSAGE_NO_TRADE_PROPOSALS
     assert catalog.title_finance_operations == ui_text.TITLE_FINANCE_OPERATIONS
     assert catalog.label_marked_at == ui_text.LABEL_MARKED_AT
+    assert catalog.help_locale_override == ui_text.HELP_LOCALE_OVERRIDE
+    assert catalog.title_runtime_mode == ui_text.TITLE_RUNTIME_MODE
+    assert catalog.label_allowed == ui_text.LABEL_ALLOWED
     assert catalog.list_separator == ui_text.UI_LIST_SEPARATOR
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
 
@@ -53,6 +56,8 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_trade_proposals == "Trade Proposal'lari"
     assert catalog.title_finance_operations_checks == "Finance Operations Kontrolleri"
     assert catalog.label_currency == "Para Birimi"
+    assert catalog.help_locale_persist.startswith("Terminal UI locale")
+    assert catalog.title_runtime_mode_transition_checklist.startswith("Runtime Mode")
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 

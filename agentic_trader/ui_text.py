@@ -36,6 +36,8 @@ class UITextCatalog:
     help_idea_vwap: str
     help_interval: str
     help_json: str
+    help_locale_override: str
+    help_locale_persist: str
     help_lookback: str
     help_model_service_app: str
     help_run_id: str
@@ -56,6 +58,7 @@ class UITextCatalog:
     help_trade_side: str
     help_webgui_service_app: str
     label_agent: str
+    label_allowed: str
     label_approved: str
     label_baseline: str
     label_bias: str
@@ -69,6 +72,7 @@ class UITextCatalog:
     label_context: str
     label_created: str
     label_currency: str
+    label_current: str
     label_current_symbol: str
     label_cycle: str
     label_cycle_count: str
@@ -131,6 +135,7 @@ class UITextCatalog:
     label_output: str
     label_output_preview: str
     label_pid: str
+    label_passed: str
     label_pnl: str
     label_poll_seconds: str
     label_preset: str
@@ -165,6 +170,7 @@ class UITextCatalog:
     label_summary: str
     label_symbol: str
     label_symbols: str
+    label_target: str
     label_take: str
     label_take_profit: str
     label_tools: str
@@ -200,6 +206,9 @@ class UITextCatalog:
     message_open_position_count_elevated: str
     message_portfolio_concentration_hhi: str
     message_position_plan_repair_unavailable: str
+    message_runtime_mode_transition_allowed: str
+    message_runtime_mode_transition_blocked: str
+    message_training_diagnostic_fallback: str
     prompt_continue: str
     prompt_select_action: str
     stage_coordinator: str
@@ -237,6 +246,8 @@ class UITextCatalog:
     title_run_artifacts: str
     title_run_review: str
     title_runtime_events: str
+    title_runtime_mode: str
+    title_runtime_mode_transition_checklist: str
     title_runtime_status: str
     title_service_status: str
     title_trade_journal: str
@@ -244,6 +255,7 @@ class UITextCatalog:
     title_proposal_candidates: str
     title_position_plan_repair: str
     title_trace: str
+    title_training_diagnostic_mode: str
     title_warning: str
     title_walk_forward_backtest: str
 
@@ -267,6 +279,8 @@ EN_TEXT = UITextCatalog(
     help_idea_vwap="VWAP value.",
     help_interval="yfinance interval, for example 1d or 1h",
     help_json="Emit machine-readable JSON.",
+    help_locale_override="Override terminal UI locale for this command: en or tr.",
+    help_locale_persist="Persist terminal UI locale to .env.local: en or tr.",
     help_lookback="Lookback window accepted by yfinance",
     help_model_service_app="Manage the optional app-owned local model service.",
     help_run_id="Run id to inspect. Defaults to the latest recorded run.",
@@ -287,6 +301,7 @@ EN_TEXT = UITextCatalog(
     help_trade_side="Trade side: buy or sell.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
     label_agent="Agent",
+    label_allowed="Allowed",
     label_approved="Approved",
     label_baseline="Baseline",
     label_bias="Bias",
@@ -300,6 +315,7 @@ EN_TEXT = UITextCatalog(
     label_context="Context",
     label_created="Created",
     label_currency="Currency",
+    label_current="Current",
     label_current_symbol="Current Symbol",
     label_cycle="Cycle",
     label_cycle_count="Cycle Count",
@@ -362,6 +378,7 @@ EN_TEXT = UITextCatalog(
     label_output="Output",
     label_output_preview="Output Preview",
     label_pid="PID",
+    label_passed="Passed",
     label_pnl="PnL",
     label_poll_seconds="Poll Seconds",
     label_preset="Preset",
@@ -396,6 +413,7 @@ EN_TEXT = UITextCatalog(
     label_summary="Summary",
     label_symbol="Symbol",
     label_symbols="Symbols",
+    label_target="Target",
     label_take="Take",
     label_take_profit="Take Profit",
     label_tools="Tools",
@@ -435,6 +453,16 @@ EN_TEXT = UITextCatalog(
         "Portfolio concentration HHI is elevated at {score:.3f}."
     ),
     message_position_plan_repair_unavailable="Position plan repair status unavailable.",
+    message_runtime_mode_transition_allowed=(
+        "Runtime mode transition {current_mode} -> {target_mode} is allowed."
+    ),
+    message_runtime_mode_transition_blocked=(
+        "Runtime mode transition {current_mode} -> {target_mode} is blocked."
+    ),
+    message_training_diagnostic_fallback=(
+        "Training mode is continuing this evaluation with deterministic diagnostic "
+        "fallbacks because the LLM gate failed:\n\n{error}"
+    ),
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
     stage_coordinator="Coordinator",
@@ -472,6 +500,8 @@ EN_TEXT = UITextCatalog(
     title_run_artifacts="Run Artifacts",
     title_run_review="Run Review",
     title_runtime_events="Runtime Events",
+    title_runtime_mode="Runtime Mode",
+    title_runtime_mode_transition_checklist="Runtime Mode Transition Checklist",
     title_runtime_status="Runtime Status",
     title_service_status="Service Status",
     title_trade_journal="Trade Journal",
@@ -479,6 +509,7 @@ EN_TEXT = UITextCatalog(
     title_proposal_candidates="Proposal Candidates",
     title_position_plan_repair="Position Plan Repair",
     title_trace="Trace",
+    title_training_diagnostic_mode="Training Diagnostic Mode",
     title_warning="Warning",
     title_walk_forward_backtest="Walk-Forward Backtest",
 )
@@ -505,6 +536,8 @@ TR_TEXT = UITextCatalog(
     help_idea_vwap="VWAP degeri.",
     help_interval="yfinance araligi, ornegin 1d veya 1h",
     help_json="Makine tarafindan okunabilir JSON uret.",
+    help_locale_override="Bu komut icin terminal UI locale override et: en veya tr.",
+    help_locale_persist="Terminal UI locale degerini .env.local icine yaz: en veya tr.",
     help_lookback="yfinance tarafindan kabul edilen geriye donuk pencere",
     help_model_service_app="Istege bagli app-owned yerel model servisini yonet.",
     help_run_id="Incelenecek run id. Varsayilan son kayitli run.",
@@ -525,6 +558,7 @@ TR_TEXT = UITextCatalog(
     help_trade_side="Trade yonu: buy veya sell.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
     label_agent="Agent",
+    label_allowed="Izinli",
     label_approved="Onaylandi",
     label_baseline="Baseline",
     label_bias="Bias",
@@ -538,6 +572,7 @@ TR_TEXT = UITextCatalog(
     label_context="Baglam",
     label_created="Olusturuldu",
     label_currency="Para Birimi",
+    label_current="Gecerli",
     label_current_symbol="Gecerli Sembol",
     label_cycle="Dongu",
     label_cycle_count="Dongu Sayisi",
@@ -600,6 +635,7 @@ TR_TEXT = UITextCatalog(
     label_output="Cikti",
     label_output_preview="Cikti Onizleme",
     label_pid="PID",
+    label_passed="Gecti",
     label_pnl="PnL",
     label_poll_seconds="Poll Saniyesi",
     label_preset="Preset",
@@ -634,6 +670,7 @@ TR_TEXT = UITextCatalog(
     label_summary="Ozet",
     label_symbol="Sembol",
     label_symbols="Semboller",
+    label_target="Hedef",
     label_take="Take",
     label_take_profit="Take Profit",
     label_tools="Araclar",
@@ -673,6 +710,16 @@ TR_TEXT = UITextCatalog(
         "Portfoy konsantrasyon HHI {score:.3f} ile yuksek."
     ),
     message_position_plan_repair_unavailable="Position plan repair durumu kullanilamiyor.",
+    message_runtime_mode_transition_allowed=(
+        "Runtime mode gecisi {current_mode} -> {target_mode} izinli."
+    ),
+    message_runtime_mode_transition_blocked=(
+        "Runtime mode gecisi {current_mode} -> {target_mode} bloklandi."
+    ),
+    message_training_diagnostic_fallback=(
+        "Training modu bu degerlendirmeye deterministic diagnostic fallback ile "
+        "devam ediyor cunku LLM gate basarisiz oldu:\n\n{error}"
+    ),
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
     stage_coordinator="Coordinator",
@@ -710,6 +757,8 @@ TR_TEXT = UITextCatalog(
     title_run_artifacts="Run Artifact'lari",
     title_run_review="Run Review",
     title_runtime_events="Runtime Olaylari",
+    title_runtime_mode="Runtime Modu",
+    title_runtime_mode_transition_checklist="Runtime Mode Gecis Kontrol Listesi",
     title_runtime_status="Runtime Durumu",
     title_service_status="Servis Durumu",
     title_trade_journal="Trade Journal",
@@ -717,6 +766,7 @@ TR_TEXT = UITextCatalog(
     title_proposal_candidates="Proposal Candidate'leri",
     title_position_plan_repair="Position Plan Repair",
     title_trace="Trace",
+    title_training_diagnostic_mode="Training Diagnostic Mode",
     title_warning="Uyari",
     title_walk_forward_backtest="Walk-Forward Backtest",
 )
@@ -747,6 +797,8 @@ def get_ui_text(locale: str | None = None) -> UITextCatalog:
 # Legacy constant exports. Keep these in place until CLI and TUI call sites move
 # to explicit locale-aware catalog injection.
 HELP_JSON = EN_TEXT.help_json
+HELP_LOCALE_OVERRIDE = EN_TEXT.help_locale_override
+HELP_LOCALE_PERSIST = EN_TEXT.help_locale_persist
 HELP_SYMBOL = EN_TEXT.help_symbol
 HELP_INTERVAL = EN_TEXT.help_interval
 HELP_LOOKBACK = EN_TEXT.help_lookback
@@ -784,6 +836,7 @@ HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
 HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
 
 LABEL_AGENT = EN_TEXT.label_agent
+LABEL_ALLOWED = EN_TEXT.label_allowed
 LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_BASELINE = EN_TEXT.label_baseline
 LABEL_BIAS = EN_TEXT.label_bias
@@ -797,6 +850,7 @@ LABEL_CONFIDENCE = EN_TEXT.label_confidence
 LABEL_CONTEXT = EN_TEXT.label_context
 LABEL_CREATED = EN_TEXT.label_created
 LABEL_CURRENCY = EN_TEXT.label_currency
+LABEL_CURRENT = EN_TEXT.label_current
 LABEL_CURRENT_SYMBOL = EN_TEXT.label_current_symbol
 LABEL_CYCLE = EN_TEXT.label_cycle
 LABEL_CYCLE_COUNT = EN_TEXT.label_cycle_count
@@ -858,6 +912,7 @@ LABEL_OPENED = EN_TEXT.label_opened
 LABEL_ORDER_ID = EN_TEXT.label_order_id
 LABEL_OUTPUT = EN_TEXT.label_output
 LABEL_OUTPUT_PREVIEW = EN_TEXT.label_output_preview
+LABEL_PASSED = EN_TEXT.label_passed
 LABEL_PID = EN_TEXT.label_pid
 LABEL_PNL = EN_TEXT.label_pnl
 LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
@@ -893,6 +948,7 @@ LABEL_STRUCTURED_LLM = EN_TEXT.label_structured_llm
 LABEL_SUMMARY = EN_TEXT.label_summary
 LABEL_SYMBOL = EN_TEXT.label_symbol
 LABEL_SYMBOLS = EN_TEXT.label_symbols
+LABEL_TARGET = EN_TEXT.label_target
 LABEL_TAKE = EN_TEXT.label_take
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
 LABEL_TOOLS = EN_TEXT.label_tools
@@ -933,6 +989,13 @@ MESSAGE_PORTFOLIO_CONCENTRATION_HHI = EN_TEXT.message_portfolio_concentration_hh
 MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE = (
     EN_TEXT.message_position_plan_repair_unavailable
 )
+MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED = (
+    EN_TEXT.message_runtime_mode_transition_allowed
+)
+MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED = (
+    EN_TEXT.message_runtime_mode_transition_blocked
+)
+MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK = EN_TEXT.message_training_diagnostic_fallback
 
 STAGE_COORDINATOR = EN_TEXT.stage_coordinator
 STAGE_CONSENSUS = EN_TEXT.stage_consensus
@@ -969,6 +1032,10 @@ TITLE_REPLAY_STAGES = EN_TEXT.title_replay_stages
 TITLE_RUN_ARTIFACTS = EN_TEXT.title_run_artifacts
 TITLE_RUN_REVIEW = EN_TEXT.title_run_review
 TITLE_RUNTIME_EVENTS = EN_TEXT.title_runtime_events
+TITLE_RUNTIME_MODE = EN_TEXT.title_runtime_mode
+TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST = (
+    EN_TEXT.title_runtime_mode_transition_checklist
+)
 TITLE_RUNTIME_STATUS = EN_TEXT.title_runtime_status
 TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
@@ -976,6 +1043,7 @@ TITLE_TRADE_PROPOSALS = EN_TEXT.title_trade_proposals
 TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
 TITLE_TRACE = EN_TEXT.title_trace
+TITLE_TRAINING_DIAGNOSTIC_MODE = EN_TEXT.title_training_diagnostic_mode
 TITLE_WARNING = EN_TEXT.title_warning
 TITLE_WALK_FORWARD_BACKTEST = EN_TEXT.title_walk_forward_backtest
 

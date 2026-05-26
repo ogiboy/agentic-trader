@@ -173,6 +173,8 @@ from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_m
 from agentic_trader.ui_text import (
     HELP_INTERVAL,
     HELP_JSON,
+    HELP_LOCALE_OVERRIDE,
+    HELP_LOCALE_PERSIST,
     HELP_LOOKBACK,
     HELP_CAMOFOX_SERVICE_APP,
     HELP_CLI_APP,
@@ -208,6 +210,7 @@ from agentic_trader.ui_text import (
     HELP_TRADE_SIDE,
     HELP_WEBGUI_SERVICE_APP,
     LABEL_AGENT,
+    LABEL_ALLOWED,
     LABEL_APPROVED,
     LABEL_BASELINE,
     LABEL_BIAS,
@@ -221,6 +224,7 @@ from agentic_trader.ui_text import (
     LABEL_CONTEXT,
     LABEL_CREATED,
     LABEL_CURRENCY,
+    LABEL_CURRENT,
     LABEL_CURRENT_SYMBOL,
     LABEL_CYCLE,
     LABEL_CYCLE_COUNT,
@@ -282,6 +286,7 @@ from agentic_trader.ui_text import (
     LABEL_ORDER_ID,
     LABEL_OUTPUT,
     LABEL_OUTPUT_PREVIEW,
+    LABEL_PASSED,
     LABEL_PID,
     LABEL_PNL,
     LABEL_POLL_SECONDS,
@@ -317,6 +322,7 @@ from agentic_trader.ui_text import (
     LABEL_SUMMARY,
     LABEL_SYMBOL,
     LABEL_SYMBOLS,
+    LABEL_TARGET,
     LABEL_TAKE,
     LABEL_TAKE_PROFIT,
     LABEL_TOOLS,
@@ -351,6 +357,9 @@ from agentic_trader.ui_text import (
     MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
     MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
+    MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
+    MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
+    MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
     STAGE_COORDINATOR,
     STAGE_CONSENSUS,
     STAGE_EXECUTION,
@@ -388,10 +397,13 @@ from agentic_trader.ui_text import (
     TITLE_RUN_REVIEW,
     TITLE_RISK_WARNINGS,
     TITLE_RUNTIME_EVENTS,
+    TITLE_RUNTIME_MODE,
+    TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
     TITLE_SERVICE_STATUS,
     TITLE_TRADE_JOURNAL,
     TITLE_TRADE_PROPOSALS,
     TITLE_TRACE,
+    TITLE_TRAINING_DIAGNOSTIC_MODE,
     TITLE_WARNING,
     TITLE_WALK_FORWARD_BACKTEST,
     UILocale,
@@ -2977,7 +2989,7 @@ def _training_backtest_allow_fallback(settings: Settings) -> bool:
     """
     Decides whether a backtest may run with deterministic diagnostic fallbacks under the current settings.
 
-    Attempts to ensure LLM readiness; if readiness fails and `settings.runtime_mode` is `"training"`, displays a "Training Diagnostic Mode" panel and permits fallback execution. If readiness fails in any other runtime mode, the readiness error is propagated.
+    Attempts to ensure LLM readiness; if readiness fails in training mode, displays a diagnostic panel and permits fallback execution. If readiness fails in any other runtime mode, the readiness error is propagated.
 
     Parameters:
         settings (Settings): Runtime configuration used to determine the current mode and context for readiness checks.
@@ -2992,11 +3004,8 @@ def _training_backtest_allow_fallback(settings: Settings) -> bool:
             raise
         console.print(
             Panel(
-                (
-                    "Training mode is continuing this evaluation with deterministic "
-                    f"diagnostic fallbacks because the LLM gate failed:\n\n{exc}"
-                ),
-                title="Training Diagnostic Mode",
+                MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK.format(error=exc),
+                title=TITLE_TRAINING_DIAGNOSTIC_MODE,
                 border_style="yellow",
             )
         )
@@ -3010,7 +3019,7 @@ def _runtime_mode_transition_plan(
     """
     Builds a checklist of preconditions required to transition the runtime to the given target mode.
 
-    Evaluates mode-specific conditions (for "operation" this includes strict-LLM, provider/model health when requested, execution backend and kill-switch state; for "training" this includes diagnostic constraints and operator-safety requirements). Each checklist entry indicates its name, pass/fail state, human-readable details, and whether it is blocking. The plan's `allowed` field is true only if all blocking checks pass, and the returned `RuntimeModeTransitionPlan` contains the current and target modes, the computed `allowed` flag, the list of checks, and a short summary.
+    Evaluates mode-specific conditions including strict LLM settings, provider health, execution backend, kill-switch state, diagnostic constraints, and operator-safety requirements. Each checklist entry indicates its name, pass/fail state, human-readable details, and whether it is blocking. The plan's `allowed` field is true only if all blocking checks pass, and the returned `RuntimeModeTransitionPlan` contains the current and target modes, the computed `allowed` flag, the list of checks, and a short summary.
 
     Parameters:
         settings (Settings): Runtime configuration used to read current mode and relevant flags.
@@ -3109,9 +3118,15 @@ def _runtime_mode_transition_plan(
 
     allowed = all(check.passed for check in checks if check.blocking)
     summary = (
-        f"Runtime mode transition {settings.runtime_mode} -> {target_mode} is allowed."
+        MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED.format(
+            current_mode=settings.runtime_mode,
+            target_mode=target_mode,
+        )
         if allowed
-        else f"Runtime mode transition {settings.runtime_mode} -> {target_mode} is blocked."
+        else MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED.format(
+            current_mode=settings.runtime_mode,
+            target_mode=target_mode,
+        )
     )
     return RuntimeModeTransitionPlan(
         current_mode=settings.runtime_mode,
@@ -3131,22 +3146,26 @@ def _render_runtime_mode_transition_plan(plan: RuntimeModeTransitionPlan) -> Non
     Parameters:
         plan (RuntimeModeTransitionPlan): Transition plan containing current and target modes, an ordered sequence of checks (each with name, passed, blocking, details), an overall `allowed` flag, and a short `summary` suitable for operator display.
     """
-    table = Table(title="Runtime Mode Transition Checklist")
-    table.add_column("Check")
-    table.add_column("Passed")
-    table.add_column("Blocking")
-    table.add_column("Details")
+    table = Table(title=TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST)
+    table.add_column(LABEL_CHECK)
+    table.add_column(LABEL_PASSED)
+    table.add_column(LABEL_BLOCKING)
+    table.add_column(LABEL_DETAILS)
     for check in plan.checks:
         table.add_row(
             check.name,
-            "yes" if check.passed else "no",
-            "yes" if check.blocking else "no",
+            LABEL_YES if check.passed else LABEL_NO,
+            LABEL_YES if check.blocking else LABEL_NO,
             check.details,
         )
     console.print(
         Panel(
-            f"Current: {plan.current_mode}\nTarget: {plan.target_mode}\nAllowed: {plan.allowed}\n\n{plan.summary}",
-            title="Runtime Mode",
+            (
+                f"{LABEL_CURRENT}: {plan.current_mode}\n"
+                f"{LABEL_TARGET}: {plan.target_mode}\n"
+                f"{LABEL_ALLOWED}: {plan.allowed}\n\n{plan.summary}"
+            ),
+            title=TITLE_RUNTIME_MODE,
             border_style="green" if plan.allowed else "yellow",
         )
     )
@@ -3561,7 +3580,7 @@ def app_entry(
     locale: str | None = typer.Option(
         None,
         "--locale",
-        help="Override terminal UI locale for this command: en or tr.",
+        help=HELP_LOCALE_OVERRIDE,
     ),
 ) -> None:
     resolved_locale = _parse_ui_locale(locale)
@@ -3576,7 +3595,7 @@ def locale_command(
     set_locale: str | None = typer.Option(
         None,
         "--set",
-        help="Persist terminal UI locale to .env.local: en or tr.",
+        help=HELP_LOCALE_PERSIST,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
