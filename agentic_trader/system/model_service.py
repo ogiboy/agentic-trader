@@ -22,6 +22,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import object_list as _object_list
 from agentic_trader.runtime_status import is_process_alive
 from agentic_trader.security import (
     ensure_private_directory,
@@ -64,10 +65,6 @@ def _json_object_or_none(value: object) -> Mapping[str, object] | None:
     return {
         str(key): item for key, item in cast(Mapping[object, object], value).items()
     }
-
-
-def _object_list(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
 
 
 def _object_mapping_list(value: object) -> list[Mapping[str, object]]:

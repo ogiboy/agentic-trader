@@ -17,6 +17,10 @@ from typing import Protocol, cast
 from uuid import uuid4
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import (
+    object_dict_list as _object_mapping_list,
+    object_dict_or_none as _object_mapping,
+)
 from agentic_trader.researchd.crewai_setup import default_crewai_flow_dir
 from agentic_trader.researchd.providers import (
     ResearchEvidenceProvider,
@@ -71,16 +75,6 @@ _MODEL_ENV_PREFIXES = (
 )
 
 
-def _object_mapping(value: object) -> dict[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    return cast(dict[str, object], value)
-
-
-def _object_list(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
-
-
 def _contract_error_items(value: object) -> list[object]:
     if isinstance(value, list):
         return cast(list[object], value)
@@ -89,15 +83,6 @@ def _contract_error_items(value: object) -> list[object]:
     if value is None:
         return []
     return [value]
-
-
-def _object_mapping_list(value: object) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for item in _object_list(value):
-        row = _object_mapping(item)
-        if row is not None:
-            rows.append(row)
-    return rows
 
 
 def _sidecar_process_env() -> dict[str, str]:
