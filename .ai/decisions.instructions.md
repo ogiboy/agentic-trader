@@ -694,6 +694,14 @@ The early solo-developer bias kept changes small, but several files have grown l
 When touching complex areas, prefer extracting domain constants, render helpers, service helpers, typed copy catalogs, and provider/fetcher adapters into named modules with focused tests.
 This is still incremental architecture cleanup, not a license for broad rewrites or a new orchestration framework.
 
+### Modularity and i18n debt should be measured before it is enforced
+
+Reason:
+The repository already has useful modular seams in WebGUI and docs, but Python CLI, Rich TUI, Ink TUI, storage, provider, and service files still carry enough mixed responsibility that a hard gate would create noise before it creates discipline.
+Start with a reporting-only audit for oversized modules, long functions, repeated helper patterns, docs locale parity, and hardcoded operator-copy candidates.
+Use the report to guide staged extraction and tighten thresholds only after the current baseline has been reduced intentionally.
+The audit must not classify runtime JSON field names, protocol enum values, database column names, provider identifiers, or test fixture data as localization debt by default.
+
 ### The existing docs scaffold should be activated, not replaced
 
 Reason:

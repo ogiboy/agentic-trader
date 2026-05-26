@@ -221,7 +221,7 @@ New production-expansion direction:
 - background runtime supervision now has a sidecar-friendly status and log contract that UI surfaces can read without competing for the writer connection
 - behavior-changing work should use the QA docs when it affects operator surfaces or runtime behavior
 - Sonar Quality Gate currently requires higher new-code coverage than the repository has; keep adding focused tests before treating the gate as fully green
-- the docs surface now supports English and Turkish locale routes, while broader CLI/Rich/Ink/Web GUI localization is still intentionally deferred; outside docs, new repeated UI strings should continue flowing through the shared text catalog instead of ad hoc duplication
+- the docs surface now supports English and Turkish locale routes, and the broader CLI/Rich/Ink/Web GUI localization track is active as staged foundation work rather than a one-shot rewrite; new repeated UI strings should flow through typed text/catalog seams, terminal surfaces should honor `AGENTIC_TRADER_UI_LOCALE` as that setting lands, and dashboard/observer JSON keys must remain stable English contract keys
 - `webgui` lint, typecheck, production build, and the local `pnpm dev:webgui` flow on `localhost:3210` are now green in this worktree
 - Web GUI review, portfolio, risk, journal, and memory panels now surface section-level unavailability errors explicitly instead of collapsing them into generic empty states
 - `docs` now builds and lints with the new Fumadocs shell and is prepared for GitHub Pages static export, but its content should keep expanding through curated MDX pages rather than ad hoc duplicated repo notes
@@ -244,6 +244,7 @@ New production-expansion direction:
   unavailable
 - `webgui/src/app/globals.css` currently carries both legacy shell classes and newer token/shadcn groundwork; migration should remain incremental and screen-scoped
 - `webgui/src/components/control-room.tsx` is now reduced to control-room state wiring and render composition, with loading/unavailable panels, locale/loading hooks, typed view-model builders, action request helpers, shared formatting helpers, and diagnostics/context evidence helpers split into dedicated modules; the next maintainability pass should continue moving remaining global CSS toward screen-scoped components and keep shrinking catalog/type surfaces before adding broad new Web GUI behavior
+- the project-wide modularity/i18n cleanup should be measured as it proceeds: keep a reporting-only audit for oversized files, long functions, repeated helpers, locale parity, and hardcoded UI string candidates until the baseline is intentionally tight enough for a failing gate
 
 ## Current Development Posture
 
