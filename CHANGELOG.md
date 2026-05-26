@@ -7,6 +7,9 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.12.5 (2026-05-26)
+
+
 ## v0.12.4 (2026-05-25)
 
 ### Bug Fixes
