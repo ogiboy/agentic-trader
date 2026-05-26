@@ -208,32 +208,58 @@ from agentic_trader.ui_text import (
     HELP_TRADE_SIDE,
     HELP_WEBGUI_SERVICE_APP,
     LABEL_APPROVED,
+    LABEL_CONTINUOUS,
     LABEL_CONFIDENCE,
+    LABEL_CURRENT_SYMBOL,
+    LABEL_CYCLE_COUNT,
     LABEL_DECISION_PATH,
     LABEL_ENTRY,
     LABEL_FALLBACK,
     LABEL_FIELD,
+    LABEL_HEARTBEAT,
+    LABEL_HEARTBEAT_AGE,
+    LABEL_INTERVAL,
+    LABEL_KEY,
+    LABEL_LAST_RECORDED_ERROR,
+    LABEL_LAST_RECORDED_MESSAGE,
+    LABEL_LAST_RECORDED_STATE,
+    LABEL_LIVE_PROCESS,
     LABEL_LLM,
+    LABEL_LOOKBACK,
     LABEL_MARKET_VALUE,
+    LABEL_MAX_CYCLES,
+    LABEL_MODE,
+    LABEL_NO,
     LABEL_NOTES,
     LABEL_OBSERVER_MODE,
     LABEL_ORDER_ID,
+    LABEL_PID,
+    LABEL_POLL_SECONDS,
     LABEL_PREFERENCE_UPDATE,
     LABEL_RATIONALE,
     LABEL_REQUIRES_CONFIRMATION,
+    LABEL_RUNTIME,
+    LABEL_SERVICE,
     LABEL_SIDE,
     LABEL_SOURCE,
     LABEL_STAGE,
+    LABEL_STARTED,
+    LABEL_STATUS_NOTE,
     LABEL_STOP,
+    LABEL_STOP_REQUESTED,
     LABEL_STRUCTURED_LLM,
     LABEL_SUMMARY,
+    LABEL_SYMBOLS,
     LABEL_TAKE_PROFIT,
     LABEL_UPDATE_PREFERENCES,
+    LABEL_UPDATED,
     LABEL_UNREALIZED_PNL,
     LABEL_VALUE,
     LABEL_WIN_RATE,
+    LABEL_YES,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_FALLBACK_USED_IN,
+    MESSAGE_NO_RUNTIME_STATE,
     STAGE_COORDINATOR,
     STAGE_MANAGER,
     STAGE_REGIME,
@@ -250,6 +276,7 @@ from agentic_trader.ui_text import (
     TITLE_SERVICE_STATUS,
     TITLE_WARNING,
     UILocale,
+    UI_LIST_SEPARATOR,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import (
@@ -815,7 +842,7 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     if view.state is None:
         console.print(
             Panel(
-                "No runtime state recorded yet.",
+                MESSAGE_NO_RUNTIME_STATE,
                 title=TITLE_SERVICE_STATUS,
                 border_style="yellow",
             )
@@ -824,38 +851,39 @@ def _render_service_state(state: ServiceStateSnapshot | None) -> None:
     snapshot = view.state
 
     table = Table(title=TITLE_SERVICE_STATUS)
-    table.add_column("Key")
-    table.add_column("Value")
-    table.add_row("Service", snapshot.service_name)
-    table.add_row("Mode", snapshot.runtime_mode)
-    table.add_row("Runtime", view.runtime_state)
-    table.add_row("Live Process", "yes" if view.live_process else "no")
-    table.add_row("Last Recorded State", view.last_recorded_state or "-")
-    table.add_row("Updated", snapshot.updated_at)
-    table.add_row("Started", snapshot.started_at or "-")
-    table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
+    table.add_column(LABEL_KEY)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_SERVICE, snapshot.service_name)
+    table.add_row(LABEL_MODE, snapshot.runtime_mode)
+    table.add_row(LABEL_RUNTIME, view.runtime_state)
+    table.add_row(LABEL_LIVE_PROCESS, LABEL_YES if view.live_process else LABEL_NO)
+    table.add_row(LABEL_LAST_RECORDED_STATE, view.last_recorded_state or "-")
+    table.add_row(LABEL_UPDATED, snapshot.updated_at)
+    table.add_row(LABEL_STARTED, snapshot.started_at or "-")
+    table.add_row(LABEL_HEARTBEAT, snapshot.last_heartbeat_at or "-")
     table.add_row(
-        "Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-"
+        LABEL_HEARTBEAT_AGE,
+        f"{view.age_seconds}s" if view.age_seconds is not None else "-",
     )
-    table.add_row("Continuous", str(snapshot.continuous))
+    table.add_row(LABEL_CONTINUOUS, str(snapshot.continuous))
     table.add_row(
-        "Poll Seconds",
+        LABEL_POLL_SECONDS,
         str(snapshot.poll_seconds) if snapshot.poll_seconds is not None else "-",
     )
-    table.add_row("Cycle Count", str(snapshot.cycle_count))
-    table.add_row("Symbols", ", ".join(snapshot.symbols) or "-")
-    table.add_row("Interval", snapshot.interval or "-")
-    table.add_row("Lookback", snapshot.lookback or "-")
+    table.add_row(LABEL_CYCLE_COUNT, str(snapshot.cycle_count))
+    table.add_row(LABEL_SYMBOLS, UI_LIST_SEPARATOR.join(snapshot.symbols) or "-")
+    table.add_row(LABEL_INTERVAL, snapshot.interval or "-")
+    table.add_row(LABEL_LOOKBACK, snapshot.lookback or "-")
     table.add_row(
-        "Max Cycles",
+        LABEL_MAX_CYCLES,
         str(snapshot.max_cycles) if snapshot.max_cycles is not None else "-",
     )
-    table.add_row("Current Symbol", snapshot.current_symbol or "-")
-    table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
-    table.add_row("Stop Requested", str(snapshot.stop_requested))
-    table.add_row("Status Note", view.status_message)
-    table.add_row("Last Recorded Message", snapshot.message or "-")
-    table.add_row("Last Recorded Error", snapshot.last_error or "-")
+    table.add_row(LABEL_CURRENT_SYMBOL, snapshot.current_symbol or "-")
+    table.add_row(LABEL_PID, str(snapshot.pid) if snapshot.pid is not None else "-")
+    table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
+    table.add_row(LABEL_STATUS_NOTE, view.status_message)
+    table.add_row(LABEL_LAST_RECORDED_MESSAGE, snapshot.message or "-")
+    table.add_row(LABEL_LAST_RECORDED_ERROR, snapshot.last_error or "-")
     console.print(table)
 
 
