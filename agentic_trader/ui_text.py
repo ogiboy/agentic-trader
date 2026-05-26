@@ -64,6 +64,7 @@ class UITextCatalog:
     label_base_url: str
     label_bias: str
     label_blocking: str
+    label_camofox: str
     label_category: str
     label_cash: str
     label_check: str
@@ -247,9 +248,12 @@ class UITextCatalog:
     title_execution_summary: str
     title_agent_decisions: str
     title_agent_trace: str
+    title_available_models: str
     title_backtest_comparison: str
     title_backtest_memory_ablation: str
     title_backtest_trades: str
+    title_camofox_browser_helper: str
+    title_camofox_stderr_tail: str
     title_llm_status: str
     title_operator_instruction: str
     title_pipeline: str
@@ -264,6 +268,7 @@ class UITextCatalog:
     title_manager_override_notes: str
     title_memory_aware_replay: str
     title_memory_explorer: str
+    title_model_service_stderr_tail: str
     title_recent_runs: str
     title_risk_warnings: str
     title_review_note: str
@@ -288,6 +293,8 @@ class UITextCatalog:
     title_ui_locale: str
     title_warning: str
     title_walk_forward_backtest: str
+    title_web_gui_service: str
+    title_web_gui_stderr_tail: str
 
 
 EN_TEXT = UITextCatalog(
@@ -337,6 +344,7 @@ EN_TEXT = UITextCatalog(
     label_base_url="Base URL",
     label_bias="Bias",
     label_blocking="Blocking",
+    label_camofox="Camofox",
     label_category="Category",
     label_cash="Cash",
     label_check="Check",
@@ -532,9 +540,12 @@ EN_TEXT = UITextCatalog(
     style_key_column="bold cyan",
     title_agent_decisions="Agent Decisions",
     title_agent_trace="Agent Trace",
+    title_available_models="Available Models",
     title_backtest_comparison="Backtest Comparison",
     title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trades",
+    title_camofox_browser_helper="Camofox Browser Helper",
+    title_camofox_stderr_tail="Camofox Stderr Tail",
     title_execution_summary="Execution Summary",
     title_llm_status="LLM Status",
     title_operator_instruction="Operator Instruction",
@@ -550,6 +561,7 @@ EN_TEXT = UITextCatalog(
     title_manager_override_notes="Manager Override Notes",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
+    title_model_service_stderr_tail="Model Service Stderr Tail",
     title_recent_runs="Recent Runs",
     title_risk_warnings="Risk Warnings",
     title_review_note="Review Note",
@@ -574,6 +586,8 @@ EN_TEXT = UITextCatalog(
     title_ui_locale="UI Locale",
     title_warning="Warning",
     title_walk_forward_backtest="Walk-Forward Backtest",
+    title_web_gui_service="Web GUI Service",
+    title_web_gui_stderr_tail="Web GUI Stderr Tail",
 )
 
 # Terminal-facing Turkish copy intentionally remains ASCII-safe until CLI/TUI
@@ -626,6 +640,7 @@ TR_TEXT = UITextCatalog(
     label_base_url="Base URL",
     label_bias="Bias",
     label_blocking="Bloklayici",
+    label_camofox="Camofox",
     label_category="Kategori",
     label_cash="Nakit",
     label_check="Kontrol",
@@ -821,9 +836,12 @@ TR_TEXT = UITextCatalog(
     style_key_column=EN_TEXT.style_key_column,
     title_agent_decisions="Agent Kararlari",
     title_agent_trace="Agent Trace",
+    title_available_models="Kullanilabilir Modeller",
     title_backtest_comparison="Backtest Karsilastirma",
     title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trade'leri",
+    title_camofox_browser_helper="Camofox Browser Yardimcisi",
+    title_camofox_stderr_tail="Camofox Stderr Kuyrugu",
     title_execution_summary="Execution Ozeti",
     title_llm_status="LLM Durumu",
     title_operator_instruction="Operator Talimati",
@@ -839,6 +857,7 @@ TR_TEXT = UITextCatalog(
     title_manager_override_notes="Manager Override Notlari",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
+    title_model_service_stderr_tail="Model Service Stderr Kuyrugu",
     title_recent_runs="Son Run'lar",
     title_risk_warnings="Risk Uyarilari",
     title_review_note="Review Notu",
@@ -863,6 +882,8 @@ TR_TEXT = UITextCatalog(
     title_ui_locale="UI Locale",
     title_warning="Uyari",
     title_walk_forward_backtest="Walk-Forward Backtest",
+    title_web_gui_service="Web GUI Servisi",
+    title_web_gui_stderr_tail="Web GUI Stderr Kuyrugu",
 )
 
 UI_TEXT: dict[UILocale, UITextCatalog] = {
@@ -936,6 +957,7 @@ LABEL_BASELINE = EN_TEXT.label_baseline
 LABEL_BASE_URL = EN_TEXT.label_base_url
 LABEL_BIAS = EN_TEXT.label_bias
 LABEL_BLOCKING = EN_TEXT.label_blocking
+LABEL_CAMOFOX = EN_TEXT.label_camofox
 LABEL_CATEGORY = EN_TEXT.label_category
 LABEL_CASH = EN_TEXT.label_cash
 LABEL_CHECK = EN_TEXT.label_check
@@ -1126,9 +1148,12 @@ STAGE_STRATEGY = EN_TEXT.stage_strategy
 
 TITLE_AGENT_DECISIONS = EN_TEXT.title_agent_decisions
 TITLE_AGENT_TRACE = EN_TEXT.title_agent_trace
+TITLE_AVAILABLE_MODELS = EN_TEXT.title_available_models
 TITLE_BACKTEST_COMPARISON = EN_TEXT.title_backtest_comparison
 TITLE_BACKTEST_MEMORY_ABLATION = EN_TEXT.title_backtest_memory_ablation
 TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
+TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
+TITLE_CAMOFOX_STDERR_TAIL = EN_TEXT.title_camofox_stderr_tail
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
@@ -1144,6 +1169,7 @@ TITLE_MANAGER_CONFLICT_REPLAY = EN_TEXT.title_manager_conflict_replay
 TITLE_MANAGER_OVERRIDE_NOTES = EN_TEXT.title_manager_override_notes
 TITLE_MEMORY_AWARE_REPLAY = EN_TEXT.title_memory_aware_replay
 TITLE_MEMORY_EXPLORER = EN_TEXT.title_memory_explorer
+TITLE_MODEL_SERVICE_STDERR_TAIL = EN_TEXT.title_model_service_stderr_tail
 TITLE_RECENT_RUNS = EN_TEXT.title_recent_runs
 TITLE_RISK_WARNINGS = EN_TEXT.title_risk_warnings
 TITLE_REVIEW_NOTE = EN_TEXT.title_review_note
@@ -1170,6 +1196,8 @@ TITLE_TRAINING_DIAGNOSTIC_MODE = EN_TEXT.title_training_diagnostic_mode
 TITLE_UI_LOCALE = EN_TEXT.title_ui_locale
 TITLE_WARNING = EN_TEXT.title_warning
 TITLE_WALK_FORWARD_BACKTEST = EN_TEXT.title_walk_forward_backtest
+TITLE_WEB_GUI_SERVICE = EN_TEXT.title_web_gui_service
+TITLE_WEB_GUI_STDERR_TAIL = EN_TEXT.title_web_gui_stderr_tail
 
 PROMPT_CONTINUE = EN_TEXT.prompt_continue
 PROMPT_SELECT_ACTION = EN_TEXT.prompt_select_action

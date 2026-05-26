@@ -35,6 +35,11 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.label_llm_provider == ui_text.LABEL_LLM_PROVIDER
     assert catalog.title_setup_status == ui_text.TITLE_SETUP_STATUS
     assert catalog.label_core_ready == ui_text.LABEL_CORE_READY
+    assert catalog.title_available_models == ui_text.TITLE_AVAILABLE_MODELS
+    assert catalog.title_web_gui_service == ui_text.TITLE_WEB_GUI_SERVICE
+    assert catalog.title_camofox_browser_helper == (
+        ui_text.TITLE_CAMOFOX_BROWSER_HELPER
+    )
     assert catalog.list_separator == ui_text.UI_LIST_SEPARATOR
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
 
@@ -66,6 +71,9 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_supported == "Desteklenen"
     assert catalog.title_tool_readiness == "Tool Readiness"
     assert catalog.label_workspace == "Workspace"
+    assert catalog.title_available_models == "Kullanilabilir Modeller"
+    assert catalog.title_web_gui_service == "Web GUI Servisi"
+    assert catalog.title_camofox_stderr_tail == "Camofox Stderr Kuyrugu"
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 

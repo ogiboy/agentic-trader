@@ -216,6 +216,7 @@ from agentic_trader.ui_text import (
     LABEL_BASE_URL,
     LABEL_BIAS,
     LABEL_BLOCKING,
+    LABEL_CAMOFOX,
     LABEL_CATEGORY,
     LABEL_CASH,
     LABEL_CHECK,
@@ -396,9 +397,12 @@ from agentic_trader.ui_text import (
     SUPPORTED_UI_LOCALES,
     TITLE_AGENT_DECISIONS,
     TITLE_AGENT_TRACE,
+    TITLE_AVAILABLE_MODELS,
     TITLE_BACKTEST_COMPARISON,
     TITLE_BACKTEST_MEMORY_ABLATION,
     TITLE_BACKTEST_TRADES,
+    TITLE_CAMOFOX_BROWSER_HELPER,
+    TITLE_CAMOFOX_STDERR_TAIL,
     TITLE_EXECUTION_SUMMARY,
     TITLE_DAILY_RISK_REPORT,
     TITLE_DESK_ACCOUNTING_CONTEXT,
@@ -414,6 +418,7 @@ from agentic_trader.ui_text import (
     TITLE_MANAGER_OVERRIDE_NOTES,
     TITLE_MEMORY_AWARE_REPLAY,
     TITLE_MEMORY_EXPLORER,
+    TITLE_MODEL_SERVICE_STDERR_TAIL,
     TITLE_PROPOSAL_CANDIDATES,
     TITLE_POSITION_PLAN_REPAIR,
     TITLE_RECOMMENDED_NEXT_COMMANDS,
@@ -436,6 +441,8 @@ from agentic_trader.ui_text import (
     TITLE_UI_LOCALE,
     TITLE_WARNING,
     TITLE_WALK_FORWARD_BACKTEST,
+    TITLE_WEB_GUI_SERVICE,
+    TITLE_WEB_GUI_STDERR_TAIL,
     UILocale,
     UI_LIST_SEPARATOR,
 )
@@ -3769,7 +3776,7 @@ def _render_setup_status(payload: dict[str, object]) -> None:
     camofox_service = cast(dict[str, object], payload.get("camofox_service", {}))
     webgui_service = cast(dict[str, object], payload.get("webgui_service", {}))
     summary.add_row(LABEL_MODEL_SERVICE, str(model_service.get("message", "-")))
-    summary.add_row("Camofox", str(camofox_service.get("message", "-")))
+    summary.add_row(LABEL_CAMOFOX, str(camofox_service.get("message", "-")))
     summary.add_row(LABEL_WEB_GUI, str(webgui_service.get("message", "-")))
     console.print(summary)
 
@@ -3841,7 +3848,7 @@ def _render_model_service_status(payload: dict[str, object]) -> None:
     """
     Render model-service status panels to the console.
 
-    Builds and prints a two-column status table, an "Available Models" panel, and an optional stderr tail panel using values from `payload`.
+    Builds and prints a two-column status table, an available-models panel, and an optional stderr tail panel using values from `payload`.
 
     Parameters:
         payload (dict[str, object]): Status payload whose keys are displayed. Recognized keys include:
@@ -3853,8 +3860,8 @@ def _render_model_service_status(payload: dict[str, object]) -> None:
     """
 
     table = Table(title=LABEL_MODEL_SERVICE)
-    table.add_column("Field")
-    table.add_column("Value")
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
     for key in (
         "provider",
         "command_available",
@@ -3877,7 +3884,7 @@ def _render_model_service_status(payload: dict[str, object]) -> None:
     console.print(
         Panel(
             "\n".join(cast(list[str], payload.get("available_models", []))) or "-",
-            title="Available Models",
+            title=TITLE_AVAILABLE_MODELS,
             border_style="green",
         )
     )
@@ -3886,7 +3893,7 @@ def _render_model_service_status(payload: dict[str, object]) -> None:
         console.print(
             Panel(
                 "\n".join(stderr_tail),
-                title=f"{LABEL_MODEL_SERVICE} Stderr Tail",
+                title=TITLE_MODEL_SERVICE_STDERR_TAIL,
                 border_style="yellow",
             )
         )
@@ -3895,9 +3902,9 @@ def _render_model_service_status(payload: dict[str, object]) -> None:
 def _render_webgui_service_status(payload: dict[str, object]) -> None:
     """Render app-owned Web GUI state and log tails."""
 
-    table = Table(title="Web GUI Service")
-    table.add_column("Field")
-    table.add_column("Value")
+    table = Table(title=TITLE_WEB_GUI_SERVICE)
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
     for key in (
         "command_available",
         "command_path",
@@ -3917,7 +3924,7 @@ def _render_webgui_service_status(payload: dict[str, object]) -> None:
         console.print(
             Panel(
                 "\n".join(stderr_tail),
-                title="Web GUI Stderr Tail",
+                title=TITLE_WEB_GUI_STDERR_TAIL,
                 border_style="yellow",
             )
         )
@@ -3926,9 +3933,9 @@ def _render_webgui_service_status(payload: dict[str, object]) -> None:
 def _render_camofox_service_status(payload: dict[str, object]) -> None:
     """Render app-owned Camofox helper state and log tails."""
 
-    table = Table(title="Camofox Browser Helper")
-    table.add_column("Field")
-    table.add_column("Value")
+    table = Table(title=TITLE_CAMOFOX_BROWSER_HELPER)
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
     for key in (
         "command_available",
         "command_path",
@@ -3952,7 +3959,7 @@ def _render_camofox_service_status(payload: dict[str, object]) -> None:
         console.print(
             Panel(
                 "\n".join(stderr_tail),
-                title="Camofox Stderr Tail",
+                title=TITLE_CAMOFOX_STDERR_TAIL,
                 border_style="yellow",
             )
         )
@@ -3963,14 +3970,8 @@ def _render_operator_launcher_status(payload: dict[str, object]) -> None:
     Render the operator launcher status table and a "Choose A Surface" selection panel to the console.
 
     Parameters:
-        payload (dict[str, object]): Observer payload containing state for the launcher view. Expected keys:
-            - "default_runtime_plan": dict with keys "symbols", "interval", "lookback", "poll_seconds" describing the default runtime plan.
-            - "model_service": dict with keys "model_available" and "base_url"/"configured_base_url" or "message".
-            - "camofox_service": dict with keys "health_ok", "base_url", and "message".
-            - "webgui_service": dict with keys "app_owned", "service_reachable", "url", and "message".
-            - "setup": dict with key "core_ready".
-            - "runtime_active": bool indicating whether the runtime daemon is active.
-            - "runtime_state": human-readable runtime state when not active.
+        payload (dict[str, object]): Observer payload containing state for the launcher view, including
+            default runtime plan, side-service snapshots, setup readiness, and runtime daemon state.
 
     The function prints a table of surfaces (runtime daemon, web GUI, model service, camofox, setup) with current status and suggested next action, followed by a panel listing operator menu choices.
     """
