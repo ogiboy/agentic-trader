@@ -61,6 +61,9 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_research_snapshot_recorded == (
         ui_text.MESSAGE_RESEARCH_SNAPSHOT_RECORDED
     )
+    assert catalog.title_launch_plan == ui_text.TITLE_LAUNCH_PLAN
+    assert catalog.help_launch_symbols == ui_text.HELP_LAUNCH_SYMBOLS
+    assert catalog.message_runtime_gate_open == ui_text.MESSAGE_RUNTIME_GATE_OPEN
     assert catalog.list_separator == ui_text.UI_LIST_SEPARATOR
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
 
@@ -105,6 +108,8 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.status_available == "kullanilabilir"
     assert catalog.title_recommended_commands == "Onerilen Komutlar"
     assert catalog.label_uv_available == "uv Kullanilabilir"
+    assert catalog.title_launch_plan == "Baslatma Plani"
+    assert catalog.message_launch_symbol_required == "En az bir sembol gereklidir."
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 

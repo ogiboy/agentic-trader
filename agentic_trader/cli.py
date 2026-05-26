@@ -190,6 +190,11 @@ from agentic_trader.ui_text import (
     HELP_IDEA_VWAP,
     HELP_INTERVAL,
     HELP_JSON,
+    HELP_LAUNCH_BACKGROUND,
+    HELP_LAUNCH_CONTINUOUS,
+    HELP_LAUNCH_MAX_CYCLES,
+    HELP_LAUNCH_POLL_SECONDS,
+    HELP_LAUNCH_SYMBOLS,
     HELP_LOCALE_OVERRIDE,
     HELP_LOCALE_PERSIST,
     HELP_LOOKBACK,
@@ -415,10 +420,13 @@ from agentic_trader.ui_text import (
     LAUNCHER_OPTION_OPEN_WEB_GUI,
     LAUNCHER_OPTION_REFRESH,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
+    MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
     MESSAGE_FALLBACK_USED_IN,
     MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
     MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY,
     MESSAGE_LARGEST_POSITION_ABOVE_EQUITY,
+    MESSAGE_LAUNCH_PLAN,
+    MESSAGE_LAUNCH_SYMBOL_REQUIRED,
     MESSAGE_MARK_TIME_UNAVAILABLE,
     MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
@@ -435,6 +443,7 @@ from agentic_trader.ui_text import (
     MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
     MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
     MESSAGE_RESEARCH_SNAPSHOT_RECORDED,
+    MESSAGE_RUNTIME_GATE_OPEN,
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
     MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
@@ -477,6 +486,7 @@ from agentic_trader.ui_text import (
     TITLE_FINANCE_OPERATIONS,
     TITLE_FINANCE_OPERATIONS_CHECKS,
     TITLE_LLM_STATUS,
+    TITLE_LAUNCH_PLAN,
     TITLE_MANAGER_CONFLICT_REPLAY,
     TITLE_MANAGER_CONFLICTS,
     TITLE_MANAGER_OVERRIDE_NOTES,
@@ -501,8 +511,10 @@ from agentic_trader.ui_text import (
     TITLE_REVIEW_NOTE,
     TITLE_RISK_WARNINGS,
     TITLE_RUN_ARTIFACTS,
+    TITLE_RUN_BLOCKED,
     TITLE_RUN_REVIEW,
     TITLE_RUNTIME_EVENTS,
+    TITLE_RUNTIME_GATE_OPEN,
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
     TITLE_SERVICE_STATUS,
@@ -4913,7 +4925,7 @@ def run(
     except Exception as exc:
         console.print(
             _render_health_panel(
-                "Run Blocked",
+                TITLE_RUN_BLOCKED,
                 str(exc),
                 border_style="red",
             )
@@ -4924,46 +4936,56 @@ def run(
 @app.command()
 def launch(
     symbols: str = typer.Option(
-        ..., help="Comma-separated symbols, for example AAPL,MSFT,BTC-USD"
+        ..., help=HELP_LAUNCH_SYMBOLS
     ),
     interval: str = typer.Option("1d", help=HELP_INTERVAL),
     lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
     poll_seconds: int = typer.Option(
-        300, help="Sleep between cycles in continuous mode."
+        300, help=HELP_LAUNCH_POLL_SECONDS
     ),
-    continuous: bool = typer.Option(False, help="Keep the orchestrator running."),
+    continuous: bool = typer.Option(False, help=HELP_LAUNCH_CONTINUOUS),
     max_cycles: int | None = typer.Option(
-        None, help="Optional cap for continuous mode."
+        None, help=HELP_LAUNCH_MAX_CYCLES
     ),
     background: bool = typer.Option(
-        False, help="Spawn the orchestrator as a background service."
+        False, help=HELP_LAUNCH_BACKGROUND
     ),
 ) -> None:
     """Start a foreground or managed background paper-runtime loop."""
     settings = get_settings()
     symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
     if not symbol_list:
-        raise typer.BadParameter("At least one symbol is required.")
+        raise typer.BadParameter(MESSAGE_LAUNCH_SYMBOL_REQUIRED)
 
     try:
         health = ensure_llm_ready(settings)
         console.print(
             _render_health_panel(
-                "Runtime Gate Open",
-                f"Ollama reachable at {health.base_url} and model {health.model_name} is available.",
+                TITLE_RUNTIME_GATE_OPEN,
+                MESSAGE_RUNTIME_GATE_OPEN.format(
+                    base_url=health.base_url,
+                    model_name=health.model_name,
+                ),
                 border_style="green",
             )
         )
         console.print(
             Panel(
-                f"Symbols: {', '.join(symbol_list)}\nInterval: {interval}\nLookback: {lookback}\nContinuous: {continuous}\nPoll Seconds: {poll_seconds}\nBackground: {background}",
-                title="Launch Plan",
+                MESSAGE_LAUNCH_PLAN.format(
+                    symbols=", ".join(symbol_list),
+                    interval=interval,
+                    lookback=lookback,
+                    continuous=continuous,
+                    poll_seconds=poll_seconds,
+                    background=background,
+                ),
+                title=TITLE_LAUNCH_PLAN,
                 border_style="cyan",
             )
         )
         if background:
             if not continuous:
-                raise typer.BadParameter("Background mode requires --continuous.")
+                raise typer.BadParameter(MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS)
             pid = start_background_service(
                 settings=settings,
                 symbols=symbol_list,

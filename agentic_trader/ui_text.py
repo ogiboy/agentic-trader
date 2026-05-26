@@ -38,6 +38,11 @@ class UITextCatalog:
     help_json: str
     help_locale_override: str
     help_locale_persist: str
+    help_launch_background: str
+    help_launch_continuous: str
+    help_launch_max_cycles: str
+    help_launch_poll_seconds: str
+    help_launch_symbols: str
     help_lookback: str
     help_model_name_to_pull: str
     help_model_service_app: str
@@ -274,6 +279,9 @@ class UITextCatalog:
     message_finance_operations_unavailable: str
     message_gross_exposure_above_equity: str
     message_largest_position_above_equity: str
+    message_background_requires_continuous: str
+    message_launch_plan: str
+    message_launch_symbol_required: str
     message_mark_time_unavailable: str
     message_open_position_count_elevated: str
     message_portfolio_concentration_hhi: str
@@ -282,6 +290,7 @@ class UITextCatalog:
     message_research_cycle_control_status: str
     message_research_cycle_reason_requires_action: str
     message_research_snapshot_recorded: str
+    message_runtime_gate_open: str
     message_runtime_mode_transition_allowed: str
     message_runtime_mode_transition_blocked: str
     message_setup_bootstrap_guidance: str
@@ -345,7 +354,10 @@ class UITextCatalog:
     title_replay_stages: str
     title_run_artifacts: str
     title_run_review: str
+    title_run_blocked: str
     title_runtime_events: str
+    title_runtime_gate_open: str
+    title_launch_plan: str
     title_runtime_mode: str
     title_runtime_mode_transition_checklist: str
     title_runtime_status: str
@@ -396,6 +408,11 @@ EN_TEXT = UITextCatalog(
     help_json="Emit machine-readable JSON.",
     help_locale_override="Override terminal UI locale for this command: en or tr.",
     help_locale_persist="Persist terminal UI locale to .env.local: en or tr.",
+    help_launch_background="Spawn the orchestrator as a background service.",
+    help_launch_continuous="Keep the orchestrator running.",
+    help_launch_max_cycles="Optional cap for continuous mode.",
+    help_launch_poll_seconds="Sleep between cycles in continuous mode.",
+    help_launch_symbols="Comma-separated symbols, for example AAPL,MSFT,BTC-USD",
     help_lookback="Lookback window accepted by yfinance",
     help_model_name_to_pull="Ollama model name to pull.",
     help_model_service_app="Manage the optional app-owned local model service.",
@@ -634,6 +651,12 @@ EN_TEXT = UITextCatalog(
     message_finance_operations_unavailable="Finance operations status unavailable.",
     message_gross_exposure_above_equity="Gross exposure is above {limit} of equity.",
     message_largest_position_above_equity="Largest position is above {limit} of equity.",
+    message_background_requires_continuous="Background mode requires --continuous.",
+    message_launch_plan=(
+        "Symbols: {symbols}\nInterval: {interval}\nLookback: {lookback}\n"
+        "Continuous: {continuous}\nPoll Seconds: {poll_seconds}\nBackground: {background}"
+    ),
+    message_launch_symbol_required="At least one symbol is required.",
     message_mark_time_unavailable="mark time unavailable",
     message_open_position_count_elevated="Open position count is elevated.",
     message_portfolio_concentration_hhi=(
@@ -644,6 +667,7 @@ EN_TEXT = UITextCatalog(
     message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
     message_research_cycle_reason_requires_action="--reason requires --pause, --resume, or --trigger-now.",
     message_research_snapshot_recorded="Snapshot {snapshot_id} recorded in the research feed.",
+    message_runtime_gate_open="Ollama reachable at {base_url} and model {model_name} is available.",
     message_runtime_mode_transition_allowed=(
         "Runtime mode transition {current_mode} -> {target_mode} is allowed."
     ),
@@ -716,7 +740,10 @@ EN_TEXT = UITextCatalog(
     title_replay_stages="Replay Stages",
     title_run_artifacts="Run Artifacts",
     title_run_review="Run Review",
+    title_run_blocked="Run Blocked",
     title_runtime_events="Runtime Events",
+    title_runtime_gate_open="Runtime Gate Open",
+    title_launch_plan="Launch Plan",
     title_runtime_mode="Runtime Mode",
     title_runtime_mode_transition_checklist="Runtime Mode Transition Checklist",
     title_runtime_status="Runtime Status",
@@ -770,6 +797,11 @@ TR_TEXT = UITextCatalog(
     help_json="Makine tarafindan okunabilir JSON uret.",
     help_locale_override="Bu komut icin terminal UI locale override et: en veya tr.",
     help_locale_persist="Terminal UI locale degerini .env.local icine yaz: en veya tr.",
+    help_launch_background="Orchestrator'i background service olarak baslat.",
+    help_launch_continuous="Orchestrator'i calisir durumda tut.",
+    help_launch_max_cycles="Continuous mod icin istege bagli limit.",
+    help_launch_poll_seconds="Continuous modda donguler arasi bekleme suresi.",
+    help_launch_symbols="Virgulle ayrilmis semboller, ornegin AAPL,MSFT,BTC-USD",
     help_lookback="yfinance tarafindan kabul edilen geriye donuk pencere",
     help_model_name_to_pull="Cekilecek Ollama model adi.",
     help_model_service_app="Istege bagli app-owned yerel model servisini yonet.",
@@ -1008,6 +1040,12 @@ TR_TEXT = UITextCatalog(
     message_finance_operations_unavailable="Finance operations durumu kullanilamiyor.",
     message_gross_exposure_above_equity="Gross exposure equity'nin {limit} uzerinde.",
     message_largest_position_above_equity="En buyuk pozisyon equity'nin {limit} uzerinde.",
+    message_background_requires_continuous="Background modu --continuous gerektirir.",
+    message_launch_plan=(
+        "Semboller: {symbols}\nAralik: {interval}\nLookback: {lookback}\n"
+        "Surekli: {continuous}\nPoll Saniyesi: {poll_seconds}\nBackground: {background}"
+    ),
+    message_launch_symbol_required="En az bir sembol gereklidir.",
     message_mark_time_unavailable="mark zamani yok",
     message_open_position_count_elevated="Acik pozisyon sayisi yuksek.",
     message_portfolio_concentration_hhi=(
@@ -1018,6 +1056,7 @@ TR_TEXT = UITextCatalog(
     message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
     message_research_cycle_reason_requires_action="--reason icin --pause, --resume veya --trigger-now gerekir.",
     message_research_snapshot_recorded="Snapshot {snapshot_id} research feed icine kaydedildi.",
+    message_runtime_gate_open="Ollama {base_url} adresinde erisilebilir ve {model_name} modeli kullanilabilir.",
     message_runtime_mode_transition_allowed=(
         "Runtime mode gecisi {current_mode} -> {target_mode} izinli."
     ),
@@ -1090,7 +1129,10 @@ TR_TEXT = UITextCatalog(
     title_replay_stages="Replay Asamalari",
     title_run_artifacts="Run Artifact'lari",
     title_run_review="Run Review",
+    title_run_blocked="Run Bloklandi",
     title_runtime_events="Runtime Olaylari",
+    title_runtime_gate_open="Runtime Gate Acik",
+    title_launch_plan="Baslatma Plani",
     title_runtime_mode="Runtime Modu",
     title_runtime_mode_transition_checklist="Runtime Mode Gecis Kontrol Listesi",
     title_runtime_status="Runtime Durumu",
@@ -1148,6 +1190,11 @@ def get_ui_text(locale: str | None = None) -> UITextCatalog:
 HELP_JSON = EN_TEXT.help_json
 HELP_LOCALE_OVERRIDE = EN_TEXT.help_locale_override
 HELP_LOCALE_PERSIST = EN_TEXT.help_locale_persist
+HELP_LAUNCH_BACKGROUND = EN_TEXT.help_launch_background
+HELP_LAUNCH_CONTINUOUS = EN_TEXT.help_launch_continuous
+HELP_LAUNCH_MAX_CYCLES = EN_TEXT.help_launch_max_cycles
+HELP_LAUNCH_POLL_SECONDS = EN_TEXT.help_launch_poll_seconds
+HELP_LAUNCH_SYMBOLS = EN_TEXT.help_launch_symbols
 HELP_SYMBOL = EN_TEXT.help_symbol
 HELP_INTERVAL = EN_TEXT.help_interval
 HELP_LOOKBACK = EN_TEXT.help_lookback
@@ -1404,6 +1451,11 @@ MESSAGE_NO_TRADE_PROPOSALS = EN_TEXT.message_no_trade_proposals
 MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE = EN_TEXT.message_finance_operations_unavailable
 MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY = EN_TEXT.message_gross_exposure_above_equity
 MESSAGE_LARGEST_POSITION_ABOVE_EQUITY = EN_TEXT.message_largest_position_above_equity
+MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS = (
+    EN_TEXT.message_background_requires_continuous
+)
+MESSAGE_LAUNCH_PLAN = EN_TEXT.message_launch_plan
+MESSAGE_LAUNCH_SYMBOL_REQUIRED = EN_TEXT.message_launch_symbol_required
 MESSAGE_MARK_TIME_UNAVAILABLE = EN_TEXT.message_mark_time_unavailable
 MESSAGE_OPEN_POSITION_COUNT_ELEVATED = EN_TEXT.message_open_position_count_elevated
 MESSAGE_PORTFOLIO_CONCENTRATION_HHI = EN_TEXT.message_portfolio_concentration_hhi
@@ -1420,6 +1472,7 @@ MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION = (
     EN_TEXT.message_research_cycle_reason_requires_action
 )
 MESSAGE_RESEARCH_SNAPSHOT_RECORDED = EN_TEXT.message_research_snapshot_recorded
+MESSAGE_RUNTIME_GATE_OPEN = EN_TEXT.message_runtime_gate_open
 MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED = (
     EN_TEXT.message_runtime_mode_transition_allowed
 )
@@ -1476,7 +1529,10 @@ TITLE_REVIEW_NOTE = EN_TEXT.title_review_note
 TITLE_REPLAY_STAGES = EN_TEXT.title_replay_stages
 TITLE_RUN_ARTIFACTS = EN_TEXT.title_run_artifacts
 TITLE_RUN_REVIEW = EN_TEXT.title_run_review
+TITLE_RUN_BLOCKED = EN_TEXT.title_run_blocked
 TITLE_RUNTIME_EVENTS = EN_TEXT.title_runtime_events
+TITLE_RUNTIME_GATE_OPEN = EN_TEXT.title_runtime_gate_open
+TITLE_LAUNCH_PLAN = EN_TEXT.title_launch_plan
 TITLE_RUNTIME_MODE = EN_TEXT.title_runtime_mode
 TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST = (
     EN_TEXT.title_runtime_mode_transition_checklist
