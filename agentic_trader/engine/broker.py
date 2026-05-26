@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, SupportsFloat
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -527,7 +527,11 @@ class SimulatedRealBrokerAdapter:
 
 def _coerce_float(value: object, *, default: float = 0.0) -> float:
     try:
-        return float(value)  # type: ignore[arg-type]
+        if isinstance(value, SupportsFloat) or isinstance(
+            value, (str, bytes, bytearray)
+        ):
+            return float(value)
+        return default
     except (TypeError, ValueError):
         return default
 

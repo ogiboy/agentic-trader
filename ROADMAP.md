@@ -17,44 +17,105 @@ companion rather than only a runtime shell. V2 is the Turkey expansion track.
 
 ### V1 Commercial Readiness Blockers
 
-Research checked on 2026-05-25 keeps V1 paper-first until the product can prove
+Research refreshed during the type-safety branch audit keeps V1 paper-first until the product can prove
 operator trust, compliance posture, and unit economics without overpromising
-autonomous advice or live execution.
+autonomous advice or live execution. This is not legal advice; it is the
+engineering blocker ledger that must be reviewed with qualified counsel before
+paid users or real-money claims.
 
-- [ ] classify the commercial model with counsel before accepting paid users:
-      personalized investment advice, advisory fees, order-routing involvement,
-      or customer-account workflows may trigger SEC investment-adviser,
-      broker-dealer, SRO, custody, books-and-records, disclosure, and state
-      obligations; see SEC investment-adviser registration guidance
+- [ ] classify the commercial model before accepting paid users: personalized
+      investment advice, advisory fees, account workflow involvement,
+      discretionary authority, copy trading, or order routing can change the
+      product from local software into a regulated investment-adviser,
+      broker-dealer, Form CRS/Reg BI, SRO, books-and-records, custody,
+      disclosure, and state-law problem; see SEC investment-adviser
+      registration guidance
       (https://www.sec.gov/investment/how-to-register-with-sec-investment-adviser),
       SEC broker-dealer registration guidance
       (https://www.sec.gov/about/reports-publications/investor-publications/guide-broker-dealer-registration),
+      SEC Reg BI/Form CRS resources
+      (https://www.sec.gov/regulation-best-interest),
+      SEC automated-investment-tool investor guidance
+      (https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins-84),
       and FINRA algorithmic-trading supervision notes
-      (https://www.finra.org/rules-guidance/key-topics/algorithmic-trading)
-- [ ] choose a first paid SKU that avoids hidden broker authority: likely
-      local-first paper desk, evidence bundle, operator education, and personal
-      automation tooling before managed live-trading, account opening, copy
-      trading, or performance-fee products
-- [ ] complete Alpaca production-readiness evidence before real-money claims:
-      paper/live credential separation, client order id correlation,
-      order-state websocket/reconciliation, account authorization and
-      insufficient-balance rejection handling, and any account-opening/KYC/CIP
-      responsibilities if the product becomes an end-user brokerage app; see
-      Alpaca trading API, orders, auth, and account-opening docs
-      (https://docs.alpaca.markets/v1.4.2/docs/trading-api,
-      https://docs.alpaca.markets/us/docs/working-with-orders,
-      https://docs.alpaca.markets/v1.3/reference,
-      https://docs.alpaca.markets/us/docs/account-opening)
+      (https://www.finra.org/rules-guidance/key-topics/algorithmic-trading).
+- [ ] choose a first paid SKU that avoids hidden broker authority: local-first
+      paper desk, evidence bundle export, operator education, personal
+      automation, and team workflow value are V1-safe candidates; managed live
+      trading, account opening, copy trading, performance-fee products,
+      bundled brokerage, and "AI adviser" positioning are blocked until the
+      compliance model is accepted.
+- [ ] complete Alpaca external-paper and production-readiness evidence before
+      real-money claims: paper/live credential separation, paper account
+      reset/replay discipline, `client_order_id` correlation, order-state
+      websocket/reconciliation, account authorization, insufficient-balance and
+      rejected-order handling, PDT/margin disclosure, and any
+      account-opening/KYC/CIP responsibilities if the product becomes an
+      end-user brokerage app; see Alpaca paper trading
+      (https://docs.alpaca.markets/docs/paper-trading),
+      trading API (https://docs.alpaca.markets/docs/trading-api),
+      orders (https://docs.alpaca.markets/docs/orders-at-alpaca),
+      trading updates (https://docs.alpaca.markets/us/docs/websocket-streaming),
+      market-data streaming
+      (https://docs.alpaca.markets/us/docs/streaming-market-data),
+      and broker/account-opening docs
+      (https://docs.alpaca.markets/docs/about-broker-api,
+      https://docs.alpaca.markets/us/docs/account-opening).
 - [ ] add a revenue-ready trust layer: onboarding terms, risk disclosure,
-      billing/subscription boundary, support/incident channel, audit export,
-      data-retention policy, privacy/security review, provider-status
-      telemetry, and clear stale/degraded/no-action UX
-- [ ] define model-cost unit economics before cloud AI becomes default:
-      keep local Ollama as the default, add explicit remote model budgets and
-      per-cycle cost telemetry, and route expensive models only where measured
-      quality justifies the cost; use current provider pricing such as OpenAI's
-      API pricing page (https://openai.com/api/pricing/) as an external input,
-      not a hardcoded assumption
+      billing/subscription boundary, support and incident channel, audit
+      export, data-retention/deletion policy, privacy/security review,
+      provider-status telemetry, stale/degraded/no-action UX, and explicit
+      "paper evidence only" wording. If the product handles customer financial
+      information, include SEC Regulation S-P and FTC Safeguards-style controls
+      (https://www.sec.gov/newsroom/press-releases/2024-58,
+      https://www.ftc.gov/business-guidance/privacy-security/safeguards-rule).
+- [ ] make AI/security risk management product-visible: map model/provider,
+      prompt-injection, tool-poisoning, raw web text, sidecar, and
+      operator-action risks to NIST AI RMF, NIST Cybersecurity Framework 2.0,
+      and OWASP LLM Top 10 controls before claiming trusted automation
+      (https://www.nist.gov/itl/ai-risk-management-framework,
+      https://www.nist.gov/cyberframework,
+      https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+- [ ] define model-cost unit economics before cloud AI becomes default: keep
+      local Ollama as the default, add per-cycle remote-model cost telemetry,
+      hard monthly budgets, role-level routing policies, and quality/cost
+      comparison gates; use current provider pages such as OpenAI pricing
+      (https://openai.com/api/pricing/), Anthropic pricing
+      (https://www.anthropic.com/pricing#api), and Gemini API pricing
+      (https://ai.google.dev/gemini-api/docs/pricing) as live inputs, not
+      hardcoded assumptions.
+- [ ] match market-tool expectations without copying their scope: a paid V1
+      paper desk must offer clear paper/live separation, backtest/replay
+      evidence, watchlist/scanner flows, audit exports, and degraded-source
+      messaging at least comparable to the expectations set by tools such as
+      TradingView paper trading
+      (https://www.tradingview.com/support/categories/paper-trading/),
+      QuantConnect live/paper workflows
+      (https://www.quantconnect.com/docs/v2/cloud-platform/live-trading/overview),
+      and Alpaca's paper/broker ecosystem, while staying local-first and
+      manual-approval-first.
+
+#### Commercial Work Plan
+
+- [ ] C0 - Product/legal classification: document the exact paid SKU,
+      disallowed claims, allowed users, data handled, broker/account touch
+      points, and legal review outcome before billing is enabled.
+- [ ] C1 - Paper-desk packaging: turn `evidence-bundle`, `finance-ops`,
+      `v1-readiness`, proposal review, replay, and provider diagnostics into a
+      coherent local paper-desk workflow with supportable onboarding copy.
+- [ ] C2 - Trust/security controls: ship terms/disclaimers, privacy/data
+      retention, audit export, incident/support path, provider status page or
+      local equivalent, red-team prompts, and LLM/tool-poisoning regression
+      tests.
+- [ ] C3 - Alpaca external-paper proof: run repeated AAPL/MSFT paper cycles
+      with order correlation, refresh/reconcile, reject/no-fill/cancel cases,
+      and evidence artifacts before claiming broker readiness.
+- [ ] C4 - Unit economics: measure local vs remote model quality/cost per
+      operator workflow, define budgets, and block remote defaults until the
+      paper-desk SKU has a positive support and inference margin.
+- [ ] C5 - Revenue pilot gate: only after C0-C4 pass, run a limited
+      non-live/paper-only pilot with explicit disclaimers, no account custody,
+      no managed execution, and support/incident coverage.
 
 ## Phase 1: Guardrailed Core
 
@@ -294,7 +355,11 @@ Status: completed.
 Status: in progress.
 
 - keep type checking and tests green before moving to the next slice
-- adopt Pyright/Pylance strictness as a staged hardening track: classify the current strict backlog by real runtime risk vs test/mock noise, add narrow third-party stubs where they match installed packages, and fix source diagnostics before chasing broad unknown-type noise; the first stub pass uses `pandas-stubs` plus local `typings/yfinance` and `typings/firecrawl` shims so `reportMissingTypeStubs` is no longer the blocking class, and the setup/lifecycle, broker-adapter, config, position-manager, LLM-client, trade-proposal, data-provider, and ProviderSet default-factory clusters now have 0 Pyright errors; full strict backlog is down to 1776 errors after the data-provider/provider-set pass, and CI/release now use `scripts/check_pyright_baseline.py` as a regression gate until the backlog reaches zero
+- enforce Pyright/Pylance strictness as a zero-diagnostic gate for
+  `agentic_trader`, `tests`, `scripts`, and `sidecars/research_flow/src`;
+  strict backlog is now zero, no suppression comments are allowed, and CI,
+  release, local `check-python`, and smoke quality checks should fail on any
+  new strict diagnostic
 - prefer schema-first agent contracts over free-form text coupling
 - add reproducible fixtures for data-heavy tests
 - keep CLI, TUI, and service behavior aligned so operator surfaces do not drift

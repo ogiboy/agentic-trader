@@ -1,23 +1,23 @@
 """Tests for the helper functions added/changed in agentic_trader/agents/fundamental.py."""
 
-from typing import cast
+from typing import Literal, cast
 
 import pytest
 
 from agentic_trader.agents.fundamental import (
     FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON,
-    _business_quality,
-    _dedupe,
-    _fallback_fundamental,
-    _forward_outlook,
-    _fx_risk,
-    _growth_quality,
-    _has_structured_fundamental_evidence,
-    _macro_fit,
-    _metric_evidence,
-    _overall_bias,
-    _score_quality,
-    _validate_llm_evidence_contract,
+    business_quality,
+    dedupe,
+    fallback_fundamental,
+    forward_outlook,
+    fx_risk,
+    growth_quality,
+    has_structured_fundamental_evidence,
+    macro_fit,
+    metric_evidence,
+    overall_bias,
+    score_quality,
+    validate_llm_evidence_contract,
     assess_fundamentals,
 )
 from agentic_trader.config import Settings
@@ -102,115 +102,115 @@ def _features(
 
 
 def _macro(
-    fx_risk: str = "unknown",
-    rates_bias: str = "unknown",
+    fx_risk: Literal["low", "medium", "high", "unknown"] = "unknown",
+    rates_bias: Literal["tailwind", "neutral", "headwind", "unknown"] = "unknown",
     region: str = "US",
 ) -> MacroContext:
     return MacroContext(
         symbol="AAPL",
-        fx_risk=fx_risk,  # type: ignore[arg-type]
-        rates_bias=rates_bias,  # type: ignore[arg-type]
+        fx_risk=fx_risk,
+        rates_bias=rates_bias,
         region=region,
     )
 
 
 # ---------------------------------------------------------------------------
-# _dedupe
+# dedupe
 # ---------------------------------------------------------------------------
 
 
 class TestDedupe:
     def test_removes_duplicates_preserving_order(self) -> None:
-        result = _dedupe(["a", "b", "a", "c", "b"])
+        result = dedupe(["a", "b", "a", "c", "b"])
         assert result == ["a", "b", "c"]
 
     def test_filters_empty_strings(self) -> None:
-        result = _dedupe(["x", "", "y", ""])
+        result = dedupe(["x", "", "y", ""])
         assert result == ["x", "y"]
 
     def test_empty_input(self) -> None:
-        assert _dedupe([]) == []
+        assert dedupe([]) == []
 
     def test_all_duplicates_returns_single_item(self) -> None:
-        assert _dedupe(["dup", "dup", "dup"]) == ["dup"]
+        assert dedupe(["dup", "dup", "dup"]) == ["dup"]
 
     def test_no_duplicates_unchanged(self) -> None:
-        assert _dedupe(["p", "q", "r"]) == ["p", "q", "r"]
+        assert dedupe(["p", "q", "r"]) == ["p", "q", "r"]
 
 
 # ---------------------------------------------------------------------------
-# _score_quality
+# score_quality
 # ---------------------------------------------------------------------------
 
 
 class TestScoreQuality:
     # low_is_bad=True (default): higher value -> better signal
     def test_none_returns_neutral(self) -> None:
-        assert _score_quality(None) == "neutral"
+        assert score_quality(None) == "neutral"
 
     def test_high_value_is_supportive(self) -> None:
-        assert _score_quality(0.7) == "supportive"
-        assert _score_quality(1.0) == "supportive"
+        assert score_quality(0.7) == "supportive"
+        assert score_quality(1.0) == "supportive"
 
     def test_low_value_is_cautious(self) -> None:
-        assert _score_quality(0.35) == "cautious"
-        assert _score_quality(0.0) == "cautious"
+        assert score_quality(0.35) == "cautious"
+        assert score_quality(0.0) == "cautious"
 
     def test_mid_value_is_neutral(self) -> None:
-        assert _score_quality(0.5) == "neutral"
-        assert _score_quality(0.36) == "neutral"
-        assert _score_quality(0.69) == "neutral"
+        assert score_quality(0.5) == "neutral"
+        assert score_quality(0.36) == "neutral"
+        assert score_quality(0.69) == "neutral"
 
     # low_is_bad=False: lower value -> better signal; very high -> avoid
     def test_very_high_value_is_avoid(self) -> None:
-        assert _score_quality(0.85, low_is_bad=False) == "avoid"
-        assert _score_quality(1.0, low_is_bad=False) == "avoid"
+        assert score_quality(0.85, low_is_bad=False) == "avoid"
+        assert score_quality(1.0, low_is_bad=False) == "avoid"
 
     def test_high_value_is_cautious_when_low_is_bad_false(self) -> None:
-        assert _score_quality(0.55, low_is_bad=False) == "cautious"
-        assert _score_quality(0.84, low_is_bad=False) == "cautious"
+        assert score_quality(0.55, low_is_bad=False) == "cautious"
+        assert score_quality(0.84, low_is_bad=False) == "cautious"
 
     def test_low_value_is_supportive_when_low_is_bad_false(self) -> None:
-        assert _score_quality(0.25, low_is_bad=False) == "supportive"
-        assert _score_quality(0.0, low_is_bad=False) == "supportive"
+        assert score_quality(0.25, low_is_bad=False) == "supportive"
+        assert score_quality(0.0, low_is_bad=False) == "supportive"
 
     def test_mid_value_is_neutral_when_low_is_bad_false(self) -> None:
-        assert _score_quality(0.4, low_is_bad=False) == "neutral"
-        assert _score_quality(0.26, low_is_bad=False) == "neutral"
-        assert _score_quality(0.54, low_is_bad=False) == "neutral"
+        assert score_quality(0.4, low_is_bad=False) == "neutral"
+        assert score_quality(0.26, low_is_bad=False) == "neutral"
+        assert score_quality(0.54, low_is_bad=False) == "neutral"
 
     def test_none_returns_neutral_when_low_is_bad_false(self) -> None:
-        assert _score_quality(None, low_is_bad=False) == "neutral"
+        assert score_quality(None, low_is_bad=False) == "neutral"
 
 
 # ---------------------------------------------------------------------------
-# _growth_quality
+# growth_quality
 # ---------------------------------------------------------------------------
 
 
 class TestGrowthQuality:
     def test_none_is_neutral(self) -> None:
-        assert _growth_quality(None) == "neutral"
+        assert growth_quality(None) == "neutral"
 
     def test_strong_positive_growth_is_supportive(self) -> None:
-        assert _growth_quality(0.1) == "supportive"
-        assert _growth_quality(0.5) == "supportive"
+        assert growth_quality(0.1) == "supportive"
+        assert growth_quality(0.5) == "supportive"
 
     def test_negative_growth_is_cautious(self) -> None:
-        assert _growth_quality(-0.05) == "cautious"
-        assert _growth_quality(-0.5) == "cautious"
+        assert growth_quality(-0.05) == "cautious"
+        assert growth_quality(-0.5) == "cautious"
 
     def test_low_positive_growth_is_neutral(self) -> None:
-        assert _growth_quality(0.05) == "neutral"
-        assert _growth_quality(0.09) == "neutral"
+        assert growth_quality(0.05) == "neutral"
+        assert growth_quality(0.09) == "neutral"
 
     def test_boundary_at_negative_threshold(self) -> None:
         # -0.04 is above -0.05, so neutral
-        assert _growth_quality(-0.04) == "neutral"
+        assert growth_quality(-0.04) == "neutral"
 
 
 # ---------------------------------------------------------------------------
-# _fx_risk
+# fx_risk
 # ---------------------------------------------------------------------------
 
 
@@ -218,95 +218,95 @@ class TestFxRisk:
     def test_macro_overrides_feature_when_not_unknown(self) -> None:
         feat = _features(fx_exposure="low")
         mac = _macro(fx_risk="high")
-        assert _fx_risk(feat, mac) == "high"
+        assert fx_risk(feat, mac) == "high"
 
     def test_macro_unknown_falls_back_to_feature(self) -> None:
         feat = _features(fx_exposure="medium")
         mac = _macro(fx_risk="unknown")
-        assert _fx_risk(feat, mac) == "medium"
+        assert fx_risk(feat, mac) == "medium"
 
     def test_no_macro_uses_feature(self) -> None:
         feat = _features(fx_exposure="low")
-        assert _fx_risk(feat, None) == "low"
+        assert fx_risk(feat, None) == "low"
 
     def test_feature_fx_exposure_case_insensitive(self) -> None:
         feat = _features(fx_exposure="HIGH")
-        assert _fx_risk(feat, None) == "high"
+        assert fx_risk(feat, None) == "high"
 
     def test_empty_feature_fx_exposure_returns_unknown(self) -> None:
         feat = _features(fx_exposure="")
-        assert _fx_risk(feat, None) == "unknown"
+        assert fx_risk(feat, None) == "unknown"
 
     def test_unrecognized_feature_fx_exposure_returns_unknown(self) -> None:
         feat = _features(fx_exposure="moderate")
-        assert _fx_risk(feat, None) == "unknown"
+        assert fx_risk(feat, None) == "unknown"
 
     def test_feature_unknown_returns_unknown(self) -> None:
         feat = _features(fx_exposure="unknown")
-        assert _fx_risk(feat, None) == "unknown"
+        assert fx_risk(feat, None) == "unknown"
 
     def test_macro_unknown_and_feature_unknown_returns_unknown(self) -> None:
         feat = _features(fx_exposure="unknown")
         mac = _macro(fx_risk="unknown")
-        assert _fx_risk(feat, mac) == "unknown"
+        assert fx_risk(feat, mac) == "unknown"
 
 
 # ---------------------------------------------------------------------------
-# _macro_fit
+# macro_fit
 # ---------------------------------------------------------------------------
 
 
 class TestMacroFit:
     def test_none_returns_neutral(self) -> None:
-        assert _macro_fit(None) == "neutral"
+        assert macro_fit(None) == "neutral"
 
-    def test_high_fx_risk_returns_cautious(self) -> None:
-        assert _macro_fit(_macro(fx_risk="high")) == "cautious"
+    def test_highfx_risk_returns_cautious(self) -> None:
+        assert macro_fit(_macro(fx_risk="high")) == "cautious"
 
     def test_headwind_rates_returns_cautious(self) -> None:
-        assert _macro_fit(_macro(rates_bias="headwind")) == "cautious"
+        assert macro_fit(_macro(rates_bias="headwind")) == "cautious"
 
     def test_low_fx_with_tailwind_returns_supportive(self) -> None:
-        assert _macro_fit(_macro(fx_risk="low", rates_bias="tailwind")) == "supportive"
+        assert macro_fit(_macro(fx_risk="low", rates_bias="tailwind")) == "supportive"
 
     def test_low_fx_with_neutral_rates_returns_supportive(self) -> None:
-        assert _macro_fit(_macro(fx_risk="low", rates_bias="neutral")) == "supportive"
+        assert macro_fit(_macro(fx_risk="low", rates_bias="neutral")) == "supportive"
 
     def test_medium_fx_with_neutral_rates_returns_neutral(self) -> None:
-        assert _macro_fit(_macro(fx_risk="medium", rates_bias="neutral")) == "neutral"
+        assert macro_fit(_macro(fx_risk="medium", rates_bias="neutral")) == "neutral"
 
     def test_unknown_fx_and_unknown_rates_returns_neutral(self) -> None:
-        assert _macro_fit(_macro(fx_risk="unknown", rates_bias="unknown")) == "neutral"
+        assert macro_fit(_macro(fx_risk="unknown", rates_bias="unknown")) == "neutral"
 
 
 # ---------------------------------------------------------------------------
-# _business_quality
+# business_quality
 # ---------------------------------------------------------------------------
 
 
 class TestBusinessQuality:
     def test_avoid_in_any_input_returns_avoid(self) -> None:
-        assert _business_quality("avoid", "supportive", "supportive") == "avoid"
-        assert _business_quality("supportive", "avoid", "neutral") == "avoid"
-        assert _business_quality("neutral", "neutral", "avoid") == "avoid"
+        assert business_quality("avoid", "supportive", "supportive") == "avoid"
+        assert business_quality("supportive", "avoid", "neutral") == "avoid"
+        assert business_quality("neutral", "neutral", "avoid") == "avoid"
 
     def test_cautious_without_avoid_returns_cautious(self) -> None:
-        assert _business_quality("cautious", "neutral", "neutral") == "cautious"
-        assert _business_quality("neutral", "cautious", "supportive") == "cautious"
-        assert _business_quality("supportive", "neutral", "cautious") == "cautious"
+        assert business_quality("cautious", "neutral", "neutral") == "cautious"
+        assert business_quality("neutral", "cautious", "supportive") == "cautious"
+        assert business_quality("supportive", "neutral", "cautious") == "cautious"
 
     def test_supportive_both_profitability_and_cash_flow_returns_supportive(
         self,
     ) -> None:
-        assert _business_quality("supportive", "supportive", "neutral") == "supportive"
+        assert business_quality("supportive", "supportive", "neutral") == "supportive"
 
     def test_profitability_supportive_cash_flow_neutral_reinvestment_supportive(
         self,
     ) -> None:
-        assert _business_quality("supportive", "neutral", "supportive") == "supportive"
+        assert business_quality("supportive", "neutral", "supportive") == "supportive"
 
     def test_all_neutral_returns_neutral(self) -> None:
-        assert _business_quality("neutral", "neutral", "neutral") == "neutral"
+        assert business_quality("neutral", "neutral", "neutral") == "neutral"
 
     def test_only_reinvestment_supportive_returns_neutral(self) -> None:
         # profitability and cash_flow must be in {supportive, neutral} and one must be supportive
@@ -318,46 +318,44 @@ class TestBusinessQuality:
         #   if "supportive" in {profitability_quality, cash_flow_quality, reinvestment_quality}:
         #     return "supportive"
         # So if both profit and cash_flow are neutral, and reinvestment is supportive -> supportive
-        assert _business_quality("neutral", "neutral", "supportive") == "supportive"
+        assert business_quality("neutral", "neutral", "supportive") == "supportive"
 
     def test_avoid_takes_priority_over_cautious(self) -> None:
-        assert _business_quality("avoid", "cautious", "cautious") == "avoid"
+        assert business_quality("avoid", "cautious", "cautious") == "avoid"
 
 
 # ---------------------------------------------------------------------------
-# _forward_outlook
+# forward_outlook
 # ---------------------------------------------------------------------------
 
 
 class TestForwardOutlook:
     def test_avoid_in_any_returns_avoid(self) -> None:
-        assert _forward_outlook("avoid", "supportive", "supportive") == "avoid"
-        assert _forward_outlook("supportive", "avoid", "neutral") == "avoid"
-        assert _forward_outlook("neutral", "neutral", "avoid") == "avoid"
+        assert forward_outlook("avoid", "supportive", "supportive") == "avoid"
+        assert forward_outlook("supportive", "avoid", "neutral") == "avoid"
+        assert forward_outlook("neutral", "neutral", "avoid") == "avoid"
 
     def test_cautious_without_avoid_returns_cautious(self) -> None:
-        assert _forward_outlook("cautious", "neutral", "neutral") == "cautious"
-        assert _forward_outlook("supportive", "cautious", "neutral") == "cautious"
-        assert _forward_outlook("neutral", "supportive", "cautious") == "cautious"
+        assert forward_outlook("cautious", "neutral", "neutral") == "cautious"
+        assert forward_outlook("supportive", "cautious", "neutral") == "cautious"
+        assert forward_outlook("neutral", "supportive", "cautious") == "cautious"
 
     def test_both_growth_and_business_supportive_returns_supportive(self) -> None:
-        assert _forward_outlook("supportive", "supportive", "neutral") == "supportive"
-        assert (
-            _forward_outlook("supportive", "supportive", "supportive") == "supportive"
-        )
+        assert forward_outlook("supportive", "supportive", "neutral") == "supportive"
+        assert forward_outlook("supportive", "supportive", "supportive") == "supportive"
 
     def test_only_growth_supportive_returns_neutral(self) -> None:
-        assert _forward_outlook("supportive", "neutral", "neutral") == "neutral"
+        assert forward_outlook("supportive", "neutral", "neutral") == "neutral"
 
     def test_only_business_supportive_returns_neutral(self) -> None:
-        assert _forward_outlook("neutral", "supportive", "neutral") == "neutral"
+        assert forward_outlook("neutral", "supportive", "neutral") == "neutral"
 
     def test_all_neutral_returns_neutral(self) -> None:
-        assert _forward_outlook("neutral", "neutral", "neutral") == "neutral"
+        assert forward_outlook("neutral", "neutral", "neutral") == "neutral"
 
 
 # ---------------------------------------------------------------------------
-# _overall_bias
+# overall_bias
 # ---------------------------------------------------------------------------
 
 
@@ -370,7 +368,7 @@ class TestOverallBias:
             "supportive",
             "supportive",
         ]
-        assert _overall_bias(signals, has_provider_gap=False) == "avoid"
+        assert overall_bias(signals, has_provider_gap=False) == "avoid"
 
     def test_cautious_without_avoid_dominates(self) -> None:
         signals: list[AnalysisSignal] = [
@@ -380,7 +378,7 @@ class TestOverallBias:
             "supportive",
             "supportive",
         ]
-        assert _overall_bias(signals, has_provider_gap=False) == "cautious"
+        assert overall_bias(signals, has_provider_gap=False) == "cautious"
 
     def test_provider_gap_forces_neutral(self) -> None:
         # Even 4+ supportive signals yield neutral when provider gap exists
@@ -391,7 +389,7 @@ class TestOverallBias:
             "supportive",
             "supportive",
         ]
-        assert _overall_bias(signals, has_provider_gap=True) == "neutral"
+        assert overall_bias(signals, has_provider_gap=True) == "neutral"
 
     def test_four_or_more_supportive_without_gap_returns_supportive(self) -> None:
         signals: list[AnalysisSignal] = [
@@ -400,7 +398,7 @@ class TestOverallBias:
             "supportive",
             "supportive",
         ]
-        assert _overall_bias(signals, has_provider_gap=False) == "supportive"
+        assert overall_bias(signals, has_provider_gap=False) == "supportive"
 
     def test_fewer_than_four_supportive_returns_neutral(self) -> None:
         signals: list[AnalysisSignal] = [
@@ -409,25 +407,25 @@ class TestOverallBias:
             "supportive",
             "neutral",
         ]
-        assert _overall_bias(signals, has_provider_gap=False) == "neutral"
+        assert overall_bias(signals, has_provider_gap=False) == "neutral"
 
     def test_empty_signals_without_gap_returns_neutral(self) -> None:
-        assert _overall_bias([], has_provider_gap=False) == "neutral"
+        assert overall_bias([], has_provider_gap=False) == "neutral"
 
     def test_empty_signals_with_gap_returns_neutral(self) -> None:
-        assert _overall_bias([], has_provider_gap=True) == "neutral"
+        assert overall_bias([], has_provider_gap=True) == "neutral"
 
     def test_avoid_takes_priority_over_provider_gap(self) -> None:
         signals: list[AnalysisSignal] = ["avoid"]
-        assert _overall_bias(signals, has_provider_gap=True) == "avoid"
+        assert overall_bias(signals, has_provider_gap=True) == "avoid"
 
     def test_cautious_takes_priority_over_provider_gap(self) -> None:
         signals: list[AnalysisSignal] = ["cautious"]
-        assert _overall_bias(signals, has_provider_gap=True) == "cautious"
+        assert overall_bias(signals, has_provider_gap=True) == "cautious"
 
 
 # ---------------------------------------------------------------------------
-# _validate_llm_evidence_contract
+# validate_llm_evidence_contract
 # ---------------------------------------------------------------------------
 
 
@@ -437,7 +435,7 @@ class TestValidateLlmEvidenceContract:
             source="fallback",
             overall_bias="supportive",
         )
-        assert _validate_llm_evidence_contract(assessment) is None
+        assert validate_llm_evidence_contract(assessment) is None
 
     def test_llm_with_no_evidence_or_inference_or_uncertainty_raises(self) -> None:
         assessment = FundamentalAssessment(
@@ -448,7 +446,7 @@ class TestValidateLlmEvidenceContract:
             ),
         )
         with pytest.raises(ValueError, match="evidence, inference, or uncertainty"):
-            _validate_llm_evidence_contract(assessment)
+            validate_llm_evidence_contract(assessment)
 
     def test_llm_with_only_inference_passes(self) -> None:
         assessment = FundamentalAssessment(
@@ -458,7 +456,7 @@ class TestValidateLlmEvidenceContract:
                 inference=["Inferred from sector trends."]
             ),
         )
-        assert _validate_llm_evidence_contract(assessment) is None
+        assert validate_llm_evidence_contract(assessment) is None
 
     def test_llm_with_only_uncertainty_passes(self) -> None:
         assessment = FundamentalAssessment(
@@ -468,7 +466,7 @@ class TestValidateLlmEvidenceContract:
                 uncertainty=["Data is incomplete."]
             ),
         )
-        assert _validate_llm_evidence_contract(assessment) is None
+        assert validate_llm_evidence_contract(assessment) is None
 
     def test_non_neutral_llm_bias_without_direct_evidence_raises(self) -> None:
         assessment = FundamentalAssessment(
@@ -479,7 +477,7 @@ class TestValidateLlmEvidenceContract:
             ),
         )
         with pytest.raises(ValueError, match="requires direct evidence"):
-            _validate_llm_evidence_contract(assessment)
+            validate_llm_evidence_contract(assessment)
 
     def test_non_neutral_llm_bias_with_direct_evidence_passes(self) -> None:
         assessment = FundamentalAssessment(
@@ -490,7 +488,7 @@ class TestValidateLlmEvidenceContract:
                 inference=["Likely to face refinancing headwinds."],
             ),
         )
-        assert _validate_llm_evidence_contract(assessment) is None
+        assert validate_llm_evidence_contract(assessment) is None
 
     def test_avoid_bias_without_direct_evidence_raises(self) -> None:
         assessment = FundamentalAssessment(
@@ -501,34 +499,34 @@ class TestValidateLlmEvidenceContract:
             ),
         )
         with pytest.raises(ValueError, match="requires direct evidence"):
-            _validate_llm_evidence_contract(assessment)
+            validate_llm_evidence_contract(assessment)
 
 
 # ---------------------------------------------------------------------------
-# _metric_evidence
+# metric_evidence
 # ---------------------------------------------------------------------------
 
 
 class TestMetricEvidence:
     def test_all_none_metrics_returns_empty_evidence_lines(self) -> None:
         feat = _features()
-        result = _metric_evidence(feat)
+        result = metric_evidence(feat)
         # No metrics, no data_sources, no summary → empty
         assert result == []
 
     def test_present_metric_appears_in_evidence(self) -> None:
         feat = _features(revenue_growth=0.12)
-        result = _metric_evidence(feat)
+        result = metric_evidence(feat)
         assert any("revenue_growth=0.12" in item for item in result)
 
     def test_data_sources_appended_when_present(self) -> None:
         feat = _features(data_sources=["finnhub", "fmp"])
-        result = _metric_evidence(feat)
+        result = metric_evidence(feat)
         assert any("sources=finnhub,fmp" in item for item in result)
 
     def test_summary_appended_when_present(self) -> None:
         feat = _features(summary="Solid balance sheet from SEC 10-K.")
-        result = _metric_evidence(feat)
+        result = metric_evidence(feat)
         assert "Solid balance sheet from SEC 10-K." in result
 
     def test_all_metrics_present(self) -> None:
@@ -539,7 +537,7 @@ class TestMetricEvidence:
             debt_risk=0.25,
             reinvestment_potential=0.61,
         )
-        result = _metric_evidence(feat)
+        result = metric_evidence(feat)
         labels = {
             "revenue_growth",
             "profitability_stability",
@@ -552,18 +550,18 @@ class TestMetricEvidence:
 
 
 # ---------------------------------------------------------------------------
-# _has_structured_fundamental_evidence
+# has_structured_fundamental_evidence
 # ---------------------------------------------------------------------------
 
 
 class TestHasStructuredFundamentalEvidence:
     def test_none_context_returns_false(self) -> None:
-        assert _has_structured_fundamental_evidence(None) is False
+        assert has_structured_fundamental_evidence(None) is False
 
     def test_context_without_decision_features_returns_false(self) -> None:
         context = _context()
         bare_context = context.model_copy(update={"decision_features": None})
-        assert _has_structured_fundamental_evidence(bare_context) is False
+        assert has_structured_fundamental_evidence(bare_context) is False
 
     def test_quality_flags_with_provider_missing_returns_false(self) -> None:
         context = _context()
@@ -580,7 +578,7 @@ class TestHasStructuredFundamentalEvidence:
                 )
             }
         )
-        assert _has_structured_fundamental_evidence(flagged) is False
+        assert has_structured_fundamental_evidence(flagged) is False
 
     def test_quality_flags_with_fetch_not_implemented_returns_false(self) -> None:
         context = _context()
@@ -599,7 +597,7 @@ class TestHasStructuredFundamentalEvidence:
                 )
             }
         )
-        assert _has_structured_fundamental_evidence(flagged) is False
+        assert has_structured_fundamental_evidence(flagged) is False
 
     def test_quality_flags_with_provider_not_configured_returns_false(self) -> None:
         context = _context()
@@ -618,7 +616,7 @@ class TestHasStructuredFundamentalEvidence:
                 )
             }
         )
-        assert _has_structured_fundamental_evidence(flagged) is False
+        assert has_structured_fundamental_evidence(flagged) is False
 
     def test_no_provider_flags_returns_true(self) -> None:
         context = _context()
@@ -635,7 +633,7 @@ class TestHasStructuredFundamentalEvidence:
                 )
             }
         )
-        assert _has_structured_fundamental_evidence(clean) is True
+        assert has_structured_fundamental_evidence(clean) is True
 
     def test_unrelated_quality_flags_return_true(self) -> None:
         context = _context()
@@ -652,20 +650,20 @@ class TestHasStructuredFundamentalEvidence:
                 )
             }
         )
-        assert _has_structured_fundamental_evidence(unrelated) is True
+        assert has_structured_fundamental_evidence(unrelated) is True
 
 
 # ---------------------------------------------------------------------------
-# _fallback_fundamental
+# fallback_fundamental
 # ---------------------------------------------------------------------------
 
 
 class TestFallbackFundamental:
     def test_fallback_with_no_context_is_neutral(self) -> None:
-        result = _fallback_fundamental(None)
+        result = fallback_fundamental(None)
         assert result.source == "fallback"
         assert result.overall_bias == "neutral"
-        assert result.confidence == pytest.approx(0.0)
+        assert result.confidence == 0.0
 
     def test_fallback_with_high_debt_risk_produces_avoid_balance_sheet(self) -> None:
         context = _context()
@@ -682,7 +680,7 @@ class TestFallbackFundamental:
                 )
             }
         )
-        result = _fallback_fundamental(high_debt_context)
+        result = fallback_fundamental(high_debt_context)
         assert result.balance_sheet_quality == "avoid"
         assert "high_debt_risk" in result.red_flags
 
@@ -703,10 +701,10 @@ class TestFallbackFundamental:
                 )
             }
         )
-        result = _fallback_fundamental(
+        result = fallback_fundamental(
             flagged, fallback_reason=FUNDAMENTAL_PROVIDER_UNAVAILABLE_REASON
         )
-        assert result.confidence == pytest.approx(0.0)
+        assert result.confidence == 0.0
 
     def test_fallback_without_provider_missing_flag_sets_confidence_035(self) -> None:
         context = _context()
@@ -723,8 +721,8 @@ class TestFallbackFundamental:
                 )
             }
         )
-        result = _fallback_fundamental(no_flags)
-        assert result.confidence == pytest.approx(0.35)
+        result = fallback_fundamental(no_flags)
+        assert result.confidence == 0.35
 
     def test_fallback_deduplicates_red_flags(self) -> None:
         context = _context()
@@ -745,12 +743,12 @@ class TestFallbackFundamental:
                 )
             }
         )
-        result = _fallback_fundamental(dup_context)
+        result = fallback_fundamental(dup_context)
         # high_debt_risk should appear exactly once in red_flags
         assert result.red_flags.count("high_debt_risk") == 1
 
     def test_fallback_sets_fallback_reason(self) -> None:
-        result = _fallback_fundamental(None, fallback_reason="test reason")
+        result = fallback_fundamental(None, fallback_reason="test reason")
         assert result.fallback_reason == "test reason"
 
     def test_fallback_with_high_growth_adds_strength(self) -> None:
@@ -768,7 +766,7 @@ class TestFallbackFundamental:
                 )
             }
         )
-        result = _fallback_fundamental(high_growth)
+        result = fallback_fundamental(high_growth)
         assert "growth_evidence_supportive" in result.strengths
 
     def test_fallback_evidence_contains_metric_when_present(self) -> None:
@@ -786,7 +784,7 @@ class TestFallbackFundamental:
                 )
             }
         )
-        result = _fallback_fundamental(with_growth)
+        result = fallback_fundamental(with_growth)
         assert any(
             "revenue_growth=0.15" in e for e in result.evidence_vs_inference.evidence
         )
@@ -806,7 +804,7 @@ class TestFallbackFundamental:
                 )
             }
         )
-        result = _fallback_fundamental(medium_fx)
+        result = fallback_fundamental(medium_fx)
         assert "medium_fx_risk" in result.red_flags
 
 

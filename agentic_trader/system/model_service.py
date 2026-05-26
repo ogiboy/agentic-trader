@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 from urllib.parse import urlparse
 
 import httpx
@@ -56,6 +56,31 @@ MINIMAL_ENV_KEYS = (
     "SYSTEMROOT",
     "WINDIR",
 )
+
+
+def _json_object_or_none(value: object) -> Mapping[str, object] | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        str(key): item for key, item in cast(Mapping[object, object], value).items()
+    }
+
+
+def _object_list(value: object) -> list[object]:
+    return cast(list[object], value) if isinstance(value, list) else []
+
+
+def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
+    rows: list[Mapping[str, object]] = []
+    for item in _object_list(value):
+        row = _json_object_or_none(item)
+        if row is not None:
+            rows.append(row)
+    return rows
+
+
+def _string_list(value: object) -> list[str]:
+    return [item for item in _object_list(value) if isinstance(item, str)]
 
 
 class ModelServiceState(BaseModel):
@@ -174,6 +199,18 @@ def _remove_state(settings: Settings) -> None:
         return
 
 
+def read_model_service_state(settings: Settings) -> ModelServiceState | None:
+    return _read_state(settings)
+
+
+def write_model_service_state(settings: Settings, state: ModelServiceState) -> None:
+    _write_state(settings, state)
+
+
+def remove_model_service_state(settings: Settings) -> None:
+    _remove_state(settings)
+
+
 def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
     if not path:
         return []
@@ -185,6 +222,10 @@ def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
     except OSError:
         return []
     return [redact_sensitive_text(line, max_length=300) for line in lines[-limit:]]
+
+
+def tail_model_service_text(path: str | None, *, limit: int = 12) -> list[str]:
+    return _tail_text(path, limit=limit)
 
 
 def _api_root_from_base_url(base_url: str) -> str:
@@ -204,6 +245,10 @@ def _api_root_from_base_url(base_url: str) -> str:
             return trimmed[: -len("/v1")]
         return trimmed
     return base_url.removesuffix("/v1").rstrip("/")
+
+
+def model_service_api_root_from_base_url(base_url: str) -> str:
+    return _api_root_from_base_url(base_url)
 
 
 def _same_loopback_api_root(left: str, right: str) -> bool:
@@ -234,6 +279,10 @@ def _same_loopback_api_root(left: str, right: str) -> bool:
     return is_loopback_host(left_host) and is_loopback_host(right_host)
 
 
+def same_loopback_api_root(left: str, right: str) -> bool:
+    return _same_loopback_api_root(left, right)
+
+
 def _base_url(host: str, port: int) -> str:
     """
     Constructs an HTTP base URL from the given host and port.
@@ -250,6 +299,10 @@ def _is_port_available(host: str, port: int) -> bool:
         return sock.connect_ex((host, port)) != 0
 
 
+def model_service_port_available(host: str, port: int) -> bool:
+    return _is_port_available(host, port)
+
+
 def _minimal_process_env(*, ollama_host: str | None = None) -> dict[str, str]:
     """Return a subprocess env that does not inherit provider/broker secrets."""
 
@@ -257,6 +310,12 @@ def _minimal_process_env(*, ollama_host: str | None = None) -> dict[str, str]:
     if ollama_host:
         env["OLLAMA_HOST"] = ollama_host
     return env
+
+
+def minimal_model_service_process_env(
+    *, ollama_host: str | None = None
+) -> dict[str, str]:
+    return _minimal_process_env(ollama_host=ollama_host)
 
 
 def _process_command_line(pid: int) -> str | None:
@@ -275,6 +334,10 @@ def _process_command_line(pid: int) -> str | None:
     if completed.returncode != 0:
         return None
     return completed.stdout.strip() or None
+
+
+def model_service_process_command_line(pid: int) -> str | None:
+    return _process_command_line(pid)
 
 
 def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
@@ -318,6 +381,10 @@ def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
     return sorted(set(pids) | set(_ollama_listener_pids_from_lsof()))
 
 
+def external_ollama_serve_pids(command_path: str | None) -> list[int]:
+    return _external_ollama_serve_pids(command_path)
+
+
 def _is_ollama_serve_command(command_line: str, executable_names: set[str]) -> bool:
     """
     Determines whether a process command line represents an Ollama "serve" invocation using one of the provided executable names.
@@ -342,6 +409,10 @@ def _ollama_listener_pids_from_lsof() -> list[int]:
     if output is None:
         return []
     return sorted(_parse_ollama_listener_pids(output))
+
+
+def ollama_listener_pids_from_lsof() -> list[int]:
+    return _ollama_listener_pids_from_lsof()
 
 
 def _run_lsof_listener_scan() -> str | None:
@@ -455,6 +526,10 @@ def _listening_loopback_ports_for_pid(pid: int) -> set[int]:
     return ports
 
 
+def listening_loopback_ports_for_pid(pid: int) -> set[int]:
+    return _listening_loopback_ports_for_pid(pid)
+
+
 def _orphan_app_managed_ollama_pids(
     command_path: str | None,
     active_state: ModelServiceState | None,
@@ -472,6 +547,13 @@ def _orphan_app_managed_ollama_pids(
     return sorted(set(orphan_pids))
 
 
+def orphan_app_managed_ollama_pids(
+    command_path: str | None,
+    active_state: ModelServiceState | None,
+) -> list[int]:
+    return _orphan_app_managed_ollama_pids(command_path, active_state)
+
+
 def _cleanup_orphan_app_managed_ollama_pids(
     command_path: str | None,
     active_state: ModelServiceState | None,
@@ -485,6 +567,13 @@ def _cleanup_orphan_app_managed_ollama_pids(
     return stopped_pids
 
 
+def cleanup_orphan_app_managed_ollama_pids(
+    command_path: str | None,
+    active_state: ModelServiceState | None,
+) -> list[int]:
+    return _cleanup_orphan_app_managed_ollama_pids(command_path, active_state)
+
+
 def _wait_for_pid_exit(pid: int, *, timeout_seconds: float) -> bool:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
@@ -492,6 +581,10 @@ def _wait_for_pid_exit(pid: int, *, timeout_seconds: float) -> bool:
             return True
         time.sleep(0.2)
     return not is_process_alive(pid)
+
+
+def wait_for_model_service_pid_exit(pid: int, *, timeout_seconds: float) -> bool:
+    return _wait_for_pid_exit(pid, timeout_seconds=timeout_seconds)
 
 
 def _stop_pid(pid: int) -> bool:
@@ -557,6 +650,10 @@ def _listen_port_owner_pid(host: str, port: int) -> int | None:
     return next(iter(pids))
 
 
+def model_service_listen_port_owner_pid(host: str, port: int) -> int | None:
+    return _listen_port_owner_pid(host, port)
+
+
 def _process_matches_state(state: ModelServiceState) -> bool:
     port_owner_pid = _listen_port_owner_pid(state.host, state.port)
     if port_owner_pid == state.pid:
@@ -570,6 +667,10 @@ def _process_matches_state(state: ModelServiceState) -> bool:
     if executable not in command_line or "serve" not in command_line:
         return False
     return True
+
+
+def model_service_process_matches_state(state: ModelServiceState) -> bool:
+    return _process_matches_state(state)
 
 
 def _state_process_alive(state: ModelServiceState | None) -> bool:
@@ -591,6 +692,14 @@ def _wait_for_state_process_exit(
             return True
         time.sleep(0.2)
     return not _state_process_alive(state)
+
+
+def wait_for_model_service_state_process_exit(
+    state: ModelServiceState,
+    *,
+    timeout_seconds: float,
+) -> bool:
+    return _wait_for_state_process_exit(state, timeout_seconds=timeout_seconds)
 
 
 def choose_app_managed_port(host: str, preferred_port: int) -> int:
@@ -617,13 +726,21 @@ def _fetch_ollama_tags(
             [],
             f"Unable to reach Ollama: {redact_sensitive_text(exc, max_length=160)}",
         )
-    models_obj: Any = payload.get("models", []) if isinstance(payload, dict) else []
     models: list[str] = []
-    if isinstance(models_obj, list):
-        for item in models_obj:
-            if isinstance(item, dict) and isinstance(item.get("name"), str):
-                models.append(item["name"])
+    payload_object = _json_object_or_none(payload)
+    for item in _object_mapping_list(
+        payload_object.get("models") if payload_object is not None else None
+    ):
+        name = item.get("name")
+        if isinstance(name, str):
+            models.append(name)
     return True, sorted(models), "Ollama is reachable."
+
+
+def fetch_ollama_tags(
+    api_root: str, *, timeout_seconds: float = 2.0
+) -> tuple[bool, list[str], str]:
+    return _fetch_ollama_tags(api_root, timeout_seconds=timeout_seconds)
 
 
 def _ollama_error_from_response(response: httpx.Response) -> str:
@@ -631,15 +748,21 @@ def _ollama_error_from_response(response: httpx.Response) -> str:
         payload = response.json()
     except Exception:
         return f"HTTP {getattr(response, 'status_code', 'error')}"
-    if isinstance(payload, dict):
-        error_obj = payload.get("error")
+    payload_object = _json_object_or_none(payload)
+    if payload_object is not None:
+        error_obj = payload_object.get("error")
         if isinstance(error_obj, str) and error_obj.strip():
             return error_obj.strip()[:240]
-        if isinstance(error_obj, dict):
-            message = error_obj.get("message")
+        error_mapping = _json_object_or_none(error_obj)
+        if error_mapping is not None:
+            message = error_mapping.get("message")
             if isinstance(message, str) and message.strip():
                 return message.strip()[:240]
     return f"HTTP {getattr(response, 'status_code', 'error')}"
+
+
+def ollama_error_from_response(response: httpx.Response) -> str:
+    return _ollama_error_from_response(response)
 
 
 def _probe_ollama_generation(
@@ -665,15 +788,29 @@ def _probe_ollama_generation(
         payload = response.json()
     except Exception as exc:
         return False, redact_sensitive_text(exc, max_length=240)
-    if not isinstance(payload, dict):
+    payload_object = _json_object_or_none(payload)
+    if payload_object is None:
         return False, "Ollama generation response was not a JSON object."
-    error = payload.get("error")
+    error = payload_object.get("error")
     if isinstance(error, str) and error.strip():
         return False, redact_sensitive_text(error, max_length=240)
-    generated = payload.get("response")
+    generated = payload_object.get("response")
     if isinstance(generated, str):
         return True, "Generation probe succeeded."
     return False, "Ollama generation response did not include text."
+
+
+def probe_ollama_generation(
+    api_root: str,
+    model_name: str,
+    *,
+    timeout_seconds: float = 20.0,
+) -> tuple[bool, str]:
+    return _probe_ollama_generation(
+        api_root,
+        model_name,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _model_service_message(
@@ -700,6 +837,25 @@ def _model_service_message(
     return fallback_message
 
 
+def model_service_status_message(
+    *,
+    reachable: bool,
+    model_available: bool,
+    generation_checked: bool,
+    generation_available: bool | None,
+    generation_message: str | None,
+    fallback_message: str,
+) -> str:
+    return _model_service_message(
+        reachable=reachable,
+        model_available=model_available,
+        generation_checked=generation_checked,
+        generation_available=generation_available,
+        generation_message=generation_message,
+        fallback_message=fallback_message,
+    )
+
+
 def _generation_probe_status(
     *,
     include_generation: bool,
@@ -720,6 +876,23 @@ def _generation_probe_status(
     return _probe_ollama_generation(api_root, model_name)
 
 
+def generation_probe_status(
+    *,
+    include_generation: bool,
+    reachable: bool,
+    model_available: bool,
+    api_root: str,
+    model_name: str,
+) -> tuple[bool | None, str | None]:
+    return _generation_probe_status(
+        include_generation=include_generation,
+        reachable=reachable,
+        model_available=model_available,
+        api_root=api_root,
+        model_name=model_name,
+    )
+
+
 def _base_url_mismatch_message(
     *,
     include_generation: bool,
@@ -735,6 +908,19 @@ def _base_url_mismatch_message(
         detail = generation_message or "generation probe failed"
         return f"{message} Generation probe also failed: {detail}"
     return message
+
+
+def base_url_mismatch_message(
+    *,
+    include_generation: bool,
+    generation_available: bool | None,
+    generation_message: str | None,
+) -> str:
+    return _base_url_mismatch_message(
+        include_generation=include_generation,
+        generation_available=generation_available,
+        generation_message=generation_message,
+    )
 
 
 def _append_stale_app_managed_message(status_message: str) -> str:
@@ -777,6 +963,29 @@ def _app_owned_model_status_message(
     return status_message
 
 
+def app_owned_model_status_message(
+    *,
+    reachable: bool,
+    model_available: bool,
+    include_generation: bool,
+    generation_available: bool | None,
+    generation_message: str | None,
+    fetch_message: str,
+    runtime_base_url_matches_app_service: bool,
+    orphan_app_managed_pids: list[int],
+) -> str:
+    return _app_owned_model_status_message(
+        reachable=reachable,
+        model_available=model_available,
+        include_generation=include_generation,
+        generation_available=generation_available,
+        generation_message=generation_message,
+        fetch_message=fetch_message,
+        runtime_base_url_matches_app_service=runtime_base_url_matches_app_service,
+        orphan_app_managed_pids=orphan_app_managed_pids,
+    )
+
+
 def _host_model_status_message(
     *,
     status_message: str,
@@ -797,6 +1006,19 @@ def _host_model_status_message(
     return status_message
 
 
+def host_model_status_message(
+    *,
+    status_message: str,
+    reachable: bool,
+    ollama_serve_pids: list[int],
+) -> str:
+    return _host_model_status_message(
+        status_message=status_message,
+        reachable=reachable,
+        ollama_serve_pids=ollama_serve_pids,
+    )
+
+
 def _model_status_notes(
     *,
     tool_payload: Mapping[str, object],
@@ -804,7 +1026,7 @@ def _model_status_notes(
     orphan_app_managed_pids: list[int],
 ) -> list[str]:
     raw_notes = tool_payload.get("notes", [])
-    notes = list(raw_notes) if isinstance(raw_notes, list) else []
+    notes = _string_list(raw_notes)
     if ollama_serve_pids:
         notes.append(f"ollama_process_count={len(ollama_serve_pids)}")
     if len(ollama_serve_pids) > 1:
@@ -814,6 +1036,19 @@ def _model_status_notes(
             f"orphan_app_managed_ollama_process_count={len(orphan_app_managed_pids)}"
         )
     return notes
+
+
+def model_status_notes(
+    *,
+    tool_payload: Mapping[str, object],
+    ollama_serve_pids: list[int],
+    orphan_app_managed_pids: list[int],
+) -> list[str]:
+    return _model_status_notes(
+        tool_payload=tool_payload,
+        ollama_serve_pids=ollama_serve_pids,
+        orphan_app_managed_pids=orphan_app_managed_pids,
+    )
 
 
 def build_model_service_status(
@@ -898,7 +1133,13 @@ def build_model_service_status(
         orphan_app_managed_pids=orphan_app_managed_pids,
     )
     return ModelServiceStatus(
-        **{**tool_payload, "notes": notes},
+        tool_id=tool_payload["tool_id"],
+        tool_status_id=tool_payload["tool_status_id"],
+        tool_consumers=tool_payload["tool_consumers"],
+        tool_fallback_order=tool_payload["tool_fallback_order"],
+        tool_ownership_modes=tool_payload["tool_ownership_modes"],
+        install_hint=tool_payload["install_hint"],
+        notes=notes,
         command_available=command_path is not None,
         command_path=command_path,
         configured_base_url=settings.base_url,
@@ -1018,14 +1259,12 @@ def stop_model_service(settings: Settings) -> ModelServiceStatus:
     app_state = state if _state_process_alive(state) else None
     if state is None:
         return build_model_service_status(settings)
-    if state is not None and app_state is None:
+    if app_state is None:
         _remove_state(settings)
         return build_model_service_status(settings)
 
-    stopped = True
-    if app_state is not None:
-        stopped = _stop_pid(app_state.pid)
-    if app_state is not None and (stopped or not _state_process_alive(app_state)):
+    stopped = _stop_pid(app_state.pid)
+    if stopped or not _state_process_alive(app_state):
         _remove_state(settings)
     return build_model_service_status(settings)
 

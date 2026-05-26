@@ -4,6 +4,7 @@ import platform
 import shutil
 import subprocess
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -192,6 +193,46 @@ app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 console = Console()
+
+
+def _object_mapping(value: object) -> Mapping[str, object]:
+    if isinstance(value, Mapping):
+        return cast(Mapping[str, object], value)
+    return {}
+
+
+def _object_list(value: object) -> list[object]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return list(cast(Sequence[object], value))
+    return []
+
+
+def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
+    rows: list[Mapping[str, object]] = []
+    for item in _object_list(value):
+        if isinstance(item, Mapping):
+            rows.append(cast(Mapping[str, object], item))
+    return rows
+
+
+def object_mapping(value: object) -> Mapping[str, object]:
+    """Return value as an object-keyed mapping when it already is one."""
+
+    return _object_mapping(value)
+
+
+def object_list(value: object) -> list[object]:
+    """Return value as a list when it is a non-string sequence."""
+
+    return _object_list(value)
+
+
+def object_mapping_list(value: object) -> list[Mapping[str, object]]:
+    """Return mapping rows from a non-string sequence."""
+
+    return _object_mapping_list(value)
+
+
 LABEL_MODEL_SERVICE = "Model Service"
 model_service_app = typer.Typer(
     help="Manage the optional app-owned local model service."
@@ -1363,7 +1404,7 @@ def _render_backtest_ablation(report: BacktestAblationReport) -> None:
     console.print(table)
 
 
-def _render_memory_matches(matches) -> None:
+def _render_memory_matches(matches: Sequence[HistoricalMemoryMatch]) -> None:
     if not matches:
         console.print(
             Panel(
@@ -1532,9 +1573,7 @@ def _position_plan_coverage_payload(settings: Settings) -> dict[str, object]:
             db.close()
         available = True
         error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         positions = []
         plans = []
         available = False
@@ -1652,9 +1691,7 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
             db.close()
         available = True
         error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         entries = []
         available = False
         error = str(exc)
@@ -1826,7 +1863,7 @@ def _parse_idea_preset(value: str) -> IdeaPresetName:
     normalized = value.strip().lower()
     if normalized not in PRESET_DESCRIPTIONS:
         raise typer.BadParameter("preset is not a known idea scanner preset")
-    return cast(IdeaPresetName, normalized)
+    return normalized
 
 
 def _parse_strategy_status(value: str | None) -> StrategyStatus | None:
@@ -1950,9 +1987,7 @@ def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]
             db.close()
         available = True
         error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         runs = []
         available = False
         error = str(exc)
@@ -2417,10 +2452,9 @@ def _finance_ops_payload(settings: Settings) -> dict[str, object]:
     risk_report = _risk_report_payload(settings)
     readiness = v1_readiness_payload(settings, check_provider=False)
     reconciliation = finance_reconciliation_contract_payload()
-    snapshot = portfolio.get("snapshot") if isinstance(portfolio, dict) else None
-    accounting = portfolio.get("accounting") if isinstance(portfolio, dict) else {}
-    if not isinstance(accounting, dict):
-        accounting = {}
+    snapshot = portfolio.get("snapshot")
+    snapshot_mapping = _object_mapping(snapshot)
+    accounting = _object_mapping(portfolio.get("accounting"))
     checks = [
         _finance_check(
             "paper_or_external_paper_only",
@@ -2435,12 +2469,12 @@ def _finance_ops_payload(settings: Settings) -> dict[str, object]:
         ),
         _finance_check(
             "account_snapshot_visible",
-            bool(portfolio.get("available")) and isinstance(snapshot, dict),
+            bool(portfolio.get("available")) and bool(snapshot_mapping),
             str(portfolio.get("error") or "account snapshot available"),
         ),
         _finance_check(
             "pnl_and_exposure_fields_visible",
-            _finance_snapshot_fields_visible(snapshot),
+            _finance_snapshot_fields_visible(snapshot_mapping),
             "cash/equity/PnL/position fields are present on the portfolio snapshot.",
         ),
         _finance_check(
@@ -2498,7 +2532,8 @@ def _finance_ops_payload(settings: Settings) -> dict[str, object]:
 
 
 def _finance_snapshot_fields_visible(snapshot: object) -> bool:
-    if not isinstance(snapshot, dict):
+    snapshot_mapping = _object_mapping(snapshot)
+    if not snapshot_mapping:
         return False
     required_fields = {
         "cash",
@@ -2507,7 +2542,7 @@ def _finance_snapshot_fields_visible(snapshot: object) -> bool:
         "unrealized_pnl",
         "open_positions",
     }
-    return required_fields.issubset(snapshot)
+    return required_fields.issubset(snapshot_mapping)
 
 
 def _render_finance_ops(payload: dict[str, object]) -> None:
@@ -2524,9 +2559,7 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
             - "accounting" (dict): Accounting data consumed by the accounting and ledger tables; may include "ledger_categories".
     """
     checks = payload.get("checks", [])
-    accounting = payload.get("accounting", {})
-    if not isinstance(accounting, dict):
-        accounting = {}
+    accounting = _object_mapping(payload.get("accounting"))
     console.print(
         Panel(
             str(payload.get("summary", "Finance operations status unavailable.")),
@@ -2567,20 +2600,16 @@ def _render_position_plan_repair(payload: dict[str, object]) -> None:
     table.add_column("Stop")
     table.add_column("Take")
     table.add_column("Reason")
-    repairs = payload.get("repairs", [])
-    if isinstance(repairs, list):
-        for item in repairs:
-            if not isinstance(item, dict):
-                continue
-            table.add_row(
-                str(item.get("symbol", "-")),
-                str(item.get("status", "-")),
-                str(item.get("proposal_id", "-")),
-                _format_optional_float(item.get("entry_price")),
-                _format_optional_float(item.get("stop_loss")),
-                _format_optional_float(item.get("take_profit")),
-                str(item.get("reason", "")),
-            )
+    for item in _object_mapping_list(payload.get("repairs", [])):
+        table.add_row(
+            str(item.get("symbol", "-")),
+            str(item.get("status", "-")),
+            str(item.get("proposal_id", "-")),
+            _format_optional_float(item.get("entry_price")),
+            _format_optional_float(item.get("stop_loss")),
+            _format_optional_float(item.get("take_profit")),
+            str(item.get("reason", "")),
+        )
     console.print(
         Panel(
             str(payload.get("summary", "Position plan repair status unavailable.")),
@@ -2626,19 +2655,17 @@ def _finance_checks_table(checks: object) -> Table:
     table.add_column("State")
     table.add_column("Blocking")
     table.add_column("Details")
-    if isinstance(checks, list):
-        for check in checks:
-            if isinstance(check, dict):
-                table.add_row(
-                    str(check.get("name", "-")),
-                    "[green]pass[/green]" if check.get("passed") else "[red]fail[/red]",
-                    str(check.get("blocking", True)),
-                    str(check.get("details", "")),
-                )
+    for check in _object_mapping_list(checks):
+        table.add_row(
+            str(check.get("name", "-")),
+            "[green]pass[/green]" if check.get("passed") else "[red]fail[/red]",
+            str(check.get("blocking", True)),
+            str(check.get("details", "")),
+        )
     return table
 
 
-def _finance_accounting_table(accounting: dict[object, object]) -> Table:
+def _finance_accounting_table(accounting: Mapping[str, object]) -> Table:
     """
     Builds a Rich Table summarizing desk accounting context from an accounting payload.
 
@@ -2656,9 +2683,7 @@ def _finance_accounting_table(accounting: dict[object, object]) -> Table:
     Returns:
         Table: A Rich Table titled "Desk Accounting Context" with rows for Currency, Marked At, Mark Source, Mark Status, Fees, Slippage, and Rejection Evidence.
     """
-    cost_model = accounting.get("cost_model", {})
-    if not isinstance(cost_model, dict):
-        cost_model = {}
+    cost_model = _object_mapping(accounting.get("cost_model"))
     context = Table(title="Desk Accounting Context")
     context.add_column("Field")
     context.add_column("Value")
@@ -2684,18 +2709,18 @@ def _finance_accounting_table(accounting: dict[object, object]) -> Table:
 
 
 def _finance_ledger_table(ledger_categories: object) -> Table | None:
-    if isinstance(ledger_categories, list):
+    rows = _object_mapping_list(ledger_categories)
+    if rows:
         ledger_table = Table(title="Finance Ledger Categories")
         ledger_table.add_column("Category")
         ledger_table.add_column("V1 Source")
         ledger_table.add_column("Purpose")
-        for item in ledger_categories:
-            if isinstance(item, dict):
-                ledger_table.add_row(
-                    str(item.get("name", "-")),
-                    str(item.get("v1_source", "-")),
-                    str(item.get("purpose", "-")),
-                )
+        for item in rows:
+            ledger_table.add_row(
+                str(item.get("name", "-")),
+                str(item.get("v1_source", "-")),
+                str(item.get("purpose", "-")),
+            )
         return ledger_table
     return None
 
@@ -3015,7 +3040,7 @@ def _news_payload(
 def _market_cache_payload(settings: Settings) -> dict[str, object]:
     settings.ensure_directories()
     cache_dir = settings.market_data_cache_dir
-    entries = []
+    entries: list[dict[str, object]] = []
     for path in sorted(
         cache_dir.glob("*.csv"), key=lambda item: item.stat().st_mtime, reverse=True
     ):
@@ -3314,7 +3339,7 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
 
     llm = LocalLLM(settings)
     health = llm.health_check()
-    payload = {
+    payload: dict[str, object] = {
         "provider": settings.llm_provider,
         "model": settings.model_name,
         "base_url": settings.base_url,
@@ -3830,7 +3855,7 @@ def setup_command(
 
     settings = get_settings()
     status = build_setup_status(settings).model_dump(mode="json")
-    payload = {
+    payload: dict[str, object] = {
         "dry_run": dry_run,
         "mutated": False,
         "status": status,
@@ -4315,7 +4340,7 @@ def research_cycle_control(
         if action is not None
         else get_research_cycle_control(settings)
     )
-    payload = {
+    payload: dict[str, object] = {
         "control": control.model_dump(mode="json"),
         "persisted": action is not None,
         "execution_policy": {
@@ -4385,8 +4410,8 @@ def _render_research_flow_setup(payload: dict[str, object]) -> None:
     table = Table(title="Research CrewAI Flow Setup")
     table.add_column("Field")
     table.add_column("Value")
-    table.add_row("CLI Available", str(payload["available"]))
-    table.add_row("CLI Path", str(payload["cli_path"] or "-"))
+    table.add_row("Sidecar Available", str(payload["available"]))
+    table.add_row("Version Source", str(payload.get("version_source") or "-"))
     table.add_row("Version", str(payload["version"] or "-"))
     table.add_row("uv Available", str(payload["uv_available"]))
     table.add_row("Flow Dir", str(payload["flow_dir"]))
@@ -4700,12 +4725,8 @@ def broker_status(
     """
     Display broker backend status and execution safety gates.
 
-    When `json_output` is True, emit the observer payload as JSON; otherwise render a human-readable table
-    showing backend, adapter, state flags (simulated, live execution enabled/ready/requested), kill switch,
-    and any healthcheck message.
-
-    Parameters:
-        json_output (bool): If True, output JSON instead of a rich table.
+    Use `--json` for the observer payload, or the default table for backend, adapter, state flags,
+    kill switch state, and healthcheck details.
     """
     settings = get_settings()
     payload = _broker_payload(settings)
@@ -4725,30 +4746,27 @@ def broker_status(
     table.add_row("Live Requested", str(payload["live_requested"]))
     table.add_row("Live Ready", str(payload["live_ready"]))
     table.add_row("Message", str(payload["message"]))
-    healthcheck = payload.get("healthcheck")
-    if isinstance(healthcheck, dict):
+    healthcheck = _object_mapping(payload.get("healthcheck"))
+    if healthcheck:
         table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
     console.print(table)
 
 
-def _render_readiness_checks(title: str, payload: dict[str, object]) -> None:
+def _render_readiness_checks(title: str, payload: Mapping[str, object]) -> None:
     checks = payload.get("checks", [])
     table = Table(title=title)
     table.add_column("Check")
     table.add_column("State")
     table.add_column("Blocking")
     table.add_column("Details")
-    if isinstance(checks, list):
-        for item in checks:
-            if not isinstance(item, dict):
-                continue
-            passed = bool(item.get("passed"))
-            table.add_row(
-                str(item.get("name", "-")),
-                "[green]pass[/green]" if passed else "[red]fail[/red]",
-                str(item.get("blocking", True)),
-                str(item.get("details", "")),
-            )
+    for item in _object_mapping_list(checks):
+        passed = bool(item.get("passed"))
+        table.add_row(
+            str(item.get("name", "-")),
+            "[green]pass[/green]" if passed else "[red]fail[/red]",
+            str(item.get("blocking", True)),
+            str(item.get("details", "")),
+        )
     console.print(table)
 
 
@@ -4773,28 +4791,22 @@ def provider_diagnostics(
     summary = Table(title="Provider Diagnostics")
     summary.add_column("Field")
     summary.add_column("Value")
-    llm = payload.get("llm", {})
-    market_data = payload.get("market_data", {})
-    news = payload.get("news", {})
-    alpaca = payload.get("alpaca", {})
-    if isinstance(llm, dict):
-        summary.add_row("LLM Provider", str(llm.get("provider", "-")))
-        summary.add_row("Default Model", str(llm.get("default_model", "-")))
-        summary.add_row("Base URL", str(llm.get("base_url", "-")))
-    if isinstance(market_data, dict):
-        summary.add_row(
-            "Market Provider", str(market_data.get("selected_provider", "-"))
-        )
-        summary.add_row("Market Role", str(market_data.get("selected_role", "-")))
-    if isinstance(news, dict):
-        summary.add_row("News Mode", str(news.get("mode", "-")))
-    if isinstance(alpaca, dict):
-        summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
-        summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
-        summary.add_row(
-            "Alpaca Credentials Configured",
-            str(alpaca.get("credentials_configured", False)),
-        )
+    llm = _object_mapping(payload.get("llm"))
+    market_data = _object_mapping(payload.get("market_data"))
+    news = _object_mapping(payload.get("news"))
+    alpaca = _object_mapping(payload.get("alpaca"))
+    summary.add_row("LLM Provider", str(llm.get("provider", "-")))
+    summary.add_row("Default Model", str(llm.get("default_model", "-")))
+    summary.add_row("Base URL", str(llm.get("base_url", "-")))
+    summary.add_row("Market Provider", str(market_data.get("selected_provider", "-")))
+    summary.add_row("Market Role", str(market_data.get("selected_role", "-")))
+    summary.add_row("News Mode", str(news.get("mode", "-")))
+    summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
+    summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
+    summary.add_row(
+        "Alpaca Credentials Configured",
+        str(alpaca.get("credentials_configured", False)),
+    )
     console.print(summary)
 
     provider_table = Table(title="Provider Source Ladder")
@@ -4805,20 +4817,16 @@ def provider_diagnostics(
     provider_table.add_column("API Key")
     provider_table.add_column("Freshness")
     provider_table.add_column("Notes")
-    providers = payload.get("providers", [])
-    if isinstance(providers, list):
-        for row in providers:
-            if not isinstance(row, dict):
-                continue
-            provider_table.add_row(
-                str(row.get("provider_id", "-")),
-                str(row.get("provider_type", "-")),
-                str(row.get("role", "-")),
-                str(row.get("enabled", False)),
-                str(row.get("api_key_ready", "-")),
-                str(row.get("freshness", "-")),
-                ", ".join(str(note) for note in row.get("notes", [])),
-            )
+    for row in _object_mapping_list(payload.get("providers", [])):
+        provider_table.add_row(
+            str(row.get("provider_id", "-")),
+            str(row.get("provider_type", "-")),
+            str(row.get("role", "-")),
+            str(row.get("enabled", False)),
+            str(row.get("api_key_ready", "-")),
+            str(row.get("freshness", "-")),
+            ", ".join(str(note) for note in _object_list(row.get("notes", []))),
+        )
     console.print(provider_table)
 
 
@@ -4838,9 +4846,9 @@ def v1_readiness(
         _emit_json(payload)
         return
 
-    paper = payload.get("paper_operations", {})
-    alpaca = payload.get("alpaca_paper", {})
-    paper_allowed = isinstance(paper, dict) and bool(paper.get("allowed"))
+    paper = _object_mapping(payload.get("paper_operations"))
+    alpaca = _object_mapping(payload.get("alpaca_paper"))
+    paper_allowed = bool(paper.get("allowed"))
     console.print(
         Panel(
             str(payload.get("summary", "V1 readiness status unavailable.")),
@@ -4848,10 +4856,8 @@ def v1_readiness(
             border_style="green" if paper_allowed else "yellow",
         )
     )
-    if isinstance(paper, dict):
-        _render_readiness_checks("Paper Operation Checks", paper)
-    if isinstance(alpaca, dict):
-        _render_readiness_checks("Alpaca Paper Checks", alpaca)
+    _render_readiness_checks("Paper Operation Checks", paper)
+    _render_readiness_checks("Alpaca Paper Checks", alpaca)
 
 
 @app.command("finance-ops")
@@ -4911,9 +4917,7 @@ def position_plan_repair(
             )
         finally:
             db.close()
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - operator command should degrade on DB locks
+    except Exception as exc:  # noqa: BLE001 - operator command should degrade on DB locks
         console.print(
             Panel(
                 f"Position plan repair is temporarily unavailable while the runtime writer owns the database.\n\n{exc}",
@@ -4926,7 +4930,7 @@ def position_plan_repair(
     created = sum(1 for item in repairs if item["status"] == "created")
     candidates = sum(1 for item in repairs if item["status"] == "candidate")
     skipped = sum(1 for item in repairs if item["status"] == "skipped")
-    payload = {
+    payload: dict[str, object] = {
         "applied": apply_changes,
         "created": created,
         "candidates": candidates,
@@ -6670,13 +6674,8 @@ def observer_api_command(
     """
     Start the local read-only observer API and serve dashboard and diagnostic endpoints.
 
-    If the requested bind address is not loopback, the command enforces safety checks: it requires `--allow-nonlocal` and a configured `AGENTIC_TRADER_OBSERVER_API_TOKEN` to proceed. On success the command prints an informational panel listing available endpoints and runs the observer API server.
-
-    Parameters:
-        allow_nonlocal (bool): When True, permit binding to a non-loopback host only if an observer API token is configured.
-
-    Raises:
-        typer.Exit: Exits with code 2 when a nonlocal bind is blocked or when startup is denied due to validation errors.
+    Non-loopback binds require `--allow-nonlocal` and `AGENTIC_TRADER_OBSERVER_API_TOKEN`.
+    On success, the command prints the available endpoints and runs the observer API server.
     """
     settings = get_settings()
     nonlocal_bind = not is_loopback_host(host)
@@ -7566,8 +7565,8 @@ def _retrieval_explanation_lines(
     lines: list[str] = []
     for item in explanations:
         run_id = str(item.get("run_id") or "-")
-        explanation = item.get("explanation", {})
-        if not isinstance(explanation, dict):
+        explanation = _object_mapping(item.get("explanation"))
+        if not explanation:
             continue
         reason = str(explanation.get("eligibility_reason") or "-")
         freshness = str(explanation.get("freshness") or "-")

@@ -107,7 +107,17 @@ Now:
 - keep shared dashboard, observer API, Rich, Ink, and Web GUI readiness displays in parity with `provider-diagnostics`, `v1-readiness`, and `broker-status`
 - use `.ai/agents/product-docs.agent.md` for docs/product explanation work and `.ai/agents/finance-ops.agent.md` for broker/accounting/PnL/exposure changes; both are development-only roles, not runtime orchestration
 - keep retrieval explanations inspectable as memory quality improves: score components, as-of/freshness, outcome tags, regime/strategy alignment, and diversity buckets must survive CLI/Ink/Web/trade-context serialization
-- keep the V1 commercial-readiness blocker ledger current: compliance classification, Alpaca production/account-opening responsibilities, risk disclosure/terms, billing/support/incident posture, audit/data retention, provider telemetry, stale/degraded UX, and model-cost unit economics must be explicit before the product is described as revenue-ready
+- keep the V1 commercial-readiness blocker ledger current and source-backed:
+  compliance classification, first paid SKU scope, Alpaca paper/production and
+  account-opening responsibilities, risk disclosure/terms, billing/support/
+  incident posture, audit export, data retention/privacy, provider telemetry,
+  stale/degraded UX, LLM/tool-poisoning controls, market-tool expectation gaps,
+  and model-cost unit economics must be explicit before the product is
+  described as revenue-ready
+- use the ROADMAP commercial work plan as the product gate: C0 legal/product
+  classification, C1 paper-desk packaging, C2 trust/security controls, C3
+  Alpaca external-paper proof, C4 unit economics, and C5 limited non-live pilot
+  must pass in order; do not jump from paper evidence to live-money claims
 
 Next:
 

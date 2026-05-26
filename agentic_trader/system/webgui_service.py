@@ -133,6 +133,18 @@ def _remove_state(settings: Settings) -> None:
         return
 
 
+def read_webgui_service_state(settings: Settings) -> WebGUIServiceState | None:
+    return _read_state(settings)
+
+
+def write_webgui_service_state(settings: Settings, state: WebGUIServiceState) -> None:
+    _write_state(settings, state)
+
+
+def remove_webgui_service_state(settings: Settings) -> None:
+    _remove_state(settings)
+
+
 def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
     if not path:
         return []
@@ -250,6 +262,10 @@ def _process_command_line(pid: int) -> str | None:
     return completed.stdout.strip() or None
 
 
+def webgui_process_command_line(pid: int) -> str | None:
+    return _process_command_line(pid)
+
+
 def _listen_port_owner_pid(host: str, port: int) -> int | None:
     """Return the PID listening on a local TCP port when lsof is available."""
 
@@ -281,6 +297,10 @@ def _listen_port_owner_pid(host: str, port: int) -> int | None:
     if len(pids) != 1:
         return None
     return next(iter(pids))
+
+
+def webgui_listen_port_owner_pid(host: str, port: int) -> int | None:
+    return _listen_port_owner_pid(host, port)
 
 
 def _process_cwd(pid: int) -> Path | None:
@@ -342,6 +362,10 @@ def _process_matches_state(state: WebGUIServiceState) -> bool:
     if command_line:
         return _command_line_matches_webgui(command_line, state)
     return True
+
+
+def webgui_process_matches_state(state: WebGUIServiceState) -> bool:
+    return _process_matches_state(state)
 
 
 def _state_process_alive(state: WebGUIServiceState | None) -> bool:
@@ -720,8 +744,7 @@ def stop_webgui_service(settings: Settings) -> WebGUIServiceStatus:
             return build_webgui_service_status(settings).model_copy(
                 update={
                     "message": (
-                        "Unable to stop app-owned Web GUI; state preserved "
-                        "for retry."
+                        "Unable to stop app-owned Web GUI; state preserved for retry."
                     )
                 }
             )

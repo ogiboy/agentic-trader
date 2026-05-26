@@ -124,19 +124,17 @@ base URL, model name, and optional API key.
 App-owned Ollama auto-start or dashboard setting rewrites must not override that
 non-Ollama adapter.
 
-### Strict Pyright is enforced through a regression baseline until the backlog is zero
+### Strict Pyright is a zero-diagnostic publishing gate
 
 Reason:
 The repository should keep Pylance/Pyright in strict mode because it exposes
-real runtime and test-contract weaknesses, but turning on strict mode while a
-known 1776-error backlog exists would make every push and release workflow fail
-without distinguishing old debt from new regressions.
-CI, release, and smoke quality checks therefore run
-`scripts/check_pyright_baseline.py`, which executes strict Pyright and fails only
-if the error count rises above the documented baseline.
-This is a temporary hardening contract, not a weaker type policy: every
-type-clean cluster should reduce the baseline in the script, `ROADMAP.md`, and
-`.ai/current-state.instructions.md` in the same change.
+real runtime and test-contract weaknesses.
+The staged backlog is now cleared for `agentic_trader`, `tests`, `scripts`, and
+`sidecars/research_flow/src`, so CI, release, local `check-python`, and smoke
+quality checks run `scripts/check_pyright_baseline.py` with a zero-error limit.
+Do not add `type: ignore`, Pyright suppression comments, or config weakening as
+a workaround; expose typed public seams, protocols, fixtures, stubs, or narrower
+data contracts instead.
 
 ### V1 can monetize only after compliance, trust, and unit economics are explicit
 
@@ -146,11 +144,12 @@ personalized trade recommendations, account workflows, or order-routing
 features can change the regulatory and support profile of the project.
 V1 must stay paper-first and manual-approval-first until the commercial model is
 classified with counsel, Alpaca production responsibilities are explicit,
-operator risk disclosures and audit exports exist, and remote-model costs are
-measured per cycle.
+operator risk disclosures and audit exports exist, customer data/privacy and
+incident/support responsibilities are documented, LLM/tool-poisoning controls
+are tested, and remote-model costs are measured per cycle.
 The first paid SKU should therefore favor local-first paper desk, evidence
 bundle, education, and personal automation value before managed live trading,
-copy trading, or performance-fee promises.
+copy trading, account-opening workflows, or performance-fee promises.
 
 ### Operator-facing finance truth must be reconciled evidence, not UI copy
 

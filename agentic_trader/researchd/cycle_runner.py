@@ -27,6 +27,14 @@ from agentic_trader.schemas import ResearchDigestReplayRecord, ResearchSnapshotR
 SleepFn = Callable[[float], None]
 
 
+def _empty_payload() -> dict[str, object]:
+    return {}
+
+
+def _empty_notes() -> list[str]:
+    return []
+
+
 @dataclass(frozen=True)
 class ResearchCycleRequest:
     symbols: list[str]
@@ -65,11 +73,11 @@ class ResearchCycleExecution:
     prior_digest_available: bool = False
     persisted_snapshot_id: str | None = None
     next_run_at: str | None = None
-    preflight: dict[str, object] = field(default_factory=dict)
-    source_health_delta: dict[str, object] = field(default_factory=dict)
-    cadence: dict[str, object] = field(default_factory=dict)
-    digest: dict[str, object] = field(default_factory=dict)
-    notes: list[str] = field(default_factory=list)
+    preflight: dict[str, object] = field(default_factory=_empty_payload)
+    source_health_delta: dict[str, object] = field(default_factory=_empty_payload)
+    cadence: dict[str, object] = field(default_factory=_empty_payload)
+    digest: dict[str, object] = field(default_factory=_empty_payload)
+    notes: list[str] = field(default_factory=_empty_notes)
 
     def to_payload(self) -> dict[str, object]:
         """

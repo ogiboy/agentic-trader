@@ -8,9 +8,9 @@ from agentic_trader.config import Settings
 from agentic_trader.llm.providers import (
     OllamaProvider,
     OpenAICompatibleProvider,
-    _openai_compatible_content,
-    _openai_compatible_error_from_response,
-    _openai_compatible_model_ids,
+    openai_compatible_content,
+    openai_compatible_error_from_response,
+    openai_compatible_model_ids,
     build_provider,
 )
 
@@ -144,15 +144,19 @@ def test_probe_generation_surfaces_http_and_payload_errors() -> None:
     client.post_responses = [
         FakeResponse({"error": {"message": "model load failed"}}, status_code=500),
         FakeResponse({"error": "runtime refused"}),
+        FakeResponse(["not-an-object"]),
     ]
 
-    first_ok, first_message = provider._probe_generation(model_available=True)
-    second_ok, second_message = provider._probe_generation(model_available=True)
+    first_ok, first_message = provider.probe_generation(model_available=True)
+    second_ok, second_message = provider.probe_generation(model_available=True)
+    third_ok, third_message = provider.probe_generation(model_available=True)
 
     assert first_ok is False
     assert first_message == "model load failed"
     assert second_ok is False
     assert second_message == "runtime refused"
+    assert third_ok is False
+    assert third_message == "malformed or non-object probe payload"
 
 
 def test_openai_compatible_provider_generates_and_checks_health() -> None:
@@ -264,12 +268,14 @@ def test_openai_compatible_provider_surfaces_errors_without_network() -> None:
     client.post_responses = [
         FakeResponse({"error": {"message": "model load failed"}}, status_code=500),
         FakeResponse({"choices": []}),
+        FakeResponse(["not-an-object"]),
     ]
     object.__setattr__(provider, "client", client)
 
     health = provider.health_check(include_generation=True)
-    http_ok, http_message = provider._probe_generation(model_available=True)
-    malformed_ok, malformed_message = provider._probe_generation(model_available=True)
+    http_ok, http_message = provider.probe_generation(model_available=True)
+    malformed_ok, malformed_message = provider.probe_generation(model_available=True)
+    non_object_ok, non_object_message = provider.probe_generation(model_available=True)
 
     assert health.service_reachable is False
     assert health.generation_available is False
@@ -278,6 +284,8 @@ def test_openai_compatible_provider_surfaces_errors_without_network() -> None:
     assert http_message == "model load failed"
     assert malformed_ok is False
     assert "no choices" in malformed_message
+    assert non_object_ok is False
+    assert non_object_message == "malformed or non-object probe payload"
 
 
 def test_build_provider_accepts_openai_compatible_adapter() -> None:
@@ -320,7 +328,7 @@ def test_openai_compatible_headers_returns_none_without_api_key() -> None:
         Settings(llm_provider="openai-compatible", openai_compatible_api_key=None)
     )
 
-    assert provider._headers() is None
+    assert provider.headers() is None
 
 
 def test_openai_compatible_headers_returns_bearer_with_api_key() -> None:
@@ -331,7 +339,7 @@ def test_openai_compatible_headers_returns_bearer_with_api_key() -> None:
         )
     )
 
-    headers = provider._headers()
+    headers = provider.headers()
     assert headers is not None
     assert headers["Authorization"] == "Bearer my-secret-token"
 
@@ -398,7 +406,7 @@ def test_openai_compatible_probe_generation_returns_false_for_http_error() -> No
         FakeResponse({"error": "model overloaded"}, status_code=429)
     ]
 
-    ok, message = provider._probe_generation(model_available=True)
+    ok, message = provider.probe_generation(model_available=True)
 
     assert ok is False
     assert "model overloaded" in message
@@ -410,14 +418,14 @@ def test_openai_compatible_probe_generation_returns_false_when_exception() -> No
         FakeResponse(None, raise_error=RuntimeError("network timeout"))
     ]
 
-    ok, message = provider._probe_generation(model_available=True)
+    ok, message = provider.probe_generation(model_available=True)
 
     assert ok is False
     assert "network timeout" in message
 
 
 def test_openai_compatible_health_message_generation_failed() -> None:
-    message = OpenAICompatibleProvider._health_message(
+    message = OpenAICompatibleProvider.health_message(
         model_available=True,
         generation_available=False,
         generation_message="model load failed",
@@ -428,7 +436,7 @@ def test_openai_compatible_health_message_generation_failed() -> None:
 
 
 def test_openai_compatible_health_message_model_not_listed() -> None:
-    message = OpenAICompatibleProvider._health_message(
+    message = OpenAICompatibleProvider.health_message(
         model_available=False,
         generation_available=None,
         generation_message=None,
@@ -438,7 +446,7 @@ def test_openai_compatible_health_message_model_not_listed() -> None:
 
 
 def test_openai_compatible_health_message_available_no_generation_checked() -> None:
-    message = OpenAICompatibleProvider._health_message(
+    message = OpenAICompatibleProvider.health_message(
         model_available=True,
         generation_available=None,
         generation_message=None,
@@ -449,46 +457,46 @@ def test_openai_compatible_health_message_available_no_generation_checked() -> N
 
 
 # ---------------------------------------------------------------------------
-# _openai_compatible_model_ids helper
+# openai_compatible_model_ids helper
 # ---------------------------------------------------------------------------
 
 
 def test_openai_compatible_model_ids_with_valid_data() -> None:
     payload = {"data": [{"id": "gpt-4"}, {"id": "gpt-3.5"}]}
-    assert _openai_compatible_model_ids(payload) == {"gpt-4", "gpt-3.5"}
+    assert openai_compatible_model_ids(payload) == {"gpt-4", "gpt-3.5"}
 
 
 def test_openai_compatible_model_ids_with_missing_data_key() -> None:
-    assert _openai_compatible_model_ids({}) == set()
+    assert openai_compatible_model_ids({}) == set()
 
 
 def test_openai_compatible_model_ids_with_non_list_data() -> None:
-    assert _openai_compatible_model_ids({"data": "not-a-list"}) == set()
+    assert openai_compatible_model_ids({"data": "not-a-list"}) == set()
 
 
 def test_openai_compatible_model_ids_skips_non_dict_items() -> None:
     payload = {"data": [{"id": "valid-model"}, "string-item", 42, None]}
-    assert _openai_compatible_model_ids(payload) == {"valid-model"}
+    assert openai_compatible_model_ids(payload) == {"valid-model"}
 
 
 def test_openai_compatible_model_ids_skips_items_without_id() -> None:
     payload = {"data": [{"name": "no-id-field"}, {"id": "has-id"}]}
-    assert _openai_compatible_model_ids(payload) == {"has-id"}
+    assert openai_compatible_model_ids(payload) == {"has-id"}
 
 
 def test_openai_compatible_model_ids_skips_non_string_id() -> None:
     payload = {"data": [{"id": 123}, {"id": "string-id"}]}
-    assert _openai_compatible_model_ids(payload) == {"string-id"}
+    assert openai_compatible_model_ids(payload) == {"string-id"}
 
 
 # ---------------------------------------------------------------------------
-# _openai_compatible_content helper
+# openai_compatible_content helper
 # ---------------------------------------------------------------------------
 
 
 def test_openai_compatible_content_with_string_message_content() -> None:
     payload = {"choices": [{"message": {"content": "  hello  "}}]}
-    assert _openai_compatible_content(payload) == "hello"
+    assert openai_compatible_content(payload) == "hello"
 
 
 def test_openai_compatible_content_with_list_content_format() -> None:
@@ -505,41 +513,41 @@ def test_openai_compatible_content_with_list_content_format() -> None:
             }
         ]
     }
-    assert _openai_compatible_content(payload) == "part one part two"
+    assert openai_compatible_content(payload) == "part one part two"
 
 
 def test_openai_compatible_content_with_text_key_fallback() -> None:
     payload = {"choices": [{"text": " legacy text "}]}
-    assert _openai_compatible_content(payload) == "legacy text"
+    assert openai_compatible_content(payload) == "legacy text"
 
 
 def test_openai_compatible_content_raises_on_empty_choices() -> None:
     with pytest.raises(RuntimeError, match="no choices"):
-        _openai_compatible_content({"choices": []})
+        openai_compatible_content({"choices": []})
 
 
 def test_openai_compatible_content_raises_on_missing_choices() -> None:
     with pytest.raises(RuntimeError, match="no choices"):
-        _openai_compatible_content({})
+        openai_compatible_content({})
 
 
 def test_openai_compatible_content_raises_on_non_dict_first_choice() -> None:
     with pytest.raises(RuntimeError, match="malformed choices"):
-        _openai_compatible_content({"choices": ["string-not-dict"]})
+        openai_compatible_content({"choices": ["string-not-dict"]})
 
 
 def test_openai_compatible_content_raises_when_no_text_content() -> None:
     with pytest.raises(RuntimeError, match="no text content"):
-        _openai_compatible_content({"choices": [{"message": {"role": "assistant"}}]})
+        openai_compatible_content({"choices": [{"message": {"role": "assistant"}}]})
 
 
 def test_openai_compatible_content_raises_when_no_message_or_text() -> None:
     with pytest.raises(RuntimeError, match="no text content"):
-        _openai_compatible_content({"choices": [{"finish_reason": "stop"}]})
+        openai_compatible_content({"choices": [{"finish_reason": "stop"}]})
 
 
 # ---------------------------------------------------------------------------
-# _openai_compatible_error_from_response helper
+# openai_compatible_error_from_response helper
 # ---------------------------------------------------------------------------
 
 
@@ -565,7 +573,7 @@ class _FakeHttpxResponse:
 
 def test_openai_compatible_error_from_response_string_error() -> None:
     response = _FakeHttpxResponse({"error": "quota exceeded"}, status_code=429)
-    result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
+    result = openai_compatible_error_from_response(response)
     assert result == "quota exceeded"
 
 
@@ -574,7 +582,7 @@ def test_openai_compatible_error_from_response_dict_error_with_message() -> None
         {"error": {"message": "model not found", "code": "not_found"}},
         status_code=404,
     )
-    result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
+    result = openai_compatible_error_from_response(response)
     assert result == "model not found"
 
 
@@ -584,7 +592,7 @@ def test_openai_compatible_error_from_response_redacts_secret_shapes() -> None:
         status_code=401,
     )
 
-    result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
+    result = openai_compatible_error_from_response(response)
 
     assert "llm-secret-token" not in result
     assert "api_key=<redacted>" in result
@@ -592,7 +600,7 @@ def test_openai_compatible_error_from_response_redacts_secret_shapes() -> None:
 
 def test_openai_compatible_error_from_response_fallback_on_no_error_key() -> None:
     response = _FakeHttpxResponse({"ok": False}, status_code=503)
-    result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
+    result = openai_compatible_error_from_response(response)
     assert result == "HTTP 503"
 
 
@@ -602,12 +610,12 @@ def test_openai_compatible_error_from_response_fallback_when_json_fails() -> Non
         status_code=500,
         json_error=ValueError("invalid json"),
     )
-    result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
+    result = openai_compatible_error_from_response(response)
     assert result == "HTTP 500"
 
 
 def test_openai_compatible_error_from_response_truncates_long_message() -> None:
     long_message = "x" * 300
     response = _FakeHttpxResponse({"error": long_message}, status_code=400)
-    result = _openai_compatible_error_from_response(response)  # type: ignore[arg-type]
+    result = openai_compatible_error_from_response(response)
     assert len(result) <= 240

@@ -43,71 +43,96 @@ def test_run_from_snapshot_propagates_shared_memory_bus(
     )
     settings.ensure_directories()
 
-    monkeypatch.setattr(
-        "agentic_trader.workflows.run_once.coordinate_research",
-        lambda *args, **kwargs: ResearchCoordinatorBrief(
+    def _coordinate_research(
+        *_args: object, **_kwargs: object
+    ) -> ResearchCoordinatorBrief:
+        return ResearchCoordinatorBrief(
             market_focus="trend_following",
             priority_signals=["trend_alignment"],
             caution_flags=[],
             summary="Coordinator summary",
-        ),
-    )
-    monkeypatch.setattr(
-        "agentic_trader.workflows.run_once.assess_fundamentals",
-        lambda *args, **kwargs: FundamentalAssessment(
+        )
+
+    def _assess_fundamentals(
+        *_args: object, **_kwargs: object
+    ) -> FundamentalAssessment:
+        return FundamentalAssessment(
             overall_bias="neutral",
             confidence=0.5,
             summary="Fundamental summary",
-        ),
-    )
-    monkeypatch.setattr(
-        "agentic_trader.workflows.run_once.assess_macro_context",
-        lambda *args, **kwargs: MacroAssessment(
+        )
+
+    def _assess_macro_context(*_args: object, **_kwargs: object) -> MacroAssessment:
+        return MacroAssessment(
             macro_signal="neutral",
             confidence=0.5,
             summary="Macro summary",
-        ),
-    )
-    monkeypatch.setattr(
-        "agentic_trader.workflows.run_once.assess_regime",
-        lambda *args, **kwargs: RegimeAssessment(
+        )
+
+    def _assess_regime(*_args: object, **_kwargs: object) -> RegimeAssessment:
+        return RegimeAssessment(
             regime="trend_up",
             direction_bias="long",
             confidence=0.74,
             reasoning="Regime summary",
-        ),
-    )
-    monkeypatch.setattr(
-        "agentic_trader.workflows.run_once.plan_trade",
-        lambda *args, **kwargs: StrategyPlan(
+        )
+
+    def _plan_trade(*_args: object, **_kwargs: object) -> StrategyPlan:
+        return StrategyPlan(
             strategy_family="trend_following",
             action="buy",
             timeframe="swing",
             entry_logic="Buy above EMA20.",
             invalidation_logic="Exit below EMA20.",
             confidence=0.76,
-        ),
-    )
-    monkeypatch.setattr(
-        "agentic_trader.workflows.run_once.build_risk_plan",
-        lambda *args, **kwargs: RiskPlan(
+        )
+
+    def _build_risk_plan(*_args: object, **_kwargs: object) -> RiskPlan:
+        return RiskPlan(
             position_size_pct=0.08,
             stop_loss=95.0,
             take_profit=110.0,
             risk_reward_ratio=2.0,
             max_holding_bars=20,
             notes="Risk summary",
-        ),
-    )
-    monkeypatch.setattr(
-        "agentic_trader.workflows.run_once.manage_trade_decision",
-        lambda *args, **kwargs: ManagerDecision(
+        )
+
+    def _manage_trade_decision(*_args: object, **_kwargs: object) -> ManagerDecision:
+        return ManagerDecision(
             approved=True,
             action_bias="buy",
             confidence_cap=0.76,
             size_multiplier=1.0,
             rationale="Manager summary",
-        ),
+        )
+
+    monkeypatch.setattr(
+        "agentic_trader.workflows.run_once.coordinate_research",
+        _coordinate_research,
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.run_once.assess_fundamentals",
+        _assess_fundamentals,
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.run_once.assess_macro_context",
+        _assess_macro_context,
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.run_once.assess_regime",
+        _assess_regime,
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.run_once.plan_trade",
+        _plan_trade,
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.run_once.build_risk_plan",
+        _build_risk_plan,
+    )
+    monkeypatch.setattr(
+        "agentic_trader.workflows.run_once.manage_trade_decision",
+        _manage_trade_decision,
     )
 
     artifacts = run_from_snapshot(

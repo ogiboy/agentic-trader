@@ -54,6 +54,20 @@ Agentic Trader is a strict, local-first, multi-agent trading system for Ollama-c
 
 Agentic Trader is not a generic chat bot or hidden brokerage switch. The runtime uses a staged specialist graph, structured model outputs, a deterministic execution guard, DuckDB-backed persistence, and broker accounting. The default posture is local-first, paper-first, and explicit about missing data, model readiness, and blocked execution paths; V1 still targets an active US-equities buy/sell path through approved paper and Alpaca readiness gates.
 
+### Commercial Readiness Posture
+
+V1 is not marketed as revenue-ready or real-money autonomous trading software.
+The first monetizable direction is a local-first paper desk, evidence bundle,
+operator education, and personal automation workflow. Paid access, personalized
+investment advice, account-opening flows, order-routing involvement, managed
+live trading, copy trading, or performance-fee claims need a separate legal,
+security, support, and broker-readiness review first. The commercial blocker
+ledger lives in [ROADMAP.md](ROADMAP.md#v1-commercial-readiness-blockers) and is
+kept current against external references such as SEC investment-adviser and
+broker-dealer guidance, FINRA algorithmic-trading supervision notes, Alpaca
+trading/broker docs, NIST risk frameworks, OWASP LLM risks, and current model
+pricing pages.
+
 The repository is now a small monorepo-style workspace:
 
 | Path              | Purpose                                                                        |

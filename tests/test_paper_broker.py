@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import pytest
+from tests.typing_helpers import approx
 
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
@@ -271,4 +271,4 @@ def test_paper_broker_respects_cash_for_new_long_positions(tmp_path: Path) -> No
 
     assert order_id.startswith("paper-")
     assert db.get_position("AAA") is None
-    assert db.get_account_snapshot().cash == pytest.approx(1_000.0)
+    assert db.get_account_snapshot().cash == approx(1_000.0)
