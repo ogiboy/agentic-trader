@@ -199,6 +199,8 @@ from agentic_trader.ui_text import (
     HELP_MODEL_SERVICE_PORT,
     HELP_OLLAMA_OWNER,
     HELP_RUN_ID,
+    HELP_RUNTIME_MODE_PROVIDER_CHECK,
+    HELP_RUNTIME_MODE_TARGET,
     HELP_SETUP_DRY_RUN,
     HELP_SYMBOL,
     HELP_TOOL_OWNERSHIP_APP,
@@ -222,6 +224,7 @@ from agentic_trader.ui_text import (
     LABEL_APPROVED,
     LABEL_BASE_URL,
     LABEL_BASELINE,
+    LABEL_BACKEND,
     LABEL_BIAS,
     LABEL_BLOCKING,
     LABEL_CAMOFOX,
@@ -238,6 +241,7 @@ from agentic_trader.ui_text import (
     LABEL_CURRENT,
     LABEL_CURRENT_SYMBOL,
     LABEL_CYCLE,
+    LABEL_CYCLE_CONTROL,
     LABEL_CYCLE_COUNT,
     LABEL_CYCLES,
     LABEL_DAILY_REALIZED_PNL,
@@ -247,12 +251,14 @@ from agentic_trader.ui_text import (
     LABEL_DECISION_PATH,
     LABEL_DELTA,
     LABEL_DETAILS,
+    LABEL_DIGEST_REPLAY,
     LABEL_DRAWDOWN_FROM_PEAK,
     LABEL_ENDING_EQUITY,
     LABEL_ENTRY,
     LABEL_ENTRY_PX,
     LABEL_ENVIRONMENT,
     LABEL_EQUITY,
+    LABEL_ENABLED,
     LABEL_EXIT,
     LABEL_EXIT_CODE,
     LABEL_EXIT_PX,
@@ -265,6 +271,7 @@ from agentic_trader.ui_text import (
     LABEL_FILLS_TODAY,
     LABEL_FINAL_RATIONALE,
     LABEL_FINAL_SIDE,
+    LABEL_FRESHNESS,
     LABEL_GENERATED,
     LABEL_GROSS_EXPOSURE,
     LABEL_HEARTBEAT,
@@ -273,9 +280,11 @@ from agentic_trader.ui_text import (
     LABEL_INTERVAL,
     LABEL_KEY,
     LABEL_LARGEST_POSITION,
+    LABEL_LAST_ERROR,
     LABEL_LAST_RECORDED_ERROR,
     LABEL_LAST_RECORDED_MESSAGE,
     LABEL_LAST_RECORDED_STATE,
+    LABEL_LAST_SUCCESSFUL_UPDATE,
     LABEL_LATEST_ORDER,
     LABEL_LEVEL,
     LABEL_LIVE_PROCESS,
@@ -320,6 +329,7 @@ from agentic_trader.ui_text import (
     LABEL_POLL_SECONDS,
     LABEL_PREFERENCE_UPDATE,
     LABEL_PRESET,
+    LABEL_PROVIDER,
     LABEL_PROPOSAL,
     LABEL_PURPOSE,
     LABEL_RATIONALE,
@@ -365,14 +375,17 @@ from agentic_trader.ui_text import (
     LABEL_TOOLS,
     LABEL_TOTAL_RETURN,
     LABEL_TRADES,
+    LABEL_TRIGGER_NOW,
     LABEL_TYPE,
     LABEL_UNREALIZED_PNL,
     LABEL_UPDATE_PREFERENCES,
     LABEL_UPDATED,
+    LABEL_UPDATED_AT,
     LABEL_V1_SOURCE,
     LABEL_VALUE,
     LABEL_WARMUP_BARS,
     LABEL_WARNINGS,
+    LABEL_WATCHED_SYMBOLS,
     LABEL_WEB_GUI,
     LABEL_WIN_RATE,
     LABEL_WITH_MEMORY,
@@ -417,6 +430,7 @@ from agentic_trader.ui_text import (
     STAGE_STRATEGY,
     STATUS_ACTIVE,
     STATUS_APP_OWNED,
+    STATUS_AVAILABLE,
     STATUS_EXTERNAL,
     STATUS_NEEDS_ATTENTION,
     STATUS_READY,
@@ -455,6 +469,8 @@ from agentic_trader.ui_text import (
     TITLE_POSITION_PLAN_REPAIR,
     TITLE_PROPOSAL_CANDIDATES,
     TITLE_RECOMMENDED_NEXT_COMMANDS,
+    TITLE_RESEARCH_SIDECAR_STATUS,
+    TITLE_RESEARCH_SOURCE_HEALTH,
     TITLE_REPLAY_STAGES,
     TITLE_REVIEW_NOTE,
     TITLE_RISK_WARNINGS,
@@ -4523,12 +4539,12 @@ def camofox_service_stop(
 @app.command("runtime-mode-checklist")
 def runtime_mode_checklist(
     target_mode: RuntimeMode = typer.Argument(
-        ..., help="Target runtime mode: training or operation."
+        ..., help=HELP_RUNTIME_MODE_TARGET
     ),
     check_provider: bool = typer.Option(
         True,
         "--provider-check/--skip-provider-check",
-        help="Check local provider/model readiness for Operation mode.",
+        help=HELP_RUNTIME_MODE_PROVIDER_CHECK,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -4598,39 +4614,42 @@ def _latest_research_digest_replay_payload(settings: Settings) -> dict[str, obje
 
 
 def _render_research_sidecar_state(payload: dict[str, object]) -> None:
-    table = Table(title="Research Sidecar Status")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Mode", str(payload["mode"]))
-    table.add_row("Enabled", str(payload["enabled"]))
-    table.add_row("Backend", str(payload["backend"]))
-    table.add_row("Status", str(payload["status"]))
-    table.add_row("Updated At", str(payload["updated_at"]))
+    table = Table(title=TITLE_RESEARCH_SIDECAR_STATUS)
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_MODE, str(payload["mode"]))
+    table.add_row(LABEL_ENABLED, str(payload["enabled"]))
+    table.add_row(LABEL_BACKEND, str(payload["backend"]))
+    table.add_row(LABEL_STATUS, str(payload["status"]))
+    table.add_row(LABEL_UPDATED_AT, str(payload["updated_at"]))
     table.add_row(
-        "Watched Symbols",
+        LABEL_WATCHED_SYMBOLS,
         ", ".join(cast(list[str], payload["watched_symbols"])) or "-",
     )
     last_success = payload.get("last_successful_update_at")
-    table.add_row("Last Successful Update", str(last_success or "-"))
+    table.add_row(LABEL_LAST_SUCCESSFUL_UPDATE, str(last_success or "-"))
     last_error = payload.get("last_error")
-    table.add_row("Last Error", str(last_error or "-"))
+    table.add_row(LABEL_LAST_ERROR, str(last_error or "-"))
     control = cast(dict[str, object], payload.get("cycleControl", {}))
-    table.add_row("Cycle Control", str(control.get("status", "-")))
+    table.add_row(LABEL_CYCLE_CONTROL, str(control.get("status", "-")))
     table.add_row(
-        "Trigger Now",
-        "yes" if control.get("trigger_now_requested") else "no",
+        LABEL_TRIGGER_NOW,
+        LABEL_YES if control.get("trigger_now_requested") else LABEL_NO,
     )
     replay = cast(dict[str, object], payload.get("latestDigestReplay", {}))
-    table.add_row("Digest Replay", "available" if replay.get("available") else "-")
+    table.add_row(
+        LABEL_DIGEST_REPLAY,
+        STATUS_AVAILABLE if replay.get("available") else "-",
+    )
     console.print(table)
 
     providers = cast(list[dict[str, object]], payload["provider_health"])
-    provider_table = Table(title="Research Source Health")
-    provider_table.add_column("Provider")
-    provider_table.add_column("Type")
-    provider_table.add_column("Enabled")
-    provider_table.add_column("Freshness")
-    provider_table.add_column("Message")
+    provider_table = Table(title=TITLE_RESEARCH_SOURCE_HEALTH)
+    provider_table.add_column(LABEL_PROVIDER)
+    provider_table.add_column(LABEL_TYPE)
+    provider_table.add_column(LABEL_ENABLED)
+    provider_table.add_column(LABEL_FRESHNESS)
+    provider_table.add_column(LABEL_MESSAGE)
     for provider in providers:
         provider_table.add_row(
             str(provider["provider_id"]),

@@ -49,6 +49,8 @@ class UITextCatalog:
     help_camofox_service_host: str
     help_camofox_service_port: str
     help_run_id: str
+    help_runtime_mode_provider_check: str
+    help_runtime_mode_target: str
     help_setup_dry_run: str
     help_symbol: str
     help_tool_ownership_app: str
@@ -72,6 +74,7 @@ class UITextCatalog:
     label_approved: str
     label_baseline: str
     label_base_url: str
+    label_backend: str
     label_bias: str
     label_blocking: str
     label_camofox: str
@@ -88,6 +91,7 @@ class UITextCatalog:
     label_current: str
     label_current_symbol: str
     label_cycle: str
+    label_cycle_control: str
     label_cycle_count: str
     label_cycles: str
     label_database: str
@@ -97,11 +101,13 @@ class UITextCatalog:
     label_decision_path: str
     label_details: str
     label_delta: str
+    label_digest_replay: str
     label_drawdown_from_peak: str
     label_ending_equity: str
     label_entry: str
     label_entry_px: str
     label_equity: str
+    label_enabled: str
     label_exposure: str
     label_exit: str
     label_exit_code: str
@@ -114,6 +120,7 @@ class UITextCatalog:
     label_fills_today: str
     label_final_rationale: str
     label_final_side: str
+    label_freshness: str
     label_generated: str
     label_gross_exposure: str
     label_heartbeat: str
@@ -128,6 +135,8 @@ class UITextCatalog:
     label_largest_position: str
     label_level: str
     label_latest_order: str
+    label_last_error: str
+    label_last_successful_update: str
     label_llm_provider: str
     label_live_process: str
     label_llm: str
@@ -170,6 +179,7 @@ class UITextCatalog:
     label_poll_seconds: str
     label_preset: str
     label_preference_update: str
+    label_provider: str
     label_proposal: str
     label_rationale: str
     label_realized_pnl: str
@@ -214,10 +224,12 @@ class UITextCatalog:
     label_tools: str
     label_total_return: str
     label_trades: str
+    label_trigger_now: str
     label_type: str
     label_purpose: str
     label_update_preferences: str
     label_updated: str
+    label_updated_at: str
     label_unrealized_pnl: str
     label_value: str
     label_warmup_bars: str
@@ -227,6 +239,7 @@ class UITextCatalog:
     label_without_memory: str
     label_v1_source: str
     label_web_gui: str
+    label_watched_symbols: str
     label_workspace: str
     label_yes: str
     list_separator: str
@@ -270,6 +283,7 @@ class UITextCatalog:
     style_key_column: str
     status_active: str
     status_app_owned: str
+    status_available: str
     status_external: str
     status_needs_attention: str
     status_ready: str
@@ -319,6 +333,8 @@ class UITextCatalog:
     title_proposal_candidates: str
     title_position_plan_repair: str
     title_recommended_next_commands: str
+    title_research_sidecar_status: str
+    title_research_source_health: str
     title_setup_status: str
     title_setup_guidance: str
     title_trace: str
@@ -365,6 +381,8 @@ EN_TEXT = UITextCatalog(
     help_camofox_service_host="Loopback bind host for app-managed Camofox.",
     help_camofox_service_port="Preferred app-managed Camofox port.",
     help_run_id="Run id to inspect. Defaults to the latest recorded run.",
+    help_runtime_mode_provider_check="Check local provider/model readiness for Operation mode.",
+    help_runtime_mode_target="Target runtime mode: training or operation.",
     help_setup_dry_run="Report setup status. Use make bootstrap for interactive installs.",
     help_symbol="Ticker symbol, for example AAPL or BTC-USD",
     help_tool_ownership_app="Inspect or record optional helper ownership decisions.",
@@ -388,6 +406,7 @@ EN_TEXT = UITextCatalog(
     label_approved="Approved",
     label_baseline="Baseline",
     label_base_url="Base URL",
+    label_backend="Backend",
     label_bias="Bias",
     label_blocking="Blocking",
     label_camofox="Camofox",
@@ -404,6 +423,7 @@ EN_TEXT = UITextCatalog(
     label_current="Current",
     label_current_symbol="Current Symbol",
     label_cycle="Cycle",
+    label_cycle_control="Cycle Control",
     label_cycle_count="Cycle Count",
     label_cycles="Cycles",
     label_database="Database",
@@ -413,11 +433,13 @@ EN_TEXT = UITextCatalog(
     label_decision_path="Decision Path",
     label_details="Details",
     label_delta="Delta",
+    label_digest_replay="Digest Replay",
     label_drawdown_from_peak="Drawdown From Peak",
     label_ending_equity="Ending Equity",
     label_entry="Entry",
     label_entry_px="Entry Px",
     label_equity="Equity",
+    label_enabled="Enabled",
     label_exposure="Exposure",
     label_exit="Exit",
     label_exit_code="Exit Code",
@@ -430,6 +452,7 @@ EN_TEXT = UITextCatalog(
     label_fills_today="Fills Today",
     label_final_rationale="Final Rationale",
     label_final_side="Final Side",
+    label_freshness="Freshness",
     label_generated="Generated",
     label_gross_exposure="Gross Exposure",
     label_heartbeat="Heartbeat",
@@ -442,6 +465,8 @@ EN_TEXT = UITextCatalog(
     label_last_recorded_message="Last Recorded Message",
     label_last_recorded_state="Last Recorded State",
     label_largest_position="Largest Position",
+    label_last_error="Last Error",
+    label_last_successful_update="Last Successful Update",
     label_level="Level",
     label_latest_order="Latest Order",
     label_llm_provider="LLM Provider",
@@ -486,6 +511,7 @@ EN_TEXT = UITextCatalog(
     label_poll_seconds="Poll Seconds",
     label_preset="Preset",
     label_preference_update="Preference Update",
+    label_provider="Provider",
     label_proposal="Proposal",
     label_rationale="Rationale",
     label_realized_pnl="Realized PnL",
@@ -530,13 +556,16 @@ EN_TEXT = UITextCatalog(
     label_tools="Tools",
     label_total_return="Total Return",
     label_trades="Trades",
+    label_trigger_now="Trigger Now",
     label_type="Type",
     label_purpose="Purpose",
     label_update_preferences="Update Preferences",
     label_updated="Updated",
+    label_updated_at="Updated At",
     label_unrealized_pnl="Unrealized PnL",
     label_value="Value",
     label_warmup_bars="Warmup Bars",
+    label_watched_symbols="Watched Symbols",
     label_with_memory="With Memory",
     label_warnings="Warnings",
     label_win_rate="Win Rate",
@@ -599,6 +628,7 @@ EN_TEXT = UITextCatalog(
     style_key_column="bold cyan",
     status_active="active",
     status_app_owned="app-owned",
+    status_available="available",
     status_external="external",
     status_needs_attention="needs attention",
     status_ready="ready",
@@ -648,6 +678,8 @@ EN_TEXT = UITextCatalog(
     title_proposal_candidates="Proposal Candidates",
     title_position_plan_repair="Position Plan Repair",
     title_recommended_next_commands="Recommended Next Commands",
+    title_research_sidecar_status="Research Sidecar Status",
+    title_research_source_health="Research Source Health",
     title_setup_status="Setup Status",
     title_setup_guidance="Setup Guidance",
     title_trace="Trace",
@@ -697,6 +729,8 @@ TR_TEXT = UITextCatalog(
     help_camofox_service_host="App-managed Camofox icin loopback bind host.",
     help_camofox_service_port="Tercih edilen app-managed Camofox portu.",
     help_run_id="Incelenecek run id. Varsayilan son kayitli run.",
+    help_runtime_mode_provider_check="Operation modu icin yerel provider/model hazirligini kontrol et.",
+    help_runtime_mode_target="Hedef runtime modu: training veya operation.",
     help_setup_dry_run="Setup durumunu raporla. Interaktif kurulumlar icin make bootstrap kullan.",
     help_symbol="Ticker sembolu, ornegin AAPL veya BTC-USD",
     help_tool_ownership_app="Istege bagli yardimci arac sahipligi kararlarini incele veya kaydet.",
@@ -720,6 +754,7 @@ TR_TEXT = UITextCatalog(
     label_approved="Onaylandi",
     label_baseline="Baseline",
     label_base_url="Base URL",
+    label_backend="Backend",
     label_bias="Bias",
     label_blocking="Bloklayici",
     label_camofox="Camofox",
@@ -736,6 +771,7 @@ TR_TEXT = UITextCatalog(
     label_current="Gecerli",
     label_current_symbol="Gecerli Sembol",
     label_cycle="Dongu",
+    label_cycle_control="Cycle Control",
     label_cycle_count="Dongu Sayisi",
     label_cycles="Donguler",
     label_database="Veritabani",
@@ -745,11 +781,13 @@ TR_TEXT = UITextCatalog(
     label_decision_path="Karar Yolu",
     label_details="Detaylar",
     label_delta="Delta",
+    label_digest_replay="Digest Replay",
     label_drawdown_from_peak="Zirveden Drawdown",
     label_ending_equity="Final Equity",
     label_entry="Giris",
     label_entry_px="Giris Fiyati",
     label_equity="Equity",
+    label_enabled="Etkin",
     label_exposure="Exposure",
     label_exit="Cikis",
     label_exit_code="Exit Code",
@@ -762,6 +800,7 @@ TR_TEXT = UITextCatalog(
     label_fills_today="Bugunku Fill'ler",
     label_final_rationale="Final Gerekce",
     label_final_side="Final Yon",
+    label_freshness="Freshness",
     label_generated="Uretildi",
     label_gross_exposure="Brut Exposure",
     label_heartbeat="Heartbeat",
@@ -774,6 +813,8 @@ TR_TEXT = UITextCatalog(
     label_last_recorded_message="Son Kayitli Mesaj",
     label_last_recorded_state="Son Kayitli Durum",
     label_largest_position="En Buyuk Pozisyon",
+    label_last_error="Son Hata",
+    label_last_successful_update="Son Basarili Guncelleme",
     label_level="Seviye",
     label_latest_order="Son Order",
     label_llm_provider="LLM Provider",
@@ -818,6 +859,7 @@ TR_TEXT = UITextCatalog(
     label_poll_seconds="Poll Saniyesi",
     label_preset="Preset",
     label_preference_update="Preference Guncellemesi",
+    label_provider="Provider",
     label_proposal="Proposal",
     label_rationale="Gerekce",
     label_realized_pnl="Gerceklesen PnL",
@@ -862,13 +904,16 @@ TR_TEXT = UITextCatalog(
     label_tools="Araclar",
     label_total_return="Toplam Return",
     label_trades="Trade'ler",
+    label_trigger_now="Simdi Tetikle",
     label_type="Tip",
     label_purpose="Amac",
     label_update_preferences="Tercihleri Guncelle",
     label_updated="Guncellendi",
+    label_updated_at="Guncelleme Zamani",
     label_unrealized_pnl="Gerceklesmemis PnL",
     label_value="Deger",
     label_warmup_bars="Warmup Bar'lari",
+    label_watched_symbols="Izlenen Semboller",
     label_with_memory="Hafiza Ile",
     label_warnings="Uyarilar",
     label_win_rate="Kazanma Orani",
@@ -931,6 +976,7 @@ TR_TEXT = UITextCatalog(
     style_key_column=EN_TEXT.style_key_column,
     status_active="aktif",
     status_app_owned="app-owned",
+    status_available="kullanilabilir",
     status_external="harici",
     status_needs_attention="dikkat gerekiyor",
     status_ready="hazir",
@@ -980,6 +1026,8 @@ TR_TEXT = UITextCatalog(
     title_proposal_candidates="Proposal Candidate'leri",
     title_position_plan_repair="Position Plan Repair",
     title_recommended_next_commands="Onerilen Sonraki Komutlar",
+    title_research_sidecar_status="Research Sidecar Durumu",
+    title_research_source_health="Research Kaynak Sagligi",
     title_setup_status="Setup Durumu",
     title_setup_guidance="Setup Rehberi",
     title_trace="Trace",
@@ -1034,6 +1082,8 @@ HELP_FIRECRAWL_OWNER = EN_TEXT.help_firecrawl_owner
 HELP_CAMOFOX_OWNER = EN_TEXT.help_camofox_owner
 HELP_CAMOFOX_SERVICE_HOST = EN_TEXT.help_camofox_service_host
 HELP_CAMOFOX_SERVICE_PORT = EN_TEXT.help_camofox_service_port
+HELP_RUNTIME_MODE_PROVIDER_CHECK = EN_TEXT.help_runtime_mode_provider_check
+HELP_RUNTIME_MODE_TARGET = EN_TEXT.help_runtime_mode_target
 HELP_SETUP_DRY_RUN = EN_TEXT.help_setup_dry_run
 HELP_CLI_APP = EN_TEXT.cli_app_help
 HELP_MODEL_SERVICE_APP = EN_TEXT.help_model_service_app
@@ -1073,6 +1123,7 @@ LABEL_ALLOWED = EN_TEXT.label_allowed
 LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_BASELINE = EN_TEXT.label_baseline
 LABEL_BASE_URL = EN_TEXT.label_base_url
+LABEL_BACKEND = EN_TEXT.label_backend
 LABEL_BIAS = EN_TEXT.label_bias
 LABEL_BLOCKING = EN_TEXT.label_blocking
 LABEL_CAMOFOX = EN_TEXT.label_camofox
@@ -1089,6 +1140,7 @@ LABEL_CURRENCY = EN_TEXT.label_currency
 LABEL_CURRENT = EN_TEXT.label_current
 LABEL_CURRENT_SYMBOL = EN_TEXT.label_current_symbol
 LABEL_CYCLE = EN_TEXT.label_cycle
+LABEL_CYCLE_CONTROL = EN_TEXT.label_cycle_control
 LABEL_CYCLE_COUNT = EN_TEXT.label_cycle_count
 LABEL_CYCLES = EN_TEXT.label_cycles
 LABEL_DATABASE = EN_TEXT.label_database
@@ -1098,11 +1150,13 @@ LABEL_DECISION = EN_TEXT.label_decision
 LABEL_DECISION_PATH = EN_TEXT.label_decision_path
 LABEL_DETAILS = EN_TEXT.label_details
 LABEL_DELTA = EN_TEXT.label_delta
+LABEL_DIGEST_REPLAY = EN_TEXT.label_digest_replay
 LABEL_DRAWDOWN_FROM_PEAK = EN_TEXT.label_drawdown_from_peak
 LABEL_ENDING_EQUITY = EN_TEXT.label_ending_equity
 LABEL_ENTRY = EN_TEXT.label_entry
 LABEL_ENTRY_PX = EN_TEXT.label_entry_px
 LABEL_EQUITY = EN_TEXT.label_equity
+LABEL_ENABLED = EN_TEXT.label_enabled
 LABEL_EXPOSURE = EN_TEXT.label_exposure
 LABEL_EXIT = EN_TEXT.label_exit
 LABEL_EXIT_CODE = EN_TEXT.label_exit_code
@@ -1115,6 +1169,7 @@ LABEL_FIELD = EN_TEXT.label_field
 LABEL_FILLS_TODAY = EN_TEXT.label_fills_today
 LABEL_FINAL_RATIONALE = EN_TEXT.label_final_rationale
 LABEL_FINAL_SIDE = EN_TEXT.label_final_side
+LABEL_FRESHNESS = EN_TEXT.label_freshness
 LABEL_GENERATED = EN_TEXT.label_generated
 LABEL_GROSS_EXPOSURE = EN_TEXT.label_gross_exposure
 LABEL_HEARTBEAT = EN_TEXT.label_heartbeat
@@ -1127,6 +1182,8 @@ LABEL_LAST_RECORDED_ERROR = EN_TEXT.label_last_recorded_error
 LABEL_LAST_RECORDED_MESSAGE = EN_TEXT.label_last_recorded_message
 LABEL_LAST_RECORDED_STATE = EN_TEXT.label_last_recorded_state
 LABEL_LARGEST_POSITION = EN_TEXT.label_largest_position
+LABEL_LAST_ERROR = EN_TEXT.label_last_error
+LABEL_LAST_SUCCESSFUL_UPDATE = EN_TEXT.label_last_successful_update
 LABEL_LEVEL = EN_TEXT.label_level
 LABEL_LATEST_ORDER = EN_TEXT.label_latest_order
 LABEL_LLM_PROVIDER = EN_TEXT.label_llm_provider
@@ -1171,6 +1228,7 @@ LABEL_PATH = EN_TEXT.label_path
 LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
 LABEL_PRESET = EN_TEXT.label_preset
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
+LABEL_PROVIDER = EN_TEXT.label_provider
 LABEL_PROPOSAL = EN_TEXT.label_proposal
 LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
@@ -1215,13 +1273,16 @@ LABEL_TOOL = EN_TEXT.label_tool
 LABEL_TOOLS = EN_TEXT.label_tools
 LABEL_TOTAL_RETURN = EN_TEXT.label_total_return
 LABEL_TRADES = EN_TEXT.label_trades
+LABEL_TRIGGER_NOW = EN_TEXT.label_trigger_now
 LABEL_TYPE = EN_TEXT.label_type
 LABEL_PURPOSE = EN_TEXT.label_purpose
 LABEL_UPDATE_PREFERENCES = EN_TEXT.label_update_preferences
 LABEL_UPDATED = EN_TEXT.label_updated
+LABEL_UPDATED_AT = EN_TEXT.label_updated_at
 LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
 LABEL_VALUE = EN_TEXT.label_value
 LABEL_WARMUP_BARS = EN_TEXT.label_warmup_bars
+LABEL_WATCHED_SYMBOLS = EN_TEXT.label_watched_symbols
 LABEL_WITH_MEMORY = EN_TEXT.label_with_memory
 LABEL_WARNINGS = EN_TEXT.label_warnings
 LABEL_WIN_RATE = EN_TEXT.label_win_rate
@@ -1321,6 +1382,8 @@ TITLE_TRADE_PROPOSALS = EN_TEXT.title_trade_proposals
 TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
 TITLE_RECOMMENDED_NEXT_COMMANDS = EN_TEXT.title_recommended_next_commands
+TITLE_RESEARCH_SIDECAR_STATUS = EN_TEXT.title_research_sidecar_status
+TITLE_RESEARCH_SOURCE_HEALTH = EN_TEXT.title_research_source_health
 TITLE_SETUP_GUIDANCE = EN_TEXT.title_setup_guidance
 TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
 TITLE_TRACE = EN_TEXT.title_trace
@@ -1340,6 +1403,7 @@ PROMPT_SELECT_ACTION = EN_TEXT.prompt_select_action
 STYLE_KEY_COLUMN = EN_TEXT.style_key_column
 STATUS_ACTIVE = EN_TEXT.status_active
 STATUS_APP_OWNED = EN_TEXT.status_app_owned
+STATUS_AVAILABLE = EN_TEXT.status_available
 STATUS_EXTERNAL = EN_TEXT.status_external
 STATUS_NEEDS_ATTENTION = EN_TEXT.status_needs_attention
 STATUS_READY = EN_TEXT.status_ready
