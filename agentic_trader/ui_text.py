@@ -21,6 +21,19 @@ class UITextCatalog:
     cli_app_help: str
     db_locked_msg: str
     help_camofox_service_app: str
+    help_idea_change_pct: str
+    help_idea_ema_9: str
+    help_idea_gap_pct: str
+    help_idea_preset: str
+    help_idea_price: str
+    help_idea_range_pct: str
+    help_idea_relative_volume: str
+    help_idea_rsi: str
+    help_idea_sma_20: str
+    help_idea_sma_50: str
+    help_idea_spread_pct: str
+    help_idea_volume: str
+    help_idea_vwap: str
     help_interval: str
     help_json: str
     help_lookback: str
@@ -35,6 +48,7 @@ class UITextCatalog:
     help_trade_order_type: str
     help_trade_quantity: str
     help_trade_reference_price: str
+    help_trade_review_notes: str
     help_trade_source: str
     help_trade_stop_loss: str
     help_trade_take_profit: str
@@ -60,6 +74,19 @@ EN_TEXT = UITextCatalog(
     cli_app_help="Agentic Trader CLI",
     db_locked_msg="The runtime writer currently owns the database.",
     help_camofox_service_app="Manage the optional app-owned local Camofox browser helper.",
+    help_idea_change_pct="Percent change over the scan window.",
+    help_idea_ema_9="9 EMA value.",
+    help_idea_gap_pct="Opening gap percent.",
+    help_idea_preset="Idea preset to apply.",
+    help_idea_price="Last or reference price.",
+    help_idea_range_pct="Intraday range percent.",
+    help_idea_relative_volume="Relative volume.",
+    help_idea_rsi="RSI value.",
+    help_idea_sma_20="20 SMA value.",
+    help_idea_sma_50="50 SMA value.",
+    help_idea_spread_pct="Bid/ask spread percent.",
+    help_idea_volume="Latest volume.",
+    help_idea_vwap="VWAP value.",
     help_interval="yfinance interval, for example 1d or 1h",
     help_json="Emit machine-readable JSON.",
     help_lookback="Lookback window accepted by yfinance",
@@ -74,6 +101,7 @@ EN_TEXT = UITextCatalog(
     help_trade_order_type="Proposal order type. V1 supports market or limit.",
     help_trade_quantity="Share quantity. Either quantity or notional is required.",
     help_trade_reference_price="Reference price used for the proposal.",
+    help_trade_review_notes="Optional review notes.",
     help_trade_source="Source label such as manual, scanner, or research-sidecar.",
     help_trade_stop_loss="Optional stop loss.",
     help_trade_take_profit="Optional take profit.",
@@ -102,6 +130,19 @@ TR_TEXT = UITextCatalog(
     cli_app_help="Agentic Trader CLI",
     db_locked_msg="Runtime writer veritabaninin sahibi; biraz sonra tekrar deneyin.",
     help_camofox_service_app="Istege bagli app-owned yerel Camofox browser yardimcisini yonet.",
+    help_idea_change_pct="Tarama penceresindeki yuzde degisim.",
+    help_idea_ema_9="9 EMA degeri.",
+    help_idea_gap_pct="Acilis gap yuzdesi.",
+    help_idea_preset="Uygulanacak idea preset.",
+    help_idea_price="Son veya referans fiyat.",
+    help_idea_range_pct="Gun ici range yuzdesi.",
+    help_idea_relative_volume="Relative volume.",
+    help_idea_rsi="RSI degeri.",
+    help_idea_sma_20="20 SMA degeri.",
+    help_idea_sma_50="50 SMA degeri.",
+    help_idea_spread_pct="Bid/ask spread yuzdesi.",
+    help_idea_volume="Son volume.",
+    help_idea_vwap="VWAP degeri.",
     help_interval="yfinance araligi, ornegin 1d veya 1h",
     help_json="Makine tarafindan okunabilir JSON uret.",
     help_lookback="yfinance tarafindan kabul edilen geriye donuk pencere",
@@ -116,6 +157,7 @@ TR_TEXT = UITextCatalog(
     help_trade_order_type="Proposal emir tipi. V1 market veya limit destekler.",
     help_trade_quantity="Hisse adedi. Quantity veya notional degerlerinden biri gereklidir.",
     help_trade_reference_price="Proposal icin kullanilan referans fiyat.",
+    help_trade_review_notes="Istege bagli review notlari.",
     help_trade_source="manual, scanner veya research-sidecar gibi kaynak etiketi.",
     help_trade_stop_loss="Istege bagli stop loss.",
     help_trade_take_profit="Istege bagli take profit.",
@@ -172,6 +214,19 @@ HELP_MODEL_SERVICE_APP = EN_TEXT.help_model_service_app
 HELP_WEBGUI_SERVICE_APP = EN_TEXT.help_webgui_service_app
 HELP_CAMOFOX_SERVICE_APP = EN_TEXT.help_camofox_service_app
 HELP_TOOL_OWNERSHIP_APP = EN_TEXT.help_tool_ownership_app
+HELP_IDEA_CHANGE_PCT = EN_TEXT.help_idea_change_pct
+HELP_IDEA_EMA_9 = EN_TEXT.help_idea_ema_9
+HELP_IDEA_GAP_PCT = EN_TEXT.help_idea_gap_pct
+HELP_IDEA_PRESET = EN_TEXT.help_idea_preset
+HELP_IDEA_PRICE = EN_TEXT.help_idea_price
+HELP_IDEA_RANGE_PCT = EN_TEXT.help_idea_range_pct
+HELP_IDEA_RELATIVE_VOLUME = EN_TEXT.help_idea_relative_volume
+HELP_IDEA_RSI = EN_TEXT.help_idea_rsi
+HELP_IDEA_SMA_20 = EN_TEXT.help_idea_sma_20
+HELP_IDEA_SMA_50 = EN_TEXT.help_idea_sma_50
+HELP_IDEA_SPREAD_PCT = EN_TEXT.help_idea_spread_pct
+HELP_IDEA_VOLUME = EN_TEXT.help_idea_volume
+HELP_IDEA_VWAP = EN_TEXT.help_idea_vwap
 HELP_TRADE_CONFIDENCE = EN_TEXT.help_trade_confidence
 HELP_TRADE_INVALIDATION = EN_TEXT.help_trade_invalidation
 HELP_TRADE_LIMIT_PRICE = EN_TEXT.help_trade_limit_price
@@ -180,6 +235,7 @@ HELP_TRADE_QUANTITY = EN_TEXT.help_trade_quantity
 HELP_TRADE_NOTIONAL = EN_TEXT.help_trade_notional
 HELP_TRADE_ORDER_TYPE = EN_TEXT.help_trade_order_type
 HELP_TRADE_REFERENCE_PRICE = EN_TEXT.help_trade_reference_price
+HELP_TRADE_REVIEW_NOTES = EN_TEXT.help_trade_review_notes
 HELP_TRADE_SOURCE = EN_TEXT.help_trade_source
 HELP_TRADE_STOP_LOSS = EN_TEXT.help_trade_stop_loss
 HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
