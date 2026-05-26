@@ -213,6 +213,7 @@ from agentic_trader.ui_text import (
     LABEL_ALLOWED,
     LABEL_APPROVED,
     LABEL_BASELINE,
+    LABEL_BASE_URL,
     LABEL_BIAS,
     LABEL_BLOCKING,
     LABEL_CATEGORY,
@@ -229,6 +230,8 @@ from agentic_trader.ui_text import (
     LABEL_CYCLE,
     LABEL_CYCLE_COUNT,
     LABEL_CYCLES,
+    LABEL_DATABASE,
+    LABEL_DB_STATUS,
     LABEL_DAILY_REALIZED_PNL,
     LABEL_DECISION,
     LABEL_DECISION_PATH,
@@ -256,14 +259,18 @@ from agentic_trader.ui_text import (
     LABEL_HEARTBEAT_AGE,
     LABEL_ID,
     LABEL_INTERVAL,
+    LABEL_ENVIRONMENT,
     LABEL_KEY,
     LABEL_LAST_RECORDED_ERROR,
     LABEL_LAST_RECORDED_MESSAGE,
     LABEL_LAST_RECORDED_STATE,
     LABEL_LARGEST_POSITION,
     LABEL_LEVEL,
+    LABEL_LATEST_ORDER,
+    LABEL_LLM_PROVIDER,
     LABEL_LIVE_PROCESS,
     LABEL_LLM,
+    LABEL_LOCALE,
     LABEL_LOOKBACK,
     LABEL_MARKET_VALUE,
     LABEL_MARK_SOURCE,
@@ -277,6 +284,8 @@ from agentic_trader.ui_text import (
     LABEL_METRIC,
     LABEL_MODE,
     LABEL_MODEL,
+    LABEL_MODEL_AVAILABLE,
+    LABEL_MODEL_ROUTING,
     LABEL_MULTI_TIMEFRAME,
     LABEL_NO,
     LABEL_NOTES,
@@ -284,9 +293,11 @@ from agentic_trader.ui_text import (
     LABEL_OPEN_POSITIONS,
     LABEL_OPENED,
     LABEL_ORDER_ID,
+    LABEL_OLLAMA_REACHABLE,
     LABEL_OUTPUT,
     LABEL_OUTPUT_PREVIEW,
     LABEL_PASSED,
+    LABEL_PERSISTED,
     LABEL_PID,
     LABEL_PNL,
     LABEL_POLL_SECONDS,
@@ -303,6 +314,7 @@ from agentic_trader.ui_text import (
     LABEL_RETURN,
     LABEL_ROLE,
     LABEL_RUNTIME,
+    LABEL_RUNTIME_DIR,
     LABEL_SERVICE,
     LABEL_SIDE,
     LABEL_SOURCE,
@@ -322,6 +334,7 @@ from agentic_trader.ui_text import (
     LABEL_SUMMARY,
     LABEL_SYMBOL,
     LABEL_SYMBOLS,
+    LABEL_SUPPORTED,
     LABEL_TARGET,
     LABEL_TAKE,
     LABEL_TAKE_PROFIT,
@@ -359,6 +372,8 @@ from agentic_trader.ui_text import (
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
+    MESSAGE_TRADING_RUNTIME_BLOCKED,
+    MESSAGE_TRADING_RUNTIME_READY,
     MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
     STAGE_COORDINATOR,
     STAGE_CONSENSUS,
@@ -378,6 +393,7 @@ from agentic_trader.ui_text import (
     TITLE_EXECUTION_SUMMARY,
     TITLE_DAILY_RISK_REPORT,
     TITLE_DESK_ACCOUNTING_CONTEXT,
+    TITLE_ENVIRONMENT_CHECK,
     TITLE_FINANCE_LEDGER_CATEGORIES,
     TITLE_FINANCE_OPERATIONS,
     TITLE_FINANCE_OPERATIONS_CHECKS,
@@ -404,6 +420,7 @@ from agentic_trader.ui_text import (
     TITLE_TRADE_PROPOSALS,
     TITLE_TRACE,
     TITLE_TRAINING_DIAGNOSTIC_MODE,
+    TITLE_UI_LOCALE,
     TITLE_WARNING,
     TITLE_WALK_FORWARD_BACKTEST,
     UILocale,
@@ -3617,13 +3634,13 @@ def locale_command(
     if json_output:
         _emit_json(payload)
         return
-    table = Table(title="UI Locale")
-    table.add_column("Field", style=STYLE_KEY_COLUMN)
-    table.add_column("Value")
-    table.add_row("Locale", str(payload["locale"]))
-    table.add_row("Supported", ", ".join(SUPPORTED_UI_LOCALES))
-    table.add_row("Environment", UI_LOCALE_ENV)
-    table.add_row("Persisted", str(persisted))
+    table = Table(title=TITLE_UI_LOCALE)
+    table.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_LOCALE, str(payload["locale"]))
+    table.add_row(LABEL_SUPPORTED, UI_LIST_SEPARATOR.join(SUPPORTED_UI_LOCALES))
+    table.add_row(LABEL_ENVIRONMENT, UI_LOCALE_ENV)
+    table.add_row(LABEL_PERSISTED, str(persisted))
     console.print(table)
 
 
@@ -3672,33 +3689,33 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
         _emit_json(payload)
         return
 
-    table = Table(title="Environment Check")
-    table.add_column("Key")
-    table.add_column("Value")
-    table.add_row("LLM Provider", settings.llm_provider)
-    table.add_row("Model", settings.model_name)
-    table.add_row("Runtime Mode", settings.runtime_mode)
-    table.add_row("Base URL", settings.base_url)
-    table.add_row("Runtime Dir", str(settings.runtime_dir))
-    table.add_row("Database", str(settings.database_path))
-    table.add_row("DB Status", db_status)
-    table.add_row("Model Routing", json.dumps(settings.model_routing(), indent=2))
+    table = Table(title=TITLE_ENVIRONMENT_CHECK)
+    table.add_column(LABEL_KEY)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_LLM_PROVIDER, settings.llm_provider)
+    table.add_row(LABEL_MODEL, settings.model_name)
+    table.add_row(TITLE_RUNTIME_MODE, settings.runtime_mode)
+    table.add_row(LABEL_BASE_URL, settings.base_url)
+    table.add_row(LABEL_RUNTIME_DIR, str(settings.runtime_dir))
+    table.add_row(LABEL_DATABASE, str(settings.database_path))
+    table.add_row(LABEL_DB_STATUS, db_status)
+    table.add_row(LABEL_MODEL_ROUTING, json.dumps(settings.model_routing(), indent=2))
     table.add_row(
-        "Ollama Reachable",
+        LABEL_OLLAMA_REACHABLE,
         "[green]yes[/green]" if health.service_reachable else "[red]no[/red]",
     )
     table.add_row(
-        "Model Available",
+        LABEL_MODEL_AVAILABLE,
         "[green]yes[/green]" if health.model_available else "[yellow]no[/yellow]",
     )
-    table.add_row("LLM Status", health.message)
-    table.add_row("Latest Order", latest)
+    table.add_row(TITLE_LLM_STATUS, health.message)
+    table.add_row(LABEL_LATEST_ORDER, latest)
     console.print(table)
     if health.service_reachable and health.model_available:
         console.print(
             _render_health_panel(
                 "Ready",
-                "Trading runtime can start with full LLM access.",
+                MESSAGE_TRADING_RUNTIME_READY,
                 border_style="green",
             )
         )
@@ -3706,7 +3723,7 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
         console.print(
             _render_health_panel(
                 "Blocked",
-                "Trading runtime should not start until Ollama and the configured model are available.",
+                MESSAGE_TRADING_RUNTIME_BLOCKED,
                 border_style="red",
             )
         )

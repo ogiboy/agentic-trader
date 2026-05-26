@@ -61,6 +61,7 @@ class UITextCatalog:
     label_allowed: str
     label_approved: str
     label_baseline: str
+    label_base_url: str
     label_bias: str
     label_blocking: str
     label_category: str
@@ -77,6 +78,8 @@ class UITextCatalog:
     label_cycle: str
     label_cycle_count: str
     label_cycles: str
+    label_database: str
+    label_db_status: str
     label_daily_realized_pnl: str
     label_decision: str
     label_decision_path: str
@@ -104,14 +107,18 @@ class UITextCatalog:
     label_heartbeat_age: str
     label_id: str
     label_interval: str
+    label_environment: str
     label_key: str
     label_last_recorded_error: str
     label_last_recorded_message: str
     label_last_recorded_state: str
     label_largest_position: str
     label_level: str
+    label_latest_order: str
+    label_llm_provider: str
     label_live_process: str
     label_llm: str
+    label_locale: str
     label_lookback: str
     label_market_value: str
     label_mark_source: str
@@ -125,6 +132,8 @@ class UITextCatalog:
     label_metric: str
     label_mode: str
     label_model: str
+    label_model_available: str
+    label_model_routing: str
     label_multi_timeframe: str
     label_no: str
     label_notes: str
@@ -132,10 +141,12 @@ class UITextCatalog:
     label_open_positions: str
     label_opened: str
     label_order_id: str
+    label_ollama_reachable: str
     label_output: str
     label_output_preview: str
     label_pid: str
     label_passed: str
+    label_persisted: str
     label_pnl: str
     label_poll_seconds: str
     label_preset: str
@@ -150,6 +161,7 @@ class UITextCatalog:
     label_requires_confirmation: str
     label_return: str
     label_runtime: str
+    label_runtime_dir: str
     label_role: str
     label_service: str
     label_side: str
@@ -170,6 +182,7 @@ class UITextCatalog:
     label_summary: str
     label_symbol: str
     label_symbols: str
+    label_supported: str
     label_target: str
     label_take: str
     label_take_profit: str
@@ -208,6 +221,8 @@ class UITextCatalog:
     message_position_plan_repair_unavailable: str
     message_runtime_mode_transition_allowed: str
     message_runtime_mode_transition_blocked: str
+    message_trading_runtime_blocked: str
+    message_trading_runtime_ready: str
     message_training_diagnostic_fallback: str
     prompt_continue: str
     prompt_select_action: str
@@ -231,6 +246,7 @@ class UITextCatalog:
     title_pipeline: str
     title_daily_risk_report: str
     title_desk_accounting_context: str
+    title_environment_check: str
     title_finance_ledger_categories: str
     title_finance_operations: str
     title_finance_operations_checks: str
@@ -256,6 +272,7 @@ class UITextCatalog:
     title_position_plan_repair: str
     title_trace: str
     title_training_diagnostic_mode: str
+    title_ui_locale: str
     title_warning: str
     title_walk_forward_backtest: str
 
@@ -304,6 +321,7 @@ EN_TEXT = UITextCatalog(
     label_allowed="Allowed",
     label_approved="Approved",
     label_baseline="Baseline",
+    label_base_url="Base URL",
     label_bias="Bias",
     label_blocking="Blocking",
     label_category="Category",
@@ -320,6 +338,8 @@ EN_TEXT = UITextCatalog(
     label_cycle="Cycle",
     label_cycle_count="Cycle Count",
     label_cycles="Cycles",
+    label_database="Database",
+    label_db_status="DB Status",
     label_daily_realized_pnl="Daily Realized PnL",
     label_decision="Decision",
     label_decision_path="Decision Path",
@@ -347,14 +367,18 @@ EN_TEXT = UITextCatalog(
     label_heartbeat_age="Heartbeat Age",
     label_id="ID",
     label_interval="Interval",
+    label_environment="Environment",
     label_key="Key",
     label_last_recorded_error="Last Recorded Error",
     label_last_recorded_message="Last Recorded Message",
     label_last_recorded_state="Last Recorded State",
     label_largest_position="Largest Position",
     label_level="Level",
+    label_latest_order="Latest Order",
+    label_llm_provider="LLM Provider",
     label_live_process="Live Process",
     label_llm="LLM",
+    label_locale="Locale",
     label_lookback="Lookback",
     label_market_value="Market Value",
     label_mark_source="Mark Source",
@@ -368,6 +392,8 @@ EN_TEXT = UITextCatalog(
     label_metric="Metric",
     label_mode="Mode",
     label_model="Model",
+    label_model_available="Model Available",
+    label_model_routing="Model Routing",
     label_multi_timeframe="Multi-Timeframe",
     label_no="no",
     label_notes="Notes",
@@ -375,10 +401,12 @@ EN_TEXT = UITextCatalog(
     label_open_positions="Open Positions",
     label_opened="Opened",
     label_order_id="Order ID",
+    label_ollama_reachable="Ollama Reachable",
     label_output="Output",
     label_output_preview="Output Preview",
     label_pid="PID",
     label_passed="Passed",
+    label_persisted="Persisted",
     label_pnl="PnL",
     label_poll_seconds="Poll Seconds",
     label_preset="Preset",
@@ -393,6 +421,7 @@ EN_TEXT = UITextCatalog(
     label_requires_confirmation="Requires Confirmation",
     label_return="Return",
     label_runtime="Runtime",
+    label_runtime_dir="Runtime Dir",
     label_role="Role",
     label_service="Service",
     label_side="Side",
@@ -413,6 +442,7 @@ EN_TEXT = UITextCatalog(
     label_summary="Summary",
     label_symbol="Symbol",
     label_symbols="Symbols",
+    label_supported="Supported",
     label_target="Target",
     label_take="Take",
     label_take_profit="Take Profit",
@@ -459,6 +489,10 @@ EN_TEXT = UITextCatalog(
     message_runtime_mode_transition_blocked=(
         "Runtime mode transition {current_mode} -> {target_mode} is blocked."
     ),
+    message_trading_runtime_blocked=(
+        "Trading runtime should not start until Ollama and the configured model are available."
+    ),
+    message_trading_runtime_ready="Trading runtime can start with full LLM access.",
     message_training_diagnostic_fallback=(
         "Training mode is continuing this evaluation with deterministic diagnostic "
         "fallbacks because the LLM gate failed:\n\n{error}"
@@ -485,6 +519,7 @@ EN_TEXT = UITextCatalog(
     title_pipeline="Pipeline",
     title_daily_risk_report="Daily Risk Report",
     title_desk_accounting_context="Desk Accounting Context",
+    title_environment_check="Environment Check",
     title_finance_ledger_categories="Finance Ledger Categories",
     title_finance_operations="Finance Operations",
     title_finance_operations_checks="Finance Operations Checks",
@@ -510,6 +545,7 @@ EN_TEXT = UITextCatalog(
     title_position_plan_repair="Position Plan Repair",
     title_trace="Trace",
     title_training_diagnostic_mode="Training Diagnostic Mode",
+    title_ui_locale="UI Locale",
     title_warning="Warning",
     title_walk_forward_backtest="Walk-Forward Backtest",
 )
@@ -561,6 +597,7 @@ TR_TEXT = UITextCatalog(
     label_allowed="Izinli",
     label_approved="Onaylandi",
     label_baseline="Baseline",
+    label_base_url="Base URL",
     label_bias="Bias",
     label_blocking="Bloklayici",
     label_category="Kategori",
@@ -577,6 +614,8 @@ TR_TEXT = UITextCatalog(
     label_cycle="Dongu",
     label_cycle_count="Dongu Sayisi",
     label_cycles="Donguler",
+    label_database="Veritabani",
+    label_db_status="DB Durumu",
     label_daily_realized_pnl="Gunluk Gerceklesen PnL",
     label_decision="Karar",
     label_decision_path="Karar Yolu",
@@ -604,14 +643,18 @@ TR_TEXT = UITextCatalog(
     label_heartbeat_age="Heartbeat Yasi",
     label_id="ID",
     label_interval="Aralik",
+    label_environment="Ortam",
     label_key="Anahtar",
     label_last_recorded_error="Son Kayitli Hata",
     label_last_recorded_message="Son Kayitli Mesaj",
     label_last_recorded_state="Son Kayitli Durum",
     label_largest_position="En Buyuk Pozisyon",
     label_level="Seviye",
+    label_latest_order="Son Order",
+    label_llm_provider="LLM Provider",
     label_live_process="Canli Process",
     label_llm="LLM",
+    label_locale="Locale",
     label_lookback="Geriye Donuk Pencere",
     label_market_value="Piyasa Degeri",
     label_mark_source="Mark Kaynagi",
@@ -625,6 +668,8 @@ TR_TEXT = UITextCatalog(
     label_metric="Metrik",
     label_mode="Mod",
     label_model="Model",
+    label_model_available="Model Kullanilabilir",
+    label_model_routing="Model Routing",
     label_multi_timeframe="Multi-Timeframe",
     label_no="hayir",
     label_notes="Notlar",
@@ -632,10 +677,12 @@ TR_TEXT = UITextCatalog(
     label_open_positions="Acik Pozisyonlar",
     label_opened="Acilis",
     label_order_id="Order ID",
+    label_ollama_reachable="Ollama Erisilebilir",
     label_output="Cikti",
     label_output_preview="Cikti Onizleme",
     label_pid="PID",
     label_passed="Gecti",
+    label_persisted="Kalici",
     label_pnl="PnL",
     label_poll_seconds="Poll Saniyesi",
     label_preset="Preset",
@@ -650,6 +697,7 @@ TR_TEXT = UITextCatalog(
     label_requires_confirmation="Onay Gerektirir",
     label_return="Return",
     label_runtime="Runtime",
+    label_runtime_dir="Runtime Dir",
     label_role="Rol",
     label_service="Servis",
     label_side="Yon",
@@ -670,6 +718,7 @@ TR_TEXT = UITextCatalog(
     label_summary="Ozet",
     label_symbol="Sembol",
     label_symbols="Semboller",
+    label_supported="Desteklenen",
     label_target="Hedef",
     label_take="Take",
     label_take_profit="Take Profit",
@@ -716,6 +765,10 @@ TR_TEXT = UITextCatalog(
     message_runtime_mode_transition_blocked=(
         "Runtime mode gecisi {current_mode} -> {target_mode} bloklandi."
     ),
+    message_trading_runtime_blocked=(
+        "Ollama ve configured model kullanilabilir olana kadar trading runtime baslamamali."
+    ),
+    message_trading_runtime_ready="Trading runtime tam LLM erisimiyle baslayabilir.",
     message_training_diagnostic_fallback=(
         "Training modu bu degerlendirmeye deterministic diagnostic fallback ile "
         "devam ediyor cunku LLM gate basarisiz oldu:\n\n{error}"
@@ -742,6 +795,7 @@ TR_TEXT = UITextCatalog(
     title_pipeline="Pipeline",
     title_daily_risk_report="Gunluk Risk Raporu",
     title_desk_accounting_context="Desk Accounting Context",
+    title_environment_check="Environment Check",
     title_finance_ledger_categories="Finance Ledger Kategorileri",
     title_finance_operations="Finance Operations",
     title_finance_operations_checks="Finance Operations Kontrolleri",
@@ -767,6 +821,7 @@ TR_TEXT = UITextCatalog(
     title_position_plan_repair="Position Plan Repair",
     title_trace="Trace",
     title_training_diagnostic_mode="Training Diagnostic Mode",
+    title_ui_locale="UI Locale",
     title_warning="Uyari",
     title_walk_forward_backtest="Walk-Forward Backtest",
 )
@@ -839,6 +894,7 @@ LABEL_AGENT = EN_TEXT.label_agent
 LABEL_ALLOWED = EN_TEXT.label_allowed
 LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_BASELINE = EN_TEXT.label_baseline
+LABEL_BASE_URL = EN_TEXT.label_base_url
 LABEL_BIAS = EN_TEXT.label_bias
 LABEL_BLOCKING = EN_TEXT.label_blocking
 LABEL_CATEGORY = EN_TEXT.label_category
@@ -855,6 +911,8 @@ LABEL_CURRENT_SYMBOL = EN_TEXT.label_current_symbol
 LABEL_CYCLE = EN_TEXT.label_cycle
 LABEL_CYCLE_COUNT = EN_TEXT.label_cycle_count
 LABEL_CYCLES = EN_TEXT.label_cycles
+LABEL_DATABASE = EN_TEXT.label_database
+LABEL_DB_STATUS = EN_TEXT.label_db_status
 LABEL_DAILY_REALIZED_PNL = EN_TEXT.label_daily_realized_pnl
 LABEL_DECISION = EN_TEXT.label_decision
 LABEL_DECISION_PATH = EN_TEXT.label_decision_path
@@ -882,14 +940,18 @@ LABEL_HEARTBEAT = EN_TEXT.label_heartbeat
 LABEL_HEARTBEAT_AGE = EN_TEXT.label_heartbeat_age
 LABEL_ID = EN_TEXT.label_id
 LABEL_INTERVAL = EN_TEXT.label_interval
+LABEL_ENVIRONMENT = EN_TEXT.label_environment
 LABEL_KEY = EN_TEXT.label_key
 LABEL_LAST_RECORDED_ERROR = EN_TEXT.label_last_recorded_error
 LABEL_LAST_RECORDED_MESSAGE = EN_TEXT.label_last_recorded_message
 LABEL_LAST_RECORDED_STATE = EN_TEXT.label_last_recorded_state
 LABEL_LARGEST_POSITION = EN_TEXT.label_largest_position
 LABEL_LEVEL = EN_TEXT.label_level
+LABEL_LATEST_ORDER = EN_TEXT.label_latest_order
+LABEL_LLM_PROVIDER = EN_TEXT.label_llm_provider
 LABEL_LIVE_PROCESS = EN_TEXT.label_live_process
 LABEL_LLM = EN_TEXT.label_llm
+LABEL_LOCALE = EN_TEXT.label_locale
 LABEL_LOOKBACK = EN_TEXT.label_lookback
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
 LABEL_MARK_SOURCE = EN_TEXT.label_mark_source
@@ -903,6 +965,8 @@ LABEL_MESSAGE = EN_TEXT.label_message
 LABEL_METRIC = EN_TEXT.label_metric
 LABEL_MODE = EN_TEXT.label_mode
 LABEL_MODEL = EN_TEXT.label_model
+LABEL_MODEL_AVAILABLE = EN_TEXT.label_model_available
+LABEL_MODEL_ROUTING = EN_TEXT.label_model_routing
 LABEL_MULTI_TIMEFRAME = EN_TEXT.label_multi_timeframe
 LABEL_NO = EN_TEXT.label_no
 LABEL_NOTES = EN_TEXT.label_notes
@@ -910,9 +974,11 @@ LABEL_OBSERVER_MODE = EN_TEXT.label_observer_mode
 LABEL_OPEN_POSITIONS = EN_TEXT.label_open_positions
 LABEL_OPENED = EN_TEXT.label_opened
 LABEL_ORDER_ID = EN_TEXT.label_order_id
+LABEL_OLLAMA_REACHABLE = EN_TEXT.label_ollama_reachable
 LABEL_OUTPUT = EN_TEXT.label_output
 LABEL_OUTPUT_PREVIEW = EN_TEXT.label_output_preview
 LABEL_PASSED = EN_TEXT.label_passed
+LABEL_PERSISTED = EN_TEXT.label_persisted
 LABEL_PID = EN_TEXT.label_pid
 LABEL_PNL = EN_TEXT.label_pnl
 LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
@@ -928,6 +994,7 @@ LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
 LABEL_RETURN = EN_TEXT.label_return
 LABEL_RUNTIME = EN_TEXT.label_runtime
+LABEL_RUNTIME_DIR = EN_TEXT.label_runtime_dir
 LABEL_ROLE = EN_TEXT.label_role
 LABEL_SERVICE = EN_TEXT.label_service
 LABEL_SIDE = EN_TEXT.label_side
@@ -948,6 +1015,7 @@ LABEL_STRUCTURED_LLM = EN_TEXT.label_structured_llm
 LABEL_SUMMARY = EN_TEXT.label_summary
 LABEL_SYMBOL = EN_TEXT.label_symbol
 LABEL_SYMBOLS = EN_TEXT.label_symbols
+LABEL_SUPPORTED = EN_TEXT.label_supported
 LABEL_TARGET = EN_TEXT.label_target
 LABEL_TAKE = EN_TEXT.label_take
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
@@ -995,6 +1063,8 @@ MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED = (
 MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED = (
     EN_TEXT.message_runtime_mode_transition_blocked
 )
+MESSAGE_TRADING_RUNTIME_BLOCKED = EN_TEXT.message_trading_runtime_blocked
+MESSAGE_TRADING_RUNTIME_READY = EN_TEXT.message_trading_runtime_ready
 MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK = EN_TEXT.message_training_diagnostic_fallback
 
 STAGE_COORDINATOR = EN_TEXT.stage_coordinator
@@ -1017,6 +1087,7 @@ TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
 TITLE_PIPELINE = EN_TEXT.title_pipeline
 TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
 TITLE_DESK_ACCOUNTING_CONTEXT = EN_TEXT.title_desk_accounting_context
+TITLE_ENVIRONMENT_CHECK = EN_TEXT.title_environment_check
 TITLE_FINANCE_LEDGER_CATEGORIES = EN_TEXT.title_finance_ledger_categories
 TITLE_FINANCE_OPERATIONS = EN_TEXT.title_finance_operations
 TITLE_FINANCE_OPERATIONS_CHECKS = EN_TEXT.title_finance_operations_checks
@@ -1044,6 +1115,7 @@ TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
 TITLE_TRACE = EN_TEXT.title_trace
 TITLE_TRAINING_DIAGNOSTIC_MODE = EN_TEXT.title_training_diagnostic_mode
+TITLE_UI_LOCALE = EN_TEXT.title_ui_locale
 TITLE_WARNING = EN_TEXT.title_warning
 TITLE_WALK_FORWARD_BACKTEST = EN_TEXT.title_walk_forward_backtest
 
