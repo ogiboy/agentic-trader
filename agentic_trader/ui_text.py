@@ -18,12 +18,20 @@ SUPPORTED_UI_LOCALES: tuple[UILocale, ...] = ("en", "tr")
 class UITextCatalog:
     """Operator-facing copy shared by terminal and Python UI surfaces."""
 
+    cli_app_help: str
     db_locked_msg: str
+    help_camofox_service_app: str
     help_interval: str
     help_json: str
     help_lookback: str
+    help_model_service_app: str
     help_run_id: str
     help_symbol: str
+    help_tool_ownership_app: str
+    help_trade_notional: str
+    help_trade_quantity: str
+    help_trade_side: str
+    help_webgui_service_app: str
     label_market_value: str
     label_observer_mode: str
     label_stop_requested: str
@@ -40,12 +48,20 @@ class UITextCatalog:
 
 
 EN_TEXT = UITextCatalog(
+    cli_app_help="Agentic Trader CLI",
     db_locked_msg="The runtime writer currently owns the database.",
+    help_camofox_service_app="Manage the optional app-owned local Camofox browser helper.",
     help_interval="yfinance interval, for example 1d or 1h",
     help_json="Emit machine-readable JSON.",
     help_lookback="Lookback window accepted by yfinance",
+    help_model_service_app="Manage the optional app-owned local model service.",
     help_run_id="Run id to inspect. Defaults to the latest recorded run.",
     help_symbol="Ticker symbol, for example AAPL or BTC-USD",
+    help_tool_ownership_app="Inspect or record optional helper ownership decisions.",
+    help_trade_notional="Dollar notional. Either quantity or notional is required.",
+    help_trade_quantity="Share quantity. Either quantity or notional is required.",
+    help_trade_side="Trade side: buy or sell.",
+    help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
     label_market_value="Market Value",
     label_observer_mode="Observer Mode",
     label_stop_requested="Stop Requested",
@@ -65,12 +81,20 @@ EN_TEXT = UITextCatalog(
 # locale rendering is audited across non-UTF-8 shells. Web surfaces keep full
 # Turkish orthography in their own copy catalogs.
 TR_TEXT = UITextCatalog(
+    cli_app_help="Agentic Trader CLI",
     db_locked_msg="Runtime writer veritabaninin sahibi; biraz sonra tekrar deneyin.",
+    help_camofox_service_app="Istege bagli app-owned yerel Camofox browser yardimcisini yonet.",
     help_interval="yfinance araligi, ornegin 1d veya 1h",
     help_json="Makine tarafindan okunabilir JSON uret.",
     help_lookback="yfinance tarafindan kabul edilen geriye donuk pencere",
+    help_model_service_app="Istege bagli app-owned yerel model servisini yonet.",
     help_run_id="Incelenecek run id. Varsayilan son kayitli run.",
     help_symbol="Ticker sembolu, ornegin AAPL veya BTC-USD",
+    help_tool_ownership_app="Istege bagli yardimci arac sahipligi kararlarini incele veya kaydet.",
+    help_trade_notional="Dolar notional. Quantity veya notional degerlerinden biri gereklidir.",
+    help_trade_quantity="Hisse adedi. Quantity veya notional degerlerinden biri gereklidir.",
+    help_trade_side="Trade yonu: buy veya sell.",
+    help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
     label_market_value="Piyasa Degeri",
     label_observer_mode="Observer Modu",
     label_stop_requested="Durdurma Istendi",
@@ -116,6 +140,14 @@ HELP_SYMBOL = EN_TEXT.help_symbol
 HELP_INTERVAL = EN_TEXT.help_interval
 HELP_LOOKBACK = EN_TEXT.help_lookback
 HELP_RUN_ID = EN_TEXT.help_run_id
+HELP_CLI_APP = EN_TEXT.cli_app_help
+HELP_MODEL_SERVICE_APP = EN_TEXT.help_model_service_app
+HELP_WEBGUI_SERVICE_APP = EN_TEXT.help_webgui_service_app
+HELP_CAMOFOX_SERVICE_APP = EN_TEXT.help_camofox_service_app
+HELP_TOOL_OWNERSHIP_APP = EN_TEXT.help_tool_ownership_app
+HELP_TRADE_SIDE = EN_TEXT.help_trade_side
+HELP_TRADE_QUANTITY = EN_TEXT.help_trade_quantity
+HELP_TRADE_NOTIONAL = EN_TEXT.help_trade_notional
 
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
 LABEL_OBSERVER_MODE = EN_TEXT.label_observer_mode

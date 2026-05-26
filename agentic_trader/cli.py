@@ -174,8 +174,16 @@ from agentic_trader.ui_text import (
     HELP_INTERVAL,
     HELP_JSON,
     HELP_LOOKBACK,
+    HELP_CAMOFOX_SERVICE_APP,
+    HELP_CLI_APP,
+    HELP_MODEL_SERVICE_APP,
     HELP_RUN_ID,
     HELP_SYMBOL,
+    HELP_TOOL_OWNERSHIP_APP,
+    HELP_TRADE_NOTIONAL,
+    HELP_TRADE_QUANTITY,
+    HELP_TRADE_SIDE,
+    HELP_WEBGUI_SERVICE_APP,
     LABEL_MARKET_VALUE,
     LABEL_OBSERVER_MODE,
     LABEL_STRUCTURED_LLM,
@@ -197,7 +205,7 @@ from agentic_trader.workflows.service import (
 )
 
 app = typer.Typer(
-    help="Agentic Trader CLI",
+    help=HELP_CLI_APP,
     invoke_without_command=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
@@ -258,21 +266,13 @@ def _upsert_env_local_value(path: Path, key: str, value: str) -> None:
 
 
 LABEL_MODEL_SERVICE = "Model Service"
-model_service_app = typer.Typer(
-    help="Manage the optional app-owned local model service."
-)
+model_service_app = typer.Typer(help=HELP_MODEL_SERVICE_APP)
 app.add_typer(model_service_app, name="model-service")
-webgui_service_app = typer.Typer(
-    help="Manage the optional app-owned local Web GUI service."
-)
+webgui_service_app = typer.Typer(help=HELP_WEBGUI_SERVICE_APP)
 app.add_typer(webgui_service_app, name="webgui-service")
-camofox_service_app = typer.Typer(
-    help="Manage the optional app-owned local Camofox browser helper."
-)
+camofox_service_app = typer.Typer(help=HELP_CAMOFOX_SERVICE_APP)
 app.add_typer(camofox_service_app, name="camofox-service")
-tool_ownership_app = typer.Typer(
-    help="Inspect or record optional helper ownership decisions."
-)
+tool_ownership_app = typer.Typer(help=HELP_TOOL_OWNERSHIP_APP)
 app.add_typer(tool_ownership_app, name="tool-ownership")
 
 TUI_PACKAGE_NAME = "agentic-trader-tui"
@@ -304,19 +304,19 @@ def _proposal_create_params() -> list[click.Parameter]:
             ["--side"],
             default="buy",
             show_default=True,
-            help="Trade side: buy or sell.",
+            help=HELP_TRADE_SIDE,
         ),
         click.Option(
             ["--quantity"],
             type=click.FloatRange(min=0.0),
             default=None,
-            help="Share quantity. Either quantity or notional is required.",
+            help=HELP_TRADE_QUANTITY,
         ),
         click.Option(
             ["--notional"],
             type=click.FloatRange(min=0.0),
             default=None,
-            help="Dollar notional. Either quantity or notional is required.",
+            help=HELP_TRADE_NOTIONAL,
         ),
         click.Option(
             ["--limit-price", "limit_price"],
