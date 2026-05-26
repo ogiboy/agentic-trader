@@ -196,17 +196,21 @@ console = Console()
 
 
 def _object_mapping(value: object) -> Mapping[str, object]:
-    return cast(Mapping[str, object], value) if isinstance(value, dict) else {}
+    if isinstance(value, Mapping):
+        return cast(Mapping[str, object], value)
+    return {}
 
 
 def _object_list(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return list(cast(Sequence[object], value))
+    return []
 
 
 def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
     rows: list[Mapping[str, object]] = []
     for item in _object_list(value):
-        if isinstance(item, dict):
+        if isinstance(item, Mapping):
             rows.append(cast(Mapping[str, object], item))
     return rows
 

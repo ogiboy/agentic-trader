@@ -1,11 +1,14 @@
 import json
 import re
+from collections import UserDict
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 import pytest
 from typer.testing import CliRunner
 
+import agentic_trader.cli as cli_module
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
@@ -66,6 +69,29 @@ def _raise_db_locked(*_args: object, **_kwargs: object) -> None:
         RuntimeError: with the message "db locked".
     """
     raise RuntimeError("db locked")
+
+
+def test_cli_object_helpers_accept_abstract_mappings_and_sequences() -> None:
+    """CLI JSON helpers should keep non-dict mappings and non-list sequences."""
+    object_mapping = cast(
+        Callable[[object], Mapping[str, object]],
+        getattr(cli_module, "_object_mapping"),
+    )
+    object_list = cast(
+        Callable[[object], list[object]],
+        getattr(cli_module, "_object_list"),
+    )
+    object_mapping_list = cast(
+        Callable[[object], list[Mapping[str, object]]],
+        getattr(cli_module, "_object_mapping_list"),
+    )
+    mapping = UserDict({"symbol": "AAPL", "score": 1})
+    rows = (mapping, {"symbol": "MSFT"}, "not-a-row")
+
+    assert object_mapping(mapping)["symbol"] == "AAPL"
+    assert object_list(("AAPL", "MSFT")) == ["AAPL", "MSFT"]
+    assert object_list("AAPL") == []
+    assert [row["symbol"] for row in object_mapping_list(rows)] == ["AAPL", "MSFT"]
 
 
 class _LLMWithSettings(Protocol):

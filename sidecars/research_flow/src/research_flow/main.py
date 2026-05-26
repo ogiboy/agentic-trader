@@ -18,6 +18,26 @@ StateT = TypeVar("StateT")
 P = ParamSpec("P")
 R = TypeVar("R")
 
+
+CREWAI_FLOW_COMPATIBILITY_MESSAGE = (
+    'CrewAI Flow compatibility error: expected import_module("crewai.flow") '
+    'to expose a "Flow" class and "start" callable. Check the installed '
+    'crewai version with python -c "import crewai; print(crewai.__version__)" '
+    "and verify the matching Flow API docs at "
+    "https://docs.crewai.com/concepts/flows."
+)
+
+
+def _load_crewai_flow_symbols() -> tuple[type[Any], Callable[..., Any]]:
+    try:
+        crewai_flow = import_module("crewai.flow")
+        flow_class = getattr(crewai_flow, "Flow")
+        start_callable = getattr(crewai_flow, "start")
+    except (ImportError, AttributeError) as exc:
+        raise RuntimeError(CREWAI_FLOW_COMPATIBILITY_MESSAGE) from exc
+    return cast(type[Any], flow_class), cast(Callable[..., Any], start_callable)
+
+
 if TYPE_CHECKING:
 
     class Flow(Generic[StateT]):
@@ -30,9 +50,7 @@ if TYPE_CHECKING:
     ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
 else:
-    _crewai_flow = import_module("crewai.flow")
-    Flow = cast(type[Any], getattr(_crewai_flow, "Flow"))
-    start = cast(Callable[..., Any], getattr(_crewai_flow, "start"))
+    Flow, start = _load_crewai_flow_symbols()
 
 
 class ResearchFlowState(BaseModel):
