@@ -40,7 +40,11 @@ class UITextCatalog:
     help_locale_persist: str
     help_lookback: str
     help_model_service_app: str
+    help_ollama_owner: str
+    help_firecrawl_owner: str
+    help_camofox_owner: str
     help_run_id: str
+    help_setup_dry_run: str
     help_symbol: str
     help_tool_ownership_app: str
     help_trade_confidence: str
@@ -140,6 +144,7 @@ class UITextCatalog:
     label_multi_timeframe: str
     label_no: str
     label_notes: str
+    label_next: str
     label_observer_mode: str
     label_open_positions: str
     label_opened: str
@@ -168,12 +173,14 @@ class UITextCatalog:
     label_requires_confirmation: str
     label_return: str
     label_runtime: str
+    label_runtime_daemon: str
     label_runtime_dir: str
     label_role: str
     label_service: str
     label_side: str
     label_source: str
     label_specialist: str
+    label_setup: str
     label_signal: str
     label_size: str
     label_score: str
@@ -183,6 +190,7 @@ class UITextCatalog:
     label_status: str
     label_status_note: str
     label_strategy: str
+    label_surface: str
     label_stop_requested: str
     label_stop: str
     label_structured_llm: str
@@ -220,6 +228,7 @@ class UITextCatalog:
     message_no_runtime_events: str
     message_no_trade_journal_entries: str
     message_no_historical_memories: str
+    message_no_action_selected: str
     message_no_proposal_candidates: str
     message_no_trade_proposals: str
     message_finance_operations_unavailable: str
@@ -231,11 +240,16 @@ class UITextCatalog:
     message_position_plan_repair_unavailable: str
     message_runtime_mode_transition_allowed: str
     message_runtime_mode_transition_blocked: str
+    message_setup_bootstrap_guidance: str
     message_trading_runtime_blocked: str
     message_trading_runtime_ready: str
     message_training_diagnostic_fallback: str
     prompt_continue: str
     prompt_select_action: str
+    launcher_option_open_web_gui: str
+    launcher_option_continue_tui: str
+    launcher_option_refresh: str
+    launcher_option_exit: str
     stage_coordinator: str
     stage_consensus: str
     stage_execution: str
@@ -245,6 +259,11 @@ class UITextCatalog:
     stage_risk: str
     stage_strategy: str
     style_key_column: str
+    status_active: str
+    status_app_owned: str
+    status_external: str
+    status_needs_attention: str
+    status_ready: str
     title_execution_summary: str
     title_agent_decisions: str
     title_agent_trace: str
@@ -254,12 +273,15 @@ class UITextCatalog:
     title_backtest_trades: str
     title_camofox_browser_helper: str
     title_camofox_stderr_tail: str
+    title_choose_surface: str
     title_llm_status: str
     title_operator_instruction: str
+    title_operator_launcher: str
     title_pipeline: str
     title_daily_risk_report: str
     title_desk_accounting_context: str
     title_environment_check: str
+    title_exit: str
     title_finance_ledger_categories: str
     title_finance_operations: str
     title_finance_operations_checks: str
@@ -286,6 +308,7 @@ class UITextCatalog:
     title_position_plan_repair: str
     title_recommended_next_commands: str
     title_setup_status: str
+    title_setup_guidance: str
     title_trace: str
     title_tool_ownership: str
     title_tool_readiness: str
@@ -294,6 +317,7 @@ class UITextCatalog:
     title_warning: str
     title_walk_forward_backtest: str
     title_web_gui_service: str
+    title_web_gui_start_failed: str
     title_web_gui_stderr_tail: str
 
 
@@ -320,7 +344,11 @@ EN_TEXT = UITextCatalog(
     help_locale_persist="Persist terminal UI locale to .env.local: en or tr.",
     help_lookback="Lookback window accepted by yfinance",
     help_model_service_app="Manage the optional app-owned local model service.",
+    help_ollama_owner="Ownership mode for Ollama: host-owned, app-owned, api-key-only, or skipped.",
+    help_firecrawl_owner="Ownership mode for Firecrawl: host-owned, app-owned, api-key-only, or skipped.",
+    help_camofox_owner="Ownership mode for Camofox: host-owned, app-owned, api-key-only, or skipped.",
     help_run_id="Run id to inspect. Defaults to the latest recorded run.",
+    help_setup_dry_run="Report setup status. Use make bootstrap for interactive installs.",
     help_symbol="Ticker symbol, for example AAPL or BTC-USD",
     help_tool_ownership_app="Inspect or record optional helper ownership decisions.",
     help_trade_confidence="Proposal confidence from 0.0 to 1.0.",
@@ -420,6 +448,7 @@ EN_TEXT = UITextCatalog(
     label_multi_timeframe="Multi-Timeframe",
     label_no="no",
     label_notes="Notes",
+    label_next="Next",
     label_observer_mode="Observer Mode",
     label_open_positions="Open Positions",
     label_opened="Opened",
@@ -448,12 +477,14 @@ EN_TEXT = UITextCatalog(
     label_requires_confirmation="Requires Confirmation",
     label_return="Return",
     label_runtime="Runtime",
+    label_runtime_daemon="Runtime Daemon",
     label_runtime_dir="Runtime Dir",
     label_role="Role",
     label_service="Service",
     label_side="Side",
     label_source="Source",
     label_specialist="Specialist",
+    label_setup="Setup",
     label_signal="Signal",
     label_size="Size",
     label_score="Score",
@@ -463,6 +494,7 @@ EN_TEXT = UITextCatalog(
     label_status="Status",
     label_status_note="Status Note",
     label_strategy="Strategy",
+    label_surface="Surface",
     label_stop_requested="Stop Requested",
     label_stop="Stop",
     label_structured_llm="Structured LLM response",
@@ -502,6 +534,7 @@ EN_TEXT = UITextCatalog(
     message_no_runtime_events="No runtime events recorded yet.",
     message_no_trade_journal_entries="No trade journal entries recorded yet.",
     message_no_historical_memories="No historical memories are available yet.",
+    message_no_action_selected="No action selected.",
     message_no_proposal_candidates="No proposal candidates recorded yet.",
     message_no_trade_proposals="No trade proposals recorded yet.",
     message_finance_operations_unavailable="Finance operations status unavailable.",
@@ -519,6 +552,7 @@ EN_TEXT = UITextCatalog(
     message_runtime_mode_transition_blocked=(
         "Runtime mode transition {current_mode} -> {target_mode} is blocked."
     ),
+    message_setup_bootstrap_guidance="Run `make bootstrap` for the interactive system-tool installer.",
     message_trading_runtime_blocked=(
         "Trading runtime should not start until Ollama and the configured model are available."
     ),
@@ -529,6 +563,10 @@ EN_TEXT = UITextCatalog(
     ),
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
+    launcher_option_open_web_gui="1  Open/start the local Web GUI command center",
+    launcher_option_continue_tui="2  Continue in the Rich terminal control room",
+    launcher_option_refresh="3  Stay here and refresh this launcher",
+    launcher_option_exit="4  Exit",
     stage_coordinator="Coordinator",
     stage_consensus="Consensus",
     stage_execution="Execution",
@@ -538,6 +576,11 @@ EN_TEXT = UITextCatalog(
     stage_risk="Risk",
     stage_strategy="Strategy",
     style_key_column="bold cyan",
+    status_active="active",
+    status_app_owned="app-owned",
+    status_external="external",
+    status_needs_attention="needs attention",
+    status_ready="ready",
     title_agent_decisions="Agent Decisions",
     title_agent_trace="Agent Trace",
     title_available_models="Available Models",
@@ -546,13 +589,16 @@ EN_TEXT = UITextCatalog(
     title_backtest_trades="Backtest Trades",
     title_camofox_browser_helper="Camofox Browser Helper",
     title_camofox_stderr_tail="Camofox Stderr Tail",
+    title_choose_surface="Choose A Surface",
     title_execution_summary="Execution Summary",
     title_llm_status="LLM Status",
     title_operator_instruction="Operator Instruction",
+    title_operator_launcher="Agentic Trader Operator Launcher",
     title_pipeline="Pipeline",
     title_daily_risk_report="Daily Risk Report",
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
+    title_exit="Exit",
     title_finance_ledger_categories="Finance Ledger Categories",
     title_finance_operations="Finance Operations",
     title_finance_operations_checks="Finance Operations Checks",
@@ -579,6 +625,7 @@ EN_TEXT = UITextCatalog(
     title_position_plan_repair="Position Plan Repair",
     title_recommended_next_commands="Recommended Next Commands",
     title_setup_status="Setup Status",
+    title_setup_guidance="Setup Guidance",
     title_trace="Trace",
     title_tool_ownership="Tool Ownership",
     title_tool_readiness="Tool Readiness",
@@ -587,6 +634,7 @@ EN_TEXT = UITextCatalog(
     title_warning="Warning",
     title_walk_forward_backtest="Walk-Forward Backtest",
     title_web_gui_service="Web GUI Service",
+    title_web_gui_start_failed="Web GUI Start Failed",
     title_web_gui_stderr_tail="Web GUI Stderr Tail",
 )
 
@@ -616,7 +664,11 @@ TR_TEXT = UITextCatalog(
     help_locale_persist="Terminal UI locale degerini .env.local icine yaz: en veya tr.",
     help_lookback="yfinance tarafindan kabul edilen geriye donuk pencere",
     help_model_service_app="Istege bagli app-owned yerel model servisini yonet.",
+    help_ollama_owner="Ollama sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
+    help_firecrawl_owner="Firecrawl sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
+    help_camofox_owner="Camofox sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_run_id="Incelenecek run id. Varsayilan son kayitli run.",
+    help_setup_dry_run="Setup durumunu raporla. Interaktif kurulumlar icin make bootstrap kullan.",
     help_symbol="Ticker sembolu, ornegin AAPL veya BTC-USD",
     help_tool_ownership_app="Istege bagli yardimci arac sahipligi kararlarini incele veya kaydet.",
     help_trade_confidence="Proposal guveni: 0.0 ile 1.0 arasi.",
@@ -716,6 +768,7 @@ TR_TEXT = UITextCatalog(
     label_multi_timeframe="Multi-Timeframe",
     label_no="hayir",
     label_notes="Notlar",
+    label_next="Sonraki",
     label_observer_mode="Observer Modu",
     label_open_positions="Acik Pozisyonlar",
     label_opened="Acilis",
@@ -744,12 +797,14 @@ TR_TEXT = UITextCatalog(
     label_requires_confirmation="Onay Gerektirir",
     label_return="Return",
     label_runtime="Runtime",
+    label_runtime_daemon="Runtime Daemon",
     label_runtime_dir="Runtime Dir",
     label_role="Rol",
     label_service="Servis",
     label_side="Yon",
     label_source="Kaynak",
     label_specialist="Specialist",
+    label_setup="Setup",
     label_signal="Sinyal",
     label_size="Boyut",
     label_score="Skor",
@@ -759,6 +814,7 @@ TR_TEXT = UITextCatalog(
     label_status="Durum",
     label_status_note="Durum Notu",
     label_strategy="Strateji",
+    label_surface="Yuzey",
     label_stop_requested="Durdurma Istendi",
     label_stop="Stop",
     label_structured_llm="Yapilandirilmis LLM yaniti",
@@ -798,6 +854,7 @@ TR_TEXT = UITextCatalog(
     message_no_runtime_events="Henuz runtime olayi kaydedilmedi.",
     message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
     message_no_historical_memories="Henuz historical memory yok.",
+    message_no_action_selected="Aksiyon secilmedi.",
     message_no_proposal_candidates="Henuz proposal candidate kaydi yok.",
     message_no_trade_proposals="Henuz trade proposal kaydi yok.",
     message_finance_operations_unavailable="Finance operations durumu kullanilamiyor.",
@@ -815,6 +872,7 @@ TR_TEXT = UITextCatalog(
     message_runtime_mode_transition_blocked=(
         "Runtime mode gecisi {current_mode} -> {target_mode} bloklandi."
     ),
+    message_setup_bootstrap_guidance="Interaktif system-tool installer icin `make bootstrap` calistirin.",
     message_trading_runtime_blocked=(
         "Ollama ve configured model kullanilabilir olana kadar trading runtime baslamamali."
     ),
@@ -825,6 +883,10 @@ TR_TEXT = UITextCatalog(
     ),
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
+    launcher_option_open_web_gui="1  Yerel Web GUI command center'i ac/baslat",
+    launcher_option_continue_tui="2  Rich terminal control room ile devam et",
+    launcher_option_refresh="3  Burada kal ve launcher'i yenile",
+    launcher_option_exit="4  Cikis",
     stage_coordinator="Coordinator",
     stage_consensus="Consensus",
     stage_execution="Execution",
@@ -834,6 +896,11 @@ TR_TEXT = UITextCatalog(
     stage_risk="Risk",
     stage_strategy="Strategy",
     style_key_column=EN_TEXT.style_key_column,
+    status_active="aktif",
+    status_app_owned="app-owned",
+    status_external="harici",
+    status_needs_attention="dikkat gerekiyor",
+    status_ready="hazir",
     title_agent_decisions="Agent Kararlari",
     title_agent_trace="Agent Trace",
     title_available_models="Kullanilabilir Modeller",
@@ -842,13 +909,16 @@ TR_TEXT = UITextCatalog(
     title_backtest_trades="Backtest Trade'leri",
     title_camofox_browser_helper="Camofox Browser Yardimcisi",
     title_camofox_stderr_tail="Camofox Stderr Kuyrugu",
+    title_choose_surface="Yuzey Sec",
     title_execution_summary="Execution Ozeti",
     title_llm_status="LLM Durumu",
     title_operator_instruction="Operator Talimati",
+    title_operator_launcher="Agentic Trader Operator Launcher",
     title_pipeline="Pipeline",
     title_daily_risk_report="Gunluk Risk Raporu",
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
+    title_exit="Cikis",
     title_finance_ledger_categories="Finance Ledger Kategorileri",
     title_finance_operations="Finance Operations",
     title_finance_operations_checks="Finance Operations Kontrolleri",
@@ -875,6 +945,7 @@ TR_TEXT = UITextCatalog(
     title_position_plan_repair="Position Plan Repair",
     title_recommended_next_commands="Onerilen Sonraki Komutlar",
     title_setup_status="Setup Durumu",
+    title_setup_guidance="Setup Rehberi",
     title_trace="Trace",
     title_tool_ownership="Tool Ownership",
     title_tool_readiness="Tool Readiness",
@@ -883,6 +954,7 @@ TR_TEXT = UITextCatalog(
     title_warning="Uyari",
     title_walk_forward_backtest="Walk-Forward Backtest",
     title_web_gui_service="Web GUI Servisi",
+    title_web_gui_start_failed="Web GUI Baslatma Basarisiz",
     title_web_gui_stderr_tail="Web GUI Stderr Kuyrugu",
 )
 
@@ -918,6 +990,10 @@ HELP_SYMBOL = EN_TEXT.help_symbol
 HELP_INTERVAL = EN_TEXT.help_interval
 HELP_LOOKBACK = EN_TEXT.help_lookback
 HELP_RUN_ID = EN_TEXT.help_run_id
+HELP_OLLAMA_OWNER = EN_TEXT.help_ollama_owner
+HELP_FIRECRAWL_OWNER = EN_TEXT.help_firecrawl_owner
+HELP_CAMOFOX_OWNER = EN_TEXT.help_camofox_owner
+HELP_SETUP_DRY_RUN = EN_TEXT.help_setup_dry_run
 HELP_CLI_APP = EN_TEXT.cli_app_help
 HELP_MODEL_SERVICE_APP = EN_TEXT.help_model_service_app
 HELP_WEBGUI_SERVICE_APP = EN_TEXT.help_webgui_service_app
@@ -1033,6 +1109,7 @@ LABEL_MODEL_ROUTING = EN_TEXT.label_model_routing
 LABEL_MULTI_TIMEFRAME = EN_TEXT.label_multi_timeframe
 LABEL_NO = EN_TEXT.label_no
 LABEL_NOTES = EN_TEXT.label_notes
+LABEL_NEXT = EN_TEXT.label_next
 LABEL_OBSERVER_MODE = EN_TEXT.label_observer_mode
 LABEL_OPEN_POSITIONS = EN_TEXT.label_open_positions
 LABEL_OPENED = EN_TEXT.label_opened
@@ -1061,12 +1138,14 @@ LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
 LABEL_RETURN = EN_TEXT.label_return
 LABEL_RUNTIME = EN_TEXT.label_runtime
+LABEL_RUNTIME_DAEMON = EN_TEXT.label_runtime_daemon
 LABEL_RUNTIME_DIR = EN_TEXT.label_runtime_dir
 LABEL_ROLE = EN_TEXT.label_role
 LABEL_SERVICE = EN_TEXT.label_service
 LABEL_SIDE = EN_TEXT.label_side
 LABEL_SOURCE = EN_TEXT.label_source
 LABEL_SPECIALIST = EN_TEXT.label_specialist
+LABEL_SETUP = EN_TEXT.label_setup
 LABEL_SIGNAL = EN_TEXT.label_signal
 LABEL_SIZE = EN_TEXT.label_size
 LABEL_SCORE = EN_TEXT.label_score
@@ -1076,6 +1155,7 @@ LABEL_STARTED = EN_TEXT.label_started
 LABEL_STATUS = EN_TEXT.label_status
 LABEL_STATUS_NOTE = EN_TEXT.label_status_note
 LABEL_STRATEGY = EN_TEXT.label_strategy
+LABEL_SURFACE = EN_TEXT.label_surface
 LABEL_STOP_REQUESTED = EN_TEXT.label_stop_requested
 LABEL_STOP = EN_TEXT.label_stop
 LABEL_STRUCTURED_LLM = EN_TEXT.label_structured_llm
@@ -1116,6 +1196,7 @@ MESSAGE_NO_RUNTIME_STATE = EN_TEXT.message_no_runtime_state
 MESSAGE_NO_RUNTIME_EVENTS = EN_TEXT.message_no_runtime_events
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
+MESSAGE_NO_ACTION_SELECTED = EN_TEXT.message_no_action_selected
 MESSAGE_NO_PROPOSAL_CANDIDATES = EN_TEXT.message_no_proposal_candidates
 MESSAGE_NO_TRADE_PROPOSALS = EN_TEXT.message_no_trade_proposals
 MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE = EN_TEXT.message_finance_operations_unavailable
@@ -1133,6 +1214,7 @@ MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED = (
 MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED = (
     EN_TEXT.message_runtime_mode_transition_blocked
 )
+MESSAGE_SETUP_BOOTSTRAP_GUIDANCE = EN_TEXT.message_setup_bootstrap_guidance
 MESSAGE_TRADING_RUNTIME_BLOCKED = EN_TEXT.message_trading_runtime_blocked
 MESSAGE_TRADING_RUNTIME_READY = EN_TEXT.message_trading_runtime_ready
 MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK = EN_TEXT.message_training_diagnostic_fallback
@@ -1154,13 +1236,16 @@ TITLE_BACKTEST_MEMORY_ABLATION = EN_TEXT.title_backtest_memory_ablation
 TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
 TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
 TITLE_CAMOFOX_STDERR_TAIL = EN_TEXT.title_camofox_stderr_tail
+TITLE_CHOOSE_SURFACE = EN_TEXT.title_choose_surface
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
+TITLE_OPERATOR_LAUNCHER = EN_TEXT.title_operator_launcher
 TITLE_PIPELINE = EN_TEXT.title_pipeline
 TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
 TITLE_DESK_ACCOUNTING_CONTEXT = EN_TEXT.title_desk_accounting_context
 TITLE_ENVIRONMENT_CHECK = EN_TEXT.title_environment_check
+TITLE_EXIT = EN_TEXT.title_exit
 TITLE_FINANCE_LEDGER_CATEGORIES = EN_TEXT.title_finance_ledger_categories
 TITLE_FINANCE_OPERATIONS = EN_TEXT.title_finance_operations
 TITLE_FINANCE_OPERATIONS_CHECKS = EN_TEXT.title_finance_operations_checks
@@ -1188,6 +1273,7 @@ TITLE_TRADE_PROPOSALS = EN_TEXT.title_trade_proposals
 TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
 TITLE_RECOMMENDED_NEXT_COMMANDS = EN_TEXT.title_recommended_next_commands
+TITLE_SETUP_GUIDANCE = EN_TEXT.title_setup_guidance
 TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
 TITLE_TRACE = EN_TEXT.title_trace
 TITLE_TOOL_OWNERSHIP = EN_TEXT.title_tool_ownership
@@ -1197,11 +1283,22 @@ TITLE_UI_LOCALE = EN_TEXT.title_ui_locale
 TITLE_WARNING = EN_TEXT.title_warning
 TITLE_WALK_FORWARD_BACKTEST = EN_TEXT.title_walk_forward_backtest
 TITLE_WEB_GUI_SERVICE = EN_TEXT.title_web_gui_service
+TITLE_WEB_GUI_START_FAILED = EN_TEXT.title_web_gui_start_failed
 TITLE_WEB_GUI_STDERR_TAIL = EN_TEXT.title_web_gui_stderr_tail
 
 PROMPT_CONTINUE = EN_TEXT.prompt_continue
 PROMPT_SELECT_ACTION = EN_TEXT.prompt_select_action
 
 STYLE_KEY_COLUMN = EN_TEXT.style_key_column
+STATUS_ACTIVE = EN_TEXT.status_active
+STATUS_APP_OWNED = EN_TEXT.status_app_owned
+STATUS_EXTERNAL = EN_TEXT.status_external
+STATUS_NEEDS_ATTENTION = EN_TEXT.status_needs_attention
+STATUS_READY = EN_TEXT.status_ready
 
 DB_LOCKED_MSG = EN_TEXT.db_locked_msg
+
+LAUNCHER_OPTION_OPEN_WEB_GUI = EN_TEXT.launcher_option_open_web_gui
+LAUNCHER_OPTION_CONTINUE_TUI = EN_TEXT.launcher_option_continue_tui
+LAUNCHER_OPTION_REFRESH = EN_TEXT.launcher_option_refresh
+LAUNCHER_OPTION_EXIT = EN_TEXT.launcher_option_exit

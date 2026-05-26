@@ -23,7 +23,9 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.title_agent_trace == ui_text.TITLE_AGENT_TRACE
     assert catalog.title_walk_forward_backtest == ui_text.TITLE_WALK_FORWARD_BACKTEST
     assert catalog.label_closed_trades == ui_text.LABEL_CLOSED_TRADES
-    assert catalog.title_backtest_memory_ablation == ui_text.TITLE_BACKTEST_MEMORY_ABLATION
+    assert (
+        catalog.title_backtest_memory_ablation == ui_text.TITLE_BACKTEST_MEMORY_ABLATION
+    )
     assert catalog.title_trade_proposals == ui_text.TITLE_TRADE_PROPOSALS
     assert catalog.message_no_trade_proposals == ui_text.MESSAGE_NO_TRADE_PROPOSALS
     assert catalog.title_finance_operations == ui_text.TITLE_FINANCE_OPERATIONS
@@ -40,6 +42,11 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.title_camofox_browser_helper == (
         ui_text.TITLE_CAMOFOX_BROWSER_HELPER
     )
+    assert catalog.title_operator_launcher == ui_text.TITLE_OPERATOR_LAUNCHER
+    assert catalog.message_setup_bootstrap_guidance == (
+        ui_text.MESSAGE_SETUP_BOOTSTRAP_GUIDANCE
+    )
+    assert catalog.status_ready == ui_text.STATUS_READY
     assert catalog.list_separator == ui_text.UI_LIST_SEPARATOR
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
 
@@ -74,6 +81,9 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_available_models == "Kullanilabilir Modeller"
     assert catalog.title_web_gui_service == "Web GUI Servisi"
     assert catalog.title_camofox_stderr_tail == "Camofox Stderr Kuyrugu"
+    assert catalog.title_choose_surface == "Yuzey Sec"
+    assert catalog.message_no_action_selected == "Aksiyon secilmedi."
+    assert catalog.status_needs_attention == "dikkat gerekiyor"
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 

@@ -65,11 +65,9 @@ from agentic_trader.finance.strategy_catalog import (
     strategy_profile_for_preset,
     strategy_profile_payload,
 )
-from agentic_trader.json_utils import (
-    object_list as _object_list,
-    object_mapping as _object_mapping,
-    object_mapping_list as _object_mapping_list,
-)
+from agentic_trader.json_utils import object_list as _object_list
+from agentic_trader.json_utils import object_mapping as _object_mapping
+from agentic_trader.json_utils import object_mapping_list as _object_mapping_list
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.calendar import infer_market_session
 from agentic_trader.market.data import fetch_ohlcv
@@ -171,13 +169,10 @@ from agentic_trader.system.webgui_service import (
 )
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
 from agentic_trader.ui_text import (
-    HELP_INTERVAL,
-    HELP_JSON,
-    HELP_LOCALE_OVERRIDE,
-    HELP_LOCALE_PERSIST,
-    HELP_LOOKBACK,
+    HELP_CAMOFOX_OWNER,
     HELP_CAMOFOX_SERVICE_APP,
     HELP_CLI_APP,
+    HELP_FIRECRAWL_OWNER,
     HELP_IDEA_CHANGE_PCT,
     HELP_IDEA_EMA_9,
     HELP_IDEA_GAP_PCT,
@@ -191,8 +186,15 @@ from agentic_trader.ui_text import (
     HELP_IDEA_SPREAD_PCT,
     HELP_IDEA_VOLUME,
     HELP_IDEA_VWAP,
+    HELP_INTERVAL,
+    HELP_JSON,
+    HELP_LOCALE_OVERRIDE,
+    HELP_LOCALE_PERSIST,
+    HELP_LOOKBACK,
     HELP_MODEL_SERVICE_APP,
+    HELP_OLLAMA_OWNER,
     HELP_RUN_ID,
+    HELP_SETUP_DRY_RUN,
     HELP_SYMBOL,
     HELP_TOOL_OWNERSHIP_APP,
     HELP_TRADE_CONFIDENCE,
@@ -203,27 +205,27 @@ from agentic_trader.ui_text import (
     HELP_TRADE_QUANTITY,
     HELP_TRADE_REFERENCE_PRICE,
     HELP_TRADE_REVIEW_NOTES,
+    HELP_TRADE_SIDE,
     HELP_TRADE_SOURCE,
     HELP_TRADE_STOP_LOSS,
     HELP_TRADE_TAKE_PROFIT,
     HELP_TRADE_THESIS,
-    HELP_TRADE_SIDE,
     HELP_WEBGUI_SERVICE_APP,
     LABEL_AGENT,
     LABEL_ALLOWED,
     LABEL_APPROVED,
-    LABEL_BASELINE,
     LABEL_BASE_URL,
+    LABEL_BASELINE,
     LABEL_BIAS,
     LABEL_BLOCKING,
     LABEL_CAMOFOX,
-    LABEL_CATEGORY,
     LABEL_CASH,
+    LABEL_CATEGORY,
     LABEL_CHECK,
     LABEL_CLOSED_TRADES,
-    LABEL_CONTINUOUS,
     LABEL_CONFIDENCE,
     LABEL_CONTEXT,
+    LABEL_CONTINUOUS,
     LABEL_CORE_READY,
     LABEL_CREATED,
     LABEL_CURRENCY,
@@ -232,22 +234,23 @@ from agentic_trader.ui_text import (
     LABEL_CYCLE,
     LABEL_CYCLE_COUNT,
     LABEL_CYCLES,
+    LABEL_DAILY_REALIZED_PNL,
     LABEL_DATABASE,
     LABEL_DB_STATUS,
-    LABEL_DAILY_REALIZED_PNL,
     LABEL_DECISION,
     LABEL_DECISION_PATH,
-    LABEL_DETAILS,
     LABEL_DELTA,
+    LABEL_DETAILS,
     LABEL_DRAWDOWN_FROM_PEAK,
     LABEL_ENDING_EQUITY,
     LABEL_ENTRY,
     LABEL_ENTRY_PX,
+    LABEL_ENVIRONMENT,
     LABEL_EQUITY,
-    LABEL_EXPOSURE,
     LABEL_EXIT,
     LABEL_EXIT_PX,
     LABEL_EXPECTANCY,
+    LABEL_EXPOSURE,
     LABEL_FALLBACK,
     LABEL_FALLBACK_CYCLES,
     LABEL_FEES,
@@ -261,28 +264,27 @@ from agentic_trader.ui_text import (
     LABEL_HEARTBEAT_AGE,
     LABEL_ID,
     LABEL_INTERVAL,
-    LABEL_ENVIRONMENT,
     LABEL_KEY,
+    LABEL_LARGEST_POSITION,
     LABEL_LAST_RECORDED_ERROR,
     LABEL_LAST_RECORDED_MESSAGE,
     LABEL_LAST_RECORDED_STATE,
-    LABEL_LARGEST_POSITION,
-    LABEL_LEVEL,
     LABEL_LATEST_ORDER,
-    LABEL_LLM_PROVIDER,
+    LABEL_LEVEL,
     LABEL_LIVE_PROCESS,
     LABEL_LLM,
+    LABEL_LLM_PROVIDER,
     LABEL_LOCALE,
     LABEL_LOOKBACK,
-    LABEL_MARKET_VALUE,
     LABEL_MARK_SOURCE,
     LABEL_MARK_STATUS,
     LABEL_MARKED_AT,
+    LABEL_MARKET_VALUE,
     LABEL_MARKS_RECORDED,
-    LABEL_MAX_DRAWDOWN,
     LABEL_MAX_CYCLES,
-    LABEL_MEMORIES,
+    LABEL_MAX_DRAWDOWN,
     LABEL_MEANING,
+    LABEL_MEMORIES,
     LABEL_MESSAGE,
     LABEL_METRIC,
     LABEL_MODE,
@@ -290,86 +292,95 @@ from agentic_trader.ui_text import (
     LABEL_MODEL_AVAILABLE,
     LABEL_MODEL_ROUTING,
     LABEL_MULTI_TIMEFRAME,
+    LABEL_NEXT,
     LABEL_NO,
     LABEL_NOTES,
     LABEL_OBSERVER_MODE,
+    LABEL_OLLAMA_REACHABLE,
     LABEL_OPEN_POSITIONS,
     LABEL_OPENED,
+    LABEL_OPTIONAL_RUNTIME_READY,
     LABEL_ORDER_ID,
-    LABEL_OWNERSHIP,
-    LABEL_OLLAMA_REACHABLE,
     LABEL_OUTPUT,
     LABEL_OUTPUT_PREVIEW,
-    LABEL_OPTIONAL_RUNTIME_READY,
+    LABEL_OWNERSHIP,
     LABEL_PASSED,
-    LABEL_PERSISTED,
-    LABEL_PLATFORM,
-    LABEL_PID,
-    LABEL_PNL,
     LABEL_PATH,
+    LABEL_PERSISTED,
+    LABEL_PID,
+    LABEL_PLATFORM,
+    LABEL_PNL,
     LABEL_POLL_SECONDS,
-    LABEL_PRESET,
     LABEL_PREFERENCE_UPDATE,
+    LABEL_PRESET,
     LABEL_PROPOSAL,
+    LABEL_PURPOSE,
     LABEL_RATIONALE,
     LABEL_REALIZED_PNL,
+    LABEL_REASON,
     LABEL_REF,
     LABEL_REJECTION_EVIDENCE,
-    LABEL_REASON,
-    LABEL_RESOLUTION_NOTES,
     LABEL_REQUIRES_CONFIRMATION,
+    LABEL_RESOLUTION_NOTES,
     LABEL_RETURN,
     LABEL_ROLE,
     LABEL_RUNTIME,
+    LABEL_RUNTIME_DAEMON,
     LABEL_RUNTIME_DIR,
+    LABEL_SCORE,
     LABEL_SERVICE,
+    LABEL_SETUP,
     LABEL_SIDE,
-    LABEL_SOURCE,
-    LABEL_SPECIALIST,
     LABEL_SIGNAL,
     LABEL_SIZE,
-    LABEL_SCORE,
     LABEL_SLIPPAGE,
+    LABEL_SOURCE,
+    LABEL_SPECIALIST,
     LABEL_STAGE,
     LABEL_STARTED,
     LABEL_STATUS,
     LABEL_STATUS_NOTE,
-    LABEL_STRATEGY,
     LABEL_STOP,
     LABEL_STOP_REQUESTED,
+    LABEL_STRATEGY,
     LABEL_STRUCTURED_LLM,
     LABEL_SUMMARY,
+    LABEL_SUPPORTED,
+    LABEL_SURFACE,
     LABEL_SYMBOL,
     LABEL_SYMBOLS,
-    LABEL_SUPPORTED,
-    LABEL_TARGET,
     LABEL_TAKE,
     LABEL_TAKE_PROFIT,
+    LABEL_TARGET,
     LABEL_TOOL,
     LABEL_TOOLS,
     LABEL_TOTAL_RETURN,
     LABEL_TRADES,
     LABEL_TYPE,
-    LABEL_PURPOSE,
+    LABEL_UNREALIZED_PNL,
     LABEL_UPDATE_PREFERENCES,
     LABEL_UPDATED,
-    LABEL_UNREALIZED_PNL,
+    LABEL_V1_SOURCE,
     LABEL_VALUE,
     LABEL_WARMUP_BARS,
-    LABEL_WITH_MEMORY,
     LABEL_WARNINGS,
-    LABEL_WIN_RATE,
-    LABEL_WITHOUT_MEMORY,
-    LABEL_V1_SOURCE,
     LABEL_WEB_GUI,
+    LABEL_WIN_RATE,
+    LABEL_WITH_MEMORY,
+    LABEL_WITHOUT_MEMORY,
     LABEL_WORKSPACE,
     LABEL_YES,
+    LAUNCHER_OPTION_CONTINUE_TUI,
+    LAUNCHER_OPTION_EXIT,
+    LAUNCHER_OPTION_OPEN_WEB_GUI,
+    LAUNCHER_OPTION_REFRESH,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_FALLBACK_USED_IN,
     MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
     MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY,
     MESSAGE_LARGEST_POSITION_ABOVE_EQUITY,
     MESSAGE_MARK_TIME_UNAVAILABLE,
+    MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
     MESSAGE_NO_HISTORICAL_MEMORIES,
     MESSAGE_NO_PROPOSAL_CANDIDATES,
@@ -382,17 +393,24 @@ from agentic_trader.ui_text import (
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
+    MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
     MESSAGE_TRADING_RUNTIME_BLOCKED,
     MESSAGE_TRADING_RUNTIME_READY,
     MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
-    STAGE_COORDINATOR,
+    PROMPT_SELECT_ACTION,
     STAGE_CONSENSUS,
+    STAGE_COORDINATOR,
     STAGE_EXECUTION,
     STAGE_FUNDAMENTAL,
     STAGE_MANAGER,
     STAGE_REGIME,
     STAGE_RISK,
     STAGE_STRATEGY,
+    STATUS_ACTIVE,
+    STATUS_APP_OWNED,
+    STATUS_EXTERNAL,
+    STATUS_NEEDS_ATTENTION,
+    STATUS_READY,
     STYLE_KEY_COLUMN,
     SUPPORTED_UI_LOCALES,
     TITLE_AGENT_DECISIONS,
@@ -403,48 +421,53 @@ from agentic_trader.ui_text import (
     TITLE_BACKTEST_TRADES,
     TITLE_CAMOFOX_BROWSER_HELPER,
     TITLE_CAMOFOX_STDERR_TAIL,
-    TITLE_EXECUTION_SUMMARY,
+    TITLE_CHOOSE_SURFACE,
     TITLE_DAILY_RISK_REPORT,
     TITLE_DESK_ACCOUNTING_CONTEXT,
     TITLE_ENVIRONMENT_CHECK,
+    TITLE_EXECUTION_SUMMARY,
+    TITLE_EXIT,
     TITLE_FINANCE_LEDGER_CATEGORIES,
     TITLE_FINANCE_OPERATIONS,
     TITLE_FINANCE_OPERATIONS_CHECKS,
     TITLE_LLM_STATUS,
-    TITLE_OPERATOR_INSTRUCTION,
-    TITLE_PIPELINE,
-    TITLE_MANAGER_CONFLICTS,
     TITLE_MANAGER_CONFLICT_REPLAY,
+    TITLE_MANAGER_CONFLICTS,
     TITLE_MANAGER_OVERRIDE_NOTES,
     TITLE_MEMORY_AWARE_REPLAY,
     TITLE_MEMORY_EXPLORER,
     TITLE_MODEL_SERVICE_STDERR_TAIL,
-    TITLE_PROPOSAL_CANDIDATES,
+    TITLE_OPERATOR_INSTRUCTION,
+    TITLE_OPERATOR_LAUNCHER,
+    TITLE_PIPELINE,
     TITLE_POSITION_PLAN_REPAIR,
+    TITLE_PROPOSAL_CANDIDATES,
     TITLE_RECOMMENDED_NEXT_COMMANDS,
-    TITLE_SETUP_STATUS,
-    TITLE_REVIEW_NOTE,
     TITLE_REPLAY_STAGES,
+    TITLE_REVIEW_NOTE,
+    TITLE_RISK_WARNINGS,
     TITLE_RUN_ARTIFACTS,
     TITLE_RUN_REVIEW,
-    TITLE_RISK_WARNINGS,
     TITLE_RUNTIME_EVENTS,
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
     TITLE_SERVICE_STATUS,
-    TITLE_TRADE_JOURNAL,
-    TITLE_TRADE_PROPOSALS,
-    TITLE_TRACE,
+    TITLE_SETUP_GUIDANCE,
+    TITLE_SETUP_STATUS,
     TITLE_TOOL_OWNERSHIP,
     TITLE_TOOL_READINESS,
+    TITLE_TRACE,
+    TITLE_TRADE_JOURNAL,
+    TITLE_TRADE_PROPOSALS,
     TITLE_TRAINING_DIAGNOSTIC_MODE,
     TITLE_UI_LOCALE,
-    TITLE_WARNING,
     TITLE_WALK_FORWARD_BACKTEST,
+    TITLE_WARNING,
     TITLE_WEB_GUI_SERVICE,
+    TITLE_WEB_GUI_START_FAILED,
     TITLE_WEB_GUI_STDERR_TAIL,
-    UILocale,
     UI_LIST_SEPARATOR,
+    UILocale,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import (
@@ -3967,7 +3990,7 @@ def _render_camofox_service_status(payload: dict[str, object]) -> None:
 
 def _render_operator_launcher_status(payload: dict[str, object]) -> None:
     """
-    Render the operator launcher status table and a "Choose A Surface" selection panel to the console.
+    Render the operator launcher status table and surface selection panel to the console.
 
     Parameters:
         payload (dict[str, object]): Observer payload containing state for the launcher view, including
@@ -3981,22 +4004,22 @@ def _render_operator_launcher_status(payload: dict[str, object]) -> None:
     camofox_service = cast(dict[str, object], payload["camofox_service"])
     webgui_service = cast(dict[str, object], payload["webgui_service"])
     setup = cast(dict[str, object], payload["setup"])
-    table = Table(title="Agentic Trader Operator Launcher")
-    table.add_column("Surface")
-    table.add_column("Status")
-    table.add_column("Next")
+    table = Table(title=TITLE_OPERATOR_LAUNCHER)
+    table.add_column(LABEL_SURFACE)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_NEXT)
     table.add_row(
-        "Runtime Daemon",
-        "active" if payload["runtime_active"] else str(payload["runtime_state"]),
+        LABEL_RUNTIME_DAEMON,
+        STATUS_ACTIVE if payload["runtime_active"] else str(payload["runtime_state"]),
         (
             f"{', '.join(cast(list[str], plan['symbols']))} "
             f"{plan['interval']} {plan['lookback']} / poll {plan['poll_seconds']}s"
         ),
     )
     if webgui_service.get("app_owned"):
-        webgui_state = "app-owned"
+        webgui_state = STATUS_APP_OWNED
     elif webgui_service.get("service_reachable"):
-        webgui_state = "external"
+        webgui_state = STATUS_EXTERNAL
     else:
         webgui_state = str(webgui_service.get("message"))
     table.add_row(
@@ -4007,24 +4030,24 @@ def _render_operator_launcher_status(payload: dict[str, object]) -> None:
     table.add_row(
         LABEL_MODEL_SERVICE,
         (
-            "ready"
+            STATUS_READY
             if model_service.get("model_available")
             else str(model_service.get("message"))
         ),
         str(model_service.get("base_url") or model_service.get("configured_base_url")),
     )
     table.add_row(
-        "Camofox",
+        LABEL_CAMOFOX,
         (
-            "ready"
+            STATUS_READY
             if camofox_service.get("health_ok")
             else str(camofox_service.get("message"))
         ),
         str(camofox_service.get("base_url") or "agentic-trader camofox-service start"),
     )
     table.add_row(
-        "Setup",
-        "ready" if setup.get("core_ready") else "needs attention",
+        LABEL_SETUP,
+        STATUS_READY if setup.get("core_ready") else STATUS_NEEDS_ATTENTION,
         "agentic-trader setup-status --json",
     )
     console.print(table)
@@ -4032,13 +4055,13 @@ def _render_operator_launcher_status(payload: dict[str, object]) -> None:
         Panel(
             "\n".join(
                 [
-                    "1  Open/start the local Web GUI command center",
-                    "2  Continue in the Rich terminal control room",
-                    "3  Stay here and refresh this launcher",
-                    "4  Exit",
+                    LAUNCHER_OPTION_OPEN_WEB_GUI,
+                    LAUNCHER_OPTION_CONTINUE_TUI,
+                    LAUNCHER_OPTION_REFRESH,
+                    LAUNCHER_OPTION_EXIT,
                 ]
             ),
-            title="Choose A Surface",
+            title=TITLE_CHOOSE_SURFACE,
             border_style="cyan",
         )
     )
@@ -4052,7 +4075,7 @@ def _operator_launcher() -> None:
         payload = build_operator_launcher_status(settings).model_dump(mode="json")
         _render_operator_launcher_status(payload)
         choice = Prompt.ask(
-            "Select action",
+            PROMPT_SELECT_ACTION,
             choices=["1", "2", "3", "4", "8", "q"],
             default="2",
         )
@@ -4062,7 +4085,7 @@ def _operator_launcher() -> None:
             except Exception as exc:
                 console.print(
                     _render_health_panel(
-                        "Web GUI Start Failed",
+                        TITLE_WEB_GUI_START_FAILED,
                         redact_sensitive_text(exc, max_length=240),
                         border_style="red",
                     )
@@ -4077,7 +4100,11 @@ def _operator_launcher() -> None:
             continue
         break
     console.print(
-        _render_health_panel("Exit", "No action selected.", border_style="blue")
+        _render_health_panel(
+            TITLE_EXIT,
+            MESSAGE_NO_ACTION_SELECTED,
+            border_style="blue",
+        )
     )
 
 
@@ -4121,17 +4148,17 @@ def tool_ownership_set(
     ollama_owner: str | None = typer.Option(
         None,
         "--ollama-owner",
-        help="Ownership mode for Ollama: host-owned, app-owned, api-key-only, or skipped.",
+        help=HELP_OLLAMA_OWNER,
     ),
     firecrawl_owner: str | None = typer.Option(
         None,
         "--firecrawl-owner",
-        help="Ownership mode for Firecrawl: host-owned, app-owned, api-key-only, or skipped.",
+        help=HELP_FIRECRAWL_OWNER,
     ),
     camofox_owner: str | None = typer.Option(
         None,
         "--camofox-owner",
-        help="Ownership mode for Camofox: host-owned, app-owned, api-key-only, or skipped.",
+        help=HELP_CAMOFOX_OWNER,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -4141,9 +4168,9 @@ def tool_ownership_set(
     Accepts ownership mode overrides for Ollama, Firecrawl, and Camofox, validates each mode, and writes the persisted ownership choices to application settings. When --json is set, emits the persisted payload as JSON; otherwise renders a human-friendly panel.
 
     Parameters:
-        ollama_owner (str | None): Ownership mode for Ollama. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
-        firecrawl_owner (str | None): Ownership mode for Firecrawl. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
-        camofox_owner (str | None): Ownership mode for Camofox. Valid values: "host-owned", "app-owned", "api-key-only", or "skipped".
+        ollama_owner (str | None): Optional Ollama ownership override.
+        firecrawl_owner (str | None): Optional Firecrawl ownership override.
+        camofox_owner (str | None): Optional Camofox ownership override.
         json_output (bool): If true, emit the persisted ownership payload as compact JSON instead of rendering a panel.
 
     Raises:
@@ -4182,7 +4209,7 @@ def setup_command(
     dry_run: bool = typer.Option(
         True,
         "--dry-run/--no-dry-run",
-        help="Report setup status. Use make bootstrap for interactive installs.",
+        help=HELP_SETUP_DRY_RUN,
     ),
 ) -> None:
     """
@@ -4203,7 +4230,7 @@ def setup_command(
         "dry_run": dry_run,
         "mutated": False,
         "status": status,
-        "message": "Run `make bootstrap` for the interactive system-tool installer.",
+        "message": MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
     }
     if json_output:
         _emit_json(payload)
@@ -4211,7 +4238,7 @@ def setup_command(
     _render_setup_status(status)
     console.print(
         _render_health_panel(
-            "Setup Guidance",
+            TITLE_SETUP_GUIDANCE,
             str(payload["message"]),
             border_style="cyan",
         )
@@ -4378,7 +4405,7 @@ def webgui_service_start(
         else:
             console.print(
                 _render_health_panel(
-                    "Web GUI Start Failed",
+                    TITLE_WEB_GUI_START_FAILED,
                     str(error_payload["error"]),
                     border_style="red",
                 )
