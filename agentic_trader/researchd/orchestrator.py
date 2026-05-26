@@ -11,7 +11,6 @@ import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol, cast
 from uuid import uuid4
@@ -41,6 +40,7 @@ from agentic_trader.schemas import (
     WorldStateSnapshot,
 )
 from agentic_trader.security import redact_sensitive_text
+from agentic_trader.time_utils import utc_now_iso
 
 ContractRunner = Callable[
     [list[str], str, Path, dict[str, str], float],
@@ -93,11 +93,6 @@ def _sidecar_process_env() -> dict[str, str]:
             env[key] = value
     env["CREWAI_TRACING_ENABLED"] = "false"
     return env
-
-
-def utc_now_iso() -> str:
-    """Return an ISO timestamp in UTC for sidecar metadata."""
-    return datetime.now(UTC).isoformat()
 
 
 def parse_research_symbols(raw_symbols: str) -> list[str]:

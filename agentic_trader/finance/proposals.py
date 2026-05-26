@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Literal, NotRequired, TypedDict, cast
 from uuid import uuid4
 
@@ -14,6 +13,7 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import TradingDatabase
+from agentic_trader.time_utils import utc_now_iso
 
 TERMINAL_PROPOSAL_STATUSES: set[TradeProposalStatus] = {
     "executed",
@@ -52,16 +52,6 @@ class PositionPlanRepairItem(TypedDict):
     entry_price: NotRequired[float]
     stop_loss: NotRequired[float]
     take_profit: NotRequired[float]
-
-
-def utc_now_iso() -> str:
-    """
-    Return the current UTC time as an ISO 8601 formatted string.
-
-    Returns:
-        ISO 8601 string representing the current UTC time (includes timezone offset).
-    """
-    return datetime.now(timezone.utc).isoformat()
 
 
 def prepare_trade_proposal(
