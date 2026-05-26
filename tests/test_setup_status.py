@@ -180,6 +180,22 @@ def test_crewai_setup_status_summarizes_failed_sidecar_version(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = _settings(tmp_path)
+    flow_dir = tmp_path / "sidecars" / "research_flow"
+    flow_dir.mkdir(parents=True)
+    (flow_dir / ".venv").mkdir()
+    (flow_dir / "pyproject.toml").write_text(
+        "[project]\nname = 'research-flow'\n",
+        encoding="utf-8",
+    )
+
+    def fake_flow_dir(_settings: Settings) -> Path:
+        return flow_dir
+
+    monkeypatch.setattr(
+        crewai_setup,
+        "default_crewai_flow_dir",
+        fake_flow_dir,
+    )
 
     def fake_which(command: str) -> str | None:
         return "/bin/uv" if command == "uv" else None

@@ -1133,12 +1133,12 @@ def build_model_service_status(
         orphan_app_managed_pids=orphan_app_managed_pids,
     )
     return ModelServiceStatus(
-        tool_id=str(tool_payload.get("tool_id", "ollama")),
-        tool_status_id=str(tool_payload.get("tool_status_id", "ollama_cli")),
-        tool_consumers=_string_list(tool_payload.get("tool_consumers")),
-        tool_fallback_order=_string_list(tool_payload.get("tool_fallback_order")),
-        tool_ownership_modes=_string_list(tool_payload.get("tool_ownership_modes")),
-        install_hint=str(tool_payload.get("install_hint", "")),
+        tool_id=tool_payload["tool_id"],
+        tool_status_id=tool_payload["tool_status_id"],
+        tool_consumers=tool_payload["tool_consumers"],
+        tool_fallback_order=tool_payload["tool_fallback_order"],
+        tool_ownership_modes=tool_payload["tool_ownership_modes"],
+        install_hint=tool_payload["install_hint"],
         notes=notes,
         command_available=command_path is not None,
         command_path=command_path,
