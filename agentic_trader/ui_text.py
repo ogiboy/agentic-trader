@@ -58,20 +58,25 @@ class UITextCatalog:
     label_agent: str
     label_approved: str
     label_baseline: str
+    label_bias: str
+    label_blocking: str
+    label_category: str
     label_cash: str
+    label_check: str
     label_closed_trades: str
     label_continuous: str
     label_confidence: str
     label_context: str
     label_created: str
+    label_currency: str
     label_current_symbol: str
     label_cycle: str
     label_cycle_count: str
     label_cycles: str
-    label_bias: str
     label_daily_realized_pnl: str
     label_decision: str
     label_decision_path: str
+    label_details: str
     label_delta: str
     label_drawdown_from_peak: str
     label_ending_equity: str
@@ -84,6 +89,7 @@ class UITextCatalog:
     label_expectancy: str
     label_fallback: str
     label_fallback_cycles: str
+    label_fees: str
     label_field: str
     label_fills_today: str
     label_final_rationale: str
@@ -104,6 +110,9 @@ class UITextCatalog:
     label_llm: str
     label_lookback: str
     label_market_value: str
+    label_mark_source: str
+    label_mark_status: str
+    label_marked_at: str
     label_marks_recorded: str
     label_max_drawdown: str
     label_max_cycles: str
@@ -130,6 +139,7 @@ class UITextCatalog:
     label_rationale: str
     label_realized_pnl: str
     label_ref: str
+    label_rejection_evidence: str
     label_reason: str
     label_resolution_notes: str
     label_requires_confirmation: str
@@ -143,6 +153,7 @@ class UITextCatalog:
     label_signal: str
     label_size: str
     label_score: str
+    label_slippage: str
     label_stage: str
     label_started: str
     label_status: str
@@ -154,11 +165,13 @@ class UITextCatalog:
     label_summary: str
     label_symbol: str
     label_symbols: str
+    label_take: str
     label_take_profit: str
     label_tools: str
     label_total_return: str
     label_trades: str
     label_type: str
+    label_purpose: str
     label_update_preferences: str
     label_updated: str
     label_unrealized_pnl: str
@@ -168,6 +181,7 @@ class UITextCatalog:
     label_warnings: str
     label_win_rate: str
     label_without_memory: str
+    label_v1_source: str
     label_yes: str
     list_separator: str
     message_all_agent_stages_llm_path: str
@@ -179,6 +193,13 @@ class UITextCatalog:
     message_no_historical_memories: str
     message_no_proposal_candidates: str
     message_no_trade_proposals: str
+    message_finance_operations_unavailable: str
+    message_gross_exposure_above_equity: str
+    message_largest_position_above_equity: str
+    message_mark_time_unavailable: str
+    message_open_position_count_elevated: str
+    message_portfolio_concentration_hhi: str
+    message_position_plan_repair_unavailable: str
     prompt_continue: str
     prompt_select_action: str
     stage_coordinator: str
@@ -200,6 +221,10 @@ class UITextCatalog:
     title_operator_instruction: str
     title_pipeline: str
     title_daily_risk_report: str
+    title_desk_accounting_context: str
+    title_finance_ledger_categories: str
+    title_finance_operations: str
+    title_finance_operations_checks: str
     title_manager_conflicts: str
     title_manager_conflict_replay: str
     title_manager_override_notes: str
@@ -217,6 +242,7 @@ class UITextCatalog:
     title_trade_journal: str
     title_trade_proposals: str
     title_proposal_candidates: str
+    title_position_plan_repair: str
     title_trace: str
     title_warning: str
     title_walk_forward_backtest: str
@@ -263,20 +289,25 @@ EN_TEXT = UITextCatalog(
     label_agent="Agent",
     label_approved="Approved",
     label_baseline="Baseline",
+    label_bias="Bias",
+    label_blocking="Blocking",
+    label_category="Category",
     label_cash="Cash",
+    label_check="Check",
     label_closed_trades="Closed Trades",
     label_continuous="Continuous",
     label_confidence="Confidence",
     label_context="Context",
     label_created="Created",
+    label_currency="Currency",
     label_current_symbol="Current Symbol",
     label_cycle="Cycle",
     label_cycle_count="Cycle Count",
     label_cycles="Cycles",
-    label_bias="Bias",
     label_daily_realized_pnl="Daily Realized PnL",
     label_decision="Decision",
     label_decision_path="Decision Path",
+    label_details="Details",
     label_delta="Delta",
     label_drawdown_from_peak="Drawdown From Peak",
     label_ending_equity="Ending Equity",
@@ -289,6 +320,7 @@ EN_TEXT = UITextCatalog(
     label_expectancy="Expectancy",
     label_fallback="Fallback",
     label_fallback_cycles="Fallback Cycles",
+    label_fees="Fees",
     label_field="Field",
     label_fills_today="Fills Today",
     label_final_rationale="Final Rationale",
@@ -309,6 +341,9 @@ EN_TEXT = UITextCatalog(
     label_llm="LLM",
     label_lookback="Lookback",
     label_market_value="Market Value",
+    label_mark_source="Mark Source",
+    label_mark_status="Mark Status",
+    label_marked_at="Marked At",
     label_marks_recorded="Marks Recorded",
     label_max_drawdown="Max Drawdown",
     label_max_cycles="Max Cycles",
@@ -335,6 +370,7 @@ EN_TEXT = UITextCatalog(
     label_rationale="Rationale",
     label_realized_pnl="Realized PnL",
     label_ref="Ref",
+    label_rejection_evidence="Rejection Evidence",
     label_reason="Reason",
     label_resolution_notes="Resolution Notes",
     label_requires_confirmation="Requires Confirmation",
@@ -348,6 +384,7 @@ EN_TEXT = UITextCatalog(
     label_signal="Signal",
     label_size="Size",
     label_score="Score",
+    label_slippage="Slippage",
     label_stage="Stage",
     label_started="Started",
     label_status="Status",
@@ -359,11 +396,13 @@ EN_TEXT = UITextCatalog(
     label_summary="Summary",
     label_symbol="Symbol",
     label_symbols="Symbols",
+    label_take="Take",
     label_take_profit="Take Profit",
     label_tools="Tools",
     label_total_return="Total Return",
     label_trades="Trades",
     label_type="Type",
+    label_purpose="Purpose",
     label_update_preferences="Update Preferences",
     label_updated="Updated",
     label_unrealized_pnl="Unrealized PnL",
@@ -373,6 +412,7 @@ EN_TEXT = UITextCatalog(
     label_warnings="Warnings",
     label_win_rate="Win Rate",
     label_without_memory="Without Memory",
+    label_v1_source="V1 Source",
     label_yes="yes",
     list_separator=", ",
     message_all_agent_stages_llm_path="All agent stages completed through the LLM path.",
@@ -386,6 +426,15 @@ EN_TEXT = UITextCatalog(
     message_no_historical_memories="No historical memories are available yet.",
     message_no_proposal_candidates="No proposal candidates recorded yet.",
     message_no_trade_proposals="No trade proposals recorded yet.",
+    message_finance_operations_unavailable="Finance operations status unavailable.",
+    message_gross_exposure_above_equity="Gross exposure is above {limit} of equity.",
+    message_largest_position_above_equity="Largest position is above {limit} of equity.",
+    message_mark_time_unavailable="mark time unavailable",
+    message_open_position_count_elevated="Open position count is elevated.",
+    message_portfolio_concentration_hhi=(
+        "Portfolio concentration HHI is elevated at {score:.3f}."
+    ),
+    message_position_plan_repair_unavailable="Position plan repair status unavailable.",
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
     stage_coordinator="Coordinator",
@@ -407,6 +456,10 @@ EN_TEXT = UITextCatalog(
     title_operator_instruction="Operator Instruction",
     title_pipeline="Pipeline",
     title_daily_risk_report="Daily Risk Report",
+    title_desk_accounting_context="Desk Accounting Context",
+    title_finance_ledger_categories="Finance Ledger Categories",
+    title_finance_operations="Finance Operations",
+    title_finance_operations_checks="Finance Operations Checks",
     title_manager_conflicts="Manager Conflicts",
     title_manager_conflict_replay="Manager Conflict Replay",
     title_manager_override_notes="Manager Override Notes",
@@ -424,6 +477,7 @@ EN_TEXT = UITextCatalog(
     title_trade_journal="Trade Journal",
     title_trade_proposals="Trade Proposals",
     title_proposal_candidates="Proposal Candidates",
+    title_position_plan_repair="Position Plan Repair",
     title_trace="Trace",
     title_warning="Warning",
     title_walk_forward_backtest="Walk-Forward Backtest",
@@ -473,20 +527,25 @@ TR_TEXT = UITextCatalog(
     label_agent="Agent",
     label_approved="Onaylandi",
     label_baseline="Baseline",
+    label_bias="Bias",
+    label_blocking="Bloklayici",
+    label_category="Kategori",
     label_cash="Nakit",
+    label_check="Kontrol",
     label_closed_trades="Kapanan Trade'ler",
     label_continuous="Surekli",
     label_confidence="Guven",
     label_context="Baglam",
     label_created="Olusturuldu",
+    label_currency="Para Birimi",
     label_current_symbol="Gecerli Sembol",
     label_cycle="Dongu",
     label_cycle_count="Dongu Sayisi",
     label_cycles="Donguler",
-    label_bias="Bias",
     label_daily_realized_pnl="Gunluk Gerceklesen PnL",
     label_decision="Karar",
     label_decision_path="Karar Yolu",
+    label_details="Detaylar",
     label_delta="Delta",
     label_drawdown_from_peak="Zirveden Drawdown",
     label_ending_equity="Final Equity",
@@ -499,6 +558,7 @@ TR_TEXT = UITextCatalog(
     label_expectancy="Expectancy",
     label_fallback="Fallback",
     label_fallback_cycles="Fallback Donguleri",
+    label_fees="Ucretler",
     label_field="Alan",
     label_fills_today="Bugunku Fill'ler",
     label_final_rationale="Final Gerekce",
@@ -519,6 +579,9 @@ TR_TEXT = UITextCatalog(
     label_llm="LLM",
     label_lookback="Geriye Donuk Pencere",
     label_market_value="Piyasa Degeri",
+    label_mark_source="Mark Kaynagi",
+    label_mark_status="Mark Durumu",
+    label_marked_at="Mark Zamani",
     label_marks_recorded="Kayitli Mark'lar",
     label_max_drawdown="Maksimum Drawdown",
     label_max_cycles="Maksimum Dongu",
@@ -545,6 +608,7 @@ TR_TEXT = UITextCatalog(
     label_rationale="Gerekce",
     label_realized_pnl="Gerceklesen PnL",
     label_ref="Ref",
+    label_rejection_evidence="Red Kaniti",
     label_reason="Neden",
     label_resolution_notes="Cozum Notlari",
     label_requires_confirmation="Onay Gerektirir",
@@ -558,6 +622,7 @@ TR_TEXT = UITextCatalog(
     label_signal="Sinyal",
     label_size="Boyut",
     label_score="Skor",
+    label_slippage="Slippage",
     label_stage="Asama",
     label_started="Basladi",
     label_status="Durum",
@@ -569,11 +634,13 @@ TR_TEXT = UITextCatalog(
     label_summary="Ozet",
     label_symbol="Sembol",
     label_symbols="Semboller",
+    label_take="Take",
     label_take_profit="Take Profit",
     label_tools="Araclar",
     label_total_return="Toplam Return",
     label_trades="Trade'ler",
     label_type="Tip",
+    label_purpose="Amac",
     label_update_preferences="Tercihleri Guncelle",
     label_updated="Guncellendi",
     label_unrealized_pnl="Gerceklesmemis PnL",
@@ -583,6 +650,7 @@ TR_TEXT = UITextCatalog(
     label_warnings="Uyarilar",
     label_win_rate="Kazanma Orani",
     label_without_memory="Hafiza Olmadan",
+    label_v1_source="V1 Kaynagi",
     label_yes="evet",
     list_separator=", ",
     message_all_agent_stages_llm_path="Tum agent asamalari LLM yolu ile tamamlandi.",
@@ -596,6 +664,15 @@ TR_TEXT = UITextCatalog(
     message_no_historical_memories="Henuz historical memory yok.",
     message_no_proposal_candidates="Henuz proposal candidate kaydi yok.",
     message_no_trade_proposals="Henuz trade proposal kaydi yok.",
+    message_finance_operations_unavailable="Finance operations durumu kullanilamiyor.",
+    message_gross_exposure_above_equity="Gross exposure equity'nin {limit} uzerinde.",
+    message_largest_position_above_equity="En buyuk pozisyon equity'nin {limit} uzerinde.",
+    message_mark_time_unavailable="mark zamani yok",
+    message_open_position_count_elevated="Acik pozisyon sayisi yuksek.",
+    message_portfolio_concentration_hhi=(
+        "Portfoy konsantrasyon HHI {score:.3f} ile yuksek."
+    ),
+    message_position_plan_repair_unavailable="Position plan repair durumu kullanilamiyor.",
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
     stage_coordinator="Coordinator",
@@ -617,6 +694,10 @@ TR_TEXT = UITextCatalog(
     title_operator_instruction="Operator Talimati",
     title_pipeline="Pipeline",
     title_daily_risk_report="Gunluk Risk Raporu",
+    title_desk_accounting_context="Desk Accounting Context",
+    title_finance_ledger_categories="Finance Ledger Kategorileri",
+    title_finance_operations="Finance Operations",
+    title_finance_operations_checks="Finance Operations Kontrolleri",
     title_manager_conflicts="Manager Catismalari",
     title_manager_conflict_replay="Manager Catisma Replay",
     title_manager_override_notes="Manager Override Notlari",
@@ -634,6 +715,7 @@ TR_TEXT = UITextCatalog(
     title_trade_journal="Trade Journal",
     title_trade_proposals="Trade Proposal'lari",
     title_proposal_candidates="Proposal Candidate'leri",
+    title_position_plan_repair="Position Plan Repair",
     title_trace="Trace",
     title_warning="Uyari",
     title_walk_forward_backtest="Walk-Forward Backtest",
@@ -705,12 +787,16 @@ LABEL_AGENT = EN_TEXT.label_agent
 LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_BASELINE = EN_TEXT.label_baseline
 LABEL_BIAS = EN_TEXT.label_bias
+LABEL_BLOCKING = EN_TEXT.label_blocking
+LABEL_CATEGORY = EN_TEXT.label_category
 LABEL_CASH = EN_TEXT.label_cash
+LABEL_CHECK = EN_TEXT.label_check
 LABEL_CLOSED_TRADES = EN_TEXT.label_closed_trades
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
 LABEL_CONFIDENCE = EN_TEXT.label_confidence
 LABEL_CONTEXT = EN_TEXT.label_context
 LABEL_CREATED = EN_TEXT.label_created
+LABEL_CURRENCY = EN_TEXT.label_currency
 LABEL_CURRENT_SYMBOL = EN_TEXT.label_current_symbol
 LABEL_CYCLE = EN_TEXT.label_cycle
 LABEL_CYCLE_COUNT = EN_TEXT.label_cycle_count
@@ -718,6 +804,7 @@ LABEL_CYCLES = EN_TEXT.label_cycles
 LABEL_DAILY_REALIZED_PNL = EN_TEXT.label_daily_realized_pnl
 LABEL_DECISION = EN_TEXT.label_decision
 LABEL_DECISION_PATH = EN_TEXT.label_decision_path
+LABEL_DETAILS = EN_TEXT.label_details
 LABEL_DELTA = EN_TEXT.label_delta
 LABEL_DRAWDOWN_FROM_PEAK = EN_TEXT.label_drawdown_from_peak
 LABEL_ENDING_EQUITY = EN_TEXT.label_ending_equity
@@ -730,6 +817,7 @@ LABEL_EXIT_PX = EN_TEXT.label_exit_px
 LABEL_EXPECTANCY = EN_TEXT.label_expectancy
 LABEL_FALLBACK = EN_TEXT.label_fallback
 LABEL_FALLBACK_CYCLES = EN_TEXT.label_fallback_cycles
+LABEL_FEES = EN_TEXT.label_fees
 LABEL_FIELD = EN_TEXT.label_field
 LABEL_FILLS_TODAY = EN_TEXT.label_fills_today
 LABEL_FINAL_RATIONALE = EN_TEXT.label_final_rationale
@@ -750,6 +838,9 @@ LABEL_LIVE_PROCESS = EN_TEXT.label_live_process
 LABEL_LLM = EN_TEXT.label_llm
 LABEL_LOOKBACK = EN_TEXT.label_lookback
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
+LABEL_MARK_SOURCE = EN_TEXT.label_mark_source
+LABEL_MARK_STATUS = EN_TEXT.label_mark_status
+LABEL_MARKED_AT = EN_TEXT.label_marked_at
 LABEL_MARKS_RECORDED = EN_TEXT.label_marks_recorded
 LABEL_MAX_DRAWDOWN = EN_TEXT.label_max_drawdown
 LABEL_MAX_CYCLES = EN_TEXT.label_max_cycles
@@ -776,6 +867,7 @@ LABEL_PROPOSAL = EN_TEXT.label_proposal
 LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
 LABEL_REF = EN_TEXT.label_ref
+LABEL_REJECTION_EVIDENCE = EN_TEXT.label_rejection_evidence
 LABEL_REASON = EN_TEXT.label_reason
 LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
@@ -789,6 +881,7 @@ LABEL_SPECIALIST = EN_TEXT.label_specialist
 LABEL_SIGNAL = EN_TEXT.label_signal
 LABEL_SIZE = EN_TEXT.label_size
 LABEL_SCORE = EN_TEXT.label_score
+LABEL_SLIPPAGE = EN_TEXT.label_slippage
 LABEL_STAGE = EN_TEXT.label_stage
 LABEL_STARTED = EN_TEXT.label_started
 LABEL_STATUS = EN_TEXT.label_status
@@ -800,11 +893,13 @@ LABEL_STRUCTURED_LLM = EN_TEXT.label_structured_llm
 LABEL_SUMMARY = EN_TEXT.label_summary
 LABEL_SYMBOL = EN_TEXT.label_symbol
 LABEL_SYMBOLS = EN_TEXT.label_symbols
+LABEL_TAKE = EN_TEXT.label_take
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
 LABEL_TOOLS = EN_TEXT.label_tools
 LABEL_TOTAL_RETURN = EN_TEXT.label_total_return
 LABEL_TRADES = EN_TEXT.label_trades
 LABEL_TYPE = EN_TEXT.label_type
+LABEL_PURPOSE = EN_TEXT.label_purpose
 LABEL_UPDATE_PREFERENCES = EN_TEXT.label_update_preferences
 LABEL_UPDATED = EN_TEXT.label_updated
 LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
@@ -814,6 +909,7 @@ LABEL_WITH_MEMORY = EN_TEXT.label_with_memory
 LABEL_WARNINGS = EN_TEXT.label_warnings
 LABEL_WIN_RATE = EN_TEXT.label_win_rate
 LABEL_WITHOUT_MEMORY = EN_TEXT.label_without_memory
+LABEL_V1_SOURCE = EN_TEXT.label_v1_source
 LABEL_YES = EN_TEXT.label_yes
 UI_LIST_SEPARATOR = EN_TEXT.list_separator
 
@@ -828,6 +924,15 @@ MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
 MESSAGE_NO_PROPOSAL_CANDIDATES = EN_TEXT.message_no_proposal_candidates
 MESSAGE_NO_TRADE_PROPOSALS = EN_TEXT.message_no_trade_proposals
+MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE = EN_TEXT.message_finance_operations_unavailable
+MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY = EN_TEXT.message_gross_exposure_above_equity
+MESSAGE_LARGEST_POSITION_ABOVE_EQUITY = EN_TEXT.message_largest_position_above_equity
+MESSAGE_MARK_TIME_UNAVAILABLE = EN_TEXT.message_mark_time_unavailable
+MESSAGE_OPEN_POSITION_COUNT_ELEVATED = EN_TEXT.message_open_position_count_elevated
+MESSAGE_PORTFOLIO_CONCENTRATION_HHI = EN_TEXT.message_portfolio_concentration_hhi
+MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE = (
+    EN_TEXT.message_position_plan_repair_unavailable
+)
 
 STAGE_COORDINATOR = EN_TEXT.stage_coordinator
 STAGE_CONSENSUS = EN_TEXT.stage_consensus
@@ -848,6 +953,10 @@ TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
 TITLE_PIPELINE = EN_TEXT.title_pipeline
 TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
+TITLE_DESK_ACCOUNTING_CONTEXT = EN_TEXT.title_desk_accounting_context
+TITLE_FINANCE_LEDGER_CATEGORIES = EN_TEXT.title_finance_ledger_categories
+TITLE_FINANCE_OPERATIONS = EN_TEXT.title_finance_operations
+TITLE_FINANCE_OPERATIONS_CHECKS = EN_TEXT.title_finance_operations_checks
 TITLE_MANAGER_CONFLICTS = EN_TEXT.title_manager_conflicts
 TITLE_MANAGER_CONFLICT_REPLAY = EN_TEXT.title_manager_conflict_replay
 TITLE_MANAGER_OVERRIDE_NOTES = EN_TEXT.title_manager_override_notes
@@ -865,6 +974,7 @@ TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
 TITLE_TRADE_PROPOSALS = EN_TEXT.title_trade_proposals
 TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
+TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
 TITLE_TRACE = EN_TEXT.title_trace
 TITLE_WARNING = EN_TEXT.title_warning
 TITLE_WALK_FORWARD_BACKTEST = EN_TEXT.title_walk_forward_backtest

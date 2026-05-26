@@ -211,12 +211,16 @@ from agentic_trader.ui_text import (
     LABEL_APPROVED,
     LABEL_BASELINE,
     LABEL_BIAS,
+    LABEL_BLOCKING,
+    LABEL_CATEGORY,
     LABEL_CASH,
+    LABEL_CHECK,
     LABEL_CLOSED_TRADES,
     LABEL_CONTINUOUS,
     LABEL_CONFIDENCE,
     LABEL_CONTEXT,
     LABEL_CREATED,
+    LABEL_CURRENCY,
     LABEL_CURRENT_SYMBOL,
     LABEL_CYCLE,
     LABEL_CYCLE_COUNT,
@@ -224,6 +228,7 @@ from agentic_trader.ui_text import (
     LABEL_DAILY_REALIZED_PNL,
     LABEL_DECISION,
     LABEL_DECISION_PATH,
+    LABEL_DETAILS,
     LABEL_DELTA,
     LABEL_DRAWDOWN_FROM_PEAK,
     LABEL_ENDING_EQUITY,
@@ -236,6 +241,7 @@ from agentic_trader.ui_text import (
     LABEL_EXPECTANCY,
     LABEL_FALLBACK,
     LABEL_FALLBACK_CYCLES,
+    LABEL_FEES,
     LABEL_FIELD,
     LABEL_FILLS_TODAY,
     LABEL_FINAL_RATIONALE,
@@ -256,6 +262,9 @@ from agentic_trader.ui_text import (
     LABEL_LLM,
     LABEL_LOOKBACK,
     LABEL_MARKET_VALUE,
+    LABEL_MARK_SOURCE,
+    LABEL_MARK_STATUS,
+    LABEL_MARKED_AT,
     LABEL_MARKS_RECORDED,
     LABEL_MAX_DRAWDOWN,
     LABEL_MAX_CYCLES,
@@ -282,6 +291,7 @@ from agentic_trader.ui_text import (
     LABEL_RATIONALE,
     LABEL_REALIZED_PNL,
     LABEL_REF,
+    LABEL_REJECTION_EVIDENCE,
     LABEL_REASON,
     LABEL_RESOLUTION_NOTES,
     LABEL_REQUIRES_CONFIRMATION,
@@ -295,6 +305,7 @@ from agentic_trader.ui_text import (
     LABEL_SIGNAL,
     LABEL_SIZE,
     LABEL_SCORE,
+    LABEL_SLIPPAGE,
     LABEL_STAGE,
     LABEL_STARTED,
     LABEL_STATUS,
@@ -306,11 +317,13 @@ from agentic_trader.ui_text import (
     LABEL_SUMMARY,
     LABEL_SYMBOL,
     LABEL_SYMBOLS,
+    LABEL_TAKE,
     LABEL_TAKE_PROFIT,
     LABEL_TOOLS,
     LABEL_TOTAL_RETURN,
     LABEL_TRADES,
     LABEL_TYPE,
+    LABEL_PURPOSE,
     LABEL_UPDATE_PREFERENCES,
     LABEL_UPDATED,
     LABEL_UNREALIZED_PNL,
@@ -320,9 +333,14 @@ from agentic_trader.ui_text import (
     LABEL_WARNINGS,
     LABEL_WIN_RATE,
     LABEL_WITHOUT_MEMORY,
+    LABEL_V1_SOURCE,
     LABEL_YES,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_FALLBACK_USED_IN,
+    MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
+    MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY,
+    MESSAGE_LARGEST_POSITION_ABOVE_EQUITY,
+    MESSAGE_MARK_TIME_UNAVAILABLE,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
     MESSAGE_NO_HISTORICAL_MEMORIES,
     MESSAGE_NO_PROPOSAL_CANDIDATES,
@@ -330,6 +348,9 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_RUNTIME_STATE,
     MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
     MESSAGE_NO_TRADE_PROPOSALS,
+    MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
+    MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
+    MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
     STAGE_COORDINATOR,
     STAGE_CONSENSUS,
     STAGE_EXECUTION,
@@ -347,6 +368,10 @@ from agentic_trader.ui_text import (
     TITLE_BACKTEST_TRADES,
     TITLE_EXECUTION_SUMMARY,
     TITLE_DAILY_RISK_REPORT,
+    TITLE_DESK_ACCOUNTING_CONTEXT,
+    TITLE_FINANCE_LEDGER_CATEGORIES,
+    TITLE_FINANCE_OPERATIONS,
+    TITLE_FINANCE_OPERATIONS_CHECKS,
     TITLE_LLM_STATUS,
     TITLE_OPERATOR_INSTRUCTION,
     TITLE_PIPELINE,
@@ -356,6 +381,7 @@ from agentic_trader.ui_text import (
     TITLE_MEMORY_AWARE_REPLAY,
     TITLE_MEMORY_EXPLORER,
     TITLE_PROPOSAL_CANDIDATES,
+    TITLE_POSITION_PLAN_REPAIR,
     TITLE_REVIEW_NOTE,
     TITLE_REPLAY_STAGES,
     TITLE_RUN_ARTIFACTS,
@@ -1667,8 +1693,8 @@ def _emit_json_error(error: Exception | str) -> None:
     """
     Emit a JSON-formatted error payload with sensitive content redacted.
 
-    Writes a JSON object of the form `{"error": "<redacted message>"}` where the provided exception or message
-    is passed through sensitive-text redaction before emission.
+    Writes a JSON error object after passing the provided exception or message
+    through sensitive-text redaction before emission.
     """
     _emit_json({"error": redact_sensitive_text(error, max_length=240)})
 
@@ -2269,18 +2295,22 @@ def _risk_report_from_portfolio(
 
     warnings: list[str] = []
     if snapshot.open_positions >= settings.max_open_positions:
-        warnings.append("Open position count is elevated.")
+        warnings.append(MESSAGE_OPEN_POSITION_COUNT_ELEVATED)
     if gross_exposure / equity > settings.max_gross_exposure_pct:
         warnings.append(
-            f"Gross exposure is above {settings.max_gross_exposure_pct:.0%} of equity."
+            MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY.format(
+                limit=f"{settings.max_gross_exposure_pct:.0%}"
+            )
         )
     if largest_position / equity > settings.max_position_pct:
         warnings.append(
-            f"Largest position is above {settings.max_position_pct:.0%} of equity."
+            MESSAGE_LARGEST_POSITION_ABOVE_EQUITY.format(
+                limit=f"{settings.max_position_pct:.0%}"
+            )
         )
     if portfolio_hhi > 0.25:
         warnings.append(
-            f"Portfolio concentration HHI is elevated at {portfolio_hhi:.3f}."
+            MESSAGE_PORTFOLIO_CONCENTRATION_HHI.format(score=portfolio_hhi)
         )
 
     return DailyRiskReport(
@@ -2763,7 +2793,7 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
     """
     Render the finance operations view to the console.
 
-    Displays a summary panel titled "Finance Operations" (border colored green when `payload["ready"]` is truthy, yellow otherwise), followed by a checks table, an accounting table, and an optional ledger table when `accounting["ledger_categories"]` is present.
+    Displays a finance summary panel, followed by a checks table, an accounting table, and an optional ledger table when `accounting["ledger_categories"]` is present.
 
     Parameters:
         payload (dict[str, object]): Viewer payload containing:
@@ -2776,8 +2806,8 @@ def _render_finance_ops(payload: dict[str, object]) -> None:
     accounting = _object_mapping(payload.get("accounting"))
     console.print(
         Panel(
-            str(payload.get("summary", "Finance operations status unavailable.")),
-            title="Finance Operations",
+            str(payload.get("summary", MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE)),
+            title=TITLE_FINANCE_OPERATIONS,
             border_style="green" if payload.get("ready") else "yellow",
         )
     )
@@ -2806,14 +2836,14 @@ def _render_position_plan_repair(payload: dict[str, object]) -> None:
                 - "reason" (str)
     """
     applied = bool(payload.get("applied"))
-    table = Table(title="Position Plan Repair")
-    table.add_column("Symbol")
-    table.add_column("Status")
-    table.add_column("Proposal")
-    table.add_column("Entry")
-    table.add_column("Stop")
-    table.add_column("Take")
-    table.add_column("Reason")
+    table = Table(title=TITLE_POSITION_PLAN_REPAIR)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_PROPOSAL)
+    table.add_column(LABEL_ENTRY)
+    table.add_column(LABEL_STOP)
+    table.add_column(LABEL_TAKE)
+    table.add_column(LABEL_REASON)
     for item in _object_mapping_list(payload.get("repairs", [])):
         table.add_row(
             str(item.get("symbol", "-")),
@@ -2826,8 +2856,8 @@ def _render_position_plan_repair(payload: dict[str, object]) -> None:
         )
     console.print(
         Panel(
-            str(payload.get("summary", "Position plan repair status unavailable.")),
-            title="Position Plan Repair",
+            str(payload.get("summary", MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE)),
+            title=TITLE_POSITION_PLAN_REPAIR,
             border_style="green" if applied else "yellow",
         )
     )
@@ -2862,13 +2892,13 @@ def _finance_checks_table(checks: object) -> Table:
             - "details": additional details to show
 
     Returns:
-        Table: A Rich Table with columns "Check", "State", "Blocking", and "Details". If `checks` is not a list, the table is returned empty.
+        Table: A Rich Table with check state, blocking status, and detail rows. If `checks` is not a list, the table is returned empty.
     """
-    table = Table(title="Finance Operations Checks")
-    table.add_column("Check")
-    table.add_column("State")
-    table.add_column("Blocking")
-    table.add_column("Details")
+    table = Table(title=TITLE_FINANCE_OPERATIONS_CHECKS)
+    table.add_column(LABEL_CHECK)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_BLOCKING)
+    table.add_column(LABEL_DETAILS)
     for check in _object_mapping_list(checks):
         table.add_row(
             str(check.get("name", "-")),
@@ -2895,21 +2925,24 @@ def _finance_accounting_table(accounting: Mapping[str, object]) -> Table:
                 - "slippage_bps": number, slippage in basis points.
 
     Returns:
-        Table: A Rich Table titled "Desk Accounting Context" with rows for Currency, Marked At, Mark Source, Mark Status, Fees, Slippage, and Rejection Evidence.
+        Table: A Rich Table with desk accounting context rows.
     """
     cost_model = _object_mapping(accounting.get("cost_model"))
-    context = Table(title="Desk Accounting Context")
-    context.add_column("Field")
-    context.add_column("Value")
-    context.add_row("Currency", str(accounting.get("currency", "USD")))
+    mark_source = str(accounting.get("mark_source") or "-")
+    mark_status = str(accounting.get("mark_status") or "-")
+    context = Table(title=TITLE_DESK_ACCOUNTING_CONTEXT)
+    context.add_column(LABEL_FIELD)
+    context.add_column(LABEL_VALUE)
+    context.add_row(LABEL_CURRENCY, str(accounting.get("currency", "USD")))
     context.add_row(
-        "Marked At", str(accounting.get("mark_created_at") or "mark time unavailable")
+        LABEL_MARKED_AT,
+        str(accounting.get("mark_created_at") or MESSAGE_MARK_TIME_UNAVAILABLE),
     )
-    context.add_row("Mark Source", str(accounting.get("mark_source") or "-"))
-    context.add_row("Mark Status", str(accounting.get("mark_status") or "-"))
-    context.add_row("Fees", str(cost_model.get("fees", "-")))
+    context.add_row(LABEL_MARK_SOURCE, mark_source)
+    context.add_row(LABEL_MARK_STATUS, mark_status)
+    context.add_row(LABEL_FEES, str(cost_model.get("fees", "-")))
     context.add_row(
-        "Slippage",
+        LABEL_SLIPPAGE,
         (
             "-"
             if cost_model.get("slippage_bps") is None
@@ -2917,7 +2950,8 @@ def _finance_accounting_table(accounting: Mapping[str, object]) -> Table:
         ),
     )
     context.add_row(
-        "Rejection Evidence", str(accounting.get("rejection_evidence") or "-")
+        LABEL_REJECTION_EVIDENCE,
+        str(accounting.get("rejection_evidence") or "-"),
     )
     return context
 
@@ -2925,10 +2959,10 @@ def _finance_accounting_table(accounting: Mapping[str, object]) -> Table:
 def _finance_ledger_table(ledger_categories: object) -> Table | None:
     rows = _object_mapping_list(ledger_categories)
     if rows:
-        ledger_table = Table(title="Finance Ledger Categories")
-        ledger_table.add_column("Category")
-        ledger_table.add_column("V1 Source")
-        ledger_table.add_column("Purpose")
+        ledger_table = Table(title=TITLE_FINANCE_LEDGER_CATEGORIES)
+        ledger_table.add_column(LABEL_CATEGORY)
+        ledger_table.add_column(LABEL_V1_SOURCE)
+        ledger_table.add_column(LABEL_PURPOSE)
         for item in rows:
             ledger_table.add_row(
                 str(item.get("name", "-")),
