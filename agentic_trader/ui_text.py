@@ -59,11 +59,13 @@ class UITextCatalog:
     label_cash: str
     label_continuous: str
     label_confidence: str
+    label_context: str
     label_created: str
     label_current_symbol: str
     label_cycle: str
     label_cycle_count: str
     label_daily_realized_pnl: str
+    label_decision: str
     label_decision_path: str
     label_drawdown_from_peak: str
     label_entry: str
@@ -72,6 +74,8 @@ class UITextCatalog:
     label_fallback: str
     label_field: str
     label_fills_today: str
+    label_final_rationale: str
+    label_final_side: str
     label_generated: str
     label_gross_exposure: str
     label_heartbeat: str
@@ -89,25 +93,33 @@ class UITextCatalog:
     label_market_value: str
     label_marks_recorded: str
     label_max_cycles: str
+    label_memories: str
     label_message: str
     label_mode: str
+    label_model: str
+    label_multi_timeframe: str
     label_no: str
     label_notes: str
     label_observer_mode: str
     label_open_positions: str
     label_opened: str
     label_order_id: str
+    label_output: str
+    label_output_preview: str
     label_pid: str
     label_pnl: str
     label_poll_seconds: str
     label_preference_update: str
     label_rationale: str
     label_realized_pnl: str
+    label_resolution_notes: str
     label_requires_confirmation: str
     label_runtime: str
+    label_role: str
     label_service: str
     label_side: str
     label_source: str
+    label_specialist: str
     label_stage: str
     label_started: str
     label_status: str
@@ -119,11 +131,13 @@ class UITextCatalog:
     label_symbol: str
     label_symbols: str
     label_take_profit: str
+    label_tools: str
     label_type: str
     label_update_preferences: str
     label_updated: str
     label_unrealized_pnl: str
     label_value: str
+    label_warnings: str
     label_win_rate: str
     label_yes: str
     list_separator: str
@@ -136,23 +150,36 @@ class UITextCatalog:
     prompt_continue: str
     prompt_select_action: str
     stage_coordinator: str
+    stage_consensus: str
+    stage_execution: str
+    stage_fundamental: str
     stage_manager: str
     stage_regime: str
     stage_risk: str
     stage_strategy: str
     style_key_column: str
     title_execution_summary: str
+    title_agent_decisions: str
+    title_agent_trace: str
     title_llm_status: str
     title_operator_instruction: str
     title_pipeline: str
     title_daily_risk_report: str
+    title_manager_conflicts: str
+    title_manager_conflict_replay: str
+    title_manager_override_notes: str
+    title_memory_aware_replay: str
     title_recent_runs: str
     title_risk_warnings: str
+    title_review_note: str
+    title_replay_stages: str
     title_run_artifacts: str
+    title_run_review: str
     title_runtime_events: str
     title_runtime_status: str
     title_service_status: str
     title_trade_journal: str
+    title_trace: str
     title_warning: str
 
 
@@ -198,11 +225,13 @@ EN_TEXT = UITextCatalog(
     label_cash="Cash",
     label_continuous="Continuous",
     label_confidence="Confidence",
+    label_context="Context",
     label_created="Created",
     label_current_symbol="Current Symbol",
     label_cycle="Cycle",
     label_cycle_count="Cycle Count",
     label_daily_realized_pnl="Daily Realized PnL",
+    label_decision="Decision",
     label_decision_path="Decision Path",
     label_drawdown_from_peak="Drawdown From Peak",
     label_entry="Entry",
@@ -211,6 +240,8 @@ EN_TEXT = UITextCatalog(
     label_fallback="Fallback",
     label_field="Field",
     label_fills_today="Fills Today",
+    label_final_rationale="Final Rationale",
+    label_final_side="Final Side",
     label_generated="Generated",
     label_gross_exposure="Gross Exposure",
     label_heartbeat="Heartbeat",
@@ -228,25 +259,33 @@ EN_TEXT = UITextCatalog(
     label_market_value="Market Value",
     label_marks_recorded="Marks Recorded",
     label_max_cycles="Max Cycles",
+    label_memories="Memories",
     label_message="Message",
     label_mode="Mode",
+    label_model="Model",
+    label_multi_timeframe="Multi-Timeframe",
     label_no="no",
     label_notes="Notes",
     label_observer_mode="Observer Mode",
     label_open_positions="Open Positions",
     label_opened="Opened",
     label_order_id="Order ID",
+    label_output="Output",
+    label_output_preview="Output Preview",
     label_pid="PID",
     label_pnl="PnL",
     label_poll_seconds="Poll Seconds",
     label_preference_update="Preference Update",
     label_rationale="Rationale",
     label_realized_pnl="Realized PnL",
+    label_resolution_notes="Resolution Notes",
     label_requires_confirmation="Requires Confirmation",
     label_runtime="Runtime",
+    label_role="Role",
     label_service="Service",
     label_side="Side",
     label_source="Source",
+    label_specialist="Specialist",
     label_stage="Stage",
     label_started="Started",
     label_status="Status",
@@ -258,11 +297,13 @@ EN_TEXT = UITextCatalog(
     label_symbol="Symbol",
     label_symbols="Symbols",
     label_take_profit="Take Profit",
+    label_tools="Tools",
     label_type="Type",
     label_update_preferences="Update Preferences",
     label_updated="Updated",
     label_unrealized_pnl="Unrealized PnL",
     label_value="Value",
+    label_warnings="Warnings",
     label_win_rate="Win Rate",
     label_yes="yes",
     list_separator=", ",
@@ -277,23 +318,36 @@ EN_TEXT = UITextCatalog(
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
     stage_coordinator="Coordinator",
+    stage_consensus="Consensus",
+    stage_execution="Execution",
+    stage_fundamental="Fundamental",
     stage_manager="Manager",
     stage_regime="Regime",
     stage_risk="Risk",
     stage_strategy="Strategy",
     style_key_column="bold cyan",
+    title_agent_decisions="Agent Decisions",
+    title_agent_trace="Agent Trace",
     title_execution_summary="Execution Summary",
     title_llm_status="LLM Status",
     title_operator_instruction="Operator Instruction",
     title_pipeline="Pipeline",
     title_daily_risk_report="Daily Risk Report",
+    title_manager_conflicts="Manager Conflicts",
+    title_manager_conflict_replay="Manager Conflict Replay",
+    title_manager_override_notes="Manager Override Notes",
+    title_memory_aware_replay="Memory-Aware Replay",
     title_recent_runs="Recent Runs",
     title_risk_warnings="Risk Warnings",
+    title_review_note="Review Note",
+    title_replay_stages="Replay Stages",
     title_run_artifacts="Run Artifacts",
+    title_run_review="Run Review",
     title_runtime_events="Runtime Events",
     title_runtime_status="Runtime Status",
     title_service_status="Service Status",
     title_trade_journal="Trade Journal",
+    title_trace="Trace",
     title_warning="Warning",
 )
 
@@ -342,11 +396,13 @@ TR_TEXT = UITextCatalog(
     label_cash="Nakit",
     label_continuous="Surekli",
     label_confidence="Guven",
+    label_context="Baglam",
     label_created="Olusturuldu",
     label_current_symbol="Gecerli Sembol",
     label_cycle="Dongu",
     label_cycle_count="Dongu Sayisi",
     label_daily_realized_pnl="Gunluk Gerceklesen PnL",
+    label_decision="Karar",
     label_decision_path="Karar Yolu",
     label_drawdown_from_peak="Zirveden Drawdown",
     label_entry="Giris",
@@ -355,6 +411,8 @@ TR_TEXT = UITextCatalog(
     label_fallback="Fallback",
     label_field="Alan",
     label_fills_today="Bugunku Fill'ler",
+    label_final_rationale="Final Gerekce",
+    label_final_side="Final Yon",
     label_generated="Uretildi",
     label_gross_exposure="Brut Exposure",
     label_heartbeat="Heartbeat",
@@ -372,25 +430,33 @@ TR_TEXT = UITextCatalog(
     label_market_value="Piyasa Degeri",
     label_marks_recorded="Kayitli Mark'lar",
     label_max_cycles="Maksimum Dongu",
+    label_memories="Hafizalar",
     label_message="Mesaj",
     label_mode="Mod",
+    label_model="Model",
+    label_multi_timeframe="Multi-Timeframe",
     label_no="hayir",
     label_notes="Notlar",
     label_observer_mode="Observer Modu",
     label_open_positions="Acik Pozisyonlar",
     label_opened="Acilis",
     label_order_id="Order ID",
+    label_output="Cikti",
+    label_output_preview="Cikti Onizleme",
     label_pid="PID",
     label_pnl="PnL",
     label_poll_seconds="Poll Saniyesi",
     label_preference_update="Preference Guncellemesi",
     label_rationale="Gerekce",
     label_realized_pnl="Gerceklesen PnL",
+    label_resolution_notes="Cozum Notlari",
     label_requires_confirmation="Onay Gerektirir",
     label_runtime="Runtime",
+    label_role="Rol",
     label_service="Servis",
     label_side="Yon",
     label_source="Kaynak",
+    label_specialist="Specialist",
     label_stage="Asama",
     label_started="Basladi",
     label_status="Durum",
@@ -402,11 +468,13 @@ TR_TEXT = UITextCatalog(
     label_symbol="Sembol",
     label_symbols="Semboller",
     label_take_profit="Take Profit",
+    label_tools="Araclar",
     label_type="Tip",
     label_update_preferences="Tercihleri Guncelle",
     label_updated="Guncellendi",
     label_unrealized_pnl="Gerceklesmemis PnL",
     label_value="Deger",
+    label_warnings="Uyarilar",
     label_win_rate="Kazanma Orani",
     label_yes="evet",
     list_separator=", ",
@@ -421,23 +489,36 @@ TR_TEXT = UITextCatalog(
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
     stage_coordinator="Coordinator",
+    stage_consensus="Consensus",
+    stage_execution="Execution",
+    stage_fundamental="Fundamental",
     stage_manager="Manager",
     stage_regime="Regime",
     stage_risk="Risk",
     stage_strategy="Strategy",
     style_key_column=EN_TEXT.style_key_column,
+    title_agent_decisions="Agent Kararlari",
+    title_agent_trace="Agent Trace",
     title_execution_summary="Execution Ozeti",
     title_llm_status="LLM Durumu",
     title_operator_instruction="Operator Talimati",
     title_pipeline="Pipeline",
     title_daily_risk_report="Gunluk Risk Raporu",
+    title_manager_conflicts="Manager Catismalari",
+    title_manager_conflict_replay="Manager Catisma Replay",
+    title_manager_override_notes="Manager Override Notlari",
+    title_memory_aware_replay="Memory-Aware Replay",
     title_recent_runs="Son Run'lar",
     title_risk_warnings="Risk Uyarilari",
+    title_review_note="Review Notu",
+    title_replay_stages="Replay Asamalari",
     title_run_artifacts="Run Artifact'lari",
+    title_run_review="Run Review",
     title_runtime_events="Runtime Olaylari",
     title_runtime_status="Runtime Durumu",
     title_service_status="Servis Durumu",
     title_trade_journal="Trade Journal",
+    title_trace="Trace",
     title_warning="Uyari",
 )
 
@@ -507,11 +588,13 @@ LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_CASH = EN_TEXT.label_cash
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
 LABEL_CONFIDENCE = EN_TEXT.label_confidence
+LABEL_CONTEXT = EN_TEXT.label_context
 LABEL_CREATED = EN_TEXT.label_created
 LABEL_CURRENT_SYMBOL = EN_TEXT.label_current_symbol
 LABEL_CYCLE = EN_TEXT.label_cycle
 LABEL_CYCLE_COUNT = EN_TEXT.label_cycle_count
 LABEL_DAILY_REALIZED_PNL = EN_TEXT.label_daily_realized_pnl
+LABEL_DECISION = EN_TEXT.label_decision
 LABEL_DECISION_PATH = EN_TEXT.label_decision_path
 LABEL_DRAWDOWN_FROM_PEAK = EN_TEXT.label_drawdown_from_peak
 LABEL_ENTRY = EN_TEXT.label_entry
@@ -520,6 +603,8 @@ LABEL_EXIT = EN_TEXT.label_exit
 LABEL_FALLBACK = EN_TEXT.label_fallback
 LABEL_FIELD = EN_TEXT.label_field
 LABEL_FILLS_TODAY = EN_TEXT.label_fills_today
+LABEL_FINAL_RATIONALE = EN_TEXT.label_final_rationale
+LABEL_FINAL_SIDE = EN_TEXT.label_final_side
 LABEL_GENERATED = EN_TEXT.label_generated
 LABEL_GROSS_EXPOSURE = EN_TEXT.label_gross_exposure
 LABEL_HEARTBEAT = EN_TEXT.label_heartbeat
@@ -537,25 +622,33 @@ LABEL_LOOKBACK = EN_TEXT.label_lookback
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
 LABEL_MARKS_RECORDED = EN_TEXT.label_marks_recorded
 LABEL_MAX_CYCLES = EN_TEXT.label_max_cycles
+LABEL_MEMORIES = EN_TEXT.label_memories
 LABEL_MESSAGE = EN_TEXT.label_message
 LABEL_MODE = EN_TEXT.label_mode
+LABEL_MODEL = EN_TEXT.label_model
+LABEL_MULTI_TIMEFRAME = EN_TEXT.label_multi_timeframe
 LABEL_NO = EN_TEXT.label_no
 LABEL_NOTES = EN_TEXT.label_notes
 LABEL_OBSERVER_MODE = EN_TEXT.label_observer_mode
 LABEL_OPEN_POSITIONS = EN_TEXT.label_open_positions
 LABEL_OPENED = EN_TEXT.label_opened
 LABEL_ORDER_ID = EN_TEXT.label_order_id
+LABEL_OUTPUT = EN_TEXT.label_output
+LABEL_OUTPUT_PREVIEW = EN_TEXT.label_output_preview
 LABEL_PID = EN_TEXT.label_pid
 LABEL_PNL = EN_TEXT.label_pnl
 LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
 LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
+LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
 LABEL_RUNTIME = EN_TEXT.label_runtime
+LABEL_ROLE = EN_TEXT.label_role
 LABEL_SERVICE = EN_TEXT.label_service
 LABEL_SIDE = EN_TEXT.label_side
 LABEL_SOURCE = EN_TEXT.label_source
+LABEL_SPECIALIST = EN_TEXT.label_specialist
 LABEL_STAGE = EN_TEXT.label_stage
 LABEL_STARTED = EN_TEXT.label_started
 LABEL_STATUS = EN_TEXT.label_status
@@ -567,11 +660,13 @@ LABEL_SUMMARY = EN_TEXT.label_summary
 LABEL_SYMBOL = EN_TEXT.label_symbol
 LABEL_SYMBOLS = EN_TEXT.label_symbols
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
+LABEL_TOOLS = EN_TEXT.label_tools
 LABEL_TYPE = EN_TEXT.label_type
 LABEL_UPDATE_PREFERENCES = EN_TEXT.label_update_preferences
 LABEL_UPDATED = EN_TEXT.label_updated
 LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
 LABEL_VALUE = EN_TEXT.label_value
+LABEL_WARNINGS = EN_TEXT.label_warnings
 LABEL_WIN_RATE = EN_TEXT.label_win_rate
 LABEL_YES = EN_TEXT.label_yes
 UI_LIST_SEPARATOR = EN_TEXT.list_separator
@@ -586,23 +681,36 @@ MESSAGE_NO_RUNTIME_EVENTS = EN_TEXT.message_no_runtime_events
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 
 STAGE_COORDINATOR = EN_TEXT.stage_coordinator
+STAGE_CONSENSUS = EN_TEXT.stage_consensus
+STAGE_EXECUTION = EN_TEXT.stage_execution
+STAGE_FUNDAMENTAL = EN_TEXT.stage_fundamental
 STAGE_MANAGER = EN_TEXT.stage_manager
 STAGE_REGIME = EN_TEXT.stage_regime
 STAGE_RISK = EN_TEXT.stage_risk
 STAGE_STRATEGY = EN_TEXT.stage_strategy
 
+TITLE_AGENT_DECISIONS = EN_TEXT.title_agent_decisions
+TITLE_AGENT_TRACE = EN_TEXT.title_agent_trace
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
 TITLE_PIPELINE = EN_TEXT.title_pipeline
 TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
+TITLE_MANAGER_CONFLICTS = EN_TEXT.title_manager_conflicts
+TITLE_MANAGER_CONFLICT_REPLAY = EN_TEXT.title_manager_conflict_replay
+TITLE_MANAGER_OVERRIDE_NOTES = EN_TEXT.title_manager_override_notes
+TITLE_MEMORY_AWARE_REPLAY = EN_TEXT.title_memory_aware_replay
 TITLE_RECENT_RUNS = EN_TEXT.title_recent_runs
 TITLE_RISK_WARNINGS = EN_TEXT.title_risk_warnings
+TITLE_REVIEW_NOTE = EN_TEXT.title_review_note
+TITLE_REPLAY_STAGES = EN_TEXT.title_replay_stages
 TITLE_RUN_ARTIFACTS = EN_TEXT.title_run_artifacts
+TITLE_RUN_REVIEW = EN_TEXT.title_run_review
 TITLE_RUNTIME_EVENTS = EN_TEXT.title_runtime_events
 TITLE_RUNTIME_STATUS = EN_TEXT.title_runtime_status
 TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
+TITLE_TRACE = EN_TEXT.title_trace
 TITLE_WARNING = EN_TEXT.title_warning
 
 PROMPT_CONTINUE = EN_TEXT.prompt_continue
