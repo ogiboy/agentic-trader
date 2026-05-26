@@ -68,6 +68,7 @@ class UITextCatalog:
     label_cycle: str
     label_cycle_count: str
     label_cycles: str
+    label_bias: str
     label_daily_realized_pnl: str
     label_decision: str
     label_decision_path: str
@@ -91,6 +92,7 @@ class UITextCatalog:
     label_gross_exposure: str
     label_heartbeat: str
     label_heartbeat_age: str
+    label_id: str
     label_interval: str
     label_key: str
     label_last_recorded_error: str
@@ -122,9 +124,12 @@ class UITextCatalog:
     label_pid: str
     label_pnl: str
     label_poll_seconds: str
+    label_preset: str
     label_preference_update: str
+    label_proposal: str
     label_rationale: str
     label_realized_pnl: str
+    label_ref: str
     label_reason: str
     label_resolution_notes: str
     label_requires_confirmation: str
@@ -135,10 +140,14 @@ class UITextCatalog:
     label_side: str
     label_source: str
     label_specialist: str
+    label_signal: str
+    label_size: str
+    label_score: str
     label_stage: str
     label_started: str
     label_status: str
     label_status_note: str
+    label_strategy: str
     label_stop_requested: str
     label_stop: str
     label_structured_llm: str
@@ -155,8 +164,10 @@ class UITextCatalog:
     label_unrealized_pnl: str
     label_value: str
     label_warmup_bars: str
+    label_with_memory: str
     label_warnings: str
     label_win_rate: str
+    label_without_memory: str
     label_yes: str
     list_separator: str
     message_all_agent_stages_llm_path: str
@@ -165,6 +176,9 @@ class UITextCatalog:
     message_no_runtime_state: str
     message_no_runtime_events: str
     message_no_trade_journal_entries: str
+    message_no_historical_memories: str
+    message_no_proposal_candidates: str
+    message_no_trade_proposals: str
     prompt_continue: str
     prompt_select_action: str
     stage_coordinator: str
@@ -180,6 +194,7 @@ class UITextCatalog:
     title_agent_decisions: str
     title_agent_trace: str
     title_backtest_comparison: str
+    title_backtest_memory_ablation: str
     title_backtest_trades: str
     title_llm_status: str
     title_operator_instruction: str
@@ -189,6 +204,7 @@ class UITextCatalog:
     title_manager_conflict_replay: str
     title_manager_override_notes: str
     title_memory_aware_replay: str
+    title_memory_explorer: str
     title_recent_runs: str
     title_risk_warnings: str
     title_review_note: str
@@ -199,6 +215,8 @@ class UITextCatalog:
     title_runtime_status: str
     title_service_status: str
     title_trade_journal: str
+    title_trade_proposals: str
+    title_proposal_candidates: str
     title_trace: str
     title_warning: str
     title_walk_forward_backtest: str
@@ -255,6 +273,7 @@ EN_TEXT = UITextCatalog(
     label_cycle="Cycle",
     label_cycle_count="Cycle Count",
     label_cycles="Cycles",
+    label_bias="Bias",
     label_daily_realized_pnl="Daily Realized PnL",
     label_decision="Decision",
     label_decision_path="Decision Path",
@@ -278,6 +297,7 @@ EN_TEXT = UITextCatalog(
     label_gross_exposure="Gross Exposure",
     label_heartbeat="Heartbeat",
     label_heartbeat_age="Heartbeat Age",
+    label_id="ID",
     label_interval="Interval",
     label_key="Key",
     label_last_recorded_error="Last Recorded Error",
@@ -309,9 +329,12 @@ EN_TEXT = UITextCatalog(
     label_pid="PID",
     label_pnl="PnL",
     label_poll_seconds="Poll Seconds",
+    label_preset="Preset",
     label_preference_update="Preference Update",
+    label_proposal="Proposal",
     label_rationale="Rationale",
     label_realized_pnl="Realized PnL",
+    label_ref="Ref",
     label_reason="Reason",
     label_resolution_notes="Resolution Notes",
     label_requires_confirmation="Requires Confirmation",
@@ -322,10 +345,14 @@ EN_TEXT = UITextCatalog(
     label_side="Side",
     label_source="Source",
     label_specialist="Specialist",
+    label_signal="Signal",
+    label_size="Size",
+    label_score="Score",
     label_stage="Stage",
     label_started="Started",
     label_status="Status",
     label_status_note="Status Note",
+    label_strategy="Strategy",
     label_stop_requested="Stop Requested",
     label_stop="Stop",
     label_structured_llm="Structured LLM response",
@@ -342,8 +369,10 @@ EN_TEXT = UITextCatalog(
     label_unrealized_pnl="Unrealized PnL",
     label_value="Value",
     label_warmup_bars="Warmup Bars",
+    label_with_memory="With Memory",
     label_warnings="Warnings",
     label_win_rate="Win Rate",
+    label_without_memory="Without Memory",
     label_yes="yes",
     list_separator=", ",
     message_all_agent_stages_llm_path="All agent stages completed through the LLM path.",
@@ -354,6 +383,9 @@ EN_TEXT = UITextCatalog(
     message_no_runtime_state="No runtime state recorded yet.",
     message_no_runtime_events="No runtime events recorded yet.",
     message_no_trade_journal_entries="No trade journal entries recorded yet.",
+    message_no_historical_memories="No historical memories are available yet.",
+    message_no_proposal_candidates="No proposal candidates recorded yet.",
+    message_no_trade_proposals="No trade proposals recorded yet.",
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
     stage_coordinator="Coordinator",
@@ -368,6 +400,7 @@ EN_TEXT = UITextCatalog(
     title_agent_decisions="Agent Decisions",
     title_agent_trace="Agent Trace",
     title_backtest_comparison="Backtest Comparison",
+    title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trades",
     title_execution_summary="Execution Summary",
     title_llm_status="LLM Status",
@@ -378,6 +411,7 @@ EN_TEXT = UITextCatalog(
     title_manager_conflict_replay="Manager Conflict Replay",
     title_manager_override_notes="Manager Override Notes",
     title_memory_aware_replay="Memory-Aware Replay",
+    title_memory_explorer="Memory Explorer",
     title_recent_runs="Recent Runs",
     title_risk_warnings="Risk Warnings",
     title_review_note="Review Note",
@@ -388,6 +422,8 @@ EN_TEXT = UITextCatalog(
     title_runtime_status="Runtime Status",
     title_service_status="Service Status",
     title_trade_journal="Trade Journal",
+    title_trade_proposals="Trade Proposals",
+    title_proposal_candidates="Proposal Candidates",
     title_trace="Trace",
     title_warning="Warning",
     title_walk_forward_backtest="Walk-Forward Backtest",
@@ -447,6 +483,7 @@ TR_TEXT = UITextCatalog(
     label_cycle="Dongu",
     label_cycle_count="Dongu Sayisi",
     label_cycles="Donguler",
+    label_bias="Bias",
     label_daily_realized_pnl="Gunluk Gerceklesen PnL",
     label_decision="Karar",
     label_decision_path="Karar Yolu",
@@ -470,6 +507,7 @@ TR_TEXT = UITextCatalog(
     label_gross_exposure="Brut Exposure",
     label_heartbeat="Heartbeat",
     label_heartbeat_age="Heartbeat Yasi",
+    label_id="ID",
     label_interval="Aralik",
     label_key="Anahtar",
     label_last_recorded_error="Son Kayitli Hata",
@@ -501,9 +539,12 @@ TR_TEXT = UITextCatalog(
     label_pid="PID",
     label_pnl="PnL",
     label_poll_seconds="Poll Saniyesi",
+    label_preset="Preset",
     label_preference_update="Preference Guncellemesi",
+    label_proposal="Proposal",
     label_rationale="Gerekce",
     label_realized_pnl="Gerceklesen PnL",
+    label_ref="Ref",
     label_reason="Neden",
     label_resolution_notes="Cozum Notlari",
     label_requires_confirmation="Onay Gerektirir",
@@ -514,10 +555,14 @@ TR_TEXT = UITextCatalog(
     label_side="Yon",
     label_source="Kaynak",
     label_specialist="Specialist",
+    label_signal="Sinyal",
+    label_size="Boyut",
+    label_score="Skor",
     label_stage="Asama",
     label_started="Basladi",
     label_status="Durum",
     label_status_note="Durum Notu",
+    label_strategy="Strateji",
     label_stop_requested="Durdurma Istendi",
     label_stop="Stop",
     label_structured_llm="Yapilandirilmis LLM yaniti",
@@ -534,8 +579,10 @@ TR_TEXT = UITextCatalog(
     label_unrealized_pnl="Gerceklesmemis PnL",
     label_value="Deger",
     label_warmup_bars="Warmup Bar'lari",
+    label_with_memory="Hafiza Ile",
     label_warnings="Uyarilar",
     label_win_rate="Kazanma Orani",
+    label_without_memory="Hafiza Olmadan",
     label_yes="evet",
     list_separator=", ",
     message_all_agent_stages_llm_path="Tum agent asamalari LLM yolu ile tamamlandi.",
@@ -546,6 +593,9 @@ TR_TEXT = UITextCatalog(
     message_no_runtime_state="Henuz runtime durumu kaydedilmedi.",
     message_no_runtime_events="Henuz runtime olayi kaydedilmedi.",
     message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
+    message_no_historical_memories="Henuz historical memory yok.",
+    message_no_proposal_candidates="Henuz proposal candidate kaydi yok.",
+    message_no_trade_proposals="Henuz trade proposal kaydi yok.",
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
     stage_coordinator="Coordinator",
@@ -560,6 +610,7 @@ TR_TEXT = UITextCatalog(
     title_agent_decisions="Agent Kararlari",
     title_agent_trace="Agent Trace",
     title_backtest_comparison="Backtest Karsilastirma",
+    title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trade'leri",
     title_execution_summary="Execution Ozeti",
     title_llm_status="LLM Durumu",
@@ -570,6 +621,7 @@ TR_TEXT = UITextCatalog(
     title_manager_conflict_replay="Manager Catisma Replay",
     title_manager_override_notes="Manager Override Notlari",
     title_memory_aware_replay="Memory-Aware Replay",
+    title_memory_explorer="Memory Explorer",
     title_recent_runs="Son Run'lar",
     title_risk_warnings="Risk Uyarilari",
     title_review_note="Review Notu",
@@ -580,6 +632,8 @@ TR_TEXT = UITextCatalog(
     title_runtime_status="Runtime Durumu",
     title_service_status="Servis Durumu",
     title_trade_journal="Trade Journal",
+    title_trade_proposals="Trade Proposal'lari",
+    title_proposal_candidates="Proposal Candidate'leri",
     title_trace="Trace",
     title_warning="Uyari",
     title_walk_forward_backtest="Walk-Forward Backtest",
@@ -650,6 +704,7 @@ HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
 LABEL_AGENT = EN_TEXT.label_agent
 LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_BASELINE = EN_TEXT.label_baseline
+LABEL_BIAS = EN_TEXT.label_bias
 LABEL_CASH = EN_TEXT.label_cash
 LABEL_CLOSED_TRADES = EN_TEXT.label_closed_trades
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
@@ -683,6 +738,7 @@ LABEL_GENERATED = EN_TEXT.label_generated
 LABEL_GROSS_EXPOSURE = EN_TEXT.label_gross_exposure
 LABEL_HEARTBEAT = EN_TEXT.label_heartbeat
 LABEL_HEARTBEAT_AGE = EN_TEXT.label_heartbeat_age
+LABEL_ID = EN_TEXT.label_id
 LABEL_INTERVAL = EN_TEXT.label_interval
 LABEL_KEY = EN_TEXT.label_key
 LABEL_LAST_RECORDED_ERROR = EN_TEXT.label_last_recorded_error
@@ -714,9 +770,12 @@ LABEL_OUTPUT_PREVIEW = EN_TEXT.label_output_preview
 LABEL_PID = EN_TEXT.label_pid
 LABEL_PNL = EN_TEXT.label_pnl
 LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
+LABEL_PRESET = EN_TEXT.label_preset
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
+LABEL_PROPOSAL = EN_TEXT.label_proposal
 LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
+LABEL_REF = EN_TEXT.label_ref
 LABEL_REASON = EN_TEXT.label_reason
 LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
@@ -727,10 +786,14 @@ LABEL_SERVICE = EN_TEXT.label_service
 LABEL_SIDE = EN_TEXT.label_side
 LABEL_SOURCE = EN_TEXT.label_source
 LABEL_SPECIALIST = EN_TEXT.label_specialist
+LABEL_SIGNAL = EN_TEXT.label_signal
+LABEL_SIZE = EN_TEXT.label_size
+LABEL_SCORE = EN_TEXT.label_score
 LABEL_STAGE = EN_TEXT.label_stage
 LABEL_STARTED = EN_TEXT.label_started
 LABEL_STATUS = EN_TEXT.label_status
 LABEL_STATUS_NOTE = EN_TEXT.label_status_note
+LABEL_STRATEGY = EN_TEXT.label_strategy
 LABEL_STOP_REQUESTED = EN_TEXT.label_stop_requested
 LABEL_STOP = EN_TEXT.label_stop
 LABEL_STRUCTURED_LLM = EN_TEXT.label_structured_llm
@@ -747,8 +810,10 @@ LABEL_UPDATED = EN_TEXT.label_updated
 LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
 LABEL_VALUE = EN_TEXT.label_value
 LABEL_WARMUP_BARS = EN_TEXT.label_warmup_bars
+LABEL_WITH_MEMORY = EN_TEXT.label_with_memory
 LABEL_WARNINGS = EN_TEXT.label_warnings
 LABEL_WIN_RATE = EN_TEXT.label_win_rate
+LABEL_WITHOUT_MEMORY = EN_TEXT.label_without_memory
 LABEL_YES = EN_TEXT.label_yes
 UI_LIST_SEPARATOR = EN_TEXT.list_separator
 
@@ -760,6 +825,9 @@ MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS = (
 MESSAGE_NO_RUNTIME_STATE = EN_TEXT.message_no_runtime_state
 MESSAGE_NO_RUNTIME_EVENTS = EN_TEXT.message_no_runtime_events
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
+MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
+MESSAGE_NO_PROPOSAL_CANDIDATES = EN_TEXT.message_no_proposal_candidates
+MESSAGE_NO_TRADE_PROPOSALS = EN_TEXT.message_no_trade_proposals
 
 STAGE_COORDINATOR = EN_TEXT.stage_coordinator
 STAGE_CONSENSUS = EN_TEXT.stage_consensus
@@ -773,6 +841,7 @@ STAGE_STRATEGY = EN_TEXT.stage_strategy
 TITLE_AGENT_DECISIONS = EN_TEXT.title_agent_decisions
 TITLE_AGENT_TRACE = EN_TEXT.title_agent_trace
 TITLE_BACKTEST_COMPARISON = EN_TEXT.title_backtest_comparison
+TITLE_BACKTEST_MEMORY_ABLATION = EN_TEXT.title_backtest_memory_ablation
 TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
@@ -783,6 +852,7 @@ TITLE_MANAGER_CONFLICTS = EN_TEXT.title_manager_conflicts
 TITLE_MANAGER_CONFLICT_REPLAY = EN_TEXT.title_manager_conflict_replay
 TITLE_MANAGER_OVERRIDE_NOTES = EN_TEXT.title_manager_override_notes
 TITLE_MEMORY_AWARE_REPLAY = EN_TEXT.title_memory_aware_replay
+TITLE_MEMORY_EXPLORER = EN_TEXT.title_memory_explorer
 TITLE_RECENT_RUNS = EN_TEXT.title_recent_runs
 TITLE_RISK_WARNINGS = EN_TEXT.title_risk_warnings
 TITLE_REVIEW_NOTE = EN_TEXT.title_review_note
@@ -793,6 +863,8 @@ TITLE_RUNTIME_EVENTS = EN_TEXT.title_runtime_events
 TITLE_RUNTIME_STATUS = EN_TEXT.title_runtime_status
 TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
+TITLE_TRADE_PROPOSALS = EN_TEXT.title_trade_proposals
+TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_TRACE = EN_TEXT.title_trace
 TITLE_WARNING = EN_TEXT.title_warning
 TITLE_WALK_FORWARD_BACKTEST = EN_TEXT.title_walk_forward_backtest

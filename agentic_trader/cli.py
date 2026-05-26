@@ -210,6 +210,7 @@ from agentic_trader.ui_text import (
     LABEL_AGENT,
     LABEL_APPROVED,
     LABEL_BASELINE,
+    LABEL_BIAS,
     LABEL_CASH,
     LABEL_CLOSED_TRADES,
     LABEL_CONTINUOUS,
@@ -243,6 +244,7 @@ from agentic_trader.ui_text import (
     LABEL_GROSS_EXPOSURE,
     LABEL_HEARTBEAT,
     LABEL_HEARTBEAT_AGE,
+    LABEL_ID,
     LABEL_INTERVAL,
     LABEL_KEY,
     LABEL_LAST_RECORDED_ERROR,
@@ -274,9 +276,12 @@ from agentic_trader.ui_text import (
     LABEL_PID,
     LABEL_PNL,
     LABEL_POLL_SECONDS,
+    LABEL_PRESET,
     LABEL_PREFERENCE_UPDATE,
+    LABEL_PROPOSAL,
     LABEL_RATIONALE,
     LABEL_REALIZED_PNL,
+    LABEL_REF,
     LABEL_REASON,
     LABEL_RESOLUTION_NOTES,
     LABEL_REQUIRES_CONFIRMATION,
@@ -287,10 +292,14 @@ from agentic_trader.ui_text import (
     LABEL_SIDE,
     LABEL_SOURCE,
     LABEL_SPECIALIST,
+    LABEL_SIGNAL,
+    LABEL_SIZE,
+    LABEL_SCORE,
     LABEL_STAGE,
     LABEL_STARTED,
     LABEL_STATUS,
     LABEL_STATUS_NOTE,
+    LABEL_STRATEGY,
     LABEL_STOP,
     LABEL_STOP_REQUESTED,
     LABEL_STRUCTURED_LLM,
@@ -307,15 +316,20 @@ from agentic_trader.ui_text import (
     LABEL_UNREALIZED_PNL,
     LABEL_VALUE,
     LABEL_WARMUP_BARS,
+    LABEL_WITH_MEMORY,
     LABEL_WARNINGS,
     LABEL_WIN_RATE,
+    LABEL_WITHOUT_MEMORY,
     LABEL_YES,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_FALLBACK_USED_IN,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
+    MESSAGE_NO_HISTORICAL_MEMORIES,
+    MESSAGE_NO_PROPOSAL_CANDIDATES,
     MESSAGE_NO_RUNTIME_EVENTS,
     MESSAGE_NO_RUNTIME_STATE,
     MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
+    MESSAGE_NO_TRADE_PROPOSALS,
     STAGE_COORDINATOR,
     STAGE_CONSENSUS,
     STAGE_EXECUTION,
@@ -329,6 +343,7 @@ from agentic_trader.ui_text import (
     TITLE_AGENT_DECISIONS,
     TITLE_AGENT_TRACE,
     TITLE_BACKTEST_COMPARISON,
+    TITLE_BACKTEST_MEMORY_ABLATION,
     TITLE_BACKTEST_TRADES,
     TITLE_EXECUTION_SUMMARY,
     TITLE_DAILY_RISK_REPORT,
@@ -339,6 +354,8 @@ from agentic_trader.ui_text import (
     TITLE_MANAGER_CONFLICT_REPLAY,
     TITLE_MANAGER_OVERRIDE_NOTES,
     TITLE_MEMORY_AWARE_REPLAY,
+    TITLE_MEMORY_EXPLORER,
+    TITLE_PROPOSAL_CANDIDATES,
     TITLE_REVIEW_NOTE,
     TITLE_REPLAY_STAGES,
     TITLE_RUN_ARTIFACTS,
@@ -347,6 +364,7 @@ from agentic_trader.ui_text import (
     TITLE_RUNTIME_EVENTS,
     TITLE_SERVICE_STATUS,
     TITLE_TRADE_JOURNAL,
+    TITLE_TRADE_PROPOSALS,
     TITLE_TRACE,
     TITLE_WARNING,
     TITLE_WALK_FORWARD_BACKTEST,
@@ -1562,13 +1580,13 @@ def _render_backtest_ablation(report: BacktestAblationReport) -> None:
     Parameters:
         report (BacktestAblationReport): Backtest results containing `with_memory` and `without_memory` metrics and the tested symbol; used to populate metric rows (trades, win rate, expectancy, return, ending equity).
     """
-    table = Table(title=f"Backtest Memory Ablation / {report.symbol}")
-    table.add_column("Metric")
-    table.add_column("With Memory")
-    table.add_column("Without Memory")
-    table.add_column("Delta")
+    table = Table(title=TITLE_BACKTEST_MEMORY_ABLATION + " / " + report.symbol)
+    table.add_column(LABEL_METRIC)
+    table.add_column(LABEL_WITH_MEMORY)
+    table.add_column(LABEL_WITHOUT_MEMORY)
+    table.add_column(LABEL_DELTA)
     table.add_row(
-        "Trades",
+        LABEL_TRADES,
         str(report.with_memory.total_trades),
         str(report.without_memory.total_trades),
         str(report.with_memory.total_trades - report.without_memory.total_trades),
@@ -1580,19 +1598,19 @@ def _render_backtest_ablation(report: BacktestAblationReport) -> None:
         f"{report.with_memory.win_rate - report.without_memory.win_rate:.2%}",
     )
     table.add_row(
-        "Expectancy",
+        LABEL_EXPECTANCY,
         f"{report.with_memory.expectancy:.2f}",
         f"{report.without_memory.expectancy:.2f}",
         f"{report.with_memory.expectancy - report.without_memory.expectancy:.2f}",
     )
     table.add_row(
-        "Return",
+        LABEL_RETURN,
         f"{report.with_memory.total_return_pct:.2%}",
         f"{report.without_memory.total_return_pct:.2%}",
         f"{report.total_return_delta_pct:.2%}",
     )
     table.add_row(
-        "Ending Equity",
+        LABEL_ENDING_EQUITY,
         f"{report.with_memory.ending_equity:.2f}",
         f"{report.without_memory.ending_equity:.2f}",
         f"{report.ending_equity_delta:.2f}",
@@ -1604,22 +1622,22 @@ def _render_memory_matches(matches: Sequence[HistoricalMemoryMatch]) -> None:
     if not matches:
         console.print(
             Panel(
-                "No historical memories are available yet.",
-                title="Memory Explorer",
+                MESSAGE_NO_HISTORICAL_MEMORIES,
+                title=TITLE_MEMORY_EXPLORER,
                 border_style="yellow",
             )
         )
         return
-    table = Table(title="Memory Explorer")
-    table.add_column("Created")
-    table.add_column("Symbol")
-    table.add_column("Score")
-    table.add_column("Source")
-    table.add_column("Regime")
-    table.add_column("Strategy")
-    table.add_column("Bias")
-    table.add_column("Approved")
-    table.add_column("Why")
+    table = Table(title=TITLE_MEMORY_EXPLORER)
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_SCORE)
+    table.add_column(LABEL_SOURCE)
+    table.add_column(STAGE_REGIME)
+    table.add_column(LABEL_STRATEGY)
+    table.add_column(LABEL_BIAS)
+    table.add_column(LABEL_APPROVED)
+    table.add_column(LABEL_REASON)
     for match in matches:
         table.add_row(
             match.created_at,
@@ -2083,21 +2101,21 @@ def _render_trade_proposals(proposals: list[TradeProposalRecord]) -> None:
     if not proposals:
         console.print(
             Panel(
-                "No trade proposals recorded yet.",
-                title="Trade Proposals",
+                MESSAGE_NO_TRADE_PROPOSALS,
+                title=TITLE_TRADE_PROPOSALS,
                 border_style="yellow",
             )
         )
         return
-    table = Table(title="Trade Proposals")
-    table.add_column("ID")
-    table.add_column("Status")
-    table.add_column("Symbol")
-    table.add_column("Side")
-    table.add_column("Size")
-    table.add_column("Ref")
-    table.add_column("Confidence")
-    table.add_column("Source")
+    table = Table(title=TITLE_TRADE_PROPOSALS)
+    table.add_column(LABEL_ID)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_SIDE)
+    table.add_column(LABEL_SIZE)
+    table.add_column(LABEL_REF)
+    table.add_column(LABEL_CONFIDENCE)
+    table.add_column(LABEL_SOURCE)
     for proposal in proposals:
         size = (
             f"qty {proposal.quantity:.6f}"
@@ -2127,21 +2145,21 @@ def _render_proposal_candidates(candidates: list[ProposalCandidateRecord]) -> No
     if not candidates:
         console.print(
             Panel(
-                "No proposal candidates recorded yet.",
-                title="Proposal Candidates",
+                MESSAGE_NO_PROPOSAL_CANDIDATES,
+                title=TITLE_PROPOSAL_CANDIDATES,
                 border_style="yellow",
             )
         )
         return
-    table = Table(title="Proposal Candidates")
-    table.add_column("ID")
-    table.add_column("Status")
-    table.add_column("Symbol")
-    table.add_column("Preset")
-    table.add_column("Signal")
-    table.add_column("Score")
-    table.add_column("Ref")
-    table.add_column("Proposal")
+    table = Table(title=TITLE_PROPOSAL_CANDIDATES)
+    table.add_column(LABEL_ID)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_PRESET)
+    table.add_column(LABEL_SIGNAL)
+    table.add_column(LABEL_SCORE)
+    table.add_column(LABEL_REF)
+    table.add_column(LABEL_PROPOSAL)
     for candidate in candidates:
         table.add_row(
             candidate.candidate_id,
