@@ -207,15 +207,48 @@ from agentic_trader.ui_text import (
     HELP_TRADE_THESIS,
     HELP_TRADE_SIDE,
     HELP_WEBGUI_SERVICE_APP,
+    LABEL_APPROVED,
+    LABEL_CONFIDENCE,
+    LABEL_DECISION_PATH,
+    LABEL_ENTRY,
+    LABEL_FALLBACK,
+    LABEL_FIELD,
+    LABEL_LLM,
     LABEL_MARKET_VALUE,
+    LABEL_NOTES,
     LABEL_OBSERVER_MODE,
+    LABEL_ORDER_ID,
+    LABEL_PREFERENCE_UPDATE,
+    LABEL_RATIONALE,
+    LABEL_REQUIRES_CONFIRMATION,
+    LABEL_SIDE,
+    LABEL_SOURCE,
+    LABEL_STAGE,
+    LABEL_STOP,
     LABEL_STRUCTURED_LLM,
+    LABEL_SUMMARY,
+    LABEL_TAKE_PROFIT,
+    LABEL_UPDATE_PREFERENCES,
     LABEL_UNREALIZED_PNL,
+    LABEL_VALUE,
     LABEL_WIN_RATE,
+    MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
+    MESSAGE_FALLBACK_USED_IN,
+    STAGE_COORDINATOR,
+    STAGE_MANAGER,
+    STAGE_REGIME,
+    STAGE_RISK,
+    STAGE_STRATEGY,
     STYLE_KEY_COLUMN,
     SUPPORTED_UI_LOCALES,
+    TITLE_EXECUTION_SUMMARY,
+    TITLE_LLM_STATUS,
+    TITLE_OPERATOR_INSTRUCTION,
+    TITLE_PIPELINE,
+    TITLE_RUN_ARTIFACTS,
     TITLE_RUNTIME_EVENTS,
     TITLE_SERVICE_STATUS,
+    TITLE_WARNING,
     UILocale,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
@@ -681,47 +714,47 @@ def _render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
         artifacts (RunArtifacts): RunArtifacts containing coordinator, regime, strategy, risk, manager, and execution details used to populate the panels.
     """
     fallback_components: list[str] = artifacts.fallback_components()
-    summary = Table(title="Execution Summary")
-    summary.add_column("Field")
-    summary.add_column("Value")
-    summary.add_row("Order ID", order_id)
-    summary.add_row("Approved", str(artifacts.execution.approved))
-    summary.add_row("Side", artifacts.execution.side)
-    summary.add_row("Confidence", f"{artifacts.execution.confidence:.2f}")
-    summary.add_row("Entry", f"{artifacts.execution.entry_price:.4f}")
-    summary.add_row("Stop", f"{artifacts.execution.stop_loss:.4f}")
-    summary.add_row("Take Profit", f"{artifacts.execution.take_profit:.4f}")
+    summary = Table(title=TITLE_EXECUTION_SUMMARY)
+    summary.add_column(LABEL_FIELD)
+    summary.add_column(LABEL_VALUE)
+    summary.add_row(LABEL_ORDER_ID, order_id)
+    summary.add_row(LABEL_APPROVED, str(artifacts.execution.approved))
+    summary.add_row(LABEL_SIDE, artifacts.execution.side)
+    summary.add_row(LABEL_CONFIDENCE, f"{artifacts.execution.confidence:.2f}")
+    summary.add_row(LABEL_ENTRY, f"{artifacts.execution.entry_price:.4f}")
+    summary.add_row(LABEL_STOP, f"{artifacts.execution.stop_loss:.4f}")
+    summary.add_row(LABEL_TAKE_PROFIT, f"{artifacts.execution.take_profit:.4f}")
     summary.add_row(
-        "Decision Path",
-        "Fallback" if fallback_components else "LLM",
+        LABEL_DECISION_PATH,
+        LABEL_FALLBACK if fallback_components else LABEL_LLM,
     )
 
-    pipeline = Table(title="Pipeline")
-    pipeline.add_column("Stage")
-    pipeline.add_column("Source")
-    pipeline.add_column("Notes")
+    pipeline = Table(title=TITLE_PIPELINE)
+    pipeline.add_column(LABEL_STAGE)
+    pipeline.add_column(LABEL_SOURCE)
+    pipeline.add_column(LABEL_NOTES)
     pipeline.add_row(
-        "Coordinator",
+        STAGE_COORDINATOR,
         artifacts.coordinator.source,
         artifacts.coordinator.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
-        "Regime",
+        STAGE_REGIME,
         artifacts.regime.source,
         artifacts.regime.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
-        "Strategy",
+        STAGE_STRATEGY,
         artifacts.strategy.source,
         artifacts.strategy.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
-        "Risk",
+        STAGE_RISK,
         artifacts.risk.source,
         artifacts.risk.fallback_reason or LABEL_STRUCTURED_LLM,
     )
     pipeline.add_row(
-        "Manager",
+        STAGE_MANAGER,
         artifacts.manager.source,
         artifacts.manager.fallback_reason or LABEL_STRUCTURED_LLM,
     )
@@ -731,39 +764,39 @@ def _render_execution_panels(order_id: str, artifacts: RunArtifacts) -> None:
         console.print(
             Panel(
                 Text(
-                    f"Fallback was used in: {', '.join(fallback_components)}",
+                    f"{MESSAGE_FALLBACK_USED_IN}: {', '.join(fallback_components)}",
                     style="yellow",
                 ),
-                title="Warning",
+                title=TITLE_WARNING,
                 border_style="yellow",
             )
         )
     else:
         console.print(
             Panel(
-                Text("All agent stages completed through the LLM path.", style="green"),
-                title="LLM Status",
+                Text(MESSAGE_ALL_AGENT_STAGES_LLM_PATH, style="green"),
+                title=TITLE_LLM_STATUS,
                 border_style="green",
             )
         )
     console.print(
         Panel(
             json.dumps(artifacts.model_dump(mode="json"), indent=2),
-            title="Run Artifacts",
+            title=TITLE_RUN_ARTIFACTS,
         )
     )
 
 
 def _render_instruction(instruction: OperatorInstruction) -> None:
-    table = Table(title="Operator Instruction")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Summary", instruction.summary)
-    table.add_row("Update Preferences", str(instruction.should_update_preferences))
-    table.add_row("Requires Confirmation", str(instruction.requires_confirmation))
-    table.add_row("Rationale", instruction.rationale)
+    table = Table(title=TITLE_OPERATOR_INSTRUCTION)
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_SUMMARY, instruction.summary)
+    table.add_row(LABEL_UPDATE_PREFERENCES, str(instruction.should_update_preferences))
+    table.add_row(LABEL_REQUIRES_CONFIRMATION, str(instruction.requires_confirmation))
+    table.add_row(LABEL_RATIONALE, instruction.rationale)
     table.add_row(
-        "Preference Update",
+        LABEL_PREFERENCE_UPDATE,
         json.dumps(instruction.preference_update.model_dump(mode="json"), indent=2),
     )
     console.print(table)

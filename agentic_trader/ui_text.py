@@ -55,19 +55,52 @@ class UITextCatalog:
     help_trade_thesis: str
     help_trade_side: str
     help_webgui_service_app: str
+    label_approved: str
+    label_confidence: str
+    label_decision_path: str
+    label_entry: str
+    label_fallback: str
+    label_field: str
+    label_llm: str
     label_market_value: str
+    label_notes: str
     label_observer_mode: str
+    label_order_id: str
+    label_preference_update: str
+    label_rationale: str
+    label_requires_confirmation: str
+    label_side: str
+    label_source: str
+    label_stage: str
     label_stop_requested: str
+    label_stop: str
     label_structured_llm: str
+    label_summary: str
+    label_take_profit: str
+    label_update_preferences: str
     label_unrealized_pnl: str
+    label_value: str
     label_win_rate: str
+    message_all_agent_stages_llm_path: str
+    message_fallback_used_in: str
     prompt_continue: str
     prompt_select_action: str
+    stage_coordinator: str
+    stage_manager: str
+    stage_regime: str
+    stage_risk: str
+    stage_strategy: str
     style_key_column: str
+    title_execution_summary: str
+    title_llm_status: str
+    title_operator_instruction: str
+    title_pipeline: str
     title_recent_runs: str
+    title_run_artifacts: str
     title_runtime_events: str
     title_runtime_status: str
     title_service_status: str
+    title_warning: str
 
 
 EN_TEXT = UITextCatalog(
@@ -108,19 +141,52 @@ EN_TEXT = UITextCatalog(
     help_trade_thesis="Short operator-readable proposal thesis.",
     help_trade_side="Trade side: buy or sell.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
+    label_approved="Approved",
+    label_confidence="Confidence",
+    label_decision_path="Decision Path",
+    label_entry="Entry",
+    label_fallback="Fallback",
+    label_field="Field",
+    label_llm="LLM",
     label_market_value="Market Value",
+    label_notes="Notes",
     label_observer_mode="Observer Mode",
+    label_order_id="Order ID",
+    label_preference_update="Preference Update",
+    label_rationale="Rationale",
+    label_requires_confirmation="Requires Confirmation",
+    label_side="Side",
+    label_source="Source",
+    label_stage="Stage",
     label_stop_requested="Stop Requested",
+    label_stop="Stop",
     label_structured_llm="Structured LLM response",
+    label_summary="Summary",
+    label_take_profit="Take Profit",
+    label_update_preferences="Update Preferences",
     label_unrealized_pnl="Unrealized PnL",
+    label_value="Value",
     label_win_rate="Win Rate",
+    message_all_agent_stages_llm_path="All agent stages completed through the LLM path.",
+    message_fallback_used_in="Fallback was used in",
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
+    stage_coordinator="Coordinator",
+    stage_manager="Manager",
+    stage_regime="Regime",
+    stage_risk="Risk",
+    stage_strategy="Strategy",
     style_key_column="bold cyan",
+    title_execution_summary="Execution Summary",
+    title_llm_status="LLM Status",
+    title_operator_instruction="Operator Instruction",
+    title_pipeline="Pipeline",
     title_recent_runs="Recent Runs",
+    title_run_artifacts="Run Artifacts",
     title_runtime_events="Runtime Events",
     title_runtime_status="Runtime Status",
     title_service_status="Service Status",
+    title_warning="Warning",
 )
 
 # Terminal-facing Turkish copy intentionally remains ASCII-safe until CLI/TUI
@@ -164,19 +230,52 @@ TR_TEXT = UITextCatalog(
     help_trade_thesis="Operator tarafindan okunabilir kisa proposal tezi.",
     help_trade_side="Trade yonu: buy veya sell.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
+    label_approved="Onaylandi",
+    label_confidence="Guven",
+    label_decision_path="Karar Yolu",
+    label_entry="Giris",
+    label_fallback="Fallback",
+    label_field="Alan",
+    label_llm="LLM",
     label_market_value="Piyasa Degeri",
+    label_notes="Notlar",
     label_observer_mode="Observer Modu",
+    label_order_id="Order ID",
+    label_preference_update="Preference Guncellemesi",
+    label_rationale="Gerekce",
+    label_requires_confirmation="Onay Gerektirir",
+    label_side="Yon",
+    label_source="Kaynak",
+    label_stage="Asama",
     label_stop_requested="Durdurma Istendi",
+    label_stop="Stop",
     label_structured_llm="Yapilandirilmis LLM yaniti",
+    label_summary="Ozet",
+    label_take_profit="Take Profit",
+    label_update_preferences="Tercihleri Guncelle",
     label_unrealized_pnl="Gerceklesmemis PnL",
+    label_value="Deger",
     label_win_rate="Kazanma Orani",
+    message_all_agent_stages_llm_path="Tum agent asamalari LLM yolu ile tamamlandi.",
+    message_fallback_used_in="Fallback kullanilan asamalar",
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
+    stage_coordinator="Coordinator",
+    stage_manager="Manager",
+    stage_regime="Regime",
+    stage_risk="Risk",
+    stage_strategy="Strategy",
     style_key_column=EN_TEXT.style_key_column,
+    title_execution_summary="Execution Ozeti",
+    title_llm_status="LLM Durumu",
+    title_operator_instruction="Operator Talimati",
+    title_pipeline="Pipeline",
     title_recent_runs="Son Run'lar",
+    title_run_artifacts="Run Artifact'lari",
     title_runtime_events="Runtime Olaylari",
     title_runtime_status="Runtime Durumu",
     title_service_status="Servis Durumu",
+    title_warning="Uyari",
 )
 
 UI_TEXT: dict[UILocale, UITextCatalog] = {
@@ -241,17 +340,52 @@ HELP_TRADE_STOP_LOSS = EN_TEXT.help_trade_stop_loss
 HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
 HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
 
+LABEL_APPROVED = EN_TEXT.label_approved
+LABEL_CONFIDENCE = EN_TEXT.label_confidence
+LABEL_DECISION_PATH = EN_TEXT.label_decision_path
+LABEL_ENTRY = EN_TEXT.label_entry
+LABEL_FALLBACK = EN_TEXT.label_fallback
+LABEL_FIELD = EN_TEXT.label_field
+LABEL_LLM = EN_TEXT.label_llm
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
+LABEL_NOTES = EN_TEXT.label_notes
 LABEL_OBSERVER_MODE = EN_TEXT.label_observer_mode
+LABEL_ORDER_ID = EN_TEXT.label_order_id
+LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
+LABEL_RATIONALE = EN_TEXT.label_rationale
+LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
+LABEL_SIDE = EN_TEXT.label_side
+LABEL_SOURCE = EN_TEXT.label_source
+LABEL_STAGE = EN_TEXT.label_stage
 LABEL_STOP_REQUESTED = EN_TEXT.label_stop_requested
+LABEL_STOP = EN_TEXT.label_stop
 LABEL_STRUCTURED_LLM = EN_TEXT.label_structured_llm
+LABEL_SUMMARY = EN_TEXT.label_summary
+LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
+LABEL_UPDATE_PREFERENCES = EN_TEXT.label_update_preferences
 LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
+LABEL_VALUE = EN_TEXT.label_value
 LABEL_WIN_RATE = EN_TEXT.label_win_rate
 
+MESSAGE_ALL_AGENT_STAGES_LLM_PATH = EN_TEXT.message_all_agent_stages_llm_path
+MESSAGE_FALLBACK_USED_IN = EN_TEXT.message_fallback_used_in
+
+STAGE_COORDINATOR = EN_TEXT.stage_coordinator
+STAGE_MANAGER = EN_TEXT.stage_manager
+STAGE_REGIME = EN_TEXT.stage_regime
+STAGE_RISK = EN_TEXT.stage_risk
+STAGE_STRATEGY = EN_TEXT.stage_strategy
+
+TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
+TITLE_LLM_STATUS = EN_TEXT.title_llm_status
+TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
+TITLE_PIPELINE = EN_TEXT.title_pipeline
 TITLE_RECENT_RUNS = EN_TEXT.title_recent_runs
+TITLE_RUN_ARTIFACTS = EN_TEXT.title_run_artifacts
 TITLE_RUNTIME_EVENTS = EN_TEXT.title_runtime_events
 TITLE_RUNTIME_STATUS = EN_TEXT.title_runtime_status
 TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
+TITLE_WARNING = EN_TEXT.title_warning
 
 PROMPT_CONTINUE = EN_TEXT.prompt_continue
 PROMPT_SELECT_ACTION = EN_TEXT.prompt_select_action

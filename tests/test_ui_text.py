@@ -11,6 +11,9 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.help_idea_preset == ui_text.HELP_IDEA_PRESET
     assert catalog.help_trade_side == ui_text.HELP_TRADE_SIDE
     assert catalog.help_trade_limit_price == ui_text.HELP_TRADE_LIMIT_PRICE
+    assert catalog.title_execution_summary == ui_text.TITLE_EXECUTION_SUMMARY
+    assert catalog.label_order_id == ui_text.LABEL_ORDER_ID
+    assert catalog.message_fallback_used_in == ui_text.MESSAGE_FALLBACK_USED_IN
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
 
 
@@ -21,6 +24,8 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.help_model_service_app.startswith("Istege bagli")
     assert catalog.help_idea_volume == "Son volume."
     assert catalog.help_trade_reference_price.startswith("Proposal icin")
+    assert catalog.title_operator_instruction == "Operator Talimati"
+    assert catalog.label_requires_confirmation == "Onay Gerektirir"
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 
