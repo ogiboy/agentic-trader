@@ -755,6 +755,7 @@ Stable release version stamping should also keep the root, Web GUI, docs, and TU
 The binary workflow owns GitHub Release creation so immutable releases can be created with PyInstaller assets attached in one publish step.
 The binary assets are convenience builds for the Python CLI layer; they do not bundle the Web GUI, docs app, Node runtime, Ollama, or external provider services.
 If semantic-release previews a tag below the tracked pre-1.0 baseline and that baseline tag does not exist yet, the release workflow should create a baseline changelog section, create the baseline tag once, and dispatch binary packaging with that tag. Plain `main` branch binary pushes may still upload workflow artifacts without publishing a GitHub Release; release publishing should happen from a tag/dispatch path.
+If feature-branch prerelease tags such as `v0.12.5-beta.*` are already reachable from `main`, python-semantic-release can assign those commits to prerelease history before the final stable section is rendered. The stable workflow should therefore treat an empty stable section as a release-flow defect and backfill it from the previous stable tag to `HEAD`, ignoring prerelease tags, before committing the release files.
 
 Stable release identity and branch build identity are intentionally separate.
 Strict SemVer release tags keep the `MAJOR.MINOR.PATCH` core, such as `v0.9.5`; CI/build counters must not become a fourth core segment like `v0.9.5.9870`.

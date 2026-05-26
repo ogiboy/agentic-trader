@@ -664,7 +664,7 @@ Status: in progress.
 - [ ] split the Rich TUI incrementally into terminal UI modules for menu, monitor, runtime, portfolio, preferences, copy, and table rendering while preserving the existing entrypoint and smoke behavior
 - [ ] split the Ink TUI entrypoint into `tui/src/` copy, state, command, formatting, component, and view modules so `tui/index.mjs` becomes a thin launcher rather than the long-lived owner of every surface
 - [ ] finish the WebGUI/docs i18n cleanup by moving remaining fallback labels, inline locale ternaries, and control-room global styles into screen-scoped modules and typed copy/content boundaries
-- [ ] investigate why `CHANGELOG.md` is not changing in the observed release/branch flow; confirm whether this is expected feature-branch behavior, missing semantic-release trigger, or a release workflow defect, then document the fix path before the next stable release
+- [x] investigate why `CHANGELOG.md` only received the `v0.12.5` heading: prerelease `v0.12.5-beta.*` tags on the merged feature branch consumed release-history entries before the stable main release, so the stable workflow now backfills an empty stable section from the previous stable tag while ignoring prerelease tags
 - [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, using a local-first monospace typography stack without build-time Google Fonts fetches
 - [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
 - [x] resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind issue so local interactive frontend work matches the green lint/build path
