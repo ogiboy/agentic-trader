@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 UILocale = Literal["en", "tr"]
+SUPPORTED_UI_LOCALES: tuple[UILocale, ...] = ("en", "tr")
 
 
 @dataclass(frozen=True)

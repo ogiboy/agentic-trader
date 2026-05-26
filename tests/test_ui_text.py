@@ -4,6 +4,7 @@ from agentic_trader import ui_text
 def test_get_ui_text_defaults_to_english_catalog() -> None:
     catalog = ui_text.get_ui_text()
 
+    assert ui_text.SUPPORTED_UI_LOCALES == ("en", "tr")
     assert catalog.title_runtime_status == "Runtime Status"
     assert catalog.help_json == ui_text.HELP_JSON
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG

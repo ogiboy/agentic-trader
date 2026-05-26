@@ -175,8 +175,11 @@ from agentic_trader.ui_text import (
     LABEL_STRUCTURED_LLM,
     LABEL_UNREALIZED_PNL,
     LABEL_WIN_RATE,
+    STYLE_KEY_COLUMN,
+    SUPPORTED_UI_LOCALES,
     TITLE_RUNTIME_EVENTS,
     TITLE_SERVICE_STATUS,
+    UILocale,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import (
@@ -193,6 +196,7 @@ app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 console = Console()
+UI_LOCALE_ENV = "AGENTIC_TRADER_UI_LOCALE"
 
 
 def _object_mapping(value: object) -> Mapping[str, object]:
@@ -231,6 +235,40 @@ def object_mapping_list(value: object) -> list[Mapping[str, object]]:
     """Return mapping rows from a non-string sequence."""
 
     return _object_mapping_list(value)
+
+
+def _parse_ui_locale(locale: str | None) -> UILocale | None:
+    if locale is None:
+        return None
+    normalized = locale.strip().lower()
+    if normalized in SUPPORTED_UI_LOCALES:
+        return normalized
+    allowed = ", ".join(SUPPORTED_UI_LOCALES)
+    raise typer.BadParameter(f"Locale must be one of: {allowed}.")
+
+
+def _ui_payload(locale: str) -> dict[str, object]:
+    return {
+        "locale": locale,
+        "supported_locales": list(SUPPORTED_UI_LOCALES),
+        "env": UI_LOCALE_ENV,
+    }
+
+
+def _upsert_env_local_value(path: Path, key: str, value: str) -> None:
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    replacement = f"{key}={value}"
+    updated = False
+    new_lines: list[str] = []
+    for line in lines:
+        if line.startswith(f"{key}="):
+            new_lines.append(replacement)
+            updated = True
+        else:
+            new_lines.append(line)
+    if not updated:
+        new_lines.append(replacement)
+    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
 LABEL_MODEL_SERVICE = "Model Service"
@@ -3308,9 +3346,56 @@ def _run_replay_payload(
 
 
 @app.callback()
-def app_entry(ctx: typer.Context) -> None:
+def app_entry(
+    ctx: typer.Context,
+    locale: str | None = typer.Option(
+        None,
+        "--locale",
+        help="Override terminal UI locale for this command: en or tr.",
+    ),
+) -> None:
+    resolved_locale = _parse_ui_locale(locale)
+    if resolved_locale is not None:
+        os.environ[UI_LOCALE_ENV] = resolved_locale
     if ctx.invoked_subcommand is None:
         _operator_launcher()
+
+
+@app.command("locale")
+def locale_command(
+    set_locale: str | None = typer.Option(
+        None,
+        "--set",
+        help="Persist terminal UI locale to .env.local: en or tr.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
+) -> None:
+    """Show or persist the terminal UI locale."""
+    settings = get_settings()
+    persisted = False
+    selected_locale = _parse_ui_locale(set_locale)
+    if selected_locale is not None:
+        _upsert_env_local_value(Path(".env.local"), UI_LOCALE_ENV, selected_locale)
+        os.environ[UI_LOCALE_ENV] = selected_locale
+        settings = Settings()
+        persisted = True
+
+    payload = {
+        **_ui_payload(settings.ui_locale),
+        "persisted": persisted,
+        "env_file": ".env.local",
+    }
+    if json_output:
+        _emit_json(payload)
+        return
+    table = Table(title="UI Locale")
+    table.add_column("Field", style=STYLE_KEY_COLUMN)
+    table.add_column("Value")
+    table.add_row("Locale", str(payload["locale"]))
+    table.add_row("Supported", ", ".join(SUPPORTED_UI_LOCALES))
+    table.add_row("Environment", UI_LOCALE_ENV)
+    table.add_row("Persisted", str(persisted))
+    console.print(table)
 
 
 @app.command()
@@ -5923,6 +6008,7 @@ def build_dashboard_snapshot_payload(
     activity = build_agent_activity_view(view.state, events)
 
     return {
+        "ui": _ui_payload(settings.ui_locale),
         "doctor": doctor_payload,
         "status": status_payload,
         "supervisor": _service_supervisor_payload(settings),
