@@ -8,8 +8,10 @@ of sidecar/news/scanner paths.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Literal
+
+from agentic_trader.payloads import dataclass_payload
 
 CyclePhaseName = Literal["PRE-FLIGHT", "MONITOR", "ANALYZE", "PROPOSE", "DIGEST"]
 
@@ -22,9 +24,6 @@ class ResearchCyclePhase:
     produce: tuple[str, ...]
     fail_closed_on: tuple[str, ...]
     forbidden: tuple[str, ...]
-
-    def to_payload(self) -> dict[str, object]:
-        return asdict(self)
 
 
 DEFAULT_SCAN_PRESETS = (
@@ -135,6 +134,10 @@ RESEARCH_CYCLE_PHASES: tuple[ResearchCyclePhase, ...] = (
 )
 
 
+def research_cycle_phase_payload(phase: ResearchCyclePhase) -> dict[str, object]:
+    return dataclass_payload(phase)
+
+
 def research_cycle_plan_payload(
     *, symbols: list[str], cadence_seconds: int, max_proposals_per_cycle: int = 1
 ) -> dict[str, object]:
@@ -147,7 +150,10 @@ def research_cycle_plan_payload(
         "watchlist": clean_symbols,
         "scan_presets": list(DEFAULT_SCAN_PRESETS),
         "max_proposals_per_cycle": max(0, max_proposals_per_cycle),
-        "phases": [phase.to_payload() for phase in RESEARCH_CYCLE_PHASES],
+        "phases": [
+            research_cycle_phase_payload(phase)
+            for phase in RESEARCH_CYCLE_PHASES
+        ],
         "safety_policy": {
             "manual_approval_required": True,
             "sidecar_broker_access": False,

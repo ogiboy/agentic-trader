@@ -63,6 +63,7 @@ from agentic_trader.finance.strategy_catalog import (
     score_strategy_context,
     strategy_catalog_payload,
     strategy_profile_for_preset,
+    strategy_profile_payload,
 )
 from agentic_trader.json_utils import (
     object_list as _object_list,
@@ -5571,7 +5572,9 @@ def idea_presets(
             {
                 "name": name,
                 "description": description,
-                "strategy_profile": strategy_profile_for_preset(name).to_payload(),
+                "strategy_profile": strategy_profile_payload(
+                    strategy_profile_for_preset(name)
+                ),
             }
             for name, description in PRESET_DESCRIPTIONS.items()
         ],
@@ -5693,7 +5696,7 @@ def strategy_profile(
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     payload = {
-        "profile": profile.to_payload(),
+        "profile": strategy_profile_payload(profile),
         "execution_policy": "profile is read-only research metadata; it cannot execute trades",
     }
     if json_output:
