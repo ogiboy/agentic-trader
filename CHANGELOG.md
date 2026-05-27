@@ -7,6 +7,73 @@ This file is maintained by `python-semantic-release` from conventional commits o
 
 <!-- version list -->
 
+## v0.12.5 (2026-05-26)
+
+### Bug Fixes
+
+- Type CLI JSON payloads
+  ([`0a5c896`](https://github.com/ogiboy/agentic-trader/commit/0a5c8968be8ae237595c00e3a2dec4e852fa3033))
+- Type TUI status payloads
+  ([`97f3bab`](https://github.com/ogiboy/agentic-trader/commit/97f3bab4d9d5f0c73c8052322127bb2a644c9e5c))
+- Type research provider payloads
+  ([`58f5fb4`](https://github.com/ogiboy/agentic-trader/commit/58f5fb4bc32984b80d96df9287310608c8d38c21))
+- Type LLM provider responses
+  ([`3cf7fcb`](https://github.com/ogiboy/agentic-trader/commit/3cf7fcbfa2a4b87846f52cb33afd7c6341349d10))
+- Type model service payloads
+  ([`e017c15`](https://github.com/ogiboy/agentic-trader/commit/e017c15e288ac3ca526d2e712b817184c3912021))
+- Type smoke QA flows
+  ([`44f367e`](https://github.com/ogiboy/agentic-trader/commit/44f367e93617deb75461d8a88143f76752d9acf7))
+- Type research source payloads
+  ([`491e283`](https://github.com/ogiboy/agentic-trader/commit/491e28314fd002ca8f7fef9795c0929c629aa2c7))
+- Type proposal candidate evidence
+  ([`78b5e93`](https://github.com/ogiboy/agentic-trader/commit/78b5e9383dd4c9710d380465eefb739551349f6d))
+- Type runtime data payloads
+  ([`f89b987`](https://github.com/ogiboy/agentic-trader/commit/f89b9874829b87eaf8b110f3c14bb0e1b5ae096f))
+- Type optional tool payloads
+  ([`ff746a0`](https://github.com/ogiboy/agentic-trader/commit/ff746a07723b9c808b2b45425f01762fa4ec98df))
+- Clear strict type backlog
+  ([`2b06b8b`](https://github.com/ogiboy/agentic-trader/commit/2b06b8b44b003f226ffd076e2cfc9e9a91db2112))
+- Satisfy sonar quality gate
+  ([`57b2a8c`](https://github.com/ogiboy/agentic-trader/commit/57b2a8c0dbc96edc9efddeef01279d3ae1011b12))
+- Preserve research sidecar contract errors
+  ([`c42dd07`](https://github.com/ogiboy/agentic-trader/commit/c42dd078306403dff6f135cbc1a2f5bbd915ca87))
+- Inspect crewai sidecar version
+  ([`887826b`](https://github.com/ogiboy/agentic-trader/commit/887826bdbc09be77e9216b943ac16340f522838c))
+- Close review safety findings
+  ([`f85ec9e`](https://github.com/ogiboy/agentic-trader/commit/f85ec9ea4e0eeabe2f1e276ac308a2f565904650))
+- Pin qs security override
+  ([`a7a3765`](https://github.com/ogiboy/agentic-trader/commit/a7a376552fca45c7ce8a9fd132faa46bdee4ac12))
+- Harden cli and sidecar review paths
+  ([`fcff907`](https://github.com/ogiboy/agentic-trader/commit/fcff907e557df5dca0f93c588f3bbb8c47880aad))
+- Address review safety findings
+  ([`854a22e`](https://github.com/ogiboy/agentic-trader/commit/854a22ec74ed88246d674605c1f3308b2c773ce9))
+
+### Documentation
+
+- Map commercial readiness blockers
+  ([`d0db6b6`](https://github.com/ogiboy/agentic-trader/commit/d0db6b67d6059afb7eb13d54ae3a7b04bbab66d9))
+- Avoid future-dated readiness notes
+  ([`adee92e`](https://github.com/ogiboy/agentic-trader/commit/adee92e53495163ab9a934d312b349b18901bfea))
+
+### Tests
+
+- Type service and research fixtures
+  ([`6339727`](https://github.com/ogiboy/agentic-trader/commit/6339727a4390f7f6f63c96e7192328365cff920a))
+- Expose model service diagnostics
+  ([`5df7357`](https://github.com/ogiboy/agentic-trader/commit/5df73573f663f7abf101aa629c336c6ae7e1ba9f))
+- Type service runtime fakes
+  ([`d1c9659`](https://github.com/ogiboy/agentic-trader/commit/d1c9659c867f30cf297b09f5f49f5580f329a296))
+- Type Camofox service fakes
+  ([`a90f55c`](https://github.com/ogiboy/agentic-trader/commit/a90f55c91e395b078ba44bec5e20047182973146))
+- Simplify Camofox helper aliases
+  ([`c384b5f`](https://github.com/ogiboy/agentic-trader/commit/c384b5fb3a2061c828ee47ace4f78f9f9aef953c))
+- Type runtime helper fixtures
+  ([`4cd8edc`](https://github.com/ogiboy/agentic-trader/commit/4cd8edc37b435c9e44f2e1699143a202ce5bff41))
+- Restore decision feature summary discovery
+  ([`64cecf9`](https://github.com/ogiboy/agentic-trader/commit/64cecf98f677ab3045799899dd1192bcd73432ab))
+- Stabilize setup status typing
+  ([`305287a`](https://github.com/ogiboy/agentic-trader/commit/305287a051cbfeaefef4d9448ae494346865e36b))
+
 ## v0.12.4 (2026-05-25)
 
 ### Bug Fixes

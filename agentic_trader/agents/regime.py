@@ -97,6 +97,9 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
     )
 
 
+fallback_regime = _fallback_regime
+
+
 def assess_regime(
     llm: LocalLLM,
     snapshot: MarketSnapshot,

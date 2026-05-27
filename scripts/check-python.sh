@@ -2,7 +2,7 @@
 set -eu
 
 RUN_FLAGS="--locked --all-extras --group dev"
-PYRIGHT_TARGETS="agentic_trader tests scripts"
+PYRIGHT_TARGETS="agentic_trader tests scripts sidecars/research_flow/src"
 
 if ! command -v uv >/dev/null 2>&1; then
 	echo "uv is required for Agentic Trader Python checks. Run 'pnpm run install:python' after installing uv." >&2

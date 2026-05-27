@@ -1404,7 +1404,7 @@ def test_trade_proposal_rejects_invalid_limit_contract(tmp_path: Path) -> None:
             db=db,
             symbol="AAPL",
             side="buy",
-            order_type="stop",  # type: ignore[arg-type]
+            order_type="stop",
             quantity=1,
             reference_price=100,
             confidence=0.7,
