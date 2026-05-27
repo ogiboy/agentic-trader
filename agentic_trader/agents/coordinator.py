@@ -1,5 +1,5 @@
-from agentic_trader.agents.context import render_agent_context
 from agentic_trader.agents.constants import LLM_FALLBACK_REASON
+from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
     AgentContext,
@@ -75,6 +75,9 @@ def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
         source="fallback",
         fallback_reason=LLM_FALLBACK_REASON,
     )
+
+
+fallback_coordinator = _fallback_coordinator
 
 
 def coordinate_research(

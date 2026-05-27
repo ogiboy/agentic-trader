@@ -1,6 +1,6 @@
-import { ShieldCheck } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { DocLanguage } from '@/lib/i18n/config';
+import { ShieldCheck } from 'lucide-react';
 
 type RepoGuardrailAlertProps = {
   locale: DocLanguage;
@@ -17,8 +17,8 @@ export function RepoGuardrailAlert({
   text,
 }: Readonly<RepoGuardrailAlertProps>) {
   return (
-    <Alert className="docs-home-panel">
-      <ShieldCheck className="size-4" />
+    <Alert className='docs-home-panel'>
+      <ShieldCheck className='size-4' />
       <AlertTitle>{titles[locale]}</AlertTitle>
       <AlertDescription>{text}</AlertDescription>
     </Alert>

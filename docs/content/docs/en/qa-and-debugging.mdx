@@ -1,6 +1,8 @@
 ---
 title: QA And Debugging
-description: Validate operator-facing changes with targeted tests, smoke QA, and runtime evidence.
+description:
+  Validate operator-facing changes with targeted tests, smoke QA, and runtime
+  evidence.
 ---
 
 ## Baseline automated checks
@@ -12,6 +14,11 @@ pnpm run check:python
 pnpm run check:research-flow
 pnpm run qa
 ```
+
+`check:python` keeps strict Pyright enabled through
+`scripts/check_pyright_baseline.py`. The baseline gate is temporary: it prevents
+new strict-mode regressions while the existing Pylance backlog is reduced in
+documented slices.
 
 Fast smoke QA now asserts the shared dashboard contract includes provider
 diagnostics, V1 readiness, broker health, external-paper state, runtime mode,
@@ -45,26 +52,38 @@ pnpm --filter docs run build
 
 Keep local SonarQube and SonarCloud separate:
 
-| Target | Project key | Command |
-| --- | --- | --- |
-| Local SonarQube Community Build | `agentic-trader` | `pnpm run sonar` |
-| Local npm scanner path | `agentic-trader` | `pnpm run sonar:js` |
-| SonarCloud | `ogiboy_agentic-trader` | `pnpm run sonar:cloud` |
+| Target                          | Project key             | Command                |
+| ------------------------------- | ----------------------- | ---------------------- |
+| Local SonarQube Community Build | `agentic-trader`        | `pnpm run sonar`       |
+| Local npm scanner path          | `agentic-trader`        | `pnpm run sonar:js`    |
+| SonarCloud                      | `ogiboy_agentic-trader` | `pnpm run sonar:cloud` |
 
-The local target is for Docker-backed branch analysis, Codex/MCP inspection, and developer QA. SonarCloud remains the GitHub-facing target for public badges and CI history.
+The local target is for Docker-backed branch analysis, Codex/MCP inspection, and
+developer QA. SonarCloud remains the GitHub-facing target for public badges and
+CI history.
 
-Tokens must stay out of tracked files. Use `SONAR_TOKEN` for one-off shells, `codex-sonarqube-token` in macOS Keychain for local Docker SonarQube, and `codex-sonarcloud-token` for manual SonarCloud uploads.
+Tokens must stay out of tracked files. Use `SONAR_TOKEN` for one-off shells,
+`codex-sonarqube-token` in macOS Keychain for local Docker SonarQube, and
+`codex-sonarcloud-token` for manual SonarCloud uploads.
 
-For editor MCP wiring, use `scripts/secrets/run-sonarqube-mcp.sh`. It reads the token from Keychain and exports it only to the Docker MCP process, so VS Code `mcp.json` does not need a raw token.
+For editor MCP wiring, use `scripts/secrets/run-sonarqube-mcp.sh`. It reads the
+token from Keychain and exports it only to the Docker MCP process, so VS Code
+`mcp.json` does not need a raw token.
 
-Use `pnpm run mcp:sonarqube:status` to distinguish the local `sonarqube` server from transient `mcp/sonarqube` client containers. Multiple MCP containers usually mean multiple active editor or agent sessions, not multiple SonarQube servers.
+Use `pnpm run mcp:sonarqube:status` to distinguish the local `sonarqube` server
+from transient `mcp/sonarqube` client containers. Multiple MCP containers
+usually mean multiple active editor or agent sessions, not multiple SonarQube
+servers.
 
-When Sonar reports issues, review the full project backlog rather than only the latest commit. Prioritize vulnerabilities, security hotspots, correctness bugs, blocker/critical issues, and then maintainability cleanup. Accepted findings need a short reason and residual-risk note.
+When Sonar reports issues, review the full project backlog rather than only the
+latest commit. Prioritize vulnerabilities, security hotspots, correctness bugs,
+blocker/critical issues, and then maintainability cleanup. Accepted findings
+need a short reason and residual-risk note.
 
 ## Why smoke QA matters
 
-This repo has real operator surfaces.
-A passing unit test is not enough if the CLI, Ink, Rich, observer, or Web GUI disagree about runtime truth.
+This repo has real operator surfaces. A passing unit test is not enough if the
+CLI, Ink, Rich, observer, or Web GUI disagree about runtime truth.
 
 ## Preferred evidence stack
 
@@ -88,7 +107,8 @@ Before treating docs work as PR-ready:
 
 - confirm routing works for both locales
 - confirm search still returns useful results
-- confirm feedback copy explains the browser-local draft and manual GitHub issue link
+- confirm feedback copy explains the browser-local draft and manual GitHub issue
+  link
 - confirm page structure is readable and not overloaded
 - confirm changed assumptions were written back into `.ai` notes
 
@@ -103,4 +123,5 @@ Before treating docs work as PR-ready:
 
 Before opening a PR, ask:
 
-“Does this branch make the next contributor faster, or did it only make the current diff pass?”
+“Does this branch make the next contributor faster, or did it only make the
+current diff pass?”

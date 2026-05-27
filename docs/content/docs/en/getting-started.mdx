@@ -1,6 +1,8 @@
 ---
 title: Getting Started
-description: Install the local runtime, verify readiness, and open the control surfaces without hiding failures.
+description:
+  Install the local runtime, verify readiness, and open the control surfaces
+  without hiding failures.
 ---
 
 ## The first-run goal
@@ -16,8 +18,9 @@ Web GUI, Ink TUI, or any background service.
 
 ## Source install requirements
 
-The repository currently assumes a Python plus Node workflow.
-The Python runtime still owns the actual trading logic, while `webgui/`, `docs/`, and `tui/` are managed from the root pnpm workspace.
+The repository currently assumes a Python plus Node workflow. The Python runtime
+still owns the actual trading logic, while `webgui/`, `docs/`, and `tui/` are
+managed from the root pnpm workspace.
 
 Recommended baseline:
 
@@ -83,30 +86,30 @@ If you rely on the installed CLI entrypoint, validate that too:
 agentic-trader doctor
 ```
 
-Do this before debugging the Web GUI or Ink TUI.
-If `doctor` is already wrong, the UI is usually reflecting a real lower-layer problem.
-`provider-diagnostics` shows the current source ladder, API-key readiness, and
-fallback warnings without fetching secrets or pretending missing evidence is
-complete. `v1-readiness` shows whether local paper operation and Alpaca paper
-readiness gates are satisfied; add `--provider-check` when you intentionally
-want it to call the configured model service.
+Do this before debugging the Web GUI or Ink TUI. If `doctor` is already wrong,
+the UI is usually reflecting a real lower-layer problem. `provider-diagnostics`
+shows the current source ladder, API-key readiness, and fallback warnings
+without fetching secrets or pretending missing evidence is complete.
+`v1-readiness` shows whether local paper operation and Alpaca paper readiness
+gates are satisfied; add `--provider-check` when you intentionally want it to
+call the configured model service.
 
 ## What readiness means
 
-| Check | Operator question it answers |
-| --- | --- |
-| `doctor` | Can the local runtime start with the expected environment? |
-| `provider-diagnostics --json` | Which data/model providers are configured, missing, or degraded? |
-| `v1-readiness --json` | Is local paper operation ready, is evidence/review context visible, and is external Alpaca paper still gated? |
-| `broker-status --json` | Which backend is active, and are live/paper safeguards visible? |
-| `finance-ops --json` | Do broker, account, PnL, exposure, risk, and evidence checks agree for paper review? |
-| `proposal-candidates --json` | Which broker-free scanner/research candidates are waiting for review or promotion? |
-| `trade-proposals --json` | Which ideas are waiting for explicit approval, rejection, or audit review? |
-| `idea-presets` / `idea-score ...` | How would a candidate score under the V1 scanner presets before it becomes a proposal? |
-| `supervisor-status --json` | Is the daemon blocked, running, stale, stopped, or failed? |
-| `setup-status --json` | Which local tools and optional side applications are installed or degraded? |
-| `model-service status --json` | Is configured or app-managed Ollama reachable, and is the selected model available? |
-| `webgui-service status --json` | Is the app-owned loopback Web GUI service reachable, and where are its logs? |
+| Check                             | Operator question it answers                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `doctor`                          | Can the local runtime start with the expected environment?                                                    |
+| `provider-diagnostics --json`     | Which data/model providers are configured, missing, or degraded?                                              |
+| `v1-readiness --json`             | Is local paper operation ready, is evidence/review context visible, and is external Alpaca paper still gated? |
+| `broker-status --json`            | Which backend is active, and are live/paper safeguards visible?                                               |
+| `finance-ops --json`              | Do broker, account, PnL, exposure, risk, and evidence checks agree for paper review?                          |
+| `proposal-candidates --json`      | Which broker-free scanner/research candidates are waiting for review or promotion?                            |
+| `trade-proposals --json`          | Which ideas are waiting for explicit approval, rejection, or audit review?                                    |
+| `idea-presets` / `idea-score ...` | How would a candidate score under the V1 scanner presets before it becomes a proposal?                        |
+| `supervisor-status --json`        | Is the daemon blocked, running, stale, stopped, or failed?                                                    |
+| `setup-status --json`             | Which local tools and optional side applications are installed or degraded?                                   |
+| `model-service status --json`     | Is configured or app-managed Ollama reachable, and is the selected model available?                           |
+| `webgui-service status --json`    | Is the app-owned loopback Web GUI service reachable, and where are its logs?                                  |
 
 ## Configure environment files
 
@@ -116,21 +119,22 @@ The project follows an example-plus-local-override pattern.
 - Keep tracked examples in `.env.example`.
 - The GitHub Pages docs build does not need `docs/.env.local`.
 
-Docs feedback on Pages prepares a browser-local GitHub issue draft.
-If a future Node-hosted docs instance re-enables server-side forwarding, keep its credentials in `docs/.env.local` and never in tracked config.
+Docs feedback on Pages prepares a browser-local GitHub issue draft. If a future
+Node-hosted docs instance re-enables server-side forwarding, keep its
+credentials in `docs/.env.local` and never in tracked config.
 
 ## Local model setup
 
-The repo is still Ollama-oriented by default, but the direction is becoming more provider-aware.
-Typical local model settings look like this:
+The repo is still Ollama-oriented by default, but the direction is becoming more
+provider-aware. Typical local model settings look like this:
 
 ```bash
 export AGENTIC_TRADER_MODEL_NAME=qwen3:8b
 export AGENTIC_TRADER_BASE_URL=http://localhost:11434/v1
 ```
 
-Do not treat raw Ollama traffic as proof that the system is healthy.
-Model reachability, runtime readiness, and recent logs should agree.
+Do not treat raw Ollama traffic as proof that the system is healthy. Model
+reachability, runtime readiness, and recent logs should agree.
 
 If you want Agentic Trader to own the local Ollama process for this project,
 start with the read-only status and then start the app-owned service:
@@ -142,10 +146,10 @@ agentic-trader model-service pull qwen3:8b
 ```
 
 The app-managed service binds to loopback only, writes its own state and log
-tails under `runtime/model_service/`, and never stops an external Ollama process.
-If another Ollama is already running on the default port, the app-managed
-service chooses another loopback port and reports whether `AGENTIC_TRADER_BASE_URL`
-matches it.
+tails under `runtime/model_service/`, and never stops an external Ollama
+process. If another Ollama is already running on the default port, the
+app-managed service chooses another loopback port and reports whether
+`AGENTIC_TRADER_BASE_URL` matches it.
 
 ## Run one safe paper cycle
 

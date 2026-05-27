@@ -8,6 +8,19 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 CONTRACT_VERSION = "research-flow.v1"
+JsonRecord = dict[str, Any]
+
+
+def _empty_string_list() -> list[str]:
+    return []
+
+
+def _empty_json_records() -> list[JsonRecord]:
+    return []
+
+
+def _empty_json_record() -> JsonRecord:
+    return {}
 
 
 def utc_now_iso() -> str:
@@ -26,7 +39,7 @@ class ProviderMetadataInput(BaseModel):
     role: str = "missing"
     enabled: bool = True
     requires_network: bool = False
-    notes: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=_empty_string_list)
 
 
 class ResearchProviderOutputInput(BaseModel):
@@ -35,10 +48,14 @@ class ResearchProviderOutputInput(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     metadata: ProviderMetadataInput
-    raw_evidence: list[dict[str, Any]] = Field(default_factory=list)
-    macro_events: list[dict[str, Any]] = Field(default_factory=list)
-    social_signals: list[dict[str, Any]] = Field(default_factory=list)
-    missing_reasons: list[str] = Field(default_factory=list)
+    raw_evidence: list[JsonRecord] = Field(default_factory=_empty_json_records)
+    macro_events: list[JsonRecord] = Field(default_factory=_empty_json_records)
+    social_signals: list[JsonRecord] = Field(default_factory=_empty_json_records)
+    missing_reasons: list[str] = Field(default_factory=_empty_string_list)
+
+
+def _empty_provider_outputs() -> list[ResearchProviderOutputInput]:
+    return []
 
 
 class ResearchFlowRequest(BaseModel):
@@ -47,8 +64,10 @@ class ResearchFlowRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     mode: str = "off"
-    symbols: list[str] = Field(default_factory=list)
-    provider_outputs: list[ResearchProviderOutputInput] = Field(default_factory=list)
+    symbols: list[str] = Field(default_factory=_empty_string_list)
+    provider_outputs: list[ResearchProviderOutputInput] = Field(
+        default_factory=_empty_provider_outputs
+    )
 
 
 class ResearchFlowContractOutput(BaseModel):
@@ -59,17 +78,17 @@ class ResearchFlowContractOutput(BaseModel):
     contract_version: str = CONTRACT_VERSION
     generated_at: str
     observed_at: str
-    watched_symbols: list[str] = Field(default_factory=list)
+    watched_symbols: list[str] = Field(default_factory=_empty_string_list)
     summary: str = ""
-    planned_tasks: list[dict[str, Any]] = Field(default_factory=list)
-    findings: list[dict[str, Any]] = Field(default_factory=list)
-    dossiers: list[dict[str, Any]] = Field(default_factory=list)
-    macro_events: list[dict[str, Any]] = Field(default_factory=list)
-    social_signals: list[dict[str, Any]] = Field(default_factory=list)
-    memory_update: dict[str, Any] = Field(default_factory=dict)
+    planned_tasks: list[JsonRecord] = Field(default_factory=_empty_json_records)
+    findings: list[JsonRecord] = Field(default_factory=_empty_json_records)
+    dossiers: list[JsonRecord] = Field(default_factory=_empty_json_records)
+    macro_events: list[JsonRecord] = Field(default_factory=_empty_json_records)
+    social_signals: list[JsonRecord] = Field(default_factory=_empty_json_records)
+    memory_update: JsonRecord = Field(default_factory=_empty_json_record)
     raw_web_text_injected: bool = False
     broker_access: bool = False
-    errors: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=_empty_string_list)
 
 
 def build_task_plan(request: ResearchFlowRequest) -> list[dict[str, Any]]:
@@ -178,9 +197,9 @@ def build_task_plan(request: ResearchFlowRequest) -> list[dict[str, Any]]:
 def build_contract_output(request: ResearchFlowRequest) -> ResearchFlowContractOutput:
     """
     Constructs a validated sidecar contract payload that summarizes normalized provider data and planned tasks.
-    
+
     The returned contract uses the current UTC time for both `generated_at` and `observed_at`, mirrors `request.symbols` in `watched_symbols`, contains a human-readable `summary` with provider/payload/missing counts, and includes `planned_tasks` produced from the request. The `memory_update` field is populated with `status="not_written"`, a policy-gate reason, `provider_ids`, `planned_tasks`, `contract_version`, and flags for `raw_web_text_injected` and `broker_access`.
-    
+
     Returns:
         ResearchFlowContractOutput: A complete contract payload ready for JSON serialization and downstream consumption.
     """
@@ -245,7 +264,7 @@ def contract_cli() -> None:
     """Read one JSON request from stdin and emit one pure JSON contract payload."""
     raw_payload = sys.stdin.read().strip()
     try:
-        request_payload = json.loads(raw_payload) if raw_payload else {}
+        request_payload: object = json.loads(raw_payload) if raw_payload else {}
         request = ResearchFlowRequest.model_validate(request_payload)
         output = build_contract_output(request)
     except (json.JSONDecodeError, ValidationError) as exc:

@@ -1,7 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
-import Image from 'next/image';
 import { Power, SlidersHorizontal, Wrench } from 'lucide-react';
+import Image from 'next/image';
 
+import type {
+  DashboardData,
+  KeyValueItems,
+  ToolActionKind,
+} from '../control-room.helpers';
 import {
   formatTimestamp,
   localToolActionLines,
@@ -9,11 +13,6 @@ import {
   marketLensImage,
   providerWarningLines,
   readinessLines,
-} from '../control-room.helpers';
-import type {
-  DashboardData,
-  KeyValueItems,
-  ToolActionKind,
 } from '../control-room.helpers';
 import { getControlRoomCopy, type ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
@@ -35,110 +34,110 @@ export function OverviewView({
 }>) {
   const recentStageEvents = dashboard.agentActivity?.recent_stage_events?.length
     ? dashboard.agentActivity.recent_stage_events.map(
-        (event: Record<string, any>) =>
+        (event: Record<string, string>) =>
           `${formatTimestamp(event.created_at)} | ${event.stage} | ${event.status} | ${event.message}`,
       )
     : [copy.overview.emptyStageEvents];
-  const localToolActions = localToolActionLines(dashboard);
+  const localToolActions = localToolActionLines(dashboard, copy);
   const canStartCamofoxService =
     dashboard.camofoxService?.access_key_configured === true;
 
   return (
-    <div className="stack">
-      <section className="market-ribbon">
+    <div className='stack'>
+      <section className='market-ribbon'>
         <Image
-          className="market-ribbon__image"
+          className='market-ribbon__image'
           src={marketLensImage}
           alt={copy.hero.alt}
           fill
           priority
-          sizes="(max-width: 960px) 100vw, 50vw"
+          sizes='(max-width: 960px) 100vw, 50vw'
         />
-        <div className="market-ribbon__overlay">
+        <div className='market-ribbon__overlay'>
           <div>
-            <p className="eyebrow">{copy.hero.eyebrow}</p>
+            <p className='eyebrow'>{copy.hero.eyebrow}</p>
             <h1>{copy.hero.title}</h1>
-            <p className="market-ribbon__copy">{copy.hero.copy}</p>
+            <p className='market-ribbon__copy'>{copy.hero.copy}</p>
           </div>
-          <div className="pill-row">
-            <span className="pill">
+          <div className='pill-row'>
+            <span className='pill'>
               {dashboard.status?.runtime_mode ?? '-'}
             </span>
-            <span className="pill">{dashboard.broker?.backend ?? '-'}</span>
-            <span className="pill">
+            <span className='pill'>{dashboard.broker?.backend ?? '-'}</span>
+            <span className='pill'>
               {dashboard.calendar?.session?.venue ?? copy.hero.sessionUnknown}
             </span>
-            <span className="pill">{dashboard.doctor?.model ?? '-'}</span>
+            <span className='pill'>{dashboard.doctor?.model ?? '-'}</span>
           </div>
         </div>
       </section>
 
-      <div className="grid grid--2">
-        <Panel title={copy.overview.panels.currentCycle} accent="lime">
+      <div className='grid grid--2'>
+        <Panel title={copy.overview.panels.currentCycle} accent='lime'>
           <KeyValueList items={currentCycle} />
         </Panel>
-        <Panel title={copy.overview.panels.system} accent="cyan">
+        <Panel title={copy.overview.panels.system} accent='cyan'>
           <KeyValueList items={system} />
         </Panel>
       </div>
 
-      <div className="grid grid--2">
-        <Panel title={copy.overview.panels.readinessGates} accent="rose">
-          <TextList items={readinessLines(dashboard)} />
+      <div className='grid grid--2'>
+        <Panel title={copy.overview.panels.readinessGates} accent='rose'>
+          <TextList items={readinessLines(dashboard, copy)} />
         </Panel>
-        <Panel title={copy.overview.panels.localTools} accent="cyan">
-          <div className="tool-actions">
+        <Panel title={copy.overview.panels.localTools} accent='cyan'>
+          <div className='tool-actions'>
             <button
-              className="button"
+              className='button'
               disabled={busy !== null}
               onClick={() => onToolAction('enable-local-tools')}
-              type="button"
+              type='button'
             >
-              <SlidersHorizontal aria-hidden="true" size={16} />
+              <SlidersHorizontal aria-hidden='true' size={16} />
               {copy.overview.tools.appTools}
             </button>
             <button
-              className="button"
+              className='button'
               disabled={busy !== null}
               onClick={() => onToolAction('enable-host-fallbacks')}
-              type="button"
+              type='button'
             >
-              <SlidersHorizontal aria-hidden="true" size={16} />
+              <SlidersHorizontal aria-hidden='true' size={16} />
               {copy.overview.tools.hostFallback}
             </button>
             <button
-              className="button"
+              className='button'
               disabled={busy !== null}
               onClick={() => onToolAction('start-model-service')}
-              type="button"
+              type='button'
             >
-              <Power aria-hidden="true" size={16} />
+              <Power aria-hidden='true' size={16} />
               {copy.overview.tools.ollama}
             </button>
             <button
-              className="button"
+              className='button'
               disabled={busy !== null || !canStartCamofoxService}
               onClick={() => onToolAction('start-camofox-service')}
-              type="button"
+              type='button'
             >
-              <Wrench aria-hidden="true" size={16} />
+              <Wrench aria-hidden='true' size={16} />
               {copy.overview.tools.camofox}
             </button>
           </div>
           {localToolActions.length ? (
-            <div className="banner banner--warn">
+            <div className='banner banner--warn'>
               <TextList items={localToolActions} />
             </div>
           ) : null}
-          <TextList items={localToolLines(dashboard)} />
+          <TextList items={localToolLines(dashboard, copy)} />
         </Panel>
       </div>
 
-      <Panel title={copy.overview.panels.providerWarnings} accent="amber">
-        <TextList items={providerWarningLines(dashboard)} />
+      <Panel title={copy.overview.panels.providerWarnings} accent='amber'>
+        <TextList items={providerWarningLines(dashboard, copy)} />
       </Panel>
 
-      <Panel title={copy.overview.panels.decisionWorkflow} accent="amber">
+      <Panel title={copy.overview.panels.decisionWorkflow} accent='amber'>
         <TextList items={recentStageEvents} />
       </Panel>
     </div>

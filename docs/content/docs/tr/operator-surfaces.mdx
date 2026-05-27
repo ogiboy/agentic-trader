@@ -1,6 +1,8 @@
 ---
 title: Operatör Yüzeyleri
-description: Kurulum, paper run, runtime izleme, review ve troubleshooting için hangi yüzeyin kullanılacağı.
+description:
+  Kurulum, paper run, runtime izleme, review ve troubleshooting için hangi
+  yüzeyin kullanılacağı.
 ---
 
 ## Hangi yüzeyi ne zaman kullanmalısın?
@@ -8,20 +10,21 @@ description: Kurulum, paper run, runtime izleme, review ve troubleshooting için
 Agentic Trader'da birden fazla operatör yüzeyi var, çünkü farklı işler farklı
 detay seviyesi ister.
 
-| Yüzey | En iyi kullanım | Doğrulanacak şey |
-| --- | --- | --- |
-| Argümansız launcher | Web GUI, paper daemon, Ink, Rich, setup veya model-service yolunu seçmek | herhangi bir şeyi başlatmadan önce seçenekleri açıklıyor mu? |
-| CLI komutları | kurulum, JSON kontrol, tek seferlik paper run, evidence capture | komut çıktısı, exit code, persist edilmiş kayıtlar |
-| Rich menü | terminal navigasyonu ve hızlı status review | CLI JSON ile aynı backend/runtime gerçeği |
-| Ink control room | canlı lokal izleme, settings, recent runs, operator instructions | resize davranışı, current runtime mode, latest activity |
-| observer API | Web GUI attach akışları ve makine-okunur status | dashboard, status, supervisor, broker, research payload'ları |
-| Web GUI | browser tabanlı command center ve review panelleri | route-boundary validation, section error'ları, dashboard parity |
-| docs sitesi | ürün rehberi, özellik açıklamaları ve katkı sınırları | docs runtime ile uyumlu mu, istenen gelecek hâli mi anlatıyor |
+| Yüzey               | En iyi kullanım                                                          | Doğrulanacak şey                                                |
+| ------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Argümansız launcher | Web GUI, paper daemon, Ink, Rich, setup veya model-service yolunu seçmek | herhangi bir şeyi başlatmadan önce seçenekleri açıklıyor mu?    |
+| CLI komutları       | kurulum, JSON kontrol, tek seferlik paper run, evidence capture          | komut çıktısı, exit code, persist edilmiş kayıtlar              |
+| Rich menü           | terminal navigasyonu ve hızlı status review                              | CLI JSON ile aynı backend/runtime gerçeği                       |
+| Ink control room    | canlı lokal izleme, settings, recent runs, operator instructions         | resize davranışı, current runtime mode, latest activity         |
+| observer API        | Web GUI attach akışları ve makine-okunur status                          | dashboard, status, supervisor, broker, research payload'ları    |
+| Web GUI             | browser tabanlı command center ve review panelleri                       | route-boundary validation, section error'ları, dashboard parity |
+| docs sitesi         | ürün rehberi, özellik açıklamaları ve katkı sınırları                    | docs runtime ile uyumlu mu, istenen gelecek hâli mi anlatıyor   |
 
 ## Shared truth kuralı
 
-Hiçbir yüzey kendine ait özel bir runtime modeli üretmemeli.
-Bir ekran runtime, broker, memory, review ya da health state gösteriyorsa bu shared contract'lerden gelmelidir.
+Hiçbir yüzey kendine ait özel bir runtime modeli üretmemeli. Bir ekran runtime,
+broker, memory, review ya da health state gösteriyorsa bu shared contract'lerden
+gelmelidir.
 
 Tüm ekranlar aynı account, broker backend, runtime mode, son karar, readiness
 gate'leri ve degraded state'ler üzerinde anlaşmalı. Anlaşmazlarsa önce alt
@@ -52,8 +55,8 @@ için yeterince görünür olup olmadığını gösterir.
 
 ### Bir trade fikrini execute edilebilir hâle gelmeden incele
 
-Scanner veya research çıktısı doğrudan order olmamalı; önce broker-free
-proposal candidate olmalı. `proposal-candidate-create` adayı persist eder,
+Scanner veya research çıktısı doğrudan order olmamalı; önce broker-free proposal
+candidate olmalı. `proposal-candidate-create` adayı persist eder,
 `proposal-candidates` scanner/research evidence'ını gösterir ve
 `proposal-candidate-promote` kontrol edilmiş adayı pending manual-review
 proposal'a dönüştürür. `proposal-create` yalnızca manuel paper-desk fikirleri
@@ -63,9 +66,8 @@ hâlâ yapılandırılan paper veya external-paper broker adapter'ından geçer 
 execution intent/outcome audit trail'i bırakır.
 
 External-paper broker `accepted` acknowledgement'ları fill sayılmaz; in-flight
-kalır ve `proposal-refresh` orijinal broker order'ını okuyup fill,
-partial-fill, cancel veya reject durumunu kanıtlayana kadar yeniden order
-göndermez.
+kalır ve `proposal-refresh` orijinal broker order'ını okuyup fill, partial-fill,
+cancel veya reject durumunu kanıtlayana kadar yeniden order göndermez.
 
 Web GUI Proposal Desk aynı kuyruğu okur ve yalnızca explicit approve, reject,
 reconcile veya refresh kontratlarını çağırabilir. Generic broker console
@@ -79,16 +81,16 @@ tek bir UI kartına güvenme.
 
 ### Background service sorununu çöz
 
-`supervisor-status --json`, observer `/supervisor` ve son log tail'lerini kullan.
-Blocked gate, dead PID, stale heartbeat state ve stop request durumları generic
-"not running" mesajının arkasına saklanmamalı.
+`supervisor-status --json`, observer `/supervisor` ve son log tail'lerini
+kullan. Blocked gate, dead PID, stale heartbeat state ve stop request durumları
+generic "not running" mesajının arkasına saklanmamalı.
 
 ### İlk yüzeyi seç
 
 Ürün launcher'ı için `agentic-trader` komutunu argümansız çalıştır. Bu yüzey
 setup, Web GUI, model-service ve daemon hazır oluşunu gösterir, sonra hangi
-yüzeyi açacağını sorar. Trading daemon'ı sessizce başlatmamalıdır. Özellikle
-Ink control room istiyorsan `agentic-trader tui` kullan.
+yüzeyi açacağını sorar. Trading daemon'ı sessizce başlatmamalıdır. Özellikle Ink
+control room istiyorsan `agentic-trader tui` kullan.
 
 ## Web GUI'nin yapmasına izin verilenler
 
@@ -106,14 +108,15 @@ Ink control room istiyorsan `agentic-trader tui` kullan.
 
 ## Docs'e özel yüzey kuralı
 
-Docs uygulaması da bir yüzeydir.
-Görevi runtime'ı ve ürün workflow'larını açıklamaktır; ikinci bir runtime
-hikâyesi yazmak değil.
+Docs uygulaması da bir yüzeydir. Görevi runtime'ı ve ürün workflow'larını
+açıklamaktır; ikinci bir runtime hikâyesi yazmak değil.
 
 Bunun anlamı:
 
-- feedback copy; verinin lokal log'a mı, GitHub'a mı, yoksa ikisine birden mi gittiğini açıkça söylemeli
-- docs sayfaları neyin shipped, gated, scaffold veya future scope olduğunu açıkça göstermeli
+- feedback copy; verinin lokal log'a mı, GitHub'a mı, yoksa ikisine birden mi
+  gittiğini açıkça söylemeli
+- docs sayfaları neyin shipped, gated, scaffold veya future scope olduğunu
+  açıkça göstermeli
 - ürün memory'si, review evidence'ı ve katkı veren `.ai` notları dilde ayrışmalı
 
 ## Yüzey işi için değişiklik kontrol listesi

@@ -9,8 +9,8 @@ import type {
   TabId,
   ToolActionKind,
 } from '../control-room.helpers';
-import { getControlRoomCopy, type ControlRoomCopy } from './labels';
 import { ChatView } from './chat-view';
+import { getControlRoomCopy, type ControlRoomCopy } from './labels';
 import { MemoryView } from './memory-view';
 import { OverviewView } from './overview-view';
 import { PortfolioView } from './portfolio-view';

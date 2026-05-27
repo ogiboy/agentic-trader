@@ -1,5 +1,5 @@
 {
-  "include": ["agentic_trader", "tests", "scripts"],
+  "include": ["agentic_trader", "tests", "scripts", "sidecars/research_flow/*"],
   "exclude": [
     "build",
     "dist",
@@ -25,5 +25,5 @@
     "node_modules"
   ],
   "pythonVersion": "3.13",
-  "typeCheckingMode": "standard"
+  "typeCheckingMode": "strict"
 }

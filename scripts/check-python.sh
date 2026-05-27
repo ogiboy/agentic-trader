@@ -2,7 +2,7 @@
 set -eu
 
 RUN_FLAGS="--locked --all-extras --group dev"
-PYRIGHT_TARGETS="agentic_trader tests scripts"
+PYRIGHT_TARGETS="agentic_trader tests scripts sidecars/research_flow/src"
 
 if ! command -v uv >/dev/null 2>&1; then
 	echo "uv is required for Agentic Trader Python checks. Run 'pnpm run install:python' after installing uv." >&2
@@ -10,7 +10,9 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 uv lock --check
+uv run ${RUN_FLAGS} python scripts/release/check_changelog_marker.py
+uv run ${RUN_FLAGS} python scripts/release/check_conventional_release_commits.py
 uv run ${RUN_FLAGS} ruff check .
 # shellcheck disable=SC2086
-uv run ${RUN_FLAGS} pyright ${PYRIGHT_TARGETS}
+uv run ${RUN_FLAGS} python scripts/check_pyright_baseline.py ${PYRIGHT_TARGETS}
 uv run ${RUN_FLAGS} python -m pytest -q

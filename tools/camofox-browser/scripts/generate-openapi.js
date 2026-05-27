@@ -5,9 +5,9 @@
  * Run: node scripts/generate-openapi.js
  */
 
-import { writeFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import swaggerJsdoc from 'swagger-jsdoc';
 import { swaggerDefinition } from '../lib/openapi.js';
 

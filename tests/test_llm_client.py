@@ -1,6 +1,8 @@
-import pytest
+import math
+from collections.abc import Callable, Iterator
 from typing import Any
 
+import pytest
 from pydantic import BaseModel
 
 from agentic_trader.config import Settings
@@ -30,6 +32,22 @@ class _FakeResponse:
         return self._payload
 
 
+def _client_response(
+    payload: Any, *, status_code: int = 200
+) -> Callable[..., _FakeResponse]:
+    def _handler(*_args: object, **_kwargs: object) -> _FakeResponse:
+        return _FakeResponse(payload, status_code=status_code)
+
+    return _handler
+
+
+def _client_response_sequence(payloads: Iterator[Any]) -> Callable[..., _FakeResponse]:
+    def _handler(*_args: object, **_kwargs: object) -> _FakeResponse:
+        return _FakeResponse(next(payloads))
+
+    return _handler
+
+
 def test_complete_structured_retries_after_empty_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -45,7 +63,7 @@ def test_complete_structured_retries_after_empty_response(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse(next(payloads)),
+        _client_response_sequence(payloads),
     )
 
     parsed = llm.complete_structured(
@@ -96,7 +114,7 @@ def test_complete_text_retries_after_error_payload(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse(next(payloads)),
+        _client_response_sequence(payloads),
     )
 
     text = llm.complete_text(
@@ -116,7 +134,7 @@ def test_complete_structured_reports_payload_preview_when_exhausted(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse({"response": ""}),
+        _client_response({"response": ""}),
     )
 
     try:
@@ -143,9 +161,7 @@ def test_complete_structured_redacts_provider_thinking_from_errors(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
-            {"response": "", "thinking": "private chain of thought"}
-        ),
+        _client_response({"response": "", "thinking": "private chain of thought"}),
     )
 
     with pytest.raises(RuntimeError) as exc_info:
@@ -169,7 +185,7 @@ def test_complete_structured_reports_concise_validation_failure(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse({"response": '{"unexpected":"shape"}'}),
+        _client_response({"response": '{"unexpected":"shape"}'}),
     )
 
     with pytest.raises(RuntimeError) as exc_info:
@@ -197,7 +213,7 @@ def test_complete_structured_accepts_wrapped_strategy_aliases(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        _client_response(
             {
                 "response": (
                     '{"strategy":{"family":"no_trade","action":"hold",'
@@ -229,7 +245,7 @@ def test_complete_structured_normalizes_common_regime_value_aliases(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        _client_response(
             {
                 "response": (
                     '{"regime":"sideways","direction_bias":"neutral",'
@@ -258,7 +274,7 @@ def test_complete_structured_maps_regime_explanation_aliases(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        _client_response(
             {
                 "response": (
                     '{"regime":"no_trade","direction_bias":"flat",'
@@ -289,7 +305,7 @@ def test_complete_structured_conservatively_sanitizes_missing_confidence(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        _client_response(
             {
                 "response": (
                     '{"regime":"mixed low conviction","directional_bias":"neutral",'
@@ -307,7 +323,7 @@ def test_complete_structured_conservatively_sanitizes_missing_confidence(
 
     assert parsed.regime == "range"
     assert parsed.direction_bias == "flat"
-    assert parsed.confidence == pytest.approx(0.0)
+    assert math.isclose(parsed.confidence, 0.0)
     assert parsed.reasoning == "Evidence is mixed."
 
 
@@ -320,7 +336,7 @@ def test_complete_structured_coerces_qualitative_confidence(
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        _client_response(
             {
                 "response": (
                     '{"regime":"range","direction_bias":"flat",'
@@ -336,7 +352,7 @@ def test_complete_structured_coerces_qualitative_confidence(
         schema=RegimeAssessment,
     )
 
-    assert parsed.confidence == pytest.approx(0.25)
+    assert math.isclose(parsed.confidence, 0.25)
 
 
 def test_local_llm_uses_configured_provider_defaults() -> None:
@@ -358,12 +374,12 @@ def test_health_check_generation_probe_reports_model_load_failure(
     monkeypatch.setattr(
         llm.client,
         "get",
-        lambda *_args, **_kwargs: _FakeResponse({"models": [{"name": "qwen3:8b"}]}),
+        _client_response({"models": [{"name": "qwen3:8b"}]}),
     )
     monkeypatch.setattr(
         llm.client,
         "post",
-        lambda *_args, **_kwargs: _FakeResponse(
+        _client_response(
             {
                 "error": (
                     "model failed to load, this may be due to resource limitations"

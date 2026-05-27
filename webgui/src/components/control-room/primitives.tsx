@@ -1,7 +1,7 @@
 import type { ReactNode, SyntheticEvent } from 'react';
 
-import { cx } from '../control-room.helpers';
 import type { KeyValueItems, PanelAccent } from '../control-room.helpers';
+import { cx } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 
 /**
@@ -21,8 +21,8 @@ export function Panel({
 }>) {
   return (
     <section className={cx('panel', accent ? `panel--${accent}` : undefined)}>
-      <div className="panel__title">{title}</div>
-      <div className="panel__body">{children}</div>
+      <div className='panel__title'>{title}</div>
+      <div className='panel__body'>{children}</div>
     </section>
   );
 }
@@ -35,9 +35,9 @@ export function Panel({
  */
 export function KeyValueList({ items }: Readonly<{ items: KeyValueItems }>) {
   return (
-    <dl className="kv-list">
+    <dl className='kv-list'>
       {items.map(([label, value]) => (
-        <div className="kv-list__row" key={label}>
+        <div className='kv-list__row' key={label}>
           <dt>{label}</dt>
           <dd>{value}</dd>
         </div>
@@ -54,7 +54,7 @@ export function KeyValueList({ items }: Readonly<{ items: KeyValueItems }>) {
  */
 export function TextList({ items }: Readonly<{ items: string[] }>) {
   return (
-    <ul className="text-list">
+    <ul className='text-list'>
       {items.map((item, index) => (
         <li key={`${item}-${index}`}>{item}</li>
       ))}
@@ -69,7 +69,7 @@ export function TextList({ items }: Readonly<{ items: string[] }>) {
  * @returns A React element containing the formatted JSON.
  */
 export function JsonPreview({ value }: Readonly<{ value: unknown }>) {
-  return <pre className="json-preview">{JSON.stringify(value, null, 2)}</pre>;
+  return <pre className='json-preview'>{JSON.stringify(value, null, 2)}</pre>;
 }
 
 export function WebguiTokenPrompt({
@@ -88,28 +88,28 @@ export function WebguiTokenPrompt({
   onTokenChange: (value: string) => void;
 }>) {
   return (
-    <section className="auth-panel" aria-labelledby="webgui-token-title">
-      <div className="auth-panel__header">
-        <div className="sidebar__eyebrow">{copy.eyebrow}</div>
-        <h1 id="webgui-token-title">{copy.title}</h1>
+    <section className='auth-panel' aria-labelledby='webgui-token-title'>
+      <div className='auth-panel__header'>
+        <div className='sidebar__eyebrow'>{copy.eyebrow}</div>
+        <h1 id='webgui-token-title'>{copy.title}</h1>
         <p>{copy.body}</p>
       </div>
-      <form className="auth-panel__form" onSubmit={onSubmit}>
-        <label className="field-label">
+      <form className='auth-panel__form' onSubmit={onSubmit}>
+        <label className='field-label'>
           <span>{copy.tokenLabel}</span>
           <input
-            autoComplete="off"
+            autoComplete='off'
             autoFocus
             onChange={(event) => onTokenChange(event.target.value)}
-            type="password"
+            type='password'
             value={token}
           />
         </label>
-        {error ? <div className="banner banner--bad">{error}</div> : null}
+        {error ? <div className='banner banner--bad'>{error}</div> : null}
         <button
-          className="button button--solid"
+          className='button button--solid'
           disabled={busy || !token.trim()}
-          type="submit"
+          type='submit'
         >
           {busy ? copy.unlocking : copy.unlock}
         </button>

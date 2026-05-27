@@ -32,7 +32,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version-file: '.python-version'
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -54,7 +54,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install release dependencies
-        run: uv sync --locked --python 3.12 --all-extras --group dev
+        run: uv sync --locked --python "$(cat .python-version)" --all-extras --group dev
 
       - name: Configure release Git identity
         run: |
@@ -64,8 +64,10 @@ jobs:
       - name: Validate package before release
         run: |
           uv lock --check
+          uv run --locked --no-sync python scripts/release/check_changelog_marker.py
+          uv run --locked --no-sync python scripts/release/check_conventional_release_commits.py
           uv run --locked --no-sync ruff check .
-          uv run --locked --no-sync pyright agentic_trader tests scripts
+          uv run --locked --no-sync python scripts/check_pyright_baseline.py agentic_trader tests scripts sidecars/research_flow/src
           uv run --locked --no-sync python -m pytest -q
           pnpm run check:node
           pnpm run build:docs:pages
@@ -115,6 +117,7 @@ jobs:
           set -euo pipefail
           tag="${{ steps.release-plan.outputs.tag }}"
           uv run --locked --no-sync semantic-release version --no-commit --no-tag --no-push --no-vcs-release
+          uv run --locked --no-sync python scripts/release/fill_stable_changelog.py --version "$tag"
           uv lock
           (cd sidecars/research_flow && uv lock)
           git add \

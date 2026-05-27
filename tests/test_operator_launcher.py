@@ -96,19 +96,36 @@ def test_build_operator_launcher_status_reports_existing_runtime(
         interval="1d",
         lookback="180d",
     )
-    monkeypatch.setattr(operator_launcher, "read_service_state", lambda _: state)
-    monkeypatch.setattr(operator_launcher, "is_process_alive", lambda pid: pid == 12345)
+
+    def _read_service_state(_settings: Settings) -> ServiceStateSnapshot:
+        return state
+
+    def _is_process_alive(pid: int) -> bool:
+        return pid == 12345
+
+    def _build_setup_status(_settings: Settings) -> SetupStatus:
+        return _setup_status(tmp_path)
+
+    def _build_model_service_status(_settings: Settings) -> ModelServiceStatus:
+        return _model_status()
+
+    def _build_camofox_service_status(_settings: Settings) -> CamofoxServiceStatus:
+        return _camofox_status()
+
+    def _build_webgui_service_status(_settings: Settings) -> WebGUIServiceStatus:
+        return _webgui_status()
+
+    monkeypatch.setattr(operator_launcher, "read_service_state", _read_service_state)
+    monkeypatch.setattr(operator_launcher, "is_process_alive", _is_process_alive)
+    monkeypatch.setattr(operator_launcher, "build_setup_status", _build_setup_status)
     monkeypatch.setattr(
-        operator_launcher, "build_setup_status", lambda _: _setup_status(tmp_path)
+        operator_launcher, "build_model_service_status", _build_model_service_status
     )
     monkeypatch.setattr(
-        operator_launcher, "build_model_service_status", lambda _: _model_status()
+        operator_launcher, "build_camofox_service_status", _build_camofox_service_status
     )
     monkeypatch.setattr(
-        operator_launcher, "build_camofox_service_status", lambda _: _camofox_status()
-    )
-    monkeypatch.setattr(
-        operator_launcher, "build_webgui_service_status", lambda _: _webgui_status()
+        operator_launcher, "build_webgui_service_status", _build_webgui_service_status
     )
 
     status = operator_launcher.build_operator_launcher_status(settings)
@@ -124,7 +141,10 @@ def test_start_default_background_runtime_keeps_strict_gate(
     settings = _settings(tmp_path)
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(operator_launcher, "ensure_llm_ready", lambda _: object())
+    def _ensure_llm_ready(_settings: Settings) -> object:
+        return object()
+
+    monkeypatch.setattr(operator_launcher, "ensure_llm_ready", _ensure_llm_ready)
 
     def fake_start_background_service(**kwargs: object) -> int:
         captured.update(kwargs)

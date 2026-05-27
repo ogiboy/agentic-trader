@@ -25,7 +25,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version-file: '.python-version'
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -34,7 +34,7 @@ jobs:
           enable-cache: true
 
       - name: Install Python dependencies
-        run: uv sync --locked --python 3.12 --all-extras --group dev
+        run: uv sync --locked --python "$(cat .python-version)" --all-extras --group dev
 
       - name: Check uv lock metadata
         run: uv lock --check
@@ -42,8 +42,8 @@ jobs:
       - name: Run Ruff
         run: uv run --locked --no-sync ruff check .
 
-      - name: Run Pyright
-        run: uv run --locked --no-sync pyright agentic_trader tests scripts
+      - name: Run strict Pyright gate
+        run: uv run --locked --no-sync python scripts/check_pyright_baseline.py agentic_trader tests scripts sidecars/research_flow/src
 
       - name: Run Pytest
         run: uv run --locked --no-sync python -m pytest -q

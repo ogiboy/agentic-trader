@@ -5,7 +5,7 @@
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=ogiboy_agentic-trader&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=ogiboy_agentic-trader)
-[![Python](https://img.shields.io/badge/python-3.12--3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-11.0.9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
 [![CI](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ogiboy/agentic-trader/actions/workflows/ci.yml)
@@ -53,6 +53,20 @@ Agentic Trader is a strict, local-first, multi-agent trading system for Ollama-c
 ## Overview
 
 Agentic Trader is not a generic chat bot or hidden brokerage switch. The runtime uses a staged specialist graph, structured model outputs, a deterministic execution guard, DuckDB-backed persistence, and broker accounting. The default posture is local-first, paper-first, and explicit about missing data, model readiness, and blocked execution paths; V1 still targets an active US-equities buy/sell path through approved paper and Alpaca readiness gates.
+
+### Commercial Readiness Posture
+
+V1 is not marketed as revenue-ready or real-money autonomous trading software.
+The first monetizable direction is a local-first paper desk, evidence bundle,
+operator education, and personal automation workflow. Paid access, personalized
+investment advice, account-opening flows, order-routing involvement, managed
+live trading, copy trading, or performance-fee claims need a separate legal,
+security, support, and broker-readiness review first. The commercial blocker
+ledger lives in [ROADMAP.md](ROADMAP.md#v1-commercial-readiness-blockers) and is
+kept current against external references such as SEC investment-adviser and
+broker-dealer guidance, FINRA algorithmic-trading supervision notes, Alpaca
+trading/broker docs, NIST risk frameworks, OWASP LLM risks, and current model
+pricing pages.
 
 The repository is now a small monorepo-style workspace:
 
@@ -106,6 +120,11 @@ another checkout. Firecrawl still requires user-owned authentication through
 `firecrawl login --browser` or `FIRECRAWL_API_KEY` in an ignored env file.
 Runtime auto-start flags only supervise already-installed local helpers; they
 do not install tools, pull models, create accounts, or mutate trading policy.
+When an Ollama, Firecrawl, or Camofox ownership decision is already persisted,
+bootstrap reports that decision instead of asking again; change it explicitly
+with `agentic-trader tool-ownership set ...` before rerunning bootstrap. The
+final bootstrap summary separates completed, deferred, and failed items and
+prints a `next:` action for deferred setup so the next command is visible.
 For Camofox, `make setup-camofox` installs helper dependencies without running
 browser-download scripts; `make fetch-camofox` downloads the optional Camoufox
 browser binary only when you approve that step. The Camofox helper uses the
@@ -119,10 +138,10 @@ uv python install 3.13
 pnpm run install:python
 ```
 
-Daily source development now defaults to uv-managed Python 3.13 in the root
-`.venv`. The root package still declares `>=3.12,<3.15` support so CI can keep
-exercising the current minimum version signal, but local installs should not
-drift onto the system Python. `scripts/install-python.sh` runs
+Daily source development and GitHub Actions now default to uv-managed Python
+3.13 from the root `.python-version`. The root package metadata still declares
+`>=3.12,<3.15`, but 3.12 compatibility is no longer the primary CI lane unless
+a separate compatibility matrix is added. `scripts/install-python.sh` runs
 `uv sync --locked --python 3.13 --all-extras --group dev`.
 
 When changing Python dependencies, use uv as the source of truth:
@@ -194,7 +213,9 @@ matching ownership flags such as `--ollama-owner=app-owned` or
 `--camofox-owner=app-owned`. Host-owned, API/key-only, and skipped choices are
 persisted in `runtime/setup/tool-ownership.json`, surface through
 `setup-status`, Web GUI, and TUI readiness, and remain degraded readiness rather
-than hidden installs.
+than hidden installs. `setup-status` treats optional CrewAI CLI failures as
+bounded setup notes instead of exposing full global-tool tracebacks as version
+strings.
 
 Inspect or adjust those optional-helper choices directly with:
 
@@ -507,7 +528,7 @@ Tagged stable builds attach PyInstaller CLI binaries for macOS and Windows to th
 
 `webgui/` is a local command center for the existing runtime. It validates browser inputs, then calls the Python CLI/dashboard/runtime/chat/instruction/proposal contracts from server-side route handlers. It is intentionally not a second orchestrator, and its Proposal Desk can only call the same explicit approve/reject/reconcile/refresh gates that the CLI exposes.
 
-The control-room UI is split into focused view, shell, dashboard-polling, action, request/auth, primitive, and typed-copy modules under `webgui/src/components/control-room/`; keep new screen work on that modular path instead of growing the coordinator component again.
+The control-room UI is split into focused view, shell, dashboard-polling, `state-hooks`, `view-model`, action, `action-request`, request/auth, formatting, diagnostics/context evidence, loading-panel, primitive, and typed-copy modules under `webgui/src/components/control-room/`; keep new screen work on that modular path instead of growing the coordinator component again.
 
 ```bash
 pnpm dev:webgui

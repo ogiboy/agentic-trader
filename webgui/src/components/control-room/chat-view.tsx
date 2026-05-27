@@ -8,6 +8,13 @@ import type { DashboardData } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 import { Panel, TextList } from './primitives';
 
+function chatPersonaLabel(persona: unknown, copy: ControlRoomCopy): string {
+  if (typeof persona === 'string' && copy.chat.personas[persona]) {
+    return copy.chat.personas[persona];
+  }
+  return formatChatPersona(persona);
+}
+
 export function ChatView({
   copy,
   dashboard,
@@ -30,10 +37,10 @@ export function ChatView({
   onSendChat: () => Promise<void>;
 }>) {
   return (
-    <div className="grid grid--2">
-      <Panel title={copy.chat.panels.operatorChat} accent="lime">
-        <div className="form-row">
-          <label className="field-label">
+    <div className='grid grid--2'>
+      <Panel title={copy.chat.panels.operatorChat} accent='lime'>
+        <div className='form-row'>
+          <label className='field-label'>
             <span>{copy.chat.role}</span>
             <select
               value={chatPersona}
@@ -43,45 +50,45 @@ export function ChatView({
             >
               {CHAT_PERSONAS.map((persona) => (
                 <option key={persona} value={persona}>
-                  {formatChatPersona(persona)}
+                  {chatPersonaLabel(persona, copy)}
                 </option>
               ))}
             </select>
           </label>
         </div>
-        <div className="chat-log">
+        <div className='chat-log'>
           {chatHistory.length ? (
             chatHistory.map((entry, index) => (
-              <article className="chat-bubble" key={`${entry.user}-${index}`}>
-                <div className="chat-bubble__meta">{copy.chat.userLabel}</div>
+              <article className='chat-bubble' key={`${entry.user}-${index}`}>
+                <div className='chat-bubble__meta'>{copy.chat.userLabel}</div>
                 <p>{entry.user}</p>
-                <div className="chat-bubble__meta">
-                  {formatChatPersona(entry.persona)}
+                <div className='chat-bubble__meta'>
+                  {chatPersonaLabel(entry.persona, copy)}
                 </div>
                 <p>{entry.response}</p>
               </article>
             ))
           ) : (
-            <p className="empty-copy">{copy.chat.empty}</p>
+            <p className='empty-copy'>{copy.chat.empty}</p>
           )}
         </div>
-        <div className="composer">
+        <div className='composer'>
           <textarea
             value={chatDraft}
             onChange={(event) => onChatDraftChange(event.target.value)}
             placeholder={copy.chat.placeholder}
           />
           <button
-            className="button button--solid"
+            className='button button--solid'
             disabled={busy === 'chat'}
             onClick={() => void onSendChat()}
-            type="button"
+            type='button'
           >
             {busy === 'chat' ? copy.common.working : copy.chat.send}
           </button>
         </div>
       </Panel>
-      <Panel title={copy.chat.panels.decisionWorkflowContext} accent="cyan">
+      <Panel title={copy.chat.panels.decisionWorkflowContext} accent='cyan'>
         <TextList
           items={[
             `${copy.chat.workflow.currentStage}: ${dashboard.agentActivity?.current_stage ?? '-'}`,

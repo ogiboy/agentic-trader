@@ -1,6 +1,8 @@
 ---
 title: Guvenlik Durusu
-description: Agentic Trader'in lokal paper operasyonu, observer yuzeyleri, research evidence ve secret'lari nasil sinirladigi.
+description:
+  Agentic Trader'in lokal paper operasyonu, observer yuzeyleri, research
+  evidence ve secret'lari nasil sinirladigi.
 ---
 
 ## Ne korunuyor
@@ -13,11 +15,15 @@ yanlislikla kotuye kullanilmasi zor halde tutmaktir.
 
 En guclu varsayilan kontroller:
 
-- desteklenen aktif al-sat gate'lidir; gate'siz real-money execution varsayilan olarak bloklu
+- desteklenen aktif al-sat gate'lidir; gate'siz real-money execution varsayilan
+  olarak bloklu
 - operation mode provider veya model hazirligi yoksa fail-closed davranir
-- research sidecar sadece evidence companion'dir; broker veya policy sahibi degildir
-- Web GUI ve observer yuzeyleri yeni bir runtime kurmaz, mevcut contract'lari okur
-- secret'lar tracked config'e degil ignored local env, Keychain veya CI secret'larina aittir
+- research sidecar sadece evidence companion'dir; broker veya policy sahibi
+  degildir
+- Web GUI ve observer yuzeyleri yeni bir runtime kurmaz, mevcut contract'lari
+  okur
+- secret'lar tracked config'e degil ignored local env, Keychain veya CI
+  secret'larina aittir
 
 ## Operator kurallari
 
@@ -35,14 +41,14 @@ diagnostic tasiyabilir.
 
 ## Threat model ozeti
 
-| Yuzey | Risk | Mitigation |
-| --- | --- | --- |
-| Web GUI route handler'lari | App disari acilirsa direkt POST'lar runtime, chat veya instruction islerini tetikleyebilir | Same-origin check, loopback-only token'siz mod, opsiyonel token, body cap, cooldown |
-| Observer API | Loopback disina bind edilirse read-only runtime truth sizabilir | Loopback default, nonlocal bind guard, opsiyonel token, no-store/security header'lari |
-| Runtime loglari | Provider/model hatalari key-benzeri degerleri basabilir | Supervisor tail ve Web error response oncesi redaction |
-| Research sidecar | Sidecar broker secret'larini miras alabilir veya raw stderr echo'layabilir | Dar subprocess env, redacted sidecar failure, broker/policy access contract disinda |
-| Provider hatalari | Gelecek provider'lar signed URL veya key iceren exception uretebilir | Source attribution bounded redacted exception note saklar |
-| Lokal artifact'ler | Paylasimli makinelerde default-permission dosyalar okunabilir | Runtime feed/log yazimlari owner-only dizin ve dosya izinlerini tercih eder |
+| Yuzey                      | Risk                                                                                       | Mitigation                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Web GUI route handler'lari | App disari acilirsa direkt POST'lar runtime, chat veya instruction islerini tetikleyebilir | Same-origin check, loopback-only token'siz mod, opsiyonel token, body cap, cooldown   |
+| Observer API               | Loopback disina bind edilirse read-only runtime truth sizabilir                            | Loopback default, nonlocal bind guard, opsiyonel token, no-store/security header'lari |
+| Runtime loglari            | Provider/model hatalari key-benzeri degerleri basabilir                                    | Supervisor tail ve Web error response oncesi redaction                                |
+| Research sidecar           | Sidecar broker secret'larini miras alabilir veya raw stderr echo'layabilir                 | Dar subprocess env, redacted sidecar failure, broker/policy access contract disinda   |
+| Provider hatalari          | Gelecek provider'lar signed URL veya key iceren exception uretebilir                       | Source attribution bounded redacted exception note saklar                             |
+| Lokal artifact'ler         | Paylasimli makinelerde default-permission dosyalar okunabilir                              | Runtime feed/log yazimlari owner-only dizin ve dosya izinlerini tercih eder           |
 
 ## Dogrulama yolu
 
@@ -54,9 +60,9 @@ pnpm --filter webgui run typecheck
 pnpm --filter webgui run lint
 ```
 
-Operator odakli pass icin [QA And Debugging](/tr/docs/qa-and-debugging)
-icindeki security senaryosunu calistir ve Web GUI, CLI, observer payload'larini
-ayni runtime truth'a gore karsilastir.
+Operator odakli pass icin [QA And Debugging](/tr/docs/qa-and-debugging) icindeki
+security senaryosunu calistir ve Web GUI, CLI, observer payload'larini ayni
+runtime truth'a gore karsilastir.
 
 ## Gelecek hardening
 

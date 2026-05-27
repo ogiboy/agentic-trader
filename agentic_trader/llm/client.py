@@ -9,6 +9,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import object_dict_or_none as _object_mapping
 from agentic_trader.llm.providers import LLMProvider, build_provider
 from agentic_trader.schemas import AgentRole, LLMHealthStatus
 
@@ -47,13 +48,15 @@ def _coerce_numeric_strings(obj: Any) -> Any:
 
 def _get_by_loc(obj: Any, path: tuple[str | int, ...]) -> Any:
     """Navigate nested dict/list by path tuple."""
-    current = obj
+    current: object = obj
     for part in path:
-        if isinstance(current, dict) and isinstance(part, str):
-            current = current.get(part)
+        current_mapping = _object_mapping(current)
+        if current_mapping is not None and isinstance(part, str):
+            current = current_mapping.get(part)
         elif isinstance(current, list) and isinstance(part, int):
-            if 0 <= part < len(current):
-                current = current[part]
+            current_list = cast(list[object], current)
+            if 0 <= part < len(current_list):
+                current = current_list[part]
             else:
                 return None
         else:
@@ -78,8 +81,9 @@ def _set_by_loc(obj: Any, path: tuple[str | int, ...], value: Any) -> bool:
         current[last_part] = value
         return True
     if isinstance(current, list) and isinstance(last_part, int):
-        if 0 <= last_part < len(current):
-            current[last_part] = value
+        current_list = cast(list[object], current)
+        if 0 <= last_part < len(current_list):
+            current_list[last_part] = value
             return True
     return False
 
@@ -456,10 +460,7 @@ def _mark_llm_source[T: BaseModel](parsed: T) -> T:
         The updated model with `source="llm"` and `fallback_reason=None` if applicable, otherwise the original `parsed`.
     """
     if hasattr(parsed, "source"):
-        return cast(
-            T,
-            parsed.model_copy(update={"source": "llm", "fallback_reason": None}),
-        )
+        return parsed.model_copy(update={"source": "llm", "fallback_reason": None})
     return parsed
 
 
