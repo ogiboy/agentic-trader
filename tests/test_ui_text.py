@@ -157,6 +157,18 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.title_calendar_status == ui_text.TITLE_CALENDAR_STATUS
     assert catalog.title_market_session == ui_text.TITLE_MARKET_SESSION
     assert catalog.label_tradable_now == ui_text.LABEL_TRADABLE_NOW
+    assert catalog.title_news_brief == ui_text.TITLE_NEWS_BRIEF
+    assert catalog.help_news_brief_symbol == ui_text.HELP_NEWS_BRIEF_SYMBOL
+    assert catalog.message_market_snapshot_cached == (
+        ui_text.MESSAGE_MARKET_SNAPSHOT_CACHED
+    )
+    assert catalog.title_market_snapshot_cache == (
+        ui_text.TITLE_MARKET_SNAPSHOT_CACHE
+    )
+    assert catalog.title_investment_preferences == (
+        ui_text.TITLE_INVESTMENT_PREFERENCES
+    )
+    assert catalog.label_snapshot_count == ui_text.LABEL_SNAPSHOT_COUNT
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -262,6 +274,13 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_timezone == "Saat Dilimi"
     assert catalog.message_calendar_status_unavailable.startswith(
         "Calendar status gecici"
+    )
+    assert catalog.help_news_brief_symbol == "Istege bagli sembol override."
+    assert catalog.label_cache_dir == "Cache Dizini"
+    assert catalog.label_snapshot_count == "Snapshot Sayisi"
+    assert catalog.label_agent_profile == "Agent Profili"
+    assert catalog.message_no_tool_news_headlines == (
+        "Bu sembol icin tool-driven news headline yok."
     )
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN

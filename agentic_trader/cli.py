@@ -246,6 +246,7 @@ from agentic_trader.ui_text import (
     HELP_NEWS_CLASSIFY_SOURCE,
     HELP_NEWS_COMPANY_NAME,
     HELP_NEWS_SECTOR,
+    HELP_NEWS_BRIEF_SYMBOL,
     HELP_SETUP_DRY_RUN,
     HELP_STRATEGY_CATALOG_PRESET_FILTER,
     HELP_STRATEGY_CATALOG_STATUS_FILTER,
@@ -279,6 +280,8 @@ from agentic_trader.ui_text import (
     HELP_WEBGUI_OPEN_BROWSER,
     HELP_WEBGUI_SERVICE_APP,
     LABEL_AGENT,
+    LABEL_AGENT_PROFILE,
+    LABEL_AGENT_TONE,
     LABEL_ALLOWED,
     LABEL_ACCELERATOR,
     LABEL_ADAPTER,
@@ -289,14 +292,17 @@ from agentic_trader.ui_text import (
     LABEL_API_KEY,
     LABEL_ARTIFACT,
     LABEL_ASSET_CLASS,
+    LABEL_AVAILABLE,
     LABEL_AVERAGE_PRICE,
     LABEL_BASE_URL,
     LABEL_BASELINE,
     LABEL_BACKEND,
     LABEL_BACKGROUND_MODE,
+    LABEL_BEHAVIOR_PRESET,
     LABEL_BIAS,
     LABEL_BLOCKING,
     LABEL_CAMOFOX,
+    LABEL_CACHE_DIR,
     LABEL_CASH,
     LABEL_CATEGORY,
     LABEL_CHECK,
@@ -310,6 +316,7 @@ from agentic_trader.ui_text import (
     LABEL_CPU_COUNT,
     LABEL_CREATED,
     LABEL_CURRENCY,
+    LABEL_CURRENCIES,
     LABEL_CURRENT,
     LABEL_CURRENT_SYMBOL,
     LABEL_CYCLE,
@@ -335,6 +342,7 @@ from agentic_trader.ui_text import (
     LABEL_ENVIRONMENT_EXISTS,
     LABEL_ESTIMATED_MODEL_SIZE,
     LABEL_EVIDENCE,
+    LABEL_EXCHANGES,
     LABEL_EXIT,
     LABEL_EXIT_CODE,
     LABEL_EXIT_PX,
@@ -345,6 +353,7 @@ from agentic_trader.ui_text import (
     LABEL_FEES,
     LABEL_FIELD,
     LABEL_FILLS_TODAY,
+    LABEL_FILENAME,
     LABEL_FINAL_RATIONALE,
     LABEL_FINAL_SIDE,
     LABEL_FAMILY,
@@ -355,9 +364,11 @@ from agentic_trader.ui_text import (
     LABEL_HEARTBEAT,
     LABEL_HEARTBEAT_AGE,
     LABEL_HEALTHCHECK,
+    LABEL_HEADLINES,
     LABEL_ID,
     LABEL_INTERVAL,
     LABEL_INTENT,
+    LABEL_INTERVENTION,
     LABEL_KEY,
     LABEL_KIND,
     LABEL_KILL_SWITCH_ACTIVE,
@@ -401,6 +412,7 @@ from agentic_trader.ui_text import (
     LABEL_MODEL_AVAILABLE,
     LABEL_MODEL_ROUTING,
     LABEL_MEMORY_GB,
+    LABEL_MODIFIED,
     LABEL_MULTI_TIMEFRAME,
     LABEL_NEXT,
     LABEL_NEWS_MODE,
@@ -439,6 +451,7 @@ from agentic_trader.ui_text import (
     LABEL_REASON,
     LABEL_REF,
     LABEL_REJECTION_EVIDENCE,
+    LABEL_REGIONS,
     LABEL_REQUIRES_CONFIRMATION,
     LABEL_REASONS,
     LABEL_RESEARCH_CYCLE_CONTROL,
@@ -450,8 +463,11 @@ from agentic_trader.ui_text import (
     LABEL_RUNTIME_DAEMON,
     LABEL_RUNTIME_DIR,
     LABEL_RISK,
+    LABEL_RISK_PROFILE,
     LABEL_SCORE,
     LABEL_SERVICE,
+    LABEL_SECTORS,
+    LABEL_SETTING,
     LABEL_SETUP,
     LABEL_SCAFFOLD_EXISTS,
     LABEL_SIDE,
@@ -459,6 +475,7 @@ from agentic_trader.ui_text import (
     LABEL_SIGNAL,
     LABEL_SIMULATED,
     LABEL_SIZE,
+    LABEL_SNAPSHOT_COUNT,
     LABEL_SLIPPAGE,
     LABEL_SOURCE,
     LABEL_SPECIALIST,
@@ -476,6 +493,7 @@ from agentic_trader.ui_text import (
     LABEL_STOP_REQUESTED,
     LABEL_STRATEGY,
     LABEL_STRUCTURED_LLM,
+    LABEL_STRICTNESS,
     LABEL_SUMMARY,
     LABEL_SUPPORTED,
     LABEL_SURFACE,
@@ -492,6 +510,7 @@ from agentic_trader.ui_text import (
     LABEL_TOTAL_RETURN,
     LABEL_TRADES,
     LABEL_TRADABLE_NOW,
+    LABEL_TRADE_STYLE,
     LABEL_TRIGGER_NOW,
     LABEL_TRIGGER_NOW_REQUESTED,
     LABEL_TYPE,
@@ -523,6 +542,7 @@ from agentic_trader.ui_text import (
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
     MESSAGE_CALENDAR_STATUS_UNAVAILABLE,
+    MESSAGE_CACHE_STATUS,
     MESSAGE_EVIDENCE_BUNDLE_WRITTEN,
     MESSAGE_FALLBACK_USED_IN,
     MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
@@ -534,6 +554,7 @@ from agentic_trader.ui_text import (
     MESSAGE_LAUNCH_PLAN,
     MESSAGE_LAUNCH_SYMBOL_REQUIRED,
     MESSAGE_MARK_TIME_UNAVAILABLE,
+    MESSAGE_MARKET_SNAPSHOT_CACHED,
     MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
     MESSAGE_NO_HISTORICAL_MEMORIES,
@@ -546,11 +567,13 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_STDOUT_LOG_LINES,
     MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
     MESSAGE_NO_TRADE_PROPOSALS,
+    MESSAGE_NO_TOOL_NEWS_HEADLINES,
     MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
     MESSAGE_OBSERVER_API_LISTENING,
     MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
     MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
     MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE,
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
     MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE,
     MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE,
@@ -604,6 +627,7 @@ from agentic_trader.ui_text import (
     TITLE_BACKTEST_TRADES,
     TITLE_BROKER_STATUS,
     TITLE_CALENDAR_STATUS,
+    TITLE_CACHE_STATUS,
     TITLE_ALPACA_PAPER_CHECKS,
     TITLE_CANDIDATE_REJECTED,
     TITLE_CAMOFOX_BROWSER_HELPER,
@@ -619,12 +643,15 @@ from agentic_trader.ui_text import (
     TITLE_HARDWARE_PROFILE,
     TITLE_IDEA_SCANNER_PRESETS,
     TITLE_IDEA_SCORE,
+    TITLE_INVESTMENT_PREFERENCES,
     TITLE_FINANCE_LEDGER_CATEGORIES,
     TITLE_FINANCE_OPERATIONS,
     TITLE_FINANCE_OPERATIONS_CHECKS,
     TITLE_LLM_STATUS,
     TITLE_LAUNCH_PLAN,
     TITLE_MARKET_SESSION,
+    TITLE_MARKET_SNAPSHOT_CACHE,
+    TITLE_MARKET_SNAPSHOT_CACHED,
     TITLE_MANAGER_CONFLICT_REPLAY,
     TITLE_MANAGER_CONFLICTS,
     TITLE_MANAGER_OVERRIDE_NOTES,
@@ -682,7 +709,9 @@ from agentic_trader.ui_text import (
     TITLE_STRATEGY_PROFILE,
     TITLE_V1_STRATEGY_CATALOG,
     TITLE_NEWS_INTELLIGENCE,
+    TITLE_NEWS_BRIEF,
     TITLE_NEWS_QUERY_PLAN,
+    TITLE_NEWS_TOOL,
     TITLE_TOOL_OWNERSHIP,
     TITLE_TOOL_READINESS,
     TITLE_TRACE,
@@ -7475,7 +7504,7 @@ def calendar_status(
 
 @app.command("news-brief")
 def news_brief(
-    symbol: str | None = typer.Option(None, help="Optional symbol override."),
+    symbol: str | None = typer.Option(None, help=HELP_NEWS_BRIEF_SYMBOL),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -7491,19 +7520,20 @@ def news_brief(
     if json_output:
         _emit_json(payload)
         return
-    table = Table(title=f"News Brief / {payload['symbol'] or '-'}")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Mode", str(payload["mode"]))
-    table.add_row("Available", str(payload["available"]))
+    news_title = TITLE_NEWS_BRIEF.format(symbol=_value_or_dash(payload["symbol"]))
+    table = Table(title=news_title)
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_MODE, str(payload["mode"]))
+    table.add_row(LABEL_AVAILABLE, str(payload["available"]))
     headlines = cast(list[dict[str, object]], payload["headlines"])
-    table.add_row("Headlines", str(len(headlines)))
+    table.add_row(LABEL_HEADLINES, str(len(headlines)))
     console.print(table)
     if not headlines:
         console.print(
             Panel(
-                "No tool-driven news headlines are available for this symbol.",
-                title="News Tool",
+                MESSAGE_NO_TOOL_NEWS_HEADLINES,
+                title=TITLE_NEWS_TOOL,
                 border_style="yellow",
             )
         )
@@ -7520,11 +7550,9 @@ def news_brief(
 
 @app.command("cache-market-data")
 def cache_market_data(
-    symbol: str = typer.Option(
-        ..., help="Ticker symbol, for example AAPL or THYAO.IS."
-    ),
-    interval: str = typer.Option("1d", help="yfinance interval, for example 1d or 1h."),
-    lookback: str = typer.Option("180d", help="Lookback window accepted by yfinance."),
+    symbol: str = typer.Option(..., help=HELP_SYMBOL),
+    interval: str = typer.Option("1d", help=HELP_INTERVAL),
+    lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
 ) -> None:
     """Fetch and save a repeatable market snapshot CSV into the runtime cache."""
     settings = get_settings()
@@ -7535,8 +7563,17 @@ def cache_market_data(
     payload = _market_cache_payload(refresh_settings)
     console.print(
         Panel(
-            f"Cached {len(frame)} bars for {symbol} {interval} {lookback}.\n\nCache Dir: {payload['cache_dir']}\nSnapshots: {payload['count']}",
-            title="Market Snapshot Cached",
+            MESSAGE_MARKET_SNAPSHOT_CACHED.format(
+                bar_count=len(frame),
+                cache_dir=payload["cache_dir"],
+                cache_dir_label=LABEL_CACHE_DIR,
+                interval=interval,
+                lookback=lookback,
+                snapshot_count=payload["count"],
+                snapshot_count_label=LABEL_SNAPSHOT_COUNT,
+                symbol=symbol,
+            ),
+            title=TITLE_MARKET_SNAPSHOT_CACHED,
             border_style="green",
         )
     )
@@ -7559,10 +7596,10 @@ def market_cache(
     if json_output:
         _emit_json(payload)
         return
-    table = Table(title="Market Snapshot Cache")
-    table.add_column("Filename")
-    table.add_column("Size")
-    table.add_column("Modified")
+    table = Table(title=TITLE_MARKET_SNAPSHOT_CACHE)
+    table.add_column(LABEL_FILENAME)
+    table.add_column(LABEL_SIZE)
+    table.add_column(LABEL_MODIFIED)
     entries = cast(list[dict[str, object]], payload["entries"])
     if not entries:
         table.add_row("-", "-", "-")
@@ -7576,8 +7613,15 @@ def market_cache(
     console.print(table)
     console.print(
         Panel(
-            f"Mode: {payload['mode']}\nCache Dir: {payload['cache_dir']}\nSnapshot Count: {payload['count']}",
-            title="Cache Status",
+            MESSAGE_CACHE_STATUS.format(
+                cache_dir=payload["cache_dir"],
+                cache_dir_label=LABEL_CACHE_DIR,
+                mode=payload["mode"],
+                mode_label=LABEL_MODE,
+                snapshot_count=payload["count"],
+                snapshot_count_label=LABEL_SNAPSHOT_COUNT,
+            ),
+            title=TITLE_CACHE_STATUS,
             border_style="cyan",
         )
     )
@@ -7609,27 +7653,31 @@ def preferences_command(
     if not available:
         console.print(
             Panel(
-                f"Preferences are temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE.format(error=error),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
         raise typer.Exit(code=0)
-    table = Table(title="Investment Preferences")
-    table.add_column("Setting")
-    table.add_column("Value")
-    table.add_row("Regions", ", ".join(preferences.regions) or "-")
-    table.add_row("Exchanges", ", ".join(preferences.exchanges) or "-")
-    table.add_row("Currencies", ", ".join(preferences.currencies) or "-")
-    table.add_row("Sectors", ", ".join(preferences.sectors) or "-")
-    table.add_row("Risk Profile", preferences.risk_profile)
-    table.add_row("Trade Style", preferences.trade_style)
-    table.add_row("Behavior Preset", preferences.behavior_preset)
-    table.add_row("Agent Profile", preferences.agent_profile)
-    table.add_row("Agent Tone", preferences.agent_tone)
-    table.add_row("Strictness", preferences.strictness_preset)
-    table.add_row("Intervention", preferences.intervention_style)
-    table.add_row("Notes", preferences.notes or "-")
+    table = Table(title=TITLE_INVESTMENT_PREFERENCES)
+    table.add_column(LABEL_SETTING)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_REGIONS, UI_LIST_SEPARATOR.join(preferences.regions) or "-")
+    table.add_row(
+        LABEL_EXCHANGES, UI_LIST_SEPARATOR.join(preferences.exchanges) or "-"
+    )
+    table.add_row(
+        LABEL_CURRENCIES, UI_LIST_SEPARATOR.join(preferences.currencies) or "-"
+    )
+    table.add_row(LABEL_SECTORS, UI_LIST_SEPARATOR.join(preferences.sectors) or "-")
+    table.add_row(LABEL_RISK_PROFILE, preferences.risk_profile)
+    table.add_row(LABEL_TRADE_STYLE, preferences.trade_style)
+    table.add_row(LABEL_BEHAVIOR_PRESET, preferences.behavior_preset)
+    table.add_row(LABEL_AGENT_PROFILE, preferences.agent_profile)
+    table.add_row(LABEL_AGENT_TONE, preferences.agent_tone)
+    table.add_row(LABEL_STRICTNESS, preferences.strictness_preset)
+    table.add_row(LABEL_INTERVENTION, preferences.intervention_style)
+    table.add_row(LABEL_NOTES, preferences.notes or "-")
     console.print(table)
 
 
