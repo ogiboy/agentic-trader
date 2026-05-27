@@ -9,7 +9,6 @@ and undecided helper tools.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, TypedDict, cast
 
@@ -18,6 +17,7 @@ from pydantic import BaseModel
 from agentic_trader.config import Settings
 from agentic_trader.security import write_private_text
 from agentic_trader.system.tool_roots import LocalToolId
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 OwnershipToolId = Literal["ollama", "firecrawl", "camofox"]
 OwnershipMode = Literal[
@@ -69,16 +69,6 @@ class ToolOwnershipPayload(BaseModel):
     updated_at: str | None = None
     decisions: list[ToolOwnershipDecision]
     decisions_by_tool: dict[str, ToolOwnershipDecision]
-
-
-def _utc_now_iso() -> str:
-    """
-    Get the current UTC time as an ISO-8601 formatted string with a UTC timezone offset.
-
-    Returns:
-        str: ISO-8601 formatted UTC timestamp including the UTC timezone offset.
-    """
-    return datetime.now(timezone.utc).isoformat()
 
 
 def tool_ownership_path(settings: Settings) -> Path:

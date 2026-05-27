@@ -55,7 +55,7 @@ dev = [
 requires-dist = [
   {name = "alpaca-py", specifier = ">=0.43.2,<0.44.0"},
   {name = "duckdb", specifier = ">=1.2.2"},
-  {name = "firecrawl-py", specifier = ">=4.25.1"},
+  {name = "firecrawl-py", specifier = ">=4.28.0"},
   {name = "httpx", specifier = ">=0.28.1"},
   {name = "massive", specifier = ">=2.5.0,<3.0.0"},
   {name = "ollama", specifier = ">=0.6.2"},
@@ -666,11 +666,11 @@ dependencies = [
   {name = "websockets"},
 ]
 name = "firecrawl-py"
-sdist = {url = "https://files.pythonhosted.org/packages/55/35/a0502aa627fb980aded9c4a61d854acba930d06ff77f72d853582c130ec2/firecrawl_py-4.25.1.tar.gz", hash = "sha256:a3d324407ba9a091a20d7290595a365c4eff3d4d6d5d8fb8e28a892ff3af6921", size = 185846, upload-time = "2026-05-06T17:52:40.285Z"}
+sdist = {url = "https://files.pythonhosted.org/packages/98/d5/22cf938c920da8ccc04afc910239a2d4de008a0645d48af90759315cc6c8/firecrawl_py-4.28.0.tar.gz", hash = "sha256:c5fa2b1ce21f01627f197d357741edaf60183260fa34ba4e5f979e3b16b64e0b", size = 191466, upload-time = "2026-05-23T23:03:42.499Z"}
 source = {registry = "https://pypi.org/simple"}
-version = "4.25.1"
+version = "4.28.0"
 wheels = [
-  {url = "https://files.pythonhosted.org/packages/35/af/b9cbccc98ae3035d75dd92439adf5e6378c75531a5ccb03afdebcd565e18/firecrawl_py-4.25.1-py3-none-any.whl", hash = "sha256:a0785be96dfa71629be6410b0c983010a14dab2edff9b12558bb6b3e2c5c3486", size = 232545, upload-time = "2026-05-06T17:52:38.576Z"},
+  {url = "https://files.pythonhosted.org/packages/8b/5b/52f6ad949d412cf342e882c3f08808a226ad462864489afc451661e5268c/firecrawl_py-4.28.0-py3-none-any.whl", hash = "sha256:0745c13cc8a13c874c86094a3fea98ea2aa2289d58cef8b7fa64877b270d809f", size = 238547, upload-time = "2026-05-23T23:03:40.47Z"},
 ]
 
 [[package]]

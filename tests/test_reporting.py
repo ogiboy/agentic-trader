@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from tests.typing_helpers import approx
-
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.schemas import (
@@ -18,6 +16,7 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run
+from tests.typing_helpers import approx
 
 
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:

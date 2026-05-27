@@ -1027,9 +1027,8 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(
     assert facts_record.source_payload_ref == "sec-companyfacts://CIK0000320193"
     assert "Revenue: 391,035,000,000 USD" in facts_record.normalized_summary
     assert facts_record.evidence_vs_inference.inference == []
-    assert (
-        "Company-specific extension taxonomy concepts"
-        in (facts_record.evidence_vs_inference.uncertainty[1])
+    assert "Company-specific extension taxonomy concepts" in (
+        facts_record.evidence_vs_inference.uncertainty[1]
     )
     assert facts_record.missing_fields == []
     assert "sec_companyfacts_api" in facts_record.source_attributions[0].notes
@@ -1051,9 +1050,8 @@ def test_sec_edgar_provider_normalizes_recent_filings_without_raw_text(
         record.source_payload_ref
         == "sec-submissions://CIK0000320193/0000320193-24-000123"
     )
-    assert (
-        "Filing text and XBRL facts were not downloaded"
-        in (record.evidence_vs_inference.uncertainty[0])
+    assert "Filing text and XBRL facts were not downloaded" in (
+        record.evidence_vs_inference.uncertainty[0]
     )
     assert record.evidence_vs_inference.inference == []
     assert abs(record.source_attributions[0].confidence - 0.95) < 1e-9
