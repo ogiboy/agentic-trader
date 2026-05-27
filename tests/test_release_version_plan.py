@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from argparse import Namespace
 import importlib.util
 import json
-from pathlib import Path
 import re
 import sys
 import tomllib
+from argparse import Namespace
+from pathlib import Path
 from types import ModuleType
 
 
@@ -14,9 +14,9 @@ def _load_version_plan() -> ModuleType:
     """
     Load and return the release `version_plan` module located at `scripts/release/version_plan.py`
     relative to this file's parent directory.
-    
+
     The module is imported under the name "version_plan" and registered in `sys.modules`.
-    
+
     Returns:
         ModuleType: The imported `version_plan` module object.
     """
@@ -78,7 +78,7 @@ def test_version_plan_marks_explicit_release_ref_for_attachment() -> None:
 def test_tracked_product_versions_match_pyproject() -> None:
     """
     Verify that the repository's tracked product versions are consistent with the version declared in the root pyproject.toml.
-    
+
     Asserts that:
     - root package.json and package.json files in webgui, docs, and tui have the same "version" value;
     - sidecars/research_flow/pyproject.toml's project.version matches;

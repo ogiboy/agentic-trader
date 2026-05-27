@@ -1,6 +1,8 @@
 ---
 title: Katkı Vermek
-description: Çalışma tarzı, branch hijyeni ve değişiklikleri güvenli ve okunabilir tutan beklentiler.
+description:
+  Çalışma tarzı, branch hijyeni ve değişiklikleri güvenli ve okunabilir tutan
+  beklentiler.
 ---
 
 ## Çalışma tarzı
@@ -31,23 +33,28 @@ Bu repo şunları tercih eder:
 
 ## Commit tarzı
 
-Conventional commit tarzı tercih edilir; çünkü release otomasyonu ve tarihçe daha okunabilir kalır.
-Örnekler:
+Conventional commit tarzı tercih edilir; çünkü release otomasyonu ve tarihçe
+daha okunabilir kalır. Örnekler:
 
 - `feat: add locale-aware docs routing`
 - `docs: expand runtime and onboarding guidance`
 - `fix: clarify docs feedback forwarding state`
 
-Release otomasyonu `main` üzerindeki conventional commit'leri okur.
-Feature commit'leri minor release, fix/perf/docs/build/ci/chore commit'leri patch release üretir; `!` veya `BREAKING CHANGE:` major release anlamına gelir.
+Release otomasyonu `main` üzerindeki conventional commit'leri okur. Feature
+commit'leri minor release, fix/perf/docs/build/ci/chore commit'leri patch
+release üretir; `!` veya `BREAKING CHANGE:` major release anlamına gelir.
 
-Sadece `main` otomatik olarak `pyproject.toml`, workspace package sürümleri ve `CHANGELOG.md` değiştirir. Diğer branch'ler version preview çalıştırır ve test binary'leri için prerelease tag/release kayıtları yayınlayabilir:
+Sadece `main` otomatik olarak `pyproject.toml`, workspace package sürümleri ve
+`CHANGELOG.md` değiştirir. Diğer branch'ler version preview çalıştırır ve test
+binary'leri için prerelease tag/release kayıtları yayınlayabilir:
 
 - `main`: `v0.9.5` gibi stabil SemVer tag'leri
-- `V1`, `V2` gibi integration branch'leri: `v0.9.6-next.9870+gabc1234` gibi `next` prerelease'leri
+- `V1`, `V2` gibi integration branch'leri: `v0.9.6-next.9870+gabc1234` gibi
+  `next` prerelease'leri
 - feature branch'leri: `v0.9.6-beta.9870+gabc1234` gibi `beta` prerelease'leri
 
-`v0.9.5.9870` gibi dördüncü SemVer core segment kullanma; CI build kimliği prerelease ya da build metadata içinde yaşamalı.
+`v0.9.5.9870` gibi dördüncü SemVer core segment kullanma; CI build kimliği
+prerelease ya da build metadata içinde yaşamalı.
 
 İlk stabil `main` release'i semantic-release sonucunu tracked pre-1.0 baseline'a
 floor etmek zorunda kalırsa release workflow tag atmadan önce baseline changelog
@@ -61,8 +68,17 @@ Pull request'ler ve korunan branch'lerde şu kontroller yeşil kalmalı:
 - Web GUI: pnpm workspace install, lint, typecheck ve production build
 - Docs: pnpm workspace install, lint, typecheck ve static export
 - TUI: pnpm workspace install ve Ink entrypoint syntax check
-- Version Check: semantic-release preview ve SemVer uyumlu branch artifact kimliği
-- Binaries: branch testleri için macOS ve Windows PyInstaller artifact'leri; `v*` tag'lerinde stabil GitHub Release'e, branch push'larında prerelease GitHub Release'e eklenir
+- Version Check: semantic-release preview ve SemVer uyumlu branch artifact
+  kimliği
+- Binaries: branch testleri için macOS ve Windows PyInstaller artifact'leri;
+  `v*` tag'lerinde stabil GitHub Release'e, branch push'larında prerelease
+  GitHub Release'e eklenir
+
+Strict Pyright/Pylance açık, ama repo hâlâ belgelenmiş eski backlog'u eritiyor.
+CI ve release kontrolleri `scripts/check_pyright_baseline.py` regression
+gate'ini kullanır: mevcut baseline'ın üzerindeki yeni diagnostics fail eder;
+type-clean işler baseline'ı script, roadmap ve `.ai` state içinde birlikte
+düşürmelidir.
 
 ## Docs güncellemesi ne zaman işin parçasıdır
 

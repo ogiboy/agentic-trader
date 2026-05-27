@@ -8,12 +8,13 @@ owner-only state/logs, and avoids inheriting trading/broker/provider secrets.
 from __future__ import annotations
 
 import os
-import signal
 import shutil
+import signal
 import socket
 import subprocess
 import time
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlparse
 
 import httpx
@@ -32,6 +33,7 @@ from agentic_trader.system.tool_roots import (
     local_tool_status_payload,
     resolve_configured_tool_path,
 )
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 DEFAULT_CAMOFOX_HOST = "127.0.0.1"
 DEFAULT_CAMOFOX_PORT = 9377
@@ -126,10 +128,10 @@ class CamofoxServiceStatus(BaseModel):
     def is_owned_by_host(self, host_id: str) -> bool:
         """
         Determine whether this app-owned service status is owned by the specified host.
-        
+
         Parameters:
             host_id (str): Host identifier to compare against the recorded owner.
-        
+
         Returns:
             bool: `True` if `app_owned` is `True` and `owner` equals `host_id`, `False` otherwise.
         """
@@ -140,10 +142,10 @@ class CamofoxServiceStatus(BaseModel):
 def camofox_service_dir(settings: Settings) -> Path:
     """
     Get the runtime directory path where Camofox service state and artifacts are stored.
-    
+
     Parameters:
         settings (Settings): Application settings containing the `runtime_dir` base path.
-    
+
     Returns:
         Path: Path to the Camofox service runtime directory (runtime_dir / "camofox_service").
     """
@@ -159,12 +161,6 @@ def camofox_tool_dir(settings: Settings) -> Path:
         settings.research_camofox_tool_dir,
         default_tool="camofox-browser",
     )
-
-
-def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _read_state(settings: Settings) -> CamofoxServiceState | None:
@@ -360,15 +356,14 @@ def _health(base_url: str) -> tuple[bool, bool, str]:
             False,
             f"Unable to reach Camofox: {redact_sensitive_text(exc, max_length=160)}",
         )
-    ok = bool(payload.get("ok")) if isinstance(payload, dict) else False
+    payload_object = (
+        cast(dict[str, object], payload) if isinstance(payload, dict) else {}
+    )
+    ok = bool(payload_object.get("ok"))
     if not ok:
         return True, False, "Camofox health is not ok."
-    browser_running = (
-        payload.get("browserRunning") if isinstance(payload, dict) else None
-    )
-    browser_connected = (
-        payload.get("browserConnected") if isinstance(payload, dict) else None
-    )
+    browser_running = payload_object.get("browserRunning")
+    browser_connected = payload_object.get("browserConnected")
     if browser_running is False or browser_connected is False:
         return True, True, "Camofox server is reachable; browser launches on demand."
     return True, True, "Camofox is reachable."
@@ -534,14 +529,14 @@ def build_camofox_service_status(
 ) -> CamofoxServiceStatus:
     """
     Builds the current read-only status for the app-owned Camofox helper.
-    
+
     Parameters:
-    	tail_limit (int): Maximum number of lines to include from each log tail.
-    
+        tail_limit (int): Maximum number of lines to include from each log tail.
+
     Returns:
-    	CamofoxServiceStatus: Aggregated operator-facing status including tool availability,
-    	ownership/process info (only when the app-owned process is verified alive),
-    	connectivity/health flags, log paths and tails, and a human-readable message.
+        CamofoxServiceStatus: Aggregated operator-facing status including tool availability,
+        ownership/process info (only when the app-owned process is verified alive),
+        connectivity/health flags, log paths and tails, and a human-readable message.
     """
 
     state = _read_state(settings)
@@ -638,17 +633,17 @@ def start_camofox_service(
 ) -> CamofoxServiceStatus:
     """
     Start and persist an app-owned loopback Camofox helper process.
-    
+
     Validates that the chosen host is loopback and that an access token is configured, spawns the tool subprocess in the resolved tool directory with a minimal, secret-filtered environment, persists owner-only runtime state (including PID, host, port, log paths, and command), and waits briefly for the service to become healthy. If an existing recorded app-owned process is already alive, the call returns the current service status instead of starting a new process.
-    
+
     Parameters:
         settings (Settings): Application settings and runtime configuration.
         host (str | None): Optional override for the loopback host to bind; when omitted the configured host is used.
         port (int | None): Optional preferred port to bind; when omitted the configured port is used.
-    
+
     Returns:
         CamofoxServiceStatus: Operator-facing status describing the service after the start attempt.
-    
+
     Raises:
         RuntimeError: If the resolved host is not a loopback address or if no CAMOFOX access token is available.
     """

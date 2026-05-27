@@ -15,6 +15,108 @@ Former V1.1/V1.2 research, CrewAI-sidecar, evaluation, and memory-quality loops
 now belong to the V1 completion track so V1 ends with a stronger evidence
 companion rather than only a runtime shell. V2 is the Turkey expansion track.
 
+### V1 Commercial Readiness Blockers
+
+Research refreshed during the type-safety branch audit keeps V1 paper-first until the product can prove
+operator trust, compliance posture, and unit economics without overpromising
+autonomous advice or live execution. This is not legal advice; it is the
+engineering blocker ledger that must be reviewed with qualified counsel before
+paid users or real-money claims.
+
+- [ ] classify the commercial model before accepting paid users: personalized
+      investment advice, advisory fees, account workflow involvement,
+      discretionary authority, copy trading, or order routing can change the
+      product from local software into a regulated investment-adviser,
+      broker-dealer, Form CRS/Reg BI, SRO, books-and-records, custody,
+      disclosure, and state-law problem; see SEC investment-adviser
+      registration guidance
+      (https://www.sec.gov/investment/how-to-register-with-sec-investment-adviser),
+      SEC broker-dealer registration guidance
+      (https://www.sec.gov/about/reports-publications/investor-publications/guide-broker-dealer-registration),
+      SEC Reg BI/Form CRS resources
+      (https://www.sec.gov/regulation-best-interest),
+      SEC automated-investment-tool investor guidance
+      (https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins-84),
+      and FINRA algorithmic-trading supervision notes
+      (https://www.finra.org/rules-guidance/key-topics/algorithmic-trading).
+- [ ] choose a first paid SKU that avoids hidden broker authority: local-first
+      paper desk, evidence bundle export, operator education, personal
+      automation, and team workflow value are V1-safe candidates; managed live
+      trading, account opening, copy trading, performance-fee products,
+      bundled brokerage, and "AI adviser" positioning are blocked until the
+      compliance model is accepted.
+- [ ] complete Alpaca external-paper and production-readiness evidence before
+      real-money claims: paper/live credential separation, paper account
+      reset/replay discipline, `client_order_id` correlation, order-state
+      websocket/reconciliation, account authorization, insufficient-balance and
+      rejected-order handling, PDT/margin disclosure, and any
+      account-opening/KYC/CIP responsibilities if the product becomes an
+      end-user brokerage app; see Alpaca paper trading
+      (https://docs.alpaca.markets/docs/paper-trading),
+      trading API (https://docs.alpaca.markets/docs/trading-api),
+      orders (https://docs.alpaca.markets/docs/orders-at-alpaca),
+      trading updates (https://docs.alpaca.markets/us/docs/websocket-streaming),
+      market-data streaming
+      (https://docs.alpaca.markets/us/docs/streaming-market-data),
+      and broker/account-opening docs
+      (https://docs.alpaca.markets/docs/about-broker-api,
+      https://docs.alpaca.markets/us/docs/account-opening).
+- [ ] add a revenue-ready trust layer: onboarding terms, risk disclosure,
+      billing/subscription boundary, support and incident channel, audit
+      export, data-retention/deletion policy, privacy/security review,
+      provider-status telemetry, stale/degraded/no-action UX, and explicit
+      "paper evidence only" wording. If the product handles customer financial
+      information, include SEC Regulation S-P and FTC Safeguards-style controls
+      (https://www.sec.gov/newsroom/press-releases/2024-58,
+      https://www.ftc.gov/business-guidance/privacy-security/safeguards-rule).
+- [ ] make AI/security risk management product-visible: map model/provider,
+      prompt-injection, tool-poisoning, raw web text, sidecar, and
+      operator-action risks to NIST AI RMF, NIST Cybersecurity Framework 2.0,
+      and OWASP LLM Top 10 controls before claiming trusted automation
+      (https://www.nist.gov/itl/ai-risk-management-framework,
+      https://www.nist.gov/cyberframework,
+      https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+- [ ] define model-cost unit economics before cloud AI becomes default: keep
+      local Ollama as the default, add per-cycle remote-model cost telemetry,
+      hard monthly budgets, role-level routing policies, and quality/cost
+      comparison gates; use current provider pages such as OpenAI pricing
+      (https://openai.com/api/pricing/), Anthropic pricing
+      (https://www.anthropic.com/pricing#api), and Gemini API pricing
+      (https://ai.google.dev/gemini-api/docs/pricing) as live inputs, not
+      hardcoded assumptions.
+- [ ] match market-tool expectations without copying their scope: a paid V1
+      paper desk must offer clear paper/live separation, backtest/replay
+      evidence, watchlist/scanner flows, audit exports, and degraded-source
+      messaging at least comparable to the expectations set by tools such as
+      TradingView paper trading
+      (https://www.tradingview.com/support/categories/paper-trading/),
+      QuantConnect live/paper workflows
+      (https://www.quantconnect.com/docs/v2/cloud-platform/live-trading/overview),
+      and Alpaca's paper/broker ecosystem, while staying local-first and
+      manual-approval-first.
+
+#### Commercial Work Plan
+
+- [ ] C0 - Product/legal classification: document the exact paid SKU,
+      disallowed claims, allowed users, data handled, broker/account touch
+      points, and legal review outcome before billing is enabled.
+- [ ] C1 - Paper-desk packaging: turn `evidence-bundle`, `finance-ops`,
+      `v1-readiness`, proposal review, replay, and provider diagnostics into a
+      coherent local paper-desk workflow with supportable onboarding copy.
+- [ ] C2 - Trust/security controls: ship terms/disclaimers, privacy/data
+      retention, audit export, incident/support path, provider status page or
+      local equivalent, red-team prompts, and LLM/tool-poisoning regression
+      tests.
+- [ ] C3 - Alpaca external-paper proof: run repeated AAPL/MSFT paper cycles
+      with order correlation, refresh/reconcile, reject/no-fill/cancel cases,
+      and evidence artifacts before claiming broker readiness.
+- [ ] C4 - Unit economics: measure local vs remote model quality/cost per
+      operator workflow, define budgets, and block remote defaults until the
+      paper-desk SKU has a positive support and inference margin.
+- [ ] C5 - Revenue pilot gate: only after C0-C4 pass, run a limited
+      non-live/paper-only pilot with explicit disclaimers, no account custody,
+      no managed execution, and support/incident coverage.
+
 ## Phase 1: Guardrailed Core
 
 Status: completed in the initial scaffold.
@@ -114,7 +216,7 @@ Status: in progress.
 - the Ink control room now also includes a memory page backed by similar-run retrieval and stage-level retrieval inspection
 - the Ink chat page now embeds live agent activity, recent tool-role usage, and reasoning-stage context beside the transcript
 - a typed shared Python UI text catalog now exists as the first step toward future multi-language operator surfaces while preserving legacy CLI/Rich/Ink constants
-- the Web GUI now has a first local i18n seam plus per-view control-room modules; shell, auth, overview, runtime, portfolio, proposals, review, memory, chat, and settings copy now flow through typed per-locale English/Turkish modules, while helper-generated evidence lines still need a deeper catalog pass
+- the Web GUI now has a first local i18n seam plus per-view control-room modules; shell, auth, overview, runtime, portfolio, proposals, review, memory, chat, settings, loading/unavailable states, and the overview helper-generated readiness/provider/local-tool evidence lines now flow through typed per-locale English/Turkish modules; deeper review/portfolio/memory evidence strings still need a broader catalog pass
 - the Ink overview and review pages now surface context-pack summaries, lookback coverage, quality flags, anomalies, and horizon votes from the Python dashboard contract
 - the next operator trust upgrade is adding a Training/Operation mode banner and deeper retrieval explanations beside the context pack
 - richer trace inspection and deeper Ink feature parity are still open
@@ -253,7 +355,11 @@ Status: completed.
 Status: in progress.
 
 - keep type checking and tests green before moving to the next slice
-- adopt Pyright/Pylance strictness as a staged hardening track: classify the current strict backlog by real runtime risk vs test/mock noise, add narrow third-party stubs where they match installed packages, and fix source diagnostics before chasing broad unknown-type noise
+- enforce Pyright/Pylance strictness as a zero-diagnostic gate for
+  `agentic_trader`, `tests`, `scripts`, and `sidecars/research_flow/src`;
+  strict backlog is now zero, no suppression comments are allowed, and CI,
+  release, local `check-python`, and smoke quality checks should fail on any
+  new strict diagnostic
 - prefer schema-first agent contracts over free-form text coupling
 - add reproducible fixtures for data-heavy tests
 - keep CLI, TUI, and service behavior aligned so operator surfaces do not drift
@@ -529,6 +635,7 @@ Status: in progress.
 - [ ] expand docs with contributing and deeper reference pages without duplicating repository truth
 - [ ] add feature deep dives for paper operation, broker/account truth, memory/review evidence, research sidecar, runtime modes, and evidence bundles
 - [ ] add a guided `app:up` flow for macOS, Linux, and Windows that checks prerequisites, installs or repairs Python/Node/sidecar/tool dependencies, asks provider/tool ownership questions, starts app-owned services where configured, and opens the Web GUI
+- [x] make first-run bootstrap ownership prompts idempotent by reusing persisted Ollama/Firecrawl/Camofox decisions, and make deferred setup summaries show concrete next actions
 - [x] add explicit accelerated lifecycle commands for normal operators: `app:setup`, `app:start`, `app:stop`, `app:update`, `app:doctor`, and `app:uninstall`, with matching Make aliases; keep the existing focused scripts available for debugging
 - [x] add the first read-only `app:doctor` lifecycle facade so operators can inspect setup, provider, V1 readiness, and app-owned service status without hidden installs, starts, model pulls, browser opens, or trading-daemon launches
 - [x] add the first conservative `app:setup` lifecycle facade with dry-run planning by default and explicit `--core --yes` repair for only the root pnpm workspace plus root uv Python environment
@@ -546,11 +653,18 @@ Status: in progress.
 - [x] add a first setup-status and macOS bootstrap script foundation that detects core tools, optional Ollama/Firecrawl/Camofox/RuFlo readiness, and the `agentic-trader` PATH entrypoint without hidden installs
 - [x] keep bootstrap provider-aware so users can skip or replace the default Ollama/model path without hidden behavior
 - [ ] split oversized runtime/CLI/helper files incrementally into domain modules, constants, render helpers, and service helpers so V1 remains inspectable as a product codebase rather than a single-developer script pile
-- [ ] continue splitting the Web GUI control room into typed view-model helpers and screen-scoped style modules so `webgui/src/components/control-room.tsx` stays a small state/render coordinator
+- [ ] continue splitting the Web GUI control room into screen-scoped style modules so `webgui/src/components/control-room.tsx` stays a small state/render coordinator
+- [x] extract the first Web GUI control-room typed view-model, locale/loading hooks, action request helpers, shared formatting helpers, and diagnostics/context evidence helpers so the facade can keep shrinking without changing runtime contracts
 - [x] extract the first Web GUI control-room primitives and copy catalog so shared panel/list/JSON rendering and shell/overview labels no longer live inside the monolithic control-room component
 - [x] split the Web GUI control room into per-view modules plus dedicated shell chrome, dashboard polling, runtime/proposal/tool/chat/instruction actions, request/auth helpers, shared primitives, and a typed English/Turkish copy catalog, leaving `control-room.tsx` as the state/render coordinator
 - [x] move the main Web GUI control-room view copy for runtime, portfolio, proposal desk, review, memory, chat, and settings into the typed English/Turkish catalog so new view work has one localization boundary
-- [ ] investigate why `CHANGELOG.md` is not changing in the observed release/branch flow; confirm whether this is expected feature-branch behavior, missing semantic-release trigger, or a release workflow defect, then document the fix path before the next stable release
+- [ ] make project-wide modularity measurable before the next broad refactor: add a reporting-only audit for oversized modules, long functions, repeated helper patterns, docs locale parity, and hardcoded UI string candidates in CLI/Rich/Ink/Web/docs surfaces
+- [ ] promote the Python UI text catalog from a small compatibility seam into a terminal-locale contract: `AGENTIC_TRADER_UI_LOCALE`, a CLI override, a locale command, and dashboard locale metadata should drive CLI, Rich, and Ink copy without changing JSON contract keys
+- [ ] split the Python CLI incrementally so `agentic_trader/cli.py` remains a Typer registration facade while dashboard payloads, runtime rendering, finance/proposal rendering, shared options, and command helpers live in focused modules with targeted tests
+- [ ] split the Rich TUI incrementally into terminal UI modules for menu, monitor, runtime, portfolio, preferences, copy, and table rendering while preserving the existing entrypoint and smoke behavior
+- [ ] split the Ink TUI entrypoint into `tui/src/` copy, state, command, formatting, component, and view modules so `tui/index.mjs` becomes a thin launcher rather than the long-lived owner of every surface
+- [ ] finish the WebGUI/docs i18n cleanup by moving remaining fallback labels, inline locale ternaries, and control-room global styles into screen-scoped modules and typed copy/content boundaries
+- [x] investigate why `CHANGELOG.md` only received the `v0.12.5` heading: prerelease `v0.12.5-beta.*` tags on the merged feature branch consumed release-history entries before the stable main release, so the stable workflow now backfills an empty stable section from the previous stable tag while ignoring prerelease tags
 - [ ] preserve the current shared shadcn preset baseline from `pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next` across both `docs/` and `webgui/`, using a local-first monospace typography stack without build-time Google Fonts fetches
 - [ ] migrate `webgui` incrementally from legacy global shell classes toward shadcn primitives and Tailwind v4 token composition
 - [x] resolve the current `webgui` `next dev` multi-lockfile/Turbopack Tailwind issue so local interactive frontend work matches the green lint/build path

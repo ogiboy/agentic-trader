@@ -1,6 +1,8 @@
 ---
 title: QA ve Debugging
-description: Operatöre görünen değişiklikleri hedefli testler, smoke QA ve runtime kanıtı ile doğrula.
+description:
+  Operatöre görünen değişiklikleri hedefli testler, smoke QA ve runtime kanıtı
+  ile doğrula.
 ---
 
 ## Temel otomatik kontroller
@@ -13,10 +15,14 @@ pnpm run check:research-flow
 pnpm run qa
 ```
 
-Fast smoke QA artık shared dashboard contract içinde provider diagnostics,
-V1 readiness, broker health, external-paper state, runtime mode ve Market
-Context Pack bölümlerinin bulunduğunu doğrular; Ink/Web/observer yüzeyleri bu
-alanları tüketmeden önce drift yakalanır.
+`check:python`, strict Pyright'ı `scripts/check_pyright_baseline.py` üzerinden
+açık tutar. Bu baseline gate geçicidir: mevcut Pylance backlog'u belgelenmiş
+dilimler halinde azaltılırken yeni strict-mode regression'larını engeller.
+
+Fast smoke QA artık shared dashboard contract içinde provider diagnostics, V1
+readiness, broker health, external-paper state, runtime mode ve Market Context
+Pack bölümlerinin bulunduğunu doğrular; Ink/Web/observer yüzeyleri bu alanları
+tüketmeden önce drift yakalanır.
 
 Ayrıca partial daily window, intraday provider limitleri, non-datetime index,
 higher-timeframe fallback ve Training replay undercoverage flag'leri için
@@ -45,26 +51,38 @@ pnpm --filter docs run build
 
 Local SonarQube ile SonarCloud'u ayrı tut:
 
-| Hedef | Project key | Komut |
-| --- | --- | --- |
-| Local SonarQube Community Build | `agentic-trader` | `pnpm run sonar` |
-| Local npm scanner yolu | `agentic-trader` | `pnpm run sonar:js` |
-| SonarCloud | `ogiboy_agentic-trader` | `pnpm run sonar:cloud` |
+| Hedef                           | Project key             | Komut                  |
+| ------------------------------- | ----------------------- | ---------------------- |
+| Local SonarQube Community Build | `agentic-trader`        | `pnpm run sonar`       |
+| Local npm scanner yolu          | `agentic-trader`        | `pnpm run sonar:js`    |
+| SonarCloud                      | `ogiboy_agentic-trader` | `pnpm run sonar:cloud` |
 
-Local hedef Docker tabanlı branch analizi, Codex/MCP incelemesi ve geliştirici QA için kullanılır. SonarCloud ise GitHub badge'i ve CI geçmişi için kalır.
+Local hedef Docker tabanlı branch analizi, Codex/MCP incelemesi ve geliştirici
+QA için kullanılır. SonarCloud ise GitHub badge'i ve CI geçmişi için kalır.
 
-Token'lar tracked dosyalara yazılmamalı. Tek seferlik shell için `SONAR_TOKEN`, local Docker SonarQube için macOS Keychain `codex-sonarqube-token`, manuel SonarCloud upload için `codex-sonarcloud-token` kullan.
+Token'lar tracked dosyalara yazılmamalı. Tek seferlik shell için `SONAR_TOKEN`,
+local Docker SonarQube için macOS Keychain `codex-sonarqube-token`, manuel
+SonarCloud upload için `codex-sonarcloud-token` kullan.
 
-Editor MCP bağlantısı için `scripts/secrets/run-sonarqube-mcp.sh` kullan. Script token'ı Keychain'den okur ve yalnızca Docker MCP process'ine verir; VS Code `mcp.json` içinde ham token tutmaya gerek kalmaz.
+Editor MCP bağlantısı için `scripts/secrets/run-sonarqube-mcp.sh` kullan. Script
+token'ı Keychain'den okur ve yalnızca Docker MCP process'ine verir; VS Code
+`mcp.json` içinde ham token tutmaya gerek kalmaz.
 
-Local `sonarqube` server konteyneri ile geçici `mcp/sonarqube` client konteynerlerini ayırmak için `pnpm run mcp:sonarqube:status` kullan. Birden fazla MCP konteyneri çoğu zaman birden fazla aktif editor veya agent oturumu anlamına gelir; birden fazla SonarQube server anlamına gelmez.
+Local `sonarqube` server konteyneri ile geçici `mcp/sonarqube` client
+konteynerlerini ayırmak için `pnpm run mcp:sonarqube:status` kullan. Birden
+fazla MCP konteyneri çoğu zaman birden fazla aktif editor veya agent oturumu
+anlamına gelir; birden fazla SonarQube server anlamına gelmez.
 
-Sonar issue ürettiğinde sadece son commit'e bakma. Tüm proje backlog'unu incele; vulnerability, security hotspot, correctness bug, blocker/critical issue ve ardından maintainability cleanup sırasıyla önceliklendir. Kabul edilen bulgular için kısa gerekçe ve residual risk notu bırak.
+Sonar issue ürettiğinde sadece son commit'e bakma. Tüm proje backlog'unu incele;
+vulnerability, security hotspot, correctness bug, blocker/critical issue ve
+ardından maintainability cleanup sırasıyla önceliklendir. Kabul edilen bulgular
+için kısa gerekçe ve residual risk notu bırak.
 
 ## Smoke QA neden önemli
 
-Bu repo gerçek operatör yüzeylerine sahip.
-Unit test yeşil olsa bile CLI, Ink, Rich, observer ve Web GUI runtime truth konusunda anlaşmıyorsa iş bitmiş sayılmaz.
+Bu repo gerçek operatör yüzeylerine sahip. Unit test yeşil olsa bile CLI, Ink,
+Rich, observer ve Web GUI runtime truth konusunda anlaşmıyorsa iş bitmiş
+sayılmaz.
 
 ## Tercih edilen kanıt sırası
 
@@ -80,7 +98,8 @@ Bir davranış yanlış görünüyorsa:
 
 - UI'ye güvenmeden önce runtime artefact'lerini incele
 - arka plan trafiğine bakıp sağlık varsaymadan önce logları incele
-- prompt'a dokunmadan önce persist edilmiş context ve review artefact'lerini incele
+- prompt'a dokunmadan önce persist edilmiş context ve review artefact'lerini
+  incele
 
 ## Docs'e özel QA kontrol listesi
 
@@ -88,7 +107,8 @@ Docs işini PR-ready saymadan önce:
 
 - her iki locale için routing çalışıyor mu kontrol et
 - search hâlâ anlamlı sonuç veriyor mu bak
-- feedback copy tarayıcıda tutulan yerel taslak ile manuel GitHub issue bağlantısını açık anlatıyor mu doğrula
+- feedback copy tarayıcıda tutulan yerel taslak ile manuel GitHub issue
+  bağlantısını açık anlatıyor mu doğrula
 - sayfa yapısı okunabilir mi, aşırı yüklenmiş mi bak
 - değişen varsayımların `.ai` notlarına işlendiğini doğrula
 
@@ -103,4 +123,5 @@ Docs işini PR-ready saymadan önce:
 
 PR açmadan önce şunu sor:
 
-“Bu branch sonraki katkı vereni gerçekten hızlandırıyor mu, yoksa yalnızca bu diff'i geçiriyor mu?”
+“Bu branch sonraki katkı vereni gerçekten hızlandırıyor mu, yoksa yalnızca bu
+diff'i geçiriyor mu?”

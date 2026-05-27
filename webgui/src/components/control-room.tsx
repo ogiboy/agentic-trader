@@ -2,41 +2,43 @@
 'use client';
 
 import {
-  type SyntheticEvent,
   useCallback,
   useMemo,
   useRef,
   useState,
+  type SyntheticEvent,
 } from 'react';
 
 import type { ChatPersona } from '@/lib/chat-personas';
 
-import { normalizeChatHistory, systemStatusItems } from './control-room.helpers';
 import type {
   DashboardData,
   InstructionMode,
-  KeyValueItems,
   TabId,
 } from './control-room.helpers';
-import {
-  controlRoomTabs,
-  getControlRoomCopy,
-  initialControlRoomLocale,
-  storeControlRoomLocale,
-  type ControlRoomLocale,
-} from './control-room/labels';
-import { ActiveView } from './control-room/active-view';
-import {
-  authenticateWebguiSession,
-  errorMessage,
-} from './control-room/api';
+import { normalizeChatHistory } from './control-room.helpers';
 import { useControlRoomActions } from './control-room/actions';
+import { ActiveView } from './control-room/active-view';
+import { authenticateWebguiSession, errorMessage } from './control-room/api';
 import { useDashboardPolling } from './control-room/dashboard-polling';
+import { controlRoomTabs, getControlRoomCopy } from './control-room/labels';
+import {
+  ControlRoomLoadingPanel,
+  ControlRoomUnavailablePanel,
+} from './control-room/loading-panel';
 import {
   ControlRoomAuthShell,
   ControlRoomShell,
   type ControlRoomMessage,
 } from './control-room/shell';
+import {
+  useControlRoomLocaleState,
+  useLoadingSeconds,
+} from './control-room/state-hooks';
+import {
+  currentCycleItems,
+  systemStatusViewItems,
+} from './control-room/view-model';
 
 export {
   canonicalLines,
@@ -73,6 +75,10 @@ export type {
 export { ActiveView } from './control-room/active-view';
 export { readJson, WebguiHttpError } from './control-room/api';
 export { ChatView } from './control-room/chat-view';
+export {
+  ControlRoomLoadingPanel,
+  ControlRoomUnavailablePanel,
+} from './control-room/loading-panel';
 export { MemoryView } from './control-room/memory-view';
 export { OverviewView } from './control-room/overview-view';
 export { PortfolioView } from './control-room/portfolio-view';
@@ -80,6 +86,14 @@ export { ProposalDeskView } from './control-room/proposal-desk-view';
 export { ReviewView } from './control-room/review-view';
 export { RuntimeView } from './control-room/runtime-view';
 export { SettingsView } from './control-room/settings-view';
+export {
+  useControlRoomLocaleState,
+  useLoadingSeconds,
+} from './control-room/state-hooks';
+export {
+  currentCycleItems,
+  systemStatusViewItems,
+} from './control-room/view-model';
 
 /**
  * Operator control room UI component for viewing dashboard data and controlling runtime, local tools, chat, and operator instructions.
@@ -91,9 +105,6 @@ export { SettingsView } from './control-room/settings-view';
 export function ControlRoom() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [tab, setTab] = useState<TabId>('overview');
-  const [locale, setLocale] = useState<ControlRoomLocale>(
-    initialControlRoomLocale,
-  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<ControlRoomMessage | null>(null);
@@ -118,6 +129,8 @@ export function ControlRoom() {
   const [authRequired, setAuthRequired] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [locale, selectLocale] = useControlRoomLocaleState();
+  const loadingSeconds = useLoadingSeconds(loading);
   const copy = useMemo(() => getControlRoomCopy(locale), [locale]);
   const localizedTabs = useMemo(() => controlRoomTabs(copy), [copy]);
   const activeTabLabel =
@@ -132,11 +145,6 @@ export function ControlRoom() {
   const setBusyState = useCallback((nextBusy: string | null) => {
     busyRef.current = nextBusy;
     setBusy(nextBusy);
-  }, []);
-
-  const selectLocale = useCallback((nextLocale: ControlRoomLocale) => {
-    setLocale(nextLocale);
-    storeControlRoomLocale(nextLocale);
   }, []);
 
   const applyDashboardPayload = useCallback((payload: DashboardData) => {
@@ -208,44 +216,14 @@ export function ControlRoom() {
     setProposalNote,
   });
 
-  const currentCycle = useMemo<KeyValueItems>(
-    () => [
-      [copy.currentCycle.runtime, dashboard?.status?.runtime_state ?? '-'],
-      [
-        copy.currentCycle.mode,
-        dashboard?.status?.runtime_mode ??
-          dashboard?.doctor?.runtime_mode ??
-          '-',
-      ],
-      [
-        copy.currentCycle.currentSymbol,
-        dashboard?.status?.state?.current_symbol ?? '-',
-      ],
-      [
-        copy.currentCycle.cycleCount,
-        String(dashboard?.status?.state?.cycle_count ?? '-'),
-      ],
-      [copy.currentCycle.status, dashboard?.status?.status_message ?? '-'],
-      [
-        copy.currentCycle.currentStage,
-        dashboard?.agentActivity?.current_stage ?? '-',
-      ],
-      [
-        copy.currentCycle.stageStatus,
-        dashboard?.agentActivity?.current_stage_status ?? '-',
-      ],
-      [
-        copy.currentCycle.lastOutcome,
-        dashboard?.agentActivity?.last_outcome_message ??
-          copy.currentCycle.waitingOutcome,
-      ],
-    ],
+  const currentCycle = useMemo(
+    () => currentCycleItems(dashboard, copy),
     [copy, dashboard],
   );
 
-  const system = useMemo<KeyValueItems>(
-    () => systemStatusItems(dashboard),
-    [dashboard],
+  const system = useMemo(
+    () => systemStatusViewItems(dashboard, copy),
+    [copy, dashboard],
   );
 
   const activeView = dashboard ? (
@@ -276,12 +254,14 @@ export function ControlRoom() {
   ) : null;
   const content = (() => {
     if (loading) {
-      return <div className="loading">{copy.shell.loading}</div>;
+      return (
+        <ControlRoomLoadingPanel copy={copy} loadingSeconds={loadingSeconds} />
+      );
     }
     if (dashboard) {
       return activeView;
     }
-    return <div className="loading">{copy.shell.unavailable}</div>;
+    return <ControlRoomUnavailablePanel copy={copy} />;
   })();
 
   if (authRequired) {

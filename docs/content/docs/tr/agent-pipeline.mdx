@@ -1,12 +1,15 @@
 ---
 title: Agent Pipeline
-description: Context'in hidden sıçramalar olmadan specialist analysis, manager output ve guarded execution'a nasıl dönüştüğü.
+description:
+  Context'in hidden sıçramalar olmadan specialist analysis, manager output ve
+  guarded execution'a nasıl dönüştüğü.
 ---
 
 ## Pipeline neden önemli
 
-Bu repo tek bir chat prompt'una “trade uydur” demiyor.
-Typed context hazırlanıyor, specialist aşamalardan geçiriliyor ve execution'a gitmeden önce deterministic bir guard uygulanıyor.
+Bu repo tek bir chat prompt'una “trade uydur” demiyor. Typed context
+hazırlanıyor, specialist aşamalardan geçiriliyor ve execution'a gitmeden önce
+deterministic bir guard uygulanıyor.
 
 ## Yüksek seviye akış
 
@@ -38,7 +41,8 @@ Fallback bazen gerekli olabilir; ama dürüst olmalı.
 Bunun anlamı:
 
 - provider evidence eksikken açık gerekçe
-- permissive training yolları ile strict operasyon yolları arasında farklı davranış
+- permissive training yolları ile strict operasyon yolları arasında farklı
+  davranış
 - destekleyici kanıt yoksa sıfır ya da degrade confidence
 - primary truth gibi görünen sessiz ikame yokluğu
 

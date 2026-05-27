@@ -1,14 +1,18 @@
 ---
 title: Data And Intelligence
-description: Canonical snapshots, feature bundles, provider truth, and the boundary between evidence and reasoning.
+description:
+  Canonical snapshots, feature bundles, provider truth, and the boundary between
+  evidence and reasoning.
 ---
 
 ## Data posture
 
 Raw provider payloads are not reliable enough to become agent truth directly.
-Providers disagree, fields are missing, freshness varies, and textual summaries can hide important gaps.
+Providers disagree, fields are missing, freshness varies, and textual summaries
+can hide important gaps.
 
-The repo direction is to normalize external data into typed contracts before handing it to the model layer.
+The repo direction is to normalize external data into typed contracts before
+handing it to the model layer.
 
 ## Key contracts
 
@@ -19,8 +23,8 @@ The repo direction is to normalize external data into typed contracts before han
 
 ## Why this matters
 
-The model should not be asked to infer unstated finance truth from vague strings.
-It should receive:
+The model should not be asked to infer unstated finance truth from vague
+strings. It should receive:
 
 - structured summaries
 - missing-field visibility
@@ -40,18 +44,20 @@ Good aggregation in this repo means:
 
 ## Feature preparation
 
-The feature layer is where the repo turns mixed market, provider, and runtime signals into a compact decision context.
-If this layer is missing or incomplete, downstream confidence should reflect that.
+The feature layer is where the repo turns mixed market, provider, and runtime
+signals into a compact decision context. If this layer is missing or incomplete,
+downstream confidence should reflect that.
 
-That is why missing `context` or missing `decision_features` should be treated as a real provider or evidence gap rather than a cosmetic omission.
+That is why missing `context` or missing `decision_features` should be treated
+as a real provider or evidence gap rather than a cosmetic omission.
 
 ## News and world-state evidence
 
-News, filings, macro releases, browser fetches, and search results are useful only
-after they become small evidence packets. A usable packet should say where it
-came from, when it was published, when it was fetched, whether it was fresh or
-stale, what fetcher path was used, what source tier it belongs to, and why it is
-material.
+News, filings, macro releases, browser fetches, and search results are useful
+only after they become small evidence packets. A usable packet should say where
+it came from, when it was published, when it was fetched, whether it was fresh
+or stale, what fetcher path was used, what source tier it belongs to, and why it
+is material.
 
 Agentic Trader should not hand raw article text or social posts to trading
 prompts. The safer path is: collect, redact, summarize, classify, cite, then let
@@ -96,9 +102,9 @@ proposal candidates or pending proposals after promotion, not orders.
 ## Finance/accounting evidence
 
 `finance-ops --json` now carries a reconciliation contract for ledger categories
-such as trades, cash, fees/taxes, dividends, interest, and corporate actions.
-V1 paper mode can honestly mark some of those categories as missing; the
-important rule is that missing evidence must never be treated as zero evidence.
+such as trades, cash, fees/taxes, dividends, interest, and corporate actions. V1
+paper mode can honestly mark some of those categories as missing; the important
+rule is that missing evidence must never be treated as zero evidence.
 
 ## Continuous research cycle
 
@@ -108,15 +114,15 @@ The benchmark loop pattern is available as a read-only runtime contract:
 agentic-trader research-cycle-plan --symbols AAPL,MSFT --json
 ```
 
-The phases are PRE-FLIGHT, MONITOR, ANALYZE, PROPOSE, and DIGEST. The plan
-names the existing commands each phase reads and repeats the hard safety line:
-the cycle may surface ideas and pending proposals, but it may not approve,
-submit, mutate policy, or hide missing source evidence.
+The phases are PRE-FLIGHT, MONITOR, ANALYZE, PROPOSE, and DIGEST. The plan names
+the existing commands each phase reads and repeats the hard safety line: the
+cycle may surface ideas and pending proposals, but it may not approve, submit,
+mutate policy, or hide missing source evidence.
 
 ## Review and persistence tie-in
 
-These structured artifacts are not only for live reasoning.
-They also matter for:
+These structured artifacts are not only for live reasoning. They also matter
+for:
 
 - review surfaces
 - QA
@@ -125,4 +131,5 @@ They also matter for:
 
 ## Safe mental model
 
-Think of the model as a reasoning layer sitting on top of typed evidence, not as the place where missing market truth gets invented.
+Think of the model as a reasoning layer sitting on top of typed evidence, not as
+the place where missing market truth gets invented.

@@ -4,7 +4,7 @@
 /**
  * Produce a short action label from an Express request for metrics.
  * @param {import('express').Request} req - Express request; uses `req.method` and `req.route?.path || req.path` to determine the label.
- * @returns {string} The derived action label (e.g. `create_tab`, `navigate`, `youtube_transcript`, `health`, or a normalized `method_path` fallback). 
+ * @returns {string} The derived action label (e.g. `create_tab`, `navigate`, `youtube_transcript`, `health`, or a normalized `method_path` fallback).
  */
 export function actionFromReq(req) {
   const method = req.method;

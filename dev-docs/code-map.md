@@ -13,7 +13,7 @@ behavior, while this map explains where to look and how the pieces connect.
 
 ## Web And Docs Surfaces
 
-- `webgui/` is the local Web GUI. It uses Next.js App Router route handlers to call the same dashboard, runtime, chat, and instruction contracts that power the terminal surfaces. The control-room UI is split under `webgui/src/components/control-room/`: views, shell chrome, dashboard polling, actions, request/auth helpers, primitives, and per-locale typed copy modules stay separate while `control-room.tsx` coordinates state wiring and render composition.
+- `webgui/` is the local Web GUI. It uses Next.js App Router route handlers to call the same dashboard, runtime, chat, and instruction contracts that power the terminal surfaces. The control-room UI is split under `webgui/src/components/control-room/`: views, shell chrome, dashboard polling, `state-hooks`, `view-model`, actions, `action-request`, request/auth helpers, formatting helpers, diagnostics/context evidence helpers, loading panels, primitives, and per-locale typed copy modules stay separate while `control-room.tsx` coordinates state wiring and render composition.
 - `docs/` is the separate operator-first docs app. It now uses Fumadocs plus MDX for curated setup, architecture, runtime, operator-surface, QA, and contributor-maintenance documentation.
 - `docs/source.config.ts`, `docs/lib/source.ts`, and `docs/content/docs/` own the Fumadocs content pipeline.
 - `docs/app/[lang]/docs/[[...slug]]/page.tsx` renders the generated MDX pages under locale-prefixed routes such as `/en/...` and `/tr/...`, while `docs/app/page.tsx` is the project-facing landing page for developers.

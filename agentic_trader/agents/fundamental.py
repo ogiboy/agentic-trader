@@ -8,8 +8,8 @@ from agentic_trader.schemas import (
     AgentContext,
     AnalysisSignal,
     EvidenceInferenceBreakdown,
-    FundamentalFeatureSet,
     FundamentalAssessment,
+    FundamentalFeatureSet,
     MacroContext,
     MarketSnapshot,
 )
@@ -520,3 +520,17 @@ def assess_fundamentals(
         if not allow_fallback:
             raise
         return _fallback_fundamental(context)
+
+
+dedupe = _dedupe
+score_quality = _score_quality
+growth_quality = _growth_quality
+fx_risk = _fx_risk
+macro_fit = _macro_fit
+business_quality = _business_quality
+forward_outlook = _forward_outlook
+overall_bias = _overall_bias
+validate_llm_evidence_contract = _validate_llm_evidence_contract
+metric_evidence = _metric_evidence
+fallback_fundamental = _fallback_fundamental
+has_structured_fundamental_evidence = _has_structured_fundamental_evidence

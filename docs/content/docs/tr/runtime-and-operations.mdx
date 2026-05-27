@@ -1,6 +1,8 @@
 ---
 title: Runtime ve Operasyon
-description: Tek seferlik çalıştırma, service mode, health görünürlüğü ve bütün yüzeylerin paylaşması gereken operasyonel gerçek.
+description:
+  Tek seferlik çalıştırma, service mode, health görünürlüğü ve bütün yüzeylerin
+  paylaşması gereken operasyonel gerçek.
 ---
 
 ## Runtime entrypoint'leri
@@ -9,8 +11,10 @@ description: Tek seferlik çalıştırma, service mode, health görünürlüğü
 - argümansız `agentic-trader` operatör launcher'ını açar ve Web GUI, daemon,
   Ink, Rich, setup ya da model-service yollarını başlatmadan önce sorar
 - `agentic_trader/workflows/run_once.py` tek strict cycle'ın sahibidir
-- `agentic_trader/workflows/service.py` sürekli ve arka plan orkestrasyonunu taşır
-- observer ve UI yüzeyleri, state uydurmak yerine shared runtime truth okumalıdır
+- `agentic_trader/workflows/service.py` sürekli ve arka plan orkestrasyonunu
+  taşır
+- observer ve UI yüzeyleri, state uydurmak yerine shared runtime truth
+  okumalıdır
 
 ## Runtime modları
 
@@ -19,11 +23,13 @@ Proje zaten farklı niyetleri ayırıyor:
 - `operation`: strict, paper-first ve readiness-sensitive
 - `training`: replay ve evaluation odaklı, diagnostik esnekliği biraz daha fazla
 
-Detaylar değişebilir; ama docs ve UI copy bu operasyonel farklara saygı duymalıdır.
+Detaylar değişebilir; ama docs ve UI copy bu operasyonel farklara saygı
+duymalıdır.
 
 ## Operatörün görmesi gerekenler
 
-Bir yüzey runtime state gösterdiğini iddia ediyorsa en azından şunları gösterebilmelidir:
+Bir yüzey runtime state gösterdiğini iddia ediyorsa en azından şunları
+gösterebilmelidir:
 
 - process identity ya da service status
 - heartbeat truth
@@ -38,11 +44,10 @@ degraded Yahoo fallback uyarısını ve API-key hazır oluşunu network fetch
 yapmadan gösterir. Daha uzun paper operation ya da Alpaca paper kontrolünden
 önce `agentic-trader v1-readiness --json` çalıştır; evidence bundle'ın seçili
 model servisini gerçekten çağırmasını istiyorsan `--provider-check` ekle.
-Varsayılan backend hâlâ
-lokal `paper`; `alpaca_paper` external paper prova yoludur ve credential,
-paper endpoint ve açık enablement ister. V1 aktif al-sat yolu yine desteklenen
-broker, manuel onay, audit, risk ve kill-switch kapılarından geçmelidir; gizli
-live brokerage yolu yoktur.
+Varsayılan backend hâlâ lokal `paper`; `alpaca_paper` external paper prova
+yoludur ve credential, paper endpoint ve açık enablement ister. V1 aktif al-sat
+yolu yine desteklenen broker, manuel onay, audit, risk ve kill-switch
+kapılarından geçmelidir; gizli live brokerage yolu yoktur.
 
 Aynı network-free readiness truth artık `dashboard-snapshot`, observer API
 (`/provider-diagnostics` ve `/v1-readiness`), Rich runtime menüsü, Ink
@@ -55,8 +60,8 @@ readiness QA için `dashboard-snapshot --provider-check` ve
 Research sidecar güvenli bir döngüye doğru ilerliyor: pre-flight, monitor,
 analyze, propose, digest ve sonra sleep. Bu loop watchlist'i güncel tutabilir,
 source health'i açıklayabilir, fikirleri skorlayabilir ve broker-free proposal
-candidate oluşturabilir; bir adayın pending proposal'a dönüşmesi için hâlâ
-açık operator promotion adımı gerekir.
+candidate oluşturabilir; bir adayın pending proposal'a dönüşmesi için hâlâ açık
+operator promotion adımı gerekir.
 
 Ama proposal onaylayamaz, emir gönderemez, policy mutate edemez, runtime
 gate'lerini zayıflatamaz ve ham web metnini instruction gibi kullanamaz.
@@ -64,9 +69,9 @@ Research çıktısı kanıttır; yetki strict runtime ve açık operator approva
 kalır.
 
 Daemon supervision truth `agentic-trader supervisor-status --json` ve observer
-`/supervisor` endpoint'i üzerinden de okunur. Bu payload ikinci bir
-orkestratör başlatmadan runtime state, heartbeat/staleness, persist edilmiş
-service state ve stdout/stderr log tail'lerini taşır.
+`/supervisor` endpoint'i üzerinden de okunur. Bu payload ikinci bir orkestratör
+başlatmadan runtime state, heartbeat/staleness, persist edilmiş service state ve
+stdout/stderr log tail'lerini taşır.
 
 ## App-managed lokal servisler
 
@@ -75,24 +80,25 @@ ilk dilimidir. Yalnızca loopback'e bind eder, owner-only state/log'ları
 `runtime/model_service/` altına yazar ve dışarıdan başlatılmış Ollama
 process'lerini durdurmaz. Varsayılan port başka bir Ollama tarafından
 kullanılıyorsa yakındaki başka bir loopback port seçebilir ve runtime base
-URL'inin bununla eşleşip eşleşmediğini bildirir. Stop akışı eski
-app-managed portları temizlemeye çalışır; `11434` üzerinde kalan servis ise
-host/default Ollama olarak görünür ve otomatik öldürülmez.
+URL'inin bununla eşleşip eşleşmediğini bildirir. Stop akışı eski app-managed
+portları temizlemeye çalışır; `11434` üzerinde kalan servis ise host/default
+Ollama olarak görünür ve otomatik öldürülmez.
 
 `agentic-trader webgui-service status/start/stop` aynı deseni lokal Web GUI'ye
-uygular: loopback bind, `runtime/webgui_service/` altında app-owned state,
-log tail'leri ve ilgisiz PID'leri öldürmeme.
+uygular: loopback bind, `runtime/webgui_service/` altında app-owned state, log
+tail'leri ve ilgisiz PID'leri öldürmeme.
 
 Kalan yön daha geniş parity'dir:
 
 - “idle”, “busy” ve “broken” hâlleri arasında görünür ayrım
-- farklı agent rolleri için model/profile seçiminin operatör yüzeylerinden yapılması
+- farklı agent rolleri için model/profile seçiminin operatör yüzeylerinden
+  yapılması
 - provider/model öneren ama hidden install yapmayan setup akışları
 
 ## Model trafiğinden ne çıkarılmamalı
 
-Ollama'ya tekrarlı istekler gitmesi runtime'ın sağlıklı olduğu anlamına otomatik olarak gelmez.
-Bir cycle takılmış görünüyorsa şunları incele:
+Ollama'ya tekrarlı istekler gitmesi runtime'ın sağlıklı olduğu anlamına otomatik
+olarak gelmez. Bir cycle takılmış görünüyorsa şunları incele:
 
 - runtime status
 - stop request state
@@ -107,4 +113,5 @@ Operator davranışı yanlış görünüyorsa:
 1. önce runtime artefact'lerini incele
 2. UI state ile runtime state'i karşılaştır
 3. son hata ve son log tail'ini incele
-4. ancak ondan sonra bug'ın UI, orkestrasyon ya da provider katmanında olduğuna karar ver
+4. ancak ondan sonra bug'ın UI, orkestrasyon ya da provider katmanında olduğuna
+   karar ver

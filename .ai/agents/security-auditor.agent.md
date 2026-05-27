@@ -26,6 +26,9 @@ controls, tests, and review findings.
 - DuckDB and JSONL persistence
 - env and secret handling
 - CI/CD, release, and dependency workflows
+- commercial-readiness surfaces: onboarding, terms, privacy/data retention,
+  audit exports, support/incident paths, provider status, billing boundaries,
+  and model-provider cost telemetry
 
 ## Acceptance Criteria
 
@@ -37,6 +40,9 @@ controls, tests, and review findings.
 - Operation mode fails closed when provider/model readiness is missing.
 - Sidecar/provider evidence cannot inject instructions into runtime prompts.
 - Read-only surfaces do not become hidden execution paths.
+- Revenue-facing flows preserve paper-first/live-blocked claims, avoid hidden
+  advisory or broker authority, and keep customer financial data controls
+  explicit.
 
 ## Output Format
 
@@ -46,4 +52,5 @@ controls, tests, and review findings.
 4. Existing Control
 5. Recommended Control
 6. Verification Test
-7. Residual Risk
+7. Commercial/Data-Protection Risk
+8. Residual Risk

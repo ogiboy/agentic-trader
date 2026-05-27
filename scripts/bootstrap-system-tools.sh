@@ -8,6 +8,7 @@ CORE_ONLY=0
 INCLUDE_DEV_TOOLS=0
 INCLUDE_BROWSER_TOOLS=0
 SUMMARY_FILE="${TMPDIR:-/tmp}/agentic-trader-bootstrap-summary.$$"
+CHOSEN_OWNERSHIP_MODE=
 trap 'rm -f "$SUMMARY_FILE"' EXIT INT TERM
 
 usage() {
@@ -67,7 +68,18 @@ record_summary() {
   status=$1
   label=$2
   reason=${3:-}
-  printf '%s\t%s\t%s\n' "$status" "$label" "$reason" >> "$SUMMARY_FILE"
+  next_action=${4:-}
+  printf '%s\t%s\t%s\t%s\n' "$status" "$label" "$reason" "$next_action" >> "$SUMMARY_FILE"
+}
+
+summary_icon() {
+  case "$1" in
+    done) printf '✓' ;;
+    planned) printf '•' ;;
+    deferred) printf '…' ;;
+    not_done) printf '✗' ;;
+    *) printf '-' ;;
+  esac
 }
 
 render_summary() {
@@ -76,10 +88,13 @@ render_summary() {
     printf '%s\n' "  No bootstrap actions were recorded."
     return 0
   fi
-  while IFS='	' read -r status label reason; do
-    printf '  %-8s %s\n' "$status" "$label"
+  while IFS='	' read -r status label reason next_action; do
+    printf '  %s %-8s %s\n' "$(summary_icon "$status")" "$status" "$label"
     if [ -n "$reason" ]; then
-      printf '           %s\n' "$reason"
+      printf '             why:  %s\n' "$reason"
+    fi
+    if [ -n "$next_action" ]; then
+      printf '             next: %s\n' "$next_action"
     fi
   done < "$SUMMARY_FILE"
 }
@@ -132,7 +147,7 @@ install_brew_tool() {
       return 1
     fi
   else
-    record_summary deferred "$label" "not installed; user declined Homebrew install"
+    record_summary deferred "$label" "not installed; user declined Homebrew install" "Install $formula manually or rerun make bootstrap."
   fi
 }
 
@@ -148,7 +163,7 @@ install_npm_global() {
   printf '✗ %s not found\n' "$label"
   if ! has_cmd npm; then
     printf '%s\n' "npm is required before installing $label." >&2
-    record_summary deferred "$label" "npm is required before installing $package_name"
+    record_summary deferred "$label" "npm is required before installing $package_name" "Install Node.js/npm, then rerun make bootstrap."
     return 0
   fi
   if ask_yes "Install $label globally with npm ($package_name)?"; then
@@ -163,8 +178,17 @@ install_npm_global() {
       return 1
     fi
   else
-    record_summary deferred "$label" "not installed; user declined npm global install"
+    record_summary deferred "$label" "not installed; user declined npm global install" "Install $package_name manually or rerun make bootstrap."
   fi
+}
+
+current_tool_ownership() {
+  tool=$1
+  if [ "$DRY_RUN" -eq 1 ] || ! has_cmd node; then
+    printf '%s\n' undecided
+    return 0
+  fi
+  node --input-type=module -e 'import { ownershipModeFor } from "./scripts/lib/app-lifecycle.mjs"; console.log(ownershipModeFor(process.argv[1]));' "$tool" 2>/dev/null || printf '%s\n' undecided
 }
 
 record_tool_ownership() {
@@ -191,9 +215,25 @@ record_tool_ownership() {
 choose_tool_ownership() {
   tool=$1
   label=$2
+  current_mode=$(current_tool_ownership "$tool")
+  if [ "$current_mode" != "undecided" ]; then
+    CHOSEN_OWNERSHIP_MODE=$current_mode
+    printf '✓ %s ownership already recorded as %s\n' "$label" "$current_mode"
+    record_summary done "$label ownership" "already recorded as $current_mode in runtime/setup/tool-ownership.json" "Change with agentic-trader tool-ownership set --${tool}-owner app-owned --json, or set AGENTIC_TRADER_RESELECT_OWNERSHIP=1 before make bootstrap."
+    if [ "${AGENTIC_TRADER_RESELECT_OWNERSHIP:-0}" != "1" ]; then
+      return 0
+    fi
+    if ask_yes "Change $label ownership to app-managed? Choose no to keep $current_mode."; then
+      CHOSEN_OWNERSHIP_MODE=app-owned
+      record_tool_ownership "$tool" app-owned "$label"
+    fi
+    return 0
+  fi
   if ask_yes "Use app-managed $label for Agentic Trader lifecycle? Choose no to keep using host-managed $label."; then
+    CHOSEN_OWNERSHIP_MODE=app-owned
     record_tool_ownership "$tool" app-owned "$label"
   else
+    CHOSEN_OWNERSHIP_MODE=host-owned
     record_tool_ownership "$tool" host-owned "$label"
   fi
 }
@@ -220,7 +260,7 @@ setup_agentic_trader_path() {
       fi
         printf '%s\n' "Ensure $target_dir appears before stale global installs in PATH."
       else
-        record_summary deferred "agentic-trader PATH entrypoint" "still resolves to $resolved_entrypoint"
+        record_summary deferred "agentic-trader PATH entrypoint" "still resolves to $resolved_entrypoint" "Run make setup, then rerun make bootstrap if this worktree should own the shell entrypoint."
       fi
       return 0
     fi
@@ -230,7 +270,7 @@ setup_agentic_trader_path() {
   fi
   if [ ! -x "$entrypoint" ]; then
     printf '%s\n' "agentic-trader entrypoint is not installed yet. Run make setup first, then rerun make bootstrap."
-    record_summary deferred "agentic-trader PATH entrypoint" "local .venv entrypoint is not installed yet"
+    record_summary deferred "agentic-trader PATH entrypoint" "local .venv entrypoint is not installed yet" "Run make setup, then rerun make bootstrap."
     return 0
   fi
   if ask_yes "Create/update $target so agentic-trader works from any shell?"; then
@@ -247,7 +287,7 @@ setup_agentic_trader_path() {
     fi
     printf '%s\n' "Ensure $target_dir is in PATH."
   else
-    record_summary deferred "agentic-trader PATH entrypoint" "user declined shell entrypoint update"
+    record_summary deferred "agentic-trader PATH entrypoint" "user declined shell entrypoint update" "Run make setup and rerun make bootstrap when PATH should point at this checkout."
   fi
 }
 
@@ -259,18 +299,17 @@ setup_camofox_browser() {
   camofox_dir="$ROOT_DIR/tools/camofox-browser"
   if [ ! -f "$camofox_dir/package.json" ]; then
     printf '%s\n' "Camofox browser helper is not present under tools/camofox-browser."
-    record_summary deferred "Camofox browser helper" "tools/camofox-browser/package.json is missing"
+    record_summary deferred "Camofox browser helper" "tools/camofox-browser/package.json is missing" "Restore the helper package or skip Camofox until the source tree includes it."
     return 0
   fi
-  if ! ask_yes "Configure Camofox as an app-managed browser helper?"; then
-    record_tool_ownership camofox host-owned "Camofox"
-    record_summary deferred "Camofox browser helper" "host-managed Camofox selected; app-managed dependency install skipped"
+  choose_tool_ownership camofox "Camofox"
+  if [ "$CHOSEN_OWNERSHIP_MODE" != "app-owned" ]; then
+    record_summary deferred "Camofox browser helper" "Camofox ownership is $CHOSEN_OWNERSHIP_MODE; app-managed dependency install skipped" "Run agentic-trader tool-ownership set --camofox-owner app-owned --json, then rerun make bootstrap."
     return 0
   fi
-  record_tool_ownership camofox app-owned "Camofox"
   if ! has_cmd pnpm; then
     printf '%s\n' "pnpm is required for optional Camofox helper setup. Install pnpm first, then rerun make bootstrap ARGS=\"--include-browser-tools\"."
-    record_summary deferred "Camofox browser helper" "pnpm is required for local dependency setup"
+    record_summary deferred "Camofox browser helper" "pnpm is required for local dependency setup" "Install pnpm, then rerun make bootstrap."
     return 0
   fi
   if [ -d "$camofox_dir/node_modules" ]; then
@@ -291,7 +330,7 @@ setup_camofox_browser() {
         return 1
       fi
     else
-      record_summary deferred "Camofox dependencies" "user skipped local helper dependency install"
+      record_summary deferred "Camofox dependencies" "user skipped local helper dependency install" "Run make setup-camofox or rerun make bootstrap to install helper dependencies."
     fi
   fi
   printf '%s\n' "Camoufox browser binary download is separate and can be large."
@@ -308,7 +347,7 @@ setup_camofox_browser() {
       return 1
     fi
   else
-    record_summary deferred "Camoufox browser binary" "large browser download was skipped"
+    record_summary deferred "Camoufox browser binary" "large browser download was skipped" "Run make fetch-camofox or rerun make bootstrap when browser automation is needed."
   fi
 }
 

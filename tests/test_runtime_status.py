@@ -1,20 +1,21 @@
-from rich.console import Console
 import pytest
+from rich.console import Console
 
 from agentic_trader.runtime_status import (
     build_agent_activity_view,
     build_runtime_status_view,
 )
 from agentic_trader.schemas import ServiceEvent, ServiceStateSnapshot
-from agentic_trader.tui import _runtime_state_table
+from agentic_trader.tui import runtime_state_table
 
 
 def test_build_runtime_status_view_marks_terminal_failure_as_inactive(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        "agentic_trader.runtime_status.is_process_alive", lambda pid: False
-    )
+    def _not_alive(_pid: int) -> bool:
+        return False
+
+    monkeypatch.setattr("agentic_trader.runtime_status.is_process_alive", _not_alive)
     state = ServiceStateSnapshot(
         service_name="orchestrator",
         state="failed",
@@ -42,9 +43,10 @@ def test_build_runtime_status_view_marks_terminal_failure_as_inactive(
 def test_runtime_state_table_surfaces_last_recorded_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        "agentic_trader.runtime_status.is_process_alive", lambda pid: False
-    )
+    def _not_alive(_pid: int) -> bool:
+        return False
+
+    monkeypatch.setattr("agentic_trader.runtime_status.is_process_alive", _not_alive)
     state = ServiceStateSnapshot(
         service_name="orchestrator",
         state="failed",
@@ -61,7 +63,7 @@ def test_runtime_state_table_surfaces_last_recorded_failure(
         message="Orchestrator failed.",
     )
 
-    renderable = _runtime_state_table(state)
+    renderable = runtime_state_table(state)
     console = Console(record=True, width=140)
     console.print(renderable)
     output = console.export_text()

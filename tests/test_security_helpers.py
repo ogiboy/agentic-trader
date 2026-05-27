@@ -1,4 +1,7 @@
 import stat
+from pathlib import Path
+
+from pytest import MonkeyPatch
 
 from agentic_trader.security import (
     append_private_text,
@@ -10,7 +13,7 @@ from agentic_trader.security import (
 
 
 def test_redact_sensitive_text_masks_common_secret_shapes(
-    monkeypatch,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "secret-from-env")
 
@@ -34,7 +37,7 @@ def test_redact_sensitive_text_strips_ansi_escape_sequences() -> None:
     assert redact_sensitive_text(text) == "firecrawl status"
 
 
-def test_private_runtime_artifact_helpers_use_owner_only_modes(tmp_path) -> None:
+def test_private_runtime_artifact_helpers_use_owner_only_modes(tmp_path: Path) -> None:
     directory = tmp_path / "runtime"
     path = directory / "service_events.jsonl"
 

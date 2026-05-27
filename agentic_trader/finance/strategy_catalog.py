@@ -9,10 +9,11 @@ feed the manual proposal queue.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Literal
 
 from agentic_trader.finance.ideas import IdeaPresetName, IdeaScore
+from agentic_trader.payloads import dataclass_payload
 
 StrategyStatus = Literal["implemented", "research_candidate", "v2_deferred"]
 StrategyFamily = Literal[
@@ -45,9 +46,6 @@ class StrategyProfile:
     )
     v1_path: str = "research_only"
 
-    def to_payload(self) -> dict[str, object]:
-        return asdict(self)
-
 
 @dataclass(frozen=True)
 class FinanceLedgerCategory:
@@ -58,9 +56,6 @@ class FinanceLedgerCategory:
     v1_source: str
     expected_fields: tuple[str, ...] = field(default_factory=tuple)
     v2_extension: str | None = None
-
-    def to_payload(self) -> dict[str, object]:
-        return asdict(self)
 
 
 STRATEGY_PROFILES: tuple[StrategyProfile, ...] = (
@@ -406,12 +401,22 @@ def strategy_profile_for_preset(preset: IdeaPresetName) -> StrategyProfile:
     raise ValueError(f"No strategy profile maps to preset {preset!r}")
 
 
+def strategy_profile_payload(profile: StrategyProfile) -> dict[str, object]:
+    return dataclass_payload(profile)
+
+
+def finance_ledger_category_payload(
+    category: FinanceLedgerCategory,
+) -> dict[str, object]:
+    return dataclass_payload(category)
+
+
 def strategy_catalog_payload(
     *, status: StrategyStatus | None = None, preset: IdeaPresetName | None = None
 ) -> dict[str, object]:
     profiles = list_strategy_profiles(status=status, preset=preset)
     return {
-        "profiles": [profile.to_payload() for profile in profiles],
+        "profiles": [strategy_profile_payload(profile) for profile in profiles],
         "filters": {"status": status, "preset": preset},
         "execution_policy": (
             "strategy catalog entries are research/readiness metadata; all trade "
@@ -428,10 +433,10 @@ def strategy_catalog_payload(
 def score_strategy_context(score: IdeaScore) -> dict[str, object]:
     """
     Map an IdeaScore to its strategy profile and proposal-readiness payload.
-    
+
     Parameters:
         score (IdeaScore): Evaluation containing `preset`, `signal`, and `warnings` used to select a profile and compute readiness gates.
-    
+
     Returns:
         dict[str, object]: Payload with:
             - `strategy_profile`: dict payload of the matched StrategyProfile.
@@ -456,7 +461,7 @@ def score_strategy_context(score: IdeaScore) -> dict[str, object]:
     else:
         state = "needs_evidence"
     return {
-        "strategy_profile": profile.to_payload(),
+        "strategy_profile": strategy_profile_payload(profile),
         "proposal_readiness": {
             "state": state,
             "proposal_candidate": False,
@@ -477,7 +482,10 @@ def finance_reconciliation_contract_payload() -> dict[str, object]:
     """Return the ledger categories that finance-ops expects over time."""
 
     return {
-        "ledger_categories": [category.to_payload() for category in LEDGER_CATEGORIES],
+        "ledger_categories": [
+            finance_ledger_category_payload(category)
+            for category in LEDGER_CATEGORIES
+        ],
         "v1_policy": {
             "mode": "paper",
             "missing_evidence_policy": (

@@ -1,7 +1,5 @@
 """Small helpers shared by canonical data providers."""
 
-from datetime import UTC, datetime
-
 import pandas as pd
 
 from agentic_trader.schemas import (
@@ -14,11 +12,7 @@ from agentic_trader.schemas import (
     ProviderMetadata,
     SymbolIdentity,
 )
-
-
-def utc_now_iso() -> str:
-    """Return an ISO timestamp in UTC for provider fetch metadata."""
-    return datetime.now(UTC).isoformat()
+from agentic_trader.time_utils import utc_now_iso
 
 
 def source_attribution(

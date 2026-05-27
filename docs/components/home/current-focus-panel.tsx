@@ -1,4 +1,3 @@
-import { Bot, FileSearch, LayoutPanelTop } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -6,16 +5,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import type { DocLanguage } from '@/lib/i18n/config';
-
-type CurrentFocusItem = {
-  icon: 'bot' | 'layout' | 'inspect';
-  text: string;
-};
+import type { HomeCurrentFocus } from '@/lib/home/content/types';
+import { Bot, FileSearch, LayoutPanelTop } from 'lucide-react';
 
 type CurrentFocusPanelProps = {
-  locale: DocLanguage;
-  items: CurrentFocusItem[];
+  focus: HomeCurrentFocus;
 };
 
 const icons = {
@@ -25,31 +19,24 @@ const icons = {
 } as const;
 
 export function CurrentFocusPanel({
-  locale,
-  items,
+  focus,
 }: Readonly<CurrentFocusPanelProps>) {
   return (
-    <Card className="docs-home-panel sticky top-6">
+    <Card className='docs-home-panel sticky top-6'>
       <CardHeader>
-        <CardTitle>
-          {locale === 'en' ? 'Current V1 focus' : 'Güncel V1 odağı'}
-        </CardTitle>
-        <CardDescription>
-          {locale === 'en'
-            ? 'The project is in hardening mode, not in “invent a parallel system” mode.'
-            : 'Proje şu anda sertleştirme aşamasında; paralel bir sistem icat etme aşamasında değil.'}
-        </CardDescription>
+        <CardTitle>{focus.title}</CardTitle>
+        <CardDescription>{focus.description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
-        {items.map((item, index) => {
+      <CardContent className='flex flex-col gap-4 text-sm text-muted-foreground'>
+        {focus.items.map((item, index) => {
           const Icon = icons[item.icon];
 
           return (
             <div
               key={`${item.icon}-${index}`}
-              className="flex items-start gap-3"
+              className='flex items-start gap-3'
             >
-              <Icon className="mt-0.5 size-4 text-primary" />
+              <Icon className='mt-0.5 size-4 text-primary' />
               {item.text}
             </div>
           );

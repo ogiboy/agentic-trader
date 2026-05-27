@@ -343,71 +343,6 @@ def _resolve_agentic_trader_executable() -> str | None:
     return None
 
 
-def _resolve_pyright_executable() -> str | None:
-    """
-    Locate the `pyright` executable by probing common locations related to the current environment.
-
-    Checks candidates in this order: `pyright` on PATH, a `pyright` sibling next to `SMOKE_PYTHON`, `$CONDA_PREFIX/bin/pyright`, a `pyright` sibling of `CONDA_EXE`, and an inferred `<conda_root>/bin/pyright` when `SMOKE_PYTHON` appears under an `envs/` path.
-
-    Returns:
-        Absolute path to the first executable `pyright` found, or `None` if no candidate is executable.
-    """
-    candidates: list[Path] = []
-    which_path = shutil.which("pyright")
-    if which_path is not None:
-        candidates.append(Path(which_path))
-    candidates.append(Path(SMOKE_PYTHON).with_name("pyright"))
-    conda_prefix = os.environ.get("CONDA_PREFIX")
-    if conda_prefix:
-        candidates.append(Path(conda_prefix) / "bin" / "pyright")
-    conda_exe = os.environ.get("CONDA_EXE")
-    if conda_exe:
-        candidates.append(Path(conda_exe).with_name("pyright"))
-    executable_path = Path(SMOKE_PYTHON)
-    if "envs" in executable_path.parts:
-        try:
-            envs_index = executable_path.parts.index("envs")
-            conda_root = Path(*executable_path.parts[:envs_index])
-            candidates.append(conda_root / "bin" / "pyright")
-        except ValueError:
-            pass
-    for candidate in candidates:
-        if candidate.exists() and os.access(candidate, os.X_OK):
-            return str(candidate)
-    return None
-
-
-def _resolve_pysonar_executable() -> str | None:
-    """
-    Locate the `pysonar` executable by checking common locations: system PATH, the sibling of the resolved smoke Python interpreter, conda-related bin paths, and common macOS/Homebrew install paths.
-
-    Returns:
-        str: Filesystem path to the first executable `pysonar` found, or `None` if no suitable executable is present.
-    """
-    candidates: list[Path] = []
-    which_path = shutil.which("pysonar")
-    if which_path is not None:
-        candidates.append(Path(which_path))
-    candidates.append(Path(SMOKE_PYTHON).with_name("pysonar"))
-    conda_prefix = os.environ.get("CONDA_PREFIX")
-    if conda_prefix:
-        candidates.append(Path(conda_prefix) / "bin" / "pysonar")
-    conda_exe = os.environ.get("CONDA_EXE")
-    if conda_exe:
-        candidates.append(Path(conda_exe).with_name("pysonar"))
-    candidates.extend(
-        [
-            Path("/Library/Frameworks/Python.framework/Versions/3.12/bin/pysonar"),
-            Path("/opt/homebrew/bin/pysonar"),
-            Path("/usr/local/bin/pysonar"),
-        ]
-    )
-    for candidate in candidates:
-        if candidate.exists() and os.access(candidate, os.X_OK):
-            return str(candidate)
-    return None
-
-
 def _write_artifact(path: Path, content: str) -> None:
     """
     Write text content to the given file path, creating or overwriting it.
@@ -839,7 +774,7 @@ def _require_dict_field(
     for required_key in required_keys:
         if required_key not in value:
             issues.append(f"{key}.{required_key} missing")
-    return value
+    return cast(dict[str, object], value)
 
 
 def _validate_market_context_section(
@@ -885,8 +820,13 @@ def _validate_v1_readiness_section(
     paper_evidence = v1_readiness.get("paper_evidence")
     if not isinstance(paper_evidence, dict):
         issues.append("v1Readiness.paper_evidence missing")
-    elif "evidence_bundle" not in paper_evidence.get("review_artifacts", []):
-        issues.append("v1Readiness.paper_evidence.review_artifacts incomplete")
+    else:
+        paper_evidence_payload = cast(dict[str, object], paper_evidence)
+        review_artifacts = paper_evidence_payload.get("review_artifacts", [])
+        if not isinstance(review_artifacts, list) or (
+            "evidence_bundle" not in review_artifacts
+        ):
+            issues.append("v1Readiness.paper_evidence.review_artifacts incomplete")
     if not isinstance(v1_readiness.get("alpaca_paper"), dict):
         issues.append("v1Readiness.alpaca_paper missing")
 
@@ -1105,7 +1045,7 @@ def _spawn_env() -> dict[str, str]:
     return env
 
 
-def _drain_child(child: pexpect.spawn, seconds: float) -> None:
+def _drain_child(child: pexpect.spawn[str], seconds: float) -> None:
     """
     Consume and discard any pending output from a spawned pexpect child for up to the given number of seconds.
 
@@ -1123,7 +1063,7 @@ def _drain_child(child: pexpect.spawn, seconds: float) -> None:
             break
 
 
-def _close_interactive_child(child: pexpect.spawn) -> str:
+def _close_interactive_child(child: pexpect.spawn[str]) -> str:
     """
     Attempt to close a spawned pexpect child process by sending a quit key, then Ctrl-C, and finally force-terminating if necessary.
 
@@ -1168,7 +1108,7 @@ def _write_interactive_artifact(
     artifact: Path,
     display_command: str,
     exit_method: str,
-    child: pexpect.spawn,
+    child: pexpect.spawn[str],
     output: str,
 ) -> None:
     """
@@ -1193,7 +1133,11 @@ def _write_interactive_artifact(
 
 
 def _interactive_check_result(
-    name: str, artifact: Path, exit_method: str, child: pexpect.spawn, output: str
+    name: str,
+    artifact: Path,
+    exit_method: str,
+    child: pexpect.spawn[str],
+    output: str,
 ) -> CheckResult:
     """
     Evaluate the captured interactive session and produce a CheckResult that indicates whether the TUI run passed smoke checks.
@@ -1253,7 +1197,7 @@ def _interactive_check_result(
     )
 
 
-def _wait_for_tui_ready(child: pexpect.spawn, *, timeout: int) -> str:
+def _wait_for_tui_ready(child: pexpect.spawn[str], *, timeout: int) -> str:
     """
     Wait for a concrete rendering marker that indicates the spawned TUI is actually alive.
 
@@ -1290,7 +1234,7 @@ def run_tui_open_and_quit(
     artifact = _artifact_path(context, name)
     display_command = display or _command_display([command, *args])
     log = io.StringIO()
-    child: pexpect.spawn | None = None
+    child: pexpect.spawn[str] | None = None
 
     try:
         child = pexpect.spawn(
@@ -1595,7 +1539,7 @@ def run_rich_menu_deep_navigation(
     artifact = _artifact_path(context, name)
     display_command = _command_display([command, "menu"])
     log = io.StringIO()
-    child: pexpect.spawn | None = None
+    child: pexpect.spawn[str] | None = None
 
     try:
         child = pexpect.spawn(
@@ -1697,20 +1641,6 @@ def _skip_result(context: SmokeContext, name: str, details: str) -> CheckResult:
         name=name,
         passed=True,
         details=f"skipped; {details}",
-        artifact=str(artifact),
-    )
-
-
-def _fail_result(context: SmokeContext, name: str, details: str) -> CheckResult:
-    """
-    Create and record a hard-failing check result for required QA prerequisites.
-    """
-    artifact = _artifact_path(context, name)
-    _write_artifact(artifact, f"FAILED: {details}\n")
-    return CheckResult(
-        name=name,
-        passed=False,
-        details=details,
         artifact=str(artifact),
     )
 
@@ -1873,6 +1803,38 @@ def _claim_artifacts_dir(run_label: str) -> Path:
         return candidate
     msg = f"Unable to claim a unique smoke artifact directory for {run_label!r}"
     raise RuntimeError(msg)
+
+
+def claim_artifacts_dir(run_label: str) -> Path:
+    """Public test seam for claiming a unique smoke artifact directory."""
+
+    return _claim_artifacts_dir(run_label)
+
+
+def ink_settings_capture_issues(output: str) -> list[str]:
+    """Public test seam for Settings page capture validation."""
+
+    return _ink_settings_capture_issues(output)
+
+
+def resolve_smoke_python() -> str:
+    """Public test seam for smoke Python resolution."""
+
+    return _resolve_smoke_python()
+
+
+def write_summary(context: SmokeContext, results: list[CheckResult]) -> Path:
+    """Public test seam for writing a smoke summary artifact."""
+
+    return _write_summary(context, results)
+
+
+def write_report(
+    context: SmokeContext, results: list[CheckResult], summary_path: Path
+) -> Path:
+    """Public test seam for writing the Markdown smoke report."""
+
+    return _write_report(context, results, summary_path)
 
 
 def _parse_args() -> Namespace:
@@ -2217,26 +2179,26 @@ def _quality_checks(
         ),
     ]
 
-    pyright = _resolve_pyright_executable()
-    if pyright is None:
-        results.append(_fail_result(context, "pyright", "pyright not found on PATH"))
-    else:
-        results.append(
-            run_command_capture(
-                context,
-                "pyright",
-                [
-                    pyright,
-                    "--pythonpath",
-                    SMOKE_PYTHON,
-                    "agentic_trader",
-                    "tests",
-                    "scripts",
-                ],
-                timeout=120,
-                display="pyright --pythonpath <smoke-python> agentic_trader tests scripts",
-            )
+    results.append(
+        run_command_capture(
+            context,
+            "pyright",
+            [
+                SMOKE_PYTHON,
+                "scripts/check_pyright_baseline.py",
+                "--pythonpath",
+                SMOKE_PYTHON,
+                "agentic_trader",
+                "tests",
+                "scripts",
+            ],
+            timeout=120,
+            display=(
+                "python scripts/check_pyright_baseline.py "
+                "--pythonpath <smoke-python> agentic_trader tests scripts"
+            ),
         )
+    )
     return results
 
 

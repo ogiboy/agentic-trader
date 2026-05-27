@@ -124,6 +124,33 @@ base URL, model name, and optional API key.
 App-owned Ollama auto-start or dashboard setting rewrites must not override that
 non-Ollama adapter.
 
+### Strict Pyright is a zero-diagnostic publishing gate
+
+Reason:
+The repository should keep Pylance/Pyright in strict mode because it exposes
+real runtime and test-contract weaknesses.
+The staged backlog is now cleared for `agentic_trader`, `tests`, `scripts`, and
+`sidecars/research_flow/src`, so CI, release, local `check-python`, and smoke
+quality checks run `scripts/check_pyright_baseline.py` with a zero-error limit.
+Do not add `type: ignore`, Pyright suppression comments, or config weakening as
+a workaround; expose typed public seams, protocols, fixtures, stubs, or narrower
+data contracts instead.
+
+### V1 can monetize only after compliance, trust, and unit economics are explicit
+
+Reason:
+Agentic Trader is moving toward an operator-facing product, but paid access,
+personalized trade recommendations, account workflows, or order-routing
+features can change the regulatory and support profile of the project.
+V1 must stay paper-first and manual-approval-first until the commercial model is
+classified with counsel, Alpaca production responsibilities are explicit,
+operator risk disclosures and audit exports exist, customer data/privacy and
+incident/support responsibilities are documented, LLM/tool-poisoning controls
+are tested, and remote-model costs are measured per cycle.
+The first paid SKU should therefore favor local-first paper desk, evidence
+bundle, education, and personal automation value before managed live trading,
+copy trading, account-opening workflows, or performance-fee promises.
+
 ### Operator-facing finance truth must be reconciled evidence, not UI copy
 
 Reason:
@@ -481,7 +508,7 @@ it means V1 trades only through explicit, approved, auditable supported paths.
 Reason:
 The project is expected to run consistently on multiple machines, but Conda, Poetry, uv sidecars, and ad hoc pip installs created too many overlapping Python ownership layers.
 `pyproject.toml` remains the direct dependency manifest and root `uv.lock` is now the committed resolver output.
-uv owns root package add, remove, lock, sync, run, and build commands; daily root development defaults to Python 3.13 in the root `.venv`, while CI can still sync against Python 3.12 for the current minimum-support signal.
+uv owns root package add, remove, lock, sync, run, and build commands; daily root development and GitHub Actions use Python 3.13 from the root `.python-version`. The root package metadata still allows `>=3.12,<3.15`, but 3.12 compatibility is no longer the primary CI lane unless a separate compatibility matrix is added.
 Poetry is no longer a root package-management requirement.
 New root dependencies must be added with `uv add <package>` so the manifest and
 lockfile change together. Dependency upgrades should use `uv lock --upgrade`
@@ -667,6 +694,14 @@ The early solo-developer bias kept changes small, but several files have grown l
 When touching complex areas, prefer extracting domain constants, render helpers, service helpers, typed copy catalogs, and provider/fetcher adapters into named modules with focused tests.
 This is still incremental architecture cleanup, not a license for broad rewrites or a new orchestration framework.
 
+### Modularity and i18n debt should be measured before it is enforced
+
+Reason:
+The repository already has useful modular seams in WebGUI and docs, but Python CLI, Rich TUI, Ink TUI, storage, provider, and service files still carry enough mixed responsibility that a hard gate would create noise before it creates discipline.
+Start with a reporting-only audit for oversized modules, long functions, repeated helper patterns, docs locale parity, and hardcoded operator-copy candidates.
+Use the report to guide staged extraction and tighten thresholds only after the current baseline has been reduced intentionally.
+The audit must not classify runtime JSON field names, protocol enum values, database column names, provider identifiers, or test fixture data as localization debt by default.
+
 ### The existing docs scaffold should be activated, not replaced
 
 Reason:
@@ -714,10 +749,13 @@ Search should use exported Fumadocs search data, locale routes should remain sta
 Reason:
 The project needs practical solo-maintainer release hygiene without changing the runtime toolchain.
 `python-semantic-release` should read conventional commits on `main`, bump `project.version` in `pyproject.toml`, update `CHANGELOG.md`, and create a `v*` tag without publishing the GitHub Release directly.
+`CHANGELOG.md` must keep the `<!-- version list -->` insertion marker exactly once; semantic-release update mode uses that marker to prepend new release notes and can otherwise leave the changelog unchanged.
+Any branch work that reaches `main` must preserve conventional commit subjects or use a conventional squash/PR title; the release workflow fails non-release, non-merge commits without a supported conventional prefix so branch changes do not silently disappear from `CHANGELOG.md`.
 Stable release version stamping should also keep the root, Web GUI, docs, and TUI `package.json` versions aligned with the Python project version so the repo presents one coherent product baseline.
 The binary workflow owns GitHub Release creation so immutable releases can be created with PyInstaller assets attached in one publish step.
 The binary assets are convenience builds for the Python CLI layer; they do not bundle the Web GUI, docs app, Node runtime, Ollama, or external provider services.
 If semantic-release previews a tag below the tracked pre-1.0 baseline and that baseline tag does not exist yet, the release workflow should create a baseline changelog section, create the baseline tag once, and dispatch binary packaging with that tag. Plain `main` branch binary pushes may still upload workflow artifacts without publishing a GitHub Release; release publishing should happen from a tag/dispatch path.
+If feature-branch prerelease tags such as `v0.12.5-beta.*` are already reachable from `main`, python-semantic-release can assign those commits to prerelease history before the final stable section is rendered. The stable workflow should therefore treat an empty stable section as a release-flow defect and backfill it from the previous stable tag to `HEAD`, ignoring prerelease tags, before committing the release files.
 
 Stable release identity and branch build identity are intentionally separate.
 Strict SemVer release tags keep the `MAJOR.MINOR.PATCH` core, such as `v0.9.5`; CI/build counters must not become a fourth core segment like `v0.9.5.9870`.

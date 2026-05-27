@@ -1,12 +1,15 @@
 ---
 title: Frontend System
-description: Shared Next.js decisions for docs and Web GUI, including theming, modularity, and migration rules.
+description:
+  Shared Next.js decisions for docs and Web GUI, including theming, modularity,
+  and migration rules.
 ---
 
 ## Shared baseline
 
-The repository uses a root pnpm workspace for `webgui/`, `docs/`, and the Ink `tui/`.
-uv remains the Python dependency manager; Makefile targets are thin aliases over pnpm and uv-backed commands.
+The repository uses a root pnpm workspace for `webgui/`, `docs/`, and the Ink
+`tui/`. uv remains the Python dependency manager; Makefile targets are thin
+aliases over pnpm and uv-backed commands.
 
 Both `docs/` and `webgui/` were initialized from:
 
@@ -14,8 +17,9 @@ Both `docs/` and `webgui/` were initialized from:
 pnpm dlx shadcn@latest init --preset b2CQzAxv8 --template next
 ```
 
-`b2CQzAxv8` is the preset slug used at initialization time; if it is unavailable in the registry later or produces different output,
-each app's local `components.json` is the authoritative component contract.
+`b2CQzAxv8` is the preset slug used at initialization time; if it is unavailable
+in the registry later or produces different output, each app's local
+`components.json` is the authoritative component contract.
 
 That gives both apps a common baseline:
 
@@ -27,27 +31,39 @@ That gives both apps a common baseline:
 
 ## Component rule
 
-When we add shadcn components with `pnpm dlx shadcn@latest add ...`, the CLI reads each app’s local `components.json`.
-That means components should inherit the existing preset instead of drifting visually.
+When we add shadcn components with `pnpm dlx shadcn@latest add ...`, the CLI
+reads each app’s local `components.json`. That means components should inherit
+the existing preset instead of drifting visually.
 
 ## Modularity rule
 
-Small files are not a goal by themselves, but the frontend should be split when it improves clarity.
-Good reasons to split a file:
+Small files are not a goal by themselves, but the frontend should be split when
+it improves clarity. Good reasons to split a file:
 
 - route file mixes loading, copy, and layout
 - a single component owns too many unrelated concerns
 - review becomes harder because one file includes several mental models
 - locale-aware or feature-aware copy becomes easier to test in isolation
 
-The docs app now follows that pattern with separate `components/home`, `components/feedback`, `components/layout`, `lib/i18n`, and `lib/home/content` modules.
-The Web GUI control room follows the same direction: the top-level component should stay a state/render coordinator while view files, shell chrome, dashboard polling, action handlers, request helpers, primitives, and typed per-locale English/Turkish copy live in focused modules.
+The docs app now follows that pattern with separate `components/home`,
+`components/feedback`, `components/layout`, `lib/i18n`, and `lib/home/content`
+modules. The Web GUI control room follows the same direction: the top-level
+component should stay a state/render coordinator while view files, shell chrome,
+dashboard polling, action handlers, request helpers, primitives, and typed
+per-locale English/Turkish copy live in focused modules.
 
 ## Web GUI migration reality
 
-`webgui/` is still mid-migration.
-It already has the modern baseline, but some screens still rely on older global CSS.
-The first control-room split and main view-copy catalog are in place; future work should keep extracting typed view models, catalog-aware helper lines, and screen-scoped styling instead of re-growing the coordinator.
+`webgui/` is still mid-migration. It already has the modern baseline, but some
+screens still rely on older global CSS. The first control-room split and main
+view-copy catalog are in place; future work should keep extracting typed view
+models, catalog-aware helper lines, and screen-scoped styling instead of
+re-growing the coordinator.
+
+The current split includes `state-hooks`, `view-model`, `action-request`,
+`formatting`, `diagnostics-formatting`, `context-formatting`, loading panels,
+focused view modules, shell chrome, primitives, and typed English/Turkish copy
+modules under `webgui/src/components/control-room/`.
 
 Safe migration rules:
 
@@ -58,8 +74,9 @@ Safe migration rules:
 
 ## Route handler rule
 
-Next.js route handlers in `webgui/` should validate inputs and then delegate to the Python runtime contract.
-They should not become an alternative business-logic layer.
+Next.js route handlers in `webgui/` should validate inputs and then delegate to
+the Python runtime contract. They should not become an alternative
+business-logic layer.
 
 ## Docs UX rule
 
@@ -68,4 +85,5 @@ For the docs app specifically:
 - make locale support explicit
 - keep navigation predictable
 - avoid overloaded landing pages
-- keep feedback messaging unambiguous about browser-local drafts and manual GitHub issue links
+- keep feedback messaging unambiguous about browser-local drafts and manual
+  GitHub issue links

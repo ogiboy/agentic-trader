@@ -21,10 +21,10 @@ install, upgrade, or delete dependencies unless the task explicitly allows it.
 - `ruflo hooks pre-command -- "pnpm run setup"`
 - `ruflo hooks pre-command -- "pnpm run check"`
 
-## Planned Lifecycle Checks
+## Lifecycle Checks
 
-When the accelerated setup layer lands, validate the lifecycle commands by intent
-instead of treating them as aliases for the same script:
+Validate lifecycle commands by intent instead of treating them as aliases for
+the same script:
 
 - `pnpm run app:doctor`: read-only setup, PATH, sidecar, service, provider, and
   optional tool-root status
@@ -69,6 +69,8 @@ instead of treating them as aliases for the same script:
   helper ownership decisions without mutating setup or services
 - `agentic-trader tool-ownership set --ollama-owner host-owned --firecrawl-owner api-key-only --camofox-owner skipped --json`:
   record non-secret operator intent for optional helpers
+- `make bootstrap` after a recorded ownership state: verify it reports the
+  existing Ollama/Firecrawl/Camofox decision instead of prompting again
 
 Every lifecycle command should have a dry-run or preview path before it mutates
 system tools, dependency locks, downloaded browser/model assets, PATH symlinks,
@@ -118,6 +120,14 @@ or app-owned runtime state.
   recorded service state file remains.
 - Optional Ollama, Firecrawl, and Camofox setup records host-owned, app-owned,
   API/key-only, or skipped ownership instead of guessing silently.
+- Re-running bootstrap must not overwrite persisted ownership decisions or ask
+  the same ownership questions unless the operator explicitly reselects them.
+- Bootstrap summaries must visually separate completed/deferred/failed items and
+  include a concrete `next:` line for deferred setup such as PATH entrypoint
+  drift, Camofox dependencies, or browser binary fetches.
+- `setup-status` must keep optional global CLI failures bounded; a broken host
+  CrewAI CLI may appear as a short setup note, but not as a multi-line version
+  string or traceback in JSON.
 - Firecrawl host CLI fallback runs only when Firecrawl ownership is
   `host-owned`; app-owned, API/key-only, skipped, or undecided modes must keep
   it visibly disabled.

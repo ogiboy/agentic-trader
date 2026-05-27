@@ -1,8 +1,5 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import {
   act,
   cleanup,
@@ -11,6 +8,9 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ActiveView,
@@ -37,6 +37,7 @@ import {
   tradeContextLines,
   unavailableSectionLines,
 } from './control-room';
+import { getControlRoomCopy } from './control-room/labels';
 
 const dashboardFixture = {
   agentActivity: {
@@ -228,6 +229,7 @@ const dashboardFixture = {
 
 afterEach(() => {
   cleanup();
+  globalThis.localStorage?.clear?.();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -404,6 +406,33 @@ describe('control-room formatting helpers', () => {
     expect(localToolLines(dashboardFixture)).toContain('Model Adapter: ollama');
     expect(localToolLines(dashboardFixture)).toContain(
       'Firecrawl Runtime: internal SDK first; host CLI fallback disabled by ownership',
+    );
+    const trCopy = getControlRoomCopy('tr');
+    expect(readinessLines({ broker: {}, v1Readiness: {} }, trCopy)).toContain(
+      'Yerel paper döngüsü çalışabilir: hayır',
+    );
+    expect(providerWarningLines({ providerDiagnostics: {} }, trCopy)).toContain(
+      'Sağlayıcı uyarısı yok.',
+    );
+    expect(
+      sourceHealthSummaryLine(
+        { fresh: 2, missing: '1', unknown: true },
+        trCopy,
+      ),
+    ).toBe('güncel 2 / eksik 1 / bilinmeyen true');
+    expect(systemStatusItems(dashboardFixture, trCopy)).toContainEqual([
+      'Temel URL',
+      'http://127.0.0.1:11434/v1',
+    ]);
+    expect(systemStatusItems(dashboardFixture, trCopy)).toContainEqual([
+      'Ollama Erişilebilir',
+      'evet',
+    ]);
+    expect(localToolLines(dashboardFixture, trCopy)).toContain(
+      'Model Adaptörü: ollama',
+    );
+    expect(localToolLines(dashboardFixture, trCopy)).toContain(
+      'Firecrawl Çalışma Biçimi: önce dahili SDK; gerekirse host CLI yedeği sahiplik seçimi nedeniyle kapalı',
     );
     expect(
       localToolActionLines({
@@ -737,6 +766,10 @@ describe('control-room formatting helpers', () => {
   });
 
   it('renders the initial control room shell while loading', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: { getItem: () => 'tr', setItem: vi.fn(), clear: vi.fn() },
+    });
     const html = renderToStaticMarkup(React.createElement(ControlRoom));
     expect(html).toContain('Agentic Trader');
     expect(html).toContain('Loading dashboard');

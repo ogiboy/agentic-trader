@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
-import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { DocsSidebarBanner } from '@/components/layout/docs-sidebar-banner';
-import { baseOptions } from '@/lib/layout.shared';
 import { getDocLanguage } from '@/lib/i18n/routing';
+import { baseOptions } from '@/lib/layout.shared';
 import { source } from '@/lib/source';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import type { ReactNode } from 'react';
 
 type DocsLayoutProps = {
   children: ReactNode;

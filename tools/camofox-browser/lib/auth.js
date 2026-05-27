@@ -16,7 +16,7 @@
  *   - If not set, pass through (backward-compatible).
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * Timing-safe string comparison.
@@ -160,4 +160,4 @@ export function accessKeyMiddleware(config) {
 }
 
 // Re-export utilities so server.js can still use them directly
-export { timingSafeCompare, isLoopbackAddress };
+export { isLoopbackAddress, timingSafeCompare };
