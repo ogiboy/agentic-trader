@@ -1291,7 +1291,7 @@ async function getSession(userId, { trace = false } = {}) {
       let sessionProxy = null;
       if (proxyPool?.canRotateSessions) {
         sessionProxy = proxyPool.getNext(
-          `ctx-${key}-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`,
+          `ctx-${key}-${crypto.randomUUID().replaceAll('-', '').slice(0, 8)}`,
         );
         contextOptions.proxy = normalizePlaywrightProxy(sessionProxy);
         log('info', 'session proxy assigned', {
@@ -1369,7 +1369,7 @@ function getTabGroup(session, listItemId) {
 }
 
 function isDeadContextError(err) {
-  const msg = (err && err.message) || '';
+  const msg = err?.message || '';
   return (
     msg.includes('Target page, context or browser has been closed') ||
     msg.includes('browser has been closed') ||
@@ -1379,7 +1379,7 @@ function isDeadContextError(err) {
 }
 
 function isTimeoutError(err) {
-  const msg = (err && err.message) || '';
+  const msg = err?.message || '';
   return (
     msg.includes('timed out after') ||
     (msg.includes('Timeout') && msg.includes('exceeded'))
@@ -1387,11 +1387,11 @@ function isTimeoutError(err) {
 }
 
 function isTabLockQueueTimeout(err) {
-  return err && err.message === 'Tab lock queue timeout';
+  return err?.message === 'Tab lock queue timeout';
 }
 
 function isTabDestroyedError(err) {
-  return err && err.message === 'Tab destroyed';
+  return err?.message === 'Tab destroyed';
 }
 
 // Centralized error handler for route catch blocks.
@@ -1918,7 +1918,9 @@ async function extractGoogleSerp(page) {
       return id;
     }
 
-    snapshot.push('- heading "' + document.title.replace(/"/g, '\\"') + '"');
+    snapshot.push(
+      '- heading "' + document.title.replaceAll('"', String.raw`\"`) + '"',
+    );
 
     const searchInput = document.querySelector(
       'input[name="q"], textarea[name="q"]',
@@ -1946,7 +1948,7 @@ async function extractGoogleSerp(page) {
         navLinks.forEach((a) => {
           const text = (a.textContent || '').trim();
           if (!text || text.length < 1) return;
-          if (/^\d+$/.test(text) && parseInt(text) < 50) return;
+          if (/^\d+$/.test(text) && Number.parseInt(text) < 50) return;
           const refId = addRef('link', text);
           snapshot.push('  - link "' + text + '" [' + refId + ']');
         });
@@ -1962,7 +1964,7 @@ async function extractGoogleSerp(page) {
         const mainLink = h3 ? h3.closest('a') : null;
 
         if (h3 && mainLink) {
-          const title = h3.textContent.trim().replace(/"/g, '\\"');
+          const title = h3.textContent.trim().replaceAll('"', String.raw`\"`);
           const href = mainLink.href;
           const cite = block.querySelector('cite');
           const displayUrl = cite ? cite.textContent.trim() : '';
@@ -1991,8 +1993,10 @@ async function extractGoogleSerp(page) {
           }
 
           const refId = addRef('link', title);
-          snapshot.push('- link "' + title + '" [' + refId + ']:');
-          snapshot.push('  - /url: ' + href);
+          snapshot.push(
+            '- link "' + title + '" [' + refId + ']:',
+            '  - /url: ' + href,
+          );
           if (displayUrl) snapshot.push('  - cite: ' + displayUrl);
           if (snippet) snapshot.push('  - text: ' + snippet);
         } else {
@@ -2005,17 +2009,18 @@ async function extractGoogleSerp(page) {
               .replace(/\s+/g, ' ')
               .slice(0, 200);
             if (blockText.length > 10) {
-              snapshot.push('- group:');
-              snapshot.push('  - text: ' + blockText);
+              snapshot.push('- group:', '  - text: ' + blockText);
               blockLinks.forEach((a) => {
                 const linkText = (a.textContent || '')
                   .trim()
-                  .replace(/"/g, '\\"')
+                  .replaceAll('"', String.raw`\"`)
                   .slice(0, 100);
                 if (linkText.length > 2) {
                   const refId = addRef('link', linkText);
-                  snapshot.push('  - link "' + linkText + '" [' + refId + ']:');
-                  snapshot.push('    - /url: ' + a.href);
+                  snapshot.push(
+                    '  - link "' + linkText + '" [' + refId + ']:',
+                    '    - /url: ' + a.href,
+                  );
                 }
               });
             }
@@ -2032,7 +2037,7 @@ async function extractGoogleSerp(page) {
       paaItems.forEach((q) => {
         const text = (q.textContent || '')
           .trim()
-          .replace(/"/g, '\\"')
+          .replaceAll('"', String.raw`\"`)
           .slice(0, 150);
         if (text) {
           const refId = addRef('button', text);
@@ -2046,8 +2051,10 @@ async function extractGoogleSerp(page) {
     );
     if (nextLink) {
       const refId = addRef('link', 'Next');
-      snapshot.push('- navigation "pagination":');
-      snapshot.push('  - link "Next" [' + refId + ']');
+      snapshot.push(
+        '- navigation "pagination":',
+        '  - link "Next" [' + refId + ']',
+      );
     }
 
     return { snapshot: snapshot.join('\n'), elements };

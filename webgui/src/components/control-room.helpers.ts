@@ -1,4 +1,4 @@
-import type { DashboardData, TabId } from './control-room/types';
+import type { DashboardData } from './control-room/types';
 
 export type {
   DashboardData,
@@ -40,17 +40,6 @@ export {
   formatPercent,
   formatTimestamp,
 } from './control-room/formatting';
-
-export const tabs: Array<{ id: TabId; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'runtime', label: 'Runtime' },
-  { id: 'portfolio', label: 'Portfolio' },
-  { id: 'proposals', label: 'Proposals' },
-  { id: 'review', label: 'Review' },
-  { id: 'memory', label: 'Decision Evidence' },
-  { id: 'chat', label: 'Chat' },
-  { id: 'settings', label: 'Settings' },
-];
 
 export const marketLensImage =
   'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1600&q=80';

@@ -11,12 +11,13 @@ import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol, cast
 from uuid import uuid4
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import object_dict_list as _object_mapping_list
+from agentic_trader.json_utils import object_dict_or_none as _object_mapping
 from agentic_trader.researchd.crewai_setup import default_crewai_flow_dir
 from agentic_trader.researchd.providers import (
     ResearchEvidenceProvider,
@@ -37,6 +38,7 @@ from agentic_trader.schemas import (
     WorldStateSnapshot,
 )
 from agentic_trader.security import redact_sensitive_text
+from agentic_trader.time_utils import utc_now_iso
 
 ContractRunner = Callable[
     [list[str], str, Path, dict[str, str], float],
@@ -71,16 +73,6 @@ _MODEL_ENV_PREFIXES = (
 )
 
 
-def _object_mapping(value: object) -> dict[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    return cast(dict[str, object], value)
-
-
-def _object_list(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
-
-
 def _contract_error_items(value: object) -> list[object]:
     if isinstance(value, list):
         return cast(list[object], value)
@@ -91,15 +83,6 @@ def _contract_error_items(value: object) -> list[object]:
     return [value]
 
 
-def _object_mapping_list(value: object) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for item in _object_list(value):
-        row = _object_mapping(item)
-        if row is not None:
-            rows.append(row)
-    return rows
-
-
 def _sidecar_process_env() -> dict[str, str]:
     """Build a narrow sidecar environment without broker/runtime secrets."""
     env: dict[str, str] = {}
@@ -108,11 +91,6 @@ def _sidecar_process_env() -> dict[str, str]:
             env[key] = value
     env["CREWAI_TRACING_ENABLED"] = "false"
     return env
-
-
-def utc_now_iso() -> str:
-    """Return an ISO timestamp in UTC for sidecar metadata."""
-    return datetime.now(UTC).isoformat()
 
 
 def parse_research_symbols(raw_symbols: str) -> list[str]:

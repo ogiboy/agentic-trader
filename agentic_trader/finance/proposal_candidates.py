@@ -17,6 +17,10 @@ from agentic_trader.finance.proposals import (
     utc_now_iso,
 )
 from agentic_trader.finance.strategy_catalog import score_strategy_context
+from agentic_trader.json_utils import (
+    object_dict_or_none as _object_mapping,
+    object_list as _object_list,
+)
 from agentic_trader.providers.aggregation import build_canonical_analysis_snapshot
 from agentic_trader.schemas import (
     CanonicalAnalysisSnapshot,
@@ -43,16 +47,6 @@ RESERVED_CANDIDATE_EVIDENCE_KEYS = {
 }
 STALE_FRESHNESS_MARKERS = ("stale", "expired", "outdated", "unknown", "missing")
 TRUNCATED_PAYLOAD_MARKER = "<truncated>"
-
-
-def _object_mapping(value: object) -> dict[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    return cast(dict[str, object], value)
-
-
-def _object_list(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
 
 
 @dataclass(frozen=True, slots=True)

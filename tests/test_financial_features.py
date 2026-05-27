@@ -1,5 +1,3 @@
-from tests.typing_helpers import approx
-
 from agentic_trader.config import Settings
 from agentic_trader.features import (
     build_decision_feature_bundle,
@@ -16,6 +14,7 @@ from agentic_trader.schemas import (
     MarketSnapshot,
     NewsSignal,
 )
+from tests.typing_helpers import approx
 
 
 def _snapshot() -> MarketSnapshot:
