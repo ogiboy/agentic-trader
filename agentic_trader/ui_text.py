@@ -78,11 +78,17 @@ class UITextCatalog:
     help_trade_take_profit: str
     help_trade_thesis: str
     help_trade_side: str
+    help_v1_provider_check: str
     help_webgui_open_browser: str
     help_webgui_service_app: str
     label_agent: str
     label_allowed: str
+    label_adapter: str
+    label_alpaca_credentials_configured: str
+    label_alpaca_feed: str
+    label_alpaca_paper_endpoint: str
     label_approved: str
+    label_api_key: str
     label_average_price: str
     label_baseline: str
     label_base_url: str
@@ -113,6 +119,7 @@ class UITextCatalog:
     label_daily_realized_pnl: str
     label_decision: str
     label_decision_path: str
+    label_default_model: str
     label_details: str
     label_delta: str
     label_digest_replay: str
@@ -141,6 +148,7 @@ class UITextCatalog:
     label_gross_exposure: str
     label_heartbeat: str
     label_heartbeat_age: str
+    label_healthcheck: str
     label_id: str
     label_interval: str
     label_environment: str
@@ -150,6 +158,7 @@ class UITextCatalog:
     label_last_recorded_state: str
     label_largest_position: str
     label_level: str
+    label_kill_switch_active: str
     label_lockfile_exists: str
     label_launch_count: str
     label_latest_order: str
@@ -158,12 +167,17 @@ class UITextCatalog:
     label_last_terminal_at: str
     label_last_terminal_state: str
     label_llm_provider: str
+    label_live_execution_enabled: str
     label_live_process: str
+    label_live_ready: str
+    label_live_requested: str
     label_llm: str
     label_locale: str
     label_lookback: str
     label_market_value: str
     label_market_price: str
+    label_market_provider: str
+    label_market_role: str
     label_mark_source: str
     label_mark_status: str
     label_marked_at: str
@@ -182,6 +196,7 @@ class UITextCatalog:
     label_no: str
     label_notes: str
     label_next: str
+    label_news_mode: str
     label_observer_mode: str
     label_open_positions: str
     label_opened: str
@@ -225,12 +240,14 @@ class UITextCatalog:
     label_setup: str
     label_scaffold_exists: str
     label_signal: str
+    label_simulated: str
     label_sidecar_available: str
     label_size: str
     label_score: str
     label_slippage: str
     label_stage: str
     label_started: str
+    label_state: str
     label_status: str
     label_status_note: str
     label_stderr: str
@@ -330,7 +347,9 @@ class UITextCatalog:
     status_app_owned: str
     status_available: str
     status_external: str
+    status_fail: str
     status_needs_attention: str
+    status_pass: str
     status_ready: str
     title_execution_summary: str
     title_agent_decisions: str
@@ -339,6 +358,7 @@ class UITextCatalog:
     title_backtest_comparison: str
     title_backtest_memory_ablation: str
     title_backtest_trades: str
+    title_broker_status: str
     title_camofox_browser_helper: str
     title_camofox_stderr_tail: str
     title_camofox_start_failed: str
@@ -347,6 +367,8 @@ class UITextCatalog:
     title_operator_instruction: str
     title_operator_launcher: str
     title_pipeline: str
+    title_provider_diagnostics: str
+    title_provider_source_ladder: str
     title_daily_risk_report: str
     title_desk_accounting_context: str
     title_environment_check: str
@@ -467,11 +489,17 @@ EN_TEXT = UITextCatalog(
     help_trade_take_profit="Optional take profit.",
     help_trade_thesis="Short operator-readable proposal thesis.",
     help_trade_side="Trade side: buy or sell.",
+    help_v1_provider_check="Check local model/provider readiness; may call the configured LLM service.",
     help_webgui_open_browser="Ask the OS to open the Web GUI URL after starting.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
     label_agent="Agent",
     label_allowed="Allowed",
+    label_adapter="Adapter",
+    label_alpaca_credentials_configured="Alpaca Credentials Configured",
+    label_alpaca_feed="Alpaca Feed",
+    label_alpaca_paper_endpoint="Alpaca Paper Endpoint",
     label_approved="Approved",
+    label_api_key="API Key",
     label_average_price="Average Price",
     label_baseline="Baseline",
     label_base_url="Base URL",
@@ -502,6 +530,7 @@ EN_TEXT = UITextCatalog(
     label_daily_realized_pnl="Daily Realized PnL",
     label_decision="Decision",
     label_decision_path="Decision Path",
+    label_default_model="Default Model",
     label_details="Details",
     label_delta="Delta",
     label_digest_replay="Digest Replay",
@@ -530,6 +559,7 @@ EN_TEXT = UITextCatalog(
     label_gross_exposure="Gross Exposure",
     label_heartbeat="Heartbeat",
     label_heartbeat_age="Heartbeat Age",
+    label_healthcheck="Healthcheck",
     label_id="ID",
     label_interval="Interval",
     label_environment="Environment",
@@ -538,6 +568,7 @@ EN_TEXT = UITextCatalog(
     label_last_recorded_message="Last Recorded Message",
     label_last_recorded_state="Last Recorded State",
     label_largest_position="Largest Position",
+    label_kill_switch_active="Kill Switch Active",
     label_last_error="Last Error",
     label_last_successful_update="Last Successful Update",
     label_last_terminal_at="Last Terminal At",
@@ -547,12 +578,17 @@ EN_TEXT = UITextCatalog(
     label_launch_count="Launch Count",
     label_latest_order="Latest Order",
     label_llm_provider="LLM Provider",
+    label_live_execution_enabled="Live Execution Enabled",
     label_live_process="Live Process",
+    label_live_ready="Live Ready",
+    label_live_requested="Live Requested",
     label_llm="LLM",
     label_locale="Locale",
     label_lookback="Lookback",
     label_market_value="Market Value",
     label_market_price="Market Price",
+    label_market_provider="Market Provider",
+    label_market_role="Market Role",
     label_mark_source="Mark Source",
     label_mark_status="Mark Status",
     label_marked_at="Marked At",
@@ -571,6 +607,7 @@ EN_TEXT = UITextCatalog(
     label_no="no",
     label_notes="Notes",
     label_next="Next",
+    label_news_mode="News Mode",
     label_observer_mode="Observer Mode",
     label_open_positions="Open Positions",
     label_opened="Opened",
@@ -614,12 +651,14 @@ EN_TEXT = UITextCatalog(
     label_setup="Setup",
     label_scaffold_exists="Scaffold Exists",
     label_signal="Signal",
+    label_simulated="Simulated",
     label_sidecar_available="Sidecar Available",
     label_size="Size",
     label_score="Score",
     label_slippage="Slippage",
     label_stage="Stage",
     label_started="Started",
+    label_state="State",
     label_status="Status",
     label_status_note="Status Note",
     label_stderr="Stderr",
@@ -738,7 +777,9 @@ EN_TEXT = UITextCatalog(
     status_app_owned="app-owned",
     status_available="available",
     status_external="external",
+    status_fail="fail",
     status_needs_attention="needs attention",
+    status_pass="pass",
     status_ready="ready",
     title_agent_decisions="Agent Decisions",
     title_agent_trace="Agent Trace",
@@ -746,6 +787,7 @@ EN_TEXT = UITextCatalog(
     title_backtest_comparison="Backtest Comparison",
     title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trades",
+    title_broker_status="Broker Status",
     title_camofox_browser_helper="Camofox Browser Helper",
     title_camofox_stderr_tail="Camofox Stderr Tail",
     title_camofox_start_failed="Camofox Start Failed",
@@ -755,6 +797,8 @@ EN_TEXT = UITextCatalog(
     title_operator_instruction="Operator Instruction",
     title_operator_launcher="Agentic Trader Operator Launcher",
     title_pipeline="Pipeline",
+    title_provider_diagnostics="Provider Diagnostics",
+    title_provider_source_ladder="Provider Source Ladder",
     title_daily_risk_report="Daily Risk Report",
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
@@ -878,11 +922,17 @@ TR_TEXT = UITextCatalog(
     help_trade_take_profit="Istege bagli take profit.",
     help_trade_thesis="Operator tarafindan okunabilir kisa proposal tezi.",
     help_trade_side="Trade yonu: buy veya sell.",
+    help_v1_provider_check="Yerel model/provider hazirligini kontrol et; configured LLM servisine cagri yapabilir.",
     help_webgui_open_browser="Baslatmadan sonra Web GUI URL'sini OS ile ac.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
     label_agent="Agent",
     label_allowed="Izinli",
+    label_adapter="Adapter",
+    label_alpaca_credentials_configured="Alpaca Credential'lari Ayarli",
+    label_alpaca_feed="Alpaca Feed",
+    label_alpaca_paper_endpoint="Alpaca Paper Endpoint",
     label_approved="Onaylandi",
+    label_api_key="API Key",
     label_average_price="Ortalama Fiyat",
     label_baseline="Baseline",
     label_base_url="Base URL",
@@ -913,6 +963,7 @@ TR_TEXT = UITextCatalog(
     label_daily_realized_pnl="Gunluk Gerceklesen PnL",
     label_decision="Karar",
     label_decision_path="Karar Yolu",
+    label_default_model="Varsayilan Model",
     label_details="Detaylar",
     label_delta="Delta",
     label_digest_replay="Digest Replay",
@@ -941,6 +992,7 @@ TR_TEXT = UITextCatalog(
     label_gross_exposure="Brut Exposure",
     label_heartbeat="Heartbeat",
     label_heartbeat_age="Heartbeat Yasi",
+    label_healthcheck="Healthcheck",
     label_id="ID",
     label_interval="Aralik",
     label_environment="Ortam",
@@ -949,6 +1001,7 @@ TR_TEXT = UITextCatalog(
     label_last_recorded_message="Son Kayitli Mesaj",
     label_last_recorded_state="Son Kayitli Durum",
     label_largest_position="En Buyuk Pozisyon",
+    label_kill_switch_active="Kill Switch Aktif",
     label_last_error="Son Hata",
     label_last_successful_update="Son Basarili Guncelleme",
     label_last_terminal_at="Son Terminal Zamani",
@@ -958,12 +1011,17 @@ TR_TEXT = UITextCatalog(
     label_launch_count="Launch Sayisi",
     label_latest_order="Son Order",
     label_llm_provider="LLM Provider",
+    label_live_execution_enabled="Live Execution Etkin",
     label_live_process="Canli Process",
+    label_live_ready="Live Hazir",
+    label_live_requested="Live Istendi",
     label_llm="LLM",
     label_locale="Locale",
     label_lookback="Geriye Donuk Pencere",
     label_market_value="Piyasa Degeri",
     label_market_price="Piyasa Fiyati",
+    label_market_provider="Market Provider",
+    label_market_role="Market Rolu",
     label_mark_source="Mark Kaynagi",
     label_mark_status="Mark Durumu",
     label_marked_at="Mark Zamani",
@@ -982,6 +1040,7 @@ TR_TEXT = UITextCatalog(
     label_no="hayir",
     label_notes="Notlar",
     label_next="Sonraki",
+    label_news_mode="News Modu",
     label_observer_mode="Observer Modu",
     label_open_positions="Acik Pozisyonlar",
     label_opened="Acilis",
@@ -1025,12 +1084,14 @@ TR_TEXT = UITextCatalog(
     label_setup="Setup",
     label_scaffold_exists="Scaffold Var",
     label_signal="Sinyal",
+    label_simulated="Simule",
     label_sidecar_available="Sidecar Kullanilabilir",
     label_size="Boyut",
     label_score="Skor",
     label_slippage="Slippage",
     label_stage="Asama",
     label_started="Basladi",
+    label_state="State",
     label_status="Durum",
     label_status_note="Durum Notu",
     label_stderr="Stderr",
@@ -1149,7 +1210,9 @@ TR_TEXT = UITextCatalog(
     status_app_owned="app-owned",
     status_available="kullanilabilir",
     status_external="harici",
+    status_fail="fail",
     status_needs_attention="dikkat gerekiyor",
+    status_pass="pass",
     status_ready="hazir",
     title_agent_decisions="Agent Kararlari",
     title_agent_trace="Agent Trace",
@@ -1157,6 +1220,7 @@ TR_TEXT = UITextCatalog(
     title_backtest_comparison="Backtest Karsilastirma",
     title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trade'leri",
+    title_broker_status="Broker Durumu",
     title_camofox_browser_helper="Camofox Browser Yardimcisi",
     title_camofox_stderr_tail="Camofox Stderr Kuyrugu",
     title_camofox_start_failed="Camofox Baslatma Basarisiz",
@@ -1166,6 +1230,8 @@ TR_TEXT = UITextCatalog(
     title_operator_instruction="Operator Talimati",
     title_operator_launcher="Agentic Trader Operator Launcher",
     title_pipeline="Pipeline",
+    title_provider_diagnostics="Provider Diagnostics",
+    title_provider_source_ladder="Provider Source Ladder",
     title_daily_risk_report="Gunluk Risk Raporu",
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
@@ -1310,11 +1376,17 @@ HELP_TRADE_SOURCE = EN_TEXT.help_trade_source
 HELP_TRADE_STOP_LOSS = EN_TEXT.help_trade_stop_loss
 HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
 HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
+HELP_V1_PROVIDER_CHECK = EN_TEXT.help_v1_provider_check
 HELP_WEBGUI_OPEN_BROWSER = EN_TEXT.help_webgui_open_browser
 
 LABEL_AGENT = EN_TEXT.label_agent
 LABEL_ALLOWED = EN_TEXT.label_allowed
+LABEL_ADAPTER = EN_TEXT.label_adapter
+LABEL_ALPACA_CREDENTIALS_CONFIGURED = EN_TEXT.label_alpaca_credentials_configured
+LABEL_ALPACA_FEED = EN_TEXT.label_alpaca_feed
+LABEL_ALPACA_PAPER_ENDPOINT = EN_TEXT.label_alpaca_paper_endpoint
 LABEL_APPROVED = EN_TEXT.label_approved
+LABEL_API_KEY = EN_TEXT.label_api_key
 LABEL_AVERAGE_PRICE = EN_TEXT.label_average_price
 LABEL_BASELINE = EN_TEXT.label_baseline
 LABEL_BASE_URL = EN_TEXT.label_base_url
@@ -1345,6 +1417,7 @@ LABEL_DB_STATUS = EN_TEXT.label_db_status
 LABEL_DAILY_REALIZED_PNL = EN_TEXT.label_daily_realized_pnl
 LABEL_DECISION = EN_TEXT.label_decision
 LABEL_DECISION_PATH = EN_TEXT.label_decision_path
+LABEL_DEFAULT_MODEL = EN_TEXT.label_default_model
 LABEL_DETAILS = EN_TEXT.label_details
 LABEL_DELTA = EN_TEXT.label_delta
 LABEL_DIGEST_REPLAY = EN_TEXT.label_digest_replay
@@ -1373,6 +1446,7 @@ LABEL_GENERATED = EN_TEXT.label_generated
 LABEL_GROSS_EXPOSURE = EN_TEXT.label_gross_exposure
 LABEL_HEARTBEAT = EN_TEXT.label_heartbeat
 LABEL_HEARTBEAT_AGE = EN_TEXT.label_heartbeat_age
+LABEL_HEALTHCHECK = EN_TEXT.label_healthcheck
 LABEL_ID = EN_TEXT.label_id
 LABEL_INTERVAL = EN_TEXT.label_interval
 LABEL_ENVIRONMENT = EN_TEXT.label_environment
@@ -1380,6 +1454,7 @@ LABEL_KEY = EN_TEXT.label_key
 LABEL_LAST_RECORDED_ERROR = EN_TEXT.label_last_recorded_error
 LABEL_LAST_RECORDED_MESSAGE = EN_TEXT.label_last_recorded_message
 LABEL_LAST_RECORDED_STATE = EN_TEXT.label_last_recorded_state
+LABEL_KILL_SWITCH_ACTIVE = EN_TEXT.label_kill_switch_active
 LABEL_LARGEST_POSITION = EN_TEXT.label_largest_position
 LABEL_LAST_ERROR = EN_TEXT.label_last_error
 LABEL_LAST_SUCCESSFUL_UPDATE = EN_TEXT.label_last_successful_update
@@ -1390,12 +1465,17 @@ LABEL_LOCKFILE_EXISTS = EN_TEXT.label_lockfile_exists
 LABEL_LAUNCH_COUNT = EN_TEXT.label_launch_count
 LABEL_LATEST_ORDER = EN_TEXT.label_latest_order
 LABEL_LLM_PROVIDER = EN_TEXT.label_llm_provider
+LABEL_LIVE_EXECUTION_ENABLED = EN_TEXT.label_live_execution_enabled
 LABEL_LIVE_PROCESS = EN_TEXT.label_live_process
+LABEL_LIVE_READY = EN_TEXT.label_live_ready
+LABEL_LIVE_REQUESTED = EN_TEXT.label_live_requested
 LABEL_LLM = EN_TEXT.label_llm
 LABEL_LOCALE = EN_TEXT.label_locale
 LABEL_LOOKBACK = EN_TEXT.label_lookback
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
 LABEL_MARKET_PRICE = EN_TEXT.label_market_price
+LABEL_MARKET_PROVIDER = EN_TEXT.label_market_provider
+LABEL_MARKET_ROLE = EN_TEXT.label_market_role
 LABEL_MARK_SOURCE = EN_TEXT.label_mark_source
 LABEL_MARK_STATUS = EN_TEXT.label_mark_status
 LABEL_MARKED_AT = EN_TEXT.label_marked_at
@@ -1414,6 +1494,7 @@ LABEL_MULTI_TIMEFRAME = EN_TEXT.label_multi_timeframe
 LABEL_NO = EN_TEXT.label_no
 LABEL_NOTES = EN_TEXT.label_notes
 LABEL_NEXT = EN_TEXT.label_next
+LABEL_NEWS_MODE = EN_TEXT.label_news_mode
 LABEL_OBSERVER_MODE = EN_TEXT.label_observer_mode
 LABEL_OPEN_POSITIONS = EN_TEXT.label_open_positions
 LABEL_OPENED = EN_TEXT.label_opened
@@ -1457,12 +1538,14 @@ LABEL_SPECIALIST = EN_TEXT.label_specialist
 LABEL_SETUP = EN_TEXT.label_setup
 LABEL_SCAFFOLD_EXISTS = EN_TEXT.label_scaffold_exists
 LABEL_SIGNAL = EN_TEXT.label_signal
+LABEL_SIMULATED = EN_TEXT.label_simulated
 LABEL_SIDECAR_AVAILABLE = EN_TEXT.label_sidecar_available
 LABEL_SIZE = EN_TEXT.label_size
 LABEL_SCORE = EN_TEXT.label_score
 LABEL_SLIPPAGE = EN_TEXT.label_slippage
 LABEL_STAGE = EN_TEXT.label_stage
 LABEL_STARTED = EN_TEXT.label_started
+LABEL_STATE = EN_TEXT.label_state
 LABEL_STATUS = EN_TEXT.label_status
 LABEL_STATUS_NOTE = EN_TEXT.label_status_note
 LABEL_STDERR = EN_TEXT.label_stderr
@@ -1578,6 +1661,7 @@ TITLE_AVAILABLE_MODELS = EN_TEXT.title_available_models
 TITLE_BACKTEST_COMPARISON = EN_TEXT.title_backtest_comparison
 TITLE_BACKTEST_MEMORY_ABLATION = EN_TEXT.title_backtest_memory_ablation
 TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
+TITLE_BROKER_STATUS = EN_TEXT.title_broker_status
 TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
 TITLE_CAMOFOX_STDERR_TAIL = EN_TEXT.title_camofox_stderr_tail
 TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
@@ -1587,6 +1671,8 @@ TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
 TITLE_OPERATOR_LAUNCHER = EN_TEXT.title_operator_launcher
 TITLE_PIPELINE = EN_TEXT.title_pipeline
+TITLE_PROVIDER_DIAGNOSTICS = EN_TEXT.title_provider_diagnostics
+TITLE_PROVIDER_SOURCE_LADDER = EN_TEXT.title_provider_source_ladder
 TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
 TITLE_DESK_ACCOUNTING_CONTEXT = EN_TEXT.title_desk_accounting_context
 TITLE_ENVIRONMENT_CHECK = EN_TEXT.title_environment_check
@@ -1655,7 +1741,9 @@ STATUS_ACTIVE = EN_TEXT.status_active
 STATUS_APP_OWNED = EN_TEXT.status_app_owned
 STATUS_AVAILABLE = EN_TEXT.status_available
 STATUS_EXTERNAL = EN_TEXT.status_external
+STATUS_FAIL = EN_TEXT.status_fail
 STATUS_NEEDS_ATTENTION = EN_TEXT.status_needs_attention
+STATUS_PASS = EN_TEXT.status_pass
 STATUS_READY = EN_TEXT.status_ready
 
 DB_LOCKED_MSG = EN_TEXT.db_locked_msg

@@ -228,11 +228,17 @@ from agentic_trader.ui_text import (
     HELP_TRADE_STOP_LOSS,
     HELP_TRADE_TAKE_PROFIT,
     HELP_TRADE_THESIS,
+    HELP_V1_PROVIDER_CHECK,
     HELP_WEBGUI_OPEN_BROWSER,
     HELP_WEBGUI_SERVICE_APP,
     LABEL_AGENT,
     LABEL_ALLOWED,
+    LABEL_ADAPTER,
+    LABEL_ALPACA_CREDENTIALS_CONFIGURED,
+    LABEL_ALPACA_FEED,
+    LABEL_ALPACA_PAPER_ENDPOINT,
     LABEL_APPROVED,
+    LABEL_API_KEY,
     LABEL_AVERAGE_PRICE,
     LABEL_BASE_URL,
     LABEL_BASELINE,
@@ -263,6 +269,7 @@ from agentic_trader.ui_text import (
     LABEL_DB_STATUS,
     LABEL_DECISION,
     LABEL_DECISION_PATH,
+    LABEL_DEFAULT_MODEL,
     LABEL_DELTA,
     LABEL_DETAILS,
     LABEL_DIGEST_REPLAY,
@@ -292,9 +299,11 @@ from agentic_trader.ui_text import (
     LABEL_GROSS_EXPOSURE,
     LABEL_HEARTBEAT,
     LABEL_HEARTBEAT_AGE,
+    LABEL_HEALTHCHECK,
     LABEL_ID,
     LABEL_INTERVAL,
     LABEL_KEY,
+    LABEL_KILL_SWITCH_ACTIVE,
     LABEL_LARGEST_POSITION,
     LABEL_LAST_ERROR,
     LABEL_LAST_RECORDED_ERROR,
@@ -307,7 +316,10 @@ from agentic_trader.ui_text import (
     LABEL_LATEST_ORDER,
     LABEL_LEVEL,
     LABEL_LOCKFILE_EXISTS,
+    LABEL_LIVE_EXECUTION_ENABLED,
     LABEL_LIVE_PROCESS,
+    LABEL_LIVE_READY,
+    LABEL_LIVE_REQUESTED,
     LABEL_LLM,
     LABEL_LLM_PROVIDER,
     LABEL_LOCALE,
@@ -316,6 +328,8 @@ from agentic_trader.ui_text import (
     LABEL_MARK_STATUS,
     LABEL_MARKED_AT,
     LABEL_MARKET_PRICE,
+    LABEL_MARKET_PROVIDER,
+    LABEL_MARKET_ROLE,
     LABEL_MARKET_VALUE,
     LABEL_MARKS_RECORDED,
     LABEL_MAX_CYCLES,
@@ -330,6 +344,7 @@ from agentic_trader.ui_text import (
     LABEL_MODEL_ROUTING,
     LABEL_MULTI_TIMEFRAME,
     LABEL_NEXT,
+    LABEL_NEWS_MODE,
     LABEL_NO,
     LABEL_NOTES,
     LABEL_OBSERVER_MODE,
@@ -376,12 +391,14 @@ from agentic_trader.ui_text import (
     LABEL_SIDE,
     LABEL_SIDECAR_AVAILABLE,
     LABEL_SIGNAL,
+    LABEL_SIMULATED,
     LABEL_SIZE,
     LABEL_SLIPPAGE,
     LABEL_SOURCE,
     LABEL_SPECIALIST,
     LABEL_STAGE,
     LABEL_STARTED,
+    LABEL_STATE,
     LABEL_STATUS,
     LABEL_STATUS_NOTE,
     LABEL_STDERR,
@@ -477,7 +494,9 @@ from agentic_trader.ui_text import (
     STATUS_APP_OWNED,
     STATUS_AVAILABLE,
     STATUS_EXTERNAL,
+    STATUS_FAIL,
     STATUS_NEEDS_ATTENTION,
+    STATUS_PASS,
     STATUS_READY,
     STYLE_KEY_COLUMN,
     SUPPORTED_UI_LOCALES,
@@ -487,6 +506,7 @@ from agentic_trader.ui_text import (
     TITLE_BACKTEST_COMPARISON,
     TITLE_BACKTEST_MEMORY_ABLATION,
     TITLE_BACKTEST_TRADES,
+    TITLE_BROKER_STATUS,
     TITLE_CAMOFOX_BROWSER_HELPER,
     TITLE_CAMOFOX_STDERR_TAIL,
     TITLE_CAMOFOX_START_FAILED,
@@ -513,6 +533,8 @@ from agentic_trader.ui_text import (
     TITLE_OPERATOR_LAUNCHER,
     TITLE_PIPELINE,
     TITLE_POSITION_PLAN_REPAIR,
+    TITLE_PROVIDER_DIAGNOSTICS,
+    TITLE_PROVIDER_SOURCE_LADDER,
     TITLE_PORTFOLIO,
     TITLE_POSITIONS,
     TITLE_RECOMMENDED_COMMANDS,
@@ -5217,36 +5239,44 @@ def broker_status(
         _emit_json(payload)
         return
 
-    table = Table(title="Broker Status")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Backend", str(payload["backend"]))
-    table.add_row("Adapter", str(payload["adapter_name"]))
-    table.add_row("State", str(payload["state"]))
-    table.add_row("Simulated", str(payload["simulated"]))
-    table.add_row("Live Execution Enabled", str(payload["live_execution_enabled"]))
-    table.add_row("Kill Switch Active", str(payload["kill_switch_active"]))
-    table.add_row("Live Requested", str(payload["live_requested"]))
-    table.add_row("Live Ready", str(payload["live_ready"]))
-    table.add_row("Message", str(payload["message"]))
+    table = Table(title=TITLE_BROKER_STATUS)
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_BACKEND, str(payload["backend"]))
+    table.add_row(LABEL_ADAPTER, str(payload["adapter_name"]))
+    table.add_row(LABEL_STATE, str(payload["state"]))
+    table.add_row(LABEL_SIMULATED, str(payload["simulated"]))
+    table.add_row(
+        LABEL_LIVE_EXECUTION_ENABLED,
+        str(payload["live_execution_enabled"]),
+    )
+    table.add_row(LABEL_KILL_SWITCH_ACTIVE, str(payload["kill_switch_active"]))
+    table.add_row(LABEL_LIVE_REQUESTED, str(payload["live_requested"]))
+    table.add_row(LABEL_LIVE_READY, str(payload["live_ready"]))
+    table.add_row(LABEL_MESSAGE, str(payload["message"]))
     healthcheck = _object_mapping(payload.get("healthcheck"))
     if healthcheck:
-        table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
+        table.add_row(LABEL_HEALTHCHECK, str(healthcheck.get("message", "-")))
     console.print(table)
 
 
 def _render_readiness_checks(title: str, payload: Mapping[str, object]) -> None:
     checks = payload.get("checks", [])
     table = Table(title=title)
-    table.add_column("Check")
-    table.add_column("State")
-    table.add_column("Blocking")
-    table.add_column("Details")
+    table.add_column(LABEL_CHECK)
+    table.add_column(LABEL_STATE)
+    table.add_column(LABEL_BLOCKING)
+    table.add_column(LABEL_DETAILS)
     for item in _object_mapping_list(checks):
         passed = bool(item.get("passed"))
+        state_label = (
+            f"[green]{STATUS_PASS}[/green]"
+            if passed
+            else f"[red]{STATUS_FAIL}[/red]"
+        )
         table.add_row(
             str(item.get("name", "-")),
-            "[green]pass[/green]" if passed else "[red]fail[/red]",
+            state_label,
             str(item.get("blocking", True)),
             str(item.get("details", "")),
         )
@@ -5271,35 +5301,41 @@ def provider_diagnostics(
         _emit_json(payload)
         return
 
-    summary = Table(title="Provider Diagnostics")
-    summary.add_column("Field")
-    summary.add_column("Value")
+    summary = Table(title=TITLE_PROVIDER_DIAGNOSTICS)
+    summary.add_column(LABEL_FIELD)
+    summary.add_column(LABEL_VALUE)
     llm = _object_mapping(payload.get("llm"))
     market_data = _object_mapping(payload.get("market_data"))
     news = _object_mapping(payload.get("news"))
     alpaca = _object_mapping(payload.get("alpaca"))
-    summary.add_row("LLM Provider", str(llm.get("provider", "-")))
-    summary.add_row("Default Model", str(llm.get("default_model", "-")))
-    summary.add_row("Base URL", str(llm.get("base_url", "-")))
-    summary.add_row("Market Provider", str(market_data.get("selected_provider", "-")))
-    summary.add_row("Market Role", str(market_data.get("selected_role", "-")))
-    summary.add_row("News Mode", str(news.get("mode", "-")))
-    summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
-    summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
+    summary.add_row(LABEL_LLM_PROVIDER, str(llm.get("provider", "-")))
+    summary.add_row(LABEL_DEFAULT_MODEL, str(llm.get("default_model", "-")))
+    summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
     summary.add_row(
-        "Alpaca Credentials Configured",
+        LABEL_MARKET_PROVIDER,
+        str(market_data.get("selected_provider", "-")),
+    )
+    summary.add_row(LABEL_MARKET_ROLE, str(market_data.get("selected_role", "-")))
+    summary.add_row(LABEL_NEWS_MODE, str(news.get("mode", "-")))
+    summary.add_row(
+        LABEL_ALPACA_PAPER_ENDPOINT,
+        str(alpaca.get("paper_endpoint", "-")),
+    )
+    summary.add_row(LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
+    summary.add_row(
+        LABEL_ALPACA_CREDENTIALS_CONFIGURED,
         str(alpaca.get("credentials_configured", False)),
     )
     console.print(summary)
 
-    provider_table = Table(title="Provider Source Ladder")
-    provider_table.add_column("Provider")
-    provider_table.add_column("Type")
-    provider_table.add_column("Role")
-    provider_table.add_column("Enabled")
-    provider_table.add_column("API Key")
-    provider_table.add_column("Freshness")
-    provider_table.add_column("Notes")
+    provider_table = Table(title=TITLE_PROVIDER_SOURCE_LADDER)
+    provider_table.add_column(LABEL_PROVIDER)
+    provider_table.add_column(LABEL_TYPE)
+    provider_table.add_column(LABEL_ROLE)
+    provider_table.add_column(LABEL_ENABLED)
+    provider_table.add_column(LABEL_API_KEY)
+    provider_table.add_column(LABEL_FRESHNESS)
+    provider_table.add_column(LABEL_NOTES)
     for row in _object_mapping_list(payload.get("providers", [])):
         provider_table.add_row(
             str(row.get("provider_id", "-")),
@@ -5318,7 +5354,7 @@ def v1_readiness(
     check_provider: bool = typer.Option(
         False,
         "--provider-check/--skip-provider-check",
-        help="Check local model/provider readiness; may call the configured LLM service.",
+        help=HELP_V1_PROVIDER_CHECK,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:

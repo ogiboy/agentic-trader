@@ -79,6 +79,17 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_no_stderr_log_lines == (
         ui_text.MESSAGE_NO_STDERR_LOG_LINES
     )
+    assert catalog.title_broker_status == ui_text.TITLE_BROKER_STATUS
+    assert catalog.title_provider_diagnostics == ui_text.TITLE_PROVIDER_DIAGNOSTICS
+    assert catalog.title_provider_source_ladder == (
+        ui_text.TITLE_PROVIDER_SOURCE_LADDER
+    )
+    assert catalog.label_adapter == ui_text.LABEL_ADAPTER
+    assert catalog.label_default_model == ui_text.LABEL_DEFAULT_MODEL
+    assert catalog.label_live_ready == ui_text.LABEL_LIVE_READY
+    assert catalog.label_api_key == ui_text.LABEL_API_KEY
+    assert catalog.status_pass == ui_text.STATUS_PASS
+    assert catalog.status_fail == ui_text.STATUS_FAIL
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -131,6 +142,13 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.message_no_open_positions == "Acik pozisyon yok."
     assert catalog.message_no_stdout_log_lines == "Henuz stdout log satiri yok."
     assert catalog.message_no_stderr_log_lines == "Henuz stderr log satiri yok."
+    assert catalog.title_broker_status == "Broker Durumu"
+    assert catalog.label_default_model == "Varsayilan Model"
+    assert catalog.label_live_execution_enabled == "Live Execution Etkin"
+    assert catalog.label_live_ready == "Live Hazir"
+    assert catalog.label_alpaca_credentials_configured == (
+        "Alpaca Credential'lari Ayarli"
+    )
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 
