@@ -1,3 +1,5 @@
+"""Broker-facing execution intent contracts and timestamp helpers."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -21,9 +23,26 @@ ExecutionOutcomeStatus = Literal[
     "unsupported",
 ]
 
+__all__ = [
+    "BrokerHealthcheck",
+    "ExecutionIntent",
+    "ExecutionOutcome",
+    "ExecutionOutcomeStatus",
+    "OpenOrderSnapshot",
+    "OrderType",
+    "build_execution_intent",
+    "utc_now",
+]
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def utc_now() -> str:
+    """Return the current UTC timestamp in the execution contract format."""
+
+    return _utc_now()
 
 
 class ExecutionIntent(BaseModel):

@@ -65,3 +65,9 @@ def test_openai_compatible_api_key_can_be_passed_directly() -> None:
     settings = Settings(openai_compatible_api_key="direct-key")
 
     assert settings.openai_compatible_api_key == "direct-key"
+
+
+def test_ui_locale_reads_env(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENTIC_TRADER_UI_LOCALE", "tr")
+
+    assert Settings().ui_locale == "tr"

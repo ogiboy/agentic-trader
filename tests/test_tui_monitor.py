@@ -16,21 +16,21 @@ from agentic_trader.schemas import (
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.tui import (
     TuiMenuAction,
-    _agent_activity_lines,
-    _agent_activity_table,
-    _broker_gate_lines,
-    _last_outcome_lines,
-    _main_menu_actions,
-    _main_menu_table,
-    _memory_explorer_table,
-    _menu_table,
-    _run_main_menu_action,
-    _runtime_cycle_lines,
-    _runtime_state_table,
-    _split_csv,
-    _style_key,
-    _system_status_table,
+    agent_activity_lines,
+    agent_activity_table,
+    broker_gate_lines,
     build_monitor_renderable,
+    last_outcome_lines,
+    main_menu_actions,
+    main_menu_table,
+    memory_explorer_table,
+    menu_table,
+    run_main_menu_action,
+    runtime_cycle_lines,
+    runtime_state_table,
+    split_csv,
+    style_key,
+    system_status_table,
 )
 
 
@@ -111,7 +111,7 @@ def test_agent_activity_table_filters_to_current_runtime_cycle(tmp_path: Path) -
     state = db.get_service_state()
     events = db.list_service_events(limit=20)
     console = Console(record=True, width=120)
-    console.print(_agent_activity_table(state, events))
+    console.print(agent_activity_table(state, events))
     output = console.export_text()
 
     assert "Old cycle regime event." not in output
@@ -171,9 +171,9 @@ def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
         recent_stage_events=(),
     )
 
-    assert _style_key("7") == "[bold cyan]7[/bold cyan]"
-    assert _split_csv(" aapl, msft ,, ") == ["AAPL", "MSFT"]
-    assert _runtime_cycle_lines(settings=settings, state=state, view=view) == [
+    assert style_key("7") == "[bold cyan]7[/bold cyan]"
+    assert split_csv(" aapl, msft ,, ") == ["AAPL", "MSFT"]
+    assert runtime_cycle_lines(settings=settings, state=state, view=view) == [
         "Runtime: active",
         "Runtime Mode: operation",
         "Watched Symbols: AAPL, MSFT",
@@ -182,12 +182,12 @@ def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
         "Interval / Lookback: 1d / 90d",
         "Current Note: Working.",
     ]
-    assert _agent_activity_lines(activity)[:3] == [
+    assert agent_activity_lines(activity)[:3] == [
         "Current Stage: manager",
         "Stage Status: running",
         "Stage Message: Sizing order.",
     ]
-    assert _broker_gate_lines(
+    assert broker_gate_lines(
         broker={"backend": "paper", "state": "ready", "kill_switch_active": False},
         paper_operations={"allowed": True},
     ) == [
@@ -196,7 +196,7 @@ def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
         "Kill Switch: inactive",
         "V1 Paper Gate: allowed",
     ]
-    assert _last_outcome_lines(activity) == [
+    assert last_outcome_lines(activity) == [
         "Last Outcome Type: symbol_completed",
         "Last Outcome: Cycle complete.",
     ]
@@ -213,7 +213,7 @@ def test_terminal_tui_pure_helpers_render_status_lines(tmp_path: Path) -> None:
         stage_statuses=(),
         recent_stage_events=(),
     )
-    assert _last_outcome_lines(empty_activity) == [
+    assert last_outcome_lines(empty_activity) == [
         "Last Outcome: Waiting for a completed symbol, exit, or service result."
     ]
 
@@ -234,10 +234,10 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
     )
 
     console = Console(record=True, width=120)
-    console.print(_runtime_state_table(None))
-    console.print(_runtime_state_table(state))
+    console.print(runtime_state_table(None))
+    console.print(runtime_state_table(state))
     console.print(
-        _system_status_table(
+        system_status_table(
             settings,
             None,
             runtime_state=state,
@@ -252,7 +252,7 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
         )
     )
     console.print(
-        _memory_explorer_table(
+        memory_explorer_table(
             [
                 HistoricalMemoryMatch(
                     run_id="run-1",
@@ -269,7 +269,7 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
         )
     )
     console.print(
-        _menu_table(
+        menu_table(
             "Test Menu",
             [
                 TuiMenuAction("1", "Render thing", "Thing", lambda _db: None),
@@ -277,11 +277,11 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
             ],
         )
     )
-    actions = _main_menu_actions()
-    console.print(_main_menu_table(actions))
+    actions = main_menu_actions()
+    console.print(main_menu_table(actions))
     output = console.export_text()
 
-    assert "no runtime state recorded yet" in output
+    assert "No runtime state recorded yet." in output
     assert "Runtime active" not in output
     assert "System Status" in output
     assert "Base URL" in output
@@ -291,7 +291,7 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
     assert "Configure investment preferences" in output
 
     called: list[str] = []
-    keep_running = _run_main_menu_action(
+    keep_running = run_main_menu_action(
         settings,
         "1",
         actions=[
@@ -303,7 +303,7 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
     )
     assert keep_running is True
     assert called == ["work"]
-    keep_running = _run_main_menu_action(
+    keep_running = run_main_menu_action(
         settings,
         "2",
         actions=[

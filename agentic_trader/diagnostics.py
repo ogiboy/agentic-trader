@@ -47,19 +47,12 @@ def _payload_from_mapping(value: Mapping[object, object]) -> Payload:
 
 
 def _payload_list(value: object) -> list[Payload]:
-
     if not isinstance(value, list):
-
         return []
-
     rows: list[Payload] = []
-
     for item in cast(list[object], value):
-
         if isinstance(item, Mapping):
-
             rows.append(_payload_from_mapping(cast(Mapping[object, object], item)))
-
     return rows
 
 
@@ -181,16 +174,7 @@ def _allowed(checks: list[Check]) -> bool:
 
 
 def _provider_rows(payload: Payload) -> list[Payload]:
-    rows: list[Payload] = []
-    raw_rows = payload.get("providers", [])
-
-    if not isinstance(raw_rows, list):
-        return rows
-
-    for item in raw_rows:
-        if isinstance(item, Mapping):
-            rows.append({str(key): value for key, value in item.items()})
-    return rows
+    return _payload_list(payload.get("providers", []))
 
 
 def _paper_evidence_payload(
@@ -219,11 +203,12 @@ def _paper_evidence_payload(
         for row in provider_rows
     )
     market_data = provider_payload.get("market_data", {})
-    selected_provider = (
-        market_data.get("selected_provider")
-        if isinstance(market_data, dict)
-        else "unknown"
+    market_data_payload = (
+        _payload_from_mapping(cast(Mapping[object, object], market_data))
+        if isinstance(market_data, Mapping)
+        else {}
     )
+    selected_provider = market_data_payload.get("selected_provider") or "unknown"
     checks: list[Check] = [
         _check(
             "provider_source_ladder_visible",
@@ -342,10 +327,7 @@ def v1_readiness_payload(
         ),
     ]
     evidence_checks = paper_evidence.get("checks", [])
-    if isinstance(evidence_checks, list):
-        for check in evidence_checks:
-            if isinstance(check, Mapping):
-                paper_checks.append({str(key): value for key, value in check.items()})
+    paper_checks.extend(_payload_list(evidence_checks))
 
     provider_health: Payload | None = None
     if check_provider:

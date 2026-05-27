@@ -525,6 +525,31 @@ def _sleep_until_next_cycle(
     return False
 
 
+def wait_for_next_service_cycle(
+    db: TradingDatabase,
+    *,
+    settings: Settings,
+    symbols: list[str],
+    interval: str,
+    lookback: str,
+    poll_seconds: int,
+    continuous: bool,
+    max_cycles: int | None,
+    cycle_count: int,
+) -> bool:
+    """Wait for the next service cycle using the same stop-aware path as the runtime loop."""
+    config = _ServiceRunConfig(
+        settings=settings,
+        symbols=symbols,
+        interval=interval,
+        lookback=lookback,
+        poll_seconds=poll_seconds,
+        continuous=continuous,
+        max_cycles=max_cycles,
+    )
+    return _sleep_until_next_cycle(db, config, cycle_count=cycle_count)
+
+
 def _process_service_symbol(
     *,
     db: TradingDatabase,

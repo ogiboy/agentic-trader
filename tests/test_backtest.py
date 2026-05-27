@@ -22,6 +22,7 @@ from agentic_trader.schemas import (
     RunArtifacts,
     StrategyPlan,
 )
+from tests.typing_helpers import approx
 
 
 def _frame() -> pd.DataFrame:
@@ -208,7 +209,7 @@ def test_walk_forward_backtest_closes_trade_and_reports_metrics(
 
     assert report.total_trades == 1
     assert report.closed_trades == 1
-    assert report.win_rate == pytest.approx(1.0)
+    assert report.win_rate == approx(1.0)
     assert report.ending_equity > report.starting_equity
     assert report.trades[0].exit_reason in {"take_profit", "end_of_data"}
     frame = _frame()
@@ -262,9 +263,8 @@ def test_backtest_comparison_reports_deltas(
     )
     settings.ensure_directories()
 
-    monkeypatch.setattr(
-        "agentic_trader.backtest.walk_forward.run_walk_forward_backtest",
-        lambda **kwargs: BacktestReport(
+    def _agent_backtest(**_kwargs: object) -> BacktestReport:
+        return BacktestReport(
             symbol="AAPL",
             interval="1d",
             lookback="2y",
@@ -281,11 +281,10 @@ def test_backtest_comparison_reports_deltas(
             starting_equity=10_000.0,
             ending_equity=11_200.0,
             trades=[],
-        ),
-    )
-    monkeypatch.setattr(
-        "agentic_trader.backtest.walk_forward.run_deterministic_baseline_backtest",
-        lambda **kwargs: BacktestReport(
+        )
+
+    def _baseline_backtest(**_kwargs: object) -> BacktestReport:
+        return BacktestReport(
             symbol="AAPL",
             interval="1d",
             lookback="2y",
@@ -302,7 +301,15 @@ def test_backtest_comparison_reports_deltas(
             starting_equity=10_000.0,
             ending_equity=10_800.0,
             trades=[],
-        ),
+        )
+
+    monkeypatch.setattr(
+        "agentic_trader.backtest.walk_forward.run_walk_forward_backtest",
+        _agent_backtest,
+    )
+    monkeypatch.setattr(
+        "agentic_trader.backtest.walk_forward.run_deterministic_baseline_backtest",
+        _baseline_backtest,
     )
 
     comparison = run_backtest_comparison(
@@ -315,8 +322,8 @@ def test_backtest_comparison_reports_deltas(
         frame=_frame(),
     )
 
-    assert comparison.ending_equity_delta == pytest.approx(400.0)
-    assert comparison.total_return_delta_pct == pytest.approx(0.04)
+    assert comparison.ending_equity_delta == approx(400.0)
+    assert comparison.total_return_delta_pct == approx(0.04)
 
 
 def test_memory_ablation_backtest_reports_deltas(
@@ -339,7 +346,7 @@ def test_memory_ablation_backtest_reports_deltas(
 
     calls: list[bool] = []
 
-    def _fake_run_walk_forward_backtest(**kwargs) -> BacktestReport:
+    def _fake_run_walk_forward_backtest(**kwargs: object) -> BacktestReport:
         memory_enabled = bool(kwargs["memory_enabled"])
         calls.append(memory_enabled)
         if memory_enabled:
@@ -396,5 +403,5 @@ def test_memory_ablation_backtest_reports_deltas(
     )
 
     assert calls == [True, False]
-    assert ablation.ending_equity_delta == pytest.approx(400.0)
-    assert ablation.total_return_delta_pct == pytest.approx(0.04)
+    assert ablation.ending_equity_delta == approx(400.0)
+    assert ablation.total_return_delta_pct == approx(0.04)
