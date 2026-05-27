@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run strict Pyright while blocking regressions above the current backlog."""
+"""Run strict Pyright and require a clean diagnostic set."""
 
 from __future__ import annotations
 
@@ -12,22 +12,19 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-STRICT_BASELINE_ERROR_COUNT = 1776
-DEFAULT_TARGETS = ("agentic_trader", "tests", "scripts")
+STRICT_BASELINE_ERROR_COUNT = 0
+DEFAULT_TARGETS = ("agentic_trader", "tests", "scripts", "sidecars/research_flow/src")
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Run strict Pyright and fail only when diagnostics exceed the "
-            "documented staged-hardening baseline."
-        )
+        description=("Run strict Pyright and fail when any diagnostics are reported.")
     )
     parser.add_argument(
         "--max-errors",
         type=int,
         default=STRICT_BASELINE_ERROR_COUNT,
-        help="Maximum accepted strict Pyright error count.",
+        help="Maximum accepted strict Pyright error count; warnings and information still fail.",
     )
     parser.add_argument(
         "--pythonpath",
@@ -43,7 +40,10 @@ def _parse_args() -> argparse.Namespace:
         "targets",
         nargs="*",
         default=list(DEFAULT_TARGETS),
-        help="Pyright targets. Defaults to agentic_trader tests scripts.",
+        help=(
+            "Pyright targets. Defaults to agentic_trader tests scripts "
+            "sidecars/research_flow/src."
+        ),
     )
     return parser.parse_args()
 
@@ -91,6 +91,7 @@ def main() -> int:
     information_count = int(summary.get("informationCount") or 0)
     files_analyzed = int(summary.get("filesAnalyzed") or 0)
     elapsed = float(summary.get("timeInSec") or 0.0)
+    total_diagnostics = error_count + warning_count + information_count
 
     print(
         "Strict Pyright baseline: "
@@ -106,12 +107,12 @@ def main() -> int:
         for file_path, count in counts.most_common(args.top_files):
             print(f"  {count:4d} {file_path}")
 
-    if error_count > args.max_errors:
+    if error_count > args.max_errors or total_diagnostics > 0:
         print(
-            "Strict Pyright backlog regressed above the accepted baseline. "
-            "Fix new diagnostics or intentionally raise the documented "
-            "baseline in ROADMAP.md, .ai/current-state.instructions.md, and "
-            "this script.",
+            "Strict Pyright reported diagnostics "
+            f"(errors={error_count}, warnings={warning_count}, "
+            f"information={information_count}). "
+            "Fix diagnostics before publishing.",
             file=sys.stderr,
         )
         return 1

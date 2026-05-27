@@ -228,7 +228,7 @@ class ResearchCrew:
     @agent
     def researcher(self) -> Agent:
         return Agent(
-            config=self.agents_config["researcher"],  # type: ignore[index]
+            config=self.agents_config["researcher"],
             tools=[SerperDevTool()],
             verbose=True,
         )
@@ -236,20 +236,20 @@ class ResearchCrew:
     @agent
     def writer(self) -> Agent:
         return Agent(
-            config=self.agents_config["writer"],  # type: ignore[index]
+            config=self.agents_config["writer"],
             verbose=True,
         )
 
     @task
     def research_task(self) -> Task:
         return Task(
-            config=self.tasks_config["research_task"],  # type: ignore[index]
+            config=self.tasks_config["research_task"],
         )
 
     @task
     def writing_task(self) -> Task:
         return Task(
-            config=self.tasks_config["writing_task"],  # type: ignore[index]
+            config=self.tasks_config["writing_task"],
         )
 
     @crew
@@ -265,7 +265,7 @@ class ResearchCrew:
 
 ### Key formatting rules
 
-- Always add `# type: ignore[index]` for config dictionary access
+- Prefer typed config helpers or validated casts for config dictionary access
 - Agent/task method names must match YAML keys exactly
 - Tools go on agents (not tasks) unless task-specific override is needed
 - Never leave commented-out code in crew classes
@@ -438,7 +438,7 @@ Environment variable default: set `OPENAI_MODEL_NAME=gpt-4o` or `MODEL=gpt-4o` i
 @task
 def analysis_task(self) -> Task:
     return Task(
-        config=self.tasks_config["analysis_task"],  # type: ignore[index]
+        config=self.tasks_config["analysis_task"],
         context=[self.research_task()],  # Gets output from research_task
     )
 ```
@@ -456,7 +456,7 @@ class Report(BaseModel):
 @task
 def report_task(self) -> Task:
     return Task(
-        config=self.tasks_config["report_task"],  # type: ignore[index]
+        config=self.tasks_config["report_task"],
         output_pydantic=Report,
     )
 ```
@@ -1062,7 +1062,7 @@ crewai run                    # Execute
 ## Common Pitfalls
 
 - **Using `ChatOpenAI()`** — Always use `crewai.LLM` or string shorthand like `"openai/gpt-4o"`
-- Forgetting `# type: ignore[index]` on config dictionary access in crew classes
+- Leaving config dictionary access untyped in crew classes
 - Agent/task method names not matching YAML keys
 - Missing `expected_output` in task configuration (required)
 - Not passing `inputs` to `kickoff()` when YAML uses `{variable}` interpolation

@@ -11,12 +11,13 @@ import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import uuid4
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import object_dict_list as _object_mapping_list
+from agentic_trader.json_utils import object_dict_or_none as _object_mapping
 from agentic_trader.researchd.crewai_setup import default_crewai_flow_dir
 from agentic_trader.researchd.providers import (
     ResearchEvidenceProvider,
@@ -26,6 +27,7 @@ from agentic_trader.researchd.providers import (
     source_attributions_from_output,
 )
 from agentic_trader.schemas import (
+    DataSourceAttribution,
     EntityDossier,
     MacroEvent,
     RawEvidenceRecord,
@@ -36,6 +38,7 @@ from agentic_trader.schemas import (
     WorldStateSnapshot,
 )
 from agentic_trader.security import redact_sensitive_text
+from agentic_trader.time_utils import utc_now_iso
 
 ContractRunner = Callable[
     [list[str], str, Path, dict[str, str], float],
@@ -70,6 +73,16 @@ _MODEL_ENV_PREFIXES = (
 )
 
 
+def _contract_error_items(value: object) -> list[object]:
+    if isinstance(value, list):
+        return cast(list[object], value)
+    if isinstance(value, tuple):
+        return list(cast(tuple[object, ...], value))
+    if value is None:
+        return []
+    return [value]
+
+
 def _sidecar_process_env() -> dict[str, str]:
     """Build a narrow sidecar environment without broker/runtime secrets."""
     env: dict[str, str] = {}
@@ -80,16 +93,35 @@ def _sidecar_process_env() -> dict[str, str]:
     return env
 
 
-def utc_now_iso() -> str:
-    """Return an ISO timestamp in UTC for sidecar metadata."""
-    return datetime.now(UTC).isoformat()
-
-
 def parse_research_symbols(raw_symbols: str) -> list[str]:
     """Parse comma-separated watch symbols from settings."""
     return [
         symbol.strip().upper() for symbol in raw_symbols.split(",") if symbol.strip()
     ]
+
+
+def _empty_raw_evidence_records() -> list[RawEvidenceRecord]:
+    return []
+
+
+def _empty_macro_events() -> list[MacroEvent]:
+    return []
+
+
+def _empty_social_signals() -> list[SocialSignal]:
+    return []
+
+
+def _empty_research_findings() -> list[ResearchFinding]:
+    return []
+
+
+def _empty_entity_dossiers() -> list[EntityDossier]:
+    return []
+
+
+def _empty_memory_update() -> dict[str, object]:
+    return {}
 
 
 @dataclass(frozen=True)
@@ -98,12 +130,14 @@ class ResearchPipelineResult:
 
     state: ResearchSidecarState
     world_state: WorldStateSnapshot | None = None
-    raw_evidence: list[RawEvidenceRecord] = field(default_factory=list)
-    macro_events: list[MacroEvent] = field(default_factory=list)
-    social_signals: list[SocialSignal] = field(default_factory=list)
-    findings: list[ResearchFinding] = field(default_factory=list)
-    dossiers: list[EntityDossier] = field(default_factory=list)
-    memory_update: dict[str, object] = field(default_factory=dict)
+    raw_evidence: list[RawEvidenceRecord] = field(
+        default_factory=_empty_raw_evidence_records
+    )
+    macro_events: list[MacroEvent] = field(default_factory=_empty_macro_events)
+    social_signals: list[SocialSignal] = field(default_factory=_empty_social_signals)
+    findings: list[ResearchFinding] = field(default_factory=_empty_research_findings)
+    dossiers: list[EntityDossier] = field(default_factory=_empty_entity_dossiers)
+    memory_update: dict[str, object] = field(default_factory=_empty_memory_update)
 
 
 class ResearchSidecarBackend(Protocol):
@@ -139,7 +173,7 @@ class NoopResearchBackend:
         macro_events: list[MacroEvent] = []
         social_signals: list[SocialSignal] = []
         health: list[ResearchProviderHealth] = []
-        attributions = []
+        attributions: list[DataSourceAttribution] = []
 
         for output in provider_outputs:
             raw_evidence.extend(output.raw_evidence)
@@ -318,14 +352,15 @@ class CrewAiResearchBackend:
             )
         if completed.returncode != 0 or contract_payload.get("status") != "completed":
             errors = contract_payload.get("errors")
+            error_items = _contract_error_items(errors)
             return self._failed_result(
                 settings=settings,
                 symbols=symbols,
                 provider_outputs=provider_outputs,
                 now=now,
                 message=(
-                    "; ".join(str(item) for item in errors)
-                    if isinstance(errors, list) and errors
+                    "; ".join(str(item) for item in error_items)
+                    if error_items
                     else "CrewAI Flow sidecar contract returned a failed status."
                 ),
             )
@@ -380,7 +415,7 @@ class CrewAiResearchBackend:
             payload = json.loads(completed.stdout)
         except json.JSONDecodeError:
             return None
-        return payload if isinstance(payload, dict) else None
+        return _object_mapping(payload)
 
     @staticmethod
     def _trim(value: str, *, limit: int = 500) -> str:
@@ -436,42 +471,25 @@ class CrewAiResearchBackend:
             macro_events.extend(output.macro_events)
             social_signals.extend(output.social_signals)
 
-        payload_macro_events = payload.get("macro_events", [])
-        if not isinstance(payload_macro_events, list):
-            payload_macro_events = []
-        payload_social_signals = payload.get("social_signals", [])
-        if not isinstance(payload_social_signals, list):
-            payload_social_signals = []
-        payload_findings = payload.get("findings", [])
-        if not isinstance(payload_findings, list):
-            payload_findings = []
-        payload_dossiers = payload.get("dossiers", [])
-        if not isinstance(payload_dossiers, list):
-            payload_dossiers = []
-
         macro_events.extend(
             MacroEvent.model_validate(item)
-            for item in payload_macro_events
-            if isinstance(item, dict)
+            for item in _object_mapping_list(payload.get("macro_events"))
         )
         social_signals.extend(
             SocialSignal.model_validate(item)
-            for item in payload_social_signals
-            if isinstance(item, dict)
+            for item in _object_mapping_list(payload.get("social_signals"))
         )
         findings = [
             ResearchFinding.model_validate(item)
-            for item in payload_findings
-            if isinstance(item, dict)
+            for item in _object_mapping_list(payload.get("findings"))
         ]
         dossiers = [
             EntityDossier.model_validate(item)
-            for item in payload_dossiers
-            if isinstance(item, dict)
+            for item in _object_mapping_list(payload.get("dossiers"))
         ]
         generated_at = str(payload.get("generated_at") or utc_now_iso())
         observed_at = str(payload.get("observed_at") or generated_at)
-        attributions = []
+        attributions: list[DataSourceAttribution] = []
         for output in provider_outputs:
             attributions.extend(source_attributions_from_output(output))
         world_state = WorldStateSnapshot(
@@ -496,11 +514,7 @@ class CrewAiResearchBackend:
             ),
         )
         payload_memory_update = payload.get("memory_update", {})
-        memory_update = (
-            dict(payload_memory_update)
-            if isinstance(payload_memory_update, dict)
-            else {}
-        )
+        memory_update = _object_mapping(payload_memory_update) or {}
         memory_update.setdefault("status", "not_written")
         memory_update.setdefault("raw_web_text_injected", False)
         memory_update.setdefault("broker_access", False)

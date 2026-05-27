@@ -8,6 +8,8 @@ import pytest
 from agentic_trader.config import Settings
 from agentic_trader.system.tool_ownership import (
     OWNERSHIP_MODES,
+    OwnershipMode,
+    OwnershipToolId,
     normalize_ownership_tool,
     ownership_mode_for_tool,
     ownership_note,
@@ -97,11 +99,11 @@ def test_normalize_ownership_tool_rejects_unknown_id() -> None:
 
 
 def test_ownership_note_returns_non_empty_string_for_all_modes() -> None:
-    tools = ("ollama", "firecrawl", "camofox")
-    modes = ("undecided", "host-owned", "app-owned", "api-key-only", "skipped")
+    tools: tuple[OwnershipToolId, ...] = ("ollama", "firecrawl", "camofox")
+    modes: tuple[OwnershipMode, ...] = OWNERSHIP_MODES
     for tool in tools:
         for mode in modes:
-            note = ownership_note(tool, mode)  # type: ignore[arg-type]
+            note = ownership_note(tool, mode)
             assert isinstance(note, str) and note.strip()
 
 

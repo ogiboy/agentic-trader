@@ -14,44 +14,67 @@ def default_crewai_flow_dir(settings: Settings) -> Path:
     return Path(__file__).resolve().parents[2] / "sidecars" / "research_flow"
 
 
-def crewai_setup_status(settings: Settings) -> dict[str, object]:
-    """Report optional CrewAI CLI/setup state without importing CrewAI."""
-    cli_path = shutil.which("crewai")
-    uv_path = shutil.which("uv")
-    version: str | None = None
-    version_status = "missing" if cli_path is None else "not_checked"
-    version_error: str | None = None
-    if cli_path:
-        try:
-            completed = subprocess.run(
-                [cli_path, "--version"],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            output = (completed.stdout or completed.stderr).strip()
-            first_line = next(
-                (line.strip() for line in output.splitlines() if line.strip()),
-                "",
-            )
-            if completed.returncode == 0:
-                version = redact_sensitive_text(first_line, max_length=160) or None
-                version_status = "ok"
-            else:
-                version_status = "failed"
-                if "Traceback" in output:
-                    version_error = "crewai --version failed before returning a version"
-                else:
-                    version_error = (
-                        redact_sensitive_text(first_line, max_length=200)
-                        or "crewai --version returned a non-zero exit code"
-                    )
-        except Exception as exc:
-            version_status = "failed"
-            version_error = redact_sensitive_text(str(exc), max_length=200)
+def _crewai_sidecar_version(
+    uv_path: str, flow_dir: Path
+) -> tuple[str | None, str, str | None]:
+    try:
+        completed = subprocess.run(
+            [
+                uv_path,
+                "run",
+                "--directory",
+                str(flow_dir),
+                "--locked",
+                "--no-sync",
+                "python",
+                "-c",
+                "import crewai; print(getattr(crewai, '__version__', 'unknown'))",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception as exc:
+        return None, "failed", redact_sensitive_text(str(exc), max_length=200)
 
+    output = (completed.stdout or completed.stderr).strip()
+    first_line = next(
+        (line.strip() for line in output.splitlines() if line.strip()),
+        "",
+    )
+    if completed.returncode == 0:
+        return redact_sensitive_text(first_line, max_length=160) or None, "ok", None
+    if "Traceback" in output:
+        return None, "failed", "CrewAI sidecar import failed before returning a version"
+    return (
+        None,
+        "failed",
+        redact_sensitive_text(first_line, max_length=200)
+        or "CrewAI sidecar version check returned a non-zero exit code",
+    )
+
+
+def crewai_setup_status(settings: Settings) -> dict[str, object]:
+    """Report optional CrewAI sidecar setup state without importing CrewAI into core runtime."""
+    uv_path = shutil.which("uv")
     flow_dir = default_crewai_flow_dir(settings)
+    flow_scaffold_exists = (flow_dir / "pyproject.toml").exists()
+    environment_exists = (flow_dir / ".venv").exists()
+    version: str | None = None
+    version_status = "missing_uv" if uv_path is None else "not_checked"
+    version_error: str | None = None
+    if uv_path is not None and flow_scaffold_exists:
+        version, version_status, version_error = _crewai_sidecar_version(
+            uv_path, flow_dir
+        )
+        if version_status == "ok" and not environment_exists:
+            version_status = "missing_environment"
+    elif uv_path is not None and not flow_scaffold_exists:
+        version_status = "missing_scaffold"
+    elif uv_path is not None and not environment_exists:
+        version_status = "missing_environment"
+
     python_version_file = flow_dir / ".python-version"
     notes = [
         "CrewAI stays optional and isolated behind researchd backend boundaries.",
@@ -61,19 +84,20 @@ def crewai_setup_status(settings: Settings) -> dict[str, object]:
     ]
     if version_error:
         notes.append(
-            f"crewai_cli_version_check_failed: {version_error}; run pnpm run setup:research-flow"
+            f"crewai_sidecar_version_check_failed: {version_error}; run pnpm run setup:research-flow"
         )
     return {
-        "available": cli_path is not None,
-        "cli_path": cli_path,
+        "available": environment_exists,
+        "cli_path": None,
         "uv_available": uv_path is not None,
         "uv_path": uv_path,
         "version": version,
+        "version_source": "sidecar_uv",
         "version_status": version_status,
         "version_error": version_error,
         "flow_dir": str(flow_dir),
-        "flow_scaffold_exists": (flow_dir / "pyproject.toml").exists(),
-        "environment_exists": (flow_dir / ".venv").exists(),
+        "flow_scaffold_exists": flow_scaffold_exists,
+        "environment_exists": environment_exists,
         "python_version": (
             python_version_file.read_text(encoding="utf-8").strip()
             if python_version_file.exists()
