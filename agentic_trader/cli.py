@@ -233,9 +233,13 @@ from agentic_trader.ui_text import (
     HELP_RESEARCH_REFRESH_PERSIST,
     HELP_RUNTIME_EVENT_LIMIT,
     HELP_PROVIDER_CHECK,
+    HELP_CALENDAR_STATUS_SYMBOL,
     HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
     HELP_EVIDENCE_BUNDLE_LABEL,
     HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
+    HELP_OBSERVER_API_ALLOW_NONLOCAL,
+    HELP_OBSERVER_API_HOST,
+    HELP_OBSERVER_API_PORT,
     HELP_RUN_ID,
     HELP_RUNTIME_MODE_PROVIDER_CHECK,
     HELP_RUNTIME_MODE_TARGET,
@@ -284,6 +288,7 @@ from agentic_trader.ui_text import (
     LABEL_APPROVED,
     LABEL_API_KEY,
     LABEL_ARTIFACT,
+    LABEL_ASSET_CLASS,
     LABEL_AVERAGE_PRICE,
     LABEL_BASE_URL,
     LABEL_BASELINE,
@@ -400,6 +405,7 @@ from agentic_trader.ui_text import (
     LABEL_NEXT,
     LABEL_NEWS_MODE,
     LABEL_NO,
+    LABEL_NOTE,
     LABEL_NOTES,
     LABEL_OBSERVER_MODE,
     LABEL_OLLAMA_REACHABLE,
@@ -479,11 +485,13 @@ from agentic_trader.ui_text import (
     LABEL_TAKE,
     LABEL_TAKE_PROFIT,
     LABEL_TARGET,
+    LABEL_TIMEZONE,
     LABEL_TOOL,
     LABEL_TOOLS,
     LABEL_TOKEN_HINT,
     LABEL_TOTAL_RETURN,
     LABEL_TRADES,
+    LABEL_TRADABLE_NOW,
     LABEL_TRIGGER_NOW,
     LABEL_TRIGGER_NOW_REQUESTED,
     LABEL_TYPE,
@@ -496,6 +504,7 @@ from agentic_trader.ui_text import (
     LABEL_V1_PATH,
     LABEL_VALIDATION,
     LABEL_VALUE,
+    LABEL_VENUE,
     LABEL_VERSION,
     LABEL_VERSION_SOURCE,
     LABEL_WARMUP_BARS,
@@ -513,6 +522,7 @@ from agentic_trader.ui_text import (
     LAUNCHER_OPTION_REFRESH,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
+    MESSAGE_CALENDAR_STATUS_UNAVAILABLE,
     MESSAGE_EVIDENCE_BUNDLE_WRITTEN,
     MESSAGE_FALLBACK_USED_IN,
     MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
@@ -537,6 +547,8 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
     MESSAGE_NO_TRADE_PROPOSALS,
     MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
+    MESSAGE_OBSERVER_API_LISTENING,
+    MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
     MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
     MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE,
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
@@ -591,6 +603,7 @@ from agentic_trader.ui_text import (
     TITLE_BACKTEST_MEMORY_ABLATION,
     TITLE_BACKTEST_TRADES,
     TITLE_BROKER_STATUS,
+    TITLE_CALENDAR_STATUS,
     TITLE_ALPACA_PAPER_CHECKS,
     TITLE_CANDIDATE_REJECTED,
     TITLE_CAMOFOX_BROWSER_HELPER,
@@ -611,6 +624,7 @@ from agentic_trader.ui_text import (
     TITLE_FINANCE_OPERATIONS_CHECKS,
     TITLE_LLM_STATUS,
     TITLE_LAUNCH_PLAN,
+    TITLE_MARKET_SESSION,
     TITLE_MANAGER_CONFLICT_REPLAY,
     TITLE_MANAGER_CONFLICTS,
     TITLE_MANAGER_OVERRIDE_NOTES,
@@ -619,6 +633,8 @@ from agentic_trader.ui_text import (
     TITLE_MODEL_PULL,
     TITLE_MODEL_SERVICE_STDERR_TAIL,
     TITLE_MODEL_SERVICE_START_FAILED,
+    TITLE_OBSERVER_API,
+    TITLE_OBSERVER_API_BLOCKED,
     TITLE_OPERATOR_INSTRUCTION,
     TITLE_OPERATOR_LAUNCHER,
     TITLE_OPERATOR_WORKFLOW,
@@ -7337,22 +7353,34 @@ def build_observer_api_payload(
     return 404, {"error": "not_found", "path": path}
 
 
+OBSERVER_API_ENDPOINTS: tuple[str, ...] = (
+    "/health",
+    "/dashboard",
+    "/status",
+    "/logs",
+    "/broker",
+    "/finance-ops",
+    "/provider-diagnostics",
+    "/v1-readiness",
+    "/research",
+    "/proposal-candidates",
+    "/trade-proposals",
+)
+
+
 @app.command("observer-api")
 def observer_api_command(
     host: str = typer.Option(
-        "127.0.0.1", help="Bind address for the local observer API."
+        "127.0.0.1", help=HELP_OBSERVER_API_HOST
     ),
     port: int = typer.Option(
-        8765, min=1, max=65535, help="Bind port for the local observer API."
+        8765, min=1, max=65535, help=HELP_OBSERVER_API_PORT
     ),
     log_limit: int = typer.Option(14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT),
     allow_nonlocal: bool = typer.Option(
         False,
         "--allow-nonlocal",
-        help=(
-            "Allow binding the observer API to a non-loopback host. "
-            "Requires AGENTIC_TRADER_OBSERVER_API_TOKEN."
-        ),
+        help=HELP_OBSERVER_API_ALLOW_NONLOCAL,
     ),
 ) -> None:
     """
@@ -7366,20 +7394,21 @@ def observer_api_command(
     if nonlocal_bind and (not allow_nonlocal or not settings.observer_api_token):
         console.print(
             Panel(
-                (
-                    "Observer API is local-only by default. Use a loopback host "
-                    "or set AGENTIC_TRADER_OBSERVER_API_TOKEN and pass "
-                    "--allow-nonlocal for an intentional nonlocal read-only bind."
-                ),
-                title="Observer API Blocked",
+                MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
+                title=TITLE_OBSERVER_API_BLOCKED,
                 border_style="red",
             )
         )
         raise typer.Exit(code=2)
+    endpoints = "\n".join(f"- {endpoint}" for endpoint in OBSERVER_API_ENDPOINTS)
     console.print(
         Panel(
-            f"Observer API listening on http://{host}:{port}\n\nAvailable endpoints:\n- /health\n- /dashboard\n- /status\n- /logs\n- /broker\n- /finance-ops\n- /provider-diagnostics\n- /v1-readiness\n- /research\n- /proposal-candidates\n- /trade-proposals",
-            title="Observer API",
+            MESSAGE_OBSERVER_API_LISTENING.format(
+                endpoints=endpoints,
+                host=host,
+                port=port,
+            ),
+            title=TITLE_OBSERVER_API,
             border_style="cyan",
         )
     )
@@ -7394,7 +7423,9 @@ def observer_api_command(
             token=settings.observer_api_token,
         )
     except ValueError as exc:
-        console.print(Panel(str(exc), title="Observer API Blocked", border_style="red"))
+        console.print(
+            Panel(str(exc), title=TITLE_OBSERVER_API_BLOCKED, border_style="red")
+        )
         raise typer.Exit(code=2) from exc
 
 
@@ -7402,7 +7433,7 @@ def observer_api_command(
 def calendar_status(
     symbol: str | None = typer.Option(
         None,
-        help="Optional ticker symbol. Defaults to the latest run symbol or preference-derived default.",
+        help=HELP_CALENDAR_STATUS_SYMBOL,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -7423,22 +7454,22 @@ def calendar_status(
     if not payload["available"] or payload["session"] is None:
         console.print(
             Panel(
-                f"Calendar status is temporarily unavailable.\n\n{payload['error']}",
-                title="Calendar Status",
+                MESSAGE_CALENDAR_STATUS_UNAVAILABLE.format(error=payload["error"]),
+                title=TITLE_CALENDAR_STATUS,
                 border_style="yellow",
             )
         )
         raise typer.Exit(code=0)
     session = MarketSessionStatus.model_validate(payload["session"])
-    table = Table(title=f"Market Session / {session.symbol}")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Venue", session.venue)
-    table.add_row("Asset Class", session.asset_class)
-    table.add_row("Timezone", session.timezone)
-    table.add_row("State", session.session_state)
-    table.add_row("Tradable Now", str(session.tradable_now))
-    table.add_row("Note", session.note)
+    table = Table(title=TITLE_MARKET_SESSION.format(symbol=session.symbol))
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_VENUE, session.venue)
+    table.add_row(LABEL_ASSET_CLASS, session.asset_class)
+    table.add_row(LABEL_TIMEZONE, session.timezone)
+    table.add_row(LABEL_STATE, session.session_state)
+    table.add_row(LABEL_TRADABLE_NOW, str(session.tradable_now))
+    table.add_row(LABEL_NOTE, session.note)
     console.print(table)
 
 

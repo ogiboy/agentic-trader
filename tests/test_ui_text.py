@@ -149,6 +149,14 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_evidence_bundle_written == (
         ui_text.MESSAGE_EVIDENCE_BUNDLE_WRITTEN
     )
+    assert catalog.title_observer_api == ui_text.TITLE_OBSERVER_API
+    assert catalog.help_observer_api_host == ui_text.HELP_OBSERVER_API_HOST
+    assert catalog.message_observer_api_listening == (
+        ui_text.MESSAGE_OBSERVER_API_LISTENING
+    )
+    assert catalog.title_calendar_status == ui_text.TITLE_CALENDAR_STATUS
+    assert catalog.title_market_session == ui_text.TITLE_MARKET_SESSION
+    assert catalog.label_tradable_now == ui_text.LABEL_TRADABLE_NOW
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -247,6 +255,13 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_step == "Adim"
     assert catalog.message_evidence_bundle_written == (
         "Bundle {bundle_dir} icine yazildi"
+    )
+    assert catalog.help_observer_api_port == "Yerel observer API icin bind portu."
+    assert catalog.title_observer_api_blocked == "Observer API Bloklandi"
+    assert catalog.label_asset_class == "Varlik Sinifi"
+    assert catalog.label_timezone == "Saat Dilimi"
+    assert catalog.message_calendar_status_unavailable.startswith(
+        "Calendar status gecici"
     )
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN

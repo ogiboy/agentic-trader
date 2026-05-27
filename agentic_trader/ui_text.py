@@ -79,9 +79,13 @@ class UITextCatalog:
     help_research_refresh_persist: str
     help_runtime_event_limit: str
     help_provider_check: str
+    help_calendar_status_symbol: str
     help_evidence_bundle_include_latest_smoke: str
     help_evidence_bundle_label: str
     help_evidence_bundle_output_dir: str
+    help_observer_api_allow_nonlocal: str
+    help_observer_api_host: str
+    help_observer_api_port: str
     help_firecrawl_owner: str
     help_camofox_owner: str
     help_camofox_service_host: str
@@ -134,6 +138,7 @@ class UITextCatalog:
     label_approved: str
     label_api_key: str
     label_artifact: str
+    label_asset_class: str
     label_average_price: str
     label_baseline: str
     label_base_url: str
@@ -248,6 +253,7 @@ class UITextCatalog:
     label_memory_gb: str
     label_multi_timeframe: str
     label_no: str
+    label_note: str
     label_notes: str
     label_next: str
     label_news_mode: str
@@ -330,9 +336,11 @@ class UITextCatalog:
     label_take_profit: str
     label_tool: str
     label_tools: str
+    label_timezone: str
     label_token_hint: str
     label_total_return: str
     label_trades: str
+    label_tradable_now: str
     label_trigger_now: str
     label_trigger_now_requested: str
     label_type: str
@@ -344,6 +352,7 @@ class UITextCatalog:
     label_uv_available: str
     label_validation: str
     label_value: str
+    label_venue: str
     label_version: str
     label_version_source: str
     label_v1_path: str
@@ -370,6 +379,7 @@ class UITextCatalog:
     message_no_historical_memories: str
     message_no_action_selected: str
     message_operator_workflow_guidance: str
+    message_calendar_status_unavailable: str
     message_no_open_positions: str
     message_no_proposal_candidates: str
     message_no_trade_proposals: str
@@ -395,6 +405,8 @@ class UITextCatalog:
     message_research_cycle_reason_requires_action: str
     message_research_cycle_run_summary: str
     message_research_snapshot_recorded: str
+    message_observer_api_listening: str
+    message_observer_api_nonlocal_blocked: str
     message_runtime_gate_open: str
     message_portfolio_temporarily_unavailable: str
     message_trade_proposals_temporarily_unavailable: str
@@ -443,6 +455,7 @@ class UITextCatalog:
     title_backtest_memory_ablation: str
     title_backtest_trades: str
     title_broker_status: str
+    title_calendar_status: str
     title_alpaca_paper_checks: str
     title_candidate_rejected: str
     title_camofox_browser_helper: str
@@ -450,6 +463,8 @@ class UITextCatalog:
     title_camofox_start_failed: str
     title_choose_surface: str
     title_llm_status: str
+    title_observer_api: str
+    title_observer_api_blocked: str
     title_operator_instruction: str
     title_operator_launcher: str
     title_operator_workflow: str
@@ -473,6 +488,7 @@ class UITextCatalog:
     title_manager_override_notes: str
     title_memory_aware_replay: str
     title_memory_explorer: str
+    title_market_session: str
     title_model_pull: str
     title_model_service_stderr_tail: str
     title_model_service_start_failed: str
@@ -623,6 +639,10 @@ EN_TEXT = UITextCatalog(
     help_research_refresh_persist="Persist the sidecar snapshot to the runtime research JSON feed.",
     help_runtime_event_limit="Maximum number of runtime events to include.",
     help_provider_check="Actively check the configured LLM provider/model readiness.",
+    help_calendar_status_symbol=(
+        "Optional ticker symbol. Defaults to the latest run symbol or "
+        "preference-derived default."
+    ),
     help_evidence_bundle_include_latest_smoke=(
         "Copy the latest smoke summary/report into the bundle when available."
     ),
@@ -630,6 +650,12 @@ EN_TEXT = UITextCatalog(
         "Bundle directory label. Defaults to evidence-YYYYMMDD-HHMMSS."
     ),
     help_evidence_bundle_output_dir="Artifact root. Defaults to .ai/qa/artifacts.",
+    help_observer_api_allow_nonlocal=(
+        "Allow binding the observer API to a non-loopback host. Requires "
+        "AGENTIC_TRADER_OBSERVER_API_TOKEN."
+    ),
+    help_observer_api_host="Bind address for the local observer API.",
+    help_observer_api_port="Bind port for the local observer API.",
     help_firecrawl_owner="Ownership mode for Firecrawl: host-owned, app-owned, api-key-only, or skipped.",
     help_camofox_owner="Ownership mode for Camofox: host-owned, app-owned, api-key-only, or skipped.",
     help_camofox_service_host="Loopback bind host for app-managed Camofox.",
@@ -682,6 +708,7 @@ EN_TEXT = UITextCatalog(
     label_approved="Approved",
     label_api_key="API Key",
     label_artifact="Artifact",
+    label_asset_class="Asset Class",
     label_average_price="Average Price",
     label_baseline="Baseline",
     label_base_url="Base URL",
@@ -796,6 +823,7 @@ EN_TEXT = UITextCatalog(
     label_memory_gb="Memory GB",
     label_multi_timeframe="Multi-Timeframe",
     label_no="no",
+    label_note="Note",
     label_notes="Notes",
     label_next="Next",
     label_news_mode="News Mode",
@@ -878,9 +906,11 @@ EN_TEXT = UITextCatalog(
     label_take_profit="Take Profit",
     label_tool="Tool",
     label_tools="Tools",
+    label_timezone="Timezone",
     label_token_hint="Token Hint",
     label_total_return="Total Return",
     label_trades="Trades",
+    label_tradable_now="Tradable Now",
     label_trigger_now="Trigger Now",
     label_trigger_now_requested="Trigger now requested",
     label_type="Type",
@@ -892,6 +922,7 @@ EN_TEXT = UITextCatalog(
     label_uv_available="uv Available",
     label_validation="Validation",
     label_value="Value",
+    label_venue="Venue",
     label_version="Version",
     label_version_source="Version Source",
     label_v1_path="V1 Path",
@@ -921,6 +952,9 @@ EN_TEXT = UITextCatalog(
     message_no_action_selected="No action selected.",
     message_operator_workflow_guidance=(
         "Read-only workflow guide. Review readiness and evidence before long paper operation."
+    ),
+    message_calendar_status_unavailable=(
+        "Calendar status is temporarily unavailable.\n\n{error}"
     ),
     message_no_open_positions="No open positions.",
     message_no_proposal_candidates="No proposal candidates recorded yet.",
@@ -973,6 +1007,15 @@ EN_TEXT = UITextCatalog(
         "Broker access, proposal approval, and raw web prompt injection stayed disabled."
     ),
     message_research_snapshot_recorded="Snapshot {snapshot_id} recorded in the research feed.",
+    message_observer_api_listening=(
+        "Observer API listening on http://{host}:{port}\n\n"
+        "Available endpoints:\n{endpoints}"
+    ),
+    message_observer_api_nonlocal_blocked=(
+        "Observer API is local-only by default. Use a loopback host or set "
+        "AGENTIC_TRADER_OBSERVER_API_TOKEN and pass --allow-nonlocal for an "
+        "intentional nonlocal read-only bind."
+    ),
     message_runtime_gate_open="Ollama reachable at {base_url} and model {model_name} is available.",
     message_portfolio_temporarily_unavailable=(
         "Portfolio view is temporarily unavailable while the runtime writer owns "
@@ -1052,6 +1095,7 @@ EN_TEXT = UITextCatalog(
     title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trades",
     title_broker_status="Broker Status",
+    title_calendar_status="Calendar Status",
     title_alpaca_paper_checks="Alpaca Paper Checks",
     title_candidate_rejected="Candidate Rejected",
     title_camofox_browser_helper="Camofox Browser Helper",
@@ -1060,6 +1104,8 @@ EN_TEXT = UITextCatalog(
     title_choose_surface="Choose A Surface",
     title_execution_summary="Execution Summary",
     title_llm_status="LLM Status",
+    title_observer_api="Observer API",
+    title_observer_api_blocked="Observer API Blocked",
     title_operator_instruction="Operator Instruction",
     title_operator_launcher="Agentic Trader Operator Launcher",
     title_operator_workflow="Operator Workflow",
@@ -1083,6 +1129,7 @@ EN_TEXT = UITextCatalog(
     title_manager_override_notes="Manager Override Notes",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
+    title_market_session="Market Session / {symbol}",
     title_model_pull="Model Pull",
     title_model_service_stderr_tail="Model Service Stderr Tail",
     title_model_service_start_failed="Model Service Start Failed",
@@ -1236,6 +1283,10 @@ TR_TEXT = UITextCatalog(
     help_research_refresh_persist="Sidecar snapshot'i runtime research JSON feed icine kaydet.",
     help_runtime_event_limit="Dahil edilecek maksimum runtime event sayisi.",
     help_provider_check="Configured LLM provider/model hazirligini aktif kontrol et.",
+    help_calendar_status_symbol=(
+        "Istege bagli ticker sembolu. Varsayilan son run sembolu veya "
+        "preference kaynakli default."
+    ),
     help_evidence_bundle_include_latest_smoke=(
         "Varsa son smoke summary/report dosyalarini bundle icine kopyala."
     ),
@@ -1243,6 +1294,12 @@ TR_TEXT = UITextCatalog(
         "Bundle dizin etiketi. Varsayilan evidence-YYYYMMDD-HHMMSS."
     ),
     help_evidence_bundle_output_dir="Artifact root. Varsayilan .ai/qa/artifacts.",
+    help_observer_api_allow_nonlocal=(
+        "Observer API'yi non-loopback host'a bind etmeye izin ver. "
+        "AGENTIC_TRADER_OBSERVER_API_TOKEN gerektirir."
+    ),
+    help_observer_api_host="Yerel observer API icin bind adresi.",
+    help_observer_api_port="Yerel observer API icin bind portu.",
     help_firecrawl_owner="Firecrawl sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_camofox_owner="Camofox sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_camofox_service_host="App-managed Camofox icin loopback bind host.",
@@ -1295,6 +1352,7 @@ TR_TEXT = UITextCatalog(
     label_approved="Onaylandi",
     label_api_key="API Key",
     label_artifact="Artifact",
+    label_asset_class="Varlik Sinifi",
     label_average_price="Ortalama Fiyat",
     label_baseline="Baseline",
     label_base_url="Base URL",
@@ -1409,6 +1467,7 @@ TR_TEXT = UITextCatalog(
     label_memory_gb="Bellek GB",
     label_multi_timeframe="Multi-Timeframe",
     label_no="hayir",
+    label_note="Not",
     label_notes="Notlar",
     label_next="Sonraki",
     label_news_mode="News Modu",
@@ -1491,9 +1550,11 @@ TR_TEXT = UITextCatalog(
     label_take_profit="Take Profit",
     label_tool="Tool",
     label_tools="Araclar",
+    label_timezone="Saat Dilimi",
     label_token_hint="Token Ipuclari",
     label_total_return="Toplam Return",
     label_trades="Trade'ler",
+    label_tradable_now="Simdi Islem Yapilabilir",
     label_trigger_now="Simdi Tetikle",
     label_trigger_now_requested="Simdi tetikleme istendi",
     label_type="Tip",
@@ -1505,6 +1566,7 @@ TR_TEXT = UITextCatalog(
     label_uv_available="uv Kullanilabilir",
     label_validation="Validation",
     label_value="Deger",
+    label_venue="Piyasa",
     label_version="Versiyon",
     label_version_source="Versiyon Kaynagi",
     label_v1_path="V1 Yolu",
@@ -1534,6 +1596,9 @@ TR_TEXT = UITextCatalog(
     message_no_action_selected="Aksiyon secilmedi.",
     message_operator_workflow_guidance=(
         "Read-only workflow rehberi. Uzun paper operation oncesi readiness ve evidence inceleyin."
+    ),
+    message_calendar_status_unavailable=(
+        "Calendar status gecici olarak kullanilamiyor.\n\n{error}"
     ),
     message_no_open_positions="Acik pozisyon yok.",
     message_no_proposal_candidates="Henuz proposal candidate kaydi yok.",
@@ -1586,6 +1651,15 @@ TR_TEXT = UITextCatalog(
         "Broker access, proposal approval ve raw web prompt injection kapali kaldi."
     ),
     message_research_snapshot_recorded="Snapshot {snapshot_id} research feed icine kaydedildi.",
+    message_observer_api_listening=(
+        "Observer API http://{host}:{port} adresinde dinliyor\n\n"
+        "Kullanilabilir endpoint'ler:\n{endpoints}"
+    ),
+    message_observer_api_nonlocal_blocked=(
+        "Observer API varsayilan olarak local-only. Loopback host kullanin veya "
+        "AGENTIC_TRADER_OBSERVER_API_TOKEN ayarlayip bilincli nonlocal read-only "
+        "bind icin --allow-nonlocal gecin."
+    ),
     message_runtime_gate_open="Ollama {base_url} adresinde erisilebilir ve {model_name} modeli kullanilabilir.",
     message_portfolio_temporarily_unavailable=(
         "Runtime writer veritabaninin sahibiyken portfolio view gecici olarak "
@@ -1665,6 +1739,7 @@ TR_TEXT = UITextCatalog(
     title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trade'leri",
     title_broker_status="Broker Durumu",
+    title_calendar_status="Calendar Durumu",
     title_alpaca_paper_checks="Alpaca Paper Kontrolleri",
     title_candidate_rejected="Candidate Reddedildi",
     title_camofox_browser_helper="Camofox Browser Yardimcisi",
@@ -1673,6 +1748,8 @@ TR_TEXT = UITextCatalog(
     title_choose_surface="Yuzey Sec",
     title_execution_summary="Execution Ozeti",
     title_llm_status="LLM Durumu",
+    title_observer_api="Observer API",
+    title_observer_api_blocked="Observer API Bloklandi",
     title_operator_instruction="Operator Talimati",
     title_operator_launcher="Agentic Trader Operator Launcher",
     title_operator_workflow="Operator Workflow",
@@ -1696,6 +1773,7 @@ TR_TEXT = UITextCatalog(
     title_manager_override_notes="Manager Override Notlari",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
+    title_market_session="Market Session / {symbol}",
     title_model_pull="Model Cekme",
     title_model_service_stderr_tail="Model Service Stderr Kuyrugu",
     title_model_service_start_failed="Model Service Baslatma Basarisiz",
@@ -1848,11 +1926,15 @@ HELP_RESEARCH_PROBE = EN_TEXT.help_research_probe
 HELP_RESEARCH_REFRESH_PERSIST = EN_TEXT.help_research_refresh_persist
 HELP_RUNTIME_EVENT_LIMIT = EN_TEXT.help_runtime_event_limit
 HELP_PROVIDER_CHECK = EN_TEXT.help_provider_check
+HELP_CALENDAR_STATUS_SYMBOL = EN_TEXT.help_calendar_status_symbol
 HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE = (
     EN_TEXT.help_evidence_bundle_include_latest_smoke
 )
 HELP_EVIDENCE_BUNDLE_LABEL = EN_TEXT.help_evidence_bundle_label
 HELP_EVIDENCE_BUNDLE_OUTPUT_DIR = EN_TEXT.help_evidence_bundle_output_dir
+HELP_OBSERVER_API_ALLOW_NONLOCAL = EN_TEXT.help_observer_api_allow_nonlocal
+HELP_OBSERVER_API_HOST = EN_TEXT.help_observer_api_host
+HELP_OBSERVER_API_PORT = EN_TEXT.help_observer_api_port
 HELP_FIRECRAWL_OWNER = EN_TEXT.help_firecrawl_owner
 HELP_CAMOFOX_OWNER = EN_TEXT.help_camofox_owner
 HELP_CAMOFOX_SERVICE_HOST = EN_TEXT.help_camofox_service_host
@@ -1924,6 +2006,7 @@ LABEL_ALPACA_PAPER_ENDPOINT = EN_TEXT.label_alpaca_paper_endpoint
 LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_API_KEY = EN_TEXT.label_api_key
 LABEL_ARTIFACT = EN_TEXT.label_artifact
+LABEL_ASSET_CLASS = EN_TEXT.label_asset_class
 LABEL_AVERAGE_PRICE = EN_TEXT.label_average_price
 LABEL_BASELINE = EN_TEXT.label_baseline
 LABEL_BASE_URL = EN_TEXT.label_base_url
@@ -2038,6 +2121,7 @@ LABEL_MODEL_ROUTING = EN_TEXT.label_model_routing
 LABEL_MEMORY_GB = EN_TEXT.label_memory_gb
 LABEL_MULTI_TIMEFRAME = EN_TEXT.label_multi_timeframe
 LABEL_NO = EN_TEXT.label_no
+LABEL_NOTE = EN_TEXT.label_note
 LABEL_NOTES = EN_TEXT.label_notes
 LABEL_NEXT = EN_TEXT.label_next
 LABEL_NEWS_MODE = EN_TEXT.label_news_mode
@@ -2120,9 +2204,11 @@ LABEL_TAKE = EN_TEXT.label_take
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
 LABEL_TOOL = EN_TEXT.label_tool
 LABEL_TOOLS = EN_TEXT.label_tools
+LABEL_TIMEZONE = EN_TEXT.label_timezone
 LABEL_TOKEN_HINT = EN_TEXT.label_token_hint
 LABEL_TOTAL_RETURN = EN_TEXT.label_total_return
 LABEL_TRADES = EN_TEXT.label_trades
+LABEL_TRADABLE_NOW = EN_TEXT.label_tradable_now
 LABEL_TRIGGER_NOW = EN_TEXT.label_trigger_now
 LABEL_TRIGGER_NOW_REQUESTED = EN_TEXT.label_trigger_now_requested
 LABEL_TYPE = EN_TEXT.label_type
@@ -2134,6 +2220,7 @@ LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
 LABEL_UV_AVAILABLE = EN_TEXT.label_uv_available
 LABEL_VALIDATION = EN_TEXT.label_validation
 LABEL_VALUE = EN_TEXT.label_value
+LABEL_VENUE = EN_TEXT.label_venue
 LABEL_VERSION = EN_TEXT.label_version
 LABEL_VERSION_SOURCE = EN_TEXT.label_version_source
 LABEL_V1_PATH = EN_TEXT.label_v1_path
@@ -2163,6 +2250,7 @@ MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
 MESSAGE_NO_ACTION_SELECTED = EN_TEXT.message_no_action_selected
 MESSAGE_OPERATOR_WORKFLOW_GUIDANCE = EN_TEXT.message_operator_workflow_guidance
+MESSAGE_CALENDAR_STATUS_UNAVAILABLE = EN_TEXT.message_calendar_status_unavailable
 MESSAGE_NO_OPEN_POSITIONS = EN_TEXT.message_no_open_positions
 MESSAGE_NO_PROPOSAL_CANDIDATES = EN_TEXT.message_no_proposal_candidates
 MESSAGE_NO_TRADE_PROPOSALS = EN_TEXT.message_no_trade_proposals
@@ -2207,6 +2295,8 @@ MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION = (
 )
 MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY = EN_TEXT.message_research_cycle_run_summary
 MESSAGE_RESEARCH_SNAPSHOT_RECORDED = EN_TEXT.message_research_snapshot_recorded
+MESSAGE_OBSERVER_API_LISTENING = EN_TEXT.message_observer_api_listening
+MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED = EN_TEXT.message_observer_api_nonlocal_blocked
 MESSAGE_RUNTIME_GATE_OPEN = EN_TEXT.message_runtime_gate_open
 MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED = (
     EN_TEXT.message_runtime_mode_transition_allowed
@@ -2250,6 +2340,7 @@ TITLE_BACKTEST_COMPARISON = EN_TEXT.title_backtest_comparison
 TITLE_BACKTEST_MEMORY_ABLATION = EN_TEXT.title_backtest_memory_ablation
 TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
 TITLE_BROKER_STATUS = EN_TEXT.title_broker_status
+TITLE_CALENDAR_STATUS = EN_TEXT.title_calendar_status
 TITLE_ALPACA_PAPER_CHECKS = EN_TEXT.title_alpaca_paper_checks
 TITLE_CANDIDATE_REJECTED = EN_TEXT.title_candidate_rejected
 TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
@@ -2258,6 +2349,8 @@ TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
 TITLE_CHOOSE_SURFACE = EN_TEXT.title_choose_surface
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
+TITLE_OBSERVER_API = EN_TEXT.title_observer_api
+TITLE_OBSERVER_API_BLOCKED = EN_TEXT.title_observer_api_blocked
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
 TITLE_OPERATOR_LAUNCHER = EN_TEXT.title_operator_launcher
 TITLE_OPERATOR_WORKFLOW = EN_TEXT.title_operator_workflow
@@ -2281,6 +2374,7 @@ TITLE_MANAGER_CONFLICT_REPLAY = EN_TEXT.title_manager_conflict_replay
 TITLE_MANAGER_OVERRIDE_NOTES = EN_TEXT.title_manager_override_notes
 TITLE_MEMORY_AWARE_REPLAY = EN_TEXT.title_memory_aware_replay
 TITLE_MEMORY_EXPLORER = EN_TEXT.title_memory_explorer
+TITLE_MARKET_SESSION = EN_TEXT.title_market_session
 TITLE_MODEL_PULL = EN_TEXT.title_model_pull
 TITLE_MODEL_SERVICE_STDERR_TAIL = EN_TEXT.title_model_service_stderr_tail
 TITLE_MODEL_SERVICE_START_FAILED = EN_TEXT.title_model_service_start_failed
