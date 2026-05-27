@@ -346,6 +346,7 @@ class UITextCatalog:
     label_reasons: str
     label_recent_runs: str
     label_regions: str
+    label_regime: str
     label_resolution_notes: str
     label_requires_confirmation: str
     label_risk_profile: str
@@ -477,6 +478,10 @@ class UITextCatalog:
     message_run_replay_temporarily_unavailable: str
     message_no_persisted_runs_replay: str
     message_no_persisted_runs_export: str
+    message_chat_exit_hint: str
+    message_final_stage_update: str
+    message_preferences_saved: str
+    message_preparing_symbol: str
     message_run_report_written: str
     message_retrieval_inspection_temporarily_unavailable: str
     message_backtest_choose_one_comparison: str
@@ -533,6 +538,8 @@ class UITextCatalog:
     message_service_stale_runtime_recovered: str
     message_service_stale_runtime_recovered_event: str
     message_service_stop_requested: str
+    message_service_spawned_background: str
+    message_stage_update: str
     message_strategy_profile_execution_policy: str
     message_trading_runtime_blocked: str
     message_trading_runtime_ready: str
@@ -543,6 +550,15 @@ class UITextCatalog:
     message_v1_readiness_status_unavailable: str
     prompt_continue: str
     prompt_select_action: str
+    prompt_apply_preference_update: str
+    prompt_chat_persona: str
+    prompt_continuous_mode: str
+    prompt_instruction: str
+    prompt_max_cycles: str
+    prompt_open_live_monitor_now: str
+    prompt_poll_interval_seconds: str
+    prompt_refresh_seconds: str
+    prompt_you: str
     launcher_option_open_web_gui: str
     launcher_option_continue_tui: str
     launcher_option_refresh: str
@@ -569,6 +585,7 @@ class UITextCatalog:
     title_exported: str
     title_agent_decisions: str
     title_agent_trace: str
+    title_agent_trace_for_run: str
     title_approval_blocked: str
     title_available_models: str
     title_backtest_comparison: str
@@ -588,6 +605,7 @@ class UITextCatalog:
     title_context_summary: str
     title_current_cycle: str
     title_decision_workflow: str
+    title_decision_evidence_explorer: str
     title_llm_status: str
     title_observer_api: str
     title_observer_api_blocked: str
@@ -633,7 +651,9 @@ class UITextCatalog:
     title_run_artifacts: str
     title_run_replay: str
     title_run_review: str
+    title_latest_run_review: str
     title_run_blocked: str
+    title_run_completed: str
     title_reconciliation_blocked: str
     title_refresh_blocked: str
     title_rejection_blocked: str
@@ -645,12 +665,14 @@ class UITextCatalog:
     title_runtime_mode_transition_checklist: str
     title_runtime_status: str
     title_service_status: str
+    title_service_spawned: str
     title_service_restarted: str
     title_service_stderr_tail: str
     title_service_stdout_tail: str
     title_service_supervisor: str
     title_system_status: str
     title_system_snapshot: str
+    title_saved: str
     title_trade_journal: str
     title_trade_context: str
     title_trade_context_detail: str
@@ -688,6 +710,7 @@ class UITextCatalog:
     title_news_query_plan: str
     title_news_tool: str
     title_trace: str
+    title_parsed_operator_instruction: str
     title_trade_proposal_approved: str
     title_trade_proposal_created: str
     title_trade_proposal_reconciled: str
@@ -1077,6 +1100,7 @@ EN_TEXT = UITextCatalog(
     label_reasons="Reasons",
     label_recent_runs="Recent Runs",
     label_regions="Regions",
+    label_regime="Regime",
     label_resolution_notes="Resolution Notes",
     label_requires_confirmation="Requires Confirmation",
     label_risk_profile="Risk Profile",
@@ -1236,6 +1260,12 @@ EN_TEXT = UITextCatalog(
     ),
     message_no_persisted_runs_replay="No persisted runs are available to replay.",
     message_no_persisted_runs_export="No persisted runs are available to export.",
+    message_chat_exit_hint="Type /exit to leave chat.",
+    message_final_stage_update=(
+        "Final stage update: {latest_message}\n\n{artifacts_json}"
+    ),
+    message_preferences_saved="Preferences saved.",
+    message_preparing_symbol="Preparing {symbol}.",
     message_run_report_written="Run report written to {output}.",
     message_retrieval_inspection_temporarily_unavailable=(
         "Retrieval inspection is temporarily unavailable.\n\n{error}"
@@ -1386,6 +1416,12 @@ EN_TEXT = UITextCatalog(
     message_service_stop_requested=(
         "Service PID {pid} was asked to stop gracefully via the runtime control channel."
     ),
+    message_service_spawned_background=(
+        "Service spawned in the background with PID {pid}.\n\n"
+        "The control room stays responsive. Open the live monitor to watch progress "
+        "or request a stop at any time."
+    ),
+    message_stage_update="[{stage}] {message}",
     message_strategy_profile_execution_policy=(
         "profile is read-only research metadata; it cannot execute trades"
     ),
@@ -1409,6 +1445,15 @@ EN_TEXT = UITextCatalog(
     message_v1_readiness_status_unavailable="V1 readiness status unavailable.",
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
+    prompt_apply_preference_update="Apply preference update?",
+    prompt_chat_persona="Chat persona",
+    prompt_continuous_mode="Continuous mode?",
+    prompt_instruction="Instruction",
+    prompt_max_cycles="Max cycles (blank for infinite)",
+    prompt_open_live_monitor_now="Open live monitor now?",
+    prompt_poll_interval_seconds="Poll interval seconds",
+    prompt_refresh_seconds="Refresh seconds",
+    prompt_you="You",
     launcher_option_open_web_gui="1  Open/start the local Web GUI command center",
     launcher_option_continue_tui="2  Continue in the Rich terminal control room",
     launcher_option_refresh="3  Stay here and refresh this launcher",
@@ -1432,6 +1477,7 @@ EN_TEXT = UITextCatalog(
     status_ready="ready",
     title_agent_decisions="Agent Decisions",
     title_agent_trace="Agent Trace",
+    title_agent_trace_for_run="Agent Trace / {run_id}",
     title_approval_blocked="Approval Blocked",
     title_available_models="Available Models",
     title_backtest_comparison="Backtest Comparison",
@@ -1451,6 +1497,7 @@ EN_TEXT = UITextCatalog(
     title_context_summary="Context Summary",
     title_current_cycle="Current Cycle",
     title_decision_workflow="Decision Workflow",
+    title_decision_evidence_explorer="Decision Evidence Explorer",
     title_execution_summary="Execution Summary",
     title_export_blocked="Export Blocked",
     title_exported="Exported",
@@ -1499,7 +1546,9 @@ EN_TEXT = UITextCatalog(
     title_run_artifacts="Run Artifacts",
     title_run_replay="Run Replay",
     title_run_review="Run Review",
+    title_latest_run_review="Latest Run Review / {run_id}",
     title_run_blocked="Run Blocked",
+    title_run_completed="Run Completed: {symbol} / {order_id}",
     title_reconciliation_blocked="Reconciliation Blocked",
     title_refresh_blocked="Refresh Blocked",
     title_rejection_blocked="Rejection Blocked",
@@ -1511,12 +1560,14 @@ EN_TEXT = UITextCatalog(
     title_runtime_mode_transition_checklist="Runtime Mode Transition Checklist",
     title_runtime_status="Runtime Status",
     title_service_status="Service Status",
+    title_service_spawned="Service Spawned",
     title_service_restarted="Service Restarted",
     title_service_stderr_tail="Service Stderr Tail",
     title_service_stdout_tail="Service Stdout Tail",
     title_service_supervisor="Service Supervisor",
     title_system_status="System Status",
     title_system_snapshot="AGENTIC TRADER // System Snapshot",
+    title_saved="Saved",
     title_trade_journal="Trade Journal",
     title_trade_context="Trade Context",
     title_trade_context_detail="Trade Context / {trade_id}",
@@ -1554,6 +1605,7 @@ EN_TEXT = UITextCatalog(
     title_news_query_plan="News Query Plan",
     title_news_tool="News Tool",
     title_trace="Trace",
+    title_parsed_operator_instruction="Parsed Operator Instruction",
     title_trade_proposal_approved="Trade Proposal Approved",
     title_trade_proposal_created="Trade Proposal Created",
     title_trade_proposal_reconciled="Trade Proposal Reconciled",
@@ -1946,6 +1998,7 @@ TR_TEXT = UITextCatalog(
     label_reasons="Nedenler",
     label_recent_runs="Son Run'lar",
     label_regions="Bolgeler",
+    label_regime="Regime",
     label_resolution_notes="Cozum Notlari",
     label_requires_confirmation="Onay Gerektirir",
     label_risk_profile="Risk Profili",
@@ -2105,6 +2158,12 @@ TR_TEXT = UITextCatalog(
     ),
     message_no_persisted_runs_replay="Replay icin persisted run yok.",
     message_no_persisted_runs_export="Export icin persisted run yok.",
+    message_chat_exit_hint="Chat'ten cikmak icin /exit yazin.",
+    message_final_stage_update=(
+        "Son stage update: {latest_message}\n\n{artifacts_json}"
+    ),
+    message_preferences_saved="Preferences kaydedildi.",
+    message_preparing_symbol="{symbol} hazirlaniyor.",
     message_run_report_written="Run report {output} icine yazildi.",
     message_retrieval_inspection_temporarily_unavailable=(
         "Retrieval inspection gecici olarak kullanilamiyor.\n\n{error}"
@@ -2254,6 +2313,12 @@ TR_TEXT = UITextCatalog(
     message_service_stop_requested=(
         "Service PID {pid} runtime control channel uzerinden graceful stop istedi."
     ),
+    message_service_spawned_background=(
+        "Service arka planda PID {pid} ile baslatildi.\n\n"
+        "Control room responsive kalir. Ilerlemeyi izlemek veya istediginiz an stop "
+        "istemek icin live monitor'u acabilirsiniz."
+    ),
+    message_stage_update="[{stage}] {message}",
     message_strategy_profile_execution_policy=(
         "profile read-only research metadata'dir; trade execute edemez"
     ),
@@ -2277,6 +2342,15 @@ TR_TEXT = UITextCatalog(
     message_v1_readiness_status_unavailable="V1 readiness durumu kullanilamiyor.",
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
+    prompt_apply_preference_update="Preference update uygulansin mi?",
+    prompt_chat_persona="Chat persona",
+    prompt_continuous_mode="Continuous mode?",
+    prompt_instruction="Talimati girin",
+    prompt_max_cycles="Maksimum cycle (sonsuz icin bos birakin)",
+    prompt_open_live_monitor_now="Live monitor simdi acilsin mi?",
+    prompt_poll_interval_seconds="Poll interval saniyesi",
+    prompt_refresh_seconds="Refresh saniyesi",
+    prompt_you="Siz",
     launcher_option_open_web_gui="1  Yerel Web GUI command center'i ac/baslat",
     launcher_option_continue_tui="2  Rich terminal control room ile devam et",
     launcher_option_refresh="3  Burada kal ve launcher'i yenile",
@@ -2300,6 +2374,7 @@ TR_TEXT = UITextCatalog(
     status_ready="hazir",
     title_agent_decisions="Agent Kararlari",
     title_agent_trace="Agent Trace",
+    title_agent_trace_for_run="Agent Trace / {run_id}",
     title_approval_blocked="Approval Bloklandi",
     title_available_models="Kullanilabilir Modeller",
     title_backtest_comparison="Backtest Karsilastirma",
@@ -2319,6 +2394,7 @@ TR_TEXT = UITextCatalog(
     title_context_summary="Context Ozeti",
     title_current_cycle="Gecerli Dongu",
     title_decision_workflow="Decision Workflow",
+    title_decision_evidence_explorer="Decision Evidence Explorer",
     title_execution_summary="Execution Ozeti",
     title_export_blocked="Export Bloklandi",
     title_exported="Export Edildi",
@@ -2367,7 +2443,9 @@ TR_TEXT = UITextCatalog(
     title_run_artifacts="Run Artifact'lari",
     title_run_replay="Run Replay",
     title_run_review="Run Review",
+    title_latest_run_review="Son Run Review / {run_id}",
     title_run_blocked="Run Bloklandi",
+    title_run_completed="Run Tamamlandi: {symbol} / {order_id}",
     title_reconciliation_blocked="Reconciliation Bloklandi",
     title_refresh_blocked="Refresh Bloklandi",
     title_rejection_blocked="Rejection Bloklandi",
@@ -2379,12 +2457,14 @@ TR_TEXT = UITextCatalog(
     title_runtime_mode_transition_checklist="Runtime Mode Gecis Kontrol Listesi",
     title_runtime_status="Runtime Durumu",
     title_service_status="Servis Durumu",
+    title_service_spawned="Service Baslatildi",
     title_service_restarted="Service Yeniden Baslatildi",
     title_service_stderr_tail="Service Stderr Kuyrugu",
     title_service_stdout_tail="Service Stdout Kuyrugu",
     title_service_supervisor="Service Supervisor",
     title_system_status="System Durumu",
     title_system_snapshot="AGENTIC TRADER // System Snapshot",
+    title_saved="Kaydedildi",
     title_trade_journal="Trade Journal",
     title_trade_context="Trade Context",
     title_trade_context_detail="Trade Context / {trade_id}",
@@ -2422,6 +2502,7 @@ TR_TEXT = UITextCatalog(
     title_news_query_plan="News Query Plani",
     title_news_tool="News Tool",
     title_trace="Trace",
+    title_parsed_operator_instruction="Parse Edilen Operator Talimati",
     title_trade_proposal_approved="Trade Proposal Onaylandi",
     title_trade_proposal_created="Trade Proposal Olusturuldu",
     title_trade_proposal_reconciled="Trade Proposal Reconcile Edildi",
@@ -2814,6 +2895,7 @@ LABEL_REASON = EN_TEXT.label_reason
 LABEL_REASONS = EN_TEXT.label_reasons
 LABEL_RECENT_RUNS = EN_TEXT.label_recent_runs
 LABEL_REGIONS = EN_TEXT.label_regions
+LABEL_REGIME = EN_TEXT.label_regime
 LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
 LABEL_RISK_PROFILE = EN_TEXT.label_risk_profile
@@ -2964,6 +3046,10 @@ MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE = (
 )
 MESSAGE_NO_PERSISTED_RUNS_REPLAY = EN_TEXT.message_no_persisted_runs_replay
 MESSAGE_NO_PERSISTED_RUNS_EXPORT = EN_TEXT.message_no_persisted_runs_export
+MESSAGE_CHAT_EXIT_HINT = EN_TEXT.message_chat_exit_hint
+MESSAGE_FINAL_STAGE_UPDATE = EN_TEXT.message_final_stage_update
+MESSAGE_PREFERENCES_SAVED = EN_TEXT.message_preferences_saved
+MESSAGE_PREPARING_SYMBOL = EN_TEXT.message_preparing_symbol
 MESSAGE_RUN_REPORT_WRITTEN = EN_TEXT.message_run_report_written
 MESSAGE_RETRIEVAL_INSPECTION_TEMPORARILY_UNAVAILABLE = (
     EN_TEXT.message_retrieval_inspection_temporarily_unavailable
@@ -3048,6 +3134,8 @@ MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT = (
     EN_TEXT.message_service_stale_runtime_recovered_event
 )
 MESSAGE_SERVICE_STOP_REQUESTED = EN_TEXT.message_service_stop_requested
+MESSAGE_SERVICE_SPAWNED_BACKGROUND = EN_TEXT.message_service_spawned_background
+MESSAGE_STAGE_UPDATE = EN_TEXT.message_stage_update
 MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY = (
     EN_TEXT.message_strategy_profile_execution_policy
 )
@@ -3082,6 +3170,7 @@ STAGE_STRATEGY = EN_TEXT.stage_strategy
 
 TITLE_AGENT_DECISIONS = EN_TEXT.title_agent_decisions
 TITLE_AGENT_TRACE = EN_TEXT.title_agent_trace
+TITLE_AGENT_TRACE_FOR_RUN = EN_TEXT.title_agent_trace_for_run
 TITLE_APPROVAL_BLOCKED = EN_TEXT.title_approval_blocked
 TITLE_AVAILABLE_MODELS = EN_TEXT.title_available_models
 TITLE_BACKTEST_COMPARISON = EN_TEXT.title_backtest_comparison
@@ -3101,6 +3190,7 @@ TITLE_CHOOSE_SURFACE = EN_TEXT.title_choose_surface
 TITLE_CONTEXT_SUMMARY = EN_TEXT.title_context_summary
 TITLE_CURRENT_CYCLE = EN_TEXT.title_current_cycle
 TITLE_DECISION_WORKFLOW = EN_TEXT.title_decision_workflow
+TITLE_DECISION_EVIDENCE_EXPLORER = EN_TEXT.title_decision_evidence_explorer
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_EXPORT_BLOCKED = EN_TEXT.title_export_blocked
 TITLE_EXPORTED = EN_TEXT.title_exported
@@ -3149,7 +3239,9 @@ TITLE_REPLAY_STAGES = EN_TEXT.title_replay_stages
 TITLE_RUN_ARTIFACTS = EN_TEXT.title_run_artifacts
 TITLE_RUN_REPLAY = EN_TEXT.title_run_replay
 TITLE_RUN_REVIEW = EN_TEXT.title_run_review
+TITLE_LATEST_RUN_REVIEW = EN_TEXT.title_latest_run_review
 TITLE_RUN_BLOCKED = EN_TEXT.title_run_blocked
+TITLE_RUN_COMPLETED = EN_TEXT.title_run_completed
 TITLE_RECONCILIATION_BLOCKED = EN_TEXT.title_reconciliation_blocked
 TITLE_REFRESH_BLOCKED = EN_TEXT.title_refresh_blocked
 TITLE_REJECTION_BLOCKED = EN_TEXT.title_rejection_blocked
@@ -3163,12 +3255,14 @@ TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST = (
 )
 TITLE_RUNTIME_STATUS = EN_TEXT.title_runtime_status
 TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
+TITLE_SERVICE_SPAWNED = EN_TEXT.title_service_spawned
 TITLE_SERVICE_RESTARTED = EN_TEXT.title_service_restarted
 TITLE_SERVICE_STDERR_TAIL = EN_TEXT.title_service_stderr_tail
 TITLE_SERVICE_STDOUT_TAIL = EN_TEXT.title_service_stdout_tail
 TITLE_SERVICE_SUPERVISOR = EN_TEXT.title_service_supervisor
 TITLE_SYSTEM_STATUS = EN_TEXT.title_system_status
 TITLE_SYSTEM_SNAPSHOT = EN_TEXT.title_system_snapshot
+TITLE_SAVED = EN_TEXT.title_saved
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
 TITLE_TRADE_CONTEXT = EN_TEXT.title_trade_context
 TITLE_TRADE_CONTEXT_DETAIL = EN_TEXT.title_trade_context_detail
@@ -3206,6 +3300,7 @@ TITLE_NEWS_BRIEF = EN_TEXT.title_news_brief
 TITLE_NEWS_QUERY_PLAN = EN_TEXT.title_news_query_plan
 TITLE_NEWS_TOOL = EN_TEXT.title_news_tool
 TITLE_TRACE = EN_TEXT.title_trace
+TITLE_PARSED_OPERATOR_INSTRUCTION = EN_TEXT.title_parsed_operator_instruction
 TITLE_TOOL_OWNERSHIP = EN_TEXT.title_tool_ownership
 TITLE_TRADE_PROPOSAL_APPROVED = EN_TEXT.title_trade_proposal_approved
 TITLE_TRADE_PROPOSAL_CREATED = EN_TEXT.title_trade_proposal_created
@@ -3228,6 +3323,15 @@ TITLE_WEB_GUI_STDERR_TAIL = EN_TEXT.title_web_gui_stderr_tail
 
 PROMPT_CONTINUE = EN_TEXT.prompt_continue
 PROMPT_SELECT_ACTION = EN_TEXT.prompt_select_action
+PROMPT_APPLY_PREFERENCE_UPDATE = EN_TEXT.prompt_apply_preference_update
+PROMPT_CHAT_PERSONA = EN_TEXT.prompt_chat_persona
+PROMPT_CONTINUOUS_MODE = EN_TEXT.prompt_continuous_mode
+PROMPT_INSTRUCTION = EN_TEXT.prompt_instruction
+PROMPT_MAX_CYCLES = EN_TEXT.prompt_max_cycles
+PROMPT_OPEN_LIVE_MONITOR_NOW = EN_TEXT.prompt_open_live_monitor_now
+PROMPT_POLL_INTERVAL_SECONDS = EN_TEXT.prompt_poll_interval_seconds
+PROMPT_REFRESH_SECONDS = EN_TEXT.prompt_refresh_seconds
+PROMPT_YOU = EN_TEXT.prompt_you
 
 STYLE_KEY_COLUMN = EN_TEXT.style_key_column
 STATUS_ACTIVE = EN_TEXT.status_active

@@ -74,6 +74,7 @@ from agentic_trader.ui_text import (
     LABEL_BACKGROUND_MODE,
     LABEL_BASE_URL,
     LABEL_BEHAVIOR_PRESET,
+    LABEL_BIAS,
     LABEL_BROKER_BACKEND,
     LABEL_BROKER_STATE,
     LABEL_BROKER,
@@ -98,6 +99,7 @@ from agentic_trader.ui_text import (
     LABEL_ENABLED,
     LABEL_EXCHANGES,
     LABEL_FIELD,
+    LABEL_FALLBACK,
     LABEL_FILLS_TODAY,
     LABEL_FRESHNESS,
     LABEL_GROSS_EXPOSURE,
@@ -148,6 +150,7 @@ from agentic_trader.ui_text import (
     LABEL_QUANTITY,
     LABEL_REGIONS,
     LABEL_REALIZED_PNL,
+    LABEL_REGIME,
     LABEL_REASONS,
     LABEL_RESTART_COUNT,
     LABEL_RISK_PROFILE,
@@ -167,7 +170,9 @@ from agentic_trader.ui_text import (
     LABEL_STAGE,
     LABEL_STAGE_MESSAGE,
     LABEL_STAGE_STATUS,
+    LABEL_SCORE,
     LABEL_SYMBOL,
+    LABEL_STRATEGY,
     LABEL_TRADE_STYLE,
     LABEL_TYPE,
     LABEL_UNREALIZED_PNL,
@@ -182,27 +187,52 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_RUNS_RECORDED,
     MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
     MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS,
+    MESSAGE_CHAT_EXIT_HINT,
+    MESSAGE_FINAL_STAGE_UPDATE,
+    MESSAGE_NO_PERSISTED_RUNS_REVIEW,
+    MESSAGE_NO_PERSISTED_RUNS_TRACE,
     MESSAGE_NO_RUNTIME_EVENTS,
     MESSAGE_NO_RUNTIME_STATE,
     MESSAGE_MARK_TIME_UNAVAILABLE,
     MESSAGE_MONITOR_RETURN_SHORTCUT,
+    MESSAGE_PREFERENCES_SAVED,
+    MESSAGE_PREPARING_SYMBOL,
+    MESSAGE_SERVICE_SPAWNED_BACKGROUND,
+    MESSAGE_STAGE_UPDATE,
     MESSAGE_V1_READINESS_STATUS_UNAVAILABLE,
     MESSAGE_WAITING_FOR_LAST_OUTCOME,
     MESSAGE_CONTROL_ROOM_CLOSED,
     PROMPT_CONTINUE,
+    PROMPT_APPLY_PREFERENCE_UPDATE,
+    PROMPT_CHAT_PERSONA,
+    PROMPT_CONTINUOUS_MODE,
+    PROMPT_INSTRUCTION,
+    PROMPT_MAX_CYCLES,
+    PROMPT_OPEN_LIVE_MONITOR_NOW,
+    PROMPT_POLL_INTERVAL_SECONDS,
+    PROMPT_REFRESH_SECONDS,
     PROMPT_SELECT_ACTION,
+    PROMPT_YOU,
     STYLE_KEY_COLUMN,
     TITLE_CURRENT_CYCLE,
     TITLE_DECISION_WORKFLOW,
+    TITLE_DECISION_EVIDENCE_EXPLORER,
     TITLE_DAILY_RISK_REPORT_FOR_DATE,
     TITLE_EXIT,
     TITLE_INVESTMENT_PREFERENCES,
     TITLE_RECENT_RUNS,
+    TITLE_LATEST_RUN_REVIEW,
+    TITLE_AGENT_TRACE_FOR_RUN,
+    TITLE_CHAT,
+    TITLE_PARSED_OPERATOR_INSTRUCTION,
+    TITLE_RUN_COMPLETED,
+    TITLE_RUN_REVIEW,
     TITLE_RUNTIME_EVENTS,
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_STATUS,
     TITLE_SYSTEM_STATUS,
     TITLE_SYSTEM_SNAPSHOT,
+    TITLE_SAVED,
     TITLE_PORTFOLIO,
     TITLE_POSITIONS,
     TITLE_ALPACA_PAPER_CHECKS,
@@ -210,7 +240,10 @@ from agentic_trader.ui_text import (
     TITLE_PAPER_OPERATION_CHECKS,
     TITLE_PROVIDER_DIAGNOSTICS,
     TITLE_PROVIDER_SOURCE_LADDER,
+    TITLE_SERVICE_SPAWNED,
     TITLE_TRADE_JOURNAL,
+    TITLE_TRACE,
+    TITLE_UPDATED_PREFERENCES,
     TITLE_V1_READINESS,
     UI_LIST_SEPARATOR,
 )
@@ -1294,7 +1327,9 @@ def _configure_preferences(db: TradingDatabase) -> None:
         notes=notes,
     )
     db.save_preferences(updated)
-    console.print(Panel("Preferences saved.", title="Saved", border_style="green"))
+    console.print(
+        Panel(MESSAGE_PREFERENCES_SAVED, title=TITLE_SAVED, border_style="green")
+    )
 
 
 def _show_portfolio(db: TradingDatabase) -> None:
@@ -1306,52 +1341,7 @@ def _show_portfolio(db: TradingDatabase) -> None:
     Parameters:
         db (TradingDatabase): Database instance used to retrieve the account snapshot, open positions, and risk report.
     """
-    snapshot = db.get_account_snapshot()
-    preferences = db.load_preferences()
-    currency = (preferences.currencies[0] if preferences.currencies else "USD").upper()
-    latest_marks = db.list_account_marks(limit=1)
-    mark_time = latest_marks[0].created_at if latest_marks else "mark time unavailable"
-    mark_source = latest_marks[0].source if latest_marks else "-"
-    summary = Table(title="Portfolio")
-    summary.add_column("Metric")
-    summary.add_column("Value")
-    summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
-    summary.add_row(
-        f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}"
-    )
-    summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
-    summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row(
-        f"{LABEL_UNREALIZED_PNL} ({currency}, paper mark)",
-        f"{snapshot.unrealized_pnl:.2f}",
-    )
-    summary.add_row("Open Positions", str(snapshot.open_positions))
-    summary.add_row("Marked At", mark_time)
-    summary.add_row("Mark Source", mark_source)
-    console.print(summary)
-    positions = db.list_positions()
-    if not positions:
-        console.print(
-            Panel("No open positions.", title="Positions", border_style="yellow")
-        )
-        return
-    table = Table(title="Positions")
-    table.add_column("Symbol")
-    table.add_column("Quantity")
-    table.add_column("Average Price")
-    table.add_column("Market Price")
-    table.add_column(LABEL_MARKET_VALUE)
-    table.add_column(LABEL_UNREALIZED_PNL)
-    for position in positions:
-        table.add_row(
-            position.symbol,
-            f"{position.quantity:.6f}",
-            f"{position.average_price:.4f}",
-            f"{position.market_price:.4f}",
-            f"{position.market_value:.2f}",
-            f"{position.unrealized_pnl:.2f}",
-        )
-    console.print(table)
+    console.print(_portfolio_renderable(db))
     console.print(_risk_report_table(db))
 
 
@@ -1373,8 +1363,8 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
     if record is None:
         console.print(
             Panel(
-                "No persisted runs are available to review.",
-                title="Run Review",
+                MESSAGE_NO_PERSISTED_RUNS_REVIEW,
+                title=TITLE_RUN_REVIEW,
                 border_style="yellow",
             )
         )
@@ -1382,20 +1372,20 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
     console.print(
         Panel(
             record.artifacts.model_dump_json(indent=2),
-            title=f"Latest Run Review / {record.run_id}",
+            title=TITLE_LATEST_RUN_REVIEW.format(run_id=record.run_id),
             border_style="cyan",
         )
     )
 
 
 def _memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
-    table = Table(title="Decision Evidence Explorer")
-    table.add_column("Created")
-    table.add_column("Symbol")
-    table.add_column("Score")
-    table.add_column("Regime")
-    table.add_column("Strategy")
-    table.add_column("Bias")
+    table = Table(title=TITLE_DECISION_EVIDENCE_EXPLORER)
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_SCORE)
+    table.add_column(LABEL_REGIME)
+    table.add_column(LABEL_STRATEGY)
+    table.add_column(LABEL_BIAS)
     if not matches:
         table.add_row("-", "-", "-", "-", "-", "-")
         return table
@@ -1438,16 +1428,16 @@ def _show_latest_run_trace(db: TradingDatabase) -> None:
     if record is None:
         console.print(
             Panel(
-                "No persisted runs are available to trace.",
-                title="Trace Viewer",
+                MESSAGE_NO_PERSISTED_RUNS_TRACE,
+                title=TITLE_TRACE,
                 border_style="yellow",
             )
         )
         return
-    table = Table(title=f"Agent Trace / {record.run_id}")
-    table.add_column("Role")
-    table.add_column("Model")
-    table.add_column("Fallback")
+    table = Table(title=TITLE_AGENT_TRACE_FOR_RUN.format(run_id=record.run_id))
+    table.add_column(LABEL_ROLE)
+    table.add_column(LABEL_MODEL)
+    table.add_column(LABEL_FALLBACK)
     for trace in record.artifacts.agent_traces:
         table.add_row(trace.role, trace.model_name, str(trace.used_fallback))
     console.print(table)
@@ -1457,7 +1447,7 @@ def _select_chat_persona() -> ChatPersona:
     return cast(
         ChatPersona,
         Prompt.ask(
-            "Chat persona",
+            PROMPT_CHAT_PERSONA,
             choices=[
                 "operator_liaison",
                 "regime_analyst",
@@ -1477,8 +1467,8 @@ def _render_chat_transcript(
     console.print(_banner())
     console.print(
         Panel(
-            "Type /exit to leave chat.",
-            title=f"Chat / {persona}",
+            MESSAGE_CHAT_EXIT_HINT,
+            title=TITLE_CHAT.format(persona=persona),
             border_style="cyan",
         )
     )
@@ -1494,7 +1484,7 @@ def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
     transcript: list[tuple[str, str]] = []
     while True:
         _render_chat_transcript(persona=persona, transcript=transcript)
-        user_message = Prompt.ask("You")
+        user_message = Prompt.ask(PROMPT_YOU)
         if user_message.strip().lower() in {"/exit", "exit", "quit"}:
             return
         transcript.append(("operator", user_message))
@@ -1512,7 +1502,7 @@ def _render_instruction_result(instruction: OperatorInstruction) -> None:
     console.print(
         Panel(
             instruction.model_dump_json(indent=2),
-            title="Parsed Operator Instruction",
+            title=TITLE_PARSED_OPERATOR_INSTRUCTION,
             border_style="cyan",
         )
     )
@@ -1523,14 +1513,14 @@ def _apply_instruction_update_if_confirmed(
 ) -> None:
     if not instruction.should_update_preferences:
         return
-    if not Confirm.ask("Apply preference update?", default=False):
+    if not Confirm.ask(PROMPT_APPLY_PREFERENCE_UPDATE, default=False):
         return
 
     updated = apply_preference_update(db, instruction.preference_update)
     console.print(
         Panel(
             updated.model_dump_json(indent=2),
-            title="Updated Preferences",
+            title=TITLE_UPDATED_PREFERENCES,
             border_style="green",
         )
     )
@@ -1539,7 +1529,7 @@ def _apply_instruction_update_if_confirmed(
 def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
     ensure_llm_ready(settings)
     llm = LocalLLM(settings)
-    message = Prompt.ask("Instruction")
+    message = Prompt.ask(PROMPT_INSTRUCTION)
     instruction = interpret_operator_instruction(
         llm=llm,
         db=db,
@@ -1571,7 +1561,7 @@ def _strict_one_shot(
 def _run_one_shot_symbol(
     settings: Settings, symbol: str, interval: str, lookback: str
 ) -> None:
-    latest_message = f"Preparing {symbol}."
+    latest_message = MESSAGE_PREPARING_SYMBOL.format(symbol=symbol)
     with console.status(_style_key(latest_message), spinner="dots") as status:
 
         def _progress(
@@ -1581,7 +1571,7 @@ def _run_one_shot_symbol(
             current_status: Status = status,
         ) -> None:
             nonlocal latest_message
-            latest_message = f"[{stage}] {message}"
+            latest_message = MESSAGE_STAGE_UPDATE.format(stage=stage, message=message)
             current_status.update(_style_key(latest_message))
 
         artifacts = run_once(
@@ -1596,8 +1586,11 @@ def _run_one_shot_symbol(
     order_id = persist_run(settings=settings, artifacts=artifacts)
     console.print(
         Panel(
-            f"Final stage update: {latest_message}\n\n{json.dumps(artifacts.model_dump(mode='json'), indent=2)}",
-            title=f"Run Completed: {symbol} / {order_id}",
+            MESSAGE_FINAL_STAGE_UPDATE.format(
+                latest_message=latest_message,
+                artifacts_json=json.dumps(artifacts.model_dump(mode="json"), indent=2),
+            ),
+            title=TITLE_RUN_COMPLETED.format(symbol=symbol, order_id=order_id),
             border_style="green",
         )
     )
@@ -1618,9 +1611,8 @@ def _launch_service(
     )
     console.print(
         Panel(
-            f"Service spawned in the background with PID {pid}.\n\n"
-            "The control room stays responsive. Open the live monitor to watch progress or request a stop at any time.",
-            title="Service Spawned",
+            MESSAGE_SERVICE_SPAWNED_BACKGROUND.format(pid=pid),
+            title=TITLE_SERVICE_SPAWNED,
             border_style="green",
         )
     )
@@ -1628,21 +1620,21 @@ def _launch_service(
 
 
 def _prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | None]:
-    continuous = Confirm.ask("Continuous mode?", default=False)
+    continuous = Confirm.ask(PROMPT_CONTINUOUS_MODE, default=False)
     poll_seconds = IntPrompt.ask(
-        "Poll interval seconds",
+        PROMPT_POLL_INTERVAL_SECONDS,
         default=settings.default_poll_seconds,
     )
     if not continuous:
         return continuous, poll_seconds, None
 
-    max_cycles_input = Prompt.ask("Max cycles (blank for infinite)", default="")
+    max_cycles_input = Prompt.ask(PROMPT_MAX_CYCLES, default="")
     max_cycles = int(max_cycles_input) if max_cycles_input.strip() else None
     return continuous, poll_seconds, max_cycles
 
 
 def _open_live_monitor_if_requested(settings: Settings) -> None:
-    if Confirm.ask("Open live monitor now?", default=True):
+    if Confirm.ask(PROMPT_OPEN_LIVE_MONITOR_NOW, default=True):
         run_live_monitor(settings, refresh_seconds=1.0)
 
 
@@ -1751,7 +1743,7 @@ def _runtime_stop_action(settings: Settings) -> None:
 
 
 def _runtime_monitor_action(settings: Settings) -> None:
-    refresh_seconds = float(Prompt.ask("Refresh seconds", default="1.0"))
+    refresh_seconds = float(Prompt.ask(PROMPT_REFRESH_SECONDS, default="1.0"))
     run_live_monitor(settings, refresh_seconds=refresh_seconds)
 
 

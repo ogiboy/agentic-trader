@@ -24,6 +24,20 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.title_daily_risk_report == ui_text.TITLE_DAILY_RISK_REPORT
     assert catalog.title_run_review == ui_text.TITLE_RUN_REVIEW
     assert catalog.title_agent_trace == ui_text.TITLE_AGENT_TRACE
+    assert catalog.title_agent_trace_for_run == ui_text.TITLE_AGENT_TRACE_FOR_RUN
+    assert catalog.title_decision_evidence_explorer == (
+        ui_text.TITLE_DECISION_EVIDENCE_EXPLORER
+    )
+    assert catalog.title_latest_run_review == ui_text.TITLE_LATEST_RUN_REVIEW
+    assert catalog.title_run_completed == ui_text.TITLE_RUN_COMPLETED
+    assert catalog.title_service_spawned == ui_text.TITLE_SERVICE_SPAWNED
+    assert catalog.title_parsed_operator_instruction == (
+        ui_text.TITLE_PARSED_OPERATOR_INSTRUCTION
+    )
+    assert catalog.message_preferences_saved == ui_text.MESSAGE_PREFERENCES_SAVED
+    assert catalog.message_chat_exit_hint == ui_text.MESSAGE_CHAT_EXIT_HINT
+    assert catalog.prompt_max_cycles == ui_text.PROMPT_MAX_CYCLES
+    assert catalog.label_regime == ui_text.LABEL_REGIME
     assert catalog.title_walk_forward_backtest == ui_text.TITLE_WALK_FORWARD_BACKTEST
     assert catalog.title_retrieval_inspection == ui_text.TITLE_RETRIEVAL_INSPECTION
     assert catalog.title_memory_write_policy == ui_text.TITLE_MEMORY_WRITE_POLICY
@@ -338,6 +352,16 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     )
     assert catalog.help_risk_report_date.startswith("UTC tarih")
     assert catalog.message_no_persisted_runs_trace == "Trace icin persisted run yok."
+    assert catalog.title_latest_run_review == "Son Run Review / {run_id}"
+    assert catalog.title_run_completed == "Run Tamamlandi: {symbol} / {order_id}"
+    assert catalog.title_service_spawned == "Service Baslatildi"
+    assert catalog.title_parsed_operator_instruction == (
+        "Parse Edilen Operator Talimati"
+    )
+    assert catalog.message_preferences_saved == "Preferences kaydedildi."
+    assert catalog.message_chat_exit_hint == "Chat'ten cikmak icin /exit yazin."
+    assert catalog.prompt_max_cycles == "Maksimum cycle (sonsuz icin bos birakin)"
+    assert catalog.label_regime == "Regime"
     assert catalog.title_context_summary == "Context Ozeti"
     assert catalog.label_execution_rationale == "Execution Gerekcesi"
     assert catalog.label_rejection_reason == "Red Nedeni"
