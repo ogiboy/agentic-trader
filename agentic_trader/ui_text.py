@@ -428,11 +428,13 @@ class UITextCatalog:
     message_all_agent_stages_llm_path: str
     message_background_service_not_active: str
     message_background_service_restarted: str
+    message_control_room_closed: str
     message_fallback_used_in: str
     message_evidence_bundle_written: str
     message_no_elevated_portfolio_risk_warnings: str
     message_no_runtime_state: str
     message_no_runtime_events: str
+    message_no_runs_recorded: str
     message_no_stderr_log_lines: str
     message_no_stdout_log_lines: str
     message_no_trade_journal_entries: str
@@ -571,6 +573,7 @@ class UITextCatalog:
     title_provider_diagnostics: str
     title_provider_source_ladder: str
     title_daily_risk_report: str
+    title_daily_risk_report_for_date: str
     title_desk_accounting_context: str
     title_environment_check: str
     title_exit: str
@@ -1130,6 +1133,7 @@ EN_TEXT = UITextCatalog(
     message_background_service_restarted=(
         "Background orchestrator restarted with PID {pid}."
     ),
+    message_control_room_closed="Control room closed cleanly.",
     message_fallback_used_in="Fallback was used in",
     message_evidence_bundle_written="Bundle written to {bundle_dir}",
     message_no_elevated_portfolio_risk_warnings=(
@@ -1137,6 +1141,7 @@ EN_TEXT = UITextCatalog(
     ),
     message_no_runtime_state="No runtime state recorded yet.",
     message_no_runtime_events="No runtime events recorded yet.",
+    message_no_runs_recorded="No runs recorded yet.",
     message_no_stderr_log_lines="No stderr log lines yet.",
     message_no_stdout_log_lines="No stdout log lines yet.",
     message_no_trade_journal_entries="No trade journal entries recorded yet.",
@@ -1404,6 +1409,7 @@ EN_TEXT = UITextCatalog(
     title_provider_diagnostics="Provider Diagnostics",
     title_provider_source_ladder="Provider Source Ladder",
     title_daily_risk_report="Daily Risk Report",
+    title_daily_risk_report_for_date="Daily Risk Report / {report_date}",
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
     title_exit="Exit",
@@ -1966,6 +1972,7 @@ TR_TEXT = UITextCatalog(
     message_background_service_restarted=(
         "Background orchestrator PID {pid} ile yeniden baslatildi."
     ),
+    message_control_room_closed="Control room temiz kapandi.",
     message_fallback_used_in="Fallback kullanilan asamalar",
     message_evidence_bundle_written="Bundle {bundle_dir} icine yazildi",
     message_no_elevated_portfolio_risk_warnings=(
@@ -1973,6 +1980,7 @@ TR_TEXT = UITextCatalog(
     ),
     message_no_runtime_state="Henuz runtime durumu kaydedilmedi.",
     message_no_runtime_events="Henuz runtime olayi kaydedilmedi.",
+    message_no_runs_recorded="Henuz run kaydi yok.",
     message_no_stderr_log_lines="Henuz stderr log satiri yok.",
     message_no_stdout_log_lines="Henuz stdout log satiri yok.",
     message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
@@ -2239,6 +2247,7 @@ TR_TEXT = UITextCatalog(
     title_provider_diagnostics="Provider Diagnostics",
     title_provider_source_ladder="Provider Source Ladder",
     title_daily_risk_report="Gunluk Risk Raporu",
+    title_daily_risk_report_for_date="Gunluk Risk Raporu / {report_date}",
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
     title_exit="Cikis",
@@ -2800,6 +2809,7 @@ UI_LIST_SEPARATOR = EN_TEXT.list_separator
 MESSAGE_ALL_AGENT_STAGES_LLM_PATH = EN_TEXT.message_all_agent_stages_llm_path
 MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE = EN_TEXT.message_background_service_not_active
 MESSAGE_BACKGROUND_SERVICE_RESTARTED = EN_TEXT.message_background_service_restarted
+MESSAGE_CONTROL_ROOM_CLOSED = EN_TEXT.message_control_room_closed
 MESSAGE_FALLBACK_USED_IN = EN_TEXT.message_fallback_used_in
 MESSAGE_EVIDENCE_BUNDLE_WRITTEN = EN_TEXT.message_evidence_bundle_written
 MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS = (
@@ -2807,6 +2817,7 @@ MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS = (
 )
 MESSAGE_NO_RUNTIME_STATE = EN_TEXT.message_no_runtime_state
 MESSAGE_NO_RUNTIME_EVENTS = EN_TEXT.message_no_runtime_events
+MESSAGE_NO_RUNS_RECORDED = EN_TEXT.message_no_runs_recorded
 MESSAGE_NO_STDERR_LOG_LINES = EN_TEXT.message_no_stderr_log_lines
 MESSAGE_NO_STDOUT_LOG_LINES = EN_TEXT.message_no_stdout_log_lines
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
@@ -2990,6 +3001,7 @@ TITLE_PAPER_OPERATION_CHECKS = EN_TEXT.title_paper_operation_checks
 TITLE_PROVIDER_DIAGNOSTICS = EN_TEXT.title_provider_diagnostics
 TITLE_PROVIDER_SOURCE_LADDER = EN_TEXT.title_provider_source_ladder
 TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
+TITLE_DAILY_RISK_REPORT_FOR_DATE = EN_TEXT.title_daily_risk_report_for_date
 TITLE_DESK_ACCOUNTING_CONTEXT = EN_TEXT.title_desk_accounting_context
 TITLE_ENVIRONMENT_CHECK = EN_TEXT.title_environment_check
 TITLE_EXIT = EN_TEXT.title_exit

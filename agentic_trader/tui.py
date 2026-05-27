@@ -62,22 +62,82 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.ui_text import (
+    LABEL_AGENT_PROFILE,
+    LABEL_AGENT_TONE,
+    LABEL_APPROVED,
+    LABEL_BACKGROUND_MODE,
+    LABEL_BASE_URL,
+    LABEL_BEHAVIOR_PRESET,
+    LABEL_CONTINUOUS,
+    LABEL_CREATED,
+    LABEL_CURRENCIES,
+    LABEL_CURRENT_SYMBOL,
+    LABEL_CYCLE_COUNT,
+    LABEL_DRAWDOWN_FROM_PEAK,
+    LABEL_EQUITY,
+    LABEL_EXCHANGES,
+    LABEL_FIELD,
+    LABEL_FILLS_TODAY,
+    LABEL_GROSS_EXPOSURE,
+    LABEL_HEARTBEAT,
+    LABEL_HEARTBEAT_AGE,
+    LABEL_INTERVAL,
+    LABEL_INTERVENTION,
+    LABEL_KEY,
+    LABEL_LARGEST_POSITION,
+    LABEL_LAST_RECORDED_ERROR,
+    LABEL_LAST_RECORDED_MESSAGE,
+    LABEL_LAST_RECORDED_STATE,
+    LABEL_LAST_TERMINAL_AT,
+    LABEL_LAST_TERMINAL_STATE,
+    LABEL_LAUNCH_COUNT,
+    LABEL_LIVE_PROCESS,
     LABEL_MARKET_VALUE,
+    LABEL_NOTES,
     LABEL_OBSERVER_MODE,
+    LABEL_OPENED,
+    LABEL_PID,
+    LABEL_PNL,
+    LABEL_REGIONS,
+    LABEL_RESTART_COUNT,
+    LABEL_RISK_PROFILE,
+    LABEL_RUN_ID,
+    LABEL_RUNTIME,
+    LABEL_SECTORS,
+    LABEL_SETTING,
+    LABEL_SIDE,
+    LABEL_STATUS,
+    LABEL_STATUS_NOTE,
     LABEL_STOP_REQUESTED,
+    LABEL_STRICTNESS,
+    LABEL_SYMBOL,
+    LABEL_TRADE_STYLE,
     LABEL_UNREALIZED_PNL,
+    LABEL_UPDATED,
+    LABEL_VALUE,
+    LABEL_WARNINGS,
+    LABEL_YES,
+    LABEL_NO,
+    MESSAGE_NO_RUNS_RECORDED,
+    MESSAGE_NO_RUNTIME_EVENTS,
+    MESSAGE_NO_RUNTIME_STATE,
+    MESSAGE_CONTROL_ROOM_CLOSED,
     PROMPT_CONTINUE,
     PROMPT_SELECT_ACTION,
     STYLE_KEY_COLUMN,
+    TITLE_DAILY_RISK_REPORT_FOR_DATE,
+    TITLE_EXIT,
+    TITLE_INVESTMENT_PREFERENCES,
     TITLE_RECENT_RUNS,
     TITLE_RUNTIME_EVENTS,
     TITLE_RUNTIME_STATUS,
+    TITLE_TRADE_JOURNAL,
+    UI_LIST_SEPARATOR,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, start_background_service
 
 console = Console()
-LABEL_BASE_URL = "Base URL"
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,7 +219,7 @@ def _exit_cleanly() -> None:
     This helper writes a short informational panel ("Control room closed cleanly.") to the console.
     """
     console.print(
-        Panel("Control room closed cleanly.", title="Exit", border_style="blue")
+        Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue")
     )
 
 
@@ -177,21 +237,21 @@ def _split_csv(value: str) -> list[str]:
 
 
 def _render_preferences(preferences: InvestmentPreferences) -> Table:
-    table = Table(title="Investment Preferences")
-    table.add_column("Setting")
-    table.add_column("Value")
-    table.add_row("Regions", ", ".join(preferences.regions) or "-")
-    table.add_row("Exchanges", ", ".join(preferences.exchanges) or "-")
-    table.add_row("Currencies", ", ".join(preferences.currencies) or "-")
-    table.add_row("Sectors", ", ".join(preferences.sectors) or "-")
-    table.add_row("Risk Profile", preferences.risk_profile)
-    table.add_row("Trade Style", preferences.trade_style)
-    table.add_row("Behavior Preset", preferences.behavior_preset)
-    table.add_row("Agent Profile", preferences.agent_profile)
-    table.add_row("Agent Tone", preferences.agent_tone)
-    table.add_row("Strictness", preferences.strictness_preset)
-    table.add_row("Intervention", preferences.intervention_style)
-    table.add_row("Notes", preferences.notes or "-")
+    table = Table(title=TITLE_INVESTMENT_PREFERENCES)
+    table.add_column(LABEL_SETTING)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_REGIONS, UI_LIST_SEPARATOR.join(preferences.regions) or "-")
+    table.add_row(LABEL_EXCHANGES, UI_LIST_SEPARATOR.join(preferences.exchanges) or "-")
+    table.add_row(LABEL_CURRENCIES, UI_LIST_SEPARATOR.join(preferences.currencies) or "-")
+    table.add_row(LABEL_SECTORS, UI_LIST_SEPARATOR.join(preferences.sectors) or "-")
+    table.add_row(LABEL_RISK_PROFILE, preferences.risk_profile)
+    table.add_row(LABEL_TRADE_STYLE, preferences.trade_style)
+    table.add_row(LABEL_BEHAVIOR_PRESET, preferences.behavior_preset)
+    table.add_row(LABEL_AGENT_PROFILE, preferences.agent_profile)
+    table.add_row(LABEL_AGENT_TONE, preferences.agent_tone)
+    table.add_row(LABEL_STRICTNESS, preferences.strictness_preset)
+    table.add_row(LABEL_INTERVENTION, preferences.intervention_style)
+    table.add_row(LABEL_NOTES, preferences.notes or "-")
     return table
 
 
@@ -206,15 +266,17 @@ def _render_recent_runs(db: TradingDatabase) -> None:
     """
     runs = db.list_recent_runs(limit=8)
     table = Table(title=TITLE_RECENT_RUNS)
-    table.add_column("Run ID")
-    table.add_column("Created")
-    table.add_column("Symbol")
-    table.add_column("Interval")
-    table.add_column("Approved")
+    table.add_column(LABEL_RUN_ID)
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_INTERVAL)
+    table.add_column(LABEL_APPROVED)
     if not runs:
         console.print(
             Panel(
-                "No runs recorded yet.", title=TITLE_RECENT_RUNS, border_style="yellow"
+                MESSAGE_NO_RUNS_RECORDED,
+                title=TITLE_RECENT_RUNS,
+                border_style="yellow",
             )
         )
         return
@@ -235,11 +297,11 @@ def _recent_runs_table(db: TradingDatabase) -> Table:
     """
     runs = db.list_recent_runs(limit=8)
     table = Table(title=TITLE_RECENT_RUNS)
-    table.add_column("Run ID")
-    table.add_column("Created")
-    table.add_column("Symbol")
-    table.add_column("Interval")
-    table.add_column("Approved")
+    table.add_column(LABEL_RUN_ID)
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_INTERVAL)
+    table.add_column(LABEL_APPROVED)
     if not runs:
         table.add_row("-", "-", "-", "-", "-")
         return table
@@ -250,12 +312,12 @@ def _recent_runs_table(db: TradingDatabase) -> Table:
 
 def _trade_journal_table(db: TradingDatabase, *, limit: int = 8) -> Table:
     entries = db.list_trade_journal(limit=limit)
-    table = Table(title="Trade Journal")
-    table.add_column("Opened")
-    table.add_column("Symbol")
-    table.add_column("Status")
-    table.add_column("Side")
-    table.add_column("PnL")
+    table = Table(title=TITLE_TRADE_JOURNAL)
+    table.add_column(LABEL_OPENED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_SIDE)
+    table.add_column(LABEL_PNL)
     if not entries:
         table.add_row("-", "-", "-", "-", "-")
         return table
@@ -272,15 +334,17 @@ def _trade_journal_table(db: TradingDatabase, *, limit: int = 8) -> Table:
 
 def _risk_report_table(db: TradingDatabase) -> Table:
     report = db.build_daily_risk_report()
-    table = Table(title=f"Risk Report / {report.report_date}")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Equity", f"{report.equity:.2f}")
-    table.add_row("Gross Exposure", f"{report.gross_exposure_pct:.2%}")
-    table.add_row("Largest Position", f"{report.largest_position_pct:.2%}")
-    table.add_row("Drawdown From Peak", f"{report.drawdown_from_peak_pct:.2%}")
-    table.add_row("Fills Today", str(report.fills_today))
-    table.add_row("Warnings", str(len(report.warnings)))
+    table = Table(
+        title=TITLE_DAILY_RISK_REPORT_FOR_DATE.format(report_date=report.report_date)
+    )
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_EQUITY, f"{report.equity:.2f}")
+    table.add_row(LABEL_GROSS_EXPOSURE, f"{report.gross_exposure_pct:.2%}")
+    table.add_row(LABEL_LARGEST_POSITION, f"{report.largest_position_pct:.2%}")
+    table.add_row(LABEL_DRAWDOWN_FROM_PEAK, f"{report.drawdown_from_peak_pct:.2%}")
+    table.add_row(LABEL_FILLS_TODAY, str(report.fills_today))
+    table.add_row(LABEL_WARNINGS, str(len(report.warnings)))
     return table
 
 
@@ -327,7 +391,7 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     if view.state is None:
         console.print(
             Panel(
-                "No runtime state recorded yet.",
+                MESSAGE_NO_RUNTIME_STATE,
                 title=TITLE_RUNTIME_STATUS,
                 border_style="yellow",
             )
@@ -336,29 +400,30 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     snapshot = view.state
 
     table = Table(title=TITLE_RUNTIME_STATUS)
-    table.add_column("Key")
-    table.add_column("Value")
-    table.add_row("Runtime", view.runtime_state)
-    table.add_row("Live Process", "yes" if view.live_process else "no")
-    table.add_row("Last Recorded State", view.last_recorded_state or "-")
-    table.add_row("Updated", snapshot.updated_at)
-    table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
+    table.add_column(LABEL_KEY)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_RUNTIME, view.runtime_state)
+    table.add_row(LABEL_LIVE_PROCESS, LABEL_YES if view.live_process else LABEL_NO)
+    table.add_row(LABEL_LAST_RECORDED_STATE, view.last_recorded_state or "-")
+    table.add_row(LABEL_UPDATED, snapshot.updated_at)
+    table.add_row(LABEL_HEARTBEAT, snapshot.last_heartbeat_at or "-")
     table.add_row(
-        "Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-"
+        LABEL_HEARTBEAT_AGE,
+        f"{view.age_seconds}s" if view.age_seconds is not None else "-",
     )
-    table.add_row("Cycle Count", str(snapshot.cycle_count))
-    table.add_row("Current Symbol", snapshot.current_symbol or "-")
-    table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
+    table.add_row(LABEL_CYCLE_COUNT, str(snapshot.cycle_count))
+    table.add_row(LABEL_CURRENT_SYMBOL, snapshot.current_symbol or "-")
+    table.add_row(LABEL_PID, str(snapshot.pid) if snapshot.pid is not None else "-")
     table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
-    table.add_row("Continuous", str(snapshot.continuous))
-    table.add_row("Background Mode", str(snapshot.background_mode))
-    table.add_row("Launch Count", str(snapshot.launch_count))
-    table.add_row("Restart Count", str(snapshot.restart_count))
-    table.add_row("Last Terminal State", snapshot.last_terminal_state or "-")
-    table.add_row("Last Terminal At", snapshot.last_terminal_at or "-")
-    table.add_row("Status Note", view.status_message)
-    table.add_row("Last Recorded Message", snapshot.message or "-")
-    table.add_row("Last Recorded Error", snapshot.last_error or "-")
+    table.add_row(LABEL_CONTINUOUS, str(snapshot.continuous))
+    table.add_row(LABEL_BACKGROUND_MODE, str(snapshot.background_mode))
+    table.add_row(LABEL_LAUNCH_COUNT, str(snapshot.launch_count))
+    table.add_row(LABEL_RESTART_COUNT, str(snapshot.restart_count))
+    table.add_row(LABEL_LAST_TERMINAL_STATE, snapshot.last_terminal_state or "-")
+    table.add_row(LABEL_LAST_TERMINAL_AT, snapshot.last_terminal_at or "-")
+    table.add_row(LABEL_STATUS_NOTE, view.status_message)
+    table.add_row(LABEL_LAST_RECORDED_MESSAGE, snapshot.message or "-")
+    table.add_row(LABEL_LAST_RECORDED_ERROR, snapshot.last_error or "-")
     console.print(table)
 
 
@@ -372,7 +437,7 @@ def _render_runtime_events(events: list[ServiceEvent]) -> None:
     if not events:
         console.print(
             Panel(
-                "No runtime events recorded yet.",
+                MESSAGE_NO_RUNTIME_EVENTS,
                 title=TITLE_RUNTIME_EVENTS,
                 border_style="yellow",
             )

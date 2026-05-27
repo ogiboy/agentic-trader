@@ -27,11 +27,15 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.title_walk_forward_backtest == ui_text.TITLE_WALK_FORWARD_BACKTEST
     assert catalog.title_retrieval_inspection == ui_text.TITLE_RETRIEVAL_INSPECTION
     assert catalog.title_memory_write_policy == ui_text.TITLE_MEMORY_WRITE_POLICY
+    assert catalog.title_daily_risk_report_for_date == (
+        ui_text.TITLE_DAILY_RISK_REPORT_FOR_DATE
+    )
     assert catalog.label_closed_trades == ui_text.LABEL_CLOSED_TRADES
     assert catalog.label_allowed_actors == ui_text.LABEL_ALLOWED_ACTORS
     assert catalog.message_no_retrieval_stage_context == (
         ui_text.MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT
     )
+    assert catalog.message_no_runs_recorded == ui_text.MESSAGE_NO_RUNS_RECORDED
     assert catalog.message_no_orders_recorded == ui_text.MESSAGE_NO_ORDERS_RECORDED
     assert (
         catalog.title_backtest_memory_ablation == ui_text.TITLE_BACKTEST_MEMORY_ABLATION
@@ -211,10 +215,12 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_live_process == "Canli Process"
     assert catalog.message_no_runtime_state.startswith("Henuz runtime")
     assert catalog.title_daily_risk_report == "Gunluk Risk Raporu"
+    assert catalog.title_daily_risk_report_for_date.startswith("Gunluk Risk Raporu")
     assert catalog.title_retrieval_stage == "Asama / {role}"
     assert catalog.label_fills_today == "Bugunku Fill'ler"
     assert catalog.label_allowed_actors == "Izinli Actor'ler"
     assert catalog.message_no_retrieval_stage_context.startswith("Bu asama")
+    assert catalog.message_no_runs_recorded == "Henuz run kaydi yok."
     assert catalog.message_no_orders_recorded == "Henuz order kaydi yok."
     assert catalog.title_agent_decisions == "Agent Kararlari"
     assert catalog.label_output_preview == "Cikti Onizleme"
