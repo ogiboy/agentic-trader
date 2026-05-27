@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import click
 import typer
+from dotenv import set_key
 from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
@@ -880,24 +881,12 @@ def _ui_payload(locale: str) -> dict[str, object]:
     }
 
 
-ENV_LOCAL_FILE = Path(".env.local")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ENV_LOCAL_FILE = PROJECT_ROOT / ".env.local"
 
 
 def _upsert_env_local_value(key: str, value: str) -> None:
-    path = ENV_LOCAL_FILE
-    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
-    replacement = f"{key}={value}"
-    updated = False
-    new_lines: list[str] = []
-    for line in lines:
-        if line.startswith(f"{key}="):
-            new_lines.append(replacement)
-            updated = True
-        else:
-            new_lines.append(line)
-    if not updated:
-        new_lines.append(replacement)
-    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    set_key(ENV_LOCAL_FILE, key, value, quote_mode="never")
 
 
 LABEL_MODEL_SERVICE = "Model Service"
@@ -911,7 +900,6 @@ tool_ownership_app = typer.Typer(help=HELP_TOOL_OWNERSHIP_APP)
 app.add_typer(tool_ownership_app, name="tool-ownership")
 
 TUI_PACKAGE_NAME = "agentic-trader-tui"
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
 ProposalOrderType = Literal["market", "limit"]
 
