@@ -80,6 +80,8 @@ class UITextCatalog:
     help_runtime_event_limit: str
     help_provider_check: str
     help_calendar_status_symbol: str
+    help_trade_journal_limit: str
+    help_risk_report_date: str
     help_evidence_bundle_include_latest_smoke: str
     help_evidence_bundle_label: str
     help_evidence_bundle_output_dir: str
@@ -91,6 +93,7 @@ class UITextCatalog:
     help_camofox_service_host: str
     help_camofox_service_port: str
     help_run_id: str
+    help_trade_context_id: str
     help_runtime_mode_provider_check: str
     help_runtime_mode_target: str
     help_news_classify_source: str
@@ -160,6 +163,7 @@ class UITextCatalog:
     label_command: str
     label_continuous: str
     label_confidence: str
+    label_consensus: str
     label_context: str
     label_core_dependency: str
     label_core_ready: str
@@ -190,6 +194,10 @@ class UITextCatalog:
     label_enabled: str
     label_environment_exists: str
     label_estimated_model_size: str
+    label_execution_adapter: str
+    label_execution_backend: str
+    label_execution_outcome: str
+    label_execution_rationale: str
     label_evidence: str
     label_exchanges: str
     label_exposure: str
@@ -247,6 +255,7 @@ class UITextCatalog:
     label_market_provider: str
     label_market_role: str
     label_materiality: str
+    label_manager_rationale: str
     label_mark_source: str
     label_mark_status: str
     label_marked_at: str
@@ -299,6 +308,7 @@ class UITextCatalog:
     label_realized_pnl: str
     label_ref: str
     label_rejection_evidence: str
+    label_rejection_reason: str
     label_reason: str
     label_reasons: str
     label_regions: str
@@ -307,12 +317,15 @@ class UITextCatalog:
     label_risk_profile: str
     label_research_cycle_control: str
     label_restart_count: str
+    label_retrieved_memory_roles: str
     label_return: str
+    label_review_summary: str
     label_runtime: str
     label_runtime_daemon: str
     label_runtime_dir: str
     label_risk: str
     label_role: str
+    label_run_id: str
     label_service: str
     label_sectors: str
     label_setting: str
@@ -329,6 +342,7 @@ class UITextCatalog:
     label_score: str
     label_slippage: str
     label_stage: str
+    label_shared_bus_roles: str
     label_started: str
     label_step: str
     label_state: str
@@ -353,6 +367,7 @@ class UITextCatalog:
     label_take: str
     label_take_profit: str
     label_tool: str
+    label_tool_output_roles: str
     label_tools: str
     label_timezone: str
     label_token_hint: str
@@ -397,6 +412,14 @@ class UITextCatalog:
     message_no_trade_journal_entries: str
     message_no_historical_memories: str
     message_no_action_selected: str
+    message_trade_journal_temporarily_unavailable: str
+    message_risk_report_temporarily_unavailable: str
+    message_run_review_temporarily_unavailable: str
+    message_no_persisted_runs_review: str
+    message_run_trace_temporarily_unavailable: str
+    message_no_persisted_runs_trace: str
+    message_trade_context_temporarily_unavailable: str
+    message_no_trade_context: str
     message_operator_workflow_guidance: str
     message_calendar_status_unavailable: str
     message_cache_status: str
@@ -480,12 +503,14 @@ class UITextCatalog:
     title_broker_status: str
     title_calendar_status: str
     title_cache_status: str
+    title_canonical_analysis: str
     title_alpaca_paper_checks: str
     title_candidate_rejected: str
     title_camofox_browser_helper: str
     title_camofox_stderr_tail: str
     title_camofox_start_failed: str
     title_choose_surface: str
+    title_context_summary: str
     title_llm_status: str
     title_observer_api: str
     title_observer_api_blocked: str
@@ -540,6 +565,8 @@ class UITextCatalog:
     title_service_stdout_tail: str
     title_service_supervisor: str
     title_trade_journal: str
+    title_trade_context: str
+    title_trade_context_detail: str
     title_trade_proposals: str
     title_proposal_candidates: str
     title_position_plan_repair: str
@@ -559,6 +586,7 @@ class UITextCatalog:
     title_research_sidecar_status: str
     title_research_source_health: str
     title_research_snapshot_persisted: str
+    title_routed_models: str
     title_setup_status: str
     title_setup_guidance: str
     title_strategy_profile: str
@@ -672,6 +700,8 @@ EN_TEXT = UITextCatalog(
         "Optional ticker symbol. Defaults to the latest run symbol or "
         "preference-derived default."
     ),
+    help_trade_journal_limit="Maximum number of journal entries to show.",
+    help_risk_report_date="UTC date in YYYY-MM-DD format. Defaults to today.",
     help_evidence_bundle_include_latest_smoke=(
         "Copy the latest smoke summary/report into the bundle when available."
     ),
@@ -690,6 +720,9 @@ EN_TEXT = UITextCatalog(
     help_camofox_service_host="Loopback bind host for app-managed Camofox.",
     help_camofox_service_port="Preferred app-managed Camofox port.",
     help_run_id="Run id to inspect. Defaults to the latest recorded run.",
+    help_trade_context_id=(
+        "Trade id to inspect. Defaults to the latest recorded trade context."
+    ),
     help_runtime_mode_provider_check="Check local provider/model readiness for Operation mode.",
     help_runtime_mode_target="Target runtime mode: training or operation.",
     help_news_classify_source="Optionally classify a source domain or URL into the source tier policy.",
@@ -759,6 +792,7 @@ EN_TEXT = UITextCatalog(
     label_command="Command",
     label_continuous="Continuous",
     label_confidence="Confidence",
+    label_consensus="Consensus",
     label_context="Context",
     label_core_dependency="Core Dependency",
     label_core_ready="Core Ready",
@@ -789,6 +823,10 @@ EN_TEXT = UITextCatalog(
     label_enabled="Enabled",
     label_environment_exists="Environment Exists",
     label_estimated_model_size="Estimated Model Size",
+    label_execution_adapter="Execution Adapter",
+    label_execution_backend="Execution Backend",
+    label_execution_outcome="Execution Outcome",
+    label_execution_rationale="Execution Rationale",
     label_evidence="Evidence",
     label_exchanges="Exchanges",
     label_exposure="Exposure",
@@ -846,6 +884,7 @@ EN_TEXT = UITextCatalog(
     label_market_provider="Market Provider",
     label_market_role="Market Role",
     label_materiality="Materiality",
+    label_manager_rationale="Manager Rationale",
     label_mark_source="Mark Source",
     label_mark_status="Mark Status",
     label_marked_at="Marked At",
@@ -898,6 +937,7 @@ EN_TEXT = UITextCatalog(
     label_realized_pnl="Realized PnL",
     label_ref="Ref",
     label_rejection_evidence="Rejection Evidence",
+    label_rejection_reason="Rejection Reason",
     label_reason="Reason",
     label_reasons="Reasons",
     label_regions="Regions",
@@ -906,12 +946,15 @@ EN_TEXT = UITextCatalog(
     label_risk_profile="Risk Profile",
     label_research_cycle_control="Research cycle control",
     label_restart_count="Restart Count",
+    label_retrieved_memory_roles="Retrieved Memory Roles",
     label_return="Return",
+    label_review_summary="Review Summary",
     label_runtime="Runtime",
     label_runtime_daemon="Runtime Daemon",
     label_runtime_dir="Runtime Dir",
     label_risk="Risk",
     label_role="Role",
+    label_run_id="Run ID",
     label_service="Service",
     label_sectors="Sectors",
     label_setting="Setting",
@@ -928,6 +971,7 @@ EN_TEXT = UITextCatalog(
     label_score="Score",
     label_slippage="Slippage",
     label_stage="Stage",
+    label_shared_bus_roles="Shared Bus Roles",
     label_started="Started",
     label_step="Step",
     label_state="State",
@@ -952,6 +996,7 @@ EN_TEXT = UITextCatalog(
     label_take="Take",
     label_take_profit="Take Profit",
     label_tool="Tool",
+    label_tool_output_roles="Tool Output Roles",
     label_tools="Tools",
     label_timezone="Timezone",
     label_token_hint="Token Hint",
@@ -998,6 +1043,29 @@ EN_TEXT = UITextCatalog(
     message_no_trade_journal_entries="No trade journal entries recorded yet.",
     message_no_historical_memories="No historical memories are available yet.",
     message_no_action_selected="No action selected.",
+    message_trade_journal_temporarily_unavailable=(
+        "Trade journal is temporarily unavailable while the runtime writer owns "
+        "the database.\n\n{error}"
+    ),
+    message_risk_report_temporarily_unavailable=(
+        "Risk report is temporarily unavailable while the runtime writer owns "
+        "the database.\n\n{error}"
+    ),
+    message_run_review_temporarily_unavailable=(
+        "Run review is temporarily unavailable while the runtime writer owns "
+        "the database.\n\n{error}"
+    ),
+    message_no_persisted_runs_review="No persisted runs are available to review.",
+    message_run_trace_temporarily_unavailable=(
+        "Run trace is temporarily unavailable while the runtime writer owns "
+        "the database.\n\n{error}"
+    ),
+    message_no_persisted_runs_trace="No persisted runs are available to trace.",
+    message_trade_context_temporarily_unavailable=(
+        "Trade context is temporarily unavailable while the runtime writer owns "
+        "the database.\n\n{error}"
+    ),
+    message_no_trade_context="No persisted trade context is available yet.",
     message_operator_workflow_guidance=(
         "Read-only workflow guide. Review readiness and evidence before long paper operation."
     ),
@@ -1161,12 +1229,14 @@ EN_TEXT = UITextCatalog(
     title_broker_status="Broker Status",
     title_calendar_status="Calendar Status",
     title_cache_status="Cache Status",
+    title_canonical_analysis="Canonical Analysis",
     title_alpaca_paper_checks="Alpaca Paper Checks",
     title_candidate_rejected="Candidate Rejected",
     title_camofox_browser_helper="Camofox Browser Helper",
     title_camofox_stderr_tail="Camofox Stderr Tail",
     title_camofox_start_failed="Camofox Start Failed",
     title_choose_surface="Choose A Surface",
+    title_context_summary="Context Summary",
     title_execution_summary="Execution Summary",
     title_llm_status="LLM Status",
     title_observer_api="Observer API",
@@ -1222,6 +1292,8 @@ EN_TEXT = UITextCatalog(
     title_service_stdout_tail="Service Stdout Tail",
     title_service_supervisor="Service Supervisor",
     title_trade_journal="Trade Journal",
+    title_trade_context="Trade Context",
+    title_trade_context_detail="Trade Context / {trade_id}",
     title_trade_proposals="Trade Proposals",
     title_proposal_candidates="Proposal Candidates",
     title_position_plan_repair="Position Plan Repair",
@@ -1241,6 +1313,7 @@ EN_TEXT = UITextCatalog(
     title_research_sidecar_status="Research Sidecar Status",
     title_research_source_health="Research Source Health",
     title_research_snapshot_persisted="Research Snapshot Persisted",
+    title_routed_models="Routed Models",
     title_setup_status="Setup Status",
     title_setup_guidance="Setup Guidance",
     title_strategy_profile="Strategy Profile: {name}",
@@ -1357,6 +1430,8 @@ TR_TEXT = UITextCatalog(
         "Istege bagli ticker sembolu. Varsayilan son run sembolu veya "
         "preference kaynakli default."
     ),
+    help_trade_journal_limit="Gosterilecek maksimum journal entry sayisi.",
+    help_risk_report_date="UTC tarih YYYY-MM-DD formatinda. Varsayilan bugun.",
     help_evidence_bundle_include_latest_smoke=(
         "Varsa son smoke summary/report dosyalarini bundle icine kopyala."
     ),
@@ -1375,6 +1450,9 @@ TR_TEXT = UITextCatalog(
     help_camofox_service_host="App-managed Camofox icin loopback bind host.",
     help_camofox_service_port="Tercih edilen app-managed Camofox portu.",
     help_run_id="Incelenecek run id. Varsayilan son kayitli run.",
+    help_trade_context_id=(
+        "Incelenecek trade id. Varsayilan son kayitli trade context."
+    ),
     help_runtime_mode_provider_check="Operation modu icin yerel provider/model hazirligini kontrol et.",
     help_runtime_mode_target="Hedef runtime modu: training veya operation.",
     help_news_classify_source="Source domain veya URL'i source tier policy icine siniflandir.",
@@ -1444,6 +1522,7 @@ TR_TEXT = UITextCatalog(
     label_command="Komut",
     label_continuous="Surekli",
     label_confidence="Guven",
+    label_consensus="Consensus",
     label_context="Baglam",
     label_core_dependency="Core Dependency",
     label_core_ready="Core Hazir",
@@ -1474,6 +1553,10 @@ TR_TEXT = UITextCatalog(
     label_enabled="Etkin",
     label_environment_exists="Environment Var",
     label_estimated_model_size="Tahmini Model Boyutu",
+    label_execution_adapter="Execution Adapter",
+    label_execution_backend="Execution Backend",
+    label_execution_outcome="Execution Outcome",
+    label_execution_rationale="Execution Gerekcesi",
     label_evidence="Evidence",
     label_exchanges="Borsalar",
     label_exposure="Exposure",
@@ -1531,6 +1614,7 @@ TR_TEXT = UITextCatalog(
     label_market_provider="Market Provider",
     label_market_role="Market Rolu",
     label_materiality="Materiality",
+    label_manager_rationale="Manager Gerekcesi",
     label_mark_source="Mark Kaynagi",
     label_mark_status="Mark Durumu",
     label_marked_at="Mark Zamani",
@@ -1583,6 +1667,7 @@ TR_TEXT = UITextCatalog(
     label_realized_pnl="Gerceklesen PnL",
     label_ref="Ref",
     label_rejection_evidence="Red Kaniti",
+    label_rejection_reason="Red Nedeni",
     label_reason="Neden",
     label_reasons="Nedenler",
     label_regions="Bolgeler",
@@ -1591,12 +1676,15 @@ TR_TEXT = UITextCatalog(
     label_risk_profile="Risk Profili",
     label_research_cycle_control="Research cycle control",
     label_restart_count="Restart Sayisi",
+    label_retrieved_memory_roles="Retrieved Memory Rolleri",
     label_return="Return",
+    label_review_summary="Review Ozeti",
     label_runtime="Runtime",
     label_runtime_daemon="Runtime Daemon",
     label_runtime_dir="Runtime Dir",
     label_risk="Risk",
     label_role="Rol",
+    label_run_id="Run ID",
     label_service="Servis",
     label_sectors="Sektorler",
     label_setting="Ayar",
@@ -1613,6 +1701,7 @@ TR_TEXT = UITextCatalog(
     label_score="Skor",
     label_slippage="Slippage",
     label_stage="Asama",
+    label_shared_bus_roles="Shared Bus Rolleri",
     label_started="Basladi",
     label_step="Adim",
     label_state="State",
@@ -1637,6 +1726,7 @@ TR_TEXT = UITextCatalog(
     label_take="Take",
     label_take_profit="Take Profit",
     label_tool="Tool",
+    label_tool_output_roles="Tool Output Rolleri",
     label_tools="Araclar",
     label_timezone="Saat Dilimi",
     label_token_hint="Token Ipuclari",
@@ -1683,6 +1773,29 @@ TR_TEXT = UITextCatalog(
     message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
     message_no_historical_memories="Henuz historical memory yok.",
     message_no_action_selected="Aksiyon secilmedi.",
+    message_trade_journal_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken trade journal gecici olarak "
+        "kullanilamiyor.\n\n{error}"
+    ),
+    message_risk_report_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken risk report gecici olarak "
+        "kullanilamiyor.\n\n{error}"
+    ),
+    message_run_review_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken run review gecici olarak "
+        "kullanilamiyor.\n\n{error}"
+    ),
+    message_no_persisted_runs_review="Review icin persisted run yok.",
+    message_run_trace_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken run trace gecici olarak "
+        "kullanilamiyor.\n\n{error}"
+    ),
+    message_no_persisted_runs_trace="Trace icin persisted run yok.",
+    message_trade_context_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken trade context gecici olarak "
+        "kullanilamiyor.\n\n{error}"
+    ),
+    message_no_trade_context="Henuz persisted trade context yok.",
     message_operator_workflow_guidance=(
         "Read-only workflow rehberi. Uzun paper operation oncesi readiness ve evidence inceleyin."
     ),
@@ -1846,12 +1959,14 @@ TR_TEXT = UITextCatalog(
     title_broker_status="Broker Durumu",
     title_calendar_status="Calendar Durumu",
     title_cache_status="Cache Durumu",
+    title_canonical_analysis="Canonical Analysis",
     title_alpaca_paper_checks="Alpaca Paper Kontrolleri",
     title_candidate_rejected="Candidate Reddedildi",
     title_camofox_browser_helper="Camofox Browser Yardimcisi",
     title_camofox_stderr_tail="Camofox Stderr Kuyrugu",
     title_camofox_start_failed="Camofox Baslatma Basarisiz",
     title_choose_surface="Yuzey Sec",
+    title_context_summary="Context Ozeti",
     title_execution_summary="Execution Ozeti",
     title_llm_status="LLM Durumu",
     title_observer_api="Observer API",
@@ -1907,6 +2022,8 @@ TR_TEXT = UITextCatalog(
     title_service_stdout_tail="Service Stdout Kuyrugu",
     title_service_supervisor="Service Supervisor",
     title_trade_journal="Trade Journal",
+    title_trade_context="Trade Context",
+    title_trade_context_detail="Trade Context / {trade_id}",
     title_trade_proposals="Trade Proposal'lari",
     title_proposal_candidates="Proposal Candidate'leri",
     title_position_plan_repair="Position Plan Repair",
@@ -1926,6 +2043,7 @@ TR_TEXT = UITextCatalog(
     title_research_sidecar_status="Research Sidecar Durumu",
     title_research_source_health="Research Kaynak Sagligi",
     title_research_snapshot_persisted="Research Snapshot Kaydedildi",
+    title_routed_models="Routed Modeller",
     title_setup_status="Setup Durumu",
     title_setup_guidance="Setup Rehberi",
     title_strategy_profile="Strategy Profile: {name}",
@@ -2038,6 +2156,8 @@ HELP_RESEARCH_REFRESH_PERSIST = EN_TEXT.help_research_refresh_persist
 HELP_RUNTIME_EVENT_LIMIT = EN_TEXT.help_runtime_event_limit
 HELP_PROVIDER_CHECK = EN_TEXT.help_provider_check
 HELP_CALENDAR_STATUS_SYMBOL = EN_TEXT.help_calendar_status_symbol
+HELP_TRADE_JOURNAL_LIMIT = EN_TEXT.help_trade_journal_limit
+HELP_RISK_REPORT_DATE = EN_TEXT.help_risk_report_date
 HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE = (
     EN_TEXT.help_evidence_bundle_include_latest_smoke
 )
@@ -2050,6 +2170,7 @@ HELP_FIRECRAWL_OWNER = EN_TEXT.help_firecrawl_owner
 HELP_CAMOFOX_OWNER = EN_TEXT.help_camofox_owner
 HELP_CAMOFOX_SERVICE_HOST = EN_TEXT.help_camofox_service_host
 HELP_CAMOFOX_SERVICE_PORT = EN_TEXT.help_camofox_service_port
+HELP_TRADE_CONTEXT_ID = EN_TEXT.help_trade_context_id
 HELP_RUNTIME_MODE_PROVIDER_CHECK = EN_TEXT.help_runtime_mode_provider_check
 HELP_RUNTIME_MODE_TARGET = EN_TEXT.help_runtime_mode_target
 HELP_NEWS_CLASSIFY_SOURCE = EN_TEXT.help_news_classify_source
@@ -2139,6 +2260,7 @@ LABEL_CLOSED_TRADES = EN_TEXT.label_closed_trades
 LABEL_COMMAND = EN_TEXT.label_command
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
 LABEL_CONFIDENCE = EN_TEXT.label_confidence
+LABEL_CONSENSUS = EN_TEXT.label_consensus
 LABEL_CONTEXT = EN_TEXT.label_context
 LABEL_CORE_DEPENDENCY = EN_TEXT.label_core_dependency
 LABEL_CORE_READY = EN_TEXT.label_core_ready
@@ -2169,6 +2291,10 @@ LABEL_EQUITY = EN_TEXT.label_equity
 LABEL_ENABLED = EN_TEXT.label_enabled
 LABEL_ENVIRONMENT_EXISTS = EN_TEXT.label_environment_exists
 LABEL_ESTIMATED_MODEL_SIZE = EN_TEXT.label_estimated_model_size
+LABEL_EXECUTION_ADAPTER = EN_TEXT.label_execution_adapter
+LABEL_EXECUTION_BACKEND = EN_TEXT.label_execution_backend
+LABEL_EXECUTION_OUTCOME = EN_TEXT.label_execution_outcome
+LABEL_EXECUTION_RATIONALE = EN_TEXT.label_execution_rationale
 LABEL_EVIDENCE = EN_TEXT.label_evidence
 LABEL_EXCHANGES = EN_TEXT.label_exchanges
 LABEL_EXPOSURE = EN_TEXT.label_exposure
@@ -2226,6 +2352,7 @@ LABEL_MARKET_PRICE = EN_TEXT.label_market_price
 LABEL_MARKET_PROVIDER = EN_TEXT.label_market_provider
 LABEL_MARKET_ROLE = EN_TEXT.label_market_role
 LABEL_MATERIALITY = EN_TEXT.label_materiality
+LABEL_MANAGER_RATIONALE = EN_TEXT.label_manager_rationale
 LABEL_MARK_SOURCE = EN_TEXT.label_mark_source
 LABEL_MARK_STATUS = EN_TEXT.label_mark_status
 LABEL_MARKED_AT = EN_TEXT.label_marked_at
@@ -2278,6 +2405,7 @@ LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
 LABEL_REF = EN_TEXT.label_ref
 LABEL_REJECTION_EVIDENCE = EN_TEXT.label_rejection_evidence
+LABEL_REJECTION_REASON = EN_TEXT.label_rejection_reason
 LABEL_REASON = EN_TEXT.label_reason
 LABEL_REASONS = EN_TEXT.label_reasons
 LABEL_REGIONS = EN_TEXT.label_regions
@@ -2286,12 +2414,15 @@ LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
 LABEL_RISK_PROFILE = EN_TEXT.label_risk_profile
 LABEL_RESEARCH_CYCLE_CONTROL = EN_TEXT.label_research_cycle_control
 LABEL_RESTART_COUNT = EN_TEXT.label_restart_count
+LABEL_RETRIEVED_MEMORY_ROLES = EN_TEXT.label_retrieved_memory_roles
 LABEL_RETURN = EN_TEXT.label_return
+LABEL_REVIEW_SUMMARY = EN_TEXT.label_review_summary
 LABEL_RUNTIME = EN_TEXT.label_runtime
 LABEL_RUNTIME_DAEMON = EN_TEXT.label_runtime_daemon
 LABEL_RUNTIME_DIR = EN_TEXT.label_runtime_dir
 LABEL_RISK = EN_TEXT.label_risk
 LABEL_ROLE = EN_TEXT.label_role
+LABEL_RUN_ID = EN_TEXT.label_run_id
 LABEL_SERVICE = EN_TEXT.label_service
 LABEL_SECTORS = EN_TEXT.label_sectors
 LABEL_SETTING = EN_TEXT.label_setting
@@ -2308,6 +2439,7 @@ LABEL_SNAPSHOT_COUNT = EN_TEXT.label_snapshot_count
 LABEL_SCORE = EN_TEXT.label_score
 LABEL_SLIPPAGE = EN_TEXT.label_slippage
 LABEL_STAGE = EN_TEXT.label_stage
+LABEL_SHARED_BUS_ROLES = EN_TEXT.label_shared_bus_roles
 LABEL_STARTED = EN_TEXT.label_started
 LABEL_STEP = EN_TEXT.label_step
 LABEL_STATE = EN_TEXT.label_state
@@ -2332,6 +2464,7 @@ LABEL_TARGET = EN_TEXT.label_target
 LABEL_TAKE = EN_TEXT.label_take
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
 LABEL_TOOL = EN_TEXT.label_tool
+LABEL_TOOL_OUTPUT_ROLES = EN_TEXT.label_tool_output_roles
 LABEL_TOOLS = EN_TEXT.label_tools
 LABEL_TIMEZONE = EN_TEXT.label_timezone
 LABEL_TOKEN_HINT = EN_TEXT.label_token_hint
@@ -2379,6 +2512,24 @@ MESSAGE_NO_STDOUT_LOG_LINES = EN_TEXT.message_no_stdout_log_lines
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
 MESSAGE_NO_ACTION_SELECTED = EN_TEXT.message_no_action_selected
+MESSAGE_TRADE_JOURNAL_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_trade_journal_temporarily_unavailable
+)
+MESSAGE_RISK_REPORT_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_risk_report_temporarily_unavailable
+)
+MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_run_review_temporarily_unavailable
+)
+MESSAGE_NO_PERSISTED_RUNS_REVIEW = EN_TEXT.message_no_persisted_runs_review
+MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_run_trace_temporarily_unavailable
+)
+MESSAGE_NO_PERSISTED_RUNS_TRACE = EN_TEXT.message_no_persisted_runs_trace
+MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_trade_context_temporarily_unavailable
+)
+MESSAGE_NO_TRADE_CONTEXT = EN_TEXT.message_no_trade_context
 MESSAGE_OPERATOR_WORKFLOW_GUIDANCE = EN_TEXT.message_operator_workflow_guidance
 MESSAGE_CALENDAR_STATUS_UNAVAILABLE = EN_TEXT.message_calendar_status_unavailable
 MESSAGE_CACHE_STATUS = EN_TEXT.message_cache_status
@@ -2478,12 +2629,14 @@ TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
 TITLE_BROKER_STATUS = EN_TEXT.title_broker_status
 TITLE_CALENDAR_STATUS = EN_TEXT.title_calendar_status
 TITLE_CACHE_STATUS = EN_TEXT.title_cache_status
+TITLE_CANONICAL_ANALYSIS = EN_TEXT.title_canonical_analysis
 TITLE_ALPACA_PAPER_CHECKS = EN_TEXT.title_alpaca_paper_checks
 TITLE_CANDIDATE_REJECTED = EN_TEXT.title_candidate_rejected
 TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
 TITLE_CAMOFOX_STDERR_TAIL = EN_TEXT.title_camofox_stderr_tail
 TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
 TITLE_CHOOSE_SURFACE = EN_TEXT.title_choose_surface
+TITLE_CONTEXT_SUMMARY = EN_TEXT.title_context_summary
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OBSERVER_API = EN_TEXT.title_observer_api
@@ -2541,6 +2694,8 @@ TITLE_SERVICE_STDERR_TAIL = EN_TEXT.title_service_stderr_tail
 TITLE_SERVICE_STDOUT_TAIL = EN_TEXT.title_service_stdout_tail
 TITLE_SERVICE_SUPERVISOR = EN_TEXT.title_service_supervisor
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
+TITLE_TRADE_CONTEXT = EN_TEXT.title_trade_context
+TITLE_TRADE_CONTEXT_DETAIL = EN_TEXT.title_trade_context_detail
 TITLE_TRADE_PROPOSALS = EN_TEXT.title_trade_proposals
 TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
@@ -2560,6 +2715,7 @@ TITLE_RESEARCH_CYCLE_RUN = EN_TEXT.title_research_cycle_run
 TITLE_RESEARCH_SIDECAR_STATUS = EN_TEXT.title_research_sidecar_status
 TITLE_RESEARCH_SOURCE_HEALTH = EN_TEXT.title_research_source_health
 TITLE_RESEARCH_SNAPSHOT_PERSISTED = EN_TEXT.title_research_snapshot_persisted
+TITLE_ROUTED_MODELS = EN_TEXT.title_routed_models
 TITLE_SETUP_GUIDANCE = EN_TEXT.title_setup_guidance
 TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
 TITLE_STRATEGY_PROFILE = EN_TEXT.title_strategy_profile

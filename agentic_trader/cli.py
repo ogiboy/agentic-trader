@@ -234,6 +234,9 @@ from agentic_trader.ui_text import (
     HELP_RUNTIME_EVENT_LIMIT,
     HELP_PROVIDER_CHECK,
     HELP_CALENDAR_STATUS_SYMBOL,
+    HELP_RISK_REPORT_DATE,
+    HELP_TRADE_CONTEXT_ID,
+    HELP_TRADE_JOURNAL_LIMIT,
     HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
     HELP_EVIDENCE_BUNDLE_LABEL,
     HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
@@ -309,6 +312,7 @@ from agentic_trader.ui_text import (
     LABEL_CLOSED_TRADES,
     LABEL_COMMAND,
     LABEL_CONFIDENCE,
+    LABEL_CONSENSUS,
     LABEL_CONTEXT,
     LABEL_CORE_DEPENDENCY,
     LABEL_CONTINUOUS,
@@ -341,6 +345,10 @@ from agentic_trader.ui_text import (
     LABEL_ENABLED,
     LABEL_ENVIRONMENT_EXISTS,
     LABEL_ESTIMATED_MODEL_SIZE,
+    LABEL_EXECUTION_ADAPTER,
+    LABEL_EXECUTION_BACKEND,
+    LABEL_EXECUTION_OUTCOME,
+    LABEL_EXECUTION_RATIONALE,
     LABEL_EVIDENCE,
     LABEL_EXCHANGES,
     LABEL_EXIT,
@@ -400,6 +408,7 @@ from agentic_trader.ui_text import (
     LABEL_MARKET_ROLE,
     LABEL_MARKET_VALUE,
     LABEL_MATERIALITY,
+    LABEL_MANAGER_RATIONALE,
     LABEL_MARKS_RECORDED,
     LABEL_MAX_CYCLES,
     LABEL_MAX_DRAWDOWN,
@@ -451,19 +460,23 @@ from agentic_trader.ui_text import (
     LABEL_REASON,
     LABEL_REF,
     LABEL_REJECTION_EVIDENCE,
+    LABEL_REJECTION_REASON,
     LABEL_REGIONS,
     LABEL_REQUIRES_CONFIRMATION,
     LABEL_REASONS,
     LABEL_RESEARCH_CYCLE_CONTROL,
     LABEL_RESTART_COUNT,
+    LABEL_RETRIEVED_MEMORY_ROLES,
     LABEL_RESOLUTION_NOTES,
     LABEL_RETURN,
+    LABEL_REVIEW_SUMMARY,
     LABEL_ROLE,
     LABEL_RUNTIME,
     LABEL_RUNTIME_DAEMON,
     LABEL_RUNTIME_DIR,
     LABEL_RISK,
     LABEL_RISK_PROFILE,
+    LABEL_RUN_ID,
     LABEL_SCORE,
     LABEL_SERVICE,
     LABEL_SECTORS,
@@ -474,6 +487,7 @@ from agentic_trader.ui_text import (
     LABEL_SIDECAR_AVAILABLE,
     LABEL_SIGNAL,
     LABEL_SIMULATED,
+    LABEL_SHARED_BUS_ROLES,
     LABEL_SIZE,
     LABEL_SNAPSHOT_COUNT,
     LABEL_SLIPPAGE,
@@ -505,6 +519,7 @@ from agentic_trader.ui_text import (
     LABEL_TARGET,
     LABEL_TIMEZONE,
     LABEL_TOOL,
+    LABEL_TOOL_OUTPUT_ROLES,
     LABEL_TOOLS,
     LABEL_TOKEN_HINT,
     LABEL_TOTAL_RETURN,
@@ -568,6 +583,9 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
     MESSAGE_NO_TRADE_PROPOSALS,
     MESSAGE_NO_TOOL_NEWS_HEADLINES,
+    MESSAGE_NO_PERSISTED_RUNS_REVIEW,
+    MESSAGE_NO_PERSISTED_RUNS_TRACE,
+    MESSAGE_NO_TRADE_CONTEXT,
     MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
     MESSAGE_OBSERVER_API_LISTENING,
     MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
@@ -584,12 +602,17 @@ from agentic_trader.ui_text import (
     MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
     MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY,
     MESSAGE_RESEARCH_SNAPSHOT_RECORDED,
+    MESSAGE_RISK_REPORT_TEMPORARILY_UNAVAILABLE,
     MESSAGE_RUNTIME_GATE_OPEN,
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
+    MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE,
     MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
     MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
     MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_TRADE_JOURNAL_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADE_PROPOSAL_APPROVED,
     MESSAGE_TRADE_PROPOSAL_CREATED,
     MESSAGE_TRADE_PROPOSAL_RECONCILED,
@@ -628,12 +651,14 @@ from agentic_trader.ui_text import (
     TITLE_BROKER_STATUS,
     TITLE_CALENDAR_STATUS,
     TITLE_CACHE_STATUS,
+    TITLE_CANONICAL_ANALYSIS,
     TITLE_ALPACA_PAPER_CHECKS,
     TITLE_CANDIDATE_REJECTED,
     TITLE_CAMOFOX_BROWSER_HELPER,
     TITLE_CAMOFOX_STDERR_TAIL,
     TITLE_CAMOFOX_START_FAILED,
     TITLE_CHOOSE_SURFACE,
+    TITLE_CONTEXT_SUMMARY,
     TITLE_DAILY_RISK_REPORT,
     TITLE_DESK_ACCOUNTING_CONTEXT,
     TITLE_ENVIRONMENT_CHECK,
@@ -687,6 +712,7 @@ from agentic_trader.ui_text import (
     TITLE_RESEARCH_SIDECAR_STATUS,
     TITLE_RESEARCH_SOURCE_HEALTH,
     TITLE_RESEARCH_SNAPSHOT_PERSISTED,
+    TITLE_ROUTED_MODELS,
     TITLE_REPLAY_STAGES,
     TITLE_RECONCILIATION_BLOCKED,
     TITLE_REFRESH_BLOCKED,
@@ -716,6 +742,8 @@ from agentic_trader.ui_text import (
     TITLE_TOOL_READINESS,
     TITLE_TRACE,
     TITLE_TRADE_JOURNAL,
+    TITLE_TRADE_CONTEXT,
+    TITLE_TRADE_CONTEXT_DETAIL,
     TITLE_TRADE_PROPOSAL_APPROVED,
     TITLE_TRADE_PROPOSAL_CREATED,
     TITLE_TRADE_PROPOSAL_RECONCILED,
@@ -7683,9 +7711,7 @@ def preferences_command(
 
 @app.command("journal")
 def journal(
-    limit: int = typer.Option(
-        20, min=1, max=200, help="Maximum number of journal entries to show."
-    ),
+    limit: int = typer.Option(20, min=1, max=200, help=HELP_TRADE_JOURNAL_LIMIT),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -7712,7 +7738,7 @@ def journal(
     if not available:
         console.print(
             Panel(
-                f"Trade journal is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                MESSAGE_TRADE_JOURNAL_TEMPORARILY_UNAVAILABLE.format(error=error),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -7724,7 +7750,7 @@ def journal(
 @app.command("risk-report")
 def risk_report(
     report_date: str | None = typer.Option(
-        None, help="UTC date in YYYY-MM-DD format. Defaults to today."
+        None, help=HELP_RISK_REPORT_DATE
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -7752,7 +7778,7 @@ def risk_report(
     if not available or report is None:
         console.print(
             Panel(
-                f"Risk report is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                MESSAGE_RISK_REPORT_TEMPORARILY_UNAVAILABLE.format(error=error),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -7790,7 +7816,7 @@ def review_run(
     if not available:
         console.print(
             Panel(
-                f"Run review is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE.format(error=error),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -7799,8 +7825,8 @@ def review_run(
     if record is None:
         console.print(
             Panel(
-                "No persisted runs are available to review.",
-                title="Run Review",
+                MESSAGE_NO_PERSISTED_RUNS_REVIEW,
+                title=TITLE_RUN_REVIEW,
                 border_style="yellow",
             )
         )
@@ -7829,7 +7855,7 @@ def trace_run(
     if not available:
         console.print(
             Panel(
-                f"Run trace is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE.format(error=error),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -7838,8 +7864,8 @@ def trace_run(
     if record is None:
         console.print(
             Panel(
-                "No persisted runs are available to trace.",
-                title="Trace Viewer",
+                MESSAGE_NO_PERSISTED_RUNS_TRACE,
+                title=TITLE_TRACE,
                 border_style="yellow",
             )
         )
@@ -7849,9 +7875,7 @@ def trace_run(
 
 @app.command("trade-context")
 def trade_context(
-    trade_id: str | None = typer.Option(
-        None, help="Trade id to inspect. Defaults to the latest recorded trade context."
-    ),
+    trade_id: str | None = typer.Option(None, help=HELP_TRADE_CONTEXT_ID),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Inspect persisted market, memory, model-routing, and rationale evidence."""
@@ -7881,7 +7905,9 @@ def _render_unavailable_trade_context(
     if not payload["available"]:
         console.print(
             Panel(
-                f"Trade context is temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
+                MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE.format(
+                    error=payload["error"]
+                ),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -7890,8 +7916,8 @@ def _render_unavailable_trade_context(
     if record is None:
         console.print(
             Panel(
-                "No persisted trade context is available yet.",
-                title="Trade Context",
+                MESSAGE_NO_TRADE_CONTEXT,
+                title=TITLE_TRADE_CONTEXT,
                 border_style="yellow",
             )
         )
@@ -7913,29 +7939,29 @@ def _render_trade_context(record: TradeContextRecord) -> None:
             routed model mapping, retrieved/tool/shared role summaries, review warnings,
             and a canonical analysis snapshot.
     """
-    summary = Table(title=f"Trade Context / {record.trade_id}")
-    summary.add_column("Field")
-    summary.add_column("Value")
-    summary.add_row("Created", record.created_at)
-    summary.add_row("Run ID", _value_or_dash(record.run_id))
-    summary.add_row("Symbol", record.symbol)
-    summary.add_row("Consensus", record.consensus.alignment_level)
-    summary.add_row("Manager Rationale", record.manager_rationale)
-    summary.add_row("Execution Rationale", record.execution_rationale)
-    summary.add_row("Execution Backend", _value_or_dash(record.execution_backend))
-    summary.add_row("Execution Adapter", _value_or_dash(record.execution_adapter))
+    summary = Table(title=TITLE_TRADE_CONTEXT_DETAIL.format(trade_id=record.trade_id))
+    summary.add_column(LABEL_FIELD)
+    summary.add_column(LABEL_VALUE)
+    summary.add_row(LABEL_CREATED, record.created_at)
+    summary.add_row(LABEL_RUN_ID, _value_or_dash(record.run_id))
+    summary.add_row(LABEL_SYMBOL, record.symbol)
+    summary.add_row(LABEL_CONSENSUS, record.consensus.alignment_level)
+    summary.add_row(LABEL_MANAGER_RATIONALE, record.manager_rationale)
+    summary.add_row(LABEL_EXECUTION_RATIONALE, record.execution_rationale)
+    summary.add_row(LABEL_EXECUTION_BACKEND, _value_or_dash(record.execution_backend))
+    summary.add_row(LABEL_EXECUTION_ADAPTER, _value_or_dash(record.execution_adapter))
     summary.add_row(
-        "Execution Outcome", _value_or_dash(record.execution_outcome_status)
+        LABEL_EXECUTION_OUTCOME, _value_or_dash(record.execution_outcome_status)
     )
     summary.add_row(
-        "Rejection Reason", _value_or_dash(record.execution_rejection_reason)
+        LABEL_REJECTION_REASON, _value_or_dash(record.execution_rejection_reason)
     )
-    summary.add_row("Review Summary", record.review_summary)
+    summary.add_row(LABEL_REVIEW_SUMMARY, record.review_summary)
     console.print(summary)
 
-    routed_models = Table(title="Routed Models")
-    routed_models.add_column("Role")
-    routed_models.add_column("Model")
+    routed_models = Table(title=TITLE_ROUTED_MODELS)
+    routed_models.add_column(LABEL_ROLE)
+    routed_models.add_column(LABEL_MODEL)
     if not record.routed_models:
         routed_models.add_row("-", "-")
     else:
@@ -7944,22 +7970,22 @@ def _render_trade_context(record: TradeContextRecord) -> None:
     console.print(routed_models)
 
     context_lines = [
-        f"Retrieved Memory Roles: {_join_or_dash(sorted(record.retrieved_memory_summary))}",
-        f"Tool Output Roles: {_join_or_dash(sorted(record.tool_outputs))}",
-        f"Shared Bus Roles: {_join_or_dash(sorted(record.shared_memory_summary))}",
-        f"Review Warnings: {_join_or_dash(record.review_warnings)}",
+        f"{LABEL_RETRIEVED_MEMORY_ROLES}: {_join_or_dash(sorted(record.retrieved_memory_summary))}",
+        f"{LABEL_TOOL_OUTPUT_ROLES}: {_join_or_dash(sorted(record.tool_outputs))}",
+        f"{LABEL_SHARED_BUS_ROLES}: {_join_or_dash(sorted(record.shared_memory_summary))}",
+        f"{LABEL_WARNINGS}: {_join_or_dash(record.review_warnings)}",
     ]
     console.print(
         Panel(
             "\n".join(context_lines),
-            title="Context Summary",
+            title=TITLE_CONTEXT_SUMMARY,
             border_style="cyan",
         )
     )
     console.print(
         Panel(
             "\n".join(_canonical_analysis_lines(record.canonical_snapshot)),
-            title="Canonical Analysis",
+            title=TITLE_CANONICAL_ANALYSIS,
             border_style="blue",
         )
     )

@@ -169,6 +169,13 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
         ui_text.TITLE_INVESTMENT_PREFERENCES
     )
     assert catalog.label_snapshot_count == ui_text.LABEL_SNAPSHOT_COUNT
+    assert catalog.help_trade_journal_limit == ui_text.HELP_TRADE_JOURNAL_LIMIT
+    assert catalog.help_trade_context_id == ui_text.HELP_TRADE_CONTEXT_ID
+    assert catalog.message_run_review_temporarily_unavailable == (
+        ui_text.MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE
+    )
+    assert catalog.title_trade_context == ui_text.TITLE_TRADE_CONTEXT
+    assert catalog.label_manager_rationale == ui_text.LABEL_MANAGER_RATIONALE
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -282,6 +289,11 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.message_no_tool_news_headlines == (
         "Bu sembol icin tool-driven news headline yok."
     )
+    assert catalog.help_risk_report_date.startswith("UTC tarih")
+    assert catalog.message_no_persisted_runs_trace == "Trace icin persisted run yok."
+    assert catalog.title_context_summary == "Context Ozeti"
+    assert catalog.label_execution_rationale == "Execution Gerekcesi"
+    assert catalog.label_rejection_reason == "Red Nedeni"
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 
