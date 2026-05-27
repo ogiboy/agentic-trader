@@ -37,6 +37,11 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_preferences_saved == ui_text.MESSAGE_PREFERENCES_SAVED
     assert catalog.message_chat_exit_hint == ui_text.MESSAGE_CHAT_EXIT_HINT
     assert catalog.prompt_max_cycles == ui_text.PROMPT_MAX_CYCLES
+    assert catalog.menu_action_runtime_control == ui_text.MENU_ACTION_RUNTIME_CONTROL
+    assert catalog.menu_action_back == ui_text.MENU_ACTION_BACK
+    assert catalog.message_action_cancelled_returning == (
+        ui_text.MESSAGE_ACTION_CANCELLED_RETURNING
+    )
     assert catalog.label_regime == ui_text.LABEL_REGIME
     assert catalog.title_walk_forward_backtest == ui_text.TITLE_WALK_FORWARD_BACKTEST
     assert catalog.title_retrieval_inspection == ui_text.TITLE_RETRIEVAL_INSPECTION
@@ -57,7 +62,12 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.title_decision_workflow == ui_text.TITLE_DECISION_WORKFLOW
     assert catalog.title_system_status == ui_text.TITLE_SYSTEM_STATUS
     assert catalog.title_system_snapshot == ui_text.TITLE_SYSTEM_SNAPSHOT
+    assert catalog.title_runtime_control == ui_text.TITLE_RUNTIME_CONTROL
+    assert catalog.title_operator_desk == ui_text.TITLE_OPERATOR_DESK
+    assert catalog.title_portfolio_and_risk == ui_text.TITLE_PORTFOLIO_AND_RISK
+    assert catalog.title_main_menu == ui_text.TITLE_MAIN_MENU
     assert catalog.label_strict_llm == ui_text.LABEL_STRICT_LLM
+    assert catalog.label_action == ui_text.LABEL_ACTION
     assert catalog.label_llm_ready == ui_text.LABEL_LLM_READY
     assert catalog.label_v1_paper_ready == ui_text.LABEL_V1_PAPER_READY
     assert catalog.label_alpaca_paper_ready == ui_text.LABEL_ALPACA_PAPER_READY
@@ -361,6 +371,16 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.message_preferences_saved == "Preferences kaydedildi."
     assert catalog.message_chat_exit_hint == "Chat'ten cikmak icin /exit yazin."
     assert catalog.prompt_max_cycles == "Maksimum cycle (sonsuz icin bos birakin)"
+    assert catalog.menu_action_runtime_control == "Runtime control"
+    assert catalog.menu_action_back == "Geri"
+    assert catalog.message_action_cancelled_returning == (
+        "Aksiyon iptal edildi. Control room'a donuluyor."
+    )
+    assert catalog.title_runtime_control == "Runtime Control"
+    assert catalog.title_operator_desk == "Operator Desk"
+    assert catalog.title_portfolio_and_risk == "Portfolio Ve Risk"
+    assert catalog.title_main_menu == "Ana Menu"
+    assert catalog.label_action == "Aksiyon"
     assert catalog.label_regime == "Regime"
     assert catalog.title_context_summary == "Context Ozeti"
     assert catalog.label_execution_rationale == "Execution Gerekcesi"
