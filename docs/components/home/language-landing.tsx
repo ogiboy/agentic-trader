@@ -2,8 +2,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { docLanguages, languageLabels } from '@/lib/i18n/config';
+import type { DocLanguage } from '@/lib/i18n/config';
 import { withLanguagePrefix } from '@/lib/i18n/routing';
-import { Globe2, Languages } from 'lucide-react';
+import { Globe2, Languages, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
 type LanguageLandingProps = {
@@ -24,6 +25,31 @@ const copy = {
       'Choose English or Turkish to open the full documentation tree. This keeps content, search, and navigation aligned for each language.',
   },
 } as const;
+
+const languageCardCopy: Record<
+  DocLanguage,
+  {
+    icon: LucideIcon;
+    description: string;
+    docsAction: string;
+    homeAction: string;
+  }
+> = {
+  en: {
+    icon: Globe2,
+    description:
+      'Open the full documentation tree, landing page, and localized feedback messaging in English.',
+    docsAction: 'Open docs',
+    homeAction: 'Open home',
+  },
+  tr: {
+    icon: Languages,
+    description:
+      'Tüm belge ağacını, başlangıç sayfasını ve yerelleştirilmiş geri bildirim akışını Türkçe olarak aç.',
+    docsAction: 'Dokümanları aç',
+    homeAction: 'Ana sayfayı aç',
+  },
+};
 
 export function LanguageLanding({ variant }: Readonly<LanguageLandingProps>) {
   const landingCopy = copy[variant];
@@ -47,39 +73,38 @@ export function LanguageLanding({ variant }: Readonly<LanguageLandingProps>) {
       </div>
 
       <section className='grid gap-5 md:grid-cols-2'>
-        {docLanguages.map((lang) => (
-          <Card key={lang} className='docs-home-panel'>
-            <CardHeader>
-              <CardTitle className='flex items-center gap-2 text-xl'>
-                {lang === 'en' ? (
-                  <Globe2 data-icon='inline-start' />
-                ) : (
-                  <Languages data-icon='inline-start' />
-                )}
-                {languageLabels[lang]}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className='flex flex-col gap-4'>
-              <p className='text-sm text-muted-foreground'>
-                {lang === 'en'
-                  ? 'Open the full documentation tree, landing page, and localized feedback messaging in English.'
-                  : 'Tüm belge ağacını, başlangıç sayfasını ve yerelleştirilmiş geri bildirim akışını Türkçe olarak aç.'}
-              </p>
-              <div className='flex flex-wrap gap-3'>
-                <Button asChild>
-                  <Link href={withLanguagePrefix(lang, '/docs')}>
-                    {lang === 'en' ? 'Open docs' : 'Dokümanları aç'}
-                  </Link>
-                </Button>
-                <Button asChild variant='outline'>
-                  <Link href={withLanguagePrefix(lang, '/')}>
-                    {lang === 'en' ? 'Open home' : 'Ana sayfayı aç'}
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {docLanguages.map((lang) => {
+          const cardCopy = languageCardCopy[lang];
+          const Icon = cardCopy.icon;
+
+          return (
+            <Card key={lang} className='docs-home-panel'>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2 text-xl'>
+                  <Icon data-icon='inline-start' />
+                  {languageLabels[lang]}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className='flex flex-col gap-4'>
+                <p className='text-sm text-muted-foreground'>
+                  {cardCopy.description}
+                </p>
+                <div className='flex flex-wrap gap-3'>
+                  <Button asChild>
+                    <Link href={withLanguagePrefix(lang, '/docs')}>
+                      {cardCopy.docsAction}
+                    </Link>
+                  </Button>
+                  <Button asChild variant='outline'>
+                    <Link href={withLanguagePrefix(lang, '/')}>
+                      {cardCopy.homeAction}
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </section>
     </main>
   );

@@ -6,6 +6,7 @@ from agentic_trader.execution.intent import (
     ExecutionOutcome,
     OpenOrderSnapshot,
     build_execution_intent,
+    utc_now,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "ExecutionOutcome",
     "OpenOrderSnapshot",
     "build_execution_intent",
+    "utc_now",
 ]

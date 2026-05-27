@@ -176,13 +176,29 @@ def test_setup_status_requires_reachable_owned_runtime(
     assert status.camofox_service["service_reachable"] is False
 
 
-def test_crewai_setup_status_summarizes_failed_global_version(
+def test_crewai_setup_status_summarizes_failed_sidecar_version(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = _settings(tmp_path)
+    flow_dir = tmp_path / "sidecars" / "research_flow"
+    flow_dir.mkdir(parents=True)
+    (flow_dir / ".venv").mkdir()
+    (flow_dir / "pyproject.toml").write_text(
+        "[project]\nname = 'research-flow'\n",
+        encoding="utf-8",
+    )
+
+    def fake_flow_dir(_settings: Settings) -> Path:
+        return flow_dir
+
+    monkeypatch.setattr(
+        crewai_setup,
+        "default_crewai_flow_dir",
+        fake_flow_dir,
+    )
 
     def fake_which(command: str) -> str | None:
-        return f"/bin/{command}" if command in {"crewai", "uv"} else None
+        return "/bin/uv" if command == "uv" else None
 
     class Completed:
         returncode = 1
@@ -203,7 +219,7 @@ def test_crewai_setup_status_summarizes_failed_global_version(
     notes = payload.get("notes")
     assert isinstance(notes, list)
     note_values = cast(list[object], notes)
-    assert "crewai_cli_version_check_failed" in " ".join(
+    assert "crewai_sidecar_version_check_failed" in " ".join(
         str(note) for note in note_values
     )
 

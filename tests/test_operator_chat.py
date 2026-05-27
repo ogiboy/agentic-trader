@@ -78,10 +78,13 @@ def test_chat_with_persona_uses_llm_response(
     db = TradingDatabase(settings)
     llm = LocalLLM(settings)
 
+    def _complete_text(**_kwargs: object) -> str:
+        return "Operator-facing response"
+
     monkeypatch.setattr(
         llm,
         "complete_text",
-        lambda **kwargs: "Operator-facing response",
+        _complete_text,
     )
 
     response = chat_with_persona(
