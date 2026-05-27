@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -112,7 +112,7 @@ class InvestmentPreferences(BaseModel):
     regions: list[str] = Field(default_factory=lambda: ["US"])
     exchanges: list[str] = Field(default_factory=lambda: ["NASDAQ", "NYSE"])
     currencies: list[str] = Field(default_factory=lambda: ["USD"])
-    sectors: list[str] = Field(default_factory=list)
+    sectors: list[str] = Field(default_factory=list[str])
     risk_profile: RiskProfile = "balanced"
     trade_style: TradeStyle = "swing"
     behavior_preset: BehaviorPreset = "balanced_core"
@@ -128,7 +128,7 @@ class RegimeAssessment(BaseModel):
     direction_bias: Literal["long", "short", "flat"]
     confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str
-    key_risks: list[str] = Field(default_factory=list)
+    key_risks: list[str] = Field(default_factory=list[str])
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
 
@@ -146,7 +146,7 @@ class StrategyPlan(BaseModel):
     entry_logic: str
     invalidation_logic: str
     confidence: float = Field(ge=0.0, le=1.0)
-    reason_codes: list[str] = Field(default_factory=list)
+    reason_codes: list[str] = Field(default_factory=list[str])
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
 
@@ -249,7 +249,7 @@ class ProposalCandidateRecord(BaseModel):
     liquidity: str
     spread_pct: float = Field(ge=0.0)
     risk_notes: str
-    evidence: dict[str, object] = Field(default_factory=dict)
+    evidence: dict[str, object] = Field(default_factory=dict[str, object])
     proposal_id: str | None = None
 
     @model_validator(mode="after")
@@ -322,9 +322,11 @@ class MarketContextPack(BaseModel):
     coverage_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
     higher_timeframe: str
     higher_timeframe_used: bool
-    horizons: list[MarketContextHorizon] = Field(default_factory=list)
-    data_quality_flags: list[str] = Field(default_factory=list)
-    anomaly_flags: list[str] = Field(default_factory=list)
+    horizons: list[MarketContextHorizon] = Field(
+        default_factory=list[MarketContextHorizon]
+    )
+    data_quality_flags: list[str] = Field(default_factory=list[str])
+    anomaly_flags: list[str] = Field(default_factory=list[str])
     summary: str = ""
 
 
@@ -366,15 +368,17 @@ class TechnicalFeatureSet(BaseModel):
     interval: str
     as_of: str | None = None
     price_anchor: float | None = None
-    returns_by_window: dict[str, float | None] = Field(default_factory=dict)
+    returns_by_window: dict[str, float | None] = Field(
+        default_factory=dict[str, float | None]
+    )
     volatility_20: float | None = None
     max_drawdown_pct: float | None = None
     support: float | None = None
     resistance: float | None = None
     trend_classification: TrendVote = "insufficient"
-    momentum_indicators: dict[str, float] = Field(default_factory=dict)
+    momentum_indicators: dict[str, float] = Field(default_factory=dict[str, float])
     context_summary: str = ""
-    data_quality_flags: list[str] = Field(default_factory=list)
+    data_quality_flags: list[str] = Field(default_factory=list[str])
 
 
 class FundamentalFeatureSet(BaseModel):
@@ -386,8 +390,8 @@ class FundamentalFeatureSet(BaseModel):
     debt_risk: float | None = Field(default=None, ge=0.0, le=1.0)
     fx_exposure: str = "unknown"
     reinvestment_potential: float | None = Field(default=None, ge=0.0, le=1.0)
-    data_sources: list[str] = Field(default_factory=list)
-    quality_flags: list[str] = Field(default_factory=list)
+    data_sources: list[str] = Field(default_factory=list[str])
+    quality_flags: list[str] = Field(default_factory=list[str])
     summary: str = ""
 
 
@@ -412,8 +416,10 @@ class MacroContext(BaseModel):
     fx_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
     sector_risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
     political_risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
-    news_signals: list[StructuredNewsSignal] = Field(default_factory=list)
-    data_sources: list[str] = Field(default_factory=list)
+    news_signals: list[StructuredNewsSignal] = Field(
+        default_factory=list[StructuredNewsSignal]
+    )
+    data_sources: list[str] = Field(default_factory=list[str])
     summary: str = ""
 
 
@@ -425,7 +431,7 @@ class ProviderMetadata(BaseModel):
     priority: int = 100
     enabled: bool = True
     requires_network: bool = False
-    notes: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list[str])
 
 
 class DataSourceAttribution(BaseModel):
@@ -436,7 +442,7 @@ class DataSourceAttribution(BaseModel):
     freshness: FreshnessStatus = "unknown"
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     completeness: float = Field(default=0.0, ge=0.0, le=1.0)
-    notes: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list[str])
 
 
 class MarketDataSnapshot(BaseModel):
@@ -444,12 +450,12 @@ class MarketDataSnapshot(BaseModel):
     interval: str
     lookback: str | None = None
     rows: int = 0
-    columns: list[str] = Field(default_factory=list)
+    columns: list[str] = Field(default_factory=list[str])
     window_start: str | None = None
     window_end: str | None = None
     last_close: float | None = None
     attribution: DataSourceAttribution
-    missing_fields: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list[str])
     summary: str = ""
 
 
@@ -462,14 +468,14 @@ class FundamentalSnapshot(BaseModel):
     fx_exposure: str = "unknown"
     reinvestment_potential: float | None = Field(default=None, ge=0.0, le=1.0)
     attribution: DataSourceAttribution
-    missing_fields: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list[str])
     summary: str = ""
 
 
 class EvidenceInferenceBreakdown(BaseModel):
-    evidence: list[str] = Field(default_factory=list)
-    inference: list[str] = Field(default_factory=list)
-    uncertainty: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list[str])
+    inference: list[str] = Field(default_factory=list[str])
+    uncertainty: list[str] = Field(default_factory=list[str])
 
 
 class NewsEvent(BaseModel):
@@ -488,7 +494,7 @@ class NewsEvent(BaseModel):
     evidence_vs_inference: EvidenceInferenceBreakdown = Field(
         default_factory=EvidenceInferenceBreakdown
     )
-    missing_fields: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list[str])
 
 
 class DisclosureEvent(BaseModel):
@@ -506,7 +512,7 @@ class DisclosureEvent(BaseModel):
     evidence_vs_inference: EvidenceInferenceBreakdown = Field(
         default_factory=EvidenceInferenceBreakdown
     )
-    missing_fields: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list[str])
 
 
 class MacroSnapshot(BaseModel):
@@ -518,7 +524,7 @@ class MacroSnapshot(BaseModel):
     sector_risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
     political_risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
     attribution: DataSourceAttribution
-    missing_fields: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list[str])
     summary: str = ""
 
 
@@ -527,11 +533,13 @@ class CanonicalAnalysisSnapshot(BaseModel):
     generated_at: str
     market: MarketDataSnapshot
     fundamental: FundamentalSnapshot
-    news_events: list[NewsEvent] = Field(default_factory=list)
-    disclosures: list[DisclosureEvent] = Field(default_factory=list)
+    news_events: list[NewsEvent] = Field(default_factory=list[NewsEvent])
+    disclosures: list[DisclosureEvent] = Field(default_factory=list[DisclosureEvent])
     macro: MacroSnapshot
-    source_attributions: list[DataSourceAttribution] = Field(default_factory=list)
-    missing_sections: list[str] = Field(default_factory=list)
+    source_attributions: list[DataSourceAttribution] = Field(
+        default_factory=list[DataSourceAttribution]
+    )
+    missing_sections: list[str] = Field(default_factory=list[str])
     completeness_score: float = Field(default=0.0, ge=0.0, le=1.0)
     summary: str = ""
 
@@ -544,14 +552,16 @@ class DecisionFeatureBundle(BaseModel):
 
 
 class ResearchTimedRecord(BaseModel):
-    source_attributions: list[DataSourceAttribution] = Field(default_factory=list)
+    source_attributions: list[DataSourceAttribution] = Field(
+        default_factory=list[DataSourceAttribution]
+    )
     observed_at: str
     last_verified_at: str | None = None
     stale_after: str | None = None
     evidence_vs_inference: EvidenceInferenceBreakdown = Field(
         default_factory=EvidenceInferenceBreakdown
     )
-    missing_fields: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list[str])
 
     def is_stale(self, reference_time: str | None = None) -> bool:
         if self.stale_after is None:
@@ -585,7 +595,7 @@ class MacroEvent(ResearchTimedRecord):
     title: str
     summary: str = ""
     direction: ResearchSignalDirection = "unknown"
-    affected_channels: list[str] = Field(default_factory=list)
+    affected_channels: list[str] = Field(default_factory=list[str])
 
 
 class SocialSignal(ResearchTimedRecord):
@@ -605,13 +615,13 @@ class ResearchFinding(ResearchTimedRecord):
     subject: str
     title: str
     thesis: str = ""
-    verified_facts: list[str] = Field(default_factory=list)
-    inferences: list[str] = Field(default_factory=list)
-    unknowns: list[str] = Field(default_factory=list)
-    contradictions: list[str] = Field(default_factory=list)
-    market_channels: list[str] = Field(default_factory=list)
+    verified_facts: list[str] = Field(default_factory=list[str])
+    inferences: list[str] = Field(default_factory=list[str])
+    unknowns: list[str] = Field(default_factory=list[str])
+    contradictions: list[str] = Field(default_factory=list[str])
+    market_channels: list[str] = Field(default_factory=list[str])
     horizon: str = "unknown"
-    watch_next: list[str] = Field(default_factory=list)
+    watch_next: list[str] = Field(default_factory=list[str])
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
@@ -620,10 +630,10 @@ class EntityDossier(ResearchTimedRecord):
     entity_name: str
     symbol: str | None = None
     region: str | None = None
-    timeline: list[str] = Field(default_factory=list)
+    timeline: list[str] = Field(default_factory=list[str])
     current_thesis: str = ""
-    key_findings: list[ResearchFinding] = Field(default_factory=list)
-    contradiction_file: list[str] = Field(default_factory=list)
+    key_findings: list[ResearchFinding] = Field(default_factory=list[ResearchFinding])
+    contradiction_file: list[str] = Field(default_factory=list[str])
     source_diversity_score: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
@@ -631,11 +641,11 @@ class WorldStateSnapshot(ResearchTimedRecord):
     snapshot_id: str
     mode: ResearchMode = "off"
     generated_at: str
-    watched_symbols: list[str] = Field(default_factory=list)
-    entity_dossiers: list[EntityDossier] = Field(default_factory=list)
-    macro_events: list[MacroEvent] = Field(default_factory=list)
-    social_signals: list[SocialSignal] = Field(default_factory=list)
-    findings: list[ResearchFinding] = Field(default_factory=list)
+    watched_symbols: list[str] = Field(default_factory=list[str])
+    entity_dossiers: list[EntityDossier] = Field(default_factory=list[EntityDossier])
+    macro_events: list[MacroEvent] = Field(default_factory=list[MacroEvent])
+    social_signals: list[SocialSignal] = Field(default_factory=list[SocialSignal])
+    findings: list[ResearchFinding] = Field(default_factory=list[ResearchFinding])
     summary: str = ""
 
 
@@ -649,7 +659,7 @@ class ResearchProviderHealth(BaseModel):
     freshness: FreshnessStatus = "unknown"
     last_successful_update_at: str | None = None
     message: str = ""
-    notes: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list[str])
 
 
 class ResearchSidecarState(BaseModel):
@@ -661,9 +671,11 @@ class ResearchSidecarState(BaseModel):
     last_started_at: str | None = None
     last_successful_update_at: str | None = None
     last_error: str | None = None
-    watched_symbols: list[str] = Field(default_factory=list)
-    provider_health: list[ResearchProviderHealth] = Field(default_factory=list)
-    source_health_summary: dict[str, int] = Field(default_factory=dict)
+    watched_symbols: list[str] = Field(default_factory=list[str])
+    provider_health: list[ResearchProviderHealth] = Field(
+        default_factory=list[ResearchProviderHealth]
+    )
+    source_health_summary: dict[str, int] = Field(default_factory=dict[str, int])
 
 
 class ResearchCycleOperatorControl(BaseModel):
@@ -684,12 +696,12 @@ class ResearchDigestReplayRecord(BaseModel):
     snapshot_id: str | None = None
     mode: ResearchMode
     backend: str = "noop"
-    watched_symbols: list[str] = Field(default_factory=list)
-    digest: dict[str, object] = Field(default_factory=dict)
-    executions: list[dict[str, object]] = Field(default_factory=list)
-    execution_policy: dict[str, bool] = Field(default_factory=dict)
+    watched_symbols: list[str] = Field(default_factory=list[str])
+    digest: dict[str, object] = Field(default_factory=dict[str, object])
+    executions: list[dict[str, object]] = Field(default_factory=list[dict[str, object]])
+    execution_policy: dict[str, bool] = Field(default_factory=dict[str, bool])
     operator_control: ResearchCycleOperatorControl
-    replay_notes: list[str] = Field(default_factory=list)
+    replay_notes: list[str] = Field(default_factory=list[str])
 
 
 class ResearchSnapshotRecord(BaseModel):
@@ -698,11 +710,13 @@ class ResearchSnapshotRecord(BaseModel):
     mode: ResearchMode
     backend: str = "noop"
     status: Literal["disabled", "idle", "running", "completed", "failed"] = "disabled"
-    watched_symbols: list[str] = Field(default_factory=list)
-    raw_evidence: list[RawEvidenceRecord] = Field(default_factory=list)
+    watched_symbols: list[str] = Field(default_factory=list[str])
+    raw_evidence: list[RawEvidenceRecord] = Field(
+        default_factory=list[RawEvidenceRecord]
+    )
     world_state: WorldStateSnapshot | None = None
     state: ResearchSidecarState
-    memory_update: dict[str, object] = Field(default_factory=dict)
+    memory_update: dict[str, object] = Field(default_factory=dict[str, object])
 
 
 class FundamentalAssessment(BaseModel):
@@ -714,8 +728,8 @@ class FundamentalAssessment(BaseModel):
     business_quality: AnalysisSignal = "neutral"
     macro_fit: AnalysisSignal = "neutral"
     forward_outlook: AnalysisSignal = "neutral"
-    red_flags: list[str] = Field(default_factory=list)
-    strengths: list[str] = Field(default_factory=list)
+    red_flags: list[str] = Field(default_factory=list[str])
+    strengths: list[str] = Field(default_factory=list[str])
     evidence_vs_inference: EvidenceInferenceBreakdown = Field(
         default_factory=EvidenceInferenceBreakdown
     )
@@ -727,7 +741,7 @@ class FundamentalAssessment(BaseModel):
     overall_signal: AnalysisSignal = "neutral"
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     summary: str = "Fundamental evidence is not available yet."
-    risk_flags: list[str] = Field(default_factory=list)
+    risk_flags: list[str] = Field(default_factory=list[str])
     source: Literal["llm", "fallback"] = "fallback"
     fallback_reason: str | None = None
 
@@ -750,7 +764,11 @@ class FundamentalAssessment(BaseModel):
             legacy_value = getattr(self, legacy)
 
             def _copy_mutable(value: object) -> object:
-                return list(value) if isinstance(value, list) else value
+                return (
+                    list(cast(list[object], value))
+                    if isinstance(value, list)
+                    else value
+                )
 
             if current_present and legacy_present and current_value != legacy_value:
                 raise ValueError(
@@ -776,7 +794,7 @@ class MacroAssessment(BaseModel):
     fx_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     summary: str = "Macro and news evidence is not available yet."
-    risk_flags: list[str] = Field(default_factory=list)
+    risk_flags: list[str] = Field(default_factory=list[str])
     source: Literal["llm", "fallback"] = "fallback"
     fallback_reason: str | None = None
 
@@ -791,14 +809,18 @@ class AgentContext(BaseModel):
     portfolio: PortfolioSnapshot
     market_session: MarketSessionStatus | None = None
     service_state: "ServiceStateSnapshot | None" = None
-    recent_runs: list[str] = Field(default_factory=list)
-    memory_notes: list[str] = Field(default_factory=list)
-    retrieved_memories: list[str] = Field(default_factory=list)
-    retrieval_explanations: list["HistoricalMemoryMatch"] = Field(default_factory=list)
+    recent_runs: list[str] = Field(default_factory=list[str])
+    memory_notes: list[str] = Field(default_factory=list[str])
+    retrieved_memories: list[str] = Field(default_factory=list[str])
+    retrieval_explanations: list["HistoricalMemoryMatch"] = Field(
+        default_factory=list["HistoricalMemoryMatch"]
+    )
     calibration: "ConfidenceCalibration | None" = None
-    shared_memory_bus: list["SharedMemoryEntry"] = Field(default_factory=list)
-    tool_outputs: list[str] = Field(default_factory=list)
-    upstream_context: dict[str, str] = Field(default_factory=dict)
+    shared_memory_bus: list["SharedMemoryEntry"] = Field(
+        default_factory=list["SharedMemoryEntry"]
+    )
+    tool_outputs: list[str] = Field(default_factory=list[str])
+    upstream_context: dict[str, str] = Field(default_factory=dict[str, str])
 
 
 class AccountMark(BaseModel):
@@ -826,7 +848,7 @@ class ServiceStateSnapshot(BaseModel):
     continuous: bool = False
     poll_seconds: int | None = None
     cycle_count: int = 0
-    symbols: list[str] = Field(default_factory=list)
+    symbols: list[str] = Field(default_factory=list[str])
     interval: str | None = None
     lookback: str | None = None
     max_cycles: int | None = None
@@ -886,8 +908,8 @@ class PositionExitDecision(BaseModel):
 
 class ResearchCoordinatorBrief(BaseModel):
     market_focus: CoordinatorFocus
-    priority_signals: list[str] = Field(default_factory=list)
-    caution_flags: list[str] = Field(default_factory=list)
+    priority_signals: list[str] = Field(default_factory=list[str])
+    caution_flags: list[str] = Field(default_factory=list[str])
     summary: str
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
@@ -899,10 +921,10 @@ class ManagerDecision(BaseModel):
     confidence_cap: float = Field(ge=0.0, le=1.0)
     size_multiplier: float = Field(gt=0.0, le=1.0)
     rationale: str
-    escalation_flags: list[str] = Field(default_factory=list)
+    escalation_flags: list[str] = Field(default_factory=list[str])
     override_applied: bool = False
-    conflicts: list["ManagerConflict"] = Field(default_factory=list)
-    resolution_notes: list[str] = Field(default_factory=list)
+    conflicts: list["ManagerConflict"] = Field(default_factory=list["ManagerConflict"])
+    resolution_notes: list[str] = Field(default_factory=list[str])
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
 
@@ -918,16 +940,16 @@ class ManagerConflict(BaseModel):
 class SpecialistConsensus(BaseModel):
     alignment_level: Literal["aligned", "mixed", "conflicted"] = "mixed"
     summary: str = ""
-    supporting_roles: list[str] = Field(default_factory=list)
-    dissenting_roles: list[str] = Field(default_factory=list)
-    reasons: list[str] = Field(default_factory=list)
+    supporting_roles: list[str] = Field(default_factory=list[str])
+    dissenting_roles: list[str] = Field(default_factory=list[str])
+    reasons: list[str] = Field(default_factory=list[str])
 
 
 class ReviewNote(BaseModel):
     summary: str
-    strengths: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-    next_checks: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list[str])
+    warnings: list[str] = Field(default_factory=list[str])
+    next_checks: list[str] = Field(default_factory=list[str])
 
 
 class PreferenceUpdate(BaseModel):
@@ -964,7 +986,9 @@ class RuntimeModeTransitionPlan(BaseModel):
     current_mode: RuntimeMode
     target_mode: RuntimeMode
     allowed: bool
-    checks: list[RuntimeModeTransitionCheck] = Field(default_factory=list)
+    checks: list[RuntimeModeTransitionCheck] = Field(
+        default_factory=list[RuntimeModeTransitionCheck]
+    )
     summary: str
 
 
@@ -1011,13 +1035,17 @@ class TradeContextRecord(BaseModel):
     market_context_pack: MarketContextPack | None = None
     canonical_snapshot: CanonicalAnalysisSnapshot | None = None
     decision_features: DecisionFeatureBundle | None = None
-    routed_models: dict[str, str] = Field(default_factory=dict)
-    retrieved_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
+    routed_models: dict[str, str] = Field(default_factory=dict[str, str])
+    retrieved_memory_summary: dict[str, list[str]] = Field(
+        default_factory=dict[str, list[str]]
+    )
     retrieval_explanation_summary: dict[str, list[dict[str, object]]] = Field(
         default_factory=dict
     )
-    tool_outputs: dict[str, list[str]] = Field(default_factory=dict)
-    shared_memory_summary: dict[str, list[str]] = Field(default_factory=dict)
+    tool_outputs: dict[str, list[str]] = Field(default_factory=dict[str, list[str]])
+    shared_memory_summary: dict[str, list[str]] = Field(
+        default_factory=dict[str, list[str]]
+    )
     consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
     fundamental_assessment: FundamentalAssessment = Field(
         default_factory=FundamentalAssessment
@@ -1025,8 +1053,10 @@ class TradeContextRecord(BaseModel):
     fundamental_summary: str = ""
     macro_summary: str = ""
     manager_rationale: str = ""
-    manager_conflicts: list[ManagerConflict] = Field(default_factory=list)
-    manager_resolution_notes: list[str] = Field(default_factory=list)
+    manager_conflicts: list[ManagerConflict] = Field(
+        default_factory=list[ManagerConflict]
+    )
+    manager_resolution_notes: list[str] = Field(default_factory=list[str])
     execution_rationale: str = ""
     execution_backend: str | None = None
     execution_adapter: str | None = None
@@ -1034,9 +1064,11 @@ class TradeContextRecord(BaseModel):
     execution_outcome_status: str | None = None
     execution_rejection_reason: str | None = None
     execution_outcome: dict[str, object] | None = None
-    simulated_fill_metadata: dict[str, object] = Field(default_factory=dict)
+    simulated_fill_metadata: dict[str, object] = Field(
+        default_factory=dict[str, object]
+    )
     review_summary: str = ""
-    review_warnings: list[str] = Field(default_factory=list)
+    review_warnings: list[str] = Field(default_factory=list[str])
 
 
 class DailyRiskReport(BaseModel):
@@ -1054,9 +1086,9 @@ class DailyRiskReport(BaseModel):
     gross_exposure_pct: float
     largest_position_pct: float
     portfolio_hhi: float = 0.0
-    top_position_symbols: list[str] = Field(default_factory=list)
+    top_position_symbols: list[str] = Field(default_factory=list[str])
     drawdown_from_peak_pct: float
-    warnings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list[str])
 
 
 class ConfidenceCalibration(BaseModel):
@@ -1065,7 +1097,7 @@ class ConfidenceCalibration(BaseModel):
     win_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     average_pnl: float = 0.0
     confidence_multiplier: float = Field(default=1.0, gt=0.0, le=1.0)
-    notes: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list[str])
 
 
 class SharedMemoryEntry(BaseModel):
@@ -1124,7 +1156,7 @@ class BacktestReport(BaseModel):
     fallback_cycles: int
     starting_equity: float
     ending_equity: float
-    trades: list[BacktestTrade] = Field(default_factory=list)
+    trades: list[BacktestTrade] = Field(default_factory=list[BacktestTrade])
 
 
 class BacktestSummary(BaseModel):
@@ -1176,7 +1208,7 @@ class RunArtifacts(BaseModel):
     manager: ManagerDecision
     execution: ExecutionDecision
     review: ReviewNote
-    agent_traces: list[AgentStageTrace] = Field(default_factory=list)
+    agent_traces: list[AgentStageTrace] = Field(default_factory=list[AgentStageTrace])
 
     def fallback_components(self) -> list[str]:
         components: list[str] = []
@@ -1229,14 +1261,14 @@ class HistoricalMemoryMatch(BaseModel):
 
 class MemoryRetrievalExplanation(BaseModel):
     eligibility_reason: str = "candidate_run_record"
-    score_components: dict[str, float] = Field(default_factory=dict)
+    score_components: dict[str, float] = Field(default_factory=dict[str, float])
     as_of: str | None = None
     freshness: FreshnessStatus = "unknown"
     outcome_tag: str = "unknown"
     regime_alignment: str = "unknown"
     strategy_alignment: str = "unknown"
     diversity_bucket: str = "unknown"
-    notes: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list[str])
 
 
 class RunReplayStage(BaseModel):
@@ -1244,12 +1276,14 @@ class RunReplayStage(BaseModel):
     model_name: str
     used_fallback: bool = False
     market_session: dict[str, object] | None = None
-    retrieved_memories: list[str] = Field(default_factory=list)
-    memory_notes: list[str] = Field(default_factory=list)
-    shared_memory_bus: list[SharedMemoryEntry] = Field(default_factory=list)
-    recent_runs: list[str] = Field(default_factory=list)
-    tool_outputs: list[str] = Field(default_factory=list)
-    upstream_context: dict[str, str] = Field(default_factory=dict)
+    retrieved_memories: list[str] = Field(default_factory=list[str])
+    memory_notes: list[str] = Field(default_factory=list[str])
+    shared_memory_bus: list[SharedMemoryEntry] = Field(
+        default_factory=list[SharedMemoryEntry]
+    )
+    recent_runs: list[str] = Field(default_factory=list[str])
+    tool_outputs: list[str] = Field(default_factory=list[str])
+    upstream_context: dict[str, str] = Field(default_factory=dict[str, str])
     output: dict[str, object] | str
 
 
@@ -1263,7 +1297,9 @@ class RunReplay(BaseModel):
     final_rationale: str
     snapshot: MarketSnapshot
     consensus: SpecialistConsensus = Field(default_factory=SpecialistConsensus)
-    manager_override_notes: list[str] = Field(default_factory=list)
-    manager_conflicts: list[ManagerConflict] = Field(default_factory=list)
-    manager_resolution_notes: list[str] = Field(default_factory=list)
-    stages: list[RunReplayStage] = Field(default_factory=list)
+    manager_override_notes: list[str] = Field(default_factory=list[str])
+    manager_conflicts: list[ManagerConflict] = Field(
+        default_factory=list[ManagerConflict]
+    )
+    manager_resolution_notes: list[str] = Field(default_factory=list[str])
+    stages: list[RunReplayStage] = Field(default_factory=list[RunReplayStage])

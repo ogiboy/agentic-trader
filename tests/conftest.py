@@ -6,7 +6,7 @@ from agentic_trader.config import Settings
 
 
 @pytest.fixture(autouse=True)
-def _disable_settings_env_files(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def disable_settings_env_files(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """
     Prevent local .env files from being loaded during tests.
 

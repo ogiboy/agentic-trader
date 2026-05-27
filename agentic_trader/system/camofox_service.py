@@ -14,6 +14,7 @@ import socket
 import subprocess
 import time
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlparse
 
 import httpx
@@ -32,6 +33,7 @@ from agentic_trader.system.tool_roots import (
     local_tool_status_payload,
     resolve_configured_tool_path,
 )
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 DEFAULT_CAMOFOX_HOST = "127.0.0.1"
 DEFAULT_CAMOFOX_PORT = 9377
@@ -159,12 +161,6 @@ def camofox_tool_dir(settings: Settings) -> Path:
         settings.research_camofox_tool_dir,
         default_tool="camofox-browser",
     )
-
-
-def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _read_state(settings: Settings) -> CamofoxServiceState | None:
@@ -360,15 +356,14 @@ def _health(base_url: str) -> tuple[bool, bool, str]:
             False,
             f"Unable to reach Camofox: {redact_sensitive_text(exc, max_length=160)}",
         )
-    ok = bool(payload.get("ok")) if isinstance(payload, dict) else False
+    payload_object = (
+        cast(dict[str, object], payload) if isinstance(payload, dict) else {}
+    )
+    ok = bool(payload_object.get("ok"))
     if not ok:
         return True, False, "Camofox health is not ok."
-    browser_running = (
-        payload.get("browserRunning") if isinstance(payload, dict) else None
-    )
-    browser_connected = (
-        payload.get("browserConnected") if isinstance(payload, dict) else None
-    )
+    browser_running = payload_object.get("browserRunning")
+    browser_connected = payload_object.get("browserConnected")
     if browser_running is False or browser_connected is False:
         return True, True, "Camofox server is reachable; browser launches on demand."
     return True, True, "Camofox is reachable."

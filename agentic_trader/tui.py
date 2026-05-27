@@ -1,6 +1,6 @@
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Sequence, cast
 
@@ -10,6 +10,7 @@ from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt, Prompt
+from rich.status import Status
 from rich.table import Table
 from rich.text import Text
 
@@ -24,6 +25,9 @@ from agentic_trader.diagnostics import (
     v1_readiness_payload,
 )
 from agentic_trader.engine.broker import broker_runtime_payload
+from agentic_trader.json_utils import object_list as _object_list
+from agentic_trader.json_utils import object_mapping as _object_mapping
+from agentic_trader.json_utils import object_mapping_list as _object_mapping_list
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot
@@ -58,22 +62,195 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.ui_text import (
+    LABEL_AGENT_PROFILE,
+    LABEL_AGENT_TONE,
+    LABEL_ALPACA_CREDENTIALS_CONFIGURED,
+    LABEL_ALPACA_FEED,
+    LABEL_ALPACA_PAPER_ENDPOINT,
+    LABEL_ALPACA_PAPER_READY,
+    LABEL_API_KEY,
+    LABEL_APPROVED,
+    LABEL_AVERAGE_PRICE,
+    LABEL_BACKGROUND_MODE,
+    LABEL_BASE_URL,
+    LABEL_BEHAVIOR_PRESET,
+    LABEL_BIAS,
+    LABEL_BROKER_BACKEND,
+    LABEL_BROKER_STATE,
+    LABEL_BROKER,
+    LABEL_BLOCKING,
+    LABEL_CASH,
+    LABEL_CHECK,
+    LABEL_COMPLETED_NOTE,
+    LABEL_CONTINUOUS,
+    LABEL_CREATED,
+    LABEL_CURRENCIES,
+    LABEL_CURRENT_NOTE,
+    LABEL_CURRENT_STAGE,
+    LABEL_CURRENT_SYMBOL,
+    LABEL_CYCLE,
+    LABEL_CYCLE_COUNT,
+    LABEL_DATABASE,
+    LABEL_DB_VIEWS,
+    LABEL_DEFAULT_MODEL,
+    LABEL_DRAWDOWN_FROM_PEAK,
+    LABEL_DETAILS,
+    LABEL_EQUITY,
+    LABEL_ENABLED,
+    LABEL_EXCHANGES,
+    LABEL_FIELD,
+    LABEL_FALLBACK,
+    LABEL_FILLS_TODAY,
+    LABEL_FRESHNESS,
+    LABEL_GROSS_EXPOSURE,
+    LABEL_HEARTBEAT,
+    LABEL_HEARTBEAT_AGE,
+    LABEL_HEALTHCHECK,
+    LABEL_INTERVAL,
+    LABEL_INTERVENTION,
+    LABEL_KEY,
+    LABEL_KILL_SWITCH,
+    LABEL_LARGEST_POSITION,
+    LABEL_LAST_COMPLETED_STAGE,
+    LABEL_LAST_OUTCOME,
+    LABEL_LAST_OUTCOME_TYPE,
+    LABEL_LAST_RECORDED_ERROR,
+    LABEL_LAST_RECORDED_MESSAGE,
+    LABEL_LAST_RECORDED_STATE,
+    LABEL_LAST_TERMINAL_AT,
+    LABEL_LAST_TERMINAL_STATE,
+    LABEL_LAUNCH_COUNT,
+    LABEL_LEVEL,
+    LABEL_LIVE_PROCESS,
+    LABEL_LLM_PROVIDER,
+    LABEL_LLM_READY,
+    LABEL_LOOKBACK,
+    LABEL_LATEST_ORDER,
+    LABEL_MARKED_AT,
+    LABEL_MARK_SOURCE,
     LABEL_MARKET_VALUE,
+    LABEL_MARKET_PRICE,
+    LABEL_MARKET_PROVIDER,
+    LABEL_MARKET_ROLE,
+    LABEL_MESSAGE,
+    LABEL_METRIC,
+    LABEL_MODEL,
+    LABEL_MODEL_AVAILABLE,
+    LABEL_NEWS_MODE,
+    LABEL_NOTES,
     LABEL_OBSERVER_MODE,
+    LABEL_OLLAMA_REACHABLE,
+    LABEL_OPENED,
+    LABEL_OPEN_POSITIONS,
+    LABEL_PAPER_MARK,
+    LABEL_PID,
+    LABEL_PNL,
+    LABEL_PROVIDER,
+    LABEL_PROVIDER_WARNINGS,
+    LABEL_QUANTITY,
+    LABEL_REGIONS,
+    LABEL_REALIZED_PNL,
+    LABEL_REGIME,
+    LABEL_REASONS,
+    LABEL_RESTART_COUNT,
+    LABEL_RISK_PROFILE,
+    LABEL_RUN_ID,
+    LABEL_RUNTIME,
+    LABEL_RUNTIME_DIR,
+    LABEL_ROLE,
+    LABEL_SECTORS,
+    LABEL_SETTING,
+    LABEL_SIDE,
+    LABEL_STATUS,
+    LABEL_STATUS_NOTE,
+    LABEL_STATE,
     LABEL_STOP_REQUESTED,
+    LABEL_STRICT_LLM,
+    LABEL_STRICTNESS,
+    LABEL_STAGE,
+    LABEL_STAGE_MESSAGE,
+    LABEL_STAGE_STATUS,
+    LABEL_SCORE,
+    LABEL_SYMBOL,
+    LABEL_STRATEGY,
+    LABEL_TRADE_STYLE,
+    LABEL_TYPE,
     LABEL_UNREALIZED_PNL,
+    LABEL_UPDATED,
+    LABEL_VALUE,
+    LABEL_WARNINGS,
+    LABEL_WATCHED_SYMBOLS,
+    LABEL_YES,
+    LABEL_NO,
+    LABEL_V1_PAPER_GATE,
+    LABEL_V1_PAPER_READY,
+    MESSAGE_NO_RUNS_RECORDED,
+    MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
+    MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS,
+    MESSAGE_CHAT_EXIT_HINT,
+    MESSAGE_FINAL_STAGE_UPDATE,
+    MESSAGE_NO_PERSISTED_RUNS_REVIEW,
+    MESSAGE_NO_PERSISTED_RUNS_TRACE,
+    MESSAGE_NO_RUNTIME_EVENTS,
+    MESSAGE_NO_RUNTIME_STATE,
+    MESSAGE_MARK_TIME_UNAVAILABLE,
+    MESSAGE_MONITOR_RETURN_SHORTCUT,
+    MESSAGE_PREFERENCES_SAVED,
+    MESSAGE_PREPARING_SYMBOL,
+    MESSAGE_SERVICE_SPAWNED_BACKGROUND,
+    MESSAGE_STAGE_UPDATE,
+    MESSAGE_V1_READINESS_STATUS_UNAVAILABLE,
+    MESSAGE_WAITING_FOR_LAST_OUTCOME,
+    MESSAGE_CONTROL_ROOM_CLOSED,
     PROMPT_CONTINUE,
+    PROMPT_APPLY_PREFERENCE_UPDATE,
+    PROMPT_CHAT_PERSONA,
+    PROMPT_CONTINUOUS_MODE,
+    PROMPT_INSTRUCTION,
+    PROMPT_MAX_CYCLES,
+    PROMPT_OPEN_LIVE_MONITOR_NOW,
+    PROMPT_POLL_INTERVAL_SECONDS,
+    PROMPT_REFRESH_SECONDS,
     PROMPT_SELECT_ACTION,
+    PROMPT_YOU,
     STYLE_KEY_COLUMN,
+    TITLE_CURRENT_CYCLE,
+    TITLE_DECISION_WORKFLOW,
+    TITLE_DECISION_EVIDENCE_EXPLORER,
+    TITLE_DAILY_RISK_REPORT_FOR_DATE,
+    TITLE_EXIT,
+    TITLE_INVESTMENT_PREFERENCES,
     TITLE_RECENT_RUNS,
+    TITLE_LATEST_RUN_REVIEW,
+    TITLE_AGENT_TRACE_FOR_RUN,
+    TITLE_CHAT,
+    TITLE_PARSED_OPERATOR_INSTRUCTION,
+    TITLE_RUN_COMPLETED,
+    TITLE_RUN_REVIEW,
     TITLE_RUNTIME_EVENTS,
+    TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_STATUS,
+    TITLE_SYSTEM_STATUS,
+    TITLE_SYSTEM_SNAPSHOT,
+    TITLE_SAVED,
+    TITLE_PORTFOLIO,
+    TITLE_POSITIONS,
+    TITLE_ALPACA_PAPER_CHECKS,
+    TITLE_BROKER_STATUS,
+    TITLE_PAPER_OPERATION_CHECKS,
+    TITLE_PROVIDER_DIAGNOSTICS,
+    TITLE_PROVIDER_SOURCE_LADDER,
+    TITLE_SERVICE_SPAWNED,
+    TITLE_TRADE_JOURNAL,
+    TITLE_TRACE,
+    TITLE_UPDATED_PREFERENCES,
+    TITLE_V1_READINESS,
+    UI_LIST_SEPARATOR,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import ensure_llm_ready, start_background_service
 
 console = Console()
-LABEL_BASE_URL = "Base URL"
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +295,12 @@ def _style_key(text: str) -> str:
     return f"[{STYLE_KEY_COLUMN}]{text}[/{STYLE_KEY_COLUMN}]"
 
 
+def _label_line(label: str, value: object) -> str:
+    """Return one compact TUI row."""
+
+    return ": ".join((label, str(value)))
+
+
 def _banner() -> Panel:
     """
     Create the banner panel used as the Agentic Trader control room header.
@@ -155,7 +338,7 @@ def _exit_cleanly() -> None:
     This helper writes a short informational panel ("Control room closed cleanly.") to the console.
     """
     console.print(
-        Panel("Control room closed cleanly.", title="Exit", border_style="blue")
+        Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue")
     )
 
 
@@ -173,21 +356,21 @@ def _split_csv(value: str) -> list[str]:
 
 
 def _render_preferences(preferences: InvestmentPreferences) -> Table:
-    table = Table(title="Investment Preferences")
-    table.add_column("Setting")
-    table.add_column("Value")
-    table.add_row("Regions", ", ".join(preferences.regions) or "-")
-    table.add_row("Exchanges", ", ".join(preferences.exchanges) or "-")
-    table.add_row("Currencies", ", ".join(preferences.currencies) or "-")
-    table.add_row("Sectors", ", ".join(preferences.sectors) or "-")
-    table.add_row("Risk Profile", preferences.risk_profile)
-    table.add_row("Trade Style", preferences.trade_style)
-    table.add_row("Behavior Preset", preferences.behavior_preset)
-    table.add_row("Agent Profile", preferences.agent_profile)
-    table.add_row("Agent Tone", preferences.agent_tone)
-    table.add_row("Strictness", preferences.strictness_preset)
-    table.add_row("Intervention", preferences.intervention_style)
-    table.add_row("Notes", preferences.notes or "-")
+    table = Table(title=TITLE_INVESTMENT_PREFERENCES)
+    table.add_column(LABEL_SETTING)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_REGIONS, UI_LIST_SEPARATOR.join(preferences.regions) or "-")
+    table.add_row(LABEL_EXCHANGES, UI_LIST_SEPARATOR.join(preferences.exchanges) or "-")
+    table.add_row(LABEL_CURRENCIES, UI_LIST_SEPARATOR.join(preferences.currencies) or "-")
+    table.add_row(LABEL_SECTORS, UI_LIST_SEPARATOR.join(preferences.sectors) or "-")
+    table.add_row(LABEL_RISK_PROFILE, preferences.risk_profile)
+    table.add_row(LABEL_TRADE_STYLE, preferences.trade_style)
+    table.add_row(LABEL_BEHAVIOR_PRESET, preferences.behavior_preset)
+    table.add_row(LABEL_AGENT_PROFILE, preferences.agent_profile)
+    table.add_row(LABEL_AGENT_TONE, preferences.agent_tone)
+    table.add_row(LABEL_STRICTNESS, preferences.strictness_preset)
+    table.add_row(LABEL_INTERVENTION, preferences.intervention_style)
+    table.add_row(LABEL_NOTES, preferences.notes or "-")
     return table
 
 
@@ -202,15 +385,17 @@ def _render_recent_runs(db: TradingDatabase) -> None:
     """
     runs = db.list_recent_runs(limit=8)
     table = Table(title=TITLE_RECENT_RUNS)
-    table.add_column("Run ID")
-    table.add_column("Created")
-    table.add_column("Symbol")
-    table.add_column("Interval")
-    table.add_column("Approved")
+    table.add_column(LABEL_RUN_ID)
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_INTERVAL)
+    table.add_column(LABEL_APPROVED)
     if not runs:
         console.print(
             Panel(
-                "No runs recorded yet.", title=TITLE_RECENT_RUNS, border_style="yellow"
+                MESSAGE_NO_RUNS_RECORDED,
+                title=TITLE_RECENT_RUNS,
+                border_style="yellow",
             )
         )
         return
@@ -231,11 +416,11 @@ def _recent_runs_table(db: TradingDatabase) -> Table:
     """
     runs = db.list_recent_runs(limit=8)
     table = Table(title=TITLE_RECENT_RUNS)
-    table.add_column("Run ID")
-    table.add_column("Created")
-    table.add_column("Symbol")
-    table.add_column("Interval")
-    table.add_column("Approved")
+    table.add_column(LABEL_RUN_ID)
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_INTERVAL)
+    table.add_column(LABEL_APPROVED)
     if not runs:
         table.add_row("-", "-", "-", "-", "-")
         return table
@@ -246,12 +431,12 @@ def _recent_runs_table(db: TradingDatabase) -> Table:
 
 def _trade_journal_table(db: TradingDatabase, *, limit: int = 8) -> Table:
     entries = db.list_trade_journal(limit=limit)
-    table = Table(title="Trade Journal")
-    table.add_column("Opened")
-    table.add_column("Symbol")
-    table.add_column("Status")
-    table.add_column("Side")
-    table.add_column("PnL")
+    table = Table(title=TITLE_TRADE_JOURNAL)
+    table.add_column(LABEL_OPENED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_SIDE)
+    table.add_column(LABEL_PNL)
     if not entries:
         table.add_row("-", "-", "-", "-", "-")
         return table
@@ -268,15 +453,17 @@ def _trade_journal_table(db: TradingDatabase, *, limit: int = 8) -> Table:
 
 def _risk_report_table(db: TradingDatabase) -> Table:
     report = db.build_daily_risk_report()
-    table = Table(title=f"Risk Report / {report.report_date}")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Equity", f"{report.equity:.2f}")
-    table.add_row("Gross Exposure", f"{report.gross_exposure_pct:.2%}")
-    table.add_row("Largest Position", f"{report.largest_position_pct:.2%}")
-    table.add_row("Drawdown From Peak", f"{report.drawdown_from_peak_pct:.2%}")
-    table.add_row("Fills Today", str(report.fills_today))
-    table.add_row("Warnings", str(len(report.warnings)))
+    table = Table(
+        title=TITLE_DAILY_RISK_REPORT_FOR_DATE.format(report_date=report.report_date)
+    )
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_EQUITY, f"{report.equity:.2f}")
+    table.add_row(LABEL_GROSS_EXPOSURE, f"{report.gross_exposure_pct:.2%}")
+    table.add_row(LABEL_LARGEST_POSITION, f"{report.largest_position_pct:.2%}")
+    table.add_row(LABEL_DRAWDOWN_FROM_PEAK, f"{report.drawdown_from_peak_pct:.2%}")
+    table.add_row(LABEL_FILLS_TODAY, str(report.fills_today))
+    table.add_row(LABEL_WARNINGS, str(len(report.warnings)))
     return table
 
 
@@ -323,7 +510,7 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     if view.state is None:
         console.print(
             Panel(
-                "No runtime state recorded yet.",
+                MESSAGE_NO_RUNTIME_STATE,
                 title=TITLE_RUNTIME_STATUS,
                 border_style="yellow",
             )
@@ -332,29 +519,30 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     snapshot = view.state
 
     table = Table(title=TITLE_RUNTIME_STATUS)
-    table.add_column("Key")
-    table.add_column("Value")
-    table.add_row("Runtime", view.runtime_state)
-    table.add_row("Live Process", "yes" if view.live_process else "no")
-    table.add_row("Last Recorded State", view.last_recorded_state or "-")
-    table.add_row("Updated", snapshot.updated_at)
-    table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
+    table.add_column(LABEL_KEY)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_RUNTIME, view.runtime_state)
+    table.add_row(LABEL_LIVE_PROCESS, LABEL_YES if view.live_process else LABEL_NO)
+    table.add_row(LABEL_LAST_RECORDED_STATE, view.last_recorded_state or "-")
+    table.add_row(LABEL_UPDATED, snapshot.updated_at)
+    table.add_row(LABEL_HEARTBEAT, snapshot.last_heartbeat_at or "-")
     table.add_row(
-        "Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-"
+        LABEL_HEARTBEAT_AGE,
+        f"{view.age_seconds}s" if view.age_seconds is not None else "-",
     )
-    table.add_row("Cycle Count", str(snapshot.cycle_count))
-    table.add_row("Current Symbol", snapshot.current_symbol or "-")
-    table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
+    table.add_row(LABEL_CYCLE_COUNT, str(snapshot.cycle_count))
+    table.add_row(LABEL_CURRENT_SYMBOL, snapshot.current_symbol or "-")
+    table.add_row(LABEL_PID, str(snapshot.pid) if snapshot.pid is not None else "-")
     table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
-    table.add_row("Continuous", str(snapshot.continuous))
-    table.add_row("Background Mode", str(snapshot.background_mode))
-    table.add_row("Launch Count", str(snapshot.launch_count))
-    table.add_row("Restart Count", str(snapshot.restart_count))
-    table.add_row("Last Terminal State", snapshot.last_terminal_state or "-")
-    table.add_row("Last Terminal At", snapshot.last_terminal_at or "-")
-    table.add_row("Status Note", view.status_message)
-    table.add_row("Last Recorded Message", snapshot.message or "-")
-    table.add_row("Last Recorded Error", snapshot.last_error or "-")
+    table.add_row(LABEL_CONTINUOUS, str(snapshot.continuous))
+    table.add_row(LABEL_BACKGROUND_MODE, str(snapshot.background_mode))
+    table.add_row(LABEL_LAUNCH_COUNT, str(snapshot.launch_count))
+    table.add_row(LABEL_RESTART_COUNT, str(snapshot.restart_count))
+    table.add_row(LABEL_LAST_TERMINAL_STATE, snapshot.last_terminal_state or "-")
+    table.add_row(LABEL_LAST_TERMINAL_AT, snapshot.last_terminal_at or "-")
+    table.add_row(LABEL_STATUS_NOTE, view.status_message)
+    table.add_row(LABEL_LAST_RECORDED_MESSAGE, snapshot.message or "-")
+    table.add_row(LABEL_LAST_RECORDED_ERROR, snapshot.last_error or "-")
     console.print(table)
 
 
@@ -368,7 +556,7 @@ def _render_runtime_events(events: list[ServiceEvent]) -> None:
     if not events:
         console.print(
             Panel(
-                "No runtime events recorded yet.",
+                MESSAGE_NO_RUNTIME_EVENTS,
                 title=TITLE_RUNTIME_EVENTS,
                 border_style="yellow",
             )
@@ -404,11 +592,11 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
         the table contains a single placeholder row of "-" values; otherwise each event produces one populated row.
     """
     table = Table(title=TITLE_RUNTIME_EVENTS)
-    table.add_column("Created")
-    table.add_column("Level")
-    table.add_column("Type")
-    table.add_column("Cycle")
-    table.add_column("Symbol")
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_LEVEL)
+    table.add_column(LABEL_TYPE)
+    table.add_column(LABEL_CYCLE)
+    table.add_column(LABEL_SYMBOL)
     if not events:
         table.add_row("-", "-", "-", "-", "-")
         return table
@@ -426,13 +614,13 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
 def _agent_activity_table(
     state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Table:
-    table = Table(title="Decision Workflow")
-    table.add_column("Stage")
-    table.add_column("Status")
-    table.add_column("Message")
+    table = Table(title=TITLE_DECISION_WORKFLOW)
+    table.add_column(LABEL_STAGE)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_MESSAGE)
     activity = build_agent_activity_view(state, events)
     if not activity.stage_statuses:
-        table.add_row("-", "-", "No live agent stage events yet.")
+        table.add_row("-", "-", MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS)
         return table
     for stage in activity.stage_statuses:
         table.add_row(stage.stage, stage.status, stage.message)
@@ -445,8 +633,8 @@ def _current_activity_panel(
     view = build_runtime_status_view(state)
     activity = build_agent_activity_view(state, events)
     broker = broker_runtime_payload(settings)
-    readiness = v1_readiness_payload(settings, check_provider=False)
-    paper_operations = cast(dict[str, object], readiness.get("paper_operations", {}))
+    readiness = _object_mapping(v1_readiness_payload(settings, check_provider=False))
+    paper_operations = _object_mapping(readiness.get("paper_operations"))
     lines = [
         *_runtime_cycle_lines(settings=settings, state=state, view=view),
         "",
@@ -456,7 +644,8 @@ def _current_activity_panel(
         "",
         *_last_outcome_lines(activity),
     ]
-    return Panel("\n".join(lines), title="Current Cycle", border_style="bright_cyan")
+    body = "\n".join(lines)
+    return Panel(body, title=TITLE_CURRENT_CYCLE, border_style="bright_cyan")
 
 
 def _runtime_cycle_lines(
@@ -466,44 +655,77 @@ def _runtime_cycle_lines(
     view: RuntimeStatusView,
 ) -> list[str]:
     return [
-        f"Runtime: {view.runtime_state}",
-        f"Runtime Mode: {state.runtime_mode if state is not None else settings.runtime_mode}",
-        f"Watched Symbols: {', '.join(state.symbols) if state is not None and state.symbols else '-'}",
-        f"Current Symbol: {view.state.current_symbol if view.state is not None and view.state.current_symbol else '-'}",
-        f"Cycle: {view.state.cycle_count if view.state is not None else '-'}",
-        f"Interval / Lookback: {state.interval if state is not None and state.interval else '-'} / {state.lookback if state is not None and state.lookback else '-'}",
-        f"Current Note: {view.state.message if view.state is not None and view.state.message else '-'}",
+        _label_line(LABEL_RUNTIME, view.runtime_state),
+        _label_line(
+            TITLE_RUNTIME_MODE,
+            state.runtime_mode if state is not None else settings.runtime_mode,
+        ),
+        _label_line(
+            LABEL_WATCHED_SYMBOLS,
+            UI_LIST_SEPARATOR.join(state.symbols)
+            if state is not None and state.symbols
+            else "-",
+        ),
+        _label_line(
+            LABEL_CURRENT_SYMBOL,
+            view.state.current_symbol
+            if view.state is not None and view.state.current_symbol
+            else "-",
+        ),
+        _label_line(LABEL_CYCLE, view.state.cycle_count if view.state is not None else "-"),
+        _label_line(
+            f"{LABEL_INTERVAL} / {LABEL_LOOKBACK}",
+            (
+                f"{state.interval if state is not None and state.interval else '-'} / "
+                f"{state.lookback if state is not None and state.lookback else '-'}"
+            ),
+        ),
+        _label_line(
+            LABEL_CURRENT_NOTE,
+            view.state.message
+            if view.state is not None and view.state.message
+            else "-",
+        ),
     ]
 
 
 def _agent_activity_lines(activity: AgentActivityView) -> list[str]:
     return [
-        f"Current Stage: {activity.current_stage or '-'}",
-        f"Stage Status: {activity.current_stage_status or '-'}",
-        f"Stage Message: {activity.current_stage_message or 'No agent activity recorded yet.'}",
-        f"Last Completed Stage: {activity.last_completed_stage or '-'}",
-        f"Completed Note: {activity.last_completed_message or '-'}",
+        _label_line(LABEL_CURRENT_STAGE, activity.current_stage or "-"),
+        _label_line(LABEL_STAGE_STATUS, activity.current_stage_status or "-"),
+        _label_line(
+            LABEL_STAGE_MESSAGE,
+            activity.current_stage_message or MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
+        ),
+        _label_line(LABEL_LAST_COMPLETED_STAGE, activity.last_completed_stage or "-"),
+        _label_line(LABEL_COMPLETED_NOTE, activity.last_completed_message or "-"),
     ]
 
 
 def _broker_gate_lines(
-    *, broker: dict[str, object], paper_operations: dict[str, object]
+    *, broker: Mapping[str, object], paper_operations: Mapping[str, object]
 ) -> list[str]:
     return [
-        f"Broker Backend: {broker.get('backend', '-')}",
-        f"Broker State: {broker.get('state', '-')}",
-        f"Kill Switch: {'active' if broker.get('kill_switch_active') else 'inactive'}",
-        f"V1 Paper Gate: {'allowed' if paper_operations.get('allowed') else 'blocked'}",
+        _label_line(LABEL_BROKER_BACKEND, broker.get("backend", "-")),
+        _label_line(LABEL_BROKER_STATE, broker.get("state", "-")),
+        _label_line(
+            LABEL_KILL_SWITCH,
+            "active" if broker.get("kill_switch_active") else "inactive",
+        ),
+        _label_line(
+            LABEL_V1_PAPER_GATE,
+            "allowed" if paper_operations.get("allowed") else "blocked",
+        ),
     ]
 
 
 def _last_outcome_lines(activity: AgentActivityView) -> list[str]:
     if activity.last_outcome_message is not None:
         return [
-            f"Last Outcome Type: {activity.last_outcome_type or '-'}",
-            f"Last Outcome: {activity.last_outcome_message}",
+            _label_line(LABEL_LAST_OUTCOME_TYPE, activity.last_outcome_type or "-"),
+            _label_line(LABEL_LAST_OUTCOME, activity.last_outcome_message),
         ]
-    return ["Last Outcome: Waiting for a completed symbol, exit, or service result."]
+    return [_label_line(LABEL_LAST_OUTCOME, MESSAGE_WAITING_FOR_LAST_OUTCOME)]
 
 
 def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
@@ -517,34 +739,35 @@ def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
         Table: A Rich Table with keys and values for runtime properties (runtime state, live process, last recorded state, timestamps, counters, flags, PID, messages, and errors).
     """
     table = Table(title=TITLE_RUNTIME_STATUS)
-    table.add_column("Key")
-    table.add_column("Value")
+    table.add_column(LABEL_KEY)
+    table.add_column(LABEL_VALUE)
     view = build_runtime_status_view(state)
     if view.state is None:
-        table.add_row("State", "no runtime state recorded yet")
+        table.add_row(LABEL_STATE, MESSAGE_NO_RUNTIME_STATE)
         return table
     snapshot = view.state
-    table.add_row("Runtime", view.runtime_state)
-    table.add_row("Live Process", "yes" if view.live_process else "no")
-    table.add_row("Last Recorded State", view.last_recorded_state or "-")
-    table.add_row("Updated", snapshot.updated_at)
-    table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
+    table.add_row(LABEL_RUNTIME, view.runtime_state)
+    table.add_row(LABEL_LIVE_PROCESS, LABEL_YES if view.live_process else LABEL_NO)
+    table.add_row(LABEL_LAST_RECORDED_STATE, view.last_recorded_state or "-")
+    table.add_row(LABEL_UPDATED, snapshot.updated_at)
+    table.add_row(LABEL_HEARTBEAT, snapshot.last_heartbeat_at or "-")
     table.add_row(
-        "Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-"
+        LABEL_HEARTBEAT_AGE,
+        f"{view.age_seconds}s" if view.age_seconds is not None else "-",
     )
-    table.add_row("Cycle Count", str(snapshot.cycle_count))
-    table.add_row("Current Symbol", snapshot.current_symbol or "-")
-    table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
+    table.add_row(LABEL_CYCLE_COUNT, str(snapshot.cycle_count))
+    table.add_row(LABEL_CURRENT_SYMBOL, snapshot.current_symbol or "-")
+    table.add_row(LABEL_PID, str(snapshot.pid) if snapshot.pid is not None else "-")
     table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
-    table.add_row("Continuous", str(snapshot.continuous))
-    table.add_row("Background Mode", str(snapshot.background_mode))
-    table.add_row("Launch Count", str(snapshot.launch_count))
-    table.add_row("Restart Count", str(snapshot.restart_count))
-    table.add_row("Last Terminal State", snapshot.last_terminal_state or "-")
-    table.add_row("Last Terminal At", snapshot.last_terminal_at or "-")
-    table.add_row("Status Note", view.status_message)
-    table.add_row("Last Recorded Message", snapshot.message or "-")
-    table.add_row("Last Recorded Error", snapshot.last_error or "-")
+    table.add_row(LABEL_CONTINUOUS, str(snapshot.continuous))
+    table.add_row(LABEL_BACKGROUND_MODE, str(snapshot.background_mode))
+    table.add_row(LABEL_LAUNCH_COUNT, str(snapshot.launch_count))
+    table.add_row(LABEL_RESTART_COUNT, str(snapshot.restart_count))
+    table.add_row(LABEL_LAST_TERMINAL_STATE, snapshot.last_terminal_state or "-")
+    table.add_row(LABEL_LAST_TERMINAL_AT, snapshot.last_terminal_at or "-")
+    table.add_row(LABEL_STATUS_NOTE, view.status_message)
+    table.add_row(LABEL_LAST_RECORDED_MESSAGE, snapshot.message or "-")
+    table.add_row(LABEL_LAST_RECORDED_ERROR, snapshot.last_error or "-")
     return table
 
 
@@ -565,40 +788,36 @@ def _system_status_table(
         health: Optional precomputed LLM health snapshot. If omitted, a fresh health check is performed.
 
     Returns:
-        Table: A Rich Table titled "System Status" containing rows for:
-            - Runtime Dir
-            - Runtime Mode
-            - Model
-            - Base URL
-            - Ollama Reachable (`yes` or `no`)
-            - Model Available (`yes` or `no`)
-            - Strict LLM
-            - Latest Order (present only when `db` is provided)
+        Table: Render-ready system status rows.
     """
     health_status = health if health is not None else LocalLLM(settings).health_check()
     latest_order = db.latest_order() if db is not None else None
-    table = Table(title="System Status")
-    table.add_column("Key")
-    table.add_column("Value")
-    table.add_row("Runtime Dir", str(settings.runtime_dir))
+    table = Table(title=TITLE_SYSTEM_STATUS)
+    table.add_column(LABEL_KEY)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_RUNTIME_DIR, str(settings.runtime_dir))
     table.add_row(
-        "Runtime Mode",
+        TITLE_RUNTIME_MODE,
         (
             runtime_state.runtime_mode
             if runtime_state is not None
             else settings.runtime_mode
         ),
     )
-    table.add_row("Model", settings.model_name)
+    table.add_row(LABEL_MODEL, settings.model_name)
     table.add_row(LABEL_BASE_URL, settings.base_url)
     table.add_row(
-        "Ollama Reachable", "yes" if health_status.service_reachable else "no"
+        LABEL_OLLAMA_REACHABLE,
+        LABEL_YES if health_status.service_reachable else LABEL_NO,
     )
-    table.add_row("Model Available", "yes" if health_status.model_available else "no")
-    table.add_row("Strict LLM", str(settings.strict_llm))
+    table.add_row(
+        LABEL_MODEL_AVAILABLE,
+        LABEL_YES if health_status.model_available else LABEL_NO,
+    )
+    table.add_row(LABEL_STRICT_LLM, str(settings.strict_llm))
     if db is not None:
         table.add_row(
-            "Latest Order", latest_order[0] if latest_order is not None else "-"
+            LABEL_LATEST_ORDER, latest_order[0] if latest_order is not None else "-"
         )
     return table
 
@@ -613,37 +832,41 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
         db (TradingDatabase): Database used to retrieve the account snapshot, user preferences (for currency), latest account mark, and current positions.
 
     Returns:
-        Group: A Rich Group containing the "Portfolio" summary table followed by the "Positions" table.
+        Group: Render-ready portfolio summary and positions tables.
     """
     snapshot = db.get_account_snapshot()
     preferences = db.load_preferences()
     currency = (preferences.currencies[0] if preferences.currencies else "USD").upper()
     latest_marks = db.list_account_marks(limit=1)
-    mark_time = latest_marks[0].created_at if latest_marks else "mark time unavailable"
+    mark_time = latest_marks[0].created_at if latest_marks else MESSAGE_MARK_TIME_UNAVAILABLE
     mark_source = latest_marks[0].source if latest_marks else "-"
-    summary = Table(title="Portfolio")
-    summary.add_column("Metric")
-    summary.add_column("Value")
-    summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
+    currency_suffix = " (" + currency + ")"
+    paper_mark_suffix = " (" + currency + ", " + LABEL_PAPER_MARK + ")"
+    summary = Table(title=TITLE_PORTFOLIO)
+    summary.add_column(LABEL_METRIC)
+    summary.add_column(LABEL_VALUE)
+    summary.add_row(LABEL_CASH + currency_suffix, f"{snapshot.cash:.2f}")
     summary.add_row(
-        f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}"
+        LABEL_MARKET_VALUE + currency_suffix, f"{snapshot.market_value:.2f}"
     )
-    summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
-    summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
+    summary.add_row(LABEL_EQUITY + currency_suffix, f"{snapshot.equity:.2f}")
     summary.add_row(
-        f"{LABEL_UNREALIZED_PNL} ({currency}, paper mark)",
+        LABEL_REALIZED_PNL + currency_suffix, f"{snapshot.realized_pnl:.2f}"
+    )
+    summary.add_row(
+        LABEL_UNREALIZED_PNL + paper_mark_suffix,
         f"{snapshot.unrealized_pnl:.2f}",
     )
-    summary.add_row("Open Positions", str(snapshot.open_positions))
-    summary.add_row("Marked At", mark_time)
-    summary.add_row("Mark Source", mark_source)
+    summary.add_row(LABEL_OPEN_POSITIONS, str(snapshot.open_positions))
+    summary.add_row(LABEL_MARKED_AT, mark_time)
+    summary.add_row(LABEL_MARK_SOURCE, mark_source)
 
     positions = db.list_positions()
-    positions_table = Table(title="Positions")
-    positions_table.add_column("Symbol")
-    positions_table.add_column("Quantity")
-    positions_table.add_column("Average Price")
-    positions_table.add_column("Market Price")
+    positions_table = Table(title=TITLE_POSITIONS)
+    positions_table.add_column(LABEL_SYMBOL)
+    positions_table.add_column(LABEL_QUANTITY)
+    positions_table.add_column(LABEL_AVERAGE_PRICE)
+    positions_table.add_column(LABEL_MARKET_PRICE)
     positions_table.add_column(LABEL_MARKET_VALUE)
     positions_table.add_column(LABEL_UNREALIZED_PNL)
     if not positions:
@@ -685,7 +908,7 @@ def build_monitor_renderable(
     events = read_service_events(settings, limit=20)
     header = Panel(
         Text("Agentic Trader Live Monitor", style=STYLE_KEY_COLUMN),
-        subtitle="Ctrl+C to return",
+        subtitle=MESSAGE_MONITOR_RETURN_SHORTCUT,
         border_style="bright_blue",
     )
     top = Columns(
@@ -801,24 +1024,28 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     """
     health = LocalLLM(settings).health_check()
     runtime_state = read_service_state(settings)
-    status = Table(title="System Status")
-    status.add_column("Key")
-    status.add_column("Value")
-    status.add_row("Runtime Dir", str(settings.runtime_dir))
-    status.add_row("Database", str(settings.database_path))
+    status = Table(title=TITLE_SYSTEM_STATUS)
+    status.add_column(LABEL_KEY)
+    status.add_column(LABEL_VALUE)
+    status.add_row(LABEL_RUNTIME_DIR, str(settings.runtime_dir))
+    status.add_row(LABEL_DATABASE, str(settings.database_path))
     status.add_row(
-        "Runtime Mode",
+        TITLE_RUNTIME_MODE,
         (
             runtime_state.runtime_mode
             if runtime_state is not None
             else settings.runtime_mode
         ),
     )
-    status.add_row("Model", settings.model_name)
+    status.add_row(LABEL_MODEL, settings.model_name)
     status.add_row(LABEL_BASE_URL, settings.base_url)
-    status.add_row("Ollama Reachable", "yes" if health.service_reachable else "no")
-    status.add_row("Model Available", "yes" if health.model_available else "no")
-    status.add_row("Strict LLM", str(settings.strict_llm))
+    status.add_row(
+        LABEL_OLLAMA_REACHABLE, LABEL_YES if health.service_reachable else LABEL_NO
+    )
+    status.add_row(
+        LABEL_MODEL_AVAILABLE, LABEL_YES if health.model_available else LABEL_NO
+    )
+    status.add_row(LABEL_STRICT_LLM, str(settings.strict_llm))
     console.print(status)
     _render_runtime_state(runtime_state)
     console.print(
@@ -827,7 +1054,11 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
         )
     )
     if db is None:
-        console.print(_observer_mode_panel("Preferences and portfolio-backed views"))
+        console.print(
+            _observer_mode_panel(
+                TITLE_INVESTMENT_PREFERENCES + " / " + TITLE_PORTFOLIO
+            )
+        )
     else:
         console.print(_render_preferences(db.load_preferences()))
         _render_recent_runs(db)
@@ -846,45 +1077,45 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
     runtime_state = read_service_state(settings)
     runtime_view = build_runtime_status_view(runtime_state)
     broker = broker_runtime_payload(settings)
-    provider = provider_diagnostics_payload(settings)
-    readiness = v1_readiness_payload(settings, check_provider=False)
-    paper = cast(dict[str, object], readiness.get("paper_operations", {}))
-    alpaca = cast(dict[str, object], readiness.get("alpaca_paper", {}))
-    table = Table(title="AGENTIC TRADER // System Snapshot", expand=True)
-    table.add_column("Key", style="cyan")
-    table.add_column("Value")
+    provider = _object_mapping(provider_diagnostics_payload(settings))
+    readiness = _object_mapping(v1_readiness_payload(settings, check_provider=False))
+    paper = _object_mapping(readiness.get("paper_operations"))
+    alpaca = _object_mapping(readiness.get("alpaca_paper"))
+    table = Table(title=TITLE_SYSTEM_SNAPSHOT, expand=True)
+    table.add_column(LABEL_KEY, style="cyan")
+    table.add_column(LABEL_VALUE)
     table.add_row(
-        "Runtime",
+        LABEL_RUNTIME,
         f"{runtime_view.runtime_state} / {runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode}",
     )
-    table.add_row("Model", settings.model_name)
+    table.add_row(LABEL_MODEL, settings.model_name)
     table.add_row(
-        "LLM Ready",
-        "yes" if health.service_reachable and health.model_available else "no",
+        LABEL_LLM_READY,
+        LABEL_YES if health.service_reachable and health.model_available else LABEL_NO,
     )
     table.add_row(
-        "Broker",
+        LABEL_BROKER,
         f"{broker['backend']} / {broker['state']}",
     )
     table.add_row(
-        "V1 Paper Ready",
-        "yes" if paper.get("allowed") else "no",
+        LABEL_V1_PAPER_READY,
+        LABEL_YES if paper.get("allowed") else LABEL_NO,
     )
     table.add_row(
-        "Alpaca Paper Ready",
-        "yes" if alpaca.get("ready") else "no",
+        LABEL_ALPACA_PAPER_READY,
+        LABEL_YES if alpaca.get("ready") else LABEL_NO,
     )
-    warnings = provider.get("warnings", [])
+    warnings = _object_list(provider.get("warnings"))
     table.add_row(
-        "Provider Warnings",
-        str(len(warnings)) if isinstance(warnings, list) else "-",
-    )
-    table.add_row(
-        "Kill Switch",
-        "yes" if broker["kill_switch_active"] else "no",
+        LABEL_PROVIDER_WARNINGS,
+        str(len(warnings)),
     )
     table.add_row(
-        "DB Views",
+        LABEL_KILL_SWITCH,
+        LABEL_YES if broker["kill_switch_active"] else LABEL_NO,
+    )
+    table.add_row(
+        LABEL_DB_VIEWS,
         "readable" if db is not None else LABEL_OBSERVER_MODE,
     )
     console.print(table)
@@ -894,17 +1125,15 @@ def _render_broker_status(settings: Settings) -> None:
     """
     Render the broker backend runtime status as a Rich table to the console.
 
-    Fetches the broker runtime payload from the current settings and prints a "Broker Status"
-    table that includes adapter/backend information, execution flags, Alpaca-related settings,
-    an informational message, and optional healthcheck message and blocking reasons.
+    Fetches the broker runtime payload from the current settings and prints it.
 
     Parameters:
         settings (Settings): Application settings used to obtain the broker runtime payload.
     """
     payload = broker_runtime_payload(settings)
-    table = Table(title="Broker Status")
-    table.add_column("Field", style=STYLE_KEY_COLUMN)
-    table.add_column("Value")
+    table = Table(title=TITLE_BROKER_STATUS)
+    table.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
+    table.add_column(LABEL_VALUE)
     for key in (
         "backend",
         "adapter_name",
@@ -921,114 +1150,109 @@ def _render_broker_status(settings: Settings) -> None:
         "alpaca_credentials_configured",
         "message",
     ):
-        table.add_row(key.replace("_", " ").title(), str(payload.get(key, "-")))
+        rendered_key = key.replace("_", " ").title()
+        table.add_row(rendered_key, str(payload.get(key, "-")))
     healthcheck = payload.get("healthcheck")
-    if isinstance(healthcheck, dict):
-        table.add_row("Healthcheck", str(healthcheck.get("message", "-")))
-        blockers = healthcheck.get("blocking_reasons")
-        if isinstance(blockers, list):
+    healthcheck_mapping = _object_mapping(healthcheck)
+    if healthcheck_mapping:
+        table.add_row(LABEL_HEALTHCHECK, str(healthcheck_mapping.get("message", "-")))
+        blockers = _object_list(healthcheck_mapping.get("blocking_reasons"))
+        if blockers:
             table.add_row(
-                "Blocking Reasons", ", ".join(str(item) for item in blockers) or "-"
+                LABEL_BLOCKING + " " + LABEL_REASONS,
+                UI_LIST_SEPARATOR.join(str(item) for item in blockers) or "-",
             )
     console.print(table)
 
 
 def _render_provider_diagnostics(settings: Settings) -> None:
-    payload = provider_diagnostics_payload(settings)
-    summary = Table(title="Provider Diagnostics")
-    summary.add_column("Field", style=STYLE_KEY_COLUMN)
-    summary.add_column("Value")
-    llm = payload.get("llm", {})
-    market = payload.get("market_data", {})
-    news = payload.get("news", {})
-    alpaca = payload.get("alpaca", {})
-    if isinstance(llm, dict):
-        summary.add_row("LLM Provider", str(llm.get("provider", "-")))
-        summary.add_row("Default Model", str(llm.get("default_model", "-")))
+    payload = _object_mapping(provider_diagnostics_payload(settings))
+    summary = Table(title=TITLE_PROVIDER_DIAGNOSTICS)
+    summary.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
+    summary.add_column(LABEL_VALUE)
+    llm = _object_mapping(payload.get("llm"))
+    market = _object_mapping(payload.get("market_data"))
+    news = _object_mapping(payload.get("news"))
+    alpaca = _object_mapping(payload.get("alpaca"))
+    if llm:
+        summary.add_row(LABEL_LLM_PROVIDER, str(llm.get("provider", "-")))
+        summary.add_row(LABEL_DEFAULT_MODEL, str(llm.get("default_model", "-")))
         summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
-    if isinstance(market, dict):
-        summary.add_row("Market Provider", str(market.get("selected_provider", "-")))
-        summary.add_row("Market Role", str(market.get("selected_role", "-")))
-    if isinstance(news, dict):
-        summary.add_row("News Mode", str(news.get("mode", "-")))
-    if isinstance(alpaca, dict):
-        summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
-        summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
+    if market:
+        summary.add_row(LABEL_MARKET_PROVIDER, str(market.get("selected_provider", "-")))
+        summary.add_row(LABEL_MARKET_ROLE, str(market.get("selected_role", "-")))
+    if news:
+        summary.add_row(LABEL_NEWS_MODE, str(news.get("mode", "-")))
+    if alpaca:
+        summary.add_row(LABEL_ALPACA_PAPER_ENDPOINT, str(alpaca.get("paper_endpoint", "-")))
+        summary.add_row(LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
         summary.add_row(
-            "Alpaca Credentials",
+            LABEL_ALPACA_CREDENTIALS_CONFIGURED,
             "configured" if alpaca.get("credentials_configured") else "missing",
         )
     console.print(summary)
 
-    warnings = payload.get("warnings", [])
-    if isinstance(warnings, list) and warnings:
+    warnings = _object_list(payload.get("warnings"))
+    if warnings:
         console.print(
             Panel(
                 "\n".join(str(warning) for warning in warnings),
-                title="Provider Warnings",
+                title=LABEL_PROVIDER_WARNINGS,
                 border_style="yellow",
             )
         )
 
-    table = Table(title="Provider Source Ladder")
-    table.add_column("Provider", style=STYLE_KEY_COLUMN)
-    table.add_column("Type")
-    table.add_column("Role")
-    table.add_column("Enabled")
-    table.add_column("API Key")
-    table.add_column("Freshness")
-    providers = payload.get("providers", [])
-    if isinstance(providers, list):
-        for row in providers:
-            if not isinstance(row, dict):
-                continue
-            table.add_row(
-                str(row.get("provider_id", "-")),
-                str(row.get("provider_type", "-")),
-                str(row.get("role", "-")),
-                str(row.get("enabled", False)),
-                str(row.get("api_key_ready", "-")),
-                str(row.get("freshness", "-")),
-            )
+    table = Table(title=TITLE_PROVIDER_SOURCE_LADDER)
+    table.add_column(LABEL_PROVIDER, style=STYLE_KEY_COLUMN)
+    table.add_column(LABEL_TYPE)
+    table.add_column(LABEL_ROLE)
+    table.add_column(LABEL_ENABLED)
+    table.add_column(LABEL_API_KEY)
+    table.add_column(LABEL_FRESHNESS)
+    for row in _object_mapping_list(payload.get("providers")):
+        table.add_row(
+            str(row.get("provider_id", "-")),
+            str(row.get("provider_type", "-")),
+            str(row.get("role", "-")),
+            str(row.get("enabled", False)),
+            str(row.get("api_key_ready", "-")),
+            str(row.get("freshness", "-")),
+        )
     console.print(table)
 
 
-def _render_readiness_table(title: str, payload: dict[str, object]) -> None:
+def _render_readiness_table(title: str, payload: Mapping[str, object]) -> None:
     table = Table(title=title)
-    table.add_column("Check", style=STYLE_KEY_COLUMN)
-    table.add_column("State")
-    table.add_column("Blocking")
-    table.add_column("Details")
-    checks = payload.get("checks", [])
-    if isinstance(checks, list):
-        for item in checks:
-            if not isinstance(item, dict):
-                continue
-            table.add_row(
-                str(item.get("name", "-")),
-                "[green]pass[/green]" if item.get("passed") else "[red]fail[/red]",
-                str(item.get("blocking", True)),
-                str(item.get("details", "")),
-            )
+    table.add_column(LABEL_CHECK, style=STYLE_KEY_COLUMN)
+    table.add_column(LABEL_STATE)
+    table.add_column(LABEL_BLOCKING)
+    table.add_column(LABEL_DETAILS)
+    for item in _object_mapping_list(payload.get("checks")):
+        table.add_row(
+            str(item.get("name", "-")),
+            "[green]pass[/green]" if item.get("passed") else "[red]fail[/red]",
+            str(item.get("blocking", True)),
+            str(item.get("details", "")),
+        )
     console.print(table)
 
 
 def _render_v1_readiness(settings: Settings) -> None:
-    payload = v1_readiness_payload(settings, check_provider=False)
-    paper = payload.get("paper_operations", {})
-    alpaca = payload.get("alpaca_paper", {})
-    paper_allowed = isinstance(paper, dict) and bool(paper.get("allowed"))
+    payload = _object_mapping(v1_readiness_payload(settings, check_provider=False))
+    paper = _object_mapping(payload.get("paper_operations"))
+    alpaca = _object_mapping(payload.get("alpaca_paper"))
+    paper_allowed = bool(paper.get("allowed"))
     console.print(
         Panel(
-            str(payload.get("summary", "V1 readiness status unavailable.")),
-            title="V1 Readiness",
+            str(payload.get("summary", MESSAGE_V1_READINESS_STATUS_UNAVAILABLE)),
+            title=TITLE_V1_READINESS,
             border_style="green" if paper_allowed else "yellow",
         )
     )
-    if isinstance(paper, dict):
-        _render_readiness_table("Paper Operation Checks", paper)
-    if isinstance(alpaca, dict):
-        _render_readiness_table("Alpaca Paper Checks", alpaca)
+    if paper:
+        _render_readiness_table(TITLE_PAPER_OPERATION_CHECKS, paper)
+    if alpaca:
+        _render_readiness_table(TITLE_ALPACA_PAPER_CHECKS, alpaca)
 
 
 def _configure_preferences(db: TradingDatabase) -> None:
@@ -1103,7 +1327,9 @@ def _configure_preferences(db: TradingDatabase) -> None:
         notes=notes,
     )
     db.save_preferences(updated)
-    console.print(Panel("Preferences saved.", title="Saved", border_style="green"))
+    console.print(
+        Panel(MESSAGE_PREFERENCES_SAVED, title=TITLE_SAVED, border_style="green")
+    )
 
 
 def _show_portfolio(db: TradingDatabase) -> None:
@@ -1115,52 +1341,7 @@ def _show_portfolio(db: TradingDatabase) -> None:
     Parameters:
         db (TradingDatabase): Database instance used to retrieve the account snapshot, open positions, and risk report.
     """
-    snapshot = db.get_account_snapshot()
-    preferences = db.load_preferences()
-    currency = (preferences.currencies[0] if preferences.currencies else "USD").upper()
-    latest_marks = db.list_account_marks(limit=1)
-    mark_time = latest_marks[0].created_at if latest_marks else "mark time unavailable"
-    mark_source = latest_marks[0].source if latest_marks else "-"
-    summary = Table(title="Portfolio")
-    summary.add_column("Metric")
-    summary.add_column("Value")
-    summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
-    summary.add_row(
-        f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}"
-    )
-    summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
-    summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
-    summary.add_row(
-        f"{LABEL_UNREALIZED_PNL} ({currency}, paper mark)",
-        f"{snapshot.unrealized_pnl:.2f}",
-    )
-    summary.add_row("Open Positions", str(snapshot.open_positions))
-    summary.add_row("Marked At", mark_time)
-    summary.add_row("Mark Source", mark_source)
-    console.print(summary)
-    positions = db.list_positions()
-    if not positions:
-        console.print(
-            Panel("No open positions.", title="Positions", border_style="yellow")
-        )
-        return
-    table = Table(title="Positions")
-    table.add_column("Symbol")
-    table.add_column("Quantity")
-    table.add_column("Average Price")
-    table.add_column("Market Price")
-    table.add_column(LABEL_MARKET_VALUE)
-    table.add_column(LABEL_UNREALIZED_PNL)
-    for position in positions:
-        table.add_row(
-            position.symbol,
-            f"{position.quantity:.6f}",
-            f"{position.average_price:.4f}",
-            f"{position.market_price:.4f}",
-            f"{position.market_value:.2f}",
-            f"{position.unrealized_pnl:.2f}",
-        )
-    console.print(table)
+    console.print(_portfolio_renderable(db))
     console.print(_risk_report_table(db))
 
 
@@ -1182,8 +1363,8 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
     if record is None:
         console.print(
             Panel(
-                "No persisted runs are available to review.",
-                title="Run Review",
+                MESSAGE_NO_PERSISTED_RUNS_REVIEW,
+                title=TITLE_RUN_REVIEW,
                 border_style="yellow",
             )
         )
@@ -1191,20 +1372,20 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
     console.print(
         Panel(
             record.artifacts.model_dump_json(indent=2),
-            title=f"Latest Run Review / {record.run_id}",
+            title=TITLE_LATEST_RUN_REVIEW.format(run_id=record.run_id),
             border_style="cyan",
         )
     )
 
 
 def _memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
-    table = Table(title="Decision Evidence Explorer")
-    table.add_column("Created")
-    table.add_column("Symbol")
-    table.add_column("Score")
-    table.add_column("Regime")
-    table.add_column("Strategy")
-    table.add_column("Bias")
+    table = Table(title=TITLE_DECISION_EVIDENCE_EXPLORER)
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_SYMBOL)
+    table.add_column(LABEL_SCORE)
+    table.add_column(LABEL_REGIME)
+    table.add_column(LABEL_STRATEGY)
+    table.add_column(LABEL_BIAS)
     if not matches:
         table.add_row("-", "-", "-", "-", "-", "-")
         return table
@@ -1247,16 +1428,16 @@ def _show_latest_run_trace(db: TradingDatabase) -> None:
     if record is None:
         console.print(
             Panel(
-                "No persisted runs are available to trace.",
-                title="Trace Viewer",
+                MESSAGE_NO_PERSISTED_RUNS_TRACE,
+                title=TITLE_TRACE,
                 border_style="yellow",
             )
         )
         return
-    table = Table(title=f"Agent Trace / {record.run_id}")
-    table.add_column("Role")
-    table.add_column("Model")
-    table.add_column("Fallback")
+    table = Table(title=TITLE_AGENT_TRACE_FOR_RUN.format(run_id=record.run_id))
+    table.add_column(LABEL_ROLE)
+    table.add_column(LABEL_MODEL)
+    table.add_column(LABEL_FALLBACK)
     for trace in record.artifacts.agent_traces:
         table.add_row(trace.role, trace.model_name, str(trace.used_fallback))
     console.print(table)
@@ -1266,7 +1447,7 @@ def _select_chat_persona() -> ChatPersona:
     return cast(
         ChatPersona,
         Prompt.ask(
-            "Chat persona",
+            PROMPT_CHAT_PERSONA,
             choices=[
                 "operator_liaison",
                 "regime_analyst",
@@ -1286,8 +1467,8 @@ def _render_chat_transcript(
     console.print(_banner())
     console.print(
         Panel(
-            "Type /exit to leave chat.",
-            title=f"Chat / {persona}",
+            MESSAGE_CHAT_EXIT_HINT,
+            title=TITLE_CHAT.format(persona=persona),
             border_style="cyan",
         )
     )
@@ -1303,7 +1484,7 @@ def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
     transcript: list[tuple[str, str]] = []
     while True:
         _render_chat_transcript(persona=persona, transcript=transcript)
-        user_message = Prompt.ask("You")
+        user_message = Prompt.ask(PROMPT_YOU)
         if user_message.strip().lower() in {"/exit", "exit", "quit"}:
             return
         transcript.append(("operator", user_message))
@@ -1321,7 +1502,7 @@ def _render_instruction_result(instruction: OperatorInstruction) -> None:
     console.print(
         Panel(
             instruction.model_dump_json(indent=2),
-            title="Parsed Operator Instruction",
+            title=TITLE_PARSED_OPERATOR_INSTRUCTION,
             border_style="cyan",
         )
     )
@@ -1332,14 +1513,14 @@ def _apply_instruction_update_if_confirmed(
 ) -> None:
     if not instruction.should_update_preferences:
         return
-    if not Confirm.ask("Apply preference update?", default=False):
+    if not Confirm.ask(PROMPT_APPLY_PREFERENCE_UPDATE, default=False):
         return
 
     updated = apply_preference_update(db, instruction.preference_update)
     console.print(
         Panel(
             updated.model_dump_json(indent=2),
-            title="Updated Preferences",
+            title=TITLE_UPDATED_PREFERENCES,
             border_style="green",
         )
     )
@@ -1348,7 +1529,7 @@ def _apply_instruction_update_if_confirmed(
 def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
     ensure_llm_ready(settings)
     llm = LocalLLM(settings)
-    message = Prompt.ask("Instruction")
+    message = Prompt.ask(PROMPT_INSTRUCTION)
     instruction = interpret_operator_instruction(
         llm=llm,
         db=db,
@@ -1380,17 +1561,17 @@ def _strict_one_shot(
 def _run_one_shot_symbol(
     settings: Settings, symbol: str, interval: str, lookback: str
 ) -> None:
-    latest_message = f"Preparing {symbol}."
+    latest_message = MESSAGE_PREPARING_SYMBOL.format(symbol=symbol)
     with console.status(_style_key(latest_message), spinner="dots") as status:
 
         def _progress(
             stage: str,
             event: str,
             message: str,
-            current_status=status,
+            current_status: Status = status,
         ) -> None:
             nonlocal latest_message
-            latest_message = f"[{stage}] {message}"
+            latest_message = MESSAGE_STAGE_UPDATE.format(stage=stage, message=message)
             current_status.update(_style_key(latest_message))
 
         artifacts = run_once(
@@ -1405,8 +1586,11 @@ def _run_one_shot_symbol(
     order_id = persist_run(settings=settings, artifacts=artifacts)
     console.print(
         Panel(
-            f"Final stage update: {latest_message}\n\n{json.dumps(artifacts.model_dump(mode='json'), indent=2)}",
-            title=f"Run Completed: {symbol} / {order_id}",
+            MESSAGE_FINAL_STAGE_UPDATE.format(
+                latest_message=latest_message,
+                artifacts_json=json.dumps(artifacts.model_dump(mode="json"), indent=2),
+            ),
+            title=TITLE_RUN_COMPLETED.format(symbol=symbol, order_id=order_id),
             border_style="green",
         )
     )
@@ -1427,9 +1611,8 @@ def _launch_service(
     )
     console.print(
         Panel(
-            f"Service spawned in the background with PID {pid}.\n\n"
-            "The control room stays responsive. Open the live monitor to watch progress or request a stop at any time.",
-            title="Service Spawned",
+            MESSAGE_SERVICE_SPAWNED_BACKGROUND.format(pid=pid),
+            title=TITLE_SERVICE_SPAWNED,
             border_style="green",
         )
     )
@@ -1437,21 +1620,21 @@ def _launch_service(
 
 
 def _prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | None]:
-    continuous = Confirm.ask("Continuous mode?", default=False)
+    continuous = Confirm.ask(PROMPT_CONTINUOUS_MODE, default=False)
     poll_seconds = IntPrompt.ask(
-        "Poll interval seconds",
+        PROMPT_POLL_INTERVAL_SECONDS,
         default=settings.default_poll_seconds,
     )
     if not continuous:
         return continuous, poll_seconds, None
 
-    max_cycles_input = Prompt.ask("Max cycles (blank for infinite)", default="")
+    max_cycles_input = Prompt.ask(PROMPT_MAX_CYCLES, default="")
     max_cycles = int(max_cycles_input) if max_cycles_input.strip() else None
     return continuous, poll_seconds, max_cycles
 
 
 def _open_live_monitor_if_requested(settings: Settings) -> None:
-    if Confirm.ask("Open live monitor now?", default=True):
+    if Confirm.ask(PROMPT_OPEN_LIVE_MONITOR_NOW, default=True):
         run_live_monitor(settings, refresh_seconds=1.0)
 
 
@@ -1560,7 +1743,7 @@ def _runtime_stop_action(settings: Settings) -> None:
 
 
 def _runtime_monitor_action(settings: Settings) -> None:
-    refresh_seconds = float(Prompt.ask("Refresh seconds", default="1.0"))
+    refresh_seconds = float(Prompt.ask(PROMPT_REFRESH_SECONDS, default="1.0"))
     run_live_monitor(settings, refresh_seconds=refresh_seconds)
 
 
@@ -1905,3 +2088,19 @@ def run_main_menu() -> None:
         except EOFError:
             _exit_cleanly()
             return
+
+
+split_csv = _split_csv
+style_key = _style_key
+system_status_table = _system_status_table
+runtime_state_table = _runtime_state_table
+runtime_cycle_lines = _runtime_cycle_lines
+last_outcome_lines = _last_outcome_lines
+broker_gate_lines = _broker_gate_lines
+agent_activity_lines = _agent_activity_lines
+agent_activity_table = _agent_activity_table
+memory_explorer_table = _memory_explorer_table
+menu_table = _menu_table
+main_menu_actions = _main_menu_actions
+main_menu_table = _main_menu_table
+run_main_menu_action = _run_main_menu_action

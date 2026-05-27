@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, cast
+from typing import cast
 from uuid import uuid4
 
 from agentic_trader.config import Settings
@@ -17,6 +17,10 @@ from agentic_trader.finance.proposals import (
     utc_now_iso,
 )
 from agentic_trader.finance.strategy_catalog import score_strategy_context
+from agentic_trader.json_utils import (
+    object_dict_or_none as _object_mapping,
+    object_list as _object_list,
+)
 from agentic_trader.providers.aggregation import build_canonical_analysis_snapshot
 from agentic_trader.schemas import (
     CanonicalAnalysisSnapshot,
@@ -718,8 +722,7 @@ def _validate_candidate_blockers(candidate: ProposalCandidateRecord) -> None:
     Raises:
         ValueError: If `candidate.evidence["blocking_warnings"]` is a list with any entries (the error lists them), or if `candidate.side` is `None` indicating a watch-only candidate.
     """
-    raw_blockers: Any = candidate.evidence.get("blocking_warnings")
-    blockers = raw_blockers if isinstance(raw_blockers, list) else []
+    blockers = _object_list(candidate.evidence.get("blocking_warnings"))
     if blockers:
         raise ValueError(
             f"Proposal candidate {candidate.candidate_id} has blocking scanner warnings: "
@@ -853,15 +856,15 @@ def _promotion_review_notes(
         f"risk_notes={candidate.risk_notes}",
     ]
     canonical = candidate.evidence.get("canonical_analysis")
-    if isinstance(canonical, dict):
-        completeness = canonical.get("completeness_score")
+    canonical_payload = _object_mapping(canonical)
+    if canonical_payload is not None:
+        completeness = canonical_payload.get("completeness_score")
         if isinstance(completeness, int | float):
             parts.append(f"canonical_completeness={completeness:.2f}")
-        missing_sections = canonical.get("missing_sections")
-        if isinstance(missing_sections, list):
-            sections = ",".join(str(section) for section in missing_sections[:6])
-            if sections:
-                parts.append(f"missing_sections={sections}")
+        missing_sections = _object_list(canonical_payload.get("missing_sections"))
+        sections = ",".join(str(section) for section in missing_sections[:6])
+        if sections:
+            parts.append(f"missing_sections={sections}")
     cleaned = _safe_note(review_notes, max_length=1000).strip()
     if cleaned:
         parts.append(f"operator_notes={cleaned}")
@@ -905,7 +908,7 @@ def _redacted_json_payload(value: object, *, max_depth: int = 6) -> object:
         return TRUNCATED_PAYLOAD_MARKER
     if isinstance(value, dict):
         payload: dict[str, object] = {}
-        for index, (key, item) in enumerate(value.items()):
+        for index, (key, item) in enumerate(cast(dict[object, object], value).items()):
             if index >= 100:
                 payload[TRUNCATED_PAYLOAD_MARKER] = "additional keys omitted"
                 break
@@ -915,11 +918,12 @@ def _redacted_json_payload(value: object, *, max_depth: int = 6) -> object:
             )
         return payload
     if isinstance(value, list | tuple):
+        sequence = cast(list[object] | tuple[object, ...], value)
         items = [
             _redacted_json_payload(item, max_depth=max_depth - 1)
-            for item in value[:100]
+            for item in sequence[:100]
         ]
-        if len(value) > 100:
+        if len(sequence) > 100:
             items.append(TRUNCATED_PAYLOAD_MARKER)
         return items
     if isinstance(value, str):

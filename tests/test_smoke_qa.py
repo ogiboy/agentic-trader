@@ -1,16 +1,18 @@
 import subprocess
 from pathlib import Path
 
+from pytest import MonkeyPatch
+
 from scripts.qa import smoke_qa
 
 
 def test_claim_artifacts_dir_uses_unique_suffix_for_existing_label(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
     monkeypatch.setattr(smoke_qa, "ARTIFACTS_ROOT", tmp_path)
 
-    first = smoke_qa._claim_artifacts_dir("smoke-fixed")
-    second = smoke_qa._claim_artifacts_dir("smoke-fixed")
+    first = smoke_qa.claim_artifacts_dir("smoke-fixed")
+    second = smoke_qa.claim_artifacts_dir("smoke-fixed")
 
     assert first == tmp_path / "smoke-fixed"
     assert second == tmp_path / "smoke-fixed-2"
@@ -30,11 +32,11 @@ def test_ink_settings_capture_issues_accepts_compact_settings_view() -> None:
         ]
     )
 
-    assert smoke_qa._ink_settings_capture_issues(output) == []
+    assert smoke_qa.ink_settings_capture_issues(output) == []
 
 
 def test_ink_settings_capture_issues_reports_missing_markers() -> None:
-    issues = smoke_qa._ink_settings_capture_issues("page 7/7: Settings\nMode: preview")
+    issues = smoke_qa.ink_settings_capture_issues("page 7/7: Settings\nMode: preview")
 
     assert "recent runs panel missing" in issues
     assert "risk/style preference line missing" in issues
@@ -42,9 +44,12 @@ def test_ink_settings_capture_issues_reports_missing_markers() -> None:
 
 
 def test_run_ink_settings_navigation_reports_tmux_session_failures(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(smoke_qa.shutil, "which", lambda name: "/usr/bin/tmux")
+    def _fake_which(name: str) -> str:
+        return "/usr/bin/tmux"
+
+    monkeypatch.setattr(smoke_qa.shutil, "which", _fake_which)
 
     def _fake_run(
         command: list[str], *args: object, **kwargs: object
@@ -69,7 +74,7 @@ def test_run_ink_settings_navigation_reports_tmux_session_failures(
 
 
 def test_write_report_summarizes_pass_and_failure_results(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
     context = smoke_qa.SmokeContext(artifacts_dir=tmp_path)
     results = [
@@ -87,8 +92,8 @@ def test_write_report_summarizes_pass_and_failure_results(
         lambda: str(tmp_path / "agentic-trader"),
     )
 
-    summary_path = smoke_qa._write_summary(context, results)
-    report_path = smoke_qa._write_report(context, results, summary_path)
+    summary_path = smoke_qa.write_summary(context, results)
+    report_path = smoke_qa.write_report(context, results, summary_path)
 
     report = report_path.read_text(encoding="utf-8")
     assert "QA Smoke Report" in report
@@ -117,7 +122,9 @@ def test_market_context_edge_case_check_records_v1_context_contract(
     assert "coverage is too thin" in artifact
 
 
-def test_resolve_smoke_python_prefers_repo_uv_venv(tmp_path: Path, monkeypatch) -> None:
+def test_resolve_smoke_python_prefers_repo_uv_venv(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
     repo_root = tmp_path / "repo"
     python_path = repo_root / ".venv" / "bin" / "python"
     python_path.parent.mkdir(parents=True)
@@ -131,11 +138,11 @@ def test_resolve_smoke_python_prefers_repo_uv_venv(tmp_path: Path, monkeypatch) 
     monkeypatch.delenv("CONDA_DEFAULT_ENV", raising=False)
     monkeypatch.delenv("CONDA_EXE", raising=False)
 
-    assert smoke_qa._resolve_smoke_python() == str(python_path)
+    assert smoke_qa.resolve_smoke_python() == str(python_path)
 
 
 def test_resolve_smoke_python_falls_back_to_legacy_repo_managed_conda_env(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
     repo_root = tmp_path / "repo"
     manifest_dir = repo_root / ".codex" / "environments"
@@ -163,4 +170,4 @@ def test_resolve_smoke_python_falls_back_to_legacy_repo_managed_conda_env(
     monkeypatch.setenv("CONDA_DEFAULT_ENV", "base")
     monkeypatch.setenv("CONDA_EXE", str(conda_exe))
 
-    assert smoke_qa._resolve_smoke_python() == str(python_path)
+    assert smoke_qa.resolve_smoke_python() == str(python_path)
