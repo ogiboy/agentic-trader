@@ -880,7 +880,11 @@ def _ui_payload(locale: str) -> dict[str, object]:
     }
 
 
-def _upsert_env_local_value(path: Path, key: str, value: str) -> None:
+ENV_LOCAL_FILE = Path(".env.local")
+
+
+def _upsert_env_local_value(key: str, value: str) -> None:
+    path = ENV_LOCAL_FILE
     lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
     replacement = f"{key}={value}"
     updated = False
@@ -4019,7 +4023,7 @@ def locale_command(
     persisted = False
     selected_locale = _parse_ui_locale(set_locale)
     if selected_locale is not None:
-        _upsert_env_local_value(Path(".env.local"), UI_LOCALE_ENV, selected_locale)
+        _upsert_env_local_value(UI_LOCALE_ENV, selected_locale)
         os.environ[UI_LOCALE_ENV] = selected_locale
         settings = Settings()
         persisted = True

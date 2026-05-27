@@ -1,18 +1,27 @@
 import { i18n, languageLabels, type DocLanguage } from '@/lib/i18n/config';
 import { withLanguagePrefix } from '@/lib/i18n/routing';
-import { defineI18nUI } from 'fumadocs-ui/i18n';
+import { i18nProvider, uiTranslations } from 'fumadocs-ui/i18n';
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 import { ChartCandlestick } from 'lucide-react';
 
-export const i18nUI = defineI18nUI(i18n, {
-  en: {
-    displayName: languageLabels.en,
-  },
-  tr: {
-    displayName: languageLabels.tr,
-    search: 'Dokümanlarda ara',
-  },
-});
+const translations = i18n
+  .translations()
+  .extend(uiTranslations())
+  .add('ui', {
+    en: {
+      displayName: languageLabels.en,
+    },
+    tr: {
+      displayName: languageLabels.tr,
+      search: 'Dokümanlarda ara',
+    },
+  });
+
+export const i18nUI = {
+  ...i18n,
+  provider: (locale?: DocLanguage | (string & {})) =>
+    i18nProvider(translations, locale),
+};
 
 export function baseOptions(locale: DocLanguage): BaseLayoutProps {
   return {
