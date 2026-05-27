@@ -244,9 +244,9 @@ button {
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  background: rgba(244, 245, 239, 0.06);
+  background: #20261e;
   border: 1px solid var(--border);
-  color: #dde4d6;
+  color: #f7faf1;
   font-family:
     var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;

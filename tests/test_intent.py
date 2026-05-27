@@ -1,11 +1,12 @@
 import pytest
 
-from agentic_trader.execution.intent import ExecutionIntent, _utc_now
+from agentic_trader.execution.intent import ExecutionIntent, utc_now
+from tests.typing_helpers import approx
 
 
 def test_intent_creation_with_timestamp():
     """Test creating ExecutionIntent with timestamp only (triggers line 64)."""
-    timestamp = _utc_now()
+    timestamp = utc_now()
     intent = ExecutionIntent(
         symbol="AAPL",
         side="buy",
@@ -23,7 +24,7 @@ def test_intent_creation_with_timestamp():
 
 def test_intent_creation_with_created_at():
     """Test creating ExecutionIntent with created_at only (triggers line 62)."""
-    created_at = _utc_now()
+    created_at = utc_now()
     intent = ExecutionIntent(
         symbol="AAPL",
         side="buy",
@@ -41,7 +42,7 @@ def test_intent_creation_with_created_at():
 
 def test_intent_creation_with_both_timestamps_matching():
     """Test creating ExecutionIntent with both timestamps matching."""
-    now = _utc_now()
+    now = utc_now()
     intent = ExecutionIntent(
         symbol="AAPL",
         side="buy",
@@ -169,7 +170,7 @@ def test_limit_intent_accepts_limit_price() -> None:
     )
 
     assert intent.order_type == "limit"
-    assert intent.limit_price == pytest.approx(99.5)
+    assert intent.limit_price == approx(99.5)
 
 
 def test_market_intent_rejects_limit_price() -> None:
@@ -196,7 +197,7 @@ def test_intent_auto_assigns_created_at():
         confidence=0.8,
         thesis="Test thesis",
         approved=True,
-        timestamp=_utc_now(),
+        timestamp=utc_now(),
         quantity=10.0,
     )
     assert intent.created_at == intent.timestamp

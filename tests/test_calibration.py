@@ -21,6 +21,7 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run
+from tests.typing_helpers import approx
 
 
 def _artifacts(symbol: str = "AAPL", *, approved: bool = True) -> RunArtifacts:
@@ -154,7 +155,7 @@ def test_build_confidence_calibration_detects_underperformance(tmp_path: Path) -
 
     assert calibration.closed_trades == 2
     assert calibration.confidence_multiplier < 1.0
-    assert calibration.win_rate == pytest.approx(0.0)
+    assert calibration.win_rate == approx(0.0)
 
 
 def test_manager_applies_historical_calibration(
@@ -195,9 +196,13 @@ def test_manager_applies_historical_calibration(
         size_multiplier=1.0,
         rationale="Manager base decision.",
     )
+
+    def _complete_structured(_self: object, **_kwargs: object) -> ManagerDecision:
+        return raw_manager
+
     monkeypatch.setattr(
         "agentic_trader.agents.manager.LocalLLM.complete_structured",
-        lambda self, **kwargs: raw_manager,
+        _complete_structured,
     )
 
     decision = manage_trade_decision(

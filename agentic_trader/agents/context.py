@@ -172,6 +172,9 @@ def _render_decision_feature_summary(context: AgentContext) -> str:
     )
 
 
+render_decision_feature_summary = _render_decision_feature_summary
+
+
 def build_agent_context(
     *,
     role: AgentRole,

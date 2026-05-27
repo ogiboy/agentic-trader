@@ -77,6 +77,9 @@ def _fallback_coordinator(snapshot: MarketSnapshot) -> ResearchCoordinatorBrief:
     )
 
 
+fallback_coordinator = _fallback_coordinator
+
+
 def coordinate_research(
     llm: LocalLLM,
     snapshot: MarketSnapshot,

@@ -1,5 +1,5 @@
 import re
-from typing import Any, cast
+from typing import Any
 
 import pandas as pd
 
@@ -42,7 +42,7 @@ def _rsi(series: pd.Series, period: int = 14) -> pd.Series:
     avg_gain = gain.ewm(alpha=1 / period, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1 / period, adjust=False).mean()
     rs = avg_gain / avg_loss.replace(0, pd.NA)
-    rsi = cast(pd.Series, 100 - (100 / (1 + rs)))
+    rsi = 100 - (100 / (1 + rs))
     rsi = rsi.where(~((avg_loss == 0) & (avg_gain > 0)), 100.0)
     rsi = rsi.where(~((avg_gain == 0) & (avg_loss > 0)), 0.0)
     rsi = rsi.where(~((avg_gain == 0) & (avg_loss == 0)), 50.0)
@@ -60,9 +60,9 @@ def _atr(frame: pd.DataFrame, period: int = 14) -> pd.Series:
     Returns:
         pd.Series: ATR values aligned to the input frame's index, computed with Wilder smoothing (EWMA alpha = 1/period).
     """
-    high = cast(pd.Series, frame["high"])
-    low = cast(pd.Series, frame["low"])
-    close = cast(pd.Series, frame["close"])
+    high = frame["high"]
+    low = frame["low"]
+    close = frame["close"]
     prev_close = close.shift(1)
     tr_components = pd.concat(
         [
@@ -72,8 +72,8 @@ def _atr(frame: pd.DataFrame, period: int = 14) -> pd.Series:
         ],
         axis=1,
     )
-    true_range = cast(pd.Series, tr_components.max(axis=1))
-    return cast(pd.Series, true_range.ewm(alpha=1 / period, adjust=False).mean())
+    true_range = tr_components.max(axis=1)
+    return true_range.ewm(alpha=1 / period, adjust=False).mean()
 
 
 def _round_float(value: float | None, digits: int = 6) -> float | None:
@@ -268,10 +268,10 @@ def _horizon_context(
           - atr_pct: `atr_14` divided by `last.close`, or `None` if `last.close` is zero or undefined.
           - volume_ratio: latest `volume_ratio_20` value (or `None`).
     """
-    close = cast(pd.Series, clean["close"]).astype(float)
-    returns = cast(pd.Series, clean["returns"]).astype(float)
-    high = cast(pd.Series, clean["high"]).astype(float)
-    low = cast(pd.Series, clean["low"]).astype(float)
+    close = clean["close"].astype(float)
+    returns = clean["returns"].astype(float)
+    high = clean["high"].astype(float)
+    low = clean["low"].astype(float)
     available_bars = max(0, min(horizon_bars, len(clean) - 1))
     enough_data = len(clean) > horizon_bars
     current_close = _as_float(last["close"])
@@ -471,14 +471,14 @@ def _enrich_frame(frame: pd.DataFrame) -> pd.DataFrame:
             - `volume_ratio_20`: `volume` divided by its 20-period moving average.
     """
     enriched = frame.copy()
-    close = cast(pd.Series, enriched["close"])
-    volume = cast(pd.Series, enriched["volume"])
+    close = enriched["close"]
+    volume = enriched["volume"]
     enriched["ema_20"] = close.ewm(span=20, adjust=False).mean()
     enriched["ema_50"] = close.ewm(span=50, adjust=False).mean()
     enriched["atr_14"] = _atr(enriched, 14)
     enriched["rsi_14"] = _rsi(close, 14)
     enriched["returns"] = close.pct_change()
-    returns = cast(pd.Series, enriched["returns"])
+    returns = enriched["returns"]
     enriched["volatility_20"] = returns.rolling(20).std() * (20**0.5)
     enriched["return_5"] = close.pct_change(5)
     enriched["return_20"] = close.pct_change(20)
@@ -512,8 +512,7 @@ def _higher_timeframe_frame(
         rule = "W-FRI"
         higher_timeframe = "1wk"
 
-    resampled = cast(
-        pd.DataFrame,
+    resampled = (
         frame.resample(rule)
         .agg(
             {
@@ -524,7 +523,7 @@ def _higher_timeframe_frame(
                 "volume": "sum",
             }
         )
-        .dropna(),
+        .dropna()
     )
     if len(resampled) < 30:
         return frame.copy(), "same_as_base"
