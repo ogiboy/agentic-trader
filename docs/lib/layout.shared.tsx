@@ -16,7 +16,6 @@ export const i18nUI = defineI18nUI(i18n, {
 
 export function baseOptions(locale: DocLanguage): BaseLayoutProps {
   return {
-    i18n,
     nav: {
       title: (
         <span className='inline-flex items-center gap-2 font-medium'>
