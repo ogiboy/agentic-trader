@@ -36,6 +36,10 @@ class UITextCatalog:
     help_idea_vwap: str
     help_interval: str
     help_json: str
+    help_chat_message: str
+    help_chat_persona: str
+    help_instruct_apply: str
+    help_instruct_message: str
     help_locale_override: str
     help_locale_persist: str
     help_launch_background: str
@@ -55,6 +59,8 @@ class UITextCatalog:
     help_model_service_app: str
     help_model_service_host: str
     help_model_service_port: str
+    help_memory_explorer_limit: str
+    help_memory_explorer_use_latest_run: str
     help_ollama_owner: str
     help_position_plan_repair_apply: str
     help_position_plan_repair_max_holding_bars: str
@@ -143,6 +149,7 @@ class UITextCatalog:
     label_agent_profile: str
     label_agent_tone: str
     label_allowed: str
+    label_allowed_actors: str
     label_accelerator: str
     label_adapter: str
     label_alpaca_credentials_configured: str
@@ -193,6 +200,7 @@ class UITextCatalog:
     label_details: str
     label_delta: str
     label_digest_replay: str
+    label_domain: str
     label_drawdown_from_peak: str
     label_ending_equity: str
     label_entry: str
@@ -318,12 +326,14 @@ class UITextCatalog:
     label_rejection_reason: str
     label_reason: str
     label_reasons: str
+    label_recent_runs: str
     label_regions: str
     label_resolution_notes: str
     label_requires_confirmation: str
     label_risk_profile: str
     label_research_cycle_control: str
     label_restart_count: str
+    label_retrieved_memories: str
     label_retrieved_memory_roles: str
     label_return: str
     label_review_summary: str
@@ -349,6 +359,7 @@ class UITextCatalog:
     label_score: str
     label_slippage: str
     label_stage: str
+    label_shared_bus: str
     label_shared_bus_roles: str
     label_started: str
     label_step: str
@@ -375,12 +386,14 @@ class UITextCatalog:
     label_take_profit: str
     label_tool: str
     label_tool_output_roles: str
+    label_tool_outputs: str
     label_tools: str
     label_timezone: str
     label_token_hint: str
     label_total_return: str
     label_trades: str
     label_tradable_now: str
+    label_trade_memory: str
     label_trade_style: str
     label_trigger_now: str
     label_trigger_now_requested: str
@@ -400,6 +413,7 @@ class UITextCatalog:
     label_warmup_bars: str
     label_with_memory: str
     label_warnings: str
+    label_why: str
     label_win_rate: str
     label_without_memory: str
     label_v1_source: str
@@ -418,7 +432,10 @@ class UITextCatalog:
     message_no_stdout_log_lines: str
     message_no_trade_journal_entries: str
     message_no_historical_memories: str
+    message_memory_explorer_temporarily_unavailable: str
     message_no_action_selected: str
+    message_no_retrieval_inspection_context: str
+    message_no_retrieval_stage_context: str
     message_trade_journal_temporarily_unavailable: str
     message_risk_report_temporarily_unavailable: str
     message_run_review_temporarily_unavailable: str
@@ -431,6 +448,7 @@ class UITextCatalog:
     message_no_persisted_runs_replay: str
     message_no_persisted_runs_export: str
     message_run_report_written: str
+    message_retrieval_inspection_temporarily_unavailable: str
     message_backtest_choose_one_comparison: str
     message_backtest_comparison_written: str
     message_backtest_memory_ablation_written: str
@@ -483,6 +501,7 @@ class UITextCatalog:
     message_trading_runtime_blocked: str
     message_trading_runtime_ready: str
     message_training_diagnostic_fallback: str
+    message_unique_artifact_dir_unavailable: str
     message_v1_readiness_status_unavailable: str
     prompt_continue: str
     prompt_select_action: str
@@ -526,6 +545,7 @@ class UITextCatalog:
     title_camofox_browser_helper: str
     title_camofox_stderr_tail: str
     title_camofox_start_failed: str
+    title_chat: str
     title_choose_surface: str
     title_context_summary: str
     title_llm_status: str
@@ -555,6 +575,7 @@ class UITextCatalog:
     title_manager_override_notes: str
     title_memory_aware_replay: str
     title_memory_explorer: str
+    title_memory_write_policy: str
     title_market_session: str
     title_market_snapshot_cache: str
     title_market_snapshot_cached: str
@@ -604,6 +625,9 @@ class UITextCatalog:
     title_research_sidecar_status: str
     title_research_source_health: str
     title_research_snapshot_persisted: str
+    title_retrieval_inspection: str
+    title_retrieval_inspection_for_run: str
+    title_retrieval_stage: str
     title_routed_models: str
     title_setup_status: str
     title_setup_guidance: str
@@ -623,6 +647,7 @@ class UITextCatalog:
     title_tool_readiness: str
     title_training_diagnostic_mode: str
     title_ui_locale: str
+    title_updated_preferences: str
     title_v1_readiness: str
     title_warning: str
     title_v1_operator_workflow: str
@@ -652,6 +677,10 @@ EN_TEXT = UITextCatalog(
     help_idea_vwap="VWAP value.",
     help_interval="yfinance interval, for example 1d or 1h",
     help_json="Emit machine-readable JSON.",
+    help_chat_message="Optional message. If omitted, an interactive prompt is shown.",
+    help_chat_persona="Which agent persona should answer.",
+    help_instruct_apply="Apply the parsed preference update if one is proposed.",
+    help_instruct_message="Natural-language operator instruction.",
     help_locale_override="Override terminal UI locale for this command: en or tr.",
     help_locale_persist="Persist terminal UI locale to .env.local: en or tr.",
     help_launch_background="Spawn the orchestrator as a background service.",
@@ -676,6 +705,8 @@ EN_TEXT = UITextCatalog(
     help_model_service_app="Manage the optional app-owned local model service.",
     help_model_service_host="Loopback bind host for app-managed Ollama.",
     help_model_service_port="Preferred app-managed Ollama port.",
+    help_memory_explorer_limit="Maximum number of retrieved historical memories.",
+    help_memory_explorer_use_latest_run="Use the latest recorded run snapshot when available.",
     help_ollama_owner="Ownership mode for Ollama: host-owned, app-owned, api-key-only, or skipped.",
     help_position_plan_repair_apply="Write repairable missing position plans. Defaults to dry-run.",
     help_position_plan_repair_max_holding_bars="Maximum holding bars for repaired position plans.",
@@ -796,6 +827,7 @@ EN_TEXT = UITextCatalog(
     label_agent_profile="Agent Profile",
     label_agent_tone="Agent Tone",
     label_allowed="Allowed",
+    label_allowed_actors="Allowed Actors",
     label_accelerator="Accelerator",
     label_adapter="Adapter",
     label_alpaca_credentials_configured="Alpaca Credentials Configured",
@@ -846,6 +878,7 @@ EN_TEXT = UITextCatalog(
     label_details="Details",
     label_delta="Delta",
     label_digest_replay="Digest Replay",
+    label_domain="Domain",
     label_drawdown_from_peak="Drawdown From Peak",
     label_ending_equity="Ending Equity",
     label_entry="Entry",
@@ -971,12 +1004,14 @@ EN_TEXT = UITextCatalog(
     label_rejection_reason="Rejection Reason",
     label_reason="Reason",
     label_reasons="Reasons",
+    label_recent_runs="Recent Runs",
     label_regions="Regions",
     label_resolution_notes="Resolution Notes",
     label_requires_confirmation="Requires Confirmation",
     label_risk_profile="Risk Profile",
     label_research_cycle_control="Research cycle control",
     label_restart_count="Restart Count",
+    label_retrieved_memories="Retrieved Memories",
     label_retrieved_memory_roles="Retrieved Memory Roles",
     label_return="Return",
     label_review_summary="Review Summary",
@@ -1002,6 +1037,7 @@ EN_TEXT = UITextCatalog(
     label_score="Score",
     label_slippage="Slippage",
     label_stage="Stage",
+    label_shared_bus="Shared Bus",
     label_shared_bus_roles="Shared Bus Roles",
     label_started="Started",
     label_step="Step",
@@ -1028,12 +1064,14 @@ EN_TEXT = UITextCatalog(
     label_take_profit="Take Profit",
     label_tool="Tool",
     label_tool_output_roles="Tool Output Roles",
+    label_tool_outputs="Tool Outputs",
     label_tools="Tools",
     label_timezone="Timezone",
     label_token_hint="Token Hint",
     label_total_return="Total Return",
     label_trades="Trades",
     label_tradable_now="Tradable Now",
+    label_trade_memory="Trade Memory",
     label_trade_style="Trade Style",
     label_trigger_now="Trigger Now",
     label_trigger_now_requested="Trigger now requested",
@@ -1054,6 +1092,7 @@ EN_TEXT = UITextCatalog(
     label_watched_symbols="Watched Symbols",
     label_with_memory="With Memory",
     label_warnings="Warnings",
+    label_why="Why",
     label_win_rate="Win Rate",
     label_without_memory="Without Memory",
     label_v1_source="V1 Source",
@@ -1073,7 +1112,16 @@ EN_TEXT = UITextCatalog(
     message_no_stdout_log_lines="No stdout log lines yet.",
     message_no_trade_journal_entries="No trade journal entries recorded yet.",
     message_no_historical_memories="No historical memories are available yet.",
+    message_memory_explorer_temporarily_unavailable=(
+        "Memory explorer is temporarily unavailable.\n\n{error}"
+    ),
     message_no_action_selected="No action selected.",
+    message_no_retrieval_inspection_context=(
+        "No agent trace contexts are available for retrieval inspection yet."
+    ),
+    message_no_retrieval_stage_context=(
+        "No retrieval or memory context was attached for this stage."
+    ),
     message_trade_journal_temporarily_unavailable=(
         "Trade journal is temporarily unavailable while the runtime writer owns "
         "the database.\n\n{error}"
@@ -1104,6 +1152,9 @@ EN_TEXT = UITextCatalog(
     message_no_persisted_runs_replay="No persisted runs are available to replay.",
     message_no_persisted_runs_export="No persisted runs are available to export.",
     message_run_report_written="Run report written to {output}.",
+    message_retrieval_inspection_temporarily_unavailable=(
+        "Retrieval inspection is temporarily unavailable.\n\n{error}"
+    ),
     message_backtest_choose_one_comparison=(
         "Choose either --compare-baseline or --compare-memory for a single run."
     ),
@@ -1243,6 +1294,9 @@ EN_TEXT = UITextCatalog(
         "Training mode is continuing this evaluation with deterministic diagnostic "
         "fallbacks because the LLM gate failed:\n\n{error}"
     ),
+    message_unique_artifact_dir_unavailable=(
+        "Unable to create a unique artifact directory for {label}"
+    ),
     message_v1_readiness_status_unavailable="V1 readiness status unavailable.",
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
@@ -1283,6 +1337,7 @@ EN_TEXT = UITextCatalog(
     title_camofox_browser_helper="Camofox Browser Helper",
     title_camofox_stderr_tail="Camofox Stderr Tail",
     title_camofox_start_failed="Camofox Start Failed",
+    title_chat="Chat / {persona}",
     title_choose_surface="Choose A Surface",
     title_context_summary="Context Summary",
     title_execution_summary="Execution Summary",
@@ -1315,6 +1370,7 @@ EN_TEXT = UITextCatalog(
     title_manager_override_notes="Manager Override Notes",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
+    title_memory_write_policy="Memory Write Policy",
     title_market_session="Market Session / {symbol}",
     title_market_snapshot_cache="Market Snapshot Cache",
     title_market_snapshot_cached="Market Snapshot Cached",
@@ -1364,6 +1420,9 @@ EN_TEXT = UITextCatalog(
     title_research_sidecar_status="Research Sidecar Status",
     title_research_source_health="Research Source Health",
     title_research_snapshot_persisted="Research Snapshot Persisted",
+    title_retrieval_inspection="Retrieval Inspection",
+    title_retrieval_inspection_for_run="Retrieval Inspection / {run_id}",
+    title_retrieval_stage="Stage / {role}",
     title_routed_models="Routed Models",
     title_setup_status="Setup Status",
     title_setup_guidance="Setup Guidance",
@@ -1383,6 +1442,7 @@ EN_TEXT = UITextCatalog(
     title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
     title_ui_locale="UI Locale",
+    title_updated_preferences="Updated Preferences",
     title_v1_readiness="V1 Readiness",
     title_warning="Warning",
     title_v1_operator_workflow="V1 Operator Workflow",
@@ -1415,6 +1475,10 @@ TR_TEXT = UITextCatalog(
     help_idea_vwap="VWAP degeri.",
     help_interval="yfinance araligi, ornegin 1d veya 1h",
     help_json="Makine tarafindan okunabilir JSON uret.",
+    help_chat_message="Istege bagli mesaj. Atlanirsa interaktif prompt gosterilir.",
+    help_chat_persona="Yanit verecek agent persona.",
+    help_instruct_apply="Onerilen preference guncellemesini uygula.",
+    help_instruct_message="Dogal dilde operator talimati.",
     help_locale_override="Bu komut icin terminal UI locale override et: en veya tr.",
     help_locale_persist="Terminal UI locale degerini .env.local icine yaz: en veya tr.",
     help_launch_background="Orchestrator'i background service olarak baslat.",
@@ -1439,6 +1503,8 @@ TR_TEXT = UITextCatalog(
     help_model_service_app="Istege bagli app-owned yerel model servisini yonet.",
     help_model_service_host="App-managed Ollama icin loopback bind host.",
     help_model_service_port="Tercih edilen app-managed Ollama portu.",
+    help_memory_explorer_limit="Gosterilecek maksimum historical memory sayisi.",
+    help_memory_explorer_use_latest_run="Varsa son kayitli run snapshot'ini kullan.",
     help_ollama_owner="Ollama sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_position_plan_repair_apply="Repair edilebilir eksik position plan'lari yaz. Varsayilan dry-run.",
     help_position_plan_repair_max_holding_bars="Repair edilen position plan'lari icin maksimum holding bar.",
@@ -1559,6 +1625,7 @@ TR_TEXT = UITextCatalog(
     label_agent_profile="Agent Profili",
     label_agent_tone="Agent Tonu",
     label_allowed="Izinli",
+    label_allowed_actors="Izinli Actor'ler",
     label_accelerator="Accelerator",
     label_adapter="Adapter",
     label_alpaca_credentials_configured="Alpaca Credential'lari Ayarli",
@@ -1609,6 +1676,7 @@ TR_TEXT = UITextCatalog(
     label_details="Detaylar",
     label_delta="Delta",
     label_digest_replay="Digest Replay",
+    label_domain="Domain",
     label_drawdown_from_peak="Zirveden Drawdown",
     label_ending_equity="Final Equity",
     label_entry="Giris",
@@ -1734,12 +1802,14 @@ TR_TEXT = UITextCatalog(
     label_rejection_reason="Red Nedeni",
     label_reason="Neden",
     label_reasons="Nedenler",
+    label_recent_runs="Son Run'lar",
     label_regions="Bolgeler",
     label_resolution_notes="Cozum Notlari",
     label_requires_confirmation="Onay Gerektirir",
     label_risk_profile="Risk Profili",
     label_research_cycle_control="Research cycle control",
     label_restart_count="Restart Sayisi",
+    label_retrieved_memories="Retrieved Memory'ler",
     label_retrieved_memory_roles="Retrieved Memory Rolleri",
     label_return="Return",
     label_review_summary="Review Ozeti",
@@ -1765,6 +1835,7 @@ TR_TEXT = UITextCatalog(
     label_score="Skor",
     label_slippage="Slippage",
     label_stage="Asama",
+    label_shared_bus="Shared Bus",
     label_shared_bus_roles="Shared Bus Rolleri",
     label_started="Basladi",
     label_step="Adim",
@@ -1791,12 +1862,14 @@ TR_TEXT = UITextCatalog(
     label_take_profit="Take Profit",
     label_tool="Tool",
     label_tool_output_roles="Tool Output Rolleri",
+    label_tool_outputs="Tool Output'lari",
     label_tools="Araclar",
     label_timezone="Saat Dilimi",
     label_token_hint="Token Ipuclari",
     label_total_return="Toplam Return",
     label_trades="Trade'ler",
     label_tradable_now="Simdi Islem Yapilabilir",
+    label_trade_memory="Trade Memory",
     label_trade_style="Trade Stili",
     label_trigger_now="Simdi Tetikle",
     label_trigger_now_requested="Simdi tetikleme istendi",
@@ -1817,6 +1890,7 @@ TR_TEXT = UITextCatalog(
     label_watched_symbols="Izlenen Semboller",
     label_with_memory="Hafiza Ile",
     label_warnings="Uyarilar",
+    label_why="Neden",
     label_win_rate="Kazanma Orani",
     label_without_memory="Hafiza Olmadan",
     label_v1_source="V1 Kaynagi",
@@ -1836,7 +1910,16 @@ TR_TEXT = UITextCatalog(
     message_no_stdout_log_lines="Henuz stdout log satiri yok.",
     message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
     message_no_historical_memories="Henuz historical memory yok.",
+    message_memory_explorer_temporarily_unavailable=(
+        "Memory explorer gecici olarak kullanilamiyor.\n\n{error}"
+    ),
     message_no_action_selected="Aksiyon secilmedi.",
+    message_no_retrieval_inspection_context=(
+        "Retrieval inspection icin henuz agent trace context yok."
+    ),
+    message_no_retrieval_stage_context=(
+        "Bu asama icin retrieval veya memory context eklenmemis."
+    ),
     message_trade_journal_temporarily_unavailable=(
         "Runtime writer veritabaninin sahibiyken trade journal gecici olarak "
         "kullanilamiyor.\n\n{error}"
@@ -1867,6 +1950,9 @@ TR_TEXT = UITextCatalog(
     message_no_persisted_runs_replay="Replay icin persisted run yok.",
     message_no_persisted_runs_export="Export icin persisted run yok.",
     message_run_report_written="Run report {output} icine yazildi.",
+    message_retrieval_inspection_temporarily_unavailable=(
+        "Retrieval inspection gecici olarak kullanilamiyor.\n\n{error}"
+    ),
     message_backtest_choose_one_comparison=(
         "Tek run icin --compare-baseline veya --compare-memory secin."
     ),
@@ -2006,6 +2092,9 @@ TR_TEXT = UITextCatalog(
         "Training modu bu degerlendirmeye deterministic diagnostic fallback ile "
         "devam ediyor cunku LLM gate basarisiz oldu:\n\n{error}"
     ),
+    message_unique_artifact_dir_unavailable=(
+        "{label} icin unique artifact dizini olusturulamadi"
+    ),
     message_v1_readiness_status_unavailable="V1 readiness durumu kullanilamiyor.",
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
@@ -2046,6 +2135,7 @@ TR_TEXT = UITextCatalog(
     title_camofox_browser_helper="Camofox Browser Yardimcisi",
     title_camofox_stderr_tail="Camofox Stderr Kuyrugu",
     title_camofox_start_failed="Camofox Baslatma Basarisiz",
+    title_chat="Chat / {persona}",
     title_choose_surface="Yuzey Sec",
     title_context_summary="Context Ozeti",
     title_execution_summary="Execution Ozeti",
@@ -2078,6 +2168,7 @@ TR_TEXT = UITextCatalog(
     title_manager_override_notes="Manager Override Notlari",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
+    title_memory_write_policy="Memory Write Policy",
     title_market_session="Market Session / {symbol}",
     title_market_snapshot_cache="Market Snapshot Cache",
     title_market_snapshot_cached="Market Snapshot Cache'lendi",
@@ -2127,6 +2218,9 @@ TR_TEXT = UITextCatalog(
     title_research_sidecar_status="Research Sidecar Durumu",
     title_research_source_health="Research Kaynak Sagligi",
     title_research_snapshot_persisted="Research Snapshot Kaydedildi",
+    title_retrieval_inspection="Retrieval Inspection",
+    title_retrieval_inspection_for_run="Retrieval Inspection / {run_id}",
+    title_retrieval_stage="Asama / {role}",
     title_routed_models="Routed Modeller",
     title_setup_status="Setup Durumu",
     title_setup_guidance="Setup Rehberi",
@@ -2146,6 +2240,7 @@ TR_TEXT = UITextCatalog(
     title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
     title_ui_locale="UI Locale",
+    title_updated_preferences="Guncellenen Preferences",
     title_v1_readiness="V1 Readiness",
     title_warning="Uyari",
     title_v1_operator_workflow="V1 Operator Workflow",
@@ -2182,6 +2277,10 @@ def get_ui_text(locale: str | None = None) -> UITextCatalog:
 # Legacy constant exports. Keep these in place until CLI and TUI call sites move
 # to explicit locale-aware catalog injection.
 HELP_JSON = EN_TEXT.help_json
+HELP_CHAT_MESSAGE = EN_TEXT.help_chat_message
+HELP_CHAT_PERSONA = EN_TEXT.help_chat_persona
+HELP_INSTRUCT_APPLY = EN_TEXT.help_instruct_apply
+HELP_INSTRUCT_MESSAGE = EN_TEXT.help_instruct_message
 HELP_LOCALE_OVERRIDE = EN_TEXT.help_locale_override
 HELP_LOCALE_PERSIST = EN_TEXT.help_locale_persist
 HELP_LAUNCH_BACKGROUND = EN_TEXT.help_launch_background
@@ -2203,6 +2302,8 @@ HELP_RUN_ID = EN_TEXT.help_run_id
 HELP_MODEL_NAME_TO_PULL = EN_TEXT.help_model_name_to_pull
 HELP_MODEL_SERVICE_HOST = EN_TEXT.help_model_service_host
 HELP_MODEL_SERVICE_PORT = EN_TEXT.help_model_service_port
+HELP_MEMORY_EXPLORER_LIMIT = EN_TEXT.help_memory_explorer_limit
+HELP_MEMORY_EXPLORER_USE_LATEST_RUN = EN_TEXT.help_memory_explorer_use_latest_run
 HELP_OLLAMA_OWNER = EN_TEXT.help_ollama_owner
 HELP_POSITION_PLAN_REPAIR_APPLY = EN_TEXT.help_position_plan_repair_apply
 HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS = (
@@ -2324,6 +2425,7 @@ LABEL_AGENT = EN_TEXT.label_agent
 LABEL_AGENT_PROFILE = EN_TEXT.label_agent_profile
 LABEL_AGENT_TONE = EN_TEXT.label_agent_tone
 LABEL_ALLOWED = EN_TEXT.label_allowed
+LABEL_ALLOWED_ACTORS = EN_TEXT.label_allowed_actors
 LABEL_ACCELERATOR = EN_TEXT.label_accelerator
 LABEL_ADAPTER = EN_TEXT.label_adapter
 LABEL_ALPACA_CREDENTIALS_CONFIGURED = EN_TEXT.label_alpaca_credentials_configured
@@ -2374,6 +2476,7 @@ LABEL_DEFAULT_MODEL = EN_TEXT.label_default_model
 LABEL_DETAILS = EN_TEXT.label_details
 LABEL_DELTA = EN_TEXT.label_delta
 LABEL_DIGEST_REPLAY = EN_TEXT.label_digest_replay
+LABEL_DOMAIN = EN_TEXT.label_domain
 LABEL_DRAWDOWN_FROM_PEAK = EN_TEXT.label_drawdown_from_peak
 LABEL_ENDING_EQUITY = EN_TEXT.label_ending_equity
 LABEL_ENTRY = EN_TEXT.label_entry
@@ -2499,12 +2602,14 @@ LABEL_REJECTION_EVIDENCE = EN_TEXT.label_rejection_evidence
 LABEL_REJECTION_REASON = EN_TEXT.label_rejection_reason
 LABEL_REASON = EN_TEXT.label_reason
 LABEL_REASONS = EN_TEXT.label_reasons
+LABEL_RECENT_RUNS = EN_TEXT.label_recent_runs
 LABEL_REGIONS = EN_TEXT.label_regions
 LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
 LABEL_RISK_PROFILE = EN_TEXT.label_risk_profile
 LABEL_RESEARCH_CYCLE_CONTROL = EN_TEXT.label_research_cycle_control
 LABEL_RESTART_COUNT = EN_TEXT.label_restart_count
+LABEL_RETRIEVED_MEMORIES = EN_TEXT.label_retrieved_memories
 LABEL_RETRIEVED_MEMORY_ROLES = EN_TEXT.label_retrieved_memory_roles
 LABEL_RETURN = EN_TEXT.label_return
 LABEL_REVIEW_SUMMARY = EN_TEXT.label_review_summary
@@ -2530,6 +2635,7 @@ LABEL_SNAPSHOT_COUNT = EN_TEXT.label_snapshot_count
 LABEL_SCORE = EN_TEXT.label_score
 LABEL_SLIPPAGE = EN_TEXT.label_slippage
 LABEL_STAGE = EN_TEXT.label_stage
+LABEL_SHARED_BUS = EN_TEXT.label_shared_bus
 LABEL_SHARED_BUS_ROLES = EN_TEXT.label_shared_bus_roles
 LABEL_STARTED = EN_TEXT.label_started
 LABEL_STEP = EN_TEXT.label_step
@@ -2556,12 +2662,14 @@ LABEL_TAKE = EN_TEXT.label_take
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
 LABEL_TOOL = EN_TEXT.label_tool
 LABEL_TOOL_OUTPUT_ROLES = EN_TEXT.label_tool_output_roles
+LABEL_TOOL_OUTPUTS = EN_TEXT.label_tool_outputs
 LABEL_TOOLS = EN_TEXT.label_tools
 LABEL_TIMEZONE = EN_TEXT.label_timezone
 LABEL_TOKEN_HINT = EN_TEXT.label_token_hint
 LABEL_TOTAL_RETURN = EN_TEXT.label_total_return
 LABEL_TRADES = EN_TEXT.label_trades
 LABEL_TRADABLE_NOW = EN_TEXT.label_tradable_now
+LABEL_TRADE_MEMORY = EN_TEXT.label_trade_memory
 LABEL_TRADE_STYLE = EN_TEXT.label_trade_style
 LABEL_TRIGGER_NOW = EN_TEXT.label_trigger_now
 LABEL_TRIGGER_NOW_REQUESTED = EN_TEXT.label_trigger_now_requested
@@ -2582,6 +2690,7 @@ LABEL_WARMUP_BARS = EN_TEXT.label_warmup_bars
 LABEL_WATCHED_SYMBOLS = EN_TEXT.label_watched_symbols
 LABEL_WITH_MEMORY = EN_TEXT.label_with_memory
 LABEL_WARNINGS = EN_TEXT.label_warnings
+LABEL_WHY = EN_TEXT.label_why
 LABEL_WIN_RATE = EN_TEXT.label_win_rate
 LABEL_WITHOUT_MEMORY = EN_TEXT.label_without_memory
 LABEL_V1_SOURCE = EN_TEXT.label_v1_source
@@ -2602,7 +2711,14 @@ MESSAGE_NO_STDERR_LOG_LINES = EN_TEXT.message_no_stderr_log_lines
 MESSAGE_NO_STDOUT_LOG_LINES = EN_TEXT.message_no_stdout_log_lines
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
+MESSAGE_MEMORY_EXPLORER_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_memory_explorer_temporarily_unavailable
+)
 MESSAGE_NO_ACTION_SELECTED = EN_TEXT.message_no_action_selected
+MESSAGE_NO_RETRIEVAL_INSPECTION_CONTEXT = (
+    EN_TEXT.message_no_retrieval_inspection_context
+)
+MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT = EN_TEXT.message_no_retrieval_stage_context
 MESSAGE_TRADE_JOURNAL_TEMPORARILY_UNAVAILABLE = (
     EN_TEXT.message_trade_journal_temporarily_unavailable
 )
@@ -2627,6 +2743,9 @@ MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE = (
 MESSAGE_NO_PERSISTED_RUNS_REPLAY = EN_TEXT.message_no_persisted_runs_replay
 MESSAGE_NO_PERSISTED_RUNS_EXPORT = EN_TEXT.message_no_persisted_runs_export
 MESSAGE_RUN_REPORT_WRITTEN = EN_TEXT.message_run_report_written
+MESSAGE_RETRIEVAL_INSPECTION_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_retrieval_inspection_temporarily_unavailable
+)
 MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON = (
     EN_TEXT.message_backtest_choose_one_comparison
 )
@@ -2711,6 +2830,9 @@ MESSAGE_TRADE_PROPOSAL_REJECTED = EN_TEXT.message_trade_proposal_rejected
 MESSAGE_TRADING_RUNTIME_BLOCKED = EN_TEXT.message_trading_runtime_blocked
 MESSAGE_TRADING_RUNTIME_READY = EN_TEXT.message_trading_runtime_ready
 MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK = EN_TEXT.message_training_diagnostic_fallback
+MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE = (
+    EN_TEXT.message_unique_artifact_dir_unavailable
+)
 MESSAGE_V1_READINESS_STATUS_UNAVAILABLE = (
     EN_TEXT.message_v1_readiness_status_unavailable
 )
@@ -2740,6 +2862,7 @@ TITLE_CANDIDATE_REJECTED = EN_TEXT.title_candidate_rejected
 TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
 TITLE_CAMOFOX_STDERR_TAIL = EN_TEXT.title_camofox_stderr_tail
 TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
+TITLE_CHAT = EN_TEXT.title_chat
 TITLE_CHOOSE_SURFACE = EN_TEXT.title_choose_surface
 TITLE_CONTEXT_SUMMARY = EN_TEXT.title_context_summary
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
@@ -2772,6 +2895,7 @@ TITLE_MANAGER_CONFLICT_REPLAY = EN_TEXT.title_manager_conflict_replay
 TITLE_MANAGER_OVERRIDE_NOTES = EN_TEXT.title_manager_override_notes
 TITLE_MEMORY_AWARE_REPLAY = EN_TEXT.title_memory_aware_replay
 TITLE_MEMORY_EXPLORER = EN_TEXT.title_memory_explorer
+TITLE_MEMORY_WRITE_POLICY = EN_TEXT.title_memory_write_policy
 TITLE_MARKET_SESSION = EN_TEXT.title_market_session
 TITLE_MARKET_SNAPSHOT_CACHE = EN_TEXT.title_market_snapshot_cache
 TITLE_MARKET_SNAPSHOT_CACHED = EN_TEXT.title_market_snapshot_cached
@@ -2823,6 +2947,9 @@ TITLE_RESEARCH_CYCLE_RUN = EN_TEXT.title_research_cycle_run
 TITLE_RESEARCH_SIDECAR_STATUS = EN_TEXT.title_research_sidecar_status
 TITLE_RESEARCH_SOURCE_HEALTH = EN_TEXT.title_research_source_health
 TITLE_RESEARCH_SNAPSHOT_PERSISTED = EN_TEXT.title_research_snapshot_persisted
+TITLE_RETRIEVAL_INSPECTION = EN_TEXT.title_retrieval_inspection
+TITLE_RETRIEVAL_INSPECTION_FOR_RUN = EN_TEXT.title_retrieval_inspection_for_run
+TITLE_RETRIEVAL_STAGE = EN_TEXT.title_retrieval_stage
 TITLE_ROUTED_MODELS = EN_TEXT.title_routed_models
 TITLE_SETUP_GUIDANCE = EN_TEXT.title_setup_guidance
 TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
@@ -2842,6 +2969,7 @@ TITLE_TRADE_PROPOSAL_REJECTED = EN_TEXT.title_trade_proposal_rejected
 TITLE_TOOL_READINESS = EN_TEXT.title_tool_readiness
 TITLE_TRAINING_DIAGNOSTIC_MODE = EN_TEXT.title_training_diagnostic_mode
 TITLE_UI_LOCALE = EN_TEXT.title_ui_locale
+TITLE_UPDATED_PREFERENCES = EN_TEXT.title_updated_preferences
 TITLE_V1_READINESS = EN_TEXT.title_v1_readiness
 TITLE_WARNING = EN_TEXT.title_warning
 TITLE_V1_OPERATOR_WORKFLOW = EN_TEXT.title_v1_operator_workflow

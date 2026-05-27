@@ -173,6 +173,8 @@ from agentic_trader.ui_text import (
     HELP_CAMOFOX_SERVICE_HOST,
     HELP_CAMOFOX_SERVICE_APP,
     HELP_CAMOFOX_SERVICE_PORT,
+    HELP_CHAT_MESSAGE,
+    HELP_CHAT_PERSONA,
     HELP_CLI_APP,
     HELP_FIRECRAWL_OWNER,
     HELP_IDEA_CHANGE_PCT,
@@ -188,6 +190,8 @@ from agentic_trader.ui_text import (
     HELP_IDEA_SPREAD_PCT,
     HELP_IDEA_VOLUME,
     HELP_IDEA_VWAP,
+    HELP_INSTRUCT_APPLY,
+    HELP_INSTRUCT_MESSAGE,
     HELP_INTERVAL,
     HELP_JSON,
     HELP_LAUNCH_BACKGROUND,
@@ -209,6 +213,8 @@ from agentic_trader.ui_text import (
     HELP_MODEL_SERVICE_APP,
     HELP_MODEL_SERVICE_HOST,
     HELP_MODEL_SERVICE_PORT,
+    HELP_MEMORY_EXPLORER_LIMIT,
+    HELP_MEMORY_EXPLORER_USE_LATEST_RUN,
     HELP_OLLAMA_OWNER,
     HELP_POSITION_PLAN_REPAIR_APPLY,
     HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
@@ -293,6 +299,7 @@ from agentic_trader.ui_text import (
     LABEL_AGENT_PROFILE,
     LABEL_AGENT_TONE,
     LABEL_ALLOWED,
+    LABEL_ALLOWED_ACTORS,
     LABEL_ACCELERATOR,
     LABEL_ADAPTER,
     LABEL_ALPACA_CREDENTIALS_CONFIGURED,
@@ -343,6 +350,7 @@ from agentic_trader.ui_text import (
     LABEL_DELTA,
     LABEL_DETAILS,
     LABEL_DIGEST_REPLAY,
+    LABEL_DOMAIN,
     LABEL_DRAWDOWN_FROM_PEAK,
     LABEL_ENDING_EQUITY,
     LABEL_ENTRY,
@@ -471,8 +479,10 @@ from agentic_trader.ui_text import (
     LABEL_REGIONS,
     LABEL_REQUIRES_CONFIRMATION,
     LABEL_REASONS,
+    LABEL_RECENT_RUNS,
     LABEL_RESEARCH_CYCLE_CONTROL,
     LABEL_RESTART_COUNT,
+    LABEL_RETRIEVED_MEMORIES,
     LABEL_RETRIEVED_MEMORY_ROLES,
     LABEL_RESOLUTION_NOTES,
     LABEL_RETURN,
@@ -494,6 +504,7 @@ from agentic_trader.ui_text import (
     LABEL_SIDECAR_AVAILABLE,
     LABEL_SIGNAL,
     LABEL_SIMULATED,
+    LABEL_SHARED_BUS,
     LABEL_SHARED_BUS_ROLES,
     LABEL_SIZE,
     LABEL_SNAPSHOT_COUNT,
@@ -527,11 +538,13 @@ from agentic_trader.ui_text import (
     LABEL_TIMEZONE,
     LABEL_TOOL,
     LABEL_TOOL_OUTPUT_ROLES,
+    LABEL_TOOL_OUTPUTS,
     LABEL_TOOLS,
     LABEL_TOKEN_HINT,
     LABEL_TOTAL_RETURN,
     LABEL_TRADES,
     LABEL_TRADABLE_NOW,
+    LABEL_TRADE_MEMORY,
     LABEL_TRADE_STYLE,
     LABEL_TRIGGER_NOW,
     LABEL_TRIGGER_NOW_REQUESTED,
@@ -555,6 +568,7 @@ from agentic_trader.ui_text import (
     LABEL_WIN_RATE,
     LABEL_WITH_MEMORY,
     LABEL_WITHOUT_MEMORY,
+    LABEL_WHY,
     LABEL_WORKSPACE,
     LABEL_YES,
     LAUNCHER_OPTION_CONTINUE_TUI,
@@ -581,9 +595,12 @@ from agentic_trader.ui_text import (
     MESSAGE_LAUNCH_SYMBOL_REQUIRED,
     MESSAGE_MARK_TIME_UNAVAILABLE,
     MESSAGE_MARKET_SNAPSHOT_CACHED,
+    MESSAGE_MEMORY_EXPLORER_TEMPORARILY_UNAVAILABLE,
     MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
     MESSAGE_NO_HISTORICAL_MEMORIES,
+    MESSAGE_NO_RETRIEVAL_INSPECTION_CONTEXT,
+    MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT,
     MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
     MESSAGE_NO_OPEN_POSITIONS,
     MESSAGE_NO_PROPOSAL_CANDIDATES,
@@ -619,6 +636,7 @@ from agentic_trader.ui_text import (
     MESSAGE_RUNTIME_GATE_OPEN,
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
+    MESSAGE_RETRIEVAL_INSPECTION_TEMPORARILY_UNAVAILABLE,
     MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE,
     MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE,
     MESSAGE_RUN_REPORT_WRITTEN,
@@ -636,6 +654,7 @@ from agentic_trader.ui_text import (
     MESSAGE_TRADING_RUNTIME_BLOCKED,
     MESSAGE_TRADING_RUNTIME_READY,
     MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
+    MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE,
     MESSAGE_V1_READINESS_STATUS_UNAVAILABLE,
     PROMPT_SELECT_ACTION,
     STAGE_CONSENSUS,
@@ -672,6 +691,7 @@ from agentic_trader.ui_text import (
     TITLE_CAMOFOX_BROWSER_HELPER,
     TITLE_CAMOFOX_STDERR_TAIL,
     TITLE_CAMOFOX_START_FAILED,
+    TITLE_CHAT,
     TITLE_CHOOSE_SURFACE,
     TITLE_CONTEXT_SUMMARY,
     TITLE_DAILY_RISK_REPORT,
@@ -699,6 +719,7 @@ from agentic_trader.ui_text import (
     TITLE_MANAGER_OVERRIDE_NOTES,
     TITLE_MEMORY_AWARE_REPLAY,
     TITLE_MEMORY_EXPLORER,
+    TITLE_MEMORY_WRITE_POLICY,
     TITLE_MODEL_PULL,
     TITLE_MODEL_SERVICE_STDERR_TAIL,
     TITLE_MODEL_SERVICE_START_FAILED,
@@ -729,6 +750,9 @@ from agentic_trader.ui_text import (
     TITLE_RESEARCH_SIDECAR_STATUS,
     TITLE_RESEARCH_SOURCE_HEALTH,
     TITLE_RESEARCH_SNAPSHOT_PERSISTED,
+    TITLE_RETRIEVAL_INSPECTION,
+    TITLE_RETRIEVAL_INSPECTION_FOR_RUN,
+    TITLE_RETRIEVAL_STAGE,
     TITLE_ROUTED_MODELS,
     TITLE_REPLAY_STAGES,
     TITLE_RECONCILIATION_BLOCKED,
@@ -770,6 +794,7 @@ from agentic_trader.ui_text import (
     TITLE_TRADE_PROPOSALS,
     TITLE_TRAINING_DIAGNOSTIC_MODE,
     TITLE_UI_LOCALE,
+    TITLE_UPDATED_PREFERENCES,
     TITLE_V1_READINESS,
     TITLE_V1_OPERATOR_WORKFLOW,
     TITLE_QA_EVIDENCE_BUNDLE,
@@ -6766,7 +6791,7 @@ def build_dashboard_snapshot_payload(
 
 
 def _claim_timestamped_dir(root: Path, label: str) -> Path:
-    """Create a unique artifact directory using label or label-N."""
+    """Claim a non-existing artifact directory path."""
     root.mkdir(parents=True, exist_ok=True)
     for attempt in range(1, 1000):
         suffix = "" if attempt == 1 else f"-{attempt}"
@@ -6776,7 +6801,7 @@ def _claim_timestamped_dir(root: Path, label: str) -> Path:
         except FileExistsError:
             continue
         return candidate
-    msg = f"Unable to create a unique artifact directory for {label!r}"
+    msg = MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE.format(label=repr(label))
     raise RuntimeError(msg)
 
 
@@ -8221,10 +8246,10 @@ def memory_explorer(
     interval: str | None = typer.Option(None, help=HELP_INTERVAL),
     lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
     limit: int = typer.Option(
-        5, min=1, max=20, help="Maximum number of retrieved historical memories."
+        5, min=1, max=20, help=HELP_MEMORY_EXPLORER_LIMIT
     ),
     use_latest_run: bool = typer.Option(
-        True, help="Use the latest recorded run snapshot when available."
+        True, help=HELP_MEMORY_EXPLORER_USE_LATEST_RUN
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -8256,7 +8281,9 @@ def memory_explorer(
     if not payload["available"]:
         console.print(
             Panel(
-                f"Memory explorer is temporarily unavailable.\n\n{payload['error']}",
+                MESSAGE_MEMORY_EXPLORER_TEMPORARILY_UNAVAILABLE.format(
+                    error=payload["error"]
+                ),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -8283,13 +8310,7 @@ def _retrieval_stage_counts(
             - "recent_runs": list of recent run identifiers
 
     Returns:
-        tuple[str, str, str, str, str, str]: Six strings in the order:
-            (role,
-             retrieved_memories_count,
-             retrieval_explanations_count,
-             memory_notes_count,
-             shared_memory_bus_count,
-             recent_runs_count)
+        tuple[str, str, str, str, str, str]: Display-ready role and count values.
     """
     return (
         str(stage["role"]),
@@ -8316,7 +8337,7 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
         stage (dict[str, object]): A stage payload containing retrieval/memory/tool fields as described above.
 
     Returns:
-        list[str]: A list of formatted text lines suitable for display. If no relevant fields are present, returns a single-item list with the message "No retrieval or memory context was attached for this stage."
+        list[str]: Display-ready lines for the stage.
     """
     retrieved_memories = cast(list[str], stage["retrieved_memories"])
     retrieval_explanations = cast(
@@ -8327,15 +8348,15 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
     recent_runs = cast(list[str], stage["recent_runs"])
     tool_outputs = cast(list[str], stage["tool_outputs"])
     sections = [
-        ("Retrieved Similar Memories:", retrieved_memories),
-        ("Why These Memories:", _retrieval_explanation_lines(retrieval_explanations)),
-        ("Trade Memory:", memory_notes),
-        ("Recent Runs:", recent_runs),
+        (f"{LABEL_RETRIEVED_MEMORIES}:", retrieved_memories),
+        (f"{LABEL_WHY}:", _retrieval_explanation_lines(retrieval_explanations)),
+        (f"{LABEL_TRADE_MEMORY}:", memory_notes),
+        (f"{LABEL_RECENT_RUNS}:", recent_runs),
         (
-            "Shared Memory Bus:",
+            f"{LABEL_SHARED_BUS}:",
             [f"{entry['role']}: {entry['summary']}" for entry in shared_memory_bus],
         ),
-        ("Tool Outputs:", tool_outputs),
+        (f"{LABEL_TOOL_OUTPUTS}:", tool_outputs),
     ]
     lines: list[str] = []
     for title, values in sections:
@@ -8345,7 +8366,7 @@ def _retrieval_stage_lines(stage: dict[str, object]) -> list[str]:
             lines.append("")
         lines.append(title)
         lines.extend(f"- {line}" for line in values)
-    return lines or ["No retrieval or memory context was attached for this stage."]
+    return lines or [MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT]
 
 
 def _retrieval_explanation_lines(
@@ -8392,13 +8413,13 @@ def _render_retrieval_inspection(
         stages (list[dict[str, object]]): List of stage records. Each record must include a 'role' key and the retrieval-related fields consumed by `_retrieval_stage_counts` and `_retrieval_stage_lines`.
         run_id (object): Identifier displayed in the table title.
     """
-    table = Table(title=f"Retrieval Inspection / {run_id}")
-    table.add_column("Role")
-    table.add_column("Retrieved Memories")
-    table.add_column("Why")
-    table.add_column("Trade Memory")
-    table.add_column("Shared Bus")
-    table.add_column("Recent Runs")
+    table = Table(title=TITLE_RETRIEVAL_INSPECTION_FOR_RUN.format(run_id=run_id))
+    table.add_column(LABEL_ROLE)
+    table.add_column(LABEL_RETRIEVED_MEMORIES)
+    table.add_column(LABEL_WHY)
+    table.add_column(LABEL_TRADE_MEMORY)
+    table.add_column(LABEL_SHARED_BUS)
+    table.add_column(LABEL_RECENT_RUNS)
     for stage in stages:
         table.add_row(*_retrieval_stage_counts(stage))
     console.print(table)
@@ -8406,7 +8427,7 @@ def _render_retrieval_inspection(
         console.print(
             Panel(
                 "\n".join(_retrieval_stage_lines(stage)),
-                title=f"Stage / {stage['role']}",
+                title=TITLE_RETRIEVAL_STAGE.format(role=stage["role"]),
                 border_style="cyan",
             )
         )
@@ -8434,7 +8455,9 @@ def retrieval_inspection(
     if not payload["available"]:
         console.print(
             Panel(
-                f"Retrieval inspection is temporarily unavailable.\n\n{payload['error']}",
+                MESSAGE_RETRIEVAL_INSPECTION_TEMPORARILY_UNAVAILABLE.format(
+                    error=payload["error"]
+                ),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -8444,8 +8467,8 @@ def retrieval_inspection(
     if not stages:
         console.print(
             Panel(
-                "No agent trace contexts are available for retrieval inspection yet.",
-                title="Retrieval Inspection",
+                MESSAGE_NO_RETRIEVAL_INSPECTION_CONTEXT,
+                title=TITLE_RETRIEVAL_INSPECTION,
                 border_style="yellow",
             )
         )
@@ -8464,10 +8487,10 @@ def memory_policy(
         _emit_json(payload)
         return
 
-    table = Table(title="Memory Write Policy")
-    table.add_column("Domain")
-    table.add_column("Allowed Actors")
-    table.add_column("Note")
+    table = Table(title=TITLE_MEMORY_WRITE_POLICY)
+    table.add_column(LABEL_DOMAIN)
+    table.add_column(LABEL_ALLOWED_ACTORS)
+    table.add_column(LABEL_NOTE)
     for domain, policy in payload.items():
         table.add_row(
             domain,
@@ -8480,10 +8503,10 @@ def memory_policy(
 @app.command()
 def chat(
     persona: ChatPersona = typer.Option(
-        "operator_liaison", help="Which agent persona should answer."
+        "operator_liaison", help=HELP_CHAT_PERSONA
     ),
     message: str | None = typer.Option(
-        None, help="Optional message. If omitted, an interactive prompt is shown."
+        None, help=HELP_CHAT_MESSAGE
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -8503,7 +8526,7 @@ def chat(
     settings = get_settings()
     ensure_llm_ready(settings)
     db = _open_db(settings, read_only=True)
-    prompt = message or typer.prompt("Message")
+    prompt = message or typer.prompt(LABEL_MESSAGE)
     response = chat_with_persona(
         llm=LocalLLM(settings),
         db=db,
@@ -8531,14 +8554,20 @@ def chat(
             }
         )
         return
-    console.print(Panel(response, title=f"Chat / {persona}", border_style="cyan"))
+    console.print(
+        Panel(
+            response,
+            title=TITLE_CHAT.format(persona=persona),
+            border_style="cyan",
+        )
+    )
 
 
 @app.command()
 def instruct(
-    message: str = typer.Option(..., help="Natural-language operator instruction."),
+    message: str = typer.Option(..., help=HELP_INSTRUCT_MESSAGE),
     apply: bool = typer.Option(
-        False, help="Apply the parsed preference update if one is proposed."
+        False, help=HELP_INSTRUCT_APPLY
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -8583,7 +8612,7 @@ def instruct(
             console.print(
                 Panel(
                     updated.model_dump_json(indent=2),
-                    title="Updated Preferences",
+                    title=TITLE_UPDATED_PREFERENCES,
                     border_style="green",
                 )
             )

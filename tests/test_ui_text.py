@@ -9,6 +9,8 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.cli_app_help == ui_text.HELP_CLI_APP
     assert catalog.help_json == ui_text.HELP_JSON
     assert catalog.help_idea_preset == ui_text.HELP_IDEA_PRESET
+    assert catalog.help_memory_explorer_limit == ui_text.HELP_MEMORY_EXPLORER_LIMIT
+    assert catalog.help_chat_persona == ui_text.HELP_CHAT_PERSONA
     assert catalog.help_trade_side == ui_text.HELP_TRADE_SIDE
     assert catalog.help_trade_limit_price == ui_text.HELP_TRADE_LIMIT_PRICE
     assert catalog.title_execution_summary == ui_text.TITLE_EXECUTION_SUMMARY
@@ -22,7 +24,13 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.title_run_review == ui_text.TITLE_RUN_REVIEW
     assert catalog.title_agent_trace == ui_text.TITLE_AGENT_TRACE
     assert catalog.title_walk_forward_backtest == ui_text.TITLE_WALK_FORWARD_BACKTEST
+    assert catalog.title_retrieval_inspection == ui_text.TITLE_RETRIEVAL_INSPECTION
+    assert catalog.title_memory_write_policy == ui_text.TITLE_MEMORY_WRITE_POLICY
     assert catalog.label_closed_trades == ui_text.LABEL_CLOSED_TRADES
+    assert catalog.label_allowed_actors == ui_text.LABEL_ALLOWED_ACTORS
+    assert catalog.message_no_retrieval_stage_context == (
+        ui_text.MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT
+    )
     assert (
         catalog.title_backtest_memory_ablation == ui_text.TITLE_BACKTEST_MEMORY_ABLATION
     )
@@ -192,6 +200,7 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
 
     assert catalog.title_runtime_status == "Runtime Durumu"
     assert catalog.help_model_service_app.startswith("Istege bagli")
+    assert catalog.help_memory_explorer_limit.startswith("Gosterilecek maksimum")
     assert catalog.help_idea_volume == "Son volume."
     assert catalog.help_trade_reference_price.startswith("Proposal icin")
     assert catalog.title_operator_instruction == "Operator Talimati"
@@ -199,7 +208,10 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_live_process == "Canli Process"
     assert catalog.message_no_runtime_state.startswith("Henuz runtime")
     assert catalog.title_daily_risk_report == "Gunluk Risk Raporu"
+    assert catalog.title_retrieval_stage == "Asama / {role}"
     assert catalog.label_fills_today == "Bugunku Fill'ler"
+    assert catalog.label_allowed_actors == "Izinli Actor'ler"
+    assert catalog.message_no_retrieval_stage_context.startswith("Bu asama")
     assert catalog.title_agent_decisions == "Agent Kararlari"
     assert catalog.label_output_preview == "Cikti Onizleme"
     assert catalog.title_backtest_comparison == "Backtest Karsilastirma"
