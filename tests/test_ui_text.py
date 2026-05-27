@@ -132,6 +132,14 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_idea_score_execution_policy == (
         ui_text.MESSAGE_IDEA_SCORE_EXECUTION_POLICY
     )
+    assert catalog.title_research_cycle_plan == ui_text.TITLE_RESEARCH_CYCLE_PLAN
+    assert catalog.title_research_cycle_run == ui_text.TITLE_RESEARCH_CYCLE_RUN
+    assert catalog.help_research_cycle_run_sleep == (
+        ui_text.HELP_RESEARCH_CYCLE_RUN_SLEEP
+    )
+    assert catalog.message_research_cycle_run_summary == (
+        ui_text.MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY
+    )
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -218,6 +226,12 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_query == "Sorgu"
     assert catalog.help_news_sector == (
         "Sector-level news kontrolleri icin istege bagli sektor."
+    )
+    assert catalog.title_research_cycle_phases == "Research Cycle Fazlari"
+    assert catalog.label_phase == "Faz"
+    assert catalog.label_produces == "Uretir"
+    assert catalog.message_research_cycle_run_summary.startswith(
+        "{executed_cycles} evidence-only"
     )
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN

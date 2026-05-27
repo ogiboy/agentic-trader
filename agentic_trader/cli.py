@@ -216,6 +216,15 @@ from agentic_trader.ui_text import (
     HELP_PROPOSAL_CANDIDATES_LIMIT,
     HELP_PROPOSAL_CANDIDATES_STATUS_FILTER,
     HELP_PROMOTION_NOTES,
+    HELP_RESEARCH_CYCLE_RUN_CADENCE_SECONDS,
+    HELP_RESEARCH_CYCLE_RUN_CYCLES,
+    HELP_RESEARCH_CYCLE_RUN_MAX_PROPOSALS_PER_CYCLE,
+    HELP_RESEARCH_CYCLE_RUN_PERSIST,
+    HELP_RESEARCH_CYCLE_RUN_SLEEP,
+    HELP_RESEARCH_CYCLE_RUN_SYMBOLS,
+    HELP_RESEARCH_CYCLE_PLAN_CADENCE_SECONDS,
+    HELP_RESEARCH_CYCLE_PLAN_MAX_PROPOSALS_PER_CYCLE,
+    HELP_RESEARCH_CYCLE_PLAN_SYMBOLS,
     HELP_RESEARCH_CYCLE_PAUSE,
     HELP_RESEARCH_CYCLE_REASON,
     HELP_RESEARCH_CYCLE_RESUME,
@@ -393,6 +402,7 @@ from agentic_trader.ui_text import (
     LABEL_PASSED,
     LABEL_PATH,
     LABEL_PERSISTED,
+    LABEL_PHASE,
     LABEL_PID,
     LABEL_PLATFORM,
     LABEL_PNL,
@@ -405,6 +415,7 @@ from agentic_trader.ui_text import (
     LABEL_QUANTITY,
     LABEL_QUERY,
     LABEL_PROPOSAL,
+    LABEL_PRODUCES,
     LABEL_PURPOSE,
     LABEL_RATIONALE,
     LABEL_REALIZED_PNL,
@@ -520,6 +531,7 @@ from agentic_trader.ui_text import (
     MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION,
     MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
     MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
+    MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY,
     MESSAGE_RESEARCH_SNAPSHOT_RECORDED,
     MESSAGE_RUNTIME_GATE_OPEN,
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
@@ -607,6 +619,9 @@ from agentic_trader.ui_text import (
     TITLE_RECOMMENDED_NEXT_COMMANDS,
     TITLE_RESEARCH_CREWAI_FLOW_SETUP,
     TITLE_RESEARCH_CYCLE_CONTROL,
+    TITLE_RESEARCH_CYCLE_PHASES,
+    TITLE_RESEARCH_CYCLE_PLAN,
+    TITLE_RESEARCH_CYCLE_RUN,
     TITLE_RESEARCH_SIDECAR_STATUS,
     TITLE_RESEARCH_SOURCE_HEALTH,
     TITLE_RESEARCH_SNAPSHOT_PERSISTED,
@@ -6341,20 +6356,20 @@ def research_cycle_plan(
     symbols: str = typer.Option(
         "AAPL",
         "--symbols",
-        help="Comma-separated watchlist symbols for the research cycle plan.",
+        help=HELP_RESEARCH_CYCLE_PLAN_SYMBOLS,
     ),
     cadence_seconds: int = typer.Option(
         900,
         "--cadence-seconds",
         min=60,
-        help="Target cadence for future daemonized research checks.",
+        help=HELP_RESEARCH_CYCLE_PLAN_CADENCE_SECONDS,
     ),
     max_proposals_per_cycle: int = typer.Option(
         1,
         "--max-proposals-per-cycle",
         min=0,
         max=10,
-        help="Maximum pending proposals the plan should allow per cycle.",
+        help=HELP_RESEARCH_CYCLE_PLAN_MAX_PROPOSALS_PER_CYCLE,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -6374,14 +6389,14 @@ def research_cycle_plan(
     console.print(
         Panel(
             str(payload["safety_policy"]),
-            title=f"Research Cycle Plan: {payload['cycle']}",
+            title=TITLE_RESEARCH_CYCLE_PLAN.format(cycle=payload["cycle"]),
             border_style="cyan",
         )
     )
-    table = Table(title="Research Cycle Phases")
-    table.add_column("Phase")
-    table.add_column("Purpose")
-    table.add_column("Produces")
+    table = Table(title=TITLE_RESEARCH_CYCLE_PHASES)
+    table.add_column(LABEL_PHASE)
+    table.add_column(LABEL_PURPOSE)
+    table.add_column(LABEL_PRODUCES)
     for phase in cast(list[dict[str, object]], payload["phases"]):
         produce = cast(list[str] | tuple[str, ...], phase.get("produce", []))
         table.add_row(
@@ -6395,31 +6410,33 @@ def research_cycle_plan(
 @app.command("research-cycle-run")
 def research_cycle_run(
     symbols: str = typer.Option(
-        ..., "--symbols", help="Comma-separated watchlist symbols for this cycle."
+        ..., "--symbols", help=HELP_RESEARCH_CYCLE_RUN_SYMBOLS
     ),
-    cycles: int = typer.Option(1, min=1, max=24, help="Bounded cycle count to run."),
+    cycles: int = typer.Option(
+        1, min=1, max=24, help=HELP_RESEARCH_CYCLE_RUN_CYCLES
+    ),
     cadence_seconds: int = typer.Option(
         60,
         "--cadence-seconds",
         min=1,
-        help="Seconds between cycles when --sleep is enabled.",
+        help=HELP_RESEARCH_CYCLE_RUN_CADENCE_SECONDS,
     ),
     max_proposals_per_cycle: int = typer.Option(
         1,
         "--max-proposals-per-cycle",
         min=0,
         max=10,
-        help="Maximum pending proposals the run should allow in its plan only.",
+        help=HELP_RESEARCH_CYCLE_RUN_MAX_PROPOSALS_PER_CYCLE,
     ),
     persist: bool = typer.Option(
         True,
         "--persist/--no-persist",
-        help="Persist each research snapshot to the runtime research JSON feed.",
+        help=HELP_RESEARCH_CYCLE_RUN_PERSIST,
     ),
     sleep_between_cycles: bool = typer.Option(
         True,
         "--sleep/--no-sleep",
-        help="Wait cadence_seconds between cycles. Use --no-sleep for QA smoke.",
+        help=HELP_RESEARCH_CYCLE_RUN_SLEEP,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -6457,9 +6474,10 @@ def research_cycle_run(
         return
     console.print(
         Panel(
-            f"Executed {payload['executed_cycles']} evidence-only research cycle(s).\n"
-            "Broker access, proposal approval, and raw web prompt injection stayed disabled.",
-            title="Research Cycle Run",
+            MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY.format(
+                executed_cycles=payload["executed_cycles"]
+            ),
+            title=TITLE_RESEARCH_CYCLE_RUN,
             border_style="green",
         )
     )

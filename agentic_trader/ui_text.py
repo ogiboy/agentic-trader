@@ -62,6 +62,15 @@ class UITextCatalog:
     help_proposal_candidates_limit: str
     help_proposal_candidates_status_filter: str
     help_promotion_notes: str
+    help_research_cycle_run_cadence_seconds: str
+    help_research_cycle_run_cycles: str
+    help_research_cycle_run_max_proposals_per_cycle: str
+    help_research_cycle_run_persist: str
+    help_research_cycle_run_sleep: str
+    help_research_cycle_run_symbols: str
+    help_research_cycle_plan_cadence_seconds: str
+    help_research_cycle_plan_max_proposals_per_cycle: str
+    help_research_cycle_plan_symbols: str
     help_research_cycle_pause: str
     help_research_cycle_reason: str
     help_research_cycle_resume: str
@@ -243,6 +252,7 @@ class UITextCatalog:
     label_pid: str
     label_passed: str
     label_persisted: str
+    label_phase: str
     label_platform: str
     label_pnl: str
     label_path: str
@@ -255,6 +265,7 @@ class UITextCatalog:
     label_quantity: str
     label_query: str
     label_proposal: str
+    label_produces: str
     label_rationale: str
     label_realized_pnl: str
     label_ref: str
@@ -366,6 +377,7 @@ class UITextCatalog:
     message_research_cycle_choose_one_action: str
     message_research_cycle_control_status: str
     message_research_cycle_reason_requires_action: str
+    message_research_cycle_run_summary: str
     message_research_snapshot_recorded: str
     message_runtime_gate_open: str
     message_portfolio_temporarily_unavailable: str
@@ -479,6 +491,9 @@ class UITextCatalog:
     title_recommended_commands: str
     title_research_crewai_flow_setup: str
     title_research_cycle_control: str
+    title_research_cycle_phases: str
+    title_research_cycle_plan: str
+    title_research_cycle_run: str
     title_research_sidecar_status: str
     title_research_source_health: str
     title_research_snapshot_persisted: str
@@ -556,6 +571,29 @@ EN_TEXT = UITextCatalog(
     help_proposal_candidates_limit="Maximum number of proposal candidates to show.",
     help_proposal_candidates_status_filter="Filter by candidate state: candidate, promoted, rejected, expired.",
     help_promotion_notes="Optional promotion notes.",
+    help_research_cycle_run_cadence_seconds=(
+        "Seconds between cycles when --sleep is enabled."
+    ),
+    help_research_cycle_run_cycles="Bounded cycle count to run.",
+    help_research_cycle_run_max_proposals_per_cycle=(
+        "Maximum pending proposals the run should allow in its plan only."
+    ),
+    help_research_cycle_run_persist=(
+        "Persist each research snapshot to the runtime research JSON feed."
+    ),
+    help_research_cycle_run_sleep=(
+        "Wait cadence_seconds between cycles. Use --no-sleep for QA smoke."
+    ),
+    help_research_cycle_run_symbols="Comma-separated watchlist symbols for this cycle.",
+    help_research_cycle_plan_cadence_seconds=(
+        "Target cadence for future daemonized research checks."
+    ),
+    help_research_cycle_plan_max_proposals_per_cycle=(
+        "Maximum pending proposals the plan should allow per cycle."
+    ),
+    help_research_cycle_plan_symbols=(
+        "Comma-separated watchlist symbols for the research cycle plan."
+    ),
     help_research_cycle_pause="Pause future automated research-cycle runs.",
     help_research_cycle_reason="Optional operator note persisted with the control state.",
     help_research_cycle_resume="Resume future automated research-cycle runs.",
@@ -737,6 +775,7 @@ EN_TEXT = UITextCatalog(
     label_pid="PID",
     label_passed="Passed",
     label_persisted="Persisted",
+    label_phase="Phase",
     label_platform="Platform",
     label_pnl="PnL",
     label_path="Path",
@@ -749,6 +788,7 @@ EN_TEXT = UITextCatalog(
     label_quantity="Quantity",
     label_query="Query",
     label_proposal="Proposal",
+    label_produces="Produces",
     label_rationale="Rationale",
     label_realized_pnl="Realized PnL",
     label_ref="Ref",
@@ -885,6 +925,10 @@ EN_TEXT = UITextCatalog(
     message_research_cycle_choose_one_action="Choose only one of --pause, --resume, or --trigger-now.",
     message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
     message_research_cycle_reason_requires_action="--reason requires --pause, --resume, or --trigger-now.",
+    message_research_cycle_run_summary=(
+        "Executed {executed_cycles} evidence-only research cycle(s).\n"
+        "Broker access, proposal approval, and raw web prompt injection stayed disabled."
+    ),
     message_research_snapshot_recorded="Snapshot {snapshot_id} recorded in the research feed.",
     message_runtime_gate_open="Ollama reachable at {base_url} and model {model_name} is available.",
     message_portfolio_temporarily_unavailable=(
@@ -1030,6 +1074,9 @@ EN_TEXT = UITextCatalog(
     title_recommended_commands="Recommended Commands",
     title_research_crewai_flow_setup="Research CrewAI Flow Setup",
     title_research_cycle_control="Research Cycle Control",
+    title_research_cycle_phases="Research Cycle Phases",
+    title_research_cycle_plan="Research Cycle Plan: {cycle}",
+    title_research_cycle_run="Research Cycle Run",
     title_research_sidecar_status="Research Sidecar Status",
     title_research_source_health="Research Source Health",
     title_research_snapshot_persisted="Research Snapshot Persisted",
@@ -1110,6 +1157,29 @@ TR_TEXT = UITextCatalog(
     help_proposal_candidates_limit="Gosterilecek maksimum proposal candidate sayisi.",
     help_proposal_candidates_status_filter="Candidate state filtresi: candidate, promoted, rejected, expired.",
     help_promotion_notes="Istege bagli promotion notlari.",
+    help_research_cycle_run_cadence_seconds=(
+        "--sleep etkinken donguler arasindaki saniye."
+    ),
+    help_research_cycle_run_cycles="Calistirilacak sinirli dongu sayisi.",
+    help_research_cycle_run_max_proposals_per_cycle=(
+        "Run planinda izin verilen maksimum pending proposal sayisi."
+    ),
+    help_research_cycle_run_persist=(
+        "Her research snapshot'i runtime research JSON feed icine kaydet."
+    ),
+    help_research_cycle_run_sleep=(
+        "Donguler arasinda cadence_seconds kadar bekle. QA smoke icin --no-sleep kullan."
+    ),
+    help_research_cycle_run_symbols="Bu cycle icin virgulle ayrilmis watchlist sembolleri.",
+    help_research_cycle_plan_cadence_seconds=(
+        "Gelecekteki daemonized research kontrolleri icin hedef cadence."
+    ),
+    help_research_cycle_plan_max_proposals_per_cycle=(
+        "Planin cycle basina izin verecegi maksimum pending proposal sayisi."
+    ),
+    help_research_cycle_plan_symbols=(
+        "Research cycle plani icin virgulle ayrilmis watchlist sembolleri."
+    ),
     help_research_cycle_pause="Gelecekteki otomatik research-cycle run'larini duraklat.",
     help_research_cycle_reason="Control state ile kaydedilecek istege bagli operator notu.",
     help_research_cycle_resume="Gelecekteki otomatik research-cycle run'larini surdur.",
@@ -1291,6 +1361,7 @@ TR_TEXT = UITextCatalog(
     label_pid="PID",
     label_passed="Gecti",
     label_persisted="Kalici",
+    label_phase="Faz",
     label_platform="Platform",
     label_pnl="PnL",
     label_path="Path",
@@ -1303,6 +1374,7 @@ TR_TEXT = UITextCatalog(
     label_quantity="Miktar",
     label_query="Sorgu",
     label_proposal="Proposal",
+    label_produces="Uretir",
     label_rationale="Gerekce",
     label_realized_pnl="Gerceklesen PnL",
     label_ref="Ref",
@@ -1439,6 +1511,10 @@ TR_TEXT = UITextCatalog(
     message_research_cycle_choose_one_action="--pause, --resume veya --trigger-now icinden yalnizca birini secin.",
     message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
     message_research_cycle_reason_requires_action="--reason icin --pause, --resume veya --trigger-now gerekir.",
+    message_research_cycle_run_summary=(
+        "{executed_cycles} evidence-only research cycle calisti.\n"
+        "Broker access, proposal approval ve raw web prompt injection kapali kaldi."
+    ),
     message_research_snapshot_recorded="Snapshot {snapshot_id} research feed icine kaydedildi.",
     message_runtime_gate_open="Ollama {base_url} adresinde erisilebilir ve {model_name} modeli kullanilabilir.",
     message_portfolio_temporarily_unavailable=(
@@ -1584,6 +1660,9 @@ TR_TEXT = UITextCatalog(
     title_recommended_commands="Onerilen Komutlar",
     title_research_crewai_flow_setup="Research CrewAI Flow Setup",
     title_research_cycle_control="Research Cycle Control",
+    title_research_cycle_phases="Research Cycle Fazlari",
+    title_research_cycle_plan="Research Cycle Plani: {cycle}",
+    title_research_cycle_run="Research Cycle Run",
     title_research_sidecar_status="Research Sidecar Durumu",
     title_research_source_health="Research Kaynak Sagligi",
     title_research_snapshot_persisted="Research Snapshot Kaydedildi",
@@ -1669,6 +1748,23 @@ HELP_PROPOSAL_CANDIDATES_STATUS_FILTER = (
     EN_TEXT.help_proposal_candidates_status_filter
 )
 HELP_PROMOTION_NOTES = EN_TEXT.help_promotion_notes
+HELP_RESEARCH_CYCLE_RUN_CADENCE_SECONDS = (
+    EN_TEXT.help_research_cycle_run_cadence_seconds
+)
+HELP_RESEARCH_CYCLE_RUN_CYCLES = EN_TEXT.help_research_cycle_run_cycles
+HELP_RESEARCH_CYCLE_RUN_MAX_PROPOSALS_PER_CYCLE = (
+    EN_TEXT.help_research_cycle_run_max_proposals_per_cycle
+)
+HELP_RESEARCH_CYCLE_RUN_PERSIST = EN_TEXT.help_research_cycle_run_persist
+HELP_RESEARCH_CYCLE_RUN_SLEEP = EN_TEXT.help_research_cycle_run_sleep
+HELP_RESEARCH_CYCLE_RUN_SYMBOLS = EN_TEXT.help_research_cycle_run_symbols
+HELP_RESEARCH_CYCLE_PLAN_CADENCE_SECONDS = (
+    EN_TEXT.help_research_cycle_plan_cadence_seconds
+)
+HELP_RESEARCH_CYCLE_PLAN_MAX_PROPOSALS_PER_CYCLE = (
+    EN_TEXT.help_research_cycle_plan_max_proposals_per_cycle
+)
+HELP_RESEARCH_CYCLE_PLAN_SYMBOLS = EN_TEXT.help_research_cycle_plan_symbols
 HELP_RESEARCH_CYCLE_PAUSE = EN_TEXT.help_research_cycle_pause
 HELP_RESEARCH_CYCLE_REASON = EN_TEXT.help_research_cycle_reason
 HELP_RESEARCH_CYCLE_RESUME = EN_TEXT.help_research_cycle_resume
@@ -1868,6 +1964,7 @@ LABEL_OUTPUT_PREVIEW = EN_TEXT.label_output_preview
 LABEL_OPTIONAL_RUNTIME_READY = EN_TEXT.label_optional_runtime_ready
 LABEL_PASSED = EN_TEXT.label_passed
 LABEL_PERSISTED = EN_TEXT.label_persisted
+LABEL_PHASE = EN_TEXT.label_phase
 LABEL_PLATFORM = EN_TEXT.label_platform
 LABEL_PID = EN_TEXT.label_pid
 LABEL_PNL = EN_TEXT.label_pnl
@@ -1881,6 +1978,7 @@ LABEL_PYTHON_VERSION = EN_TEXT.label_python_version
 LABEL_QUANTITY = EN_TEXT.label_quantity
 LABEL_QUERY = EN_TEXT.label_query
 LABEL_PROPOSAL = EN_TEXT.label_proposal
+LABEL_PRODUCES = EN_TEXT.label_produces
 LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
 LABEL_REF = EN_TEXT.label_ref
@@ -2014,6 +2112,7 @@ MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS = (
 MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION = (
     EN_TEXT.message_research_cycle_reason_requires_action
 )
+MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY = EN_TEXT.message_research_cycle_run_summary
 MESSAGE_RESEARCH_SNAPSHOT_RECORDED = EN_TEXT.message_research_snapshot_recorded
 MESSAGE_RUNTIME_GATE_OPEN = EN_TEXT.message_runtime_gate_open
 MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED = (
@@ -2125,6 +2224,9 @@ TITLE_RECOMMENDED_NEXT_COMMANDS = EN_TEXT.title_recommended_next_commands
 TITLE_RECOMMENDED_COMMANDS = EN_TEXT.title_recommended_commands
 TITLE_RESEARCH_CREWAI_FLOW_SETUP = EN_TEXT.title_research_crewai_flow_setup
 TITLE_RESEARCH_CYCLE_CONTROL = EN_TEXT.title_research_cycle_control
+TITLE_RESEARCH_CYCLE_PHASES = EN_TEXT.title_research_cycle_phases
+TITLE_RESEARCH_CYCLE_PLAN = EN_TEXT.title_research_cycle_plan
+TITLE_RESEARCH_CYCLE_RUN = EN_TEXT.title_research_cycle_run
 TITLE_RESEARCH_SIDECAR_STATUS = EN_TEXT.title_research_sidecar_status
 TITLE_RESEARCH_SOURCE_HEALTH = EN_TEXT.title_research_source_health
 TITLE_RESEARCH_SNAPSHOT_PERSISTED = EN_TEXT.title_research_snapshot_persisted
