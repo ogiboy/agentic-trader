@@ -287,17 +287,20 @@ def test_cli_env_local_upsert_creates_and_updates_known_file(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     env_file = tmp_path / ".env.local"
+    runner = CliRunner()
 
-    cli_module._upsert_env_local_value("AGENTIC_TRADER_UI_LOCALE", "tr")
+    create_result = runner.invoke(app, ["locale", "--set", "tr", "--json"])
 
+    assert create_result.exit_code == 0
     assert env_file.read_text(encoding="utf-8") == "AGENTIC_TRADER_UI_LOCALE=tr\n"
 
     env_file.write_text(
         "OTHER_SETTING=1\nAGENTIC_TRADER_UI_LOCALE=tr\n", encoding="utf-8"
     )
 
-    cli_module._upsert_env_local_value("AGENTIC_TRADER_UI_LOCALE", "en")
+    update_result = runner.invoke(app, ["locale", "--set", "en", "--json"])
 
+    assert update_result.exit_code == 0
     assert env_file.read_text(encoding="utf-8") == (
         "OTHER_SETTING=1\nAGENTIC_TRADER_UI_LOCALE=en\n"
     )
