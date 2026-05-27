@@ -80,9 +80,12 @@ def test_manager_finalization_derives_conflicts_and_resolution_notes(
         rationale="Let the trade pass, but with smaller size and tighter conviction.",
     )
 
+    def _complete_structured(_self: object, **_kwargs: object) -> ManagerDecision:
+        return raw_manager
+
     monkeypatch.setattr(
         "agentic_trader.agents.manager.LocalLLM.complete_structured",
-        lambda self, **kwargs: raw_manager,
+        _complete_structured,
     )
 
     decision = manage_trade_decision(

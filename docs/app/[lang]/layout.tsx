@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
-import { RootProvider } from 'fumadocs-ui/provider/next';
-import { i18nUI } from '@/lib/layout.shared';
 import { getDocLanguage } from '@/lib/i18n/routing';
+import { i18nUI } from '@/lib/layout.shared';
 import { basePath } from '@/lib/site-metadata';
+import { RootProvider } from 'fumadocs-ui/provider/next';
+import type { ReactNode } from 'react';
 
 const searchApi = `${basePath}/api/search`;
 

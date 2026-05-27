@@ -44,15 +44,39 @@ from agentic_trader.schemas import (
 from agentic_trader.security import safe_exception_note
 
 
+def _market_provider_list() -> list[MarketDataProvider]:
+    return []
+
+
+def _fundamental_provider_list() -> list[FundamentalDataProvider]:
+    return []
+
+
+def _news_provider_list() -> list[NewsProvider]:
+    return []
+
+
+def _disclosure_provider_list() -> list[DisclosureProvider]:
+    return []
+
+
+def _macro_provider_list() -> list[MacroDataProvider]:
+    return []
+
+
 @dataclass
 class ProviderSet:
     """Grouped provider adapters used by the canonical aggregation layer."""
 
-    market: list[MarketDataProvider] = field(default_factory=list)
-    fundamental: list[FundamentalDataProvider] = field(default_factory=list)
-    news: list[NewsProvider] = field(default_factory=list)
-    disclosures: list[DisclosureProvider] = field(default_factory=list)
-    macro: list[MacroDataProvider] = field(default_factory=list)
+    market: list[MarketDataProvider] = field(default_factory=_market_provider_list)
+    fundamental: list[FundamentalDataProvider] = field(
+        default_factory=_fundamental_provider_list
+    )
+    news: list[NewsProvider] = field(default_factory=_news_provider_list)
+    disclosures: list[DisclosureProvider] = field(
+        default_factory=_disclosure_provider_list
+    )
+    macro: list[MacroDataProvider] = field(default_factory=_macro_provider_list)
 
 
 def default_provider_set(settings: Settings) -> ProviderSet:
@@ -192,6 +216,13 @@ def _first_fundamental_snapshot(
     )
 
 
+def first_fundamental_snapshot(
+    providers: list[FundamentalDataProvider], symbol: SymbolIdentity
+) -> tuple[FundamentalSnapshot, list[str], list[DataSourceAttribution]]:
+    """Return the first usable fundamental snapshot through the public aggregation seam."""
+    return _first_fundamental_snapshot(providers, symbol)
+
+
 def _first_macro_snapshot(
     providers: list[MacroDataProvider], symbol: SymbolIdentity
 ) -> tuple[MacroSnapshot, list[str]]:
@@ -269,6 +300,13 @@ def _collect_disclosures(
     return disclosures[:limit], errors, empty_attributions
 
 
+def collect_disclosures(
+    providers: list[DisclosureProvider], symbol: SymbolIdentity, *, limit: int
+) -> tuple[list[DisclosureEvent], list[str], list[DataSourceAttribution]]:
+    """Collect disclosures through the public aggregation seam."""
+    return _collect_disclosures(providers, symbol, limit=limit)
+
+
 def _collect_provider_news(
     providers: list[NewsProvider], symbol: SymbolIdentity, *, limit: int
 ) -> tuple[list[NewsEvent], list[str], list[DataSourceAttribution]]:
@@ -317,6 +355,13 @@ def _collect_provider_news(
                 )
             )
     return events[:limit], errors, empty_attributions
+
+
+def collect_provider_news(
+    providers: list[NewsProvider], symbol: SymbolIdentity, *, limit: int
+) -> tuple[list[NewsEvent], list[str], list[DataSourceAttribution]]:
+    """Collect provider news through the public aggregation seam."""
+    return _collect_provider_news(providers, symbol, limit=limit)
 
 
 def _attributions(

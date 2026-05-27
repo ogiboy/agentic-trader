@@ -1,17 +1,20 @@
 ---
 title: Bootstrap ve Onboarding
-description: Hedeflenen kurulum deneyimi, neden hâlâ tam basit olmadığı ve gelecekteki installer'ın neleri çözmesi gerektiği.
+description:
+  Hedeflenen kurulum deneyimi, neden hâlâ tam basit olmadığı ve gelecekteki
+  installer'ın neleri çözmesi gerektiği.
 ---
 
 ## Bugünkü gerçeklik
 
-Depo hâlâ oldukça elle yürütülen bir Python ve Node kurulumu bekliyor.
-Bu, katkı verenler için kabul edilebilir; ama daha geniş kullanıcı tabanı için istediğimiz V1 onboarding deneyimi henüz bu değil.
+Depo hâlâ oldukça elle yürütülen bir Python ve Node kurulumu bekliyor. Bu, katkı
+verenler için kabul edilebilir; ama daha geniş kullanıcı tabanı için istediğimiz
+V1 onboarding deneyimi henüz bu değil.
 
 ## Ürün hedefi
 
-Uzun vadeli bootstrap akışı README içinden komut avlatmak yerine yönlendirmeli bir launcher gibi hissettirmeli.
-En azından şu işleri yapabilmeli:
+Uzun vadeli bootstrap akışı README içinden komut avlatmak yerine yönlendirmeli
+bir launcher gibi hissettirmeli. En azından şu işleri yapabilmeli:
 
 1. platform ve prerequisite eksiklerini tespit etmek
 2. isteğe bağlı bağımlılık kurulumunu teklif etmek
@@ -25,18 +28,21 @@ En azından şu işleri yapabilmeli:
 Komut yüzeyi gizemli değil, katmanlı kalmalı. Debugging için odaklı komutlar
 kalmalı, normal operatör ise kısa bir lifecycle sözlüğüyle çalışabilmeli:
 
-| Komut | Rol |
-| --- | --- |
-| `pnpm run app:up` | ilk çalıştırma yolu: bağımlılıkları kurar ya da onarır, yapılandırılmış app-owned servisleri başlatır ve Web GUI'yi açar |
-| `pnpm run app:setup` | Python, root pnpm workspace, sidecar ve opsiyonel tool-root bağımlılıklarını kurar ya da onarır; trading runtime başlatmaz |
-| `pnpm run app:start` | hazır konservatif slice: seçilen app-owned yardımcı servisleri ve Web GUI'yi başlatır; daemon başlatmak hâlâ açık operatör kararıdır |
-| `pnpm run app:stop` | hazır konservatif slice: sadece repo tarafından kaydedilen app-owned servisleri durdurur; host-owned Ollama, Firecrawl veya browser süreçlerini öldürmez |
-| `pnpm run app:update` | bağımlılıkları ve lockfile'ları doğru sahipleri üzerinden günceller, build eder ve setup/service readiness raporlar |
-| `pnpm run app:doctor` | ilk hazır slice: read-only setup, servis, provider, V1, PATH ve tool-root teşhisi verir |
-| `pnpm run app:uninstall` | app-owned dependency/runtime/tool artifact'larını onaydan sonra kaldırır |
+| Komut                    | Rol                                                                                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm run app:up`        | ilk çalıştırma yolu: bağımlılıkları kurar ya da onarır, yapılandırılmış app-owned servisleri başlatır ve Web GUI'yi açar                                 |
+| `pnpm run app:setup`     | Python, root pnpm workspace, sidecar ve opsiyonel tool-root bağımlılıklarını kurar ya da onarır; trading runtime başlatmaz                               |
+| `pnpm run app:start`     | hazır konservatif slice: seçilen app-owned yardımcı servisleri ve Web GUI'yi başlatır; daemon başlatmak hâlâ açık operatör kararıdır                     |
+| `pnpm run app:stop`      | hazır konservatif slice: sadece repo tarafından kaydedilen app-owned servisleri durdurur; host-owned Ollama, Firecrawl veya browser süreçlerini öldürmez |
+| `pnpm run app:update`    | bağımlılıkları ve lockfile'ları doğru sahipleri üzerinden günceller, build eder ve setup/service readiness raporlar                                      |
+| `pnpm run app:doctor`    | ilk hazır slice: read-only setup, servis, provider, V1, PATH ve tool-root teşhisi verir                                                                  |
+| `pnpm run app:uninstall` | app-owned dependency/runtime/tool artifact'larını onaydan sonra kaldırır                                                                                 |
 
-`setup:node`, `install:python`, `setup:research-flow`, `setup:camofox`, `fetch:camofox`, `start:camofox` ve servis bazlı CLI komutları debugging için faydalı kalmalı.
-Plan, bunları yönlendirmeli lifecycle'ın arkasındaki uygulanabilir parçalar haline getirmek; kullanıcıyı tek tek komut avına mecbur bırakmak değil.
+`setup:node`, `install:python`, `setup:research-flow`, `setup:camofox`,
+`fetch:camofox`, `start:camofox` ve servis bazlı CLI komutları debugging için
+faydalı kalmalı. Plan, bunları yönlendirmeli lifecycle'ın arkasındaki
+uygulanabilir parçalar haline getirmek; kullanıcıyı tek tek komut avına mecbur
+bırakmak değil.
 
 `app:doctor` bilinçli olarak ilk implemente edilen lifecycle komutudur. Gizli
 yan etkiyle ortam oluşturmasın ya da onarmasın diye `uv run` çağırmak yerine
@@ -48,10 +54,10 @@ ile istenir.
 
 `app:up` artık ilk yönlendirmeli first-run orkestratörüdür. Varsayılanı
 dry-run'dır ve yeni bir runtime sahibi yaratmak yerine mevcut lifecycle
-komutlarını birleştirir. Güvenli `--all --yes` lane'i core setup repair,
-izole CrewAI Flow sidecar setup, app-owned Web GUI start ve final `app:doctor`
-raporu çalıştırır. Opsiyonel Camofox dependency setup, Camofox browser binary
-fetch, model-service start ve Camofox-service start için açık scope ve
+komutlarını birleştirir. Güvenli `--all --yes` lane'i core setup repair, izole
+CrewAI Flow sidecar setup, app-owned Web GUI start ve final `app:doctor` raporu
+çalıştırır. Opsiyonel Camofox dependency setup, Camofox browser binary fetch,
+model-service start ve Camofox-service start için açık scope ve
 `--ollama-owner=app-owned` ya da `--camofox-owner=app-owned` gibi eşleşen
 sahiplik flag'i gerekir. Host-owned, API/key-only ve skipped seçimleri
 `runtime/setup/tool-ownership.json` içine yazılır; setup status, dashboard, Web
@@ -90,28 +96,41 @@ app-owned süreç kaydı temizlenmelidir.
 - isteğe bağlı model servisleri ve modeller için açık onay
 - yarım kurulumlarda resume ya da repair davranışı
 - görünür loglar ve aksiyon alınabilir hata mesajları
-- gizli dependency silme, büyük browser/model indirme, provider hesabı oluşturma veya daemon başlatma yok
+- gizli dependency silme, büyük browser/model indirme, provider hesabı oluşturma
+  veya daemon başlatma yok
 
 ## Tool sahipliği soruları
 
-Opsiyonel yardımcıları kurmadan ya da başlatmadan önce yönlendirmeli setup operatöre hangi sahiplik modunu istediğini sormalı:
+Opsiyonel yardımcıları kurmadan ya da başlatmadan önce yönlendirmeli setup
+operatöre hangi sahiplik modunu istediğini sormalı:
 
 - host-owned: uygulama zaten yönetilen lokal araca bağlanır ve onu durdurmaz
-- app-owned: uygulama repo-local yardımcıyı kurar ya da kullanır, başlatmadan/durdurmadan önce owner-only state/log kaydeder
-- API/key-only: uygulama CLI kurmadan ignored environment veya keychain değerini kullanır
+- app-owned: uygulama repo-local yardımcıyı kurar ya da kullanır,
+  başlatmadan/durdurmadan önce owner-only state/log kaydeder
+- API/key-only: uygulama CLI kurmadan ignored environment veya keychain değerini
+  kullanır
 - skipped: özellik degraded kalır ama core paper-first ürün açılabilir
 
-Bu ayrım Ollama, Firecrawl ve Camofox için önemli.
-Host Ollama yoksa ve operatör host kurulumu istemiyorsa installer Web GUI'yi kafa karıştırıcı bir "Ollama unreachable" durumuna açmak yerine app-owned model-service yolunu teklif etmeli.
-Firecrawl internal SDK/API-key yolunu önce kullanmalı; authenticated host CLI fallback yalnızca Firecrawl host-owned kaydedildiğinde çalışmalı, app-owned/API-only/skipped modlarında bu fallback kapalı ve görünür kalmalı.
-Camofox loopback-only, access-key-gated kalmalı; browser binary fetch ise ayrı ve opt-in bir adım olmalı.
+Bu ayrım Ollama, Firecrawl ve Camofox için önemli. Host Ollama yoksa ve operatör
+host kurulumu istemiyorsa installer Web GUI'yi kafa karıştırıcı bir "Ollama
+unreachable" durumuna açmak yerine app-owned model-service yolunu teklif etmeli.
+Firecrawl internal SDK/API-key yolunu önce kullanmalı; authenticated host CLI
+fallback yalnızca Firecrawl host-owned kaydedildiğinde çalışmalı,
+app-owned/API-only/skipped modlarında bu fallback kapalı ve görünür kalmalı.
+Camofox loopback-only, access-key-gated kalmalı; browser binary fetch ise ayrı
+ve opt-in bir adım olmalı.
 
-Mevcut sahiplik durumu setup çalıştırmadan da görülebilir ya da değiştirilebilir:
+Mevcut sahiplik durumu setup çalıştırmadan da görülebilir ya da
+değiştirilebilir:
 
 ```bash
 agentic-trader tool-ownership status --json
 agentic-trader tool-ownership set --ollama-owner host-owned --firecrawl-owner api-key-only --camofox-owner skipped --json
 ```
+
+Karar zaten kayıtlıysa `make bootstrap` bunu raporlayıp devam etmeli; aynı
+sahiplik sorularını tekrar sormamalı. Değişiklik gerekiyorsa bootstrap öncesi
+`agentic-trader tool-ownership set ...` ile açıkça yeniden seç.
 
 V1 varsayılanı internal-first model yoludur: app-owned Ollama, `qwen3:8b` ve
 mevcut model-service status/log yüzeyleri. Operatör host sahipliği kaydederse
@@ -135,20 +154,25 @@ macOS Homebrew, Linux veya Windows kurulumlarında binary yolu farklı olabilir.
 OLLAMA_FLASH_ATTENTION="1" OLLAMA_KV_CACHE_TYPE="q8_0" ollama serve
 ```
 
-İstenen gelecek durum “kullanıcı bu komutu ezberlesin” değil.
-İstenen gelecek durum şu:
+İstenen gelecek durum “kullanıcı bu komutu ezberlesin” değil. İstenen gelecek
+durum şu:
 
 - uygulama Ollama'yı bilinçli biçimde başlatıp durdurabilsin
 - uygulama health ve son logları gösterebilsin
 - operatör idle, busy ve broken hâllerini ayırt edebilsin
 
-Yönlendirmeli setup dört durumu ayırmalı: host Ollama reachable, app-owned Ollama ready, başka provider seçildiği için Ollama bilerek skipped, ve model backend eksik ya da bozuk.
-`app:start` aktif provider `ollama` ise önceden yapılandırılmış app-owned model service'i başlatabilir; ama binary kurmayı, model çekmeyi, host listener'ı sahiplenmeyi veya açıkça seçilmiş OpenAI-compatible adaptörü override etmeyi sessizce yapmamalı.
+Yönlendirmeli setup dört durumu ayırmalı: host Ollama reachable, app-owned
+Ollama ready, başka provider seçildiği için Ollama bilerek skipped, ve model
+backend eksik ya da bozuk. `app:start` aktif provider `ollama` ise önceden
+yapılandırılmış app-owned model service'i başlatabilir; ama binary kurmayı,
+model çekmeyi, host listener'ı sahiplenmeyi veya açıkça seçilmiş
+OpenAI-compatible adaptörü override etmeyi sessizce yapmamalı.
 
 ## Camofox ve pnpm yönü
 
-`tools/camofox-browser` opsiyonel tool altyapısıdır; broker ya da runtime otoritesi değildir.
-Kurulumu npm-owned helper komutlarından repo'nun pnpm politikasına taşınmalı:
+`tools/camofox-browser` opsiyonel tool altyapısıdır; broker ya da runtime
+otoritesi değildir. Kurulumu npm-owned helper komutlarından repo'nun pnpm
+politikasına taşınmalı:
 
 ```bash
 pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts
@@ -156,9 +180,11 @@ pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser
 pnpm --dir tools/camofox-browser --ignore-workspace run test
 ```
 
-İlk komut browser indirmeden lokal helper bağımlılıklarını kurar.
-İkinci komut Camoufox browser binary'sini indirir ya da günceller; büyük ve platforma özel olabileceği için açık onaylı kalmalı.
-Wrapper ve servis komutları helper'ı yalnızca loopback host ile ve `CAMOFOX_ACCESS_KEY` ya da aynalanmış `CAMOFOX_API_KEY` varken başlatmalı.
+İlk komut browser indirmeden lokal helper bağımlılıklarını kurar. İkinci komut
+Camoufox browser binary'sini indirir ya da günceller; büyük ve platforma özel
+olabileceği için açık onaylı kalmalı. Wrapper ve servis komutları helper'ı
+yalnızca loopback host ile ve `CAMOFOX_ACCESS_KEY` ya da aynalanmış
+`CAMOFOX_API_KEY` varken başlatmalı.
 
 ## Update ve uninstall yönü
 
@@ -199,6 +225,7 @@ evidence silinmemeli. Servis state dosyası hâlâ varsa operatör önce
 - neyi atladığı
 - neyin zorunlu neyin opsiyonel olduğu
 - hangi dosyaları değiştirdiği
+- bir adım neden deferred kaldı ve sıradaki komut/sahiplik aksiyonu ne
 - hangi lokal URL ya da UI'yi başlattığı
 
 ## Önerilen kabul listesi
@@ -208,5 +235,11 @@ evidence silinmemeli. Servis state dosyası hâlâ varsa operatör önce
 - Model ya da provider ready oluşu eksikse kullanıcı açık bir hata görmeli.
 - Launcher kullanıcıyı loglara yönlendirebilmeli; logları saklamamalı.
 - Oluşturulan ortam repo'nun mevcut runtime sözleşmeleriyle uyumlu kalmalı.
-- Camofox, Firecrawl ve Ollama sahiplik kararları kalıcı olmalı; setup status, dashboard, Web GUI ve TUI readiness üzerinde görünür olmalı.
-- `app:up` partial install durumundan toparlanabilmeli ve ya açılmış Web GUI'yle ya da net blocker raporuyla bitmeli.
+- Camofox, Firecrawl ve Ollama sahiplik kararları kalıcı olmalı; setup status,
+  dashboard, Web GUI ve TUI readiness üzerinde görünür olmalı.
+- Bootstrap yeniden çalıştırıldığında kalıcı sahiplik kararlarını ezmemeli ve
+  aynı sahiplik sorularını tekrarlamamalı.
+- Opsiyonel global CrewAI CLI hataları kısa setup notu olarak kalmalı;
+  `setup-status` içinde çok satırlı version traceback'e dönüşmemeli.
+- `app:up` partial install durumundan toparlanabilmeli ve ya açılmış Web GUI'yle
+  ya da net blocker raporuyla bitmeli.

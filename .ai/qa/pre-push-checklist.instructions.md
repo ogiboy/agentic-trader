@@ -113,6 +113,23 @@ Run for security-sensitive or broad changes:
 - research poisoning tests: raw web text never enters trading prompts,
   provenance survives snapshots, missing/stale sources remain visible
 
+## Tier 6: Commercial-Readiness Gate
+
+Run for changes that affect paid packaging, claims, onboarding, broker/account
+flows, model-provider defaults, support posture, or product docs:
+
+- confirm README and ROADMAP still state that V1 is paper-first and not
+  revenue-ready/live-money autonomous trading software
+- confirm the roadmap commercial work plan still has an explicit C0 legal/
+  product classification gate before billing, account-opening, copy trading,
+  managed live execution, or performance-fee claims
+- confirm Alpaca external-paper evidence remains separate from real-money
+  claims and includes order correlation, refresh/reconcile, rejection/no-fill,
+  and kill-switch proof before any broker-readiness wording
+- confirm risk disclosure, terms, privacy/data retention, audit export,
+  support/incident, provider-status, stale/degraded UX, LLM/tool-poisoning, and
+  remote-model cost telemetry tasks remain visible if not implemented
+
 Open a GitHub issue for real blockers that need more than a small immediate
 fix. Do not create issues for tiny problems that can be repaired in the same
 push.

@@ -1,12 +1,13 @@
 ---
 title: Proje Durumu
-description: Agentic Trader'ın bugün ne yapabildiği, nelerin hâlâ deneysel olduğu ve hangi V1 sınırlarının oynamaması gerektiği.
+description:
+  Agentic Trader'ın bugün ne yapabildiği, nelerin hâlâ deneysel olduğu ve hangi
+  V1 sınırlarının oynamaması gerektiği.
 ---
 
 ## Agentic Trader bugün ne yapabilir
 
-Agentic Trader artık yalnızca bir prototip değil.
-Bugün şunları yapabilir:
+Agentic Trader artık yalnızca bir prototip değil. Bugün şunları yapabilir:
 
 - mevcut Python runtime üzerinden strict lokal paper cycle çalıştırabilir
 - market context, decision feature, review snapshot ve runtime artefact'lerini
@@ -37,8 +38,8 @@ Mevcut hardening hattı şunlara odaklanıyor:
 
 - Gate'siz live trading hâlâ bloklu; V1 aktif al-sat yolu desteklenen broker,
   onay, audit, risk ve kill-switch kapılarından geçmeli.
-- Türkiye sembolleri, KAP/CBRT evidence, TRY/FX accounting ve Türkiye broker/data
-  rotası V2 kapsamı.
+- Türkiye sembolleri, KAP/CBRT evidence, TRY/FX accounting ve Türkiye
+  broker/data rotası V2 kapsamı.
 - CrewAI research flow izole sidecar'dır; ana runtime değildir.
 - SEC EDGAR submissions metadata opt-in ve metadata-first çalışır; full filing
   text, transcript, macro series, KAP ve daha zengin vendor ingestion hâlâ
@@ -49,7 +50,8 @@ Mevcut hardening hattı şunlara odaklanıyor:
 ## Drift etmemesi gereken şeyler
 
 - Kaynak gerçek hâlâ Python runtime'dır.
-- `webgui/` mevcut runtime sözleşmelerine delegasyon yapar; onların yerine geçmez.
+- `webgui/` mevcut runtime sözleşmelerine delegasyon yapar; onların yerine
+  geçmez.
 - `docs/` ürün davranışını ve katkı sınırlarını açıklar; runtime değildir.
 - Varsayılan execution posture paper trading olarak kalır.
 - Fallback yolları açık ve inspect edilebilir olmalıdır.
@@ -58,7 +60,8 @@ Mevcut hardening hattı şunlara odaklanıyor:
 
 ### İsteğe bağlı app-managed Ollama supervision
 
-Hedef davranış, Ollama'yı runtime diagnostiklerinde zaten kullanılan aynı status ve log yüzeyi üzerinden yönetebilmek.
+Hedef davranış, Ollama'yı runtime diagnostiklerinde zaten kullanılan aynı status
+ve log yüzeyi üzerinden yönetebilmek.
 
 Bunun anlamı:
 
@@ -69,7 +72,8 @@ Bunun anlamı:
 
 ### Cross-platform bootstrap
 
-Daha uzun vadeli onboarding hedefi; macOS, Linux ve Windows için şu işleri yapabilen yönlendirmeli bir kurulum akışı:
+Daha uzun vadeli onboarding hedefi; macOS, Linux ve Windows için şu işleri
+yapabilen yönlendirmeli bir kurulum akışı:
 
 - prerequisite denetimi
 - isteğe bağlı bağımlılık kurulum teklifleri
@@ -79,8 +83,8 @@ Daha uzun vadeli onboarding hedefi; macOS, Linux ve Windows için şu işleri ya
 
 ## Docs açısından mevcut duruş
 
-Bu docs sitesi artık yalnızca kısa bir kurulum metni olmamalı.
-Şunları da açıklamalı:
+Bu docs sitesi artık yalnızca kısa bir kurulum metni olmamalı. Şunları da
+açıklamalı:
 
 - mevcut ürün kabiliyetleri
 - paper/live/runtime davranışlarının arkasındaki guardrail'ler

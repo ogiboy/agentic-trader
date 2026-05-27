@@ -1,3 +1,5 @@
+import math
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -21,7 +23,7 @@ from agentic_trader.schemas import (
 from agentic_trader.storage.db import TradingDatabase
 
 
-def test_get_broker_adapter_returns_paper_adapter(tmp_path) -> None:
+def test_get_broker_adapter_returns_paper_adapter(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -36,7 +38,9 @@ def test_get_broker_adapter_returns_paper_adapter(tmp_path) -> None:
     assert adapter.backend_name == "paper"
 
 
-def test_get_broker_adapter_blocks_live_backend_without_enablement(tmp_path) -> None:
+def test_get_broker_adapter_blocks_live_backend_without_enablement(
+    tmp_path: Path,
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -50,7 +54,7 @@ def test_get_broker_adapter_blocks_live_backend_without_enablement(tmp_path) -> 
         get_broker_adapter(db=db, settings=settings)
 
 
-def test_get_broker_adapter_respects_kill_switch(tmp_path) -> None:
+def test_get_broker_adapter_respects_kill_switch(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -64,7 +68,7 @@ def test_get_broker_adapter_respects_kill_switch(tmp_path) -> None:
 
 
 def test_broker_order_reader_does_not_expose_mutators_under_kill_switch(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -84,7 +88,7 @@ def test_broker_order_reader_does_not_expose_mutators_under_kill_switch(
     assert not hasattr(reader, "close_position")
 
 
-def test_broker_runtime_payload_reports_blocked_live_backend(tmp_path) -> None:
+def test_broker_runtime_payload_reports_blocked_live_backend(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -100,7 +104,7 @@ def test_broker_runtime_payload_reports_blocked_live_backend(tmp_path) -> None:
     assert payload["live_requested"] is True
 
 
-def test_get_broker_adapter_returns_alpaca_paper_adapter(tmp_path) -> None:
+def test_get_broker_adapter_returns_alpaca_paper_adapter(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -115,7 +119,7 @@ def test_get_broker_adapter_returns_alpaca_paper_adapter(tmp_path) -> None:
     assert adapter.backend_name == "alpaca_paper"
 
 
-def test_broker_runtime_payload_reports_alpaca_paper_blockers(tmp_path) -> None:
+def test_broker_runtime_payload_reports_alpaca_paper_blockers(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -134,7 +138,7 @@ def test_broker_runtime_payload_reports_alpaca_paper_blockers(tmp_path) -> None:
     assert "explicit_enablement_missing" in healthcheck["message"]
 
 
-def test_alpaca_paper_endpoint_check_requires_exact_host(tmp_path) -> None:
+def test_alpaca_paper_endpoint_check_requires_exact_host(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -147,7 +151,9 @@ def test_alpaca_paper_endpoint_check_requires_exact_host(tmp_path) -> None:
     assert alpaca_uses_paper_endpoint(settings) is True
 
 
-def test_alpaca_paper_adapter_blocks_non_us_symbol_without_network(tmp_path) -> None:
+def test_alpaca_paper_adapter_blocks_non_us_symbol_without_network(
+    tmp_path: Path,
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -177,23 +183,25 @@ def test_alpaca_paper_adapter_blocks_non_us_symbol_without_network(tmp_path) -> 
     assert outcome.rejection_reason == "unsupported_symbol_scope"
 
 
-def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(tmp_path) -> None:
+def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(
+    tmp_path: Path,
+) -> None:
     class FailingClient:
-        def get_all_positions(self):
+        def get_all_positions(self) -> list[SimpleNamespace]:
             """
             Return the list of positions currently tracked by the client.
-            
+
             Returns:
                 A list of position objects; an empty list if there are no positions.
             """
             return []
 
-        def get_account(self):
+        def get_account(self) -> SimpleNamespace:
             """
             Return a fake account snapshot for tests.
-            
+
             The returned object models account fields as stringified numeric values.
-            
+
             Returns:
                 SimpleNamespace: An object with attributes:
                     - cash (str): "100000"
@@ -208,13 +216,13 @@ def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(tmp_path) ->
                 portfolio_value="100000",
             )
 
-        def submit_order(self, *, order_data):
+        def submit_order(self, *, order_data: object) -> SimpleNamespace:
             """
             Simulate submitting an order to the paper API and always raise an authorization error.
-            
+
             Parameters:
                 order_data (dict): The order payload that would be sent to the API.
-            
+
             Raises:
                 RuntimeError: Always raised to simulate an API authorization failure; message includes "Authorization: Bearer alpaca-secret-token".
             """
@@ -233,7 +241,7 @@ def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(tmp_path) ->
     settings.ensure_directories()
     db = TradingDatabase(settings)
     adapter = AlpacaPaperBrokerAdapter(db=db, settings=settings)
-    adapter._client = FailingClient()
+    adapter.client = FailingClient()
     intent = ExecutionIntent(
         symbol="AAPL",
         side="buy",
@@ -256,9 +264,9 @@ def test_alpaca_paper_adapter_returns_rejected_outcome_on_api_error(tmp_path) ->
     assert "Bearer <redacted>" in outcome.message
 
 
-def test_alpaca_paper_healthcheck_redacts_api_errors(tmp_path) -> None:
+def test_alpaca_paper_healthcheck_redacts_api_errors(tmp_path: Path) -> None:
     class FailingClient:
-        def get_account(self):
+        def get_account(self) -> SimpleNamespace:
             raise RuntimeError("health failed api_key=alpaca-secret-token")
 
     settings = Settings(
@@ -272,7 +280,7 @@ def test_alpaca_paper_healthcheck_redacts_api_errors(tmp_path) -> None:
     settings.ensure_directories()
     db = TradingDatabase(settings)
     adapter = AlpacaPaperBrokerAdapter(db=db, settings=settings)
-    adapter._client = FailingClient()
+    adapter.client = FailingClient()
 
     healthcheck = adapter.healthcheck()
 
@@ -281,18 +289,18 @@ def test_alpaca_paper_healthcheck_redacts_api_errors(tmp_path) -> None:
     assert "api_key=<redacted>" in healthcheck.message
 
 
-def test_coerce_float():
-    """Test _coerce_float function (lines 284-287)."""
-    from agentic_trader.engine.broker import _coerce_float
+def test_coerce_broker_float() -> None:
+    """Test public broker float coercion helper."""
+    from agentic_trader.engine.broker import coerce_broker_float
 
     # Test with valid float
-    assert _coerce_float(123.45) == 123.45
-    assert _coerce_float("123.45") == 123.45
+    assert coerce_broker_float(123.45) == 123.45
+    assert coerce_broker_float("123.45") == 123.45
 
     # Test with invalid values
-    assert _coerce_float(None) == 0.0
-    assert _coerce_float("invalid") == 0.0
-    assert _coerce_float(object()) == 0.0
+    assert coerce_broker_float(None) == 0.0
+    assert coerce_broker_float("invalid") == 0.0
+    assert coerce_broker_float(object()) == 0.0
 
 
 def test_is_v1_us_equity_symbol():
@@ -314,7 +322,7 @@ def test_is_v1_us_equity_symbol():
     assert is_v1_us_equity_symbol("A.B.C") is False  # Too many parts
 
 
-def test_paper_broker_adapter_submit(tmp_path) -> None:
+def test_paper_broker_adapter_submit(tmp_path: Path) -> None:
     """Test PaperBrokerAdapter.submit method (line 78)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -341,7 +349,7 @@ def test_paper_broker_adapter_submit(tmp_path) -> None:
     assert result is not None
 
 
-def test_paper_broker_adapter_blocks_invalid_symbol(tmp_path) -> None:
+def test_paper_broker_adapter_blocks_invalid_symbol(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -372,7 +380,7 @@ def test_paper_broker_adapter_blocks_invalid_symbol(tmp_path) -> None:
     assert order[2] == "AAPL;BAD"
 
 
-def test_simulated_real_broker_adapter(tmp_path) -> None:
+def test_simulated_real_broker_adapter(tmp_path: Path) -> None:
     """Test SimulatedRealBrokerAdapter basic functionality."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -412,7 +420,7 @@ def test_simulated_real_broker_adapter(tmp_path) -> None:
     assert outcome.simulated_metadata["simulated"] is True
 
 
-def test_get_broker_adapter_live_backend_raises(tmp_path) -> None:
+def test_get_broker_adapter_live_backend_raises(tmp_path: Path) -> None:
     """Test get_broker_adapter with live backend raises error (lines 596-599)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -427,7 +435,7 @@ def test_get_broker_adapter_live_backend_raises(tmp_path) -> None:
         get_broker_adapter(db=db, settings=settings)
 
 
-def test_broker_runtime_payload_simulated_real(tmp_path) -> None:
+def test_broker_runtime_payload_simulated_real(tmp_path: Path) -> None:
     """Test broker_runtime_payload with simulated_real backend."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -442,7 +450,7 @@ def test_broker_runtime_payload_simulated_real(tmp_path) -> None:
     assert payload["state"] == "simulated"
 
 
-def test_broker_runtime_payload_paper(tmp_path) -> None:
+def test_broker_runtime_payload_paper(tmp_path: Path) -> None:
     """Test broker_runtime_payload with paper backend."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -457,7 +465,7 @@ def test_broker_runtime_payload_paper(tmp_path) -> None:
     assert payload["simulated"] is False
 
 
-def test_paper_broker_adapter_get_open_orders(tmp_path) -> None:
+def test_paper_broker_adapter_get_open_orders(tmp_path: Path) -> None:
     """Test PaperBrokerAdapter.get_open_orders returns empty list (line 91)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -472,7 +480,7 @@ def test_paper_broker_adapter_get_open_orders(tmp_path) -> None:
     assert orders == []
 
 
-def test_paper_broker_adapter_healthcheck(tmp_path) -> None:
+def test_paper_broker_adapter_healthcheck(tmp_path: Path) -> None:
     """Test PaperBrokerAdapter.healthcheck (lines 93-101)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -493,7 +501,7 @@ def test_paper_broker_adapter_healthcheck(tmp_path) -> None:
 
 
 def test_simulated_real_broker_adapter_get_open_orders_after_state_access(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     """Test SimulatedRealBrokerAdapter.get_open_orders returns empty list (line 251)."""
     settings = Settings(
@@ -509,7 +517,7 @@ def test_simulated_real_broker_adapter_get_open_orders_after_state_access(
     assert orders == []
 
 
-def test_simulated_real_broker_adapter_healthcheck(tmp_path) -> None:
+def test_simulated_real_broker_adapter_healthcheck(tmp_path: Path) -> None:
     """Test SimulatedRealBrokerAdapter.healthcheck (lines 253-262)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -529,7 +537,7 @@ def test_simulated_real_broker_adapter_healthcheck(tmp_path) -> None:
     assert health.blocked is False
 
 
-def test_simulated_real_broker_adapter_rejection(tmp_path) -> None:
+def test_simulated_real_broker_adapter_rejection(tmp_path: Path) -> None:
     """Test SimulatedRealBrokerAdapter.place_order with rejection (lines 173-186)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -558,7 +566,7 @@ def test_simulated_real_broker_adapter_rejection(tmp_path) -> None:
     assert outcome.rejection_reason == "simulated_rejection_hook"
 
 
-def test_simulated_real_broker_adapter_cancel_order(tmp_path) -> None:
+def test_simulated_real_broker_adapter_cancel_order(tmp_path: Path) -> None:
     """Test SimulatedRealBrokerAdapter.cancel_order returns False (line 242)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -573,7 +581,7 @@ def test_simulated_real_broker_adapter_cancel_order(tmp_path) -> None:
     assert result is False
 
 
-def test_simulated_real_broker_adapter_get_positions(tmp_path) -> None:
+def test_simulated_real_broker_adapter_get_positions(tmp_path: Path) -> None:
     """Test SimulatedRealBrokerAdapter.get_positions calls db.list_positions (line 245)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -588,7 +596,7 @@ def test_simulated_real_broker_adapter_get_positions(tmp_path) -> None:
     assert isinstance(positions, list)
 
 
-def test_simulated_real_broker_adapter_get_account_state(tmp_path) -> None:
+def test_simulated_real_broker_adapter_get_account_state(tmp_path: Path) -> None:
     """Test SimulatedRealBrokerAdapter.get_account_state returns snapshot (line 247-248)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -603,7 +611,7 @@ def test_simulated_real_broker_adapter_get_account_state(tmp_path) -> None:
     assert isinstance(state, object)
 
 
-def test_simulated_real_broker_adapter_get_open_orders(tmp_path) -> None:
+def test_simulated_real_broker_adapter_get_open_orders(tmp_path: Path) -> None:
     """Test SimulatedRealBrokerAdapter.get_open_orders returns empty list (line 250-251)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -618,7 +626,7 @@ def test_simulated_real_broker_adapter_get_open_orders(tmp_path) -> None:
     assert orders == []
 
 
-def test_paper_broker_adapter_record_position_plan_delegates(tmp_path) -> None:
+def test_paper_broker_adapter_record_position_plan_delegates(tmp_path: Path) -> None:
     """Test PaperBrokerAdapter.record_position_plan delegates to _broker (lines 104-117)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -659,7 +667,7 @@ def test_paper_broker_adapter_record_position_plan_delegates(tmp_path) -> None:
     )
 
 
-def test_paper_broker_adapter_close_position_delegates(tmp_path) -> None:
+def test_paper_broker_adapter_close_position_delegates(tmp_path: Path) -> None:
     """Test PaperBrokerAdapter.close_position delegates to _broker (lines 119-120)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -683,7 +691,7 @@ def test_paper_broker_adapter_close_position_delegates(tmp_path) -> None:
     assert isinstance(result, str)
 
 
-def test_alpaca_paper_adapter_cancel_order(tmp_path) -> None:
+def test_alpaca_paper_adapter_cancel_order(tmp_path: Path) -> None:
     """Test AlpacaPaperBrokerAdapter.cancel_order (lines 449-450)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -699,17 +707,17 @@ def test_alpaca_paper_adapter_cancel_order(tmp_path) -> None:
 
     # Mock the client
     class MockClient:
-        def cancel_order_by_id(self, *, order_id):
+        def cancel_order_by_id(self, *, order_id: str) -> bool:
             return True
 
-    adapter._client = MockClient()
+    adapter.client = MockClient()
 
     result = adapter.cancel_order("test-order-id")
     assert result is True
 
 
 @pytest.mark.skip(reason="Mock not working correctly")
-def test_alpaca_paper_adapter_healthcheck_ready(tmp_path) -> None:
+def test_alpaca_paper_adapter_healthcheck_ready(tmp_path: Path) -> None:
     """Test AlpacaPaperBrokerAdapter.healthcheck when ready (lines 506-543)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -726,20 +734,21 @@ def test_alpaca_paper_adapter_healthcheck_ready(tmp_path) -> None:
 
     # Mock the client
     class MockClient:
-        def get_account(self):
+        def get_account(self) -> object:
             """
             Return a minimal account snapshot indicating active status and trading block state.
-            
+
             Returns:
                 account (object): An object with attributes `status` set to "active" and `trading_blocked` set to False.
             """
+
             class Account:
                 status = "active"
                 trading_blocked = False
 
             return Account()
 
-    adapter._client = MockClient()
+    adapter.client = MockClient()
 
     health = adapter.healthcheck()
     assert health.adapter_name == "alpaca_paper"
@@ -747,7 +756,7 @@ def test_alpaca_paper_adapter_healthcheck_ready(tmp_path) -> None:
     assert health.blocked is False
 
 
-def test_alpaca_paper_adapter_healthcheck_not_ready(tmp_path) -> None:
+def test_alpaca_paper_adapter_healthcheck_not_ready(tmp_path: Path) -> None:
     """Test AlpacaPaperBrokerAdapter.healthcheck when not ready."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -764,7 +773,7 @@ def test_alpaca_paper_adapter_healthcheck_not_ready(tmp_path) -> None:
     assert "enablement" in health.message.lower()
 
 
-def test_get_broker_adapter_kill_switch(tmp_path) -> None:
+def test_get_broker_adapter_kill_switch(tmp_path: Path) -> None:
     """Test get_broker_adapter with kill switch active (lines 581-584)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -778,7 +787,7 @@ def test_get_broker_adapter_kill_switch(tmp_path) -> None:
         get_broker_adapter(db=db, settings=settings)
 
 
-def test_get_broker_adapter_simulated_real(tmp_path) -> None:
+def test_get_broker_adapter_simulated_real(tmp_path: Path) -> None:
     """
     Verify broker selection chooses the simulated-real backend when execution_backend is set to "simulated_real".
     """
@@ -797,7 +806,7 @@ def test_get_broker_adapter_simulated_real(tmp_path) -> None:
     assert adapter.backend_name == "simulated_real"
 
 
-def test_broker_runtime_payload_kill_switch(tmp_path) -> None:
+def test_broker_runtime_payload_kill_switch(tmp_path: Path) -> None:
     """Test broker_runtime_payload with kill switch active (lines 668-669)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -810,7 +819,7 @@ def test_broker_runtime_payload_kill_switch(tmp_path) -> None:
     assert "kill switch" in str(payload["message"]).lower()
 
 
-def test_broker_runtime_payload_simulated_real_state_details(tmp_path) -> None:
+def test_broker_runtime_payload_simulated_real_state_details(tmp_path: Path) -> None:
     """Test broker_runtime_payload with simulated_real backend (lines 674-675)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -823,7 +832,7 @@ def test_broker_runtime_payload_simulated_real_state_details(tmp_path) -> None:
     assert payload["state"] == "simulated"
 
 
-def test_broker_runtime_payload_live_requested(tmp_path) -> None:
+def test_broker_runtime_payload_live_requested(tmp_path: Path) -> None:
     """Test broker_runtime_payload with live backend requested (lines 686-687)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -838,7 +847,7 @@ def test_broker_runtime_payload_live_requested(tmp_path) -> None:
     assert payload["live_requested"] is True
 
 
-def test_paper_broker_adapter_cancel_order(tmp_path) -> None:
+def test_paper_broker_adapter_cancel_order(tmp_path: Path) -> None:
     """Test PaperBrokerAdapter.cancel_order returns False (line 242)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -853,7 +862,7 @@ def test_paper_broker_adapter_cancel_order(tmp_path) -> None:
     assert result is False
 
 
-def test_paper_broker_adapter_get_positions(tmp_path) -> None:
+def test_paper_broker_adapter_get_positions(tmp_path: Path) -> None:
     """Test PaperBrokerAdapter.get_positions calls db.list_positions (line 245)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -868,7 +877,7 @@ def test_paper_broker_adapter_get_positions(tmp_path) -> None:
     assert isinstance(positions, list)
 
 
-def test_paper_broker_adapter_record_position_plan_smoke(tmp_path) -> None:
+def test_paper_broker_adapter_record_position_plan_smoke(tmp_path: Path) -> None:
     """Test PaperBrokerAdapter.record_position_plan (line 272)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -910,7 +919,7 @@ def test_paper_broker_adapter_record_position_plan_smoke(tmp_path) -> None:
     # Should not raise
 
 
-def test_paper_broker_adapter_close_position_smoke(tmp_path) -> None:
+def test_paper_broker_adapter_close_position_smoke(tmp_path: Path) -> None:
     """Test PaperBrokerAdapter.close_position (line 280)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -934,19 +943,19 @@ def test_paper_broker_adapter_close_position_smoke(tmp_path) -> None:
     assert result is not None
 
 
-def test_simulated_real_broker_adapter_coerce_float_error(tmp_path) -> None:
-    """Test SimulatedRealBrokerAdapter._coerce_float with invalid value (line 303)."""
-    from agentic_trader.engine.broker import _coerce_float
+def test_simulated_real_broker_adapter_coerce_float_error(tmp_path: Path) -> None:
+    """Test broker float coercion fallback with invalid input."""
+    from agentic_trader.engine.broker import coerce_broker_float
 
     # Test error path
-    result = _coerce_float("invalid")
+    result = coerce_broker_float("invalid")
     assert result == 0.0
 
-    result = _coerce_float(None)
+    result = coerce_broker_float(None)
     assert result == 0.0
 
 
-def test_get_broker_adapter_paper(tmp_path) -> None:
+def test_get_broker_adapter_paper(tmp_path: Path) -> None:
     """Test get_broker_adapter returns PaperBrokerAdapter (lines 585-586)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -961,7 +970,7 @@ def test_get_broker_adapter_paper(tmp_path) -> None:
     assert adapter.backend_name == "paper"
 
 
-def test_broker_runtime_payload_live_blocked(tmp_path) -> None:
+def test_broker_runtime_payload_live_blocked(tmp_path: Path) -> None:
     """Test broker_runtime_payload with live backend but disabled (lines 682-685)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -977,7 +986,7 @@ def test_broker_runtime_payload_live_blocked(tmp_path) -> None:
     assert "disabled" in str(payload["message"]).lower()
 
 
-def test_broker_runtime_payload_pending_live(tmp_path) -> None:
+def test_broker_runtime_payload_pending_live(tmp_path: Path) -> None:
     """Test broker_runtime_payload with live backend no adapter (lines 686-687)."""
     settings = Settings(
         runtime_dir=tmp_path,
@@ -992,10 +1001,12 @@ def test_broker_runtime_payload_pending_live(tmp_path) -> None:
     assert "implemented yet" in str(payload["message"]).lower()
 
 
-def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -> None:
+def test_alpaca_paper_adapter_maps_fake_client_state_without_network(
+    tmp_path: Path,
+) -> None:
     """
     Validate that AlpacaPaperBrokerAdapter correctly maps a fake Alpaca client state into adapter outcomes and API-like responses without network access.
-    
+
     This test replaces the adapter's client with a FakeClient that simulates order submission, order refresh, positions, account snapshot, open orders, and close-position behavior. It asserts that:
     - submitted request objects are the expected Alpaca request types with the intent's client_order_id,
     - initial place_order outcome reflects the client's filled response,
@@ -1014,13 +1025,13 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
     submitted_orders: list[object] = []
 
     class FakeClient:
-        def submit_order(self, *, order_data):
+        def submit_order(self, *, order_data: object) -> SimpleNamespace:
             """
             Record the provided order data and return a simulated filled order response.
-            
+
             Parameters:
                 order_data: The order request object or payload to record; appended to the surrounding `submitted_orders` collection.
-            
+
             Returns:
                 A SimpleNamespace representing the broker response with fields:
                     id (str): The broker-assigned order identifier ("order-1").
@@ -1036,13 +1047,13 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
                 status="filled",
             )
 
-        def get_order_by_id(self, order_id):
+        def get_order_by_id(self, order_id: str) -> SimpleNamespace:
             """
             Fetches a snapshot of the broker order for the provided order identifier.
-            
+
             Returns:
                 A SimpleNamespace representing the order state with fields `id`, `filled_qty`, `filled_avg_price`, and `status`.
-            
+
             Raises:
                 AssertionError: If `order_id` is not equal to "order-1".
             """
@@ -1054,10 +1065,10 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
                 status="partially_filled",
             )
 
-        def get_all_positions(self):
+        def get_all_positions(self) -> list[SimpleNamespace]:
             """
             Return a single-item list representing a sample position snapshot for the symbol "AAPL".
-            
+
             The returned list contains one object with the following attributes:
             - symbol (str): ticker symbol, "AAPL"
             - qty (str): quantity held, "2"
@@ -1065,7 +1076,7 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
             - current_price (str): current market price, "101"
             - market_value (str): market value of the position, "202"
             - unrealized_pl (str): unrealized profit/loss, "2"
-            
+
             Returns:
                 list: A list containing a SimpleNamespace with the described attributes.
             """
@@ -1080,7 +1091,7 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
                 )
             ]
 
-        def get_account(self):
+        def get_account(self) -> SimpleNamespace:
             return SimpleNamespace(
                 cash="99998",
                 long_market_value="202",
@@ -1090,7 +1101,7 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
                 trading_blocked=False,
             )
 
-        def get_orders(self, **kwargs):
+        def get_orders(self, **kwargs: object) -> list[SimpleNamespace]:
             assert kwargs["filter"] is not None
             return [
                 SimpleNamespace(
@@ -1105,11 +1116,11 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
                 )
             ]
 
-        def close_position(self, symbol):
+        def close_position(self, symbol: str) -> SimpleNamespace:
             return SimpleNamespace(id=f"close-{symbol}")
 
     adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
-    adapter._client = FakeClient()
+    adapter.client = FakeClient()
     intent = ExecutionIntent(
         symbol="aapl",
         side="buy",
@@ -1149,20 +1160,20 @@ def test_alpaca_paper_adapter_maps_fake_client_state_without_network(tmp_path) -
     assert submitted_order.type == OrderType.MARKET
     assert outcome.status == "filled"
     assert refreshed_outcome.status == "partially_filled"
-    assert refreshed_outcome.filled_quantity == pytest.approx(1.0)
+    assert math.isclose(refreshed_outcome.filled_quantity or 0.0, 1.0)
     assert refreshed_outcome.message.endswith("broker status partially_filled.")
-    assert outcome.filled_quantity == pytest.approx(2.0)
-    assert outcome.average_fill_price == pytest.approx(101.25)
+    assert math.isclose(outcome.filled_quantity or 0.0, 2.0)
+    assert math.isclose(outcome.average_fill_price or 0.0, 101.25)
     assert positions[0].symbol == "AAPL"
     assert account.open_positions == 1
-    assert account.unrealized_pnl == pytest.approx(2.0)
+    assert math.isclose(account.unrealized_pnl, 2.0)
     assert open_orders[0].side == "sell"
     assert healthcheck.ok is True
     assert close_id == "close-AAPL"
 
 
 def test_alpaca_paper_adapter_submits_limit_order_with_client_order_id(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -1176,13 +1187,13 @@ def test_alpaca_paper_adapter_submits_limit_order_with_client_order_id(
     submitted_orders: list[object] = []
 
     class FakeClient:
-        def submit_order(self, *, order_data):
+        def submit_order(self, *, order_data: object) -> SimpleNamespace:
             """
             Record the provided order data for inspection and return a stubbed accepted order response.
-            
+
             Parameters:
                 order_data: The order request object to record; appended to an external `submitted_orders` list for test inspection.
-            
+
             Returns:
                 A SimpleNamespace representing the broker's response with the following fields:
                 - id: The broker-assigned order identifier (e.g., "order-limit-1").
@@ -1198,21 +1209,21 @@ def test_alpaca_paper_adapter_submits_limit_order_with_client_order_id(
                 status="accepted",
             )
 
-        def get_all_positions(self):
+        def get_all_positions(self) -> list[SimpleNamespace]:
             """
             Return the list of positions currently tracked by the client.
-            
+
             Returns:
                 A list of position objects; an empty list if there are no positions.
             """
             return []
 
-        def get_account(self):
+        def get_account(self) -> SimpleNamespace:
             """
             Return a fake account snapshot used by tests.
-            
+
             The snapshot models a brokerage account summary with string-typed numeric fields and basic status flags.
-            
+
             Returns:
                 SimpleNamespace: An object with the following attributes:
                     cash (str): Available cash balance, e.g. "100000".
@@ -1232,7 +1243,7 @@ def test_alpaca_paper_adapter_submits_limit_order_with_client_order_id(
             )
 
     adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
-    adapter._client = FakeClient()
+    adapter.client = FakeClient()
     intent = ExecutionIntent(
         symbol="aapl",
         side="buy",
@@ -1259,13 +1270,15 @@ def test_alpaca_paper_adapter_submits_limit_order_with_client_order_id(
     assert submitted_order.client_order_id == intent.intent_id
     assert submitted_order.type == OrderType.LIMIT
     assert submitted_order.limit_price is not None
-    assert float(submitted_order.limit_price) == pytest.approx(99.5)
+    assert math.isclose(float(submitted_order.limit_price), 99.5)
 
 
-def test_alpaca_paper_adapter_blocks_oversize_order_before_submit(tmp_path) -> None:
+def test_alpaca_paper_adapter_blocks_oversize_order_before_submit(
+    tmp_path: Path,
+) -> None:
     """
     Verify that AlpacaPaperBrokerAdapter blocks oversize orders before attempting to submit to the broker client.
-    
+
     Constructs settings with restrictive position limits and a FakeClient whose submit_order would raise if invoked; ensures adapter.place_order returns an outcome with status "blocked" and rejection_reason "max_position_exceeded".
     """
     settings = Settings(
@@ -1281,33 +1294,33 @@ def test_alpaca_paper_adapter_blocks_oversize_order_before_submit(tmp_path) -> N
     settings.ensure_directories()
 
     class FakeClient:
-        def submit_order(self, *, order_data):
+        def submit_order(self, *, order_data: object) -> SimpleNamespace:
             """
             Placeholder submission method for orders that should never reach the submit step when oversized.
-            
+
             Parameters:
                 order_data: The payload representing the order to be submitted.
-            
+
             Raises:
                 AssertionError: Always raised to indicate oversized orders must be blocked before submission.
             """
             raise AssertionError("oversize order must be blocked before submit")
 
-        def get_all_positions(self):
+        def get_all_positions(self) -> list[SimpleNamespace]:
             """
             Return the list of positions currently tracked by the client.
-            
+
             Returns:
                 A list of position objects; an empty list if there are no positions.
             """
             return []
 
-        def get_account(self):
+        def get_account(self) -> SimpleNamespace:
             """
             Return a fake account snapshot for tests.
-            
+
             The returned object models account fields as stringified numeric values.
-            
+
             Returns:
                 SimpleNamespace: An object with attributes:
                     - cash (str): "100000"
@@ -1323,7 +1336,7 @@ def test_alpaca_paper_adapter_blocks_oversize_order_before_submit(tmp_path) -> N
             )
 
     adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
-    adapter._client = FakeClient()
+    adapter.client = FakeClient()
     intent = ExecutionIntent(
         symbol="AAPL",
         side="buy",
@@ -1342,7 +1355,9 @@ def test_alpaca_paper_adapter_blocks_oversize_order_before_submit(tmp_path) -> N
     assert outcome.rejection_reason == "max_position_exceeded"
 
 
-def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> None:
+def test_alpaca_paper_adapter_allows_large_position_reducing_close(
+    tmp_path: Path,
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -1358,14 +1373,14 @@ def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> 
     submitted_orders: list[object] = []
 
     class FakeClient:
-        def submit_order(self, *, order_data):
+        def submit_order(self, *, order_data: object) -> SimpleNamespace:
             """
             Record the outgoing order request and return a fake filled-order response.
-            
+
             Parameters:
                 order_data: The order request object or payload to be submitted; it is appended to the outer
                     `submitted_orders` list for inspection by tests.
-            
+
             Returns:
                 SimpleNamespace: An object representing a filled order with the following attributes:
                     - id (str): The broker-assigned order id, "close-order-1".
@@ -1381,10 +1396,10 @@ def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> 
                 status="filled",
             )
 
-        def get_all_positions(self):
+        def get_all_positions(self) -> list[SimpleNamespace]:
             """
             Return a list of current account positions as simple objects.
-            
+
             Returns:
                 list: A list of position objects where each object has the attributes:
                     - symbol (str): Ticker symbol.
@@ -1405,16 +1420,16 @@ def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> 
                 )
             ]
 
-        def get_account(self):
+        def get_account(self) -> SimpleNamespace:
             """
             Return a mock account snapshot representing available cash and portfolio values.
-            
+
             The returned object contains string-typed numeric fields meant to mimic an external API shape:
             - `cash`: available cash balance.
             - `long_market_value`: total value of long positions.
             - `short_market_value`: total value of short positions.
             - `portfolio_value`: total portfolio value.
-            
+
             Returns:
                 SimpleNamespace: An object with `cash`, `long_market_value`, `short_market_value`, and `portfolio_value` fields (all strings).
             """
@@ -1426,7 +1441,7 @@ def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> 
             )
 
     adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
-    adapter._client = FakeClient()
+    adapter.client = FakeClient()
     intent = ExecutionIntent(
         symbol="AAPL",
         side="sell",
@@ -1447,7 +1462,7 @@ def test_alpaca_paper_adapter_allows_large_position_reducing_close(tmp_path) -> 
 
 
 def test_alpaca_paper_adapter_maps_cancelled_and_redacts_rejection_reason(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -1460,13 +1475,13 @@ def test_alpaca_paper_adapter_maps_cancelled_and_redacts_rejection_reason(
     settings.ensure_directories()
 
     class FakeClient:
-        def get_order_by_id(self, order_id):
+        def get_order_by_id(self, order_id: str) -> SimpleNamespace:
             """
             Return a fake broker order object representing a canceled order used by tests.
-            
+
             Parameters:
                 order_id (str): Expected order identifier; must equal "cancelled-order-1" or an AssertionError is raised.
-            
+
             Returns:
                 SimpleNamespace: An object with fields `id="cancelled-order-1"`, `filled_qty="0"`, `filled_avg_price=None`, `status="canceled"`, and `reject_reason="BROKER_TOKEN=secret-value cancelled"`.
             """
@@ -1480,7 +1495,7 @@ def test_alpaca_paper_adapter_maps_cancelled_and_redacts_rejection_reason(
             )
 
     adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
-    adapter._client = FakeClient()
+    adapter.client = FakeClient()
     intent = ExecutionIntent(
         symbol="AAPL",
         side="buy",
@@ -1500,7 +1515,7 @@ def test_alpaca_paper_adapter_maps_cancelled_and_redacts_rejection_reason(
 
 
 def test_alpaca_paper_adapter_preserves_partial_fill_on_cancelled_order(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -1513,13 +1528,13 @@ def test_alpaca_paper_adapter_preserves_partial_fill_on_cancelled_order(
     settings.ensure_directories()
 
     class FakeClient:
-        def get_order_by_id(self, order_id):
+        def get_order_by_id(self, order_id: str) -> SimpleNamespace:
             """
             Return a mocked canceled order with a partial fill for the test order id "cancelled-partial-order-1".
-            
+
             Parameters:
                 order_id (str): The id of the order to fetch; must equal "cancelled-partial-order-1".
-            
+
             Returns:
                 types.SimpleNamespace: An object with the following attributes:
                     - id (str): "cancelled-partial-order-1"
@@ -1527,7 +1542,7 @@ def test_alpaca_paper_adapter_preserves_partial_fill_on_cancelled_order(
                     - filled_avg_price (str): "250"
                     - status (str): "canceled"
                     - reject_reason (str): "unfilled remainder canceled"
-            
+
             Raises:
                 AssertionError: If `order_id` is not "cancelled-partial-order-1".
             """
@@ -1541,7 +1556,7 @@ def test_alpaca_paper_adapter_preserves_partial_fill_on_cancelled_order(
             )
 
     adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
-    adapter._client = FakeClient()
+    adapter.client = FakeClient()
     intent = ExecutionIntent(
         symbol="AAPL",
         side="buy",
@@ -1564,10 +1579,12 @@ def test_alpaca_paper_adapter_preserves_partial_fill_on_cancelled_order(
     assert outcome.rejection_reason is None
 
 
-def test_alpaca_paper_adapter_blocks_close_without_exit_or_us_symbol(tmp_path) -> None:
+def test_alpaca_paper_adapter_blocks_close_without_exit_or_us_symbol(
+    tmp_path: Path,
+) -> None:
     """
     Verifies that the Alpaca paper adapter rejects close-position requests when no exit is requested or the symbol is not a US equity.
-    
+
     Creates an AlpacaPaperBrokerAdapter with trading enabled but a non-network client, calls close_position with (a) should_exit=False for a US symbol and (b) should_exit=True for a non-US symbol, and asserts the returned identifiers start with the expected noop and blocked prefixes respectively.
     """
     settings = Settings(
@@ -1580,7 +1597,7 @@ def test_alpaca_paper_adapter_blocks_close_without_exit_or_us_symbol(tmp_path) -
     )
     settings.ensure_directories()
     adapter = AlpacaPaperBrokerAdapter(db=TradingDatabase(settings), settings=settings)
-    adapter._client = object()
+    adapter.client = object()
 
     no_exit = adapter.close_position(
         PositionExitDecision(

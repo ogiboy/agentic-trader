@@ -11,11 +11,11 @@
  *   mountDocs(app);
  */
 
-import swaggerJsdoc from 'swagger-jsdoc';
 import express from 'express';
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import swaggerJsdoc from 'swagger-jsdoc';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

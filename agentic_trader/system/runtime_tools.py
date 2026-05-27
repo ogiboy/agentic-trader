@@ -29,10 +29,10 @@ class RuntimeToolBootstrapReport(BaseModel):
 def _base_url_for_ollama_api(status: ModelServiceStatus) -> str | None:
     """
     Construct the Ollama API base URL from a model service status.
-    
+
     Parameters:
         status (ModelServiceStatus): Service status whose `base_url` is used to build the API endpoint.
-    
+
     Returns:
         `{base_url_without_trailing_slash}/v1` if `status.base_url` is set, `None` otherwise.
     """
@@ -47,11 +47,11 @@ def _should_adopt_model_endpoint(
 ) -> bool:
     """
     Decides whether the application should adopt the detected Ollama model service endpoint.
-    
+
     Parameters:
         settings (Settings): Current runtime/settings object used to determine configured LLM provider, ownership mode, and host identity.
         status (ModelServiceStatus): Observed model service status containing `app_owned` and ownership information.
-    
+
     Returns:
         bool: `True` if the LLM provider is configured as "ollama", the tool's ownership mode is "app-owned", the service reports `app_owned`, and the service is owned by the current host; `False` otherwise.
     """
@@ -69,7 +69,7 @@ def _should_adopt_camofox_endpoint(
 ) -> bool:
     """
     Determine whether the Camofox runtime endpoint should be adopted into the application's settings.
-    
+
     Returns:
         `True` if the tool's ownership mode is "app-owned", the detected Camofox service reports `app_owned`, and the service is owned by the current host; `False` otherwise.
     """
@@ -139,12 +139,12 @@ def apply_app_owned_service_settings(
 def ensure_model_service_if_configured(settings: Settings) -> ModelServiceStatus:
     """
     Ensure an app-owned Ollama model service is running when configured.
-    
+
     May start the service if Ollama is the selected LLM provider, app-owned ownership and runtime auto-start are enabled, and the configured endpoint is unreachable or the model is unavailable. If the detected runtime service is app-owned by this host and exposes a valid API base URL, `settings.base_url` will be updated to that runtime endpoint.
-    
+
     Parameters:
         settings (Settings): In-memory settings that may be modified to set `base_url` for an app-owned Ollama service.
-    
+
     Returns:
         ModelServiceStatus: The final status of the model service after any start attempt or configuration update.
     """

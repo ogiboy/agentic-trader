@@ -1,10 +1,14 @@
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
 import duckdb
 import pytest
+from typer.testing import CliRunner
 
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
+from agentic_trader.runtime_status import RuntimeStatusView
 from agentic_trader.schemas import (
     ExecutionDecision,
     LLMHealthStatus,
@@ -12,22 +16,21 @@ from agentic_trader.schemas import (
     MarketSnapshot,
     RegimeAssessment,
     ResearchCoordinatorBrief,
-    RiskPlan,
     ReviewNote,
+    RiskPlan,
     RunArtifacts,
+    ServiceStateSnapshot,
     StrategyPlan,
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.service import (
-    _ServiceRunConfig,
-    _sleep_until_next_cycle,
     ensure_llm_ready,
     restart_background_service,
     run_service,
     start_background_service,
+    wait_for_next_service_cycle,
 )
-from agentic_trader.runtime_status import RuntimeStatusView
-from typer.testing import CliRunner
+from tests.typing_helpers import constant
 
 
 def _artifacts(symbol: str) -> RunArtifacts:
@@ -112,6 +115,51 @@ def _artifacts(symbol: str) -> RunArtifacts:
     )
 
 
+def _ready_llm(current_settings: Settings) -> LLMHealthStatus:
+    return LLMHealthStatus(
+        provider="ollama",
+        base_url=current_settings.base_url,
+        model_name=current_settings.model_name,
+        service_reachable=True,
+        model_available=True,
+        message="ok",
+    )
+
+
+def _symbol_from_kwargs(kwargs: dict[str, Any]) -> str:
+    symbol = kwargs["symbol"]
+    if not isinstance(symbol, str):
+        raise AssertionError("symbol must be a string")
+    return symbol
+
+
+def _run_artifacts_from_symbol(**kwargs: Any) -> RunArtifacts:
+    return _artifacts(_symbol_from_kwargs(kwargs))
+
+
+def _persist_order_id(**_kwargs: Any) -> str:
+    return "paper-test-order"
+
+
+def _sleep_requests_stop(db: TradingDatabase) -> Callable[[float], None]:
+    def _sleep(_seconds: float) -> None:
+        db.request_stop_service()
+
+    return _sleep
+
+
+def _stale_runtime_status(current_state: ServiceStateSnapshot) -> RuntimeStatusView:
+    return RuntimeStatusView(
+        runtime_state="stale",
+        last_recorded_state=current_state.state,
+        status_message="stale heartbeat",
+        live_process=True,
+        is_stale=True,
+        age_seconds=999,
+        state=current_state,
+    )
+
+
 def test_operation_mode_requires_strict_llm_gate(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -179,22 +227,15 @@ def test_run_service_records_runtime_state_and_events(
 
     monkeypatch.setattr(
         "agentic_trader.workflows.service.ensure_llm_ready",
-        lambda current_settings: LLMHealthStatus(
-            provider="ollama",
-            base_url=current_settings.base_url,
-            model_name=current_settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ok",
-        ),
+        _ready_llm,
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.run_once",
-        lambda **kwargs: _artifacts(kwargs["symbol"]),
+        _run_artifacts_from_symbol,
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
-        lambda **kwargs: "paper-test-order",
+        _persist_order_id,
     )
 
     results = run_service(
@@ -282,14 +323,7 @@ def test_run_service_records_agent_stage_events(
 
     monkeypatch.setattr(
         "agentic_trader.workflows.service.ensure_llm_ready",
-        lambda current_settings: LLMHealthStatus(
-            provider="ollama",
-            base_url=current_settings.base_url,
-            model_name=current_settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ok",
-        ),
+        _ready_llm,
     )
 
     def _run_once_with_progress(**kwargs: Any) -> RunArtifacts:
@@ -305,7 +339,7 @@ def test_run_service_records_agent_stage_events(
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
-        lambda **kwargs: "paper-test-order",
+        _persist_order_id,
     )
 
     run_service(
@@ -338,14 +372,7 @@ def test_run_service_skips_missing_market_data_and_continues(
 
     monkeypatch.setattr(
         "agentic_trader.workflows.service.ensure_llm_ready",
-        lambda current_settings: LLMHealthStatus(
-            provider="ollama",
-            base_url=current_settings.base_url,
-            model_name=current_settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ok",
-        ),
+        _ready_llm,
     )
 
     def _run_once(**kwargs: Any) -> RunArtifacts:
@@ -368,7 +395,7 @@ def test_run_service_skips_missing_market_data_and_continues(
     monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once)
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
-        lambda **kwargs: "paper-test-order",
+        _persist_order_id,
     )
 
     results = run_service(
@@ -406,14 +433,7 @@ def test_run_service_remembers_run_level_undercoverage_skips(
 
     monkeypatch.setattr(
         "agentic_trader.workflows.service.ensure_llm_ready",
-        lambda current_settings: LLMHealthStatus(
-            provider="ollama",
-            base_url=current_settings.base_url,
-            model_name=current_settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ok",
-        ),
+        _ready_llm,
     )
     calls = {"AAPL": 0}
 
@@ -428,7 +448,7 @@ def test_run_service_remembers_run_level_undercoverage_skips(
     monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once)
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
-        lambda **kwargs: "paper-test-order",
+        _persist_order_id,
     )
 
     results = run_service(
@@ -473,14 +493,7 @@ def test_run_service_honors_stop_after_symbol_skip(
 
     monkeypatch.setattr(
         "agentic_trader.workflows.service.ensure_llm_ready",
-        lambda current_settings: LLMHealthStatus(
-            provider="ollama",
-            base_url=current_settings.base_url,
-            model_name=current_settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ok",
-        ),
+        _ready_llm,
     )
 
     def _run_once(**kwargs: Any) -> RunArtifacts:
@@ -492,7 +505,7 @@ def test_run_service_honors_stop_after_symbol_skip(
     monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once)
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
-        lambda **kwargs: "paper-test-order",
+        _persist_order_id,
     )
 
     results = run_service(
@@ -525,15 +538,6 @@ def test_sleep_until_next_cycle_is_interruptible(
     settings.ensure_directories()
     db = TradingDatabase(settings)
     config_symbols = ["AAPL"]
-    config = _ServiceRunConfig(
-        settings=settings,
-        symbols=config_symbols,
-        interval="1d",
-        lookback="180d",
-        poll_seconds=300,
-        continuous=True,
-        max_cycles=None,
-    )
     db.upsert_service_state(
         state="running",
         continuous=True,
@@ -547,13 +551,25 @@ def test_sleep_until_next_cycle_is_interruptible(
         stop_requested=False,
     )
 
-    monkeypatch.setattr("agentic_trader.workflows.service.time.monotonic", lambda: 0.0)
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.time.monotonic", constant(0.0)
+    )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.time.sleep",
-        lambda seconds: db.request_stop_service(),
+        _sleep_requests_stop(db),
     )
 
-    stopped = _sleep_until_next_cycle(db, config, cycle_count=1)
+    stopped = wait_for_next_service_cycle(
+        db,
+        settings=settings,
+        symbols=config_symbols,
+        interval="1d",
+        lookback="180d",
+        poll_seconds=300,
+        continuous=True,
+        max_cycles=None,
+        cycle_count=1,
+    )
 
     state = db.get_service_state()
     assert stopped is True
@@ -573,14 +589,7 @@ def test_run_service_respects_stop_request(
 
     monkeypatch.setattr(
         "agentic_trader.workflows.service.ensure_llm_ready",
-        lambda current_settings: LLMHealthStatus(
-            provider="ollama",
-            base_url=current_settings.base_url,
-            model_name=current_settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ok",
-        ),
+        _ready_llm,
     )
 
     def _run_once_with_stop(**kwargs: Any) -> RunArtifacts:
@@ -592,7 +601,7 @@ def test_run_service_respects_stop_request(
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
-        lambda **kwargs: "paper-test-order",
+        _persist_order_id,
     )
 
     results = run_service(
@@ -692,7 +701,7 @@ def test_start_background_service_recovers_stale_pid(
         return _FakeProcess()
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.is_process_alive", lambda pid: False
+        "agentic_trader.workflows.service.is_process_alive", constant(False)
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.subprocess.Popen",
@@ -747,15 +756,7 @@ def test_start_background_service_blocks_stale_live_pid(
 
     monkeypatch.setattr(
         "agentic_trader.workflows.service.build_runtime_status_view",
-        lambda current_state: RuntimeStatusView(
-            runtime_state="stale",
-            last_recorded_state=current_state.state,
-            status_message="stale heartbeat",
-            live_process=True,
-            is_stale=True,
-            age_seconds=999,
-            state=current_state,
-        ),
+        _stale_runtime_status,
     )
 
     with pytest.raises(RuntimeError, match="heartbeat is stale"):
@@ -800,11 +801,11 @@ def test_restart_background_service_uses_last_recorded_config(
     )
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.is_process_alive", lambda pid: False
+        "agentic_trader.workflows.service.is_process_alive", constant(False)
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.start_background_service",
-        lambda **kwargs: 5151,
+        constant(5151),
     )
 
     pid = restart_background_service(
@@ -835,7 +836,7 @@ def test_stop_service_command_marks_stop_requested(
     )
 
     runner = CliRunner()
-    monkeypatch.setattr("agentic_trader.cli.is_process_alive", lambda pid: True)
+    monkeypatch.setattr("agentic_trader.cli.is_process_alive", constant(True))
     result = runner.invoke(
         app,
         ["stop-service"],
@@ -876,7 +877,7 @@ def test_stop_service_recovers_dead_pid_state(
     )
 
     runner = CliRunner()
-    monkeypatch.setattr("agentic_trader.cli.is_process_alive", lambda pid: False)
+    monkeypatch.setattr("agentic_trader.cli.is_process_alive", constant(False))
     result = runner.invoke(
         app,
         ["stop-service"],
@@ -905,22 +906,15 @@ def test_run_service_records_last_terminal_state(
     settings.ensure_directories()
     monkeypatch.setattr(
         "agentic_trader.workflows.service.ensure_llm_ready",
-        lambda current_settings: LLMHealthStatus(
-            provider="ollama",
-            base_url=current_settings.base_url,
-            model_name=current_settings.model_name,
-            service_reachable=True,
-            model_available=True,
-            message="ok",
-        ),
+        _ready_llm,
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.run_once",
-        lambda **kwargs: _artifacts(kwargs["symbol"]),
+        _run_artifacts_from_symbol,
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
-        lambda **kwargs: "paper-test-order",
+        _persist_order_id,
     )
 
     run_service(
@@ -967,7 +961,7 @@ def test_restart_service_command_restarts_with_saved_config(
     runner = CliRunner()
     monkeypatch.setattr(
         "agentic_trader.cli.restart_background_service",
-        lambda **kwargs: 9090,
+        constant(9090),
     )
     result = runner.invoke(
         app,

@@ -1,6 +1,8 @@
 ---
 title: Hafıza ve Review
-description: Trading hafızasının, review kanıtının ve katkı notlarının nasıl ayrı ve denetlenebilir tutulduğu.
+description:
+  Trading hafızasının, review kanıtının ve katkı notlarının nasıl ayrı ve
+  denetlenebilir tutulduğu.
 ---
 
 ## Operatör için hafıza ne demek
@@ -14,15 +16,15 @@ Operatör açısından hafıza, bir kararı açıklamaya yardım eden kanıttır
 - persist edilmiş trace, trade context ve review snapshot'ları
 - source attribution, freshness ve missing-evidence notları
 
-Hafıza bir inceleme desteğidir.
-Gizli trade izni değildir; broker, risk veya runtime policy'yi sessizce
-değiştirmemelidir.
+Hafıza bir inceleme desteğidir. Gizli trade izni değildir; broker, risk veya
+runtime policy'yi sessizce değiştirmemelidir.
 
 ## Review kanıtı
 
 Şüpheli bir sonucu incelerken kanıtı şu sırayla oku:
 
-1. `as_of`, freshness, completeness ve fallback state dahil provider/market artefact'leri
+1. `as_of`, freshness, completeness ve fallback state dahil provider/market
+   artefact'leri
 2. runtime state, supervisor state ve loglar
 3. broker/account status, execution outcome ve rejection reason
 4. specialist ve manager çıktıları
@@ -59,8 +61,8 @@ Bir değişiklik şunları etkiliyorsa `.ai` notlarını güncelle:
 ## Docs sorumluluğu
 
 Bu docs sitesi katkı verenlerin koruduğu bilgi tabanının bir parçası, ama önce
-operatör için yazılmalı.
-Kalıcı bir karar değiştiğinde doğru kapanış çoğu zaman şudur:
+operatör için yazılmalı. Kalıcı bir karar değiştiğinde doğru kapanış çoğu zaman
+şudur:
 
 - implementasyonu güncelle
 - ilgili docs sayfasını güncelle
@@ -73,7 +75,10 @@ dosyalarını ise katkı notları olarak anlat.
 
 ## Feedback akışının düz anlatımı
 
-GitHub Pages docs build'i repo dosya sistemine yazamaz.
-Bu yüzden feedback widget'ı kısa bir taslağı tarayıcı içinde saklar ve manuel gönderim için hazır doldurulmuş GitHub issue bağlantısı üretir.
+GitHub Pages docs build'i repo dosya sistemine yazamaz. Bu yüzden feedback
+widget'ı kısa bir taslağı tarayıcı içinde saklar ve manuel gönderim için hazır
+doldurulmuş GitHub issue bağlantısı üretir.
 
-İleride Node-hosted bir docs örneği server-side feedback'i yeniden açarsa local auditability açık kalmalı ve external forwarding başarısızken başarı taklidi yapmamalı.
+İleride Node-hosted bir docs örneği server-side feedback'i yeniden açarsa local
+auditability açık kalmalı ve external forwarding başarısızken başarı taklidi
+yapmamalı.

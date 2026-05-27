@@ -7,11 +7,11 @@
 :root {
   color-scheme: dark;
   --bg: #121311;
-  --surface: #181b17;
-  --surface-2: #1f231d;
-  --border: oklch(0.93 0.007 106.5);
+  --surface: #191d18;
+  --surface-2: #242a21;
+  --border: rgba(244, 245, 239, 0.16);
   --text: #f4f5ef;
-  --muted: oklch(0.966 0.005 106.5);
+  --muted: #c9d0c2;
   --lime: #8fcf63;
   --cyan: #5fc4c5;
   --amber: #d9a441;
@@ -59,7 +59,12 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
-    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 button,
@@ -77,6 +82,7 @@ button {
   display: grid;
   min-height: 100vh;
   grid-template-columns: 248px minmax(0, 1fr);
+  align-items: start;
 }
 
 .auth-shell {
@@ -121,9 +127,15 @@ button {
 }
 
 .sidebar {
+  position: sticky;
+  top: 0;
   display: flex;
+  min-height: 100vh;
+  height: 100dvh;
+  overflow: auto;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 24px;
   padding: 20px 18px;
   border-right: 1px solid var(--border);
   background: #151813;
@@ -136,9 +148,9 @@ button {
 
 .sidebar__eyebrow,
 .eyebrow {
-  color: var(--muted);
+  color: #d8dfcf;
   font-size: 12px;
-  text-transform: uppercase;
+  font-weight: 700;
 }
 
 .sidebar__title {
@@ -147,7 +159,7 @@ button {
 }
 
 .sidebar__subtitle {
-  color: var(--muted);
+  color: #d8dfcf;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -155,7 +167,7 @@ button {
 .sidebar__nav {
   display: grid;
   gap: 8px;
-  margin: 28px 0;
+  margin: 0;
 }
 
 .nav-button,
@@ -179,6 +191,7 @@ button {
 .nav-button:hover,
 .button:hover {
   border-color: var(--lime);
+  background: rgba(143, 207, 99, 0.08);
 }
 
 .nav-button--active {
@@ -189,14 +202,17 @@ button {
 .sidebar__meta {
   display: grid;
   gap: 8px;
-  color: var(--muted);
+  margin-top: auto;
+  color: #d8dfcf;
   font-size: 13px;
 }
 
 .main {
   display: grid;
   gap: 18px;
+  min-width: 0;
   padding: 18px;
+  align-content: start;
 }
 
 .topbar {
@@ -228,10 +244,17 @@ button {
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  background: rgba(244, 245, 239, 0.06);
+  background: #20261e;
   border: 1px solid var(--border);
-  color: var(--muted);
+  color: #f7faf1;
+  font-family:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
+}
+
+.chip--message {
+  max-width: min(100%, 64ch);
+  white-space: normal;
 }
 
 .button {
@@ -258,23 +281,27 @@ button {
   border-radius: 8px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: rgba(244, 245, 239, 0.04);
 }
 
 .banner--good {
   border-color: var(--lime);
+  background: rgba(143, 207, 99, 0.12);
 }
 
 .banner--neutral {
   border-color: var(--cyan);
+  background: rgba(95, 196, 197, 0.11);
 }
 
 .banner--warn {
   border-color: var(--amber);
+  background: rgba(217, 164, 65, 0.12);
 }
 
 .banner--bad {
   border-color: var(--rose);
+  background: rgba(213, 108, 93, 0.13);
 }
 
 .stack {
@@ -319,9 +346,9 @@ button {
 
 .panel__title {
   font-size: 13px;
+  font-weight: 700;
   letter-spacing: 0;
-  text-transform: uppercase;
-  color: var(--muted);
+  color: #dfe6d7;
 }
 
 .panel__body {
@@ -383,7 +410,8 @@ button {
 }
 
 .kv-list__row dt {
-  color: var(--muted);
+  color: #dce4d4;
+  font-weight: 650;
 }
 
 .kv-list__row dd {
@@ -483,8 +511,9 @@ button {
 
 .chat-bubble__meta {
   color: var(--muted);
+  font-family:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  text-transform: uppercase;
 }
 
 .composer {
@@ -511,7 +540,7 @@ button {
 .field-label {
   display: grid;
   gap: 8px;
-  color: var(--muted);
+  color: #dce4d4;
   font-size: 13px;
 }
 
@@ -532,12 +561,43 @@ button {
   color: var(--muted);
 }
 
+.loading--panel {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(95, 196, 197, 0.4);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.loading__title {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.loading__detail,
+.loading__elapsed {
+  max-width: 72ch;
+  line-height: 1.5;
+}
+
+.loading__elapsed {
+  color: #dce4d4;
+  font-family:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
 @media (max-width: 1100px) {
   .shell {
     grid-template-columns: 1fr;
   }
 
   .sidebar {
+    position: static;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
     gap: 18px;
     border-right: 0;
     border-bottom: 1px solid var(--border);
@@ -581,8 +641,12 @@ button {
 }
 
 @theme inline {
-  --font-sans: var(--font-jetbrains-mono);
-  --font-heading: var(--font-jetbrains-mono);
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+  --font-heading:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
   --font-mono: var(--font-jetbrains-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);

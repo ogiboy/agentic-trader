@@ -113,5 +113,8 @@ htmlcov/
 /.swarm/
 /.mcp.json
 /CLAUDE.md
+/.codex/config.toml
 
 /.playwright-cli/
+agentdb.rvf.lock
+agentdb.rvf

@@ -1,54 +1,60 @@
+from pytest import MonkeyPatch
+
 from agentic_trader.config import Settings
 
 
-def test_model_name_reads_canonical_env(monkeypatch) -> None:
+def test_model_name_reads_canonical_env(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv("AGENTIC_TRADER_MODEL", raising=False)
     monkeypatch.setenv("AGENTIC_TRADER_MODEL_NAME", "canonical-model")
 
     assert Settings().model_name == "canonical-model"
 
 
-def test_model_name_keeps_legacy_env_alias(monkeypatch) -> None:
+def test_model_name_keeps_legacy_env_alias(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv("AGENTIC_TRADER_MODEL_NAME", raising=False)
     monkeypatch.setenv("AGENTIC_TRADER_MODEL", "legacy-model")
 
     assert Settings().model_name == "legacy-model"
 
 
-def test_model_name_can_still_be_passed_directly(monkeypatch) -> None:
+def test_model_name_can_still_be_passed_directly(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv("AGENTIC_TRADER_MODEL", raising=False)
     monkeypatch.delenv("AGENTIC_TRADER_MODEL_NAME", raising=False)
 
     assert Settings(model_name="direct-model").model_name == "direct-model"
 
 
-def test_llm_provider_defaults_to_ollama(monkeypatch) -> None:
+def test_llm_provider_defaults_to_ollama(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv("AGENTIC_TRADER_LLM_PROVIDER", raising=False)
 
     assert Settings().llm_provider == "ollama"
 
 
-def test_llm_provider_accepts_openai_compatible(monkeypatch) -> None:
+def test_llm_provider_accepts_openai_compatible(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("AGENTIC_TRADER_LLM_PROVIDER", "openai-compatible")
 
     assert Settings().llm_provider == "openai-compatible"
 
 
-def test_openai_compatible_api_key_reads_primary_env(monkeypatch) -> None:
+def test_openai_compatible_api_key_reads_primary_env(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY", "primary-key")
 
     assert Settings().openai_compatible_api_key == "primary-key"
 
 
-def test_openai_compatible_api_key_ignores_openai_api_key_fallback(monkeypatch) -> None:
+def test_openai_compatible_api_key_ignores_openai_api_key_fallback(
+    monkeypatch: MonkeyPatch,
+) -> None:
     monkeypatch.delenv("AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "openai-fallback-key")
 
     assert Settings().openai_compatible_api_key is None
 
 
-def test_openai_compatible_api_key_is_none_by_default(monkeypatch) -> None:
+def test_openai_compatible_api_key_is_none_by_default(
+    monkeypatch: MonkeyPatch,
+) -> None:
     monkeypatch.delenv("AGENTIC_TRADER_OPENAI_COMPATIBLE_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
@@ -59,3 +65,9 @@ def test_openai_compatible_api_key_can_be_passed_directly() -> None:
     settings = Settings(openai_compatible_api_key="direct-key")
 
     assert settings.openai_compatible_api_key == "direct-key"
+
+
+def test_ui_locale_reads_env(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENTIC_TRADER_UI_LOCALE", "tr")
+
+    assert Settings().ui_locale == "tr"

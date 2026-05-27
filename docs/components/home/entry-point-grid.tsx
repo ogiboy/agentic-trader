@@ -1,5 +1,3 @@
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,9 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import type { HomeEntryPoint } from '@/lib/home/content/types';
 import type { DocLanguage } from '@/lib/i18n/config';
 import { withLanguagePrefix } from '@/lib/i18n/routing';
-import type { HomeEntryPoint } from '@/lib/home/content/types';
+import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 type EntryPointGridProps = {
   locale: DocLanguage;
@@ -28,21 +28,21 @@ export function EntryPointGrid({
   entryPoints,
 }: Readonly<EntryPointGridProps>) {
   return (
-    <section className="grid gap-5 xl:grid-cols-3">
+    <section className='grid gap-5 xl:grid-cols-3'>
       {entryPoints.map((item) => (
-        <Card key={item.href} className="docs-home-panel">
+        <Card key={item.href} className='docs-home-panel'>
           <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <Badge variant="outline">{item.badge}</Badge>
+            <div className='flex items-center justify-between gap-3'>
+              <Badge variant='outline'>{item.badge}</Badge>
             </div>
             <CardTitle>{item.title}</CardTitle>
             <CardDescription>{item.description}</CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button asChild variant="ghost">
+            <Button asChild variant='ghost'>
               <Link href={withLanguagePrefix(locale, item.href)}>
                 {openSectionLabel[locale]}
-                <ArrowRight data-icon="inline-end" />
+                <ArrowRight data-icon='inline-end' />
               </Link>
             </Button>
           </CardFooter>

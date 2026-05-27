@@ -1,6 +1,8 @@
 ---
 title: Runtime And Operations
-description: One-shot runs, service mode, health visibility, and the operational truth every surface should share.
+description:
+  One-shot runs, service mode, health visibility, and the operational truth
+  every surface should share.
 ---
 
 ## Runtime entrypoints
@@ -9,8 +11,10 @@ description: One-shot runs, service mode, health visibility, and the operational
 - no-argument `agentic-trader` opens the operator launcher and asks before
   starting Web GUI, daemon, Ink, Rich, setup, or model-service paths
 - `agentic_trader/workflows/run_once.py` owns one strict cycle
-- `agentic_trader/workflows/service.py` owns continuous and background orchestration
-- observer and UI surfaces should read shared runtime state instead of inferring it
+- `agentic_trader/workflows/service.py` owns continuous and background
+  orchestration
+- observer and UI surfaces should read shared runtime state instead of inferring
+  it
 
 ## Runtime modes
 
@@ -19,7 +23,8 @@ The project already distinguishes different intents:
 - `operation`: strict, paper-first, and readiness-sensitive
 - `training`: replay and evaluation oriented, with more diagnostic latitude
 
-The exact implementation can evolve, but docs and UI copy should respect those operational differences.
+The exact implementation can evolve, but docs and UI copy should respect those
+operational differences.
 
 ## What operators need to see
 
@@ -37,11 +42,11 @@ Use `agentic-trader provider-diagnostics --json` for a network-free view of the
 configured model routing, source ladder, degraded Yahoo fallback warning, and
 API-key readiness. Use `agentic-trader v1-readiness --json` before longer paper
 operation or Alpaca paper checks, and add `--provider-check` when the evidence
-bundle should actively call the configured model service. The default backend remains local `paper`;
-`alpaca_paper` is the external paper rehearsal path and requires credentials,
-the paper endpoint, and explicit enablement. V1 active trading must still pass
-the supported broker, manual approval, audit, risk, and kill-switch gates; there
-is no hidden live brokerage path.
+bundle should actively call the configured model service. The default backend
+remains local `paper`; `alpaca_paper` is the external paper rehearsal path and
+requires credentials, the paper endpoint, and explicit enablement. V1 active
+trading must still pass the supported broker, manual approval, audit, risk, and
+kill-switch gates; there is no hidden live brokerage path.
 
 The same network-free readiness truth is also part of `dashboard-snapshot`, the
 observer API (`/provider-diagnostics` and `/v1-readiness`), Rich runtime menu,
@@ -60,10 +65,11 @@ It must not approve proposals, place orders, mutate policy, weaken runtime
 gates, or treat raw web text as instructions. Research output remains evidence;
 the strict runtime and explicit operator approval keep authority.
 
-Daemon supervision truth is available through `agentic-trader supervisor-status
---json` and the observer `/supervisor` endpoint. That payload includes runtime
-state, heartbeat/staleness, persisted service state, and stdout/stderr log
-tails without starting a second orchestrator.
+Daemon supervision truth is available through
+`agentic-trader supervisor-status --json` and the observer `/supervisor`
+endpoint. That payload includes runtime state, heartbeat/staleness, persisted
+service state, and stdout/stderr log tails without starting a second
+orchestrator.
 
 ## App-managed local services
 
@@ -85,8 +91,8 @@ The remaining direction is broader parity:
 
 ## What not to infer from model traffic
 
-Repeated requests to Ollama do not automatically mean the runtime is healthy.
-If a cycle looks stuck, inspect:
+Repeated requests to Ollama do not automatically mean the runtime is healthy. If
+a cycle looks stuck, inspect:
 
 - runtime status
 - stop request state

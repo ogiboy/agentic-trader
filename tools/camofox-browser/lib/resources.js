@@ -2,7 +2,7 @@
 // Isolated from reporter.js so that fs reads and network sends are never
 // in the same file (keeps fs reads and network sends in separate modules).
 
-import fs from 'fs';
+import fs from 'node:fs';
 
 // ============================================================================
 // Process resource snapshot (memory, handles, FDs, browser RSS)

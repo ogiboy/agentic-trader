@@ -1,7 +1,15 @@
+from importlib import import_module
+from typing import cast
+
 from agentic_trader.config import Settings
 from agentic_trader.schemas import NewsSignal
 
-import yfinance as yf  # type: ignore[import-untyped]
+
+def _news_items(symbol: str) -> list[object]:
+    yfinance_module = import_module("yfinance")
+    ticker_factory = getattr(yfinance_module, "Ticker")
+    raw_items = getattr(ticker_factory(symbol), "news", []) or []
+    return cast(list[object], raw_items) if isinstance(raw_items, list) else []
 
 
 def fetch_news_brief(symbol: str, settings: Settings) -> list[NewsSignal]:
@@ -9,7 +17,7 @@ def fetch_news_brief(symbol: str, settings: Settings) -> list[NewsSignal]:
         return []
 
     try:
-        raw_items = getattr(yf.Ticker(symbol), "news", []) or []
+        raw_items = _news_items(symbol)
     except Exception:
         return []
 
@@ -17,17 +25,20 @@ def fetch_news_brief(symbol: str, settings: Settings) -> list[NewsSignal]:
     for item in raw_items[: settings.news_headline_limit]:
         if not isinstance(item, dict):
             continue
+        payload = cast(dict[str, object], item)
+        provider_publish_time = payload.get("providerPublishTime")
+        link = payload.get("link")
         news.append(
             NewsSignal(
                 symbol=symbol,
-                title=str(item.get("title", "Untitled headline")),
-                publisher=str(item.get("publisher", "Unknown publisher")),
+                title=str(payload.get("title", "Untitled headline")),
+                publisher=str(payload.get("publisher", "Unknown publisher")),
                 published_at=(
-                    str(item.get("providerPublishTime"))
-                    if item.get("providerPublishTime") is not None
+                    str(provider_publish_time)
+                    if provider_publish_time is not None
                     else None
                 ),
-                link=str(item.get("link")) if item.get("link") else None,
+                link=str(link) if link else None,
             )
         )
     return news

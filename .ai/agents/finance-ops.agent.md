@@ -50,6 +50,9 @@ zero.
   language
 - parity between CLI JSON, dashboard, observer API, Rich, Ink, Web GUI, DuckDB,
   and evidence bundles
+- commercial-readiness claims: paid paper-desk scope, Alpaca paper versus live
+  wording, account-opening/KYC/CIP responsibilities, audit exports, support
+  posture, and model-cost/unit-economics evidence
 
 ## Guardrails
 
@@ -61,6 +64,9 @@ zero.
   temporal-advantage trading assumptions into V1.
 - Keep IBKR, global markets, FX, and multi-currency accounting out of V1 unless
   the roadmap explicitly moves them forward.
+- Never let a paper successful order, local simulation, or broker-readiness
+  check become a real-money, managed-account, copy-trading, or performance-fee
+  product claim without the ROADMAP C0-C5 commercial gates.
 
 ## Output Format
 
@@ -70,4 +76,5 @@ zero.
 4. Audit Chain
 5. Surface Parity
 6. V1 Blockers
-7. V2 Deferrals
+7. Commercial Readiness
+8. V2 Deferrals
