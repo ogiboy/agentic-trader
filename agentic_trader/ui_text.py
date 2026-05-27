@@ -93,6 +93,14 @@ class UITextCatalog:
     help_trade_side: str
     help_trade_proposals_limit: str
     help_trade_proposals_status_filter: str
+    help_trade_proposal_approval_notes: str
+    help_trade_proposal_id_approve: str
+    help_trade_proposal_id_reject: str
+    help_trade_proposal_reconcile_id: str
+    help_trade_proposal_reconciliation_notes: str
+    help_trade_proposal_refresh_id: str
+    help_trade_proposal_refresh_notes: str
+    help_trade_proposal_rejection_reason: str
     help_v1_provider_check: str
     help_webgui_open_browser: str
     help_webgui_service_app: str
@@ -342,6 +350,11 @@ class UITextCatalog:
     message_runtime_gate_open: str
     message_portfolio_temporarily_unavailable: str
     message_trade_proposals_temporarily_unavailable: str
+    message_trade_proposal_approved: str
+    message_trade_proposal_created: str
+    message_trade_proposal_reconciled: str
+    message_trade_proposal_refreshed: str
+    message_trade_proposal_rejected: str
     message_runtime_mode_transition_allowed: str
     message_runtime_mode_transition_blocked: str
     message_setup_bootstrap_guidance: str
@@ -375,6 +388,7 @@ class UITextCatalog:
     title_execution_summary: str
     title_agent_decisions: str
     title_agent_trace: str
+    title_approval_blocked: str
     title_available_models: str
     title_backtest_comparison: str
     title_backtest_memory_ablation: str
@@ -415,6 +429,9 @@ class UITextCatalog:
     title_run_artifacts: str
     title_run_review: str
     title_run_blocked: str
+    title_reconciliation_blocked: str
+    title_refresh_blocked: str
+    title_rejection_blocked: str
     title_runtime_events: str
     title_runtime_gate_open: str
     title_launch_plan: str
@@ -431,6 +448,7 @@ class UITextCatalog:
     title_position_plan_repair: str
     title_portfolio: str
     title_positions: str
+    title_proposal_rejected: str
     title_promotion_blocked: str
     title_proposal_candidate_created: str
     title_proposal_candidate_promoted: str
@@ -444,6 +462,11 @@ class UITextCatalog:
     title_setup_status: str
     title_setup_guidance: str
     title_trace: str
+    title_trade_proposal_approved: str
+    title_trade_proposal_created: str
+    title_trade_proposal_reconciled: str
+    title_trade_proposal_refreshed: str
+    title_trade_proposal_rejected: str
     title_tool_ownership: str
     title_tool_readiness: str
     title_training_diagnostic_mode: str
@@ -537,6 +560,14 @@ EN_TEXT = UITextCatalog(
     help_trade_side="Trade side: buy or sell.",
     help_trade_proposals_limit="Maximum number of trade proposals to show.",
     help_trade_proposals_status_filter="Filter by proposal state: pending, approved, rejected, executed, failed, expired.",
+    help_trade_proposal_approval_notes="Required approval audit notes.",
+    help_trade_proposal_id_approve="Trade proposal id to approve.",
+    help_trade_proposal_id_reject="Trade proposal id to reject.",
+    help_trade_proposal_reconcile_id="In-flight approved proposal id to reconcile.",
+    help_trade_proposal_reconciliation_notes="Required reconciliation audit notes.",
+    help_trade_proposal_refresh_id="Executed proposal id with an accepted broker order to refresh.",
+    help_trade_proposal_refresh_notes="Required refresh audit notes.",
+    help_trade_proposal_rejection_reason="Human-readable rejection reason.",
     help_v1_provider_check="Check local model/provider readiness; may call the configured LLM service.",
     help_webgui_open_browser="Ask the OS to open the Web GUI URL after starting.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
@@ -811,6 +842,26 @@ EN_TEXT = UITextCatalog(
         "Trade proposals are temporarily unavailable while the runtime writer "
         "owns the database.\n\n{error}"
     ),
+    message_trade_proposal_approved=(
+        "{proposal_id} -> {status}\norder={order_id} status={outcome_status}"
+    ),
+    message_trade_proposal_created=(
+        "{proposal_id} queued for manual review.\n\n"
+        "{symbol} {side} @ {reference_price:.4f}"
+    ),
+    message_trade_proposal_reconciled=(
+        "{proposal_id} -> {status}\n"
+        "order={order_id} status={outcome_status}\n"
+        "No broker resubmission was attempted."
+    ),
+    message_trade_proposal_refreshed=(
+        "{proposal_id} -> {status}\n"
+        "order={order_id} status={outcome_status}\n"
+        "No broker resubmission was attempted."
+    ),
+    message_trade_proposal_rejected=(
+        "{proposal_id} rejected.\n\nReason: {reason}"
+    ),
     message_runtime_mode_transition_allowed=(
         "Runtime mode transition {current_mode} -> {target_mode} is allowed."
     ),
@@ -852,6 +903,7 @@ EN_TEXT = UITextCatalog(
     status_ready="ready",
     title_agent_decisions="Agent Decisions",
     title_agent_trace="Agent Trace",
+    title_approval_blocked="Approval Blocked",
     title_available_models="Available Models",
     title_backtest_comparison="Backtest Comparison",
     title_backtest_memory_ablation="Backtest Memory Ablation",
@@ -893,6 +945,9 @@ EN_TEXT = UITextCatalog(
     title_run_artifacts="Run Artifacts",
     title_run_review="Run Review",
     title_run_blocked="Run Blocked",
+    title_reconciliation_blocked="Reconciliation Blocked",
+    title_refresh_blocked="Refresh Blocked",
+    title_rejection_blocked="Rejection Blocked",
     title_runtime_events="Runtime Events",
     title_runtime_gate_open="Runtime Gate Open",
     title_launch_plan="Launch Plan",
@@ -909,6 +964,7 @@ EN_TEXT = UITextCatalog(
     title_position_plan_repair="Position Plan Repair",
     title_portfolio="Portfolio",
     title_positions="Positions",
+    title_proposal_rejected="Proposal Rejected",
     title_promotion_blocked="Promotion Blocked",
     title_proposal_candidate_created="Proposal Candidate Created",
     title_proposal_candidate_promoted="Proposal Candidate Promoted",
@@ -922,6 +978,11 @@ EN_TEXT = UITextCatalog(
     title_setup_status="Setup Status",
     title_setup_guidance="Setup Guidance",
     title_trace="Trace",
+    title_trade_proposal_approved="Trade Proposal Approved",
+    title_trade_proposal_created="Trade Proposal Created",
+    title_trade_proposal_reconciled="Trade Proposal Reconciled",
+    title_trade_proposal_refreshed="Trade Proposal Refreshed",
+    title_trade_proposal_rejected="Trade Proposal Rejected",
     title_tool_ownership="Tool Ownership",
     title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
@@ -1018,6 +1079,14 @@ TR_TEXT = UITextCatalog(
     help_trade_side="Trade yonu: buy veya sell.",
     help_trade_proposals_limit="Gosterilecek maksimum trade proposal sayisi.",
     help_trade_proposals_status_filter="Proposal state filtresi: pending, approved, rejected, executed, failed, expired.",
+    help_trade_proposal_approval_notes="Zorunlu approval audit notlari.",
+    help_trade_proposal_id_approve="Approve edilecek trade proposal id.",
+    help_trade_proposal_id_reject="Reject edilecek trade proposal id.",
+    help_trade_proposal_reconcile_id="Reconcile edilecek in-flight approved proposal id.",
+    help_trade_proposal_reconciliation_notes="Zorunlu reconciliation audit notlari.",
+    help_trade_proposal_refresh_id="Accepted broker order iceren executed proposal id.",
+    help_trade_proposal_refresh_notes="Zorunlu refresh audit notlari.",
+    help_trade_proposal_rejection_reason="Insan tarafindan okunabilir rejection nedeni.",
     help_v1_provider_check="Yerel model/provider hazirligini kontrol et; configured LLM servisine cagri yapabilir.",
     help_webgui_open_browser="Baslatmadan sonra Web GUI URL'sini OS ile ac.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
@@ -1292,6 +1361,26 @@ TR_TEXT = UITextCatalog(
         "Runtime writer veritabaninin sahibiyken trade proposal'lari gecici "
         "olarak kullanilamiyor.\n\n{error}"
     ),
+    message_trade_proposal_approved=(
+        "{proposal_id} -> {status}\norder={order_id} status={outcome_status}"
+    ),
+    message_trade_proposal_created=(
+        "{proposal_id} manual review icin kuyruga alindi.\n\n"
+        "{symbol} {side} @ {reference_price:.4f}"
+    ),
+    message_trade_proposal_reconciled=(
+        "{proposal_id} -> {status}\n"
+        "order={order_id} status={outcome_status}\n"
+        "Broker resubmission denenmedi."
+    ),
+    message_trade_proposal_refreshed=(
+        "{proposal_id} -> {status}\n"
+        "order={order_id} status={outcome_status}\n"
+        "Broker resubmission denenmedi."
+    ),
+    message_trade_proposal_rejected=(
+        "{proposal_id} reddedildi.\n\nNeden: {reason}"
+    ),
     message_runtime_mode_transition_allowed=(
         "Runtime mode gecisi {current_mode} -> {target_mode} izinli."
     ),
@@ -1333,6 +1422,7 @@ TR_TEXT = UITextCatalog(
     status_ready="hazir",
     title_agent_decisions="Agent Kararlari",
     title_agent_trace="Agent Trace",
+    title_approval_blocked="Approval Bloklandi",
     title_available_models="Kullanilabilir Modeller",
     title_backtest_comparison="Backtest Karsilastirma",
     title_backtest_memory_ablation="Backtest Memory Ablation",
@@ -1374,6 +1464,9 @@ TR_TEXT = UITextCatalog(
     title_run_artifacts="Run Artifact'lari",
     title_run_review="Run Review",
     title_run_blocked="Run Bloklandi",
+    title_reconciliation_blocked="Reconciliation Bloklandi",
+    title_refresh_blocked="Refresh Bloklandi",
+    title_rejection_blocked="Rejection Bloklandi",
     title_runtime_events="Runtime Olaylari",
     title_runtime_gate_open="Runtime Gate Acik",
     title_launch_plan="Baslatma Plani",
@@ -1390,6 +1483,7 @@ TR_TEXT = UITextCatalog(
     title_position_plan_repair="Position Plan Repair",
     title_portfolio="Portfolio",
     title_positions="Pozisyonlar",
+    title_proposal_rejected="Proposal Reddedildi",
     title_promotion_blocked="Promotion Bloklandi",
     title_proposal_candidate_created="Proposal Candidate Olusturuldu",
     title_proposal_candidate_promoted="Proposal Candidate Promote Edildi",
@@ -1403,6 +1497,11 @@ TR_TEXT = UITextCatalog(
     title_setup_status="Setup Durumu",
     title_setup_guidance="Setup Rehberi",
     title_trace="Trace",
+    title_trade_proposal_approved="Trade Proposal Onaylandi",
+    title_trade_proposal_created="Trade Proposal Olusturuldu",
+    title_trade_proposal_reconciled="Trade Proposal Reconcile Edildi",
+    title_trade_proposal_refreshed="Trade Proposal Yenilendi",
+    title_trade_proposal_rejected="Trade Proposal Reddedildi",
     title_tool_ownership="Tool Ownership",
     title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
@@ -1519,6 +1618,18 @@ HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
 HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
 HELP_TRADE_PROPOSALS_LIMIT = EN_TEXT.help_trade_proposals_limit
 HELP_TRADE_PROPOSALS_STATUS_FILTER = EN_TEXT.help_trade_proposals_status_filter
+HELP_TRADE_PROPOSAL_APPROVAL_NOTES = EN_TEXT.help_trade_proposal_approval_notes
+HELP_TRADE_PROPOSAL_ID_APPROVE = EN_TEXT.help_trade_proposal_id_approve
+HELP_TRADE_PROPOSAL_ID_REJECT = EN_TEXT.help_trade_proposal_id_reject
+HELP_TRADE_PROPOSAL_RECONCILE_ID = EN_TEXT.help_trade_proposal_reconcile_id
+HELP_TRADE_PROPOSAL_RECONCILIATION_NOTES = (
+    EN_TEXT.help_trade_proposal_reconciliation_notes
+)
+HELP_TRADE_PROPOSAL_REFRESH_ID = EN_TEXT.help_trade_proposal_refresh_id
+HELP_TRADE_PROPOSAL_REFRESH_NOTES = EN_TEXT.help_trade_proposal_refresh_notes
+HELP_TRADE_PROPOSAL_REJECTION_REASON = (
+    EN_TEXT.help_trade_proposal_rejection_reason
+)
 HELP_V1_PROVIDER_CHECK = EN_TEXT.help_v1_provider_check
 HELP_WEBGUI_OPEN_BROWSER = EN_TEXT.help_webgui_open_browser
 
@@ -1796,6 +1907,11 @@ MESSAGE_SETUP_BOOTSTRAP_GUIDANCE = EN_TEXT.message_setup_bootstrap_guidance
 MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE = (
     EN_TEXT.message_trade_proposals_temporarily_unavailable
 )
+MESSAGE_TRADE_PROPOSAL_APPROVED = EN_TEXT.message_trade_proposal_approved
+MESSAGE_TRADE_PROPOSAL_CREATED = EN_TEXT.message_trade_proposal_created
+MESSAGE_TRADE_PROPOSAL_RECONCILED = EN_TEXT.message_trade_proposal_reconciled
+MESSAGE_TRADE_PROPOSAL_REFRESHED = EN_TEXT.message_trade_proposal_refreshed
+MESSAGE_TRADE_PROPOSAL_REJECTED = EN_TEXT.message_trade_proposal_rejected
 MESSAGE_TRADING_RUNTIME_BLOCKED = EN_TEXT.message_trading_runtime_blocked
 MESSAGE_TRADING_RUNTIME_READY = EN_TEXT.message_trading_runtime_ready
 MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK = EN_TEXT.message_training_diagnostic_fallback
@@ -1814,6 +1930,7 @@ STAGE_STRATEGY = EN_TEXT.stage_strategy
 
 TITLE_AGENT_DECISIONS = EN_TEXT.title_agent_decisions
 TITLE_AGENT_TRACE = EN_TEXT.title_agent_trace
+TITLE_APPROVAL_BLOCKED = EN_TEXT.title_approval_blocked
 TITLE_AVAILABLE_MODELS = EN_TEXT.title_available_models
 TITLE_BACKTEST_COMPARISON = EN_TEXT.title_backtest_comparison
 TITLE_BACKTEST_MEMORY_ABLATION = EN_TEXT.title_backtest_memory_ablation
@@ -1855,6 +1972,9 @@ TITLE_REPLAY_STAGES = EN_TEXT.title_replay_stages
 TITLE_RUN_ARTIFACTS = EN_TEXT.title_run_artifacts
 TITLE_RUN_REVIEW = EN_TEXT.title_run_review
 TITLE_RUN_BLOCKED = EN_TEXT.title_run_blocked
+TITLE_RECONCILIATION_BLOCKED = EN_TEXT.title_reconciliation_blocked
+TITLE_REFRESH_BLOCKED = EN_TEXT.title_refresh_blocked
+TITLE_REJECTION_BLOCKED = EN_TEXT.title_rejection_blocked
 TITLE_RUNTIME_EVENTS = EN_TEXT.title_runtime_events
 TITLE_RUNTIME_GATE_OPEN = EN_TEXT.title_runtime_gate_open
 TITLE_LAUNCH_PLAN = EN_TEXT.title_launch_plan
@@ -1873,6 +1993,7 @@ TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
 TITLE_PORTFOLIO = EN_TEXT.title_portfolio
 TITLE_POSITIONS = EN_TEXT.title_positions
+TITLE_PROPOSAL_REJECTED = EN_TEXT.title_proposal_rejected
 TITLE_PROMOTION_BLOCKED = EN_TEXT.title_promotion_blocked
 TITLE_PROPOSAL_CANDIDATE_CREATED = EN_TEXT.title_proposal_candidate_created
 TITLE_PROPOSAL_CANDIDATE_PROMOTED = EN_TEXT.title_proposal_candidate_promoted
@@ -1887,6 +2008,11 @@ TITLE_SETUP_GUIDANCE = EN_TEXT.title_setup_guidance
 TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
 TITLE_TRACE = EN_TEXT.title_trace
 TITLE_TOOL_OWNERSHIP = EN_TEXT.title_tool_ownership
+TITLE_TRADE_PROPOSAL_APPROVED = EN_TEXT.title_trade_proposal_approved
+TITLE_TRADE_PROPOSAL_CREATED = EN_TEXT.title_trade_proposal_created
+TITLE_TRADE_PROPOSAL_RECONCILED = EN_TEXT.title_trade_proposal_reconciled
+TITLE_TRADE_PROPOSAL_REFRESHED = EN_TEXT.title_trade_proposal_refreshed
+TITLE_TRADE_PROPOSAL_REJECTED = EN_TEXT.title_trade_proposal_rejected
 TITLE_TOOL_READINESS = EN_TEXT.title_tool_readiness
 TITLE_TRAINING_DIAGNOSTIC_MODE = EN_TEXT.title_training_diagnostic_mode
 TITLE_UI_LOCALE = EN_TEXT.title_ui_locale

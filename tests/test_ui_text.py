@@ -113,6 +113,18 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_proposal_candidate_promoted == (
         ui_text.MESSAGE_PROPOSAL_CANDIDATE_PROMOTED
     )
+    assert catalog.title_trade_proposal_created == (
+        ui_text.TITLE_TRADE_PROPOSAL_CREATED
+    )
+    assert catalog.title_trade_proposal_refreshed == (
+        ui_text.TITLE_TRADE_PROPOSAL_REFRESHED
+    )
+    assert catalog.help_trade_proposal_id_approve == (
+        ui_text.HELP_TRADE_PROPOSAL_ID_APPROVE
+    )
+    assert catalog.message_trade_proposal_reconciled == (
+        ui_text.MESSAGE_TRADE_PROPOSAL_RECONCILED
+    )
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -188,6 +200,12 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.message_proposal_candidate_promoted.endswith(
         "Broker submission denenmedi."
     )
+    assert catalog.title_proposal_rejected == "Proposal Reddedildi"
+    assert catalog.title_trade_proposal_rejected == "Trade Proposal Reddedildi"
+    assert catalog.help_trade_proposal_rejection_reason == (
+        "Insan tarafindan okunabilir rejection nedeni."
+    )
+    assert catalog.message_trade_proposal_rejected.endswith("Neden: {reason}")
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 
