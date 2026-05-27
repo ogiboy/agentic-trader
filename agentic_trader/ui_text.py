@@ -20,6 +20,7 @@ class UITextCatalog:
 
     cli_app_help: str
     db_locked_msg: str
+    label_action: str
     help_camofox_service_app: str
     help_idea_change_pct: str
     help_idea_ema_9: str
@@ -446,6 +447,7 @@ class UITextCatalog:
     label_workspace: str
     label_yes: str
     list_separator: str
+    message_action_cancelled_returning: str
     message_all_agent_stages_llm_path: str
     message_background_service_not_active: str
     message_background_service_restarted: str
@@ -540,6 +542,7 @@ class UITextCatalog:
     message_service_stop_requested: str
     message_service_spawned_background: str
     message_stage_update: str
+    message_stale_runtime_pid: str
     message_strategy_profile_execution_policy: str
     message_trading_runtime_blocked: str
     message_trading_runtime_ready: str
@@ -563,6 +566,31 @@ class UITextCatalog:
     launcher_option_continue_tui: str
     launcher_option_refresh: str
     launcher_option_exit: str
+    menu_action_back: str
+    menu_action_broker_status: str
+    menu_action_configure_investment_preferences: str
+    menu_action_doctor_system_checks: str
+    menu_action_exit: str
+    menu_action_inspect_latest_run_review: str
+    menu_action_inspect_latest_run_trace: str
+    menu_action_open_live_monitor: str
+    menu_action_open_memory_explorer: str
+    menu_action_open_operator_chat: str
+    menu_action_operator_desk: str
+    menu_action_parse_operator_instruction: str
+    menu_action_portfolio_and_risk: str
+    menu_action_provider_diagnostics: str
+    menu_action_request_orchestrator_stop: str
+    menu_action_research_and_memory: str
+    menu_action_review_and_trace: str
+    menu_action_runtime_control: str
+    menu_action_show_daily_risk_report: str
+    menu_action_show_paper_portfolio: str
+    menu_action_show_recent_runs_and_events: str
+    menu_action_show_trade_journal: str
+    menu_action_start_one_strict_agent_cycle: str
+    menu_action_start_orchestrator_service: str
+    menu_action_v1_readiness_gates: str
     stage_coordinator: str
     stage_consensus: str
     stage_execution: str
@@ -586,6 +614,7 @@ class UITextCatalog:
     title_agent_decisions: str
     title_agent_trace: str
     title_agent_trace_for_run: str
+    title_action_failed: str
     title_approval_blocked: str
     title_available_models: str
     title_backtest_comparison: str
@@ -597,6 +626,7 @@ class UITextCatalog:
     title_canonical_analysis: str
     title_alpaca_paper_checks: str
     title_candidate_rejected: str
+    title_cancelled: str
     title_camofox_browser_helper: str
     title_camofox_stderr_tail: str
     title_camofox_start_failed: str
@@ -610,10 +640,16 @@ class UITextCatalog:
     title_observer_api: str
     title_observer_api_blocked: str
     title_operator_instruction: str
+    title_operator_desk: str
+    title_operator_chat_memory_context: str
     title_operator_launcher: str
     title_operator_workflow: str
+    title_instruction_application: str
     title_pipeline: str
     title_paper_operation_checks: str
+    title_paper_portfolio: str
+    title_portfolio_and_risk: str
+    title_preference_editing: str
     title_provider_diagnostics: str
     title_provider_source_ladder: str
     title_daily_risk_report: str
@@ -633,6 +669,7 @@ class UITextCatalog:
     title_manager_conflicts: str
     title_manager_conflict_replay: str
     title_manager_override_notes: str
+    title_main_menu: str
     title_memory_aware_replay: str
     title_memory_explorer: str
     title_memory_write_policy: str
@@ -646,6 +683,8 @@ class UITextCatalog:
     title_not_running: str
     title_recent_runs: str
     title_risk_warnings: str
+    title_research_and_memory: str
+    title_review_and_trace: str
     title_review_note: str
     title_replay_stages: str
     title_run_artifacts: str
@@ -663,6 +702,7 @@ class UITextCatalog:
     title_launch_plan: str
     title_runtime_mode: str
     title_runtime_mode_transition_checklist: str
+    title_runtime_control: str
     title_runtime_status: str
     title_service_status: str
     title_service_spawned: str
@@ -702,6 +742,7 @@ class UITextCatalog:
     title_setup_status: str
     title_setup_guidance: str
     title_stale_state_recovered: str
+    title_stale_runtime: str
     title_stop_requested: str
     title_strategy_profile: str
     title_v1_strategy_catalog: str
@@ -735,6 +776,7 @@ class UITextCatalog:
 EN_TEXT = UITextCatalog(
     cli_app_help="Agentic Trader CLI",
     db_locked_msg="The runtime writer currently owns the database.",
+    label_action="Action",
     help_camofox_service_app="Manage the optional app-owned local Camofox browser helper.",
     help_idea_change_pct="Percent change over the scan window.",
     help_idea_ema_9="9 EMA value.",
@@ -1200,6 +1242,9 @@ EN_TEXT = UITextCatalog(
     label_workspace="Workspace",
     label_yes="yes",
     list_separator=", ",
+    message_action_cancelled_returning=(
+        "Action cancelled. Returning to the control room."
+    ),
     message_all_agent_stages_llm_path="All agent stages completed through the LLM path.",
     message_background_service_not_active="No managed service is currently active.",
     message_background_service_restarted=(
@@ -1422,6 +1467,10 @@ EN_TEXT = UITextCatalog(
         "or request a stop at any time."
     ),
     message_stage_update="[{stage}] {message}",
+    message_stale_runtime_pid=(
+        "PID {pid} is no longer alive. The next start will recover the stale "
+        "runtime state automatically."
+    ),
     message_strategy_profile_execution_policy=(
         "profile is read-only research metadata; it cannot execute trades"
     ),
@@ -1458,6 +1507,31 @@ EN_TEXT = UITextCatalog(
     launcher_option_continue_tui="2  Continue in the Rich terminal control room",
     launcher_option_refresh="3  Stay here and refresh this launcher",
     launcher_option_exit="4  Exit",
+    menu_action_back="Back",
+    menu_action_broker_status="Broker status",
+    menu_action_configure_investment_preferences="Configure investment preferences",
+    menu_action_doctor_system_checks="Doctor and system checks",
+    menu_action_exit="Exit",
+    menu_action_inspect_latest_run_review="Inspect latest run review",
+    menu_action_inspect_latest_run_trace="Inspect latest run trace",
+    menu_action_open_live_monitor="Open live monitor",
+    menu_action_open_memory_explorer="Open memory explorer",
+    menu_action_open_operator_chat="Open operator chat",
+    menu_action_operator_desk="Operator desk",
+    menu_action_parse_operator_instruction="Parse operator instruction",
+    menu_action_portfolio_and_risk="Portfolio and risk",
+    menu_action_provider_diagnostics="Provider diagnostics",
+    menu_action_request_orchestrator_stop="Request orchestrator stop",
+    menu_action_research_and_memory="Research and memory",
+    menu_action_review_and_trace="Review and trace",
+    menu_action_runtime_control="Runtime control",
+    menu_action_show_daily_risk_report="Show daily risk report",
+    menu_action_show_paper_portfolio="Show paper portfolio",
+    menu_action_show_recent_runs_and_events="Show recent runs and events",
+    menu_action_show_trade_journal="Show trade journal",
+    menu_action_start_one_strict_agent_cycle="Start one strict agent cycle",
+    menu_action_start_orchestrator_service="Start orchestrator service",
+    menu_action_v1_readiness_gates="V1 readiness gates",
     stage_coordinator="Coordinator",
     stage_consensus="Consensus",
     stage_execution="Execution",
@@ -1478,6 +1552,7 @@ EN_TEXT = UITextCatalog(
     title_agent_decisions="Agent Decisions",
     title_agent_trace="Agent Trace",
     title_agent_trace_for_run="Agent Trace / {run_id}",
+    title_action_failed="Action Failed",
     title_approval_blocked="Approval Blocked",
     title_available_models="Available Models",
     title_backtest_comparison="Backtest Comparison",
@@ -1489,6 +1564,7 @@ EN_TEXT = UITextCatalog(
     title_canonical_analysis="Canonical Analysis",
     title_alpaca_paper_checks="Alpaca Paper Checks",
     title_candidate_rejected="Candidate Rejected",
+    title_cancelled="Cancelled",
     title_camofox_browser_helper="Camofox Browser Helper",
     title_camofox_stderr_tail="Camofox Stderr Tail",
     title_camofox_start_failed="Camofox Start Failed",
@@ -1505,10 +1581,16 @@ EN_TEXT = UITextCatalog(
     title_observer_api="Observer API",
     title_observer_api_blocked="Observer API Blocked",
     title_operator_instruction="Operator Instruction",
+    title_operator_desk="Operator Desk",
+    title_operator_chat_memory_context="Operator chat memory context",
     title_operator_launcher="Agentic Trader Operator Launcher",
     title_operator_workflow="Operator Workflow",
+    title_instruction_application="Instruction application",
     title_pipeline="Pipeline",
     title_paper_operation_checks="Paper Operation Checks",
+    title_paper_portfolio="Paper portfolio",
+    title_portfolio_and_risk="Portfolio And Risk",
+    title_preference_editing="Preference editing",
     title_provider_diagnostics="Provider Diagnostics",
     title_provider_source_ladder="Provider Source Ladder",
     title_daily_risk_report="Daily Risk Report",
@@ -1528,6 +1610,7 @@ EN_TEXT = UITextCatalog(
     title_manager_conflicts="Manager Conflicts",
     title_manager_conflict_replay="Manager Conflict Replay",
     title_manager_override_notes="Manager Override Notes",
+    title_main_menu="Main Menu",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
     title_memory_write_policy="Memory Write Policy",
@@ -1541,6 +1624,8 @@ EN_TEXT = UITextCatalog(
     title_not_running="Not Running",
     title_recent_runs="Recent Runs",
     title_risk_warnings="Risk Warnings",
+    title_research_and_memory="Research And Memory",
+    title_review_and_trace="Review And Trace",
     title_review_note="Review Note",
     title_replay_stages="Replay Stages",
     title_run_artifacts="Run Artifacts",
@@ -1558,6 +1643,7 @@ EN_TEXT = UITextCatalog(
     title_launch_plan="Launch Plan",
     title_runtime_mode="Runtime Mode",
     title_runtime_mode_transition_checklist="Runtime Mode Transition Checklist",
+    title_runtime_control="Runtime Control",
     title_runtime_status="Runtime Status",
     title_service_status="Service Status",
     title_service_spawned="Service Spawned",
@@ -1597,6 +1683,7 @@ EN_TEXT = UITextCatalog(
     title_setup_status="Setup Status",
     title_setup_guidance="Setup Guidance",
     title_stale_state_recovered="Stale State Recovered",
+    title_stale_runtime="Stale Runtime",
     title_stop_requested="Stop Requested",
     title_strategy_profile="Strategy Profile: {name}",
     title_v1_strategy_catalog="V1 Strategy Catalog",
@@ -1633,6 +1720,7 @@ EN_TEXT = UITextCatalog(
 TR_TEXT = UITextCatalog(
     cli_app_help="Agentic Trader CLI",
     db_locked_msg="Runtime writer veritabaninin sahibi; biraz sonra tekrar deneyin.",
+    label_action="Aksiyon",
     help_camofox_service_app="Istege bagli app-owned yerel Camofox browser yardimcisini yonet.",
     help_idea_change_pct="Tarama penceresindeki yuzde degisim.",
     help_idea_ema_9="9 EMA degeri.",
@@ -2098,6 +2186,9 @@ TR_TEXT = UITextCatalog(
     label_workspace="Workspace",
     label_yes="evet",
     list_separator=", ",
+    message_action_cancelled_returning=(
+        "Aksiyon iptal edildi. Control room'a donuluyor."
+    ),
     message_all_agent_stages_llm_path="Tum agent asamalari LLM yolu ile tamamlandi.",
     message_background_service_not_active="Su anda aktif managed service yok.",
     message_background_service_restarted=(
@@ -2319,6 +2410,10 @@ TR_TEXT = UITextCatalog(
         "istemek icin live monitor'u acabilirsiniz."
     ),
     message_stage_update="[{stage}] {message}",
+    message_stale_runtime_pid=(
+        "PID {pid} artik yasamiyor. Sonraki start stale runtime state'i otomatik "
+        "kurtaracak."
+    ),
     message_strategy_profile_execution_policy=(
         "profile read-only research metadata'dir; trade execute edemez"
     ),
@@ -2355,6 +2450,31 @@ TR_TEXT = UITextCatalog(
     launcher_option_continue_tui="2  Rich terminal control room ile devam et",
     launcher_option_refresh="3  Burada kal ve launcher'i yenile",
     launcher_option_exit="4  Cikis",
+    menu_action_back="Geri",
+    menu_action_broker_status="Broker durumu",
+    menu_action_configure_investment_preferences="Investment preferences ayarla",
+    menu_action_doctor_system_checks="Doctor ve system kontrolleri",
+    menu_action_exit="Cikis",
+    menu_action_inspect_latest_run_review="Son run review incele",
+    menu_action_inspect_latest_run_trace="Son run trace incele",
+    menu_action_open_live_monitor="Live monitor ac",
+    menu_action_open_memory_explorer="Memory explorer ac",
+    menu_action_open_operator_chat="Operator chat ac",
+    menu_action_operator_desk="Operator desk",
+    menu_action_parse_operator_instruction="Operator talimatini parse et",
+    menu_action_portfolio_and_risk="Portfolio ve risk",
+    menu_action_provider_diagnostics="Provider diagnostics",
+    menu_action_request_orchestrator_stop="Orchestrator stop iste",
+    menu_action_research_and_memory="Research ve memory",
+    menu_action_review_and_trace="Review ve trace",
+    menu_action_runtime_control="Runtime control",
+    menu_action_show_daily_risk_report="Gunluk risk raporu goster",
+    menu_action_show_paper_portfolio="Paper portfolio goster",
+    menu_action_show_recent_runs_and_events="Son run ve event'leri goster",
+    menu_action_show_trade_journal="Trade journal goster",
+    menu_action_start_one_strict_agent_cycle="Tek strict agent cycle baslat",
+    menu_action_start_orchestrator_service="Orchestrator service baslat",
+    menu_action_v1_readiness_gates="V1 readiness gate'leri",
     stage_coordinator="Coordinator",
     stage_consensus="Consensus",
     stage_execution="Execution",
@@ -2375,6 +2495,7 @@ TR_TEXT = UITextCatalog(
     title_agent_decisions="Agent Kararlari",
     title_agent_trace="Agent Trace",
     title_agent_trace_for_run="Agent Trace / {run_id}",
+    title_action_failed="Aksiyon Basarisiz",
     title_approval_blocked="Approval Bloklandi",
     title_available_models="Kullanilabilir Modeller",
     title_backtest_comparison="Backtest Karsilastirma",
@@ -2386,6 +2507,7 @@ TR_TEXT = UITextCatalog(
     title_canonical_analysis="Canonical Analysis",
     title_alpaca_paper_checks="Alpaca Paper Kontrolleri",
     title_candidate_rejected="Candidate Reddedildi",
+    title_cancelled="Iptal Edildi",
     title_camofox_browser_helper="Camofox Browser Yardimcisi",
     title_camofox_stderr_tail="Camofox Stderr Kuyrugu",
     title_camofox_start_failed="Camofox Baslatma Basarisiz",
@@ -2402,10 +2524,16 @@ TR_TEXT = UITextCatalog(
     title_observer_api="Observer API",
     title_observer_api_blocked="Observer API Bloklandi",
     title_operator_instruction="Operator Talimati",
+    title_operator_desk="Operator Desk",
+    title_operator_chat_memory_context="Operator chat memory context",
     title_operator_launcher="Agentic Trader Operator Launcher",
     title_operator_workflow="Operator Workflow",
+    title_instruction_application="Instruction application",
     title_pipeline="Pipeline",
     title_paper_operation_checks="Paper Operation Kontrolleri",
+    title_paper_portfolio="Paper portfolio",
+    title_portfolio_and_risk="Portfolio Ve Risk",
+    title_preference_editing="Preference editing",
     title_provider_diagnostics="Provider Diagnostics",
     title_provider_source_ladder="Provider Source Ladder",
     title_daily_risk_report="Gunluk Risk Raporu",
@@ -2425,6 +2553,7 @@ TR_TEXT = UITextCatalog(
     title_manager_conflicts="Manager Catismalari",
     title_manager_conflict_replay="Manager Catisma Replay",
     title_manager_override_notes="Manager Override Notlari",
+    title_main_menu="Ana Menu",
     title_memory_aware_replay="Memory-Aware Replay",
     title_memory_explorer="Memory Explorer",
     title_memory_write_policy="Memory Write Policy",
@@ -2438,6 +2567,8 @@ TR_TEXT = UITextCatalog(
     title_not_running="Calismiyor",
     title_recent_runs="Son Run'lar",
     title_risk_warnings="Risk Uyarilari",
+    title_research_and_memory="Research Ve Memory",
+    title_review_and_trace="Review Ve Trace",
     title_review_note="Review Notu",
     title_replay_stages="Replay Asamalari",
     title_run_artifacts="Run Artifact'lari",
@@ -2455,6 +2586,7 @@ TR_TEXT = UITextCatalog(
     title_launch_plan="Baslatma Plani",
     title_runtime_mode="Runtime Modu",
     title_runtime_mode_transition_checklist="Runtime Mode Gecis Kontrol Listesi",
+    title_runtime_control="Runtime Control",
     title_runtime_status="Runtime Durumu",
     title_service_status="Servis Durumu",
     title_service_spawned="Service Baslatildi",
@@ -2494,6 +2626,7 @@ TR_TEXT = UITextCatalog(
     title_setup_status="Setup Durumu",
     title_setup_guidance="Setup Rehberi",
     title_stale_state_recovered="Stale State Kurtarildi",
+    title_stale_runtime="Stale Runtime",
     title_stop_requested="Stop Istendi",
     title_strategy_profile="Strategy Profile: {name}",
     title_v1_strategy_catalog="V1 Strategy Catalog",
@@ -2708,6 +2841,7 @@ LABEL_ALPACA_CREDENTIALS_CONFIGURED = EN_TEXT.label_alpaca_credentials_configure
 LABEL_ALPACA_FEED = EN_TEXT.label_alpaca_feed
 LABEL_ALPACA_PAPER_ENDPOINT = EN_TEXT.label_alpaca_paper_endpoint
 LABEL_ALPACA_PAPER_READY = EN_TEXT.label_alpaca_paper_ready
+LABEL_ACTION = EN_TEXT.label_action
 LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_API_KEY = EN_TEXT.label_api_key
 LABEL_ARTIFACT = EN_TEXT.label_artifact
@@ -2996,6 +3130,7 @@ LABEL_WORKSPACE = EN_TEXT.label_workspace
 LABEL_YES = EN_TEXT.label_yes
 UI_LIST_SEPARATOR = EN_TEXT.list_separator
 
+MESSAGE_ACTION_CANCELLED_RETURNING = EN_TEXT.message_action_cancelled_returning
 MESSAGE_ALL_AGENT_STAGES_LLM_PATH = EN_TEXT.message_all_agent_stages_llm_path
 MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE = EN_TEXT.message_background_service_not_active
 MESSAGE_BACKGROUND_SERVICE_RESTARTED = EN_TEXT.message_background_service_restarted
@@ -3136,6 +3271,7 @@ MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT = (
 MESSAGE_SERVICE_STOP_REQUESTED = EN_TEXT.message_service_stop_requested
 MESSAGE_SERVICE_SPAWNED_BACKGROUND = EN_TEXT.message_service_spawned_background
 MESSAGE_STAGE_UPDATE = EN_TEXT.message_stage_update
+MESSAGE_STALE_RUNTIME_PID = EN_TEXT.message_stale_runtime_pid
 MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY = (
     EN_TEXT.message_strategy_profile_execution_policy
 )
@@ -3171,6 +3307,7 @@ STAGE_STRATEGY = EN_TEXT.stage_strategy
 TITLE_AGENT_DECISIONS = EN_TEXT.title_agent_decisions
 TITLE_AGENT_TRACE = EN_TEXT.title_agent_trace
 TITLE_AGENT_TRACE_FOR_RUN = EN_TEXT.title_agent_trace_for_run
+TITLE_ACTION_FAILED = EN_TEXT.title_action_failed
 TITLE_APPROVAL_BLOCKED = EN_TEXT.title_approval_blocked
 TITLE_AVAILABLE_MODELS = EN_TEXT.title_available_models
 TITLE_BACKTEST_COMPARISON = EN_TEXT.title_backtest_comparison
@@ -3182,6 +3319,7 @@ TITLE_CACHE_STATUS = EN_TEXT.title_cache_status
 TITLE_CANONICAL_ANALYSIS = EN_TEXT.title_canonical_analysis
 TITLE_ALPACA_PAPER_CHECKS = EN_TEXT.title_alpaca_paper_checks
 TITLE_CANDIDATE_REJECTED = EN_TEXT.title_candidate_rejected
+TITLE_CANCELLED = EN_TEXT.title_cancelled
 TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
 TITLE_CAMOFOX_STDERR_TAIL = EN_TEXT.title_camofox_stderr_tail
 TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
@@ -3198,10 +3336,16 @@ TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OBSERVER_API = EN_TEXT.title_observer_api
 TITLE_OBSERVER_API_BLOCKED = EN_TEXT.title_observer_api_blocked
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
+TITLE_OPERATOR_DESK = EN_TEXT.title_operator_desk
+TITLE_OPERATOR_CHAT_MEMORY_CONTEXT = EN_TEXT.title_operator_chat_memory_context
 TITLE_OPERATOR_LAUNCHER = EN_TEXT.title_operator_launcher
 TITLE_OPERATOR_WORKFLOW = EN_TEXT.title_operator_workflow
+TITLE_INSTRUCTION_APPLICATION = EN_TEXT.title_instruction_application
 TITLE_PIPELINE = EN_TEXT.title_pipeline
 TITLE_PAPER_OPERATION_CHECKS = EN_TEXT.title_paper_operation_checks
+TITLE_PAPER_PORTFOLIO = EN_TEXT.title_paper_portfolio
+TITLE_PORTFOLIO_AND_RISK = EN_TEXT.title_portfolio_and_risk
+TITLE_PREFERENCE_EDITING = EN_TEXT.title_preference_editing
 TITLE_PROVIDER_DIAGNOSTICS = EN_TEXT.title_provider_diagnostics
 TITLE_PROVIDER_SOURCE_LADDER = EN_TEXT.title_provider_source_ladder
 TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
@@ -3221,6 +3365,7 @@ TITLE_FINANCE_OPERATIONS_CHECKS = EN_TEXT.title_finance_operations_checks
 TITLE_MANAGER_CONFLICTS = EN_TEXT.title_manager_conflicts
 TITLE_MANAGER_CONFLICT_REPLAY = EN_TEXT.title_manager_conflict_replay
 TITLE_MANAGER_OVERRIDE_NOTES = EN_TEXT.title_manager_override_notes
+TITLE_MAIN_MENU = EN_TEXT.title_main_menu
 TITLE_MEMORY_AWARE_REPLAY = EN_TEXT.title_memory_aware_replay
 TITLE_MEMORY_EXPLORER = EN_TEXT.title_memory_explorer
 TITLE_MEMORY_WRITE_POLICY = EN_TEXT.title_memory_write_policy
@@ -3234,6 +3379,8 @@ TITLE_NODE_MISSING = EN_TEXT.title_node_missing
 TITLE_NOT_RUNNING = EN_TEXT.title_not_running
 TITLE_RECENT_RUNS = EN_TEXT.title_recent_runs
 TITLE_RISK_WARNINGS = EN_TEXT.title_risk_warnings
+TITLE_RESEARCH_AND_MEMORY = EN_TEXT.title_research_and_memory
+TITLE_REVIEW_AND_TRACE = EN_TEXT.title_review_and_trace
 TITLE_REVIEW_NOTE = EN_TEXT.title_review_note
 TITLE_REPLAY_STAGES = EN_TEXT.title_replay_stages
 TITLE_RUN_ARTIFACTS = EN_TEXT.title_run_artifacts
@@ -3253,6 +3400,7 @@ TITLE_RUNTIME_MODE = EN_TEXT.title_runtime_mode
 TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST = (
     EN_TEXT.title_runtime_mode_transition_checklist
 )
+TITLE_RUNTIME_CONTROL = EN_TEXT.title_runtime_control
 TITLE_RUNTIME_STATUS = EN_TEXT.title_runtime_status
 TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
 TITLE_SERVICE_SPAWNED = EN_TEXT.title_service_spawned
@@ -3292,6 +3440,7 @@ TITLE_ROUTED_MODELS = EN_TEXT.title_routed_models
 TITLE_SETUP_GUIDANCE = EN_TEXT.title_setup_guidance
 TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
 TITLE_STALE_STATE_RECOVERED = EN_TEXT.title_stale_state_recovered
+TITLE_STALE_RUNTIME = EN_TEXT.title_stale_runtime
 TITLE_STOP_REQUESTED = EN_TEXT.title_stop_requested
 TITLE_STRATEGY_PROFILE = EN_TEXT.title_strategy_profile
 TITLE_V1_STRATEGY_CATALOG = EN_TEXT.title_v1_strategy_catalog
@@ -3349,3 +3498,42 @@ LAUNCHER_OPTION_OPEN_WEB_GUI = EN_TEXT.launcher_option_open_web_gui
 LAUNCHER_OPTION_CONTINUE_TUI = EN_TEXT.launcher_option_continue_tui
 LAUNCHER_OPTION_REFRESH = EN_TEXT.launcher_option_refresh
 LAUNCHER_OPTION_EXIT = EN_TEXT.launcher_option_exit
+MENU_ACTION_BACK = EN_TEXT.menu_action_back
+MENU_ACTION_BROKER_STATUS = EN_TEXT.menu_action_broker_status
+MENU_ACTION_CONFIGURE_INVESTMENT_PREFERENCES = (
+    EN_TEXT.menu_action_configure_investment_preferences
+)
+MENU_ACTION_DOCTOR_SYSTEM_CHECKS = EN_TEXT.menu_action_doctor_system_checks
+MENU_ACTION_EXIT = EN_TEXT.menu_action_exit
+MENU_ACTION_INSPECT_LATEST_RUN_REVIEW = (
+    EN_TEXT.menu_action_inspect_latest_run_review
+)
+MENU_ACTION_INSPECT_LATEST_RUN_TRACE = EN_TEXT.menu_action_inspect_latest_run_trace
+MENU_ACTION_OPEN_LIVE_MONITOR = EN_TEXT.menu_action_open_live_monitor
+MENU_ACTION_OPEN_MEMORY_EXPLORER = EN_TEXT.menu_action_open_memory_explorer
+MENU_ACTION_OPEN_OPERATOR_CHAT = EN_TEXT.menu_action_open_operator_chat
+MENU_ACTION_OPERATOR_DESK = EN_TEXT.menu_action_operator_desk
+MENU_ACTION_PARSE_OPERATOR_INSTRUCTION = (
+    EN_TEXT.menu_action_parse_operator_instruction
+)
+MENU_ACTION_PORTFOLIO_AND_RISK = EN_TEXT.menu_action_portfolio_and_risk
+MENU_ACTION_PROVIDER_DIAGNOSTICS = EN_TEXT.menu_action_provider_diagnostics
+MENU_ACTION_REQUEST_ORCHESTRATOR_STOP = (
+    EN_TEXT.menu_action_request_orchestrator_stop
+)
+MENU_ACTION_RESEARCH_AND_MEMORY = EN_TEXT.menu_action_research_and_memory
+MENU_ACTION_REVIEW_AND_TRACE = EN_TEXT.menu_action_review_and_trace
+MENU_ACTION_RUNTIME_CONTROL = EN_TEXT.menu_action_runtime_control
+MENU_ACTION_SHOW_DAILY_RISK_REPORT = EN_TEXT.menu_action_show_daily_risk_report
+MENU_ACTION_SHOW_PAPER_PORTFOLIO = EN_TEXT.menu_action_show_paper_portfolio
+MENU_ACTION_SHOW_RECENT_RUNS_AND_EVENTS = (
+    EN_TEXT.menu_action_show_recent_runs_and_events
+)
+MENU_ACTION_SHOW_TRADE_JOURNAL = EN_TEXT.menu_action_show_trade_journal
+MENU_ACTION_START_ONE_STRICT_AGENT_CYCLE = (
+    EN_TEXT.menu_action_start_one_strict_agent_cycle
+)
+MENU_ACTION_START_ORCHESTRATOR_SERVICE = (
+    EN_TEXT.menu_action_start_orchestrator_service
+)
+MENU_ACTION_V1_READINESS_GATES = EN_TEXT.menu_action_v1_readiness_gates

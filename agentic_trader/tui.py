@@ -62,6 +62,7 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.ui_text import (
+    LABEL_ACTION,
     LABEL_AGENT_PROFILE,
     LABEL_AGENT_TONE,
     LABEL_ALPACA_CREDENTIALS_CONFIGURED,
@@ -184,6 +185,8 @@ from agentic_trader.ui_text import (
     LABEL_NO,
     LABEL_V1_PAPER_GATE,
     LABEL_V1_PAPER_READY,
+    MESSAGE_ACTION_CANCELLED_RETURNING,
+    MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
     MESSAGE_NO_RUNS_RECORDED,
     MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
     MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS,
@@ -195,10 +198,13 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_RUNTIME_STATE,
     MESSAGE_MARK_TIME_UNAVAILABLE,
     MESSAGE_MONITOR_RETURN_SHORTCUT,
+    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE,
     MESSAGE_PREFERENCES_SAVED,
     MESSAGE_PREPARING_SYMBOL,
+    MESSAGE_SERVICE_STOP_REQUESTED,
     MESSAGE_SERVICE_SPAWNED_BACKGROUND,
     MESSAGE_STAGE_UPDATE,
+    MESSAGE_STALE_RUNTIME_PID,
     MESSAGE_V1_READINESS_STATUS_UNAVAILABLE,
     MESSAGE_WAITING_FOR_LAST_OUTCOME,
     MESSAGE_CONTROL_ROOM_CLOSED,
@@ -213,26 +219,67 @@ from agentic_trader.ui_text import (
     PROMPT_REFRESH_SECONDS,
     PROMPT_SELECT_ACTION,
     PROMPT_YOU,
+    MENU_ACTION_BACK,
+    MENU_ACTION_BROKER_STATUS,
+    MENU_ACTION_CONFIGURE_INVESTMENT_PREFERENCES,
+    MENU_ACTION_DOCTOR_SYSTEM_CHECKS,
+    MENU_ACTION_EXIT,
+    MENU_ACTION_INSPECT_LATEST_RUN_REVIEW,
+    MENU_ACTION_INSPECT_LATEST_RUN_TRACE,
+    MENU_ACTION_OPEN_LIVE_MONITOR,
+    MENU_ACTION_OPEN_MEMORY_EXPLORER,
+    MENU_ACTION_OPEN_OPERATOR_CHAT,
+    MENU_ACTION_OPERATOR_DESK,
+    MENU_ACTION_PARSE_OPERATOR_INSTRUCTION,
+    MENU_ACTION_PORTFOLIO_AND_RISK,
+    MENU_ACTION_PROVIDER_DIAGNOSTICS,
+    MENU_ACTION_REQUEST_ORCHESTRATOR_STOP,
+    MENU_ACTION_RESEARCH_AND_MEMORY,
+    MENU_ACTION_REVIEW_AND_TRACE,
+    MENU_ACTION_RUNTIME_CONTROL,
+    MENU_ACTION_SHOW_DAILY_RISK_REPORT,
+    MENU_ACTION_SHOW_PAPER_PORTFOLIO,
+    MENU_ACTION_SHOW_RECENT_RUNS_AND_EVENTS,
+    MENU_ACTION_SHOW_TRADE_JOURNAL,
+    MENU_ACTION_START_ONE_STRICT_AGENT_CYCLE,
+    MENU_ACTION_START_ORCHESTRATOR_SERVICE,
+    MENU_ACTION_V1_READINESS_GATES,
     STYLE_KEY_COLUMN,
+    TITLE_ACTION_FAILED,
+    TITLE_CANCELLED,
     TITLE_CURRENT_CYCLE,
     TITLE_DECISION_WORKFLOW,
     TITLE_DECISION_EVIDENCE_EXPLORER,
     TITLE_DAILY_RISK_REPORT_FOR_DATE,
+    TITLE_DAILY_RISK_REPORT,
     TITLE_EXIT,
+    TITLE_INSTRUCTION_APPLICATION,
     TITLE_INVESTMENT_PREFERENCES,
+    TITLE_MAIN_MENU,
+    TITLE_MEMORY_EXPLORER,
+    TITLE_NOT_RUNNING,
     TITLE_RECENT_RUNS,
+    TITLE_RESEARCH_AND_MEMORY,
+    TITLE_REVIEW_AND_TRACE,
     TITLE_LATEST_RUN_REVIEW,
     TITLE_AGENT_TRACE_FOR_RUN,
     TITLE_CHAT,
+    TITLE_OPERATOR_CHAT_MEMORY_CONTEXT,
+    TITLE_OPERATOR_DESK,
+    TITLE_PAPER_PORTFOLIO,
     TITLE_PARSED_OPERATOR_INSTRUCTION,
+    TITLE_PORTFOLIO_AND_RISK,
+    TITLE_PREFERENCE_EDITING,
     TITLE_RUN_COMPLETED,
     TITLE_RUN_REVIEW,
+    TITLE_RUNTIME_CONTROL,
     TITLE_RUNTIME_EVENTS,
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_STATUS,
     TITLE_SYSTEM_STATUS,
     TITLE_SYSTEM_SNAPSHOT,
     TITLE_SAVED,
+    TITLE_STALE_RUNTIME,
     TITLE_PORTFOLIO,
     TITLE_POSITIONS,
     TITLE_ALPACA_PAPER_CHECKS,
@@ -1639,18 +1686,21 @@ def _open_live_monitor_if_requested(settings: Settings) -> None:
 
 
 def _runtime_control_table() -> Table:
-    table = Table(title="Runtime Control")
-    table.add_column("Key", style=STYLE_KEY_COLUMN)
-    table.add_column("Action")
-    table.add_row("1", "Doctor and system checks")
-    table.add_row("2", "Start one strict agent cycle")
-    table.add_row("3", "Start orchestrator service")
-    table.add_row("4", "Request orchestrator stop")
-    table.add_row("5", "Open live monitor")
-    table.add_row("6", "Provider diagnostics")
-    table.add_row("7", "V1 readiness gates")
-    table.add_row("8", "Broker status")
-    table.add_row("9", "Back")
+    table = Table(title=TITLE_RUNTIME_CONTROL)
+    table.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
+    table.add_column(LABEL_ACTION)
+    for key, action in (
+        ("1", MENU_ACTION_DOCTOR_SYSTEM_CHECKS),
+        ("2", MENU_ACTION_START_ONE_STRICT_AGENT_CYCLE),
+        ("3", MENU_ACTION_START_ORCHESTRATOR_SERVICE),
+        ("4", MENU_ACTION_REQUEST_ORCHESTRATOR_STOP),
+        ("5", MENU_ACTION_OPEN_LIVE_MONITOR),
+        ("6", MENU_ACTION_PROVIDER_DIAGNOSTICS),
+        ("7", MENU_ACTION_V1_READINESS_GATES),
+        ("8", MENU_ACTION_BROKER_STATUS),
+        ("9", MENU_ACTION_BACK),
+    ):
+        table.add_row(key, action)
     return table
 
 
@@ -1669,7 +1719,7 @@ def _load_runtime_preferences(settings: Settings) -> InvestmentPreferences | Non
         if db is None:
             console.print(
                 Panel(
-                    "Preferences are temporarily unavailable while the runtime writer owns the database.",
+                    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE.format(error="-"),
                     title=LABEL_OBSERVER_MODE,
                     border_style="yellow",
                 )
@@ -1715,8 +1765,8 @@ def _runtime_stop_action(settings: Settings) -> None:
     if state is None or state.pid is None:
         console.print(
             Panel(
-                "No managed service is currently active.",
-                title="Not Running",
+                MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
+                title=TITLE_NOT_RUNNING,
                 border_style="yellow",
             )
         )
@@ -1724,8 +1774,8 @@ def _runtime_stop_action(settings: Settings) -> None:
     if not is_process_alive(state.pid):
         console.print(
             Panel(
-                f"PID {state.pid} is no longer alive. The next start will recover the stale runtime state automatically.",
-                title="Stale Runtime",
+                MESSAGE_STALE_RUNTIME_PID.format(pid=state.pid),
+                title=TITLE_STALE_RUNTIME,
                 border_style="yellow",
             )
         )
@@ -1735,7 +1785,7 @@ def _runtime_stop_action(settings: Settings) -> None:
     _persist_stop_request(settings)
     console.print(
         Panel(
-            f"Stop requested for PID {state.pid}.",
+            MESSAGE_SERVICE_STOP_REQUESTED.format(pid=state.pid),
             title=LABEL_STOP_REQUESTED,
             border_style="yellow",
         )
@@ -1799,18 +1849,18 @@ def _operator_menu(settings: Settings) -> None:
     while True:
         console.clear()
         console.print(_banner())
-        table = Table(title="Operator Desk")
-        table.add_column("Key", style=STYLE_KEY_COLUMN)
-        table.add_column("Action")
-        table.add_row("1", "Open operator chat")
-        table.add_row("2", "Parse operator instruction")
-        table.add_row("3", "Back")
+        table = Table(title=TITLE_OPERATOR_DESK)
+        table.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
+        table.add_column(LABEL_ACTION)
+        table.add_row("1", MENU_ACTION_OPEN_OPERATOR_CHAT)
+        table.add_row("2", MENU_ACTION_PARSE_OPERATOR_INSTRUCTION)
+        table.add_row("3", MENU_ACTION_BACK)
         console.print(table)
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "1":
             db = _safe_open_read_db(settings)
             if db is None:
-                console.print(_observer_mode_panel("Operator chat memory context"))
+                console.print(_observer_mode_panel(TITLE_OPERATOR_CHAT_MEMORY_CONTEXT))
             else:
                 try:
                     _chat_screen(settings, db)
@@ -1820,7 +1870,7 @@ def _operator_menu(settings: Settings) -> None:
             try:
                 db = _open_db(settings, read_only=False)
             except Exception as exc:
-                console.print(_observer_mode_panel("Instruction application", str(exc)))
+                console.print(_observer_mode_panel(TITLE_INSTRUCTION_APPLICATION, str(exc)))
                 Prompt.ask(PROMPT_CONTINUE, default="")
                 continue
             try:
@@ -1833,8 +1883,8 @@ def _operator_menu(settings: Settings) -> None:
 
 def _menu_table(title: str, items: Sequence[TuiMenuAction | tuple[str, str]]) -> Table:
     table = Table(title=title)
-    table.add_column("Key", style=STYLE_KEY_COLUMN)
-    table.add_column("Action")
+    table.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
+    table.add_column(LABEL_ACTION)
     for item in items:
         if isinstance(item, TuiMenuAction):
             table.add_row(item.key, item.label)
@@ -1862,19 +1912,31 @@ def _portfolio_menu(settings: Settings) -> None:
     """
     actions = {
         "1": TuiMenuAction(
-            "1", "Show paper portfolio", "Paper portfolio", _show_portfolio
+            "1",
+            MENU_ACTION_SHOW_PAPER_PORTFOLIO,
+            TITLE_PAPER_PORTFOLIO,
+            _show_portfolio,
         ),
         "2": TuiMenuAction(
-            "2", "Show trade journal", "Trade journal", _show_trade_journal
+            "2",
+            MENU_ACTION_SHOW_TRADE_JOURNAL,
+            TITLE_TRADE_JOURNAL,
+            _show_trade_journal,
         ),
         "3": TuiMenuAction(
-            "3", "Show daily risk report", "Daily risk report", _show_risk_report
+            "3",
+            MENU_ACTION_SHOW_DAILY_RISK_REPORT,
+            TITLE_DAILY_RISK_REPORT,
+            _show_risk_report,
         ),
     }
     while True:
         console.clear()
         console.print(
-            _menu_table("Portfolio And Risk", [*actions.values(), ("4", "Back")])
+            _menu_table(
+                TITLE_PORTFOLIO_AND_RISK,
+                [*actions.values(), ("4", MENU_ACTION_BACK)],
+            )
         )
         choice = Prompt.ask(
             PROMPT_SELECT_ACTION, choices=["1", "2", "3", "4"], default="1"
@@ -1897,18 +1959,24 @@ def _research_menu(settings: Settings) -> None:
     actions = {
         "1": TuiMenuAction(
             "1",
-            "Open memory explorer",
-            "Memory explorer",
+            MENU_ACTION_OPEN_MEMORY_EXPLORER,
+            TITLE_MEMORY_EXPLORER,
             lambda db: _show_memory_explorer(settings, db),
         ),
         "2": TuiMenuAction(
-            "2", "Show recent runs and events", "Recent runs", _render_recent_runs
+            "2",
+            MENU_ACTION_SHOW_RECENT_RUNS_AND_EVENTS,
+            TITLE_RECENT_RUNS,
+            _render_recent_runs,
         ),
     }
     while True:
         console.clear()
         console.print(
-            _menu_table("Research And Memory", [*actions.values(), ("3", "Back")])
+            _menu_table(
+                TITLE_RESEARCH_AND_MEMORY,
+                [*actions.values(), ("3", MENU_ACTION_BACK)],
+            )
         )
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "3":
@@ -1929,21 +1997,24 @@ def _review_menu(settings: Settings) -> None:
     actions = {
         "1": TuiMenuAction(
             "1",
-            "Inspect latest run review",
-            "Latest run review",
+            MENU_ACTION_INSPECT_LATEST_RUN_REVIEW,
+            TITLE_LATEST_RUN_REVIEW,
             _show_latest_run_review,
         ),
         "2": TuiMenuAction(
             "2",
-            "Inspect latest run trace",
-            "Latest run trace",
+            MENU_ACTION_INSPECT_LATEST_RUN_TRACE,
+            TITLE_AGENT_TRACE_FOR_RUN,
             _show_latest_run_trace,
         ),
     }
     while True:
         console.clear()
         console.print(
-            _menu_table("Review And Trace", [*actions.values(), ("3", "Back")])
+            _menu_table(
+                TITLE_REVIEW_AND_TRACE,
+                [*actions.values(), ("3", MENU_ACTION_BACK)],
+            )
         )
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "3":
@@ -1968,7 +2039,7 @@ def _edit_preferences_action(settings: Settings) -> None:
     try:
         db = _open_db(settings, read_only=False)
     except Exception as exc:
-        console.print(_observer_mode_panel("Preference editing", str(exc)))
+        console.print(_observer_mode_panel(TITLE_PREFERENCE_EDITING, str(exc)))
         Prompt.ask(PROMPT_CONTINUE, default="")
         return
     try:
@@ -1998,7 +2069,7 @@ def _review_menu_action(settings: Settings) -> None:
 
 
 def _exit_menu_action(_settings: Settings) -> None:
-    console.print(Panel("Leaving control room.", title="Exit", border_style="blue"))
+    console.print(Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue"))
 
 
 def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
@@ -2010,21 +2081,23 @@ def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
     """
     return (
         TuiMainMenuAction(
-            "1", "Configure investment preferences", _edit_preferences_action
+            "1",
+            MENU_ACTION_CONFIGURE_INVESTMENT_PREFERENCES,
+            _edit_preferences_action,
         ),
-        TuiMainMenuAction("2", "Runtime control", _runtime_menu_action),
-        TuiMainMenuAction("3", "Operator desk", _operator_menu_action),
-        TuiMainMenuAction("4", "Portfolio and risk", _portfolio_menu_action),
-        TuiMainMenuAction("5", "Research and memory", _research_menu_action),
-        TuiMainMenuAction("6", "Review and trace", _review_menu_action),
-        TuiMainMenuAction("7", "Exit", _exit_menu_action, exits_menu=True),
+        TuiMainMenuAction("2", MENU_ACTION_RUNTIME_CONTROL, _runtime_menu_action),
+        TuiMainMenuAction("3", MENU_ACTION_OPERATOR_DESK, _operator_menu_action),
+        TuiMainMenuAction("4", MENU_ACTION_PORTFOLIO_AND_RISK, _portfolio_menu_action),
+        TuiMainMenuAction("5", MENU_ACTION_RESEARCH_AND_MEMORY, _research_menu_action),
+        TuiMainMenuAction("6", MENU_ACTION_REVIEW_AND_TRACE, _review_menu_action),
+        TuiMainMenuAction("7", MENU_ACTION_EXIT, _exit_menu_action, exits_menu=True),
     )
 
 
 def _main_menu_table(actions: Sequence[TuiMainMenuAction]) -> Table:
-    menu = Table(title="Main Menu")
-    menu.add_column("Key", style=STYLE_KEY_COLUMN)
-    menu.add_column("Action")
+    menu = Table(title=TITLE_MAIN_MENU)
+    menu.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
+    menu.add_column(LABEL_ACTION)
     for action in actions:
         menu.add_row(action.key, action.label)
     return menu
@@ -2076,13 +2149,13 @@ def run_main_menu() -> None:
         except KeyboardInterrupt:
             console.print(
                 Panel(
-                    "Action cancelled. Returning to the control room.",
-                    title="Cancelled",
+                    MESSAGE_ACTION_CANCELLED_RETURNING,
+                    title=TITLE_CANCELLED,
                     border_style="yellow",
                 )
             )
         except Exception as exc:
-            console.print(Panel(str(exc), title="Action Failed", border_style="red"))
+            console.print(Panel(str(exc), title=TITLE_ACTION_FAILED, border_style="red"))
         try:
             Prompt.ask(PROMPT_CONTINUE, default="")
         except EOFError:
