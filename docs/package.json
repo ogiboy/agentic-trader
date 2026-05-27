@@ -1,6 +1,6 @@
 {
   "name": "docs",
-  "version": "0.12.4",
+  "version": "0.12.5",
   "private": true,
   "license": "LGPL-3.0-or-later",
   "engines": {
@@ -18,7 +18,7 @@
     "@types/mdx": "^2.0.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "fumadocs-core": "^16.8.11",
+    "fumadocs-core": "^16.9.1",
     "fumadocs-mdx": "^15.0.5",
     "fumadocs-ui": "^16.8.11",
     "lucide-react": "^1.16.0",
