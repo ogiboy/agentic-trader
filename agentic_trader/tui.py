@@ -68,10 +68,16 @@ from agentic_trader.ui_text import (
     LABEL_BACKGROUND_MODE,
     LABEL_BASE_URL,
     LABEL_BEHAVIOR_PRESET,
+    LABEL_BROKER_BACKEND,
+    LABEL_BROKER_STATE,
+    LABEL_COMPLETED_NOTE,
     LABEL_CONTINUOUS,
     LABEL_CREATED,
     LABEL_CURRENCIES,
+    LABEL_CURRENT_NOTE,
+    LABEL_CURRENT_STAGE,
     LABEL_CURRENT_SYMBOL,
+    LABEL_CYCLE,
     LABEL_CYCLE_COUNT,
     LABEL_DRAWDOWN_FROM_PEAK,
     LABEL_EQUITY,
@@ -84,15 +90,22 @@ from agentic_trader.ui_text import (
     LABEL_INTERVAL,
     LABEL_INTERVENTION,
     LABEL_KEY,
+    LABEL_KILL_SWITCH,
     LABEL_LARGEST_POSITION,
+    LABEL_LAST_COMPLETED_STAGE,
+    LABEL_LAST_OUTCOME,
+    LABEL_LAST_OUTCOME_TYPE,
     LABEL_LAST_RECORDED_ERROR,
     LABEL_LAST_RECORDED_MESSAGE,
     LABEL_LAST_RECORDED_STATE,
     LABEL_LAST_TERMINAL_AT,
     LABEL_LAST_TERMINAL_STATE,
     LABEL_LAUNCH_COUNT,
+    LABEL_LEVEL,
     LABEL_LIVE_PROCESS,
+    LABEL_LOOKBACK,
     LABEL_MARKET_VALUE,
+    LABEL_MESSAGE,
     LABEL_NOTES,
     LABEL_OBSERVER_MODE,
     LABEL_OPENED,
@@ -108,28 +121,41 @@ from agentic_trader.ui_text import (
     LABEL_SIDE,
     LABEL_STATUS,
     LABEL_STATUS_NOTE,
+    LABEL_STATE,
     LABEL_STOP_REQUESTED,
     LABEL_STRICTNESS,
+    LABEL_STAGE,
+    LABEL_STAGE_MESSAGE,
+    LABEL_STAGE_STATUS,
     LABEL_SYMBOL,
     LABEL_TRADE_STYLE,
+    LABEL_TYPE,
     LABEL_UNREALIZED_PNL,
     LABEL_UPDATED,
     LABEL_VALUE,
     LABEL_WARNINGS,
+    LABEL_WATCHED_SYMBOLS,
     LABEL_YES,
     LABEL_NO,
+    LABEL_V1_PAPER_GATE,
     MESSAGE_NO_RUNS_RECORDED,
+    MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
+    MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS,
     MESSAGE_NO_RUNTIME_EVENTS,
     MESSAGE_NO_RUNTIME_STATE,
+    MESSAGE_WAITING_FOR_LAST_OUTCOME,
     MESSAGE_CONTROL_ROOM_CLOSED,
     PROMPT_CONTINUE,
     PROMPT_SELECT_ACTION,
     STYLE_KEY_COLUMN,
+    TITLE_CURRENT_CYCLE,
+    TITLE_DECISION_WORKFLOW,
     TITLE_DAILY_RISK_REPORT_FOR_DATE,
     TITLE_EXIT,
     TITLE_INVESTMENT_PREFERENCES,
     TITLE_RECENT_RUNS,
     TITLE_RUNTIME_EVENTS,
+    TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_STATUS,
     TITLE_TRADE_JOURNAL,
     UI_LIST_SEPARATOR,
@@ -180,6 +206,12 @@ def _style_key(text: str) -> str:
         str: The input string wrapped with opening and closing `[STYLE_KEY_COLUMN]` tags.
     """
     return f"[{STYLE_KEY_COLUMN}]{text}[/{STYLE_KEY_COLUMN}]"
+
+
+def _label_line(label: str, value: object) -> str:
+    """Return one compact TUI row."""
+
+    return ": ".join((label, str(value)))
 
 
 def _banner() -> Panel:
@@ -473,11 +505,11 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
         the table contains a single placeholder row of "-" values; otherwise each event produces one populated row.
     """
     table = Table(title=TITLE_RUNTIME_EVENTS)
-    table.add_column("Created")
-    table.add_column("Level")
-    table.add_column("Type")
-    table.add_column("Cycle")
-    table.add_column("Symbol")
+    table.add_column(LABEL_CREATED)
+    table.add_column(LABEL_LEVEL)
+    table.add_column(LABEL_TYPE)
+    table.add_column(LABEL_CYCLE)
+    table.add_column(LABEL_SYMBOL)
     if not events:
         table.add_row("-", "-", "-", "-", "-")
         return table
@@ -495,13 +527,13 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
 def _agent_activity_table(
     state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Table:
-    table = Table(title="Decision Workflow")
-    table.add_column("Stage")
-    table.add_column("Status")
-    table.add_column("Message")
+    table = Table(title=TITLE_DECISION_WORKFLOW)
+    table.add_column(LABEL_STAGE)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_MESSAGE)
     activity = build_agent_activity_view(state, events)
     if not activity.stage_statuses:
-        table.add_row("-", "-", "No live agent stage events yet.")
+        table.add_row("-", "-", MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS)
         return table
     for stage in activity.stage_statuses:
         table.add_row(stage.stage, stage.status, stage.message)
@@ -525,7 +557,8 @@ def _current_activity_panel(
         "",
         *_last_outcome_lines(activity),
     ]
-    return Panel("\n".join(lines), title="Current Cycle", border_style="bright_cyan")
+    body = "\n".join(lines)
+    return Panel(body, title=TITLE_CURRENT_CYCLE, border_style="bright_cyan")
 
 
 def _runtime_cycle_lines(
@@ -535,23 +568,50 @@ def _runtime_cycle_lines(
     view: RuntimeStatusView,
 ) -> list[str]:
     return [
-        f"Runtime: {view.runtime_state}",
-        f"Runtime Mode: {state.runtime_mode if state is not None else settings.runtime_mode}",
-        f"Watched Symbols: {', '.join(state.symbols) if state is not None and state.symbols else '-'}",
-        f"Current Symbol: {view.state.current_symbol if view.state is not None and view.state.current_symbol else '-'}",
-        f"Cycle: {view.state.cycle_count if view.state is not None else '-'}",
-        f"Interval / Lookback: {state.interval if state is not None and state.interval else '-'} / {state.lookback if state is not None and state.lookback else '-'}",
-        f"Current Note: {view.state.message if view.state is not None and view.state.message else '-'}",
+        _label_line(LABEL_RUNTIME, view.runtime_state),
+        _label_line(
+            TITLE_RUNTIME_MODE,
+            state.runtime_mode if state is not None else settings.runtime_mode,
+        ),
+        _label_line(
+            LABEL_WATCHED_SYMBOLS,
+            UI_LIST_SEPARATOR.join(state.symbols)
+            if state is not None and state.symbols
+            else "-",
+        ),
+        _label_line(
+            LABEL_CURRENT_SYMBOL,
+            view.state.current_symbol
+            if view.state is not None and view.state.current_symbol
+            else "-",
+        ),
+        _label_line(LABEL_CYCLE, view.state.cycle_count if view.state is not None else "-"),
+        _label_line(
+            f"{LABEL_INTERVAL} / {LABEL_LOOKBACK}",
+            (
+                f"{state.interval if state is not None and state.interval else '-'} / "
+                f"{state.lookback if state is not None and state.lookback else '-'}"
+            ),
+        ),
+        _label_line(
+            LABEL_CURRENT_NOTE,
+            view.state.message
+            if view.state is not None and view.state.message
+            else "-",
+        ),
     ]
 
 
 def _agent_activity_lines(activity: AgentActivityView) -> list[str]:
     return [
-        f"Current Stage: {activity.current_stage or '-'}",
-        f"Stage Status: {activity.current_stage_status or '-'}",
-        f"Stage Message: {activity.current_stage_message or 'No agent activity recorded yet.'}",
-        f"Last Completed Stage: {activity.last_completed_stage or '-'}",
-        f"Completed Note: {activity.last_completed_message or '-'}",
+        _label_line(LABEL_CURRENT_STAGE, activity.current_stage or "-"),
+        _label_line(LABEL_STAGE_STATUS, activity.current_stage_status or "-"),
+        _label_line(
+            LABEL_STAGE_MESSAGE,
+            activity.current_stage_message or MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
+        ),
+        _label_line(LABEL_LAST_COMPLETED_STAGE, activity.last_completed_stage or "-"),
+        _label_line(LABEL_COMPLETED_NOTE, activity.last_completed_message or "-"),
     ]
 
 
@@ -559,20 +619,26 @@ def _broker_gate_lines(
     *, broker: Mapping[str, object], paper_operations: Mapping[str, object]
 ) -> list[str]:
     return [
-        f"Broker Backend: {broker.get('backend', '-')}",
-        f"Broker State: {broker.get('state', '-')}",
-        f"Kill Switch: {'active' if broker.get('kill_switch_active') else 'inactive'}",
-        f"V1 Paper Gate: {'allowed' if paper_operations.get('allowed') else 'blocked'}",
+        _label_line(LABEL_BROKER_BACKEND, broker.get("backend", "-")),
+        _label_line(LABEL_BROKER_STATE, broker.get("state", "-")),
+        _label_line(
+            LABEL_KILL_SWITCH,
+            "active" if broker.get("kill_switch_active") else "inactive",
+        ),
+        _label_line(
+            LABEL_V1_PAPER_GATE,
+            "allowed" if paper_operations.get("allowed") else "blocked",
+        ),
     ]
 
 
 def _last_outcome_lines(activity: AgentActivityView) -> list[str]:
     if activity.last_outcome_message is not None:
         return [
-            f"Last Outcome Type: {activity.last_outcome_type or '-'}",
-            f"Last Outcome: {activity.last_outcome_message}",
+            _label_line(LABEL_LAST_OUTCOME_TYPE, activity.last_outcome_type or "-"),
+            _label_line(LABEL_LAST_OUTCOME, activity.last_outcome_message),
         ]
-    return ["Last Outcome: Waiting for a completed symbol, exit, or service result."]
+    return [_label_line(LABEL_LAST_OUTCOME, MESSAGE_WAITING_FOR_LAST_OUTCOME)]
 
 
 def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
@@ -586,34 +652,35 @@ def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
         Table: A Rich Table with keys and values for runtime properties (runtime state, live process, last recorded state, timestamps, counters, flags, PID, messages, and errors).
     """
     table = Table(title=TITLE_RUNTIME_STATUS)
-    table.add_column("Key")
-    table.add_column("Value")
+    table.add_column(LABEL_KEY)
+    table.add_column(LABEL_VALUE)
     view = build_runtime_status_view(state)
     if view.state is None:
-        table.add_row("State", "no runtime state recorded yet")
+        table.add_row(LABEL_STATE, MESSAGE_NO_RUNTIME_STATE)
         return table
     snapshot = view.state
-    table.add_row("Runtime", view.runtime_state)
-    table.add_row("Live Process", "yes" if view.live_process else "no")
-    table.add_row("Last Recorded State", view.last_recorded_state or "-")
-    table.add_row("Updated", snapshot.updated_at)
-    table.add_row("Heartbeat", snapshot.last_heartbeat_at or "-")
+    table.add_row(LABEL_RUNTIME, view.runtime_state)
+    table.add_row(LABEL_LIVE_PROCESS, LABEL_YES if view.live_process else LABEL_NO)
+    table.add_row(LABEL_LAST_RECORDED_STATE, view.last_recorded_state or "-")
+    table.add_row(LABEL_UPDATED, snapshot.updated_at)
+    table.add_row(LABEL_HEARTBEAT, snapshot.last_heartbeat_at or "-")
     table.add_row(
-        "Heartbeat Age", f"{view.age_seconds}s" if view.age_seconds is not None else "-"
+        LABEL_HEARTBEAT_AGE,
+        f"{view.age_seconds}s" if view.age_seconds is not None else "-",
     )
-    table.add_row("Cycle Count", str(snapshot.cycle_count))
-    table.add_row("Current Symbol", snapshot.current_symbol or "-")
-    table.add_row("PID", str(snapshot.pid) if snapshot.pid is not None else "-")
+    table.add_row(LABEL_CYCLE_COUNT, str(snapshot.cycle_count))
+    table.add_row(LABEL_CURRENT_SYMBOL, snapshot.current_symbol or "-")
+    table.add_row(LABEL_PID, str(snapshot.pid) if snapshot.pid is not None else "-")
     table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
-    table.add_row("Continuous", str(snapshot.continuous))
-    table.add_row("Background Mode", str(snapshot.background_mode))
-    table.add_row("Launch Count", str(snapshot.launch_count))
-    table.add_row("Restart Count", str(snapshot.restart_count))
-    table.add_row("Last Terminal State", snapshot.last_terminal_state or "-")
-    table.add_row("Last Terminal At", snapshot.last_terminal_at or "-")
-    table.add_row("Status Note", view.status_message)
-    table.add_row("Last Recorded Message", snapshot.message or "-")
-    table.add_row("Last Recorded Error", snapshot.last_error or "-")
+    table.add_row(LABEL_CONTINUOUS, str(snapshot.continuous))
+    table.add_row(LABEL_BACKGROUND_MODE, str(snapshot.background_mode))
+    table.add_row(LABEL_LAUNCH_COUNT, str(snapshot.launch_count))
+    table.add_row(LABEL_RESTART_COUNT, str(snapshot.restart_count))
+    table.add_row(LABEL_LAST_TERMINAL_STATE, snapshot.last_terminal_state or "-")
+    table.add_row(LABEL_LAST_TERMINAL_AT, snapshot.last_terminal_at or "-")
+    table.add_row(LABEL_STATUS_NOTE, view.status_message)
+    table.add_row(LABEL_LAST_RECORDED_MESSAGE, snapshot.message or "-")
+    table.add_row(LABEL_LAST_RECORDED_ERROR, snapshot.last_error or "-")
     return table
 
 

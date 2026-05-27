@@ -171,6 +171,8 @@ class UITextCatalog:
     label_behavior_preset: str
     label_bias: str
     label_blocking: str
+    label_broker_backend: str
+    label_broker_state: str
     label_camofox: str
     label_cache_dir: str
     label_category: str
@@ -178,6 +180,7 @@ class UITextCatalog:
     label_check: str
     label_closed_trades: str
     label_command: str
+    label_completed_note: str
     label_continuous: str
     label_confidence: str
     label_consensus: str
@@ -189,6 +192,8 @@ class UITextCatalog:
     label_currency: str
     label_currencies: str
     label_current: str
+    label_current_note: str
+    label_current_stage: str
     label_current_symbol: str
     label_cycle: str
     label_cycle_control: str
@@ -248,6 +253,7 @@ class UITextCatalog:
     label_key: str
     label_kind: str
     label_last_recorded_error: str
+    label_kill_switch: str
     label_last_recorded_message: str
     label_last_recorded_state: str
     label_largest_position: str
@@ -257,6 +263,9 @@ class UITextCatalog:
     label_launch_count: str
     label_latest_order: str
     label_last_error: str
+    label_last_completed_stage: str
+    label_last_outcome: str
+    label_last_outcome_type: str
     label_last_successful_update: str
     label_last_terminal_at: str
     label_last_terminal_state: str
@@ -362,6 +371,8 @@ class UITextCatalog:
     label_score: str
     label_slippage: str
     label_stage: str
+    label_stage_message: str
+    label_stage_status: str
     label_shared_bus: str
     label_shared_bus_roles: str
     label_started: str
@@ -413,6 +424,7 @@ class UITextCatalog:
     label_version: str
     label_version_source: str
     label_v1_path: str
+    label_v1_paper_gate: str
     label_warmup_bars: str
     label_with_memory: str
     label_warnings: str
@@ -440,6 +452,8 @@ class UITextCatalog:
     message_no_trade_journal_entries: str
     message_no_historical_memories: str
     message_no_orders_recorded: str
+    message_no_agent_activity_recorded: str
+    message_no_live_agent_stage_events: str
     message_memory_explorer_temporarily_unavailable: str
     message_no_action_selected: str
     message_no_retrieval_inspection_context: str
@@ -516,6 +530,7 @@ class UITextCatalog:
     message_training_diagnostic_fallback: str
     message_tui_missing: str
     message_unique_artifact_dir_unavailable: str
+    message_waiting_for_last_outcome: str
     message_v1_readiness_status_unavailable: str
     prompt_continue: str
     prompt_select_action: str
@@ -562,6 +577,8 @@ class UITextCatalog:
     title_chat: str
     title_choose_surface: str
     title_context_summary: str
+    title_current_cycle: str
+    title_decision_workflow: str
     title_llm_status: str
     title_observer_api: str
     title_observer_api_blocked: str
@@ -874,6 +891,8 @@ EN_TEXT = UITextCatalog(
     label_behavior_preset="Behavior Preset",
     label_bias="Bias",
     label_blocking="Blocking",
+    label_broker_backend="Broker Backend",
+    label_broker_state="Broker State",
     label_camofox="Camofox",
     label_cache_dir="Cache Dir",
     label_category="Category",
@@ -881,6 +900,7 @@ EN_TEXT = UITextCatalog(
     label_check="Check",
     label_closed_trades="Closed Trades",
     label_command="Command",
+    label_completed_note="Completed Note",
     label_continuous="Continuous",
     label_confidence="Confidence",
     label_consensus="Consensus",
@@ -892,6 +912,8 @@ EN_TEXT = UITextCatalog(
     label_currency="Currency",
     label_currencies="Currencies",
     label_current="Current",
+    label_current_note="Current Note",
+    label_current_stage="Current Stage",
     label_current_symbol="Current Symbol",
     label_cycle="Cycle",
     label_cycle_control="Cycle Control",
@@ -951,11 +973,15 @@ EN_TEXT = UITextCatalog(
     label_key="Key",
     label_kind="Kind",
     label_last_recorded_error="Last Recorded Error",
+    label_kill_switch="Kill Switch",
     label_last_recorded_message="Last Recorded Message",
     label_last_recorded_state="Last Recorded State",
     label_largest_position="Largest Position",
     label_kill_switch_active="Kill Switch Active",
     label_last_error="Last Error",
+    label_last_completed_stage="Last Completed Stage",
+    label_last_outcome="Last Outcome",
+    label_last_outcome_type="Last Outcome Type",
     label_last_successful_update="Last Successful Update",
     label_last_terminal_at="Last Terminal At",
     label_last_terminal_state="Last Terminal State",
@@ -1065,6 +1091,8 @@ EN_TEXT = UITextCatalog(
     label_score="Score",
     label_slippage="Slippage",
     label_stage="Stage",
+    label_stage_message="Stage Message",
+    label_stage_status="Stage Status",
     label_shared_bus="Shared Bus",
     label_shared_bus_roles="Shared Bus Roles",
     label_started="Started",
@@ -1116,6 +1144,7 @@ EN_TEXT = UITextCatalog(
     label_version="Version",
     label_version_source="Version Source",
     label_v1_path="V1 Path",
+    label_v1_paper_gate="V1 Paper Gate",
     label_warmup_bars="Warmup Bars",
     label_watched_symbols="Watched Symbols",
     label_with_memory="With Memory",
@@ -1147,6 +1176,8 @@ EN_TEXT = UITextCatalog(
     message_no_trade_journal_entries="No trade journal entries recorded yet.",
     message_no_historical_memories="No historical memories are available yet.",
     message_no_orders_recorded="No orders recorded yet.",
+    message_no_agent_activity_recorded="No agent activity recorded yet.",
+    message_no_live_agent_stage_events="No live agent stage events yet.",
     message_memory_explorer_temporarily_unavailable=(
         "Memory explorer is temporarily unavailable.\n\n{error}"
     ),
@@ -1352,6 +1383,9 @@ EN_TEXT = UITextCatalog(
     message_unique_artifact_dir_unavailable=(
         "Unable to create a unique artifact directory for {label}"
     ),
+    message_waiting_for_last_outcome=(
+        "Waiting for a completed symbol, exit, or service result."
+    ),
     message_v1_readiness_status_unavailable="V1 readiness status unavailable.",
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
@@ -1395,6 +1429,8 @@ EN_TEXT = UITextCatalog(
     title_chat="Chat / {persona}",
     title_choose_surface="Choose A Surface",
     title_context_summary="Context Summary",
+    title_current_cycle="Current Cycle",
+    title_decision_workflow="Decision Workflow",
     title_execution_summary="Execution Summary",
     title_export_blocked="Export Blocked",
     title_exported="Exported",
@@ -1713,6 +1749,8 @@ TR_TEXT = UITextCatalog(
     label_behavior_preset="Behavior Preset",
     label_bias="Bias",
     label_blocking="Bloklayici",
+    label_broker_backend="Broker Backend",
+    label_broker_state="Broker State",
     label_camofox="Camofox",
     label_cache_dir="Cache Dizini",
     label_category="Kategori",
@@ -1720,6 +1758,7 @@ TR_TEXT = UITextCatalog(
     label_check="Kontrol",
     label_closed_trades="Kapanan Trade'ler",
     label_command="Komut",
+    label_completed_note="Tamamlanan Not",
     label_continuous="Surekli",
     label_confidence="Guven",
     label_consensus="Consensus",
@@ -1731,6 +1770,8 @@ TR_TEXT = UITextCatalog(
     label_currency="Para Birimi",
     label_currencies="Para Birimleri",
     label_current="Gecerli",
+    label_current_note="Gecerli Not",
+    label_current_stage="Gecerli Asama",
     label_current_symbol="Gecerli Sembol",
     label_cycle="Dongu",
     label_cycle_control="Cycle Control",
@@ -1790,11 +1831,15 @@ TR_TEXT = UITextCatalog(
     label_key="Anahtar",
     label_kind="Tur",
     label_last_recorded_error="Son Kayitli Hata",
+    label_kill_switch="Kill Switch",
     label_last_recorded_message="Son Kayitli Mesaj",
     label_last_recorded_state="Son Kayitli Durum",
     label_largest_position="En Buyuk Pozisyon",
     label_kill_switch_active="Kill Switch Aktif",
     label_last_error="Son Hata",
+    label_last_completed_stage="Son Tamamlanan Asama",
+    label_last_outcome="Son Outcome",
+    label_last_outcome_type="Son Outcome Tipi",
     label_last_successful_update="Son Basarili Guncelleme",
     label_last_terminal_at="Son Terminal Zamani",
     label_last_terminal_state="Son Terminal Durumu",
@@ -1904,6 +1949,8 @@ TR_TEXT = UITextCatalog(
     label_score="Skor",
     label_slippage="Slippage",
     label_stage="Asama",
+    label_stage_message="Asama Mesaji",
+    label_stage_status="Asama Durumu",
     label_shared_bus="Shared Bus",
     label_shared_bus_roles="Shared Bus Rolleri",
     label_started="Basladi",
@@ -1955,6 +2002,7 @@ TR_TEXT = UITextCatalog(
     label_version="Versiyon",
     label_version_source="Versiyon Kaynagi",
     label_v1_path="V1 Yolu",
+    label_v1_paper_gate="V1 Paper Gate",
     label_warmup_bars="Warmup Bar'lari",
     label_watched_symbols="Izlenen Semboller",
     label_with_memory="Hafiza Ile",
@@ -1986,6 +2034,8 @@ TR_TEXT = UITextCatalog(
     message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
     message_no_historical_memories="Henuz historical memory yok.",
     message_no_orders_recorded="Henuz order kaydi yok.",
+    message_no_agent_activity_recorded="Henuz agent activity kaydi yok.",
+    message_no_live_agent_stage_events="Henuz live agent stage event yok.",
     message_memory_explorer_temporarily_unavailable=(
         "Memory explorer gecici olarak kullanilamiyor.\n\n{error}"
     ),
@@ -2190,6 +2240,9 @@ TR_TEXT = UITextCatalog(
     message_unique_artifact_dir_unavailable=(
         "{label} icin unique artifact dizini olusturulamadi"
     ),
+    message_waiting_for_last_outcome=(
+        "Tamamlanan symbol, exit veya service result bekleniyor."
+    ),
     message_v1_readiness_status_unavailable="V1 readiness durumu kullanilamiyor.",
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
@@ -2233,6 +2286,8 @@ TR_TEXT = UITextCatalog(
     title_chat="Chat / {persona}",
     title_choose_surface="Yuzey Sec",
     title_context_summary="Context Ozeti",
+    title_current_cycle="Gecerli Dongu",
+    title_decision_workflow="Decision Workflow",
     title_execution_summary="Execution Ozeti",
     title_export_blocked="Export Bloklandi",
     title_exported="Export Edildi",
@@ -2551,6 +2606,8 @@ LABEL_BACKGROUND_MODE = EN_TEXT.label_background_mode
 LABEL_BEHAVIOR_PRESET = EN_TEXT.label_behavior_preset
 LABEL_BIAS = EN_TEXT.label_bias
 LABEL_BLOCKING = EN_TEXT.label_blocking
+LABEL_BROKER_BACKEND = EN_TEXT.label_broker_backend
+LABEL_BROKER_STATE = EN_TEXT.label_broker_state
 LABEL_CAMOFOX = EN_TEXT.label_camofox
 LABEL_CACHE_DIR = EN_TEXT.label_cache_dir
 LABEL_CATEGORY = EN_TEXT.label_category
@@ -2558,6 +2615,7 @@ LABEL_CASH = EN_TEXT.label_cash
 LABEL_CHECK = EN_TEXT.label_check
 LABEL_CLOSED_TRADES = EN_TEXT.label_closed_trades
 LABEL_COMMAND = EN_TEXT.label_command
+LABEL_COMPLETED_NOTE = EN_TEXT.label_completed_note
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
 LABEL_CONFIDENCE = EN_TEXT.label_confidence
 LABEL_CONSENSUS = EN_TEXT.label_consensus
@@ -2569,6 +2627,8 @@ LABEL_CREATED = EN_TEXT.label_created
 LABEL_CURRENCY = EN_TEXT.label_currency
 LABEL_CURRENCIES = EN_TEXT.label_currencies
 LABEL_CURRENT = EN_TEXT.label_current
+LABEL_CURRENT_NOTE = EN_TEXT.label_current_note
+LABEL_CURRENT_STAGE = EN_TEXT.label_current_stage
 LABEL_CURRENT_SYMBOL = EN_TEXT.label_current_symbol
 LABEL_CYCLE = EN_TEXT.label_cycle
 LABEL_CYCLE_CONTROL = EN_TEXT.label_cycle_control
@@ -2628,11 +2688,15 @@ LABEL_INTERVENTION = EN_TEXT.label_intervention
 LABEL_KEY = EN_TEXT.label_key
 LABEL_KIND = EN_TEXT.label_kind
 LABEL_LAST_RECORDED_ERROR = EN_TEXT.label_last_recorded_error
+LABEL_KILL_SWITCH = EN_TEXT.label_kill_switch
 LABEL_LAST_RECORDED_MESSAGE = EN_TEXT.label_last_recorded_message
 LABEL_LAST_RECORDED_STATE = EN_TEXT.label_last_recorded_state
 LABEL_KILL_SWITCH_ACTIVE = EN_TEXT.label_kill_switch_active
 LABEL_LARGEST_POSITION = EN_TEXT.label_largest_position
 LABEL_LAST_ERROR = EN_TEXT.label_last_error
+LABEL_LAST_COMPLETED_STAGE = EN_TEXT.label_last_completed_stage
+LABEL_LAST_OUTCOME = EN_TEXT.label_last_outcome
+LABEL_LAST_OUTCOME_TYPE = EN_TEXT.label_last_outcome_type
 LABEL_LAST_SUCCESSFUL_UPDATE = EN_TEXT.label_last_successful_update
 LABEL_LAST_TERMINAL_AT = EN_TEXT.label_last_terminal_at
 LABEL_LAST_TERMINAL_STATE = EN_TEXT.label_last_terminal_state
@@ -2742,6 +2806,8 @@ LABEL_SNAPSHOT_COUNT = EN_TEXT.label_snapshot_count
 LABEL_SCORE = EN_TEXT.label_score
 LABEL_SLIPPAGE = EN_TEXT.label_slippage
 LABEL_STAGE = EN_TEXT.label_stage
+LABEL_STAGE_MESSAGE = EN_TEXT.label_stage_message
+LABEL_STAGE_STATUS = EN_TEXT.label_stage_status
 LABEL_SHARED_BUS = EN_TEXT.label_shared_bus
 LABEL_SHARED_BUS_ROLES = EN_TEXT.label_shared_bus_roles
 LABEL_STARTED = EN_TEXT.label_started
@@ -2793,6 +2859,7 @@ LABEL_VENUE = EN_TEXT.label_venue
 LABEL_VERSION = EN_TEXT.label_version
 LABEL_VERSION_SOURCE = EN_TEXT.label_version_source
 LABEL_V1_PATH = EN_TEXT.label_v1_path
+LABEL_V1_PAPER_GATE = EN_TEXT.label_v1_paper_gate
 LABEL_WARMUP_BARS = EN_TEXT.label_warmup_bars
 LABEL_WATCHED_SYMBOLS = EN_TEXT.label_watched_symbols
 LABEL_WITH_MEMORY = EN_TEXT.label_with_memory
@@ -2823,6 +2890,8 @@ MESSAGE_NO_STDOUT_LOG_LINES = EN_TEXT.message_no_stdout_log_lines
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
 MESSAGE_NO_ORDERS_RECORDED = EN_TEXT.message_no_orders_recorded
+MESSAGE_NO_AGENT_ACTIVITY_RECORDED = EN_TEXT.message_no_agent_activity_recorded
+MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS = EN_TEXT.message_no_live_agent_stage_events
 MESSAGE_MEMORY_EXPLORER_TEMPORARILY_UNAVAILABLE = (
     EN_TEXT.message_memory_explorer_temporarily_unavailable
 )
@@ -2955,6 +3024,7 @@ MESSAGE_TUI_MISSING = EN_TEXT.message_tui_missing
 MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE = (
     EN_TEXT.message_unique_artifact_dir_unavailable
 )
+MESSAGE_WAITING_FOR_LAST_OUTCOME = EN_TEXT.message_waiting_for_last_outcome
 MESSAGE_V1_READINESS_STATUS_UNAVAILABLE = (
     EN_TEXT.message_v1_readiness_status_unavailable
 )
@@ -2987,6 +3057,8 @@ TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
 TITLE_CHAT = EN_TEXT.title_chat
 TITLE_CHOOSE_SURFACE = EN_TEXT.title_choose_surface
 TITLE_CONTEXT_SUMMARY = EN_TEXT.title_context_summary
+TITLE_CURRENT_CYCLE = EN_TEXT.title_current_cycle
+TITLE_DECISION_WORKFLOW = EN_TEXT.title_decision_workflow
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_EXPORT_BLOCKED = EN_TEXT.title_export_blocked
 TITLE_EXPORTED = EN_TEXT.title_exported

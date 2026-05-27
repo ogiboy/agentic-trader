@@ -281,7 +281,7 @@ def test_terminal_tui_tables_and_menu_actions(tmp_path: Path) -> None:
     console.print(main_menu_table(actions))
     output = console.export_text()
 
-    assert "no runtime state recorded yet" in output
+    assert "No runtime state recorded yet." in output
     assert "Runtime active" not in output
     assert "System Status" in output
     assert "Base URL" in output
