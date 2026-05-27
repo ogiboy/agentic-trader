@@ -225,7 +225,13 @@ from agentic_trader.ui_text import (
     HELP_RUN_ID,
     HELP_RUNTIME_MODE_PROVIDER_CHECK,
     HELP_RUNTIME_MODE_TARGET,
+    HELP_NEWS_CLASSIFY_SOURCE,
+    HELP_NEWS_COMPANY_NAME,
+    HELP_NEWS_SECTOR,
     HELP_SETUP_DRY_RUN,
+    HELP_STRATEGY_CATALOG_PRESET_FILTER,
+    HELP_STRATEGY_CATALOG_STATUS_FILTER,
+    HELP_STRATEGY_PROFILE_NAME,
     HELP_SYMBOL,
     HELP_TOOL_OWNERSHIP_APP,
     HELP_TRADE_CONFIDENCE,
@@ -304,6 +310,7 @@ from agentic_trader.ui_text import (
     LABEL_EQUITY,
     LABEL_ENABLED,
     LABEL_ENVIRONMENT_EXISTS,
+    LABEL_EVIDENCE,
     LABEL_EXIT,
     LABEL_EXIT_CODE,
     LABEL_EXIT_PX,
@@ -316,6 +323,7 @@ from agentic_trader.ui_text import (
     LABEL_FILLS_TODAY,
     LABEL_FINAL_RATIONALE,
     LABEL_FINAL_SIDE,
+    LABEL_FAMILY,
     LABEL_FLOW_DIR,
     LABEL_FRESHNESS,
     LABEL_GENERATED,
@@ -325,7 +333,9 @@ from agentic_trader.ui_text import (
     LABEL_HEALTHCHECK,
     LABEL_ID,
     LABEL_INTERVAL,
+    LABEL_INTENT,
     LABEL_KEY,
+    LABEL_KIND,
     LABEL_KILL_SWITCH_ACTIVE,
     LABEL_LARGEST_POSITION,
     LABEL_LAST_ERROR,
@@ -354,6 +364,7 @@ from agentic_trader.ui_text import (
     LABEL_MARKET_PROVIDER,
     LABEL_MARKET_ROLE,
     LABEL_MARKET_VALUE,
+    LABEL_MATERIALITY,
     LABEL_MARKS_RECORDED,
     LABEL_MAX_CYCLES,
     LABEL_MAX_DRAWDOWN,
@@ -388,9 +399,11 @@ from agentic_trader.ui_text import (
     LABEL_POLL_SECONDS,
     LABEL_PREFERENCE_UPDATE,
     LABEL_PRESET,
+    LABEL_PROFILE,
     LABEL_PROVIDER,
     LABEL_PYTHON_VERSION,
     LABEL_QUANTITY,
+    LABEL_QUERY,
     LABEL_PROPOSAL,
     LABEL_PURPOSE,
     LABEL_RATIONALE,
@@ -399,6 +412,7 @@ from agentic_trader.ui_text import (
     LABEL_REF,
     LABEL_REJECTION_EVIDENCE,
     LABEL_REQUIRES_CONFIRMATION,
+    LABEL_REASONS,
     LABEL_RESEARCH_CYCLE_CONTROL,
     LABEL_RESTART_COUNT,
     LABEL_RESOLUTION_NOTES,
@@ -407,6 +421,7 @@ from agentic_trader.ui_text import (
     LABEL_RUNTIME,
     LABEL_RUNTIME_DAEMON,
     LABEL_RUNTIME_DIR,
+    LABEL_RISK,
     LABEL_SCORE,
     LABEL_SERVICE,
     LABEL_SETUP,
@@ -453,6 +468,8 @@ from agentic_trader.ui_text import (
     LABEL_UPDATED_AT,
     LABEL_UV_AVAILABLE,
     LABEL_V1_SOURCE,
+    LABEL_V1_PATH,
+    LABEL_VALIDATION,
     LABEL_VALUE,
     LABEL_VERSION,
     LABEL_VERSION_SOURCE,
@@ -474,6 +491,9 @@ from agentic_trader.ui_text import (
     MESSAGE_FALLBACK_USED_IN,
     MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
     MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY,
+    MESSAGE_IDEA_PRESETS_EXECUTION_POLICY,
+    MESSAGE_IDEA_SCORE_EXECUTION_POLICY,
+    MESSAGE_IDEA_SCORE_UNAVAILABLE,
     MESSAGE_LARGEST_POSITION_ABOVE_EQUITY,
     MESSAGE_LAUNCH_PLAN,
     MESSAGE_LAUNCH_SYMBOL_REQUIRED,
@@ -505,6 +525,7 @@ from agentic_trader.ui_text import (
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
     MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
+    MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
     MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADE_PROPOSAL_APPROVED,
     MESSAGE_TRADE_PROPOSAL_CREATED,
@@ -553,6 +574,8 @@ from agentic_trader.ui_text import (
     TITLE_ENVIRONMENT_CHECK,
     TITLE_EXECUTION_SUMMARY,
     TITLE_EXIT,
+    TITLE_IDEA_SCANNER_PRESETS,
+    TITLE_IDEA_SCORE,
     TITLE_FINANCE_LEDGER_CATEGORIES,
     TITLE_FINANCE_OPERATIONS,
     TITLE_FINANCE_OPERATIONS_CHECKS,
@@ -606,6 +629,10 @@ from agentic_trader.ui_text import (
     TITLE_SERVICE_SUPERVISOR,
     TITLE_SETUP_GUIDANCE,
     TITLE_SETUP_STATUS,
+    TITLE_STRATEGY_PROFILE,
+    TITLE_V1_STRATEGY_CATALOG,
+    TITLE_NEWS_INTELLIGENCE,
+    TITLE_NEWS_QUERY_PLAN,
     TITLE_TOOL_OWNERSHIP,
     TITLE_TOOL_READINESS,
     TITLE_TRACE,
@@ -6109,14 +6136,14 @@ def idea_presets(
             }
             for name, description in PRESET_DESCRIPTIONS.items()
         ],
-        "execution_policy": "scanner ideas must become proposals and require manual approval",
+        "execution_policy": MESSAGE_IDEA_PRESETS_EXECUTION_POLICY,
     }
     if json_output:
         _emit_json(payload)
         return
-    table = Table(title="Idea Scanner Presets")
-    table.add_column("Preset")
-    table.add_column("Intent")
+    table = Table(title=TITLE_IDEA_SCANNER_PRESETS)
+    table.add_column(LABEL_PRESET)
+    table.add_column(LABEL_INTENT)
     for item in cast(list[dict[str, str]], payload["presets"]):
         table.add_row(item["name"], item["description"])
     console.print(table)
@@ -6156,13 +6183,16 @@ def _render_idea_score(
     ranked = rank_candidates([candidate], preset=parsed_preset, limit=1)
     if not ranked:
         raise typer.BadParameter(
-            f"No score could be produced for {candidate.symbol!r} with preset {parsed_preset!r}."
+            MESSAGE_IDEA_SCORE_UNAVAILABLE.format(
+                symbol=candidate.symbol,
+                preset=parsed_preset,
+            )
         )
     result = ranked[0]
     payload = {
         "score": result.__dict__,
         "strategy": score_strategy_context(result),
-        "execution_policy": "score output is research only; use proposal-create for manual review",
+        "execution_policy": MESSAGE_IDEA_SCORE_EXECUTION_POLICY,
     }
     if json_output:
         _emit_json(payload)
@@ -6170,9 +6200,9 @@ def _render_idea_score(
     console.print(
         Panel(
             f"{result.symbol} {result.signal.upper()} score={result.score:.2f}\n\n"
-            f"Reasons: {', '.join(result.reasons) or '-'}\n"
-            f"Warnings: {', '.join(result.warnings) or '-'}",
-            title=f"Idea Score: {result.preset}",
+            f"{LABEL_REASONS}: {', '.join(result.reasons) or '-'}\n"
+            f"{LABEL_WARNINGS}: {', '.join(result.warnings) or '-'}",
+            title=TITLE_IDEA_SCORE.format(preset=result.preset),
             border_style="cyan",
         )
     )
@@ -6183,12 +6213,12 @@ def strategy_catalog(
     status: str | None = typer.Option(
         None,
         "--status",
-        help="Filter by implemented, research-candidate, or v2-deferred.",
+        help=HELP_STRATEGY_CATALOG_STATUS_FILTER,
     ),
     preset: str | None = typer.Option(
         None,
         "--preset",
-        help="Filter by an idea-scanner preset such as momentum or breakout.",
+        help=HELP_STRATEGY_CATALOG_PRESET_FILTER,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -6199,12 +6229,12 @@ def strategy_catalog(
     if json_output:
         _emit_json(payload)
         return
-    table = Table(title="V1 Strategy Catalog")
-    table.add_column("Profile")
-    table.add_column("Family")
-    table.add_column("Status")
-    table.add_column("V1 Path")
-    table.add_column("Summary")
+    table = Table(title=TITLE_V1_STRATEGY_CATALOG)
+    table.add_column(LABEL_PROFILE)
+    table.add_column(LABEL_FAMILY)
+    table.add_column(LABEL_STATUS)
+    table.add_column(LABEL_V1_PATH)
+    table.add_column(LABEL_SUMMARY)
     for item in cast(list[dict[str, object]], payload["profiles"]):
         table.add_row(
             str(item.get("name", "-")),
@@ -6218,7 +6248,7 @@ def strategy_catalog(
 
 @app.command("strategy-profile")
 def strategy_profile(
-    name: str = typer.Argument(..., help="Strategy profile name."),
+    name: str = typer.Argument(..., help=HELP_STRATEGY_PROFILE_NAME),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show one strategy profile with evidence, risk, and validation gates."""
@@ -6228,7 +6258,7 @@ def strategy_profile(
         raise typer.BadParameter(str(exc)) from exc
     payload = {
         "profile": strategy_profile_payload(profile),
-        "execution_policy": "profile is read-only research metadata; it cannot execute trades",
+        "execution_policy": MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
     }
     if json_output:
         _emit_json(payload)
@@ -6237,12 +6267,16 @@ def strategy_profile(
     assert isinstance(profile_payload, dict)
     body = (
         f"{profile_payload['summary']}\n\n"
-        f"Evidence: {', '.join(cast(list[str], profile_payload['evidence_requirements'])) or '-'}\n"
-        f"Risk: {', '.join(cast(list[str], profile_payload['risk_controls'])) or '-'}\n"
-        f"Validation: {', '.join(cast(list[str], profile_payload['validation_checks'])) or '-'}"
+        f"{LABEL_EVIDENCE}: {', '.join(cast(list[str], profile_payload['evidence_requirements'])) or '-'}\n"
+        f"{LABEL_RISK}: {', '.join(cast(list[str], profile_payload['risk_controls'])) or '-'}\n"
+        f"{LABEL_VALIDATION}: {', '.join(cast(list[str], profile_payload['validation_checks'])) or '-'}"
     )
     console.print(
-        Panel(body, title=f"Strategy Profile: {profile.name}", border_style="cyan")
+        Panel(
+            body,
+            title=TITLE_STRATEGY_PROFILE.format(name=profile.name),
+            border_style="cyan",
+        )
     )
 
 
@@ -6250,15 +6284,15 @@ def strategy_profile(
 def news_intelligence(
     symbol: str = typer.Option(..., help=HELP_SYMBOL),
     company_name: str | None = typer.Option(
-        None, "--company-name", help="Optional company name for ticker disambiguation."
+        None, "--company-name", help=HELP_NEWS_COMPANY_NAME
     ),
     sector: str | None = typer.Option(
-        None, "--sector", help="Optional sector for sector-level news checks."
+        None, "--sector", help=HELP_NEWS_SECTOR
     ),
     classify_source: str | None = typer.Option(
         None,
         "--classify-source",
-        help="Optionally classify a source domain or URL into the source tier policy.",
+        help=HELP_NEWS_CLASSIFY_SOURCE,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -6289,14 +6323,14 @@ def news_intelligence(
     console.print(
         Panel(
             str(payload["prompt_policy"]),
-            title=f"News Intelligence: {payload['symbol']}",
+            title=TITLE_NEWS_INTELLIGENCE.format(symbol=payload["symbol"]),
             border_style="cyan",
         )
     )
-    table = Table(title="News Query Plan")
-    table.add_column("Kind")
-    table.add_column("Query")
-    table.add_column("Materiality")
+    table = Table(title=TITLE_NEWS_QUERY_PLAN)
+    table.add_column(LABEL_KIND)
+    table.add_column(LABEL_QUERY)
+    table.add_column(LABEL_MATERIALITY)
     for query in cast(list[dict[str, str]], payload["query_templates"]):
         table.add_row(query["kind"], query["query"], query["materiality_hint"])
     console.print(table)

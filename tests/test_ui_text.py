@@ -125,6 +125,13 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_trade_proposal_reconciled == (
         ui_text.MESSAGE_TRADE_PROPOSAL_RECONCILED
     )
+    assert catalog.title_idea_scanner_presets == ui_text.TITLE_IDEA_SCANNER_PRESETS
+    assert catalog.title_v1_strategy_catalog == ui_text.TITLE_V1_STRATEGY_CATALOG
+    assert catalog.title_news_query_plan == ui_text.TITLE_NEWS_QUERY_PLAN
+    assert catalog.label_query == ui_text.LABEL_QUERY
+    assert catalog.message_idea_score_execution_policy == (
+        ui_text.MESSAGE_IDEA_SCORE_EXECUTION_POLICY
+    )
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -206,6 +213,12 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
         "Insan tarafindan okunabilir rejection nedeni."
     )
     assert catalog.message_trade_proposal_rejected.endswith("Neden: {reason}")
+    assert catalog.title_idea_scanner_presets == "Idea Scanner Preset'leri"
+    assert catalog.title_news_query_plan == "News Query Plani"
+    assert catalog.label_query == "Sorgu"
+    assert catalog.help_news_sector == (
+        "Sector-level news kontrolleri icin istege bagli sektor."
+    )
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 

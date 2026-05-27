@@ -75,7 +75,13 @@ class UITextCatalog:
     help_run_id: str
     help_runtime_mode_provider_check: str
     help_runtime_mode_target: str
+    help_news_classify_source: str
+    help_news_company_name: str
+    help_news_sector: str
     help_setup_dry_run: str
+    help_strategy_catalog_preset_filter: str
+    help_strategy_catalog_status_filter: str
+    help_strategy_profile_name: str
     help_symbol: str
     help_tool_ownership_app: str
     help_trade_confidence: str
@@ -153,6 +159,7 @@ class UITextCatalog:
     label_equity: str
     label_enabled: str
     label_environment_exists: str
+    label_evidence: str
     label_exposure: str
     label_exit: str
     label_exit_code: str
@@ -167,6 +174,7 @@ class UITextCatalog:
     label_final_side: str
     label_freshness: str
     label_flow_dir: str
+    label_family: str
     label_generated: str
     label_gross_exposure: str
     label_heartbeat: str
@@ -174,8 +182,10 @@ class UITextCatalog:
     label_healthcheck: str
     label_id: str
     label_interval: str
+    label_intent: str
     label_environment: str
     label_key: str
+    label_kind: str
     label_last_recorded_error: str
     label_last_recorded_message: str
     label_last_recorded_state: str
@@ -201,6 +211,7 @@ class UITextCatalog:
     label_market_price: str
     label_market_provider: str
     label_market_role: str
+    label_materiality: str
     label_mark_source: str
     label_mark_status: str
     label_marked_at: str
@@ -238,15 +249,18 @@ class UITextCatalog:
     label_poll_seconds: str
     label_preset: str
     label_preference_update: str
+    label_profile: str
     label_provider: str
     label_python_version: str
     label_quantity: str
+    label_query: str
     label_proposal: str
     label_rationale: str
     label_realized_pnl: str
     label_ref: str
     label_rejection_evidence: str
     label_reason: str
+    label_reasons: str
     label_resolution_notes: str
     label_requires_confirmation: str
     label_research_cycle_control: str
@@ -255,6 +269,7 @@ class UITextCatalog:
     label_runtime: str
     label_runtime_daemon: str
     label_runtime_dir: str
+    label_risk: str
     label_role: str
     label_service: str
     label_side: str
@@ -302,9 +317,11 @@ class UITextCatalog:
     label_updated_at: str
     label_unrealized_pnl: str
     label_uv_available: str
+    label_validation: str
     label_value: str
     label_version: str
     label_version_source: str
+    label_v1_path: str
     label_warmup_bars: str
     label_with_memory: str
     label_warnings: str
@@ -331,6 +348,9 @@ class UITextCatalog:
     message_no_trade_proposals: str
     message_finance_operations_unavailable: str
     message_gross_exposure_above_equity: str
+    message_idea_presets_execution_policy: str
+    message_idea_score_execution_policy: str
+    message_idea_score_unavailable: str
     message_largest_position_above_equity: str
     message_background_requires_continuous: str
     message_launch_plan: str
@@ -358,6 +378,7 @@ class UITextCatalog:
     message_runtime_mode_transition_allowed: str
     message_runtime_mode_transition_blocked: str
     message_setup_bootstrap_guidance: str
+    message_strategy_profile_execution_policy: str
     message_trading_runtime_blocked: str
     message_trading_runtime_ready: str
     message_training_diagnostic_fallback: str
@@ -411,6 +432,8 @@ class UITextCatalog:
     title_desk_accounting_context: str
     title_environment_check: str
     title_exit: str
+    title_idea_scanner_presets: str
+    title_idea_score: str
     title_finance_ledger_categories: str
     title_finance_operations: str
     title_finance_operations_checks: str
@@ -461,6 +484,10 @@ class UITextCatalog:
     title_research_snapshot_persisted: str
     title_setup_status: str
     title_setup_guidance: str
+    title_strategy_profile: str
+    title_v1_strategy_catalog: str
+    title_news_intelligence: str
+    title_news_query_plan: str
     title_trace: str
     title_trade_proposal_approved: str
     title_trade_proposal_created: str
@@ -542,7 +569,13 @@ EN_TEXT = UITextCatalog(
     help_run_id="Run id to inspect. Defaults to the latest recorded run.",
     help_runtime_mode_provider_check="Check local provider/model readiness for Operation mode.",
     help_runtime_mode_target="Target runtime mode: training or operation.",
+    help_news_classify_source="Optionally classify a source domain or URL into the source tier policy.",
+    help_news_company_name="Optional company name for ticker disambiguation.",
+    help_news_sector="Optional sector for sector-level news checks.",
     help_setup_dry_run="Report setup status. Use make bootstrap for interactive installs.",
+    help_strategy_catalog_preset_filter="Filter by an idea-scanner preset such as momentum or breakout.",
+    help_strategy_catalog_status_filter="Filter by implemented, research-candidate, or v2-deferred.",
+    help_strategy_profile_name="Strategy profile name.",
     help_symbol="Ticker symbol, for example AAPL or BTC-USD",
     help_tool_ownership_app="Inspect or record optional helper ownership decisions.",
     help_trade_confidence="Proposal confidence from 0.0 to 1.0.",
@@ -620,6 +653,7 @@ EN_TEXT = UITextCatalog(
     label_equity="Equity",
     label_enabled="Enabled",
     label_environment_exists="Environment Exists",
+    label_evidence="Evidence",
     label_exposure="Exposure",
     label_exit="Exit",
     label_exit_code="Exit Code",
@@ -634,6 +668,7 @@ EN_TEXT = UITextCatalog(
     label_final_side="Final Side",
     label_freshness="Freshness",
     label_flow_dir="Flow Dir",
+    label_family="Family",
     label_generated="Generated",
     label_gross_exposure="Gross Exposure",
     label_heartbeat="Heartbeat",
@@ -641,8 +676,10 @@ EN_TEXT = UITextCatalog(
     label_healthcheck="Healthcheck",
     label_id="ID",
     label_interval="Interval",
+    label_intent="Intent",
     label_environment="Environment",
     label_key="Key",
+    label_kind="Kind",
     label_last_recorded_error="Last Recorded Error",
     label_last_recorded_message="Last Recorded Message",
     label_last_recorded_state="Last Recorded State",
@@ -668,6 +705,7 @@ EN_TEXT = UITextCatalog(
     label_market_price="Market Price",
     label_market_provider="Market Provider",
     label_market_role="Market Role",
+    label_materiality="Materiality",
     label_mark_source="Mark Source",
     label_mark_status="Mark Status",
     label_marked_at="Marked At",
@@ -705,15 +743,18 @@ EN_TEXT = UITextCatalog(
     label_poll_seconds="Poll Seconds",
     label_preset="Preset",
     label_preference_update="Preference Update",
+    label_profile="Profile",
     label_provider="Provider",
     label_python_version="Python Version",
     label_quantity="Quantity",
+    label_query="Query",
     label_proposal="Proposal",
     label_rationale="Rationale",
     label_realized_pnl="Realized PnL",
     label_ref="Ref",
     label_rejection_evidence="Rejection Evidence",
     label_reason="Reason",
+    label_reasons="Reasons",
     label_resolution_notes="Resolution Notes",
     label_requires_confirmation="Requires Confirmation",
     label_research_cycle_control="Research cycle control",
@@ -722,6 +763,7 @@ EN_TEXT = UITextCatalog(
     label_runtime="Runtime",
     label_runtime_daemon="Runtime Daemon",
     label_runtime_dir="Runtime Dir",
+    label_risk="Risk",
     label_role="Role",
     label_service="Service",
     label_side="Side",
@@ -769,9 +811,11 @@ EN_TEXT = UITextCatalog(
     label_updated_at="Updated At",
     label_unrealized_pnl="Unrealized PnL",
     label_uv_available="uv Available",
+    label_validation="Validation",
     label_value="Value",
     label_version="Version",
     label_version_source="Version Source",
+    label_v1_path="V1 Path",
     label_warmup_bars="Warmup Bars",
     label_watched_symbols="Watched Symbols",
     label_with_memory="With Memory",
@@ -800,6 +844,15 @@ EN_TEXT = UITextCatalog(
     message_no_trade_proposals="No trade proposals recorded yet.",
     message_finance_operations_unavailable="Finance operations status unavailable.",
     message_gross_exposure_above_equity="Gross exposure is above {limit} of equity.",
+    message_idea_presets_execution_policy=(
+        "scanner ideas must become proposals and require manual approval"
+    ),
+    message_idea_score_execution_policy=(
+        "score output is research only; use proposal-create for manual review"
+    ),
+    message_idea_score_unavailable=(
+        "No score could be produced for {symbol!r} with preset {preset!r}."
+    ),
     message_largest_position_above_equity="Largest position is above {limit} of equity.",
     message_background_requires_continuous="Background mode requires --continuous.",
     message_launch_plan=(
@@ -869,6 +922,9 @@ EN_TEXT = UITextCatalog(
         "Runtime mode transition {current_mode} -> {target_mode} is blocked."
     ),
     message_setup_bootstrap_guidance="Run `make bootstrap` for the interactive system-tool installer.",
+    message_strategy_profile_execution_policy=(
+        "profile is read-only research metadata; it cannot execute trades"
+    ),
     message_trading_runtime_blocked=(
         "Trading runtime should not start until Ollama and the configured model are available."
     ),
@@ -927,6 +983,8 @@ EN_TEXT = UITextCatalog(
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
     title_exit="Exit",
+    title_idea_scanner_presets="Idea Scanner Presets",
+    title_idea_score="Idea Score: {preset}",
     title_finance_ledger_categories="Finance Ledger Categories",
     title_finance_operations="Finance Operations",
     title_finance_operations_checks="Finance Operations Checks",
@@ -977,6 +1035,10 @@ EN_TEXT = UITextCatalog(
     title_research_snapshot_persisted="Research Snapshot Persisted",
     title_setup_status="Setup Status",
     title_setup_guidance="Setup Guidance",
+    title_strategy_profile="Strategy Profile: {name}",
+    title_v1_strategy_catalog="V1 Strategy Catalog",
+    title_news_intelligence="News Intelligence: {symbol}",
+    title_news_query_plan="News Query Plan",
     title_trace="Trace",
     title_trade_proposal_approved="Trade Proposal Approved",
     title_trade_proposal_created="Trade Proposal Created",
@@ -1061,7 +1123,13 @@ TR_TEXT = UITextCatalog(
     help_run_id="Incelenecek run id. Varsayilan son kayitli run.",
     help_runtime_mode_provider_check="Operation modu icin yerel provider/model hazirligini kontrol et.",
     help_runtime_mode_target="Hedef runtime modu: training veya operation.",
+    help_news_classify_source="Source domain veya URL'i source tier policy icine siniflandir.",
+    help_news_company_name="Ticker disambiguation icin istege bagli sirket adi.",
+    help_news_sector="Sector-level news kontrolleri icin istege bagli sektor.",
     help_setup_dry_run="Setup durumunu raporla. Interaktif kurulumlar icin make bootstrap kullan.",
+    help_strategy_catalog_preset_filter="momentum veya breakout gibi idea-scanner preset'i ile filtrele.",
+    help_strategy_catalog_status_filter="implemented, research-candidate veya v2-deferred ile filtrele.",
+    help_strategy_profile_name="Strategy profile adi.",
     help_symbol="Ticker sembolu, ornegin AAPL veya BTC-USD",
     help_tool_ownership_app="Istege bagli yardimci arac sahipligi kararlarini incele veya kaydet.",
     help_trade_confidence="Proposal guveni: 0.0 ile 1.0 arasi.",
@@ -1139,6 +1207,7 @@ TR_TEXT = UITextCatalog(
     label_equity="Equity",
     label_enabled="Etkin",
     label_environment_exists="Environment Var",
+    label_evidence="Evidence",
     label_exposure="Exposure",
     label_exit="Cikis",
     label_exit_code="Exit Code",
@@ -1153,6 +1222,7 @@ TR_TEXT = UITextCatalog(
     label_final_side="Final Yon",
     label_freshness="Freshness",
     label_flow_dir="Flow Dir",
+    label_family="Family",
     label_generated="Uretildi",
     label_gross_exposure="Brut Exposure",
     label_heartbeat="Heartbeat",
@@ -1160,8 +1230,10 @@ TR_TEXT = UITextCatalog(
     label_healthcheck="Healthcheck",
     label_id="ID",
     label_interval="Aralik",
+    label_intent="Niyet",
     label_environment="Ortam",
     label_key="Anahtar",
+    label_kind="Tur",
     label_last_recorded_error="Son Kayitli Hata",
     label_last_recorded_message="Son Kayitli Mesaj",
     label_last_recorded_state="Son Kayitli Durum",
@@ -1187,6 +1259,7 @@ TR_TEXT = UITextCatalog(
     label_market_price="Piyasa Fiyati",
     label_market_provider="Market Provider",
     label_market_role="Market Rolu",
+    label_materiality="Materiality",
     label_mark_source="Mark Kaynagi",
     label_mark_status="Mark Durumu",
     label_marked_at="Mark Zamani",
@@ -1224,15 +1297,18 @@ TR_TEXT = UITextCatalog(
     label_poll_seconds="Poll Saniyesi",
     label_preset="Preset",
     label_preference_update="Preference Guncellemesi",
+    label_profile="Profile",
     label_provider="Provider",
     label_python_version="Python Version",
     label_quantity="Miktar",
+    label_query="Sorgu",
     label_proposal="Proposal",
     label_rationale="Gerekce",
     label_realized_pnl="Gerceklesen PnL",
     label_ref="Ref",
     label_rejection_evidence="Red Kaniti",
     label_reason="Neden",
+    label_reasons="Nedenler",
     label_resolution_notes="Cozum Notlari",
     label_requires_confirmation="Onay Gerektirir",
     label_research_cycle_control="Research cycle control",
@@ -1241,6 +1317,7 @@ TR_TEXT = UITextCatalog(
     label_runtime="Runtime",
     label_runtime_daemon="Runtime Daemon",
     label_runtime_dir="Runtime Dir",
+    label_risk="Risk",
     label_role="Rol",
     label_service="Servis",
     label_side="Yon",
@@ -1288,9 +1365,11 @@ TR_TEXT = UITextCatalog(
     label_updated_at="Guncelleme Zamani",
     label_unrealized_pnl="Gerceklesmemis PnL",
     label_uv_available="uv Kullanilabilir",
+    label_validation="Validation",
     label_value="Deger",
     label_version="Versiyon",
     label_version_source="Versiyon Kaynagi",
+    label_v1_path="V1 Yolu",
     label_warmup_bars="Warmup Bar'lari",
     label_watched_symbols="Izlenen Semboller",
     label_with_memory="Hafiza Ile",
@@ -1319,6 +1398,15 @@ TR_TEXT = UITextCatalog(
     message_no_trade_proposals="Henuz trade proposal kaydi yok.",
     message_finance_operations_unavailable="Finance operations durumu kullanilamiyor.",
     message_gross_exposure_above_equity="Gross exposure equity'nin {limit} uzerinde.",
+    message_idea_presets_execution_policy=(
+        "scanner idea'lari proposal olmali ve manuel onay gerektirir"
+    ),
+    message_idea_score_execution_policy=(
+        "score ciktisi yalnizca research icindir; manual review icin proposal-create kullan"
+    ),
+    message_idea_score_unavailable=(
+        "{symbol!r} icin {preset!r} preset'iyle score uretilemedi."
+    ),
     message_largest_position_above_equity="En buyuk pozisyon equity'nin {limit} uzerinde.",
     message_background_requires_continuous="Background modu --continuous gerektirir.",
     message_launch_plan=(
@@ -1388,6 +1476,9 @@ TR_TEXT = UITextCatalog(
         "Runtime mode gecisi {current_mode} -> {target_mode} bloklandi."
     ),
     message_setup_bootstrap_guidance="Interaktif system-tool installer icin `make bootstrap` calistirin.",
+    message_strategy_profile_execution_policy=(
+        "profile read-only research metadata'dir; trade execute edemez"
+    ),
     message_trading_runtime_blocked=(
         "Ollama ve configured model kullanilabilir olana kadar trading runtime baslamamali."
     ),
@@ -1446,6 +1537,8 @@ TR_TEXT = UITextCatalog(
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
     title_exit="Cikis",
+    title_idea_scanner_presets="Idea Scanner Preset'leri",
+    title_idea_score="Idea Score: {preset}",
     title_finance_ledger_categories="Finance Ledger Kategorileri",
     title_finance_operations="Finance Operations",
     title_finance_operations_checks="Finance Operations Kontrolleri",
@@ -1496,6 +1589,10 @@ TR_TEXT = UITextCatalog(
     title_research_snapshot_persisted="Research Snapshot Kaydedildi",
     title_setup_status="Setup Durumu",
     title_setup_guidance="Setup Rehberi",
+    title_strategy_profile="Strategy Profile: {name}",
+    title_v1_strategy_catalog="V1 Strategy Catalog",
+    title_news_intelligence="News Intelligence: {symbol}",
+    title_news_query_plan="News Query Plani",
     title_trace="Trace",
     title_trade_proposal_approved="Trade Proposal Onaylandi",
     title_trade_proposal_created="Trade Proposal Olusturuldu",
@@ -1584,7 +1681,13 @@ HELP_CAMOFOX_SERVICE_HOST = EN_TEXT.help_camofox_service_host
 HELP_CAMOFOX_SERVICE_PORT = EN_TEXT.help_camofox_service_port
 HELP_RUNTIME_MODE_PROVIDER_CHECK = EN_TEXT.help_runtime_mode_provider_check
 HELP_RUNTIME_MODE_TARGET = EN_TEXT.help_runtime_mode_target
+HELP_NEWS_CLASSIFY_SOURCE = EN_TEXT.help_news_classify_source
+HELP_NEWS_COMPANY_NAME = EN_TEXT.help_news_company_name
+HELP_NEWS_SECTOR = EN_TEXT.help_news_sector
 HELP_SETUP_DRY_RUN = EN_TEXT.help_setup_dry_run
+HELP_STRATEGY_CATALOG_PRESET_FILTER = EN_TEXT.help_strategy_catalog_preset_filter
+HELP_STRATEGY_CATALOG_STATUS_FILTER = EN_TEXT.help_strategy_catalog_status_filter
+HELP_STRATEGY_PROFILE_NAME = EN_TEXT.help_strategy_profile_name
 HELP_CLI_APP = EN_TEXT.cli_app_help
 HELP_MODEL_SERVICE_APP = EN_TEXT.help_model_service_app
 HELP_WEBGUI_SERVICE_APP = EN_TEXT.help_webgui_service_app
@@ -1682,6 +1785,7 @@ LABEL_ENTRY_PX = EN_TEXT.label_entry_px
 LABEL_EQUITY = EN_TEXT.label_equity
 LABEL_ENABLED = EN_TEXT.label_enabled
 LABEL_ENVIRONMENT_EXISTS = EN_TEXT.label_environment_exists
+LABEL_EVIDENCE = EN_TEXT.label_evidence
 LABEL_EXPOSURE = EN_TEXT.label_exposure
 LABEL_EXIT = EN_TEXT.label_exit
 LABEL_EXIT_CODE = EN_TEXT.label_exit_code
@@ -1696,6 +1800,7 @@ LABEL_FINAL_RATIONALE = EN_TEXT.label_final_rationale
 LABEL_FINAL_SIDE = EN_TEXT.label_final_side
 LABEL_FRESHNESS = EN_TEXT.label_freshness
 LABEL_FLOW_DIR = EN_TEXT.label_flow_dir
+LABEL_FAMILY = EN_TEXT.label_family
 LABEL_GENERATED = EN_TEXT.label_generated
 LABEL_GROSS_EXPOSURE = EN_TEXT.label_gross_exposure
 LABEL_HEARTBEAT = EN_TEXT.label_heartbeat
@@ -1703,8 +1808,10 @@ LABEL_HEARTBEAT_AGE = EN_TEXT.label_heartbeat_age
 LABEL_HEALTHCHECK = EN_TEXT.label_healthcheck
 LABEL_ID = EN_TEXT.label_id
 LABEL_INTERVAL = EN_TEXT.label_interval
+LABEL_INTENT = EN_TEXT.label_intent
 LABEL_ENVIRONMENT = EN_TEXT.label_environment
 LABEL_KEY = EN_TEXT.label_key
+LABEL_KIND = EN_TEXT.label_kind
 LABEL_LAST_RECORDED_ERROR = EN_TEXT.label_last_recorded_error
 LABEL_LAST_RECORDED_MESSAGE = EN_TEXT.label_last_recorded_message
 LABEL_LAST_RECORDED_STATE = EN_TEXT.label_last_recorded_state
@@ -1730,6 +1837,7 @@ LABEL_MARKET_VALUE = EN_TEXT.label_market_value
 LABEL_MARKET_PRICE = EN_TEXT.label_market_price
 LABEL_MARKET_PROVIDER = EN_TEXT.label_market_provider
 LABEL_MARKET_ROLE = EN_TEXT.label_market_role
+LABEL_MATERIALITY = EN_TEXT.label_materiality
 LABEL_MARK_SOURCE = EN_TEXT.label_mark_source
 LABEL_MARK_STATUS = EN_TEXT.label_mark_status
 LABEL_MARKED_AT = EN_TEXT.label_marked_at
@@ -1767,15 +1875,18 @@ LABEL_PATH = EN_TEXT.label_path
 LABEL_POLL_SECONDS = EN_TEXT.label_poll_seconds
 LABEL_PRESET = EN_TEXT.label_preset
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
+LABEL_PROFILE = EN_TEXT.label_profile
 LABEL_PROVIDER = EN_TEXT.label_provider
 LABEL_PYTHON_VERSION = EN_TEXT.label_python_version
 LABEL_QUANTITY = EN_TEXT.label_quantity
+LABEL_QUERY = EN_TEXT.label_query
 LABEL_PROPOSAL = EN_TEXT.label_proposal
 LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
 LABEL_REF = EN_TEXT.label_ref
 LABEL_REJECTION_EVIDENCE = EN_TEXT.label_rejection_evidence
 LABEL_REASON = EN_TEXT.label_reason
+LABEL_REASONS = EN_TEXT.label_reasons
 LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
 LABEL_RESEARCH_CYCLE_CONTROL = EN_TEXT.label_research_cycle_control
@@ -1784,6 +1895,7 @@ LABEL_RETURN = EN_TEXT.label_return
 LABEL_RUNTIME = EN_TEXT.label_runtime
 LABEL_RUNTIME_DAEMON = EN_TEXT.label_runtime_daemon
 LABEL_RUNTIME_DIR = EN_TEXT.label_runtime_dir
+LABEL_RISK = EN_TEXT.label_risk
 LABEL_ROLE = EN_TEXT.label_role
 LABEL_SERVICE = EN_TEXT.label_service
 LABEL_SIDE = EN_TEXT.label_side
@@ -1831,9 +1943,11 @@ LABEL_UPDATED = EN_TEXT.label_updated
 LABEL_UPDATED_AT = EN_TEXT.label_updated_at
 LABEL_UNREALIZED_PNL = EN_TEXT.label_unrealized_pnl
 LABEL_UV_AVAILABLE = EN_TEXT.label_uv_available
+LABEL_VALIDATION = EN_TEXT.label_validation
 LABEL_VALUE = EN_TEXT.label_value
 LABEL_VERSION = EN_TEXT.label_version
 LABEL_VERSION_SOURCE = EN_TEXT.label_version_source
+LABEL_V1_PATH = EN_TEXT.label_v1_path
 LABEL_WARMUP_BARS = EN_TEXT.label_warmup_bars
 LABEL_WATCHED_SYMBOLS = EN_TEXT.label_watched_symbols
 LABEL_WITH_MEMORY = EN_TEXT.label_with_memory
@@ -1863,6 +1977,11 @@ MESSAGE_NO_PROPOSAL_CANDIDATES = EN_TEXT.message_no_proposal_candidates
 MESSAGE_NO_TRADE_PROPOSALS = EN_TEXT.message_no_trade_proposals
 MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE = EN_TEXT.message_finance_operations_unavailable
 MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY = EN_TEXT.message_gross_exposure_above_equity
+MESSAGE_IDEA_PRESETS_EXECUTION_POLICY = (
+    EN_TEXT.message_idea_presets_execution_policy
+)
+MESSAGE_IDEA_SCORE_EXECUTION_POLICY = EN_TEXT.message_idea_score_execution_policy
+MESSAGE_IDEA_SCORE_UNAVAILABLE = EN_TEXT.message_idea_score_unavailable
 MESSAGE_LARGEST_POSITION_ABOVE_EQUITY = EN_TEXT.message_largest_position_above_equity
 MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS = (
     EN_TEXT.message_background_requires_continuous
@@ -1904,6 +2023,9 @@ MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED = (
     EN_TEXT.message_runtime_mode_transition_blocked
 )
 MESSAGE_SETUP_BOOTSTRAP_GUIDANCE = EN_TEXT.message_setup_bootstrap_guidance
+MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY = (
+    EN_TEXT.message_strategy_profile_execution_policy
+)
 MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE = (
     EN_TEXT.message_trade_proposals_temporarily_unavailable
 )
@@ -1954,6 +2076,8 @@ TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
 TITLE_DESK_ACCOUNTING_CONTEXT = EN_TEXT.title_desk_accounting_context
 TITLE_ENVIRONMENT_CHECK = EN_TEXT.title_environment_check
 TITLE_EXIT = EN_TEXT.title_exit
+TITLE_IDEA_SCANNER_PRESETS = EN_TEXT.title_idea_scanner_presets
+TITLE_IDEA_SCORE = EN_TEXT.title_idea_score
 TITLE_FINANCE_LEDGER_CATEGORIES = EN_TEXT.title_finance_ledger_categories
 TITLE_FINANCE_OPERATIONS = EN_TEXT.title_finance_operations
 TITLE_FINANCE_OPERATIONS_CHECKS = EN_TEXT.title_finance_operations_checks
@@ -2006,6 +2130,10 @@ TITLE_RESEARCH_SOURCE_HEALTH = EN_TEXT.title_research_source_health
 TITLE_RESEARCH_SNAPSHOT_PERSISTED = EN_TEXT.title_research_snapshot_persisted
 TITLE_SETUP_GUIDANCE = EN_TEXT.title_setup_guidance
 TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
+TITLE_STRATEGY_PROFILE = EN_TEXT.title_strategy_profile
+TITLE_V1_STRATEGY_CATALOG = EN_TEXT.title_v1_strategy_catalog
+TITLE_NEWS_INTELLIGENCE = EN_TEXT.title_news_intelligence
+TITLE_NEWS_QUERY_PLAN = EN_TEXT.title_news_query_plan
 TITLE_TRACE = EN_TEXT.title_trace
 TITLE_TOOL_OWNERSHIP = EN_TEXT.title_tool_ownership
 TITLE_TRADE_PROPOSAL_APPROVED = EN_TEXT.title_trade_proposal_approved
