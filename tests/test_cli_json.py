@@ -250,6 +250,38 @@ def test_cli_help_supports_short_and_long_forms() -> None:
         assert "Usage:" in result.stdout
 
 
+def test_cli_locale_command_supports_override_and_persistence(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENTIC_TRADER_UI_LOCALE", raising=False)
+    runner = CliRunner()
+
+    override_result = runner.invoke(app, ["--locale", "tr", "locale", "--json"])
+
+    assert override_result.exit_code == 0
+    override_payload = json_object(override_result.stdout)
+    assert override_payload["locale"] == "tr"
+    assert override_payload["supported_locales"] == ["en", "tr"]
+    assert override_payload["persisted"] is False
+    assert not (tmp_path / ".env.local").exists()
+
+    monkeypatch.delenv("AGENTIC_TRADER_UI_LOCALE", raising=False)
+    persisted_result = runner.invoke(app, ["locale", "--set", "tr", "--json"])
+
+    assert persisted_result.exit_code == 0
+    persisted_payload = json_object(persisted_result.stdout)
+    assert persisted_payload["locale"] == "tr"
+    assert persisted_payload["persisted"] is True
+    assert (tmp_path / ".env.local").read_text(encoding="utf-8") == (
+        "AGENTIC_TRADER_UI_LOCALE=tr\n"
+    )
+
+    invalid_result = runner.invoke(app, ["--locale", "de", "locale", "--json"])
+    assert invalid_result.exit_code != 0
+    assert "Locale must be one of: en, tr." in invalid_result.stdout
+
+
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
     """
     Builds a fully populated RunArtifacts instance with realistic sample data for use in tests.
@@ -381,6 +413,7 @@ def test_status_preferences_and_portfolio_json(
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
+        ui_locale="en",
     )
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
@@ -431,6 +464,7 @@ def test_doctor_and_logs_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
+        ui_locale="en",
     )
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
@@ -819,6 +853,7 @@ def test_dashboard_snapshot_json(
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
+        ui_locale="en",
     )
     settings.ensure_directories()
     monkeypatch.setattr("agentic_trader.cli.get_settings", lambda: settings)
@@ -853,6 +888,8 @@ def test_dashboard_snapshot_json(
     result = runner.invoke(app, ["dashboard-snapshot"])
     assert result.exit_code == 0
     payload = json_object(result.stdout)
+    assert payload["ui"]["locale"] == "en"
+    assert payload["ui"]["supported_locales"] == ["en", "tr"]
     assert payload["doctor"]["ollama_reachable"] is True
     assert payload["doctor"]["runtime_mode"] == "operation"
     assert payload["status"]["runtime_mode"] == "operation"

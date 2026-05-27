@@ -6,6 +6,7 @@ from typing import Any, Protocol, cast
 import httpx
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import object_list as _object_list
 from agentic_trader.schemas import LLMHealthStatus
 from agentic_trader.security import redact_sensitive_text
 
@@ -32,10 +33,6 @@ def _json_object_or_none(value: object) -> JsonObject | None:
     return {
         str(key): item for key, item in cast(Mapping[object, object], value).items()
     }
-
-
-def _object_list(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
 
 
 def _object_mapping_list(value: object) -> list[Mapping[str, object]]:

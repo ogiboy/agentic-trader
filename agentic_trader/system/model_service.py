@@ -22,6 +22,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import object_list as _object_list
 from agentic_trader.runtime_status import is_process_alive
 from agentic_trader.security import (
     ensure_private_directory,
@@ -31,6 +32,7 @@ from agentic_trader.security import (
     write_private_text,
 )
 from agentic_trader.system.tool_roots import local_tool_status_payload
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 DEFAULT_APP_MANAGED_PORT = 11435
 APP_MANAGED_ORPHAN_PORTS = (DEFAULT_APP_MANAGED_PORT, *range(11436, 11466))
@@ -64,10 +66,6 @@ def _json_object_or_none(value: object) -> Mapping[str, object] | None:
     return {
         str(key): item for key, item in cast(Mapping[object, object], value).items()
     }
-
-
-def _object_list(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
 
 
 def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
@@ -166,12 +164,6 @@ def model_service_dir(settings: Settings) -> Path:
 
 def model_service_state_path(settings: Settings) -> Path:
     return model_service_dir(settings) / "ollama_service.json"
-
-
-def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _read_state(settings: Settings) -> ModelServiceState | None:

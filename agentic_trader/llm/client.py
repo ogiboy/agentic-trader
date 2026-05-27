@@ -9,18 +9,13 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import object_dict_or_none as _object_mapping
 from agentic_trader.llm.providers import LLMProvider, build_provider
 from agentic_trader.schemas import AgentRole, LLMHealthStatus
 
 logger = logging.getLogger(__name__)
 _SENSITIVE_PAYLOAD_KEYS = {"thinking", "thought", "thoughts", "reasoning"}
 _NO_TRADE_PHRASE = "no trade"
-
-
-def _object_mapping(value: object) -> dict[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    return cast(dict[str, object], value)
 
 
 def _coerce_numeric_strings(obj: Any) -> Any:
