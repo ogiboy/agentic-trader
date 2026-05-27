@@ -7,12 +7,14 @@ operators can use before a scanner idea is promoted into a proposal.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from agentic_trader.payloads import dataclass_payload
 
 SourceTier = Literal[
     "official_or_regulatory",
@@ -63,9 +65,6 @@ class SourceTierProfile:
     fetcher_expectation: str
     trading_note: str
 
-    def to_payload(self) -> dict[str, object]:
-        return asdict(self)
-
 
 @dataclass(frozen=True)
 class NewsQueryTemplate:
@@ -73,9 +72,6 @@ class NewsQueryTemplate:
     query: str
     freshness_hint: str
     materiality_hint: str
-
-    def to_payload(self) -> dict[str, object]:
-        return asdict(self)
 
 
 class NewsEvidenceContract(BaseModel):
@@ -154,6 +150,14 @@ SOURCE_TIER_PROFILES: tuple[SourceTierProfile, ...] = (
 )
 
 
+def source_tier_profile_payload(profile: SourceTierProfile) -> dict[str, object]:
+    return dataclass_payload(profile)
+
+
+def news_query_template_payload(query: NewsQueryTemplate) -> dict[str, object]:
+    return dataclass_payload(query)
+
+
 def classify_source_tier(source_or_url: str) -> SourceTier:
     """Classify a source name or URL into the source tier used by researchd."""
 
@@ -198,8 +202,10 @@ def news_research_plan(
         "generated_at": timestamp.isoformat().replace("+00:00", "Z"),
         "preferred_engine": "google_news",
         "exclude_regex": list(FINANCE_EXCLUDE_PATTERNS),
-        "query_templates": [query.to_payload() for query in queries],
-        "source_tiers": [profile.to_payload() for profile in SOURCE_TIER_PROFILES],
+        "query_templates": [news_query_template_payload(query) for query in queries],
+        "source_tiers": [
+            source_tier_profile_payload(profile) for profile in SOURCE_TIER_PROFILES
+        ],
         "material_event_types": list(MATERIAL_EVENT_TYPES),
         "evidence_contract": news_evidence_contract_payload(),
         "freshness_policy": {

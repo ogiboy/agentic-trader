@@ -1,8 +1,7 @@
 import pytest
 
-from tests.typing_helpers import approx
-
 from agentic_trader.execution.intent import ExecutionIntent, utc_now
+from tests.typing_helpers import approx
 
 
 def test_intent_creation_with_timestamp():

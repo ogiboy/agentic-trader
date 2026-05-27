@@ -6,6 +6,7 @@ from typing import Any, Callable, TypeGuard, cast
 import httpx
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import object_dict_or_none as _object_mapping
 from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
 from agentic_trader.schemas import (
     DisclosureEvent,
@@ -41,12 +42,6 @@ SEC_COMPANY_FACT_CONCEPTS: dict[str, tuple[str, ...]] = {
     "cash": ("CashAndCashEquivalentsAtCarryingValue",),
 }
 JsonFetcher = Callable[[str, Mapping[str, str], float], dict[str, Any]]
-
-
-def _object_mapping(value: object) -> dict[str, Any] | None:
-    if not isinstance(value, dict):
-        return None
-    return cast(dict[str, Any], value)
 
 
 class SecEdgarFundamentalProvider:
