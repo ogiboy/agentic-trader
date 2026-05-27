@@ -72,9 +72,13 @@ export function MemoryView({
             const firstWhy = stage.retrieval_explanations?.[0]?.explanation;
             const sample =
               stage.retrieved_memories?.[0] ?? stage.memory_notes?.[0];
+            const sampleText =
+              sample == null
+                ? copy.memory.labels.noRetrievalContext
+                : textValue(sample);
             const whyLine = firstWhy
               ? `${copy.memory.labels.why}: ${textValue(firstWhy.eligibility_reason)} | freshness=${textValue(firstWhy.freshness)} | outcome=${textValue(firstWhy.outcome_tag)}`
-              : `${copy.memory.labels.sample}: ${sample == null ? copy.memory.labels.noRetrievalContext : textValue(sample)}`;
+              : `${copy.memory.labels.sample}: ${sampleText}`;
             return [
               `${textValue(stage.role)} | retrieved=${stage.retrieved_memories?.length ?? 0} | why=${stage.retrieval_explanations?.length ?? 0} | trade-memory=${stage.memory_notes?.length ?? 0} | shared-bus=${stage.shared_memory_bus?.length ?? 0} | recent-runs=${stage.recent_runs?.length ?? 0}`,
               whyLine,

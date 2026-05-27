@@ -23,6 +23,15 @@ export type WorkflowTrack = {
   }[];
 };
 
+export type HomeCurrentFocus = {
+  title: string;
+  description: string;
+  items: {
+    icon: 'bot' | 'layout' | 'inspect';
+    text: string;
+  }[];
+};
+
 export type HomeContent = {
   badges: HomeBadge[];
   heroTitle: string;
@@ -37,11 +46,9 @@ export type HomeContent = {
     safety: { title: string; body: string };
     surface: { title: string; body: string };
   };
-  currentFocusItems: {
-    icon: 'bot' | 'layout' | 'inspect';
-    text: string;
-  }[];
+  currentFocus: HomeCurrentFocus;
   guardrail: string;
   entryPoints: HomeEntryPoint[];
   workflowTracks: WorkflowTrack[];
+  workflowNote: string;
 };

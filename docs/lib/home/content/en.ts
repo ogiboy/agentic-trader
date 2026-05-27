@@ -28,20 +28,25 @@ export const homeContentEn: HomeContent = {
       body: 'CLI, Rich, Ink, observer API, and Web GUI all ride the same contracts instead of maintaining UI-only truth.',
     },
   },
-  currentFocusItems: [
-    {
-      icon: 'bot',
-      text: 'Optional app-managed Ollama supervision should extend the existing daemon and log surface.',
-    },
-    {
-      icon: 'layout',
-      text: '`webgui` stays a thin local shell while `docs` becomes the canonical operator guide with contributor notes behind it.',
-    },
-    {
-      icon: 'inspect',
-      text: 'Bootstrap, provider readiness, and QA evidence are all moving toward a more standardized onboarding path.',
-    },
-  ],
+  currentFocus: {
+    title: 'Current V1 focus',
+    description:
+      'The project is in hardening mode, not in “invent a parallel system” mode.',
+    items: [
+      {
+        icon: 'bot',
+        text: 'Optional app-managed Ollama supervision should extend the existing daemon and log surface.',
+      },
+      {
+        icon: 'layout',
+        text: '`webgui` stays a thin local shell while `docs` becomes the canonical operator guide with contributor notes behind it.',
+      },
+      {
+        icon: 'inspect',
+        text: 'Bootstrap, provider readiness, and QA evidence are all moving toward a more standardized onboarding path.',
+      },
+    ],
+  },
   guardrail:
     'The Web GUI and docs site are operator/contributor surfaces. They do not own orchestration; Python runtime contracts remain the source of truth.',
   entryPoints: [
@@ -151,4 +156,6 @@ export const homeContentEn: HomeContent = {
       ],
     },
   ],
+  workflowNote:
+    'The docs should stay close to the runtime truth, not become a second architecture.',
 };

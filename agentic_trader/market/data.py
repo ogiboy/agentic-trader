@@ -1,6 +1,8 @@
 import io
+from collections.abc import Callable
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import cast
 
 import pandas as pd
 import yfinance as yf
@@ -42,8 +44,9 @@ def _download_ohlcv(
     symbol: str, *, interval: str, lookback: str
 ) -> pd.DataFrame | None:
     buffer = io.StringIO()
+    download = cast(Callable[..., pd.DataFrame], yf.download)
     with redirect_stdout(buffer), redirect_stderr(buffer):
-        raw_data = yf.download(  # type: ignore[reportUnknownMemberType]
+        raw_data = download(
             tickers=symbol,
             period=lookback,
             interval=interval,

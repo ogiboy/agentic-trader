@@ -124,19 +124,17 @@ base URL, model name, and optional API key.
 App-owned Ollama auto-start or dashboard setting rewrites must not override that
 non-Ollama adapter.
 
-### Strict Pyright is enforced through a regression baseline until the backlog is zero
+### Strict Pyright is a zero-diagnostic publishing gate
 
 Reason:
 The repository should keep Pylance/Pyright in strict mode because it exposes
-real runtime and test-contract weaknesses, but turning on strict mode while a
-known 1776-error backlog exists would make every push and release workflow fail
-without distinguishing old debt from new regressions.
-CI, release, and smoke quality checks therefore run
-`scripts/check_pyright_baseline.py`, which executes strict Pyright and fails only
-if the error count rises above the documented baseline.
-This is a temporary hardening contract, not a weaker type policy: every
-type-clean cluster should reduce the baseline in the script, `ROADMAP.md`, and
-`.ai/current-state.instructions.md` in the same change.
+real runtime and test-contract weaknesses.
+The staged backlog is now cleared for `agentic_trader`, `tests`, `scripts`, and
+`sidecars/research_flow/src`, so CI, release, local `check-python`, and smoke
+quality checks run `scripts/check_pyright_baseline.py` with a zero-error limit.
+Do not add `type: ignore`, Pyright suppression comments, or config weakening as
+a workaround; expose typed public seams, protocols, fixtures, stubs, or narrower
+data contracts instead.
 
 ### V1 can monetize only after compliance, trust, and unit economics are explicit
 
@@ -146,11 +144,12 @@ personalized trade recommendations, account workflows, or order-routing
 features can change the regulatory and support profile of the project.
 V1 must stay paper-first and manual-approval-first until the commercial model is
 classified with counsel, Alpaca production responsibilities are explicit,
-operator risk disclosures and audit exports exist, and remote-model costs are
-measured per cycle.
+operator risk disclosures and audit exports exist, customer data/privacy and
+incident/support responsibilities are documented, LLM/tool-poisoning controls
+are tested, and remote-model costs are measured per cycle.
 The first paid SKU should therefore favor local-first paper desk, evidence
 bundle, education, and personal automation value before managed live trading,
-copy trading, or performance-fee promises.
+copy trading, account-opening workflows, or performance-fee promises.
 
 ### Operator-facing finance truth must be reconciled evidence, not UI copy
 
@@ -695,6 +694,14 @@ The early solo-developer bias kept changes small, but several files have grown l
 When touching complex areas, prefer extracting domain constants, render helpers, service helpers, typed copy catalogs, and provider/fetcher adapters into named modules with focused tests.
 This is still incremental architecture cleanup, not a license for broad rewrites or a new orchestration framework.
 
+### Modularity and i18n debt should be measured before it is enforced
+
+Reason:
+The repository already has useful modular seams in WebGUI and docs, but Python CLI, Rich TUI, Ink TUI, storage, provider, and service files still carry enough mixed responsibility that a hard gate would create noise before it creates discipline.
+Start with a reporting-only audit for oversized modules, long functions, repeated helper patterns, docs locale parity, and hardcoded operator-copy candidates.
+Use the report to guide staged extraction and tighten thresholds only after the current baseline has been reduced intentionally.
+The audit must not classify runtime JSON field names, protocol enum values, database column names, provider identifiers, or test fixture data as localization debt by default.
+
 ### The existing docs scaffold should be activated, not replaced
 
 Reason:
@@ -748,6 +755,7 @@ Stable release version stamping should also keep the root, Web GUI, docs, and TU
 The binary workflow owns GitHub Release creation so immutable releases can be created with PyInstaller assets attached in one publish step.
 The binary assets are convenience builds for the Python CLI layer; they do not bundle the Web GUI, docs app, Node runtime, Ollama, or external provider services.
 If semantic-release previews a tag below the tracked pre-1.0 baseline and that baseline tag does not exist yet, the release workflow should create a baseline changelog section, create the baseline tag once, and dispatch binary packaging with that tag. Plain `main` branch binary pushes may still upload workflow artifacts without publishing a GitHub Release; release publishing should happen from a tag/dispatch path.
+If feature-branch prerelease tags such as `v0.12.5-beta.*` are already reachable from `main`, python-semantic-release can assign those commits to prerelease history before the final stable section is rendered. The stable workflow should therefore treat an empty stable section as a release-flow defect and backfill it from the previous stable tag to `HEAD`, ignoring prerelease tags, before committing the release files.
 
 Stable release identity and branch build identity are intentionally separate.
 Strict SemVer release tags keep the `MAJOR.MINOR.PATCH` core, such as `v0.9.5`; CI/build counters must not become a fourth core segment like `v0.9.5.9870`.
