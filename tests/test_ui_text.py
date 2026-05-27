@@ -11,6 +11,7 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.help_idea_preset == ui_text.HELP_IDEA_PRESET
     assert catalog.help_memory_explorer_limit == ui_text.HELP_MEMORY_EXPLORER_LIMIT
     assert catalog.help_chat_persona == ui_text.HELP_CHAT_PERSONA
+    assert catalog.help_stop_service_force == ui_text.HELP_STOP_SERVICE_FORCE
     assert catalog.help_trade_side == ui_text.HELP_TRADE_SIDE
     assert catalog.help_trade_limit_price == ui_text.HELP_TRADE_LIMIT_PRICE
     assert catalog.title_execution_summary == ui_text.TITLE_EXECUTION_SUMMARY
@@ -31,6 +32,7 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_no_retrieval_stage_context == (
         ui_text.MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT
     )
+    assert catalog.message_no_orders_recorded == ui_text.MESSAGE_NO_ORDERS_RECORDED
     assert (
         catalog.title_backtest_memory_ablation == ui_text.TITLE_BACKTEST_MEMORY_ABLATION
     )
@@ -201,6 +203,7 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_runtime_status == "Runtime Durumu"
     assert catalog.help_model_service_app.startswith("Istege bagli")
     assert catalog.help_memory_explorer_limit.startswith("Gosterilecek maksimum")
+    assert catalog.help_stop_service_force.startswith("Stop requested")
     assert catalog.help_idea_volume == "Son volume."
     assert catalog.help_trade_reference_price.startswith("Proposal icin")
     assert catalog.title_operator_instruction == "Operator Talimati"
@@ -212,6 +215,7 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_fills_today == "Bugunku Fill'ler"
     assert catalog.label_allowed_actors == "Izinli Actor'ler"
     assert catalog.message_no_retrieval_stage_context.startswith("Bu asama")
+    assert catalog.message_no_orders_recorded == "Henuz order kaydi yok."
     assert catalog.title_agent_decisions == "Agent Kararlari"
     assert catalog.label_output_preview == "Cikti Onizleme"
     assert catalog.title_backtest_comparison == "Backtest Karsilastirma"

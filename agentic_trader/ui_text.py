@@ -40,6 +40,7 @@ class UITextCatalog:
     help_chat_persona: str
     help_instruct_apply: str
     help_instruct_message: str
+    help_monitor_refresh_seconds: str
     help_locale_override: str
     help_locale_persist: str
     help_launch_background: str
@@ -99,6 +100,7 @@ class UITextCatalog:
     help_camofox_service_host: str
     help_camofox_service_port: str
     help_run_id: str
+    help_restart_service_grace_seconds: str
     help_trade_context_id: str
     help_run_replay_id: str
     help_export_report_output: str
@@ -110,6 +112,7 @@ class UITextCatalog:
     help_news_sector: str
     help_news_brief_symbol: str
     help_setup_dry_run: str
+    help_stop_service_force: str
     help_strategy_catalog_preset_filter: str
     help_strategy_catalog_status_filter: str
     help_strategy_profile_name: str
@@ -423,6 +426,8 @@ class UITextCatalog:
     label_yes: str
     list_separator: str
     message_all_agent_stages_llm_path: str
+    message_background_service_not_active: str
+    message_background_service_restarted: str
     message_fallback_used_in: str
     message_evidence_bundle_written: str
     message_no_elevated_portfolio_risk_warnings: str
@@ -432,6 +437,7 @@ class UITextCatalog:
     message_no_stdout_log_lines: str
     message_no_trade_journal_entries: str
     message_no_historical_memories: str
+    message_no_orders_recorded: str
     message_memory_explorer_temporarily_unavailable: str
     message_no_action_selected: str
     message_no_retrieval_inspection_context: str
@@ -454,6 +460,8 @@ class UITextCatalog:
     message_backtest_memory_ablation_written: str
     message_backtest_summary_written: str
     message_operator_workflow_guidance: str
+    message_installing_tui_dependencies: str
+    message_node_missing: str
     message_calendar_status_unavailable: str
     message_cache_status: str
     message_market_snapshot_cached: str
@@ -497,10 +505,14 @@ class UITextCatalog:
     message_runtime_mode_transition_allowed: str
     message_runtime_mode_transition_blocked: str
     message_setup_bootstrap_guidance: str
+    message_service_stale_runtime_recovered: str
+    message_service_stale_runtime_recovered_event: str
+    message_service_stop_requested: str
     message_strategy_profile_execution_policy: str
     message_trading_runtime_blocked: str
     message_trading_runtime_ready: str
     message_training_diagnostic_fallback: str
+    message_tui_missing: str
     message_unique_artifact_dir_unavailable: str
     message_v1_readiness_status_unavailable: str
     prompt_continue: str
@@ -566,6 +578,7 @@ class UITextCatalog:
     title_hardware_profile: str
     title_idea_scanner_presets: str
     title_idea_score: str
+    title_installing_tui_dependencies: str
     title_investment_preferences: str
     title_finance_ledger_categories: str
     title_finance_operations: str
@@ -582,6 +595,8 @@ class UITextCatalog:
     title_model_pull: str
     title_model_service_stderr_tail: str
     title_model_service_start_failed: str
+    title_node_missing: str
+    title_not_running: str
     title_recent_runs: str
     title_risk_warnings: str
     title_review_note: str
@@ -593,6 +608,7 @@ class UITextCatalog:
     title_reconciliation_blocked: str
     title_refresh_blocked: str
     title_rejection_blocked: str
+    title_restart_blocked: str
     title_runtime_events: str
     title_runtime_gate_open: str
     title_launch_plan: str
@@ -600,6 +616,7 @@ class UITextCatalog:
     title_runtime_mode_transition_checklist: str
     title_runtime_status: str
     title_service_status: str
+    title_service_restarted: str
     title_service_stderr_tail: str
     title_service_stdout_tail: str
     title_service_supervisor: str
@@ -631,6 +648,8 @@ class UITextCatalog:
     title_routed_models: str
     title_setup_status: str
     title_setup_guidance: str
+    title_stale_state_recovered: str
+    title_stop_requested: str
     title_strategy_profile: str
     title_v1_strategy_catalog: str
     title_news_intelligence: str
@@ -646,6 +665,7 @@ class UITextCatalog:
     title_tool_ownership: str
     title_tool_readiness: str
     title_training_diagnostic_mode: str
+    title_tui_missing: str
     title_ui_locale: str
     title_updated_preferences: str
     title_v1_readiness: str
@@ -681,6 +701,7 @@ EN_TEXT = UITextCatalog(
     help_chat_persona="Which agent persona should answer.",
     help_instruct_apply="Apply the parsed preference update if one is proposed.",
     help_instruct_message="Natural-language operator instruction.",
+    help_monitor_refresh_seconds="Dashboard refresh interval in seconds.",
     help_locale_override="Override terminal UI locale for this command: en or tr.",
     help_locale_persist="Persist terminal UI locale to .env.local: en or tr.",
     help_launch_background="Spawn the orchestrator as a background service.",
@@ -769,6 +790,9 @@ EN_TEXT = UITextCatalog(
     help_camofox_service_host="Loopback bind host for app-managed Camofox.",
     help_camofox_service_port="Preferred app-managed Camofox port.",
     help_run_id="Run id to inspect. Defaults to the latest recorded run.",
+    help_restart_service_grace_seconds=(
+        "How long to wait for a graceful stop before relaunch."
+    ),
     help_trade_context_id=(
         "Trade id to inspect. Defaults to the latest recorded trade context."
     ),
@@ -782,6 +806,7 @@ EN_TEXT = UITextCatalog(
     help_news_sector="Optional sector for sector-level news checks.",
     help_news_brief_symbol="Optional symbol override.",
     help_setup_dry_run="Report setup status. Use make bootstrap for interactive installs.",
+    help_stop_service_force="Send SIGTERM after marking stop requested.",
     help_strategy_catalog_preset_filter="Filter by an idea-scanner preset such as momentum or breakout.",
     help_strategy_catalog_status_filter="Filter by implemented, research-candidate, or v2-deferred.",
     help_strategy_profile_name="Strategy profile name.",
@@ -1101,6 +1126,10 @@ EN_TEXT = UITextCatalog(
     label_yes="yes",
     list_separator=", ",
     message_all_agent_stages_llm_path="All agent stages completed through the LLM path.",
+    message_background_service_not_active="No managed service is currently active.",
+    message_background_service_restarted=(
+        "Background orchestrator restarted with PID {pid}."
+    ),
     message_fallback_used_in="Fallback was used in",
     message_evidence_bundle_written="Bundle written to {bundle_dir}",
     message_no_elevated_portfolio_risk_warnings=(
@@ -1112,6 +1141,7 @@ EN_TEXT = UITextCatalog(
     message_no_stdout_log_lines="No stdout log lines yet.",
     message_no_trade_journal_entries="No trade journal entries recorded yet.",
     message_no_historical_memories="No historical memories are available yet.",
+    message_no_orders_recorded="No orders recorded yet.",
     message_memory_explorer_temporarily_unavailable=(
         "Memory explorer is temporarily unavailable.\n\n{error}"
     ),
@@ -1167,6 +1197,13 @@ EN_TEXT = UITextCatalog(
     message_backtest_summary_written="Backtest summary written to {output}.",
     message_operator_workflow_guidance=(
         "Read-only workflow guide. Review readiness and evidence before long paper operation."
+    ),
+    message_installing_tui_dependencies=(
+        "First launch detected. Installing Ink dependencies with {package_manager}."
+    ),
+    message_node_missing=(
+        "A Node package manager is required to run the Ink control room. "
+        "Falling back to the Rich control room."
     ),
     message_calendar_status_unavailable=(
         "Calendar status is temporarily unavailable.\n\n{error}"
@@ -1283,6 +1320,16 @@ EN_TEXT = UITextCatalog(
         "Runtime mode transition {current_mode} -> {target_mode} is blocked."
     ),
     message_setup_bootstrap_guidance="Run `make bootstrap` for the interactive system-tool installer.",
+    message_service_stale_runtime_recovered=(
+        "Dead PID {pid} is no longer alive. Runtime state was marked stopped "
+        "and the stale PID was cleared."
+    ),
+    message_service_stale_runtime_recovered_event=(
+        "Recovered stale runtime state from dead PID {pid}."
+    ),
+    message_service_stop_requested=(
+        "Service PID {pid} was asked to stop gracefully via the runtime control channel."
+    ),
     message_strategy_profile_execution_policy=(
         "profile is read-only research metadata; it cannot execute trades"
     ),
@@ -1293,6 +1340,9 @@ EN_TEXT = UITextCatalog(
     message_training_diagnostic_fallback=(
         "Training mode is continuing this evaluation with deterministic diagnostic "
         "fallbacks because the LLM gate failed:\n\n{error}"
+    ),
+    message_tui_missing=(
+        "The Ink UI directory was not found. Falling back to the Rich control room."
     ),
     message_unique_artifact_dir_unavailable=(
         "Unable to create a unique artifact directory for {label}"
@@ -1361,6 +1411,7 @@ EN_TEXT = UITextCatalog(
     title_hardware_profile="Hardware Profile",
     title_idea_scanner_presets="Idea Scanner Presets",
     title_idea_score="Idea Score: {preset}",
+    title_installing_tui_dependencies="Installing TUI Dependencies",
     title_investment_preferences="Investment Preferences",
     title_finance_ledger_categories="Finance Ledger Categories",
     title_finance_operations="Finance Operations",
@@ -1377,6 +1428,8 @@ EN_TEXT = UITextCatalog(
     title_model_pull="Model Pull",
     title_model_service_stderr_tail="Model Service Stderr Tail",
     title_model_service_start_failed="Model Service Start Failed",
+    title_node_missing="Node Missing",
+    title_not_running="Not Running",
     title_recent_runs="Recent Runs",
     title_risk_warnings="Risk Warnings",
     title_review_note="Review Note",
@@ -1388,6 +1441,7 @@ EN_TEXT = UITextCatalog(
     title_reconciliation_blocked="Reconciliation Blocked",
     title_refresh_blocked="Refresh Blocked",
     title_rejection_blocked="Rejection Blocked",
+    title_restart_blocked="Restart Blocked",
     title_runtime_events="Runtime Events",
     title_runtime_gate_open="Runtime Gate Open",
     title_launch_plan="Launch Plan",
@@ -1395,6 +1449,7 @@ EN_TEXT = UITextCatalog(
     title_runtime_mode_transition_checklist="Runtime Mode Transition Checklist",
     title_runtime_status="Runtime Status",
     title_service_status="Service Status",
+    title_service_restarted="Service Restarted",
     title_service_stderr_tail="Service Stderr Tail",
     title_service_stdout_tail="Service Stdout Tail",
     title_service_supervisor="Service Supervisor",
@@ -1426,6 +1481,8 @@ EN_TEXT = UITextCatalog(
     title_routed_models="Routed Models",
     title_setup_status="Setup Status",
     title_setup_guidance="Setup Guidance",
+    title_stale_state_recovered="Stale State Recovered",
+    title_stop_requested="Stop Requested",
     title_strategy_profile="Strategy Profile: {name}",
     title_v1_strategy_catalog="V1 Strategy Catalog",
     title_news_intelligence="News Intelligence: {symbol}",
@@ -1441,6 +1498,7 @@ EN_TEXT = UITextCatalog(
     title_tool_ownership="Tool Ownership",
     title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
+    title_tui_missing="TUI Missing",
     title_ui_locale="UI Locale",
     title_updated_preferences="Updated Preferences",
     title_v1_readiness="V1 Readiness",
@@ -1479,6 +1537,7 @@ TR_TEXT = UITextCatalog(
     help_chat_persona="Yanit verecek agent persona.",
     help_instruct_apply="Onerilen preference guncellemesini uygula.",
     help_instruct_message="Dogal dilde operator talimati.",
+    help_monitor_refresh_seconds="Dashboard refresh araligi saniye olarak.",
     help_locale_override="Bu komut icin terminal UI locale override et: en veya tr.",
     help_locale_persist="Terminal UI locale degerini .env.local icine yaz: en veya tr.",
     help_launch_background="Orchestrator'i background service olarak baslat.",
@@ -1567,6 +1626,9 @@ TR_TEXT = UITextCatalog(
     help_camofox_service_host="App-managed Camofox icin loopback bind host.",
     help_camofox_service_port="Tercih edilen app-managed Camofox portu.",
     help_run_id="Incelenecek run id. Varsayilan son kayitli run.",
+    help_restart_service_grace_seconds=(
+        "Relaunch oncesi graceful stop icin beklenecek sure."
+    ),
     help_trade_context_id=(
         "Incelenecek trade id. Varsayilan son kayitli trade context."
     ),
@@ -1580,6 +1642,7 @@ TR_TEXT = UITextCatalog(
     help_news_sector="Sector-level news kontrolleri icin istege bagli sektor.",
     help_news_brief_symbol="Istege bagli sembol override.",
     help_setup_dry_run="Setup durumunu raporla. Interaktif kurulumlar icin make bootstrap kullan.",
+    help_stop_service_force="Stop requested isaretlendikten sonra SIGTERM gonder.",
     help_strategy_catalog_preset_filter="momentum veya breakout gibi idea-scanner preset'i ile filtrele.",
     help_strategy_catalog_status_filter="implemented, research-candidate veya v2-deferred ile filtrele.",
     help_strategy_profile_name="Strategy profile adi.",
@@ -1899,6 +1962,10 @@ TR_TEXT = UITextCatalog(
     label_yes="evet",
     list_separator=", ",
     message_all_agent_stages_llm_path="Tum agent asamalari LLM yolu ile tamamlandi.",
+    message_background_service_not_active="Su anda aktif managed service yok.",
+    message_background_service_restarted=(
+        "Background orchestrator PID {pid} ile yeniden baslatildi."
+    ),
     message_fallback_used_in="Fallback kullanilan asamalar",
     message_evidence_bundle_written="Bundle {bundle_dir} icine yazildi",
     message_no_elevated_portfolio_risk_warnings=(
@@ -1910,6 +1977,7 @@ TR_TEXT = UITextCatalog(
     message_no_stdout_log_lines="Henuz stdout log satiri yok.",
     message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
     message_no_historical_memories="Henuz historical memory yok.",
+    message_no_orders_recorded="Henuz order kaydi yok.",
     message_memory_explorer_temporarily_unavailable=(
         "Memory explorer gecici olarak kullanilamiyor.\n\n{error}"
     ),
@@ -1965,6 +2033,12 @@ TR_TEXT = UITextCatalog(
     message_backtest_summary_written="Backtest summary {output} icine yazildi.",
     message_operator_workflow_guidance=(
         "Read-only workflow rehberi. Uzun paper operation oncesi readiness ve evidence inceleyin."
+    ),
+    message_installing_tui_dependencies=(
+        "Ilk calistirma algilandi. Ink dependency'leri {package_manager} ile kuruluyor."
+    ),
+    message_node_missing=(
+        "Ink control room icin Node package manager gerekir. Rich control room'a dusuluyor."
     ),
     message_calendar_status_unavailable=(
         "Calendar status gecici olarak kullanilamiyor.\n\n{error}"
@@ -2081,6 +2155,16 @@ TR_TEXT = UITextCatalog(
         "Runtime mode gecisi {current_mode} -> {target_mode} bloklandi."
     ),
     message_setup_bootstrap_guidance="Interaktif system-tool installer icin `make bootstrap` calistirin.",
+    message_service_stale_runtime_recovered=(
+        "Dead PID {pid} artik yasamiyor. Runtime state stopped isaretlendi "
+        "ve stale PID temizlendi."
+    ),
+    message_service_stale_runtime_recovered_event=(
+        "Dead PID {pid} icin stale runtime state kurtarildi."
+    ),
+    message_service_stop_requested=(
+        "Service PID {pid} runtime control channel uzerinden graceful stop istedi."
+    ),
     message_strategy_profile_execution_policy=(
         "profile read-only research metadata'dir; trade execute edemez"
     ),
@@ -2091,6 +2175,9 @@ TR_TEXT = UITextCatalog(
     message_training_diagnostic_fallback=(
         "Training modu bu degerlendirmeye deterministic diagnostic fallback ile "
         "devam ediyor cunku LLM gate basarisiz oldu:\n\n{error}"
+    ),
+    message_tui_missing=(
+        "Ink UI dizini bulunamadi. Rich control room'a dusuluyor."
     ),
     message_unique_artifact_dir_unavailable=(
         "{label} icin unique artifact dizini olusturulamadi"
@@ -2159,6 +2246,7 @@ TR_TEXT = UITextCatalog(
     title_hardware_profile="Hardware Profili",
     title_idea_scanner_presets="Idea Scanner Preset'leri",
     title_idea_score="Idea Score: {preset}",
+    title_installing_tui_dependencies="TUI Dependency Kurulumu",
     title_investment_preferences="Investment Preferences",
     title_finance_ledger_categories="Finance Ledger Kategorileri",
     title_finance_operations="Finance Operations",
@@ -2175,6 +2263,8 @@ TR_TEXT = UITextCatalog(
     title_model_pull="Model Cekme",
     title_model_service_stderr_tail="Model Service Stderr Kuyrugu",
     title_model_service_start_failed="Model Service Baslatma Basarisiz",
+    title_node_missing="Node Eksik",
+    title_not_running="Calismiyor",
     title_recent_runs="Son Run'lar",
     title_risk_warnings="Risk Uyarilari",
     title_review_note="Review Notu",
@@ -2186,6 +2276,7 @@ TR_TEXT = UITextCatalog(
     title_reconciliation_blocked="Reconciliation Bloklandi",
     title_refresh_blocked="Refresh Bloklandi",
     title_rejection_blocked="Rejection Bloklandi",
+    title_restart_blocked="Restart Bloklandi",
     title_runtime_events="Runtime Olaylari",
     title_runtime_gate_open="Runtime Gate Acik",
     title_launch_plan="Baslatma Plani",
@@ -2193,6 +2284,7 @@ TR_TEXT = UITextCatalog(
     title_runtime_mode_transition_checklist="Runtime Mode Gecis Kontrol Listesi",
     title_runtime_status="Runtime Durumu",
     title_service_status="Servis Durumu",
+    title_service_restarted="Service Yeniden Baslatildi",
     title_service_stderr_tail="Service Stderr Kuyrugu",
     title_service_stdout_tail="Service Stdout Kuyrugu",
     title_service_supervisor="Service Supervisor",
@@ -2224,6 +2316,8 @@ TR_TEXT = UITextCatalog(
     title_routed_models="Routed Modeller",
     title_setup_status="Setup Durumu",
     title_setup_guidance="Setup Rehberi",
+    title_stale_state_recovered="Stale State Kurtarildi",
+    title_stop_requested="Stop Istendi",
     title_strategy_profile="Strategy Profile: {name}",
     title_v1_strategy_catalog="V1 Strategy Catalog",
     title_news_intelligence="News Intelligence: {symbol}",
@@ -2239,6 +2333,7 @@ TR_TEXT = UITextCatalog(
     title_tool_ownership="Tool Ownership",
     title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
+    title_tui_missing="TUI Eksik",
     title_ui_locale="UI Locale",
     title_updated_preferences="Guncellenen Preferences",
     title_v1_readiness="V1 Readiness",
@@ -2281,6 +2376,7 @@ HELP_CHAT_MESSAGE = EN_TEXT.help_chat_message
 HELP_CHAT_PERSONA = EN_TEXT.help_chat_persona
 HELP_INSTRUCT_APPLY = EN_TEXT.help_instruct_apply
 HELP_INSTRUCT_MESSAGE = EN_TEXT.help_instruct_message
+HELP_MONITOR_REFRESH_SECONDS = EN_TEXT.help_monitor_refresh_seconds
 HELP_LOCALE_OVERRIDE = EN_TEXT.help_locale_override
 HELP_LOCALE_PERSIST = EN_TEXT.help_locale_persist
 HELP_LAUNCH_BACKGROUND = EN_TEXT.help_launch_background
@@ -2342,6 +2438,7 @@ HELP_RUNTIME_EVENT_LIMIT = EN_TEXT.help_runtime_event_limit
 HELP_PROVIDER_CHECK = EN_TEXT.help_provider_check
 HELP_CALENDAR_STATUS_SYMBOL = EN_TEXT.help_calendar_status_symbol
 HELP_TRADE_JOURNAL_LIMIT = EN_TEXT.help_trade_journal_limit
+HELP_RESTART_SERVICE_GRACE_SECONDS = EN_TEXT.help_restart_service_grace_seconds
 HELP_RISK_REPORT_DATE = EN_TEXT.help_risk_report_date
 HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE = (
     EN_TEXT.help_evidence_bundle_include_latest_smoke
@@ -2366,6 +2463,7 @@ HELP_NEWS_COMPANY_NAME = EN_TEXT.help_news_company_name
 HELP_NEWS_SECTOR = EN_TEXT.help_news_sector
 HELP_NEWS_BRIEF_SYMBOL = EN_TEXT.help_news_brief_symbol
 HELP_SETUP_DRY_RUN = EN_TEXT.help_setup_dry_run
+HELP_STOP_SERVICE_FORCE = EN_TEXT.help_stop_service_force
 HELP_STRATEGY_CATALOG_PRESET_FILTER = EN_TEXT.help_strategy_catalog_preset_filter
 HELP_STRATEGY_CATALOG_STATUS_FILTER = EN_TEXT.help_strategy_catalog_status_filter
 HELP_STRATEGY_PROFILE_NAME = EN_TEXT.help_strategy_profile_name
@@ -2700,6 +2798,8 @@ LABEL_YES = EN_TEXT.label_yes
 UI_LIST_SEPARATOR = EN_TEXT.list_separator
 
 MESSAGE_ALL_AGENT_STAGES_LLM_PATH = EN_TEXT.message_all_agent_stages_llm_path
+MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE = EN_TEXT.message_background_service_not_active
+MESSAGE_BACKGROUND_SERVICE_RESTARTED = EN_TEXT.message_background_service_restarted
 MESSAGE_FALLBACK_USED_IN = EN_TEXT.message_fallback_used_in
 MESSAGE_EVIDENCE_BUNDLE_WRITTEN = EN_TEXT.message_evidence_bundle_written
 MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS = (
@@ -2711,6 +2811,7 @@ MESSAGE_NO_STDERR_LOG_LINES = EN_TEXT.message_no_stderr_log_lines
 MESSAGE_NO_STDOUT_LOG_LINES = EN_TEXT.message_no_stdout_log_lines
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
+MESSAGE_NO_ORDERS_RECORDED = EN_TEXT.message_no_orders_recorded
 MESSAGE_MEMORY_EXPLORER_TEMPORARILY_UNAVAILABLE = (
     EN_TEXT.message_memory_explorer_temporarily_unavailable
 )
@@ -2755,6 +2856,8 @@ MESSAGE_BACKTEST_MEMORY_ABLATION_WRITTEN = (
 )
 MESSAGE_BACKTEST_SUMMARY_WRITTEN = EN_TEXT.message_backtest_summary_written
 MESSAGE_OPERATOR_WORKFLOW_GUIDANCE = EN_TEXT.message_operator_workflow_guidance
+MESSAGE_INSTALLING_TUI_DEPENDENCIES = EN_TEXT.message_installing_tui_dependencies
+MESSAGE_NODE_MISSING = EN_TEXT.message_node_missing
 MESSAGE_CALENDAR_STATUS_UNAVAILABLE = EN_TEXT.message_calendar_status_unavailable
 MESSAGE_CACHE_STATUS = EN_TEXT.message_cache_status
 MESSAGE_MARKET_SNAPSHOT_CACHED = EN_TEXT.message_market_snapshot_cached
@@ -2816,6 +2919,13 @@ MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED = (
     EN_TEXT.message_runtime_mode_transition_blocked
 )
 MESSAGE_SETUP_BOOTSTRAP_GUIDANCE = EN_TEXT.message_setup_bootstrap_guidance
+MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED = (
+    EN_TEXT.message_service_stale_runtime_recovered
+)
+MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT = (
+    EN_TEXT.message_service_stale_runtime_recovered_event
+)
+MESSAGE_SERVICE_STOP_REQUESTED = EN_TEXT.message_service_stop_requested
 MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY = (
     EN_TEXT.message_strategy_profile_execution_policy
 )
@@ -2830,6 +2940,7 @@ MESSAGE_TRADE_PROPOSAL_REJECTED = EN_TEXT.message_trade_proposal_rejected
 MESSAGE_TRADING_RUNTIME_BLOCKED = EN_TEXT.message_trading_runtime_blocked
 MESSAGE_TRADING_RUNTIME_READY = EN_TEXT.message_trading_runtime_ready
 MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK = EN_TEXT.message_training_diagnostic_fallback
+MESSAGE_TUI_MISSING = EN_TEXT.message_tui_missing
 MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE = (
     EN_TEXT.message_unique_artifact_dir_unavailable
 )
@@ -2886,6 +2997,7 @@ TITLE_EVIDENCE_BUNDLE = EN_TEXT.title_evidence_bundle
 TITLE_HARDWARE_PROFILE = EN_TEXT.title_hardware_profile
 TITLE_IDEA_SCANNER_PRESETS = EN_TEXT.title_idea_scanner_presets
 TITLE_IDEA_SCORE = EN_TEXT.title_idea_score
+TITLE_INSTALLING_TUI_DEPENDENCIES = EN_TEXT.title_installing_tui_dependencies
 TITLE_INVESTMENT_PREFERENCES = EN_TEXT.title_investment_preferences
 TITLE_FINANCE_LEDGER_CATEGORIES = EN_TEXT.title_finance_ledger_categories
 TITLE_FINANCE_OPERATIONS = EN_TEXT.title_finance_operations
@@ -2902,6 +3014,8 @@ TITLE_MARKET_SNAPSHOT_CACHED = EN_TEXT.title_market_snapshot_cached
 TITLE_MODEL_PULL = EN_TEXT.title_model_pull
 TITLE_MODEL_SERVICE_STDERR_TAIL = EN_TEXT.title_model_service_stderr_tail
 TITLE_MODEL_SERVICE_START_FAILED = EN_TEXT.title_model_service_start_failed
+TITLE_NODE_MISSING = EN_TEXT.title_node_missing
+TITLE_NOT_RUNNING = EN_TEXT.title_not_running
 TITLE_RECENT_RUNS = EN_TEXT.title_recent_runs
 TITLE_RISK_WARNINGS = EN_TEXT.title_risk_warnings
 TITLE_REVIEW_NOTE = EN_TEXT.title_review_note
@@ -2913,6 +3027,7 @@ TITLE_RUN_BLOCKED = EN_TEXT.title_run_blocked
 TITLE_RECONCILIATION_BLOCKED = EN_TEXT.title_reconciliation_blocked
 TITLE_REFRESH_BLOCKED = EN_TEXT.title_refresh_blocked
 TITLE_REJECTION_BLOCKED = EN_TEXT.title_rejection_blocked
+TITLE_RESTART_BLOCKED = EN_TEXT.title_restart_blocked
 TITLE_RUNTIME_EVENTS = EN_TEXT.title_runtime_events
 TITLE_RUNTIME_GATE_OPEN = EN_TEXT.title_runtime_gate_open
 TITLE_LAUNCH_PLAN = EN_TEXT.title_launch_plan
@@ -2922,6 +3037,7 @@ TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST = (
 )
 TITLE_RUNTIME_STATUS = EN_TEXT.title_runtime_status
 TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
+TITLE_SERVICE_RESTARTED = EN_TEXT.title_service_restarted
 TITLE_SERVICE_STDERR_TAIL = EN_TEXT.title_service_stderr_tail
 TITLE_SERVICE_STDOUT_TAIL = EN_TEXT.title_service_stdout_tail
 TITLE_SERVICE_SUPERVISOR = EN_TEXT.title_service_supervisor
@@ -2953,6 +3069,8 @@ TITLE_RETRIEVAL_STAGE = EN_TEXT.title_retrieval_stage
 TITLE_ROUTED_MODELS = EN_TEXT.title_routed_models
 TITLE_SETUP_GUIDANCE = EN_TEXT.title_setup_guidance
 TITLE_SETUP_STATUS = EN_TEXT.title_setup_status
+TITLE_STALE_STATE_RECOVERED = EN_TEXT.title_stale_state_recovered
+TITLE_STOP_REQUESTED = EN_TEXT.title_stop_requested
 TITLE_STRATEGY_PROFILE = EN_TEXT.title_strategy_profile
 TITLE_V1_STRATEGY_CATALOG = EN_TEXT.title_v1_strategy_catalog
 TITLE_NEWS_INTELLIGENCE = EN_TEXT.title_news_intelligence
@@ -2968,6 +3086,7 @@ TITLE_TRADE_PROPOSAL_REFRESHED = EN_TEXT.title_trade_proposal_refreshed
 TITLE_TRADE_PROPOSAL_REJECTED = EN_TEXT.title_trade_proposal_rejected
 TITLE_TOOL_READINESS = EN_TEXT.title_tool_readiness
 TITLE_TRAINING_DIAGNOSTIC_MODE = EN_TEXT.title_training_diagnostic_mode
+TITLE_TUI_MISSING = EN_TEXT.title_tui_missing
 TITLE_UI_LOCALE = EN_TEXT.title_ui_locale
 TITLE_UPDATED_PREFERENCES = EN_TEXT.title_updated_preferences
 TITLE_V1_READINESS = EN_TEXT.title_v1_readiness

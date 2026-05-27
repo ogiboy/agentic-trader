@@ -194,6 +194,7 @@ from agentic_trader.ui_text import (
     HELP_INSTRUCT_MESSAGE,
     HELP_INTERVAL,
     HELP_JSON,
+    HELP_MONITOR_REFRESH_SECONDS,
     HELP_LAUNCH_BACKGROUND,
     HELP_LAUNCH_CONTINUOUS,
     HELP_LAUNCH_MAX_CYCLES,
@@ -237,6 +238,7 @@ from agentic_trader.ui_text import (
     HELP_RESEARCH_CYCLE_TRIGGER_NOW,
     HELP_RESEARCH_PROBE,
     HELP_RESEARCH_REFRESH_PERSIST,
+    HELP_RESTART_SERVICE_GRACE_SECONDS,
     HELP_RUNTIME_EVENT_LIMIT,
     HELP_PROVIDER_CHECK,
     HELP_CALENDAR_STATUS_SYMBOL,
@@ -264,6 +266,7 @@ from agentic_trader.ui_text import (
     HELP_NEWS_SECTOR,
     HELP_NEWS_BRIEF_SYMBOL,
     HELP_SETUP_DRY_RUN,
+    HELP_STOP_SERVICE_FORCE,
     HELP_STRATEGY_CATALOG_PRESET_FILTER,
     HELP_STRATEGY_CATALOG_STATUS_FILTER,
     HELP_STRATEGY_PROFILE_NAME,
@@ -576,6 +579,8 @@ from agentic_trader.ui_text import (
     LAUNCHER_OPTION_OPEN_WEB_GUI,
     LAUNCHER_OPTION_REFRESH,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
+    MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
+    MESSAGE_BACKGROUND_SERVICE_RESTARTED,
     MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
     MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON,
     MESSAGE_BACKTEST_COMPARISON_WRITTEN,
@@ -590,6 +595,7 @@ from agentic_trader.ui_text import (
     MESSAGE_IDEA_PRESETS_EXECUTION_POLICY,
     MESSAGE_IDEA_SCORE_EXECUTION_POLICY,
     MESSAGE_IDEA_SCORE_UNAVAILABLE,
+    MESSAGE_INSTALLING_TUI_DEPENDENCIES,
     MESSAGE_LARGEST_POSITION_ABOVE_EQUITY,
     MESSAGE_LAUNCH_PLAN,
     MESSAGE_LAUNCH_SYMBOL_REQUIRED,
@@ -599,6 +605,7 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
     MESSAGE_NO_HISTORICAL_MEMORIES,
+    MESSAGE_NO_ORDERS_RECORDED,
     MESSAGE_NO_RETRIEVAL_INSPECTION_CONTEXT,
     MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT,
     MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
@@ -611,6 +618,7 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
     MESSAGE_NO_TRADE_PROPOSALS,
     MESSAGE_NO_TOOL_NEWS_HEADLINES,
+    MESSAGE_NODE_MISSING,
     MESSAGE_NO_PERSISTED_RUNS_REVIEW,
     MESSAGE_NO_PERSISTED_RUNS_REPLAY,
     MESSAGE_NO_PERSISTED_RUNS_EXPORT,
@@ -642,6 +650,9 @@ from agentic_trader.ui_text import (
     MESSAGE_RUN_REPORT_WRITTEN,
     MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE,
     MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
+    MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED,
+    MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT,
+    MESSAGE_SERVICE_STOP_REQUESTED,
     MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
     MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE,
@@ -654,6 +665,7 @@ from agentic_trader.ui_text import (
     MESSAGE_TRADING_RUNTIME_BLOCKED,
     MESSAGE_TRADING_RUNTIME_READY,
     MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
+    MESSAGE_TUI_MISSING,
     MESSAGE_UNIQUE_ARTIFACT_DIR_UNAVAILABLE,
     MESSAGE_V1_READINESS_STATUS_UNAVAILABLE,
     PROMPT_SELECT_ACTION,
@@ -705,6 +717,7 @@ from agentic_trader.ui_text import (
     TITLE_HARDWARE_PROFILE,
     TITLE_IDEA_SCANNER_PRESETS,
     TITLE_IDEA_SCORE,
+    TITLE_INSTALLING_TUI_DEPENDENCIES,
     TITLE_INVESTMENT_PREFERENCES,
     TITLE_FINANCE_LEDGER_CATEGORIES,
     TITLE_FINANCE_OPERATIONS,
@@ -723,6 +736,8 @@ from agentic_trader.ui_text import (
     TITLE_MODEL_PULL,
     TITLE_MODEL_SERVICE_STDERR_TAIL,
     TITLE_MODEL_SERVICE_START_FAILED,
+    TITLE_NODE_MISSING,
+    TITLE_NOT_RUNNING,
     TITLE_OBSERVER_API,
     TITLE_OBSERVER_API_BLOCKED,
     TITLE_OPERATOR_INSTRUCTION,
@@ -758,6 +773,7 @@ from agentic_trader.ui_text import (
     TITLE_RECONCILIATION_BLOCKED,
     TITLE_REFRESH_BLOCKED,
     TITLE_REJECTION_BLOCKED,
+    TITLE_RESTART_BLOCKED,
     TITLE_REVIEW_NOTE,
     TITLE_RISK_WARNINGS,
     TITLE_RUN_ARTIFACTS,
@@ -769,11 +785,14 @@ from agentic_trader.ui_text import (
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
     TITLE_SERVICE_STATUS,
+    TITLE_SERVICE_RESTARTED,
     TITLE_SERVICE_STDERR_TAIL,
     TITLE_SERVICE_STDOUT_TAIL,
     TITLE_SERVICE_SUPERVISOR,
     TITLE_SETUP_GUIDANCE,
     TITLE_SETUP_STATUS,
+    TITLE_STALE_STATE_RECOVERED,
+    TITLE_STOP_REQUESTED,
     TITLE_STRATEGY_PROFILE,
     TITLE_V1_STRATEGY_CATALOG,
     TITLE_NEWS_INTELLIGENCE,
@@ -793,6 +812,7 @@ from agentic_trader.ui_text import (
     TITLE_TRADE_PROPOSAL_REJECTED,
     TITLE_TRADE_PROPOSALS,
     TITLE_TRAINING_DIAGNOSTIC_MODE,
+    TITLE_TUI_MISSING,
     TITLE_UI_LOCALE,
     TITLE_UPDATED_PREFERENCES,
     TITLE_V1_READINESS,
@@ -8623,7 +8643,7 @@ def instruct(
 @app.command()
 def monitor(
     refresh_seconds: float = typer.Option(
-        1.0, min=0.2, help="Dashboard refresh interval in seconds."
+        1.0, min=0.2, help=HELP_MONITOR_REFRESH_SECONDS
     ),
 ) -> None:
     """
@@ -8644,8 +8664,8 @@ def ink_tui() -> None:
     if not tui_dir.exists():
         console.print(
             _render_health_panel(
-                "TUI Missing",
-                "The Ink UI directory was not found. Falling back to the Rich control room.",
+                TITLE_TUI_MISSING,
+                MESSAGE_TUI_MISSING,
                 border_style="yellow",
             )
         )
@@ -8656,8 +8676,8 @@ def ink_tui() -> None:
     if node_commands is None:
         console.print(
             _render_health_panel(
-                "Node Missing",
-                "A Node package manager is required to run the Ink control room. Falling back to the Rich control room.",
+                TITLE_NODE_MISSING,
+                MESSAGE_NODE_MISSING,
                 border_style="yellow",
             )
         )
@@ -8668,8 +8688,10 @@ def ink_tui() -> None:
     if not tui_dependencies_installed(tui_dir, command_cwd):
         console.print(
             _render_health_panel(
-                "Installing TUI Dependencies",
-                f"First launch detected. Installing Ink dependencies with {package_manager}.",
+                TITLE_INSTALLING_TUI_DEPENDENCIES,
+                MESSAGE_INSTALLING_TUI_DEPENDENCIES.format(
+                    package_manager=package_manager
+                ),
                 border_style="yellow",
             )
         )
@@ -8687,7 +8709,7 @@ def ink_tui() -> None:
 @app.command("stop-service")
 def stop_service(
     force: bool = typer.Option(
-        False, help="Send SIGTERM after marking stop requested."
+        False, help=HELP_STOP_SERVICE_FORCE
     ),
 ) -> None:
     """
@@ -8703,8 +8725,8 @@ def stop_service(
     if state is None or state.pid is None:
         console.print(
             _render_health_panel(
-                "Not Running",
-                "No managed service is currently active.",
+                TITLE_NOT_RUNNING,
+                MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
                 border_style="yellow",
             )
         )
@@ -8722,7 +8744,9 @@ def stop_service(
                 lookback=state.lookback,
                 max_cycles=state.max_cycles,
                 current_symbol=None,
-                message=f"Recovered stale runtime state from dead PID {state.pid}.",
+                message=MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT.format(
+                    pid=state.pid
+                ),
                 last_error=state.last_error,
                 pid=None,
                 clear_pid=True,
@@ -8731,7 +8755,9 @@ def stop_service(
             db.insert_service_event(
                 level="warning",
                 event_type="stale_service_recovered",
-                message=f"Recovered stale runtime state from dead PID {state.pid}.",
+                message=MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT.format(
+                    pid=state.pid
+                ),
                 cycle_count=state.cycle_count if state.cycle_count > 0 else None,
                 symbol=state.current_symbol,
             )
@@ -8739,8 +8765,8 @@ def stop_service(
             db.close()
         console.print(
             _render_health_panel(
-                "Stale State Recovered",
-                f"Dead PID {state.pid} is no longer alive. Runtime state was marked stopped and the stale PID was cleared.",
+                TITLE_STALE_STATE_RECOVERED,
+                MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED.format(pid=state.pid),
                 border_style="yellow",
             )
         )
@@ -8759,8 +8785,8 @@ def stop_service(
         terminate_service_process(state.pid)
     console.print(
         _render_health_panel(
-            "Stop Requested",
-            f"Service PID {state.pid} was asked to stop gracefully via the runtime control channel.",
+            TITLE_STOP_REQUESTED,
+            MESSAGE_SERVICE_STOP_REQUESTED.format(pid=state.pid),
             border_style="yellow",
         )
     )
@@ -8769,7 +8795,7 @@ def stop_service(
 @app.command("restart-service")
 def restart_service(
     grace_seconds: float = typer.Option(
-        3.0, min=0.0, help="How long to wait for a graceful stop before relaunch."
+        3.0, min=0.0, help=HELP_RESTART_SERVICE_GRACE_SECONDS
     ),
 ) -> None:
     """
@@ -8784,7 +8810,7 @@ def restart_service(
     except Exception as exc:
         console.print(
             _render_health_panel(
-                "Restart Blocked",
+                TITLE_RESTART_BLOCKED,
                 str(exc),
                 border_style="red",
             )
@@ -8792,8 +8818,8 @@ def restart_service(
         raise typer.Exit(code=1)
     console.print(
         _render_health_panel(
-            "Service Restarted",
-            f"Background orchestrator restarted with PID {pid}.",
+            TITLE_SERVICE_RESTARTED,
+            MESSAGE_BACKGROUND_SERVICE_RESTARTED.format(pid=pid),
             border_style="green",
         )
     )
@@ -8812,7 +8838,7 @@ def service_run(
     settings = get_settings()
     symbol_list = [item.strip().upper() for item in symbols.split(",") if item.strip()]
     if not symbol_list:
-        raise typer.BadParameter("At least one symbol is required.")
+        raise typer.BadParameter(MESSAGE_LAUNCH_SYMBOL_REQUIRED)
     run_service(
         settings=settings,
         symbols=symbol_list,
@@ -8837,7 +8863,7 @@ def latest_order() -> None:
     db = TradingDatabase(settings)
     order = db.latest_order()
     if order is None:
-        console.print("[yellow]No orders recorded yet.[/yellow]")
+        console.print(Text(MESSAGE_NO_ORDERS_RECORDED, style="yellow"))
         raise typer.Exit(code=0)
 
     columns: list[str] = [
@@ -8852,7 +8878,7 @@ def latest_order() -> None:
         "position_size_pct",
         "confidence",
     ]
-    table = Table(title="Latest Order")
+    table = Table(title=LABEL_LATEST_ORDER)
     for column in columns:
         table.add_column(column)
     rendered_order = [str(value) for value in order]
