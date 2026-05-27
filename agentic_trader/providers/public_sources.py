@@ -1,11 +1,12 @@
 """Public-source provider adapters for canonical financial context."""
 
 from collections.abc import Mapping
-from typing import Any, Callable, TypeGuard
+from typing import Any, Callable, TypeGuard, cast
 
 import httpx
 
 from agentic_trader.config import Settings
+from agentic_trader.json_utils import object_dict_or_none as _object_mapping
 from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
 from agentic_trader.schemas import (
     DisclosureEvent,
@@ -428,9 +429,9 @@ def _fundamental_snapshot_from_sec_companyfacts(
     Returns:
         FundamentalSnapshot: A snapshot populated with derived metrics, attribution (including completeness and confidence), missing_fields and a formatted summary; or a missing snapshot attributed to "sec_edgar" when US-GAAP facts are unavailable or insufficient.
     """
-    facts = payload.get("facts")
-    us_gaap = facts.get("us-gaap") if isinstance(facts, dict) else None
-    if not isinstance(us_gaap, dict):
+    facts = _object_mapping(payload.get("facts"))
+    us_gaap = _object_mapping(facts.get("us-gaap") if facts is not None else None)
+    if us_gaap is None:
         return _missing_fundamental_snapshot(
             symbol,
             source_name="sec_edgar",
@@ -539,9 +540,10 @@ def _fetch_json(
     response = httpx.get(url, headers=dict(headers), timeout=timeout_seconds)
     response.raise_for_status()
     payload = response.json()
-    if not isinstance(payload, dict):
+    payload_object = _object_mapping(payload)
+    if payload_object is None:
         raise ValueError("JSON response was not an object")
-    return payload
+    return payload_object
 
 
 def _sec_configuration_note(*, enabled: bool, user_agent: bool) -> str:
@@ -580,15 +582,16 @@ def _sec_ticker_index(payload: dict[str, Any]) -> dict[str, dict[str, str]]:
     """
     result: dict[str, dict[str, str]] = {}
     for item in payload.values():
-        if not isinstance(item, dict):
+        item_payload = _object_mapping(item)
+        if item_payload is None:
             continue
-        symbol = str(item.get("ticker") or "").strip().upper()
-        cik = _normalize_cik(item.get("cik_str"))
+        symbol = str(item_payload.get("ticker") or "").strip().upper()
+        cik = _normalize_cik(item_payload.get("cik_str"))
         if not symbol or cik is None:
             continue
         result[symbol] = {
             "cik": cik,
-            "entity_name": str(item.get("title") or symbol).strip(),
+            "entity_name": str(item_payload.get("title") or symbol).strip(),
         }
     return result
 
@@ -669,11 +672,11 @@ def _company_fact_entries_for_concept(
         entries (list[tuple[str, str, dict[str, Any]]]): A list of tuples `(concept, unit, item)` for each supported fact item found.
         Returns an empty list if the concept is missing or its `units` structure is not a dict.
     """
-    concept_payload = us_gaap.get(concept)
-    if not isinstance(concept_payload, dict):
+    concept_payload = _object_mapping(us_gaap.get(concept))
+    if concept_payload is None:
         return []
-    units = concept_payload.get("units")
-    if not isinstance(units, dict):
+    units = _object_mapping(concept_payload.get("units"))
+    if units is None:
         return []
     entries: list[tuple[str, str, dict[str, Any]]] = []
     for unit, unit_entries in units.items():
@@ -698,7 +701,7 @@ def _company_fact_entries_for_unit(
     if not isinstance(unit_entries, list):
         return []
     entries: list[tuple[str, str, dict[str, Any]]] = []
-    for item in unit_entries:
+    for item in cast(list[object], unit_entries):
         if _is_supported_company_fact_item(item, concept=concept, unit=unit):
             entries.append((concept, unit, item))
     return entries
@@ -720,9 +723,10 @@ def _is_supported_company_fact_item(
     """
     if not isinstance(item, dict):
         return False
-    if _fact_number((concept, unit, item)) is None:
+    item_payload = cast(dict[str, Any], item)
+    if _fact_number((concept, unit, item_payload)) is None:
         return False
-    form = str(item.get("form") or "").upper()
+    form = str(item_payload.get("form") or "").upper()
     return not form or form in SEC_RESEARCH_FORMS
 
 

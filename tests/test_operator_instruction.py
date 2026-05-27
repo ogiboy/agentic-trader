@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from agentic_trader.agents.operator_chat import (
     apply_preference_update,
     interpret_operator_instruction,
@@ -42,7 +44,7 @@ def test_apply_preference_update_changes_only_supplied_fields(tmp_path: Path) ->
 
 
 def test_interpret_operator_instruction_uses_fallback_keywords(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -74,7 +76,7 @@ def test_interpret_operator_instruction_uses_fallback_keywords(
 
 
 def test_interpret_operator_instruction_can_use_structured_llm(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -84,16 +86,19 @@ def test_interpret_operator_instruction_can_use_structured_llm(
     db = TradingDatabase(settings)
     llm = LocalLLM(settings)
 
-    monkeypatch.setattr(
-        llm,
-        "complete_structured",
-        lambda **kwargs: OperatorInstruction(
+    def _complete_structured(**_kwargs: object) -> OperatorInstruction:
+        return OperatorInstruction(
             summary="Parsed by LLM",
             should_update_preferences=True,
             preference_update=PreferenceUpdate(trade_style="intraday"),
             requires_confirmation=True,
             rationale="Test rationale",
-        ),
+        )
+
+    monkeypatch.setattr(
+        llm,
+        "complete_structured",
+        _complete_structured,
     )
 
     instruction = interpret_operator_instruction(

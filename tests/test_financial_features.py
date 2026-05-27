@@ -1,5 +1,3 @@
-import pytest
-
 from agentic_trader.config import Settings
 from agentic_trader.features import (
     build_decision_feature_bundle,
@@ -16,6 +14,7 @@ from agentic_trader.schemas import (
     MarketSnapshot,
     NewsSignal,
 )
+from tests.typing_helpers import approx
 
 
 def _snapshot() -> MarketSnapshot:
@@ -115,17 +114,17 @@ def test_symbol_identity_uses_market_suffix_and_preferences() -> None:
 def test_market_features_summarize_context_pack() -> None:
     features = get_market_features(_snapshot())
 
-    assert features.returns_by_window["5b"] == pytest.approx(0.03)
-    assert features.returns_by_window["20b"] == pytest.approx(0.09)
-    assert features.returns_by_window["60b"] == pytest.approx(0.18)
-    assert features.returns_by_window["120b"] == pytest.approx(0.27)
-    assert features.returns_by_window["30d"] == pytest.approx(0.09)
-    assert features.returns_by_window["90d"] == pytest.approx(0.18)
-    assert features.returns_by_window["180d"] == pytest.approx(0.27)
-    assert features.price_anchor == pytest.approx(105.0)
-    assert features.max_drawdown_pct == pytest.approx(-0.12)
-    assert features.support == pytest.approx(88.0)
-    assert features.resistance == pytest.approx(118.0)
+    assert features.returns_by_window["5b"] == approx(0.03)
+    assert features.returns_by_window["20b"] == approx(0.09)
+    assert features.returns_by_window["60b"] == approx(0.18)
+    assert features.returns_by_window["120b"] == approx(0.27)
+    assert features.returns_by_window["30d"] == approx(0.09)
+    assert features.returns_by_window["90d"] == approx(0.18)
+    assert features.returns_by_window["180d"] == approx(0.27)
+    assert features.price_anchor == approx(105.0)
+    assert features.max_drawdown_pct == approx(-0.12)
+    assert features.support == approx(88.0)
+    assert features.resistance == approx(118.0)
     assert features.trend_classification == "bullish"
 
 

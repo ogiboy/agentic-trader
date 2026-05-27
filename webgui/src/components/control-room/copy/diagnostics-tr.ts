@@ -101,8 +101,15 @@ export const TR_DIAGNOSTICS_COPY = {
       'Ollama app-managed seçili ama çalışmıyor. Ollama üzerinden başlat.',
     ollamaHostManagedUnreachable:
       'Ollama host-managed seçili ama erişilemiyor. Host üzerinde başlat veya App Araçlarına geç.',
-    ollamaModelMissing: (model) =>
-      `Ollama erişilebilir ama ${model ?? 'ayarlı model'} henüz yok.`,
+    ollamaModelMissing: (model) => {
+      const displayModel =
+        typeof model === 'string' ||
+        typeof model === 'number' ||
+        typeof model === 'boolean'
+          ? String(model)
+          : 'ayarlı model';
+      return `Ollama erişilebilir ama ${displayModel} henüz yok.`;
+    },
     ollamaOwnershipUndecided:
       'Ollama sahipliği kararsız. İlk çalıştırmadan önce App Araçları veya Host Yedeği seç.',
   },

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from importlib import import_module
 from importlib.metadata import version
+from typing import TYPE_CHECKING, Any, Generic, ParamSpec, TypeVar, cast
 
-# CrewAI lives in the sidecar's uv environment, not the root runtime env.
-from crewai.flow import Flow, start  # type: ignore[reportMissingImports]
 from pydantic import BaseModel, Field
 
 from research_flow.contracts import (
@@ -12,6 +13,44 @@ from research_flow.contracts import (
     ResearchFlowRequest,
     build_contract_output,
 )
+
+StateT = TypeVar("StateT")
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+CREWAI_FLOW_COMPATIBILITY_MESSAGE = (
+    'CrewAI Flow compatibility error: expected import_module("crewai.flow") '
+    'to expose a "Flow" class and "start" callable. Check the installed '
+    'crewai version with python -c "import crewai; print(crewai.__version__)" '
+    "and verify the matching Flow API docs at "
+    "https://docs.crewai.com/concepts/flows."
+)
+
+
+def _load_crewai_flow_symbols() -> tuple[type[Any], Callable[..., Any]]:
+    try:
+        crewai_flow = cast(Any, import_module("crewai.flow"))
+        flow_class = crewai_flow.Flow
+        start_callable = crewai_flow.start
+    except (ImportError, AttributeError) as exc:
+        raise RuntimeError(CREWAI_FLOW_COMPATIBILITY_MESSAGE) from exc
+    return cast(type[Any], flow_class), cast(Callable[..., Any], start_callable)
+
+
+if TYPE_CHECKING:
+
+    class Flow(Generic[StateT]):
+        def kickoff(self) -> object: ...
+
+        def plot(self) -> object: ...
+
+    def start(
+        *_args: object, **_kwargs: object
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+else:
+    Flow, start = _load_crewai_flow_symbols()
 
 
 class ResearchFlowState(BaseModel):
