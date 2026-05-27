@@ -282,6 +282,27 @@ def test_cli_locale_command_supports_override_and_persistence(
     assert "Locale must be one of: en, tr." in invalid_result.stdout
 
 
+def test_cli_env_local_upsert_creates_and_updates_known_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    env_file = tmp_path / ".env.local"
+
+    cli_module._upsert_env_local_value("AGENTIC_TRADER_UI_LOCALE", "tr")
+
+    assert env_file.read_text(encoding="utf-8") == "AGENTIC_TRADER_UI_LOCALE=tr\n"
+
+    env_file.write_text(
+        "OTHER_SETTING=1\nAGENTIC_TRADER_UI_LOCALE=tr\n", encoding="utf-8"
+    )
+
+    cli_module._upsert_env_local_value("AGENTIC_TRADER_UI_LOCALE", "en")
+
+    assert env_file.read_text(encoding="utf-8") == (
+        "OTHER_SETTING=1\nAGENTIC_TRADER_UI_LOCALE=en\n"
+    )
+
+
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
     """
     Builds a fully populated RunArtifacts instance with realistic sample data for use in tests.

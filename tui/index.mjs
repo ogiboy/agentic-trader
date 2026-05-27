@@ -9,7 +9,6 @@ import {
   dashboardTitle,
   formatPersona,
   getPageForShortcut,
-  getPageLabel,
   rotateInstructionMode,
   rotatePersona,
 } from './copy.mjs';
@@ -2193,7 +2192,6 @@ export {
   getInstructionResultLines,
   getJournalLines,
   getMarketContextLines,
-  getPageLabel,
   getRecentRunsLines,
   getReplayLines,
   getReviewLines,
@@ -2215,3 +2213,4 @@ export {
   rotatePersona,
   sourceHealthSummaryLine,
 };
+export { getPageLabel } from './copy.mjs';
