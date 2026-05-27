@@ -694,6 +694,14 @@ The early solo-developer bias kept changes small, but several files have grown l
 When touching complex areas, prefer extracting domain constants, render helpers, service helpers, typed copy catalogs, and provider/fetcher adapters into named modules with focused tests.
 This is still incremental architecture cleanup, not a license for broad rewrites or a new orchestration framework.
 
+### Modularity and i18n debt should be measured before it is enforced
+
+Reason:
+The repository already has useful modular seams in WebGUI and docs, but Python CLI, Rich TUI, Ink TUI, storage, provider, and service files still carry enough mixed responsibility that a hard gate would create noise before it creates discipline.
+Start with a reporting-only audit for oversized modules, long functions, repeated helper patterns, docs locale parity, and hardcoded operator-copy candidates.
+Use the report to guide staged extraction and tighten thresholds only after the current baseline has been reduced intentionally.
+The audit must not classify runtime JSON field names, protocol enum values, database column names, provider identifiers, or test fixture data as localization debt by default.
+
 ### The existing docs scaffold should be activated, not replaced
 
 Reason:
@@ -747,6 +755,7 @@ Stable release version stamping should also keep the root, Web GUI, docs, and TU
 The binary workflow owns GitHub Release creation so immutable releases can be created with PyInstaller assets attached in one publish step.
 The binary assets are convenience builds for the Python CLI layer; they do not bundle the Web GUI, docs app, Node runtime, Ollama, or external provider services.
 If semantic-release previews a tag below the tracked pre-1.0 baseline and that baseline tag does not exist yet, the release workflow should create a baseline changelog section, create the baseline tag once, and dispatch binary packaging with that tag. Plain `main` branch binary pushes may still upload workflow artifacts without publishing a GitHub Release; release publishing should happen from a tag/dispatch path.
+If feature-branch prerelease tags such as `v0.12.5-beta.*` are already reachable from `main`, python-semantic-release can assign those commits to prerelease history before the final stable section is rendered. The stable workflow should therefore treat an empty stable section as a release-flow defect and backfill it from the previous stable tag to `HEAD`, ignoring prerelease tags, before committing the release files.
 
 Stable release identity and branch build identity are intentionally separate.
 Strict SemVer release tags keep the `MAJOR.MINOR.PATCH` core, such as `v0.9.5`; CI/build counters must not become a fourth core segment like `v0.9.5.9870`.

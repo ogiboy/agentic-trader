@@ -3,8 +3,6 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from tests.typing_helpers import approx
-
 from agentic_trader.backtest.walk_forward import (
     run_backtest_comparison,
     run_deterministic_baseline_backtest,
@@ -24,6 +22,7 @@ from agentic_trader.schemas import (
     RunArtifacts,
     StrategyPlan,
 )
+from tests.typing_helpers import approx
 
 
 def _frame() -> pd.DataFrame:
