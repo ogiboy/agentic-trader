@@ -3,8 +3,6 @@ from uuid import uuid4
 
 import pytest
 
-from tests.typing_helpers import approx
-
 from agentic_trader.agents.calibration import build_confidence_calibration
 from agentic_trader.agents.context import build_agent_context
 from agentic_trader.agents.manager import manage_trade_decision
@@ -23,6 +21,7 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run
+from tests.typing_helpers import approx
 
 
 def _artifacts(symbol: str = "AAPL", *, approved: bool = True) -> RunArtifacts:

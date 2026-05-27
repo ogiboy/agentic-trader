@@ -1,6 +1,6 @@
 from agentic_trader.agents.consensus import (
-    fallback_evidence_note,
     assess_specialist_consensus,
+    fallback_evidence_note,
 )
 from agentic_trader.schemas import (
     FundamentalAssessment,

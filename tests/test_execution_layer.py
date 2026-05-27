@@ -3,8 +3,6 @@ from typing import cast
 
 import pytest
 
-from tests.typing_helpers import approx
-
 from agentic_trader.config import Settings
 from agentic_trader.engine.broker import (
     PaperBrokerAdapter,
@@ -25,6 +23,7 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run
+from tests.typing_helpers import approx
 
 
 def _settings(tmp_path: Path) -> Settings:

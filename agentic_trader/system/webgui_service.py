@@ -28,6 +28,7 @@ from agentic_trader.security import (
     redact_sensitive_text,
     write_private_text,
 )
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 DEFAULT_WEBGUI_HOST = "127.0.0.1"
 DEFAULT_WEBGUI_PORT = 3210
@@ -101,12 +102,6 @@ def webgui_service_dir(settings: Settings) -> Path:
 
 def webgui_service_state_path(settings: Settings) -> Path:
     return webgui_service_dir(settings) / "webgui_service.json"
-
-
-def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _read_state(settings: Settings) -> WebGUIServiceState | None:

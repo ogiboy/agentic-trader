@@ -9,6 +9,7 @@ from typing import Callable
 from uuid import uuid4
 
 from agentic_trader.config import Settings
+from agentic_trader.payloads import dataclass_payload
 from agentic_trader.researchd.control import get_research_cycle_control
 from agentic_trader.researchd.cycle_plan import research_cycle_plan_payload
 from agentic_trader.researchd.orchestrator import (
@@ -78,52 +79,6 @@ class ResearchCycleExecution:
     cadence: dict[str, object] = field(default_factory=_empty_payload)
     digest: dict[str, object] = field(default_factory=_empty_payload)
     notes: list[str] = field(default_factory=_empty_notes)
-
-    def to_payload(self) -> dict[str, object]:
-        """
-        Convert this ResearchCycleExecution into a JSON-serializable payload dictionary.
-
-        Returns:
-            dict: A mapping with keys:
-                - "cycle_index": 1-based index of the executed cycle.
-                - "started_at": ISO timestamp when the cycle started.
-                - "completed_at": ISO timestamp when the cycle completed.
-                - "state_status": final state status string from the pipeline result.
-                - "backend": backend identifier used for the run.
-                - "watched_symbols": list of symbols that were observed.
-                - "raw_evidence_count": number of raw evidence items collected.
-                - "macro_event_count": number of macro events produced.
-                - "social_signal_count": number of social signals produced.
-                - "prior_snapshot_id": snapshot id from prior persisted state or `None`.
-                - "prior_digest_available": `True` if a prior digest replay was available, `False` otherwise.
-                - "persisted_snapshot_id": snapshot id persisted during this cycle or `None`.
-                - "next_run_at": ISO timestamp for the next scheduled run or `None`.
-                - "preflight": preflight check payload as a dict.
-                - "source_health_delta": dict containing current, previous, and delta source-health counts.
-                - "cadence": dict with cadence settings (`seconds`, `sleep_between_cycles`, `next_run_at`).
-                - "digest": digest summary payload as a dict.
-                - "notes": list of diagnostic note strings generated for this execution.
-        """
-        return {
-            "cycle_index": self.cycle_index,
-            "started_at": self.started_at,
-            "completed_at": self.completed_at,
-            "state_status": self.state_status,
-            "backend": self.backend,
-            "watched_symbols": list(self.watched_symbols),
-            "raw_evidence_count": self.raw_evidence_count,
-            "macro_event_count": self.macro_event_count,
-            "social_signal_count": self.social_signal_count,
-            "prior_snapshot_id": self.prior_snapshot_id,
-            "prior_digest_available": self.prior_digest_available,
-            "persisted_snapshot_id": self.persisted_snapshot_id,
-            "next_run_at": self.next_run_at,
-            "preflight": dict(self.preflight),
-            "source_health_delta": dict(self.source_health_delta),
-            "cadence": dict(self.cadence),
-            "digest": dict(self.digest),
-            "notes": list(self.notes),
-        }
 
 
 def run_research_cycle(
@@ -209,7 +164,9 @@ def run_research_cycle(
         ),
         watched_symbols=list(resolved.symbols),
         digest=dict(latest_digest),
-        executions=[execution.to_payload() for execution in executions],
+        executions=[
+            research_cycle_execution_payload(execution) for execution in executions
+        ],
         execution_policy=execution_policy,
         operator_control=operator_control,
         replay_notes=[
@@ -232,8 +189,16 @@ def run_research_cycle(
         "operator_control": operator_control.model_dump(mode="json"),
         "digest_replay": digest_replay.model_dump(mode="json"),
         "latest_digest": latest_digest,
-        "executions": [execution.to_payload() for execution in executions],
+        "executions": [
+            research_cycle_execution_payload(execution) for execution in executions
+        ],
     }
+
+
+def research_cycle_execution_payload(
+    execution: ResearchCycleExecution,
+) -> dict[str, object]:
+    return dataclass_payload(execution)
 
 
 def _execute_research_cycles(
