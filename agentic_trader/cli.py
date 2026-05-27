@@ -234,7 +234,14 @@ from agentic_trader.ui_text import (
     HELP_RUNTIME_EVENT_LIMIT,
     HELP_PROVIDER_CHECK,
     HELP_CALENDAR_STATUS_SYMBOL,
+    HELP_BACKTEST_COMPARE_BASELINE,
+    HELP_BACKTEST_COMPARE_MEMORY,
+    HELP_BACKTEST_OUTPUT,
+    HELP_BACKTEST_WARMUP_BARS,
+    HELP_EXPORT_REPORT_OUTPUT,
+    HELP_EXPORT_REPORT_RUN_ID,
     HELP_RISK_REPORT_DATE,
+    HELP_RUN_REPLAY_ID,
     HELP_TRADE_CONTEXT_ID,
     HELP_TRADE_JOURNAL_LIMIT,
     HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
@@ -556,6 +563,10 @@ from agentic_trader.ui_text import (
     LAUNCHER_OPTION_REFRESH,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
+    MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON,
+    MESSAGE_BACKTEST_COMPARISON_WRITTEN,
+    MESSAGE_BACKTEST_MEMORY_ABLATION_WRITTEN,
+    MESSAGE_BACKTEST_SUMMARY_WRITTEN,
     MESSAGE_CALENDAR_STATUS_UNAVAILABLE,
     MESSAGE_CACHE_STATUS,
     MESSAGE_EVIDENCE_BUNDLE_WRITTEN,
@@ -584,6 +595,8 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_TRADE_PROPOSALS,
     MESSAGE_NO_TOOL_NEWS_HEADLINES,
     MESSAGE_NO_PERSISTED_RUNS_REVIEW,
+    MESSAGE_NO_PERSISTED_RUNS_REPLAY,
+    MESSAGE_NO_PERSISTED_RUNS_EXPORT,
     MESSAGE_NO_PERSISTED_RUNS_TRACE,
     MESSAGE_NO_TRADE_CONTEXT,
     MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
@@ -607,6 +620,8 @@ from agentic_trader.ui_text import (
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
     MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_RUN_REPORT_WRITTEN,
     MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE,
     MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
     MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
@@ -663,6 +678,8 @@ from agentic_trader.ui_text import (
     TITLE_DESK_ACCOUNTING_CONTEXT,
     TITLE_ENVIRONMENT_CHECK,
     TITLE_EXECUTION_SUMMARY,
+    TITLE_EXPORT_BLOCKED,
+    TITLE_EXPORTED,
     TITLE_EXIT,
     TITLE_EVIDENCE_BUNDLE,
     TITLE_HARDWARE_PROFILE,
@@ -721,6 +738,7 @@ from agentic_trader.ui_text import (
     TITLE_RISK_WARNINGS,
     TITLE_RUN_ARTIFACTS,
     TITLE_RUN_BLOCKED,
+    TITLE_RUN_REPLAY,
     TITLE_RUN_REVIEW,
     TITLE_RUNTIME_EVENTS,
     TITLE_RUNTIME_GATE_OPEN,
@@ -7993,9 +8011,7 @@ def _render_trade_context(record: TradeContextRecord) -> None:
 
 @app.command("replay-run")
 def replay_run(
-    run_id: str | None = typer.Option(
-        None, help="Run id to replay. Defaults to the latest recorded run."
-    ),
+    run_id: str | None = typer.Option(None, help=HELP_RUN_REPLAY_ID),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Replay what the system knew at decision time using persisted traces."""
@@ -8012,7 +8028,9 @@ def replay_run(
     if not payload["available"]:
         console.print(
             Panel(
-                f"Run replay is temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
+                MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE.format(
+                    error=payload["error"]
+                ),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -8021,8 +8039,8 @@ def replay_run(
     if replay is None:
         console.print(
             Panel(
-                "No persisted runs are available to replay.",
-                title="Run Replay",
+                MESSAGE_NO_PERSISTED_RUNS_REPLAY,
+                title=TITLE_RUN_REPLAY,
                 border_style="yellow",
             )
         )
@@ -8032,12 +8050,8 @@ def replay_run(
 
 @app.command("export-report")
 def export_report(
-    output: str = typer.Option(
-        ..., help="Output file path for the exported run review."
-    ),
-    run_id: str | None = typer.Option(
-        None, help="Run id to export. Defaults to the latest recorded run."
-    ),
+    output: str = typer.Option(..., help=HELP_EXPORT_REPORT_OUTPUT),
+    run_id: str | None = typer.Option(None, help=HELP_EXPORT_REPORT_RUN_ID),
 ) -> None:
     """Export a run review as Markdown."""
     settings = get_settings()
@@ -8046,8 +8060,8 @@ def export_report(
     if record is None:
         console.print(
             Panel(
-                "No persisted runs are available to export.",
-                title="Export Blocked",
+                MESSAGE_NO_PERSISTED_RUNS_EXPORT,
+                title=TITLE_EXPORT_BLOCKED,
                 border_style="yellow",
             )
         )
@@ -8057,7 +8071,9 @@ def export_report(
         handle.write(rendered)
     console.print(
         Panel(
-            f"Run report written to {output}.", title="Exported", border_style="green"
+            MESSAGE_RUN_REPORT_WRITTEN.format(output=output),
+            title=TITLE_EXPORTED,
+            border_style="green",
         )
     )
 
@@ -8068,17 +8084,15 @@ def backtest(
     interval: str = typer.Option("1d", help=HELP_INTERVAL),
     lookback: str = typer.Option("2y", help=HELP_LOOKBACK),
     warmup_bars: int = typer.Option(
-        120, min=60, help="Warmup bars before replay begins."
+        120, min=60, help=HELP_BACKTEST_WARMUP_BARS
     ),
     compare_baseline: bool = typer.Option(
-        False, help="Also compare the agent replay against a deterministic baseline."
+        False, help=HELP_BACKTEST_COMPARE_BASELINE
     ),
     compare_memory: bool = typer.Option(
-        False, help="Also compare the agent replay with memory enabled versus disabled."
+        False, help=HELP_BACKTEST_COMPARE_MEMORY
     ),
-    output: str | None = typer.Option(
-        None, help="Optional Markdown output path for a compact backtest summary."
-    ),
+    output: str | None = typer.Option(None, help=HELP_BACKTEST_OUTPUT),
 ) -> None:
     """
     Run a backtest using the agent pipeline in one of three modes: walk‑forward, baseline comparison, or memory ablation.
@@ -8097,9 +8111,7 @@ def backtest(
     settings = get_settings()
     allow_diagnostic_fallback = _training_backtest_allow_fallback(settings)
     if compare_baseline and compare_memory:
-        raise typer.BadParameter(
-            "Choose either --compare-baseline or --compare-memory for a single run."
-        )
+        raise typer.BadParameter(MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON)
     if compare_baseline:
         comparison = run_backtest_comparison(
             settings=settings,
@@ -8126,8 +8138,8 @@ def backtest(
             Path(output).write_text(rendered, encoding="utf-8")
             console.print(
                 Panel(
-                    f"Backtest comparison written to {output}.",
-                    title="Exported",
+                    MESSAGE_BACKTEST_COMPARISON_WRITTEN.format(output=output),
+                    title=TITLE_EXPORTED,
                     border_style="green",
                 )
             )
@@ -8159,8 +8171,8 @@ def backtest(
             Path(output).write_text(rendered, encoding="utf-8")
             console.print(
                 Panel(
-                    f"Backtest memory ablation written to {output}.",
-                    title="Exported",
+                    MESSAGE_BACKTEST_MEMORY_ABLATION_WRITTEN.format(output=output),
+                    title=TITLE_EXPORTED,
                     border_style="green",
                 )
             )
@@ -8196,8 +8208,8 @@ def backtest(
         Path(output).write_text(rendered, encoding="utf-8")
         console.print(
             Panel(
-                f"Backtest summary written to {output}.",
-                title="Exported",
+                MESSAGE_BACKTEST_SUMMARY_WRITTEN.format(output=output),
+                title=TITLE_EXPORTED,
                 border_style="green",
             )
         )

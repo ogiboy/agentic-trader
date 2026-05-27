@@ -94,6 +94,9 @@ class UITextCatalog:
     help_camofox_service_port: str
     help_run_id: str
     help_trade_context_id: str
+    help_run_replay_id: str
+    help_export_report_output: str
+    help_export_report_run_id: str
     help_runtime_mode_provider_check: str
     help_runtime_mode_target: str
     help_news_classify_source: str
@@ -129,6 +132,10 @@ class UITextCatalog:
     help_trade_proposal_refresh_id: str
     help_trade_proposal_refresh_notes: str
     help_trade_proposal_rejection_reason: str
+    help_backtest_warmup_bars: str
+    help_backtest_compare_baseline: str
+    help_backtest_compare_memory: str
+    help_backtest_output: str
     help_v1_provider_check: str
     help_webgui_open_browser: str
     help_webgui_service_app: str
@@ -420,6 +427,14 @@ class UITextCatalog:
     message_no_persisted_runs_trace: str
     message_trade_context_temporarily_unavailable: str
     message_no_trade_context: str
+    message_run_replay_temporarily_unavailable: str
+    message_no_persisted_runs_replay: str
+    message_no_persisted_runs_export: str
+    message_run_report_written: str
+    message_backtest_choose_one_comparison: str
+    message_backtest_comparison_written: str
+    message_backtest_memory_ablation_written: str
+    message_backtest_summary_written: str
     message_operator_workflow_guidance: str
     message_calendar_status_unavailable: str
     message_cache_status: str
@@ -493,6 +508,8 @@ class UITextCatalog:
     status_pass: str
     status_ready: str
     title_execution_summary: str
+    title_export_blocked: str
+    title_exported: str
     title_agent_decisions: str
     title_agent_trace: str
     title_approval_blocked: str
@@ -549,6 +566,7 @@ class UITextCatalog:
     title_review_note: str
     title_replay_stages: str
     title_run_artifacts: str
+    title_run_replay: str
     title_run_review: str
     title_run_blocked: str
     title_reconciliation_blocked: str
@@ -723,6 +741,9 @@ EN_TEXT = UITextCatalog(
     help_trade_context_id=(
         "Trade id to inspect. Defaults to the latest recorded trade context."
     ),
+    help_run_replay_id="Run id to replay. Defaults to the latest recorded run.",
+    help_export_report_output="Output file path for the exported run review.",
+    help_export_report_run_id="Run id to export. Defaults to the latest recorded run.",
     help_runtime_mode_provider_check="Check local provider/model readiness for Operation mode.",
     help_runtime_mode_target="Target runtime mode: training or operation.",
     help_news_classify_source="Optionally classify a source domain or URL into the source tier policy.",
@@ -758,6 +779,16 @@ EN_TEXT = UITextCatalog(
     help_trade_proposal_refresh_id="Executed proposal id with an accepted broker order to refresh.",
     help_trade_proposal_refresh_notes="Required refresh audit notes.",
     help_trade_proposal_rejection_reason="Human-readable rejection reason.",
+    help_backtest_warmup_bars="Warmup bars before replay begins.",
+    help_backtest_compare_baseline=(
+        "Also compare the agent replay against a deterministic baseline."
+    ),
+    help_backtest_compare_memory=(
+        "Also compare the agent replay with memory enabled versus disabled."
+    ),
+    help_backtest_output=(
+        "Optional Markdown output path for a compact backtest summary."
+    ),
     help_v1_provider_check="Check local model/provider readiness; may call the configured LLM service.",
     help_webgui_open_browser="Ask the OS to open the Web GUI URL after starting.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
@@ -1066,6 +1097,23 @@ EN_TEXT = UITextCatalog(
         "the database.\n\n{error}"
     ),
     message_no_trade_context="No persisted trade context is available yet.",
+    message_run_replay_temporarily_unavailable=(
+        "Run replay is temporarily unavailable while the runtime writer owns "
+        "the database.\n\n{error}"
+    ),
+    message_no_persisted_runs_replay="No persisted runs are available to replay.",
+    message_no_persisted_runs_export="No persisted runs are available to export.",
+    message_run_report_written="Run report written to {output}.",
+    message_backtest_choose_one_comparison=(
+        "Choose either --compare-baseline or --compare-memory for a single run."
+    ),
+    message_backtest_comparison_written=(
+        "Backtest comparison written to {output}."
+    ),
+    message_backtest_memory_ablation_written=(
+        "Backtest memory ablation written to {output}."
+    ),
+    message_backtest_summary_written="Backtest summary written to {output}.",
     message_operator_workflow_guidance=(
         "Read-only workflow guide. Review readiness and evidence before long paper operation."
     ),
@@ -1238,6 +1286,8 @@ EN_TEXT = UITextCatalog(
     title_choose_surface="Choose A Surface",
     title_context_summary="Context Summary",
     title_execution_summary="Execution Summary",
+    title_export_blocked="Export Blocked",
+    title_exported="Exported",
     title_llm_status="LLM Status",
     title_observer_api="Observer API",
     title_observer_api_blocked="Observer API Blocked",
@@ -1276,6 +1326,7 @@ EN_TEXT = UITextCatalog(
     title_review_note="Review Note",
     title_replay_stages="Replay Stages",
     title_run_artifacts="Run Artifacts",
+    title_run_replay="Run Replay",
     title_run_review="Run Review",
     title_run_blocked="Run Blocked",
     title_reconciliation_blocked="Reconciliation Blocked",
@@ -1453,6 +1504,9 @@ TR_TEXT = UITextCatalog(
     help_trade_context_id=(
         "Incelenecek trade id. Varsayilan son kayitli trade context."
     ),
+    help_run_replay_id="Replay edilecek run id. Varsayilan son kayitli run.",
+    help_export_report_output="Export edilen run review icin output file path.",
+    help_export_report_run_id="Export edilecek run id. Varsayilan son kayitli run.",
     help_runtime_mode_provider_check="Operation modu icin yerel provider/model hazirligini kontrol et.",
     help_runtime_mode_target="Hedef runtime modu: training veya operation.",
     help_news_classify_source="Source domain veya URL'i source tier policy icine siniflandir.",
@@ -1488,6 +1542,16 @@ TR_TEXT = UITextCatalog(
     help_trade_proposal_refresh_id="Accepted broker order iceren executed proposal id.",
     help_trade_proposal_refresh_notes="Zorunlu refresh audit notlari.",
     help_trade_proposal_rejection_reason="Insan tarafindan okunabilir rejection nedeni.",
+    help_backtest_warmup_bars="Replay baslamadan onceki warmup bar sayisi.",
+    help_backtest_compare_baseline=(
+        "Agent replay'i deterministic baseline ile de karsilastir."
+    ),
+    help_backtest_compare_memory=(
+        "Agent replay'i memory enabled ve disabled olarak da karsilastir."
+    ),
+    help_backtest_output=(
+        "Kompakt backtest summary icin istege bagli Markdown output path."
+    ),
     help_v1_provider_check="Yerel model/provider hazirligini kontrol et; configured LLM servisine cagri yapabilir.",
     help_webgui_open_browser="Baslatmadan sonra Web GUI URL'sini OS ile ac.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
@@ -1796,6 +1860,23 @@ TR_TEXT = UITextCatalog(
         "kullanilamiyor.\n\n{error}"
     ),
     message_no_trade_context="Henuz persisted trade context yok.",
+    message_run_replay_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken run replay gecici olarak "
+        "kullanilamiyor.\n\n{error}"
+    ),
+    message_no_persisted_runs_replay="Replay icin persisted run yok.",
+    message_no_persisted_runs_export="Export icin persisted run yok.",
+    message_run_report_written="Run report {output} icine yazildi.",
+    message_backtest_choose_one_comparison=(
+        "Tek run icin --compare-baseline veya --compare-memory secin."
+    ),
+    message_backtest_comparison_written=(
+        "Backtest comparison {output} icine yazildi."
+    ),
+    message_backtest_memory_ablation_written=(
+        "Backtest memory ablation {output} icine yazildi."
+    ),
+    message_backtest_summary_written="Backtest summary {output} icine yazildi.",
     message_operator_workflow_guidance=(
         "Read-only workflow rehberi. Uzun paper operation oncesi readiness ve evidence inceleyin."
     ),
@@ -1968,6 +2049,8 @@ TR_TEXT = UITextCatalog(
     title_choose_surface="Yuzey Sec",
     title_context_summary="Context Ozeti",
     title_execution_summary="Execution Ozeti",
+    title_export_blocked="Export Bloklandi",
+    title_exported="Export Edildi",
     title_llm_status="LLM Durumu",
     title_observer_api="Observer API",
     title_observer_api_blocked="Observer API Bloklandi",
@@ -2006,6 +2089,7 @@ TR_TEXT = UITextCatalog(
     title_review_note="Review Notu",
     title_replay_stages="Replay Asamalari",
     title_run_artifacts="Run Artifact'lari",
+    title_run_replay="Run Replay",
     title_run_review="Run Review",
     title_run_blocked="Run Bloklandi",
     title_reconciliation_blocked="Reconciliation Bloklandi",
@@ -2171,6 +2255,9 @@ HELP_CAMOFOX_OWNER = EN_TEXT.help_camofox_owner
 HELP_CAMOFOX_SERVICE_HOST = EN_TEXT.help_camofox_service_host
 HELP_CAMOFOX_SERVICE_PORT = EN_TEXT.help_camofox_service_port
 HELP_TRADE_CONTEXT_ID = EN_TEXT.help_trade_context_id
+HELP_RUN_REPLAY_ID = EN_TEXT.help_run_replay_id
+HELP_EXPORT_REPORT_OUTPUT = EN_TEXT.help_export_report_output
+HELP_EXPORT_REPORT_RUN_ID = EN_TEXT.help_export_report_run_id
 HELP_RUNTIME_MODE_PROVIDER_CHECK = EN_TEXT.help_runtime_mode_provider_check
 HELP_RUNTIME_MODE_TARGET = EN_TEXT.help_runtime_mode_target
 HELP_NEWS_CLASSIFY_SOURCE = EN_TEXT.help_news_classify_source
@@ -2226,6 +2313,10 @@ HELP_TRADE_PROPOSAL_REFRESH_NOTES = EN_TEXT.help_trade_proposal_refresh_notes
 HELP_TRADE_PROPOSAL_REJECTION_REASON = (
     EN_TEXT.help_trade_proposal_rejection_reason
 )
+HELP_BACKTEST_WARMUP_BARS = EN_TEXT.help_backtest_warmup_bars
+HELP_BACKTEST_COMPARE_BASELINE = EN_TEXT.help_backtest_compare_baseline
+HELP_BACKTEST_COMPARE_MEMORY = EN_TEXT.help_backtest_compare_memory
+HELP_BACKTEST_OUTPUT = EN_TEXT.help_backtest_output
 HELP_V1_PROVIDER_CHECK = EN_TEXT.help_v1_provider_check
 HELP_WEBGUI_OPEN_BROWSER = EN_TEXT.help_webgui_open_browser
 
@@ -2530,6 +2621,20 @@ MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE = (
     EN_TEXT.message_trade_context_temporarily_unavailable
 )
 MESSAGE_NO_TRADE_CONTEXT = EN_TEXT.message_no_trade_context
+MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_run_replay_temporarily_unavailable
+)
+MESSAGE_NO_PERSISTED_RUNS_REPLAY = EN_TEXT.message_no_persisted_runs_replay
+MESSAGE_NO_PERSISTED_RUNS_EXPORT = EN_TEXT.message_no_persisted_runs_export
+MESSAGE_RUN_REPORT_WRITTEN = EN_TEXT.message_run_report_written
+MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON = (
+    EN_TEXT.message_backtest_choose_one_comparison
+)
+MESSAGE_BACKTEST_COMPARISON_WRITTEN = EN_TEXT.message_backtest_comparison_written
+MESSAGE_BACKTEST_MEMORY_ABLATION_WRITTEN = (
+    EN_TEXT.message_backtest_memory_ablation_written
+)
+MESSAGE_BACKTEST_SUMMARY_WRITTEN = EN_TEXT.message_backtest_summary_written
 MESSAGE_OPERATOR_WORKFLOW_GUIDANCE = EN_TEXT.message_operator_workflow_guidance
 MESSAGE_CALENDAR_STATUS_UNAVAILABLE = EN_TEXT.message_calendar_status_unavailable
 MESSAGE_CACHE_STATUS = EN_TEXT.message_cache_status
@@ -2638,6 +2743,8 @@ TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
 TITLE_CHOOSE_SURFACE = EN_TEXT.title_choose_surface
 TITLE_CONTEXT_SUMMARY = EN_TEXT.title_context_summary
 TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
+TITLE_EXPORT_BLOCKED = EN_TEXT.title_export_blocked
+TITLE_EXPORTED = EN_TEXT.title_exported
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OBSERVER_API = EN_TEXT.title_observer_api
 TITLE_OBSERVER_API_BLOCKED = EN_TEXT.title_observer_api_blocked
@@ -2676,6 +2783,7 @@ TITLE_RISK_WARNINGS = EN_TEXT.title_risk_warnings
 TITLE_REVIEW_NOTE = EN_TEXT.title_review_note
 TITLE_REPLAY_STAGES = EN_TEXT.title_replay_stages
 TITLE_RUN_ARTIFACTS = EN_TEXT.title_run_artifacts
+TITLE_RUN_REPLAY = EN_TEXT.title_run_replay
 TITLE_RUN_REVIEW = EN_TEXT.title_run_review
 TITLE_RUN_BLOCKED = EN_TEXT.title_run_blocked
 TITLE_RECONCILIATION_BLOCKED = EN_TEXT.title_reconciliation_blocked

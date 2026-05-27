@@ -176,6 +176,15 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     )
     assert catalog.title_trade_context == ui_text.TITLE_TRADE_CONTEXT
     assert catalog.label_manager_rationale == ui_text.LABEL_MANAGER_RATIONALE
+    assert catalog.help_run_replay_id == ui_text.HELP_RUN_REPLAY_ID
+    assert catalog.help_backtest_output == ui_text.HELP_BACKTEST_OUTPUT
+    assert catalog.message_run_replay_temporarily_unavailable == (
+        ui_text.MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE
+    )
+    assert catalog.message_backtest_summary_written == (
+        ui_text.MESSAGE_BACKTEST_SUMMARY_WRITTEN
+    )
+    assert catalog.title_exported == ui_text.TITLE_EXPORTED
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -294,6 +303,10 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_context_summary == "Context Ozeti"
     assert catalog.label_execution_rationale == "Execution Gerekcesi"
     assert catalog.label_rejection_reason == "Red Nedeni"
+    assert catalog.help_run_replay_id.startswith("Replay edilecek")
+    assert catalog.message_no_persisted_runs_export == "Export icin persisted run yok."
+    assert catalog.message_backtest_choose_one_comparison.startswith("Tek run")
+    assert catalog.title_export_blocked == "Export Bloklandi"
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 
