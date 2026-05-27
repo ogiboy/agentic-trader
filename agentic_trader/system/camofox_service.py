@@ -33,6 +33,7 @@ from agentic_trader.system.tool_roots import (
     local_tool_status_payload,
     resolve_configured_tool_path,
 )
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 DEFAULT_CAMOFOX_HOST = "127.0.0.1"
 DEFAULT_CAMOFOX_PORT = 9377
@@ -160,12 +161,6 @@ def camofox_tool_dir(settings: Settings) -> Path:
         settings.research_camofox_tool_dir,
         default_tool="camofox-browser",
     )
-
-
-def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _read_state(settings: Settings) -> CamofoxServiceState | None:
