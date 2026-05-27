@@ -64,6 +64,11 @@ from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.ui_text import (
     LABEL_AGENT_PROFILE,
     LABEL_AGENT_TONE,
+    LABEL_ALPACA_CREDENTIALS_CONFIGURED,
+    LABEL_ALPACA_FEED,
+    LABEL_ALPACA_PAPER_ENDPOINT,
+    LABEL_ALPACA_PAPER_READY,
+    LABEL_API_KEY,
     LABEL_APPROVED,
     LABEL_AVERAGE_PRICE,
     LABEL_BACKGROUND_MODE,
@@ -71,7 +76,10 @@ from agentic_trader.ui_text import (
     LABEL_BEHAVIOR_PRESET,
     LABEL_BROKER_BACKEND,
     LABEL_BROKER_STATE,
+    LABEL_BROKER,
+    LABEL_BLOCKING,
     LABEL_CASH,
+    LABEL_CHECK,
     LABEL_COMPLETED_NOTE,
     LABEL_CONTINUOUS,
     LABEL_CREATED,
@@ -81,14 +89,21 @@ from agentic_trader.ui_text import (
     LABEL_CURRENT_SYMBOL,
     LABEL_CYCLE,
     LABEL_CYCLE_COUNT,
+    LABEL_DATABASE,
+    LABEL_DB_VIEWS,
+    LABEL_DEFAULT_MODEL,
     LABEL_DRAWDOWN_FROM_PEAK,
+    LABEL_DETAILS,
     LABEL_EQUITY,
+    LABEL_ENABLED,
     LABEL_EXCHANGES,
     LABEL_FIELD,
     LABEL_FILLS_TODAY,
+    LABEL_FRESHNESS,
     LABEL_GROSS_EXPOSURE,
     LABEL_HEARTBEAT,
     LABEL_HEARTBEAT_AGE,
+    LABEL_HEALTHCHECK,
     LABEL_INTERVAL,
     LABEL_INTERVENTION,
     LABEL_KEY,
@@ -105,16 +120,21 @@ from agentic_trader.ui_text import (
     LABEL_LAUNCH_COUNT,
     LABEL_LEVEL,
     LABEL_LIVE_PROCESS,
+    LABEL_LLM_PROVIDER,
+    LABEL_LLM_READY,
     LABEL_LOOKBACK,
     LABEL_LATEST_ORDER,
     LABEL_MARKED_AT,
     LABEL_MARK_SOURCE,
     LABEL_MARKET_VALUE,
     LABEL_MARKET_PRICE,
+    LABEL_MARKET_PROVIDER,
+    LABEL_MARKET_ROLE,
     LABEL_MESSAGE,
     LABEL_METRIC,
     LABEL_MODEL,
     LABEL_MODEL_AVAILABLE,
+    LABEL_NEWS_MODE,
     LABEL_NOTES,
     LABEL_OBSERVER_MODE,
     LABEL_OLLAMA_REACHABLE,
@@ -123,14 +143,18 @@ from agentic_trader.ui_text import (
     LABEL_PAPER_MARK,
     LABEL_PID,
     LABEL_PNL,
+    LABEL_PROVIDER,
+    LABEL_PROVIDER_WARNINGS,
     LABEL_QUANTITY,
     LABEL_REGIONS,
     LABEL_REALIZED_PNL,
+    LABEL_REASONS,
     LABEL_RESTART_COUNT,
     LABEL_RISK_PROFILE,
     LABEL_RUN_ID,
     LABEL_RUNTIME,
     LABEL_RUNTIME_DIR,
+    LABEL_ROLE,
     LABEL_SECTORS,
     LABEL_SETTING,
     LABEL_SIDE,
@@ -154,6 +178,7 @@ from agentic_trader.ui_text import (
     LABEL_YES,
     LABEL_NO,
     LABEL_V1_PAPER_GATE,
+    LABEL_V1_PAPER_READY,
     MESSAGE_NO_RUNS_RECORDED,
     MESSAGE_NO_AGENT_ACTIVITY_RECORDED,
     MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS,
@@ -161,6 +186,7 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_RUNTIME_STATE,
     MESSAGE_MARK_TIME_UNAVAILABLE,
     MESSAGE_MONITOR_RETURN_SHORTCUT,
+    MESSAGE_V1_READINESS_STATUS_UNAVAILABLE,
     MESSAGE_WAITING_FOR_LAST_OUTCOME,
     MESSAGE_CONTROL_ROOM_CLOSED,
     PROMPT_CONTINUE,
@@ -176,9 +202,16 @@ from agentic_trader.ui_text import (
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_STATUS,
     TITLE_SYSTEM_STATUS,
+    TITLE_SYSTEM_SNAPSHOT,
     TITLE_PORTFOLIO,
     TITLE_POSITIONS,
+    TITLE_ALPACA_PAPER_CHECKS,
+    TITLE_BROKER_STATUS,
+    TITLE_PAPER_OPERATION_CHECKS,
+    TITLE_PROVIDER_DIAGNOSTICS,
+    TITLE_PROVIDER_SOURCE_LADDER,
     TITLE_TRADE_JOURNAL,
+    TITLE_V1_READINESS,
     UI_LIST_SEPARATOR,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
@@ -958,24 +991,28 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     """
     health = LocalLLM(settings).health_check()
     runtime_state = read_service_state(settings)
-    status = Table(title="System Status")
-    status.add_column("Key")
-    status.add_column("Value")
-    status.add_row("Runtime Dir", str(settings.runtime_dir))
-    status.add_row("Database", str(settings.database_path))
+    status = Table(title=TITLE_SYSTEM_STATUS)
+    status.add_column(LABEL_KEY)
+    status.add_column(LABEL_VALUE)
+    status.add_row(LABEL_RUNTIME_DIR, str(settings.runtime_dir))
+    status.add_row(LABEL_DATABASE, str(settings.database_path))
     status.add_row(
-        "Runtime Mode",
+        TITLE_RUNTIME_MODE,
         (
             runtime_state.runtime_mode
             if runtime_state is not None
             else settings.runtime_mode
         ),
     )
-    status.add_row("Model", settings.model_name)
+    status.add_row(LABEL_MODEL, settings.model_name)
     status.add_row(LABEL_BASE_URL, settings.base_url)
-    status.add_row("Ollama Reachable", "yes" if health.service_reachable else "no")
-    status.add_row("Model Available", "yes" if health.model_available else "no")
-    status.add_row("Strict LLM", str(settings.strict_llm))
+    status.add_row(
+        LABEL_OLLAMA_REACHABLE, LABEL_YES if health.service_reachable else LABEL_NO
+    )
+    status.add_row(
+        LABEL_MODEL_AVAILABLE, LABEL_YES if health.model_available else LABEL_NO
+    )
+    status.add_row(LABEL_STRICT_LLM, str(settings.strict_llm))
     console.print(status)
     _render_runtime_state(runtime_state)
     console.print(
@@ -984,7 +1021,11 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
         )
     )
     if db is None:
-        console.print(_observer_mode_panel("Preferences and portfolio-backed views"))
+        console.print(
+            _observer_mode_panel(
+                TITLE_INVESTMENT_PREFERENCES + " / " + TITLE_PORTFOLIO
+            )
+        )
     else:
         console.print(_render_preferences(db.load_preferences()))
         _render_recent_runs(db)
@@ -1007,41 +1048,41 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
     readiness = _object_mapping(v1_readiness_payload(settings, check_provider=False))
     paper = _object_mapping(readiness.get("paper_operations"))
     alpaca = _object_mapping(readiness.get("alpaca_paper"))
-    table = Table(title="AGENTIC TRADER // System Snapshot", expand=True)
-    table.add_column("Key", style="cyan")
-    table.add_column("Value")
+    table = Table(title=TITLE_SYSTEM_SNAPSHOT, expand=True)
+    table.add_column(LABEL_KEY, style="cyan")
+    table.add_column(LABEL_VALUE)
     table.add_row(
-        "Runtime",
+        LABEL_RUNTIME,
         f"{runtime_view.runtime_state} / {runtime_state.runtime_mode if runtime_state is not None else settings.runtime_mode}",
     )
-    table.add_row("Model", settings.model_name)
+    table.add_row(LABEL_MODEL, settings.model_name)
     table.add_row(
-        "LLM Ready",
-        "yes" if health.service_reachable and health.model_available else "no",
+        LABEL_LLM_READY,
+        LABEL_YES if health.service_reachable and health.model_available else LABEL_NO,
     )
     table.add_row(
-        "Broker",
+        LABEL_BROKER,
         f"{broker['backend']} / {broker['state']}",
     )
     table.add_row(
-        "V1 Paper Ready",
-        "yes" if paper.get("allowed") else "no",
+        LABEL_V1_PAPER_READY,
+        LABEL_YES if paper.get("allowed") else LABEL_NO,
     )
     table.add_row(
-        "Alpaca Paper Ready",
-        "yes" if alpaca.get("ready") else "no",
+        LABEL_ALPACA_PAPER_READY,
+        LABEL_YES if alpaca.get("ready") else LABEL_NO,
     )
     warnings = _object_list(provider.get("warnings"))
     table.add_row(
-        "Provider Warnings",
+        LABEL_PROVIDER_WARNINGS,
         str(len(warnings)),
     )
     table.add_row(
-        "Kill Switch",
-        "yes" if broker["kill_switch_active"] else "no",
+        LABEL_KILL_SWITCH,
+        LABEL_YES if broker["kill_switch_active"] else LABEL_NO,
     )
     table.add_row(
-        "DB Views",
+        LABEL_DB_VIEWS,
         "readable" if db is not None else LABEL_OBSERVER_MODE,
     )
     console.print(table)
@@ -1051,17 +1092,15 @@ def _render_broker_status(settings: Settings) -> None:
     """
     Render the broker backend runtime status as a Rich table to the console.
 
-    Fetches the broker runtime payload from the current settings and prints a "Broker Status"
-    table that includes adapter/backend information, execution flags, Alpaca-related settings,
-    an informational message, and optional healthcheck message and blocking reasons.
+    Fetches the broker runtime payload from the current settings and prints it.
 
     Parameters:
         settings (Settings): Application settings used to obtain the broker runtime payload.
     """
     payload = broker_runtime_payload(settings)
-    table = Table(title="Broker Status")
-    table.add_column("Field", style=STYLE_KEY_COLUMN)
-    table.add_column("Value")
+    table = Table(title=TITLE_BROKER_STATUS)
+    table.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
+    table.add_column(LABEL_VALUE)
     for key in (
         "backend",
         "adapter_name",
@@ -1078,42 +1117,44 @@ def _render_broker_status(settings: Settings) -> None:
         "alpaca_credentials_configured",
         "message",
     ):
-        table.add_row(key.replace("_", " ").title(), str(payload.get(key, "-")))
+        rendered_key = key.replace("_", " ").title()
+        table.add_row(rendered_key, str(payload.get(key, "-")))
     healthcheck = payload.get("healthcheck")
     healthcheck_mapping = _object_mapping(healthcheck)
     if healthcheck_mapping:
-        table.add_row("Healthcheck", str(healthcheck_mapping.get("message", "-")))
+        table.add_row(LABEL_HEALTHCHECK, str(healthcheck_mapping.get("message", "-")))
         blockers = _object_list(healthcheck_mapping.get("blocking_reasons"))
         if blockers:
             table.add_row(
-                "Blocking Reasons", ", ".join(str(item) for item in blockers) or "-"
+                LABEL_BLOCKING + " " + LABEL_REASONS,
+                UI_LIST_SEPARATOR.join(str(item) for item in blockers) or "-",
             )
     console.print(table)
 
 
 def _render_provider_diagnostics(settings: Settings) -> None:
     payload = _object_mapping(provider_diagnostics_payload(settings))
-    summary = Table(title="Provider Diagnostics")
-    summary.add_column("Field", style=STYLE_KEY_COLUMN)
-    summary.add_column("Value")
+    summary = Table(title=TITLE_PROVIDER_DIAGNOSTICS)
+    summary.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
+    summary.add_column(LABEL_VALUE)
     llm = _object_mapping(payload.get("llm"))
     market = _object_mapping(payload.get("market_data"))
     news = _object_mapping(payload.get("news"))
     alpaca = _object_mapping(payload.get("alpaca"))
     if llm:
-        summary.add_row("LLM Provider", str(llm.get("provider", "-")))
-        summary.add_row("Default Model", str(llm.get("default_model", "-")))
+        summary.add_row(LABEL_LLM_PROVIDER, str(llm.get("provider", "-")))
+        summary.add_row(LABEL_DEFAULT_MODEL, str(llm.get("default_model", "-")))
         summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
     if market:
-        summary.add_row("Market Provider", str(market.get("selected_provider", "-")))
-        summary.add_row("Market Role", str(market.get("selected_role", "-")))
+        summary.add_row(LABEL_MARKET_PROVIDER, str(market.get("selected_provider", "-")))
+        summary.add_row(LABEL_MARKET_ROLE, str(market.get("selected_role", "-")))
     if news:
-        summary.add_row("News Mode", str(news.get("mode", "-")))
+        summary.add_row(LABEL_NEWS_MODE, str(news.get("mode", "-")))
     if alpaca:
-        summary.add_row("Alpaca Paper Endpoint", str(alpaca.get("paper_endpoint", "-")))
-        summary.add_row("Alpaca Feed", str(alpaca.get("data_feed", "-")))
+        summary.add_row(LABEL_ALPACA_PAPER_ENDPOINT, str(alpaca.get("paper_endpoint", "-")))
+        summary.add_row(LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
         summary.add_row(
-            "Alpaca Credentials",
+            LABEL_ALPACA_CREDENTIALS_CONFIGURED,
             "configured" if alpaca.get("credentials_configured") else "missing",
         )
     console.print(summary)
@@ -1123,18 +1164,18 @@ def _render_provider_diagnostics(settings: Settings) -> None:
         console.print(
             Panel(
                 "\n".join(str(warning) for warning in warnings),
-                title="Provider Warnings",
+                title=LABEL_PROVIDER_WARNINGS,
                 border_style="yellow",
             )
         )
 
-    table = Table(title="Provider Source Ladder")
-    table.add_column("Provider", style=STYLE_KEY_COLUMN)
-    table.add_column("Type")
-    table.add_column("Role")
-    table.add_column("Enabled")
-    table.add_column("API Key")
-    table.add_column("Freshness")
+    table = Table(title=TITLE_PROVIDER_SOURCE_LADDER)
+    table.add_column(LABEL_PROVIDER, style=STYLE_KEY_COLUMN)
+    table.add_column(LABEL_TYPE)
+    table.add_column(LABEL_ROLE)
+    table.add_column(LABEL_ENABLED)
+    table.add_column(LABEL_API_KEY)
+    table.add_column(LABEL_FRESHNESS)
     for row in _object_mapping_list(payload.get("providers")):
         table.add_row(
             str(row.get("provider_id", "-")),
@@ -1149,10 +1190,10 @@ def _render_provider_diagnostics(settings: Settings) -> None:
 
 def _render_readiness_table(title: str, payload: Mapping[str, object]) -> None:
     table = Table(title=title)
-    table.add_column("Check", style=STYLE_KEY_COLUMN)
-    table.add_column("State")
-    table.add_column("Blocking")
-    table.add_column("Details")
+    table.add_column(LABEL_CHECK, style=STYLE_KEY_COLUMN)
+    table.add_column(LABEL_STATE)
+    table.add_column(LABEL_BLOCKING)
+    table.add_column(LABEL_DETAILS)
     for item in _object_mapping_list(payload.get("checks")):
         table.add_row(
             str(item.get("name", "-")),
@@ -1170,15 +1211,15 @@ def _render_v1_readiness(settings: Settings) -> None:
     paper_allowed = bool(paper.get("allowed"))
     console.print(
         Panel(
-            str(payload.get("summary", "V1 readiness status unavailable.")),
-            title="V1 Readiness",
+            str(payload.get("summary", MESSAGE_V1_READINESS_STATUS_UNAVAILABLE)),
+            title=TITLE_V1_READINESS,
             border_style="green" if paper_allowed else "yellow",
         )
     )
     if paper:
-        _render_readiness_table("Paper Operation Checks", paper)
+        _render_readiness_table(TITLE_PAPER_OPERATION_CHECKS, paper)
     if alpaca:
-        _render_readiness_table("Alpaca Paper Checks", alpaca)
+        _render_readiness_table(TITLE_ALPACA_PAPER_CHECKS, alpaca)
 
 
 def _configure_preferences(db: TradingDatabase) -> None:

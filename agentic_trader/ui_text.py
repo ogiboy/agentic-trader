@@ -158,6 +158,7 @@ class UITextCatalog:
     label_alpaca_credentials_configured: str
     label_alpaca_feed: str
     label_alpaca_paper_endpoint: str
+    label_alpaca_paper_ready: str
     label_approved: str
     label_api_key: str
     label_artifact: str
@@ -173,6 +174,7 @@ class UITextCatalog:
     label_blocking: str
     label_broker_backend: str
     label_broker_state: str
+    label_broker: str
     label_camofox: str
     label_cache_dir: str
     label_category: str
@@ -201,6 +203,7 @@ class UITextCatalog:
     label_cycles: str
     label_database: str
     label_db_status: str
+    label_db_views: str
     label_daily_realized_pnl: str
     label_decision: str
     label_decision_path: str
@@ -270,6 +273,7 @@ class UITextCatalog:
     label_last_terminal_at: str
     label_last_terminal_state: str
     label_llm_provider: str
+    label_llm_ready: str
     label_live_execution_enabled: str
     label_live_process: str
     label_live_ready: str
@@ -327,6 +331,7 @@ class UITextCatalog:
     label_preference_update: str
     label_profile: str
     label_provider: str
+    label_provider_warnings: str
     label_python_version: str
     label_quantity: str
     label_query: str
@@ -427,6 +432,7 @@ class UITextCatalog:
     label_version_source: str
     label_v1_path: str
     label_v1_paper_gate: str
+    label_v1_paper_ready: str
     label_warmup_bars: str
     label_with_memory: str
     label_warnings: str
@@ -644,6 +650,7 @@ class UITextCatalog:
     title_service_stdout_tail: str
     title_service_supervisor: str
     title_system_status: str
+    title_system_snapshot: str
     title_trade_journal: str
     title_trade_context: str
     title_trade_context_detail: str
@@ -882,6 +889,7 @@ EN_TEXT = UITextCatalog(
     label_alpaca_credentials_configured="Alpaca Credentials Configured",
     label_alpaca_feed="Alpaca Feed",
     label_alpaca_paper_endpoint="Alpaca Paper Endpoint",
+    label_alpaca_paper_ready="Alpaca Paper Ready",
     label_approved="Approved",
     label_api_key="API Key",
     label_artifact="Artifact",
@@ -895,6 +903,7 @@ EN_TEXT = UITextCatalog(
     label_behavior_preset="Behavior Preset",
     label_bias="Bias",
     label_blocking="Blocking",
+    label_broker="Broker",
     label_broker_backend="Broker Backend",
     label_broker_state="Broker State",
     label_camofox="Camofox",
@@ -925,6 +934,7 @@ EN_TEXT = UITextCatalog(
     label_cycles="Cycles",
     label_database="Database",
     label_db_status="DB Status",
+    label_db_views="DB Views",
     label_daily_realized_pnl="Daily Realized PnL",
     label_decision="Decision",
     label_decision_path="Decision Path",
@@ -994,6 +1004,7 @@ EN_TEXT = UITextCatalog(
     label_launch_count="Launch Count",
     label_latest_order="Latest Order",
     label_llm_provider="LLM Provider",
+    label_llm_ready="LLM Ready",
     label_live_execution_enabled="Live Execution Enabled",
     label_live_process="Live Process",
     label_live_ready="Live Ready",
@@ -1051,6 +1062,7 @@ EN_TEXT = UITextCatalog(
     label_preference_update="Preference Update",
     label_profile="Profile",
     label_provider="Provider",
+    label_provider_warnings="Provider Warnings",
     label_python_version="Python Version",
     label_quantity="Quantity",
     label_query="Query",
@@ -1151,6 +1163,7 @@ EN_TEXT = UITextCatalog(
     label_version_source="Version Source",
     label_v1_path="V1 Path",
     label_v1_paper_gate="V1 Paper Gate",
+    label_v1_paper_ready="V1 Paper Ready",
     label_warmup_bars="Warmup Bars",
     label_watched_symbols="Watched Symbols",
     label_with_memory="With Memory",
@@ -1503,6 +1516,7 @@ EN_TEXT = UITextCatalog(
     title_service_stdout_tail="Service Stdout Tail",
     title_service_supervisor="Service Supervisor",
     title_system_status="System Status",
+    title_system_snapshot="AGENTIC TRADER // System Snapshot",
     title_trade_journal="Trade Journal",
     title_trade_context="Trade Context",
     title_trade_context_detail="Trade Context / {trade_id}",
@@ -1744,6 +1758,7 @@ TR_TEXT = UITextCatalog(
     label_alpaca_credentials_configured="Alpaca Credential'lari Ayarli",
     label_alpaca_feed="Alpaca Feed",
     label_alpaca_paper_endpoint="Alpaca Paper Endpoint",
+    label_alpaca_paper_ready="Alpaca Paper Hazir",
     label_approved="Onaylandi",
     label_api_key="API Key",
     label_artifact="Artifact",
@@ -1757,6 +1772,7 @@ TR_TEXT = UITextCatalog(
     label_behavior_preset="Behavior Preset",
     label_bias="Bias",
     label_blocking="Bloklayici",
+    label_broker="Broker",
     label_broker_backend="Broker Backend",
     label_broker_state="Broker State",
     label_camofox="Camofox",
@@ -1787,6 +1803,7 @@ TR_TEXT = UITextCatalog(
     label_cycles="Donguler",
     label_database="Veritabani",
     label_db_status="DB Durumu",
+    label_db_views="DB Gorunumleri",
     label_daily_realized_pnl="Gunluk Gerceklesen PnL",
     label_decision="Karar",
     label_decision_path="Karar Yolu",
@@ -1856,6 +1873,7 @@ TR_TEXT = UITextCatalog(
     label_launch_count="Launch Sayisi",
     label_latest_order="Son Order",
     label_llm_provider="LLM Provider",
+    label_llm_ready="LLM Hazir",
     label_live_execution_enabled="Live Execution Etkin",
     label_live_process="Canli Process",
     label_live_ready="Live Hazir",
@@ -1913,6 +1931,7 @@ TR_TEXT = UITextCatalog(
     label_preference_update="Preference Guncellemesi",
     label_profile="Profile",
     label_provider="Provider",
+    label_provider_warnings="Provider Uyarilari",
     label_python_version="Python Version",
     label_quantity="Miktar",
     label_query="Sorgu",
@@ -2013,6 +2032,7 @@ TR_TEXT = UITextCatalog(
     label_version_source="Versiyon Kaynagi",
     label_v1_path="V1 Yolu",
     label_v1_paper_gate="V1 Paper Gate",
+    label_v1_paper_ready="V1 Paper Hazir",
     label_warmup_bars="Warmup Bar'lari",
     label_watched_symbols="Izlenen Semboller",
     label_with_memory="Hafiza Ile",
@@ -2364,6 +2384,7 @@ TR_TEXT = UITextCatalog(
     title_service_stdout_tail="Service Stdout Kuyrugu",
     title_service_supervisor="Service Supervisor",
     title_system_status="System Durumu",
+    title_system_snapshot="AGENTIC TRADER // System Snapshot",
     title_trade_journal="Trade Journal",
     title_trade_context="Trade Context",
     title_trade_context_detail="Trade Context / {trade_id}",
@@ -2605,6 +2626,7 @@ LABEL_ADAPTER = EN_TEXT.label_adapter
 LABEL_ALPACA_CREDENTIALS_CONFIGURED = EN_TEXT.label_alpaca_credentials_configured
 LABEL_ALPACA_FEED = EN_TEXT.label_alpaca_feed
 LABEL_ALPACA_PAPER_ENDPOINT = EN_TEXT.label_alpaca_paper_endpoint
+LABEL_ALPACA_PAPER_READY = EN_TEXT.label_alpaca_paper_ready
 LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_API_KEY = EN_TEXT.label_api_key
 LABEL_ARTIFACT = EN_TEXT.label_artifact
@@ -2618,6 +2640,7 @@ LABEL_BACKGROUND_MODE = EN_TEXT.label_background_mode
 LABEL_BEHAVIOR_PRESET = EN_TEXT.label_behavior_preset
 LABEL_BIAS = EN_TEXT.label_bias
 LABEL_BLOCKING = EN_TEXT.label_blocking
+LABEL_BROKER = EN_TEXT.label_broker
 LABEL_BROKER_BACKEND = EN_TEXT.label_broker_backend
 LABEL_BROKER_STATE = EN_TEXT.label_broker_state
 LABEL_CAMOFOX = EN_TEXT.label_camofox
@@ -2648,6 +2671,7 @@ LABEL_CYCLE_COUNT = EN_TEXT.label_cycle_count
 LABEL_CYCLES = EN_TEXT.label_cycles
 LABEL_DATABASE = EN_TEXT.label_database
 LABEL_DB_STATUS = EN_TEXT.label_db_status
+LABEL_DB_VIEWS = EN_TEXT.label_db_views
 LABEL_DAILY_REALIZED_PNL = EN_TEXT.label_daily_realized_pnl
 LABEL_DECISION = EN_TEXT.label_decision
 LABEL_DECISION_PATH = EN_TEXT.label_decision_path
@@ -2717,6 +2741,7 @@ LABEL_LOCKFILE_EXISTS = EN_TEXT.label_lockfile_exists
 LABEL_LAUNCH_COUNT = EN_TEXT.label_launch_count
 LABEL_LATEST_ORDER = EN_TEXT.label_latest_order
 LABEL_LLM_PROVIDER = EN_TEXT.label_llm_provider
+LABEL_LLM_READY = EN_TEXT.label_llm_ready
 LABEL_LIVE_EXECUTION_ENABLED = EN_TEXT.label_live_execution_enabled
 LABEL_LIVE_PROCESS = EN_TEXT.label_live_process
 LABEL_LIVE_READY = EN_TEXT.label_live_ready
@@ -2774,6 +2799,7 @@ LABEL_PRESET = EN_TEXT.label_preset
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
 LABEL_PROFILE = EN_TEXT.label_profile
 LABEL_PROVIDER = EN_TEXT.label_provider
+LABEL_PROVIDER_WARNINGS = EN_TEXT.label_provider_warnings
 LABEL_PYTHON_VERSION = EN_TEXT.label_python_version
 LABEL_QUANTITY = EN_TEXT.label_quantity
 LABEL_QUERY = EN_TEXT.label_query
@@ -2874,6 +2900,7 @@ LABEL_VERSION = EN_TEXT.label_version
 LABEL_VERSION_SOURCE = EN_TEXT.label_version_source
 LABEL_V1_PATH = EN_TEXT.label_v1_path
 LABEL_V1_PAPER_GATE = EN_TEXT.label_v1_paper_gate
+LABEL_V1_PAPER_READY = EN_TEXT.label_v1_paper_ready
 LABEL_WARMUP_BARS = EN_TEXT.label_warmup_bars
 LABEL_WATCHED_SYMBOLS = EN_TEXT.label_watched_symbols
 LABEL_WITH_MEMORY = EN_TEXT.label_with_memory
@@ -3141,6 +3168,7 @@ TITLE_SERVICE_STDERR_TAIL = EN_TEXT.title_service_stderr_tail
 TITLE_SERVICE_STDOUT_TAIL = EN_TEXT.title_service_stdout_tail
 TITLE_SERVICE_SUPERVISOR = EN_TEXT.title_service_supervisor
 TITLE_SYSTEM_STATUS = EN_TEXT.title_system_status
+TITLE_SYSTEM_SNAPSHOT = EN_TEXT.title_system_snapshot
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
 TITLE_TRADE_CONTEXT = EN_TEXT.title_trade_context
 TITLE_TRADE_CONTEXT_DETAIL = EN_TEXT.title_trade_context_detail

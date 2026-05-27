@@ -42,7 +42,11 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     )
     assert catalog.title_decision_workflow == ui_text.TITLE_DECISION_WORKFLOW
     assert catalog.title_system_status == ui_text.TITLE_SYSTEM_STATUS
+    assert catalog.title_system_snapshot == ui_text.TITLE_SYSTEM_SNAPSHOT
     assert catalog.label_strict_llm == ui_text.LABEL_STRICT_LLM
+    assert catalog.label_llm_ready == ui_text.LABEL_LLM_READY
+    assert catalog.label_v1_paper_ready == ui_text.LABEL_V1_PAPER_READY
+    assert catalog.label_alpaca_paper_ready == ui_text.LABEL_ALPACA_PAPER_READY
     assert (
         catalog.title_backtest_memory_ablation == ui_text.TITLE_BACKTEST_MEMORY_ABLATION
     )
@@ -230,6 +234,10 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.message_no_orders_recorded == "Henuz order kaydi yok."
     assert catalog.title_current_cycle == "Gecerli Dongu"
     assert catalog.title_system_status == "System Durumu"
+    assert catalog.title_system_snapshot == "AGENTIC TRADER // System Snapshot"
+    assert catalog.label_llm_ready == "LLM Hazir"
+    assert catalog.label_v1_paper_ready == "V1 Paper Hazir"
+    assert catalog.label_alpaca_paper_ready == "Alpaca Paper Hazir"
     assert catalog.title_agent_decisions == "Agent Kararlari"
     assert catalog.label_output_preview == "Cikti Onizleme"
     assert catalog.title_backtest_comparison == "Backtest Karsilastirma"
