@@ -44,6 +44,13 @@ class UITextCatalog:
     help_launch_poll_seconds: str
     help_launch_symbols: str
     help_lookback: str
+    help_candidate_freshness: str
+    help_candidate_liquidity: str
+    help_candidate_materiality: str
+    help_candidate_risk_notes: str
+    help_candidate_source: str
+    help_enrich_provider_context: str
+    help_fetch_provider_news: str
     help_model_name_to_pull: str
     help_model_service_app: str
     help_model_service_host: str
@@ -51,8 +58,10 @@ class UITextCatalog:
     help_ollama_owner: str
     help_position_plan_repair_apply: str
     help_position_plan_repair_max_holding_bars: str
+    help_proposal_candidate_id: str
     help_proposal_candidates_limit: str
     help_proposal_candidates_status_filter: str
+    help_promotion_notes: str
     help_research_cycle_pause: str
     help_research_cycle_reason: str
     help_research_cycle_resume: str
@@ -324,6 +333,8 @@ class UITextCatalog:
     message_position_plan_repair_unavailable: str
     message_position_plan_repair_temporarily_unavailable: str
     message_proposal_candidates_temporarily_unavailable: str
+    message_proposal_candidate_created: str
+    message_proposal_candidate_promoted: str
     message_research_cycle_choose_one_action: str
     message_research_cycle_control_status: str
     message_research_cycle_reason_requires_action: str
@@ -370,6 +381,7 @@ class UITextCatalog:
     title_backtest_trades: str
     title_broker_status: str
     title_alpaca_paper_checks: str
+    title_candidate_rejected: str
     title_camofox_browser_helper: str
     title_camofox_stderr_tail: str
     title_camofox_start_failed: str
@@ -419,6 +431,9 @@ class UITextCatalog:
     title_position_plan_repair: str
     title_portfolio: str
     title_positions: str
+    title_promotion_blocked: str
+    title_proposal_candidate_created: str
+    title_proposal_candidate_promoted: str
     title_recommended_next_commands: str
     title_recommended_commands: str
     title_research_crewai_flow_setup: str
@@ -468,6 +483,18 @@ EN_TEXT = UITextCatalog(
     help_launch_poll_seconds="Sleep between cycles in continuous mode.",
     help_launch_symbols="Comma-separated symbols, for example AAPL,MSFT,BTC-USD",
     help_lookback="Lookback window accepted by yfinance",
+    help_candidate_freshness="Freshness note for the scanner inputs.",
+    help_candidate_liquidity="Liquidity note.",
+    help_candidate_materiality="Materiality note.",
+    help_candidate_risk_notes="Risk note.",
+    help_candidate_source="Candidate source.",
+    help_enrich_provider_context=(
+        "Attach a compact, broker-free canonical provider context. Defaults to "
+        "network-light evidence."
+    ),
+    help_fetch_provider_news=(
+        "Allow configured news providers to refresh headlines for this candidate."
+    ),
     help_model_name_to_pull="Ollama model name to pull.",
     help_model_service_app="Manage the optional app-owned local model service.",
     help_model_service_host="Loopback bind host for app-managed Ollama.",
@@ -475,8 +502,10 @@ EN_TEXT = UITextCatalog(
     help_ollama_owner="Ownership mode for Ollama: host-owned, app-owned, api-key-only, or skipped.",
     help_position_plan_repair_apply="Write repairable missing position plans. Defaults to dry-run.",
     help_position_plan_repair_max_holding_bars="Maximum holding bars for repaired position plans.",
+    help_proposal_candidate_id="Proposal candidate id to promote.",
     help_proposal_candidates_limit="Maximum number of proposal candidates to show.",
     help_proposal_candidates_status_filter="Filter by candidate state: candidate, promoted, rejected, expired.",
+    help_promotion_notes="Optional promotion notes.",
     help_research_cycle_pause="Pause future automated research-cycle runs.",
     help_research_cycle_reason="Optional operator note persisted with the control state.",
     help_research_cycle_resume="Resume future automated research-cycle runs.",
@@ -761,6 +790,14 @@ EN_TEXT = UITextCatalog(
         "Proposal candidates are temporarily unavailable while the runtime writer "
         "owns the database.\n\n{error}"
     ),
+    message_proposal_candidate_created=(
+        "{candidate_id} recorded for review.\n\n"
+        "{symbol} {signal} score={score:.2f}"
+    ),
+    message_proposal_candidate_promoted=(
+        "{candidate_id} -> {proposal_id}\n"
+        "Queued as pending proposal. No broker submission was attempted."
+    ),
     message_research_cycle_choose_one_action="Choose only one of --pause, --resume, or --trigger-now.",
     message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
     message_research_cycle_reason_requires_action="--reason requires --pause, --resume, or --trigger-now.",
@@ -821,6 +858,7 @@ EN_TEXT = UITextCatalog(
     title_backtest_trades="Backtest Trades",
     title_broker_status="Broker Status",
     title_alpaca_paper_checks="Alpaca Paper Checks",
+    title_candidate_rejected="Candidate Rejected",
     title_camofox_browser_helper="Camofox Browser Helper",
     title_camofox_stderr_tail="Camofox Stderr Tail",
     title_camofox_start_failed="Camofox Start Failed",
@@ -871,6 +909,9 @@ EN_TEXT = UITextCatalog(
     title_position_plan_repair="Position Plan Repair",
     title_portfolio="Portfolio",
     title_positions="Positions",
+    title_promotion_blocked="Promotion Blocked",
+    title_proposal_candidate_created="Proposal Candidate Created",
+    title_proposal_candidate_promoted="Proposal Candidate Promoted",
     title_recommended_next_commands="Recommended Next Commands",
     title_recommended_commands="Recommended Commands",
     title_research_crewai_flow_setup="Research CrewAI Flow Setup",
@@ -923,6 +964,18 @@ TR_TEXT = UITextCatalog(
     help_launch_poll_seconds="Continuous modda donguler arasi bekleme suresi.",
     help_launch_symbols="Virgulle ayrilmis semboller, ornegin AAPL,MSFT,BTC-USD",
     help_lookback="yfinance tarafindan kabul edilen geriye donuk pencere",
+    help_candidate_freshness="Scanner input'lari icin freshness notu.",
+    help_candidate_liquidity="Liquidity notu.",
+    help_candidate_materiality="Materiality notu.",
+    help_candidate_risk_notes="Risk notu.",
+    help_candidate_source="Candidate kaynagi.",
+    help_enrich_provider_context=(
+        "Kompakt, broker-free canonical provider context ekle. Varsayilan "
+        "network-light evidence."
+    ),
+    help_fetch_provider_news=(
+        "Bu candidate icin configured news provider'larin headline yenilemesine izin ver."
+    ),
     help_model_name_to_pull="Cekilecek Ollama model adi.",
     help_model_service_app="Istege bagli app-owned yerel model servisini yonet.",
     help_model_service_host="App-managed Ollama icin loopback bind host.",
@@ -930,8 +983,10 @@ TR_TEXT = UITextCatalog(
     help_ollama_owner="Ollama sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_position_plan_repair_apply="Repair edilebilir eksik position plan'lari yaz. Varsayilan dry-run.",
     help_position_plan_repair_max_holding_bars="Repair edilen position plan'lari icin maksimum holding bar.",
+    help_proposal_candidate_id="Promote edilecek proposal candidate id.",
     help_proposal_candidates_limit="Gosterilecek maksimum proposal candidate sayisi.",
     help_proposal_candidates_status_filter="Candidate state filtresi: candidate, promoted, rejected, expired.",
+    help_promotion_notes="Istege bagli promotion notlari.",
     help_research_cycle_pause="Gelecekteki otomatik research-cycle run'larini duraklat.",
     help_research_cycle_reason="Control state ile kaydedilecek istege bagli operator notu.",
     help_research_cycle_resume="Gelecekteki otomatik research-cycle run'larini surdur.",
@@ -1216,6 +1271,14 @@ TR_TEXT = UITextCatalog(
         "Runtime writer veritabaninin sahibiyken proposal candidate'leri gecici "
         "olarak kullanilamiyor.\n\n{error}"
     ),
+    message_proposal_candidate_created=(
+        "{candidate_id} review icin kaydedildi.\n\n"
+        "{symbol} {signal} score={score:.2f}"
+    ),
+    message_proposal_candidate_promoted=(
+        "{candidate_id} -> {proposal_id}\n"
+        "Pending proposal olarak kuyruga alindi. Broker submission denenmedi."
+    ),
     message_research_cycle_choose_one_action="--pause, --resume veya --trigger-now icinden yalnizca birini secin.",
     message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
     message_research_cycle_reason_requires_action="--reason icin --pause, --resume veya --trigger-now gerekir.",
@@ -1276,6 +1339,7 @@ TR_TEXT = UITextCatalog(
     title_backtest_trades="Backtest Trade'leri",
     title_broker_status="Broker Durumu",
     title_alpaca_paper_checks="Alpaca Paper Kontrolleri",
+    title_candidate_rejected="Candidate Reddedildi",
     title_camofox_browser_helper="Camofox Browser Yardimcisi",
     title_camofox_stderr_tail="Camofox Stderr Kuyrugu",
     title_camofox_start_failed="Camofox Baslatma Basarisiz",
@@ -1326,6 +1390,9 @@ TR_TEXT = UITextCatalog(
     title_position_plan_repair="Position Plan Repair",
     title_portfolio="Portfolio",
     title_positions="Pozisyonlar",
+    title_promotion_blocked="Promotion Bloklandi",
+    title_proposal_candidate_created="Proposal Candidate Olusturuldu",
+    title_proposal_candidate_promoted="Proposal Candidate Promote Edildi",
     title_recommended_next_commands="Onerilen Sonraki Komutlar",
     title_recommended_commands="Onerilen Komutlar",
     title_research_crewai_flow_setup="Research CrewAI Flow Setup",
@@ -1384,6 +1451,13 @@ HELP_LAUNCH_SYMBOLS = EN_TEXT.help_launch_symbols
 HELP_SYMBOL = EN_TEXT.help_symbol
 HELP_INTERVAL = EN_TEXT.help_interval
 HELP_LOOKBACK = EN_TEXT.help_lookback
+HELP_CANDIDATE_FRESHNESS = EN_TEXT.help_candidate_freshness
+HELP_CANDIDATE_LIQUIDITY = EN_TEXT.help_candidate_liquidity
+HELP_CANDIDATE_MATERIALITY = EN_TEXT.help_candidate_materiality
+HELP_CANDIDATE_RISK_NOTES = EN_TEXT.help_candidate_risk_notes
+HELP_CANDIDATE_SOURCE = EN_TEXT.help_candidate_source
+HELP_ENRICH_PROVIDER_CONTEXT = EN_TEXT.help_enrich_provider_context
+HELP_FETCH_PROVIDER_NEWS = EN_TEXT.help_fetch_provider_news
 HELP_RUN_ID = EN_TEXT.help_run_id
 HELP_MODEL_NAME_TO_PULL = EN_TEXT.help_model_name_to_pull
 HELP_MODEL_SERVICE_HOST = EN_TEXT.help_model_service_host
@@ -1393,10 +1467,12 @@ HELP_POSITION_PLAN_REPAIR_APPLY = EN_TEXT.help_position_plan_repair_apply
 HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS = (
     EN_TEXT.help_position_plan_repair_max_holding_bars
 )
+HELP_PROPOSAL_CANDIDATE_ID = EN_TEXT.help_proposal_candidate_id
 HELP_PROPOSAL_CANDIDATES_LIMIT = EN_TEXT.help_proposal_candidates_limit
 HELP_PROPOSAL_CANDIDATES_STATUS_FILTER = (
     EN_TEXT.help_proposal_candidates_status_filter
 )
+HELP_PROMOTION_NOTES = EN_TEXT.help_promotion_notes
 HELP_RESEARCH_CYCLE_PAUSE = EN_TEXT.help_research_cycle_pause
 HELP_RESEARCH_CYCLE_REASON = EN_TEXT.help_research_cycle_reason
 HELP_RESEARCH_CYCLE_RESUME = EN_TEXT.help_research_cycle_resume
@@ -1697,6 +1773,8 @@ MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE = (
 MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE = (
     EN_TEXT.message_proposal_candidates_temporarily_unavailable
 )
+MESSAGE_PROPOSAL_CANDIDATE_CREATED = EN_TEXT.message_proposal_candidate_created
+MESSAGE_PROPOSAL_CANDIDATE_PROMOTED = EN_TEXT.message_proposal_candidate_promoted
 MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION = (
     EN_TEXT.message_research_cycle_choose_one_action
 )
@@ -1742,6 +1820,7 @@ TITLE_BACKTEST_MEMORY_ABLATION = EN_TEXT.title_backtest_memory_ablation
 TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
 TITLE_BROKER_STATUS = EN_TEXT.title_broker_status
 TITLE_ALPACA_PAPER_CHECKS = EN_TEXT.title_alpaca_paper_checks
+TITLE_CANDIDATE_REJECTED = EN_TEXT.title_candidate_rejected
 TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
 TITLE_CAMOFOX_STDERR_TAIL = EN_TEXT.title_camofox_stderr_tail
 TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
@@ -1794,6 +1873,9 @@ TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
 TITLE_PORTFOLIO = EN_TEXT.title_portfolio
 TITLE_POSITIONS = EN_TEXT.title_positions
+TITLE_PROMOTION_BLOCKED = EN_TEXT.title_promotion_blocked
+TITLE_PROPOSAL_CANDIDATE_CREATED = EN_TEXT.title_proposal_candidate_created
+TITLE_PROPOSAL_CANDIDATE_PROMOTED = EN_TEXT.title_proposal_candidate_promoted
 TITLE_RECOMMENDED_NEXT_COMMANDS = EN_TEXT.title_recommended_next_commands
 TITLE_RECOMMENDED_COMMANDS = EN_TEXT.title_recommended_commands
 TITLE_RESEARCH_CREWAI_FLOW_SETUP = EN_TEXT.title_research_crewai_flow_setup

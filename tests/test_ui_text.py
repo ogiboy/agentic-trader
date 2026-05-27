@@ -102,6 +102,17 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_trade_proposals_temporarily_unavailable == (
         ui_text.MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE
     )
+    assert catalog.title_proposal_candidate_created == (
+        ui_text.TITLE_PROPOSAL_CANDIDATE_CREATED
+    )
+    assert catalog.title_proposal_candidate_promoted == (
+        ui_text.TITLE_PROPOSAL_CANDIDATE_PROMOTED
+    )
+    assert catalog.help_candidate_materiality == ui_text.HELP_CANDIDATE_MATERIALITY
+    assert catalog.help_fetch_provider_news == ui_text.HELP_FETCH_PROVIDER_NEWS
+    assert catalog.message_proposal_candidate_promoted == (
+        ui_text.MESSAGE_PROPOSAL_CANDIDATE_PROMOTED
+    )
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -168,6 +179,14 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     )
     assert catalog.message_v1_readiness_status_unavailable == (
         "V1 readiness durumu kullanilamiyor."
+    )
+    assert catalog.title_candidate_rejected == "Candidate Reddedildi"
+    assert catalog.title_proposal_candidate_created == (
+        "Proposal Candidate Olusturuldu"
+    )
+    assert catalog.help_candidate_source == "Candidate kaynagi."
+    assert catalog.message_proposal_candidate_promoted.endswith(
+        "Broker submission denenmedi."
     )
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN

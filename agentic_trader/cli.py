@@ -198,6 +198,13 @@ from agentic_trader.ui_text import (
     HELP_LOCALE_OVERRIDE,
     HELP_LOCALE_PERSIST,
     HELP_LOOKBACK,
+    HELP_CANDIDATE_FRESHNESS,
+    HELP_CANDIDATE_LIQUIDITY,
+    HELP_CANDIDATE_MATERIALITY,
+    HELP_CANDIDATE_RISK_NOTES,
+    HELP_CANDIDATE_SOURCE,
+    HELP_ENRICH_PROVIDER_CONTEXT,
+    HELP_FETCH_PROVIDER_NEWS,
     HELP_MODEL_NAME_TO_PULL,
     HELP_MODEL_SERVICE_APP,
     HELP_MODEL_SERVICE_HOST,
@@ -205,8 +212,10 @@ from agentic_trader.ui_text import (
     HELP_OLLAMA_OWNER,
     HELP_POSITION_PLAN_REPAIR_APPLY,
     HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
+    HELP_PROPOSAL_CANDIDATE_ID,
     HELP_PROPOSAL_CANDIDATES_LIMIT,
     HELP_PROPOSAL_CANDIDATES_STATUS_FILTER,
+    HELP_PROMOTION_NOTES,
     HELP_RESEARCH_CYCLE_PAUSE,
     HELP_RESEARCH_CYCLE_REASON,
     HELP_RESEARCH_CYCLE_RESUME,
@@ -478,6 +487,8 @@ from agentic_trader.ui_text import (
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
     MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE,
     MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_PROPOSAL_CANDIDATE_CREATED,
+    MESSAGE_PROPOSAL_CANDIDATE_PROMOTED,
     MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION,
     MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
     MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
@@ -518,6 +529,7 @@ from agentic_trader.ui_text import (
     TITLE_BACKTEST_TRADES,
     TITLE_BROKER_STATUS,
     TITLE_ALPACA_PAPER_CHECKS,
+    TITLE_CANDIDATE_REJECTED,
     TITLE_CAMOFOX_BROWSER_HELPER,
     TITLE_CAMOFOX_STDERR_TAIL,
     TITLE_CAMOFOX_START_FAILED,
@@ -545,6 +557,9 @@ from agentic_trader.ui_text import (
     TITLE_PAPER_OPERATION_CHECKS,
     TITLE_PIPELINE,
     TITLE_POSITION_PLAN_REPAIR,
+    TITLE_PROMOTION_BLOCKED,
+    TITLE_PROPOSAL_CANDIDATE_CREATED,
+    TITLE_PROPOSAL_CANDIDATE_PROMOTED,
     TITLE_PROVIDER_DIAGNOSTICS,
     TITLE_PROVIDER_SOURCE_LADDER,
     TITLE_PORTFOLIO,
@@ -5595,30 +5610,31 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
     invalidation_condition: str | None = typer.Option(
         None,
         "--invalidation-condition",
-        help="Condition that invalidates the candidate.",
+        help=HELP_TRADE_INVALIDATION,
     ),
-    thesis: str = typer.Option("", "--thesis", help="Operator-readable thesis."),
-    materiality: str = typer.Option("", "--materiality", help="Materiality note."),
+    thesis: str = typer.Option("", "--thesis", help=HELP_TRADE_THESIS),
+    materiality: str = typer.Option(
+        "", "--materiality", help=HELP_CANDIDATE_MATERIALITY
+    ),
     freshness: str = typer.Option(
         "operator_supplied_current",
         "--freshness",
-        help="Freshness note for the scanner inputs.",
+        help=HELP_CANDIDATE_FRESHNESS,
     ),
-    liquidity: str = typer.Option("", "--liquidity", help="Liquidity note."),
-    risk_notes: str = typer.Option("", "--risk-notes", help="Risk note."),
-    source: str = typer.Option("idea-scanner", "--source", help="Candidate source."),
+    liquidity: str = typer.Option("", "--liquidity", help=HELP_CANDIDATE_LIQUIDITY),
+    risk_notes: str = typer.Option("", "--risk-notes", help=HELP_CANDIDATE_RISK_NOTES),
+    source: str = typer.Option(
+        "idea-scanner", "--source", help=HELP_CANDIDATE_SOURCE
+    ),
     enrich_provider_context: bool = typer.Option(
         True,
         "--enrich-provider-context/--no-enrich-provider-context",
-        help=(
-            "Attach a compact, broker-free canonical provider context. "
-            "Defaults to network-light evidence."
-        ),
+        help=HELP_ENRICH_PROVIDER_CONTEXT,
     ),
     fetch_provider_news: bool = typer.Option(
         False,
         "--fetch-provider-news/--no-fetch-provider-news",
-        help="Allow configured news providers to refresh headlines for this candidate.",
+        help=HELP_FETCH_PROVIDER_NEWS,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -5669,16 +5685,20 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
         if json_output:
             _emit_json_error(exc)
             raise typer.Exit(code=2) from exc
-        console.print(Panel(str(exc), title="Candidate Rejected", border_style="red"))
+        console.print(Panel(str(exc), title=TITLE_CANDIDATE_REJECTED, border_style="red"))
         raise typer.Exit(code=2) from exc
     if json_output:
         _emit_json(candidate.model_dump(mode="json"))
         return
     console.print(
         Panel(
-            f"{candidate.candidate_id} recorded for review.\n\n"
-            f"{candidate.symbol} {candidate.signal.upper()} score={candidate.score:.2f}",
-            title="Proposal Candidate Created",
+            MESSAGE_PROPOSAL_CANDIDATE_CREATED.format(
+                candidate_id=candidate.candidate_id,
+                symbol=candidate.symbol,
+                signal=candidate.signal.upper(),
+                score=candidate.score,
+            ),
+            title=TITLE_PROPOSAL_CANDIDATE_CREATED,
             border_style="green",
         )
     )
@@ -5686,8 +5706,8 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
 
 @app.command("proposal-candidate-promote")
 def proposal_candidate_promote(
-    candidate_id: str = typer.Argument(..., help="Proposal candidate id to promote."),
-    review_notes: str = typer.Option("", help="Optional promotion notes."),
+    candidate_id: str = typer.Argument(..., help=HELP_PROPOSAL_CANDIDATE_ID),
+    review_notes: str = typer.Option("", help=HELP_PROMOTION_NOTES),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -5717,7 +5737,7 @@ def proposal_candidate_promote(
         if json_output:
             _emit_json_error(exc)
             raise typer.Exit(code=2) from exc
-        console.print(Panel(str(exc), title="Promotion Blocked", border_style="red"))
+        console.print(Panel(str(exc), title=TITLE_PROMOTION_BLOCKED, border_style="red"))
         raise typer.Exit(code=2) from exc
     payload = {
         "candidate": candidate.model_dump(mode="json"),
@@ -5729,9 +5749,11 @@ def proposal_candidate_promote(
         return
     console.print(
         Panel(
-            f"{candidate.candidate_id} -> {proposal.proposal_id}\n"
-            "Queued as pending proposal. No broker submission was attempted.",
-            title="Proposal Candidate Promoted",
+            MESSAGE_PROPOSAL_CANDIDATE_PROMOTED.format(
+                candidate_id=candidate.candidate_id,
+                proposal_id=proposal.proposal_id,
+            ),
+            title=TITLE_PROPOSAL_CANDIDATE_PROMOTED,
             border_style="green",
         )
     )
