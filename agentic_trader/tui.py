@@ -65,11 +65,13 @@ from agentic_trader.ui_text import (
     LABEL_AGENT_PROFILE,
     LABEL_AGENT_TONE,
     LABEL_APPROVED,
+    LABEL_AVERAGE_PRICE,
     LABEL_BACKGROUND_MODE,
     LABEL_BASE_URL,
     LABEL_BEHAVIOR_PRESET,
     LABEL_BROKER_BACKEND,
     LABEL_BROKER_STATE,
+    LABEL_CASH,
     LABEL_COMPLETED_NOTE,
     LABEL_CONTINUOUS,
     LABEL_CREATED,
@@ -104,18 +106,31 @@ from agentic_trader.ui_text import (
     LABEL_LEVEL,
     LABEL_LIVE_PROCESS,
     LABEL_LOOKBACK,
+    LABEL_LATEST_ORDER,
+    LABEL_MARKED_AT,
+    LABEL_MARK_SOURCE,
     LABEL_MARKET_VALUE,
+    LABEL_MARKET_PRICE,
     LABEL_MESSAGE,
+    LABEL_METRIC,
+    LABEL_MODEL,
+    LABEL_MODEL_AVAILABLE,
     LABEL_NOTES,
     LABEL_OBSERVER_MODE,
+    LABEL_OLLAMA_REACHABLE,
     LABEL_OPENED,
+    LABEL_OPEN_POSITIONS,
+    LABEL_PAPER_MARK,
     LABEL_PID,
     LABEL_PNL,
+    LABEL_QUANTITY,
     LABEL_REGIONS,
+    LABEL_REALIZED_PNL,
     LABEL_RESTART_COUNT,
     LABEL_RISK_PROFILE,
     LABEL_RUN_ID,
     LABEL_RUNTIME,
+    LABEL_RUNTIME_DIR,
     LABEL_SECTORS,
     LABEL_SETTING,
     LABEL_SIDE,
@@ -123,6 +138,7 @@ from agentic_trader.ui_text import (
     LABEL_STATUS_NOTE,
     LABEL_STATE,
     LABEL_STOP_REQUESTED,
+    LABEL_STRICT_LLM,
     LABEL_STRICTNESS,
     LABEL_STAGE,
     LABEL_STAGE_MESSAGE,
@@ -143,6 +159,8 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS,
     MESSAGE_NO_RUNTIME_EVENTS,
     MESSAGE_NO_RUNTIME_STATE,
+    MESSAGE_MARK_TIME_UNAVAILABLE,
+    MESSAGE_MONITOR_RETURN_SHORTCUT,
     MESSAGE_WAITING_FOR_LAST_OUTCOME,
     MESSAGE_CONTROL_ROOM_CLOSED,
     PROMPT_CONTINUE,
@@ -157,6 +175,9 @@ from agentic_trader.ui_text import (
     TITLE_RUNTIME_EVENTS,
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_STATUS,
+    TITLE_SYSTEM_STATUS,
+    TITLE_PORTFOLIO,
+    TITLE_POSITIONS,
     TITLE_TRADE_JOURNAL,
     UI_LIST_SEPARATOR,
 )
@@ -701,40 +722,36 @@ def _system_status_table(
         health: Optional precomputed LLM health snapshot. If omitted, a fresh health check is performed.
 
     Returns:
-        Table: A Rich Table titled "System Status" containing rows for:
-            - Runtime Dir
-            - Runtime Mode
-            - Model
-            - Base URL
-            - Ollama Reachable (`yes` or `no`)
-            - Model Available (`yes` or `no`)
-            - Strict LLM
-            - Latest Order (present only when `db` is provided)
+        Table: Render-ready system status rows.
     """
     health_status = health if health is not None else LocalLLM(settings).health_check()
     latest_order = db.latest_order() if db is not None else None
-    table = Table(title="System Status")
-    table.add_column("Key")
-    table.add_column("Value")
-    table.add_row("Runtime Dir", str(settings.runtime_dir))
+    table = Table(title=TITLE_SYSTEM_STATUS)
+    table.add_column(LABEL_KEY)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_RUNTIME_DIR, str(settings.runtime_dir))
     table.add_row(
-        "Runtime Mode",
+        TITLE_RUNTIME_MODE,
         (
             runtime_state.runtime_mode
             if runtime_state is not None
             else settings.runtime_mode
         ),
     )
-    table.add_row("Model", settings.model_name)
+    table.add_row(LABEL_MODEL, settings.model_name)
     table.add_row(LABEL_BASE_URL, settings.base_url)
     table.add_row(
-        "Ollama Reachable", "yes" if health_status.service_reachable else "no"
+        LABEL_OLLAMA_REACHABLE,
+        LABEL_YES if health_status.service_reachable else LABEL_NO,
     )
-    table.add_row("Model Available", "yes" if health_status.model_available else "no")
-    table.add_row("Strict LLM", str(settings.strict_llm))
+    table.add_row(
+        LABEL_MODEL_AVAILABLE,
+        LABEL_YES if health_status.model_available else LABEL_NO,
+    )
+    table.add_row(LABEL_STRICT_LLM, str(settings.strict_llm))
     if db is not None:
         table.add_row(
-            "Latest Order", latest_order[0] if latest_order is not None else "-"
+            LABEL_LATEST_ORDER, latest_order[0] if latest_order is not None else "-"
         )
     return table
 
@@ -749,37 +766,41 @@ def _portfolio_renderable(db: TradingDatabase) -> Group:
         db (TradingDatabase): Database used to retrieve the account snapshot, user preferences (for currency), latest account mark, and current positions.
 
     Returns:
-        Group: A Rich Group containing the "Portfolio" summary table followed by the "Positions" table.
+        Group: Render-ready portfolio summary and positions tables.
     """
     snapshot = db.get_account_snapshot()
     preferences = db.load_preferences()
     currency = (preferences.currencies[0] if preferences.currencies else "USD").upper()
     latest_marks = db.list_account_marks(limit=1)
-    mark_time = latest_marks[0].created_at if latest_marks else "mark time unavailable"
+    mark_time = latest_marks[0].created_at if latest_marks else MESSAGE_MARK_TIME_UNAVAILABLE
     mark_source = latest_marks[0].source if latest_marks else "-"
-    summary = Table(title="Portfolio")
-    summary.add_column("Metric")
-    summary.add_column("Value")
-    summary.add_row(f"Cash ({currency})", f"{snapshot.cash:.2f}")
+    currency_suffix = " (" + currency + ")"
+    paper_mark_suffix = " (" + currency + ", " + LABEL_PAPER_MARK + ")"
+    summary = Table(title=TITLE_PORTFOLIO)
+    summary.add_column(LABEL_METRIC)
+    summary.add_column(LABEL_VALUE)
+    summary.add_row(LABEL_CASH + currency_suffix, f"{snapshot.cash:.2f}")
     summary.add_row(
-        f"{LABEL_MARKET_VALUE} ({currency})", f"{snapshot.market_value:.2f}"
+        LABEL_MARKET_VALUE + currency_suffix, f"{snapshot.market_value:.2f}"
     )
-    summary.add_row(f"Equity ({currency})", f"{snapshot.equity:.2f}")
-    summary.add_row(f"Realized PnL ({currency})", f"{snapshot.realized_pnl:.2f}")
+    summary.add_row(LABEL_EQUITY + currency_suffix, f"{snapshot.equity:.2f}")
     summary.add_row(
-        f"{LABEL_UNREALIZED_PNL} ({currency}, paper mark)",
+        LABEL_REALIZED_PNL + currency_suffix, f"{snapshot.realized_pnl:.2f}"
+    )
+    summary.add_row(
+        LABEL_UNREALIZED_PNL + paper_mark_suffix,
         f"{snapshot.unrealized_pnl:.2f}",
     )
-    summary.add_row("Open Positions", str(snapshot.open_positions))
-    summary.add_row("Marked At", mark_time)
-    summary.add_row("Mark Source", mark_source)
+    summary.add_row(LABEL_OPEN_POSITIONS, str(snapshot.open_positions))
+    summary.add_row(LABEL_MARKED_AT, mark_time)
+    summary.add_row(LABEL_MARK_SOURCE, mark_source)
 
     positions = db.list_positions()
-    positions_table = Table(title="Positions")
-    positions_table.add_column("Symbol")
-    positions_table.add_column("Quantity")
-    positions_table.add_column("Average Price")
-    positions_table.add_column("Market Price")
+    positions_table = Table(title=TITLE_POSITIONS)
+    positions_table.add_column(LABEL_SYMBOL)
+    positions_table.add_column(LABEL_QUANTITY)
+    positions_table.add_column(LABEL_AVERAGE_PRICE)
+    positions_table.add_column(LABEL_MARKET_PRICE)
     positions_table.add_column(LABEL_MARKET_VALUE)
     positions_table.add_column(LABEL_UNREALIZED_PNL)
     if not positions:
@@ -821,7 +842,7 @@ def build_monitor_renderable(
     events = read_service_events(settings, limit=20)
     header = Panel(
         Text("Agentic Trader Live Monitor", style=STYLE_KEY_COLUMN),
-        subtitle="Ctrl+C to return",
+        subtitle=MESSAGE_MONITOR_RETURN_SHORTCUT,
         border_style="bright_blue",
     )
     top = Columns(

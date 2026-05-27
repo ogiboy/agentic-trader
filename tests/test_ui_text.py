@@ -41,6 +41,8 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
         ui_text.MESSAGE_WAITING_FOR_LAST_OUTCOME
     )
     assert catalog.title_decision_workflow == ui_text.TITLE_DECISION_WORKFLOW
+    assert catalog.title_system_status == ui_text.TITLE_SYSTEM_STATUS
+    assert catalog.label_strict_llm == ui_text.LABEL_STRICT_LLM
     assert (
         catalog.title_backtest_memory_ablation == ui_text.TITLE_BACKTEST_MEMORY_ABLATION
     )
@@ -227,6 +229,7 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.message_no_runs_recorded == "Henuz run kaydi yok."
     assert catalog.message_no_orders_recorded == "Henuz order kaydi yok."
     assert catalog.title_current_cycle == "Gecerli Dongu"
+    assert catalog.title_system_status == "System Durumu"
     assert catalog.title_agent_decisions == "Agent Kararlari"
     assert catalog.label_output_preview == "Cikti Onizleme"
     assert catalog.title_backtest_comparison == "Backtest Karsilastirma"

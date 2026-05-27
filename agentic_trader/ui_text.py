@@ -314,6 +314,7 @@ class UITextCatalog:
     label_output: str
     label_output_preview: str
     label_optional_runtime_ready: str
+    label_paper_mark: str
     label_pid: str
     label_passed: str
     label_persisted: str
@@ -385,6 +386,7 @@ class UITextCatalog:
     label_stdout: str
     label_stdout_log: str
     label_strategy: str
+    label_strict_llm: str
     label_surface: str
     label_safe_parallel_agents: str
     label_stop_requested: str
@@ -495,6 +497,7 @@ class UITextCatalog:
     message_launch_plan: str
     message_launch_symbol_required: str
     message_mark_time_unavailable: str
+    message_monitor_return_shortcut: str
     message_open_position_count_elevated: str
     message_portfolio_concentration_hhi: str
     message_position_plan_repair_unavailable: str
@@ -640,6 +643,7 @@ class UITextCatalog:
     title_service_stderr_tail: str
     title_service_stdout_tail: str
     title_service_supervisor: str
+    title_system_status: str
     title_trade_journal: str
     title_trade_context: str
     title_trade_context_detail: str
@@ -1034,6 +1038,7 @@ EN_TEXT = UITextCatalog(
     label_output="Output",
     label_output_preview="Output Preview",
     label_optional_runtime_ready="Optional Runtime Ready",
+    label_paper_mark="paper mark",
     label_pid="PID",
     label_passed="Passed",
     label_persisted="Persisted",
@@ -1105,6 +1110,7 @@ EN_TEXT = UITextCatalog(
     label_stdout="Stdout",
     label_stdout_log="Stdout Log",
     label_strategy="Strategy",
+    label_strict_llm="Strict LLM",
     label_surface="Surface",
     label_safe_parallel_agents="Safe Parallel Agents",
     label_stop_requested="Stop Requested",
@@ -1278,6 +1284,7 @@ EN_TEXT = UITextCatalog(
     ),
     message_launch_symbol_required="At least one symbol is required.",
     message_mark_time_unavailable="mark time unavailable",
+    message_monitor_return_shortcut="Ctrl+C to return",
     message_open_position_count_elevated="Open position count is elevated.",
     message_portfolio_concentration_hhi=(
         "Portfolio concentration HHI is elevated at {score:.3f}."
@@ -1495,6 +1502,7 @@ EN_TEXT = UITextCatalog(
     title_service_stderr_tail="Service Stderr Tail",
     title_service_stdout_tail="Service Stdout Tail",
     title_service_supervisor="Service Supervisor",
+    title_system_status="System Status",
     title_trade_journal="Trade Journal",
     title_trade_context="Trade Context",
     title_trade_context_detail="Trade Context / {trade_id}",
@@ -1892,6 +1900,7 @@ TR_TEXT = UITextCatalog(
     label_output="Cikti",
     label_output_preview="Cikti Onizleme",
     label_optional_runtime_ready="Optional Runtime Hazir",
+    label_paper_mark="paper mark",
     label_pid="PID",
     label_passed="Gecti",
     label_persisted="Kalici",
@@ -1963,6 +1972,7 @@ TR_TEXT = UITextCatalog(
     label_stdout="Stdout",
     label_stdout_log="Stdout Log",
     label_strategy="Strateji",
+    label_strict_llm="Strict LLM",
     label_surface="Yuzey",
     label_safe_parallel_agents="Guvenli Paralel Agent",
     label_stop_requested="Durdurma Istendi",
@@ -2135,6 +2145,7 @@ TR_TEXT = UITextCatalog(
     ),
     message_launch_symbol_required="En az bir sembol gereklidir.",
     message_mark_time_unavailable="mark zamani yok",
+    message_monitor_return_shortcut="Ctrl+C ile geri don",
     message_open_position_count_elevated="Acik pozisyon sayisi yuksek.",
     message_portfolio_concentration_hhi=(
         "Portfoy konsantrasyon HHI {score:.3f} ile yuksek."
@@ -2352,6 +2363,7 @@ TR_TEXT = UITextCatalog(
     title_service_stderr_tail="Service Stderr Kuyrugu",
     title_service_stdout_tail="Service Stdout Kuyrugu",
     title_service_supervisor="Service Supervisor",
+    title_system_status="System Durumu",
     title_trade_journal="Trade Journal",
     title_trade_context="Trade Context",
     title_trade_context_detail="Trade Context / {trade_id}",
@@ -2749,6 +2761,7 @@ LABEL_OLLAMA_REACHABLE = EN_TEXT.label_ollama_reachable
 LABEL_OUTPUT = EN_TEXT.label_output
 LABEL_OUTPUT_PREVIEW = EN_TEXT.label_output_preview
 LABEL_OPTIONAL_RUNTIME_READY = EN_TEXT.label_optional_runtime_ready
+LABEL_PAPER_MARK = EN_TEXT.label_paper_mark
 LABEL_PASSED = EN_TEXT.label_passed
 LABEL_PERSISTED = EN_TEXT.label_persisted
 LABEL_PHASE = EN_TEXT.label_phase
@@ -2820,6 +2833,7 @@ LABEL_STDERR_LOG = EN_TEXT.label_stderr_log
 LABEL_STDOUT = EN_TEXT.label_stdout
 LABEL_STDOUT_LOG = EN_TEXT.label_stdout_log
 LABEL_STRATEGY = EN_TEXT.label_strategy
+LABEL_STRICT_LLM = EN_TEXT.label_strict_llm
 LABEL_SURFACE = EN_TEXT.label_surface
 LABEL_SAFE_PARALLEL_AGENTS = EN_TEXT.label_safe_parallel_agents
 LABEL_STOP_REQUESTED = EN_TEXT.label_stop_requested
@@ -2959,6 +2973,7 @@ MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS = (
 MESSAGE_LAUNCH_PLAN = EN_TEXT.message_launch_plan
 MESSAGE_LAUNCH_SYMBOL_REQUIRED = EN_TEXT.message_launch_symbol_required
 MESSAGE_MARK_TIME_UNAVAILABLE = EN_TEXT.message_mark_time_unavailable
+MESSAGE_MONITOR_RETURN_SHORTCUT = EN_TEXT.message_monitor_return_shortcut
 MESSAGE_OPEN_POSITION_COUNT_ELEVATED = EN_TEXT.message_open_position_count_elevated
 MESSAGE_PORTFOLIO_CONCENTRATION_HHI = EN_TEXT.message_portfolio_concentration_hhi
 MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE = (
@@ -3125,6 +3140,7 @@ TITLE_SERVICE_RESTARTED = EN_TEXT.title_service_restarted
 TITLE_SERVICE_STDERR_TAIL = EN_TEXT.title_service_stderr_tail
 TITLE_SERVICE_STDOUT_TAIL = EN_TEXT.title_service_stdout_tail
 TITLE_SERVICE_SUPERVISOR = EN_TEXT.title_service_supervisor
+TITLE_SYSTEM_STATUS = EN_TEXT.title_system_status
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
 TITLE_TRADE_CONTEXT = EN_TEXT.title_trade_context
 TITLE_TRADE_CONTEXT_DETAIL = EN_TEXT.title_trade_context_detail
