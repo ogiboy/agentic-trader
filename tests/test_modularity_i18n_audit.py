@@ -37,8 +37,7 @@ def test_audit_reports_repeated_helpers_and_copy_candidates(tmp_path: Path) -> N
             encoding="utf-8",
         )
     (package / "cli.py").write_text(
-        "def render() -> None:\n"
-        "    table.add_column('Runtime Status')\n",
+        "def render() -> None:\n" "    table.add_column('Runtime Status')\n",
         encoding="utf-8",
     )
 

@@ -7,8 +7,8 @@ from agentic_trader.json_utils import (
     object_dict_or_none,
     object_list,
     object_mapping,
-    object_mapping_or_none,
     object_mapping_list,
+    object_mapping_or_none,
 )
 
 

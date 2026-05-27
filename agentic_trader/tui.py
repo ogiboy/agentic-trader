@@ -25,11 +25,9 @@ from agentic_trader.diagnostics import (
     v1_readiness_payload,
 )
 from agentic_trader.engine.broker import broker_runtime_payload
-from agentic_trader.json_utils import (
-    object_list as _object_list,
-    object_mapping as _object_mapping,
-    object_mapping_list as _object_mapping_list,
-)
+from agentic_trader.json_utils import object_list as _object_list
+from agentic_trader.json_utils import object_mapping as _object_mapping
+from agentic_trader.json_utils import object_mapping_list as _object_mapping_list
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.market.data import fetch_ohlcv
 from agentic_trader.market.features import build_snapshot

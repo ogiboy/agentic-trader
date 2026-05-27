@@ -151,8 +151,7 @@ def research_cycle_plan_payload(
         "scan_presets": list(DEFAULT_SCAN_PRESETS),
         "max_proposals_per_cycle": max(0, max_proposals_per_cycle),
         "phases": [
-            research_cycle_phase_payload(phase)
-            for phase in RESEARCH_CYCLE_PHASES
+            research_cycle_phase_payload(phase) for phase in RESEARCH_CYCLE_PHASES
         ],
         "safety_policy": {
             "manual_approval_required": True,

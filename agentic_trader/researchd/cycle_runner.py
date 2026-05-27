@@ -165,8 +165,7 @@ def run_research_cycle(
         watched_symbols=list(resolved.symbols),
         digest=dict(latest_digest),
         executions=[
-            research_cycle_execution_payload(execution)
-            for execution in executions
+            research_cycle_execution_payload(execution) for execution in executions
         ],
         execution_policy=execution_policy,
         operator_control=operator_control,
@@ -191,8 +190,7 @@ def run_research_cycle(
         "digest_replay": digest_replay.model_dump(mode="json"),
         "latest_digest": latest_digest,
         "executions": [
-            research_cycle_execution_payload(execution)
-            for execution in executions
+            research_cycle_execution_payload(execution) for execution in executions
         ],
     }
 

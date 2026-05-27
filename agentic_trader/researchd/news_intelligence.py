@@ -202,12 +202,9 @@ def news_research_plan(
         "generated_at": timestamp.isoformat().replace("+00:00", "Z"),
         "preferred_engine": "google_news",
         "exclude_regex": list(FINANCE_EXCLUDE_PATTERNS),
-        "query_templates": [
-            news_query_template_payload(query) for query in queries
-        ],
+        "query_templates": [news_query_template_payload(query) for query in queries],
         "source_tiers": [
-            source_tier_profile_payload(profile)
-            for profile in SOURCE_TIER_PROFILES
+            source_tier_profile_payload(profile) for profile in SOURCE_TIER_PROFILES
         ],
         "material_event_types": list(MATERIAL_EVENT_TYPES),
         "evidence_contract": news_evidence_contract_payload(),

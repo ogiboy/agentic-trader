@@ -19,6 +19,7 @@ from agentic_trader.tui import (
     agent_activity_lines,
     agent_activity_table,
     broker_gate_lines,
+    build_monitor_renderable,
     last_outcome_lines,
     main_menu_actions,
     main_menu_table,
@@ -30,7 +31,6 @@ from agentic_trader.tui import (
     split_csv,
     style_key,
     system_status_table,
-    build_monitor_renderable,
 )
 
 

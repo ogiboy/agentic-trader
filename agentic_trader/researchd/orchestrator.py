@@ -16,10 +16,8 @@ from typing import Protocol, cast
 from uuid import uuid4
 
 from agentic_trader.config import Settings
-from agentic_trader.json_utils import (
-    object_dict_list as _object_mapping_list,
-    object_dict_or_none as _object_mapping,
-)
+from agentic_trader.json_utils import object_dict_list as _object_mapping_list
+from agentic_trader.json_utils import object_dict_or_none as _object_mapping
 from agentic_trader.researchd.crewai_setup import default_crewai_flow_dir
 from agentic_trader.researchd.providers import (
     ResearchEvidenceProvider,
