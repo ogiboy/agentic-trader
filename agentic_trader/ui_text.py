@@ -49,6 +49,10 @@ class UITextCatalog:
     help_model_service_host: str
     help_model_service_port: str
     help_ollama_owner: str
+    help_position_plan_repair_apply: str
+    help_position_plan_repair_max_holding_bars: str
+    help_proposal_candidates_limit: str
+    help_proposal_candidates_status_filter: str
     help_research_cycle_pause: str
     help_research_cycle_reason: str
     help_research_cycle_resume: str
@@ -78,6 +82,8 @@ class UITextCatalog:
     help_trade_take_profit: str
     help_trade_thesis: str
     help_trade_side: str
+    help_trade_proposals_limit: str
+    help_trade_proposals_status_filter: str
     help_v1_provider_check: str
     help_webgui_open_browser: str
     help_webgui_service_app: str
@@ -316,18 +322,22 @@ class UITextCatalog:
     message_open_position_count_elevated: str
     message_portfolio_concentration_hhi: str
     message_position_plan_repair_unavailable: str
+    message_position_plan_repair_temporarily_unavailable: str
+    message_proposal_candidates_temporarily_unavailable: str
     message_research_cycle_choose_one_action: str
     message_research_cycle_control_status: str
     message_research_cycle_reason_requires_action: str
     message_research_snapshot_recorded: str
     message_runtime_gate_open: str
     message_portfolio_temporarily_unavailable: str
+    message_trade_proposals_temporarily_unavailable: str
     message_runtime_mode_transition_allowed: str
     message_runtime_mode_transition_blocked: str
     message_setup_bootstrap_guidance: str
     message_trading_runtime_blocked: str
     message_trading_runtime_ready: str
     message_training_diagnostic_fallback: str
+    message_v1_readiness_status_unavailable: str
     prompt_continue: str
     prompt_select_action: str
     launcher_option_open_web_gui: str
@@ -359,6 +369,7 @@ class UITextCatalog:
     title_backtest_memory_ablation: str
     title_backtest_trades: str
     title_broker_status: str
+    title_alpaca_paper_checks: str
     title_camofox_browser_helper: str
     title_camofox_stderr_tail: str
     title_camofox_start_failed: str
@@ -367,6 +378,7 @@ class UITextCatalog:
     title_operator_instruction: str
     title_operator_launcher: str
     title_pipeline: str
+    title_paper_operation_checks: str
     title_provider_diagnostics: str
     title_provider_source_ladder: str
     title_daily_risk_report: str
@@ -421,6 +433,7 @@ class UITextCatalog:
     title_tool_readiness: str
     title_training_diagnostic_mode: str
     title_ui_locale: str
+    title_v1_readiness: str
     title_warning: str
     title_walk_forward_backtest: str
     title_web_gui_service: str
@@ -460,6 +473,10 @@ EN_TEXT = UITextCatalog(
     help_model_service_host="Loopback bind host for app-managed Ollama.",
     help_model_service_port="Preferred app-managed Ollama port.",
     help_ollama_owner="Ownership mode for Ollama: host-owned, app-owned, api-key-only, or skipped.",
+    help_position_plan_repair_apply="Write repairable missing position plans. Defaults to dry-run.",
+    help_position_plan_repair_max_holding_bars="Maximum holding bars for repaired position plans.",
+    help_proposal_candidates_limit="Maximum number of proposal candidates to show.",
+    help_proposal_candidates_status_filter="Filter by candidate state: candidate, promoted, rejected, expired.",
     help_research_cycle_pause="Pause future automated research-cycle runs.",
     help_research_cycle_reason="Optional operator note persisted with the control state.",
     help_research_cycle_resume="Resume future automated research-cycle runs.",
@@ -489,6 +506,8 @@ EN_TEXT = UITextCatalog(
     help_trade_take_profit="Optional take profit.",
     help_trade_thesis="Short operator-readable proposal thesis.",
     help_trade_side="Trade side: buy or sell.",
+    help_trade_proposals_limit="Maximum number of trade proposals to show.",
+    help_trade_proposals_status_filter="Filter by proposal state: pending, approved, rejected, executed, failed, expired.",
     help_v1_provider_check="Check local model/provider readiness; may call the configured LLM service.",
     help_webgui_open_browser="Ask the OS to open the Web GUI URL after starting.",
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
@@ -734,6 +753,14 @@ EN_TEXT = UITextCatalog(
         "Portfolio concentration HHI is elevated at {score:.3f}."
     ),
     message_position_plan_repair_unavailable="Position plan repair status unavailable.",
+    message_position_plan_repair_temporarily_unavailable=(
+        "Position plan repair is temporarily unavailable while the runtime writer "
+        "owns the database.\n\n{error}"
+    ),
+    message_proposal_candidates_temporarily_unavailable=(
+        "Proposal candidates are temporarily unavailable while the runtime writer "
+        "owns the database.\n\n{error}"
+    ),
     message_research_cycle_choose_one_action="Choose only one of --pause, --resume, or --trigger-now.",
     message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
     message_research_cycle_reason_requires_action="--reason requires --pause, --resume, or --trigger-now.",
@@ -742,6 +769,10 @@ EN_TEXT = UITextCatalog(
     message_portfolio_temporarily_unavailable=(
         "Portfolio view is temporarily unavailable while the runtime writer owns "
         "the database.\n\n{error}"
+    ),
+    message_trade_proposals_temporarily_unavailable=(
+        "Trade proposals are temporarily unavailable while the runtime writer "
+        "owns the database.\n\n{error}"
     ),
     message_runtime_mode_transition_allowed=(
         "Runtime mode transition {current_mode} -> {target_mode} is allowed."
@@ -758,6 +789,7 @@ EN_TEXT = UITextCatalog(
         "Training mode is continuing this evaluation with deterministic diagnostic "
         "fallbacks because the LLM gate failed:\n\n{error}"
     ),
+    message_v1_readiness_status_unavailable="V1 readiness status unavailable.",
     prompt_continue="Press Enter to continue",
     prompt_select_action="Select action",
     launcher_option_open_web_gui="1  Open/start the local Web GUI command center",
@@ -788,6 +820,7 @@ EN_TEXT = UITextCatalog(
     title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trades",
     title_broker_status="Broker Status",
+    title_alpaca_paper_checks="Alpaca Paper Checks",
     title_camofox_browser_helper="Camofox Browser Helper",
     title_camofox_stderr_tail="Camofox Stderr Tail",
     title_camofox_start_failed="Camofox Start Failed",
@@ -797,6 +830,7 @@ EN_TEXT = UITextCatalog(
     title_operator_instruction="Operator Instruction",
     title_operator_launcher="Agentic Trader Operator Launcher",
     title_pipeline="Pipeline",
+    title_paper_operation_checks="Paper Operation Checks",
     title_provider_diagnostics="Provider Diagnostics",
     title_provider_source_ladder="Provider Source Ladder",
     title_daily_risk_report="Daily Risk Report",
@@ -851,6 +885,7 @@ EN_TEXT = UITextCatalog(
     title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
     title_ui_locale="UI Locale",
+    title_v1_readiness="V1 Readiness",
     title_warning="Warning",
     title_walk_forward_backtest="Walk-Forward Backtest",
     title_web_gui_service="Web GUI Service",
@@ -893,6 +928,10 @@ TR_TEXT = UITextCatalog(
     help_model_service_host="App-managed Ollama icin loopback bind host.",
     help_model_service_port="Tercih edilen app-managed Ollama portu.",
     help_ollama_owner="Ollama sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
+    help_position_plan_repair_apply="Repair edilebilir eksik position plan'lari yaz. Varsayilan dry-run.",
+    help_position_plan_repair_max_holding_bars="Repair edilen position plan'lari icin maksimum holding bar.",
+    help_proposal_candidates_limit="Gosterilecek maksimum proposal candidate sayisi.",
+    help_proposal_candidates_status_filter="Candidate state filtresi: candidate, promoted, rejected, expired.",
     help_research_cycle_pause="Gelecekteki otomatik research-cycle run'larini duraklat.",
     help_research_cycle_reason="Control state ile kaydedilecek istege bagli operator notu.",
     help_research_cycle_resume="Gelecekteki otomatik research-cycle run'larini surdur.",
@@ -922,6 +961,8 @@ TR_TEXT = UITextCatalog(
     help_trade_take_profit="Istege bagli take profit.",
     help_trade_thesis="Operator tarafindan okunabilir kisa proposal tezi.",
     help_trade_side="Trade yonu: buy veya sell.",
+    help_trade_proposals_limit="Gosterilecek maksimum trade proposal sayisi.",
+    help_trade_proposals_status_filter="Proposal state filtresi: pending, approved, rejected, executed, failed, expired.",
     help_v1_provider_check="Yerel model/provider hazirligini kontrol et; configured LLM servisine cagri yapabilir.",
     help_webgui_open_browser="Baslatmadan sonra Web GUI URL'sini OS ile ac.",
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
@@ -1167,6 +1208,14 @@ TR_TEXT = UITextCatalog(
         "Portfoy konsantrasyon HHI {score:.3f} ile yuksek."
     ),
     message_position_plan_repair_unavailable="Position plan repair durumu kullanilamiyor.",
+    message_position_plan_repair_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken position plan repair gecici "
+        "olarak kullanilamiyor.\n\n{error}"
+    ),
+    message_proposal_candidates_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken proposal candidate'leri gecici "
+        "olarak kullanilamiyor.\n\n{error}"
+    ),
     message_research_cycle_choose_one_action="--pause, --resume veya --trigger-now icinden yalnizca birini secin.",
     message_research_cycle_control_status="{label}: {status}\n{trigger_label}: {trigger_now}",
     message_research_cycle_reason_requires_action="--reason icin --pause, --resume veya --trigger-now gerekir.",
@@ -1175,6 +1224,10 @@ TR_TEXT = UITextCatalog(
     message_portfolio_temporarily_unavailable=(
         "Runtime writer veritabaninin sahibiyken portfolio view gecici olarak "
         "kullanilamiyor.\n\n{error}"
+    ),
+    message_trade_proposals_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken trade proposal'lari gecici "
+        "olarak kullanilamiyor.\n\n{error}"
     ),
     message_runtime_mode_transition_allowed=(
         "Runtime mode gecisi {current_mode} -> {target_mode} izinli."
@@ -1191,6 +1244,7 @@ TR_TEXT = UITextCatalog(
         "Training modu bu degerlendirmeye deterministic diagnostic fallback ile "
         "devam ediyor cunku LLM gate basarisiz oldu:\n\n{error}"
     ),
+    message_v1_readiness_status_unavailable="V1 readiness durumu kullanilamiyor.",
     prompt_continue="Devam etmek icin Enter'a basin",
     prompt_select_action="Aksiyon sec",
     launcher_option_open_web_gui="1  Yerel Web GUI command center'i ac/baslat",
@@ -1221,6 +1275,7 @@ TR_TEXT = UITextCatalog(
     title_backtest_memory_ablation="Backtest Memory Ablation",
     title_backtest_trades="Backtest Trade'leri",
     title_broker_status="Broker Durumu",
+    title_alpaca_paper_checks="Alpaca Paper Kontrolleri",
     title_camofox_browser_helper="Camofox Browser Yardimcisi",
     title_camofox_stderr_tail="Camofox Stderr Kuyrugu",
     title_camofox_start_failed="Camofox Baslatma Basarisiz",
@@ -1230,6 +1285,7 @@ TR_TEXT = UITextCatalog(
     title_operator_instruction="Operator Talimati",
     title_operator_launcher="Agentic Trader Operator Launcher",
     title_pipeline="Pipeline",
+    title_paper_operation_checks="Paper Operation Kontrolleri",
     title_provider_diagnostics="Provider Diagnostics",
     title_provider_source_ladder="Provider Source Ladder",
     title_daily_risk_report="Gunluk Risk Raporu",
@@ -1284,6 +1340,7 @@ TR_TEXT = UITextCatalog(
     title_tool_readiness="Tool Readiness",
     title_training_diagnostic_mode="Training Diagnostic Mode",
     title_ui_locale="UI Locale",
+    title_v1_readiness="V1 Readiness",
     title_warning="Uyari",
     title_walk_forward_backtest="Walk-Forward Backtest",
     title_web_gui_service="Web GUI Servisi",
@@ -1332,6 +1389,14 @@ HELP_MODEL_NAME_TO_PULL = EN_TEXT.help_model_name_to_pull
 HELP_MODEL_SERVICE_HOST = EN_TEXT.help_model_service_host
 HELP_MODEL_SERVICE_PORT = EN_TEXT.help_model_service_port
 HELP_OLLAMA_OWNER = EN_TEXT.help_ollama_owner
+HELP_POSITION_PLAN_REPAIR_APPLY = EN_TEXT.help_position_plan_repair_apply
+HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS = (
+    EN_TEXT.help_position_plan_repair_max_holding_bars
+)
+HELP_PROPOSAL_CANDIDATES_LIMIT = EN_TEXT.help_proposal_candidates_limit
+HELP_PROPOSAL_CANDIDATES_STATUS_FILTER = (
+    EN_TEXT.help_proposal_candidates_status_filter
+)
 HELP_RESEARCH_CYCLE_PAUSE = EN_TEXT.help_research_cycle_pause
 HELP_RESEARCH_CYCLE_REASON = EN_TEXT.help_research_cycle_reason
 HELP_RESEARCH_CYCLE_RESUME = EN_TEXT.help_research_cycle_resume
@@ -1376,6 +1441,8 @@ HELP_TRADE_SOURCE = EN_TEXT.help_trade_source
 HELP_TRADE_STOP_LOSS = EN_TEXT.help_trade_stop_loss
 HELP_TRADE_TAKE_PROFIT = EN_TEXT.help_trade_take_profit
 HELP_TRADE_THESIS = EN_TEXT.help_trade_thesis
+HELP_TRADE_PROPOSALS_LIMIT = EN_TEXT.help_trade_proposals_limit
+HELP_TRADE_PROPOSALS_STATUS_FILTER = EN_TEXT.help_trade_proposals_status_filter
 HELP_V1_PROVIDER_CHECK = EN_TEXT.help_v1_provider_check
 HELP_WEBGUI_OPEN_BROWSER = EN_TEXT.help_webgui_open_browser
 
@@ -1624,6 +1691,12 @@ MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE = (
 MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE = (
     EN_TEXT.message_position_plan_repair_unavailable
 )
+MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_position_plan_repair_temporarily_unavailable
+)
+MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_proposal_candidates_temporarily_unavailable
+)
 MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION = (
     EN_TEXT.message_research_cycle_choose_one_action
 )
@@ -1642,9 +1715,15 @@ MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED = (
     EN_TEXT.message_runtime_mode_transition_blocked
 )
 MESSAGE_SETUP_BOOTSTRAP_GUIDANCE = EN_TEXT.message_setup_bootstrap_guidance
+MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_trade_proposals_temporarily_unavailable
+)
 MESSAGE_TRADING_RUNTIME_BLOCKED = EN_TEXT.message_trading_runtime_blocked
 MESSAGE_TRADING_RUNTIME_READY = EN_TEXT.message_trading_runtime_ready
 MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK = EN_TEXT.message_training_diagnostic_fallback
+MESSAGE_V1_READINESS_STATUS_UNAVAILABLE = (
+    EN_TEXT.message_v1_readiness_status_unavailable
+)
 
 STAGE_COORDINATOR = EN_TEXT.stage_coordinator
 STAGE_CONSENSUS = EN_TEXT.stage_consensus
@@ -1662,6 +1741,7 @@ TITLE_BACKTEST_COMPARISON = EN_TEXT.title_backtest_comparison
 TITLE_BACKTEST_MEMORY_ABLATION = EN_TEXT.title_backtest_memory_ablation
 TITLE_BACKTEST_TRADES = EN_TEXT.title_backtest_trades
 TITLE_BROKER_STATUS = EN_TEXT.title_broker_status
+TITLE_ALPACA_PAPER_CHECKS = EN_TEXT.title_alpaca_paper_checks
 TITLE_CAMOFOX_BROWSER_HELPER = EN_TEXT.title_camofox_browser_helper
 TITLE_CAMOFOX_STDERR_TAIL = EN_TEXT.title_camofox_stderr_tail
 TITLE_CAMOFOX_START_FAILED = EN_TEXT.title_camofox_start_failed
@@ -1671,6 +1751,7 @@ TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
 TITLE_OPERATOR_LAUNCHER = EN_TEXT.title_operator_launcher
 TITLE_PIPELINE = EN_TEXT.title_pipeline
+TITLE_PAPER_OPERATION_CHECKS = EN_TEXT.title_paper_operation_checks
 TITLE_PROVIDER_DIAGNOSTICS = EN_TEXT.title_provider_diagnostics
 TITLE_PROVIDER_SOURCE_LADDER = EN_TEXT.title_provider_source_ladder
 TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
@@ -1727,6 +1808,7 @@ TITLE_TOOL_OWNERSHIP = EN_TEXT.title_tool_ownership
 TITLE_TOOL_READINESS = EN_TEXT.title_tool_readiness
 TITLE_TRAINING_DIAGNOSTIC_MODE = EN_TEXT.title_training_diagnostic_mode
 TITLE_UI_LOCALE = EN_TEXT.title_ui_locale
+TITLE_V1_READINESS = EN_TEXT.title_v1_readiness
 TITLE_WARNING = EN_TEXT.title_warning
 TITLE_WALK_FORWARD_BACKTEST = EN_TEXT.title_walk_forward_backtest
 TITLE_WEB_GUI_SERVICE = EN_TEXT.title_web_gui_service

@@ -90,6 +90,18 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.label_api_key == ui_text.LABEL_API_KEY
     assert catalog.status_pass == ui_text.STATUS_PASS
     assert catalog.status_fail == ui_text.STATUS_FAIL
+    assert catalog.title_v1_readiness == ui_text.TITLE_V1_READINESS
+    assert catalog.title_paper_operation_checks == (
+        ui_text.TITLE_PAPER_OPERATION_CHECKS
+    )
+    assert catalog.title_alpaca_paper_checks == ui_text.TITLE_ALPACA_PAPER_CHECKS
+    assert catalog.help_trade_proposals_limit == ui_text.HELP_TRADE_PROPOSALS_LIMIT
+    assert catalog.help_proposal_candidates_limit == (
+        ui_text.HELP_PROPOSAL_CANDIDATES_LIMIT
+    )
+    assert catalog.message_trade_proposals_temporarily_unavailable == (
+        ui_text.MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE
+    )
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -148,6 +160,14 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_live_ready == "Live Hazir"
     assert catalog.label_alpaca_credentials_configured == (
         "Alpaca Credential'lari Ayarli"
+    )
+    assert catalog.title_paper_operation_checks == "Paper Operation Kontrolleri"
+    assert catalog.title_alpaca_paper_checks == "Alpaca Paper Kontrolleri"
+    assert catalog.help_trade_proposals_limit == (
+        "Gosterilecek maksimum trade proposal sayisi."
+    )
+    assert catalog.message_v1_readiness_status_unavailable == (
+        "V1 readiness durumu kullanilamiyor."
     )
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN

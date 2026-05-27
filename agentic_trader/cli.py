@@ -203,6 +203,10 @@ from agentic_trader.ui_text import (
     HELP_MODEL_SERVICE_HOST,
     HELP_MODEL_SERVICE_PORT,
     HELP_OLLAMA_OWNER,
+    HELP_POSITION_PLAN_REPAIR_APPLY,
+    HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
+    HELP_PROPOSAL_CANDIDATES_LIMIT,
+    HELP_PROPOSAL_CANDIDATES_STATUS_FILTER,
     HELP_RESEARCH_CYCLE_PAUSE,
     HELP_RESEARCH_CYCLE_REASON,
     HELP_RESEARCH_CYCLE_RESUME,
@@ -228,6 +232,8 @@ from agentic_trader.ui_text import (
     HELP_TRADE_STOP_LOSS,
     HELP_TRADE_TAKE_PROFIT,
     HELP_TRADE_THESIS,
+    HELP_TRADE_PROPOSALS_LIMIT,
+    HELP_TRADE_PROPOSALS_STATUS_FILTER,
     HELP_V1_PROVIDER_CHECK,
     HELP_WEBGUI_OPEN_BROWSER,
     HELP_WEBGUI_SERVICE_APP,
@@ -470,6 +476,8 @@ from agentic_trader.ui_text import (
     MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
     MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE,
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
+    MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE,
     MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION,
     MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
     MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
@@ -478,9 +486,11 @@ from agentic_trader.ui_text import (
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
     MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
+    MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADING_RUNTIME_BLOCKED,
     MESSAGE_TRADING_RUNTIME_READY,
     MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
+    MESSAGE_V1_READINESS_STATUS_UNAVAILABLE,
     PROMPT_SELECT_ACTION,
     STAGE_CONSENSUS,
     STAGE_COORDINATOR,
@@ -507,6 +517,7 @@ from agentic_trader.ui_text import (
     TITLE_BACKTEST_MEMORY_ABLATION,
     TITLE_BACKTEST_TRADES,
     TITLE_BROKER_STATUS,
+    TITLE_ALPACA_PAPER_CHECKS,
     TITLE_CAMOFOX_BROWSER_HELPER,
     TITLE_CAMOFOX_STDERR_TAIL,
     TITLE_CAMOFOX_START_FAILED,
@@ -531,6 +542,7 @@ from agentic_trader.ui_text import (
     TITLE_MODEL_SERVICE_START_FAILED,
     TITLE_OPERATOR_INSTRUCTION,
     TITLE_OPERATOR_LAUNCHER,
+    TITLE_PAPER_OPERATION_CHECKS,
     TITLE_PIPELINE,
     TITLE_POSITION_PLAN_REPAIR,
     TITLE_PROVIDER_DIAGNOSTICS,
@@ -568,6 +580,7 @@ from agentic_trader.ui_text import (
     TITLE_TRADE_PROPOSALS,
     TITLE_TRAINING_DIAGNOSTIC_MODE,
     TITLE_UI_LOCALE,
+    TITLE_V1_READINESS,
     TITLE_WALK_FORWARD_BACKTEST,
     TITLE_WARNING,
     TITLE_WEB_GUI_SERVICE,
@@ -5370,13 +5383,13 @@ def v1_readiness(
     paper_allowed = bool(paper.get("allowed"))
     console.print(
         Panel(
-            str(payload.get("summary", "V1 readiness status unavailable.")),
-            title="V1 Readiness",
+            str(payload.get("summary", MESSAGE_V1_READINESS_STATUS_UNAVAILABLE)),
+            title=TITLE_V1_READINESS,
             border_style="green" if paper_allowed else "yellow",
         )
     )
-    _render_readiness_checks("Paper Operation Checks", paper)
-    _render_readiness_checks("Alpaca Paper Checks", alpaca)
+    _render_readiness_checks(TITLE_PAPER_OPERATION_CHECKS, paper)
+    _render_readiness_checks(TITLE_ALPACA_PAPER_CHECKS, alpaca)
 
 
 @app.command("finance-ops")
@@ -5405,13 +5418,13 @@ def position_plan_repair(
     apply_changes: bool = typer.Option(
         False,
         "--apply",
-        help="Write repairable missing position plans. Defaults to dry-run.",
+        help=HELP_POSITION_PLAN_REPAIR_APPLY,
     ),
     max_holding_bars: int = typer.Option(
         20,
         min=1,
         max=500,
-        help="Maximum holding bars for repaired position plans.",
+        help=HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -5439,7 +5452,9 @@ def position_plan_repair(
     except Exception as exc:  # noqa: BLE001 - operator command should degrade on DB locks
         console.print(
             Panel(
-                f"Position plan repair is temporarily unavailable while the runtime writer owns the database.\n\n{exc}",
+                MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE.format(
+                    error=exc
+                ),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -5472,10 +5487,10 @@ def trade_proposals(
     status: str | None = typer.Option(
         None,
         "--status",
-        help="Filter by proposal state: pending, approved, rejected, executed, failed, expired.",
+        help=HELP_TRADE_PROPOSALS_STATUS_FILTER,
     ),
     limit: int = typer.Option(
-        50, min=1, max=200, help="Maximum number of trade proposals to show."
+        50, min=1, max=200, help=HELP_TRADE_PROPOSALS_LIMIT
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -5501,7 +5516,9 @@ def trade_proposals(
     if not payload["available"]:
         console.print(
             Panel(
-                f"Trade proposals are temporarily unavailable while the runtime writer owns the database.\n\n{payload['error']}",
+                MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE.format(
+                    error=payload["error"]
+                ),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -5515,10 +5532,10 @@ def proposal_candidates(
     status: str | None = typer.Option(
         None,
         "--status",
-        help="Filter by candidate state: candidate, promoted, rejected, expired.",
+        help=HELP_PROPOSAL_CANDIDATES_STATUS_FILTER,
     ),
     limit: int = typer.Option(
-        50, min=1, max=200, help="Maximum number of proposal candidates to show."
+        50, min=1, max=200, help=HELP_PROPOSAL_CANDIDATES_LIMIT
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -5540,8 +5557,9 @@ def proposal_candidates(
     if not payload["available"]:
         console.print(
             Panel(
-                "Proposal candidates are temporarily unavailable while the runtime "
-                f"writer owns the database.\n\n{payload['error']}",
+                MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE.format(
+                    error=payload["error"]
+                ),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -5553,14 +5571,16 @@ def proposal_candidates(
 @app.command("proposal-candidate-create")
 def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the command signature.
     symbol: str = typer.Option(..., "--symbol", help=HELP_SYMBOL),  # NOSONAR
-    preset: str = typer.Option("momentum", "--preset", help="Idea preset to apply."),
-    price: float = typer.Option(..., "--price", min=0.01, help="Reference price."),
-    volume: float = typer.Option(..., "--volume", min=0.0, help="Latest volume."),
+    preset: str = typer.Option("momentum", "--preset", help=HELP_IDEA_PRESET),
+    price: float = typer.Option(
+        ..., "--price", min=0.01, help=HELP_TRADE_REFERENCE_PRICE
+    ),
+    volume: float = typer.Option(..., "--volume", min=0.0, help=HELP_IDEA_VOLUME),
     change_pct: float = typer.Option(
-        ..., "--change-pct", help="Scan-window change percent."
+        ..., "--change-pct", help=HELP_IDEA_CHANGE_PCT
     ),
     relative_volume: float = typer.Option(0.0, "--relative-volume", min=0.0),
-    gap_pct: float = typer.Option(0.0, "--gap-pct", help="Opening gap percent."),
+    gap_pct: float = typer.Option(0.0, "--gap-pct", help=HELP_IDEA_GAP_PCT),
     range_pct: float = typer.Option(0.0, "--range-pct", min=0.0),
     rsi: float | None = typer.Option(None, "--rsi", min=0.0, max=100.0),
     ema_9: float | None = typer.Option(None, "--ema-9", min=0.0),
