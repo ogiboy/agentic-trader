@@ -254,6 +254,7 @@ def test_cli_locale_command_supports_override_and_persistence(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli_module, "ENV_LOCAL_FILE", tmp_path / ".env.local")
     monkeypatch.delenv("AGENTIC_TRADER_UI_LOCALE", raising=False)
     runner = CliRunner()
 
@@ -287,6 +288,7 @@ def test_cli_env_local_upsert_creates_and_updates_known_file(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     env_file = tmp_path / ".env.local"
+    monkeypatch.setattr(cli_module, "ENV_LOCAL_FILE", env_file)
     runner = CliRunner()
 
     create_result = runner.invoke(app, ["locale", "--set", "tr", "--json"])
