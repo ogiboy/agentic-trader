@@ -231,6 +231,11 @@ from agentic_trader.ui_text import (
     HELP_RESEARCH_CYCLE_TRIGGER_NOW,
     HELP_RESEARCH_PROBE,
     HELP_RESEARCH_REFRESH_PERSIST,
+    HELP_RUNTIME_EVENT_LIMIT,
+    HELP_PROVIDER_CHECK,
+    HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
+    HELP_EVIDENCE_BUNDLE_LABEL,
+    HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
     HELP_RUN_ID,
     HELP_RUNTIME_MODE_PROVIDER_CHECK,
     HELP_RUNTIME_MODE_TARGET,
@@ -271,12 +276,14 @@ from agentic_trader.ui_text import (
     HELP_WEBGUI_SERVICE_APP,
     LABEL_AGENT,
     LABEL_ALLOWED,
+    LABEL_ACCELERATOR,
     LABEL_ADAPTER,
     LABEL_ALPACA_CREDENTIALS_CONFIGURED,
     LABEL_ALPACA_FEED,
     LABEL_ALPACA_PAPER_ENDPOINT,
     LABEL_APPROVED,
     LABEL_API_KEY,
+    LABEL_ARTIFACT,
     LABEL_AVERAGE_PRICE,
     LABEL_BASE_URL,
     LABEL_BASELINE,
@@ -289,11 +296,13 @@ from agentic_trader.ui_text import (
     LABEL_CATEGORY,
     LABEL_CHECK,
     LABEL_CLOSED_TRADES,
+    LABEL_COMMAND,
     LABEL_CONFIDENCE,
     LABEL_CONTEXT,
     LABEL_CORE_DEPENDENCY,
     LABEL_CONTINUOUS,
     LABEL_CORE_READY,
+    LABEL_CPU_COUNT,
     LABEL_CREATED,
     LABEL_CURRENCY,
     LABEL_CURRENT,
@@ -319,6 +328,7 @@ from agentic_trader.ui_text import (
     LABEL_EQUITY,
     LABEL_ENABLED,
     LABEL_ENVIRONMENT_EXISTS,
+    LABEL_ESTIMATED_MODEL_SIZE,
     LABEL_EVIDENCE,
     LABEL_EXIT,
     LABEL_EXIT_CODE,
@@ -385,6 +395,7 @@ from agentic_trader.ui_text import (
     LABEL_MODEL,
     LABEL_MODEL_AVAILABLE,
     LABEL_MODEL_ROUTING,
+    LABEL_MEMORY_GB,
     LABEL_MULTI_TIMEFRAME,
     LABEL_NEXT,
     LABEL_NEWS_MODE,
@@ -447,6 +458,7 @@ from agentic_trader.ui_text import (
     LABEL_SPECIALIST,
     LABEL_STAGE,
     LABEL_STARTED,
+    LABEL_STEP,
     LABEL_STATE,
     LABEL_STATUS,
     LABEL_STATUS_NOTE,
@@ -461,6 +473,7 @@ from agentic_trader.ui_text import (
     LABEL_SUMMARY,
     LABEL_SUPPORTED,
     LABEL_SURFACE,
+    LABEL_SAFE_PARALLEL_AGENTS,
     LABEL_SYMBOL,
     LABEL_SYMBOLS,
     LABEL_TAKE,
@@ -468,6 +481,7 @@ from agentic_trader.ui_text import (
     LABEL_TARGET,
     LABEL_TOOL,
     LABEL_TOOLS,
+    LABEL_TOKEN_HINT,
     LABEL_TOTAL_RETURN,
     LABEL_TRADES,
     LABEL_TRIGGER_NOW,
@@ -499,6 +513,7 @@ from agentic_trader.ui_text import (
     LAUNCHER_OPTION_REFRESH,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
     MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
+    MESSAGE_EVIDENCE_BUNDLE_WRITTEN,
     MESSAGE_FALLBACK_USED_IN,
     MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
     MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY,
@@ -512,6 +527,7 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
     MESSAGE_NO_HISTORICAL_MEMORIES,
+    MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
     MESSAGE_NO_OPEN_POSITIONS,
     MESSAGE_NO_PROPOSAL_CANDIDATES,
     MESSAGE_NO_RUNTIME_EVENTS,
@@ -586,6 +602,8 @@ from agentic_trader.ui_text import (
     TITLE_ENVIRONMENT_CHECK,
     TITLE_EXECUTION_SUMMARY,
     TITLE_EXIT,
+    TITLE_EVIDENCE_BUNDLE,
+    TITLE_HARDWARE_PROFILE,
     TITLE_IDEA_SCANNER_PRESETS,
     TITLE_IDEA_SCORE,
     TITLE_FINANCE_LEDGER_CATEGORIES,
@@ -603,6 +621,7 @@ from agentic_trader.ui_text import (
     TITLE_MODEL_SERVICE_START_FAILED,
     TITLE_OPERATOR_INSTRUCTION,
     TITLE_OPERATOR_LAUNCHER,
+    TITLE_OPERATOR_WORKFLOW,
     TITLE_PAPER_OPERATION_CHECKS,
     TITLE_PIPELINE,
     TITLE_POSITION_PLAN_REPAIR,
@@ -661,6 +680,8 @@ from agentic_trader.ui_text import (
     TITLE_TRAINING_DIAGNOSTIC_MODE,
     TITLE_UI_LOCALE,
     TITLE_V1_READINESS,
+    TITLE_V1_OPERATOR_WORKFLOW,
+    TITLE_QA_EVIDENCE_BUNDLE,
     TITLE_WALK_FORWARD_BACKTEST,
     TITLE_WARNING,
     TITLE_WEB_GUI_SERVICE,
@@ -752,8 +773,6 @@ app.add_typer(tool_ownership_app, name="tool-ownership")
 TUI_PACKAGE_NAME = "agentic-trader-tui"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
-HELP_RUNTIME_EVENT_LIMIT = "Maximum number of runtime events to include."
-HELP_PROVIDER_CHECK = "Actively check the configured LLM provider/model readiness."
 ProposalOrderType = Literal["market", "limit"]
 
 
@@ -6486,7 +6505,7 @@ def research_cycle_run(
 @app.command()
 def logs(
     limit: int = typer.Option(
-        20, min=1, max=200, help="Maximum number of runtime events to show."
+        20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT
     ),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -6976,11 +6995,11 @@ def operator_workflow_command(
     if json_output:
         _emit_json(payload)
         return
-    table = Table(title="V1 Operator Workflow")
+    table = Table(title=TITLE_V1_OPERATOR_WORKFLOW)
     table.add_column("#", style="cyan")
-    table.add_column("Step")
-    table.add_column("Command")
-    table.add_column("Purpose")
+    table.add_column(LABEL_STEP)
+    table.add_column(LABEL_COMMAND)
+    table.add_column(LABEL_PURPOSE)
     for step in cast(list[dict[str, object]], payload["steps"]):
         table.add_row(
             str(step["order"]),
@@ -6990,8 +7009,8 @@ def operator_workflow_command(
         )
     console.print(
         Panel(
-            "Read-only workflow guide. Review readiness and evidence before long paper operation.",
-            title="Operator Workflow",
+            MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
+            title=TITLE_OPERATOR_WORKFLOW,
             border_style="cyan",
         )
     )
@@ -7012,18 +7031,24 @@ def hardware_profile_command(
     hardware = cast(dict[str, object], payload["hardware"])
     configured = cast(dict[str, object], payload["configured_runtime"])
     recommendations = cast(dict[str, object], payload["recommendations"])
-    table = Table(title="Hardware Profile")
-    table.add_column("Field", style="cyan")
-    table.add_column("Value")
-    table.add_row("CPU Count", str(hardware["cpu_count"]))
-    table.add_row("Memory GB", str(hardware["memory_gb"]))
+    table = Table(title=TITLE_HARDWARE_PROFILE)
+    table.add_column(LABEL_FIELD, style="cyan")
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_CPU_COUNT, str(hardware["cpu_count"]))
+    table.add_row(LABEL_MEMORY_GB, str(hardware["memory_gb"]))
     accelerator = cast(dict[str, object], hardware["accelerator"])
-    table.add_row("Accelerator", str(accelerator.get("type", "unknown")))
-    table.add_row("Model", str(configured["model_name"]))
-    table.add_row("Estimated Model Size", str(configured["estimated_model_size_b"]))
-    table.add_row("Safe Parallel Agents", str(recommendations["safe_parallel_agents"]))
-    table.add_row("Token Hint", str(recommendations["max_output_tokens"]))
-    table.add_row("Profile", str(recommendations["profile"]))
+    table.add_row(LABEL_ACCELERATOR, str(accelerator.get("type", "unknown")))
+    table.add_row(LABEL_MODEL, str(configured["model_name"]))
+    table.add_row(
+        LABEL_ESTIMATED_MODEL_SIZE,
+        str(configured["estimated_model_size_b"]),
+    )
+    table.add_row(
+        LABEL_SAFE_PARALLEL_AGENTS,
+        str(recommendations["safe_parallel_agents"]),
+    )
+    table.add_row(LABEL_TOKEN_HINT, str(recommendations["max_output_tokens"]))
+    table.add_row(LABEL_PROFILE, str(recommendations["profile"]))
     console.print(table)
 
 
@@ -7181,18 +7206,18 @@ def evidence_bundle_command(
     output_dir: Path | None = typer.Option(
         None,
         "--output-dir",
-        help="Artifact root. Defaults to .ai/qa/artifacts.",
+        help=HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
     ),
     label: str | None = typer.Option(
         None,
         "--label",
-        help="Bundle directory label. Defaults to evidence-YYYYMMDD-HHMMSS.",
+        help=HELP_EVIDENCE_BUNDLE_LABEL,
     ),
     log_limit: int = typer.Option(20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT),
     include_latest_smoke: bool = typer.Option(
         True,
         "--include-latest-smoke/--no-latest-smoke",
-        help="Copy the latest smoke summary/report into the bundle when available.",
+        help=HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
     ),
     provider_check: bool = typer.Option(
         False,
@@ -7227,15 +7252,17 @@ def evidence_bundle_command(
         _emit_json(manifest)
         return
     files = cast(dict[str, str], manifest["files"])
-    table = Table(title="QA Evidence Bundle")
-    table.add_column("Artifact", style="cyan")
-    table.add_column("Path")
+    table = Table(title=TITLE_QA_EVIDENCE_BUNDLE)
+    table.add_column(LABEL_ARTIFACT, style="cyan")
+    table.add_column(LABEL_PATH)
     for key, path in files.items():
         table.add_row(key, path)
     console.print(
         Panel(
-            f"Bundle written to {manifest['bundle_dir']}",
-            title="Evidence Bundle",
+            MESSAGE_EVIDENCE_BUNDLE_WRITTEN.format(
+                bundle_dir=manifest["bundle_dir"]
+            ),
+            title=TITLE_EVIDENCE_BUNDLE,
             border_style="green",
         )
     )

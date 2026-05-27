@@ -77,6 +77,11 @@ class UITextCatalog:
     help_research_cycle_trigger_now: str
     help_research_probe: str
     help_research_refresh_persist: str
+    help_runtime_event_limit: str
+    help_provider_check: str
+    help_evidence_bundle_include_latest_smoke: str
+    help_evidence_bundle_label: str
+    help_evidence_bundle_output_dir: str
     help_firecrawl_owner: str
     help_camofox_owner: str
     help_camofox_service_host: str
@@ -121,12 +126,14 @@ class UITextCatalog:
     help_webgui_service_app: str
     label_agent: str
     label_allowed: str
+    label_accelerator: str
     label_adapter: str
     label_alpaca_credentials_configured: str
     label_alpaca_feed: str
     label_alpaca_paper_endpoint: str
     label_approved: str
     label_api_key: str
+    label_artifact: str
     label_average_price: str
     label_baseline: str
     label_base_url: str
@@ -139,11 +146,13 @@ class UITextCatalog:
     label_cash: str
     label_check: str
     label_closed_trades: str
+    label_command: str
     label_continuous: str
     label_confidence: str
     label_context: str
     label_core_dependency: str
     label_core_ready: str
+    label_cpu_count: str
     label_created: str
     label_currency: str
     label_current: str
@@ -168,6 +177,7 @@ class UITextCatalog:
     label_equity: str
     label_enabled: str
     label_environment_exists: str
+    label_estimated_model_size: str
     label_evidence: str
     label_exposure: str
     label_exit: str
@@ -235,6 +245,7 @@ class UITextCatalog:
     label_model: str
     label_model_available: str
     label_model_routing: str
+    label_memory_gb: str
     label_multi_timeframe: str
     label_no: str
     label_notes: str
@@ -296,6 +307,7 @@ class UITextCatalog:
     label_slippage: str
     label_stage: str
     label_started: str
+    label_step: str
     label_state: str
     label_status: str
     label_status_note: str
@@ -305,6 +317,7 @@ class UITextCatalog:
     label_stdout_log: str
     label_strategy: str
     label_surface: str
+    label_safe_parallel_agents: str
     label_stop_requested: str
     label_stop: str
     label_structured_llm: str
@@ -317,6 +330,7 @@ class UITextCatalog:
     label_take_profit: str
     label_tool: str
     label_tools: str
+    label_token_hint: str
     label_total_return: str
     label_trades: str
     label_trigger_now: str
@@ -346,6 +360,7 @@ class UITextCatalog:
     list_separator: str
     message_all_agent_stages_llm_path: str
     message_fallback_used_in: str
+    message_evidence_bundle_written: str
     message_no_elevated_portfolio_risk_warnings: str
     message_no_runtime_state: str
     message_no_runtime_events: str
@@ -354,6 +369,7 @@ class UITextCatalog:
     message_no_trade_journal_entries: str
     message_no_historical_memories: str
     message_no_action_selected: str
+    message_operator_workflow_guidance: str
     message_no_open_positions: str
     message_no_proposal_candidates: str
     message_no_trade_proposals: str
@@ -436,6 +452,7 @@ class UITextCatalog:
     title_llm_status: str
     title_operator_instruction: str
     title_operator_launcher: str
+    title_operator_workflow: str
     title_pipeline: str
     title_paper_operation_checks: str
     title_provider_diagnostics: str
@@ -444,6 +461,8 @@ class UITextCatalog:
     title_desk_accounting_context: str
     title_environment_check: str
     title_exit: str
+    title_evidence_bundle: str
+    title_hardware_profile: str
     title_idea_scanner_presets: str
     title_idea_score: str
     title_finance_ledger_categories: str
@@ -515,6 +534,8 @@ class UITextCatalog:
     title_ui_locale: str
     title_v1_readiness: str
     title_warning: str
+    title_v1_operator_workflow: str
+    title_qa_evidence_bundle: str
     title_walk_forward_backtest: str
     title_web_gui_service: str
     title_web_gui_start_failed: str
@@ -600,6 +621,15 @@ EN_TEXT = UITextCatalog(
     help_research_cycle_trigger_now="Request one immediate research-cycle run for the next runner.",
     help_research_probe="Run one isolated sidecar provider probe before reporting status.",
     help_research_refresh_persist="Persist the sidecar snapshot to the runtime research JSON feed.",
+    help_runtime_event_limit="Maximum number of runtime events to include.",
+    help_provider_check="Actively check the configured LLM provider/model readiness.",
+    help_evidence_bundle_include_latest_smoke=(
+        "Copy the latest smoke summary/report into the bundle when available."
+    ),
+    help_evidence_bundle_label=(
+        "Bundle directory label. Defaults to evidence-YYYYMMDD-HHMMSS."
+    ),
+    help_evidence_bundle_output_dir="Artifact root. Defaults to .ai/qa/artifacts.",
     help_firecrawl_owner="Ownership mode for Firecrawl: host-owned, app-owned, api-key-only, or skipped.",
     help_camofox_owner="Ownership mode for Camofox: host-owned, app-owned, api-key-only, or skipped.",
     help_camofox_service_host="Loopback bind host for app-managed Camofox.",
@@ -644,12 +674,14 @@ EN_TEXT = UITextCatalog(
     help_webgui_service_app="Manage the optional app-owned local Web GUI service.",
     label_agent="Agent",
     label_allowed="Allowed",
+    label_accelerator="Accelerator",
     label_adapter="Adapter",
     label_alpaca_credentials_configured="Alpaca Credentials Configured",
     label_alpaca_feed="Alpaca Feed",
     label_alpaca_paper_endpoint="Alpaca Paper Endpoint",
     label_approved="Approved",
     label_api_key="API Key",
+    label_artifact="Artifact",
     label_average_price="Average Price",
     label_baseline="Baseline",
     label_base_url="Base URL",
@@ -662,11 +694,13 @@ EN_TEXT = UITextCatalog(
     label_cash="Cash",
     label_check="Check",
     label_closed_trades="Closed Trades",
+    label_command="Command",
     label_continuous="Continuous",
     label_confidence="Confidence",
     label_context="Context",
     label_core_dependency="Core Dependency",
     label_core_ready="Core Ready",
+    label_cpu_count="CPU Count",
     label_created="Created",
     label_currency="Currency",
     label_current="Current",
@@ -691,6 +725,7 @@ EN_TEXT = UITextCatalog(
     label_equity="Equity",
     label_enabled="Enabled",
     label_environment_exists="Environment Exists",
+    label_estimated_model_size="Estimated Model Size",
     label_evidence="Evidence",
     label_exposure="Exposure",
     label_exit="Exit",
@@ -758,6 +793,7 @@ EN_TEXT = UITextCatalog(
     label_model="Model",
     label_model_available="Model Available",
     label_model_routing="Model Routing",
+    label_memory_gb="Memory GB",
     label_multi_timeframe="Multi-Timeframe",
     label_no="no",
     label_notes="Notes",
@@ -819,6 +855,7 @@ EN_TEXT = UITextCatalog(
     label_slippage="Slippage",
     label_stage="Stage",
     label_started="Started",
+    label_step="Step",
     label_state="State",
     label_status="Status",
     label_status_note="Status Note",
@@ -828,6 +865,7 @@ EN_TEXT = UITextCatalog(
     label_stdout_log="Stdout Log",
     label_strategy="Strategy",
     label_surface="Surface",
+    label_safe_parallel_agents="Safe Parallel Agents",
     label_stop_requested="Stop Requested",
     label_stop="Stop",
     label_structured_llm="Structured LLM response",
@@ -840,6 +878,7 @@ EN_TEXT = UITextCatalog(
     label_take_profit="Take Profit",
     label_tool="Tool",
     label_tools="Tools",
+    label_token_hint="Token Hint",
     label_total_return="Total Return",
     label_trades="Trades",
     label_trigger_now="Trigger Now",
@@ -869,6 +908,7 @@ EN_TEXT = UITextCatalog(
     list_separator=", ",
     message_all_agent_stages_llm_path="All agent stages completed through the LLM path.",
     message_fallback_used_in="Fallback was used in",
+    message_evidence_bundle_written="Bundle written to {bundle_dir}",
     message_no_elevated_portfolio_risk_warnings=(
         "No elevated portfolio risk warnings for this report."
     ),
@@ -879,6 +919,9 @@ EN_TEXT = UITextCatalog(
     message_no_trade_journal_entries="No trade journal entries recorded yet.",
     message_no_historical_memories="No historical memories are available yet.",
     message_no_action_selected="No action selected.",
+    message_operator_workflow_guidance=(
+        "Read-only workflow guide. Review readiness and evidence before long paper operation."
+    ),
     message_no_open_positions="No open positions.",
     message_no_proposal_candidates="No proposal candidates recorded yet.",
     message_no_trade_proposals="No trade proposals recorded yet.",
@@ -1019,6 +1062,7 @@ EN_TEXT = UITextCatalog(
     title_llm_status="LLM Status",
     title_operator_instruction="Operator Instruction",
     title_operator_launcher="Agentic Trader Operator Launcher",
+    title_operator_workflow="Operator Workflow",
     title_pipeline="Pipeline",
     title_paper_operation_checks="Paper Operation Checks",
     title_provider_diagnostics="Provider Diagnostics",
@@ -1027,6 +1071,8 @@ EN_TEXT = UITextCatalog(
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
     title_exit="Exit",
+    title_evidence_bundle="Evidence Bundle",
+    title_hardware_profile="Hardware Profile",
     title_idea_scanner_presets="Idea Scanner Presets",
     title_idea_score="Idea Score: {preset}",
     title_finance_ledger_categories="Finance Ledger Categories",
@@ -1098,6 +1144,8 @@ EN_TEXT = UITextCatalog(
     title_ui_locale="UI Locale",
     title_v1_readiness="V1 Readiness",
     title_warning="Warning",
+    title_v1_operator_workflow="V1 Operator Workflow",
+    title_qa_evidence_bundle="QA Evidence Bundle",
     title_walk_forward_backtest="Walk-Forward Backtest",
     title_web_gui_service="Web GUI Service",
     title_web_gui_start_failed="Web GUI Start Failed",
@@ -1186,6 +1234,15 @@ TR_TEXT = UITextCatalog(
     help_research_cycle_trigger_now="Sonraki runner icin bir anlik research-cycle run iste.",
     help_research_probe="Durumu raporlamadan once izole bir sidecar provider probe calistir.",
     help_research_refresh_persist="Sidecar snapshot'i runtime research JSON feed icine kaydet.",
+    help_runtime_event_limit="Dahil edilecek maksimum runtime event sayisi.",
+    help_provider_check="Configured LLM provider/model hazirligini aktif kontrol et.",
+    help_evidence_bundle_include_latest_smoke=(
+        "Varsa son smoke summary/report dosyalarini bundle icine kopyala."
+    ),
+    help_evidence_bundle_label=(
+        "Bundle dizin etiketi. Varsayilan evidence-YYYYMMDD-HHMMSS."
+    ),
+    help_evidence_bundle_output_dir="Artifact root. Varsayilan .ai/qa/artifacts.",
     help_firecrawl_owner="Firecrawl sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_camofox_owner="Camofox sahiplik modu: host-owned, app-owned, api-key-only veya skipped.",
     help_camofox_service_host="App-managed Camofox icin loopback bind host.",
@@ -1230,12 +1287,14 @@ TR_TEXT = UITextCatalog(
     help_webgui_service_app="Istege bagli app-owned yerel Web GUI servisini yonet.",
     label_agent="Agent",
     label_allowed="Izinli",
+    label_accelerator="Accelerator",
     label_adapter="Adapter",
     label_alpaca_credentials_configured="Alpaca Credential'lari Ayarli",
     label_alpaca_feed="Alpaca Feed",
     label_alpaca_paper_endpoint="Alpaca Paper Endpoint",
     label_approved="Onaylandi",
     label_api_key="API Key",
+    label_artifact="Artifact",
     label_average_price="Ortalama Fiyat",
     label_baseline="Baseline",
     label_base_url="Base URL",
@@ -1248,11 +1307,13 @@ TR_TEXT = UITextCatalog(
     label_cash="Nakit",
     label_check="Kontrol",
     label_closed_trades="Kapanan Trade'ler",
+    label_command="Komut",
     label_continuous="Surekli",
     label_confidence="Guven",
     label_context="Baglam",
     label_core_dependency="Core Dependency",
     label_core_ready="Core Hazir",
+    label_cpu_count="CPU Sayisi",
     label_created="Olusturuldu",
     label_currency="Para Birimi",
     label_current="Gecerli",
@@ -1277,6 +1338,7 @@ TR_TEXT = UITextCatalog(
     label_equity="Equity",
     label_enabled="Etkin",
     label_environment_exists="Environment Var",
+    label_estimated_model_size="Tahmini Model Boyutu",
     label_evidence="Evidence",
     label_exposure="Exposure",
     label_exit="Cikis",
@@ -1344,6 +1406,7 @@ TR_TEXT = UITextCatalog(
     label_model="Model",
     label_model_available="Model Kullanilabilir",
     label_model_routing="Model Routing",
+    label_memory_gb="Bellek GB",
     label_multi_timeframe="Multi-Timeframe",
     label_no="hayir",
     label_notes="Notlar",
@@ -1405,6 +1468,7 @@ TR_TEXT = UITextCatalog(
     label_slippage="Slippage",
     label_stage="Asama",
     label_started="Basladi",
+    label_step="Adim",
     label_state="State",
     label_status="Durum",
     label_status_note="Durum Notu",
@@ -1414,6 +1478,7 @@ TR_TEXT = UITextCatalog(
     label_stdout_log="Stdout Log",
     label_strategy="Strateji",
     label_surface="Yuzey",
+    label_safe_parallel_agents="Guvenli Paralel Agent",
     label_stop_requested="Durdurma Istendi",
     label_stop="Stop",
     label_structured_llm="Yapilandirilmis LLM yaniti",
@@ -1426,6 +1491,7 @@ TR_TEXT = UITextCatalog(
     label_take_profit="Take Profit",
     label_tool="Tool",
     label_tools="Araclar",
+    label_token_hint="Token Ipuclari",
     label_total_return="Toplam Return",
     label_trades="Trade'ler",
     label_trigger_now="Simdi Tetikle",
@@ -1455,6 +1521,7 @@ TR_TEXT = UITextCatalog(
     list_separator=", ",
     message_all_agent_stages_llm_path="Tum agent asamalari LLM yolu ile tamamlandi.",
     message_fallback_used_in="Fallback kullanilan asamalar",
+    message_evidence_bundle_written="Bundle {bundle_dir} icine yazildi",
     message_no_elevated_portfolio_risk_warnings=(
         "Bu rapor icin yuksek portfoy risk uyarisi yok."
     ),
@@ -1465,6 +1532,9 @@ TR_TEXT = UITextCatalog(
     message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
     message_no_historical_memories="Henuz historical memory yok.",
     message_no_action_selected="Aksiyon secilmedi.",
+    message_operator_workflow_guidance=(
+        "Read-only workflow rehberi. Uzun paper operation oncesi readiness ve evidence inceleyin."
+    ),
     message_no_open_positions="Acik pozisyon yok.",
     message_no_proposal_candidates="Henuz proposal candidate kaydi yok.",
     message_no_trade_proposals="Henuz trade proposal kaydi yok.",
@@ -1605,6 +1675,7 @@ TR_TEXT = UITextCatalog(
     title_llm_status="LLM Durumu",
     title_operator_instruction="Operator Talimati",
     title_operator_launcher="Agentic Trader Operator Launcher",
+    title_operator_workflow="Operator Workflow",
     title_pipeline="Pipeline",
     title_paper_operation_checks="Paper Operation Kontrolleri",
     title_provider_diagnostics="Provider Diagnostics",
@@ -1613,6 +1684,8 @@ TR_TEXT = UITextCatalog(
     title_desk_accounting_context="Desk Accounting Context",
     title_environment_check="Environment Check",
     title_exit="Cikis",
+    title_evidence_bundle="Evidence Bundle",
+    title_hardware_profile="Hardware Profili",
     title_idea_scanner_presets="Idea Scanner Preset'leri",
     title_idea_score="Idea Score: {preset}",
     title_finance_ledger_categories="Finance Ledger Kategorileri",
@@ -1684,6 +1757,8 @@ TR_TEXT = UITextCatalog(
     title_ui_locale="UI Locale",
     title_v1_readiness="V1 Readiness",
     title_warning="Uyari",
+    title_v1_operator_workflow="V1 Operator Workflow",
+    title_qa_evidence_bundle="QA Evidence Bundle",
     title_walk_forward_backtest="Walk-Forward Backtest",
     title_web_gui_service="Web GUI Servisi",
     title_web_gui_start_failed="Web GUI Baslatma Basarisiz",
@@ -1771,6 +1846,13 @@ HELP_RESEARCH_CYCLE_RESUME = EN_TEXT.help_research_cycle_resume
 HELP_RESEARCH_CYCLE_TRIGGER_NOW = EN_TEXT.help_research_cycle_trigger_now
 HELP_RESEARCH_PROBE = EN_TEXT.help_research_probe
 HELP_RESEARCH_REFRESH_PERSIST = EN_TEXT.help_research_refresh_persist
+HELP_RUNTIME_EVENT_LIMIT = EN_TEXT.help_runtime_event_limit
+HELP_PROVIDER_CHECK = EN_TEXT.help_provider_check
+HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE = (
+    EN_TEXT.help_evidence_bundle_include_latest_smoke
+)
+HELP_EVIDENCE_BUNDLE_LABEL = EN_TEXT.help_evidence_bundle_label
+HELP_EVIDENCE_BUNDLE_OUTPUT_DIR = EN_TEXT.help_evidence_bundle_output_dir
 HELP_FIRECRAWL_OWNER = EN_TEXT.help_firecrawl_owner
 HELP_CAMOFOX_OWNER = EN_TEXT.help_camofox_owner
 HELP_CAMOFOX_SERVICE_HOST = EN_TEXT.help_camofox_service_host
@@ -1834,12 +1916,14 @@ HELP_WEBGUI_OPEN_BROWSER = EN_TEXT.help_webgui_open_browser
 
 LABEL_AGENT = EN_TEXT.label_agent
 LABEL_ALLOWED = EN_TEXT.label_allowed
+LABEL_ACCELERATOR = EN_TEXT.label_accelerator
 LABEL_ADAPTER = EN_TEXT.label_adapter
 LABEL_ALPACA_CREDENTIALS_CONFIGURED = EN_TEXT.label_alpaca_credentials_configured
 LABEL_ALPACA_FEED = EN_TEXT.label_alpaca_feed
 LABEL_ALPACA_PAPER_ENDPOINT = EN_TEXT.label_alpaca_paper_endpoint
 LABEL_APPROVED = EN_TEXT.label_approved
 LABEL_API_KEY = EN_TEXT.label_api_key
+LABEL_ARTIFACT = EN_TEXT.label_artifact
 LABEL_AVERAGE_PRICE = EN_TEXT.label_average_price
 LABEL_BASELINE = EN_TEXT.label_baseline
 LABEL_BASE_URL = EN_TEXT.label_base_url
@@ -1852,11 +1936,13 @@ LABEL_CATEGORY = EN_TEXT.label_category
 LABEL_CASH = EN_TEXT.label_cash
 LABEL_CHECK = EN_TEXT.label_check
 LABEL_CLOSED_TRADES = EN_TEXT.label_closed_trades
+LABEL_COMMAND = EN_TEXT.label_command
 LABEL_CONTINUOUS = EN_TEXT.label_continuous
 LABEL_CONFIDENCE = EN_TEXT.label_confidence
 LABEL_CONTEXT = EN_TEXT.label_context
 LABEL_CORE_DEPENDENCY = EN_TEXT.label_core_dependency
 LABEL_CORE_READY = EN_TEXT.label_core_ready
+LABEL_CPU_COUNT = EN_TEXT.label_cpu_count
 LABEL_CREATED = EN_TEXT.label_created
 LABEL_CURRENCY = EN_TEXT.label_currency
 LABEL_CURRENT = EN_TEXT.label_current
@@ -1881,6 +1967,7 @@ LABEL_ENTRY_PX = EN_TEXT.label_entry_px
 LABEL_EQUITY = EN_TEXT.label_equity
 LABEL_ENABLED = EN_TEXT.label_enabled
 LABEL_ENVIRONMENT_EXISTS = EN_TEXT.label_environment_exists
+LABEL_ESTIMATED_MODEL_SIZE = EN_TEXT.label_estimated_model_size
 LABEL_EVIDENCE = EN_TEXT.label_evidence
 LABEL_EXPOSURE = EN_TEXT.label_exposure
 LABEL_EXIT = EN_TEXT.label_exit
@@ -1948,6 +2035,7 @@ LABEL_MODE = EN_TEXT.label_mode
 LABEL_MODEL = EN_TEXT.label_model
 LABEL_MODEL_AVAILABLE = EN_TEXT.label_model_available
 LABEL_MODEL_ROUTING = EN_TEXT.label_model_routing
+LABEL_MEMORY_GB = EN_TEXT.label_memory_gb
 LABEL_MULTI_TIMEFRAME = EN_TEXT.label_multi_timeframe
 LABEL_NO = EN_TEXT.label_no
 LABEL_NOTES = EN_TEXT.label_notes
@@ -2009,6 +2097,7 @@ LABEL_SCORE = EN_TEXT.label_score
 LABEL_SLIPPAGE = EN_TEXT.label_slippage
 LABEL_STAGE = EN_TEXT.label_stage
 LABEL_STARTED = EN_TEXT.label_started
+LABEL_STEP = EN_TEXT.label_step
 LABEL_STATE = EN_TEXT.label_state
 LABEL_STATUS = EN_TEXT.label_status
 LABEL_STATUS_NOTE = EN_TEXT.label_status_note
@@ -2018,6 +2107,7 @@ LABEL_STDOUT = EN_TEXT.label_stdout
 LABEL_STDOUT_LOG = EN_TEXT.label_stdout_log
 LABEL_STRATEGY = EN_TEXT.label_strategy
 LABEL_SURFACE = EN_TEXT.label_surface
+LABEL_SAFE_PARALLEL_AGENTS = EN_TEXT.label_safe_parallel_agents
 LABEL_STOP_REQUESTED = EN_TEXT.label_stop_requested
 LABEL_STOP = EN_TEXT.label_stop
 LABEL_STRUCTURED_LLM = EN_TEXT.label_structured_llm
@@ -2030,6 +2120,7 @@ LABEL_TAKE = EN_TEXT.label_take
 LABEL_TAKE_PROFIT = EN_TEXT.label_take_profit
 LABEL_TOOL = EN_TEXT.label_tool
 LABEL_TOOLS = EN_TEXT.label_tools
+LABEL_TOKEN_HINT = EN_TEXT.label_token_hint
 LABEL_TOTAL_RETURN = EN_TEXT.label_total_return
 LABEL_TRADES = EN_TEXT.label_trades
 LABEL_TRIGGER_NOW = EN_TEXT.label_trigger_now
@@ -2060,6 +2151,7 @@ UI_LIST_SEPARATOR = EN_TEXT.list_separator
 
 MESSAGE_ALL_AGENT_STAGES_LLM_PATH = EN_TEXT.message_all_agent_stages_llm_path
 MESSAGE_FALLBACK_USED_IN = EN_TEXT.message_fallback_used_in
+MESSAGE_EVIDENCE_BUNDLE_WRITTEN = EN_TEXT.message_evidence_bundle_written
 MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS = (
     EN_TEXT.message_no_elevated_portfolio_risk_warnings
 )
@@ -2070,6 +2162,7 @@ MESSAGE_NO_STDOUT_LOG_LINES = EN_TEXT.message_no_stdout_log_lines
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
 MESSAGE_NO_ACTION_SELECTED = EN_TEXT.message_no_action_selected
+MESSAGE_OPERATOR_WORKFLOW_GUIDANCE = EN_TEXT.message_operator_workflow_guidance
 MESSAGE_NO_OPEN_POSITIONS = EN_TEXT.message_no_open_positions
 MESSAGE_NO_PROPOSAL_CANDIDATES = EN_TEXT.message_no_proposal_candidates
 MESSAGE_NO_TRADE_PROPOSALS = EN_TEXT.message_no_trade_proposals
@@ -2167,6 +2260,7 @@ TITLE_EXECUTION_SUMMARY = EN_TEXT.title_execution_summary
 TITLE_LLM_STATUS = EN_TEXT.title_llm_status
 TITLE_OPERATOR_INSTRUCTION = EN_TEXT.title_operator_instruction
 TITLE_OPERATOR_LAUNCHER = EN_TEXT.title_operator_launcher
+TITLE_OPERATOR_WORKFLOW = EN_TEXT.title_operator_workflow
 TITLE_PIPELINE = EN_TEXT.title_pipeline
 TITLE_PAPER_OPERATION_CHECKS = EN_TEXT.title_paper_operation_checks
 TITLE_PROVIDER_DIAGNOSTICS = EN_TEXT.title_provider_diagnostics
@@ -2175,6 +2269,8 @@ TITLE_DAILY_RISK_REPORT = EN_TEXT.title_daily_risk_report
 TITLE_DESK_ACCOUNTING_CONTEXT = EN_TEXT.title_desk_accounting_context
 TITLE_ENVIRONMENT_CHECK = EN_TEXT.title_environment_check
 TITLE_EXIT = EN_TEXT.title_exit
+TITLE_EVIDENCE_BUNDLE = EN_TEXT.title_evidence_bundle
+TITLE_HARDWARE_PROFILE = EN_TEXT.title_hardware_profile
 TITLE_IDEA_SCANNER_PRESETS = EN_TEXT.title_idea_scanner_presets
 TITLE_IDEA_SCORE = EN_TEXT.title_idea_score
 TITLE_FINANCE_LEDGER_CATEGORIES = EN_TEXT.title_finance_ledger_categories
@@ -2248,6 +2344,8 @@ TITLE_TRAINING_DIAGNOSTIC_MODE = EN_TEXT.title_training_diagnostic_mode
 TITLE_UI_LOCALE = EN_TEXT.title_ui_locale
 TITLE_V1_READINESS = EN_TEXT.title_v1_readiness
 TITLE_WARNING = EN_TEXT.title_warning
+TITLE_V1_OPERATOR_WORKFLOW = EN_TEXT.title_v1_operator_workflow
+TITLE_QA_EVIDENCE_BUNDLE = EN_TEXT.title_qa_evidence_bundle
 TITLE_WALK_FORWARD_BACKTEST = EN_TEXT.title_walk_forward_backtest
 TITLE_WEB_GUI_SERVICE = EN_TEXT.title_web_gui_service
 TITLE_WEB_GUI_START_FAILED = EN_TEXT.title_web_gui_start_failed

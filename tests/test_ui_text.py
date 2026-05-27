@@ -140,6 +140,15 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_research_cycle_run_summary == (
         ui_text.MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY
     )
+    assert catalog.title_hardware_profile == ui_text.TITLE_HARDWARE_PROFILE
+    assert catalog.title_qa_evidence_bundle == ui_text.TITLE_QA_EVIDENCE_BUNDLE
+    assert catalog.label_cpu_count == ui_text.LABEL_CPU_COUNT
+    assert catalog.label_safe_parallel_agents == (
+        ui_text.LABEL_SAFE_PARALLEL_AGENTS
+    )
+    assert catalog.message_evidence_bundle_written == (
+        ui_text.MESSAGE_EVIDENCE_BUNDLE_WRITTEN
+    )
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -232,6 +241,12 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_produces == "Uretir"
     assert catalog.message_research_cycle_run_summary.startswith(
         "{executed_cycles} evidence-only"
+    )
+    assert catalog.title_hardware_profile == "Hardware Profili"
+    assert catalog.label_memory_gb == "Bellek GB"
+    assert catalog.label_step == "Adim"
+    assert catalog.message_evidence_bundle_written == (
+        "Bundle {bundle_dir} icine yazildi"
     )
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
