@@ -233,9 +233,11 @@ from agentic_trader.ui_text import (
     LABEL_AGENT,
     LABEL_ALLOWED,
     LABEL_APPROVED,
+    LABEL_AVERAGE_PRICE,
     LABEL_BASE_URL,
     LABEL_BASELINE,
     LABEL_BACKEND,
+    LABEL_BACKGROUND_MODE,
     LABEL_BIAS,
     LABEL_BLOCKING,
     LABEL_CAMOFOX,
@@ -299,6 +301,9 @@ from agentic_trader.ui_text import (
     LABEL_LAST_RECORDED_MESSAGE,
     LABEL_LAST_RECORDED_STATE,
     LABEL_LAST_SUCCESSFUL_UPDATE,
+    LABEL_LAST_TERMINAL_AT,
+    LABEL_LAST_TERMINAL_STATE,
+    LABEL_LAUNCH_COUNT,
     LABEL_LATEST_ORDER,
     LABEL_LEVEL,
     LABEL_LOCKFILE_EXISTS,
@@ -310,6 +315,7 @@ from agentic_trader.ui_text import (
     LABEL_MARK_SOURCE,
     LABEL_MARK_STATUS,
     LABEL_MARKED_AT,
+    LABEL_MARKET_PRICE,
     LABEL_MARKET_VALUE,
     LABEL_MARKS_RECORDED,
     LABEL_MAX_CYCLES,
@@ -346,6 +352,7 @@ from agentic_trader.ui_text import (
     LABEL_PRESET,
     LABEL_PROVIDER,
     LABEL_PYTHON_VERSION,
+    LABEL_QUANTITY,
     LABEL_PROPOSAL,
     LABEL_PURPOSE,
     LABEL_RATIONALE,
@@ -355,6 +362,7 @@ from agentic_trader.ui_text import (
     LABEL_REJECTION_EVIDENCE,
     LABEL_REQUIRES_CONFIRMATION,
     LABEL_RESEARCH_CYCLE_CONTROL,
+    LABEL_RESTART_COUNT,
     LABEL_RESOLUTION_NOTES,
     LABEL_RETURN,
     LABEL_ROLE,
@@ -377,7 +385,9 @@ from agentic_trader.ui_text import (
     LABEL_STATUS,
     LABEL_STATUS_NOTE,
     LABEL_STDERR,
+    LABEL_STDERR_LOG,
     LABEL_STDOUT,
+    LABEL_STDOUT_LOG,
     LABEL_STOP,
     LABEL_STOP_REQUESTED,
     LABEL_STRATEGY,
@@ -431,13 +441,17 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
     MESSAGE_NO_HISTORICAL_MEMORIES,
+    MESSAGE_NO_OPEN_POSITIONS,
     MESSAGE_NO_PROPOSAL_CANDIDATES,
     MESSAGE_NO_RUNTIME_EVENTS,
     MESSAGE_NO_RUNTIME_STATE,
+    MESSAGE_NO_STDERR_LOG_LINES,
+    MESSAGE_NO_STDOUT_LOG_LINES,
     MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
     MESSAGE_NO_TRADE_PROPOSALS,
     MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
     MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
+    MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE,
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
     MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION,
     MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
@@ -499,6 +513,8 @@ from agentic_trader.ui_text import (
     TITLE_OPERATOR_LAUNCHER,
     TITLE_PIPELINE,
     TITLE_POSITION_PLAN_REPAIR,
+    TITLE_PORTFOLIO,
+    TITLE_POSITIONS,
     TITLE_RECOMMENDED_COMMANDS,
     TITLE_PROPOSAL_CANDIDATES,
     TITLE_RECOMMENDED_NEXT_COMMANDS,
@@ -518,6 +534,9 @@ from agentic_trader.ui_text import (
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
     TITLE_SERVICE_STATUS,
+    TITLE_SERVICE_STDERR_TAIL,
+    TITLE_SERVICE_STDOUT_TAIL,
+    TITLE_SERVICE_SUPERVISOR,
     TITLE_SETUP_GUIDANCE,
     TITLE_SETUP_STATUS,
     TITLE_TOOL_OWNERSHIP,
@@ -5056,29 +5075,29 @@ def portfolio(
     if not available:
         console.print(
             Panel(
-                f"Portfolio view is temporarily unavailable while the runtime writer owns the database.\n\n{error}",
+                MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE.format(error=error),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
         )
         raise typer.Exit(code=0)
 
-    summary = Table(title="Portfolio")
-    summary.add_column("Metric")
-    summary.add_column("Value")
-    summary.add_row("Cash", f"{snapshot.cash:.2f}")
+    summary = Table(title=TITLE_PORTFOLIO)
+    summary.add_column(LABEL_METRIC)
+    summary.add_column(LABEL_VALUE)
+    summary.add_row(LABEL_CASH, f"{snapshot.cash:.2f}")
     summary.add_row(LABEL_MARKET_VALUE, f"{snapshot.market_value:.2f}")
-    summary.add_row("Equity", f"{snapshot.equity:.2f}")
-    summary.add_row("Realized PnL", f"{snapshot.realized_pnl:.2f}")
+    summary.add_row(LABEL_EQUITY, f"{snapshot.equity:.2f}")
+    summary.add_row(LABEL_REALIZED_PNL, f"{snapshot.realized_pnl:.2f}")
     summary.add_row(LABEL_UNREALIZED_PNL, f"{snapshot.unrealized_pnl:.2f}")
-    summary.add_row("Open Positions", str(snapshot.open_positions))
+    summary.add_row(LABEL_OPEN_POSITIONS, str(snapshot.open_positions))
     console.print(summary)
 
-    positions_table = Table(title="Positions")
-    positions_table.add_column("Symbol")
-    positions_table.add_column("Quantity")
-    positions_table.add_column("Average Price")
-    positions_table.add_column("Market Price")
+    positions_table = Table(title=TITLE_POSITIONS)
+    positions_table.add_column(LABEL_SYMBOL)
+    positions_table.add_column(LABEL_QUANTITY)
+    positions_table.add_column(LABEL_AVERAGE_PRICE)
+    positions_table.add_column(LABEL_MARKET_PRICE)
     positions_table.add_column(LABEL_MARKET_VALUE)
     positions_table.add_column(LABEL_UNREALIZED_PNL)
     for position in positions:
@@ -5094,7 +5113,11 @@ def portfolio(
         console.print(positions_table)
     else:
         console.print(
-            Panel("No open positions.", title="Positions", border_style="yellow")
+            Panel(
+                MESSAGE_NO_OPEN_POSITIONS,
+                title=TITLE_POSITIONS,
+                border_style="yellow",
+            )
         )
 
 
@@ -5135,41 +5158,44 @@ def supervisor_status(
     if state_json is None:
         console.print(
             Panel(
-                "No runtime state has been recorded yet.",
-                title="Service Supervisor",
+                MESSAGE_NO_RUNTIME_STATE,
+                title=TITLE_SERVICE_SUPERVISOR,
                 border_style="yellow",
             )
         )
         return
 
     state = ServiceStateSnapshot.model_validate(state_json)
-    table = Table(title="Service Supervisor")
-    table.add_column("Field")
-    table.add_column("Value")
-    table.add_row("Runtime", str(payload["runtime_state"]))
-    table.add_row("Live Process", "yes" if payload["live_process"] else "no")
-    table.add_row("Background Mode", str(state.background_mode))
-    table.add_row("Launch Count", str(state.launch_count))
-    table.add_row("Restart Count", str(state.restart_count))
-    table.add_row("Last Terminal State", state.last_terminal_state or "-")
-    table.add_row("Last Terminal At", state.last_terminal_at or "-")
-    table.add_row("Stdout Log", state.stdout_log_path or "-")
-    table.add_row("Stderr Log", state.stderr_log_path or "-")
-    table.add_row("Status Note", str(payload["status_message"]))
+    table = Table(title=TITLE_SERVICE_SUPERVISOR)
+    table.add_column(LABEL_FIELD)
+    table.add_column(LABEL_VALUE)
+    table.add_row(LABEL_RUNTIME, str(payload["runtime_state"]))
+    table.add_row(
+        LABEL_LIVE_PROCESS,
+        LABEL_YES if payload["live_process"] else LABEL_NO,
+    )
+    table.add_row(LABEL_BACKGROUND_MODE, str(state.background_mode))
+    table.add_row(LABEL_LAUNCH_COUNT, str(state.launch_count))
+    table.add_row(LABEL_RESTART_COUNT, str(state.restart_count))
+    table.add_row(LABEL_LAST_TERMINAL_STATE, state.last_terminal_state or "-")
+    table.add_row(LABEL_LAST_TERMINAL_AT, state.last_terminal_at or "-")
+    table.add_row(LABEL_STDOUT_LOG, state.stdout_log_path or "-")
+    table.add_row(LABEL_STDERR_LOG, state.stderr_log_path or "-")
+    table.add_row(LABEL_STATUS_NOTE, str(payload["status_message"]))
     console.print(table)
     console.print(
         Panel(
             "\n".join(cast(list[str], payload["stdout_tail"]))
-            or "No stdout log lines yet.",
-            title="Service Stdout Tail",
+            or MESSAGE_NO_STDOUT_LOG_LINES,
+            title=TITLE_SERVICE_STDOUT_TAIL,
             border_style="cyan",
         )
     )
     console.print(
         Panel(
             "\n".join(cast(list[str], payload["stderr_tail"]))
-            or "No stderr log lines yet.",
-            title="Service Stderr Tail",
+            or MESSAGE_NO_STDERR_LOG_LINES,
+            title=TITLE_SERVICE_STDERR_TAIL,
             border_style="yellow",
         )
     )

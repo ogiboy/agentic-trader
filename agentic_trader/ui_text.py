@@ -83,9 +83,11 @@ class UITextCatalog:
     label_agent: str
     label_allowed: str
     label_approved: str
+    label_average_price: str
     label_baseline: str
     label_base_url: str
     label_backend: str
+    label_background_mode: str
     label_bias: str
     label_blocking: str
     label_camofox: str
@@ -149,15 +151,19 @@ class UITextCatalog:
     label_largest_position: str
     label_level: str
     label_lockfile_exists: str
+    label_launch_count: str
     label_latest_order: str
     label_last_error: str
     label_last_successful_update: str
+    label_last_terminal_at: str
+    label_last_terminal_state: str
     label_llm_provider: str
     label_live_process: str
     label_llm: str
     label_locale: str
     label_lookback: str
     label_market_value: str
+    label_market_price: str
     label_mark_source: str
     label_mark_status: str
     label_marked_at: str
@@ -196,6 +202,7 @@ class UITextCatalog:
     label_preference_update: str
     label_provider: str
     label_python_version: str
+    label_quantity: str
     label_proposal: str
     label_rationale: str
     label_realized_pnl: str
@@ -205,6 +212,7 @@ class UITextCatalog:
     label_resolution_notes: str
     label_requires_confirmation: str
     label_research_cycle_control: str
+    label_restart_count: str
     label_return: str
     label_runtime: str
     label_runtime_daemon: str
@@ -226,7 +234,9 @@ class UITextCatalog:
     label_status: str
     label_status_note: str
     label_stderr: str
+    label_stderr_log: str
     label_stdout: str
+    label_stdout_log: str
     label_strategy: str
     label_surface: str
     label_stop_requested: str
@@ -271,9 +281,12 @@ class UITextCatalog:
     message_no_elevated_portfolio_risk_warnings: str
     message_no_runtime_state: str
     message_no_runtime_events: str
+    message_no_stderr_log_lines: str
+    message_no_stdout_log_lines: str
     message_no_trade_journal_entries: str
     message_no_historical_memories: str
     message_no_action_selected: str
+    message_no_open_positions: str
     message_no_proposal_candidates: str
     message_no_trade_proposals: str
     message_finance_operations_unavailable: str
@@ -291,6 +304,7 @@ class UITextCatalog:
     message_research_cycle_reason_requires_action: str
     message_research_snapshot_recorded: str
     message_runtime_gate_open: str
+    message_portfolio_temporarily_unavailable: str
     message_runtime_mode_transition_allowed: str
     message_runtime_mode_transition_blocked: str
     message_setup_bootstrap_guidance: str
@@ -362,10 +376,15 @@ class UITextCatalog:
     title_runtime_mode_transition_checklist: str
     title_runtime_status: str
     title_service_status: str
+    title_service_stderr_tail: str
+    title_service_stdout_tail: str
+    title_service_supervisor: str
     title_trade_journal: str
     title_trade_proposals: str
     title_proposal_candidates: str
     title_position_plan_repair: str
+    title_portfolio: str
+    title_positions: str
     title_recommended_next_commands: str
     title_recommended_commands: str
     title_research_crewai_flow_setup: str
@@ -453,9 +472,11 @@ EN_TEXT = UITextCatalog(
     label_agent="Agent",
     label_allowed="Allowed",
     label_approved="Approved",
+    label_average_price="Average Price",
     label_baseline="Baseline",
     label_base_url="Base URL",
     label_backend="Backend",
+    label_background_mode="Background Mode",
     label_bias="Bias",
     label_blocking="Blocking",
     label_camofox="Camofox",
@@ -519,8 +540,11 @@ EN_TEXT = UITextCatalog(
     label_largest_position="Largest Position",
     label_last_error="Last Error",
     label_last_successful_update="Last Successful Update",
+    label_last_terminal_at="Last Terminal At",
+    label_last_terminal_state="Last Terminal State",
     label_level="Level",
     label_lockfile_exists="Lockfile Exists",
+    label_launch_count="Launch Count",
     label_latest_order="Latest Order",
     label_llm_provider="LLM Provider",
     label_live_process="Live Process",
@@ -528,6 +552,7 @@ EN_TEXT = UITextCatalog(
     label_locale="Locale",
     label_lookback="Lookback",
     label_market_value="Market Value",
+    label_market_price="Market Price",
     label_mark_source="Mark Source",
     label_mark_status="Mark Status",
     label_marked_at="Marked At",
@@ -566,6 +591,7 @@ EN_TEXT = UITextCatalog(
     label_preference_update="Preference Update",
     label_provider="Provider",
     label_python_version="Python Version",
+    label_quantity="Quantity",
     label_proposal="Proposal",
     label_rationale="Rationale",
     label_realized_pnl="Realized PnL",
@@ -575,6 +601,7 @@ EN_TEXT = UITextCatalog(
     label_resolution_notes="Resolution Notes",
     label_requires_confirmation="Requires Confirmation",
     label_research_cycle_control="Research cycle control",
+    label_restart_count="Restart Count",
     label_return="Return",
     label_runtime="Runtime",
     label_runtime_daemon="Runtime Daemon",
@@ -596,7 +623,9 @@ EN_TEXT = UITextCatalog(
     label_status="Status",
     label_status_note="Status Note",
     label_stderr="Stderr",
+    label_stderr_log="Stderr Log",
     label_stdout="Stdout",
+    label_stdout_log="Stdout Log",
     label_strategy="Strategy",
     label_surface="Surface",
     label_stop_requested="Stop Requested",
@@ -643,9 +672,12 @@ EN_TEXT = UITextCatalog(
     ),
     message_no_runtime_state="No runtime state recorded yet.",
     message_no_runtime_events="No runtime events recorded yet.",
+    message_no_stderr_log_lines="No stderr log lines yet.",
+    message_no_stdout_log_lines="No stdout log lines yet.",
     message_no_trade_journal_entries="No trade journal entries recorded yet.",
     message_no_historical_memories="No historical memories are available yet.",
     message_no_action_selected="No action selected.",
+    message_no_open_positions="No open positions.",
     message_no_proposal_candidates="No proposal candidates recorded yet.",
     message_no_trade_proposals="No trade proposals recorded yet.",
     message_finance_operations_unavailable="Finance operations status unavailable.",
@@ -668,6 +700,10 @@ EN_TEXT = UITextCatalog(
     message_research_cycle_reason_requires_action="--reason requires --pause, --resume, or --trigger-now.",
     message_research_snapshot_recorded="Snapshot {snapshot_id} recorded in the research feed.",
     message_runtime_gate_open="Ollama reachable at {base_url} and model {model_name} is available.",
+    message_portfolio_temporarily_unavailable=(
+        "Portfolio view is temporarily unavailable while the runtime writer owns "
+        "the database.\n\n{error}"
+    ),
     message_runtime_mode_transition_allowed=(
         "Runtime mode transition {current_mode} -> {target_mode} is allowed."
     ),
@@ -748,10 +784,15 @@ EN_TEXT = UITextCatalog(
     title_runtime_mode_transition_checklist="Runtime Mode Transition Checklist",
     title_runtime_status="Runtime Status",
     title_service_status="Service Status",
+    title_service_stderr_tail="Service Stderr Tail",
+    title_service_stdout_tail="Service Stdout Tail",
+    title_service_supervisor="Service Supervisor",
     title_trade_journal="Trade Journal",
     title_trade_proposals="Trade Proposals",
     title_proposal_candidates="Proposal Candidates",
     title_position_plan_repair="Position Plan Repair",
+    title_portfolio="Portfolio",
+    title_positions="Positions",
     title_recommended_next_commands="Recommended Next Commands",
     title_recommended_commands="Recommended Commands",
     title_research_crewai_flow_setup="Research CrewAI Flow Setup",
@@ -842,9 +883,11 @@ TR_TEXT = UITextCatalog(
     label_agent="Agent",
     label_allowed="Izinli",
     label_approved="Onaylandi",
+    label_average_price="Ortalama Fiyat",
     label_baseline="Baseline",
     label_base_url="Base URL",
     label_backend="Backend",
+    label_background_mode="Background Modu",
     label_bias="Bias",
     label_blocking="Bloklayici",
     label_camofox="Camofox",
@@ -908,8 +951,11 @@ TR_TEXT = UITextCatalog(
     label_largest_position="En Buyuk Pozisyon",
     label_last_error="Son Hata",
     label_last_successful_update="Son Basarili Guncelleme",
+    label_last_terminal_at="Son Terminal Zamani",
+    label_last_terminal_state="Son Terminal Durumu",
     label_level="Seviye",
     label_lockfile_exists="Lockfile Var",
+    label_launch_count="Launch Sayisi",
     label_latest_order="Son Order",
     label_llm_provider="LLM Provider",
     label_live_process="Canli Process",
@@ -917,6 +963,7 @@ TR_TEXT = UITextCatalog(
     label_locale="Locale",
     label_lookback="Geriye Donuk Pencere",
     label_market_value="Piyasa Degeri",
+    label_market_price="Piyasa Fiyati",
     label_mark_source="Mark Kaynagi",
     label_mark_status="Mark Durumu",
     label_marked_at="Mark Zamani",
@@ -955,6 +1002,7 @@ TR_TEXT = UITextCatalog(
     label_preference_update="Preference Guncellemesi",
     label_provider="Provider",
     label_python_version="Python Version",
+    label_quantity="Miktar",
     label_proposal="Proposal",
     label_rationale="Gerekce",
     label_realized_pnl="Gerceklesen PnL",
@@ -964,6 +1012,7 @@ TR_TEXT = UITextCatalog(
     label_resolution_notes="Cozum Notlari",
     label_requires_confirmation="Onay Gerektirir",
     label_research_cycle_control="Research cycle control",
+    label_restart_count="Restart Sayisi",
     label_return="Return",
     label_runtime="Runtime",
     label_runtime_daemon="Runtime Daemon",
@@ -985,7 +1034,9 @@ TR_TEXT = UITextCatalog(
     label_status="Durum",
     label_status_note="Durum Notu",
     label_stderr="Stderr",
+    label_stderr_log="Stderr Log",
     label_stdout="Stdout",
+    label_stdout_log="Stdout Log",
     label_strategy="Strateji",
     label_surface="Yuzey",
     label_stop_requested="Durdurma Istendi",
@@ -1032,9 +1083,12 @@ TR_TEXT = UITextCatalog(
     ),
     message_no_runtime_state="Henuz runtime durumu kaydedilmedi.",
     message_no_runtime_events="Henuz runtime olayi kaydedilmedi.",
+    message_no_stderr_log_lines="Henuz stderr log satiri yok.",
+    message_no_stdout_log_lines="Henuz stdout log satiri yok.",
     message_no_trade_journal_entries="Henuz trade journal kaydi yok.",
     message_no_historical_memories="Henuz historical memory yok.",
     message_no_action_selected="Aksiyon secilmedi.",
+    message_no_open_positions="Acik pozisyon yok.",
     message_no_proposal_candidates="Henuz proposal candidate kaydi yok.",
     message_no_trade_proposals="Henuz trade proposal kaydi yok.",
     message_finance_operations_unavailable="Finance operations durumu kullanilamiyor.",
@@ -1057,6 +1111,10 @@ TR_TEXT = UITextCatalog(
     message_research_cycle_reason_requires_action="--reason icin --pause, --resume veya --trigger-now gerekir.",
     message_research_snapshot_recorded="Snapshot {snapshot_id} research feed icine kaydedildi.",
     message_runtime_gate_open="Ollama {base_url} adresinde erisilebilir ve {model_name} modeli kullanilabilir.",
+    message_portfolio_temporarily_unavailable=(
+        "Runtime writer veritabaninin sahibiyken portfolio view gecici olarak "
+        "kullanilamiyor.\n\n{error}"
+    ),
     message_runtime_mode_transition_allowed=(
         "Runtime mode gecisi {current_mode} -> {target_mode} izinli."
     ),
@@ -1137,10 +1195,15 @@ TR_TEXT = UITextCatalog(
     title_runtime_mode_transition_checklist="Runtime Mode Gecis Kontrol Listesi",
     title_runtime_status="Runtime Durumu",
     title_service_status="Servis Durumu",
+    title_service_stderr_tail="Service Stderr Kuyrugu",
+    title_service_stdout_tail="Service Stdout Kuyrugu",
+    title_service_supervisor="Service Supervisor",
     title_trade_journal="Trade Journal",
     title_trade_proposals="Trade Proposal'lari",
     title_proposal_candidates="Proposal Candidate'leri",
     title_position_plan_repair="Position Plan Repair",
+    title_portfolio="Portfolio",
+    title_positions="Pozisyonlar",
     title_recommended_next_commands="Onerilen Sonraki Komutlar",
     title_recommended_commands="Onerilen Komutlar",
     title_research_crewai_flow_setup="Research CrewAI Flow Setup",
@@ -1252,9 +1315,11 @@ HELP_WEBGUI_OPEN_BROWSER = EN_TEXT.help_webgui_open_browser
 LABEL_AGENT = EN_TEXT.label_agent
 LABEL_ALLOWED = EN_TEXT.label_allowed
 LABEL_APPROVED = EN_TEXT.label_approved
+LABEL_AVERAGE_PRICE = EN_TEXT.label_average_price
 LABEL_BASELINE = EN_TEXT.label_baseline
 LABEL_BASE_URL = EN_TEXT.label_base_url
 LABEL_BACKEND = EN_TEXT.label_backend
+LABEL_BACKGROUND_MODE = EN_TEXT.label_background_mode
 LABEL_BIAS = EN_TEXT.label_bias
 LABEL_BLOCKING = EN_TEXT.label_blocking
 LABEL_CAMOFOX = EN_TEXT.label_camofox
@@ -1318,8 +1383,11 @@ LABEL_LAST_RECORDED_STATE = EN_TEXT.label_last_recorded_state
 LABEL_LARGEST_POSITION = EN_TEXT.label_largest_position
 LABEL_LAST_ERROR = EN_TEXT.label_last_error
 LABEL_LAST_SUCCESSFUL_UPDATE = EN_TEXT.label_last_successful_update
+LABEL_LAST_TERMINAL_AT = EN_TEXT.label_last_terminal_at
+LABEL_LAST_TERMINAL_STATE = EN_TEXT.label_last_terminal_state
 LABEL_LEVEL = EN_TEXT.label_level
 LABEL_LOCKFILE_EXISTS = EN_TEXT.label_lockfile_exists
+LABEL_LAUNCH_COUNT = EN_TEXT.label_launch_count
 LABEL_LATEST_ORDER = EN_TEXT.label_latest_order
 LABEL_LLM_PROVIDER = EN_TEXT.label_llm_provider
 LABEL_LIVE_PROCESS = EN_TEXT.label_live_process
@@ -1327,6 +1395,7 @@ LABEL_LLM = EN_TEXT.label_llm
 LABEL_LOCALE = EN_TEXT.label_locale
 LABEL_LOOKBACK = EN_TEXT.label_lookback
 LABEL_MARKET_VALUE = EN_TEXT.label_market_value
+LABEL_MARKET_PRICE = EN_TEXT.label_market_price
 LABEL_MARK_SOURCE = EN_TEXT.label_mark_source
 LABEL_MARK_STATUS = EN_TEXT.label_mark_status
 LABEL_MARKED_AT = EN_TEXT.label_marked_at
@@ -1365,6 +1434,7 @@ LABEL_PRESET = EN_TEXT.label_preset
 LABEL_PREFERENCE_UPDATE = EN_TEXT.label_preference_update
 LABEL_PROVIDER = EN_TEXT.label_provider
 LABEL_PYTHON_VERSION = EN_TEXT.label_python_version
+LABEL_QUANTITY = EN_TEXT.label_quantity
 LABEL_PROPOSAL = EN_TEXT.label_proposal
 LABEL_RATIONALE = EN_TEXT.label_rationale
 LABEL_REALIZED_PNL = EN_TEXT.label_realized_pnl
@@ -1374,6 +1444,7 @@ LABEL_REASON = EN_TEXT.label_reason
 LABEL_RESOLUTION_NOTES = EN_TEXT.label_resolution_notes
 LABEL_REQUIRES_CONFIRMATION = EN_TEXT.label_requires_confirmation
 LABEL_RESEARCH_CYCLE_CONTROL = EN_TEXT.label_research_cycle_control
+LABEL_RESTART_COUNT = EN_TEXT.label_restart_count
 LABEL_RETURN = EN_TEXT.label_return
 LABEL_RUNTIME = EN_TEXT.label_runtime
 LABEL_RUNTIME_DAEMON = EN_TEXT.label_runtime_daemon
@@ -1395,7 +1466,9 @@ LABEL_STARTED = EN_TEXT.label_started
 LABEL_STATUS = EN_TEXT.label_status
 LABEL_STATUS_NOTE = EN_TEXT.label_status_note
 LABEL_STDERR = EN_TEXT.label_stderr
+LABEL_STDERR_LOG = EN_TEXT.label_stderr_log
 LABEL_STDOUT = EN_TEXT.label_stdout
+LABEL_STDOUT_LOG = EN_TEXT.label_stdout_log
 LABEL_STRATEGY = EN_TEXT.label_strategy
 LABEL_SURFACE = EN_TEXT.label_surface
 LABEL_STOP_REQUESTED = EN_TEXT.label_stop_requested
@@ -1443,9 +1516,12 @@ MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS = (
 )
 MESSAGE_NO_RUNTIME_STATE = EN_TEXT.message_no_runtime_state
 MESSAGE_NO_RUNTIME_EVENTS = EN_TEXT.message_no_runtime_events
+MESSAGE_NO_STDERR_LOG_LINES = EN_TEXT.message_no_stderr_log_lines
+MESSAGE_NO_STDOUT_LOG_LINES = EN_TEXT.message_no_stdout_log_lines
 MESSAGE_NO_TRADE_JOURNAL_ENTRIES = EN_TEXT.message_no_trade_journal_entries
 MESSAGE_NO_HISTORICAL_MEMORIES = EN_TEXT.message_no_historical_memories
 MESSAGE_NO_ACTION_SELECTED = EN_TEXT.message_no_action_selected
+MESSAGE_NO_OPEN_POSITIONS = EN_TEXT.message_no_open_positions
 MESSAGE_NO_PROPOSAL_CANDIDATES = EN_TEXT.message_no_proposal_candidates
 MESSAGE_NO_TRADE_PROPOSALS = EN_TEXT.message_no_trade_proposals
 MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE = EN_TEXT.message_finance_operations_unavailable
@@ -1459,6 +1535,9 @@ MESSAGE_LAUNCH_SYMBOL_REQUIRED = EN_TEXT.message_launch_symbol_required
 MESSAGE_MARK_TIME_UNAVAILABLE = EN_TEXT.message_mark_time_unavailable
 MESSAGE_OPEN_POSITION_COUNT_ELEVATED = EN_TEXT.message_open_position_count_elevated
 MESSAGE_PORTFOLIO_CONCENTRATION_HHI = EN_TEXT.message_portfolio_concentration_hhi
+MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE = (
+    EN_TEXT.message_portfolio_temporarily_unavailable
+)
 MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE = (
     EN_TEXT.message_position_plan_repair_unavailable
 )
@@ -1539,10 +1618,15 @@ TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST = (
 )
 TITLE_RUNTIME_STATUS = EN_TEXT.title_runtime_status
 TITLE_SERVICE_STATUS = EN_TEXT.title_service_status
+TITLE_SERVICE_STDERR_TAIL = EN_TEXT.title_service_stderr_tail
+TITLE_SERVICE_STDOUT_TAIL = EN_TEXT.title_service_stdout_tail
+TITLE_SERVICE_SUPERVISOR = EN_TEXT.title_service_supervisor
 TITLE_TRADE_JOURNAL = EN_TEXT.title_trade_journal
 TITLE_TRADE_PROPOSALS = EN_TEXT.title_trade_proposals
 TITLE_PROPOSAL_CANDIDATES = EN_TEXT.title_proposal_candidates
 TITLE_POSITION_PLAN_REPAIR = EN_TEXT.title_position_plan_repair
+TITLE_PORTFOLIO = EN_TEXT.title_portfolio
+TITLE_POSITIONS = EN_TEXT.title_positions
 TITLE_RECOMMENDED_NEXT_COMMANDS = EN_TEXT.title_recommended_next_commands
 TITLE_RECOMMENDED_COMMANDS = EN_TEXT.title_recommended_commands
 TITLE_RESEARCH_CREWAI_FLOW_SETUP = EN_TEXT.title_research_crewai_flow_setup

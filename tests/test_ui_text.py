@@ -66,6 +66,19 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.message_runtime_gate_open == ui_text.MESSAGE_RUNTIME_GATE_OPEN
     assert catalog.list_separator == ui_text.UI_LIST_SEPARATOR
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
+    assert catalog.title_portfolio == ui_text.TITLE_PORTFOLIO
+    assert catalog.title_positions == ui_text.TITLE_POSITIONS
+    assert catalog.title_service_supervisor == ui_text.TITLE_SERVICE_SUPERVISOR
+    assert catalog.label_average_price == ui_text.LABEL_AVERAGE_PRICE
+    assert catalog.label_market_price == ui_text.LABEL_MARKET_PRICE
+    assert catalog.label_quantity == ui_text.LABEL_QUANTITY
+    assert catalog.message_no_open_positions == ui_text.MESSAGE_NO_OPEN_POSITIONS
+    assert catalog.message_no_stdout_log_lines == (
+        ui_text.MESSAGE_NO_STDOUT_LOG_LINES
+    )
+    assert catalog.message_no_stderr_log_lines == (
+        ui_text.MESSAGE_NO_STDERR_LOG_LINES
+    )
 
 
 def test_get_ui_text_supports_turkish_regional_locale() -> None:
@@ -110,6 +123,14 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.label_uv_available == "uv Kullanilabilir"
     assert catalog.title_launch_plan == "Baslatma Plani"
     assert catalog.message_launch_symbol_required == "En az bir sembol gereklidir."
+    assert catalog.title_positions == "Pozisyonlar"
+    assert catalog.title_service_stdout_tail == "Service Stdout Kuyrugu"
+    assert catalog.label_average_price == "Ortalama Fiyat"
+    assert catalog.label_market_price == "Piyasa Fiyati"
+    assert catalog.label_quantity == "Miktar"
+    assert catalog.message_no_open_positions == "Acik pozisyon yok."
+    assert catalog.message_no_stdout_log_lines == "Henuz stdout log satiri yok."
+    assert catalog.message_no_stderr_log_lines == "Henuz stderr log satiri yok."
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
 
