@@ -17,6 +17,7 @@ def test_json_utils_accept_abstract_mappings_and_sequences() -> None:
     rows = (mapping, {"symbol": "MSFT"}, "not-a-row")
 
     assert object_mapping(mapping)["symbol"] == "AAPL"
+    assert object_mapping("AAPL") == {}
     optional_mapping = object_mapping_or_none(mapping)
     assert optional_mapping is not None
     assert optional_mapping["symbol"] == "AAPL"
