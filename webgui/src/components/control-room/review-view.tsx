@@ -1,3 +1,4 @@
+import type { DashboardData } from '../control-room.helpers';
 import {
   canonicalLines,
   formatTimestamp,
@@ -5,7 +6,6 @@ import {
   tradeContextLines,
   unavailableSectionLines,
 } from '../control-room.helpers';
-import type { DashboardData } from '../control-room.helpers';
 import type { ControlRoomCopy } from './labels';
 import { Panel, TextList } from './primitives';
 
@@ -14,7 +14,10 @@ export function ReviewView({
   dashboard,
 }: Readonly<{ copy: ControlRoomCopy; dashboard: DashboardData }>) {
   const reviewLines =
-    unavailableSectionLines(dashboard.review, copy.review.unavailable.latestReview) ||
+    unavailableSectionLines(
+      dashboard.review,
+      copy.review.unavailable.latestReview,
+    ) ||
     (dashboard.review?.record
       ? [
           `${copy.review.fields.runId}: ${dashboard.review.record.run_id}`,
@@ -28,19 +31,19 @@ export function ReviewView({
       : [copy.review.emptyPersistedRuns]);
 
   return (
-    <div className="grid grid--2">
-      <Panel title={copy.review.panels.latestReview} accent="lime">
+    <div className='grid grid--2'>
+      <Panel title={copy.review.panels.latestReview} accent='lime'>
         <TextList items={reviewLines} />
       </Panel>
-      <Panel title={copy.review.panels.tradeContext} accent="cyan">
+      <Panel title={copy.review.panels.tradeContext} accent='cyan'>
         <TextList items={tradeContextLines(dashboard.tradeContext?.record)} />
       </Panel>
-      <Panel title={copy.review.panels.canonicalAnalysis} accent="amber">
+      <Panel title={copy.review.panels.canonicalAnalysis} accent='amber'>
         <TextList
           items={canonicalLines(dashboard.canonicalAnalysis?.snapshot)}
         />
       </Panel>
-      <Panel title={copy.review.panels.marketContextPack} accent="rose">
+      <Panel title={copy.review.panels.marketContextPack} accent='rose'>
         <TextList
           items={marketContextLines(dashboard.marketContext?.contextPack)}
         />

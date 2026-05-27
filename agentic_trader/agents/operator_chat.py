@@ -4,8 +4,8 @@ from typing import Any
 from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import (
-    ChatPersona,
     AgentRole,
+    ChatPersona,
     InvestmentPreferences,
     OperatorInstruction,
     PreferenceUpdate,
@@ -90,11 +90,11 @@ def build_persona_system_prompt(
 ) -> str:
     """
     Builds the system prompt presented to the LLM for a specific chat persona, embedding the operator's preferences.
-    
+
     Parameters:
         persona (ChatPersona): Selected persona which determines persona-specific instruction text injected into the prompt.
         preferences (InvestmentPreferences): Operator preferences whose fields (behavior_preset, agent_profile, agent_tone, strictness_preset, intervention_style) are included in the shared instruction block.
-    
+
     Returns:
         str: A complete system prompt string combining a shared instruction block (read-only operator chat, safety constraints, and the listed preference values) with a persona-specific override message.
     """
@@ -289,14 +289,14 @@ def interpret_operator_instruction(
 ) -> OperatorInstruction:
     """
     Convert an operator's free-text request into a structured OperatorInstruction that describes any requested preference updates.
-    
+
     Parameters:
         user_message (str): The operator's raw request to interpret.
         allow_fallback (bool): If True, return a heuristic fallback OperatorInstruction when structured LLM parsing fails; if False, propagate the underlying exception.
-    
+
     Returns:
         OperatorInstruction: A structured instruction containing fields such as `should_update_preferences`, `preference_update`, `requires_confirmation`, `rationale`, and a short `summary`.
-    
+
     Raises:
         Exception: Re-raises exceptions from the LLM call when `allow_fallback` is False.
     """

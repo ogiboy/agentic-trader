@@ -1,10 +1,13 @@
+"""Broker-facing execution intent contracts and timestamp helpers."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Literal, Self
+from typing import Any, Literal, Self, cast
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
+
 from agentic_trader.config import Settings
 from agentic_trader.schemas import ExecutionBackend, ExecutionDecision, ExecutionSide
 
@@ -20,9 +23,26 @@ ExecutionOutcomeStatus = Literal[
     "unsupported",
 ]
 
+__all__ = [
+    "BrokerHealthcheck",
+    "ExecutionIntent",
+    "ExecutionOutcome",
+    "ExecutionOutcomeStatus",
+    "OpenOrderSnapshot",
+    "OrderType",
+    "build_execution_intent",
+    "utc_now",
+]
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def utc_now() -> str:
+    """Return the current UTC timestamp in the execution contract format."""
+
+    return _utc_now()
 
 
 class ExecutionIntent(BaseModel):
@@ -54,31 +74,35 @@ class ExecutionIntent(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _sync_timestamp_fields(cls, data: object) -> object:
+    def _sync_timestamp_fields(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
-        timestamp = data.get("timestamp")
-        created_at = data.get("created_at")
+
+        values = cast(dict[str, Any], data)
+
+        timestamp = values.get("timestamp")
+        created_at = values.get("created_at")
+
         if timestamp is None and created_at is not None:
-            data["timestamp"] = created_at
+            values["timestamp"] = created_at
         elif created_at is None and timestamp is not None:
-            data["created_at"] = timestamp
+            values["created_at"] = timestamp
         elif (
             timestamp is not None and created_at is not None and timestamp != created_at
         ):
             raise ValueError("Execution intent timestamp and created_at must match.")
-        return data
+        return values
 
     @model_validator(mode="after")
     def _require_size_for_approved_trade(self) -> Self:
         """
         Validate and finalize size and price constraints for an ExecutionIntent instance.
-        
+
         Sets `created_at` to `timestamp` if missing. Ensures that an approved intent with a non-"hold" side includes either `quantity` or `notional`. Enforces that `limit` orders include `limit_price` and that `market` orders do not include `limit_price`.
-        
+
         Returns:
             Self: The validated model instance.
-        
+
         Raises:
             ValueError: If an approved non-"hold" intent is missing both `quantity` and `notional`.
             ValueError: If `order_type` is "limit" and `limit_price` is not provided.

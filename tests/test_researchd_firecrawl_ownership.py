@@ -1,6 +1,6 @@
 """Tests for Firecrawl CLI fallback ownership enforcement.
 
-The PR added an ownership gate to FirecrawlNewsResearchProvider._cli_symbol_records:
+The PR added an ownership gate to FirecrawlNewsResearchProvider.cli_symbol_records:
 the host CLI fallback is disabled unless the persisted ownership mode is 'host-owned'.
 """
 
@@ -18,13 +18,14 @@ from agentic_trader.system.tool_ownership import write_tool_ownership
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
-    settings = Settings(
-        runtime_dir=tmp_path,
-        database_path=tmp_path / "agentic_trader.duckdb",
-        market_data_cache_dir=tmp_path / "market_cache",
-        research_firecrawl_enabled=True,
+    settings_kwargs: dict[str, Any] = {
+        "runtime_dir": tmp_path,
+        "database_path": tmp_path / "agentic_trader.duckdb",
+        "market_data_cache_dir": tmp_path / "market_cache",
+        "research_firecrawl_enabled": True,
         **overrides,
-    )
+    }
+    settings = Settings(**settings_kwargs)
     settings.ensure_directories()
     return settings
 
@@ -33,12 +34,32 @@ def _make_provider(settings: Settings) -> FirecrawlNewsResearchProvider:
     return FirecrawlNewsResearchProvider(settings=settings)
 
 
+def test_firecrawl_cli_records_respects_provider_disabled(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI helper should not bypass the provider opt-in gate."""
+    settings = _settings(tmp_path, research_firecrawl_enabled=False)
+    write_tool_ownership(settings, {"firecrawl": "host-owned"}, source="test")
+
+    def _unexpected_cli(_name: str) -> str | None:
+        raise AssertionError("disabled Firecrawl provider should not resolve the CLI")
+
+    monkeypatch.setattr(researchd_providers.shutil, "which", _unexpected_cli)
+    provider = _make_provider(settings)
+
+    records, notes = provider.cli_symbol_records(symbol="AAPL", per_symbol_limit=5)
+
+    assert records == []
+    assert notes == ["provider_disabled"]
+
+
 def test_firecrawl_cli_fallback_disabled_when_undecided(tmp_path: Path) -> None:
     """CLI fallback is disabled by default (undecided ownership)."""
     settings = _settings(tmp_path)
     provider = _make_provider(settings)
 
-    records, notes = provider._cli_symbol_records(symbol="AAPL", per_symbol_limit=5)
+    records, notes = provider.cli_symbol_records(symbol="AAPL", per_symbol_limit=5)
 
     assert records == []
     assert any("firecrawl_cli_fallback_disabled" in note for note in notes)
@@ -51,7 +72,7 @@ def test_firecrawl_cli_fallback_disabled_when_api_key_only(tmp_path: Path) -> No
     write_tool_ownership(settings, {"firecrawl": "api-key-only"}, source="test")
     provider = _make_provider(settings)
 
-    records, notes = provider._cli_symbol_records(symbol="TSLA", per_symbol_limit=5)
+    records, notes = provider.cli_symbol_records(symbol="TSLA", per_symbol_limit=5)
 
     assert records == []
     assert any("firecrawl_cli_fallback_disabled" in note for note in notes)
@@ -64,7 +85,7 @@ def test_firecrawl_cli_fallback_disabled_when_skipped(tmp_path: Path) -> None:
     write_tool_ownership(settings, {"firecrawl": "skipped"}, source="test")
     provider = _make_provider(settings)
 
-    records, notes = provider._cli_symbol_records(symbol="NVDA", per_symbol_limit=5)
+    records, notes = provider.cli_symbol_records(symbol="NVDA", per_symbol_limit=5)
 
     assert records == []
     assert any("firecrawl_cli_fallback_disabled" in note for note in notes)
@@ -77,7 +98,7 @@ def test_firecrawl_cli_fallback_disabled_when_app_owned(tmp_path: Path) -> None:
     write_tool_ownership(settings, {"firecrawl": "app-owned"}, source="test")
     provider = _make_provider(settings)
 
-    records, notes = provider._cli_symbol_records(symbol="MSFT", per_symbol_limit=5)
+    records, notes = provider.cli_symbol_records(symbol="MSFT", per_symbol_limit=5)
 
     assert records == []
     assert any("firecrawl_cli_fallback_disabled" in note for note in notes)
@@ -92,11 +113,14 @@ def test_firecrawl_cli_fallback_proceeds_when_host_owned_but_cli_missing(
     settings = _settings(tmp_path)
     write_tool_ownership(settings, {"firecrawl": "host-owned"}, source="test")
 
-    monkeypatch.setattr(researchd_providers.shutil, "which", lambda _name: None)
+    def _missing_cli(_name: str) -> str | None:
+        return None
+
+    monkeypatch.setattr(researchd_providers.shutil, "which", _missing_cli)
 
     provider = _make_provider(settings)
 
-    records, notes = provider._cli_symbol_records(symbol="GOOG", per_symbol_limit=5)
+    records, notes = provider.cli_symbol_records(symbol="GOOG", per_symbol_limit=5)
 
     assert records == []
     assert any("firecrawl_cli_missing" in note for note in notes)

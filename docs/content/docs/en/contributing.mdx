@@ -1,6 +1,8 @@
 ---
 title: Contributing
-description: Working style, branch hygiene, and the expectations that keep changes safe and readable.
+description:
+  Working style, branch hygiene, and the expectations that keep changes safe and
+  readable.
 ---
 
 ## Working style
@@ -17,7 +19,8 @@ This repo favors:
 
 - Do not rewrite working systems casually.
 - Prefer additive hardening over speculative rearchitecture.
-- Preserve local-first and paper-first assumptions unless the project direction changes explicitly.
+- Preserve local-first and paper-first assumptions unless the project direction
+  changes explicitly.
 - Keep frontend shells thin around the Python runtime.
 
 ## Recommended contribution flow
@@ -31,23 +34,28 @@ This repo favors:
 
 ## Commit style
 
-Conventional commit style is preferred because it keeps release automation and history readable.
-Examples:
+Conventional commit style is preferred because it keeps release automation and
+history readable. Examples:
 
 - `feat: add locale-aware docs routing`
 - `docs: expand runtime and onboarding guidance`
 - `fix: clarify docs feedback forwarding state`
 
-Release automation reads conventional commits on `main`.
-Feature commits create minor releases, fix/perf/docs/build/ci/chore commits create patch releases, and `!` or `BREAKING CHANGE:` marks a major release.
+Release automation reads conventional commits on `main`. Feature commits create
+minor releases, fix/perf/docs/build/ci/chore commits create patch releases, and
+`!` or `BREAKING CHANGE:` marks a major release.
 
-Only `main` mutates `pyproject.toml`, workspace package versions, and `CHANGELOG.md` automatically. Other branches run a version preview and may publish prerelease tags/releases for test binaries:
+Only `main` mutates `pyproject.toml`, workspace package versions, and
+`CHANGELOG.md` automatically. Other branches run a version preview and may
+publish prerelease tags/releases for test binaries:
 
 - `main`: stable SemVer tags such as `v0.9.5`
-- `V1`, `V2`, and similar integration branches: `next` prereleases such as `v0.9.6-next.9870+gabc1234`
+- `V1`, `V2`, and similar integration branches: `next` prereleases such as
+  `v0.9.6-next.9870+gabc1234`
 - feature branches: `beta` prereleases such as `v0.9.6-beta.9870+gabc1234`
 
-Do not use a fourth SemVer core segment like `v0.9.5.9870`; CI build identity belongs in prerelease or build metadata.
+Do not use a fourth SemVer core segment like `v0.9.5.9870`; CI build identity
+belongs in prerelease or build metadata.
 
 If the first stable `main` release needs to floor semantic-release to the
 tracked pre-1.0 baseline, the release workflow creates a baseline changelog
@@ -61,8 +69,17 @@ Pull requests and protected branches should keep these checks green:
 - Web GUI: pnpm workspace install, lint, typecheck, and production build
 - Docs: pnpm workspace install, lint, typecheck, and static export
 - TUI: pnpm workspace install and Ink entrypoint syntax check
-- Version Check: semantic-release preview plus SemVer-compatible branch artifact identity
-- Binaries: PyInstaller macOS and Windows artifacts for branch testing, attached to stable releases on `v*` tags and to prerelease GitHub Releases on branch pushes
+- Version Check: semantic-release preview plus SemVer-compatible branch artifact
+  identity
+- Binaries: PyInstaller macOS and Windows artifacts for branch testing, attached
+  to stable releases on `v*` tags and to prerelease GitHub Releases on branch
+  pushes
+
+Strict Pyright/Pylance is active, but the repository is still burning down a
+documented legacy backlog. CI and release checks use
+`scripts/check_pyright_baseline.py` as a regression gate: new diagnostics above
+the current baseline fail, while type-cleaning work should lower the baseline in
+the script, roadmap, and `.ai` state together.
 
 ## When docs updates are part of the task
 

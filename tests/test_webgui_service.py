@@ -1,11 +1,25 @@
 import signal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.system import webgui_service
+from tests.typing_helpers import (
+    constant,
+    listen_owner_for,
+    pid_in,
+    pid_is,
+    port_available_except,
+    process_command_line,
+    process_command_line_for,
+    process_cwd_for,
+    reachable_message,
+    state_pid_is,
+    state_pid_is_alive,
+    unreachable_message,
+)
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
@@ -19,6 +33,12 @@ def _settings(tmp_path: Path, **overrides: Any) -> Settings:
     return settings
 
 
+def _next_cli_path() -> Path:
+    return (
+        webgui_service.webgui_dir() / "node_modules" / "next" / "dist" / "bin" / "next"
+    )
+
+
 def test_choose_webgui_port_rejects_non_loopback() -> None:
     with pytest.raises(ValueError, match="webgui_host_must_be_loopback"):
         webgui_service.choose_webgui_port("0.0.0.0")
@@ -30,7 +50,7 @@ def test_choose_webgui_port_skips_occupied_default(
     monkeypatch.setattr(
         webgui_service,
         "_is_port_available",
-        lambda _host, port: port != webgui_service.DEFAULT_WEBGUI_PORT,
+        port_available_except(webgui_service.DEFAULT_WEBGUI_PORT),
     )
 
     assert webgui_service.choose_webgui_port("127.0.0.1") == 3211
@@ -56,9 +76,9 @@ def test_start_webgui_service_uses_loopback_and_managed_python(
     ) -> FakeProcess:
         """
         Test double for subprocess.Popen that records invocation arguments and returns a fake process.
-        
+
         Records the provided `command`, `cwd`, `stdout`, `stderr`, `env`, and `start_new_session` into the surrounding `captured` mapping and returns a new `FakeProcess` instance.
-        
+
         Parameters:
             command (list[str]): The command that would have been executed.
             cwd (Path): The working directory passed to the process.
@@ -66,7 +86,7 @@ def test_start_webgui_service_uses_loopback_and_managed_python(
             stderr: The stderr argument passed to the process.
             env (dict[str, str]): Environment variables passed to the process.
             start_new_session (bool): Whether the process was requested to start a new session.
-        
+
         Returns:
             FakeProcess: A test double representing the spawned process.
         """
@@ -80,29 +100,18 @@ def test_start_webgui_service_uses_loopback_and_managed_python(
 
     monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "secret-value")
     monkeypatch.setattr(
-        webgui_service, "_node_command_path", lambda: "/opt/homebrew/bin/node"
+        webgui_service, "_node_command_path", constant("/opt/homebrew/bin/node")
     )
-    monkeypatch.setattr(
-        webgui_service,
-        "_next_cli_path",
-        lambda: webgui_service.webgui_dir()
-        / "node_modules"
-        / "next"
-        / "dist"
-        / "bin"
-        / "next",
-    )
-    monkeypatch.setattr(webgui_service, "_webgui_package_available", lambda: True)
-    monkeypatch.setattr(webgui_service, "_is_port_available", lambda _host, _port: True)
+    monkeypatch.setattr(webgui_service, "_next_cli_path", _next_cli_path)
+    monkeypatch.setattr(webgui_service, "_webgui_package_available", constant(True))
+    monkeypatch.setattr(webgui_service, "_is_port_available", constant(True))
     monkeypatch.setattr(webgui_service.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(
-        webgui_service, "is_process_alive", lambda pid: pid == FakeProcess.pid
-    )
-    monkeypatch.setattr(webgui_service, "_process_matches_state", lambda _state: True)
+    monkeypatch.setattr(webgui_service, "is_process_alive", pid_is(FakeProcess.pid))
+    monkeypatch.setattr(webgui_service, "_process_matches_state", constant(True))
     monkeypatch.setattr(
         webgui_service,
         "_webgui_reachable",
-        lambda url: (True, f"{url} reachable"),
+        reachable_message("{url} reachable"),
     )
 
     status = webgui_service.start_webgui_service(settings)
@@ -116,12 +125,11 @@ def test_start_webgui_service_uses_loopback_and_managed_python(
     assert "next/dist/bin/next" in command[1]
     assert "--hostname" in command
     assert "127.0.0.1" in command
-    env = captured["env"]
-    assert isinstance(env, dict)
+    env = cast("dict[str, str]", captured["env"])
     assert Path(env["AGENTIC_TRADER_PYTHON"]).name.startswith("python")
     assert env["AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY"] == "1"
     assert env["AGENTIC_TRADER_ALPACA_SECRET_KEY"] == "secret-value"
-    state = webgui_service._read_state(settings)
+    state = webgui_service.read_webgui_service_state(settings)
     assert state is not None
     assert state.pid == FakeProcess.pid
     assert state.launcher_pid == FakeProcess.pid
@@ -146,9 +154,9 @@ def test_start_webgui_service_records_listener_pid_instead_of_launcher_pid(
     ) -> FakeProcess:
         """
         Test helper that mimics subprocess.Popen by returning a new FakeProcess.
-        
+
         All provided arguments are accepted for compatibility with Popen but ignored.
-        
+
         Parameters:
             command (list[str]): The command that would be executed (ignored).
             cwd (Path): Working directory for the process (ignored).
@@ -156,7 +164,7 @@ def test_start_webgui_service_records_listener_pid_instead_of_launcher_pid(
             stderr: Stderr target (ignored).
             env (dict[str, str]): Environment variables (ignored).
             start_new_session (bool): Whether to start a new session (ignored).
-        
+
         Returns:
             FakeProcess: A newly created fake process instance.
         """
@@ -164,35 +172,22 @@ def test_start_webgui_service_records_listener_pid_instead_of_launcher_pid(
         return FakeProcess()
 
     monkeypatch.setattr(
-        webgui_service, "_node_command_path", lambda: "/opt/homebrew/bin/node"
+        webgui_service, "_node_command_path", constant("/opt/homebrew/bin/node")
     )
-    monkeypatch.setattr(
-        webgui_service,
-        "_next_cli_path",
-        lambda: webgui_service.webgui_dir()
-        / "node_modules"
-        / "next"
-        / "dist"
-        / "bin"
-        / "next",
-    )
-    monkeypatch.setattr(webgui_service, "_webgui_package_available", lambda: True)
-    monkeypatch.setattr(webgui_service, "_is_port_available", lambda _host, _port: True)
+    monkeypatch.setattr(webgui_service, "_next_cli_path", _next_cli_path)
+    monkeypatch.setattr(webgui_service, "_webgui_package_available", constant(True))
+    monkeypatch.setattr(webgui_service, "_is_port_available", constant(True))
     monkeypatch.setattr(webgui_service.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(webgui_service, "_listen_port_owner_pid", constant(222))
+    monkeypatch.setattr(webgui_service, "is_process_alive", pid_is(222))
+    monkeypatch.setattr(webgui_service, "_process_matches_state", state_pid_is(222))
     monkeypatch.setattr(
-        webgui_service, "_listen_port_owner_pid", lambda _host, _port: 222
-    )
-    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid == 222)
-    monkeypatch.setattr(
-        webgui_service, "_process_matches_state", lambda state: state.pid == 222
-    )
-    monkeypatch.setattr(
-        webgui_service, "_webgui_reachable", lambda _url: (True, "reachable")
+        webgui_service, "_webgui_reachable", reachable_message("reachable")
     )
 
     status = webgui_service.start_webgui_service(settings)
 
-    state = webgui_service._read_state(settings)
+    state = webgui_service.read_webgui_service_state(settings)
     assert state is not None
     assert state.pid == 222
     assert state.launcher_pid == 111
@@ -215,26 +210,17 @@ def test_status_marks_reachable_external_listener_not_app_owned(
         stderr_log_path=str(tmp_path / "err.log"),
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
-    webgui_service._write_state(settings, state)
+    webgui_service.write_webgui_service_state(settings, state)
 
     monkeypatch.setattr(
-        webgui_service, "_node_command_path", lambda: "/opt/homebrew/bin/node"
+        webgui_service, "_node_command_path", constant("/opt/homebrew/bin/node")
     )
+    monkeypatch.setattr(webgui_service, "_next_cli_path", _next_cli_path)
+    monkeypatch.setattr(webgui_service, "_webgui_package_available", constant(True))
+    monkeypatch.setattr(webgui_service, "is_process_alive", pid_is(111))
+    monkeypatch.setattr(webgui_service, "_process_matches_state", constant(False))
     monkeypatch.setattr(
-        webgui_service,
-        "_next_cli_path",
-        lambda: webgui_service.webgui_dir()
-        / "node_modules"
-        / "next"
-        / "dist"
-        / "bin"
-        / "next",
-    )
-    monkeypatch.setattr(webgui_service, "_webgui_package_available", lambda: True)
-    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid == 111)
-    monkeypatch.setattr(webgui_service, "_process_matches_state", lambda _state: False)
-    monkeypatch.setattr(
-        webgui_service, "_webgui_reachable", lambda _url: (True, "reachable")
+        webgui_service, "_webgui_reachable", reachable_message("reachable")
     )
 
     status = webgui_service.build_webgui_service_status(settings)
@@ -260,35 +246,24 @@ def test_start_webgui_service_returns_external_status_for_existing_webgui(
         stderr_log_path=str(tmp_path / "err.log"),
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
-    webgui_service._write_state(settings, state)
+    webgui_service.write_webgui_service_state(settings, state)
 
     monkeypatch.setattr(
-        webgui_service, "_node_command_path", lambda: "/opt/homebrew/bin/node"
+        webgui_service, "_node_command_path", constant("/opt/homebrew/bin/node")
     )
-    monkeypatch.setattr(
-        webgui_service,
-        "_next_cli_path",
-        lambda: webgui_service.webgui_dir()
-        / "node_modules"
-        / "next"
-        / "dist"
-        / "bin"
-        / "next",
-    )
-    monkeypatch.setattr(webgui_service, "_webgui_package_available", lambda: True)
-    monkeypatch.setattr(webgui_service, "is_process_alive", lambda _pid: False)
+    monkeypatch.setattr(webgui_service, "_next_cli_path", _next_cli_path)
+    monkeypatch.setattr(webgui_service, "_webgui_package_available", constant(True))
+    monkeypatch.setattr(webgui_service, "is_process_alive", constant(False))
     monkeypatch.setattr(
         webgui_service,
         "_listen_port_owner_pid",
-        lambda _host, port: 222 if port == webgui_service.DEFAULT_WEBGUI_PORT else None,
+        listen_owner_for({webgui_service.DEFAULT_WEBGUI_PORT: 222}),
     )
-    monkeypatch.setattr(
-        webgui_service, "_process_looks_like_webgui", lambda pid: pid == 222
-    )
+    monkeypatch.setattr(webgui_service, "_process_looks_like_webgui", pid_is(222))
     monkeypatch.setattr(
         webgui_service,
         "_webgui_reachable",
-        lambda _url: (True, "Web GUI is reachable."),
+        reachable_message("Web GUI is reachable."),
     )
 
     status = webgui_service.start_webgui_service(settings)
@@ -305,7 +280,7 @@ def test_status_reports_external_webgui_when_no_state_exists(
 ) -> None:
     """
     Verifies that the service reports an externally-run Web GUI as external when no persisted state file exists.
-    
+
     Simulates an external process owning the default WebGUI port and appearing to be a WebGUI, and verifies that:
     - the service is reported reachable,
     - the service is not marked as app-owned,
@@ -315,31 +290,20 @@ def test_status_reports_external_webgui_when_no_state_exists(
     settings = _settings(tmp_path)
 
     monkeypatch.setattr(
-        webgui_service, "_node_command_path", lambda: "/opt/homebrew/bin/node"
+        webgui_service, "_node_command_path", constant("/opt/homebrew/bin/node")
     )
-    monkeypatch.setattr(
-        webgui_service,
-        "_next_cli_path",
-        lambda: webgui_service.webgui_dir()
-        / "node_modules"
-        / "next"
-        / "dist"
-        / "bin"
-        / "next",
-    )
-    monkeypatch.setattr(webgui_service, "_webgui_package_available", lambda: True)
+    monkeypatch.setattr(webgui_service, "_next_cli_path", _next_cli_path)
+    monkeypatch.setattr(webgui_service, "_webgui_package_available", constant(True))
     monkeypatch.setattr(
         webgui_service,
         "_listen_port_owner_pid",
-        lambda _host, port: 222 if port == webgui_service.DEFAULT_WEBGUI_PORT else None,
+        listen_owner_for({webgui_service.DEFAULT_WEBGUI_PORT: 222}),
     )
-    monkeypatch.setattr(
-        webgui_service, "_process_looks_like_webgui", lambda pid: pid == 222
-    )
+    monkeypatch.setattr(webgui_service, "_process_looks_like_webgui", pid_is(222))
     monkeypatch.setattr(
         webgui_service,
         "_webgui_reachable",
-        lambda _url: (True, "Web GUI is reachable."),
+        reachable_message("Web GUI is reachable."),
     )
 
     status = webgui_service.build_webgui_service_status(settings)
@@ -364,16 +328,17 @@ def test_stop_webgui_service_does_not_kill_unmatched_reused_pid(
         stderr_log_path=str(tmp_path / "err.log"),
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
-    webgui_service._write_state(settings, state)
+    webgui_service.write_webgui_service_state(settings, state)
     killed: list[int] = []
 
-    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid == 88882)
-    monkeypatch.setattr(webgui_service, "_process_matches_state", lambda _state: False)
+    def record_kill(pid: int, _sent_signal: int) -> None:
+        killed.append(pid)
+
+    monkeypatch.setattr(webgui_service, "is_process_alive", pid_is(88882))
+    monkeypatch.setattr(webgui_service, "_process_matches_state", constant(False))
+    monkeypatch.setattr(webgui_service.os, "kill", record_kill)
     monkeypatch.setattr(
-        webgui_service.os, "kill", lambda pid, _signal: killed.append(pid)
-    )
-    monkeypatch.setattr(
-        webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable")
+        webgui_service, "_webgui_reachable", unreachable_message("unavailable")
     )
 
     status = webgui_service.stop_webgui_service(settings)
@@ -397,7 +362,7 @@ def test_stop_webgui_service_escalates_when_app_owned_process_survives_sigterm(
         stderr_log_path=str(tmp_path / "err.log"),
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
-    webgui_service._write_state(settings, state)
+    webgui_service.write_webgui_service_state(settings, state)
     signals: list[tuple[int, int]] = []
     wait_timeouts: list[float] = []
 
@@ -415,17 +380,19 @@ def test_stop_webgui_service_escalates_when_app_owned_process_survives_sigterm(
         wait_timeouts.append(timeout)
         return False
 
-    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid == 88883)
-    monkeypatch.setattr(webgui_service, "_process_matches_state", lambda _state: True)
-    monkeypatch.setattr(webgui_service.os, "getpgid", lambda pid: pid + 10)
-    monkeypatch.setattr(
-        webgui_service.os,
-        "killpg",
-        lambda pgid, sig: signals.append((pgid, sig)),
-    )
+    def getpgid(pid: int) -> int:
+        return pid + 10
+
+    def record_group_signal(pgid: int, sig: int) -> None:
+        signals.append((pgid, sig))
+
+    monkeypatch.setattr(webgui_service, "is_process_alive", pid_is(88883))
+    monkeypatch.setattr(webgui_service, "_process_matches_state", constant(True))
+    monkeypatch.setattr(webgui_service.os, "getpgid", getpgid)
+    monkeypatch.setattr(webgui_service.os, "killpg", record_group_signal)
     monkeypatch.setattr(webgui_service, "_wait_for_state_exit", fake_wait)
     monkeypatch.setattr(
-        webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable")
+        webgui_service, "_webgui_reachable", unreachable_message("unavailable")
     )
 
     status = webgui_service.stop_webgui_service(settings)
@@ -444,7 +411,7 @@ def test_stop_webgui_service_falls_back_to_verified_launcher_and_listener_pids(
 ) -> None:
     """
     Verifies that stopping the WebGUI service falls back to terminating a verified launcher and listener PID pair when direct state-based termination is not sufficient.
-    
+
     Asserts that the process group receives a SIGTERM, that the verified listener PID is terminated and then the launcher PID is terminated (both with SIGTERM), that the returned status indicates the service is not app-owned, and that the persisted service state file is removed.
     """
     settings = _settings(tmp_path)
@@ -459,7 +426,7 @@ def test_stop_webgui_service_falls_back_to_verified_launcher_and_listener_pids(
         stderr_log_path=str(tmp_path / "err.log"),
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
-    webgui_service._write_state(settings, state)
+    webgui_service.write_webgui_service_state(settings, state)
     alive = {111, 222}
     group_signals: list[tuple[int, int]] = []
     pid_signals: list[tuple[int, int]] = []
@@ -475,30 +442,33 @@ def test_stop_webgui_service_falls_back_to_verified_launcher_and_listener_pids(
         pid_signals.append((pid, sent_signal))
         alive.discard(pid)
 
-    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid in alive)
+    def record_group_signal(pgid: int, sig: int) -> None:
+        group_signals.append((pgid, sig))
+
+    monkeypatch.setattr(webgui_service, "is_process_alive", pid_in(alive))
     monkeypatch.setattr(
         webgui_service,
         "_process_matches_state",
-        lambda checked: checked.pid == 222 and 222 in alive,
+        state_pid_is_alive(222, alive),
     )
     monkeypatch.setattr(
         webgui_service,
         "_process_command_line",
-        lambda pid: (
-            "node webgui/node_modules/next/dist/bin/next dev --hostname 127.0.0.1 -p 3210"
-            if pid == 111
-            else "next-server (v16.2.6)"
+        process_command_line_for(
+            {
+                111: (
+                    "node webgui/node_modules/next/dist/bin/next dev "
+                    "--hostname 127.0.0.1 -p 3210"
+                ),
+                222: "next-server (v16.2.6)",
+            }
         ),
     )
-    monkeypatch.setattr(webgui_service.os, "getpgid", lambda _pid: 333)
-    monkeypatch.setattr(
-        webgui_service.os,
-        "killpg",
-        lambda pgid, sig: group_signals.append((pgid, sig)),
-    )
+    monkeypatch.setattr(webgui_service.os, "getpgid", constant(333))
+    monkeypatch.setattr(webgui_service.os, "killpg", record_group_signal)
     monkeypatch.setattr(webgui_service.os, "kill", fake_kill)
     monkeypatch.setattr(
-        webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable")
+        webgui_service, "_webgui_reachable", unreachable_message("unavailable")
     )
 
     status = webgui_service.stop_webgui_service(settings)
@@ -524,7 +494,7 @@ def test_stop_webgui_service_kills_verified_listener_pid_only(
         stderr_log_path=str(tmp_path / "err.log"),
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
-    webgui_service._write_state(settings, state)
+    webgui_service.write_webgui_service_state(settings, state)
     killed: list[tuple[int, int]] = []
     alive = {222}
 
@@ -539,14 +509,12 @@ def test_stop_webgui_service_kills_verified_listener_pid_only(
         killed.append((pgid, sig))
         alive.discard(222)
 
-    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid in alive)
-    monkeypatch.setattr(
-        webgui_service, "_process_matches_state", lambda checked: checked.pid == 222
-    )
-    monkeypatch.setattr(webgui_service.os, "getpgid", lambda _pid: 333)
+    monkeypatch.setattr(webgui_service, "is_process_alive", pid_in(alive))
+    monkeypatch.setattr(webgui_service, "_process_matches_state", state_pid_is(222))
+    monkeypatch.setattr(webgui_service.os, "getpgid", constant(333))
     monkeypatch.setattr(webgui_service.os, "killpg", fake_killpg)
     monkeypatch.setattr(
-        webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable")
+        webgui_service, "_webgui_reachable", unreachable_message("unavailable")
     )
 
     status = webgui_service.stop_webgui_service(settings)
@@ -570,7 +538,7 @@ def test_stop_webgui_service_kills_next_server_listener_verified_by_cwd(
         stderr_log_path=str(tmp_path / "err.log"),
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
-    webgui_service._write_state(settings, state)
+    webgui_service.write_webgui_service_state(settings, state)
     alive = {222}
     killed_groups: list[tuple[int, int]] = []
     killed_pids: list[tuple[int, int]] = []
@@ -590,7 +558,7 @@ def test_stop_webgui_service_kills_next_server_listener_verified_by_cwd(
     def fake_kill(pid: int, sig: int) -> None:
         """
         Simulate sending a signal to a process by recording the (pid, sig) pair and removing the pid from the alive set.
-        
+
         Parameters:
             pid (int): Process ID to signal.
             sig (int): Signal number to record.
@@ -598,27 +566,27 @@ def test_stop_webgui_service_kills_next_server_listener_verified_by_cwd(
         killed_pids.append((pid, sig))
         alive.discard(pid)
 
-    monkeypatch.setattr(webgui_service, "is_process_alive", lambda pid: pid in alive)
+    monkeypatch.setattr(webgui_service, "is_process_alive", pid_in(alive))
     monkeypatch.setattr(
         webgui_service,
         "_process_command_line",
-        lambda pid: "next-server (v16.2.6)" if pid == 222 else None,
+        process_command_line_for({222: "next-server (v16.2.6)"}),
     )
     monkeypatch.setattr(
         webgui_service,
         "_process_cwd",
-        lambda pid: webgui_service.webgui_dir().resolve() if pid == 222 else None,
+        process_cwd_for({222: webgui_service.webgui_dir().resolve()}),
     )
     monkeypatch.setattr(
         webgui_service,
         "_listen_port_owner_pid",
-        lambda host, port: 222 if host == "127.0.0.1" and port == 3210 else None,
+        listen_owner_for({3210: 222}),
     )
-    monkeypatch.setattr(webgui_service.os, "getpgid", lambda _pid: 333)
+    monkeypatch.setattr(webgui_service.os, "getpgid", constant(333))
     monkeypatch.setattr(webgui_service.os, "killpg", fake_killpg)
     monkeypatch.setattr(webgui_service.os, "kill", fake_kill)
     monkeypatch.setattr(
-        webgui_service, "_webgui_reachable", lambda _url: (False, "unavailable")
+        webgui_service, "_webgui_reachable", unreachable_message("unavailable")
     )
 
     status = webgui_service.stop_webgui_service(settings)
@@ -642,14 +610,16 @@ def test_process_matches_state_uses_lsof_when_ps_is_unavailable(
         command=["node", "webgui/node_modules/next/dist/bin/next", "dev"],
     )
 
-    monkeypatch.setattr(webgui_service, "_process_command_line", lambda _pid: None)
+    monkeypatch.setattr(
+        webgui_service, "_process_command_line", process_command_line(None)
+    )
     monkeypatch.setattr(
         webgui_service,
         "_listen_port_owner_pid",
-        lambda host, port: 4242 if host == "127.0.0.1" and port == 3210 else None,
+        listen_owner_for({3210: 4242}),
     )
 
-    assert webgui_service._process_matches_state(state) is True
+    assert webgui_service.webgui_process_matches_state(state) is True
 
 
 def test_listen_port_owner_pid_returns_none_when_lsof_is_unavailable_or_ambiguous(
@@ -663,9 +633,10 @@ def test_listen_port_owner_pid_returns_none_when_lsof_is_unavailable_or_ambiguou
         raise FileNotFoundError
 
     monkeypatch.setattr(webgui_service.subprocess, "run", missing_lsof)
-    assert webgui_service._listen_port_owner_pid("127.0.0.1", 3210) is None
+    assert webgui_service.webgui_listen_port_owner_pid("127.0.0.1", 3210) is None
 
-    monkeypatch.setattr(
-        webgui_service.subprocess, "run", lambda *_args, **_kwargs: Completed()
-    )
-    assert webgui_service._listen_port_owner_pid("127.0.0.1", 3210) is None
+    def fake_run(*_args: object, **_kwargs: object) -> Completed:
+        return Completed()
+
+    monkeypatch.setattr(webgui_service.subprocess, "run", fake_run)
+    assert webgui_service.webgui_listen_port_owner_pid("127.0.0.1", 3210) is None

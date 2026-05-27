@@ -2,6 +2,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from typer.testing import CliRunner
+
 from agentic_trader.cli import app
 from agentic_trader.config import Settings
 from agentic_trader.providers import build_canonical_analysis_snapshot
@@ -13,13 +15,12 @@ from agentic_trader.schemas import (
     MarketSnapshot,
     RegimeAssessment,
     ResearchCoordinatorBrief,
-    RiskPlan,
     ReviewNote,
+    RiskPlan,
     RunArtifacts,
     StrategyPlan,
 )
 from agentic_trader.workflows.run_once import persist_run
-from typer.testing import CliRunner
 
 
 def _artifacts(

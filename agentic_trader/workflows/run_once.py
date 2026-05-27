@@ -1,9 +1,9 @@
 from collections.abc import Callable
-from agentic_trader.agents.context import build_agent_context
 from uuid import uuid4
 
-from agentic_trader.agents.coordinator import coordinate_research
 from agentic_trader.agents.consensus import assess_specialist_consensus
+from agentic_trader.agents.context import build_agent_context
+from agentic_trader.agents.coordinator import coordinate_research
 from agentic_trader.agents.fundamental import assess_fundamentals
 from agentic_trader.agents.macro import assess_macro_context
 from agentic_trader.agents.manager import manage_trade_decision

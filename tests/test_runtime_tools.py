@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import socket
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -8,11 +9,19 @@ import httpx
 import pytest
 
 from agentic_trader.config import Settings
-from agentic_trader.system import runtime_tools
-from agentic_trader.system import model_service
+from agentic_trader.system import model_service, runtime_tools
 from agentic_trader.system.camofox_service import CamofoxServiceStatus
 from agentic_trader.system.model_service import ModelServiceState, ModelServiceStatus
 from agentic_trader.system.tool_ownership import write_tool_ownership
+from tests.typing_helpers import (
+    constant,
+    empty_int_list,
+    loopback_ports_for,
+    no_sleep,
+    port_available_only,
+    process_command_line,
+    raising,
+)
 
 
 def _settings(tmp_path: Path, **overrides: Any) -> Settings:
@@ -48,13 +57,13 @@ def _model_status(
 ) -> ModelServiceStatus:
     """
     Construct a test ModelServiceStatus representing various app- or host-owned scenarios.
-    
+
     Parameters:
         app_owned (bool): If True, populate ownership, pid, host, port, and app-managed base_url fields; if False, those fields are left as host-owned defaults.
         reachable (bool): Whether the service is reachable (controls `service_reachable`).
         model_available (bool): Whether the configured model is available (controls `model_available`, `available_models`, and the `message`).
         owner (str | None): Host id reported as the owner when `app_owned` is True; ignored when `app_owned` is False.
-    
+
     Returns:
         ModelServiceStatus: A populated status object suitable for tests reflecting the supplied flags.
     """
@@ -87,12 +96,12 @@ def _camofox_status(
 ) -> CamofoxServiceStatus:
     """
     Create a synthetic CamofoxServiceStatus for tests with configurable ownership and health.
-    
+
     Parameters:
         app_owned (bool): If True, marks the status as managed by the app and populates `owner` and `pid`.
         healthy (bool): If True, marks the service as reachable and healthy; otherwise marks it as missing/unhealthy.
         owner (str | None): Host identifier to set as `owner` when `app_owned` is True.
-    
+
     Returns:
         CamofoxServiceStatus: A populated test instance reflecting the requested ownership and health state.
     """
@@ -119,8 +128,46 @@ def _camofox_status(
     )
 
 
+def _model_status_builder(**kwargs: Any) -> Callable[[Settings], ModelServiceStatus]:
+    def _builder(_settings: Settings) -> ModelServiceStatus:
+        return _model_status(**kwargs)
+
+    return _builder
+
+
+def _model_status_starter(
+    starts: list[str] | None = None, **kwargs: Any
+) -> Callable[[Settings], ModelServiceStatus]:
+    def _starter(_settings: Settings) -> ModelServiceStatus:
+        if starts is not None:
+            starts.append("model")
+        return _model_status(**kwargs)
+
+    return _starter
+
+
+def _camofox_status_builder(
+    **kwargs: Any,
+) -> Callable[[Settings], CamofoxServiceStatus]:
+    def _builder(_settings: Settings) -> CamofoxServiceStatus:
+        return _camofox_status(**kwargs)
+
+    return _builder
+
+
+def _camofox_status_starter(
+    starts: list[str] | None = None, **kwargs: Any
+) -> Callable[[Settings], CamofoxServiceStatus]:
+    def _starter(_settings: Settings) -> CamofoxServiceStatus:
+        if starts is not None:
+            starts.append("camofox")
+        return _camofox_status(**kwargs)
+
+    return _starter
+
+
 def test_ensure_model_service_updates_runtime_base_url_for_app_owned_service(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
@@ -129,7 +176,7 @@ def test_ensure_model_service_updates_runtime_base_url_for_app_owned_service(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
 
     status = runtime_tools.ensure_model_service_if_configured(settings)
@@ -139,7 +186,7 @@ def test_ensure_model_service_updates_runtime_base_url_for_app_owned_service(
 
 
 def test_apply_app_owned_service_settings_uses_recorded_helpers_without_starting(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -157,22 +204,22 @@ def test_apply_app_owned_service_settings_uses_recorded_helpers_without_starting
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(app_owned=True),
+        _camofox_status_builder(app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_model_service",
-        lambda _settings: starts.append("model") or _model_status(app_owned=True),
+        _model_status_starter(starts, app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_camofox_service",
-        lambda _settings: starts.append("camofox") or _camofox_status(app_owned=True),
+        _camofox_status_starter(starts, app_owned=True),
     )
 
     report = runtime_tools.apply_app_owned_service_settings(
@@ -188,7 +235,7 @@ def test_apply_app_owned_service_settings_uses_recorded_helpers_without_starting
 
 
 def test_app_owned_model_service_does_not_override_non_ollama_adapter(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -201,12 +248,12 @@ def test_app_owned_model_service_does_not_override_non_ollama_adapter(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_model_service",
-        lambda _settings: starts.append("model") or _model_status(app_owned=True),
+        _model_status_starter(starts, app_owned=True),
     )
 
     report = runtime_tools.apply_app_owned_service_settings(settings)
@@ -219,7 +266,7 @@ def test_app_owned_model_service_does_not_override_non_ollama_adapter(
 
 
 def test_host_owned_model_service_does_not_adopt_app_owned_status(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
@@ -227,7 +274,7 @@ def test_host_owned_model_service_does_not_adopt_app_owned_status(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
 
     status = runtime_tools.ensure_model_service_if_configured(settings)
@@ -237,7 +284,7 @@ def test_host_owned_model_service_does_not_adopt_app_owned_status(
 
 
 def test_app_owned_model_service_from_other_host_does_not_adopt_endpoint(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
@@ -245,7 +292,7 @@ def test_app_owned_model_service_from_other_host_does_not_adopt_endpoint(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True, owner="other-host"),
+        _model_status_builder(app_owned=True, owner="other-host"),
     )
 
     status = runtime_tools.ensure_model_service_if_configured(settings)
@@ -256,7 +303,7 @@ def test_app_owned_model_service_from_other_host_does_not_adopt_endpoint(
 
 
 def test_legacy_app_owned_model_service_adopts_endpoint(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(tmp_path, base_url="http://127.0.0.1:11434/v1")
@@ -264,7 +311,7 @@ def test_legacy_app_owned_model_service_adopts_endpoint(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True, owner=None),
+        _model_status_builder(app_owned=True, owner=None),
     )
 
     status = runtime_tools.ensure_model_service_if_configured(settings)
@@ -275,12 +322,12 @@ def test_legacy_app_owned_model_service_adopts_endpoint(
 
 
 def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     """
     Verify that a Camofox service recorded as host-owned does not have its configured base URL overridden when the runtime reports an app-owned service.
-    
+
     Sets research Camofox as enabled with a non-default base URL, records tool ownership as host-owned, and monkeypatches the status builder to return an app-owned status; asserts the returned status exists and is app-owned while the settings.research_camofox_base_url remains unchanged.
     """
     settings = _settings(
@@ -292,7 +339,7 @@ def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(app_owned=True),
+        _camofox_status_builder(app_owned=True),
     )
 
     status = runtime_tools.ensure_camofox_service_if_configured(settings)
@@ -303,7 +350,7 @@ def test_host_owned_camofox_service_does_not_adopt_app_owned_status(
 
 
 def test_app_owned_camofox_service_from_other_host_does_not_adopt_endpoint(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -315,7 +362,7 @@ def test_app_owned_camofox_service_from_other_host_does_not_adopt_endpoint(
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(app_owned=True, owner="other-host"),
+        _camofox_status_builder(app_owned=True, owner="other-host"),
     )
 
     status = runtime_tools.ensure_camofox_service_if_configured(settings)
@@ -327,7 +374,7 @@ def test_app_owned_camofox_service_from_other_host_does_not_adopt_endpoint(
 
 
 def test_legacy_app_owned_camofox_service_adopts_endpoint(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -339,7 +386,7 @@ def test_legacy_app_owned_camofox_service_adopts_endpoint(
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(app_owned=True, owner=None),
+        _camofox_status_builder(app_owned=True, owner=None),
     )
 
     status = runtime_tools.ensure_camofox_service_if_configured(settings)
@@ -351,7 +398,7 @@ def test_legacy_app_owned_camofox_service_adopts_endpoint(
 
 
 def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -369,22 +416,22 @@ def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(reachable=False, model_available=False),
+        _model_status_builder(reachable=False, model_available=False),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_model_service",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(healthy=False),
+        _camofox_status_builder(healthy=False),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_camofox_service",
-        lambda _settings: _camofox_status(app_owned=True),
+        _camofox_status_builder(app_owned=True),
     )
 
     report = runtime_tools.ensure_runtime_tools(settings, include_camofox=True)
@@ -398,7 +445,7 @@ def test_ensure_runtime_tools_starts_configured_degraded_side_tools(
 
 
 def test_ensure_runtime_tools_does_not_auto_start_host_owned_tools(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(
@@ -417,22 +464,22 @@ def test_ensure_runtime_tools_does_not_auto_start_host_owned_tools(
     monkeypatch.setattr(
         runtime_tools,
         "build_model_service_status",
-        lambda _settings: _model_status(reachable=False, model_available=False),
+        _model_status_builder(reachable=False, model_available=False),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_model_service",
-        lambda _settings: starts.append("model") or _model_status(app_owned=True),
+        _model_status_starter(starts, app_owned=True),
     )
     monkeypatch.setattr(
         runtime_tools,
         "build_camofox_service_status",
-        lambda _settings: _camofox_status(healthy=False),
+        _camofox_status_builder(healthy=False),
     )
     monkeypatch.setattr(
         runtime_tools,
         "start_camofox_service",
-        lambda _settings: starts.append("camofox") or _camofox_status(app_owned=True),
+        _camofox_status_starter(starts, app_owned=True),
     )
 
     report = runtime_tools.ensure_runtime_tools(settings, include_camofox=True)
@@ -453,9 +500,9 @@ def test_model_service_status_helpers_are_defensive(
     state_path.parent.mkdir(parents=True)
     state_path.write_text("{not-json", encoding="utf-8")
 
-    assert model_service._read_state(settings) is None
-    model_service._remove_state(settings)
-    model_service._remove_state(settings)
+    assert model_service.read_model_service_state(settings) is None
+    model_service.remove_model_service_state(settings)
+    model_service.remove_model_service_state(settings)
     assert not state_path.exists()
 
     log_path = tmp_path / "ollama.log"
@@ -463,25 +510,27 @@ def test_model_service_status_helpers_are_defensive(
         "\n".join(["first", "AGENTIC_TRADER_ALPACA_SECRET_KEY=secret-value"]),
         encoding="utf-8",
     )
-    tail = model_service._tail_text(str(log_path), limit=1)
+    tail = model_service.tail_model_service_text(str(log_path), limit=1)
     assert len(tail) == 1
     assert "secret-value" not in tail[0]
-    assert model_service._tail_text(None) == []
-    assert model_service._tail_text(str(tmp_path / "missing.log")) == []
+    assert model_service.tail_model_service_text(None) == []
+    assert model_service.tail_model_service_text(str(tmp_path / "missing.log")) == []
 
-    assert model_service._api_root_from_base_url("http://127.0.0.1:11434/v1") == (
-        "http://127.0.0.1:11434"
-    )
-    assert model_service._api_root_from_base_url("http://127.0.0.1:11434/api") == (
+    assert model_service.model_service_api_root_from_base_url(
+        "http://127.0.0.1:11434/v1"
+    ) == ("http://127.0.0.1:11434")
+    assert model_service.model_service_api_root_from_base_url(
         "http://127.0.0.1:11434/api"
-    )
-    assert model_service._api_root_from_base_url("localhost:11434/v1") == (
+    ) == ("http://127.0.0.1:11434/api")
+    assert model_service.model_service_api_root_from_base_url("localhost:11434/v1") == (
         "localhost:11434"
     )
 
     monkeypatch.setenv("PATH", "/usr/bin")
     monkeypatch.setenv("AGENTIC_TRADER_ALPACA_SECRET_KEY", "secret-value")
-    env = model_service._minimal_process_env(ollama_host="http://127.0.0.1:11435")
+    env = model_service.minimal_model_service_process_env(
+        ollama_host="http://127.0.0.1:11435"
+    )
     assert env["OLLAMA_HOST"] == "http://127.0.0.1:11435"
     assert "AGENTIC_TRADER_ALPACA_SECRET_KEY" not in env
 
@@ -522,10 +571,13 @@ def test_model_service_process_and_lsof_helpers(
 
     monkeypatch.setattr(model_service.subprocess, "run", fake_run)
 
-    assert model_service._process_command_line(111) == "/opt/homebrew/bin/ollama serve"
-    assert model_service._process_command_line(222) is None
-    assert model_service._ollama_listener_pids_from_lsof() == [111]
-    assert model_service._listening_loopback_ports_for_pid(111) == {11435}
+    assert (
+        model_service.model_service_process_command_line(111)
+        == "/opt/homebrew/bin/ollama serve"
+    )
+    assert model_service.model_service_process_command_line(222) is None
+    assert model_service.ollama_listener_pids_from_lsof() == [111]
+    assert model_service.listening_loopback_ports_for_pid(111) == {11435}
     assert calls
 
 
@@ -540,12 +592,12 @@ def test_model_service_low_level_process_helpers_cover_defensive_branches(
     monkeypatch.setattr(
         model_service.subprocess,
         "run",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("ps denied")),
+        raising(RuntimeError("ps denied")),
     )
-    assert model_service._process_command_line(1234) is None
-    assert model_service._external_ollama_serve_pids("/opt/homebrew/bin/ollama") == []
-    assert model_service._ollama_listener_pids_from_lsof() == []
-    assert model_service._listening_loopback_ports_for_pid(1234) == set()
+    assert model_service.model_service_process_command_line(1234) is None
+    assert model_service.external_ollama_serve_pids("/opt/homebrew/bin/ollama") == []
+    assert model_service.ollama_listener_pids_from_lsof() == []
+    assert model_service.listening_loopback_ports_for_pid(1234) == set()
 
     def fake_run(command: list[str], **_kwargs: object) -> Completed:
         if command[:4] == ["ps", "-ax", "-o", "pid=,command="]:
@@ -565,16 +617,16 @@ def test_model_service_low_level_process_helpers_cover_defensive_branches(
         return Completed(1, "")
 
     monkeypatch.setattr(model_service.subprocess, "run", fake_run)
-    assert model_service._external_ollama_serve_pids("/tmp/custom-ollama") == [
+    assert model_service.external_ollama_serve_pids("/tmp/custom-ollama") == [
         101,
         303,
         404,
     ]
-    assert model_service._ollama_listener_pids_from_lsof() == [404]
+    assert model_service.ollama_listener_pids_from_lsof() == [404]
 
     monkeypatch.setattr(model_service.sys, "platform", "win32")
-    assert model_service._external_ollama_serve_pids("/tmp/custom-ollama") == []
-    assert model_service._ollama_listener_pids_from_lsof() == []
+    assert model_service.external_ollama_serve_pids("/tmp/custom-ollama") == []
+    assert model_service.ollama_listener_pids_from_lsof() == []
 
 
 def test_model_service_tail_and_port_owner_edge_cases(
@@ -596,7 +648,7 @@ def test_model_service_tail_and_port_owner_edge_cases(
         return ""
 
     monkeypatch.setattr(Path, "read_text", fake_read_text)
-    assert model_service._tail_text(str(log_path)) == []
+    assert model_service.tail_model_service_text(str(log_path)) == []
 
     class Completed:
         def __init__(self, returncode: int, stdout: str) -> None:
@@ -606,23 +658,23 @@ def test_model_service_tail_and_port_owner_edge_cases(
     monkeypatch.setattr(
         model_service.subprocess,
         "run",
-        lambda *_args, **_kwargs: Completed(0, "p111\n"),
+        constant(Completed(0, "p111\n")),
     )
-    assert model_service._listen_port_owner_pid("localhost", 11435) == 111
+    assert model_service.model_service_listen_port_owner_pid("localhost", 11435) == 111
 
     monkeypatch.setattr(
         model_service.subprocess,
         "run",
-        lambda *_args, **_kwargs: Completed(0, "p111\np222\n"),
+        constant(Completed(0, "p111\np222\n")),
     )
-    assert model_service._listen_port_owner_pid("127.0.0.1", 11435) is None
+    assert model_service.model_service_listen_port_owner_pid("127.0.0.1", 11435) is None
 
     monkeypatch.setattr(
         model_service.subprocess,
         "run",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("lsof denied")),
+        raising(RuntimeError("lsof denied")),
     )
-    assert model_service._listen_port_owner_pid("127.0.0.1", 11435) is None
+    assert model_service.model_service_listen_port_owner_pid("127.0.0.1", 11435) is None
 
 
 def test_model_service_port_availability_uses_real_loopback_socket() -> None:
@@ -630,9 +682,11 @@ def test_model_service_port_availability_uses_real_loopback_socket() -> None:
         sock.bind(("127.0.0.1", 0))
         sock.listen(1)
         busy_port = int(sock.getsockname()[1])
-        assert model_service._is_port_available("127.0.0.1", busy_port) is False
+        assert (
+            model_service.model_service_port_available("127.0.0.1", busy_port) is False
+        )
 
-    assert model_service._is_port_available("127.0.0.1", busy_port) is True
+    assert model_service.model_service_port_available("127.0.0.1", busy_port) is True
 
 
 def test_model_service_process_match_and_wait_helpers(
@@ -649,47 +703,62 @@ def test_model_service_process_match_and_wait_helpers(
         command=["/bin/ollama", "serve"],
     )
 
-    monkeypatch.setattr(model_service, "_listen_port_owner_pid", lambda *_args: 777)
-    assert model_service._process_matches_state(state) is True
+    monkeypatch.setattr(model_service, "_listen_port_owner_pid", constant(777))
+    assert model_service.model_service_process_matches_state(state) is True
 
-    monkeypatch.setattr(model_service, "_listen_port_owner_pid", lambda *_args: 778)
-    assert model_service._process_matches_state(state) is False
+    monkeypatch.setattr(model_service, "_listen_port_owner_pid", constant(778))
+    assert model_service.model_service_process_matches_state(state) is False
 
-    monkeypatch.setattr(model_service, "_listen_port_owner_pid", lambda *_args: None)
-    monkeypatch.setattr(model_service, "_process_command_line", lambda _pid: None)
-    assert model_service._process_matches_state(state) is False
+    monkeypatch.setattr(model_service, "_listen_port_owner_pid", constant(None))
+    monkeypatch.setattr(
+        model_service, "_process_command_line", process_command_line(None)
+    )
+    assert model_service.model_service_process_matches_state(state) is False
 
     monkeypatch.setattr(
         model_service,
         "_process_command_line",
-        lambda _pid: "/usr/local/bin/ollama list",
+        process_command_line("/usr/local/bin/ollama list"),
     )
-    assert model_service._process_matches_state(state) is False
+    assert model_service.model_service_process_matches_state(state) is False
 
     monkeypatch.setattr(
         model_service,
         "_process_command_line",
-        lambda _pid: "/usr/local/bin/ollama serve",
+        process_command_line("/usr/local/bin/ollama serve"),
     )
-    assert model_service._process_matches_state(state) is True
+    assert model_service.model_service_process_matches_state(state) is True
 
     alive_sequence = iter([True, False])
+
+    def next_alive(_pid: int) -> bool:
+        return next(alive_sequence)
+
     monkeypatch.setattr(
         model_service,
         "is_process_alive",
-        lambda _pid: next(alive_sequence),
+        next_alive,
     )
-    monkeypatch.setattr(model_service.time, "sleep", lambda _seconds: None)
-    assert model_service._wait_for_pid_exit(777, timeout_seconds=1.0) is True
+    monkeypatch.setattr(model_service.time, "sleep", no_sleep)
+    assert (
+        model_service.wait_for_model_service_pid_exit(777, timeout_seconds=1.0) is True
+    )
 
     state_alive_sequence = iter([True, False])
+
+    def next_state_alive(_state: ModelServiceState | None) -> bool:
+        return next(state_alive_sequence)
+
     monkeypatch.setattr(
         model_service,
         "_state_process_alive",
-        lambda _state: next(state_alive_sequence),
+        next_state_alive,
     )
     assert (
-        model_service._wait_for_state_process_exit(state, timeout_seconds=1.0) is True
+        model_service.wait_for_model_service_state_process_exit(
+            state, timeout_seconds=1.0
+        )
+        is True
     )
 
 
@@ -709,17 +778,17 @@ def test_model_service_messages_and_orphan_detection(
     monkeypatch.setattr(
         model_service,
         "_external_ollama_serve_pids",
-        lambda _command_path: [10, 20, 30],
+        constant([10, 20, 30]),
     )
     monkeypatch.setattr(
         model_service,
         "_listening_loopback_ports_for_pid",
-        lambda pid: {11435} if pid in {10, 20} else {11434},
+        loopback_ports_for({10: {11435}, 20: {11435}, 30: {11434}}),
     )
-    assert model_service._orphan_app_managed_ollama_pids("ollama", active_state) == [20]
+    assert model_service.orphan_app_managed_ollama_pids("ollama", active_state) == [20]
 
     assert (
-        model_service._model_service_message(
+        model_service.model_service_status_message(
             reachable=False,
             model_available=False,
             generation_checked=False,
@@ -729,7 +798,7 @@ def test_model_service_messages_and_orphan_detection(
         )
         == "offline"
     )
-    assert "not listed" in model_service._model_service_message(
+    assert "not listed" in model_service.model_service_status_message(
         reachable=True,
         model_available=False,
         generation_checked=True,
@@ -737,15 +806,18 @@ def test_model_service_messages_and_orphan_detection(
         generation_message=None,
         fallback_message="fallback",
     )
-    assert "generation probe failed: refused" in model_service._model_service_message(
-        reachable=True,
-        model_available=True,
-        generation_checked=True,
-        generation_available=False,
-        generation_message="refused",
-        fallback_message="fallback",
+    assert (
+        "generation probe failed: refused"
+        in model_service.model_service_status_message(
+            reachable=True,
+            model_available=True,
+            generation_checked=True,
+            generation_available=False,
+            generation_message="refused",
+            fallback_message="fallback",
+        )
     )
-    assert "can generate" in model_service._model_service_message(
+    assert "can generate" in model_service.model_service_status_message(
         reachable=True,
         model_available=True,
         generation_checked=True,
@@ -754,21 +826,21 @@ def test_model_service_messages_and_orphan_detection(
         fallback_message="fallback",
     )
 
-    assert model_service._generation_probe_status(
+    assert model_service.generation_probe_status(
         include_generation=False,
         reachable=True,
         model_available=True,
         api_root="http://127.0.0.1:11434",
         model_name="qwen3:8b",
     ) == (None, None)
-    assert model_service._generation_probe_status(
+    assert model_service.generation_probe_status(
         include_generation=True,
         reachable=False,
         model_available=True,
         api_root="http://127.0.0.1:11434",
         model_name="qwen3:8b",
     ) == (False, "Generation probe skipped because Ollama is unreachable.")
-    assert model_service._generation_probe_status(
+    assert model_service.generation_probe_status(
         include_generation=True,
         reachable=True,
         model_available=False,
@@ -779,12 +851,12 @@ def test_model_service_messages_and_orphan_detection(
         "Generation probe skipped because the configured model is not listed.",
     )
 
-    assert "Generation probe also failed" in model_service._base_url_mismatch_message(
+    assert "Generation probe also failed" in model_service.base_url_mismatch_message(
         include_generation=True,
         generation_available=False,
         generation_message="refused",
     )
-    assert "Stale app-managed" in model_service._app_owned_model_status_message(
+    assert "Stale app-managed" in model_service.app_owned_model_status_message(
         reachable=True,
         model_available=True,
         include_generation=False,
@@ -794,7 +866,7 @@ def test_model_service_messages_and_orphan_detection(
         runtime_base_url_matches_app_service=True,
         orphan_app_managed_pids=[20],
     )
-    assert "different base URL" in model_service._app_owned_model_status_message(
+    assert "different base URL" in model_service.app_owned_model_status_message(
         reachable=True,
         model_available=True,
         include_generation=False,
@@ -804,17 +876,17 @@ def test_model_service_messages_and_orphan_detection(
         runtime_base_url_matches_app_service=False,
         orphan_app_managed_pids=[],
     )
-    assert "Multiple host/default Ollama" in model_service._host_model_status_message(
+    assert "Multiple host/default Ollama" in model_service.host_model_status_message(
         status_message="ready",
         reachable=True,
         ollama_serve_pids=[1, 2],
     )
-    assert "will not kill it" in model_service._host_model_status_message(
+    assert "will not kill it" in model_service.host_model_status_message(
         status_message="ready",
         reachable=True,
         ollama_serve_pids=[1],
     )
-    assert model_service._model_status_notes(
+    assert model_service.model_status_notes(
         tool_payload={"notes": ["local_tool_id=ollama"]},
         ollama_serve_pids=[1, 2],
         orphan_app_managed_pids=[20],
@@ -855,14 +927,29 @@ def test_model_service_http_probes_and_port_selection(
     def as_httpx_response(response: FakeResponse) -> httpx.Response:
         return cast(httpx.Response, response)
 
+    def get_models(*_args: object, **_kwargs: object) -> FakeResponse:
+        return FakeResponse(
+            {"models": [{"name": "z-model"}, {"name": "a-model"}, "ignored"]}
+        )
+
+    def post_response_none(*_args: object, **_kwargs: object) -> FakeResponse:
+        return FakeResponse({"response": None})
+
+    def post_refused(*_args: object, **_kwargs: object) -> FakeResponse:
+        return FakeResponse({"error": "refused"})
+
+    def post_load_failed(*_args: object, **_kwargs: object) -> FakeResponse:
+        return FakeResponse({"error": "load failed"}, status_code=500)
+
+    def post_array(*_args: object, **_kwargs: object) -> FakeResponse:
+        return FakeResponse(["not", "a", "dict"])
+
     monkeypatch.setattr(
         model_service.httpx,
         "get",
-        lambda *_args, **_kwargs: FakeResponse(
-            {"models": [{"name": "z-model"}, {"name": "a-model"}, "ignored"]}
-        ),
+        get_models,
     )
-    assert model_service._fetch_ollama_tags("http://127.0.0.1:11434") == (
+    assert model_service.fetch_ollama_tags("http://127.0.0.1:11434") == (
         True,
         ["a-model", "z-model"],
         "Ollama is reachable.",
@@ -871,9 +958,9 @@ def test_model_service_http_probes_and_port_selection(
     monkeypatch.setattr(
         model_service.httpx,
         "get",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("down")),
+        raising(RuntimeError("down")),
     )
-    reachable, models, message = model_service._fetch_ollama_tags(
+    reachable, models, message = model_service.fetch_ollama_tags(
         "http://127.0.0.1:11434"
     )
     assert reachable is False
@@ -881,7 +968,7 @@ def test_model_service_http_probes_and_port_selection(
     assert "Unable to reach Ollama" in message
 
     assert (
-        model_service._ollama_error_from_response(
+        model_service.ollama_error_from_response(
             as_httpx_response(
                 FakeResponse({"error": {"message": "load failed"}}, status_code=500)
             )
@@ -889,19 +976,19 @@ def test_model_service_http_probes_and_port_selection(
         == "load failed"
     )
     assert (
-        model_service._ollama_error_from_response(
+        model_service.ollama_error_from_response(
             as_httpx_response(FakeResponse({"error": "plain failure"}, status_code=500))
         )
         == "plain failure"
     )
     assert (
-        model_service._ollama_error_from_response(
+        model_service.ollama_error_from_response(
             as_httpx_response(FakeResponse([], status_code=503))
         )
         == "HTTP 503"
     )
     assert (
-        model_service._ollama_error_from_response(
+        model_service.ollama_error_from_response(
             as_httpx_response(
                 FakeResponse(
                     {"ok": True},
@@ -920,10 +1007,10 @@ def test_model_service_http_probes_and_port_selection(
     ) -> FakeResponse:
         """
         Test helper that records JSON POST payloads and returns a successful FakeResponse.
-        
+
         Parameters:
             json (dict[str, object]): JSON body of the simulated POST request to record.
-        
+
         Returns:
             FakeResponse: A response whose JSON body is {"response": "OK"}.
         """
@@ -931,7 +1018,7 @@ def test_model_service_http_probes_and_port_selection(
         return FakeResponse({"response": "OK"})
 
     monkeypatch.setattr(model_service.httpx, "post", fake_post)
-    assert model_service._probe_ollama_generation(
+    assert model_service.probe_ollama_generation(
         "http://127.0.0.1:11434", "qwen3:8b"
     ) == (True, "Generation probe succeeded.")
     assert post_payloads[0]["model"] == "qwen3:8b"
@@ -939,47 +1026,45 @@ def test_model_service_http_probes_and_port_selection(
     monkeypatch.setattr(
         model_service.httpx,
         "post",
-        lambda *_args, **_kwargs: FakeResponse({"response": None}),
+        post_response_none,
     )
-    assert model_service._probe_ollama_generation(
+    assert model_service.probe_ollama_generation(
         "http://127.0.0.1:11434", "qwen3:8b"
     ) == (False, "Ollama generation response did not include text.")
 
     monkeypatch.setattr(
         model_service.httpx,
         "post",
-        lambda *_args, **_kwargs: FakeResponse({"error": "refused"}),
+        post_refused,
     )
-    assert model_service._probe_ollama_generation(
+    assert model_service.probe_ollama_generation(
         "http://127.0.0.1:11434", "qwen3:8b"
     ) == (False, "refused")
 
     monkeypatch.setattr(
         model_service.httpx,
         "post",
-        lambda *_args, **_kwargs: FakeResponse(
-            {"error": "load failed"}, status_code=500
-        ),
+        post_load_failed,
     )
-    assert model_service._probe_ollama_generation(
+    assert model_service.probe_ollama_generation(
         "http://127.0.0.1:11434", "qwen3:8b"
     ) == (False, "load failed")
 
     monkeypatch.setattr(
         model_service.httpx,
         "post",
-        lambda *_args, **_kwargs: FakeResponse(["not", "a", "dict"]),
+        post_array,
     )
-    assert model_service._probe_ollama_generation(
+    assert model_service.probe_ollama_generation(
         "http://127.0.0.1:11434", "qwen3:8b"
     ) == (False, "Ollama generation response was not a JSON object.")
 
     monkeypatch.setattr(
         model_service.httpx,
         "post",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("token=secret")),
+        raising(RuntimeError("token=secret")),
     )
-    ok, probe_message = model_service._probe_ollama_generation(
+    ok, probe_message = model_service.probe_ollama_generation(
         "http://127.0.0.1:11434", "qwen3:8b"
     )
     assert ok is False
@@ -988,12 +1073,12 @@ def test_model_service_http_probes_and_port_selection(
     monkeypatch.setattr(
         model_service,
         "_is_port_available",
-        lambda _host, port: port == 11436,
+        port_available_only(11436),
     )
     assert model_service.choose_app_managed_port("127.0.0.1", 11435) == 11436
     with pytest.raises(ValueError, match="loopback"):
         model_service.choose_app_managed_port("0.0.0.0", 11435)
-    monkeypatch.setattr(model_service, "_is_port_available", lambda *_args: False)
+    monkeypatch.setattr(model_service, "_is_port_available", constant(False))
     with pytest.raises(RuntimeError, match="no_free"):
         model_service.choose_app_managed_port("127.0.0.1", 11435)
 
@@ -1028,23 +1113,32 @@ def test_model_service_lifecycle_paths(
         captured["start_new_session"] = start_new_session
         return FakeProcess()
 
-    monkeypatch.setattr(model_service.shutil, "which", lambda _name: "/bin/ollama")
-    monkeypatch.setattr(model_service, "_is_port_available", lambda *_args: True)
+    def state_process_alive(state: ModelServiceState | None) -> bool:
+        return state is not None and state.pid == FakeProcess.pid
+
+    def fetch_tags(
+        _api_root: str, *, timeout_seconds: float = 2.0
+    ) -> tuple[bool, list[str], str]:
+        _ = timeout_seconds
+        return True, ["qwen3:8b"], "ready"
+
+    monkeypatch.setattr(model_service.shutil, "which", constant("/bin/ollama"))
+    monkeypatch.setattr(model_service, "_is_port_available", constant(True))
     monkeypatch.setattr(model_service.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(
         model_service,
         "_state_process_alive",
-        lambda state: state is not None and state.pid == FakeProcess.pid,
+        state_process_alive,
     )
     monkeypatch.setattr(
         model_service,
         "_fetch_ollama_tags",
-        lambda _api_root: (True, ["qwen3:8b"], "ready"),
+        fetch_tags,
     )
     monkeypatch.setattr(
         model_service,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=True),
+        _model_status_builder(app_owned=True),
     )
 
     status = model_service.start_model_service(settings)
@@ -1059,7 +1153,7 @@ def test_model_service_lifecycle_paths(
 
     with pytest.raises(RuntimeError, match="loopback"):
         model_service.start_model_service(settings, host="0.0.0.0")
-    monkeypatch.setattr(model_service.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(model_service.shutil, "which", constant(None))
     with pytest.raises(RuntimeError, match="not installed"):
         model_service.start_model_service(settings)
 
@@ -1079,34 +1173,39 @@ def test_model_service_stop_and_pull_paths(
         stderr_log_path=str(tmp_path / "err.log"),
         command=["/bin/ollama", "serve"],
     )
-    monkeypatch.setattr(model_service.shutil, "which", lambda _name: "/bin/ollama")
+    monkeypatch.setattr(model_service.shutil, "which", constant("/bin/ollama"))
     monkeypatch.setattr(
         model_service,
         "build_model_service_status",
-        lambda _settings: _model_status(app_owned=False),
+        _model_status_builder(app_owned=False),
     )
     monkeypatch.setattr(
         model_service,
         "_orphan_app_managed_ollama_pids",
-        lambda _command_path, _app_state: [],
+        empty_int_list,
     )
-    monkeypatch.setattr(model_service, "_read_state", lambda _settings: None)
+    monkeypatch.setattr(model_service, "_read_state", constant(None))
     assert model_service.stop_model_service(settings).message == "model ready"
 
     removed: list[str] = []
-    monkeypatch.setattr(model_service, "_read_state", lambda _settings: state)
-    monkeypatch.setattr(model_service, "_state_process_alive", lambda _state: False)
-    monkeypatch.setattr(
-        model_service, "_remove_state", lambda _settings: removed.append("state")
-    )
+
+    def remove_state(_settings: Settings) -> None:
+        removed.append("state")
+
+    monkeypatch.setattr(model_service, "_read_state", constant(state))
+    monkeypatch.setattr(model_service, "_state_process_alive", constant(False))
+    monkeypatch.setattr(model_service, "_remove_state", remove_state)
     model_service.stop_model_service(settings)
     assert removed == ["state"]
 
     stopped: list[int] = []
-    monkeypatch.setattr(model_service, "_state_process_alive", lambda _state: True)
-    monkeypatch.setattr(
-        model_service, "_stop_pid", lambda pid: stopped.append(pid) or True
-    )
+
+    def stop_pid(pid: int) -> bool:
+        stopped.append(pid)
+        return True
+
+    monkeypatch.setattr(model_service, "_state_process_alive", constant(True))
+    monkeypatch.setattr(model_service, "_stop_pid", stop_pid)
     model_service.stop_model_service(settings)
     assert stopped == [7788]
 
@@ -1122,7 +1221,7 @@ def test_model_service_stop_and_pull_paths(
         return Completed()
 
     monkeypatch.setattr(model_service.subprocess, "run", fake_run)
-    monkeypatch.setattr(model_service, "_state_process_alive", lambda _state: True)
+    monkeypatch.setattr(model_service, "_state_process_alive", constant(True))
     payload = model_service.pull_model(settings, "qwen3:8b")
     assert payload["exit_code"] == 0
     assert "secret-value" not in str(payload["stderr"])
@@ -1131,6 +1230,6 @@ def test_model_service_stop_and_pull_paths(
     assert isinstance(env, dict)
     assert env["OLLAMA_HOST"] == "http://127.0.0.1:11435"
 
-    monkeypatch.setattr(model_service.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(model_service.shutil, "which", constant(None))
     with pytest.raises(RuntimeError, match="not installed"):
         model_service.pull_model(settings, "qwen3:8b")

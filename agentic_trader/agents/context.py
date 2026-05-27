@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from agentic_trader.agents.calibration import build_confidence_calibration
 from agentic_trader.config import Settings
 from agentic_trader.market.calendar import infer_market_session
-from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.market.news import fetch_news_brief
+from agentic_trader.memory.retrieval import retrieve_similar_memories
 from agentic_trader.schemas import (
     AgentContext,
     AgentRole,
@@ -170,6 +170,9 @@ def _render_decision_feature_summary(context: AgentContext) -> str:
             f"Macro summary: {macro.summary}",
         ]
     )
+
+
+render_decision_feature_summary = _render_decision_feature_summary
 
 
 def build_agent_context(
@@ -386,7 +389,7 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
             ]
         )
     if context.upstream_context:
-        rendered = []
+        rendered: list[str] = []
         for key, value in context.upstream_context.items():
             rendered.append(f"{key}:\n{value}")
         sections.extend(["", "Upstream Context:", "\n\n".join(rendered)])

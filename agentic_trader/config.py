@@ -1,5 +1,5 @@
-from pathlib import Path
 import socket
+from pathlib import Path
 from typing import Literal
 
 from pydantic import AliasChoices, Field
@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from agentic_trader.schemas import ExecutionBackend, ResearchMode, RuntimeMode
 from agentic_trader.security import ensure_private_directory
+from agentic_trader.ui_text import UILocale
 
 
 class Settings(BaseSettings):
@@ -52,6 +53,7 @@ class Settings(BaseSettings):
     model_service_models_dir: Path | None = None
     runtime_auto_start_model_service: bool = True
     runtime_auto_start_camofox: bool = True
+    ui_locale: UILocale = "en"
 
     runtime_dir: Path = Field(default_factory=lambda: Path("runtime"))
     database_path: Path = Field(

@@ -1,14 +1,18 @@
 ---
 title: Veri ve Zekâ Katmanı
-description: Canonical snapshot'lar, feature bundle'lar, provider truth ve kanıt ile reasoning arasındaki sınır.
+description:
+  Canonical snapshot'lar, feature bundle'lar, provider truth ve kanıt ile
+  reasoning arasındaki sınır.
 ---
 
 ## Veri duruşu
 
 Ham provider payload'ları doğrudan agent truth'u olacak kadar güvenilir değil.
-Provider'lar anlaşmaz, alanlar eksik gelir, freshness değişir ve tekst özeti önemli boşlukları gizleyebilir.
+Provider'lar anlaşmaz, alanlar eksik gelir, freshness değişir ve tekst özeti
+önemli boşlukları gizleyebilir.
 
-Repo yönü, dış veriyi model katmanına vermeden önce typed contract'lere normalize etmektir.
+Repo yönü, dış veriyi model katmanına vermeden önce typed contract'lere
+normalize etmektir.
 
 ## Ana sözleşmeler
 
@@ -40,10 +44,12 @@ Bu repo için iyi aggregation şu anlama gelir:
 
 ## Feature preparation
 
-Feature katmanı; karışık market, provider ve runtime sinyallerini derli toplu bir decision context'e dönüştüren yerdir.
-Bu katman eksik ya da yarımsa downstream confidence bunu yansıtmalıdır.
+Feature katmanı; karışık market, provider ve runtime sinyallerini derli toplu
+bir decision context'e dönüştüren yerdir. Bu katman eksik ya da yarımsa
+downstream confidence bunu yansıtmalıdır.
 
-Bu yüzden missing `context` ya da missing `decision_features`, kozmetik bir eksik değil gerçek bir provider ya da evidence gap olarak ele alınmalıdır.
+Bu yüzden missing `context` ya da missing `decision_features`, kozmetik bir
+eksik değil gerçek bir provider ya da evidence gap olarak ele alınmalıdır.
 
 ## Haber ve dünya-durumu kanıtı
 
@@ -110,15 +116,16 @@ Benchmark loop fikri runtime'da read-only contract olarak görülebilir:
 agentic-trader research-cycle-plan --symbols AAPL,MSFT --json
 ```
 
-Fazlar PRE-FLIGHT, MONITOR, ANALYZE, PROPOSE ve DIGEST'tir. Plan her fazın
-hangi mevcut komutlardan okuduğunu gösterir ve sert güvenlik çizgisini tekrar
-eder: döngü fikirleri ve pending proposal'ları yüzeye çıkarabilir, fakat
-approve edemez, emir gönderemez, policy değiştiremez ya da eksik source
-evidence'ı gizleyemez.
+Fazlar PRE-FLIGHT, MONITOR, ANALYZE, PROPOSE ve DIGEST'tir. Plan her fazın hangi
+mevcut komutlardan okuduğunu gösterir ve sert güvenlik çizgisini tekrar eder:
+döngü fikirleri ve pending proposal'ları yüzeye çıkarabilir, fakat approve
+edemez, emir gönderemez, policy değiştiremez ya da eksik source evidence'ı
+gizleyemez.
 
 ## Review ve persistence bağlantısı
 
-Bu yapısal artefact'ler yalnızca canlı reasoning için değil şunlar için de önemlidir:
+Bu yapısal artefact'ler yalnızca canlı reasoning için değil şunlar için de
+önemlidir:
 
 - review yüzeyleri
 - QA
@@ -127,5 +134,5 @@ Bu yapısal artefact'ler yalnızca canlı reasoning için değil şunlar için d
 
 ## Güvenli zihinsel model
 
-Modeli, typed evidence üzerine oturan bir reasoning katmanı olarak düşün.
-Eksik piyasa gerçeğini icat eden yer olarak değil.
+Modeli, typed evidence üzerine oturan bir reasoning katmanı olarak düşün. Eksik
+piyasa gerçeğini icat eden yer olarak değil.

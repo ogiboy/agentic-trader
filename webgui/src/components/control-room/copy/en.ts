@@ -1,3 +1,4 @@
+import { EN_DIAGNOSTICS_COPY } from './diagnostics-en';
 import type { ControlRoomCopy } from './types';
 
 export const EN_CONTROL_ROOM_COPY = {
@@ -8,6 +9,7 @@ export const EN_CONTROL_ROOM_COPY = {
     yes: 'yes',
     working: 'Working...',
   },
+  diagnostics: EN_DIAGNOSTICS_COPY,
   auth: {
     body: 'Enter the Web GUI token from your ignored local environment. The token is exchanged for a same-origin HttpOnly session cookie and is not rendered into the page.',
     eyebrow: 'Protected local command center',
@@ -34,6 +36,13 @@ export const EN_CONTROL_ROOM_COPY = {
     panels: {
       decisionWorkflowContext: 'Decision Workflow Context',
       operatorChat: 'Operator Chat',
+    },
+    personas: {
+      operator_liaison: 'Operator Assistant',
+      regime_analyst: 'Market Regime Analyst',
+      strategy_selector: 'Strategy Selector',
+      risk_steward: 'Risk Steward',
+      portfolio_manager: 'Portfolio Manager',
     },
     placeholder: 'Ask for a review, status, or explanation.',
     role: 'Role',
@@ -275,6 +284,9 @@ export const EN_CONTROL_ROOM_COPY = {
     language: 'Language',
     lastRefresh: 'Last refresh',
     loading: 'Loading dashboard...',
+    loadingDetail:
+      'Collecting local runtime, broker, model, tool, and research status. Slow provider checks can take a few seconds.',
+    loadingElapsed: (seconds) => `Waiting ${seconds}s`,
     mode: 'Mode',
     navAria: 'Sections',
     runtime: 'Runtime',

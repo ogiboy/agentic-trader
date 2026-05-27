@@ -1,8 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { execFile } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  dashboardPages as pages,
+  dashboardStatusLine,
+  dashboardTitle,
+  formatPersona,
+  getPageForShortcut,
+  getPageLabel,
+  rotateInstructionMode,
+  rotatePersona,
+} from './copy.mjs';
 import {
   getCanonicalAnalysisLines,
   getFundamentalAssessmentLines,
@@ -14,34 +24,6 @@ const cliExecutable = process.env.AGENTIC_TRADER_CLI || 'agentic-trader';
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 const once = process.argv.includes('--once');
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
-const pages = [
-  'overview',
-  'runtime',
-  'portfolio',
-  'review',
-  'memory',
-  'chat',
-  'settings',
-];
-const personas = [
-  'operator_liaison',
-  'regime_analyst',
-  'strategy_selector',
-  'risk_steward',
-  'portfolio_manager',
-];
-const personaLabels = {
-  operator_liaison: 'Operator Assistant',
-  regime_analyst: 'Market Regime Analyst',
-  strategy_selector: 'Strategy Selector',
-  risk_steward: 'Risk Steward',
-  portfolio_manager: 'Portfolio Manager',
-};
-const instructionModes = ['preview', 'apply'];
-
-function formatPersona(value) {
-  return personaLabels[value] || value || '-';
-}
 
 function accountCurrency(data) {
   return (
@@ -342,32 +324,6 @@ async function performRuntimeAction(kind, data) {
 }
 
 /**
- * Rotate the chat persona selection by a signed offset within the available personas.
- *
- * @param {string} current - The currently selected persona key.
- * @param {number} offset - Signed integer offset to apply (positive moves forward, negative moves backward).
- * @returns {string} The persona key at the resulting rotated position.
- */
-function rotatePersona(current, offset) {
-  return personas[
-    (personas.indexOf(current) + offset + personas.length) % personas.length
-  ];
-}
-
-/**
- * Rotate the current instruction mode by a signed offset within the available modes.
- * @param {string} current - The currently selected instruction mode.
- * @param {number} offset - Signed offset to move within the mode list (positive for forward, negative for backward).
- * @returns {string} The instruction mode after applying the offset, wrapped around the mode list.
- */
-function rotateInstructionMode(current, offset) {
-  return instructionModes[
-    (instructionModes.indexOf(current) + offset + instructionModes.length) %
-      instructionModes.length
-  ];
-}
-
-/**
  * Process a single chat keystroke to update the draft, rotate the persona, or submit the message.
  *
  * @param {string} input - Raw input character (e.g., a typed character or '[' / ']' for persona rotation).
@@ -479,8 +435,9 @@ function handleGlobalInput(input, handlers) {
     handlers.runAction('stop');
     return true;
   }
-  if (['1', '2', '3', '4', '5', '6', '7'].includes(input)) {
-    handlers.setPage(pages[Number(input) - 1]);
+  const shortcutPage = getPageForShortcut(input);
+  if (shortcutPage) {
+    handlers.setPage(shortcutPage);
     return true;
   }
   return false;
@@ -504,24 +461,6 @@ async function loadDashboard() {
     ...payload,
     loadedAt: new Date().toISOString(),
   };
-}
-
-/**
- * Map a page key to its human-readable label.
- * @param {string} page - The page key (e.g., 'overview', 'runtime').
- * @returns {string} The display label for the given page key, or 'Unknown' if the key is not recognized.
- */
-function getPageLabel(page) {
-  const labels = {
-    overview: 'Overview',
-    runtime: 'Runtime',
-    portfolio: 'Portfolio',
-    review: 'Review',
-    memory: 'Decision Evidence',
-    chat: 'Chat',
-    settings: 'Settings',
-  };
-  return labels[page] || 'Unknown';
 }
 
 /**
@@ -1759,7 +1698,7 @@ function DashboardView({
       e(
         Text,
         { color: 'red', bold: true },
-        'AGENTIC TRADER // INK CONTROL ROOM',
+        dashboardTitle,
       ),
       e(Text, { color: 'red' }, `Error: ${error}`),
       e(Text, { color: 'gray' }, `CLI executable: ${cliExecutable}`),
@@ -1773,14 +1712,12 @@ function DashboardView({
       e(
         Text,
         { color: 'green', bold: true },
-        'AGENTIC TRADER // INK CONTROL ROOM',
+        dashboardTitle,
       ),
       e(Text, { color: 'gray' }, loadingText),
     );
   }
 
-  const pageIndex = pages.indexOf(page) + 1;
-  const pageLabel = getPageLabel(page);
   const terminalRows = process.stdout.rows || 36;
   const terminalColumns = process.stdout.columns || 100;
   const navRows = terminalColumns < 140 ? 2 : 1;
@@ -1813,13 +1750,9 @@ function DashboardView({
     e(
       Text,
       { color: 'green', bold: true },
-      'AGENTIC TRADER // INK CONTROL ROOM',
+      dashboardTitle,
     ),
-    e(
-      Text,
-      { color: 'gray' },
-      `page ${pageIndex}/7: ${pageLabel}  |  1 overview  2 runtime  3 portfolio  4 review  5 memory  6 chat  7 settings  |  r refresh  o one-shot  s start  x stop  R restart  q quit${busy ? '  |  working...' : ''}`,
-    ),
+    e(Text, { color: 'gray' }, dashboardStatusLine({ busy, page })),
     actionMessage
       ? e(
           Text,
@@ -2147,11 +2080,9 @@ function InteractiveDashboardApp() {
       prevPage();
       return;
     }
-    if (
-      ['1', '2', '3', '4', '5', '6', '7'].includes(input) &&
-      !['chat', 'settings'].includes(page)
-    ) {
-      setPage(pages[Number(input) - 1]);
+    const shortcutPage = getPageForShortcut(input);
+    if (shortcutPage && !['chat', 'settings'].includes(page)) {
+      setPage(shortcutPage);
       return;
     }
     if (
@@ -2267,8 +2198,8 @@ export {
   getReplayLines,
   getReviewLines,
   getStatusBorderColor,
-  getSystemLines,
   getSupervisorLogLines,
+  getSystemLines,
   getTraceLines,
   getTradeContextLines,
   handleChatInput,

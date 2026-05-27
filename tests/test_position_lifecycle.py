@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.schemas import (
@@ -9,8 +11,8 @@ from agentic_trader.schemas import (
     MarketSnapshot,
     RegimeAssessment,
     ResearchCoordinatorBrief,
-    RiskPlan,
     ReviewNote,
+    RiskPlan,
     RunArtifacts,
     StrategyPlan,
 )
@@ -90,7 +92,7 @@ def _artifacts(symbol: str, last_close: float, take_profit: float) -> RunArtifac
 
 
 def test_service_closes_position_when_take_profit_is_hit(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
@@ -111,24 +113,36 @@ def test_service_closes_position_when_take_profit_is_hit(
     )
     assert entry_order_id.startswith("paper-")
 
-    monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
-        lambda current_settings: LLMHealthStatus(
+    def _ensure_llm_ready(current_settings: Settings) -> LLMHealthStatus:
+        return LLMHealthStatus(
             provider="ollama",
             base_url=current_settings.base_url,
             model_name=current_settings.model_name,
             service_reachable=True,
             model_available=True,
             message="ok",
-        ),
+        )
+
+    def _run_once(**kwargs: object) -> RunArtifacts:
+        symbol = kwargs["symbol"]
+        if not isinstance(symbol, str):
+            raise AssertionError("expected symbol keyword")
+        return _artifacts(symbol, 111.0, 120.0)
+
+    def _persist_run(**_kwargs: object) -> str:
+        return "paper-new-order"
+
+    monkeypatch.setattr(
+        "agentic_trader.workflows.service.ensure_llm_ready",
+        _ensure_llm_ready,
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.run_once",
-        lambda **kwargs: _artifacts(kwargs["symbol"], 111.0, 120.0),
+        _run_once,
     )
     monkeypatch.setattr(
         "agentic_trader.workflows.service.persist_run",
-        lambda **kwargs: "paper-new-order",
+        _persist_run,
     )
 
     run_service(

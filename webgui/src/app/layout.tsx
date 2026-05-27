@@ -1,3 +1,5 @@
+'use strict';
+
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
@@ -63,10 +65,10 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang='en'
       className={`${jetBrainsMono.variable} ${jetBrainsMono.className} dark h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className='min-h-full flex flex-col'>{children}</body>
     </html>
   );
 }

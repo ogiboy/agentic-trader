@@ -53,4 +53,4 @@ function windowSnapshot(yaml, offset = 0) {
   };
 }
 
-export { windowSnapshot, MAX_SNAPSHOT_CHARS, SNAPSHOT_TAIL_CHARS };
+export { MAX_SNAPSHOT_CHARS, SNAPSHOT_TAIL_CHARS, windowSnapshot };

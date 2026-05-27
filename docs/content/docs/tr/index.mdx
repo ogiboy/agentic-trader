@@ -1,6 +1,8 @@
 ---
 title: Agentic Trader Rehberi
-description: Agentic Trader'ı kurmak, hazır oluşu kontrol etmek, paper cycle çalıştırmak ve sonuçları incelemek için ilk durak.
+description:
+  Agentic Trader'ı kurmak, hazır oluşu kontrol etmek, paper cycle çalıştırmak ve
+  sonuçları incelemek için ilk durak.
 ---
 
 ## Agentic Trader nedir
@@ -12,7 +14,8 @@ durumu ve operatör kontrollerini tek bir denetlenebilir runtime içinde toplar.
 Mevcut V1 duruşu bilinçli olarak temkinlidir:
 
 - varsayılan mod paper trading'dir
-- desteklenen V1 aktif al-sat yolu approval ve readiness gate'lerinden geçmelidir
+- desteklenen V1 aktif al-sat yolu approval ve readiness gate'lerinden
+  geçmelidir
 - gate'siz real-money execution blokludur
 - readiness gate'leri açık olmalıdır
 - eksik provider, broker veya model kanıtı görünür kalmalıdır
@@ -27,7 +30,8 @@ kararı bir sonraki karara güvenmeden önce incelemek için kullan.
 
 1. [Başlangıç](/tr/docs/getting-started) sayfasını oku.
 2. `doctor`, `provider-diagnostics` ve `v1-readiness` kontrollerini çalıştır.
-3. Ink control room ya da Web GUI'yi alt katman kontrolleri uyumlu olduktan sonra aç.
+3. Ink control room ya da Web GUI'yi alt katman kontrolleri uyumlu olduktan
+   sonra aç.
 
 ### Paper cycle öncesi
 
@@ -41,13 +45,16 @@ kararı bir sonraki karara güvenmeden önce incelemek için kullan.
 ### Ne olduğunu inceleme
 
 1. [Hafıza ve Review](/tr/docs/memory-and-review) sayfasını oku.
-2. Review snapshot, market context, broker durumu, loglar ve evidence bundle'ı incele.
-3. Eksik veya stale kanıtı kozmetik uyarı değil, gerçek sinyal olarak değerlendir.
+2. Review snapshot, market context, broker durumu, loglar ve evidence bundle'ı
+   incele.
+3. Eksik veya stale kanıtı kozmetik uyarı değil, gerçek sinyal olarak
+   değerlendir.
 
 ### Kafa karıştıran durumları çözme
 
 1. [QA And Debugging](/tr/docs/qa-and-debugging) sayfasını oku.
-2. CLI JSON, observer API, Rich/Ink/Web GUI durumu ve persist edilmiş kayıtları karşılaştır.
+2. CLI JSON, observer API, Rich/Ink/Web GUI durumu ve persist edilmiş kayıtları
+   karşılaştır.
 3. Tek bir UI banner'ının söylediğinden çok runtime kanıtına güven.
 
 ## Katkı verenler için yol
@@ -65,14 +72,16 @@ Kod değiştiriyorsan operatör yolundan sonra şunları oku:
 - Varsayılan execution modu paper trading kalmalı.
 - Degrade truth'u gizleyen sessiz fallback'ler kabul edilemez.
 - CLI, Rich, Ink, observer API ve Web GUI aynı runtime state'i anlatmalı.
-- Docs uygulaması ve Web GUI mevcut runtime'ın etrafındaki kabuklardır; onun yerine geçmezler.
+- Docs uygulaması ve Web GUI mevcut runtime'ın etrafındaki kabuklardır; onun
+  yerine geçmezler.
 
 ## Bu rehber neyi açıklamalı
 
 Bu docs sitesi önce operatör sorularına cevap vermeli:
 
 - Agentic Trader bugün ne yapabilir?
-- Hangi moddayım: training, lokal paper, external paper readiness, yoksa blocked live?
+- Hangi moddayım: training, lokal paper, external paper readiness, yoksa blocked
+  live?
 - Sistem gerçekte hangi veriyi gördü?
 - Bir aksiyonu neden approve, block, hold veya reject etti?
 - Broker/account, runtime, memory ve review gerçeğini nereden doğrulayabilirim?
@@ -83,7 +92,8 @@ anlatısının ve operasyonel risklerin önüne geçmemeli.
 ## Katkı bakım sözleşmesi
 
 Bir değişiklik runtime davranışını, ürün yönünü, operatör workflow'unu veya
-geliştirici varsayımlarını etkiliyorsa aynı branch içinde şunları birlikte güncelle:
+geliştirici varsayımlarını etkiliyorsa aynı branch içinde şunları birlikte
+güncelle:
 
 - etkilenen docs sayfası
 - `.ai/current-state.instructions.md`

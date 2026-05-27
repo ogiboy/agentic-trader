@@ -39,12 +39,13 @@ Now:
 - keep docs language clear about the difference between product trading memory/review evidence and contributor `.ai` project notes
 - keep the GitHub Actions CI, semantic-release, version-check, binary packaging, and GitHub Pages docs workflows practical and aligned with the repo's uv-plus-root-pnpm-workspace structure, including stable-release version stamping across Python and workspace package metadata
 - keep development-agent handoffs honest about version ownership before push: product-impacting branch pushes should bump the tracked app patch version consistently across Python, workspace package manifests, sidecar metadata, and lockfile metadata, then run `pnpm run version:plan`; `CHANGELOG.md` remains release-flow owned unless explicitly requested
-- investigate the current "CHANGELOG.md does not change" complaint as a release-flow task: verify whether the branch path is expected not to mutate changelog, whether semantic-release lacks a trigger or baseline, and what stable-release evidence should prove before V1 is promoted
+- keep stable release changelog evidence non-empty when there are conventional commits since the previous stable tag; prerelease branch tags may exist for binary testing, but they must not leave the final `main` release section as only a version heading
 - keep root pnpm scripts, thin Makefile aliases, README/docs, and `.codex/environments/environment.toml` synchronized so setup/check/build/start commands do not drift
 - keep local setup/cleanup semantics explicit: `setup` must install and verify root/webgui/docs/tui node workspace deps, `clean` should remain artifact-only, and dependency removal should go through explicit `clean:deps` or `clean:all`
 - keep the first user-facing accelerated lifecycle slices conservative: `app:doctor` is read-only and must not call `uv run`, install deps, start/stop app-owned services, pull models, open browsers, or launch trading; `app:setup` defaults to dry-run planning and only mutates through explicit `--core --yes` root dependency repair; `app:start` and `app:stop` default to dry-run, require selected app-owned services plus `--yes`, never install/fetch/pull/open browsers by default, and delegate ownership checks to existing service commands; `app:update` defaults to dry-run and can run selected native dependency-owner lanes only after explicit scope plus `--yes`, without browser fetch, model pull, service start/stop, daemon start, secrets, brokerage config, or runtime-state deletion; `app:uninstall` defaults to dry-run and removes only selected generated/dependency/service-state scopes after `--yes`, blocking service-state cleanup while recorded state files remain; `app:up` now composes the safe first-run path through existing lifecycle commands and requires explicit optional-helper ownership flags before Camofox/browser/model-service lanes
 - keep maturing `app:up` as the guided first-run path: repair Python/root pnpm workspace, docs/WebGUI/TUI, CrewAI Flow sidecar, optional tool roots, app-owned helper services, PATH entrypoint, and final Web GUI launch through explicit scopes and ownership decisions; daemon/trading start remains explicit
 - keep optional tool ownership as a shared setup contract: Ollama, Firecrawl, and Camofox decisions persist under runtime setup state, surface through CLI/dashboard/Web/TUI readiness, expose internal-first app-owned and explicit host-fallback choices in the Web GUI, and block app-owned model/Camofox starts unless the persisted mode is `app-owned`
+- keep bootstrap idempotent and operator-readable: if an Ollama, Firecrawl, or Camofox decision is already recorded, report it instead of prompting again; every deferred bootstrap item should carry both the reason and a concrete next command or owner action
 - keep `tools/camofox-browser` setup on pnpm-owned commands (`pnpm --dir tools/camofox-browser install --ignore-workspace --ignore-scripts`, `pnpm --dir tools/camofox-browser --ignore-workspace run fetch:browser`, and `pnpm --dir tools/camofox-browser --ignore-workspace run test`); npm lock/script assumptions are removed after the pnpm tool-root smoke passes
 - keep root `pnpm-workspace.yaml` scoped to always-installed app packages (`webgui`, `docs`, `tui`) unless a future setup decision makes an optional tool root a normal workspace package; Camofox remains explicit tool-root setup so `pnpm install` does not silently install browser-helper dependencies
 - add an explicit update path: root pnpm workspace update, Camofox tool-root pnpm update, root uv lock upgrade/sync, CrewAI sidecar uv lock upgrade/sync, rebuilds, and setup/service status output should be one planned `app:update` lane rather than scattered manual commands
@@ -92,8 +93,8 @@ Now:
   sidecar/security work; static green checks are not enough when the change
   affects first-run behavior, app-owned helper services, agent-cycle claims,
   memory persistence, visual surfaces, or security boundaries
-- start a maintainability cleanup track for large files and repeated strings: extract constants, render helpers, command helpers, and service-specific modules as touched; keep names domain-oriented and preserve existing contracts rather than doing a risky one-shot rewrite
-- continue the Web GUI control-room modularity track before polishing small UI issues: views, shell chrome, dashboard polling, actions, request/auth helpers, primitives, and per-locale view copy modules are now split behind a small facade, so the next pass should focus on typed view models, screen-scoped styles, and catalog-aware helper-generated evidence lines while keeping route handlers as thin runtime-contract delegates
+- continue the maintainability cleanup track for large files and repeated strings: extract constants, render helpers, command helpers, shared JSON/time helpers, and service-specific modules as touched; keep names domain-oriented, track progress through the modularity/i18n audit, and preserve existing contracts rather than doing a risky one-shot rewrite
+- continue the Web GUI control-room modularity track before polishing small UI issues: views, shell chrome, dashboard polling, actions, request/auth helpers, action request helpers, primitives, locale/loading hooks, typed view models, shared formatting helpers, diagnostics/context evidence helpers, and per-locale view copy modules are now split behind a small facade, so the next pass should focus on screen-scoped styles and continued catalog/type-surface shrinkage while keeping route handlers as thin runtime-contract delegates
 - make whole-app shutdown a first-class V1 follow-up: first extend `stop-service` with machine-readable `--json` plus a bounded wait result, then add an explicit `app:stop --runtime` step that stops the trading daemon before optional helper services and refuses to tear down model/browser helpers while a runtime cycle is still live unless the operator asks for a force path
 - treat TUI flicker as a runtime-trust issue, not polish only: add an in-flight or sequence guard around Ink dashboard refreshes, verify Rich monitor DB ownership is closed per tick, and keep visual QA tied to dashboard JSON truth
 - keep LM Studio and other OpenAI-compatible endpoints as explicit adapter/profile work: the managed local service layer remains app-owned Ollama only, while `openai-compatible` or a future `lm-studio` alias should use the OpenAI chat-completions adapter without app-owned Ollama auto-start/adoption
@@ -106,6 +107,17 @@ Now:
 - keep shared dashboard, observer API, Rich, Ink, and Web GUI readiness displays in parity with `provider-diagnostics`, `v1-readiness`, and `broker-status`
 - use `.ai/agents/product-docs.agent.md` for docs/product explanation work and `.ai/agents/finance-ops.agent.md` for broker/accounting/PnL/exposure changes; both are development-only roles, not runtime orchestration
 - keep retrieval explanations inspectable as memory quality improves: score components, as-of/freshness, outcome tags, regime/strategy alignment, and diversity buckets must survive CLI/Ink/Web/trade-context serialization
+- keep the V1 commercial-readiness blocker ledger current and source-backed:
+  compliance classification, first paid SKU scope, Alpaca paper/production and
+  account-opening responsibilities, risk disclosure/terms, billing/support/
+  incident posture, audit export, data retention/privacy, provider telemetry,
+  stale/degraded UX, LLM/tool-poisoning controls, market-tool expectation gaps,
+  and model-cost unit economics must be explicit before the product is
+  described as revenue-ready
+- use the ROADMAP commercial work plan as the product gate: C0 legal/product
+  classification, C1 paper-desk packaging, C2 trust/security controls, C3
+  Alpaca external-paper proof, C4 unit economics, and C5 limited non-live pilot
+  must pass in order; do not jump from paper evidence to live-money claims
 
 Next:
 
@@ -314,9 +326,9 @@ Keep all operator surfaces aligned with the same underlying runtime and status t
 Desired direction:
 
 - reuse the shared UI text catalog for recurring CLI, Rich, Ink, and WebGUI labels
-- defer full product localization until operator flows stabilize, but route new repeated WebGUI view copy and helper-generated labels through typed copy/catalog seams instead of scattered duplicate labels
+- treat full product localization as staged foundation work: add a shared Settings/env locale source, keep machine-readable JSON keys stable, migrate recurring CLI/Rich/Ink/WebGUI labels through typed copy/catalog seams, and leave ad hoc static strings only when they are domain data, protocol values, or intentionally non-operator-facing
 - keep pyright, ruff, pytest, and smoke QA green as surface contracts evolve
-- treat the new strict Pyright/Pylance backlog as staged type-hardening work, not as a reason to hide diagnostics: classify strict errors by rule/file, fix source-level runtime risks first, add package stubs only when compatible with the locked dependency versions, then migrate tests/mocks through typed factories instead of blanket ignores
+- treat the new strict Pyright/Pylance backlog as staged type-hardening work, not as a reason to hide diagnostics: classify strict errors by rule/file, fix source-level runtime risks first, add package stubs only when compatible with the locked dependency versions, then migrate tests/mocks through typed factories instead of blanket ignores; after the first stub pass plus setup/lifecycle, broker-adapter, config, position-manager, LLM-client, trade-proposal, and data-provider test passes, missing third-party stubs are cleared and the remaining backlog is dominated by Unknown argument/lambda/member types, missing parameter annotations, private test access, and broad test/mock factories in the larger runtime/service suites
 - keep root `pyproject.toml` and `uv.lock` in sync when Python dependencies change; use uv for root add/remove/lock/sync/build operations rather than ad hoc pip installs, and keep the CrewAI Flow sidecar's `sidecars/research_flow/uv.lock` independent
 
 ### 11. Future External Provider Readiness

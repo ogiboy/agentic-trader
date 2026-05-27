@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from agentic_trader.config import Settings
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.schemas import (
@@ -11,13 +9,14 @@ from agentic_trader.schemas import (
     PositionExitDecision,
     RegimeAssessment,
     ResearchCoordinatorBrief,
-    RiskPlan,
     ReviewNote,
+    RiskPlan,
     RunArtifacts,
     StrategyPlan,
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run
+from tests.typing_helpers import approx
 
 
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
@@ -170,7 +169,7 @@ def test_risk_report_uses_portfolio_limit_thresholds(tmp_path: Path) -> None:
 
     assert "Open position count is elevated." in report.warnings
     assert "Gross exposure is above 5% of equity." in report.warnings
-    assert report.portfolio_hhi == pytest.approx(1.0)
+    assert report.portfolio_hhi == approx(1.0)
     assert report.top_position_symbols == ["AAPL"]
     assert any(
         warning.startswith("Portfolio concentration HHI is elevated")

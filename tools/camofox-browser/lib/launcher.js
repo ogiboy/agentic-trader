@@ -2,8 +2,8 @@
  * Server subprocess launcher for camofox-browser.
  */
 
-import cp from 'child_process';
-import { join } from 'path';
+import cp from 'node:child_process';
+import { join } from 'node:path';
 
 // Alias for clarity
 const startProcess = cp.spawn;

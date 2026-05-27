@@ -5,7 +5,7 @@ import {
   type ControlRoomCopy,
   type ControlRoomLocale,
 } from './copy';
-export { CONTROL_ROOM_LOCALES, CONTROL_ROOM_LOCALE_STORAGE_KEY } from './copy';
+export { CONTROL_ROOM_LOCALE_STORAGE_KEY, CONTROL_ROOM_LOCALES } from './copy';
 export type { ControlRoomCopy, ControlRoomLocale } from './copy';
 
 const TAB_IDS: TabId[] = [

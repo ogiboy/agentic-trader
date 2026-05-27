@@ -20,6 +20,8 @@ describe('docs configuration helpers', () => {
     expect(config.getDocLanguage('tr')).toBe('tr');
     expect(config.getDocLanguage('fr')).toBe('en');
     expect(config.getHomeMetadata('en').title).toBe('Agentic Trader Docs');
-    expect(config.getHomeMetadata('tr').title).toBe('Agentic Trader Dokümantasyonu');
+    expect(config.getHomeMetadata('tr').title).toBe(
+      'Agentic Trader Dokümantasyonu',
+    );
   });
 });

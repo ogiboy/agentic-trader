@@ -1,6 +1,6 @@
 import fs from 'fs';
-import path from 'path';
 import os from 'os';
+import path from 'path';
 
 const ORPHAN_PATTERNS = [/^\.fea5[a-f0-9]+\.so$/, /^\.5ef7[a-f0-9]+\.node$/];
 

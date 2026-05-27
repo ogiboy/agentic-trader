@@ -1,12 +1,12 @@
 def is_v1_us_equity_symbol(symbol: str) -> bool:
     """
     Validate whether a string matches the v1 US equity symbol format.
-    
+
     Validation rules: leading/trailing whitespace are ignored and input is case-insensitive; the normalized symbol must be non-empty, at most 10 characters, contain only alphanumeric characters, dots (.), or hyphens (-); it may contain at most one dot, and if a dot is present the suffix (part after the dot) must be exactly one character.
-    
+
     Parameters:
         symbol (str): The input symbol to validate.
-    
+
     Returns:
         `true` if the symbol conforms to the v1 US equity format, `false` otherwise.
     """

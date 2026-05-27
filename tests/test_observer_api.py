@@ -1,5 +1,6 @@
 import json
 import threading
+from pathlib import Path
 from typing import cast
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -9,7 +10,9 @@ from agentic_trader.config import Settings
 from agentic_trader.observer_api import create_observer_server
 
 
-def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> None:
+def test_build_observer_api_payload_exposes_dashboard_and_broker(
+    tmp_path: Path,
+) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -76,7 +79,7 @@ def test_build_observer_api_payload_exposes_dashboard_and_broker(tmp_path) -> No
     assert "stderr_tail" in supervisor
 
 
-def test_observer_research_payload_does_not_create_database(tmp_path) -> None:
+def test_observer_research_payload_does_not_create_database(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -91,7 +94,7 @@ def test_observer_research_payload_does_not_create_database(tmp_path) -> None:
     assert settings.database_path.exists() is False
 
 
-def test_observer_api_server_serves_local_http_payloads(tmp_path) -> None:
+def test_observer_api_server_serves_local_http_payloads(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",
@@ -145,7 +148,7 @@ def test_observer_api_rejects_empty_bind_host_by_default() -> None:
         raise AssertionError("empty observer bind host should be rejected")
 
 
-def test_observer_api_supports_optional_local_token(tmp_path) -> None:
+def test_observer_api_supports_optional_local_token(tmp_path: Path) -> None:
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

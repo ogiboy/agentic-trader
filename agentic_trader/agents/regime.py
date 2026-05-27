@@ -1,5 +1,5 @@
-from agentic_trader.agents.context import render_agent_context
 from agentic_trader.agents.constants import LLM_FALLBACK_REASON
+from agentic_trader.agents.context import render_agent_context
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import AgentContext, MarketSnapshot, RegimeAssessment
 
@@ -95,6 +95,9 @@ def _fallback_regime(snapshot: MarketSnapshot) -> RegimeAssessment:
         source="fallback",
         fallback_reason=LLM_FALLBACK_REASON,
     )
+
+
+fallback_regime = _fallback_regime
 
 
 def assess_regime(

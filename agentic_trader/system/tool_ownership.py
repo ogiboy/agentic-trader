@@ -9,15 +9,15 @@ and undecided helper tools.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, cast
 
 from pydantic import BaseModel
 
 from agentic_trader.config import Settings
 from agentic_trader.security import write_private_text
 from agentic_trader.system.tool_roots import LocalToolId
+from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 OwnershipToolId = Literal["ollama", "firecrawl", "camofox"]
 OwnershipMode = Literal[
@@ -71,23 +71,13 @@ class ToolOwnershipPayload(BaseModel):
     decisions_by_tool: dict[str, ToolOwnershipDecision]
 
 
-def _utc_now_iso() -> str:
-    """
-    Get the current UTC time as an ISO-8601 formatted string with a UTC timezone offset.
-    
-    Returns:
-        str: ISO-8601 formatted UTC timestamp including the UTC timezone offset.
-    """
-    return datetime.now(timezone.utc).isoformat()
-
-
 def tool_ownership_path(settings: Settings) -> Path:
     """
     Compute the path to the runtime's tool-ownership.json file inside the setup directory.
-    
+
     Parameters:
         settings (Settings): Runtime settings providing the `runtime_dir` base path.
-    
+
     Returns:
         Path: Path to the `tool-ownership.json` file under `<runtime_dir>/setup`.
     """
@@ -98,12 +88,12 @@ def tool_ownership_path(settings: Settings) -> Path:
 def normalize_ownership_tool(tool: str) -> OwnershipToolId:
     """
     Normalize a tool identifier to the canonical ownership tool ID.
-    
+
     Accepts the alias "camofox-browser" and maps it to "camofox".
-    
+
     Returns:
         The canonical ownership tool ID: one of "ollama", "firecrawl", or "camofox".
-    
+
     Raises:
         ValueError: If the input is not a recognized ownership tool identifier.
             The exception message is formatted as "unknown_tool_ownership_id:<tool>".
@@ -112,7 +102,7 @@ def normalize_ownership_tool(tool: str) -> OwnershipToolId:
     if tool == "camofox-browser":
         return "camofox"
     if tool in OWNERSHIP_TOOL_IDS:
-        return tool  # type: ignore[return-value]
+        return tool
     msg = f"unknown_tool_ownership_id:{tool}"
     raise ValueError(msg)
 
@@ -135,7 +125,7 @@ def validate_ownership_mode(mode: str) -> OwnershipMode:
     """
 
     if mode in OWNERSHIP_MODES:
-        return mode  # type: ignore[return-value]
+        return mode
     msg = "ownership mode must be one of: " + ", ".join(
         mode for mode in OWNERSHIP_MODES if mode != "undecided"
     )
@@ -145,11 +135,11 @@ def validate_ownership_mode(mode: str) -> OwnershipMode:
 def ownership_note(tool: OwnershipToolId, mode: OwnershipMode) -> str:
     """
     Provide an operator-facing explanation of a tool's ownership mode.
-    
+
     Parameters:
         tool (OwnershipToolId): Canonical tool identifier (e.g., "ollama", "firecrawl", "camofox").
         mode (OwnershipMode): Ownership mode to explain.
-    
+
     Returns:
         str: Human-readable note describing the operator-facing meaning of `mode` for `tool`. For the combination `tool == "firecrawl"` and `mode == "app-owned"`, returns a Firecrawl-specific explanation.
     """
@@ -188,7 +178,7 @@ def ownership_note(tool: OwnershipToolId, mode: OwnershipMode) -> str:
 def _default_decision(tool: OwnershipToolId) -> ToolOwnershipDecision:
     """
     Return a normalized undecided ownership decision for the specified tool.
-    
+
     Returns:
         ToolOwnershipDecision: Decision with mode "undecided", source "default", updated_at set to None, and an operator-facing note describing the undecided state.
     """
@@ -222,13 +212,14 @@ def _decision_from_record(
     """
     if not isinstance(record, dict):
         return _default_decision(tool)
-    raw_mode = str(record.get("mode") or "undecided")
+    record_payload = cast(dict[str, object], record)
+    raw_mode = str(record_payload.get("mode") or "undecided")
     try:
         mode = validate_ownership_mode(raw_mode)
     except ValueError:
         mode = "undecided"
-    source = str(record.get("source") or "file")
-    updated_at = record.get("updated_at")
+    source = str(record_payload.get("source") or "file")
+    updated_at = record_payload.get("updated_at")
     return ToolOwnershipDecision(
         tool=tool,
         mode=mode,
@@ -255,10 +246,18 @@ def read_tool_ownership_payload(settings: Settings) -> ToolOwnershipPayload:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                updated = payload.get("updated_at")
+                payload_object = cast(dict[str, object], payload)
+                updated = payload_object.get("updated_at")
                 updated_at = updated if isinstance(updated, str) else None
-                raw_records = payload.get("decisions")
-                records = raw_records if isinstance(raw_records, dict) else {}
+                raw_records = payload_object.get("decisions")
+                records = (
+                    {
+                        str(key): item
+                        for key, item in cast(dict[object, object], raw_records).items()
+                    }
+                    if isinstance(raw_records, dict)
+                    else {}
+                )
         except (OSError, json.JSONDecodeError):
             records = {}
 

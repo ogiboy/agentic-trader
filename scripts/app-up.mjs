@@ -485,11 +485,7 @@ function plannedStep(step, selectedScopes, owners) {
   const blocker = step.selected ? ownerBlocker(step, owners) : null;
   return {
     ...step,
-    status: blocker
-      ? 'blocked'
-      : step.selected
-        ? 'planned'
-        : 'deferred',
+    status: blocker ? 'blocked' : step.selected ? 'planned' : 'deferred',
     reason: blocker ?? step.reason,
     exit_code: blocker ? 1 : null,
     stdout: '',
@@ -566,15 +562,11 @@ function stepSummary(steps) {
         : ''),
   });
   return {
-    done: steps
-      .filter((step) => step.status === 'passed')
-      .map(bucket),
+    done: steps.filter((step) => step.status === 'passed').map(bucket),
     not_done: steps
       .filter((step) => ['blocked', 'failed', 'skipped'].includes(step.status))
       .map(bucket),
-    deferred: steps
-      .filter((step) => step.status === 'deferred')
-      .map(bucket),
+    deferred: steps.filter((step) => step.status === 'deferred').map(bucket),
   };
 }
 

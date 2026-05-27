@@ -10,9 +10,9 @@ from agentic_trader.schemas import (
     FundamentalSnapshot,
     MacroSnapshot,
     MarketDataSnapshot,
+    NewsEvent,
     ProviderMetadata,
     SymbolIdentity,
-    NewsEvent,
 )
 
 

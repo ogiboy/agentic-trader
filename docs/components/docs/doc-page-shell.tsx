@@ -1,13 +1,13 @@
+import { Feedback } from '@/components/feedback/client';
+import type { DocLanguage } from '@/lib/i18n/config';
+import type { source } from '@/lib/source';
+import { getMDXComponents } from '@/mdx-components';
 import {
   DocsBody,
   DocsDescription,
   DocsPage,
   DocsTitle,
 } from 'fumadocs-ui/layouts/docs/page';
-import { Feedback } from '@/components/feedback/client';
-import type { DocLanguage } from '@/lib/i18n/config';
-import { getMDXComponents } from '@/mdx-components';
-import type { source } from '@/lib/source';
 
 type DocPage = ReturnType<typeof source.getPage>;
 

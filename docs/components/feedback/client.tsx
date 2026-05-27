@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
-import { MessageSquareText, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { getFeedbackCopy } from '@/components/feedback/copy';
 import { FeedbackResult } from '@/components/feedback/feedback-result';
+import {
+  parsePageFeedback,
+  type ActionResponse,
+  type FeedbackOpinion,
+} from '@/components/feedback/schema';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,13 +16,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
-import {
-  parsePageFeedback,
-  type ActionResponse,
-  type FeedbackOpinion,
-} from '@/components/feedback/schema';
 import type { DocLanguage } from '@/lib/i18n/config';
+import { cn } from '@/lib/utils';
+import { MessageSquareText, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 
 const feedbackStorageKey = 'agentic-trader-docs-feedback';
 const feedbackIssueUrl = 'https://github.com/ogiboy/agentic-trader/issues/new';
@@ -132,33 +132,33 @@ export function Feedback({ locale, title }: FeedbackProps) {
   };
 
   return (
-    <Card className="mt-10 border-border/70 bg-card/80">
+    <Card className='mt-10 border-border/70 bg-card/80'>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <MessageSquareText data-icon="inline-start" />
+        <CardTitle className='flex items-center gap-2 text-base'>
+          <MessageSquareText data-icon='inline-start' />
           {copy.title}
         </CardTitle>
         <CardDescription>{copy.description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-wrap gap-3">
+      <CardContent className='flex flex-col gap-4'>
+        <div className='flex flex-wrap gap-3'>
           {(['good', 'bad'] as const).map((value) => (
             <Button
               key={value}
-              type="button"
+              type='button'
               variant={opinion === value ? 'default' : 'outline'}
               onClick={() => setOpinion(value)}
             >
               {value === 'good' ? (
-                <ThumbsUp data-icon="inline-start" />
+                <ThumbsUp data-icon='inline-start' />
               ) : (
-                <ThumbsDown data-icon="inline-start" />
+                <ThumbsDown data-icon='inline-start' />
               )}
               {value === 'good' ? copy.helpful : copy.needsWork}
             </Button>
           ))}
         </div>
-        <label className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
           {copy.noteLabel}
           <textarea
             className={cn(
@@ -171,12 +171,12 @@ export function Feedback({ locale, title }: FeedbackProps) {
           />
         </label>
       </CardContent>
-      <CardFooter className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted-foreground">
+      <CardFooter className='flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between'>
+        <p className='text-xs text-muted-foreground'>
           {copy.destinationSummary}
         </p>
         <Button
-          type="button"
+          type='button'
           disabled={!opinion || isSubmitting}
           onClick={submitFeedback}
         >
@@ -184,7 +184,7 @@ export function Feedback({ locale, title }: FeedbackProps) {
         </Button>
       </CardFooter>
       {result ? (
-        <div className="border-t px-4 py-3 text-sm">
+        <div className='border-t px-4 py-3 text-sm'>
           <FeedbackResult locale={locale} result={result} />
         </div>
       ) : null}

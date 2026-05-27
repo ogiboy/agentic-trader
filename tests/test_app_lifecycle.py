@@ -17,13 +17,13 @@ BOOTSTRAP_SCRIPT = ROOT / "scripts" / "bootstrap-system-tools.sh"
 def _fake_cli(tmp_path: Path, exit_code: int = 0) -> Path:
     """
     Create an executable fake `agentic-trader` CLI in `tmp_path` that emits deterministic JSON payloads for tests.
-    
+
     The script writes specific JSON responses based on the invoked arguments (e.g., `*setup-status*` → `{"core_ready":true}`, `*model-service*`, `*camofox-service*`, `*webgui-service*` → `{"service_reachable":false}`, `*provider-diagnostics*` → `{"provider":"ollama"}`, `*v1-readiness*` → `{"ready":false}`) and prints `{"ok":true}` for other invocations, then exits with the given code.
-    
+
     Parameters:
         tmp_path (Path): Directory where the fake `agentic-trader` script will be created.
         exit_code (int): Exit code the script will use when invoked.
-    
+
     Returns:
         Path: Path to the created executable `agentic-trader` script.
     """
@@ -31,12 +31,12 @@ def _fake_cli(tmp_path: Path, exit_code: int = 0) -> Path:
     script.write_text(
         "#!/usr/bin/env sh\n"
         'case "$*" in\n'
-        "  *setup-status*) printf '{\"core_ready\":true}\\n' ;;\n"
-        "  *model-service*) printf '{\"service_reachable\":false}\\n' ;;\n"
-        "  *camofox-service*) printf '{\"service_reachable\":false}\\n' ;;\n"
-        "  *webgui-service*) printf '{\"service_reachable\":false}\\n' ;;\n"
+        '  *setup-status*) printf \'{"core_ready":true,"optional_ready":false,"tools":[{"tool_id":"agentic_trader_entrypoint","status":"path_drift"}]}\\n\' ;;\n'
+        '  *model-service*) printf \'{"app_owned":false,"service_reachable":false,"message":"Unable to reach Ollama"}\\n\' ;;\n'
+        '  *camofox-service*) printf \'{"app_owned":false,"service_reachable":false,"message":"stale state"}\\n\' ;;\n'
+        '  *webgui-service*) printf \'{"app_owned":false,"service_reachable":false,"message":"external listener not claimed"}\\n\' ;;\n'
         '  *provider-diagnostics*) printf \'{"provider":"ollama"}\\n\' ;;\n'
-        "  *v1-readiness*) printf '{\"ready\":false}\\n' ;;\n"
+        '  *v1-readiness*) printf \'{"paper_operations":{"allowed":false,"checks":[{"name":"llm_provider_ready","passed":false}]}}\\n\' ;;\n'
         "  *) printf '{\"ok\":true}\\n' ;;\n"
         "esac\n"
         f"exit {exit_code}\n",
@@ -53,13 +53,13 @@ def _run_doctor(
 ) -> subprocess.CompletedProcess[str]:
     """
     Run the app-doctor Node script with the provided arguments and an environment overlay.
-    
+
     Merges the current process environment with `env` (if provided) and invokes the doctor script from the repository root, capturing stdout and stderr as text.
-    
+
     Parameters:
         *args (str): Arguments forwarded to the doctor script.
         env (dict[str, str] | None): Environment variables to merge over the current process environment.
-    
+
     Returns:
         subprocess.CompletedProcess[str]: Completed process whose `stdout` and `stderr` are captured as text; `returncode` is the script's exit status.
     """
@@ -90,9 +90,7 @@ def _fake_pnpm(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
     log_path = tmp_path / "pnpm.log"
     script = tmp_path / "pnpm"
     script.write_text(
-        "#!/usr/bin/env sh\n"
-        'printf \'%s\\n\' "$*" >> "$PNPM_LOG"\n'
-        f"exit {exit_code}\n",
+        f'#!/usr/bin/env sh\nprintf \'%s\\n\' "$*" >> "$PNPM_LOG"\nexit {exit_code}\n',
         encoding="utf-8",
     )
     script.chmod(0o755)
@@ -102,13 +100,13 @@ def _fake_pnpm(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
 def _fake_update_toolchain(tmp_path: Path, exit_code: int = 0) -> tuple[Path, Path]:
     """
     Create a fake toolchain `bin/` directory with mock `pnpm` and `uv` executables that record invocations.
-    
+
     Each fake executable appends a line of the form `<tool>|<cwd>|<args>` to the file referenced by the `UPDATE_LOG` environment variable and exits with the provided `exit_code`.
-    
+
     Parameters:
         tmp_path (Path): Directory in which to create the `bin/` folder and the update log file.
         exit_code (int): Exit code the fake executables will return when invoked.
-    
+
     Returns:
         tuple[Path, Path]: `(bin_dir, log_path)` where `bin_dir` is the created `bin/` directory containing the fake `pnpm` and `uv` scripts, and `log_path` is the path to the update log file (`update.log`) under `tmp_path`.
     """
@@ -215,12 +213,12 @@ def _run_setup(
 ) -> subprocess.CompletedProcess[str]:
     """
     Run the Node-based app setup script with the given arguments and environment.
-    
+
     Parameters:
         tmp_path (Path): Temporary test directory fixture; unused by this helper but accepted for API consistency.
         *args (str): Arguments forwarded to the setup script.
         env (dict[str, str] | None): Environment variables merged on top of the current process environment; provided keys override existing values.
-    
+
     Returns:
         subprocess.CompletedProcess[str]: Completed process containing `stdout`, `stderr`, and `returncode`.
     """
@@ -244,12 +242,12 @@ def _run_services(
 ) -> subprocess.CompletedProcess[str]:
     """
     Invoke the repository's Node "services" script with the specified mode and arguments and return the completed process.
-    
+
     Parameters:
         mode (str): Mode to pass to the services script (e.g., "start", "stop").
         *args (str): Additional command-line arguments forwarded to the script.
         env (dict[str, str] | None): Optional environment variables to overlay on the current process environment before execution.
-    
+
     Returns:
         subprocess.CompletedProcess[str]: Completed process containing the exit code and captured `stdout` and `stderr`.
     """
@@ -299,13 +297,13 @@ def _run_uninstall(
 ) -> subprocess.CompletedProcess[str]:
     """
     Invoke the Node-based uninstall script with the given command-line arguments and environment.
-    
+
     Merges `env` over the current process environment and runs `node <UNINSTALL_SCRIPT>` from the repository root.
-    
+
     Parameters:
         *args (str): Additional command-line arguments passed to the uninstall script.
         env (dict[str, str] | None): Environment variables to overlay on the current environment before running.
-    
+
     Returns:
         subprocess.CompletedProcess[str]: Completed process containing `returncode`, `stdout`, and `stderr`.
     """
@@ -328,12 +326,12 @@ def _run_up(
 ) -> subprocess.CompletedProcess[str]:
     """
     Run the app `up` Node script from the repository root with a merged environment.
-    
+
     If `env` does not provide `AGENTIC_TRADER_RUNTIME_DIR`, a temporary runtime directory is created and injected into the environment before running the script. Keys in `env` override the current process environment.
-    
+
     Parameters:
         env (dict[str, str] | None): Additional environment variables to merge over the current process environment; may include `AGENTIC_TRADER_RUNTIME_DIR` to control the runtime directory.
-    
+
     Returns:
         subprocess.CompletedProcess[str]: The completed process with captured stdout/stderr and the exit code.
     """
@@ -449,6 +447,17 @@ def test_app_doctor_does_not_run_provider_generation_probe(tmp_path: Path) -> No
     )
 
 
+def test_app_doctor_human_output_surfaces_degraded_payload(tmp_path: Path) -> None:
+    fake_cli = _fake_cli(tmp_path)
+    result = _run_doctor(tmp_path, env={"AGENTIC_TRADER_CLI": str(fake_cli)})
+
+    assert result.returncode == 0
+    assert "core_ready=yes optional_ready=no" in result.stdout
+    assert "degraded_tools=agentic_trader_entrypoint:path_drift" in result.stdout
+    assert "service_reachable=no message=Unable to reach Ollama" in result.stdout
+    assert "paper_operations_allowed=no failed=llm_provider_ready" in result.stdout
+
+
 def test_app_doctor_reports_missing_cli_without_uv_sync(tmp_path: Path) -> None:
     result = _run_doctor(
         tmp_path,
@@ -553,6 +562,24 @@ def test_app_start_dry_run_defers_services_by_default() -> None:
     assert "agentic-trader webgui-service start --no-open-browser --json" in commands
     assert all(step["status"] == "deferred" for step in payload["steps"])
     assert any("No dependency install" in note for note in payload["safety_notes"])
+    assert payload["next_commands"][1] == "pnpm run app:start -- --webgui --yes"
+
+
+def test_app_services_dry_run_next_command_matches_selected_scope() -> None:
+    start_result = _run_services("start", "--json", "--model-service", "--dry-run")
+    start_payload = json.loads(start_result.stdout)
+
+    assert start_result.returncode == 0
+    assert (
+        start_payload["next_commands"][1]
+        == "pnpm run app:start -- --model-service --yes"
+    )
+
+    stop_result = _run_services("stop", "--all", "--dry-run")
+
+    assert stop_result.returncode == 0
+    assert "Run pnpm run app:stop -- --all --yes" in stop_result.stdout
+    assert "--webgui --yes to stop" not in stop_result.stdout
 
 
 def test_app_start_webgui_yes_starts_only_webgui_without_browser(
@@ -726,7 +753,7 @@ def test_app_start_webgui_treats_external_reachable_listener_as_noop(
 ) -> None:
     """
     Verifies that starting the web GUI treats an externally reachable listener as a no-op.
-    
+
     Runs the `app start --webgui --yes` flow with a fake service CLI that reports
     `app_owned: false` and `service_reachable: true`, and asserts the webgui step
     is marked `passed` and its payload reflects the external listener (`app_owned`
@@ -914,7 +941,65 @@ def test_bootstrap_dry_run_prompts_tool_ownership_and_camofox_by_default(
     assert "+ record camofox ownership as app-owned" in result.stdout
     assert "Camofox dependencies" in result.stdout
     assert "Bootstrap summary" in result.stdout
-    assert "planned  Ollama ownership" in result.stdout
+    assert "• planned  Ollama ownership" in result.stdout
+
+
+def test_bootstrap_uses_recorded_tool_ownership_without_reprompting(
+    tmp_path: Path,
+) -> None:
+    bin_dir = _fake_path_commands(
+        tmp_path,
+        "agentic-trader",
+        "firecrawl",
+        "ollama",
+        "pnpm",
+        "uv",
+    )
+    runtime_dir = tmp_path / "runtime"
+    setup_dir = runtime_dir / "setup"
+    setup_dir.mkdir(parents=True)
+    (setup_dir / "tool-ownership.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "tool-ownership/v1",
+                "updated_at": "2026-05-21T00:00:00Z",
+                "decisions": {
+                    "ollama": {
+                        "mode": "host-owned",
+                        "source": "test",
+                        "updated_at": "2026-05-21T00:00:00Z",
+                    },
+                    "firecrawl": {
+                        "mode": "api-key-only",
+                        "source": "test",
+                        "updated_at": "2026-05-21T00:00:00Z",
+                    },
+                    "camofox": {
+                        "mode": "host-owned",
+                        "source": "test",
+                        "updated_at": "2026-05-21T00:00:00Z",
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run_bootstrap(
+        env={
+            "AGENTIC_TRADER_RUNTIME_DIR": str(runtime_dir),
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Use app-managed Ollama" not in result.stdout
+    assert "Use app-managed Firecrawl" not in result.stdout
+    assert "Configure Camofox as an app-managed browser helper" not in result.stdout
+    assert "Ollama ownership already recorded as host-owned" in result.stdout
+    assert "Firecrawl ownership already recorded as api-key-only" in result.stdout
+    assert "Camofox ownership already recorded as host-owned" in result.stdout
+    assert "app-managed dependency install skipped" in result.stdout
 
 
 def test_app_up_camofox_browser_selects_deps_first(tmp_path: Path) -> None:
@@ -1063,7 +1148,7 @@ def test_app_up_dry_run_does_not_persist_owner_flags(tmp_path: Path) -> None:
 def test_app_uninstall_dry_run_plans_safe_scopes() -> None:
     """
     Verify that running `app uninstall --dry-run` plans safe removal targets and reports safety notes.
-    
+
     Asserts that the payload indicates the `uninstall` action with `dry_run` true and no mutation,
     that no scopes are selected, that planned targets include `.venv`, `node_modules`, and
     `runtime/webgui_service` while excluding `runtime/agentic_trader.duckdb` and `.env`, and that
@@ -1089,7 +1174,7 @@ def test_app_uninstall_dry_run_plans_safe_scopes() -> None:
 def test_app_uninstall_rejects_yes_without_scope() -> None:
     """
     Verifies uninstall rejects confirmation when no scope is selected.
-    
+
     Asserts the CLI exits with code 2 and emits "Select at least one uninstall scope" on stderr.
     """
     result = _run_uninstall("--json", "--yes")

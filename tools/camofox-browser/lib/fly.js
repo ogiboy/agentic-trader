@@ -8,7 +8,7 @@
  * makeTabId() returns a plain UUID and isLocalTab() always returns true.
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * Create Fly.io-aware helpers for generating tab IDs, determining tab ownership, and an Express middleware that replays requests to the owning instance.
