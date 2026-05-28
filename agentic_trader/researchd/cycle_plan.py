@@ -135,12 +135,38 @@ RESEARCH_CYCLE_PHASES: tuple[ResearchCyclePhase, ...] = (
 
 
 def research_cycle_phase_payload(phase: ResearchCyclePhase) -> dict[str, object]:
+    """
+    Convert a ResearchCyclePhase into a payload dictionary suitable for inclusion in the cycle plan.
+    
+    Parameters:
+        phase (ResearchCyclePhase): The immutable phase definition to convert.
+    
+    Returns:
+        dict[str, object]: A dictionary mapping the phase's fields (e.g., name, purpose, read_commands, produce, fail_closed_on, forbidden) to their serializable values.
+    """
     return dataclass_payload(phase)
 
 
 def research_cycle_plan_payload(
     *, symbols: list[str], cadence_seconds: int, max_proposals_per_cycle: int = 1
 ) -> dict[str, object]:
+    """
+    Builds a research cycle plan payload for the given watchlist and cadence.
+    
+    Cleans and normalizes inputs, then returns a dict describing the fixed PRE-FLIGHT → MONITOR → ANALYZE → PROPOSE → DIGEST cycle, its phases, safety policy, and operator controls.
+    
+    Parameters:
+        symbols (list[str]): Watchlist symbols; each symbol is stripped of surrounding whitespace and uppercased. Empty or whitespace-only symbols are removed.
+        cadence_seconds (int): Desired cycle cadence in seconds; values below 60 are normalized to 60.
+        max_proposals_per_cycle (int): Maximum number of proposals allowed per cycle; negative values are normalized to 0.
+    
+    Returns:
+        dict[str, object]: Payload including keys "cycle", "cadence_seconds", "watchlist", "scan_presets",
+        "max_proposals_per_cycle", "phases", "safety_policy", and "operator_controls".
+    
+    Raises:
+        ValueError: If `symbols` contains no non-empty entries after cleaning.
+    """
     clean_symbols = [symbol.strip().upper() for symbol in symbols if symbol.strip()]
     if not clean_symbols:
         raise ValueError("symbols must contain at least one non-empty symbol")

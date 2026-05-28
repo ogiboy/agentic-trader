@@ -51,6 +51,12 @@ const languageCardCopy: Record<
   },
 };
 
+/**
+ * Renders the language selection landing UI for the given page variant.
+ *
+ * @param variant - 'root' to use top-level language choice content, 'docs' to use documentation-routing content.
+ * @returns The landing page JSX containing header badges and a card for each supported documentation language.
+ */
 export function LanguageLanding({ variant }: Readonly<LanguageLandingProps>) {
   const landingCopy = copy[variant];
 

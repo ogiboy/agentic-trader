@@ -1240,6 +1240,15 @@ async function closeAllSessions(
   }
 }
 
+/**
+ * Return an active session for the given user, creating a new Playwright context if none exists or the existing context is dead.
+ *
+ * @param {string} userId - Identifier for the user; coerced to a normalized session key.
+ * @param {Object} [options]
+ * @param {boolean} [options.trace=false] - When true, enable tracing for the created session (saved to the configured traces directory) if supported.
+ * @returns {{ context: import('playwright').BrowserContext, tabGroups: Map, lastAccess: number, proxySessionId: string|null, tracePath: string|null }} The session object containing the Playwright context, tab group map, last access timestamp, optional proxy session id, and optional trace path.
+ * @throws {Error} If the maximum number of concurrent sessions has been reached.
+ */
 async function getSession(userId, { trace = false } = {}) {
   const key = normalizeUserId(userId);
   let session = sessions.get(key);
@@ -1359,6 +1368,12 @@ async function getSession(userId, { trace = false } = {}) {
   return session;
 }
 
+/**
+ * Return the tab group Map for the given group key, creating and storing a new Map if none exists.
+ * @param {Object} session - Session object that contains `tabGroups`.
+ * @param {string} listItemId - Group key (sessionKey or legacy listItemId).
+ * @returns {Map<string, Object>} Map from `tabId` to `TabState` for the specified group.
+ */
 function getTabGroup(session, listItemId) {
   let group = session.tabGroups.get(listItemId);
   if (!group) {
@@ -1368,6 +1383,11 @@ function getTabGroup(session, listItemId) {
   return group;
 }
 
+/**
+ * Determines whether an error indicates a closed Playwright page, context, or browser.
+ * @param {*} err - Error object or value; its `message` property will be inspected if present.
+ * @returns {boolean} `true` if the error message reports a closed page, context, or browser, `false` otherwise.
+ */
 function isDeadContextError(err) {
   const msg = err?.message || '';
   return (
@@ -1378,6 +1398,11 @@ function isDeadContextError(err) {
   );
 }
 
+/**
+ * Detects whether an error represents a timeout by inspecting its message text.
+ * @param {any} err - An error-like value; its `message` property (if present) will be examined.
+ * @returns {boolean} `true` if the error message indicates a timeout, `false` otherwise.
+ */
 function isTimeoutError(err) {
   const msg = err?.message || '';
   return (
@@ -1386,10 +1411,20 @@ function isTimeoutError(err) {
   );
 }
 
+/**
+ * Determines whether an error represents a tab lock queue timeout.
+ * @param {Error|any} err - The error object to inspect.
+ * @returns {boolean} `true` if the error's message equals "Tab lock queue timeout", `false` otherwise.
+ */
 function isTabLockQueueTimeout(err) {
   return err?.message === 'Tab lock queue timeout';
 }
 
+/**
+ * Determines whether an error indicates that a tab was destroyed.
+ * @param {any} err - Error object or value to inspect.
+ * @returns {boolean} `true` if the error message is exactly `'Tab destroyed'`, `false` otherwise.
+ */
 function isTabDestroyedError(err) {
   return err?.message === 'Tab destroyed';
 }
@@ -1880,7 +1915,21 @@ async function isGoogleSearchBlocked(page) {
 }
 
 // --- Google SERP: combined extraction (refs + snapshot in one DOM pass) ---
-// Returns { refs: Map, snapshot: string }
+/**
+ * Extracts structured reference identifiers and a human-readable snapshot from a Google Search results page.
+ *
+ * Performs a best-effort DOM extraction of search inputs, navigation links, result blocks, "People also ask" items,
+ * pagination links, and grouped external links. Builds a Map of `refs` keyed by internal ref IDs (e.g. "e1") and
+ * an annotated multi-line `snapshot` string describing the page structure and found items.
+ *
+ * @param {import('playwright').Page} page - Playwright Page instance representing the loaded Google results tab.
+ * @returns {{ refs: Map<string, {role: string, name: string, nth: number}>, snapshot: string }}
+ *   An object containing:
+ *   - `refs`: Map from ref ID to an object with `role` (semantic role like "link" or "button"), `name` (display text),
+ *     and `nth` (zero-based disambiguation index for that role+name).
+ *   - `snapshot`: Annotated, newline-separated string describing headings, searchbox, navigation, result links/groups,
+ *     snippets, and pagination found on the page.
+ */
 async function extractGoogleSerp(page) {
   const refs = new Map();
   if (!page || page.isClosed()) return { refs, snapshot: '' };
@@ -1912,6 +1961,14 @@ async function extractGoogleSerp(page) {
     const elements = [];
     let refCounter = 1;
 
+    /**
+     * Create and register a new accessibility reference and return its identifier.
+     *
+     * Registers a ref entry (with role and name) in the local elements list and assigns a unique id.
+     * @param {string} role - The ARIA role of the element (e.g., "button", "link").
+     * @param {string} name - The accessible name or label used to identify the element.
+     * @returns {string} The generated reference id (e.g., "e1").
+     */
     function addRef(role, name) {
       const id = 'e' + refCounter++;
       elements.push({ id, role, name });

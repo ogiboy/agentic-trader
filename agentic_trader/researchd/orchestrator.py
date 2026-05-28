@@ -74,6 +74,15 @@ _MODEL_ENV_PREFIXES = (
 
 
 def _contract_error_items(value: object) -> list[object]:
+    """
+    Normalize an error-like value into a list of items.
+    
+    Parameters:
+        value (object): An error value which may already be a list or tuple, may be None, or may be a single item.
+    
+    Returns:
+        list[object]: A list of items: the same list if `value` is a list, the tuple converted to a list if `value` is a tuple, an empty list if `value` is None, or a single-element list containing `value` otherwise.
+    """
     if isinstance(value, list):
         return cast(list[object], value)
     if isinstance(value, tuple):
@@ -84,7 +93,14 @@ def _contract_error_items(value: object) -> list[object]:
 
 
 def _sidecar_process_env() -> dict[str, str]:
-    """Build a narrow sidecar environment without broker/runtime secrets."""
+    """
+    Create a restricted environment mapping for running the research sidecar subprocess.
+    
+    Only environment variables whose names are in the internal allowlist or start with configured model/provider prefixes are included; the returned mapping also forces CREWAI_TRACING_ENABLED to "false" to disable tracing.
+    
+    Returns:
+        env (dict[str, str]): Environment variable name -> value mapping suitable for passing to a subprocess.
+    """
     env: dict[str, str] = {}
     for key, value in os.environ.items():
         if key in _SHELL_ENV_ALLOWLIST or key.startswith(_MODEL_ENV_PREFIXES):
@@ -94,7 +110,15 @@ def _sidecar_process_env() -> dict[str, str]:
 
 
 def parse_research_symbols(raw_symbols: str) -> list[str]:
-    """Parse comma-separated watch symbols from settings."""
+    """
+    Parse a comma-separated string of symbols into a list of normalized symbols.
+    
+    Parameters:
+        raw_symbols (str): Comma-separated symbols; whitespace around entries is ignored.
+    
+    Returns:
+        list[str]: Trimmed symbols converted to uppercase, with empty entries removed.
+    """
     return [
         symbol.strip().upper() for symbol in raw_symbols.split(",") if symbol.strip()
     ]

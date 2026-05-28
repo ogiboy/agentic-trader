@@ -7,6 +7,13 @@ type WorkflowTabsProps = {
   tracks: WorkflowTrack[];
 };
 
+/**
+ * Renders a tabbed workflow panel where each track becomes a tab containing cards, with a footer note below.
+ *
+ * @param note - Text displayed below the tabs as a muted footer note.
+ * @param tracks - Array of workflow tracks; each track's `label` is used for the tab trigger and its `cards` populate the tab content.
+ * @returns The section element containing the tabs, their card contents, and the footer note.
+ */
 export function WorkflowTabs({ note, tracks }: Readonly<WorkflowTabsProps>) {
   return (
     <section className='docs-home-panel p-6 sm:p-8'>

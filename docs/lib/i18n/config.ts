@@ -30,10 +30,22 @@ const homeMetadata: Record<DocLanguage, Metadata> = {
   },
 };
 
+/**
+ * Retrieve homepage metadata localized for the specified documentation language.
+ *
+ * @param locale - The documentation language to select (`'en'` or `'tr'`).
+ * @returns The `Metadata` object for the given language.
+ */
 export function getHomeMetadata(locale: DocLanguage): Metadata {
   return homeMetadata[locale];
 }
 
+/**
+ * Resolves a locale string to a supported documentation language.
+ *
+ * @param value - Locale string to resolve
+ * @returns The `DocLanguage` matching `value` if supported, otherwise the default language
+ */
 export function getDocLanguage(value: string): DocLanguage {
   return docLanguages.includes(value as DocLanguage)
     ? (value as DocLanguage)

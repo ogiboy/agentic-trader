@@ -253,6 +253,14 @@ def test_cli_help_supports_short_and_long_forms() -> None:
 def test_cli_locale_command_supports_override_and_persistence(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """
+    Verify the locale CLI supports temporary overrides, persistent settings, and input validation.
+    
+    This test ensures that:
+    - Using the global `--locale <code>` with the `locale` subcommand returns the requested locale and supported locales without writing to the local env file.
+    - Running `locale --set <code>` persists `AGENTIC_TRADER_UI_LOCALE=<code>` to the `.env.local` file and reports that the value was persisted.
+    - Providing an unsupported locale produces a non-zero exit and an error message: "Locale must be one of: en, tr."
+    """
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(cli_module, "ENV_LOCAL_FILE", tmp_path / ".env.local")
     monkeypatch.delenv("AGENTIC_TRADER_UI_LOCALE", raising=False)
@@ -310,15 +318,16 @@ def test_cli_env_local_upsert_creates_and_updates_known_file(
 
 def _artifacts(symbol: str = "AAPL") -> RunArtifacts:
     """
-    Builds a fully populated RunArtifacts instance with realistic sample data for use in tests.
-
+    Create a realistic RunArtifacts object populated with sample market, research, strategy, risk, manager, execution, review, and a single agent trace for use in tests.
+    
     Parameters:
-        symbol (str): Ticker symbol to apply to the snapshot and execution sections (defaults to "AAPL").
-
+        symbol (str): Ticker symbol applied to the snapshot and execution sections (defaults to "AAPL").
+    
     Returns:
-        RunArtifacts: An object containing a MarketSnapshot, ResearchCoordinatorBrief, RegimeAssessment,
-        StrategyPlan, RiskPlan, ManagerDecision, ExecutionDecision, ReviewNote, and a single AgentStageTrace
-        whose context_json and output_json are JSON-encoded strings.
+        RunArtifacts: An object whose fields are populated with deterministic example data including
+        a MarketSnapshot, ResearchCoordinatorBrief, RegimeAssessment, StrategyPlan, RiskPlan,
+        ManagerDecision, ExecutionDecision, ReviewNote, and one AgentStageTrace whose
+        `context_json` and `output_json` are JSON-encoded strings.
     """
     return RunArtifacts(
         snapshot=MarketSnapshot(

@@ -24,6 +24,12 @@ const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 const once = process.argv.includes('--once');
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 
+/**
+ * Resolve the preferred account currency from a dashboard snapshot.
+ *
+ * @param {Object} data - Dashboard snapshot object which may contain financeOps, portfolio, and preferences sections.
+ * @returns {string} The currency code found in `financeOps.accounting.currency`, or `portfolio.accounting.currency`, or the first entry of `preferences.currencies`, or `'USD'` if none are available.
+ */
 function accountCurrency(data) {
   return (
     data.financeOps?.accounting?.currency ||
@@ -242,11 +248,11 @@ function getMarketContextLines(marketContext) {
 }
 
 /**
- * Control the runtime (start, stop, one-shot, or restart) using the provided dashboard snapshot and produce a user-facing action message.
+ * Perform a runtime control action based on the provided dashboard snapshot and return a user-facing message about the outcome.
  *
- * @param {string} kind - Action to perform: "start", "stop", "one-shot", or other (treated as restart when a saved launch config exists).
- * @param {Object} data - Dashboard snapshot containing runtime `status` and `preferences` used to decide behavior.
- * @returns {Promise<{kind: string, text: string}>} An action message describing the requested operation or why no action was taken (`kind: 'info'`, `text` explains the outcome).
+ * @param {string} kind - Action to perform: "start", "stop", "one-shot", or other (treated as a restart when a saved launch configuration exists).
+ * @param {Object} data - Dashboard snapshot containing runtime `status` and `preferences` used to determine behavior.
+ * @returns {{kind: string, text: string}} An action message: `kind` is a message level (e.g., `'info'`), and `text` explains the outcome or reason no action was taken.
  */
 async function performRuntimeAction(kind, data) {
   if (kind === 'start') {
@@ -398,15 +404,15 @@ function handleSettingsInput(input, key, handlers) {
 }
 
 /**
- * Handle top-level single-key keyboard commands and page selection.
+ * Dispatches single-key global commands to the provided handlers.
  *
- * Invokes the corresponding handler when a recognized key is pressed:
- * q (exit), r (refresh), o (one-shot run), s (start), x (stop), R (restart),
- * and numeric keys 1–7 to switch pages.
+ * Recognizes: 'q' to exit, 'r' to refresh, 'o' for a one-shot run, 's' to start,
+ * 'x' to stop, capital 'R' to restart, and page shortcut keys resolved by
+ * getPageForShortcut(input) to change pages.
  *
- * @param {string} input - The raw key input (single character).
- * @param {{ exit: Function, refreshNow: Function, runAction: Function, setPage: Function }} handlers - Callback handlers for actions: `exit()`, `refreshNow()`, `runAction(kind)`, and `setPage(page)`.
- * @returns {boolean} `true` if the input was handled and a handler was invoked, `false` otherwise.
+ * @param {string} input - The raw single-character key input.
+ * @param {{ exit: Function, refreshNow: Function, runAction: Function, setPage: Function }} handlers - Action callbacks: `exit()`, `refreshNow()`, `runAction(kind)`, and `setPage(page)`.
+ * @returns {boolean} `true` if the input triggered a handler, `false` otherwise.
  */
 function handleGlobalInput(input, handlers) {
   const normalized = input.toLowerCase();
@@ -443,12 +449,9 @@ function handleGlobalInput(input, handlers) {
 }
 
 /**
- * Load the dashboard snapshot from the CLI and attach a retrieval timestamp.
+ * Fetches the dashboard snapshot and records the retrieval time.
  *
- * Requests a dashboard snapshot and returns the snapshot object augmented with
- * a `loadedAt` field containing the ISO 8601 timestamp when the snapshot was fetched.
- *
- * @returns {Promise<object>} The dashboard snapshot payload augmented with a `loadedAt` ISO 8601 string.
+ * @returns {object} The dashboard snapshot augmented with a `loadedAt` ISO 8601 timestamp string.
  */
 async function loadDashboard() {
   const payload = await runJsonCommand([
@@ -1985,11 +1988,11 @@ function useDashboardState({ interactive }) {
 }
 
 /**
- * Render the interactive Agentic Trader control-room dashboard and wire its input, actions, and chat behavior.
+ * Render the interactive Agentic Trader control-room dashboard and wire keyboard input, runtime actions, and chat behavior.
  *
- * Manages dashboard state and periodic refresh, handles keyboard-driven page navigation and global runtime actions, and provides a chat composer that sends messages via the CLI and updates the in-UI chat history.
+ * Sets up dashboard state with periodic refresh, binds keys for page navigation and global runtime actions, and provides a chat composer that sends messages via the CLI and updates the in-UI chat history.
  *
- * @returns {import('react').ReactElement} The rendered DashboardView component configured for interactive use.
+ * @returns {import('react').ReactElement} A React element of the DashboardView configured for interactive use.
  */
 function InteractiveDashboardApp() {
   const {

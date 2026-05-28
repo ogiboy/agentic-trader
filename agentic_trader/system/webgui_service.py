@@ -101,10 +101,28 @@ def webgui_service_dir(settings: Settings) -> Path:
 
 
 def webgui_service_state_path(settings: Settings) -> Path:
+    """
+    Get the path to the persisted Web GUI service state JSON file for the given runtime settings.
+    
+    Parameters:
+        settings (Settings): Runtime settings used to locate the application's runtime directory.
+    
+    Returns:
+        Path: Filesystem path to the `webgui_service.json` state file within the service runtime directory.
+    """
     return webgui_service_dir(settings) / "webgui_service.json"
 
 
 def _read_state(settings: Settings) -> WebGUIServiceState | None:
+    """
+    Read the persisted WebGUIServiceState from the runtime state file if it exists and is valid.
+    
+    Parameters:
+        settings (Settings): Application settings used to locate the webgui service state file.
+    
+    Returns:
+        WebGUIServiceState | None: Parsed state object when the JSON file exists and validates, or `None` if the file is missing or cannot be parsed.
+    """
     path = webgui_service_state_path(settings)
     if not path.exists():
         return None
