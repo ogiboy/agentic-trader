@@ -1793,7 +1793,12 @@ def _runtime_stop_action(settings: Settings) -> None:
 
 
 def _runtime_monitor_action(settings: Settings) -> None:
-    refresh_seconds = float(Prompt.ask(PROMPT_REFRESH_SECONDS, default="1.0"))
+    try:
+        refresh_seconds = float(Prompt.ask(PROMPT_REFRESH_SECONDS, default="1.0"))
+        if refresh_seconds <= 0.0:
+            refresh_seconds = 1.0
+    except ValueError:
+        refresh_seconds = 1.0
     run_live_monitor(settings, refresh_seconds=refresh_seconds)
 
 

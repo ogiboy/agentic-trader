@@ -198,7 +198,7 @@ def _oversized_files(paths: Sequence[Path], *, repo_root: Path) -> tuple[FileMet
     metrics: list[FileMetric] = []
     for path in paths:
         try:
-            line_count = path.read_text(encoding="utf-8").count("\n") + 1
+            line_count = len(path.read_text(encoding="utf-8").splitlines())
         except UnicodeDecodeError:
             continue
         rel_path = _relative(path, repo_root=repo_root)
@@ -313,20 +313,27 @@ def _copy_candidates(
 
 
 def _docs_locale_parity(repo_root: Path) -> LocaleParity:
-    english_root = repo_root / "docs" / "content" / "docs" / "en"
-    turkish_root = repo_root / "docs" / "content" / "docs" / "tr"
+    docs_english_root = repo_root / "docs" / "content" / "docs" / "en"
+    docs_turkish_root = repo_root / "docs" / "content" / "docs" / "tr"
+    home_english_root = repo_root / "docs" / "lib" / "home" / "content" / "en.ts"
+    home_turkish_root = repo_root / "docs" / "lib" / "home" / "content" / "tr.ts"
 
-    def _relative_files(root: Path) -> set[str]:
+    def _relative_files(root: Path, suffixes: set[str]) -> set[str]:
         if not root.exists():
             return set()
         return {
             path.relative_to(root).as_posix()
             for path in root.rglob("*")
-            if path.is_file() and path.suffix in {".mdx", ".json"}
+            if path.is_file() and path.suffix in suffixes
         }
 
-    english_files = _relative_files(english_root)
-    turkish_files = _relative_files(turkish_root)
+    def _single_file(file_path: Path) -> set[str]:
+        if not file_path.exists():
+            return set()
+        return {file_path.name}
+
+    english_files = _relative_files(docs_english_root, {".mdx", ".json"}) | _single_file(home_english_root)
+    turkish_files = _relative_files(docs_turkish_root, {".mdx", ".json"}) | _single_file(home_turkish_root)
     return LocaleParity(
         english_only=tuple(sorted(english_files - turkish_files)),
         turkish_only=tuple(sorted(turkish_files - english_files)),
