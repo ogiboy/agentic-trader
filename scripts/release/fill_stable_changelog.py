@@ -172,12 +172,13 @@ def main() -> int:
     )
     parser.add_argument("--version", required=True)
     parser.add_argument("--since")
-    parser.add_argument("--until", default="HEAD")
+    parser.add_argument("--until", default=None)
     args = parser.parse_args()
 
     since = args.since or latest_previous_stable_tag(args.version)
+    until = args.until or args.version
     text = CHANGELOG.read_text(encoding="utf-8")
-    entries = collect_commit_entries(since=since, until=args.until)
+    entries = collect_commit_entries(since=since, until=until)
     CHANGELOG.write_text(
         fill_empty_section(text, entries=entries, version=args.version),
         encoding="utf-8",
