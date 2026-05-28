@@ -27,6 +27,17 @@ from tests.typing_helpers import approx
 
 
 def _settings(tmp_path: Path) -> Settings:
+    """
+    Create a Settings instance that uses the provided temporary path for runtime and database storage.
+    
+    The returned Settings has runtime_dir set to tmp_path, database_path set to tmp_path / "agentic_trader.duckdb", default_cash set to 10000.0, and directories ensured via ensure_directories().
+    
+    Parameters:
+        tmp_path (Path): Base directory used for runtime_dir and to locate/create the database file.
+    
+    Returns:
+        Settings: Configured Settings instance ready for test use.
+    """
     settings = Settings(
         runtime_dir=tmp_path,
         database_path=tmp_path / "agentic_trader.duckdb",

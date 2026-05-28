@@ -10,6 +10,14 @@ type HomePageProps = {
   locale: DocLanguage;
 };
 
+/**
+ * Render the documentation home page for a given locale.
+ *
+ * Renders the full home page layout — hero, current focus panel, guardrail alert, entry points, and workflow tabs — using localized content for the supplied documentation language.
+ *
+ * @param locale - The documentation language/locale to render content for
+ * @returns The JSX element for the localized documentation home page
+ */
 export function HomePage({ locale }: Readonly<HomePageProps>) {
   const content = getHomeContent(locale);
 

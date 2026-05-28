@@ -27,12 +27,15 @@ from tests.typing_helpers import approx
 
 def _frame() -> pd.DataFrame:
     """
-    Builds a deterministic 100-row OHLCV DataFrame for testing.
-
-    The DataFrame contains columns "open", "high", "low", "close", and "volume" with a daily DatetimeIndex starting at 2024-01-01 and 100 periods.
-
+    Create a deterministic 100-row OHLCV DataFrame for tests.
+    
     Returns:
-        pd.DataFrame: 100-row DataFrame where `close` starts at 100.0 and increases by 0.5 per row; `open` equals `close`; `high` is `close + 0.5`; `low` is `close - 0.5`; `volume` starts at 1_000_000 and increases by 1_000 per row; index is daily timestamps from 2024-01-01.
+        pd.DataFrame: Daily-indexed (starting 2024-01-01) DataFrame with 100 rows and columns:
+            - `close`: starts at 100.0 and increases by 0.5 per row
+            - `open`: equal to `close`
+            - `high`: `close + 0.5`
+            - `low`: `close - 0.5`
+            - `volume`: starts at 1_000_000 and increases by 1_000 per row
     """
     closes = [100.0 + (index * 0.5) for index in range(100)]
     return pd.DataFrame(

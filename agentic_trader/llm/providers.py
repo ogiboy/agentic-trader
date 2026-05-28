@@ -28,6 +28,15 @@ def _json_object(value: object) -> JsonObject:
 
 
 def _json_object_or_none(value: object) -> JsonObject | None:
+    """
+    Convert a value to a JSON-like object mapping with string keys, or return None if the value is not a mapping.
+    
+    Parameters:
+        value (object): The value to convert; if it is a mapping, its keys will be converted to strings.
+    
+    Returns:
+        dict[str, object] | None: A dictionary with stringified keys when `value` is a mapping, or `None` otherwise.
+    """
     if not isinstance(value, dict):
         return None
     return {
@@ -36,6 +45,15 @@ def _json_object_or_none(value: object) -> JsonObject | None:
 
 
 def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
+    """
+    Convert an iterable/JSON array value into a list of object mappings, skipping non-object items.
+    
+    Parameters:
+        value (object): The value to iterate over; expected to be a sequence or JSON array-like. Each element is inspected and converted to a mapping if it represents a JSON object.
+    
+    Returns:
+        list[Mapping[str, object]]: A list of mappings where each mapping has string keys and corresponds to an object element from the input. Non-object elements are omitted.
+    """
     rows: list[Mapping[str, object]] = []
     for item in _object_list(value):
         row = _json_object_or_none(item)

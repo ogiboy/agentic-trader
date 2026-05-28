@@ -18,6 +18,16 @@ from tests.typing_helpers import approx
 
 
 def _snapshot() -> MarketSnapshot:
+    """
+    Constructs a deterministic MarketSnapshot for the symbol "AAPL" with fixed market, technical, and context fields for use in tests.
+    
+    The snapshot includes:
+    - market/technical fields such as last_close (105.0), ema_20, ema_50, atr_14, rsi_14, volatility_20, return_5, return_20, volume_ratio_20, mtf_alignment, mtf_confidence, and bars_analyzed.
+    - a MarketContextPack for a 1d interval (lookback 180d, window 2025-01-01 to 2025-06-30) containing four MarketContextHorizon entries for 5, 20, 60, and 120 bars with prepopulated return_pct, max_drawdown_pct, trend_vote, support, and resistance values.
+    
+    Returns:
+        MarketSnapshot: A fully populated MarketSnapshot for "AAPL" with the above fixed values.
+    """
     context_pack = MarketContextPack(
         symbol="AAPL",
         interval="1d",

@@ -58,16 +58,16 @@ def prepare_trade_proposal(
     *, draft: TradeProposalDraft | None = None, **fields: Any
 ) -> TradeProposalRecord:
     """
-    Constructs and returns a validated trade proposal record from a draft or equivalent fields.
-
-    Accepts either a pre-built TradeProposalDraft or keyword fields used to construct one (providing both is an error). The draft is validated, the symbol is normalized (trimmed and uppercased), timestamps are set, and a unique `proposal_id` is generated.
-
+    Create and validate a TradeProposalRecord from either a TradeProposalDraft or equivalent keyword fields.
+    
+    If `draft` is provided, `fields` must be empty. The draft is validated, the symbol is trimmed and uppercased, `created_at` and `updated_at` are set to the current UTC ISO time, and a unique `proposal_id` is generated.
+    
     Parameters:
-        draft (TradeProposalDraft | None): Optional pre-constructed proposal draft.
-        **fields: Any: Keyword arguments to construct a TradeProposalDraft when `draft` is None.
-
+        draft (TradeProposalDraft | None): Optional pre-constructed proposal draft; mutually exclusive with `fields`.
+        **fields (Any): Keyword arguments used to construct a TradeProposalDraft when `draft` is None.
+    
     Returns:
-        TradeProposalRecord: A proposal record populated from the validated draft with normalized symbol, `created_at`/`updated_at` timestamps, and a generated `proposal_id`.
+        TradeProposalRecord: A record populated from the validated draft with normalized symbol, timestamps, and a generated `proposal_id`.
     """
     proposal_draft = _coerce_trade_proposal_draft(draft=draft, fields=fields)
     _validate_trade_proposal_draft(proposal_draft)

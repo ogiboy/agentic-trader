@@ -331,29 +331,40 @@ def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
 
 def _style_key(text: str) -> str:
     """
-    Wrap the given text in Rich markup using the STYLE_KEY_COLUMN tag.
-
+    Format a string as a styled key using the STYLE_KEY_COLUMN Rich markup.
+    
     Parameters:
-        text (str): The string to wrap.
-
+        text (str): The text to format as a styled key.
+    
     Returns:
-        str: The input string wrapped with opening and closing `[STYLE_KEY_COLUMN]` tags.
+        str: The input string wrapped in STYLE_KEY_COLUMN Rich markup tags.
     """
     return f"[{STYLE_KEY_COLUMN}]{text}[/{STYLE_KEY_COLUMN}]"
 
 
 def _label_line(label: str, value: object) -> str:
-    """Return one compact TUI row."""
+    """
+    Format a label and value into a compact "label: value" string.
+    
+    Parameters:
+        label (str): Left-hand label text.
+        value (object): Right-hand value; converted to its string representation.
+    
+    Returns:
+        str: The combined single-line string in the form "label: value".
+    """
 
     return ": ".join((label, str(value)))
 
 
 def _banner() -> Panel:
     """
-    Create the banner panel used as the Agentic Trader control room header.
-
+    Render the top banner panel for the Agentic Trader TUI.
+    
+    When the console width is less than 120 characters, uses a compact single-line banner; otherwise uses an ASCII-art header with a subtitle.
+    
     Returns:
-        Panel: A rich Panel containing the banner renderable; uses a compact single-line banner when the console is narrow and an ASCII-art header with a subtitle for wider consoles.
+        Panel: A Rich Panel containing the banner renderable.
     """
     if console.width < 120:
         compact = (
@@ -380,9 +391,9 @@ def _banner() -> Panel:
 
 def _exit_cleanly() -> None:
     """
-    Print a blue-bordered "Exit" panel indicating the control room closed cleanly.
-
-    This helper writes a short informational panel ("Control room closed cleanly.") to the console.
+    Display an exit panel indicating the control room closed cleanly.
+    
+    Prints a panel using the standard exit title and message.
     """
     console.print(
         Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue")
@@ -403,6 +414,15 @@ def _split_csv(value: str) -> list[str]:
 
 
 def _render_preferences(preferences: InvestmentPreferences) -> Table:
+    """
+    Builds a Rich Table that displays the given investment preferences as labeled rows.
+    
+    Parameters:
+        preferences (InvestmentPreferences): Preferences to render; list fields are joined with the UI list separator and empty values are shown as "-".
+    
+    Returns:
+        table (Table): A Rich Table containing rows for regions, exchanges, currencies, sectors, risk profile, trade style, behavior preset, agent profile, agent tone, strictness preset, intervention style, and notes.
+    """
     table = Table(title=TITLE_INVESTMENT_PREFERENCES)
     table.add_column(LABEL_SETTING)
     table.add_column(LABEL_VALUE)
@@ -453,13 +473,12 @@ def _render_recent_runs(db: TradingDatabase) -> None:
 
 def _recent_runs_table(db: TradingDatabase) -> Table:
     """
-    Builds a Rich Table listing recent runs for display.
-
+    Create a Rich Table showing up to eight recent runs from the database.
+    
+    The table has columns "Run ID", "Created", "Symbol", "Interval", and "Approved". If the database has no recent runs, the table contains a single placeholder row with "-" in each column.
+    
     Returns:
-        Table: A `rich.table.Table` titled by TITLE_RECENT_RUNS with columns
-        "Run ID", "Created", "Symbol", "Interval", and "Approved". Each row
-        corresponds to a recent run from the database; when no runs exist the
-        table contains a single placeholder row of "-" in each column.
+        rich.table.Table: The constructed table ready for rendering.
     """
     runs = db.list_recent_runs(limit=8)
     table = Table(title=TITLE_RECENT_RUNS)
@@ -477,6 +496,15 @@ def _recent_runs_table(db: TradingDatabase) -> Table:
 
 
 def _trade_journal_table(db: TradingDatabase, *, limit: int = 8) -> Table:
+    """
+    Builds a Rich Table listing recent trade journal entries.
+    
+    Parameters:
+        limit (int): Maximum number of journal entries to include.
+    
+    Returns:
+        table (rich.table.Table): Table with up to `limit` rows and columns for opened time, symbol, journal status, planned side, and realized PnL (realized PnL formatted to two decimal places or `-` when absent).
+    """
     entries = db.list_trade_journal(limit=limit)
     table = Table(title=TITLE_TRADE_JOURNAL)
     table.add_column(LABEL_OPENED)
@@ -499,6 +527,21 @@ def _trade_journal_table(db: TradingDatabase, *, limit: int = 8) -> Table:
 
 
 def _risk_report_table(db: TradingDatabase) -> Table:
+    """
+    Builds a Rich Table showing the daily risk report for the report date produced by the database.
+    
+    Parameters:
+        db (TradingDatabase): Database used to generate the daily risk report.
+    
+    Returns:
+        table (Table): A Rich Table with "Field" and "Value" columns containing rows for:
+            - Equity (formatted to two decimal places)
+            - Gross exposure (percentage)
+            - Largest position (percentage)
+            - Drawdown from peak (percentage)
+            - Fills today (integer)
+            - Warnings (count of warning entries)
+    """
     report = db.build_daily_risk_report()
     table = Table(
         title=TITLE_DAILY_RISK_REPORT_FOR_DATE.format(report_date=report.report_date)
@@ -661,6 +704,18 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
 def _agent_activity_table(
     state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Table:
+    """
+    Render a decision-workflow table showing agent stages, their statuses, and messages.
+    
+    When no live stage statuses are present, the table contains a single placeholder row using MESSAGE_NO_LIVE_AGENT_STAGE_EVENTS.
+    
+    Parameters:
+        state: Optional service state snapshot used to derive agent activity.
+        events: List of service events used to derive agent activity.
+    
+    Returns:
+        A Rich Table with columns for stage, status, and message; one row per stage or a single placeholder row when empty.
+    """
     table = Table(title=TITLE_DECISION_WORKFLOW)
     table.add_column(LABEL_STAGE)
     table.add_column(LABEL_STATUS)
@@ -677,6 +732,17 @@ def _agent_activity_table(
 def _current_activity_panel(
     settings: Settings, state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Panel:
+    """
+    Render a cyan-bordered panel summarizing the current runtime cycle, agent activity, broker gate/readiness, and the most recent outcome.
+    
+    Parameters:
+        settings (Settings): Application settings used to derive broker and readiness information.
+        state (ServiceStateSnapshot | None): Current runtime state snapshot, or `None` when unavailable.
+        events (list[ServiceEvent]): Recent runtime events used to build the agent activity view.
+    
+    Returns:
+        Panel: A Rich Panel containing joined lines for runtime cycle details, agent activity, broker gate/readiness, and last outcome.
+    """
     view = build_runtime_status_view(state)
     activity = build_agent_activity_view(state, events)
     broker = broker_runtime_payload(settings)
@@ -701,6 +767,17 @@ def _runtime_cycle_lines(
     state: ServiceStateSnapshot | None,
     view: RuntimeStatusView,
 ) -> list[str]:
+    """
+    Builds a compact list of "label: value" lines summarizing the current runtime cycle and related configuration.
+    
+    Parameters:
+        settings (Settings): Global settings; used as a fallback for runtime mode when `state` is None.
+        state (ServiceStateSnapshot | None): Runtime writer snapshot (may be None); supplies runtime_mode, symbols, interval, and lookback when available.
+        view (RuntimeStatusView): Read-only view of runtime status used to populate runtime state, current symbol, cycle count, and current note.
+    
+    Returns:
+        list[str]: Lines formatted as `label: value` for runtime state, runtime mode, watched symbols, current symbol, cycle count, interval/lookback, and current note. Missing values are represented by "-".
+    """
     return [
         _label_line(LABEL_RUNTIME, view.runtime_state),
         _label_line(
@@ -737,6 +814,15 @@ def _runtime_cycle_lines(
 
 
 def _agent_activity_lines(activity: AgentActivityView) -> list[str]:
+    """
+    Builds a list of labeled "label: value" lines summarizing agent activity for display.
+    
+    Parameters:
+        activity (AgentActivityView): The activity view containing current and last stage data.
+    
+    Returns:
+        list[str]: A list of strings where each entry is a labeled line for current stage, stage status, stage message, last completed stage, and completed note (using placeholders when values are absent).
+    """
     return [
         _label_line(LABEL_CURRENT_STAGE, activity.current_stage or "-"),
         _label_line(LABEL_STAGE_STATUS, activity.current_stage_status or "-"),
@@ -752,6 +838,20 @@ def _agent_activity_lines(activity: AgentActivityView) -> list[str]:
 def _broker_gate_lines(
     *, broker: Mapping[str, object], paper_operations: Mapping[str, object]
 ) -> list[str]:
+    """
+    Builds display lines describing broker gate status for the runtime monitor.
+    
+    Parameters:
+        broker (Mapping[str, object]): Broker runtime payload; expected keys include
+            "backend", "state", and "kill_switch_active".
+        paper_operations (Mapping[str, object]): V1 paper operations payload; expected
+            key "allowed" indicates whether paper operations are permitted.
+    
+    Returns:
+        list[str]: Four formatted `label: value` strings for broker backend, broker
+        state, kill switch ("active" or "inactive"), and V1 paper gate ("allowed" or
+        "blocked").
+    """
     return [
         _label_line(LABEL_BROKER_BACKEND, broker.get("backend", "-")),
         _label_line(LABEL_BROKER_STATE, broker.get("state", "-")),
@@ -767,6 +867,15 @@ def _broker_gate_lines(
 
 
 def _last_outcome_lines(activity: AgentActivityView) -> list[str]:
+    """
+    Builds label/value lines describing the last outcome from an agent activity view.
+    
+    Parameters:
+        activity (AgentActivityView): Activity view containing `last_outcome_message` and optional `last_outcome_type`.
+    
+    Returns:
+        list[str]: A list of formatted "label: value" lines. If `last_outcome_message` is present returns lines for outcome type (or "-" when missing) and outcome message; otherwise returns a single line indicating the system is waiting for the last outcome.
+    """
     if activity.last_outcome_message is not None:
         return [
             _label_line(LABEL_LAST_OUTCOME_TYPE, activity.last_outcome_type or "-"),
@@ -826,16 +935,16 @@ def _system_status_table(
     health: LLMHealthStatus | None = None,
 ) -> Table:
     """
-    Builds a summary key/value table of runtime, model, LLM health, and (when available) the latest order.
-
+    Create a key/value table summarizing runtime configuration, model and LLM health, and the latest persisted order when available.
+    
     Parameters:
-        settings: Application settings used to read runtime directory, mode, model name, base URL, and strict-LLM flag.
-        db: Trading database instance or `None`. When provided, the table will include a "Latest Order" row; when `None`, that row is omitted.
-        runtime_state: Optional live service state used to prefer the active runtime mode over settings defaults.
-        health: Optional precomputed LLM health snapshot. If omitted, a fresh health check is performed.
-
+        settings: Application settings used to read runtime directory, runtime mode, model name, base URL, and strict-LLM flag.
+        db: Trading database instance or `None`. When provided, the table includes a "Latest Order" row; when `None`, that row is omitted.
+        runtime_state: Optional service state snapshot; when provided its runtime mode is used in preference to settings.runtime_mode.
+        health: Optional precomputed LLM health snapshot; when omitted a fresh health check is performed.
+    
     Returns:
-        Table: Render-ready system status rows.
+        A Rich Table containing the system status rows.
     """
     health_status = health if health is not None else LocalLLM(settings).health_check()
     latest_order = db.latest_order() if db is not None else None
@@ -871,15 +980,13 @@ def _system_status_table(
 
 def _portfolio_renderable(db: TradingDatabase) -> Group:
     """
-    Create a Rich renderable containing a portfolio summary and a positions table.
-
-    The summary table shows cash, market value, equity, realized PnL, unrealized PnL (paper mark), number of open positions, and the latest mark timestamp and source. The positions table lists each position's symbol, quantity, average price, market price, market value, and unrealized PnL; a placeholder row is used when there are no positions.
-
+    Builds a Rich renderable containing a portfolio summary table and a positions table.
+    
     Parameters:
-        db (TradingDatabase): Database used to retrieve the account snapshot, user preferences (for currency), latest account mark, and current positions.
-
+        db (TradingDatabase): Database used to read the account snapshot, user preferences (to derive currency), latest account mark, and current positions.
+    
     Returns:
-        Group: Render-ready portfolio summary and positions tables.
+        Group: A renderable Group containing the portfolio summary table and the positions table.
     """
     snapshot = db.get_account_snapshot()
     preferences = db.load_preferences()
@@ -1213,6 +1320,12 @@ def _render_broker_status(settings: Settings) -> None:
 
 
 def _render_provider_diagnostics(settings: Settings) -> None:
+    """
+    Render provider diagnostics and provider source ladder panels to the console.
+    
+    Parameters:
+        settings (Settings): Application settings used to collect provider diagnostics payloads.
+    """
     payload = _object_mapping(provider_diagnostics_payload(settings))
     summary = Table(title=TITLE_PROVIDER_DIAGNOSTICS)
     summary.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
@@ -1269,6 +1382,17 @@ def _render_provider_diagnostics(settings: Settings) -> None:
 
 
 def _render_readiness_table(title: str, payload: Mapping[str, object]) -> None:
+    """
+    Render a readiness checks table showing each check's name, pass/fail state, blocking flag, and details.
+    
+    Parameters:
+        title (str): Title displayed for the table.
+        payload (Mapping[str, object]): Mapping expected to contain a "checks" entry iterable. Each check should be a mapping with optional keys:
+            - "name" (str): Human-readable check name.
+            - "passed" (bool): Whether the check passed.
+            - "blocking" (bool): Whether the check blocks readiness.
+            - "details" (str): Additional information about the check.
+    """
     table = Table(title=title)
     table.add_column(LABEL_CHECK, style=STYLE_KEY_COLUMN)
     table.add_column(LABEL_STATE)
@@ -1285,6 +1409,14 @@ def _render_readiness_table(title: str, payload: Mapping[str, object]) -> None:
 
 
 def _render_v1_readiness(settings: Settings) -> None:
+    """
+    Render the v1 readiness summary and any available readiness check tables to the console.
+    
+    Prints a summary panel describing overall v1 readiness (including whether paper operations are allowed) and, when present, renders detailed readiness check tables for paper operations and Alpaca paper.
+    
+    Parameters:
+        settings (Settings): Application settings used to compute the v1 readiness payload.
+    """
     payload = _object_mapping(v1_readiness_payload(settings, check_provider=False))
     paper = _object_mapping(payload.get("paper_operations"))
     alpaca = _object_mapping(payload.get("alpaca_paper"))
@@ -1304,9 +1436,9 @@ def _render_v1_readiness(settings: Settings) -> None:
 
 def _configure_preferences(db: TradingDatabase) -> None:
     """
-    Interactively prompt the operator to review and update investment preferences and persist the changes.
-
-    Displays the current preferences, prompts for each preference field (list fields accept comma-separated values; choice fields present fixed options), preserves existing list values when the input is empty, builds an InvestmentPreferences object from the responses, and saves it to the provided TradingDatabase.
+    Prompt the operator to review and update investment preferences and save the changes.
+    
+    Prompts for each preference field (list fields accept comma-separated values; choice fields present fixed options), preserves existing list values when a list input is left empty, constructs an InvestmentPreferences object from the responses, and persists it to the provided TradingDatabase.  
     """
     current = db.load_preferences()
     console.print(_render_preferences(current))
@@ -1381,12 +1513,9 @@ def _configure_preferences(db: TradingDatabase) -> None:
 
 def _show_portfolio(db: TradingDatabase) -> None:
     """
-    Render and print the current portfolio summary, positions table, and risk report to the console.
-
-    Prints a compact summary of cash, market value, equity, realized/unrealized PnL, and number of open positions, followed by a detailed positions table. If there are no open positions, prints a titled placeholder instead of the positions table. Finally, prints the risk report for the account.
-
-    Parameters:
-        db (TradingDatabase): Database instance used to retrieve the account snapshot, open positions, and risk report.
+    Render the portfolio summary, positions list, and daily risk report to the console.
+    
+    Prints a combined portfolio renderable (summary plus positions, with a placeholder when no open positions exist) followed by the account risk report.
     """
     console.print(_portfolio_renderable(db))
     console.print(_risk_report_table(db))
@@ -1402,9 +1531,9 @@ def _show_risk_report(db: TradingDatabase) -> None:
 
 def _show_latest_run_review(db: TradingDatabase) -> None:
     """
-    Show the latest persisted run review in a formatted panel or a notice if no runs exist.
-
-    When a latest run record is present, print a cyan-titled panel containing the run's artifacts as pretty-printed JSON and the run id; if no record exists, print a yellow-titled panel stating that no persisted runs are available to review.
+    Display the latest persisted run review or a notice if none exists.
+    
+    If a persisted run is available, prints the run's artifacts as pretty-printed JSON with the run id in the panel title. If no persisted run exists, prints a notice indicating there are no persisted runs to review.
     """
     record = db.latest_run()
     if record is None:
@@ -1426,6 +1555,15 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
 
 
 def _memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
+    """
+    Builds a Rich Table showing historical memory matches for the decision evidence explorer.
+    
+    Parameters:
+        matches (Sequence[HistoricalMemoryMatch]): Sequence of memory match records to display. When empty, the table contains a single placeholder row.
+    
+    Returns:
+        Table: A Rich Table with columns "Created", "Symbol", "Score", "Regime", "Strategy", and "Bias". The `Score` column is formatted to two decimal places.
+    """
     table = Table(title=TITLE_DECISION_EVIDENCE_EXPLORER)
     table.add_column(LABEL_CREATED)
     table.add_column(LABEL_SYMBOL)
@@ -1471,6 +1609,11 @@ def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
 
 
 def _show_latest_run_trace(db: TradingDatabase) -> None:
+    """
+    Display the most recent run's agent trace or an informational panel when none exists.
+    
+    Prints a table listing each agent trace's role, model name, and whether a fallback was used for the latest recorded run; if no persisted run is available, prints a yellow panel stating that no run trace is present.
+    """
     record = db.latest_run()
     if record is None:
         console.print(
@@ -1491,6 +1634,12 @@ def _show_latest_run_trace(db: TradingDatabase) -> None:
 
 
 def _select_chat_persona() -> ChatPersona:
+    """
+    Prompt the operator to choose a chat persona for agent responses.
+    
+    Returns:
+        ChatPersona: The chosen persona key; one of "operator_liaison", "regime_analyst", "strategy_selector", "risk_steward", or "portfolio_manager" (defaults to "operator_liaison").
+    """
     return cast(
         ChatPersona,
         Prompt.ask(
@@ -1510,6 +1659,15 @@ def _select_chat_persona() -> ChatPersona:
 def _render_chat_transcript(
     *, persona: ChatPersona, transcript: Sequence[tuple[str, str]]
 ) -> None:
+    """
+    Render the chat transcript and an exit hint panel for the given persona to the console.
+    
+    Clears the terminal, prints a banner and an exit-hint panel titled with the persona, then displays up to the last eight messages from the transcript as role-labeled panels.
+    
+    Parameters:
+        persona (ChatPersona): The chat persona used for the exit-hint panel title.
+        transcript (Sequence[tuple[str, str]]): Sequence of (role, message) pairs; each role (e.g., "operator") is used as the panel title for its message.
+    """
     console.clear()
     console.print(_banner())
     console.print(
@@ -1525,6 +1683,11 @@ def _render_chat_transcript(
 
 
 def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
+    """
+    Open an interactive operator chat session with a selectable persona.
+    
+    Displays the chat transcript, prompts the operator for input, sends messages to the configured LLM persona (via the chat backend), and appends persona replies to the transcript. The session ends when the operator enters "/exit", "exit", or "quit".
+    """
     ensure_llm_ready(settings)
     llm = LocalLLM(settings)
     persona = _select_chat_persona()
@@ -1546,6 +1709,12 @@ def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
 
 
 def _render_instruction_result(instruction: OperatorInstruction) -> None:
+    """
+    Render the parsed operator instruction as a JSON panel in the console.
+    
+    Parameters:
+        instruction (OperatorInstruction): The parsed operator instruction to display.
+    """
     console.print(
         Panel(
             instruction.model_dump_json(indent=2),
@@ -1558,6 +1727,14 @@ def _render_instruction_result(instruction: OperatorInstruction) -> None:
 def _apply_instruction_update_if_confirmed(
     instruction: OperatorInstruction, db: TradingDatabase
 ) -> None:
+    """
+    Apply the parsed operator instruction's preference update when the instruction requests it and the operator confirms.
+    
+    If `instruction.should_update_preferences` is true and the operator confirms the prompt, persists the preference update to `db` and prints the updated preferences as a JSON panel.
+    
+    Parameters:
+        instruction (OperatorInstruction): Parsed operator instruction containing `should_update_preferences` and `preference_update`.
+    """
     if not instruction.should_update_preferences:
         return
     if not Confirm.ask(PROMPT_APPLY_PREFERENCE_UPDATE, default=False):
@@ -1574,6 +1751,11 @@ def _apply_instruction_update_if_confirmed(
 
 
 def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
+    """
+    Parse an operator instruction from the prompt, display the interpreted result, and apply any confirmed preference update.
+    
+    Prompts the operator for a free-form instruction, interprets it using the local LLM and the provided database, renders the parsed `OperatorInstruction`, and—if the interpretation indicates a preferences update and the operator confirms—applies that update to the database.
+    """
     ensure_llm_ready(settings)
     llm = LocalLLM(settings)
     message = Prompt.ask(PROMPT_INSTRUCTION)
@@ -1608,6 +1790,17 @@ def _strict_one_shot(
 def _run_one_shot_symbol(
     settings: Settings, symbol: str, interval: str, lookback: str
 ) -> None:
+    """
+    Execute a strict one-shot trading cycle for a single symbol and display the results.
+    
+    Runs a single strict trading cycle using the provided settings, symbol, interval, and lookback, persists the resulting run artifacts, and prints a completion panel that includes the final status message, run artifacts, and the persisted order id.
+    
+    Parameters:
+        settings (Settings): Application settings used to configure the run and persistence.
+        symbol (str): Trading symbol to execute the cycle for.
+        interval (str): Time interval/granularity for the trading cycle (e.g., "1m", "1h").
+        lookback (str): Lookback window used by the trading cycle (format depends on application conventions).
+    """
     latest_message = MESSAGE_PREPARING_SYMBOL.format(symbol=symbol)
     with console.status(_style_key(latest_message), spinner="dots") as status:
 
@@ -1617,6 +1810,15 @@ def _run_one_shot_symbol(
             message: str,
             current_status: Status = status,
         ) -> None:
+            """
+            Update the live progress status and record the latest stage message.
+            
+            Parameters:
+                stage (str): Human-readable name of the current processing stage.
+                event (str): Event identifier associated with the progress update (accepted but not used).
+                message (str): Short message describing the current progress or state within the stage.
+                current_status (Status): Rich `Status` object whose display text will be updated.
+            """
             nonlocal latest_message
             latest_message = MESSAGE_STAGE_UPDATE.format(stage=stage, message=message)
             current_status.update(_style_key(latest_message))
@@ -1646,6 +1848,17 @@ def _run_one_shot_symbol(
 def _launch_service(
     settings: Settings, symbols: Sequence[str], interval: str, lookback: str
 ) -> None:
+    """
+    Start the background orchestrator service for the given symbols and optionally open the live monitor.
+    
+    Prompts the operator for launch options (continuous mode, poll interval, and optional max cycles), starts the background service with those options, prints a panel showing the spawned process PID, and then asks whether to open the live monitor.
+    
+    Parameters:
+        settings (Settings): Application settings used to configure and launch the service.
+        symbols (Sequence[str]): Symbols to monitor/trade when the service runs.
+        interval (str): Time interval string to use for trading cycles (e.g., "1m", "5m").
+        lookback (str): Lookback duration string used for data/context during each cycle.
+    """
     continuous, poll_seconds, max_cycles = _prompt_service_launch_options(settings)
     pid = start_background_service(
         settings=settings,
@@ -1667,6 +1880,20 @@ def _launch_service(
 
 
 def _prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | None]:
+    """
+    Prompt the operator for background service launch options.
+    
+    Prompts for continuous mode, a poll interval (defaults to settings.default_poll_seconds), and—when continuous mode is selected—an optional maximum cycle count.
+    
+    Parameters:
+        settings (Settings): Application settings used to provide the default poll interval.
+    
+    Returns:
+        tuple[bool, int, int | None]: A tuple (continuous, poll_seconds, max_cycles) where
+            `continuous` is True when continuous mode was chosen,
+            `poll_seconds` is the chosen poll interval in seconds,
+            and `max_cycles` is the parsed maximum number of cycles when provided in continuous mode, or `None` when not set or when continuous is False.
+    """
     continuous = Confirm.ask(PROMPT_CONTINUOUS_MODE, default=False)
     poll_seconds = IntPrompt.ask(
         PROMPT_POLL_INTERVAL_SECONDS,
@@ -1681,11 +1908,25 @@ def _prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int |
 
 
 def _open_live_monitor_if_requested(settings: Settings) -> None:
+    """
+    Prompt the operator to open the live monitor and start it when confirmed.
+    
+    Asks the operator whether to open the live monitor now; if confirmed, launches the live monitor with a 1.0 second refresh interval.
+    
+    Parameters:
+        settings (Settings): Application settings used to configure and run the live monitor.
+    """
     if Confirm.ask(PROMPT_OPEN_LIVE_MONITOR_NOW, default=True):
         run_live_monitor(settings, refresh_seconds=1.0)
 
 
 def _runtime_control_table() -> Table:
+    """
+    Builds a menu table of runtime control actions.
+    
+    Returns:
+        Table: A Rich Table titled for runtime control with two columns (key and action) and rows for the available runtime control options (1–9).
+    """
     table = Table(title=TITLE_RUNTIME_CONTROL)
     table.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
     table.add_column(LABEL_ACTION)
@@ -1714,6 +1955,15 @@ def _runtime_status_action(settings: Settings) -> None:
 
 
 def _load_runtime_preferences(settings: Settings) -> InvestmentPreferences | None:
+    """
+    Load investment preferences from a read-only database and display an observer-mode panel when the database is unavailable.
+    
+    Parameters:
+        settings (Settings): Application settings used to open the read-only trading database.
+    
+    Returns:
+        InvestmentPreferences | None: The loaded investment preferences, or `None` if the database could not be opened.
+    """
     db = _safe_open_read_db(settings)
     try:
         if db is None:
@@ -1761,6 +2011,16 @@ def _persist_stop_request(settings: Settings) -> None:
 
 
 def _runtime_stop_action(settings: Settings) -> None:
+    """
+    Requests the background runtime service to stop and reports status to the console.
+    
+    If no runtime service is active or the stored PID is missing, prints a "not running" panel.
+    If the stored PID exists but the process is not alive, prints a "stale pid" panel.
+    If the process appears active, issues a stop request, persists the stop request, and prints a "stop requested" panel including the PID.
+    
+    Parameters:
+        settings (Settings): Application settings used to locate and control the runtime service.
+    """
     state = read_service_state(settings)
     if state is None or state.pid is None:
         console.print(
@@ -1793,6 +2053,14 @@ def _runtime_stop_action(settings: Settings) -> None:
 
 
 def _runtime_monitor_action(settings: Settings) -> None:
+    """
+    Open a live monitoring UI for the runtime with a user-specified refresh interval.
+    
+    Prompts the operator for a refresh interval in seconds, clamps invalid or non-positive inputs to 1.0 second, and launches the live monitor.
+    
+    Parameters:
+        settings (Settings): Application settings used to build the monitor UI.
+    """
     try:
         refresh_seconds = float(Prompt.ask(PROMPT_REFRESH_SECONDS, default="1.0"))
         if refresh_seconds <= 0.0:
@@ -1887,6 +2155,16 @@ def _operator_menu(settings: Settings) -> None:
 
 
 def _menu_table(title: str, items: Sequence[TuiMenuAction | tuple[str, str]]) -> Table:
+    """
+    Build a Rich Table listing menu entries with key and action label columns.
+    
+    Parameters:
+        title (str): Table title displayed above the menu.
+        items (Sequence[TuiMenuAction | tuple[str, str]]): Sequence of menu entries; each entry is either a TuiMenuAction or a (key, label) tuple.
+    
+    Returns:
+        Table: A Rich Table with two columns (key, action label) and one row per item.
+    """
     table = Table(title=title)
     table.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
     table.add_column(LABEL_ACTION)
@@ -1994,10 +2272,12 @@ def _research_menu(settings: Settings) -> None:
 
 def _review_menu(settings: Settings) -> None:
     """
-    Present an interactive "Review and Trace" menu to inspect the latest persisted run review or its trace.
-
+    Present an interactive "Review and Trace" menu that lets the operator inspect the latest persisted run review or its trace.
+    
+    Displays a menu, prompts for a selection, opens a read-only database when needed to render the chosen view, and returns to the caller when the user selects "Back".
+    
     Parameters:
-        settings (Settings): Application settings used to locate the trading database and configure UI behavior.
+        settings (Settings): Application settings used to locate and open the trading database for read-only inspection.
     """
     actions = {
         "1": TuiMenuAction(
@@ -2041,6 +2321,11 @@ def _render_main_status(settings: Settings) -> None:
 
 
 def _edit_preferences_action(settings: Settings) -> None:
+    """
+    Open the writable database and launch the interactive preference editor, handling observer-mode when the DB cannot be opened.
+    
+    If opening the database fails, prints an observer-mode panel with the error and prompts the operator to continue. When the database is opened, runs the preference configuration flow and ensures the database is closed afterwards.
+    """
     try:
         db = _open_db(settings, read_only=False)
     except Exception as exc:
@@ -2074,15 +2359,18 @@ def _review_menu_action(settings: Settings) -> None:
 
 
 def _exit_menu_action(_settings: Settings) -> None:
+    """
+    Display a closing panel indicating the control room has been closed.
+    """
     console.print(Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue"))
 
 
 def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
     """
-    Define the main menu actions used by the TUI.
-
+    Build the ordered set of main menu actions for the TUI.
+    
     Returns:
-        A tuple of `TuiMainMenuAction` entries representing the main menu items in order: configure investment preferences, runtime control, operator desk, portfolio and risk, research and memory, review and trace, and exit (the exit action is marked to leave the menu).
+        tuple[TuiMainMenuAction, ...]: Tuple of `TuiMainMenuAction` objects in menu order: configure investment preferences, runtime control, operator desk, portfolio and risk, research and memory, review and trace, and exit (the exit action is flagged to leave the menu).
     """
     return (
         TuiMainMenuAction(
@@ -2100,6 +2388,15 @@ def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
 
 
 def _main_menu_table(actions: Sequence[TuiMainMenuAction]) -> Table:
+    """
+    Builds a Rich Table representing the main menu from the given actions.
+    
+    Parameters:
+        actions (Sequence[TuiMainMenuAction]): Ordered menu actions whose `key` and `label` populate each row.
+    
+    Returns:
+        table (Table): A Rich Table titled with the main-menu title, containing two columns (key and action) and one row per action.
+    """
     menu = Table(title=TITLE_MAIN_MENU)
     menu.add_column(LABEL_KEY, style=STYLE_KEY_COLUMN)
     menu.add_column(LABEL_ACTION)

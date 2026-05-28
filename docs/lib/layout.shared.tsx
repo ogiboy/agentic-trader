@@ -23,6 +23,12 @@ export const i18nUI = {
     i18nProvider(translations, locale),
 };
 
+/**
+ * Build layout configuration for the documentation site tailored to the given locale.
+ *
+ * @param locale - Language code used to generate the localized navigation URL and UI provider context
+ * @returns Layout properties including a localized navigation title URL and the repository URL
+ */
 export function baseOptions(locale: DocLanguage): BaseLayoutProps {
   return {
     nav: {

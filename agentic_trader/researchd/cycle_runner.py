@@ -198,6 +198,15 @@ def run_research_cycle(
 def research_cycle_execution_payload(
     execution: ResearchCycleExecution,
 ) -> dict[str, object]:
+    """
+    Convert a ResearchCycleExecution dataclass into a JSON-serializable payload.
+    
+    Parameters:
+        execution (ResearchCycleExecution): The execution dataclass instance to convert.
+    
+    Returns:
+        payload (dict[str, object]): A dictionary representation of the execution suitable for JSON serialization and inclusion in replay artifacts or API responses.
+    """
     return dataclass_payload(execution)
 
 
@@ -210,17 +219,17 @@ def _execute_research_cycles(
     sleep_fn: SleepFn,
 ) -> list[ResearchCycleExecution]:
     """
-    Run the resolved number of research cycles, tracking and updating prior state between iterations.
-
-    Executes up to `resolved.safe_cycles` cycles by calling the per-cycle runner, collects each cycle's ResearchCycleExecution, updates the prior source health, prior snapshot id, and prior-digest availability for subsequent cycles, and optionally sleeps between cycles according to `resolved.safe_cadence`.
-
+    Execute the bounded series of research cycles and return their per-cycle execution summaries.
+    
+    Runs the number of cycles determined by `resolved.safe_cycles`, updating prior snapshot identity, source-health summary, and digest-availability between iterations. When enabled, pauses between cycles using `sleep_fn`.
+    
     Parameters:
         settings (Settings): Runtime settings used for each cycle.
-        resolved (_ResolvedResearchCycleRequest): Normalized request with safety bounds and execution policy.
-        prior_snapshot (ResearchSnapshotRecord | None): Snapshot record from before the run; its source health and snapshot id seed the first cycle.
+        resolved (_ResolvedResearchCycleRequest): Normalized request specifying safe counts, cadence, persistence, and sleep behavior.
+        prior_snapshot (ResearchSnapshotRecord | None): Snapshot record that seeds the initial source-health summary and prior snapshot id.
         prior_digest_available (bool): Whether a prior digest replay is available for the first cycle.
-        sleep_fn (SleepFn): Function used to pause between cycles when `resolved.sleep_between_cycles` is true; called with seconds as a float.
-
+        sleep_fn (SleepFn): Callable invoked with a float number of seconds to pause between cycles when sleeping is enabled.
+    
     Returns:
         list[ResearchCycleExecution]: Ordered list of execution records, one per executed cycle.
     """

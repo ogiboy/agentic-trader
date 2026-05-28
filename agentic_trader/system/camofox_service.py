@@ -157,6 +157,15 @@ def camofox_service_state_path(settings: Settings) -> Path:
 
 
 def camofox_tool_dir(settings: Settings) -> Path:
+    """
+    Resolve the configured Camofox tool directory path.
+    
+    Parameters:
+        settings (Settings): Application settings that may contain `research_camofox_tool_dir`.
+    
+    Returns:
+        Path: Filesystem path to the configured Camofox tool directory, defaulting to "camofox-browser" when not specified.
+    """
     return resolve_configured_tool_path(
         settings.research_camofox_tool_dir,
         default_tool="camofox-browser",
@@ -164,6 +173,14 @@ def camofox_tool_dir(settings: Settings) -> Path:
 
 
 def _read_state(settings: Settings) -> CamofoxServiceState | None:
+    """
+    Read the persisted CamofoxServiceState from the service state file.
+    
+    If the state file does not exist or cannot be read/parsed, returns None.
+    
+    Returns:
+        CamofoxServiceState or None: Parsed state when available and valid; `None` if the file is missing or unreadable/invalid.
+    """
     path = camofox_service_state_path(settings)
     if not path.exists():
         return None

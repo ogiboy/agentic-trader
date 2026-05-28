@@ -7,7 +7,18 @@ from typing import Any, cast
 
 
 def dataclass_payload(value: object) -> dict[str, object]:
-    """Return a JSON-oriented dictionary for a dataclass instance."""
+    """
+    Return a JSON-serializable dictionary representation of a dataclass instance.
+    
+    Parameters:
+        value (object): Dataclass instance to convert.
+    
+    Returns:
+        dict[str, object]: Dictionary produced from the dataclass suitable for JSON encoding.
+    
+    Raises:
+        TypeError: If `value` is a dataclass type or not a dataclass instance.
+    """
 
     if isinstance(value, type) or not is_dataclass(value):
         raise TypeError(f"expected dataclass instance, got {type(value).__name__}")

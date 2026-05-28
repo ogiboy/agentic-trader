@@ -151,15 +151,41 @@ SOURCE_TIER_PROFILES: tuple[SourceTierProfile, ...] = (
 
 
 def source_tier_profile_payload(profile: SourceTierProfile) -> dict[str, object]:
+    """
+    Serialize a SourceTierProfile dataclass into a payload dictionary suitable for API or plan output.
+    
+    Parameters:
+        profile (SourceTierProfile): The source tier profile dataclass to serialize.
+    
+    Returns:
+        dict[str, object]: A JSON-serializable dictionary representation of the profile.
+    """
     return dataclass_payload(profile)
 
 
 def news_query_template_payload(query: NewsQueryTemplate) -> dict[str, object]:
+    """
+    Serialize a NewsQueryTemplate dataclass into a JSON-serializable payload.
+    
+    Parameters:
+    	query (NewsQueryTemplate): The query template to serialize.
+    
+    Returns:
+    	payload (dict[str, object]): A dictionary representation of the dataclass suitable for JSON encoding and API payloads.
+    """
     return dataclass_payload(query)
 
 
 def classify_source_tier(source_or_url: str) -> SourceTier:
-    """Classify a source name or URL into the source tier used by researchd."""
+    """
+    Map a source identifier (hostname or URL) to its configured source tier.
+    
+    Parameters:
+        source_or_url (str): A hostname or full URL identifying the source; may be a bare domain, host, or complete URL.
+    
+    Returns:
+        SourceTier: The matching source tier (e.g., "official_or_regulatory", "tier_1_direct", "tier_2_browser_or_archive", "tier_3_archive_stale", "noisy_or_excluded", "unknown"). Returns "unknown" if the input is blank or no profile matches.
+    """
 
     normalized = _normalize_source(source_or_url)
     if not normalized:
@@ -180,7 +206,30 @@ def news_research_plan(
     sector: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, object]:
-    """Build a source-attributed research plan for a ticker or scanner candidate."""
+    """
+    Constructs a source-attributed research plan for a ticker or scanner candidate.
+    
+    Parameters:
+        symbol (str): Ticker symbol; will be stripped and uppercased. Must not be blank.
+        company_name (str | None): Optional company name used to enrich query templates.
+        sector (str | None): Optional sector name used to enrich query templates.
+        now (datetime | None): Optional timestamp to use as the plan's generation time; defaults to current UTC time.
+    
+    Returns:
+        dict[str, object]: A planning contract containing:
+            - symbol, company_name, sector: core identifiers
+            - generated_at: ISO 8601 UTC timestamp (Z)
+            - preferred_engine: search engine hint
+            - exclude_regex: list of URL exclusion patterns
+            - query_templates: serialized query template payloads
+            - source_tiers: serialized source tier profile payloads
+            - material_event_types: list of event type constants
+            - evidence_contract: serialized evidence schema metadata
+            - freshness_policy, prompt_policy, sidecar_policy: policy blocks controlling sourcing and prompt usage
+    
+    Raises:
+        ValueError: If `symbol` is empty or blank.
+    """
 
     clean_symbol = symbol.strip().upper()
     if not clean_symbol:

@@ -20,15 +20,15 @@ _NO_TRADE_PHRASE = "no trade"
 
 def _coerce_numeric_strings(obj: Any) -> Any:
     """
-    Recursively convert strings that represent whole numbers or decimals into int or float values.
-
-    Recurses into dicts and lists; for string values, trims whitespace and if the entire string matches the numeric pattern "-?\\d+(?:\\.\\d+)?" it returns an `int` when the string contains only digits (no sign/decimal) and a `float` otherwise. If parsing fails or the value is not a numeric string, the original value is returned unchanged.
-
+    Convert numeric-looking strings within a nested structure into Python numbers.
+    
+    Recursively traverses dicts and lists and, for string values, trims whitespace and converts strings that represent whole numbers or decimals into `int` (when the string contains only digits) or `float` (otherwise). Values that do not represent numbers are returned unchanged.
+    
     Parameters:
-        obj (Any): The value (or nested structure) to coerce.
-
+        obj (Any): A value or nested structure (dicts/lists/values) to normalize.
+    
     Returns:
-        Any: The input with numeric-like strings converted to `int` or `float` where applicable; other values are returned as-is.
+        Any: The input with numeric-like strings converted to `int` or `float` where applicable; other values unchanged.
     """
     if isinstance(obj, dict):
         return {

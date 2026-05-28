@@ -61,6 +61,15 @@ MINIMAL_ENV_KEYS = (
 
 
 def _json_object_or_none(value: object) -> Mapping[str, object] | None:
+    """
+    Convert a mapping-like object to a dict with string keys or return None.
+    
+    Parameters:
+        value (object): The input value to convert. If it is a dict, its keys are coerced to strings and returned as a new mapping.
+    
+    Returns:
+        dict[str, object] if `value` is a dict, `None` otherwise.
+    """
     if not isinstance(value, dict):
         return None
     return {
@@ -69,6 +78,15 @@ def _json_object_or_none(value: object) -> Mapping[str, object] | None:
 
 
 def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
+    """
+    Extract mapping objects from an input value and return them as a list.
+    
+    Parameters:
+        value (object): An input that may represent a list-like JSON value or single item; elements that are not mapping/dict-like are ignored.
+    
+    Returns:
+        list[Mapping[str, object]]: A list containing only the mapping (dict-like) items found in the input, in iteration order.
+    """
     rows: list[Mapping[str, object]] = []
     for item in _object_list(value):
         row = _json_object_or_none(item)
@@ -163,10 +181,28 @@ def model_service_dir(settings: Settings) -> Path:
 
 
 def model_service_state_path(settings: Settings) -> Path:
+    """
+    Return the filesystem path where the persisted app-managed Ollama service state is stored.
+    
+    Parameters:
+        settings (Settings): Runtime settings object whose `runtime_dir` is used as the base directory.
+    
+    Returns:
+        Path: Path to the `ollama_service.json` file inside the model service state directory.
+    """
     return model_service_dir(settings) / "ollama_service.json"
 
 
 def _read_state(settings: Settings) -> ModelServiceState | None:
+    """
+    Load the persisted app-owned Ollama process state from disk if present and valid.
+    
+    Parameters:
+        settings (Settings): Runtime settings used to locate the model service state file.
+    
+    Returns:
+        ModelServiceState | None: The validated persisted state if the state file exists and is valid; `None` if the file is missing or cannot be read/parsed.
+    """
     path = model_service_state_path(settings)
     if not path.exists():
         return None
