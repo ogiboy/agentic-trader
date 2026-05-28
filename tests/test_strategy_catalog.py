@@ -2,12 +2,14 @@ from typing import cast
 
 from agentic_trader.finance.ideas import IdeaCandidate, score_candidate
 from agentic_trader.finance.strategy_catalog import (
+    STRATEGY_PROFILES,
     finance_reconciliation_contract_payload,
     get_strategy_profile,
     list_strategy_profiles,
     score_strategy_context,
     strategy_catalog_payload,
     strategy_profile_for_preset,
+    strategy_profile_payload,
 )
 
 
@@ -63,10 +65,78 @@ def test_score_strategy_context_requires_evidence_before_proposals() -> None:
     assert "fresh_news_or_disclosure_catalyst" in missing_evidence
 
 
+def test_strategy_profile_payload_returns_dict_with_all_fields() -> None:
+    profile = strategy_profile_for_preset("momentum")
+
+    payload = strategy_profile_payload(profile)
+
+    assert payload["name"] == "momentum-volume"
+    assert payload["family"] == "momentum"
+    assert payload["status"] == "implemented"
+    assert isinstance(payload["summary"], str) and payload["summary"]
+    assert isinstance(payload["evidence_requirements"], tuple)
+    assert isinstance(payload["risk_controls"], tuple)
+    assert isinstance(payload["validation_checks"], tuple)
+    assert isinstance(payload["idea_presets"], tuple)
+    assert isinstance(payload["required_inputs"], tuple)
+    assert "proposal_policy" in payload
+    assert "v1_path" in payload
+
+
+def test_strategy_profile_payload_is_json_safe() -> None:
+    import json
+
+    profile = strategy_profile_for_preset("momentum")
+    payload = strategy_profile_payload(profile)
+
+    # Should be encodable to JSON (lists/strings only, no custom objects)
+    # asdict() converts tuples to tuples which are JSON-serializable via list
+    dumped = json.dumps(
+        {k: list(v) if isinstance(v, tuple) else v for k, v in payload.items()}
+    )
+    assert "momentum-volume" in dumped
+
+
+def test_strategy_profile_payload_contains_evidence_requirements() -> None:
+    profile = strategy_profile_for_preset("momentum")
+
+    payload = strategy_profile_payload(profile)
+
+    evidence = payload["evidence_requirements"]
+    assert isinstance(evidence, tuple)
+    assert "fresh_news_or_disclosure_catalyst" in evidence
+
+
+def test_strategy_profile_payload_works_for_all_profiles() -> None:
+    for profile in STRATEGY_PROFILES:
+        payload = strategy_profile_payload(profile)
+        assert isinstance(payload["name"], str)
+        assert isinstance(payload["family"], str)
+        assert isinstance(payload["status"], str)
+
+
+def test_strategy_profile_payload_round_trips_through_get_strategy_profile() -> None:
+    profile = get_strategy_profile("momentum-volume")
+
+    payload = strategy_profile_payload(profile)
+
+    assert payload["name"] == profile.name
+    assert payload["family"] == profile.family
+    assert payload["status"] == profile.status
+    assert payload["v1_path"] == profile.v1_path
+
+
+def test_strategy_profile_payload_rejects_non_dataclass() -> None:
+    import pytest
+
+    with pytest.raises(TypeError, match="expected dataclass instance"):
+        strategy_profile_payload({"name": "fake"})  # type: ignore[arg-type]
+
+
 def test_finance_reconciliation_contract_keeps_missing_evidence_explicit() -> None:
     payload = finance_reconciliation_contract_payload()
     ledger_categories = cast(list[dict[str, object]], payload["ledger_categories"])
-    categories = {str(item["name"]): item for item in ledger_categories}
+
     audit_policy = cast(dict[str, object], payload["audit_policy"])
 
     assert "trades" in categories

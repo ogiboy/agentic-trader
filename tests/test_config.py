@@ -71,3 +71,14 @@ def test_ui_locale_reads_env(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("AGENTIC_TRADER_UI_LOCALE", "tr")
 
     assert Settings().ui_locale == "tr"
+
+
+def test_ui_locale_defaults_to_english(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.delenv("AGENTIC_TRADER_UI_LOCALE", raising=False)
+
+    assert Settings().ui_locale == "en"
+
+
+def test_ui_locale_can_be_set_directly() -> None:
+    assert Settings(ui_locale="tr").ui_locale == "tr"
+    assert Settings(ui_locale="en").ui_locale == "en"
