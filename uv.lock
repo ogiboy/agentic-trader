@@ -82,7 +82,7 @@ dev = [
     { name = "ptyprocess", specifier = ">=0.7.0" },
     { name = "pyinstaller", specifier = ">=6.20.0,<7.0.0" },
     { name = "pyright", specifier = ">=1.1.409" },
-    { name = "pysonar", specifier = ">=1.4.0.4676,<2.0.0" },
+    { name = "pysonar", specifier = ">=1.6.0.4905,<2.0.0" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "python-semantic-release", specifier = ">=10.0.0,<11.0.0" },
@@ -1784,16 +1784,16 @@ wheels = [
 
 [[package]]
 name = "pysonar"
-version = "1.5.0.4793"
+version = "1.6.0.4905"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jproperties" },
     { name = "requests" },
     { name = "tomli" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/36/563d1e96dc7105b33d65cba2cc25df3eeb838aabd87a6e821051cce07c37/pysonar-1.5.0.4793.tar.gz", hash = "sha256:52791bcb8b01efd7dc203a5428f2b1b48b19269bc2982582d6e4e5f127716ac3", size = 28328, upload-time = "2026-04-30T12:38:40.371Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d4/d3/703d68d38f1ed56fb44ede9f02ad8d6e1053b420e4120c5622781f0cfcc8/pysonar-1.6.0.4905.tar.gz", hash = "sha256:42fca07135c2a3c285a9ac3621f604fa84a1ea8a62a409cd601db68b02cedd90", size = 30919, upload-time = "2026-05-28T13:11:44.661Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/9b/33b693c772e662d47bbde5890b939690e0ba9a5dff252bcd6e6ceae8285d/pysonar-1.5.0.4793-py3-none-any.whl", hash = "sha256:c55113e592562a5eddab6090c437cc60dde73e4cc6fea74b1292d438c62865d6", size = 42470, upload-time = "2026-04-30T12:38:39.464Z" },
+    { url = "https://files.pythonhosted.org/packages/2f/ce/46c7746cfc1a141f1df534ae5d9cc6111c6f4f84a2135b4d4928a9687034/pysonar-1.6.0.4905-py3-none-any.whl", hash = "sha256:1a83a2dc3c11500cc07206277bc60aa97004eefbc6873d29ac523377f06e3e57", size = 46060, upload-time = "2026-05-28T13:11:43.726Z" },
 ]
 
 [[package]]
