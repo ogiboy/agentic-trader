@@ -57,7 +57,7 @@ requires-dist = [
     { name = "duckdb", specifier = ">=1.2.2" },
     { name = "firecrawl-py", specifier = ">=4.25.1" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "massive", specifier = ">=2.5.0,<3.0.0" },
+    { name = "massive", specifier = ">=2.8.0,<3.0.0" },
     { name = "ollama", specifier = ">=0.6.2" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pydantic", specifier = ">=2.11.0" },
@@ -1041,16 +1041,16 @@ wheels = [
 
 [[package]]
 name = "massive"
-version = "2.7.0"
+version = "2.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c9/9b/97e50ffbc27c43be79b79399e437d1cfc6547a16b8ad86c398757bd9cdd4/massive-2.7.0.tar.gz", hash = "sha256:52073f8fb77e15e93014dcbe367b8b1835aa9d7341ee0d1931d498e050b6dd96", size = 50890, upload-time = "2026-05-04T19:00:27.477Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/b2/7cc9fadccd111b9fa1c378dad6a668312b563600d19498d26051fb57cf73/massive-2.8.0.tar.gz", hash = "sha256:e3f70c4b51e03b105a01a5a91e01745c43f9f5d4da9459ea80e1b7c3e7a17278", size = 50942, upload-time = "2026-05-26T08:18:34.555Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/af/7a/f6b701e45deb66a54aef1b3ac9a4a50b780c5a82a42a363937b4e89eeb43/massive-2.7.0-py3-none-any.whl", hash = "sha256:2d490723a1163fa22b397d7a253aa7298961108d9bf1b4f26361d8a027879c3f", size = 68664, upload-time = "2026-05-04T19:00:28.549Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/0d/01464a7faa974cf0e6345cf93f2f5d10991a316e733d3f55e36fbb2d814d/massive-2.8.0-py3-none-any.whl", hash = "sha256:d04332c9dec289bdf71e4cfaf8bfba26bd10e5829806d27b833488e89ee5015b", size = 68725, upload-time = "2026-05-26T08:18:35.766Z" },
 ]
 
 [[package]]
