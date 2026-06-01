@@ -226,15 +226,15 @@ def test_run_service_records_runtime_state_and_events(
     settings.ensure_directories()
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
+        "agentic_trader.workflows.service_loop.ensure_llm_ready",
         _ready_llm,
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.run_once",
+        "agentic_trader.workflows.service_loop.run_once",
         _run_artifacts_from_symbol,
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.persist_run",
+        "agentic_trader.workflows.service_loop.persist_run",
         _persist_order_id,
     )
 
@@ -282,7 +282,7 @@ def test_run_service_records_blocked_state_when_llm_gate_fails(
         raise RuntimeError("model missing")
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
+        "agentic_trader.workflows.service_loop.ensure_llm_ready",
         _blocked_llm,
     )
 
@@ -322,7 +322,7 @@ def test_run_service_records_agent_stage_events(
     settings.ensure_directories()
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
+        "agentic_trader.workflows.service_loop.ensure_llm_ready",
         _ready_llm,
     )
 
@@ -335,10 +335,10 @@ def test_run_service_records_agent_stage_events(
         return _artifacts(kwargs["symbol"])
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.run_once", _run_once_with_progress
+        "agentic_trader.workflows.service_loop.run_once", _run_once_with_progress
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.persist_run",
+        "agentic_trader.workflows.service_loop.persist_run",
         _persist_order_id,
     )
 
@@ -371,7 +371,7 @@ def test_run_service_skips_missing_market_data_and_continues(
     settings.ensure_directories()
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
+        "agentic_trader.workflows.service_loop.ensure_llm_ready",
         _ready_llm,
     )
 
@@ -392,9 +392,9 @@ def test_run_service_skips_missing_market_data_and_continues(
             raise ValueError("No market data returned for AAPL")
         return _artifacts(kwargs["symbol"])
 
-    monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once)
+    monkeypatch.setattr("agentic_trader.workflows.service_loop.run_once", _run_once)
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.persist_run",
+        "agentic_trader.workflows.service_loop.persist_run",
         _persist_order_id,
     )
 
@@ -432,7 +432,7 @@ def test_run_service_remembers_run_level_undercoverage_skips(
     settings.ensure_directories()
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
+        "agentic_trader.workflows.service_loop.ensure_llm_ready",
         _ready_llm,
     )
     calls = {"AAPL": 0}
@@ -445,9 +445,9 @@ def test_run_service_remembers_run_level_undercoverage_skips(
             )
         return _artifacts(kwargs["symbol"])
 
-    monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once)
+    monkeypatch.setattr("agentic_trader.workflows.service_loop.run_once", _run_once)
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.persist_run",
+        "agentic_trader.workflows.service_loop.persist_run",
         _persist_order_id,
     )
 
@@ -492,7 +492,7 @@ def test_run_service_honors_stop_after_symbol_skip(
     db = TradingDatabase(settings)
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
+        "agentic_trader.workflows.service_loop.ensure_llm_ready",
         _ready_llm,
     )
 
@@ -502,9 +502,9 @@ def test_run_service_honors_stop_after_symbol_skip(
             raise ValueError("No market data returned for AAPL")
         return _artifacts(kwargs["symbol"])
 
-    monkeypatch.setattr("agentic_trader.workflows.service.run_once", _run_once)
+    monkeypatch.setattr("agentic_trader.workflows.service_loop.run_once", _run_once)
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.persist_run",
+        "agentic_trader.workflows.service_loop.persist_run",
         _persist_order_id,
     )
 
@@ -552,10 +552,10 @@ def test_sleep_until_next_cycle_is_interruptible(
     )
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.time.monotonic", constant(0.0)
+        "agentic_trader.workflows.service_records.time.monotonic", constant(0.0)
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.time.sleep",
+        "agentic_trader.workflows.service_records.time.sleep",
         _sleep_requests_stop(db),
     )
 
@@ -588,7 +588,7 @@ def test_run_service_respects_stop_request(
     db = TradingDatabase(settings)
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
+        "agentic_trader.workflows.service_loop.ensure_llm_ready",
         _ready_llm,
     )
 
@@ -597,10 +597,10 @@ def test_run_service_respects_stop_request(
         return _artifacts(kwargs["symbol"])
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.run_once", _run_once_with_stop
+        "agentic_trader.workflows.service_loop.run_once", _run_once_with_stop
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.persist_run",
+        "agentic_trader.workflows.service_loop.persist_run",
         _persist_order_id,
     )
 
@@ -647,7 +647,7 @@ def test_start_background_service_records_spawn(
         return _FakeProcess()
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.subprocess.Popen", _fake_popen
+        "agentic_trader.workflows.service_background.subprocess.Popen", _fake_popen
     )
 
     pid = start_background_service(
@@ -701,10 +701,10 @@ def test_start_background_service_recovers_stale_pid(
         return _FakeProcess()
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.is_process_alive", constant(False)
+        "agentic_trader.workflows.service_background.is_process_alive", constant(False)
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.subprocess.Popen",
+        "agentic_trader.workflows.service_background.subprocess.Popen",
         _fake_popen_stale,
     )
 
@@ -755,7 +755,7 @@ def test_start_background_service_blocks_stale_live_pid(
     assert state is not None
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.build_runtime_status_view",
+        "agentic_trader.workflows.service_background.build_runtime_status_view",
         _stale_runtime_status,
     )
 
@@ -801,10 +801,10 @@ def test_restart_background_service_uses_last_recorded_config(
     )
 
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.is_process_alive", constant(False)
+        "agentic_trader.workflows.service_background.is_process_alive", constant(False)
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.start_background_service",
+        "agentic_trader.workflows.service_background.start_background_service",
         constant(5151),
     )
 
@@ -905,15 +905,15 @@ def test_run_service_records_last_terminal_state(
     )
     settings.ensure_directories()
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.ensure_llm_ready",
+        "agentic_trader.workflows.service_loop.ensure_llm_ready",
         _ready_llm,
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.run_once",
+        "agentic_trader.workflows.service_loop.run_once",
         _run_artifacts_from_symbol,
     )
     monkeypatch.setattr(
-        "agentic_trader.workflows.service.persist_run",
+        "agentic_trader.workflows.service_loop.persist_run",
         _persist_order_id,
     )
 
