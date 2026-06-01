@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 from agentic_trader.config import Settings
-from agentic_trader.researchd import providers as researchd_providers
+from agentic_trader.researchd import firecrawl_provider
 from agentic_trader.researchd.providers import FirecrawlNewsResearchProvider
 from agentic_trader.system.tool_ownership import write_tool_ownership
 
@@ -45,7 +45,7 @@ def test_firecrawl_cli_records_respects_provider_disabled(
     def _unexpected_cli(_name: str) -> str | None:
         raise AssertionError("disabled Firecrawl provider should not resolve the CLI")
 
-    monkeypatch.setattr(researchd_providers.shutil, "which", _unexpected_cli)
+    monkeypatch.setattr(firecrawl_provider.shutil, "which", _unexpected_cli)
     provider = _make_provider(settings)
 
     records, notes = provider.cli_symbol_records(symbol="AAPL", per_symbol_limit=5)
@@ -116,7 +116,7 @@ def test_firecrawl_cli_fallback_proceeds_when_host_owned_but_cli_missing(
     def _missing_cli(_name: str) -> str | None:
         return None
 
-    monkeypatch.setattr(researchd_providers.shutil, "which", _missing_cli)
+    monkeypatch.setattr(firecrawl_provider.shutil, "which", _missing_cli)
 
     provider = _make_provider(settings)
 
