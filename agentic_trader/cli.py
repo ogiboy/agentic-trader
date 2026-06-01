@@ -7,19 +7,16 @@ import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import cast
 from uuid import uuid4
 
-import click
 import typer
 from dotenv import set_key
 from rich.columns import Columns
-from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
-from typer.core import TyperCommand
 
 from agentic_trader.agents.operator_chat import (
     apply_preference_update,
@@ -31,40 +28,29 @@ from agentic_trader.backtest.walk_forward import (
     run_memory_ablation_backtest,
     run_walk_forward_backtest,
 )
+from agentic_trader.cli_modules.common import (
+    console,
+    emit_json as _emit_json,
+    open_db as _open_db,
+)
+from agentic_trader.cli_modules.proposal_desk import (
+    proposal_candidates_payload,
+    register_proposal_desk_commands,
+    trade_proposals_payload,
+)
 from agentic_trader.config import Settings, get_settings
 from agentic_trader.diagnostics import (
     provider_diagnostics_payload,
     v1_readiness_payload,
 )
 from agentic_trader.engine.broker import broker_runtime_payload, get_broker_adapter
-from agentic_trader.finance.ideas import (
-    PRESET_DESCRIPTIONS,
-    IdeaCandidate,
-    IdeaPresetName,
-    rank_candidates,
-)
-from agentic_trader.finance.proposal_candidates import (
-    ProposalCandidateDraft,
-    create_proposal_candidate,
-    promote_proposal_candidate,
-)
+from agentic_trader.execution.intent import ExecutionOutcome
 from agentic_trader.finance.proposals import (
-    TradeProposalDraft,
-    approve_trade_proposal,
-    create_trade_proposal,
-    reconcile_trade_proposal,
     refresh_trade_proposal_order,
-    reject_trade_proposal,
     repair_missing_position_plans,
 )
 from agentic_trader.finance.strategy_catalog import (
-    StrategyStatus,
     finance_reconciliation_contract_payload,
-    get_strategy_profile,
-    score_strategy_context,
-    strategy_catalog_payload,
-    strategy_profile_for_preset,
-    strategy_profile_payload,
 )
 from agentic_trader.json_utils import object_list as _object_list
 from agentic_trader.json_utils import object_mapping as _object_mapping
@@ -121,8 +107,6 @@ from agentic_trader.schemas import (
     OperatorInstruction,
     PortfolioSnapshot,
     PositionSnapshot,
-    ProposalCandidateRecord,
-    ProposalCandidateStatus,
     ResearchCycleControlAction,
     RunArtifacts,
     RunRecord,
@@ -136,8 +120,6 @@ from agentic_trader.schemas import (
     TradeContextRecord,
     TradeJournalEntry,
     TradeProposalRecord,
-    TradeProposalStatus,
-    TradeSide,
 )
 from agentic_trader.security import is_loopback_host, redact_sensitive_text
 from agentic_trader.storage.db import OrderRow, TradingDatabase
@@ -179,35 +161,15 @@ from agentic_trader.ui_text import (
     HELP_CAMOFOX_SERVICE_APP,
     HELP_CAMOFOX_SERVICE_HOST,
     HELP_CAMOFOX_SERVICE_PORT,
-    HELP_CANDIDATE_FRESHNESS,
-    HELP_CANDIDATE_LIQUIDITY,
-    HELP_CANDIDATE_MATERIALITY,
-    HELP_CANDIDATE_RISK_NOTES,
-    HELP_CANDIDATE_SOURCE,
     HELP_CHAT_MESSAGE,
     HELP_CHAT_PERSONA,
     HELP_CLI_APP,
-    HELP_ENRICH_PROVIDER_CONTEXT,
     HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
     HELP_EVIDENCE_BUNDLE_LABEL,
     HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
     HELP_EXPORT_REPORT_OUTPUT,
     HELP_EXPORT_REPORT_RUN_ID,
-    HELP_FETCH_PROVIDER_NEWS,
     HELP_FIRECRAWL_OWNER,
-    HELP_IDEA_CHANGE_PCT,
-    HELP_IDEA_EMA_9,
-    HELP_IDEA_GAP_PCT,
-    HELP_IDEA_PRESET,
-    HELP_IDEA_PRICE,
-    HELP_IDEA_RANGE_PCT,
-    HELP_IDEA_RELATIVE_VOLUME,
-    HELP_IDEA_RSI,
-    HELP_IDEA_SMA_20,
-    HELP_IDEA_SMA_50,
-    HELP_IDEA_SPREAD_PCT,
-    HELP_IDEA_VOLUME,
-    HELP_IDEA_VWAP,
     HELP_INSTRUCT_APPLY,
     HELP_INSTRUCT_MESSAGE,
     HELP_INTERVAL,
@@ -237,10 +199,6 @@ from agentic_trader.ui_text import (
     HELP_OLLAMA_OWNER,
     HELP_POSITION_PLAN_REPAIR_APPLY,
     HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
-    HELP_PROMOTION_NOTES,
-    HELP_PROPOSAL_CANDIDATE_ID,
-    HELP_PROPOSAL_CANDIDATES_LIMIT,
-    HELP_PROPOSAL_CANDIDATES_STATUS_FILTER,
     HELP_PROVIDER_CHECK,
     HELP_RESEARCH_CYCLE_PAUSE,
     HELP_RESEARCH_CYCLE_PLAN_CADENCE_SECONDS,
@@ -266,36 +224,10 @@ from agentic_trader.ui_text import (
     HELP_RUNTIME_MODE_TARGET,
     HELP_SETUP_DRY_RUN,
     HELP_STOP_SERVICE_FORCE,
-    HELP_STRATEGY_CATALOG_PRESET_FILTER,
-    HELP_STRATEGY_CATALOG_STATUS_FILTER,
-    HELP_STRATEGY_PROFILE_NAME,
     HELP_SYMBOL,
     HELP_TOOL_OWNERSHIP_APP,
-    HELP_TRADE_CONFIDENCE,
     HELP_TRADE_CONTEXT_ID,
-    HELP_TRADE_INVALIDATION,
     HELP_TRADE_JOURNAL_LIMIT,
-    HELP_TRADE_LIMIT_PRICE,
-    HELP_TRADE_NOTIONAL,
-    HELP_TRADE_ORDER_TYPE,
-    HELP_TRADE_PROPOSAL_APPROVAL_NOTES,
-    HELP_TRADE_PROPOSAL_ID_APPROVE,
-    HELP_TRADE_PROPOSAL_ID_REJECT,
-    HELP_TRADE_PROPOSAL_RECONCILE_ID,
-    HELP_TRADE_PROPOSAL_RECONCILIATION_NOTES,
-    HELP_TRADE_PROPOSAL_REFRESH_ID,
-    HELP_TRADE_PROPOSAL_REFRESH_NOTES,
-    HELP_TRADE_PROPOSAL_REJECTION_REASON,
-    HELP_TRADE_PROPOSALS_LIMIT,
-    HELP_TRADE_PROPOSALS_STATUS_FILTER,
-    HELP_TRADE_QUANTITY,
-    HELP_TRADE_REFERENCE_PRICE,
-    HELP_TRADE_REVIEW_NOTES,
-    HELP_TRADE_SIDE,
-    HELP_TRADE_SOURCE,
-    HELP_TRADE_STOP_LOSS,
-    HELP_TRADE_TAKE_PROFIT,
-    HELP_TRADE_THESIS,
     HELP_V1_PROVIDER_CHECK,
     HELP_WEBGUI_OPEN_BROWSER,
     HELP_WEBGUI_SERVICE_APP,
@@ -364,7 +296,6 @@ from agentic_trader.ui_text import (
     LABEL_ENVIRONMENT_EXISTS,
     LABEL_EQUITY,
     LABEL_ESTIMATED_MODEL_SIZE,
-    LABEL_EVIDENCE,
     LABEL_EXCHANGES,
     LABEL_EXECUTION_ADAPTER,
     LABEL_EXECUTION_BACKEND,
@@ -377,7 +308,6 @@ from agentic_trader.ui_text import (
     LABEL_EXPOSURE,
     LABEL_FALLBACK,
     LABEL_FALLBACK_CYCLES,
-    LABEL_FAMILY,
     LABEL_FEES,
     LABEL_FIELD,
     LABEL_FILENAME,
@@ -392,8 +322,6 @@ from agentic_trader.ui_text import (
     LABEL_HEALTHCHECK,
     LABEL_HEARTBEAT,
     LABEL_HEARTBEAT_AGE,
-    LABEL_ID,
-    LABEL_INTENT,
     LABEL_INTERVAL,
     LABEL_INTERVENTION,
     LABEL_KEY,
@@ -465,7 +393,6 @@ from agentic_trader.ui_text import (
     LABEL_PNL,
     LABEL_POLL_SECONDS,
     LABEL_PREFERENCE_UPDATE,
-    LABEL_PRESET,
     LABEL_PRODUCES,
     LABEL_PROFILE,
     LABEL_PROPOSAL,
@@ -477,9 +404,7 @@ from agentic_trader.ui_text import (
     LABEL_RATIONALE,
     LABEL_REALIZED_PNL,
     LABEL_REASON,
-    LABEL_REASONS,
     LABEL_RECENT_RUNS,
-    LABEL_REF,
     LABEL_REGIONS,
     LABEL_REJECTION_EVIDENCE,
     LABEL_REJECTION_REASON,
@@ -491,7 +416,6 @@ from agentic_trader.ui_text import (
     LABEL_RETRIEVED_MEMORY_ROLES,
     LABEL_RETURN,
     LABEL_REVIEW_SUMMARY,
-    LABEL_RISK,
     LABEL_RISK_PROFILE,
     LABEL_ROLE,
     LABEL_RUN_ID,
@@ -509,7 +433,6 @@ from agentic_trader.ui_text import (
     LABEL_SHARED_BUS_ROLES,
     LABEL_SIDE,
     LABEL_SIDECAR_AVAILABLE,
-    LABEL_SIGNAL,
     LABEL_SIMULATED,
     LABEL_SIZE,
     LABEL_SLIPPAGE,
@@ -558,9 +481,7 @@ from agentic_trader.ui_text import (
     LABEL_UPDATED,
     LABEL_UPDATED_AT,
     LABEL_UV_AVAILABLE,
-    LABEL_V1_PATH,
     LABEL_V1_SOURCE,
-    LABEL_VALIDATION,
     LABEL_VALUE,
     LABEL_VENUE,
     LABEL_VERSION,
@@ -593,9 +514,6 @@ from agentic_trader.ui_text import (
     MESSAGE_FALLBACK_USED_IN,
     MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
     MESSAGE_GROSS_EXPOSURE_ABOVE_EQUITY,
-    MESSAGE_IDEA_PRESETS_EXECUTION_POLICY,
-    MESSAGE_IDEA_SCORE_EXECUTION_POLICY,
-    MESSAGE_IDEA_SCORE_UNAVAILABLE,
     MESSAGE_INSTALLING_TUI_DEPENDENCIES,
     MESSAGE_LARGEST_POSITION_ABOVE_EQUITY,
     MESSAGE_LAUNCH_PLAN,
@@ -612,7 +530,6 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_PERSISTED_RUNS_REPLAY,
     MESSAGE_NO_PERSISTED_RUNS_REVIEW,
     MESSAGE_NO_PERSISTED_RUNS_TRACE,
-    MESSAGE_NO_PROPOSAL_CANDIDATES,
     MESSAGE_NO_RETRIEVAL_INSPECTION_CONTEXT,
     MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT,
     MESSAGE_NO_RUNTIME_EVENTS,
@@ -622,7 +539,6 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_TOOL_NEWS_HEADLINES,
     MESSAGE_NO_TRADE_CONTEXT,
     MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
-    MESSAGE_NO_TRADE_PROPOSALS,
     MESSAGE_NODE_MISSING,
     MESSAGE_OBSERVER_API_LISTENING,
     MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
@@ -633,9 +549,6 @@ from agentic_trader.ui_text import (
     MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE,
     MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
     MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_PROPOSAL_CANDIDATE_CREATED,
-    MESSAGE_PROPOSAL_CANDIDATE_PROMOTED,
-    MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE,
     MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION,
     MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
     MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
@@ -654,15 +567,8 @@ from agentic_trader.ui_text import (
     MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT,
     MESSAGE_SERVICE_STOP_REQUESTED,
     MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
-    MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
     MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADE_JOURNAL_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_TRADE_PROPOSAL_APPROVED,
-    MESSAGE_TRADE_PROPOSAL_CREATED,
-    MESSAGE_TRADE_PROPOSAL_RECONCILED,
-    MESSAGE_TRADE_PROPOSAL_REFRESHED,
-    MESSAGE_TRADE_PROPOSAL_REJECTED,
-    MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADING_RUNTIME_BLOCKED,
     MESSAGE_TRADING_RUNTIME_READY,
     MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
@@ -691,7 +597,6 @@ from agentic_trader.ui_text import (
     TITLE_AGENT_DECISIONS,
     TITLE_AGENT_TRACE,
     TITLE_ALPACA_PAPER_CHECKS,
-    TITLE_APPROVAL_BLOCKED,
     TITLE_AVAILABLE_MODELS,
     TITLE_BACKTEST_COMPARISON,
     TITLE_BACKTEST_MEMORY_ABLATION,
@@ -702,7 +607,6 @@ from agentic_trader.ui_text import (
     TITLE_CAMOFOX_BROWSER_HELPER,
     TITLE_CAMOFOX_START_FAILED,
     TITLE_CAMOFOX_STDERR_TAIL,
-    TITLE_CANDIDATE_REJECTED,
     TITLE_CANONICAL_ANALYSIS,
     TITLE_CHAT,
     TITLE_CHOOSE_SURFACE,
@@ -719,8 +623,6 @@ from agentic_trader.ui_text import (
     TITLE_FINANCE_OPERATIONS,
     TITLE_FINANCE_OPERATIONS_CHECKS,
     TITLE_HARDWARE_PROFILE,
-    TITLE_IDEA_SCANNER_PRESETS,
-    TITLE_IDEA_SCORE,
     TITLE_INSTALLING_TUI_DEPENDENCIES,
     TITLE_INVESTMENT_PREFERENCES,
     TITLE_LAUNCH_PLAN,
@@ -753,19 +655,11 @@ from agentic_trader.ui_text import (
     TITLE_PORTFOLIO,
     TITLE_POSITION_PLAN_REPAIR,
     TITLE_POSITIONS,
-    TITLE_PROMOTION_BLOCKED,
-    TITLE_PROPOSAL_CANDIDATE_CREATED,
-    TITLE_PROPOSAL_CANDIDATE_PROMOTED,
-    TITLE_PROPOSAL_CANDIDATES,
-    TITLE_PROPOSAL_REJECTED,
     TITLE_PROVIDER_DIAGNOSTICS,
     TITLE_PROVIDER_SOURCE_LADDER,
     TITLE_QA_EVIDENCE_BUNDLE,
     TITLE_RECOMMENDED_COMMANDS,
     TITLE_RECOMMENDED_NEXT_COMMANDS,
-    TITLE_RECONCILIATION_BLOCKED,
-    TITLE_REFRESH_BLOCKED,
-    TITLE_REJECTION_BLOCKED,
     TITLE_REPLAY_STAGES,
     TITLE_RESEARCH_CREWAI_FLOW_SETUP,
     TITLE_RESEARCH_CYCLE_CONTROL,
@@ -799,26 +693,18 @@ from agentic_trader.ui_text import (
     TITLE_SETUP_STATUS,
     TITLE_STALE_STATE_RECOVERED,
     TITLE_STOP_REQUESTED,
-    TITLE_STRATEGY_PROFILE,
     TITLE_TOOL_OWNERSHIP,
     TITLE_TOOL_READINESS,
     TITLE_TRACE,
     TITLE_TRADE_CONTEXT,
     TITLE_TRADE_CONTEXT_DETAIL,
     TITLE_TRADE_JOURNAL,
-    TITLE_TRADE_PROPOSAL_APPROVED,
-    TITLE_TRADE_PROPOSAL_CREATED,
-    TITLE_TRADE_PROPOSAL_RECONCILED,
-    TITLE_TRADE_PROPOSAL_REFRESHED,
-    TITLE_TRADE_PROPOSAL_REJECTED,
-    TITLE_TRADE_PROPOSALS,
     TITLE_TRAINING_DIAGNOSTIC_MODE,
     TITLE_TUI_MISSING,
     TITLE_UI_LOCALE,
     TITLE_UPDATED_PREFERENCES,
     TITLE_V1_OPERATOR_WORKFLOW,
     TITLE_V1_READINESS,
-    TITLE_V1_STRATEGY_CATALOG,
     TITLE_WALK_FORWARD_BACKTEST,
     TITLE_WARNING,
     TITLE_WEB_GUI_SERVICE,
@@ -841,7 +727,6 @@ app = typer.Typer(
     invoke_without_command=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-console = Console()
 UI_LOCALE_ENV = "AGENTIC_TRADER_UI_LOCALE"
 
 
@@ -889,6 +774,21 @@ def upsert_env_local_value(key: str, value: str) -> None:
     set_key(ENV_LOCAL_FILE, key, value, quote_mode="never")
 
 
+def _refresh_trade_proposal_order_provider(
+    *,
+    db: TradingDatabase,
+    settings: Settings,
+    proposal_id: str,
+    review_notes: str,
+) -> tuple[TradeProposalRecord, ExecutionOutcome]:
+    return refresh_trade_proposal_order(
+        db=db,
+        settings=settings,
+        proposal_id=proposal_id,
+        review_notes=review_notes,
+    )
+
+
 LABEL_MODEL_SERVICE = "Model Service"
 model_service_app = typer.Typer(help=HELP_MODEL_SERVICE_APP)
 app.add_typer(model_service_app, name="model-service")
@@ -898,225 +798,15 @@ camofox_service_app = typer.Typer(help=HELP_CAMOFOX_SERVICE_APP)
 app.add_typer(camofox_service_app, name="camofox-service")
 tool_ownership_app = typer.Typer(help=HELP_TOOL_OWNERSHIP_APP)
 app.add_typer(tool_ownership_app, name="tool-ownership")
+register_proposal_desk_commands(
+    app,
+    settings_provider=lambda: get_settings(),
+    refresh_trade_proposal_order_provider=_refresh_trade_proposal_order_provider,
+)
 
 TUI_PACKAGE_NAME = "agentic-trader-tui"
 QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
-ProposalOrderType = Literal["market", "limit"]
-
-
 type NodeCommandSet = tuple[list[str], list[str], Path, str]
-
-
-def _proposal_create_params() -> list[click.Parameter]:
-    """
-    Declare Click parameters for the `proposal-create` CLI command.
-
-    Each returned Option corresponds to a CLI flag used to build a trade proposal:
-    symbol, side, quantity or notional, limit/reference prices, confidence,
-    thesis, order type, stop-loss/take-profit, invalidation condition, source,
-    review notes, and a JSON output flag.
-
-    Returns:
-        list[click.Parameter]: Click Option objects for registering the command's options.
-    """
-    return [
-        click.Option(["--symbol"], required=True, help=HELP_SYMBOL),
-        click.Option(
-            ["--side"],
-            default="buy",
-            show_default=True,
-            help=HELP_TRADE_SIDE,
-        ),
-        click.Option(
-            ["--quantity"],
-            type=click.FloatRange(min=0.0),
-            default=None,
-            help=HELP_TRADE_QUANTITY,
-        ),
-        click.Option(
-            ["--notional"],
-            type=click.FloatRange(min=0.0),
-            default=None,
-            help=HELP_TRADE_NOTIONAL,
-        ),
-        click.Option(
-            ["--limit-price", "limit_price"],
-            type=click.FloatRange(min=0.01),
-            default=None,
-            help=HELP_TRADE_LIMIT_PRICE,
-        ),
-        click.Option(
-            ["--reference-price", "reference_price"],
-            type=click.FloatRange(min=0.01),
-            required=True,
-            help=HELP_TRADE_REFERENCE_PRICE,
-        ),
-        click.Option(
-            ["--confidence"],
-            type=click.FloatRange(min=0.0, max=1.0),
-            default=0.5,
-            show_default=True,
-            help=HELP_TRADE_CONFIDENCE,
-        ),
-        click.Option(["--thesis"], required=True, help=HELP_TRADE_THESIS),
-        click.Option(
-            ["--order-type", "order_type"],
-            default="market",
-            show_default=True,
-            help=HELP_TRADE_ORDER_TYPE,
-        ),
-        click.Option(
-            ["--stop-loss", "stop_loss"],
-            type=click.FloatRange(min=0.01),
-            default=None,
-            help=HELP_TRADE_STOP_LOSS,
-        ),
-        click.Option(
-            ["--take-profit", "take_profit"],
-            type=click.FloatRange(min=0.01),
-            default=None,
-            help=HELP_TRADE_TAKE_PROFIT,
-        ),
-        click.Option(
-            ["--invalidation-condition", "invalidation_condition"],
-            default=None,
-            help=HELP_TRADE_INVALIDATION,
-        ),
-        click.Option(
-            ["--source"],
-            default="manual",
-            show_default=True,
-            help=HELP_TRADE_SOURCE,
-        ),
-        click.Option(
-            ["--review-notes", "review_notes"],
-            default="",
-            help=HELP_TRADE_REVIEW_NOTES,
-        ),
-        click.Option(
-            ["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON
-        ),
-    ]
-
-
-def _idea_score_params() -> list[click.Parameter]:
-    """
-    Return the list of Click parameters (options) used by the `idea-score` CLI command.
-
-    Each returned `click.Option` defines a named CLI flag for providing market/indicator inputs
-    used when scoring an idea (symbol, preset, price, volume, change_pct, relative_volume,
-    gap_pct, range_pct, optional indicators like RSI/EMA/SMA/VWAP, spread_pct, and `--json`).
-    Returns:
-        list[click.Parameter]: Configured Click `Option` objects for the `idea-score` command.
-    """
-    return [
-        click.Option(["--symbol"], required=True, help=HELP_SYMBOL),
-        click.Option(
-            ["--preset"],
-            default="momentum",
-            show_default=True,
-            help=HELP_IDEA_PRESET,
-        ),
-        click.Option(
-            ["--price"],
-            type=click.FloatRange(min=0.01),
-            required=True,
-            help=HELP_IDEA_PRICE,
-        ),
-        click.Option(
-            ["--volume"],
-            type=click.FloatRange(min=0.0),
-            required=True,
-            help=HELP_IDEA_VOLUME,
-        ),
-        click.Option(
-            ["--change-pct", "change_pct"],
-            type=float,
-            required=True,
-            help=HELP_IDEA_CHANGE_PCT,
-        ),
-        click.Option(
-            ["--relative-volume", "relative_volume"],
-            type=click.FloatRange(min=0.0),
-            default=0.0,
-            show_default=True,
-            help=HELP_IDEA_RELATIVE_VOLUME,
-        ),
-        click.Option(
-            ["--gap-pct", "gap_pct"],
-            type=float,
-            default=0.0,
-            show_default=True,
-            help=HELP_IDEA_GAP_PCT,
-        ),
-        click.Option(
-            ["--range-pct", "range_pct"],
-            type=click.FloatRange(min=0.0),
-            default=0.0,
-            show_default=True,
-            help=HELP_IDEA_RANGE_PCT,
-        ),
-        click.Option(
-            ["--rsi"],
-            type=click.FloatRange(min=0.0, max=100.0),
-            default=None,
-            help=HELP_IDEA_RSI,
-        ),
-        click.Option(
-            ["--ema-9", "ema_9"],
-            type=click.FloatRange(min=0.0),
-            default=None,
-            help=HELP_IDEA_EMA_9,
-        ),
-        click.Option(
-            ["--sma-20", "sma_20"],
-            type=click.FloatRange(min=0.0),
-            default=None,
-            help=HELP_IDEA_SMA_20,
-        ),
-        click.Option(
-            ["--sma-50", "sma_50"],
-            type=click.FloatRange(min=0.0),
-            default=None,
-            help=HELP_IDEA_SMA_50,
-        ),
-        click.Option(
-            ["--vwap"],
-            type=click.FloatRange(min=0.0),
-            default=None,
-            help=HELP_IDEA_VWAP,
-        ),
-        click.Option(
-            ["--spread-pct", "spread_pct"],
-            type=click.FloatRange(min=0.0),
-            default=0.0,
-            show_default=True,
-            help=HELP_IDEA_SPREAD_PCT,
-        ),
-        click.Option(
-            ["--json", "json_output"], is_flag=True, default=False, help=HELP_JSON
-        ),
-    ]
-
-
-class ProposalCreateCommand(TyperCommand):
-    def __init__(
-        self,
-        *args: Any,
-        params: list[click.Parameter] | None = None,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, params=cast(Any, _proposal_create_params()), **kwargs)
-
-
-class IdeaScoreCommand(TyperCommand):
-    def __init__(
-        self,
-        *args: Any,
-        params: list[click.Parameter] | None = None,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, params=cast(Any, _idea_score_params()), **kwargs)
 
 
 def resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
@@ -2096,41 +1786,6 @@ def _render_memory_matches(matches: Sequence[HistoricalMemoryMatch]) -> None:
     console.print(table)
 
 
-def _emit_json(payload: object) -> None:
-    """
-    Emit an object as indented JSON to standard output for CLI consumers.
-
-    Parameters:
-        payload (object): The Python object to serialize to JSON.
-    """
-    typer.echo(json.dumps(payload, indent=2))
-
-
-def _emit_json_error(error: Exception | str) -> None:
-    """
-    Emit a JSON-formatted error payload with sensitive content redacted.
-
-    Writes a JSON error object after passing the provided exception or message
-    through sensitive-text redaction before emission.
-    """
-    _emit_json({"error": redact_sensitive_text(error, max_length=240)})
-
-
-def _open_db(settings: Settings, *, read_only: bool = False) -> TradingDatabase:
-    """
-    Open and return a TradingDatabase instance configured from the given settings.
-
-    If `read_only` is True the database wrapper is initialized for read-only access to avoid acquiring writer locks.
-
-    Parameters:
-        read_only (bool): `True` to open the database in read-only mode, `False` to allow mutations.
-
-    Returns:
-        TradingDatabase: A database wrapper initialized using `settings`.
-    """
-    return TradingDatabase(settings, read_only=read_only)
-
-
 def _portfolio_payload(settings: Settings) -> dict[str, object]:
     """
     Builds an observer-friendly portfolio payload containing the account snapshot, open positions, and accounting metadata.
@@ -2361,264 +2016,6 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
         "error": error,
         "entries": [entry.model_dump(mode="json") for entry in entries],
     }
-
-
-def _trade_proposals_payload(
-    settings: Settings, *, status: TradeProposalStatus | None = None, limit: int = 50
-) -> dict[str, object]:
-    """
-    Builds an observer payload with trade proposals optionally filtered by status.
-
-    If the database cannot be opened or read, `available` will be `False` and `error` will contain a redacted error message.
-
-    Parameters:
-        settings (Settings): Application settings used to open the trading database.
-        status (TradeProposalStatus | None): Optional status to filter proposals by; `None` returns proposals of any status.
-        limit (int): Maximum number of proposals to return.
-
-    Returns:
-        dict: Payload containing:
-            - `available` (bool): True when DB read succeeded, False on error.
-            - `error` (str | None): Redacted error message when `available` is False, otherwise None.
-            - `status` (TradeProposalStatus | None): The filter value echoed back.
-            - `proposals` (list[dict]): List of proposals serialized for JSON (one dict per proposal).
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            proposals = db.list_trade_proposals(status=status, limit=limit)
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        proposals = []
-        available = False
-        error = redact_sensitive_text(exc, max_length=240)
-    return {
-        "available": available,
-        "error": error,
-        "status": status,
-        "proposals": [proposal.model_dump(mode="json") for proposal in proposals],
-    }
-
-
-def _proposal_candidates_payload(
-    settings: Settings,
-    *,
-    status: ProposalCandidateStatus | None = None,
-    limit: int = 50,
-) -> dict[str, object]:
-    """
-    Builds an observer payload containing the proposal-candidate queue.
-
-    Parameters:
-        status (ProposalCandidateStatus | None): Optional filter for candidate status to include in the payload.
-        limit (int): Maximum number of candidates to return.
-
-    Returns:
-        dict: Payload with the following keys:
-            - "available" (bool): `True` if the database read succeeded, `False` on error.
-            - "error" (str | None): Redacted error message when read failed, otherwise `None`.
-            - "status" (ProposalCandidateStatus | None): The status filter that was applied.
-            - "candidates" (list[dict]): List of candidate records serialized to JSON-serializable dicts.
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            candidates = db.list_proposal_candidates(status=status, limit=limit)
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        candidates = []
-        available = False
-        error = redact_sensitive_text(exc, max_length=240)
-    return {
-        "available": available,
-        "error": error,
-        "status": status,
-        "candidates": [candidate.model_dump(mode="json") for candidate in candidates],
-    }
-
-
-def _parse_trade_side(value: str) -> TradeSide:
-    normalized = value.strip().lower()
-    if normalized not in {"buy", "sell"}:
-        raise typer.BadParameter("side must be buy or sell")
-    return cast(TradeSide, normalized)
-
-
-def _parse_order_type(value: str) -> ProposalOrderType:
-    normalized = value.strip().lower()
-    if normalized not in {"market", "limit"}:
-        raise typer.BadParameter("proposal order type must be market or limit")
-    return cast(ProposalOrderType, normalized)
-
-
-def _parse_proposal_status(value: str | None) -> TradeProposalStatus | None:
-    """
-    Normalize and validate a proposal status string.
-
-    Parameters:
-        value (str | None): Candidate status string (case/whitespace-insensitive).
-
-    Returns:
-        TradeProposalStatus | None: The normalized `TradeProposalStatus` corresponding to `value`, or `None` if `value` is `None`.
-
-    Raises:
-        typer.BadParameter: If `value` is not one of "pending", "approved", "rejected", "executed", "failed", or "expired".
-    """
-    if value is None:
-        return None
-    normalized = value.strip().lower()
-    if normalized not in {
-        "pending",
-        "approved",
-        "rejected",
-        "executed",
-        "failed",
-        "expired",
-    }:
-        raise typer.BadParameter("status is not a known proposal state")
-    return cast(TradeProposalStatus, normalized)
-
-
-def _parse_candidate_status(value: str | None) -> ProposalCandidateStatus | None:
-    """
-    Normalize and validate a proposal candidate status string.
-
-    Parameters:
-        value: The status string to parse; accepted case-insensitive values are
-            "candidate", "promoted", "rejected", and "expired". If `None`, the
-            function returns `None`.
-
-    Returns:
-        `ProposalCandidateStatus` if `value` matches a known state, `None` if `value` is `None`.
-
-    Raises:
-        typer.BadParameter: If `value` is not one of the accepted status strings.
-    """
-    if value is None:
-        return None
-    normalized = value.strip().lower()
-    if normalized not in {"candidate", "promoted", "rejected", "expired"}:
-        raise typer.BadParameter("status is not a known proposal candidate state")
-    return cast(ProposalCandidateStatus, normalized)
-
-
-def _parse_idea_preset(value: str) -> IdeaPresetName:
-    """
-    Normalize and validate an idea scanner preset name.
-
-    Parameters:
-        value (str): Candidate preset name; whitespace is trimmed and case is folded to lowercase.
-
-    Returns:
-        IdeaPresetName: The normalized preset name that is guaranteed to exist in PRESET_DESCRIPTIONS.
-
-    Raises:
-        typer.BadParameter: If the normalized value is not a known preset.
-    """
-    normalized = value.strip().lower()
-    if normalized not in PRESET_DESCRIPTIONS:
-        raise typer.BadParameter("preset is not a known idea scanner preset")
-    return normalized
-
-
-def _parse_strategy_status(value: str | None) -> StrategyStatus | None:
-    if value is None:
-        return None
-    normalized = value.strip().lower().replace("-", "_")
-    if normalized not in {"implemented", "research_candidate", "v2_deferred"}:
-        raise typer.BadParameter(
-            "status must be implemented, research-candidate, or v2-deferred"
-        )
-    return cast(StrategyStatus, normalized)
-
-
-def _render_trade_proposals(proposals: list[TradeProposalRecord]) -> None:
-    """
-    Render a table of trade proposals to the console.
-
-    Parameters:
-        proposals (list[TradeProposalRecord]): Trade proposal records to display. If the list is empty, a yellow panel indicating "No trade proposals recorded yet." is printed instead.
-    """
-    if not proposals:
-        console.print(
-            Panel(
-                MESSAGE_NO_TRADE_PROPOSALS,
-                title=TITLE_TRADE_PROPOSALS,
-                border_style="yellow",
-            )
-        )
-        return
-    table = Table(title=TITLE_TRADE_PROPOSALS)
-    table.add_column(LABEL_ID)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_SYMBOL)
-    table.add_column(LABEL_SIDE)
-    table.add_column(LABEL_SIZE)
-    table.add_column(LABEL_REF)
-    table.add_column(LABEL_CONFIDENCE)
-    table.add_column(LABEL_SOURCE)
-    for proposal in proposals:
-        size = (
-            f"qty {proposal.quantity:.6f}"
-            if proposal.quantity is not None
-            else f"${proposal.notional or 0.0:.2f}"
-        )
-        table.add_row(
-            proposal.proposal_id,
-            proposal.status,
-            proposal.symbol,
-            proposal.side,
-            size,
-            f"{proposal.reference_price:.4f}",
-            f"{proposal.confidence:.2f}",
-            proposal.source,
-        )
-    console.print(table)
-
-
-def _render_proposal_candidates(candidates: list[ProposalCandidateRecord]) -> None:
-    """
-    Render a terminal table of proposal candidates or show a placeholder panel when none are present.
-
-    Parameters:
-        candidates (list[ProposalCandidateRecord]): Sequence of proposal candidate records to display; each record's fields (candidate_id, status, symbol, preset, signal, score, reference_price, proposal_id) are shown as table columns.
-    """
-    if not candidates:
-        console.print(
-            Panel(
-                MESSAGE_NO_PROPOSAL_CANDIDATES,
-                title=TITLE_PROPOSAL_CANDIDATES,
-                border_style="yellow",
-            )
-        )
-        return
-    table = Table(title=TITLE_PROPOSAL_CANDIDATES)
-    table.add_column(LABEL_ID)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_SYMBOL)
-    table.add_column(LABEL_PRESET)
-    table.add_column(LABEL_SIGNAL)
-    table.add_column(LABEL_SCORE)
-    table.add_column(LABEL_REF)
-    table.add_column(LABEL_PROPOSAL)
-    for candidate in candidates:
-        table.add_row(
-            candidate.candidate_id,
-            candidate.status,
-            candidate.symbol,
-            candidate.preset,
-            candidate.signal,
-            f"{candidate.score:.2f}",
-            f"{candidate.reference_price:.4f}",
-            candidate.proposal_id or "-",
-        )
-    console.print(table)
 
 
 def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]:
@@ -5697,733 +5094,6 @@ def position_plan_repair(
     _render_position_plan_repair(payload)
 
 
-@app.command("trade-proposals")
-def trade_proposals(
-    status: str | None = typer.Option(
-        None,
-        "--status",
-        help=HELP_TRADE_PROPOSALS_STATUS_FILTER,
-    ),
-    limit: int = typer.Option(50, min=1, max=200, help=HELP_TRADE_PROPOSALS_LIMIT),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Display the manual-review trade proposal queue.
-
-    Parameters:
-        status (str | None): Optional filter for proposal state; allowed values are
-            "pending", "approved", "rejected", "executed", "failed", or "expired".
-        limit (int): Maximum number of trade proposals to show (1–200).
-        json_output (bool): If True, emit the full payload as JSON instead of rendering.
-    """
-    settings = get_settings()
-    parsed_status = _parse_proposal_status(status)
-    payload = _trade_proposals_payload(settings, status=parsed_status, limit=limit)
-    if json_output:
-        _emit_json(payload)
-        return
-    proposals = [
-        TradeProposalRecord.model_validate(item)
-        for item in cast(list[dict[str, object]], payload["proposals"])
-    ]
-    if not payload["available"]:
-        console.print(
-            Panel(
-                MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE.format(
-                    error=payload["error"]
-                ),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    _render_trade_proposals(proposals)
-
-
-@app.command("proposal-candidates")
-def proposal_candidates(
-    status: str | None = typer.Option(
-        None,
-        "--status",
-        help=HELP_PROPOSAL_CANDIDATES_STATUS_FILTER,
-    ),
-    limit: int = typer.Option(50, min=1, max=200, help=HELP_PROPOSAL_CANDIDATES_LIMIT),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show scanner/research candidates that may be promoted into proposals."""
-    settings = get_settings()
-    parsed_status = _parse_candidate_status(status)
-    payload = _proposal_candidates_payload(
-        settings,
-        status=parsed_status,
-        limit=limit,
-    )
-    if json_output:
-        _emit_json(payload)
-        return
-    candidates = [
-        ProposalCandidateRecord.model_validate(item)
-        for item in cast(list[dict[str, object]], payload["candidates"])
-    ]
-    if not payload["available"]:
-        console.print(
-            Panel(
-                MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE.format(
-                    error=payload["error"]
-                ),
-                title=LABEL_OBSERVER_MODE,
-                border_style="yellow",
-            )
-        )
-        raise typer.Exit(code=0)
-    _render_proposal_candidates(candidates)
-
-
-@app.command("proposal-candidate-create")
-def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the command signature.
-    symbol: str = typer.Option(..., "--symbol", help=HELP_SYMBOL),  # NOSONAR
-    preset: str = typer.Option("momentum", "--preset", help=HELP_IDEA_PRESET),
-    price: float = typer.Option(
-        ..., "--price", min=0.01, help=HELP_TRADE_REFERENCE_PRICE
-    ),
-    volume: float = typer.Option(..., "--volume", min=0.0, help=HELP_IDEA_VOLUME),
-    change_pct: float = typer.Option(..., "--change-pct", help=HELP_IDEA_CHANGE_PCT),
-    relative_volume: float = typer.Option(0.0, "--relative-volume", min=0.0),
-    gap_pct: float = typer.Option(0.0, "--gap-pct", help=HELP_IDEA_GAP_PCT),
-    range_pct: float = typer.Option(0.0, "--range-pct", min=0.0),
-    rsi: float | None = typer.Option(None, "--rsi", min=0.0, max=100.0),
-    ema_9: float | None = typer.Option(None, "--ema-9", min=0.0),
-    sma_20: float | None = typer.Option(None, "--sma-20", min=0.0),
-    sma_50: float | None = typer.Option(None, "--sma-50", min=0.0),
-    vwap: float | None = typer.Option(None, "--vwap", min=0.0),
-    spread_pct: float = typer.Option(0.0, "--spread-pct", min=0.0),
-    quantity: float | None = typer.Option(None, "--quantity", min=0.0),
-    notional: float | None = typer.Option(None, "--notional", min=0.0),
-    stop_loss: float | None = typer.Option(None, "--stop-loss", min=0.01),
-    take_profit: float | None = typer.Option(None, "--take-profit", min=0.01),
-    invalidation_condition: str | None = typer.Option(
-        None,
-        "--invalidation-condition",
-        help=HELP_TRADE_INVALIDATION,
-    ),
-    thesis: str = typer.Option("", "--thesis", help=HELP_TRADE_THESIS),
-    materiality: str = typer.Option(
-        "", "--materiality", help=HELP_CANDIDATE_MATERIALITY
-    ),
-    freshness: str = typer.Option(
-        "operator_supplied_current",
-        "--freshness",
-        help=HELP_CANDIDATE_FRESHNESS,
-    ),
-    liquidity: str = typer.Option("", "--liquidity", help=HELP_CANDIDATE_LIQUIDITY),
-    risk_notes: str = typer.Option("", "--risk-notes", help=HELP_CANDIDATE_RISK_NOTES),
-    source: str = typer.Option("idea-scanner", "--source", help=HELP_CANDIDATE_SOURCE),
-    enrich_provider_context: bool = typer.Option(
-        True,
-        "--enrich-provider-context/--no-enrich-provider-context",
-        help=HELP_ENRICH_PROVIDER_CONTEXT,
-    ),
-    fetch_provider_news: bool = typer.Option(
-        False,
-        "--fetch-provider-news/--no-fetch-provider-news",
-        help=HELP_FETCH_PROVIDER_NEWS,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Persist a scanner/research candidate without approving or submitting it."""
-    settings = get_settings()
-    draft = ProposalCandidateDraft(
-        idea=IdeaCandidate(
-            symbol=symbol,
-            price=price,
-            volume=volume,
-            change_pct=change_pct,
-            relative_volume=relative_volume,
-            gap_pct=gap_pct,
-            range_pct=range_pct,
-            rsi=rsi,
-            ema_9=ema_9,
-            sma_20=sma_20,
-            sma_50=sma_50,
-            vwap=vwap,
-            spread_pct=spread_pct,
-        ),
-        preset=_parse_idea_preset(preset),
-        quantity=quantity,
-        notional=notional,
-        stop_loss=stop_loss,
-        take_profit=take_profit,
-        invalidation_condition=invalidation_condition,
-        thesis=thesis,
-        materiality=materiality,
-        freshness=freshness,
-        liquidity=liquidity,
-        risk_notes=risk_notes,
-        source=source,
-    )
-    try:
-        db = _open_db(settings)
-        try:
-            candidate = create_proposal_candidate(
-                db=db,
-                draft=draft,
-                settings=settings,
-                enrich_provider_context=enrich_provider_context,
-                fetch_provider_news=fetch_provider_news,
-            )
-        finally:
-            db.close()
-    except ValueError as exc:
-        if json_output:
-            _emit_json_error(exc)
-            raise typer.Exit(code=2) from exc
-        console.print(
-            Panel(str(exc), title=TITLE_CANDIDATE_REJECTED, border_style="red")
-        )
-        raise typer.Exit(code=2) from exc
-    if json_output:
-        _emit_json(candidate.model_dump(mode="json"))
-        return
-    console.print(
-        Panel(
-            MESSAGE_PROPOSAL_CANDIDATE_CREATED.format(
-                candidate_id=candidate.candidate_id,
-                symbol=candidate.symbol,
-                signal=candidate.signal.upper(),
-                score=candidate.score,
-            ),
-            title=TITLE_PROPOSAL_CANDIDATE_CREATED,
-            border_style="green",
-        )
-    )
-
-
-@app.command("proposal-candidate-promote")
-def proposal_candidate_promote(
-    candidate_id: str = typer.Argument(..., help=HELP_PROPOSAL_CANDIDATE_ID),
-    review_notes: str = typer.Option("", help=HELP_PROMOTION_NOTES),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Promote a proposal candidate into a pending manual-review trade proposal.
-
-    Promotes the candidate identified by `candidate_id` into a stored trade proposal awaiting manual review.
-    On success emits a JSON payload when `json_output` is true, otherwise prints a success panel.
-    If promotion validation fails the command exits with code 2 and either prints a rejection panel or emits a redacted JSON error when `json_output` is true.
-
-    Parameters:
-        candidate_id (str): Proposal candidate id to promote.
-        review_notes (str): Optional promotion notes to record with the promotion.
-        json_output (bool): When true, emit machine-readable JSON output instead of printing terminal UI.
-    """
-    settings = get_settings()
-    try:
-        db = _open_db(settings)
-        try:
-            candidate, proposal = promote_proposal_candidate(
-                db=db,
-                candidate_id=candidate_id,
-                review_notes=review_notes,
-            )
-        finally:
-            db.close()
-    except ValueError as exc:
-        if json_output:
-            _emit_json_error(exc)
-            raise typer.Exit(code=2) from exc
-        console.print(
-            Panel(str(exc), title=TITLE_PROMOTION_BLOCKED, border_style="red")
-        )
-        raise typer.Exit(code=2) from exc
-    payload = {
-        "candidate": candidate.model_dump(mode="json"),
-        "proposal": proposal.model_dump(mode="json"),
-        "submitted_to_broker": False,
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            MESSAGE_PROPOSAL_CANDIDATE_PROMOTED.format(
-                candidate_id=candidate.candidate_id,
-                proposal_id=proposal.proposal_id,
-            ),
-            title=TITLE_PROPOSAL_CANDIDATE_PROMOTED,
-            border_style="green",
-        )
-    )
-
-
-@app.command("proposal-create", cls=ProposalCreateCommand)
-def proposal_create(**options: str) -> None:
-    """
-    Create a pending trade proposal for manual review without sending any order.
-
-    Parameters:
-        **options: str
-            A mapping of CLI option names to their string values. Recognized keys:
-            - symbol: trading symbol (e.g., "AAPL")
-            - side: "buy" or "sell"
-            - order_type: "market" or "limit"
-            - quantity: numeric quantity or empty
-            - notional: numeric notional or empty
-            - limit_price: numeric limit price or empty
-            - reference_price: numeric reference price
-            - confidence: numeric confidence score
-            - thesis: short rationale for the proposal
-            - stop_loss: numeric stop-loss price or empty
-            - take_profit: numeric take-profit price or empty
-            - invalidation_condition: optional string condition to invalidate the proposal
-            - source: provenance/source string
-            - review_notes: reviewer notes or rationale
-            - json_output: truthy value to emit JSON instead of formatted console output
-
-    Raises:
-        typer.Exit: exits with code 2 when proposal validation fails; when `json_output`
-        is set, a redacted JSON error is emitted before exit.
-    """
-    settings = get_settings()
-    symbol = str(options["symbol"])
-    side = str(options["side"])
-    try:
-        db = _open_db(settings)
-        try:
-            proposal = create_trade_proposal(
-                db=db,
-                draft=TradeProposalDraft(
-                    symbol=symbol,
-                    side=_parse_trade_side(side),
-                    order_type=_parse_order_type(str(options["order_type"])),
-                    quantity=cast(float | None, options["quantity"]),
-                    notional=cast(float | None, options["notional"]),
-                    limit_price=cast(float | None, options["limit_price"]),
-                    reference_price=cast(float, options["reference_price"]),
-                    confidence=cast(float, options["confidence"]),
-                    thesis=str(options["thesis"]),
-                    stop_loss=cast(float | None, options["stop_loss"]),
-                    take_profit=cast(float | None, options["take_profit"]),
-                    invalidation_condition=cast(
-                        str | None, options["invalidation_condition"]
-                    ),
-                    source=str(options["source"]),
-                    review_notes=str(options["review_notes"]),
-                ),
-            )
-        finally:
-            db.close()
-    except ValueError as exc:
-        if bool(options["json_output"]):
-            _emit_json_error(exc)
-            raise typer.Exit(code=2) from exc
-        console.print(
-            Panel(str(exc), title=TITLE_PROPOSAL_REJECTED, border_style="red")
-        )
-        raise typer.Exit(code=2) from exc
-    payload = proposal.model_dump(mode="json")
-    if bool(options["json_output"]):
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            MESSAGE_TRADE_PROPOSAL_CREATED.format(
-                proposal_id=proposal.proposal_id,
-                symbol=proposal.symbol,
-                side=proposal.side.upper(),
-                reference_price=proposal.reference_price,
-            ),
-            title=TITLE_TRADE_PROPOSAL_CREATED,
-            border_style="green",
-        )
-    )
-
-
-@app.command("proposal-approve")
-def proposal_approve(
-    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_ID_APPROVE),
-    review_notes: str = typer.Option("", help=HELP_TRADE_PROPOSAL_APPROVAL_NOTES),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Approve a pending trade proposal and submit it to the configured paper broker.
-
-    Persists the provided approval audit notes, attempts to submit the proposal to the broker,
-    and either prints a human-readable result panel or emits a JSON payload when json_output is True.
-    On validation or runtime failures, emits a redacted JSON error if json_output is True or displays
-    an "Approval Blocked" panel, then exits with code 2.
-
-    Parameters:
-        proposal_id (str): Identifier of the trade proposal to approve.
-        review_notes (str): Approval audit notes persisted with the approval; used for audit/history.
-        json_output (bool): When True, emit a machine-readable JSON payload instead of printing panels.
-    """
-    settings = get_settings()
-    try:
-        db = _open_db(settings)
-        try:
-            proposal, outcome = approve_trade_proposal(
-                db=db,
-                settings=settings,
-                proposal_id=proposal_id,
-                review_notes=review_notes,
-            )
-        finally:
-            db.close()
-    except (RuntimeError, ValueError) as exc:
-        if json_output:
-            _emit_json_error(exc)
-            raise typer.Exit(code=2) from exc
-        console.print(Panel(str(exc), title=TITLE_APPROVAL_BLOCKED, border_style="red"))
-        raise typer.Exit(code=2) from exc
-    payload = {
-        "proposal": proposal.model_dump(mode="json"),
-        "outcome": outcome.model_dump(mode="json"),
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            MESSAGE_TRADE_PROPOSAL_APPROVED.format(
-                proposal_id=proposal.proposal_id,
-                status=proposal.status,
-                order_id=proposal.execution_order_id or "-",
-                outcome_status=outcome.status,
-            ),
-            title=TITLE_TRADE_PROPOSAL_APPROVED,
-            border_style="green" if proposal.status == "executed" else "yellow",
-        )
-    )
-
-
-@app.command("proposal-reconcile")
-def proposal_reconcile(
-    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_RECONCILE_ID),
-    review_notes: str = typer.Option("", help=HELP_TRADE_PROPOSAL_RECONCILIATION_NOTES),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Reconcile an approved trade proposal against a recorded execution outcome without resubmitting an order to the broker.
-
-    Attempts to match and record an execution outcome for the given proposal; on success prints a reconciliation summary (or emits a JSON payload when `json_output` is true). On validation failure emits a redacted JSON error (if `json_output`) or prints a blocked panel, then exits with code 2.
-
-    Parameters:
-        proposal_id (str): In-flight approved proposal id to reconcile.
-        review_notes (str): Reconciliation audit notes describing why the reconciliation is being performed.
-        json_output (bool): If true, emit machine-readable JSON output instead of human-oriented console panels.
-    """
-    settings = get_settings()
-    try:
-        db = _open_db(settings)
-        try:
-            proposal, execution_record = reconcile_trade_proposal(
-                db=db,
-                proposal_id=proposal_id,
-                review_notes=review_notes,
-            )
-        finally:
-            db.close()
-    except ValueError as exc:
-        if json_output:
-            _emit_json_error(exc)
-            raise typer.Exit(code=2) from exc
-        console.print(
-            Panel(str(exc), title=TITLE_RECONCILIATION_BLOCKED, border_style="red")
-        )
-        raise typer.Exit(code=2) from exc
-    payload = {
-        "proposal": proposal.model_dump(mode="json"),
-        "execution_record": execution_record,
-        "resubmitted": False,
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            MESSAGE_TRADE_PROPOSAL_RECONCILED.format(
-                proposal_id=proposal.proposal_id,
-                status=proposal.status,
-                order_id=proposal.execution_order_id or "-",
-                outcome_status=proposal.execution_outcome_status or "-",
-            ),
-            title=TITLE_TRADE_PROPOSAL_RECONCILED,
-            border_style="green" if proposal.status == "executed" else "yellow",
-        )
-    )
-
-
-@app.command("proposal-refresh")
-def proposal_refresh(
-    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_REFRESH_ID),
-    review_notes: str = typer.Option("", help=HELP_TRADE_PROPOSAL_REFRESH_NOTES),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Refreshes an executed trade proposal's broker order metadata without submitting a new order.
-
-    Parameters:
-        proposal_id (str): Executed proposal identifier to refresh.
-        review_notes (str): Audit notes required for the refresh operation.
-        json_output (bool): If true, emit a JSON payload instead of printing human-readable output.
-
-    Notes:
-        On runtime or validation errors the command emits a redacted JSON error when `json_output` is true
-        (or a red error panel otherwise) and exits the CLI with code 2.
-    """
-    settings = get_settings()
-    try:
-        db = _open_db(settings)
-        try:
-            proposal, outcome = refresh_trade_proposal_order(
-                db=db,
-                settings=settings,
-                proposal_id=proposal_id,
-                review_notes=review_notes,
-            )
-        finally:
-            db.close()
-    except (RuntimeError, ValueError) as exc:
-        if json_output:
-            _emit_json_error(exc)
-            raise typer.Exit(code=2) from exc
-        console.print(Panel(str(exc), title=TITLE_REFRESH_BLOCKED, border_style="red"))
-        raise typer.Exit(code=2) from exc
-    payload = {
-        "proposal": proposal.model_dump(mode="json"),
-        "outcome": outcome.model_dump(mode="json"),
-        "resubmitted": False,
-        "refreshed": True,
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            MESSAGE_TRADE_PROPOSAL_REFRESHED.format(
-                proposal_id=proposal.proposal_id,
-                status=proposal.status,
-                order_id=proposal.execution_order_id or "-",
-                outcome_status=outcome.status,
-            ),
-            title=TITLE_TRADE_PROPOSAL_REFRESHED,
-            border_style="green" if proposal.status == "executed" else "yellow",
-        )
-    )
-
-
-@app.command("proposal-reject")
-def proposal_reject(
-    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_ID_REJECT),
-    reason: str = typer.Option(..., help=HELP_TRADE_PROPOSAL_REJECTION_REASON),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Rejects a pending trade proposal and records the decision for audit.
-
-    When successful, the updated proposal is emitted as JSON if `json_output` is True;
-    otherwise a human-readable confirmation panel is printed.
-
-    Parameters:
-        proposal_id (str): Identifier of the trade proposal to reject.
-        reason (str): Human-readable reason for rejecting the proposal.
-        json_output (bool): If True, emit machine-readable JSON output instead of printing a panel.
-
-    Raises:
-        typer.Exit: Exits with code 2 when rejection is blocked (validation or business-rule failure).
-    """
-    settings = get_settings()
-    try:
-        db = _open_db(settings)
-        try:
-            proposal = reject_trade_proposal(
-                db=db, proposal_id=proposal_id, reason=reason
-            )
-        finally:
-            db.close()
-    except ValueError as exc:
-        if json_output:
-            _emit_json_error(exc)
-            raise typer.Exit(code=2) from exc
-        console.print(
-            Panel(str(exc), title=TITLE_REJECTION_BLOCKED, border_style="red")
-        )
-        raise typer.Exit(code=2) from exc
-    if json_output:
-        _emit_json(proposal.model_dump(mode="json"))
-        return
-    console.print(
-        Panel(
-            MESSAGE_TRADE_PROPOSAL_REJECTED.format(
-                proposal_id=proposal.proposal_id,
-                reason=proposal.rejection_reason,
-            ),
-            title=TITLE_TRADE_PROPOSAL_REJECTED,
-            border_style="yellow",
-        )
-    )
-
-
-@app.command("idea-presets")
-def idea_presets(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show V1 idea-scanner presets and their operator intent."""
-    payload = {
-        "presets": [
-            {
-                "name": name,
-                "description": description,
-                "strategy_profile": strategy_profile_payload(
-                    strategy_profile_for_preset(name)
-                ),
-            }
-            for name, description in PRESET_DESCRIPTIONS.items()
-        ],
-        "execution_policy": MESSAGE_IDEA_PRESETS_EXECUTION_POLICY,
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    table = Table(title=TITLE_IDEA_SCANNER_PRESETS)
-    table.add_column(LABEL_PRESET)
-    table.add_column(LABEL_INTENT)
-    for item in cast(list[dict[str, str]], payload["presets"]):
-        table.add_row(item["name"], item["description"])
-    console.print(table)
-
-
-@app.command("idea-score", cls=IdeaScoreCommand)
-def idea_score(**options: str) -> None:
-    """Score a single scanner candidate without creating or executing a proposal."""
-    _render_idea_score(
-        candidate=IdeaCandidate(
-            symbol=str(options["symbol"]),
-            price=cast(float, options["price"]),
-            volume=cast(float, options["volume"]),
-            change_pct=cast(float, options["change_pct"]),
-            relative_volume=cast(float, options["relative_volume"]),
-            gap_pct=cast(float, options["gap_pct"]),
-            range_pct=cast(float, options["range_pct"]),
-            rsi=cast(float | None, options["rsi"]),
-            ema_9=cast(float | None, options["ema_9"]),
-            sma_20=cast(float | None, options["sma_20"]),
-            sma_50=cast(float | None, options["sma_50"]),
-            vwap=cast(float | None, options["vwap"]),
-            spread_pct=cast(float, options["spread_pct"]),
-        ),
-        preset=str(options["preset"]),
-        json_output=bool(options["json_output"]),
-    )
-
-
-def _render_idea_score(
-    *,
-    candidate: IdeaCandidate,
-    preset: str,
-    json_output: bool,
-) -> None:
-    parsed_preset = _parse_idea_preset(preset)
-    ranked = rank_candidates([candidate], preset=parsed_preset, limit=1)
-    if not ranked:
-        raise typer.BadParameter(
-            MESSAGE_IDEA_SCORE_UNAVAILABLE.format(
-                symbol=candidate.symbol,
-                preset=parsed_preset,
-            )
-        )
-    result = ranked[0]
-    payload = {
-        "score": result.__dict__,
-        "strategy": score_strategy_context(result),
-        "execution_policy": MESSAGE_IDEA_SCORE_EXECUTION_POLICY,
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    console.print(
-        Panel(
-            f"{result.symbol} {result.signal.upper()} score={result.score:.2f}\n\n"
-            f"{LABEL_REASONS}: {', '.join(result.reasons) or '-'}\n"
-            f"{LABEL_WARNINGS}: {', '.join(result.warnings) or '-'}",
-            title=TITLE_IDEA_SCORE.format(preset=result.preset),
-            border_style="cyan",
-        )
-    )
-
-
-@app.command("strategy-catalog")
-def strategy_catalog(
-    status: str | None = typer.Option(
-        None,
-        "--status",
-        help=HELP_STRATEGY_CATALOG_STATUS_FILTER,
-    ),
-    preset: str | None = typer.Option(
-        None,
-        "--preset",
-        help=HELP_STRATEGY_CATALOG_PRESET_FILTER,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show repo-native strategy profiles and their V1 readiness gates."""
-    parsed_status = _parse_strategy_status(status)
-    parsed_preset = _parse_idea_preset(preset) if preset else None
-    payload = strategy_catalog_payload(status=parsed_status, preset=parsed_preset)
-    if json_output:
-        _emit_json(payload)
-        return
-    table = Table(title=TITLE_V1_STRATEGY_CATALOG)
-    table.add_column(LABEL_PROFILE)
-    table.add_column(LABEL_FAMILY)
-    table.add_column(LABEL_STATUS)
-    table.add_column(LABEL_V1_PATH)
-    table.add_column(LABEL_SUMMARY)
-    for item in cast(list[dict[str, object]], payload["profiles"]):
-        table.add_row(
-            str(item.get("name", "-")),
-            str(item.get("family", "-")),
-            str(item.get("status", "-")),
-            str(item.get("v1_path", "-")),
-            str(item.get("summary", "-")),
-        )
-    console.print(table)
-
-
-@app.command("strategy-profile")
-def strategy_profile(
-    name: str = typer.Argument(..., help=HELP_STRATEGY_PROFILE_NAME),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show one strategy profile with evidence, risk, and validation gates."""
-    try:
-        profile = get_strategy_profile(name)
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
-    payload = {
-        "profile": strategy_profile_payload(profile),
-        "execution_policy": MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    profile_payload = payload["profile"]
-    assert isinstance(profile_payload, dict)
-    body = (
-        f"{profile_payload['summary']}\n\n"
-        f"{LABEL_EVIDENCE}: {', '.join(cast(list[str], profile_payload['evidence_requirements'])) or '-'}\n"
-        f"{LABEL_RISK}: {', '.join(cast(list[str], profile_payload['risk_controls'])) or '-'}\n"
-        f"{LABEL_VALIDATION}: {', '.join(cast(list[str], profile_payload['validation_checks'])) or '-'}"
-    )
-    console.print(
-        Panel(
-            body,
-            title=TITLE_STRATEGY_PROFILE.format(name=profile.name),
-            border_style="cyan",
-        )
-    )
-
-
 @app.command("news-intelligence")
 def news_intelligence(
     symbol: str = typer.Option(..., help=HELP_SYMBOL),
@@ -6751,8 +5421,8 @@ def build_dashboard_snapshot_payload(
         "portfolio": _portfolio_payload(settings),
         "preferences": _preferences_payload(settings),
         "recentRuns": _recent_runs_payload(settings, limit=8),
-        "proposalCandidates": _proposal_candidates_payload(settings, limit=8),
-        "tradeProposals": _trade_proposals_payload(settings, limit=8),
+        "proposalCandidates": proposal_candidates_payload(settings, limit=8),
+        "tradeProposals": trade_proposals_payload(settings, limit=8),
         "journal": _journal_payload(settings, limit=8),
         "riskReport": _risk_report_payload(settings),
         "review": _run_record_payload(settings),
@@ -7431,9 +6101,9 @@ def build_observer_api_payload(
     if path == "/research":
         return 200, _research_sidecar_payload(settings)
     if path == "/proposal-candidates":
-        return 200, _proposal_candidates_payload(settings, limit=50)
+        return 200, proposal_candidates_payload(settings, limit=50)
     if path == "/trade-proposals":
-        return 200, _trade_proposals_payload(settings, limit=50)
+        return 200, trade_proposals_payload(settings, limit=50)
     return 404, {"error": "not_found", "path": path}
 
 
