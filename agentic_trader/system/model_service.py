@@ -19,7 +19,7 @@ from typing import Any, Mapping, cast
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from agentic_trader.config import Settings
 from agentic_trader.json_utils import object_list as _object_list
@@ -31,20 +31,34 @@ from agentic_trader.security import (
     redact_sensitive_text,
     write_private_text,
 )
+from agentic_trader.system.model_service_status import (
+    ModelServiceStatus,
+    app_owned_model_status_message,
+    base_url_mismatch_message,
+    host_model_status_message,
+    model_service_status_message,
+    model_service_tool_metadata,
+    model_status_notes,
+)
 from agentic_trader.system.tool_roots import local_tool_status_payload
 from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
+
+__all__ = [
+    "ModelServiceState",
+    "ModelServiceStatus",
+    "app_owned_model_status_message",
+    "base_url_mismatch_message",
+    "generation_probe_status",
+    "host_model_status_message",
+    "model_service_status_message",
+    "model_status_notes",
+]
 
 DEFAULT_APP_MANAGED_PORT = 11435
 APP_MANAGED_ORPHAN_PORTS = (DEFAULT_APP_MANAGED_PORT, *range(11436, 11466))
 KNOWN_OLLAMA_SERVICE_PORTS = (11434, *APP_MANAGED_ORPHAN_PORTS)
 LOCAL_HTTP_SCHEME = "http"
 LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
-DEFAULT_MODEL_CHOICES = (
-    "qwen3:8b",
-    "llama3.2:3b",
-    "deepseek-r1:8b",
-    "gemma3:4b",
-)
 MINIMAL_ENV_KEYS = (
     "PATH",
     "HOME",
@@ -95,10 +109,6 @@ def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
     return rows
 
 
-def _string_list(value: object) -> list[str]:
-    return [item for item in _object_list(value) if isinstance(item, str)]
-
-
 class ModelServiceState(BaseModel):
     """Persisted state for an app-owned model-service process."""
 
@@ -113,58 +123,6 @@ class ModelServiceState(BaseModel):
     stderr_log_path: str
     command: list[str]
     app_owned: bool = True
-
-
-class ModelServiceStatus(BaseModel):
-    """Operator-facing local model service status."""
-
-    tool_id: str = "ollama"
-    tool_status_id: str = "ollama_cli"
-    tool_consumers: list[str] = Field(default_factory=list)
-    tool_fallback_order: list[str] = Field(default_factory=list)
-    tool_ownership_modes: list[str] = Field(default_factory=list)
-    install_hint: str = ""
-    notes: list[str] = Field(default_factory=list)
-    provider: str = "ollama"
-    command_available: bool
-    command_path: str | None = None
-    configured_base_url: str
-    configured_model: str
-    service_reachable: bool
-    model_available: bool
-    generation_checked: bool = False
-    generation_available: bool | None = None
-    generation_message: str | None = None
-    available_models: list[str] = Field(default_factory=list)
-    app_owned: bool = False
-    owner: str | None = None
-    pid: int | None = None
-    host: str | None = None
-    port: int | None = None
-    base_url: str | None = None
-    stdout_log_path: str | None = None
-    stderr_log_path: str | None = None
-    stdout_tail: list[str] = Field(default_factory=list)
-    stderr_tail: list[str] = Field(default_factory=list)
-    state_path: str
-    message: str
-    suggested_models: list[str] = Field(
-        default_factory=lambda: list(DEFAULT_MODEL_CHOICES)
-    )
-    runtime_base_url_matches_app_service: bool = False
-
-    def is_owned_by_host(self, host_id: str) -> bool:
-        """
-        Determine whether this status is owned by the given host identifier.
-
-        Parameters:
-            host_id (str): Runtime host identifier to compare against the persisted owner.
-
-        Returns:
-            `true` if `app_owned` is true and `owner` equals `host_id`, `false` otherwise.
-        """
-
-        return self.app_owned and self.owner == host_id
 
 
 def model_service_dir(settings: Settings) -> Path:
@@ -841,49 +799,6 @@ def probe_ollama_generation(
     )
 
 
-def _model_service_message(
-    *,
-    reachable: bool,
-    model_available: bool,
-    generation_checked: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-    fallback_message: str,
-) -> str:
-    if not reachable:
-        return fallback_message
-    if not model_available:
-        return "Ollama is reachable, but the configured model is not listed."
-    if generation_checked and generation_available is False:
-        detail = generation_message or "generation probe failed"
-        return (
-            "Ollama is reachable and the configured model is listed, but a "
-            f"generation probe failed: {detail}"
-        )
-    if generation_checked and generation_available is True:
-        return "Ollama is reachable and the configured model can generate."
-    return fallback_message
-
-
-def model_service_status_message(
-    *,
-    reachable: bool,
-    model_available: bool,
-    generation_checked: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-    fallback_message: str,
-) -> str:
-    return _model_service_message(
-        reachable=reachable,
-        model_available=model_available,
-        generation_checked=generation_checked,
-        generation_available=generation_available,
-        generation_message=generation_message,
-        fallback_message=fallback_message,
-    )
-
-
 def _generation_probe_status(
     *,
     include_generation: bool,
@@ -918,164 +833,6 @@ def generation_probe_status(
         model_available=model_available,
         api_root=api_root,
         model_name=model_name,
-    )
-
-
-def _base_url_mismatch_message(
-    *,
-    include_generation: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-) -> str:
-    message = (
-        "App-managed Ollama is running on a different base URL than the "
-        "runtime uses; set AGENTIC_TRADER_BASE_URL to the app-owned URL "
-        "with /v1 when you want cycles to use it."
-    )
-    if include_generation and generation_available is False:
-        detail = generation_message or "generation probe failed"
-        return f"{message} Generation probe also failed: {detail}"
-    return message
-
-
-def base_url_mismatch_message(
-    *,
-    include_generation: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-) -> str:
-    return _base_url_mismatch_message(
-        include_generation=include_generation,
-        generation_available=generation_available,
-        generation_message=generation_message,
-    )
-
-
-def _append_stale_app_managed_message(status_message: str) -> str:
-    return (
-        f"{status_message} Stale app-managed Ollama processes were "
-        "detected; run agentic-trader model-service stop to clean them."
-    )
-
-
-def _app_owned_model_status_message(
-    *,
-    reachable: bool,
-    model_available: bool,
-    include_generation: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-    fetch_message: str,
-    runtime_base_url_matches_app_service: bool,
-    orphan_app_managed_pids: list[int],
-) -> str:
-    if not reachable:
-        status_message = fetch_message
-    elif not runtime_base_url_matches_app_service:
-        status_message = _base_url_mismatch_message(
-            include_generation=include_generation,
-            generation_available=generation_available,
-            generation_message=generation_message,
-        )
-    else:
-        status_message = _model_service_message(
-            reachable=reachable,
-            model_available=model_available,
-            generation_checked=include_generation,
-            generation_available=generation_available,
-            generation_message=generation_message,
-            fallback_message="App-managed Ollama is running.",
-        )
-    if orphan_app_managed_pids:
-        return _append_stale_app_managed_message(status_message)
-    return status_message
-
-
-def app_owned_model_status_message(
-    *,
-    reachable: bool,
-    model_available: bool,
-    include_generation: bool,
-    generation_available: bool | None,
-    generation_message: str | None,
-    fetch_message: str,
-    runtime_base_url_matches_app_service: bool,
-    orphan_app_managed_pids: list[int],
-) -> str:
-    return _app_owned_model_status_message(
-        reachable=reachable,
-        model_available=model_available,
-        include_generation=include_generation,
-        generation_available=generation_available,
-        generation_message=generation_message,
-        fetch_message=fetch_message,
-        runtime_base_url_matches_app_service=runtime_base_url_matches_app_service,
-        orphan_app_managed_pids=orphan_app_managed_pids,
-    )
-
-
-def _host_model_status_message(
-    *,
-    status_message: str,
-    reachable: bool,
-    ollama_serve_pids: list[int],
-) -> str:
-    if len(ollama_serve_pids) > 1:
-        return (
-            f"{status_message} Multiple host/default Ollama serve processes were "
-            "detected; stop duplicates or use the app-managed model service if "
-            "generation fails."
-        )
-    if reachable and ollama_serve_pids:
-        return (
-            f"{status_message} This is a host/default Ollama service; "
-            "model-service stop will not kill it."
-        )
-    return status_message
-
-
-def host_model_status_message(
-    *,
-    status_message: str,
-    reachable: bool,
-    ollama_serve_pids: list[int],
-) -> str:
-    return _host_model_status_message(
-        status_message=status_message,
-        reachable=reachable,
-        ollama_serve_pids=ollama_serve_pids,
-    )
-
-
-def _model_status_notes(
-    *,
-    tool_payload: Mapping[str, object],
-    ollama_serve_pids: list[int],
-    orphan_app_managed_pids: list[int],
-) -> list[str]:
-    raw_notes = tool_payload.get("notes", [])
-    notes = _string_list(raw_notes)
-    if ollama_serve_pids:
-        notes.append(f"ollama_process_count={len(ollama_serve_pids)}")
-    if len(ollama_serve_pids) > 1:
-        notes.append("external_ollama_duplicate_processes_detected")
-    if orphan_app_managed_pids:
-        notes.append(
-            f"orphan_app_managed_ollama_process_count={len(orphan_app_managed_pids)}"
-        )
-    return notes
-
-
-def model_status_notes(
-    *,
-    tool_payload: Mapping[str, object],
-    ollama_serve_pids: list[int],
-    orphan_app_managed_pids: list[int],
-) -> list[str]:
-    return _model_status_notes(
-        tool_payload=tool_payload,
-        ollama_serve_pids=ollama_serve_pids,
-        orphan_app_managed_pids=orphan_app_managed_pids,
     )
 
 
@@ -1122,7 +879,7 @@ def build_model_service_status(
         api_root=api_root,
         model_name=settings.model_name,
     )
-    status_message = _model_service_message(
+    status_message = model_service_status_message(
         reachable=reachable,
         model_available=model_available,
         generation_checked=include_generation,
@@ -1138,7 +895,7 @@ def build_model_service_status(
         )
     )
     if app_owned:
-        status_message = _app_owned_model_status_message(
+        status_message = app_owned_model_status_message(
             reachable=reachable,
             model_available=model_available,
             include_generation=include_generation,
@@ -1149,24 +906,25 @@ def build_model_service_status(
             orphan_app_managed_pids=orphan_app_managed_pids,
         )
     else:
-        status_message = _host_model_status_message(
+        status_message = host_model_status_message(
             status_message=status_message,
             reachable=reachable,
             ollama_serve_pids=ollama_serve_pids,
         )
     tool_payload = local_tool_status_payload("ollama")
-    notes = _model_status_notes(
+    tool_metadata = model_service_tool_metadata(tool_payload)
+    notes = model_status_notes(
         tool_payload=tool_payload,
         ollama_serve_pids=ollama_serve_pids,
         orphan_app_managed_pids=orphan_app_managed_pids,
     )
     return ModelServiceStatus(
-        tool_id=tool_payload["tool_id"],
-        tool_status_id=tool_payload["tool_status_id"],
-        tool_consumers=tool_payload["tool_consumers"],
-        tool_fallback_order=tool_payload["tool_fallback_order"],
-        tool_ownership_modes=tool_payload["tool_ownership_modes"],
-        install_hint=tool_payload["install_hint"],
+        tool_id=tool_metadata.tool_id,
+        tool_status_id=tool_metadata.tool_status_id,
+        tool_consumers=tool_metadata.tool_consumers,
+        tool_fallback_order=tool_metadata.tool_fallback_order,
+        tool_ownership_modes=tool_metadata.tool_ownership_modes,
+        install_hint=tool_metadata.install_hint,
         notes=notes,
         command_available=command_path is not None,
         command_path=command_path,
