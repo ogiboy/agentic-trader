@@ -7,50 +7,14 @@ import {
   dashboardPages as pages,
   dashboardStatusLine,
   dashboardTitle,
-  formatPersona,
-  rotateInstructionMode,
-  rotatePersona,
 } from './copy.mjs';
 import {
-  accountCurrency,
   defaultRuntimeInterval,
   defaultRuntimeLookback,
   defaultSingleSymbol,
   defaultSymbolsFromPreferences,
-  getSupervisorLogLines,
 } from './dashboard-defaults.mjs';
-import {
-  handleChatInput,
-  handleDashboardInput,
-  handleGlobalInput,
-  handleSettingsInput,
-} from './input.mjs';
-import {
-  failedCheckNames,
-  formatMarketSession,
-  formatMarketSessionWithTradable,
-  formatMTFSnapshot,
-  getAgentEventLines,
-  getCurrentCycleLines,
-  getExplorerLines,
-  getInspectionLines,
-  getInstructionResultLines,
-  getJournalLines,
-  getMarketContextLines,
-  getRecentRunsLines,
-  getReplayLines,
-  getReviewLines,
-  getStatusBorderColor,
-  getSystemLines,
-  getTraceLines,
-  getTradeContextLines,
-  overviewRuntimeMode,
-  providerLines,
-  readinessLines,
-  renderLinesFallback,
-  renderUnavailableMessage,
-  sourceHealthSummaryLine,
-} from './line-formatters.mjs';
+import { handleDashboardInput } from './input.mjs';
 import { getPageView } from './pages.mjs';
 
 const execFileAsync = promisify(execFile);
