@@ -16,62 +16,60 @@ from agentic_trader.schemas import (
     HistoricalMemoryMatch,
 )
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.tui_common import (
+from agentic_trader.tui_modules.common import (
     TuiMenuAction,
-    banner as _banner,
-    console,
-    exit_cleanly as _exit_cleanly,
-    split_csv as _split_csv,
-    style_key as _style_key,
 )
-from agentic_trader.tui_monitor import (
+from agentic_trader.tui_modules.common import banner as _banner
+from agentic_trader.tui_modules.common import (
+    console,
+)
+from agentic_trader.tui_modules.common import exit_cleanly as _exit_cleanly
+from agentic_trader.tui_modules.common import split_csv as _split_csv
+from agentic_trader.tui_modules.common import style_key as _style_key
+from agentic_trader.tui_modules.monitor import (
     build_monitor_renderable as _build_monitor_renderable,
 )
-from agentic_trader.tui_monitor import (
-    run_live_monitor as _run_live_monitor,
-)
-from agentic_trader.tui_monitor_sections import (
+from agentic_trader.tui_modules.monitor import run_live_monitor as _run_live_monitor
+from agentic_trader.tui_modules.monitor_sections import (
     agent_activity_lines as _export_agent_activity_lines,
 )
-from agentic_trader.tui_monitor_sections import (
+from agentic_trader.tui_modules.monitor_sections import (
     agent_activity_table as _export_agent_activity_table,
 )
-from agentic_trader.tui_monitor_sections import (
+from agentic_trader.tui_modules.monitor_sections import (
     broker_gate_lines as _export_broker_gate_lines,
 )
-from agentic_trader.tui_monitor_sections import (
+from agentic_trader.tui_modules.monitor_sections import (
     last_outcome_lines as _export_last_outcome_lines,
 )
-from agentic_trader.tui_monitor_sections import (
+from agentic_trader.tui_modules.monitor_sections import (
     observer_mode_panel,
     portfolio_renderable,
     render_recent_runs,
     render_runtime_events,
     risk_report_table,
-)
-from agentic_trader.tui_monitor_sections import (
-    runtime_cycle_lines as _export_runtime_cycle_lines,
-)
-from agentic_trader.tui_monitor_sections import (
-    runtime_state_table as _export_runtime_state_table,
-)
-from agentic_trader.tui_monitor_sections import (
     safe_open_read_db,
 )
-from agentic_trader.tui_monitor_sections import (
+from agentic_trader.tui_modules.monitor_sections import (
     system_status_table as _export_system_status_table,
 )
-from agentic_trader.tui_monitor_sections import (
+from agentic_trader.tui_modules.monitor_sections import (
     trade_journal_table,
 )
-from agentic_trader.tui_operator import operator_menu as _operator_menu
-from agentic_trader.tui_preferences import (
+from agentic_trader.tui_modules.operator import operator_menu as _operator_menu
+from agentic_trader.tui_modules.preferences import (
     edit_preferences_action as _edit_preferences_action,
 )
-from agentic_trader.tui_runtime import runtime_menu as _runtime_menu
-from agentic_trader.tui_status import (
+from agentic_trader.tui_modules.runtime import runtime_menu as _runtime_menu
+from agentic_trader.tui_modules.status import (
     render_compact_status,
     render_status,
+)
+from agentic_trader.tui_modules.monitor_sections import (
+    runtime_cycle_lines as _export_runtime_cycle_lines,
+)
+from agentic_trader.tui_modules.monitor_sections import (
+    runtime_state_table as _export_runtime_state_table,
 )
 from agentic_trader.ui_text import (
     LABEL_ACTION,

@@ -10,10 +10,16 @@ from agentic_trader.config import Settings
 from agentic_trader.runtime_feed import read_service_state, request_stop
 from agentic_trader.runtime_status import is_process_alive
 from agentic_trader.schemas import InvestmentPreferences
-from agentic_trader.tui_common import banner, console, open_db, split_csv, style_key
-from agentic_trader.tui_monitor import run_live_monitor
-from agentic_trader.tui_monitor_sections import safe_open_read_db
-from agentic_trader.tui_status import (
+from agentic_trader.tui_modules.common import (
+    banner,
+    console,
+    open_db,
+    split_csv,
+    style_key,
+)
+from agentic_trader.tui_modules.monitor import run_live_monitor
+from agentic_trader.tui_modules.monitor_sections import safe_open_read_db
+from agentic_trader.tui_modules.status import (
     render_broker_status,
     render_provider_diagnostics,
     render_status,

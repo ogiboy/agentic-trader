@@ -15,8 +15,11 @@ from agentic_trader.schemas import (
     TradeStyle,
 )
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.tui_common import console, open_db, split_csv
-from agentic_trader.tui_monitor_sections import observer_mode_panel, render_preferences
+from agentic_trader.tui_modules.common import console, open_db, split_csv
+from agentic_trader.tui_modules.monitor_sections import (
+    observer_mode_panel,
+    render_preferences,
+)
 from agentic_trader.ui_text import (
     MESSAGE_PREFERENCES_SAVED,
     PROMPT_CONTINUE,

@@ -14,14 +14,18 @@ from agentic_trader.config import Settings
 from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import ChatPersona, OperatorInstruction
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.tui_common import banner, console, open_db
-from agentic_trader.tui_monitor_sections import observer_mode_panel, safe_open_read_db
+from agentic_trader.tui_modules.common import banner, console, open_db
+from agentic_trader.tui_modules.monitor_sections import (
+    observer_mode_panel,
+    safe_open_read_db,
+)
 from agentic_trader.ui_text import (
     LABEL_ACTION,
     LABEL_KEY,
     MENU_ACTION_BACK,
     MENU_ACTION_OPEN_OPERATOR_CHAT,
     MENU_ACTION_PARSE_OPERATOR_INSTRUCTION,
+    MESSAGE_CHAT_EXIT_HINT,
     PROMPT_APPLY_PREFERENCE_UPDATE,
     PROMPT_CHAT_PERSONA,
     PROMPT_CONTINUE,
@@ -35,7 +39,6 @@ from agentic_trader.ui_text import (
     TITLE_OPERATOR_DESK,
     TITLE_PARSED_OPERATOR_INSTRUCTION,
     TITLE_UPDATED_PREFERENCES,
-    MESSAGE_CHAT_EXIT_HINT,
 )
 from agentic_trader.workflows.service import ensure_llm_ready
 

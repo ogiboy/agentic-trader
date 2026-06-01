@@ -17,7 +17,7 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.runtime_feed import read_service_events, read_service_state
 from agentic_trader.runtime_status import build_runtime_status_view
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.tui_monitor_sections import (
+from agentic_trader.tui_modules.monitor_sections import (
     current_activity_panel,
     observer_mode_panel,
     render_preferences,

@@ -13,7 +13,7 @@ from agentic_trader.schemas import (
     LLMHealthStatus,
 )
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.tui_monitor_sections import (
+from agentic_trader.tui_modules.monitor_sections import (
     agent_activity_table,
     current_activity_panel,
     observer_mode_panel,
