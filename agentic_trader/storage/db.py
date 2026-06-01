@@ -1,8 +1,7 @@
 import json
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Literal, cast, get_args
+from typing import Any, cast, get_args
 from uuid import uuid4
 
 import duckdb
@@ -44,6 +43,7 @@ from agentic_trader.schemas import (
     TradeProposalStatus,
     TradeSide,
 )
+from agentic_trader.storage import proposals as proposal_store
 from agentic_trader.storage.schema import (
     create_core_tables,
     create_execution_tables,
@@ -296,30 +296,6 @@ def _decode_symbols(value: Any) -> list[str]:
         list[str]: The decoded list of symbol strings, or an empty list when `value` is `None`.
     """
     return json.loads(str(value)) if value is not None else []
-
-
-def _decode_object_payload(value: Any) -> dict[str, object]:
-    """
-    Parse a JSON value and return its object form, or an empty mapping on failure.
-
-    Attempts to decode `value` as JSON and return the resulting object as a dict with string keys.
-    If `value` is None, is not valid JSON, or the decoded JSON is not an object, an empty dict is returned.
-
-    Parameters:
-        value: The input to parse (typically a JSON string or a value convertible to string).
-
-    Returns:
-        A dict mapping string keys to decoded JSON values, or an empty dict if parsing fails or the JSON is not an object.
-    """
-    if value is None:
-        return {}
-    try:
-        payload = json.loads(str(value))
-    except json.JSONDecodeError:
-        return {}
-    if not isinstance(payload, dict):
-        return {}
-    return {str(key): item for key, item in cast(dict[object, object], payload).items()}
 
 
 def _int_or_default(value: Any, default: int) -> int:
@@ -599,183 +575,27 @@ class TradingDatabase:
         )
 
     def insert_trade_proposal(self, proposal: TradeProposalRecord) -> None:
-        """
-        Insert a trade proposal record into the database.
-
-        Parameters:
-            proposal (TradeProposalRecord): Trade proposal data to persist (includes identifiers, market details, pricing/size, status/review fields, and any execution linkage metadata).
-        """
-        self._execute_trade_proposal_insert(proposal)
-
-    def _execute_trade_proposal_insert(self, proposal: TradeProposalRecord) -> None:
-        """
-        Insert the given trade proposal into the `trade_proposals` database table.
-
-        Parameters:
-            proposal (TradeProposalRecord): The proposal to persist; its fields (including identifiers, timestamps,
-                market/order details, execution linkage fields, status/review metadata, and `limit_price`) are stored
-                as a new row in the `trade_proposals` table.
-        """
-        self.conn.execute(
-            """
-            insert into trade_proposals (
-                proposal_id, created_at, updated_at, symbol, side, order_type,
-                quantity, notional, reference_price, confidence, thesis, stop_loss,
-                take_profit, invalidation_condition, source, status, review_notes,
-                rejection_reason, execution_intent_id, execution_order_id,
-                execution_outcome_status, limit_price
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                proposal.proposal_id,
-                proposal.created_at,
-                proposal.updated_at,
-                proposal.symbol,
-                proposal.side,
-                proposal.order_type,
-                proposal.quantity,
-                proposal.notional,
-                proposal.reference_price,
-                proposal.confidence,
-                proposal.thesis,
-                proposal.stop_loss,
-                proposal.take_profit,
-                proposal.invalidation_condition,
-                proposal.source,
-                proposal.status,
-                proposal.review_notes,
-                proposal.rejection_reason,
-                proposal.execution_intent_id,
-                proposal.execution_order_id,
-                proposal.execution_outcome_status,
-                proposal.limit_price,
-            ],
-        )
+        proposal_store.insert_trade_proposal(self.conn, proposal)
 
     def insert_proposal_candidate(self, candidate: ProposalCandidateRecord) -> None:
-        """
-        Insert a proposal candidate record into the proposal_candidates table.
-
-        The candidate's fields are persisted as a new row; the `evidence` field is JSON-serialized into the `evidence_json` column.
-
-        Parameters:
-            candidate (ProposalCandidateRecord): The proposal candidate record to persist.
-        """
-        self.conn.execute(
-            """
-            insert into proposal_candidates (
-                candidate_id, created_at, updated_at, symbol, preset, signal, side,
-                score, reference_price, confidence, quantity, notional, thesis,
-                stop_loss, take_profit, invalidation_condition, source, status,
-                materiality, freshness, liquidity, spread_pct, risk_notes,
-                evidence_json, proposal_id
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                candidate.candidate_id,
-                candidate.created_at,
-                candidate.updated_at,
-                candidate.symbol,
-                candidate.preset,
-                candidate.signal,
-                candidate.side,
-                candidate.score,
-                candidate.reference_price,
-                candidate.confidence,
-                candidate.quantity,
-                candidate.notional,
-                candidate.thesis,
-                candidate.stop_loss,
-                candidate.take_profit,
-                candidate.invalidation_condition,
-                candidate.source,
-                candidate.status,
-                candidate.materiality,
-                candidate.freshness,
-                candidate.liquidity,
-                candidate.spread_pct,
-                candidate.risk_notes,
-                json.dumps(candidate.evidence),
-                candidate.proposal_id,
-            ],
-        )
+        proposal_store.insert_proposal_candidate(self.conn, candidate)
 
     def get_proposal_candidate(
         self, candidate_id: str
     ) -> ProposalCandidateRecord | None:
-        """
-        Retrieve a proposal candidate by its unique identifier.
-
-        Parameters:
-            candidate_id (str): Identifier of the proposal candidate to fetch.
-
-        Returns:
-            ProposalCandidateRecord | None: The matching candidate record, or `None` if no matching row exists or the `proposal_candidates` table is absent.
-        """
-        if not self._table_exists("proposal_candidates"):
-            return None
-        rows = self._proposal_candidate_rows(
-            """
-            select *
-            from proposal_candidates
-            where candidate_id = ?
-            """,
-            [candidate_id],
-        )
-        return rows[0] if rows else None
+        return proposal_store.get_proposal_candidate(self.conn, candidate_id)
 
     def list_proposal_candidates(
         self, *, status: ProposalCandidateStatus | None = None, limit: int = 50
     ) -> list[ProposalCandidateRecord]:
-        """
-        List proposal candidates from the database, optionally filtered by their status.
-
-        Parameters:
-            status (ProposalCandidateStatus | None): If provided, only return candidates with this status; if `None`, return candidates of any status.
-            limit (int): Maximum number of candidates to return, ordered by `created_at` descending.
-
-        Returns:
-            list[ProposalCandidateRecord]: Candidate records ordered by `created_at` (newest first); returns an empty list if the `proposal_candidates` table does not exist or no rows match.
-        """
-        if not self._table_exists("proposal_candidates"):
-            return []
-        if status is None:
-            return self._proposal_candidate_rows(
-                """
-                select *
-                from proposal_candidates
-                order by created_at desc
-                limit ?
-                """,
-                [limit],
-            )
-        return self._proposal_candidate_rows(
-            """
-            select *
-            from proposal_candidates
-            where status = ?
-            order by created_at desc
-            limit ?
-            """,
-            [status, limit],
+        return proposal_store.list_proposal_candidates(
+            self.conn,
+            status=status,
+            limit=limit,
         )
 
     def update_proposal_candidate(self, candidate: ProposalCandidateRecord) -> bool:
-        """
-        Update an existing proposal candidate row in the database.
-
-        Parameters:
-            candidate (ProposalCandidateRecord): The candidate record carrying the updated fields; its `candidate_id` identifies which row to update.
-
-        Returns:
-            bool: `True` if the update was performed, `False` if the `proposal_candidates` table does not exist.
-        """
-        if not self._table_exists("proposal_candidates"):
-            return False
-        self._execute_proposal_candidate_update(candidate)
-        return True
+        return proposal_store.update_proposal_candidate(self.conn, candidate)
 
     def promote_proposal_candidate_with_proposal(
         self,
@@ -784,106 +604,23 @@ class TradingDatabase:
         proposal: TradeProposalRecord,
         expected_status: ProposalCandidateStatus = "candidate",
     ) -> bool:
-        """
-        Atomically promote a proposal candidate by inserting the given trade proposal and updating the candidate only when the candidate's current status matches `expected_status`.
-
-        Parameters:
-            candidate (ProposalCandidateRecord): The candidate record to be updated.
-            proposal (TradeProposalRecord): The trade proposal to insert when promoting the candidate.
-            expected_status (ProposalCandidateStatus): The required current status of the candidate for promotion (default: "candidate").
-
-        Returns:
-            bool: `True` if the proposal was inserted and the candidate updated (promotion committed), `False` if the required tables are missing or the candidate's current status did not match `expected_status`.
-        """
-        if not self._table_exists("proposal_candidates") or not self._table_exists(
-            "trade_proposals"
-        ):
-            return False
-        self.conn.execute("begin transaction")
-        try:
-            current = self.conn.execute(
-                """
-                select status
-                from proposal_candidates
-                where candidate_id = ?
-                """,
-                [candidate.candidate_id],
-            ).fetchone()
-            if current is None or str(current[0]) != expected_status:
-                self.conn.execute("commit")
-                return False
-            self._execute_trade_proposal_insert(proposal)
-            self._execute_proposal_candidate_update(candidate)
-            self.conn.execute("commit")
-            return True
-        except Exception:
-            self.conn.execute("rollback")
-            raise
-
-    def _execute_proposal_candidate_update(
-        self, candidate: ProposalCandidateRecord
-    ) -> None:
-        """
-        Update an existing proposal candidate row in the database with fields from `candidate`.
-
-        Parameters:
-            candidate (ProposalCandidateRecord): Record whose `candidate_id` identifies the row to update; its `updated_at`, `status`, `evidence`, and `proposal_id` fields are written to the database.
-        """
-        self.conn.execute(
-            """
-            update proposal_candidates
-            set updated_at = ?,
-                status = ?,
-                evidence_json = ?,
-                proposal_id = ?
-            where candidate_id = ?
-            """,
-            [
-                candidate.updated_at,
-                candidate.status,
-                json.dumps(candidate.evidence),
-                candidate.proposal_id,
-                candidate.candidate_id,
-            ],
+        return proposal_store.promote_proposal_candidate_with_proposal(
+            self.conn,
+            candidate=candidate,
+            proposal=proposal,
+            expected_status=expected_status,
         )
 
     def get_trade_proposal(self, proposal_id: str) -> TradeProposalRecord | None:
-        if not self._table_exists("trade_proposals"):
-            return None
-        rows = self._trade_proposal_rows(
-            """
-            select *
-            from trade_proposals
-            where proposal_id = ?
-            """,
-            [proposal_id],
-        )
-        return rows[0] if rows else None
+        return proposal_store.get_trade_proposal(self.conn, proposal_id)
 
     def list_trade_proposals(
         self, *, status: TradeProposalStatus | None = None, limit: int = 50
     ) -> list[TradeProposalRecord]:
-        if not self._table_exists("trade_proposals"):
-            return []
-        if status is None:
-            return self._trade_proposal_rows(
-                """
-                select *
-                from trade_proposals
-                order by created_at desc
-                limit ?
-                """,
-                [limit],
-            )
-        return self._trade_proposal_rows(
-            """
-            select *
-            from trade_proposals
-            where status = ?
-            order by created_at desc
-            limit ?
-            """,
-            [status, limit],
+        return proposal_store.list_trade_proposals(
+            self.conn,
+            status=status,
+            limit=limit,
         )
 
     def update_trade_proposal(
@@ -892,157 +629,11 @@ class TradingDatabase:
         *,
         expected_status: TradeProposalStatus | None = None,
     ) -> bool:
-        if not self._table_exists("trade_proposals"):
-            return False
-        if expected_status is not None:
-            self.conn.execute("begin transaction")
-            try:
-                current = self.conn.execute(
-                    """
-                    select status
-                    from trade_proposals
-                    where proposal_id = ?
-                    """,
-                    [proposal.proposal_id],
-                ).fetchone()
-                if current is None or str(current[0]) != expected_status:
-                    self.conn.execute("commit")
-                    return False
-                self._execute_trade_proposal_update(proposal)
-                self.conn.execute("commit")
-                return True
-            except Exception:
-                self.conn.execute("rollback")
-                raise
-        self._execute_trade_proposal_update(proposal)
-        return True
-
-    def _execute_trade_proposal_update(self, proposal: TradeProposalRecord) -> None:
-        self.conn.execute(
-            """
-            update trade_proposals
-            set updated_at = ?,
-                status = ?,
-                review_notes = ?,
-                rejection_reason = ?,
-                execution_intent_id = ?,
-                execution_order_id = ?,
-                execution_outcome_status = ?
-            where proposal_id = ?
-            """,
-            [
-                proposal.updated_at,
-                proposal.status,
-                proposal.review_notes,
-                proposal.rejection_reason,
-                proposal.execution_intent_id,
-                proposal.execution_order_id,
-                proposal.execution_outcome_status,
-                proposal.proposal_id,
-            ],
+        return proposal_store.update_trade_proposal(
+            self.conn,
+            proposal,
+            expected_status=expected_status,
         )
-
-    def _trade_proposal_rows(
-        self, query: str, params: list[object]
-    ) -> list[TradeProposalRecord]:
-        """
-        Execute the given SQL query and map each result row to a TradeProposalRecord.
-
-        Parameters:
-                query (str): SQL query to execute. May contain parameter placeholders.
-                params (list[object]): Parameters to bind to the query placeholders.
-
-        Returns:
-                records (list[TradeProposalRecord]): List of mapped trade proposal records, one per result row.
-        """
-        rows = self.conn.execute(query, params).fetchall()
-        return [self._trade_proposal_record_from_row(row) for row in rows]
-
-    @staticmethod
-    def _trade_proposal_record_from_row(row: object) -> TradeProposalRecord:
-        """
-        Convert a database row (sequence/tuple) into a TradeProposalRecord.
-
-        Parameters:
-            row (Sequence[object] | object): A database row (typically a tuple) from a trade_proposals query; elements may be None for optional columns.
-
-        Returns:
-            TradeProposalRecord: A record populated from the row. Optional numeric and string columns are converted to Python types (None-preserved). If present, the `limit_price` is read from column index 21; other fields are mapped by their positional indices as expected by the trade_proposals schema.
-        """
-        values = list(cast(Sequence[Any], row))
-        return TradeProposalRecord(
-            proposal_id=str(values[0]),
-            created_at=str(values[1]),
-            updated_at=str(values[2]),
-            symbol=str(values[3]),
-            side=cast(TradeSide, str(values[4])),
-            order_type=cast(Literal["market", "limit"], str(values[5])),
-            quantity=float(values[6]) if values[6] is not None else None,
-            notional=float(values[7]) if values[7] is not None else None,
-            limit_price=(
-                float(values[21])
-                if len(values) > 21 and values[21] is not None
-                else None
-            ),
-            reference_price=float(values[8]),
-            confidence=float(values[9]),
-            thesis=str(values[10]),
-            stop_loss=float(values[11]) if values[11] is not None else None,
-            take_profit=float(values[12]) if values[12] is not None else None,
-            invalidation_condition=_str_or_none(values[13]),
-            source=str(values[14]),
-            status=cast(TradeProposalStatus, str(values[15])),
-            review_notes=str(values[16]),
-            rejection_reason=_str_or_none(values[17]),
-            execution_intent_id=_str_or_none(values[18]),
-            execution_order_id=_str_or_none(values[19]),
-            execution_outcome_status=_str_or_none(values[20]),
-        )
-
-    def _proposal_candidate_rows(
-        self, query: str, params: list[object]
-    ) -> list[ProposalCandidateRecord]:
-        """
-        Map database rows from the provided query into a list of ProposalCandidateRecord objects.
-
-        Parameters:
-            query (str): SQL query that returns candidate rows in the exact column order expected by this mapper (columns 0..24 correspond to: candidate_id, created_at, updated_at, symbol, preset, signal, side, score, reference_price, confidence, quantity, notional, thesis, stop_loss, take_profit, invalidation_condition, source, status, materiality, freshness, liquidity, spread_pct, risk_notes, evidence_json, proposal_id).
-            params (list[object]): Parameters for the SQL query.
-
-        Returns:
-            list[ProposalCandidateRecord]: A list of ProposalCandidateRecord values constructed from each row. Optional numeric and string columns are converted to Python types with NULL mapped to None. The `evidence_json` column is parsed into a dict (returns an empty dict on invalid or non-dict JSON).
-        """
-        rows = self.conn.execute(query, params).fetchall()
-        return [
-            ProposalCandidateRecord(
-                candidate_id=str(row[0]),
-                created_at=str(row[1]),
-                updated_at=str(row[2]),
-                symbol=str(row[3]),
-                preset=str(row[4]),
-                signal=cast(Literal["buy", "sell", "watch"], str(row[5])),
-                side=cast(TradeSide, str(row[6])) if row[6] is not None else None,
-                score=float(row[7]),
-                reference_price=float(row[8]),
-                confidence=float(row[9]),
-                quantity=float(row[10]) if row[10] is not None else None,
-                notional=float(row[11]) if row[11] is not None else None,
-                thesis=str(row[12]),
-                stop_loss=float(row[13]) if row[13] is not None else None,
-                take_profit=float(row[14]) if row[14] is not None else None,
-                invalidation_condition=_str_or_none(row[15]),
-                source=str(row[16]),
-                status=cast(ProposalCandidateStatus, str(row[17])),
-                materiality=str(row[18]),
-                freshness=str(row[19]),
-                liquidity=str(row[20]),
-                spread_pct=float(row[21]),
-                risk_notes=str(row[22]),
-                evidence=_decode_object_payload(row[23]),
-                proposal_id=_str_or_none(row[24]),
-            )
-            for row in rows
-        ]
 
     def save_preferences(self, preferences: InvestmentPreferences) -> None:
         """
