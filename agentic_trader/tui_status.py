@@ -18,12 +18,12 @@ from agentic_trader.runtime_feed import read_service_events, read_service_state
 from agentic_trader.runtime_status import build_runtime_status_view
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.tui_monitor_sections import (
-    _current_activity_panel,
-    _observer_mode_panel,
-    _render_preferences,
-    _render_recent_runs,
-    _render_runtime_events,
-    _render_runtime_state,
+    current_activity_panel,
+    observer_mode_panel,
+    render_preferences,
+    render_recent_runs,
+    render_runtime_events,
+    render_runtime_state,
 )
 from agentic_trader.ui_text import (
     LABEL_ALPACA_CREDENTIALS_CONFIGURED,
@@ -85,7 +85,8 @@ from agentic_trader.ui_text import (
 
 console = Console()
 
-def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
+
+def render_status(settings: Settings, db: TradingDatabase | None) -> None:
     """
     Render the system and runtime overview panels to the console, including status, current activity, preferences or observer-mode placeholders, and recent runtime events.
 
@@ -118,25 +119,23 @@ def _render_status(settings: Settings, db: TradingDatabase | None) -> None:
     )
     status.add_row(LABEL_STRICT_LLM, str(settings.strict_llm))
     console.print(status)
-    _render_runtime_state(runtime_state)
+    render_runtime_state(runtime_state)
     console.print(
-        _current_activity_panel(
+        current_activity_panel(
             settings, runtime_state, read_service_events(settings, limit=12)
         )
     )
     if db is None:
         console.print(
-            _observer_mode_panel(
-                TITLE_INVESTMENT_PREFERENCES + " / " + TITLE_PORTFOLIO
-            )
+            observer_mode_panel(TITLE_INVESTMENT_PREFERENCES + " / " + TITLE_PORTFOLIO)
         )
     else:
-        console.print(_render_preferences(db.load_preferences()))
-        _render_recent_runs(db)
-    _render_runtime_events(read_service_events(settings, limit=6))
+        console.print(render_preferences(db.load_preferences()))
+        render_recent_runs(db)
+    render_runtime_events(read_service_events(settings, limit=6))
 
 
-def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> None:
+def render_compact_status(settings: Settings, db: TradingDatabase | None) -> None:
     """
     Render a compact system snapshot table showing runtime state, model, LLM readiness, broker status, kill-switch state, and whether database views are readable.
 
@@ -192,7 +191,7 @@ def _render_compact_status(settings: Settings, db: TradingDatabase | None) -> No
     console.print(table)
 
 
-def _render_broker_status(settings: Settings) -> None:
+def render_broker_status(settings: Settings) -> None:
     """
     Render the broker backend runtime status as a Rich table to the console.
 
@@ -236,10 +235,10 @@ def _render_broker_status(settings: Settings) -> None:
     console.print(table)
 
 
-def _render_provider_diagnostics(settings: Settings) -> None:
+def render_provider_diagnostics(settings: Settings) -> None:
     """
     Render provider diagnostics and provider source ladder panels to the console.
-    
+
     Parameters:
         settings (Settings): Application settings used to collect provider diagnostics payloads.
     """
@@ -256,12 +255,16 @@ def _render_provider_diagnostics(settings: Settings) -> None:
         summary.add_row(LABEL_DEFAULT_MODEL, str(llm.get("default_model", "-")))
         summary.add_row(LABEL_BASE_URL, str(llm.get("base_url", "-")))
     if market:
-        summary.add_row(LABEL_MARKET_PROVIDER, str(market.get("selected_provider", "-")))
+        summary.add_row(
+            LABEL_MARKET_PROVIDER, str(market.get("selected_provider", "-"))
+        )
         summary.add_row(LABEL_MARKET_ROLE, str(market.get("selected_role", "-")))
     if news:
         summary.add_row(LABEL_NEWS_MODE, str(news.get("mode", "-")))
     if alpaca:
-        summary.add_row(LABEL_ALPACA_PAPER_ENDPOINT, str(alpaca.get("paper_endpoint", "-")))
+        summary.add_row(
+            LABEL_ALPACA_PAPER_ENDPOINT, str(alpaca.get("paper_endpoint", "-"))
+        )
         summary.add_row(LABEL_ALPACA_FEED, str(alpaca.get("data_feed", "-")))
         summary.add_row(
             LABEL_ALPACA_CREDENTIALS_CONFIGURED,
@@ -301,7 +304,7 @@ def _render_provider_diagnostics(settings: Settings) -> None:
 def _render_readiness_table(title: str, payload: Mapping[str, object]) -> None:
     """
     Render a readiness checks table showing each check's name, pass/fail state, blocking flag, and details.
-    
+
     Parameters:
         title (str): Title displayed for the table.
         payload (Mapping[str, object]): Mapping expected to contain a "checks" entry iterable. Each check should be a mapping with optional keys:
@@ -325,12 +328,12 @@ def _render_readiness_table(title: str, payload: Mapping[str, object]) -> None:
     console.print(table)
 
 
-def _render_v1_readiness(settings: Settings) -> None:
+def render_v1_readiness(settings: Settings) -> None:
     """
     Render the v1 readiness summary and any available readiness check tables to the console.
-    
+
     Prints a summary panel describing overall v1 readiness (including whether paper operations are allowed) and, when present, renders detailed readiness check tables for paper operations and Alpaca paper.
-    
+
     Parameters:
         settings (Settings): Application settings used to compute the v1 readiness payload.
     """

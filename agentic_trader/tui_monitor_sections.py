@@ -69,10 +69,10 @@ from agentic_trader.ui_text import (
     LABEL_LEVEL,
     LABEL_LIVE_PROCESS,
     LABEL_LOOKBACK,
+    LABEL_MARK_SOURCE,
     LABEL_MARKED_AT,
     LABEL_MARKET_PRICE,
     LABEL_MARKET_VALUE,
-    LABEL_MARK_SOURCE,
     LABEL_MESSAGE,
     LABEL_METRIC,
     LABEL_MODEL,
@@ -81,8 +81,8 @@ from agentic_trader.ui_text import (
     LABEL_NOTES,
     LABEL_OBSERVER_MODE,
     LABEL_OLLAMA_REACHABLE,
-    LABEL_OPENED,
     LABEL_OPEN_POSITIONS,
+    LABEL_OPENED,
     LABEL_PAPER_MARK,
     LABEL_PID,
     LABEL_PNL,
@@ -91,9 +91,9 @@ from agentic_trader.ui_text import (
     LABEL_REGIONS,
     LABEL_RESTART_COUNT,
     LABEL_RISK_PROFILE,
+    LABEL_RUN_ID,
     LABEL_RUNTIME,
     LABEL_RUNTIME_DIR,
-    LABEL_RUN_ID,
     LABEL_SECTORS,
     LABEL_SETTING,
     LABEL_SIDE,
@@ -104,8 +104,8 @@ from agentic_trader.ui_text import (
     LABEL_STATUS,
     LABEL_STATUS_NOTE,
     LABEL_STOP_REQUESTED,
-    LABEL_STRICTNESS,
     LABEL_STRICT_LLM,
+    LABEL_STRICTNESS,
     LABEL_SYMBOL,
     LABEL_TRADE_STYLE,
     LABEL_TYPE,
@@ -140,6 +140,7 @@ from agentic_trader.ui_text import (
 
 console = Console()
 
+
 def _label_line(label: str, value: object) -> str:
     """
     Format a label and value into a compact "label: value" string.
@@ -155,7 +156,7 @@ def _label_line(label: str, value: object) -> str:
     return ": ".join((label, str(value)))
 
 
-def _render_preferences(preferences: InvestmentPreferences) -> Table:
+def render_preferences(preferences: InvestmentPreferences) -> Table:
     """
     Builds a Rich Table that displays the given investment preferences as labeled rows.
 
@@ -185,7 +186,7 @@ def _render_preferences(preferences: InvestmentPreferences) -> Table:
     return table
 
 
-def _render_recent_runs(db: TradingDatabase) -> None:
+def render_recent_runs(db: TradingDatabase) -> None:
     """
     Render a table of the most recent runs from the trading database to the console.
 
@@ -215,7 +216,7 @@ def _render_recent_runs(db: TradingDatabase) -> None:
     console.print(table)
 
 
-def _recent_runs_table(db: TradingDatabase) -> Table:
+def recent_runs_table(db: TradingDatabase) -> Table:
     """
     Create a Rich Table showing up to eight recent runs from the database.
 
@@ -239,7 +240,7 @@ def _recent_runs_table(db: TradingDatabase) -> Table:
     return table
 
 
-def _trade_journal_table(db: TradingDatabase, *, limit: int = 8) -> Table:
+def trade_journal_table(db: TradingDatabase, *, limit: int = 8) -> Table:
     """
     Builds a Rich Table listing recent trade journal entries.
 
@@ -270,7 +271,7 @@ def _trade_journal_table(db: TradingDatabase, *, limit: int = 8) -> Table:
     return table
 
 
-def _risk_report_table(db: TradingDatabase) -> Table:
+def risk_report_table(db: TradingDatabase) -> Table:
     """
     Builds a Rich Table showing the daily risk report for the report date produced by the database.
 
@@ -301,7 +302,7 @@ def _risk_report_table(db: TradingDatabase) -> Table:
     return table
 
 
-def _safe_open_read_db(settings: Settings) -> TradingDatabase | None:
+def safe_open_read_db(settings: Settings) -> TradingDatabase | None:
     state = read_service_state(settings)
     view = build_runtime_status_view(state)
     if view.live_process and view.last_recorded_state in {
@@ -316,7 +317,7 @@ def _safe_open_read_db(settings: Settings) -> TradingDatabase | None:
         return None
 
 
-def _observer_mode_panel(feature: str, error: str | None = None) -> Panel:
+def observer_mode_panel(feature: str, error: str | None = None) -> Panel:
     """
     Render a yellow "observer mode" panel indicating a feature is unavailable because the runtime writer owns the database.
 
@@ -333,7 +334,7 @@ def _observer_mode_panel(feature: str, error: str | None = None) -> Panel:
     return Panel(body, title=LABEL_OBSERVER_MODE, border_style="yellow")
 
 
-def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
+def render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     """
     Render the runtime status view: either a detailed status table or a placeholder panel when no state is available.
 
@@ -380,7 +381,7 @@ def _render_runtime_state(state: ServiceStateSnapshot | None) -> None:
     console.print(table)
 
 
-def _render_runtime_events(events: list[ServiceEvent]) -> None:
+def render_runtime_events(events: list[ServiceEvent]) -> None:
     """
     Render a list of runtime service events to the console as a table or a notice when no events exist.
 
@@ -413,7 +414,7 @@ def _render_runtime_events(events: list[ServiceEvent]) -> None:
     console.print(table)
 
 
-def _runtime_events_table(events: list[ServiceEvent]) -> Table:
+def runtime_events_table(events: list[ServiceEvent]) -> Table:
     """
     Builds a rich Table representing runtime service events.
 
@@ -445,7 +446,7 @@ def _runtime_events_table(events: list[ServiceEvent]) -> Table:
     return table
 
 
-def _agent_activity_table(
+def agent_activity_table(
     state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Table:
     """
@@ -473,7 +474,7 @@ def _agent_activity_table(
     return table
 
 
-def _current_activity_panel(
+def current_activity_panel(
     settings: Settings, state: ServiceStateSnapshot | None, events: list[ServiceEvent]
 ) -> Panel:
     """
@@ -493,19 +494,19 @@ def _current_activity_panel(
     readiness = _object_mapping(v1_readiness_payload(settings, check_provider=False))
     paper_operations = _object_mapping(readiness.get("paper_operations"))
     lines = [
-        *_runtime_cycle_lines(settings=settings, state=state, view=view),
+        *runtime_cycle_lines(settings=settings, state=state, view=view),
         "",
-        *_agent_activity_lines(activity),
+        *agent_activity_lines(activity),
         "",
-        *_broker_gate_lines(broker=broker, paper_operations=paper_operations),
+        *broker_gate_lines(broker=broker, paper_operations=paper_operations),
         "",
-        *_last_outcome_lines(activity),
+        *last_outcome_lines(activity),
     ]
     body = "\n".join(lines)
     return Panel(body, title=TITLE_CURRENT_CYCLE, border_style="bright_cyan")
 
 
-def _runtime_cycle_lines(
+def runtime_cycle_lines(
     *,
     settings: Settings,
     state: ServiceStateSnapshot | None,
@@ -565,7 +566,7 @@ def _runtime_cycle_lines(
     ]
 
 
-def _agent_activity_lines(activity: AgentActivityView) -> list[str]:
+def agent_activity_lines(activity: AgentActivityView) -> list[str]:
     """
     Builds a list of labeled "label: value" lines summarizing agent activity for display.
 
@@ -587,7 +588,7 @@ def _agent_activity_lines(activity: AgentActivityView) -> list[str]:
     ]
 
 
-def _broker_gate_lines(
+def broker_gate_lines(
     *, broker: Mapping[str, object], paper_operations: Mapping[str, object]
 ) -> list[str]:
     """
@@ -618,7 +619,7 @@ def _broker_gate_lines(
     ]
 
 
-def _last_outcome_lines(activity: AgentActivityView) -> list[str]:
+def last_outcome_lines(activity: AgentActivityView) -> list[str]:
     """
     Builds label/value lines describing the last outcome from an agent activity view.
 
@@ -636,7 +637,7 @@ def _last_outcome_lines(activity: AgentActivityView) -> list[str]:
     return [_label_line(LABEL_LAST_OUTCOME, MESSAGE_WAITING_FOR_LAST_OUTCOME)]
 
 
-def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
+def runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     """
     Builds a rich Table summarizing the current runtime service status.
 
@@ -679,7 +680,7 @@ def _runtime_state_table(state: ServiceStateSnapshot | None) -> Table:
     return table
 
 
-def _system_status_table(
+def system_status_table(
     settings: Settings,
     db: TradingDatabase | None,
     *,
@@ -730,7 +731,7 @@ def _system_status_table(
     return table
 
 
-def _portfolio_renderable(db: TradingDatabase) -> Group:
+def portfolio_renderable(db: TradingDatabase) -> Group:
     """
     Builds a Rich renderable containing a portfolio summary table and a positions table.
 

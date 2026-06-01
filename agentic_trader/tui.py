@@ -42,33 +42,53 @@ from agentic_trader.schemas import (
     TradeStyle,
 )
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.tui_status import (
-    _render_broker_status,
-    _render_compact_status,
-    _render_provider_diagnostics,
-    _render_status,
-    _render_v1_readiness,
-)
 from agentic_trader.tui_monitor import (
     build_monitor_renderable as _build_monitor_renderable,
+)
+from agentic_trader.tui_monitor import (
     run_live_monitor,
 )
 from agentic_trader.tui_monitor_sections import (
-    _agent_activity_lines,
-    _agent_activity_table,
-    _broker_gate_lines,
-    _last_outcome_lines,
-    _observer_mode_panel,
-    _portfolio_renderable,
-    _render_preferences,
-    _render_recent_runs,
-    _render_runtime_events,
-    _risk_report_table,
-    _runtime_cycle_lines,
-    _runtime_state_table,
-    _safe_open_read_db,
-    _system_status_table,
-    _trade_journal_table,
+    agent_activity_lines as _export_agent_activity_lines,
+)
+from agentic_trader.tui_monitor_sections import (
+    agent_activity_table as _export_agent_activity_table,
+)
+from agentic_trader.tui_monitor_sections import (
+    broker_gate_lines as _export_broker_gate_lines,
+)
+from agentic_trader.tui_monitor_sections import (
+    last_outcome_lines as _export_last_outcome_lines,
+)
+from agentic_trader.tui_monitor_sections import (
+    observer_mode_panel,
+    portfolio_renderable,
+    render_preferences,
+    render_recent_runs,
+    render_runtime_events,
+    risk_report_table,
+)
+from agentic_trader.tui_monitor_sections import (
+    runtime_cycle_lines as _export_runtime_cycle_lines,
+)
+from agentic_trader.tui_monitor_sections import (
+    runtime_state_table as _export_runtime_state_table,
+)
+from agentic_trader.tui_monitor_sections import (
+    safe_open_read_db,
+)
+from agentic_trader.tui_monitor_sections import (
+    system_status_table as _export_system_status_table,
+)
+from agentic_trader.tui_monitor_sections import (
+    trade_journal_table,
+)
+from agentic_trader.tui_status import (
+    render_broker_status,
+    render_compact_status,
+    render_provider_diagnostics,
+    render_status,
+    render_v1_readiness,
 )
 from agentic_trader.ui_text import (
     LABEL_ACTION,
@@ -80,35 +100,10 @@ from agentic_trader.ui_text import (
     LABEL_OBSERVER_MODE,
     LABEL_REGIME,
     LABEL_ROLE,
-    LABEL_STOP_REQUESTED,
     LABEL_SCORE,
-    LABEL_SYMBOL,
+    LABEL_STOP_REQUESTED,
     LABEL_STRATEGY,
-    MESSAGE_ACTION_CANCELLED_RETURNING,
-    MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
-    MESSAGE_CHAT_EXIT_HINT,
-    MESSAGE_FINAL_STAGE_UPDATE,
-    MESSAGE_NO_PERSISTED_RUNS_REVIEW,
-    MESSAGE_NO_PERSISTED_RUNS_TRACE,
-    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_PREFERENCES_SAVED,
-    MESSAGE_PREPARING_SYMBOL,
-    MESSAGE_SERVICE_STOP_REQUESTED,
-    MESSAGE_SERVICE_SPAWNED_BACKGROUND,
-    MESSAGE_STAGE_UPDATE,
-    MESSAGE_STALE_RUNTIME_PID,
-    MESSAGE_CONTROL_ROOM_CLOSED,
-    PROMPT_CONTINUE,
-    PROMPT_APPLY_PREFERENCE_UPDATE,
-    PROMPT_CHAT_PERSONA,
-    PROMPT_CONTINUOUS_MODE,
-    PROMPT_INSTRUCTION,
-    PROMPT_MAX_CYCLES,
-    PROMPT_OPEN_LIVE_MONITOR_NOW,
-    PROMPT_POLL_INTERVAL_SECONDS,
-    PROMPT_REFRESH_SECONDS,
-    PROMPT_SELECT_ACTION,
-    PROMPT_YOU,
+    LABEL_SYMBOL,
     MENU_ACTION_BACK,
     MENU_ACTION_BROKER_STATUS,
     MENU_ACTION_CONFIGURE_INVESTMENT_PREFERENCES,
@@ -134,36 +129,61 @@ from agentic_trader.ui_text import (
     MENU_ACTION_START_ONE_STRICT_AGENT_CYCLE,
     MENU_ACTION_START_ORCHESTRATOR_SERVICE,
     MENU_ACTION_V1_READINESS_GATES,
+    MESSAGE_ACTION_CANCELLED_RETURNING,
+    MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
+    MESSAGE_CHAT_EXIT_HINT,
+    MESSAGE_CONTROL_ROOM_CLOSED,
+    MESSAGE_FINAL_STAGE_UPDATE,
+    MESSAGE_NO_PERSISTED_RUNS_REVIEW,
+    MESSAGE_NO_PERSISTED_RUNS_TRACE,
+    MESSAGE_PREFERENCES_SAVED,
+    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_PREPARING_SYMBOL,
+    MESSAGE_SERVICE_SPAWNED_BACKGROUND,
+    MESSAGE_SERVICE_STOP_REQUESTED,
+    MESSAGE_STAGE_UPDATE,
+    MESSAGE_STALE_RUNTIME_PID,
+    PROMPT_APPLY_PREFERENCE_UPDATE,
+    PROMPT_CHAT_PERSONA,
+    PROMPT_CONTINUE,
+    PROMPT_CONTINUOUS_MODE,
+    PROMPT_INSTRUCTION,
+    PROMPT_MAX_CYCLES,
+    PROMPT_OPEN_LIVE_MONITOR_NOW,
+    PROMPT_POLL_INTERVAL_SECONDS,
+    PROMPT_REFRESH_SECONDS,
+    PROMPT_SELECT_ACTION,
+    PROMPT_YOU,
     STYLE_KEY_COLUMN,
     TITLE_ACTION_FAILED,
+    TITLE_AGENT_TRACE_FOR_RUN,
     TITLE_CANCELLED,
-    TITLE_DECISION_EVIDENCE_EXPLORER,
+    TITLE_CHAT,
     TITLE_DAILY_RISK_REPORT,
+    TITLE_DECISION_EVIDENCE_EXPLORER,
     TITLE_EXIT,
     TITLE_INSTRUCTION_APPLICATION,
+    TITLE_LATEST_RUN_REVIEW,
     TITLE_MAIN_MENU,
     TITLE_MEMORY_EXPLORER,
     TITLE_NOT_RUNNING,
-    TITLE_RECENT_RUNS,
-    TITLE_RESEARCH_AND_MEMORY,
-    TITLE_REVIEW_AND_TRACE,
-    TITLE_LATEST_RUN_REVIEW,
-    TITLE_AGENT_TRACE_FOR_RUN,
-    TITLE_CHAT,
     TITLE_OPERATOR_CHAT_MEMORY_CONTEXT,
     TITLE_OPERATOR_DESK,
     TITLE_PAPER_PORTFOLIO,
     TITLE_PARSED_OPERATOR_INSTRUCTION,
     TITLE_PORTFOLIO_AND_RISK,
     TITLE_PREFERENCE_EDITING,
+    TITLE_RECENT_RUNS,
+    TITLE_RESEARCH_AND_MEMORY,
+    TITLE_REVIEW_AND_TRACE,
     TITLE_RUN_COMPLETED,
     TITLE_RUN_REVIEW,
     TITLE_RUNTIME_CONTROL,
     TITLE_SAVED,
-    TITLE_STALE_RUNTIME,
     TITLE_SERVICE_SPAWNED,
-    TITLE_TRADE_JOURNAL,
+    TITLE_STALE_RUNTIME,
     TITLE_TRACE,
+    TITLE_TRADE_JOURNAL,
     TITLE_UPDATED_PREFERENCES,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
@@ -204,24 +224,22 @@ def _open_db(settings: Settings, *, read_only: bool) -> TradingDatabase:
 def _style_key(text: str) -> str:
     """
     Format a string as a styled key using the STYLE_KEY_COLUMN Rich markup.
-    
+
     Parameters:
         text (str): The text to format as a styled key.
-    
+
     Returns:
         str: The input string wrapped in STYLE_KEY_COLUMN Rich markup tags.
     """
     return f"[{STYLE_KEY_COLUMN}]{text}[/{STYLE_KEY_COLUMN}]"
 
 
-
-
 def _banner() -> Panel:
     """
     Render the top banner panel for the Agentic Trader TUI.
-    
+
     When the console width is less than 120 characters, uses a compact single-line banner; otherwise uses an ASCII-art header with a subtitle.
-    
+
     Returns:
         Panel: A Rich Panel containing the banner renderable.
     """
@@ -251,7 +269,7 @@ def _banner() -> Panel:
 def _exit_cleanly() -> None:
     """
     Display an exit panel indicating the control room closed cleanly.
-    
+
     Prints a panel using the standard exit title and message.
     """
     console.print(
@@ -272,18 +290,14 @@ def _split_csv(value: str) -> list[str]:
     return [item.strip().upper() for item in value.split(",") if item.strip()]
 
 
-
-
-
-
 def _configure_preferences(db: TradingDatabase) -> None:
     """
     Prompt the operator to review and update investment preferences and save the changes.
-    
-    Prompts for each preference field (list fields accept comma-separated values; choice fields present fixed options), preserves existing list values when a list input is left empty, constructs an InvestmentPreferences object from the responses, and persists it to the provided TradingDatabase.  
+
+    Prompts for each preference field (list fields accept comma-separated values; choice fields present fixed options), preserves existing list values when a list input is left empty, constructs an InvestmentPreferences object from the responses, and persists it to the provided TradingDatabase.
     """
     current = db.load_preferences()
-    console.print(_render_preferences(current))
+    console.print(render_preferences(current))
     regions = Prompt.ask(
         "Regions (comma-separated)", default=", ".join(current.regions)
     )
@@ -356,25 +370,25 @@ def _configure_preferences(db: TradingDatabase) -> None:
 def _show_portfolio(db: TradingDatabase) -> None:
     """
     Render the portfolio summary, positions list, and daily risk report to the console.
-    
+
     Prints a combined portfolio renderable (summary plus positions, with a placeholder when no open positions exist) followed by the account risk report.
     """
-    console.print(_portfolio_renderable(db))
-    console.print(_risk_report_table(db))
+    console.print(portfolio_renderable(db))
+    console.print(risk_report_table(db))
 
 
 def _show_trade_journal(db: TradingDatabase) -> None:
-    console.print(_trade_journal_table(db, limit=20))
+    console.print(trade_journal_table(db, limit=20))
 
 
 def _show_risk_report(db: TradingDatabase) -> None:
-    console.print(_risk_report_table(db))
+    console.print(risk_report_table(db))
 
 
 def _show_latest_run_review(db: TradingDatabase) -> None:
     """
     Display the latest persisted run review or a notice if none exists.
-    
+
     If a persisted run is available, prints the run's artifacts as pretty-printed JSON with the run id in the panel title. If no persisted run exists, prints a notice indicating there are no persisted runs to review.
     """
     record = db.latest_run()
@@ -399,10 +413,10 @@ def _show_latest_run_review(db: TradingDatabase) -> None:
 def _memory_explorer_table(matches: Sequence[HistoricalMemoryMatch]) -> Table:
     """
     Builds a Rich Table showing historical memory matches for the decision evidence explorer.
-    
+
     Parameters:
         matches (Sequence[HistoricalMemoryMatch]): Sequence of memory match records to display. When empty, the table contains a single placeholder row.
-    
+
     Returns:
         Table: A Rich Table with columns "Created", "Symbol", "Score", "Regime", "Strategy", and "Bias". The `Score` column is formatted to two decimal places.
     """
@@ -453,7 +467,7 @@ def _show_memory_explorer(_settings: Settings, db: TradingDatabase) -> None:
 def _show_latest_run_trace(db: TradingDatabase) -> None:
     """
     Display the most recent run's agent trace or an informational panel when none exists.
-    
+
     Prints a table listing each agent trace's role, model name, and whether a fallback was used for the latest recorded run; if no persisted run is available, prints a yellow panel stating that no run trace is present.
     """
     record = db.latest_run()
@@ -478,7 +492,7 @@ def _show_latest_run_trace(db: TradingDatabase) -> None:
 def _select_chat_persona() -> ChatPersona:
     """
     Prompt the operator to choose a chat persona for agent responses.
-    
+
     Returns:
         ChatPersona: The chosen persona key; one of "operator_liaison", "regime_analyst", "strategy_selector", "risk_steward", or "portfolio_manager" (defaults to "operator_liaison").
     """
@@ -503,9 +517,9 @@ def _render_chat_transcript(
 ) -> None:
     """
     Render the chat transcript and an exit hint panel for the given persona to the console.
-    
+
     Clears the terminal, prints a banner and an exit-hint panel titled with the persona, then displays up to the last eight messages from the transcript as role-labeled panels.
-    
+
     Parameters:
         persona (ChatPersona): The chat persona used for the exit-hint panel title.
         transcript (Sequence[tuple[str, str]]): Sequence of (role, message) pairs; each role (e.g., "operator") is used as the panel title for its message.
@@ -527,7 +541,7 @@ def _render_chat_transcript(
 def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
     """
     Open an interactive operator chat session with a selectable persona.
-    
+
     Displays the chat transcript, prompts the operator for input, sends messages to the configured LLM persona (via the chat backend), and appends persona replies to the transcript. The session ends when the operator enters "/exit", "exit", or "quit".
     """
     ensure_llm_ready(settings)
@@ -553,7 +567,7 @@ def _chat_screen(settings: Settings, db: TradingDatabase) -> None:
 def _render_instruction_result(instruction: OperatorInstruction) -> None:
     """
     Render the parsed operator instruction as a JSON panel in the console.
-    
+
     Parameters:
         instruction (OperatorInstruction): The parsed operator instruction to display.
     """
@@ -571,9 +585,9 @@ def _apply_instruction_update_if_confirmed(
 ) -> None:
     """
     Apply the parsed operator instruction's preference update when the instruction requests it and the operator confirms.
-    
+
     If `instruction.should_update_preferences` is true and the operator confirms the prompt, persists the preference update to `db` and prints the updated preferences as a JSON panel.
-    
+
     Parameters:
         instruction (OperatorInstruction): Parsed operator instruction containing `should_update_preferences` and `preference_update`.
     """
@@ -595,7 +609,7 @@ def _apply_instruction_update_if_confirmed(
 def _instruction_screen(settings: Settings, db: TradingDatabase) -> None:
     """
     Parse an operator instruction from the prompt, display the interpreted result, and apply any confirmed preference update.
-    
+
     Prompts the operator for a free-form instruction, interprets it using the local LLM and the provided database, renders the parsed `OperatorInstruction`, and—if the interpretation indicates a preferences update and the operator confirms—applies that update to the database.
     """
     ensure_llm_ready(settings)
@@ -634,9 +648,9 @@ def _run_one_shot_symbol(
 ) -> None:
     """
     Execute a strict one-shot trading cycle for a single symbol and display the results.
-    
+
     Runs a single strict trading cycle using the provided settings, symbol, interval, and lookback, persists the resulting run artifacts, and prints a completion panel that includes the final status message, run artifacts, and the persisted order id.
-    
+
     Parameters:
         settings (Settings): Application settings used to configure the run and persistence.
         symbol (str): Trading symbol to execute the cycle for.
@@ -654,7 +668,7 @@ def _run_one_shot_symbol(
         ) -> None:
             """
             Update the live progress status and record the latest stage message.
-            
+
             Parameters:
                 stage (str): Human-readable name of the current processing stage.
                 event (str): Event identifier associated with the progress update (accepted but not used).
@@ -692,9 +706,9 @@ def _launch_service(
 ) -> None:
     """
     Start the background orchestrator service for the given symbols and optionally open the live monitor.
-    
+
     Prompts the operator for launch options (continuous mode, poll interval, and optional max cycles), starts the background service with those options, prints a panel showing the spawned process PID, and then asks whether to open the live monitor.
-    
+
     Parameters:
         settings (Settings): Application settings used to configure and launch the service.
         symbols (Sequence[str]): Symbols to monitor/trade when the service runs.
@@ -724,12 +738,12 @@ def _launch_service(
 def _prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int | None]:
     """
     Prompt the operator for background service launch options.
-    
+
     Prompts for continuous mode, a poll interval (defaults to settings.default_poll_seconds), and—when continuous mode is selected—an optional maximum cycle count.
-    
+
     Parameters:
         settings (Settings): Application settings used to provide the default poll interval.
-    
+
     Returns:
         tuple[bool, int, int | None]: A tuple (continuous, poll_seconds, max_cycles) where
             `continuous` is True when continuous mode was chosen,
@@ -752,9 +766,9 @@ def _prompt_service_launch_options(settings: Settings) -> tuple[bool, int, int |
 def _open_live_monitor_if_requested(settings: Settings) -> None:
     """
     Prompt the operator to open the live monitor and start it when confirmed.
-    
+
     Asks the operator whether to open the live monitor now; if confirmed, launches the live monitor with a 1.0 second refresh interval.
-    
+
     Parameters:
         settings (Settings): Application settings used to configure and run the live monitor.
     """
@@ -765,7 +779,7 @@ def _open_live_monitor_if_requested(settings: Settings) -> None:
 def _runtime_control_table() -> Table:
     """
     Builds a menu table of runtime control actions.
-    
+
     Returns:
         Table: A Rich Table titled for runtime control with two columns (key and action) and rows for the available runtime control options (1–9).
     """
@@ -788,9 +802,9 @@ def _runtime_control_table() -> Table:
 
 
 def _runtime_status_action(settings: Settings) -> None:
-    db = _safe_open_read_db(settings)
+    db = safe_open_read_db(settings)
     try:
-        _render_status(settings, db)
+        render_status(settings, db)
     finally:
         if db is not None:
             db.close()
@@ -799,14 +813,14 @@ def _runtime_status_action(settings: Settings) -> None:
 def _load_runtime_preferences(settings: Settings) -> InvestmentPreferences | None:
     """
     Load investment preferences from a read-only database and display an observer-mode panel when the database is unavailable.
-    
+
     Parameters:
         settings (Settings): Application settings used to open the read-only trading database.
-    
+
     Returns:
         InvestmentPreferences | None: The loaded investment preferences, or `None` if the database could not be opened.
     """
-    db = _safe_open_read_db(settings)
+    db = safe_open_read_db(settings)
     try:
         if db is None:
             console.print(
@@ -855,11 +869,11 @@ def _persist_stop_request(settings: Settings) -> None:
 def _runtime_stop_action(settings: Settings) -> None:
     """
     Requests the background runtime service to stop and reports status to the console.
-    
+
     If no runtime service is active or the stored PID is missing, prints a "not running" panel.
     If the stored PID exists but the process is not alive, prints a "stale pid" panel.
     If the process appears active, issues a stop request, persists the stop request, and prints a "stop requested" panel including the PID.
-    
+
     Parameters:
         settings (Settings): Application settings used to locate and control the runtime service.
     """
@@ -897,9 +911,9 @@ def _runtime_stop_action(settings: Settings) -> None:
 def _runtime_monitor_action(settings: Settings) -> None:
     """
     Open a live monitoring UI for the runtime with a user-specified refresh interval.
-    
+
     Prompts the operator for a refresh interval in seconds, clamps invalid or non-positive inputs to 1.0 second, and launches the live monitor.
-    
+
     Parameters:
         settings (Settings): Application settings used to build the monitor UI.
     """
@@ -913,15 +927,15 @@ def _runtime_monitor_action(settings: Settings) -> None:
 
 
 def _provider_diagnostics_action(settings: Settings) -> None:
-    _render_provider_diagnostics(settings)
+    render_provider_diagnostics(settings)
 
 
 def _v1_readiness_action(settings: Settings) -> None:
-    _render_v1_readiness(settings)
+    render_v1_readiness(settings)
 
 
 def _broker_status_action(settings: Settings) -> None:
-    _render_broker_status(settings)
+    render_broker_status(settings)
 
 
 def _runtime_menu(settings: Settings) -> None:
@@ -973,9 +987,9 @@ def _operator_menu(settings: Settings) -> None:
         console.print(table)
         choice = Prompt.ask(PROMPT_SELECT_ACTION, choices=["1", "2", "3"], default="1")
         if choice == "1":
-            db = _safe_open_read_db(settings)
+            db = safe_open_read_db(settings)
             if db is None:
-                console.print(_observer_mode_panel(TITLE_OPERATOR_CHAT_MEMORY_CONTEXT))
+                console.print(observer_mode_panel(TITLE_OPERATOR_CHAT_MEMORY_CONTEXT))
             else:
                 try:
                     _chat_screen(settings, db)
@@ -985,7 +999,9 @@ def _operator_menu(settings: Settings) -> None:
             try:
                 db = _open_db(settings, read_only=False)
             except Exception as exc:
-                console.print(_observer_mode_panel(TITLE_INSTRUCTION_APPLICATION, str(exc)))
+                console.print(
+                    observer_mode_panel(TITLE_INSTRUCTION_APPLICATION, str(exc))
+                )
                 Prompt.ask(PROMPT_CONTINUE, default="")
                 continue
             try:
@@ -999,11 +1015,11 @@ def _operator_menu(settings: Settings) -> None:
 def _menu_table(title: str, items: Sequence[TuiMenuAction | tuple[str, str]]) -> Table:
     """
     Build a Rich Table listing menu entries with key and action label columns.
-    
+
     Parameters:
         title (str): Table title displayed above the menu.
         items (Sequence[TuiMenuAction | tuple[str, str]]): Sequence of menu entries; each entry is either a TuiMenuAction or a (key, label) tuple.
-    
+
     Returns:
         Table: A Rich Table with two columns (key, action label) and one row per item.
     """
@@ -1019,9 +1035,9 @@ def _menu_table(title: str, items: Sequence[TuiMenuAction | tuple[str, str]]) ->
 
 
 def _run_readonly_db_menu_action(settings: Settings, action: TuiMenuAction) -> None:
-    db = _safe_open_read_db(settings)
+    db = safe_open_read_db(settings)
     if db is None:
-        console.print(_observer_mode_panel(action.observer_title))
+        console.print(observer_mode_panel(action.observer_title))
         return
     try:
         action.renderer(db)
@@ -1092,7 +1108,7 @@ def _research_menu(settings: Settings) -> None:
             "2",
             MENU_ACTION_SHOW_RECENT_RUNS_AND_EVENTS,
             TITLE_RECENT_RUNS,
-            _render_recent_runs,
+            render_recent_runs,
         ),
     }
     while True:
@@ -1108,16 +1124,16 @@ def _research_menu(settings: Settings) -> None:
             return
         _run_readonly_db_menu_action(settings, actions[choice])
         if choice == "2":
-            _render_runtime_events(read_service_events(settings, limit=6))
+            render_runtime_events(read_service_events(settings, limit=6))
         Prompt.ask(PROMPT_CONTINUE, default="")
 
 
 def _review_menu(settings: Settings) -> None:
     """
     Present an interactive "Review and Trace" menu that lets the operator inspect the latest persisted run review or its trace.
-    
+
     Displays a menu, prompts for a selection, opens a read-only database when needed to render the chosen view, and returns to the caller when the user selects "Back".
-    
+
     Parameters:
         settings (Settings): Application settings used to locate and open the trading database for read-only inspection.
     """
@@ -1151,12 +1167,12 @@ def _review_menu(settings: Settings) -> None:
 
 
 def _render_main_status(settings: Settings) -> None:
-    db = _safe_open_read_db(settings)
+    db = safe_open_read_db(settings)
     try:
         if console.height < 40:
-            _render_compact_status(settings, db)
+            render_compact_status(settings, db)
         else:
-            _render_status(settings, db)
+            render_status(settings, db)
     finally:
         if db is not None:
             db.close()
@@ -1165,13 +1181,13 @@ def _render_main_status(settings: Settings) -> None:
 def _edit_preferences_action(settings: Settings) -> None:
     """
     Open the writable database and launch the interactive preference editor, handling observer-mode when the DB cannot be opened.
-    
+
     If opening the database fails, prints an observer-mode panel with the error and prompts the operator to continue. When the database is opened, runs the preference configuration flow and ensures the database is closed afterwards.
     """
     try:
         db = _open_db(settings, read_only=False)
     except Exception as exc:
-        console.print(_observer_mode_panel(TITLE_PREFERENCE_EDITING, str(exc)))
+        console.print(observer_mode_panel(TITLE_PREFERENCE_EDITING, str(exc)))
         Prompt.ask(PROMPT_CONTINUE, default="")
         return
     try:
@@ -1204,13 +1220,15 @@ def _exit_menu_action(_settings: Settings) -> None:
     """
     Display a closing panel indicating the control room has been closed.
     """
-    console.print(Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue"))
+    console.print(
+        Panel(MESSAGE_CONTROL_ROOM_CLOSED, title=TITLE_EXIT, border_style="blue")
+    )
 
 
 def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
     """
     Build the ordered set of main menu actions for the TUI.
-    
+
     Returns:
         tuple[TuiMainMenuAction, ...]: Tuple of `TuiMainMenuAction` objects in menu order: configure investment preferences, runtime control, operator desk, portfolio and risk, research and memory, review and trace, and exit (the exit action is flagged to leave the menu).
     """
@@ -1232,10 +1250,10 @@ def _main_menu_actions() -> tuple[TuiMainMenuAction, ...]:
 def _main_menu_table(actions: Sequence[TuiMainMenuAction]) -> Table:
     """
     Builds a Rich Table representing the main menu from the given actions.
-    
+
     Parameters:
         actions (Sequence[TuiMainMenuAction]): Ordered menu actions whose `key` and `label` populate each row.
-    
+
     Returns:
         table (Table): A Rich Table titled with the main-menu title, containing two columns (key and action) and one row per action.
     """
@@ -1299,7 +1317,9 @@ def run_main_menu() -> None:
                 )
             )
         except Exception as exc:
-            console.print(Panel(str(exc), title=TITLE_ACTION_FAILED, border_style="red"))
+            console.print(
+                Panel(str(exc), title=TITLE_ACTION_FAILED, border_style="red")
+            )
         try:
             Prompt.ask(PROMPT_CONTINUE, default="")
         except EOFError:
@@ -1309,13 +1329,13 @@ def run_main_menu() -> None:
 
 split_csv = _split_csv
 style_key = _style_key
-system_status_table = _system_status_table
-runtime_state_table = _runtime_state_table
-runtime_cycle_lines = _runtime_cycle_lines
-last_outcome_lines = _last_outcome_lines
-broker_gate_lines = _broker_gate_lines
-agent_activity_lines = _agent_activity_lines
-agent_activity_table = _agent_activity_table
+system_status_table = _export_system_status_table
+runtime_state_table = _export_runtime_state_table
+runtime_cycle_lines = _export_runtime_cycle_lines
+last_outcome_lines = _export_last_outcome_lines
+broker_gate_lines = _export_broker_gate_lines
+agent_activity_lines = _export_agent_activity_lines
+agent_activity_table = _export_agent_activity_table
 build_monitor_renderable = _build_monitor_renderable
 memory_explorer_table = _memory_explorer_table
 menu_table = _menu_table
