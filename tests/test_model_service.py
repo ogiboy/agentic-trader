@@ -6,6 +6,7 @@ import pytest
 
 from agentic_trader.config import Settings
 from agentic_trader.system import model_service
+from agentic_trader.system import model_service_probe
 from agentic_trader.system.model_service import same_loopback_api_root
 from tests.typing_helpers import (
     constant,
@@ -563,7 +564,7 @@ def test_model_service_status_can_probe_generation_failure(
     def fake_post(*_args: object, **_kwargs: object) -> FakeResponse:
         return FakeResponse()
 
-    monkeypatch.setattr(model_service.httpx, "post", fake_post)
+    monkeypatch.setattr(model_service_probe.httpx, "post", fake_post)
 
     status = model_service.build_model_service_status(
         settings,
