@@ -291,11 +291,6 @@ def _run_readonly_db_menu_action(settings: Settings, action: TuiMenuAction) -> N
 
 
 def _portfolio_menu(settings: Settings) -> None:
-    """
-    Present an interactive "Portfolio and Risk" menu that lets the operator view the paper portfolio, trade journal, or daily risk report.
-
-    Opens a read-only database when a selected view requires persisted data, displays an observer-mode notice if the database is unavailable, closes the database after each view, and returns when the user selects "Back".
-    """
     actions = {
         "1": TuiMenuAction(
             "1",
