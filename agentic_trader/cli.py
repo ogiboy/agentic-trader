@@ -1,6 +1,5 @@
 import json
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -32,6 +31,13 @@ from agentic_trader.cli_modules.common import (
     console,
     emit_json as _emit_json,
     open_db as _open_db,
+)
+from agentic_trader.cli_modules.operator_readiness import (
+    accelerator_payload as _operator_accelerator_payload,
+    build_hardware_profile_payload,
+    build_operator_workflow_payload,
+    register_operator_readiness_commands,
+    total_memory_bytes as _operator_total_memory_bytes,
 )
 from agentic_trader.cli_modules.proposal_desk import (
     proposal_candidates_payload,
@@ -231,7 +237,6 @@ from agentic_trader.ui_text import (
     HELP_V1_PROVIDER_CHECK,
     HELP_WEBGUI_OPEN_BROWSER,
     HELP_WEBGUI_SERVICE_APP,
-    LABEL_ACCELERATOR,
     LABEL_ADAPTER,
     LABEL_AGENT,
     LABEL_AGENT_PROFILE,
@@ -260,14 +265,12 @@ from agentic_trader.ui_text import (
     LABEL_CATEGORY,
     LABEL_CHECK,
     LABEL_CLOSED_TRADES,
-    LABEL_COMMAND,
     LABEL_CONFIDENCE,
     LABEL_CONSENSUS,
     LABEL_CONTEXT,
     LABEL_CONTINUOUS,
     LABEL_CORE_DEPENDENCY,
     LABEL_CORE_READY,
-    LABEL_CPU_COUNT,
     LABEL_CREATED,
     LABEL_CURRENCIES,
     LABEL_CURRENCY,
@@ -295,7 +298,6 @@ from agentic_trader.ui_text import (
     LABEL_ENVIRONMENT,
     LABEL_ENVIRONMENT_EXISTS,
     LABEL_EQUITY,
-    LABEL_ESTIMATED_MODEL_SIZE,
     LABEL_EXCHANGES,
     LABEL_EXECUTION_ADAPTER,
     LABEL_EXECUTION_BACKEND,
@@ -361,7 +363,6 @@ from agentic_trader.ui_text import (
     LABEL_MAX_DRAWDOWN,
     LABEL_MEANING,
     LABEL_MEMORIES,
-    LABEL_MEMORY_GB,
     LABEL_MESSAGE,
     LABEL_METRIC,
     LABEL_MODE,
@@ -394,7 +395,6 @@ from agentic_trader.ui_text import (
     LABEL_POLL_SECONDS,
     LABEL_PREFERENCE_UPDATE,
     LABEL_PRODUCES,
-    LABEL_PROFILE,
     LABEL_PROPOSAL,
     LABEL_PROVIDER,
     LABEL_PURPOSE,
@@ -422,7 +422,6 @@ from agentic_trader.ui_text import (
     LABEL_RUNTIME,
     LABEL_RUNTIME_DAEMON,
     LABEL_RUNTIME_DIR,
-    LABEL_SAFE_PARALLEL_AGENTS,
     LABEL_SCAFFOLD_EXISTS,
     LABEL_SCORE,
     LABEL_SECTORS,
@@ -448,7 +447,6 @@ from agentic_trader.ui_text import (
     LABEL_STDERR_LOG,
     LABEL_STDOUT,
     LABEL_STDOUT_LOG,
-    LABEL_STEP,
     LABEL_STOP,
     LABEL_STOP_REQUESTED,
     LABEL_STRATEGY,
@@ -463,7 +461,6 @@ from agentic_trader.ui_text import (
     LABEL_TAKE_PROFIT,
     LABEL_TARGET,
     LABEL_TIMEZONE,
-    LABEL_TOKEN_HINT,
     LABEL_TOOL,
     LABEL_TOOL_OUTPUT_ROLES,
     LABEL_TOOL_OUTPUTS,
@@ -543,7 +540,6 @@ from agentic_trader.ui_text import (
     MESSAGE_OBSERVER_API_LISTENING,
     MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
     MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
-    MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
     MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
     MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE,
     MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE,
@@ -622,7 +618,6 @@ from agentic_trader.ui_text import (
     TITLE_FINANCE_LEDGER_CATEGORIES,
     TITLE_FINANCE_OPERATIONS,
     TITLE_FINANCE_OPERATIONS_CHECKS,
-    TITLE_HARDWARE_PROFILE,
     TITLE_INSTALLING_TUI_DEPENDENCIES,
     TITLE_INVESTMENT_PREFERENCES,
     TITLE_LAUNCH_PLAN,
@@ -649,7 +644,6 @@ from agentic_trader.ui_text import (
     TITLE_OBSERVER_API_BLOCKED,
     TITLE_OPERATOR_INSTRUCTION,
     TITLE_OPERATOR_LAUNCHER,
-    TITLE_OPERATOR_WORKFLOW,
     TITLE_PAPER_OPERATION_CHECKS,
     TITLE_PIPELINE,
     TITLE_PORTFOLIO,
@@ -703,7 +697,6 @@ from agentic_trader.ui_text import (
     TITLE_TUI_MISSING,
     TITLE_UI_LOCALE,
     TITLE_UPDATED_PREFERENCES,
-    TITLE_V1_OPERATOR_WORKFLOW,
     TITLE_V1_READINESS,
     TITLE_WALK_FORWARD_BACKTEST,
     TITLE_WARNING,
@@ -774,6 +767,14 @@ def upsert_env_local_value(key: str, value: str) -> None:
     set_key(ENV_LOCAL_FILE, key, value, quote_mode="never")
 
 
+def _accelerator_payload() -> dict[str, object]:
+    return _operator_accelerator_payload()
+
+
+def _total_memory_bytes() -> int | None:
+    return _operator_total_memory_bytes()
+
+
 def _refresh_trade_proposal_order_provider(
     *,
     db: TradingDatabase,
@@ -802,6 +803,13 @@ register_proposal_desk_commands(
     app,
     settings_provider=lambda: get_settings(),
     refresh_trade_proposal_order_provider=_refresh_trade_proposal_order_provider,
+)
+register_operator_readiness_commands(
+    app,
+    settings_provider=lambda: get_settings(),
+    accelerator_provider=lambda: _accelerator_payload(),
+    cpu_count_provider=lambda: os.cpu_count(),
+    total_memory_provider=lambda: _total_memory_bytes(),
 )
 
 TUI_PACKAGE_NAME = "agentic-trader-tui"
@@ -5478,350 +5486,6 @@ def _latest_smoke_artifact_dir(artifacts_root: Path) -> Path | None:
     if not candidates:
         return None
     return max(candidates, key=lambda path: path.stat().st_mtime)
-
-
-def _run_probe_command(command: list[str], *, timeout: float = 2.0) -> str | None:
-    try:
-        proc = subprocess.run(
-            command,
-            cwd=PROJECT_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            check=False,
-        )
-    except Exception:
-        return None
-    if proc.returncode != 0:
-        return None
-    output = proc.stdout.strip()
-    return output or None
-
-
-def _total_memory_bytes() -> int | None:
-    if sys.platform == "darwin":
-        output = _run_probe_command(["sysctl", "-n", "hw.memsize"])
-        if output and output.isdigit():
-            return int(output)
-    sysconf_total = _sysconf_total_memory_bytes()
-    if sysconf_total is not None:
-        return sysconf_total
-    return _linux_meminfo_total_memory_bytes()
-
-
-def _sysconf_total_memory_bytes() -> int | None:
-    try:
-        pages = os.sysconf("SC_PHYS_PAGES")
-        page_size = os.sysconf("SC_PAGE_SIZE")
-    except (AttributeError, OSError, ValueError):
-        pages = page_size = None
-    if (
-        isinstance(pages, int)
-        and isinstance(page_size, int)
-        and pages > 0
-        and page_size > 0
-    ):
-        return pages * page_size
-    return None
-
-
-def _linux_meminfo_total_memory_bytes() -> int | None:
-    meminfo = Path("/proc/meminfo")
-    if not meminfo.exists():
-        return None
-    try:
-        lines = meminfo.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return None
-    for line in lines:
-        total = _parse_memtotal_line(line)
-        if total is not None:
-            return total
-    return None
-
-
-def _parse_memtotal_line(line: str) -> int | None:
-    if not line.startswith("MemTotal:"):
-        return None
-    parts = line.split()
-    if len(parts) >= 2 and parts[1].isdigit():
-        return int(parts[1]) * 1024
-    return None
-
-
-def _model_size_billions(model_name: str) -> float | None:
-    separators = ":/,_-()[]{}"
-    normalized = model_name.lower()
-    for separator in separators:
-        normalized = normalized.replace(separator, " ")
-    for token in normalized.split():
-        size = _model_size_token_billions(token)
-        if size is not None:
-            return size
-    return None
-
-
-def _model_size_token_billions(token: str) -> float | None:
-    if not token.endswith("b"):
-        return None
-    numeric = token[:-1]
-    if not numeric or numeric.startswith(".") or numeric.endswith("."):
-        return None
-    try:
-        return float(numeric)
-    except ValueError:
-        return None
-
-
-def _accelerator_payload() -> dict[str, object]:
-    if sys.platform == "darwin" and platform.machine().lower() == "arm64":
-        return {
-            "type": "apple_silicon",
-            "detail": "Apple Silicon unified-memory accelerator available to supported local runtimes.",
-        }
-    if shutil.which("nvidia-smi"):
-        output = _run_probe_command(
-            [
-                "nvidia-smi",
-                "--query-gpu=name,memory.total",
-                "--format=csv,noheader",
-            ]
-        )
-        if output:
-            return {"type": "nvidia", "detail": output.splitlines()}
-    return {
-        "type": "unknown",
-        "detail": "No accelerator probe succeeded with stdlib-safe local checks.",
-    }
-
-
-def _recommended_parallel_agents(
-    cpu_count: int, memory_gb: float | None, model_b: float | None
-) -> int:
-    cpu_floor = max(1, cpu_count // 4)
-    if memory_gb is None:
-        recommended = min(2, cpu_floor)
-    elif memory_gb < 24:
-        recommended = 1
-    elif memory_gb < 48:
-        recommended = min(2, cpu_floor)
-    else:
-        recommended = min(4, cpu_floor)
-    if model_b is not None and model_b >= 13 and (memory_gb is None or memory_gb < 48):
-        recommended = 1
-    return max(1, recommended)
-
-
-def build_hardware_profile_payload(settings: Settings) -> dict[str, object]:
-    """
-    Build a local read-only snapshot of platform, hardware, and runtime recommendations.
-
-    Produces a payload describing detected platform and hardware, configured model/runtime settings, safe parallelism and other operator-facing recommendations, and explanatory notes.
-
-    Parameters:
-        settings (Settings): Application settings containing runtime/model configuration used to estimate recommendations.
-
-    Returns:
-        dict: A mapping with these top-level keys:
-            - "platform": system and Python version information.
-            - "hardware": detected CPU count, total memory (bytes and GB), and accelerator details.
-            - "configured_runtime": model name and related request/configuration fields from `settings`.
-            - "recommendations": suggested safe parallel agents, adjusted token/timeout limits, and a profile hint.
-            - "notes": human-readable operator guidance.
-    """
-    cpu_count = os.cpu_count() or 1
-    memory_bytes = _total_memory_bytes()
-    memory_gb = round(memory_bytes / (1024**3), 2) if memory_bytes else None
-    model_b = _model_size_billions(settings.model_name)
-    safe_parallel_agents = _recommended_parallel_agents(cpu_count, memory_gb, model_b)
-    constrained = safe_parallel_agents == 1
-    return {
-        "platform": {
-            "system": platform.system(),
-            "release": platform.release(),
-            "machine": platform.machine(),
-            "processor": platform.processor(),
-            "python": sys.version.split()[0],
-        },
-        "hardware": {
-            "cpu_count": cpu_count,
-            "memory_bytes": memory_bytes,
-            "memory_gb": memory_gb,
-            "accelerator": _accelerator_payload(),
-        },
-        "configured_runtime": {
-            "model_name": settings.model_name,
-            "estimated_model_size_b": model_b,
-            "max_output_tokens": settings.max_output_tokens,
-            "request_timeout_seconds": settings.request_timeout_seconds,
-            "max_retries": settings.max_retries,
-        },
-        "recommendations": {
-            "safe_parallel_agents": safe_parallel_agents,
-            "max_output_tokens": (
-                min(settings.max_output_tokens, 2048)
-                if constrained
-                else settings.max_output_tokens
-            ),
-            "request_timeout_seconds": max(settings.request_timeout_seconds, 180.0),
-            "profile": "constrained-local" if constrained else "standard-local",
-        },
-        "notes": [
-            "This is an operator hint, not an automatic runtime override.",
-            "Use the lower of configured and recommended limits before long paper-operation runs.",
-        ],
-    }
-
-
-def build_operator_workflow_payload(settings: Settings) -> dict[str, object]:
-    """Return the canonical V1 operator review workflow without executing it."""
-    steps = [
-        {
-            "order": 1,
-            "name": "environment_doctor",
-            "command": "agentic-trader doctor",
-            "purpose": "Verify model, runtime directory, database path, and basic provider reachability.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 2,
-            "name": "hardware_profile",
-            "command": "agentic-trader hardware-profile",
-            "purpose": "Inspect local CPU, memory, accelerator hints, model size, and safe parallelism recommendations.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 3,
-            "name": "provider_diagnostics",
-            "command": "agentic-trader provider-diagnostics",
-            "purpose": "Inspect source ladder, API-key readiness, and fallback warnings without leaking secrets.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 4,
-            "name": "v1_readiness",
-            "command": "agentic-trader v1-readiness --provider-check",
-            "purpose": "Verify paper-operation gates and Alpaca external-paper readiness before longer operation.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 5,
-            "name": "fast_smoke",
-            "command": "pnpm run qa",
-            "purpose": "Run CLI/Rich/Ink smoke QA and produce smoke-summary.json plus qa-report.md.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 6,
-            "name": "one_cycle",
-            "command": "pnpm run qa -- --include-runtime-cycle --runtime-symbol AAPL --runtime-interval 1d --runtime-lookback 180d",
-            "purpose": "Optionally prove one strict foreground agent cycle with isolated runtime storage.",
-            "required_before_long_run": False,
-        },
-        {
-            "order": 7,
-            "name": "review_outputs",
-            "command": "agentic-trader review-run && agentic-trader trace-run && agentic-trader trade-context",
-            "purpose": "Inspect decision, stage trace, context pack, broker outcome, and reviewable rationale.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 8,
-            "name": "evidence_bundle",
-            "command": "agentic-trader evidence-bundle",
-            "purpose": "Package shared runtime truth, readiness payloads, logs, hardware profile, and latest smoke report.",
-            "required_before_long_run": True,
-        },
-        {
-            "order": 9,
-            "name": "background_paper_operation",
-            "command": "agentic-trader launch --symbols AAPL,MSFT --interval 1d --lookback 180d --continuous --background",
-            "purpose": "Start longer paper operation only after the readiness and evidence steps are understood.",
-            "required_before_long_run": False,
-        },
-    ]
-    return {
-        "workflow_version": "operator-workflow.v1",
-        "runtime_mode": settings.runtime_mode,
-        "execution_backend": settings.execution_backend,
-        "live_execution_enabled": settings.live_execution_enabled,
-        "kill_switch_active": settings.execution_kill_switch_active,
-        "paper_first": settings.execution_backend == "paper"
-        and not settings.live_execution_enabled,
-        "steps": steps,
-        "safety_notes": [
-            "This workflow is descriptive and does not execute runtime actions.",
-            "Live execution remains blocked until explicitly approved and implemented.",
-            "Paper evidence and operator review should precede any longer background run.",
-        ],
-    }
-
-
-@app.command("operator-workflow")
-def operator_workflow_command(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show the canonical V1 operator review workflow without executing it."""
-    settings = get_settings()
-    payload = build_operator_workflow_payload(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-    table = Table(title=TITLE_V1_OPERATOR_WORKFLOW)
-    table.add_column("#", style="cyan")
-    table.add_column(LABEL_STEP)
-    table.add_column(LABEL_COMMAND)
-    table.add_column(LABEL_PURPOSE)
-    for step in cast(list[dict[str, object]], payload["steps"]):
-        table.add_row(
-            str(step["order"]),
-            str(step["name"]),
-            str(step["command"]),
-            str(step["purpose"]),
-        )
-    console.print(
-        Panel(
-            MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
-            title=TITLE_OPERATOR_WORKFLOW,
-            border_style="cyan",
-        )
-    )
-    console.print(table)
-
-
-@app.command("hardware-profile")
-def hardware_profile_command(
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show local hardware and model-capacity hints before long paper runs."""
-    settings = get_settings()
-    payload = build_hardware_profile_payload(settings)
-    if json_output:
-        _emit_json(payload)
-        return
-
-    hardware = cast(dict[str, object], payload["hardware"])
-    configured = cast(dict[str, object], payload["configured_runtime"])
-    recommendations = cast(dict[str, object], payload["recommendations"])
-    table = Table(title=TITLE_HARDWARE_PROFILE)
-    table.add_column(LABEL_FIELD, style="cyan")
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_CPU_COUNT, str(hardware["cpu_count"]))
-    table.add_row(LABEL_MEMORY_GB, str(hardware["memory_gb"]))
-    accelerator = cast(dict[str, object], hardware["accelerator"])
-    table.add_row(LABEL_ACCELERATOR, str(accelerator.get("type", "unknown")))
-    table.add_row(LABEL_MODEL, str(configured["model_name"]))
-    table.add_row(
-        LABEL_ESTIMATED_MODEL_SIZE,
-        str(configured["estimated_model_size_b"]),
-    )
-    table.add_row(
-        LABEL_SAFE_PARALLEL_AGENTS,
-        str(recommendations["safe_parallel_agents"]),
-    )
-    table.add_row(LABEL_TOKEN_HINT, str(recommendations["max_output_tokens"]))
-    table.add_row(LABEL_PROFILE, str(recommendations["profile"]))
-    console.print(table)
 
 
 def build_evidence_bundle(
