@@ -288,7 +288,7 @@ def test_cli_locale_command_supports_override_and_persistence(
 
     invalid_result = runner.invoke(app, ["--locale", "de", "locale", "--json"])
     assert invalid_result.exit_code != 0
-    assert "Locale must be one of: en, tr." in invalid_result.stdout
+    assert "Locale must be one of: en, tr." in invalid_result.output
 
 
 def test_cli_env_local_upsert_creates_and_updates_known_file(

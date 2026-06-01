@@ -863,7 +863,7 @@ def object_mapping_list(value: object) -> list[Mapping[str, object]]:
     return _object_mapping_list(value)
 
 
-def _parse_ui_locale(locale: str | None) -> UILocale | None:
+def parse_ui_locale(locale: str | None) -> UILocale | None:
     if locale is None:
         return None
     normalized = locale.strip().lower()
@@ -873,7 +873,7 @@ def _parse_ui_locale(locale: str | None) -> UILocale | None:
     raise typer.BadParameter(f"Locale must be one of: {allowed}.")
 
 
-def _ui_payload(locale: str) -> dict[str, object]:
+def ui_payload(locale: str) -> dict[str, object]:
     return {
         "locale": locale,
         "supported_locales": list(SUPPORTED_UI_LOCALES),
@@ -885,7 +885,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENV_LOCAL_FILE = PROJECT_ROOT / ".env.local"
 
 
-def _upsert_env_local_value(key: str, value: str) -> None:
+def upsert_env_local_value(key: str, value: str) -> None:
     set_key(ENV_LOCAL_FILE, key, value, quote_mode="never")
 
 
@@ -1108,7 +1108,7 @@ class ProposalCreateCommand(TyperCommand):
         params: list[click.Parameter] | None = None,
         **kwargs: Any,
     ) -> None:
-        super().__init__(*args, params=_proposal_create_params(), **kwargs)
+        super().__init__(*args, params=cast(Any, _proposal_create_params()), **kwargs)
 
 
 class IdeaScoreCommand(TyperCommand):
@@ -1118,7 +1118,7 @@ class IdeaScoreCommand(TyperCommand):
         params: list[click.Parameter] | None = None,
         **kwargs: Any,
     ) -> None:
-        super().__init__(*args, params=_idea_score_params(), **kwargs)
+        super().__init__(*args, params=cast(Any, _idea_score_params()), **kwargs)
 
 
 def resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
@@ -3990,7 +3990,7 @@ def app_entry(
         help=HELP_LOCALE_OVERRIDE,
     ),
 ) -> None:
-    resolved_locale = _parse_ui_locale(locale)
+    resolved_locale = parse_ui_locale(locale)
     if resolved_locale is not None:
         os.environ[UI_LOCALE_ENV] = resolved_locale
     if ctx.invoked_subcommand is None:
@@ -4009,15 +4009,15 @@ def locale_command(
     """Show or persist the terminal UI locale."""
     settings = get_settings()
     persisted = False
-    selected_locale = _parse_ui_locale(set_locale)
+    selected_locale = parse_ui_locale(set_locale)
     if selected_locale is not None:
-        _upsert_env_local_value(UI_LOCALE_ENV, selected_locale)
+        upsert_env_local_value(UI_LOCALE_ENV, selected_locale)
         os.environ[UI_LOCALE_ENV] = selected_locale
         settings = Settings()
         persisted = True
 
     payload = {
-        **_ui_payload(settings.ui_locale),
+        **ui_payload(settings.ui_locale),
         "persisted": persisted,
         "env_file": ".env.local",
     }
@@ -6726,7 +6726,7 @@ def build_dashboard_snapshot_payload(
     activity = build_agent_activity_view(view.state, events)
 
     return {
-        "ui": _ui_payload(settings.ui_locale),
+        "ui": ui_payload(settings.ui_locale),
         "doctor": doctor_payload,
         "status": status_payload,
         "supervisor": _service_supervisor_payload(settings),

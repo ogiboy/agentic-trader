@@ -92,7 +92,12 @@ def test_strategy_profile_payload_is_json_safe() -> None:
     # Should be encodable to JSON (lists/strings only, no custom objects)
     # asdict() converts tuples to tuples which are JSON-serializable via list
     dumped = json.dumps(
-        {k: list(v) if isinstance(v, tuple) else v for k, v in payload.items()}
+        {
+            key: list(cast(tuple[object, ...], value))
+            if isinstance(value, tuple)
+            else value
+            for key, value in payload.items()
+        }
     )
     assert "momentum-volume" in dumped
 
@@ -136,6 +141,7 @@ def test_strategy_profile_payload_rejects_non_dataclass() -> None:
 def test_finance_reconciliation_contract_keeps_missing_evidence_explicit() -> None:
     payload = finance_reconciliation_contract_payload()
     ledger_categories = cast(list[dict[str, object]], payload["ledger_categories"])
+    categories = {str(category["name"]) for category in ledger_categories}
 
     audit_policy = cast(dict[str, object], payload["audit_policy"])
 
