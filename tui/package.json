@@ -9,7 +9,7 @@
     "start": "node index.mjs"
   },
   "dependencies": {
-    "ink": "^7.0.3",
+    "ink": "^7.0.5",
     "react": "19.2.6"
   }
 }
