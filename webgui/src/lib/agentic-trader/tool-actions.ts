@@ -1,0 +1,104 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Dashboard payloads are schema-loose JSON today */
+import { execTrader } from './cli-exec';
+import { getDashboardSnapshot } from './dashboard';
+
+export type ToolActionKind =
+  | 'enable-local-tools'
+  | 'enable-host-fallbacks'
+  | 'start-model-service'
+  | 'start-camofox-service';
+
+function modelNameFromDashboard(data: Record<string, any>): string {
+  return (
+    data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b'
+  );
+}
+
+export async function runToolAction(kind: ToolActionKind): Promise<{
+  message: string;
+  dashboard: any;
+  result?: any;
+}> {
+  if (kind === 'enable-local-tools') {
+    const result = await execTrader(
+      [
+        'tool-ownership',
+        'set',
+        '--ollama-owner',
+        'app-owned',
+        '--firecrawl-owner',
+        'app-owned',
+        '--camofox-owner',
+        'app-owned',
+        '--json',
+      ],
+      { expectJson: true, timeoutMs: 30_000 },
+    );
+    return {
+      dashboard: await getDashboardSnapshot(),
+      message: 'Local tool ownership set to app-owned.',
+      result,
+    };
+  }
+
+  if (kind === 'enable-host-fallbacks') {
+    const result = await execTrader(
+      [
+        'tool-ownership',
+        'set',
+        '--ollama-owner',
+        'host-owned',
+        '--firecrawl-owner',
+        'host-owned',
+        '--camofox-owner',
+        'host-owned',
+        '--json',
+      ],
+      { expectJson: true, timeoutMs: 30_000 },
+    );
+    return {
+      dashboard: await getDashboardSnapshot(),
+      message: 'Host-managed fallback ownership enabled.',
+      result,
+    };
+  }
+
+  if (kind === 'start-model-service') {
+    const data = await getDashboardSnapshot();
+    await execTrader(
+      ['tool-ownership', 'set', '--ollama-owner', 'app-owned', '--json'],
+      { expectJson: true, timeoutMs: 30_000 },
+    );
+    const result = await execTrader(
+      ['model-service', 'start', '--host', '127.0.0.1', '--json'],
+      { expectJson: true, timeoutMs: 45_000 },
+    );
+    const model = modelNameFromDashboard(data);
+    const modelState = result?.model_available
+      ? `${model} is listed`
+      : `${model} is not listed; pull it explicitly from the CLI before running strict cycles`;
+    return {
+      dashboard: await getDashboardSnapshot(),
+      message: `App-owned model-service started; ${modelState}.`,
+      result,
+    };
+  }
+
+  if (kind === 'start-camofox-service') {
+    await execTrader(
+      ['tool-ownership', 'set', '--camofox-owner', 'app-owned', '--json'],
+      { expectJson: true, timeoutMs: 30_000 },
+    );
+    const result = await execTrader(
+      ['camofox-service', 'start', '--host', '127.0.0.1', '--json'],
+      { expectJson: true, timeoutMs: 45_000 },
+    );
+    return {
+      dashboard: await getDashboardSnapshot(),
+      message: 'App-owned Camofox helper started.',
+      result,
+    };
+  }
+
+  throw new Error(`Unsupported tool action: ${kind}`);
+}
