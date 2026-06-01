@@ -33,7 +33,7 @@
   "python.analysis.includeExtraPathSymbolsInSymbolSearch": true,
   "python.analysis.includeVenvInWorkspaceSymbols": true,
   "python.analysis.inlayHints.callArgumentNames": "all",
-  "editor.fontFamily": "\"More Perfect DOS VGA\", 'Courier New', monospace, Arial",
+  "editor.fontFamily": "'Courier New', monospace, Arial",
   "editor.fontSize": 12,
   "editor.fontVariations": true,
   "editor.letterSpacing": 2.33,
@@ -44,4 +44,5 @@
   "files.encoding": "iso88599",
   "workbench.activityBar.compact": false,
   "workbench.fontAliasing": "default",
+  "window.autoDetectColorScheme": false,
 }
