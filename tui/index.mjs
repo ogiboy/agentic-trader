@@ -448,6 +448,48 @@ function handleGlobalInput(input, handlers) {
   return false;
 }
 
+function handleDashboardInput(input, key, handlers) {
+  if (key.rightArrow || input === '\t') {
+    handlers.nextPage();
+    return true;
+  }
+  if (key.leftArrow) {
+    handlers.prevPage();
+    return true;
+  }
+  const shortcutPage = getPageForShortcut(input);
+  if (shortcutPage && !['chat', 'settings'].includes(handlers.page)) {
+    handlers.setPage(shortcutPage);
+    return true;
+  }
+  if (
+    handlers.page === 'chat' &&
+    handleChatInput(input, key, {
+      sendChat: handlers.sendChat,
+      setChatDraft: handlers.setChatDraft,
+      setChatPersona: handlers.setChatPersona,
+    })
+  ) {
+    return true;
+  }
+  if (
+    handlers.page === 'settings' &&
+    handleSettingsInput(input, key, {
+      sendInstruction: handlers.sendInstruction,
+      setInstructionDraft: handlers.setInstructionDraft,
+      setInstructionMode: handlers.setInstructionMode,
+    })
+  ) {
+    return true;
+  }
+  return handleGlobalInput(input, {
+    exit: handlers.exit,
+    refreshNow: handlers.refreshNow,
+    runAction: handlers.runAction,
+    setPage: handlers.setPage,
+  });
+}
+
 /**
  * Fetches the dashboard snapshot and records the retrieval time.
  *
@@ -2074,36 +2116,21 @@ function InteractiveDashboardApp() {
   ]);
 
   useInput((input, key) => {
-    if (key.rightArrow || input === '\t') {
-      nextPage();
-      return;
-    }
-    if (key.leftArrow) {
-      prevPage();
-      return;
-    }
-    const shortcutPage = getPageForShortcut(input);
-    if (shortcutPage && !['chat', 'settings'].includes(page)) {
-      setPage(shortcutPage);
-      return;
-    }
-    if (
-      page === 'chat' &&
-      handleChatInput(input, key, { sendChat, setChatDraft, setChatPersona })
-    ) {
-      return;
-    }
-    if (
-      page === 'settings' &&
-      handleSettingsInput(input, key, {
-        sendInstruction,
-        setInstructionDraft,
-        setInstructionMode,
-      })
-    ) {
-      return;
-    }
-    handleGlobalInput(input, { exit, refreshNow, runAction, setPage });
+    handleDashboardInput(input, key, {
+      exit,
+      nextPage,
+      page,
+      prevPage,
+      refreshNow,
+      runAction,
+      sendChat,
+      sendInstruction,
+      setChatDraft,
+      setChatPersona,
+      setInstructionDraft,
+      setInstructionMode,
+      setPage,
+    });
   });
 
   return e(DashboardView, {
@@ -2204,6 +2231,7 @@ export {
   getTraceLines,
   getTradeContextLines,
   handleChatInput,
+  handleDashboardInput,
   handleGlobalInput,
   handleSettingsInput,
   normalizeChatHistory,
