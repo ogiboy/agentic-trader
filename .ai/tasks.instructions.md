@@ -94,6 +94,22 @@ Now:
   affects first-run behavior, app-owned helper services, agent-cycle claims,
   memory persistence, visual surfaces, or security boundaries
 - continue the maintainability cleanup track for large files and repeated strings: extract constants, render helpers, command helpers, shared JSON/time helpers, and service-specific modules as touched; keep names domain-oriented, track progress through the modularity/i18n audit, and preserve existing contracts rather than doing a risky one-shot rewrite
+- keep modularity/i18n project-wide, not WebGUI-only: Python CLI/Rich/Ink,
+  WebGUI, docs, tests, helpers, assets, constants, styles, and copy should be
+  organized under the module or surface that owns them, with shared utilities
+  promoted only after real cross-module use
+- reduce i18n import weight before adding broad new copy: evaluate a Next.js
+  App Router translation-accessor path such as `next-intl` for WebGUI/docs, and
+  evolve Python UI text usage toward a locale-aware `t("namespace.key")` style
+  accessor over direct imports of large label/copy objects
+- keep frontend file naming readable during modularity work: React components
+  should be identifiable as components, normally PascalCase filenames, while
+  hooks, utilities, constants, styles, copy, and route helpers should be named
+  by their role
+- use module-complete push checkpoints for this refactor track: small commits
+  are allowed inside a module, but pushes should present a complete surface, and
+  CI/SonarCloud should be checked at the next natural break instead of stopping
+  all local work after every push
 - continue the Web GUI control-room modularity track before polishing small UI issues: views, shell chrome, dashboard polling, actions, request/auth helpers, action request helpers, primitives, locale/loading hooks, typed view models, shared formatting helpers, diagnostics/context evidence helpers, and per-locale view copy modules are now split behind a small facade, so the next pass should focus on screen-scoped styles and continued catalog/type-surface shrinkage while keeping route handlers as thin runtime-contract delegates
 - make whole-app shutdown a first-class V1 follow-up: first extend `stop-service` with machine-readable `--json` plus a bounded wait result, then add an explicit `app:stop --runtime` step that stops the trading daemon before optional helper services and refuses to tear down model/browser helpers while a runtime cycle is still live unless the operator asks for a force path
 - treat TUI flicker as a runtime-trust issue, not polish only: add an in-flight or sequence guard around Ink dashboard refreshes, verify Rich monitor DB ownership is closed per tick, and keep visual QA tied to dashboard JSON truth

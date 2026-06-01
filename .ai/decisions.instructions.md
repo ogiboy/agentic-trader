@@ -136,6 +136,28 @@ Do not add `type: ignore`, Pyright suppression comments, or config weakening as
 a workaround; expose typed public seams, protocols, fixtures, stubs, or narrower
 data contracts instead.
 
+### Modularity and i18n are project-wide ownership contracts
+
+Reason:
+The modularity/i18n goal is not limited to the Web GUI. Python CLI, Rich,
+Ink/TUI, WebGUI, docs, tests, helpers, and local assets should all make
+ownership visible through file layout and imports.
+Large files should be reduced by extracting domain-owned commands, schemas,
+constants, helpers, view models, styles, copy, assets, and tests, not by moving
+unrelated code into anonymous shared modules.
+Repeated operator-facing strings should flow through locale-aware text accessors
+so components and commands can call a small context/function such as
+`t("namespace.key")` instead of importing broad label objects.
+For Next.js App Router surfaces, `next-intl` is a suitable candidate because
+its documented setup uses a Next plugin, request configuration, provider
+wrapping, and `useTranslations`/`getTranslations` namespace access; adopt it
+only with a typed migration plan for `webgui` and `docs`, not as a piecemeal
+dependency drop.
+For Python operator surfaces, evolve the existing typed UI text catalog into a
+small locale-aware accessor before considering heavier third-party libraries.
+Stable dashboard, observer, and API JSON keys remain English schema contracts;
+localized text belongs at render boundaries.
+
 ### V1 can monetize only after compliance, trust, and unit economics are explicit
 
 Reason:
