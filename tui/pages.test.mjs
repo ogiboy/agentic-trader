@@ -451,5 +451,20 @@ describe('Ink TUI pages', () => {
         }),
       ),
     ).toContain('Preferences are temporarily unavailable.');
+    expect(
+      renderText(
+        ChatPage({
+          chatBusy: false,
+          data: {
+            agentActivity: {},
+            review: { available: false },
+            tradeContext: { available: false },
+          },
+          draft: '',
+          history: [],
+          persona: '',
+        }),
+      ),
+    ).toContain('No stage timeline recorded yet.');
   });
 });
