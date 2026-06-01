@@ -44,6 +44,18 @@ from agentic_trader.schemas import (
     TradeProposalStatus,
     TradeSide,
 )
+from agentic_trader.storage.schema import (
+    create_core_tables,
+    create_execution_tables,
+    create_memory_tables,
+    create_service_tables,
+    ensure_default_account,
+    migrate_memory_vector_columns,
+    migrate_service_state_columns,
+    migrate_trade_journal_constraints,
+    migrate_trade_proposal_columns,
+    table_exists,
+)
 
 type OrderRow = tuple[str, str, str, str, bool, float, float, float, float, float]
 TERMINAL_SERVICE_STATES: set[ServiceState] = {
@@ -452,15 +464,7 @@ class TradingDatabase:
             self._init_schema()
 
     def _table_exists(self, table_name: str) -> bool:
-        row = self.conn.execute(
-            """
-            select count(*)
-            from information_schema.tables
-            where table_name = ?
-            """,
-            [table_name],
-        ).fetchone()
-        return row is not None and int(row[0]) > 0
+        return table_exists(self.conn, table_name)
 
     def _init_schema(self) -> None:
         """
@@ -472,459 +476,23 @@ class TradingDatabase:
         with the configured default cash when absent) and ensures a default preferences profile exists
         (inserting a default `InvestmentPreferences()` when absent).
         """
-        self._create_core_tables()
-        self._migrate_trade_journal_constraints()
-        self._create_execution_tables()
-        self._migrate_trade_proposal_columns()
-        self._create_service_tables()
-        self._migrate_service_state_columns()
-        self._create_memory_tables()
-        self._migrate_memory_vector_columns()
-        self._ensure_default_account()
+        create_core_tables(self.conn)
+        migrate_trade_journal_constraints(self.conn)
+        create_execution_tables(self.conn)
+        migrate_trade_proposal_columns(self.conn)
+        create_service_tables(self.conn)
+        migrate_service_state_columns(self.conn)
+        create_memory_tables(self.conn)
+        migrate_memory_vector_columns(self.conn)
+        ensure_default_account(
+            self.conn,
+            default_cash=self.settings.default_cash,
+        )
         self._ensure_default_preferences()
-
-    def _create_core_tables(self) -> None:
-        """
-        Create core database tables if they do not already exist.
-
-        This initializes the main schema used by the application by ensuring the presence of:
-        - runs: metadata and payload for executed runs.
-        - orders: persisted order proposals/records and their pricing/position metadata.
-        - account_state: current account cash and realized P&L snapshot.
-        - positions: per-symbol position quantities and pricing.
-        - fills: executed fill records and cash/P&L deltas.
-        - position_plans: planned position parameters and invalidation/holding metadata.
-        - preferences: serialized user/investment preferences.
-        - account_marks: saved portfolio snapshots/notes for risk tracking and auditing.
-        - trade_journal: open/closed trade journal entries with decision & outcome details.
-        - trade_contexts: persisted context/trace payloads associated with trades.
-
-        No value is returned.
-        """
-        self.conn.execute("""
-            create table if not exists runs (
-                run_id varchar primary key,
-                created_at varchar not null,
-                symbol varchar not null,
-                interval varchar not null,
-                approved boolean not null,
-                payload_json varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists orders (
-                order_id varchar primary key,
-                created_at varchar not null,
-                symbol varchar not null,
-                side varchar not null,
-                approved boolean not null,
-                entry_price double not null,
-                stop_loss double not null,
-                take_profit double not null,
-                position_size_pct double not null,
-                confidence double not null,
-                rationale varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists account_state (
-                account_id varchar primary key,
-                updated_at varchar not null,
-                cash double not null,
-                realized_pnl double not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists positions (
-                symbol varchar primary key,
-                quantity double not null,
-                average_price double not null,
-                market_price double not null,
-                updated_at varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists fills (
-                fill_id varchar primary key,
-                order_id varchar not null,
-                created_at varchar not null,
-                symbol varchar not null,
-                side varchar not null,
-                quantity double not null,
-                price double not null,
-                cash_delta double not null,
-                realized_pnl_delta double not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists position_plans (
-                symbol varchar primary key,
-                side varchar not null,
-                entry_price double not null,
-                stop_loss double not null,
-                take_profit double not null,
-                max_holding_bars integer not null,
-                holding_bars integer not null,
-                invalidation_logic varchar not null,
-                updated_at varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists preferences (
-                profile_id varchar primary key,
-                updated_at varchar not null,
-                payload_json varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists account_marks (
-                mark_id varchar primary key,
-                created_at varchar not null,
-                source varchar not null,
-                note varchar not null,
-                cycle_count integer,
-                symbol varchar,
-                cash double not null,
-                market_value double not null,
-                equity double not null,
-                realized_pnl double not null,
-                unrealized_pnl double not null,
-                open_positions integer not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists trade_journal (
-                trade_id varchar primary key,
-                opened_at varchar not null,
-                closed_at varchar,
-                symbol varchar not null,
-                run_id varchar,
-                entry_order_id varchar not null,
-                exit_order_id varchar,
-                planned_side varchar not null,
-                approved boolean not null,
-                journal_status varchar not null,
-                entry_price double not null,
-                exit_price double,
-                stop_loss double not null,
-                take_profit double not null,
-                position_size_pct double not null,
-                confidence double not null,
-                coordinator_focus varchar not null,
-                strategy_family varchar not null,
-                manager_bias varchar not null,
-                review_summary varchar not null,
-                exit_reason varchar,
-                realized_pnl double,
-                notes varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists trade_contexts (
-                trade_id varchar primary key,
-                created_at varchar not null,
-                run_id varchar,
-                symbol varchar not null,
-                payload_json varchar not null
-            )
-            """)
-
-    def _create_execution_tables(self) -> None:
-        """
-        Ensure execution-related database tables exist: `execution_records`, `trade_proposals`, and `proposal_candidates`.
-
-        `execution_records` stores adapter intent/outcome metadata for executions (intent/outcome payloads, adapter/backend selection, status, and optional rejection reason). `trade_proposals` persists proposed trades and their lifecycle fields (including `limit_price`). `proposal_candidates` persists candidate signals and metadata, including `evidence_json` for serialized evidence.
-        """
-        self.conn.execute("""
-            create table if not exists execution_records (
-                intent_id varchar primary key,
-                created_at varchar not null,
-                run_id varchar,
-                order_id varchar,
-                symbol varchar not null,
-                execution_backend varchar not null,
-                adapter_name varchar not null,
-                status varchar not null,
-                rejection_reason varchar,
-                intent_json varchar not null,
-                outcome_json varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists trade_proposals (
-                proposal_id varchar primary key,
-                created_at varchar not null,
-                updated_at varchar not null,
-                symbol varchar not null,
-                side varchar not null,
-                order_type varchar not null,
-                quantity double,
-                notional double,
-                reference_price double not null,
-                confidence double not null,
-                thesis varchar not null,
-                stop_loss double,
-                take_profit double,
-                invalidation_condition varchar,
-                source varchar not null,
-                status varchar not null,
-                review_notes varchar not null,
-                rejection_reason varchar,
-                execution_intent_id varchar,
-                execution_order_id varchar,
-                execution_outcome_status varchar,
-                limit_price double
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists proposal_candidates (
-                candidate_id varchar primary key,
-                created_at varchar not null,
-                updated_at varchar not null,
-                symbol varchar not null,
-                preset varchar not null,
-                signal varchar not null,
-                side varchar,
-                score double not null,
-                reference_price double not null,
-                confidence double not null,
-                quantity double,
-                notional double,
-                thesis varchar not null,
-                stop_loss double,
-                take_profit double,
-                invalidation_condition varchar,
-                source varchar not null,
-                status varchar not null,
-                materiality varchar not null,
-                freshness varchar not null,
-                liquidity varchar not null,
-                spread_pct double not null,
-                risk_notes varchar not null,
-                evidence_json varchar not null,
-                proposal_id varchar
-            )
-            """)
-
-    def _create_service_tables(self) -> None:
-        """
-        Create the database tables used to persist service runtime state, service events, and operator chat history if they do not already exist.
-
-        Creates three tables:
-        - `service_state`: stores per-service runtime metadata and control flags (state, runtime mode, timestamps, pid, stop/background controls, symbols, interval/lookback/max_cycles, terminal markers, log paths, and a freeform message).
-        - `service_events`: records individual service-level events with level, type, message, optional cycle count and symbol.
-        - `operator_chat_history`: stores operator chat exchanges (persona, user message, and system response) for auditing and review.
-        """
-        self.conn.execute("""
-            create table if not exists service_state (
-                service_name varchar primary key,
-                state varchar not null,
-                runtime_mode varchar not null default 'operation',
-                updated_at varchar not null,
-                started_at varchar,
-                last_heartbeat_at varchar,
-                continuous boolean not null,
-                poll_seconds integer,
-                cycle_count integer not null,
-                symbols_json varchar not null default '[]',
-                interval varchar,
-                lookback varchar,
-                max_cycles integer,
-                current_symbol varchar,
-                last_error varchar,
-                pid bigint,
-                stop_requested boolean not null default false,
-                background_mode boolean not null default false,
-                launch_count integer not null default 0,
-                restart_count integer not null default 0,
-                last_terminal_state varchar,
-                last_terminal_at varchar,
-                stdout_log_path varchar,
-                stderr_log_path varchar,
-                message varchar not null
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists service_events (
-                event_id varchar primary key,
-                created_at varchar not null,
-                service_name varchar not null,
-                level varchar not null,
-                event_type varchar not null,
-                message varchar not null,
-                cycle_count integer,
-                symbol varchar
-            )
-            """)
-        self.conn.execute("""
-            create table if not exists operator_chat_history (
-                entry_id varchar primary key,
-                created_at varchar not null,
-                persona varchar not null,
-                user_message varchar not null,
-                response_text varchar not null
-            )
-            """)
-
-    def _column_names(self, table_name: str) -> set[str]:
-        """
-        Return the set of column names for the given table.
-
-        @returns set[str]: The column names present in `table_name`; returns an empty set if the table does not exist or has no columns.
-        """
-        return {
-            str(row[1])
-            for row in self.conn.execute(
-                f"pragma table_info('{table_name}')"
-            ).fetchall()
-        }
-
-    def _add_missing_columns(
-        self, table_name: str, column_statements: dict[str, str]
-    ) -> None:
-        """
-        Add any missing columns to a table by executing the provided SQL statements for each absent column.
-
-        Parameters:
-            table_name (str): Name of the table to check.
-            column_statements (dict[str, str]): Mapping from column name to the full SQL statement that adds that column; a statement is executed only if its column is not present.
-        """
-        existing_columns = self._column_names(table_name)
-        for column_name, statement in column_statements.items():
-            if column_name not in existing_columns:
-                self.conn.execute(statement)
-
-    def _migrate_service_state_columns(self) -> None:
-        """
-        Ensure the `service_state` table has recently added columns, adding any that are missing.
-
-        This migration adds the following columns when absent: `pid`, `runtime_mode` (default `'operation'`), `stop_requested`, `symbols_json`, `interval`, `lookback`, `max_cycles`, `background_mode`, `launch_count`, `restart_count`, `last_terminal_state`, `last_terminal_at`, `stdout_log_path`, and `stderr_log_path`.
-        """
-        self._add_missing_columns(
-            "service_state",
-            {
-                "pid": "alter table service_state add column pid bigint",
-                "runtime_mode": "alter table service_state add column runtime_mode varchar default 'operation'",
-                "stop_requested": "alter table service_state add column stop_requested boolean",
-                "symbols_json": "alter table service_state add column symbols_json varchar",
-                "interval": "alter table service_state add column interval varchar",
-                "lookback": "alter table service_state add column lookback varchar",
-                "max_cycles": "alter table service_state add column max_cycles integer",
-                "background_mode": "alter table service_state add column background_mode boolean",
-                "launch_count": "alter table service_state add column launch_count integer",
-                "restart_count": "alter table service_state add column restart_count integer",
-                "last_terminal_state": "alter table service_state add column last_terminal_state varchar",
-                "last_terminal_at": "alter table service_state add column last_terminal_at varchar",
-                "stdout_log_path": "alter table service_state add column stdout_log_path varchar",
-                "stderr_log_path": "alter table service_state add column stderr_log_path varchar",
-            },
-        )
-
-    def _create_memory_tables(self) -> None:
-        """
-        Ensure the `memory_vectors` table exists in the database with schema for storing run embeddings and associated document text.
-
-        The table columns:
-        - `run_id`: primary key identifying the run.
-        - `created_at`: timestamp string when the embedding was created.
-        - `symbol`: market symbol associated with the run.
-        - `embedding_provider`, `embedding_model`, `embedding_version`, `embedding_dimensions`: metadata describing the embedding.
-        - `embedding_json`: serialized embedding vector.
-        - `document_text`: textual content used to generate the embedding.
-        """
-        self.conn.execute("""
-            create table if not exists memory_vectors (
-                run_id varchar primary key,
-                created_at varchar not null,
-                symbol varchar not null,
-                embedding_provider varchar not null default 'local_hashing',
-                embedding_model varchar not null default 'agentic-hash-v1',
-                embedding_version varchar not null default '1',
-                embedding_dimensions integer not null default 64,
-                embedding_json varchar not null,
-                document_text varchar not null
-            )
-            """)
-
-    def _migrate_memory_vector_columns(self) -> None:
-        """
-        Add embedding-related columns to the `memory_vectors` table if they are missing.
-
-        Ensures the following columns exist with specified defaults:
-        - `embedding_provider` (varchar) default `'local_hashing'`
-        - `embedding_model` (varchar) default `'agentic-hash-v1'`
-        - `embedding_version` (varchar) default `'1'`
-        - `embedding_dimensions` (integer) default `64`
-        """
-        self._add_missing_columns(
-            "memory_vectors",
-            {
-                "embedding_provider": "alter table memory_vectors add column embedding_provider varchar default 'local_hashing'",
-                "embedding_model": "alter table memory_vectors add column embedding_model varchar default 'agentic-hash-v1'",
-                "embedding_version": "alter table memory_vectors add column embedding_version varchar default '1'",
-                "embedding_dimensions": "alter table memory_vectors add column embedding_dimensions integer default 64",
-            },
-        )
-
-    def _migrate_trade_proposal_columns(self) -> None:
-        """
-        Ensure the `trade_proposals` table contains a `limit_price` column.
-
-        Adds the `limit_price` column to the `trade_proposals` table when it is not already present.
-        """
-        self._add_missing_columns(
-            "trade_proposals",
-            {
-                "limit_price": "alter table trade_proposals add column limit_price double",
-            },
-        )
-
-    def _migrate_trade_journal_constraints(self) -> None:
-        self.conn.execute("""
-            delete from trade_journal
-            where trade_id in (
-                select trade_id
-                from (
-                    select
-                        trade_id,
-                        row_number() over (
-                            partition by entry_order_id
-                            order by opened_at desc, trade_id desc
-                        ) as duplicate_rank
-                    from trade_journal
-                )
-                where duplicate_rank > 1
-            )
-            """)
-        self.conn.execute("""
-            create unique index if not exists trade_journal_entry_order_id_idx
-            on trade_journal(entry_order_id)
-            """)
 
     def repair_trade_journal_constraints(self) -> None:
         """Deduplicate trade-journal entry order IDs and recreate the unique index."""
-        self._migrate_trade_journal_constraints()
-
-    def _ensure_default_account(self) -> None:
-        """
-        Ensure a default "paper" account row exists in the account_state table.
-
-        If no row with account_id 'paper' is present, insert one with updated_at set to the current UTC time, cash set to self.settings.default_cash, and realized_pnl set to 0.
-        """
-        existing = self.conn.execute(
-            "select count(*) from account_state where account_id = 'paper'"
-        ).fetchone()
-        if existing and int(existing[0]) == 0:
-            self.conn.execute(
-                """
-                insert into account_state (account_id, updated_at, cash, realized_pnl)
-                values ('paper', ?, ?, 0)
-                """,
-                [
-                    datetime.now(timezone.utc).isoformat(),
-                    self.settings.default_cash,
-                ],
-            )
+        migrate_trade_journal_constraints(self.conn)
 
     def _ensure_default_preferences(self) -> None:
         pref_existing = self.conn.execute(
