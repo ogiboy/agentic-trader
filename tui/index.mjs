@@ -113,7 +113,7 @@ async function runTextCommand(args) {
  *
  * @param {string} kind - Action to perform: "start", "stop", "one-shot", or other (treated as a restart when a saved launch configuration exists).
  * @param {Object} data - Dashboard snapshot containing runtime `status` and `preferences` used to determine behavior.
- * @returns {{kind: string, text: string}} An action message: `kind` is a message level (e.g., `'info'`), and `text` explains the outcome or reason no action was taken.
+ * @returns {Promise<{kind: string, text: string}>} An action message: `kind` is a message level (e.g., `'info'`), and `text` explains the outcome or reason no action was taken.
  */
 async function performRuntimeAction(kind, data) {
   if (kind === 'start') {
@@ -192,7 +192,7 @@ async function performRuntimeAction(kind, data) {
 /**
  * Fetches the dashboard snapshot and records the retrieval time.
  *
- * @returns {object} The dashboard snapshot augmented with a `loadedAt` ISO 8601 timestamp string.
+ * @returns {Promise<object>} The dashboard snapshot augmented with a `loadedAt` ISO 8601 timestamp string.
  */
 async function loadDashboard() {
   const payload = await runJsonCommand([
@@ -723,16 +723,30 @@ if (isDirectRun) {
 }
 
 export {
+  formatPersona,
+  getPageLabel,
+  rotateInstructionMode,
+  rotatePersona,
+} from './copy.mjs';
+export {
   accountCurrency,
   defaultRuntimeInterval,
   defaultRuntimeLookback,
   defaultSingleSymbol,
   defaultSymbolsFromPreferences,
+  getSupervisorLogLines,
+} from './dashboard-defaults.mjs';
+export {
+  handleChatInput,
+  handleDashboardInput,
+  handleGlobalInput,
+  handleSettingsInput,
+} from './input.mjs';
+export {
   failedCheckNames,
   formatMarketSession,
   formatMarketSessionWithTradable,
   formatMTFSnapshot,
-  formatPersona,
   getAgentEventLines,
   getCurrentCycleLines,
   getExplorerLines,
@@ -744,22 +758,14 @@ export {
   getReplayLines,
   getReviewLines,
   getStatusBorderColor,
-  getSupervisorLogLines,
   getSystemLines,
   getTraceLines,
   getTradeContextLines,
-  handleChatInput,
-  handleDashboardInput,
-  handleGlobalInput,
-  handleSettingsInput,
-  normalizeChatHistory,
   overviewRuntimeMode,
   providerLines,
   readinessLines,
   renderLinesFallback,
   renderUnavailableMessage,
-  rotateInstructionMode,
-  rotatePersona,
   sourceHealthSummaryLine,
-};
-export { getPageLabel } from './copy.mjs';
+} from './line-formatters.mjs';
+export { normalizeChatHistory };
