@@ -12,6 +12,7 @@ from agentic_trader.schema_models.types import (
     TradeSide,
 )
 
+
 class RegimeAssessment(BaseModel):
     regime: RegimeName
     direction_bias: Literal["long", "short", "flat"]
@@ -20,6 +21,7 @@ class RegimeAssessment(BaseModel):
     key_risks: list[str] = Field(default_factory=list[str])
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
+
 
 class StrategyPlan(BaseModel):
     strategy_family: Literal[
@@ -38,6 +40,7 @@ class StrategyPlan(BaseModel):
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
 
+
 class RiskPlan(BaseModel):
     position_size_pct: float = Field(gt=0.0, le=1.0)
     stop_loss: float = Field(gt=0.0)
@@ -47,6 +50,7 @@ class RiskPlan(BaseModel):
     notes: str
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
+
 
 class ExecutionDecision(BaseModel):
     approved: bool
@@ -58,6 +62,7 @@ class ExecutionDecision(BaseModel):
     position_size_pct: float
     confidence: float
     rationale: str
+
 
 class TradeProposalRecord(BaseModel):
     proposal_id: str
@@ -109,6 +114,7 @@ class TradeProposalRecord(BaseModel):
             raise ValueError("Market trade proposals must not include limit_price.")
         return self
 
+
 class ProposalCandidateRecord(BaseModel):
     candidate_id: str
     created_at: str
@@ -158,6 +164,7 @@ class ProposalCandidateRecord(BaseModel):
                 "Proposal candidates with a side require quantity or notional."
             )
         return self
+
 
 class PortfolioSnapshot(BaseModel):
     cash: float

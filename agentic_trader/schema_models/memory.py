@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from agentic_trader.schema_models.types import FreshnessStatus
 
+
 class ConfidenceCalibration(BaseModel):
     sample_size: int = 0
     closed_trades: int = 0
@@ -14,10 +15,12 @@ class ConfidenceCalibration(BaseModel):
     confidence_multiplier: float = Field(default=1.0, gt=0.0, le=1.0)
     notes: list[str] = Field(default_factory=list[str])
 
+
 class SharedMemoryEntry(BaseModel):
     role: str
     summary: str
     payload_json: str
+
 
 class MemoryRetrievalExplanation(BaseModel):
     eligibility_reason: str = "candidate_run_record"
@@ -29,6 +32,7 @@ class MemoryRetrievalExplanation(BaseModel):
     strategy_alignment: str = "unknown"
     diversity_bucket: str = "unknown"
     notes: list[str] = Field(default_factory=list[str])
+
 
 class HistoricalMemoryMatch(BaseModel):
     run_id: str

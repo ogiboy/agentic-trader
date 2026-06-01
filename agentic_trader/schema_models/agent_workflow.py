@@ -17,6 +17,7 @@ from agentic_trader.schema_models.types import (
     TradeStyle,
 )
 
+
 class ResearchCoordinatorBrief(BaseModel):
     market_focus: CoordinatorFocus
     priority_signals: list[str] = Field(default_factory=list[str])
@@ -25,12 +26,14 @@ class ResearchCoordinatorBrief(BaseModel):
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
 
+
 class ManagerConflict(BaseModel):
     conflict_type: Literal["focus", "action", "approval", "confidence", "size"]
     severity: Literal["low", "medium", "high"] = "medium"
     summary: str
     specialist_view: str
     manager_resolution: str
+
 
 class ManagerDecision(BaseModel):
     approved: bool
@@ -45,6 +48,7 @@ class ManagerDecision(BaseModel):
     source: Literal["llm", "fallback"] = "llm"
     fallback_reason: str | None = None
 
+
 class SpecialistConsensus(BaseModel):
     alignment_level: Literal["aligned", "mixed", "conflicted"] = "mixed"
     summary: str = ""
@@ -52,11 +56,13 @@ class SpecialistConsensus(BaseModel):
     dissenting_roles: list[str] = Field(default_factory=list[str])
     reasons: list[str] = Field(default_factory=list[str])
 
+
 class ReviewNote(BaseModel):
     summary: str
     strengths: list[str] = Field(default_factory=list[str])
     warnings: list[str] = Field(default_factory=list[str])
     next_checks: list[str] = Field(default_factory=list[str])
+
 
 class PreferenceUpdate(BaseModel):
     regions: list[str] | None = None
@@ -72,6 +78,7 @@ class PreferenceUpdate(BaseModel):
     intervention_style: InterventionStyle | None = None
     notes: str | None = None
 
+
 class OperatorInstruction(BaseModel):
     summary: str
     should_update_preferences: bool = False
@@ -79,11 +86,13 @@ class OperatorInstruction(BaseModel):
     requires_confirmation: bool = True
     rationale: str
 
+
 class RuntimeModeTransitionCheck(BaseModel):
     name: str
     passed: bool
     details: str
     blocking: bool = True
+
 
 class RuntimeModeTransitionPlan(BaseModel):
     current_mode: RuntimeMode

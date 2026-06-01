@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 
 import duckdb
 
-
 CORE_TABLE_SQL: tuple[str, ...] = (
     """
     create table if not exists runs (

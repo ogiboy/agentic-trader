@@ -34,8 +34,8 @@ from agentic_trader.schemas import (
     TradeProposalRecord,
     TradeProposalStatus,
 )
-from agentic_trader.storage import proposals as proposal_store
 from agentic_trader.storage import portfolio as portfolio_store
+from agentic_trader.storage import proposals as proposal_store
 from agentic_trader.storage import services as service_store
 from agentic_trader.storage import trade_journal as trade_store
 from agentic_trader.storage.schema import (

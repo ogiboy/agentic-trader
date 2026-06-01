@@ -27,6 +27,7 @@ from agentic_trader.schema_models.trading import (
     StrategyPlan,
 )
 
+
 class RunArtifacts(BaseModel):
     snapshot: MarketSnapshot
     canonical_snapshot: CanonicalAnalysisSnapshot | None = None
@@ -64,6 +65,7 @@ class RunArtifacts(BaseModel):
     def used_fallback(self) -> bool:
         return bool(self.fallback_components())
 
+
 class RunRecord(BaseModel):
     run_id: str
     created_at: str
@@ -71,6 +73,7 @@ class RunRecord(BaseModel):
     interval: str
     approved: bool
     artifacts: RunArtifacts
+
 
 class RunReplayStage(BaseModel):
     role: str
@@ -86,6 +89,7 @@ class RunReplayStage(BaseModel):
     tool_outputs: list[str] = Field(default_factory=list[str])
     upstream_context: dict[str, str] = Field(default_factory=dict[str, str])
     output: dict[str, object] | str
+
 
 class RunReplay(BaseModel):
     run_id: str

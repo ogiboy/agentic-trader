@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from agentic_trader.schema_models.types import TradeSide
 
+
 class BacktestTrade(BaseModel):
     symbol: str
     entry_at: str
@@ -18,6 +19,7 @@ class BacktestTrade(BaseModel):
     exit_reason: str | None = None
     pnl: float | None = None
     used_fallback: bool = False
+
 
 class BacktestReport(BaseModel):
     symbol: str
@@ -41,6 +43,7 @@ class BacktestReport(BaseModel):
     ending_equity: float
     trades: list[BacktestTrade] = Field(default_factory=list[BacktestTrade])
 
+
 class BacktestSummary(BaseModel):
     label: str
     total_trades: int
@@ -53,6 +56,7 @@ class BacktestSummary(BaseModel):
     starting_equity: float
     ending_equity: float
 
+
 class BacktestComparisonReport(BaseModel):
     symbol: str
     interval: str
@@ -62,6 +66,7 @@ class BacktestComparisonReport(BaseModel):
     baseline: BacktestSummary
     ending_equity_delta: float
     total_return_delta_pct: float
+
 
 class BacktestAblationReport(BaseModel):
     symbol: str

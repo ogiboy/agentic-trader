@@ -20,6 +20,7 @@ from agentic_trader.schema_models.runtime import ServiceStateSnapshot
 from agentic_trader.schema_models.trading import PortfolioSnapshot
 from agentic_trader.schema_models.types import AgentRole, AnalysisSignal
 
+
 class FundamentalAssessment(BaseModel):
     growth_quality: AnalysisSignal = "neutral"
     profitability_quality: AnalysisSignal = "neutral"
@@ -87,6 +88,7 @@ class FundamentalAssessment(BaseModel):
         _sync_pair("red_flags", "risk_flags")
         return self
 
+
 class MacroAssessment(BaseModel):
     macro_signal: AnalysisSignal = "neutral"
     sector_risk: Literal["low", "medium", "high", "unknown"] = "unknown"
@@ -97,6 +99,7 @@ class MacroAssessment(BaseModel):
     risk_flags: list[str] = Field(default_factory=list[str])
     source: Literal["llm", "fallback"] = "fallback"
     fallback_reason: str | None = None
+
 
 class AgentContext(BaseModel):
     role: AgentRole

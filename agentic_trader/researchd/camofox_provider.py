@@ -6,14 +6,6 @@ import httpx
 
 from agentic_trader.config import Settings
 from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
-from agentic_trader.schemas import (
-    EvidenceInferenceBreakdown,
-    ProviderMetadata,
-    RawEvidenceRecord,
-)
-from agentic_trader.security import is_loopback_host
-from agentic_trader.system.camofox_service import build_camofox_service_status
-from agentic_trader.system.tool_roots import local_tool_manifest_notes
 from agentic_trader.researchd.provider_core import (
     CamofoxServiceStatusBuilder,
     HealthFetcher,
@@ -23,6 +15,14 @@ from agentic_trader.researchd.provider_core import (
     safe_error_note,
     stable_hash,
 )
+from agentic_trader.schemas import (
+    EvidenceInferenceBreakdown,
+    ProviderMetadata,
+    RawEvidenceRecord,
+)
+from agentic_trader.security import is_loopback_host
+from agentic_trader.system.camofox_service import build_camofox_service_status
+from agentic_trader.system.tool_roots import local_tool_manifest_notes
 
 
 class CamofoxBrowserResearchProvider:

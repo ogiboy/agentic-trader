@@ -8,8 +8,8 @@ from agentic_trader.config import Settings
 from agentic_trader.researchd.camofox_provider import CamofoxBrowserResearchProvider
 from agentic_trader.researchd.firecrawl_provider import FirecrawlNewsResearchProvider
 from agentic_trader.researchd.provider_core import (
-    CommandRunner,
     CamofoxServiceStatusBuilder,
+    CommandRunner,
     FirecrawlSdkSearcher,
     HealthFetcher,
     JsonFetcher,

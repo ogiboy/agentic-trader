@@ -20,12 +20,14 @@ from agentic_trader.schema_models.types import (
     JournalStatus,
 )
 
+
 class AgentStageTrace(BaseModel):
     role: AgentRole
     model_name: str
     context_json: str
     output_json: str
     used_fallback: bool = False
+
 
 class TradeJournalEntry(BaseModel):
     trade_id: str
@@ -51,6 +53,7 @@ class TradeJournalEntry(BaseModel):
     exit_reason: str | None = None
     realized_pnl: float | None = None
     notes: str = ""
+
 
 class TradeContextRecord(BaseModel):
     trade_id: str
@@ -96,6 +99,7 @@ class TradeContextRecord(BaseModel):
     review_summary: str = ""
     review_warnings: list[str] = Field(default_factory=list[str])
 
+
 class DailyRiskReport(BaseModel):
     report_date: str
     generated_at: str
@@ -115,12 +119,14 @@ class DailyRiskReport(BaseModel):
     drawdown_from_peak_pct: float
     warnings: list[str] = Field(default_factory=list[str])
 
+
 class ChatHistoryEntry(BaseModel):
     entry_id: str
     created_at: str
     persona: ChatPersona
     user_message: str
     response_text: str
+
 
 class NewsSignal(BaseModel):
     symbol: str

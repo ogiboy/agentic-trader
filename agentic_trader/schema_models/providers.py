@@ -18,6 +18,7 @@ from agentic_trader.schema_models.types import (
     NewsClassification,
 )
 
+
 class ProviderMetadata(BaseModel):
     provider_id: str
     name: str
@@ -28,6 +29,7 @@ class ProviderMetadata(BaseModel):
     requires_network: bool = False
     notes: list[str] = Field(default_factory=list[str])
 
+
 class DataSourceAttribution(BaseModel):
     source_name: str
     provider_type: DataProviderKind
@@ -37,6 +39,7 @@ class DataSourceAttribution(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     completeness: float = Field(default=0.0, ge=0.0, le=1.0)
     notes: list[str] = Field(default_factory=list[str])
+
 
 class MarketDataSnapshot(BaseModel):
     symbol_identity: SymbolIdentity
@@ -51,6 +54,7 @@ class MarketDataSnapshot(BaseModel):
     missing_fields: list[str] = Field(default_factory=list[str])
     summary: str = ""
 
+
 class FundamentalSnapshot(BaseModel):
     symbol_identity: SymbolIdentity
     revenue_growth: float | None = None
@@ -63,10 +67,12 @@ class FundamentalSnapshot(BaseModel):
     missing_fields: list[str] = Field(default_factory=list[str])
     summary: str = ""
 
+
 class EvidenceInferenceBreakdown(BaseModel):
     evidence: list[str] = Field(default_factory=list[str])
     inference: list[str] = Field(default_factory=list[str])
     uncertainty: list[str] = Field(default_factory=list[str])
+
 
 class NewsEvent(BaseModel):
     symbol: str
@@ -86,6 +92,7 @@ class NewsEvent(BaseModel):
     )
     missing_fields: list[str] = Field(default_factory=list[str])
 
+
 class DisclosureEvent(BaseModel):
     symbol: str
     region: str
@@ -103,6 +110,7 @@ class DisclosureEvent(BaseModel):
     )
     missing_fields: list[str] = Field(default_factory=list[str])
 
+
 class MacroSnapshot(BaseModel):
     region: str
     currency: str
@@ -114,6 +122,7 @@ class MacroSnapshot(BaseModel):
     attribution: DataSourceAttribution
     missing_fields: list[str] = Field(default_factory=list[str])
     summary: str = ""
+
 
 class CanonicalAnalysisSnapshot(BaseModel):
     symbol_identity: SymbolIdentity
@@ -129,6 +138,7 @@ class CanonicalAnalysisSnapshot(BaseModel):
     missing_sections: list[str] = Field(default_factory=list[str])
     completeness_score: float = Field(default=0.0, ge=0.0, le=1.0)
     summary: str = ""
+
 
 class DecisionFeatureBundle(BaseModel):
     symbol_identity: SymbolIdentity

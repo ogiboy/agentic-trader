@@ -397,13 +397,13 @@ def get_strategy_profile(name: str) -> StrategyProfile:
 def strategy_profile_for_preset(preset: IdeaPresetName) -> StrategyProfile:
     """
     Selects the strategy profile associated with the given idea preset.
-    
+
     Parameters:
         preset (IdeaPresetName): The idea preset identifier to match against profiles' `idea_presets`.
-    
+
     Returns:
         StrategyProfile: The first strategy profile that includes `preset` in its `idea_presets`.
-    
+
     Raises:
         ValueError: If no strategy profile maps to the provided `preset`.
     """
@@ -416,10 +416,10 @@ def strategy_profile_for_preset(preset: IdeaPresetName) -> StrategyProfile:
 def strategy_profile_payload(profile: StrategyProfile) -> dict[str, object]:
     """
     Convert a StrategyProfile into a serializable payload dictionary.
-    
+
     Parameters:
         profile (StrategyProfile): Read-only strategy profile to convert.
-    
+
     Returns:
         payload (dict[str, object]): Dictionary representation of the profile suitable for serialization and downstream payload consumption.
     """
@@ -431,10 +431,10 @@ def finance_ledger_category_payload(
 ) -> dict[str, object]:
     """
     Create a serializable payload from a FinanceLedgerCategory dataclass.
-    
+
     Parameters:
         category (FinanceLedgerCategory): Read-only ledger category metadata to convert.
-    
+
     Returns:
         dict[str, object]: Dictionary mapping the category's fields to serializable values suitable for API or storage payloads.
     """
@@ -446,11 +446,11 @@ def strategy_catalog_payload(
 ) -> dict[str, object]:
     """
     Builds a serializable catalog payload of strategy profiles and associated policies.
-    
+
     Parameters:
         status (StrategyStatus | None): If provided, include only profiles whose `status` equals this value.
         preset (IdeaPresetName | None): If provided, include only profiles that advertise this idea preset.
-    
+
     Returns:
         dict[str, object]: A payload with the following keys:
             - "profiles": list of serialized strategy profile payloads matching the filters.
@@ -525,20 +525,19 @@ def score_strategy_context(score: IdeaScore) -> dict[str, object]:
 def finance_reconciliation_contract_payload() -> dict[str, object]:
     """
     Produce the finance reconciliation contract describing expected ledger categories, V1 policy, and audit requirements.
-    
+
     The returned mapping contains:
     - "ledger_categories": a list of ledger category payloads describing each expected finance ledger (from the module's LEDGER_CATEGORIES).
     - "v1_policy": policy details for V1 ingestion, including "mode" (e.g., "paper"), a human-readable "missing_evidence_policy", and "known_missing_categories".
     - "audit_policy": flags controlling audit behavior such as "preserve_source_ids", "distinguish_zero_from_missing", and "reconcile_before_performance_claims".
-    
+
     Returns:
         dict[str, object]: The reconciliation contract payload with the keys described above.
     """
 
     return {
         "ledger_categories": [
-            finance_ledger_category_payload(category)
-            for category in LEDGER_CATEGORIES
+            finance_ledger_category_payload(category) for category in LEDGER_CATEGORIES
         ],
         "v1_policy": {
             "mode": "paper",

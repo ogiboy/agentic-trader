@@ -25,17 +25,8 @@ from agentic_trader.security import (
     open_private_append_binary,
     redact_sensitive_text,
 )
-from agentic_trader.system.model_service_status import (
-    ModelServiceStatus,
-    app_owned_model_status_message,
-    base_url_mismatch_message,
-    host_model_status_message,
-    model_service_status_message,
-    model_service_tool_metadata,
-    model_status_notes,
-)
+from agentic_trader.system.model_service_probe import base_url as _base_url
 from agentic_trader.system.model_service_probe import (
-    base_url as _base_url,
     fetch_ollama_tags,
     model_service_api_root_from_base_url,
     ollama_error_from_response,
@@ -50,6 +41,15 @@ from agentic_trader.system.model_service_state import (
     remove_model_service_state,
     tail_model_service_text,
     write_model_service_state,
+)
+from agentic_trader.system.model_service_status import (
+    ModelServiceStatus,
+    app_owned_model_status_message,
+    base_url_mismatch_message,
+    host_model_status_message,
+    model_service_status_message,
+    model_service_tool_metadata,
+    model_status_notes,
 )
 from agentic_trader.system.tool_roots import local_tool_status_payload
 from agentic_trader.time_utils import utc_now_iso as _utc_now_iso

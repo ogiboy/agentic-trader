@@ -11,6 +11,7 @@ from agentic_trader.schema_models.types import (
     TradeSide,
 )
 
+
 class AccountMark(BaseModel):
     mark_id: str
     created_at: str
@@ -24,6 +25,7 @@ class AccountMark(BaseModel):
     realized_pnl: float
     unrealized_pnl: float
     open_positions: int
+
 
 class ServiceStateSnapshot(BaseModel):
     service_name: str
@@ -52,6 +54,7 @@ class ServiceStateSnapshot(BaseModel):
     stderr_log_path: str | None = None
     message: str = ""
 
+
 class ServiceEvent(BaseModel):
     event_id: str
     created_at: str
@@ -61,6 +64,7 @@ class ServiceEvent(BaseModel):
     cycle_count: int | None = None
     symbol: str | None = None
 
+
 class PositionSnapshot(BaseModel):
     symbol: str
     quantity: float
@@ -68,6 +72,7 @@ class PositionSnapshot(BaseModel):
     market_price: float
     market_value: float
     unrealized_pnl: float
+
 
 class PositionPlanSnapshot(BaseModel):
     symbol: str
@@ -79,6 +84,7 @@ class PositionPlanSnapshot(BaseModel):
     holding_bars: int
     invalidation_logic: str
     updated_at: str
+
 
 class PositionExitDecision(BaseModel):
     should_exit: bool

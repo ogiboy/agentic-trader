@@ -130,7 +130,9 @@ def build_daily_risk_report(
     )
     equity = snapshot.equity if snapshot.equity != 0 else 1.0
     portfolio_hhi = (
-        sum((abs(position.market_value) / gross_exposure) ** 2 for position in positions)
+        sum(
+            (abs(position.market_value) / gross_exposure) ** 2 for position in positions
+        )
         if gross_exposure > 0
         else 0.0
     )
@@ -152,7 +154,9 @@ def build_daily_risk_report(
             f"Largest position is above {settings.max_position_pct:.0%} of equity."
         )
     if portfolio_hhi > 0.25:
-        warnings.append(f"Portfolio concentration HHI is elevated at {portfolio_hhi:.3f}.")
+        warnings.append(
+            f"Portfolio concentration HHI is elevated at {portfolio_hhi:.3f}."
+        )
     if drawdown_from_peak_pct > 0.1:
         warnings.append("Portfolio drawdown from peak is above 10%.")
 

@@ -20,6 +20,7 @@ from agentic_trader.schema_models.types import (
     ResearchSignalDirection,
 )
 
+
 class ResearchTimedRecord(BaseModel):
     source_attributions: list[DataSourceAttribution] = Field(
         default_factory=list[DataSourceAttribution]
@@ -43,6 +44,7 @@ class ResearchTimedRecord(BaseModel):
         )
         return stale_after <= reference
 
+
 class RawEvidenceRecord(ResearchTimedRecord):
     record_id: str
     source_kind: ResearchEvidenceKind
@@ -55,6 +57,7 @@ class RawEvidenceRecord(ResearchTimedRecord):
     normalized_summary: str = ""
     source_payload_ref: str | None = None
 
+
 class MacroEvent(ResearchTimedRecord):
     event_id: str
     region: str
@@ -63,6 +66,7 @@ class MacroEvent(ResearchTimedRecord):
     summary: str = ""
     direction: ResearchSignalDirection = "unknown"
     affected_channels: list[str] = Field(default_factory=list[str])
+
 
 class SocialSignal(ResearchTimedRecord):
     signal_id: str
@@ -74,6 +78,7 @@ class SocialSignal(ResearchTimedRecord):
     direction: ResearchSignalDirection = "unknown"
     relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
     source_count: int = Field(default=0, ge=0)
+
 
 class ResearchFinding(ResearchTimedRecord):
     finding_id: str
@@ -89,6 +94,7 @@ class ResearchFinding(ResearchTimedRecord):
     watch_next: list[str] = Field(default_factory=list[str])
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
+
 class EntityDossier(ResearchTimedRecord):
     entity_id: str
     entity_name: str
@@ -99,6 +105,7 @@ class EntityDossier(ResearchTimedRecord):
     key_findings: list[ResearchFinding] = Field(default_factory=list[ResearchFinding])
     contradiction_file: list[str] = Field(default_factory=list[str])
     source_diversity_score: float = Field(default=0.0, ge=0.0, le=1.0)
+
 
 class WorldStateSnapshot(ResearchTimedRecord):
     snapshot_id: str
@@ -111,6 +118,7 @@ class WorldStateSnapshot(ResearchTimedRecord):
     findings: list[ResearchFinding] = Field(default_factory=list[ResearchFinding])
     summary: str = ""
 
+
 class ResearchProviderHealth(BaseModel):
     provider_id: str
     name: str
@@ -122,6 +130,7 @@ class ResearchProviderHealth(BaseModel):
     last_successful_update_at: str | None = None
     message: str = ""
     notes: list[str] = Field(default_factory=list[str])
+
 
 class ResearchSidecarState(BaseModel):
     mode: ResearchMode = "off"
@@ -138,6 +147,7 @@ class ResearchSidecarState(BaseModel):
     )
     source_health_summary: dict[str, int] = Field(default_factory=dict[str, int])
 
+
 class ResearchCycleOperatorControl(BaseModel):
     status: ResearchCycleControlStatus = "running"
     requested_action: ResearchCycleControlAction = "idle"
@@ -148,6 +158,7 @@ class ResearchCycleOperatorControl(BaseModel):
     trigger_requested_at: str | None = None
     paused_at: str | None = None
     resumed_at: str | None = None
+
 
 class ResearchDigestReplayRecord(BaseModel):
     artifact_id: str
@@ -161,6 +172,7 @@ class ResearchDigestReplayRecord(BaseModel):
     execution_policy: dict[str, bool] = Field(default_factory=dict[str, bool])
     operator_control: ResearchCycleOperatorControl
     replay_notes: list[str] = Field(default_factory=list[str])
+
 
 class ResearchSnapshotRecord(BaseModel):
     snapshot_id: str

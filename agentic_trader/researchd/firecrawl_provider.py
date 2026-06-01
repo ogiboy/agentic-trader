@@ -9,19 +9,11 @@ from pathlib import Path
 
 from agentic_trader.config import Settings
 from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
-from agentic_trader.schemas import (
-    EvidenceInferenceBreakdown,
-    ProviderMetadata,
-    RawEvidenceRecord,
-)
-from agentic_trader.security import redact_sensitive_text
-from agentic_trader.system.tool_ownership import ownership_mode_for_tool
-from agentic_trader.system.tool_roots import local_tool_manifest_notes
 from agentic_trader.researchd.provider_core import (
+    MINIMAL_COMMAND_ENV_KEYS,
     CommandRunner,
     FirecrawlSdkSearcher,
     JsonObject,
-    MINIMAL_COMMAND_ENV_KEYS,
     ResearchProviderOutput,
     callable_attr,
     domain_from_url,
@@ -35,6 +27,14 @@ from agentic_trader.researchd.provider_core import (
     sanitized_summary,
     stable_hash,
 )
+from agentic_trader.schemas import (
+    EvidenceInferenceBreakdown,
+    ProviderMetadata,
+    RawEvidenceRecord,
+)
+from agentic_trader.security import redact_sensitive_text
+from agentic_trader.system.tool_ownership import ownership_mode_for_tool
+from agentic_trader.system.tool_roots import local_tool_manifest_notes
 
 
 class FirecrawlNewsResearchProvider:

@@ -7,11 +7,6 @@ import httpx
 
 from agentic_trader.config import Settings
 from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
-from agentic_trader.schemas import (
-    EvidenceInferenceBreakdown,
-    ProviderMetadata,
-    RawEvidenceRecord,
-)
 from agentic_trader.researchd.provider_core import (
     JsonFetcher,
     JsonObject,
@@ -21,6 +16,11 @@ from agentic_trader.researchd.provider_core import (
     normalize_symbol,
     object_list,
     safe_error_note,
+)
+from agentic_trader.schemas import (
+    EvidenceInferenceBreakdown,
+    ProviderMetadata,
+    RawEvidenceRecord,
 )
 
 SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"

@@ -200,10 +200,10 @@ def research_cycle_execution_payload(
 ) -> dict[str, object]:
     """
     Convert a ResearchCycleExecution dataclass into a JSON-serializable payload.
-    
+
     Parameters:
         execution (ResearchCycleExecution): The execution dataclass instance to convert.
-    
+
     Returns:
         payload (dict[str, object]): A dictionary representation of the execution suitable for JSON serialization and inclusion in replay artifacts or API responses.
     """
@@ -220,16 +220,16 @@ def _execute_research_cycles(
 ) -> list[ResearchCycleExecution]:
     """
     Execute the bounded series of research cycles and return their per-cycle execution summaries.
-    
+
     Runs the number of cycles determined by `resolved.safe_cycles`, updating prior snapshot identity, source-health summary, and digest-availability between iterations. When enabled, pauses between cycles using `sleep_fn`.
-    
+
     Parameters:
         settings (Settings): Runtime settings used for each cycle.
         resolved (_ResolvedResearchCycleRequest): Normalized request specifying safe counts, cadence, persistence, and sleep behavior.
         prior_snapshot (ResearchSnapshotRecord | None): Snapshot record that seeds the initial source-health summary and prior snapshot id.
         prior_digest_available (bool): Whether a prior digest replay is available for the first cycle.
         sleep_fn (SleepFn): Callable invoked with a float number of seconds to pause between cycles when sleeping is enabled.
-    
+
     Returns:
         list[ResearchCycleExecution]: Ordered list of execution records, one per executed cycle.
     """

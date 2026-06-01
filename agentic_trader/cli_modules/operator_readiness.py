@@ -68,6 +68,7 @@ def _run_probe_command(command: list[str], *, timeout: float = 2.0) -> str | Non
     output = proc.stdout.strip()
     return output or None
 
+
 def total_memory_bytes() -> int | None:
     if sys.platform == "darwin":
         output = _run_probe_command(["sysctl", "-n", "hw.memsize"])
@@ -77,6 +78,7 @@ def total_memory_bytes() -> int | None:
     if sysconf_total is not None:
         return sysconf_total
     return _linux_meminfo_total_memory_bytes()
+
 
 def _sysconf_total_memory_bytes() -> int | None:
     try:
@@ -93,6 +95,7 @@ def _sysconf_total_memory_bytes() -> int | None:
         return pages * page_size
     return None
 
+
 def _linux_meminfo_total_memory_bytes() -> int | None:
     meminfo = Path("/proc/meminfo")
     if not meminfo.exists():
@@ -107,6 +110,7 @@ def _linux_meminfo_total_memory_bytes() -> int | None:
             return total
     return None
 
+
 def _parse_memtotal_line(line: str) -> int | None:
     if not line.startswith("MemTotal:"):
         return None
@@ -114,6 +118,7 @@ def _parse_memtotal_line(line: str) -> int | None:
     if len(parts) >= 2 and parts[1].isdigit():
         return int(parts[1]) * 1024
     return None
+
 
 def _model_size_billions(model_name: str) -> float | None:
     separators = ":/,_-()[]{}"
@@ -126,6 +131,7 @@ def _model_size_billions(model_name: str) -> float | None:
             return size
     return None
 
+
 def _model_size_token_billions(token: str) -> float | None:
     if not token.endswith("b"):
         return None
@@ -136,6 +142,7 @@ def _model_size_token_billions(token: str) -> float | None:
         return float(numeric)
     except ValueError:
         return None
+
 
 def accelerator_payload() -> dict[str, object]:
     if sys.platform == "darwin" and platform.machine().lower() == "arm64":
@@ -158,6 +165,7 @@ def accelerator_payload() -> dict[str, object]:
         "detail": "No accelerator probe succeeded with stdlib-safe local checks.",
     }
 
+
 def _recommended_parallel_agents(
     cpu_count: int, memory_gb: float | None, model_b: float | None
 ) -> int:
@@ -173,6 +181,7 @@ def _recommended_parallel_agents(
     if model_b is not None and model_b >= 13 and (memory_gb is None or memory_gb < 48):
         recommended = 1
     return max(1, recommended)
+
 
 def build_hardware_profile_payload(settings: Settings) -> dict[str, object]:
     """
@@ -233,6 +242,7 @@ def build_hardware_profile_payload(settings: Settings) -> dict[str, object]:
             "Use the lower of configured and recommended limits before long paper-operation runs.",
         ],
     }
+
 
 def build_operator_workflow_payload(settings: Settings) -> dict[str, object]:
     """Return the canonical V1 operator review workflow without executing it."""
@@ -317,6 +327,7 @@ def build_operator_workflow_payload(settings: Settings) -> dict[str, object]:
         ],
     }
 
+
 def operator_workflow_command(
     json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
 ) -> None:
@@ -346,6 +357,7 @@ def operator_workflow_command(
         )
     )
     console.print(table)
+
 
 def hardware_profile_command(
     json_output: bool = typer.Option(False, "--json", help=text.HELP_JSON),
@@ -379,6 +391,7 @@ def hardware_profile_command(
     table.add_row(text.LABEL_TOKEN_HINT, str(recommendations["max_output_tokens"]))
     table.add_row(text.LABEL_PROFILE, str(recommendations["profile"]))
     console.print(table)
+
 
 def register_operator_readiness_commands(
     app: typer.Typer,

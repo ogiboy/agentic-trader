@@ -11,6 +11,7 @@ from agentic_trader.schema_models.types import (
     TrendVote,
 )
 
+
 class MarketSessionStatus(BaseModel):
     symbol: str
     venue: str
@@ -19,6 +20,7 @@ class MarketSessionStatus(BaseModel):
     session_state: MarketSessionState
     tradable_now: bool
     note: str
+
 
 class MarketContextHorizon(BaseModel):
     horizon_bars: int
@@ -32,6 +34,7 @@ class MarketContextHorizon(BaseModel):
     range_position: float | None = Field(default=None, ge=0.0, le=1.0)
     atr_pct: float | None = None
     volume_ratio: float | None = None
+
 
 class MarketContextPack(BaseModel):
     symbol: str
@@ -52,6 +55,7 @@ class MarketContextPack(BaseModel):
     data_quality_flags: list[str] = Field(default_factory=list[str])
     anomaly_flags: list[str] = Field(default_factory=list[str])
     summary: str = ""
+
 
 class MarketSnapshot(BaseModel):
     symbol: str
@@ -77,12 +81,14 @@ class MarketSnapshot(BaseModel):
     bars_analyzed: int
     context_pack: MarketContextPack | None = None
 
+
 class SymbolIdentity(BaseModel):
     symbol: str
     exchange: str | None = None
     currency: str = "USD"
     region: str = "US"
     asset_class: Literal["equity", "crypto", "fx", "unknown"] = "equity"
+
 
 class TechnicalFeatureSet(BaseModel):
     symbol: str
@@ -101,6 +107,7 @@ class TechnicalFeatureSet(BaseModel):
     context_summary: str = ""
     data_quality_flags: list[str] = Field(default_factory=list[str])
 
+
 class FundamentalFeatureSet(BaseModel):
     symbol: str
     as_of: str | None = None
@@ -114,6 +121,7 @@ class FundamentalFeatureSet(BaseModel):
     quality_flags: list[str] = Field(default_factory=list[str])
     summary: str = ""
 
+
 class StructuredNewsSignal(BaseModel):
     symbol: str | None = None
     title: str
@@ -122,6 +130,7 @@ class StructuredNewsSignal(BaseModel):
     published_at: str | None = None
     summary: str
     relevance_score: float = Field(ge=0.0, le=1.0)
+
 
 class MacroContext(BaseModel):
     symbol: str

@@ -12,6 +12,7 @@ from agentic_trader.schema_models.types import (
     TradeStyle,
 )
 
+
 class LLMHealthStatus(BaseModel):
     provider: str
     base_url: str
@@ -21,6 +22,7 @@ class LLMHealthStatus(BaseModel):
     generation_available: bool | None = None
     generation_message: str | None = None
     message: str
+
 
 class InvestmentPreferences(BaseModel):
     regions: list[str] = Field(default_factory=lambda: ["US"])

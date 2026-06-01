@@ -29,14 +29,18 @@ from agentic_trader.backtest.walk_forward import (
 )
 from agentic_trader.cli_modules.common import (
     console,
-    emit_json as _emit_json,
-    open_db as _open_db,
 )
+from agentic_trader.cli_modules.common import emit_json as _emit_json
+from agentic_trader.cli_modules.common import open_db as _open_db
 from agentic_trader.cli_modules.operator_readiness import (
     accelerator_payload as _operator_accelerator_payload,
+)
+from agentic_trader.cli_modules.operator_readiness import (
     build_hardware_profile_payload,
     build_operator_workflow_payload,
     register_operator_readiness_commands,
+)
+from agentic_trader.cli_modules.operator_readiness import (
     total_memory_bytes as _operator_total_memory_bytes,
 )
 from agentic_trader.cli_modules.proposal_desk import (
