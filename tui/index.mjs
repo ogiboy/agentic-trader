@@ -12,6 +12,14 @@ import {
   rotatePersona,
 } from './copy.mjs';
 import {
+  accountCurrency,
+  defaultRuntimeInterval,
+  defaultRuntimeLookback,
+  defaultSingleSymbol,
+  defaultSymbolsFromPreferences,
+  getSupervisorLogLines,
+} from './dashboard-defaults.mjs';
+import {
   handleChatInput,
   handleDashboardInput,
   handleGlobalInput,
@@ -28,21 +36,6 @@ const cliExecutable = process.env.AGENTIC_TRADER_CLI || 'agentic-trader';
 const pythonExecutable = process.env.AGENTIC_TRADER_PYTHON;
 const once = process.argv.includes('--once');
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
-
-/**
- * Resolve the preferred account currency from a dashboard snapshot.
- *
- * @param {Object} data - Dashboard snapshot object which may contain financeOps, portfolio, and preferences sections.
- * @returns {string} The currency code found in `financeOps.accounting.currency`, or `portfolio.accounting.currency`, or the first entry of `preferences.currencies`, or `'USD'` if none are available.
- */
-function accountCurrency(data) {
-  return (
-    data.financeOps?.accounting?.currency ||
-    data.portfolio?.accounting?.currency ||
-    data.preferences?.currencies?.[0] ||
-    'USD'
-  );
-}
 
 /**
  * Execute the Agentic Trader CLI using one of the configured executables, retrying across candidates.
@@ -90,85 +83,6 @@ async function runJsonCommand(args) {
 
 async function runTextCommand(args) {
   return execCli(args, { expectJson: false });
-}
-
-/**
- * Choose a default comma-separated symbol list based on user preferences.
- *
- * @param {Object} preferences - Preferences object that may include `exchanges` and `regions` arrays.
- * @returns {string} A comma-separated symbol list: `THYAO.IS,GARAN.IS` when `exchanges` contains `BIST` or `regions` contains `TR`; `AAPL,MSFT` when `exchanges` contains `NASDAQ` or `NYSE` or `regions` contains `US`; otherwise `BTC-USD,ETH-USD`.
- */
-function defaultSymbolsFromPreferences(preferences) {
-  const exchanges = preferences?.exchanges || [];
-  const regions = preferences?.regions || [];
-  if (exchanges.includes('BIST') || regions.includes('TR')) {
-    return 'THYAO.IS,GARAN.IS';
-  }
-  if (
-    exchanges.includes('NASDAQ') ||
-    exchanges.includes('NYSE') ||
-    regions.includes('US')
-  ) {
-    return 'AAPL,MSFT';
-  }
-  return 'BTC-USD,ETH-USD';
-}
-
-/**
- * Selects a default single trading symbol from dashboard snapshot data.
- *
- * @param {object} data - Dashboard snapshot which may contain `status.state.current_symbol`, `tradeContext.record.symbol`, `review.record.symbol`, and `preferences`.
- * @returns {string} The first available symbol from (in order): the current runtime symbol, the trade context record symbol, the review record symbol, or the first symbol derived from preferences.
- */
-function defaultSingleSymbol(data) {
-  return (
-    data?.status?.state?.current_symbol ||
-    data?.tradeContext?.record?.symbol ||
-    data?.review?.record?.symbol ||
-    defaultSymbolsFromPreferences(data?.preferences).split(',')[0]
-  );
-}
-
-/**
- * Resolve the runtime interval from the provided dashboard data, falling back to the market context pack and then '1d'.
- * @param {Object} data - Dashboard snapshot that may contain `status.state.interval` or `marketContext.contextPack.interval`.
- * @returns {string} The resolved interval value, or '1d' if none is present.
- */
-function defaultRuntimeInterval(data) {
-  return (
-    data?.status?.state?.interval ||
-    data?.marketContext?.contextPack?.interval ||
-    '1d'
-  );
-}
-
-/**
- * Selects the runtime lookback interval from dashboard data, falling back to '180d'.
- * @param {object} data - Dashboard snapshot that may contain `status.state.lookback` or `marketContext.contextPack.lookback`.
- * @returns {string} The lookback interval string from runtime state if present, otherwise from the market context pack, otherwise `'180d'`.
- */
-function defaultRuntimeLookback(data) {
-  return (
-    data?.status?.state?.lookback ||
-    data?.marketContext?.contextPack?.lookback ||
-    '180d'
-  );
-}
-
-/**
- * Produce a short tail of the supervisor's recent daemon log lines.
- *
- * @param {Object|undefined} supervisor - Supervisor state object that may contain `stderr_tail` and/or `stdout_tail` arrays of log lines.
- * @returns {string[]} An array of strings: if `stderr_tail` has entries, `['stderr:', ...lastUpTo3Lines]`; else if `stdout_tail` has entries, `['stdout:', ...lastUpTo3Lines]`; otherwise `['No daemon log tail yet.']`.
- */
-function getSupervisorLogLines(supervisor) {
-  if (supervisor?.stderr_tail?.length) {
-    return ['stderr:', ...supervisor.stderr_tail.slice(-3)];
-  }
-  if (supervisor?.stdout_tail?.length) {
-    return ['stdout:', ...supervisor.stdout_tail.slice(-3)];
-  }
-  return ['No daemon log tail yet.'];
 }
 
 /**
