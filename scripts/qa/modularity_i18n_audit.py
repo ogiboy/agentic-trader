@@ -67,6 +67,7 @@ OPERATOR_COPY_HINT = re.compile(
     r"Error|Warning|Status|Overview|Runtime|Portfolio|Settings)"
 )
 QUOTED_HUMAN_TEXT = re.compile(r"""["']([^"']*[A-Za-z][^"']*\s[^"']*)["']""")
+COMMENT_PREFIXES = ("//", "#", "*")
 
 
 @dataclass(frozen=True)
@@ -233,20 +234,23 @@ def _iter_scan_files(repo_root: Path, roots: Iterable[str]) -> Iterable[Path]:
         Iterable[Path]: Paths to files that should be scanned; each path is under `repo_root` and has a suffix present in `CODE_SUFFIXES`. Missing roots are ignored and directories listed in `SKIP_DIRS` are excluded.
     """
     for root_name in roots:
-        root = repo_root / root_name
-        if root.is_file():
-            if root.suffix in CODE_SUFFIXES:
-                yield root
-            continue
-        if not root.exists():
-            continue
-        for current_root, dirs, files in os.walk(root):
-            dirs[:] = [name for name in dirs if name not in SKIP_DIRS]
-            current = Path(current_root)
-            for file_name in files:
-                path = current / file_name
-                if path.suffix in CODE_SUFFIXES:
-                    yield path
+        yield from _iter_matching_files(repo_root / root_name, suffixes=CODE_SUFFIXES)
+
+
+def _iter_matching_files(root: Path, *, suffixes: set[str]) -> Iterable[Path]:
+    if root.is_file():
+        if root.suffix in suffixes:
+            yield root
+        return
+    if not root.exists():
+        return
+    for current_root, dirs, files in os.walk(root):
+        dirs[:] = [name for name in dirs if name not in SKIP_DIRS]
+        current = Path(current_root)
+        for file_name in files:
+            path = current / file_name
+            if path.suffix in suffixes:
+                yield path
 
 
 def _line_threshold(path: Path, rel_path: str) -> tuple[str, int]:
@@ -338,28 +342,49 @@ def _long_python_functions(
     """
     metrics: list[FunctionMetric] = []
     for path in paths:
-        if path.suffix != ".py":
-            continue
-        tree = _python_tree(path)
-        if tree is None:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                continue
-            end_line = node.end_lineno
-            if end_line is None:
-                continue
-            function_lines = end_line - node.lineno + 1
-            if function_lines >= threshold:
-                metrics.append(
-                    FunctionMetric(
-                        path=_relative(path, repo_root=repo_root),
-                        name=node.name,
-                        line=node.lineno,
-                        lines=function_lines,
-                    )
-                )
+        metrics.extend(
+            _long_function_metrics_for_path(
+                path,
+                repo_root=repo_root,
+                threshold=threshold,
+            )
+        )
     return tuple(sorted(metrics, key=lambda metric: metric.lines, reverse=True))
+
+
+def _long_function_metrics_for_path(
+    path: Path, *, repo_root: Path, threshold: int
+) -> tuple[FunctionMetric, ...]:
+    if path.suffix != ".py":
+        return ()
+    tree = _python_tree(path)
+    if tree is None:
+        return ()
+    rel_path = _relative(path, repo_root=repo_root)
+    return tuple(
+        metric
+        for node in ast.walk(tree)
+        if (metric := _long_function_metric(node, rel_path, threshold)) is not None
+    )
+
+
+def _long_function_metric(
+    node: ast.AST, rel_path: str, threshold: int
+) -> FunctionMetric | None:
+    if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        return None
+    end_line = node.end_lineno
+    if end_line is None:
+        return None
+    function_lines = end_line - node.lineno + 1
+    if function_lines < threshold:
+        return None
+    return FunctionMetric(
+        path=rel_path,
+        name=node.name,
+        line=node.lineno,
+        lines=function_lines,
+    )
 
 
 def _repeated_python_helpers(
@@ -442,27 +467,39 @@ def _copy_candidates(
     """
     candidates: list[CopyCandidate] = []
     for path in paths:
-        rel_path = _relative(path, repo_root=repo_root)
-        if not _is_ui_surface(rel_path) or _is_copy_boundary(rel_path):
-            continue
-        try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except UnicodeDecodeError:
-            continue
-        for index, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if not stripped or stripped.startswith(("//", "#", "*")):
-                continue
-            if not OPERATOR_COPY_HINT.search(stripped):
-                continue
-            if not QUOTED_HUMAN_TEXT.search(stripped):
-                continue
-            candidates.append(
-                CopyCandidate(path=rel_path, line=index, excerpt=stripped[:180])
-            )
+        for candidate in _copy_candidates_for_path(path, repo_root=repo_root):
+            candidates.append(candidate)
             if len(candidates) >= limit:
                 return tuple(candidates)
     return tuple(candidates)
+
+
+def _copy_candidates_for_path(
+    path: Path, *, repo_root: Path
+) -> tuple[CopyCandidate, ...]:
+    rel_path = _relative(path, repo_root=repo_root)
+    if not _is_ui_surface(rel_path) or _is_copy_boundary(rel_path):
+        return ()
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return ()
+    return tuple(
+        candidate
+        for index, line in enumerate(lines, start=1)
+        if (candidate := _copy_candidate(rel_path, index, line)) is not None
+    )
+
+
+def _copy_candidate(rel_path: str, line_number: int, line: str) -> CopyCandidate | None:
+    stripped = line.strip()
+    if not stripped or stripped.startswith(COMMENT_PREFIXES):
+        return None
+    if not OPERATOR_COPY_HINT.search(stripped):
+        return None
+    if not QUOTED_HUMAN_TEXT.search(stripped):
+        return None
+    return CopyCandidate(path=rel_path, line=line_number, excerpt=stripped[:180])
 
 
 def _docs_locale_parity(repo_root: Path) -> LocaleParity:
@@ -610,7 +647,7 @@ def print_report(report: AuditReport, *, top: int) -> None:
     _print_section(
         "Long Python functions",
         [
-            (f"{metric.path}:{metric.line} {metric.name} " f"lines={metric.lines}")
+            f"{metric.path}:{metric.line} {metric.name} lines={metric.lines}"
             for metric in report.long_functions[:top]
         ],
     )
