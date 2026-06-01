@@ -14,18 +14,18 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.tui_monitor_sections import (
-    _agent_activity_table,
-    _current_activity_panel,
-    _observer_mode_panel,
-    _portfolio_renderable,
-    _recent_runs_table,
-    _render_preferences,
-    _risk_report_table,
-    _runtime_events_table,
-    _runtime_state_table,
-    _safe_open_read_db,
-    _system_status_table,
-    _trade_journal_table,
+    agent_activity_table,
+    current_activity_panel,
+    observer_mode_panel,
+    portfolio_renderable,
+    recent_runs_table,
+    render_preferences,
+    risk_report_table,
+    runtime_events_table,
+    runtime_state_table,
+    safe_open_read_db,
+    system_status_table,
+    trade_journal_table,
 )
 from agentic_trader.ui_text import (
     MESSAGE_MONITOR_RETURN_SHORTCUT,
@@ -33,8 +33,6 @@ from agentic_trader.ui_text import (
 )
 
 console = Console()
-
-
 
 
 def build_monitor_renderable(
@@ -56,7 +54,7 @@ def build_monitor_renderable(
     Returns:
         Group: A rich.Group containing the assembled header, activity panels, runtime/system status, preferences/portfolio, recent runs/trade journal, runtime events, and risk report.
     """
-    db = db if db is not None else _safe_open_read_db(settings)
+    db = db if db is not None else safe_open_read_db(settings)
     runtime_state = read_service_state(settings)
     events = read_service_events(settings, limit=20)
     header = Panel(
@@ -66,9 +64,9 @@ def build_monitor_renderable(
     )
     top = Columns(
         [
-            _current_activity_panel(settings, runtime_state, events),
+            current_activity_panel(settings, runtime_state, events),
             Panel(
-                _agent_activity_table(runtime_state, events),
+                agent_activity_table(runtime_state, events),
                 border_style="bright_magenta",
             ),
         ],
@@ -77,9 +75,9 @@ def build_monitor_renderable(
     )
     middle = Columns(
         [
-            Panel(_runtime_state_table(runtime_state), border_style="magenta"),
+            Panel(runtime_state_table(runtime_state), border_style="magenta"),
             Panel(
-                _system_status_table(
+                system_status_table(
                     settings,
                     db,
                     runtime_state=runtime_state,
@@ -94,14 +92,14 @@ def build_monitor_renderable(
     bottom = Columns(
         [
             (
-                Panel(_render_preferences(db.load_preferences()), border_style="green")
+                Panel(render_preferences(db.load_preferences()), border_style="green")
                 if db is not None
-                else _observer_mode_panel("Preferences")
+                else observer_mode_panel("Preferences")
             ),
             (
-                Panel(_portfolio_renderable(db), border_style="yellow")
+                Panel(portfolio_renderable(db), border_style="yellow")
                 if db is not None
-                else _observer_mode_panel("Portfolio")
+                else observer_mode_panel("Portfolio")
             ),
         ],
         equal=True,
@@ -111,21 +109,21 @@ def build_monitor_renderable(
         [
             (
                 Panel(
-                    Group(_recent_runs_table(db), _trade_journal_table(db, limit=5)),
+                    Group(recent_runs_table(db), trade_journal_table(db, limit=5)),
                     border_style="white",
                 )
                 if db is not None
-                else _observer_mode_panel("Run review and trade journal")
+                else observer_mode_panel("Run review and trade journal")
             ),
-            Panel(_runtime_events_table(events), border_style="bright_blue"),
+            Panel(runtime_events_table(events), border_style="bright_blue"),
         ],
         equal=True,
         expand=True,
     )
     extra = (
-        Panel(_risk_report_table(db), border_style="red")
+        Panel(risk_report_table(db), border_style="red")
         if db is not None
-        else _observer_mode_panel("Risk report")
+        else observer_mode_panel("Risk report")
     )
     return Group(header, top, middle, bottom, footer, extra)
 

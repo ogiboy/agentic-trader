@@ -170,13 +170,30 @@ from agentic_trader.system.webgui_service import (
 )
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
 from agentic_trader.ui_text import (
+    HELP_BACKTEST_COMPARE_BASELINE,
+    HELP_BACKTEST_COMPARE_MEMORY,
+    HELP_BACKTEST_OUTPUT,
+    HELP_BACKTEST_WARMUP_BARS,
+    HELP_CALENDAR_STATUS_SYMBOL,
     HELP_CAMOFOX_OWNER,
-    HELP_CAMOFOX_SERVICE_HOST,
     HELP_CAMOFOX_SERVICE_APP,
+    HELP_CAMOFOX_SERVICE_HOST,
     HELP_CAMOFOX_SERVICE_PORT,
+    HELP_CANDIDATE_FRESHNESS,
+    HELP_CANDIDATE_LIQUIDITY,
+    HELP_CANDIDATE_MATERIALITY,
+    HELP_CANDIDATE_RISK_NOTES,
+    HELP_CANDIDATE_SOURCE,
     HELP_CHAT_MESSAGE,
     HELP_CHAT_PERSONA,
     HELP_CLI_APP,
+    HELP_ENRICH_PROVIDER_CONTEXT,
+    HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
+    HELP_EVIDENCE_BUNDLE_LABEL,
+    HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
+    HELP_EXPORT_REPORT_OUTPUT,
+    HELP_EXPORT_REPORT_RUN_ID,
+    HELP_FETCH_PROVIDER_NEWS,
     HELP_FIRECRAWL_OWNER,
     HELP_IDEA_CHANGE_PCT,
     HELP_IDEA_EMA_9,
@@ -195,7 +212,6 @@ from agentic_trader.ui_text import (
     HELP_INSTRUCT_MESSAGE,
     HELP_INTERVAL,
     HELP_JSON,
-    HELP_MONITOR_REFRESH_SECONDS,
     HELP_LAUNCH_BACKGROUND,
     HELP_LAUNCH_CONTINUOUS,
     HELP_LAUNCH_MAX_CYCLES,
@@ -204,68 +220,50 @@ from agentic_trader.ui_text import (
     HELP_LOCALE_OVERRIDE,
     HELP_LOCALE_PERSIST,
     HELP_LOOKBACK,
-    HELP_CANDIDATE_FRESHNESS,
-    HELP_CANDIDATE_LIQUIDITY,
-    HELP_CANDIDATE_MATERIALITY,
-    HELP_CANDIDATE_RISK_NOTES,
-    HELP_CANDIDATE_SOURCE,
-    HELP_ENRICH_PROVIDER_CONTEXT,
-    HELP_FETCH_PROVIDER_NEWS,
+    HELP_MEMORY_EXPLORER_LIMIT,
+    HELP_MEMORY_EXPLORER_USE_LATEST_RUN,
     HELP_MODEL_NAME_TO_PULL,
     HELP_MODEL_SERVICE_APP,
     HELP_MODEL_SERVICE_HOST,
     HELP_MODEL_SERVICE_PORT,
-    HELP_MEMORY_EXPLORER_LIMIT,
-    HELP_MEMORY_EXPLORER_USE_LATEST_RUN,
+    HELP_MONITOR_REFRESH_SECONDS,
+    HELP_NEWS_BRIEF_SYMBOL,
+    HELP_NEWS_CLASSIFY_SOURCE,
+    HELP_NEWS_COMPANY_NAME,
+    HELP_NEWS_SECTOR,
+    HELP_OBSERVER_API_ALLOW_NONLOCAL,
+    HELP_OBSERVER_API_HOST,
+    HELP_OBSERVER_API_PORT,
     HELP_OLLAMA_OWNER,
     HELP_POSITION_PLAN_REPAIR_APPLY,
     HELP_POSITION_PLAN_REPAIR_MAX_HOLDING_BARS,
+    HELP_PROMOTION_NOTES,
     HELP_PROPOSAL_CANDIDATE_ID,
     HELP_PROPOSAL_CANDIDATES_LIMIT,
     HELP_PROPOSAL_CANDIDATES_STATUS_FILTER,
-    HELP_PROMOTION_NOTES,
+    HELP_PROVIDER_CHECK,
+    HELP_RESEARCH_CYCLE_PAUSE,
+    HELP_RESEARCH_CYCLE_PLAN_CADENCE_SECONDS,
+    HELP_RESEARCH_CYCLE_PLAN_MAX_PROPOSALS_PER_CYCLE,
+    HELP_RESEARCH_CYCLE_PLAN_SYMBOLS,
+    HELP_RESEARCH_CYCLE_REASON,
+    HELP_RESEARCH_CYCLE_RESUME,
     HELP_RESEARCH_CYCLE_RUN_CADENCE_SECONDS,
     HELP_RESEARCH_CYCLE_RUN_CYCLES,
     HELP_RESEARCH_CYCLE_RUN_MAX_PROPOSALS_PER_CYCLE,
     HELP_RESEARCH_CYCLE_RUN_PERSIST,
     HELP_RESEARCH_CYCLE_RUN_SLEEP,
     HELP_RESEARCH_CYCLE_RUN_SYMBOLS,
-    HELP_RESEARCH_CYCLE_PLAN_CADENCE_SECONDS,
-    HELP_RESEARCH_CYCLE_PLAN_MAX_PROPOSALS_PER_CYCLE,
-    HELP_RESEARCH_CYCLE_PLAN_SYMBOLS,
-    HELP_RESEARCH_CYCLE_PAUSE,
-    HELP_RESEARCH_CYCLE_REASON,
-    HELP_RESEARCH_CYCLE_RESUME,
     HELP_RESEARCH_CYCLE_TRIGGER_NOW,
     HELP_RESEARCH_PROBE,
     HELP_RESEARCH_REFRESH_PERSIST,
     HELP_RESTART_SERVICE_GRACE_SECONDS,
-    HELP_RUNTIME_EVENT_LIMIT,
-    HELP_PROVIDER_CHECK,
-    HELP_CALENDAR_STATUS_SYMBOL,
-    HELP_BACKTEST_COMPARE_BASELINE,
-    HELP_BACKTEST_COMPARE_MEMORY,
-    HELP_BACKTEST_OUTPUT,
-    HELP_BACKTEST_WARMUP_BARS,
-    HELP_EXPORT_REPORT_OUTPUT,
-    HELP_EXPORT_REPORT_RUN_ID,
     HELP_RISK_REPORT_DATE,
-    HELP_RUN_REPLAY_ID,
-    HELP_TRADE_CONTEXT_ID,
-    HELP_TRADE_JOURNAL_LIMIT,
-    HELP_EVIDENCE_BUNDLE_INCLUDE_LATEST_SMOKE,
-    HELP_EVIDENCE_BUNDLE_LABEL,
-    HELP_EVIDENCE_BUNDLE_OUTPUT_DIR,
-    HELP_OBSERVER_API_ALLOW_NONLOCAL,
-    HELP_OBSERVER_API_HOST,
-    HELP_OBSERVER_API_PORT,
     HELP_RUN_ID,
+    HELP_RUN_REPLAY_ID,
+    HELP_RUNTIME_EVENT_LIMIT,
     HELP_RUNTIME_MODE_PROVIDER_CHECK,
     HELP_RUNTIME_MODE_TARGET,
-    HELP_NEWS_CLASSIFY_SOURCE,
-    HELP_NEWS_COMPANY_NAME,
-    HELP_NEWS_SECTOR,
-    HELP_NEWS_BRIEF_SYMBOL,
     HELP_SETUP_DRY_RUN,
     HELP_STOP_SERVICE_FORCE,
     HELP_STRATEGY_CATALOG_PRESET_FILTER,
@@ -274,20 +272,12 @@ from agentic_trader.ui_text import (
     HELP_SYMBOL,
     HELP_TOOL_OWNERSHIP_APP,
     HELP_TRADE_CONFIDENCE,
+    HELP_TRADE_CONTEXT_ID,
     HELP_TRADE_INVALIDATION,
+    HELP_TRADE_JOURNAL_LIMIT,
     HELP_TRADE_LIMIT_PRICE,
     HELP_TRADE_NOTIONAL,
     HELP_TRADE_ORDER_TYPE,
-    HELP_TRADE_QUANTITY,
-    HELP_TRADE_REFERENCE_PRICE,
-    HELP_TRADE_REVIEW_NOTES,
-    HELP_TRADE_SIDE,
-    HELP_TRADE_SOURCE,
-    HELP_TRADE_STOP_LOSS,
-    HELP_TRADE_TAKE_PROFIT,
-    HELP_TRADE_THESIS,
-    HELP_TRADE_PROPOSALS_LIMIT,
-    HELP_TRADE_PROPOSALS_STATUS_FILTER,
     HELP_TRADE_PROPOSAL_APPROVAL_NOTES,
     HELP_TRADE_PROPOSAL_ID_APPROVE,
     HELP_TRADE_PROPOSAL_ID_REJECT,
@@ -296,34 +286,44 @@ from agentic_trader.ui_text import (
     HELP_TRADE_PROPOSAL_REFRESH_ID,
     HELP_TRADE_PROPOSAL_REFRESH_NOTES,
     HELP_TRADE_PROPOSAL_REJECTION_REASON,
+    HELP_TRADE_PROPOSALS_LIMIT,
+    HELP_TRADE_PROPOSALS_STATUS_FILTER,
+    HELP_TRADE_QUANTITY,
+    HELP_TRADE_REFERENCE_PRICE,
+    HELP_TRADE_REVIEW_NOTES,
+    HELP_TRADE_SIDE,
+    HELP_TRADE_SOURCE,
+    HELP_TRADE_STOP_LOSS,
+    HELP_TRADE_TAKE_PROFIT,
+    HELP_TRADE_THESIS,
     HELP_V1_PROVIDER_CHECK,
     HELP_WEBGUI_OPEN_BROWSER,
     HELP_WEBGUI_SERVICE_APP,
+    LABEL_ACCELERATOR,
+    LABEL_ADAPTER,
     LABEL_AGENT,
     LABEL_AGENT_PROFILE,
     LABEL_AGENT_TONE,
     LABEL_ALLOWED,
     LABEL_ALLOWED_ACTORS,
-    LABEL_ACCELERATOR,
-    LABEL_ADAPTER,
     LABEL_ALPACA_CREDENTIALS_CONFIGURED,
     LABEL_ALPACA_FEED,
     LABEL_ALPACA_PAPER_ENDPOINT,
-    LABEL_APPROVED,
     LABEL_API_KEY,
+    LABEL_APPROVED,
     LABEL_ARTIFACT,
     LABEL_ASSET_CLASS,
     LABEL_AVAILABLE,
     LABEL_AVERAGE_PRICE,
-    LABEL_BASE_URL,
-    LABEL_BASELINE,
     LABEL_BACKEND,
     LABEL_BACKGROUND_MODE,
+    LABEL_BASE_URL,
+    LABEL_BASELINE,
     LABEL_BEHAVIOR_PRESET,
     LABEL_BIAS,
     LABEL_BLOCKING,
-    LABEL_CAMOFOX,
     LABEL_CACHE_DIR,
+    LABEL_CAMOFOX,
     LABEL_CASH,
     LABEL_CATEGORY,
     LABEL_CHECK,
@@ -332,13 +332,13 @@ from agentic_trader.ui_text import (
     LABEL_CONFIDENCE,
     LABEL_CONSENSUS,
     LABEL_CONTEXT,
-    LABEL_CORE_DEPENDENCY,
     LABEL_CONTINUOUS,
+    LABEL_CORE_DEPENDENCY,
     LABEL_CORE_READY,
     LABEL_CPU_COUNT,
     LABEL_CREATED,
-    LABEL_CURRENCY,
     LABEL_CURRENCIES,
+    LABEL_CURRENCY,
     LABEL_CURRENT,
     LABEL_CURRENT_SYMBOL,
     LABEL_CYCLE,
@@ -356,20 +356,20 @@ from agentic_trader.ui_text import (
     LABEL_DIGEST_REPLAY,
     LABEL_DOMAIN,
     LABEL_DRAWDOWN_FROM_PEAK,
+    LABEL_ENABLED,
     LABEL_ENDING_EQUITY,
     LABEL_ENTRY,
     LABEL_ENTRY_PX,
     LABEL_ENVIRONMENT,
-    LABEL_EQUITY,
-    LABEL_ENABLED,
     LABEL_ENVIRONMENT_EXISTS,
+    LABEL_EQUITY,
     LABEL_ESTIMATED_MODEL_SIZE,
+    LABEL_EVIDENCE,
+    LABEL_EXCHANGES,
     LABEL_EXECUTION_ADAPTER,
     LABEL_EXECUTION_BACKEND,
     LABEL_EXECUTION_OUTCOME,
     LABEL_EXECUTION_RATIONALE,
-    LABEL_EVIDENCE,
-    LABEL_EXCHANGES,
     LABEL_EXIT,
     LABEL_EXIT_CODE,
     LABEL_EXIT_PX,
@@ -377,28 +377,28 @@ from agentic_trader.ui_text import (
     LABEL_EXPOSURE,
     LABEL_FALLBACK,
     LABEL_FALLBACK_CYCLES,
+    LABEL_FAMILY,
     LABEL_FEES,
     LABEL_FIELD,
-    LABEL_FILLS_TODAY,
     LABEL_FILENAME,
+    LABEL_FILLS_TODAY,
     LABEL_FINAL_RATIONALE,
     LABEL_FINAL_SIDE,
-    LABEL_FAMILY,
     LABEL_FLOW_DIR,
     LABEL_FRESHNESS,
     LABEL_GENERATED,
     LABEL_GROSS_EXPOSURE,
+    LABEL_HEADLINES,
+    LABEL_HEALTHCHECK,
     LABEL_HEARTBEAT,
     LABEL_HEARTBEAT_AGE,
-    LABEL_HEALTHCHECK,
-    LABEL_HEADLINES,
     LABEL_ID,
-    LABEL_INTERVAL,
     LABEL_INTENT,
+    LABEL_INTERVAL,
     LABEL_INTERVENTION,
     LABEL_KEY,
-    LABEL_KIND,
     LABEL_KILL_SWITCH_ACTIVE,
+    LABEL_KIND,
     LABEL_LARGEST_POSITION,
     LABEL_LAST_ERROR,
     LABEL_LAST_RECORDED_ERROR,
@@ -407,10 +407,9 @@ from agentic_trader.ui_text import (
     LABEL_LAST_SUCCESSFUL_UPDATE,
     LABEL_LAST_TERMINAL_AT,
     LABEL_LAST_TERMINAL_STATE,
-    LABEL_LAUNCH_COUNT,
     LABEL_LATEST_ORDER,
+    LABEL_LAUNCH_COUNT,
     LABEL_LEVEL,
-    LABEL_LOCKFILE_EXISTS,
     LABEL_LIVE_EXECUTION_ENABLED,
     LABEL_LIVE_PROCESS,
     LABEL_LIVE_READY,
@@ -418,7 +417,9 @@ from agentic_trader.ui_text import (
     LABEL_LLM,
     LABEL_LLM_PROVIDER,
     LABEL_LOCALE,
+    LABEL_LOCKFILE_EXISTS,
     LABEL_LOOKBACK,
+    LABEL_MANAGER_RATIONALE,
     LABEL_MARK_SOURCE,
     LABEL_MARK_STATUS,
     LABEL_MARKED_AT,
@@ -426,24 +427,23 @@ from agentic_trader.ui_text import (
     LABEL_MARKET_PROVIDER,
     LABEL_MARKET_ROLE,
     LABEL_MARKET_VALUE,
-    LABEL_MATERIALITY,
-    LABEL_MANAGER_RATIONALE,
     LABEL_MARKS_RECORDED,
+    LABEL_MATERIALITY,
     LABEL_MAX_CYCLES,
     LABEL_MAX_DRAWDOWN,
     LABEL_MEANING,
     LABEL_MEMORIES,
+    LABEL_MEMORY_GB,
     LABEL_MESSAGE,
     LABEL_METRIC,
     LABEL_MODE,
     LABEL_MODEL,
     LABEL_MODEL_AVAILABLE,
     LABEL_MODEL_ROUTING,
-    LABEL_MEMORY_GB,
     LABEL_MODIFIED,
     LABEL_MULTI_TIMEFRAME,
-    LABEL_NEXT,
     LABEL_NEWS_MODE,
+    LABEL_NEXT,
     LABEL_NO,
     LABEL_NOTE,
     LABEL_NOTES,
@@ -466,58 +466,58 @@ from agentic_trader.ui_text import (
     LABEL_POLL_SECONDS,
     LABEL_PREFERENCE_UPDATE,
     LABEL_PRESET,
+    LABEL_PRODUCES,
     LABEL_PROFILE,
+    LABEL_PROPOSAL,
     LABEL_PROVIDER,
+    LABEL_PURPOSE,
     LABEL_PYTHON_VERSION,
     LABEL_QUANTITY,
     LABEL_QUERY,
-    LABEL_PROPOSAL,
-    LABEL_PRODUCES,
-    LABEL_PURPOSE,
     LABEL_RATIONALE,
     LABEL_REALIZED_PNL,
     LABEL_REASON,
-    LABEL_REF,
-    LABEL_REJECTION_EVIDENCE,
-    LABEL_REJECTION_REASON,
-    LABEL_REGIONS,
-    LABEL_REQUIRES_CONFIRMATION,
     LABEL_REASONS,
     LABEL_RECENT_RUNS,
+    LABEL_REF,
+    LABEL_REGIONS,
+    LABEL_REJECTION_EVIDENCE,
+    LABEL_REJECTION_REASON,
+    LABEL_REQUIRES_CONFIRMATION,
     LABEL_RESEARCH_CYCLE_CONTROL,
+    LABEL_RESOLUTION_NOTES,
     LABEL_RESTART_COUNT,
     LABEL_RETRIEVED_MEMORIES,
     LABEL_RETRIEVED_MEMORY_ROLES,
-    LABEL_RESOLUTION_NOTES,
     LABEL_RETURN,
     LABEL_REVIEW_SUMMARY,
+    LABEL_RISK,
+    LABEL_RISK_PROFILE,
     LABEL_ROLE,
+    LABEL_RUN_ID,
     LABEL_RUNTIME,
     LABEL_RUNTIME_DAEMON,
     LABEL_RUNTIME_DIR,
-    LABEL_RISK,
-    LABEL_RISK_PROFILE,
-    LABEL_RUN_ID,
+    LABEL_SAFE_PARALLEL_AGENTS,
+    LABEL_SCAFFOLD_EXISTS,
     LABEL_SCORE,
-    LABEL_SERVICE,
     LABEL_SECTORS,
+    LABEL_SERVICE,
     LABEL_SETTING,
     LABEL_SETUP,
-    LABEL_SCAFFOLD_EXISTS,
+    LABEL_SHARED_BUS,
+    LABEL_SHARED_BUS_ROLES,
     LABEL_SIDE,
     LABEL_SIDECAR_AVAILABLE,
     LABEL_SIGNAL,
     LABEL_SIMULATED,
-    LABEL_SHARED_BUS,
-    LABEL_SHARED_BUS_ROLES,
     LABEL_SIZE,
-    LABEL_SNAPSHOT_COUNT,
     LABEL_SLIPPAGE,
+    LABEL_SNAPSHOT_COUNT,
     LABEL_SOURCE,
     LABEL_SPECIALIST,
     LABEL_STAGE,
     LABEL_STARTED,
-    LABEL_STEP,
     LABEL_STATE,
     LABEL_STATUS,
     LABEL_STATUS_NOTE,
@@ -525,31 +525,31 @@ from agentic_trader.ui_text import (
     LABEL_STDERR_LOG,
     LABEL_STDOUT,
     LABEL_STDOUT_LOG,
+    LABEL_STEP,
     LABEL_STOP,
     LABEL_STOP_REQUESTED,
     LABEL_STRATEGY,
-    LABEL_STRUCTURED_LLM,
     LABEL_STRICTNESS,
+    LABEL_STRUCTURED_LLM,
     LABEL_SUMMARY,
     LABEL_SUPPORTED,
     LABEL_SURFACE,
-    LABEL_SAFE_PARALLEL_AGENTS,
     LABEL_SYMBOL,
     LABEL_SYMBOLS,
     LABEL_TAKE,
     LABEL_TAKE_PROFIT,
     LABEL_TARGET,
     LABEL_TIMEZONE,
+    LABEL_TOKEN_HINT,
     LABEL_TOOL,
     LABEL_TOOL_OUTPUT_ROLES,
     LABEL_TOOL_OUTPUTS,
     LABEL_TOOLS,
-    LABEL_TOKEN_HINT,
     LABEL_TOTAL_RETURN,
-    LABEL_TRADES,
     LABEL_TRADABLE_NOW,
     LABEL_TRADE_MEMORY,
     LABEL_TRADE_STYLE,
+    LABEL_TRADES,
     LABEL_TRIGGER_NOW,
     LABEL_TRIGGER_NOW_REQUESTED,
     LABEL_TYPE,
@@ -558,8 +558,8 @@ from agentic_trader.ui_text import (
     LABEL_UPDATED,
     LABEL_UPDATED_AT,
     LABEL_UV_AVAILABLE,
-    LABEL_V1_SOURCE,
     LABEL_V1_PATH,
+    LABEL_V1_SOURCE,
     LABEL_VALIDATION,
     LABEL_VALUE,
     LABEL_VENUE,
@@ -569,10 +569,10 @@ from agentic_trader.ui_text import (
     LABEL_WARNINGS,
     LABEL_WATCHED_SYMBOLS,
     LABEL_WEB_GUI,
+    LABEL_WHY,
     LABEL_WIN_RATE,
     LABEL_WITH_MEMORY,
     LABEL_WITHOUT_MEMORY,
-    LABEL_WHY,
     LABEL_WORKSPACE,
     LABEL_YES,
     LAUNCHER_OPTION_CONTINUE_TUI,
@@ -580,15 +580,15 @@ from agentic_trader.ui_text import (
     LAUNCHER_OPTION_OPEN_WEB_GUI,
     LAUNCHER_OPTION_REFRESH,
     MESSAGE_ALL_AGENT_STAGES_LLM_PATH,
+    MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
     MESSAGE_BACKGROUND_SERVICE_NOT_ACTIVE,
     MESSAGE_BACKGROUND_SERVICE_RESTARTED,
-    MESSAGE_BACKGROUND_REQUIRES_CONTINUOUS,
     MESSAGE_BACKTEST_CHOOSE_ONE_COMPARISON,
     MESSAGE_BACKTEST_COMPARISON_WRITTEN,
     MESSAGE_BACKTEST_MEMORY_ABLATION_WRITTEN,
     MESSAGE_BACKTEST_SUMMARY_WRITTEN,
-    MESSAGE_CALENDAR_STATUS_UNAVAILABLE,
     MESSAGE_CACHE_STATUS,
+    MESSAGE_CALENDAR_STATUS_UNAVAILABLE,
     MESSAGE_EVIDENCE_BUNDLE_WRITTEN,
     MESSAGE_FALLBACK_USED_IN,
     MESSAGE_FINANCE_OPERATIONS_UNAVAILABLE,
@@ -606,56 +606,55 @@ from agentic_trader.ui_text import (
     MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ELEVATED_PORTFOLIO_RISK_WARNINGS,
     MESSAGE_NO_HISTORICAL_MEMORIES,
+    MESSAGE_NO_OPEN_POSITIONS,
     MESSAGE_NO_ORDERS_RECORDED,
+    MESSAGE_NO_PERSISTED_RUNS_EXPORT,
+    MESSAGE_NO_PERSISTED_RUNS_REPLAY,
+    MESSAGE_NO_PERSISTED_RUNS_REVIEW,
+    MESSAGE_NO_PERSISTED_RUNS_TRACE,
+    MESSAGE_NO_PROPOSAL_CANDIDATES,
     MESSAGE_NO_RETRIEVAL_INSPECTION_CONTEXT,
     MESSAGE_NO_RETRIEVAL_STAGE_CONTEXT,
-    MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
-    MESSAGE_NO_OPEN_POSITIONS,
-    MESSAGE_NO_PROPOSAL_CANDIDATES,
     MESSAGE_NO_RUNTIME_EVENTS,
     MESSAGE_NO_RUNTIME_STATE,
     MESSAGE_NO_STDERR_LOG_LINES,
     MESSAGE_NO_STDOUT_LOG_LINES,
+    MESSAGE_NO_TOOL_NEWS_HEADLINES,
+    MESSAGE_NO_TRADE_CONTEXT,
     MESSAGE_NO_TRADE_JOURNAL_ENTRIES,
     MESSAGE_NO_TRADE_PROPOSALS,
-    MESSAGE_NO_TOOL_NEWS_HEADLINES,
     MESSAGE_NODE_MISSING,
-    MESSAGE_NO_PERSISTED_RUNS_REVIEW,
-    MESSAGE_NO_PERSISTED_RUNS_REPLAY,
-    MESSAGE_NO_PERSISTED_RUNS_EXPORT,
-    MESSAGE_NO_PERSISTED_RUNS_TRACE,
-    MESSAGE_NO_TRADE_CONTEXT,
-    MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
     MESSAGE_OBSERVER_API_LISTENING,
     MESSAGE_OBSERVER_API_NONLOCAL_BLOCKED,
+    MESSAGE_OPEN_POSITION_COUNT_ELEVATED,
+    MESSAGE_OPERATOR_WORKFLOW_GUIDANCE,
     MESSAGE_PORTFOLIO_CONCENTRATION_HHI,
     MESSAGE_PORTFOLIO_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
     MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_POSITION_PLAN_REPAIR_UNAVAILABLE,
+    MESSAGE_PREFERENCES_TEMPORARILY_UNAVAILABLE,
     MESSAGE_PROPOSAL_CANDIDATE_CREATED,
     MESSAGE_PROPOSAL_CANDIDATE_PROMOTED,
+    MESSAGE_PROPOSAL_CANDIDATES_TEMPORARILY_UNAVAILABLE,
     MESSAGE_RESEARCH_CYCLE_CHOOSE_ONE_ACTION,
     MESSAGE_RESEARCH_CYCLE_CONTROL_STATUS,
     MESSAGE_RESEARCH_CYCLE_REASON_REQUIRES_ACTION,
     MESSAGE_RESEARCH_CYCLE_RUN_SUMMARY,
     MESSAGE_RESEARCH_SNAPSHOT_RECORDED,
+    MESSAGE_RETRIEVAL_INSPECTION_TEMPORARILY_UNAVAILABLE,
     MESSAGE_RISK_REPORT_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_RUN_REPORT_WRITTEN,
+    MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE,
+    MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE,
     MESSAGE_RUNTIME_GATE_OPEN,
     MESSAGE_RUNTIME_MODE_TRANSITION_ALLOWED,
     MESSAGE_RUNTIME_MODE_TRANSITION_BLOCKED,
-    MESSAGE_RETRIEVAL_INSPECTION_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_RUN_REVIEW_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_RUN_REPLAY_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_RUN_REPORT_WRITTEN,
-    MESSAGE_RUN_TRACE_TEMPORARILY_UNAVAILABLE,
-    MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
     MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED,
     MESSAGE_SERVICE_STALE_RUNTIME_RECOVERED_EVENT,
     MESSAGE_SERVICE_STOP_REQUESTED,
+    MESSAGE_SETUP_BOOTSTRAP_GUIDANCE,
     MESSAGE_STRATEGY_PROFILE_EXECUTION_POLICY,
-    MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADE_CONTEXT_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADE_JOURNAL_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADE_PROPOSAL_APPROVED,
@@ -663,6 +662,7 @@ from agentic_trader.ui_text import (
     MESSAGE_TRADE_PROPOSAL_RECONCILED,
     MESSAGE_TRADE_PROPOSAL_REFRESHED,
     MESSAGE_TRADE_PROPOSAL_REJECTED,
+    MESSAGE_TRADE_PROPOSALS_TEMPORARILY_UNAVAILABLE,
     MESSAGE_TRADING_RUNTIME_BLOCKED,
     MESSAGE_TRADING_RUNTIME_READY,
     MESSAGE_TRAINING_DIAGNOSTIC_FALLBACK,
@@ -690,53 +690,57 @@ from agentic_trader.ui_text import (
     SUPPORTED_UI_LOCALES,
     TITLE_AGENT_DECISIONS,
     TITLE_AGENT_TRACE,
+    TITLE_ALPACA_PAPER_CHECKS,
     TITLE_APPROVAL_BLOCKED,
     TITLE_AVAILABLE_MODELS,
     TITLE_BACKTEST_COMPARISON,
     TITLE_BACKTEST_MEMORY_ABLATION,
     TITLE_BACKTEST_TRADES,
     TITLE_BROKER_STATUS,
-    TITLE_CALENDAR_STATUS,
     TITLE_CACHE_STATUS,
-    TITLE_CANONICAL_ANALYSIS,
-    TITLE_ALPACA_PAPER_CHECKS,
-    TITLE_CANDIDATE_REJECTED,
+    TITLE_CALENDAR_STATUS,
     TITLE_CAMOFOX_BROWSER_HELPER,
-    TITLE_CAMOFOX_STDERR_TAIL,
     TITLE_CAMOFOX_START_FAILED,
+    TITLE_CAMOFOX_STDERR_TAIL,
+    TITLE_CANDIDATE_REJECTED,
+    TITLE_CANONICAL_ANALYSIS,
     TITLE_CHAT,
     TITLE_CHOOSE_SURFACE,
     TITLE_CONTEXT_SUMMARY,
     TITLE_DAILY_RISK_REPORT,
     TITLE_DESK_ACCOUNTING_CONTEXT,
     TITLE_ENVIRONMENT_CHECK,
+    TITLE_EVIDENCE_BUNDLE,
     TITLE_EXECUTION_SUMMARY,
+    TITLE_EXIT,
     TITLE_EXPORT_BLOCKED,
     TITLE_EXPORTED,
-    TITLE_EXIT,
-    TITLE_EVIDENCE_BUNDLE,
+    TITLE_FINANCE_LEDGER_CATEGORIES,
+    TITLE_FINANCE_OPERATIONS,
+    TITLE_FINANCE_OPERATIONS_CHECKS,
     TITLE_HARDWARE_PROFILE,
     TITLE_IDEA_SCANNER_PRESETS,
     TITLE_IDEA_SCORE,
     TITLE_INSTALLING_TUI_DEPENDENCIES,
     TITLE_INVESTMENT_PREFERENCES,
-    TITLE_FINANCE_LEDGER_CATEGORIES,
-    TITLE_FINANCE_OPERATIONS,
-    TITLE_FINANCE_OPERATIONS_CHECKS,
-    TITLE_LLM_STATUS,
     TITLE_LAUNCH_PLAN,
-    TITLE_MARKET_SESSION,
-    TITLE_MARKET_SNAPSHOT_CACHE,
-    TITLE_MARKET_SNAPSHOT_CACHED,
+    TITLE_LLM_STATUS,
     TITLE_MANAGER_CONFLICT_REPLAY,
     TITLE_MANAGER_CONFLICTS,
     TITLE_MANAGER_OVERRIDE_NOTES,
+    TITLE_MARKET_SESSION,
+    TITLE_MARKET_SNAPSHOT_CACHE,
+    TITLE_MARKET_SNAPSHOT_CACHED,
     TITLE_MEMORY_AWARE_REPLAY,
     TITLE_MEMORY_EXPLORER,
     TITLE_MEMORY_WRITE_POLICY,
     TITLE_MODEL_PULL,
-    TITLE_MODEL_SERVICE_STDERR_TAIL,
     TITLE_MODEL_SERVICE_START_FAILED,
+    TITLE_MODEL_SERVICE_STDERR_TAIL,
+    TITLE_NEWS_BRIEF,
+    TITLE_NEWS_INTELLIGENCE,
+    TITLE_NEWS_QUERY_PLAN,
+    TITLE_NEWS_TOOL,
     TITLE_NODE_MISSING,
     TITLE_NOT_RUNNING,
     TITLE_OBSERVER_API,
@@ -746,37 +750,38 @@ from agentic_trader.ui_text import (
     TITLE_OPERATOR_WORKFLOW,
     TITLE_PAPER_OPERATION_CHECKS,
     TITLE_PIPELINE,
+    TITLE_PORTFOLIO,
     TITLE_POSITION_PLAN_REPAIR,
-    TITLE_PROPOSAL_REJECTED,
+    TITLE_POSITIONS,
     TITLE_PROMOTION_BLOCKED,
     TITLE_PROPOSAL_CANDIDATE_CREATED,
     TITLE_PROPOSAL_CANDIDATE_PROMOTED,
+    TITLE_PROPOSAL_CANDIDATES,
+    TITLE_PROPOSAL_REJECTED,
     TITLE_PROVIDER_DIAGNOSTICS,
     TITLE_PROVIDER_SOURCE_LADDER,
-    TITLE_PORTFOLIO,
-    TITLE_POSITIONS,
+    TITLE_QA_EVIDENCE_BUNDLE,
     TITLE_RECOMMENDED_COMMANDS,
-    TITLE_PROPOSAL_CANDIDATES,
     TITLE_RECOMMENDED_NEXT_COMMANDS,
+    TITLE_RECONCILIATION_BLOCKED,
+    TITLE_REFRESH_BLOCKED,
+    TITLE_REJECTION_BLOCKED,
+    TITLE_REPLAY_STAGES,
     TITLE_RESEARCH_CREWAI_FLOW_SETUP,
     TITLE_RESEARCH_CYCLE_CONTROL,
     TITLE_RESEARCH_CYCLE_PHASES,
     TITLE_RESEARCH_CYCLE_PLAN,
     TITLE_RESEARCH_CYCLE_RUN,
     TITLE_RESEARCH_SIDECAR_STATUS,
-    TITLE_RESEARCH_SOURCE_HEALTH,
     TITLE_RESEARCH_SNAPSHOT_PERSISTED,
+    TITLE_RESEARCH_SOURCE_HEALTH,
+    TITLE_RESTART_BLOCKED,
     TITLE_RETRIEVAL_INSPECTION,
     TITLE_RETRIEVAL_INSPECTION_FOR_RUN,
     TITLE_RETRIEVAL_STAGE,
-    TITLE_ROUTED_MODELS,
-    TITLE_REPLAY_STAGES,
-    TITLE_RECONCILIATION_BLOCKED,
-    TITLE_REFRESH_BLOCKED,
-    TITLE_REJECTION_BLOCKED,
-    TITLE_RESTART_BLOCKED,
     TITLE_REVIEW_NOTE,
     TITLE_RISK_WARNINGS,
+    TITLE_ROUTED_MODELS,
     TITLE_RUN_ARTIFACTS,
     TITLE_RUN_BLOCKED,
     TITLE_RUN_REPLAY,
@@ -785,8 +790,8 @@ from agentic_trader.ui_text import (
     TITLE_RUNTIME_GATE_OPEN,
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
-    TITLE_SERVICE_STATUS,
     TITLE_SERVICE_RESTARTED,
+    TITLE_SERVICE_STATUS,
     TITLE_SERVICE_STDERR_TAIL,
     TITLE_SERVICE_STDOUT_TAIL,
     TITLE_SERVICE_SUPERVISOR,
@@ -795,17 +800,12 @@ from agentic_trader.ui_text import (
     TITLE_STALE_STATE_RECOVERED,
     TITLE_STOP_REQUESTED,
     TITLE_STRATEGY_PROFILE,
-    TITLE_V1_STRATEGY_CATALOG,
-    TITLE_NEWS_INTELLIGENCE,
-    TITLE_NEWS_BRIEF,
-    TITLE_NEWS_QUERY_PLAN,
-    TITLE_NEWS_TOOL,
     TITLE_TOOL_OWNERSHIP,
     TITLE_TOOL_READINESS,
     TITLE_TRACE,
-    TITLE_TRADE_JOURNAL,
     TITLE_TRADE_CONTEXT,
     TITLE_TRADE_CONTEXT_DETAIL,
+    TITLE_TRADE_JOURNAL,
     TITLE_TRADE_PROPOSAL_APPROVED,
     TITLE_TRADE_PROPOSAL_CREATED,
     TITLE_TRADE_PROPOSAL_RECONCILED,
@@ -816,9 +816,9 @@ from agentic_trader.ui_text import (
     TITLE_TUI_MISSING,
     TITLE_UI_LOCALE,
     TITLE_UPDATED_PREFERENCES,
-    TITLE_V1_READINESS,
     TITLE_V1_OPERATOR_WORKFLOW,
-    TITLE_QA_EVIDENCE_BUNDLE,
+    TITLE_V1_READINESS,
+    TITLE_V1_STRATEGY_CATALOG,
     TITLE_WALK_FORWARD_BACKTEST,
     TITLE_WARNING,
     TITLE_WEB_GUI_SERVICE,
@@ -958,9 +958,7 @@ def _proposal_create_params() -> list[click.Parameter]:
             show_default=True,
             help=HELP_TRADE_CONFIDENCE,
         ),
-        click.Option(
-            ["--thesis"], required=True, help=HELP_TRADE_THESIS
-        ),
+        click.Option(["--thesis"], required=True, help=HELP_TRADE_THESIS),
         click.Option(
             ["--order-type", "order_type"],
             default="market",
@@ -2232,7 +2230,9 @@ def _position_plan_coverage_payload(settings: Settings) -> dict[str, object]:
             db.close()
         available = True
         error = None
-    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         positions = []
         plans = []
         available = False
@@ -2350,7 +2350,9 @@ def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
             db.close()
         available = True
         error = None
-    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         entries = []
         available = False
         error = str(exc)
@@ -2646,7 +2648,9 @@ def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]
             db.close()
         available = True
         error = None
-    except Exception as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
         runs = []
         available = False
         error = str(exc)
@@ -2728,9 +2732,7 @@ def _risk_report_from_portfolio(
             )
         )
     if portfolio_hhi > 0.25:
-        warnings.append(
-            MESSAGE_PORTFOLIO_CONCENTRATION_HHI.format(score=portfolio_hhi)
-        )
+        warnings.append(MESSAGE_PORTFOLIO_CONCENTRATION_HHI.format(score=portfolio_hhi))
 
     return DailyRiskReport(
         report_date=resolved_date,
@@ -4857,9 +4859,7 @@ def camofox_service_stop(
 
 @app.command("runtime-mode-checklist")
 def runtime_mode_checklist(
-    target_mode: RuntimeMode = typer.Argument(
-        ..., help=HELP_RUNTIME_MODE_TARGET
-    ),
+    target_mode: RuntimeMode = typer.Argument(..., help=HELP_RUNTIME_MODE_TARGET),
     check_provider: bool = typer.Option(
         True,
         "--provider-check/--skip-provider-check",
@@ -5077,9 +5077,7 @@ def research_cycle_control(
                 label=LABEL_RESEARCH_CYCLE_CONTROL,
                 status=control.status,
                 trigger_label=LABEL_TRIGGER_NOW_REQUESTED,
-                trigger_now=(
-                    LABEL_YES if control.trigger_now_requested else LABEL_NO
-                ),
+                trigger_now=(LABEL_YES if control.trigger_now_requested else LABEL_NO),
             ),
             title=TITLE_RESEARCH_CYCLE_CONTROL,
             border_style="cyan",
@@ -5216,21 +5214,13 @@ def run(
 
 @app.command()
 def launch(
-    symbols: str = typer.Option(
-        ..., help=HELP_LAUNCH_SYMBOLS
-    ),
+    symbols: str = typer.Option(..., help=HELP_LAUNCH_SYMBOLS),
     interval: str = typer.Option("1d", help=HELP_INTERVAL),
     lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
-    poll_seconds: int = typer.Option(
-        300, help=HELP_LAUNCH_POLL_SECONDS
-    ),
+    poll_seconds: int = typer.Option(300, help=HELP_LAUNCH_POLL_SECONDS),
     continuous: bool = typer.Option(False, help=HELP_LAUNCH_CONTINUOUS),
-    max_cycles: int | None = typer.Option(
-        None, help=HELP_LAUNCH_MAX_CYCLES
-    ),
-    background: bool = typer.Option(
-        False, help=HELP_LAUNCH_BACKGROUND
-    ),
+    max_cycles: int | None = typer.Option(None, help=HELP_LAUNCH_MAX_CYCLES),
+    background: bool = typer.Option(False, help=HELP_LAUNCH_BACKGROUND),
 ) -> None:
     """Start a foreground or managed background paper-runtime loop."""
     settings = get_settings()
@@ -5510,9 +5500,7 @@ def _render_readiness_checks(title: str, payload: Mapping[str, object]) -> None:
     for item in _object_mapping_list(checks):
         passed = bool(item.get("passed"))
         state_label = (
-            f"[green]{STATUS_PASS}[/green]"
-            if passed
-            else f"[red]{STATUS_FAIL}[/red]"
+            f"[green]{STATUS_PASS}[/green]" if passed else f"[red]{STATUS_FAIL}[/red]"
         )
         table.add_row(
             str(item.get("name", "-")),
@@ -5676,12 +5664,12 @@ def position_plan_repair(
             )
         finally:
             db.close()
-    except Exception as exc:  # noqa: BLE001 - operator command should degrade on DB locks
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - operator command should degrade on DB locks
         console.print(
             Panel(
-                MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE.format(
-                    error=exc
-                ),
+                MESSAGE_POSITION_PLAN_REPAIR_TEMPORARILY_UNAVAILABLE.format(error=exc),
                 title=LABEL_OBSERVER_MODE,
                 border_style="yellow",
             )
@@ -5716,9 +5704,7 @@ def trade_proposals(
         "--status",
         help=HELP_TRADE_PROPOSALS_STATUS_FILTER,
     ),
-    limit: int = typer.Option(
-        50, min=1, max=200, help=HELP_TRADE_PROPOSALS_LIMIT
-    ),
+    limit: int = typer.Option(50, min=1, max=200, help=HELP_TRADE_PROPOSALS_LIMIT),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -5761,9 +5747,7 @@ def proposal_candidates(
         "--status",
         help=HELP_PROPOSAL_CANDIDATES_STATUS_FILTER,
     ),
-    limit: int = typer.Option(
-        50, min=1, max=200, help=HELP_PROPOSAL_CANDIDATES_LIMIT
-    ),
+    limit: int = typer.Option(50, min=1, max=200, help=HELP_PROPOSAL_CANDIDATES_LIMIT),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """Show scanner/research candidates that may be promoted into proposals."""
@@ -5803,9 +5787,7 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
         ..., "--price", min=0.01, help=HELP_TRADE_REFERENCE_PRICE
     ),
     volume: float = typer.Option(..., "--volume", min=0.0, help=HELP_IDEA_VOLUME),
-    change_pct: float = typer.Option(
-        ..., "--change-pct", help=HELP_IDEA_CHANGE_PCT
-    ),
+    change_pct: float = typer.Option(..., "--change-pct", help=HELP_IDEA_CHANGE_PCT),
     relative_volume: float = typer.Option(0.0, "--relative-volume", min=0.0),
     gap_pct: float = typer.Option(0.0, "--gap-pct", help=HELP_IDEA_GAP_PCT),
     range_pct: float = typer.Option(0.0, "--range-pct", min=0.0),
@@ -5835,9 +5817,7 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
     ),
     liquidity: str = typer.Option("", "--liquidity", help=HELP_CANDIDATE_LIQUIDITY),
     risk_notes: str = typer.Option("", "--risk-notes", help=HELP_CANDIDATE_RISK_NOTES),
-    source: str = typer.Option(
-        "idea-scanner", "--source", help=HELP_CANDIDATE_SOURCE
-    ),
+    source: str = typer.Option("idea-scanner", "--source", help=HELP_CANDIDATE_SOURCE),
     enrich_provider_context: bool = typer.Option(
         True,
         "--enrich-provider-context/--no-enrich-provider-context",
@@ -5897,7 +5877,9 @@ def proposal_candidate_create(  # NOSONAR - Typer maps each CLI option into the 
         if json_output:
             _emit_json_error(exc)
             raise typer.Exit(code=2) from exc
-        console.print(Panel(str(exc), title=TITLE_CANDIDATE_REJECTED, border_style="red"))
+        console.print(
+            Panel(str(exc), title=TITLE_CANDIDATE_REJECTED, border_style="red")
+        )
         raise typer.Exit(code=2) from exc
     if json_output:
         _emit_json(candidate.model_dump(mode="json"))
@@ -5949,7 +5931,9 @@ def proposal_candidate_promote(
         if json_output:
             _emit_json_error(exc)
             raise typer.Exit(code=2) from exc
-        console.print(Panel(str(exc), title=TITLE_PROMOTION_BLOCKED, border_style="red"))
+        console.print(
+            Panel(str(exc), title=TITLE_PROMOTION_BLOCKED, border_style="red")
+        )
         raise typer.Exit(code=2) from exc
     payload = {
         "candidate": candidate.model_dump(mode="json"),
@@ -6032,7 +6016,9 @@ def proposal_create(**options: str) -> None:
         if bool(options["json_output"]):
             _emit_json_error(exc)
             raise typer.Exit(code=2) from exc
-        console.print(Panel(str(exc), title=TITLE_PROPOSAL_REJECTED, border_style="red"))
+        console.print(
+            Panel(str(exc), title=TITLE_PROPOSAL_REJECTED, border_style="red")
+        )
         raise typer.Exit(code=2) from exc
     payload = proposal.model_dump(mode="json")
     if bool(options["json_output"]):
@@ -6112,12 +6098,8 @@ def proposal_approve(
 
 @app.command("proposal-reconcile")
 def proposal_reconcile(
-    proposal_id: str = typer.Argument(
-        ..., help=HELP_TRADE_PROPOSAL_RECONCILE_ID
-    ),
-    review_notes: str = typer.Option(
-        "", help=HELP_TRADE_PROPOSAL_RECONCILIATION_NOTES
-    ),
+    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_RECONCILE_ID),
+    review_notes: str = typer.Option("", help=HELP_TRADE_PROPOSAL_RECONCILIATION_NOTES),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -6173,9 +6155,7 @@ def proposal_reconcile(
 
 @app.command("proposal-refresh")
 def proposal_refresh(
-    proposal_id: str = typer.Argument(
-        ..., help=HELP_TRADE_PROPOSAL_REFRESH_ID
-    ),
+    proposal_id: str = typer.Argument(..., help=HELP_TRADE_PROPOSAL_REFRESH_ID),
     review_notes: str = typer.Option("", help=HELP_TRADE_PROPOSAL_REFRESH_NOTES),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
@@ -6265,7 +6245,9 @@ def proposal_reject(
         if json_output:
             _emit_json_error(exc)
             raise typer.Exit(code=2) from exc
-        console.print(Panel(str(exc), title=TITLE_REJECTION_BLOCKED, border_style="red"))
+        console.print(
+            Panel(str(exc), title=TITLE_REJECTION_BLOCKED, border_style="red")
+        )
         raise typer.Exit(code=2) from exc
     if json_output:
         _emit_json(proposal.model_dump(mode="json"))
@@ -6448,9 +6430,7 @@ def news_intelligence(
     company_name: str | None = typer.Option(
         None, "--company-name", help=HELP_NEWS_COMPANY_NAME
     ),
-    sector: str | None = typer.Option(
-        None, "--sector", help=HELP_NEWS_SECTOR
-    ),
+    sector: str | None = typer.Option(None, "--sector", help=HELP_NEWS_SECTOR),
     classify_source: str | None = typer.Option(
         None,
         "--classify-source",
@@ -6556,12 +6536,8 @@ def research_cycle_plan(
 
 @app.command("research-cycle-run")
 def research_cycle_run(
-    symbols: str = typer.Option(
-        ..., "--symbols", help=HELP_RESEARCH_CYCLE_RUN_SYMBOLS
-    ),
-    cycles: int = typer.Option(
-        1, min=1, max=24, help=HELP_RESEARCH_CYCLE_RUN_CYCLES
-    ),
+    symbols: str = typer.Option(..., "--symbols", help=HELP_RESEARCH_CYCLE_RUN_SYMBOLS),
+    cycles: int = typer.Option(1, min=1, max=24, help=HELP_RESEARCH_CYCLE_RUN_CYCLES),
     cadence_seconds: int = typer.Option(
         60,
         "--cadence-seconds",
@@ -6632,9 +6608,7 @@ def research_cycle_run(
 
 @app.command()
 def logs(
-    limit: int = typer.Option(
-        20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT
-    ),
+    limit: int = typer.Option(20, min=1, max=200, help=HELP_RUNTIME_EVENT_LIMIT),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -7387,9 +7361,7 @@ def evidence_bundle_command(
         table.add_row(key, path)
     console.print(
         Panel(
-            MESSAGE_EVIDENCE_BUNDLE_WRITTEN.format(
-                bundle_dir=manifest["bundle_dir"]
-            ),
+            MESSAGE_EVIDENCE_BUNDLE_WRITTEN.format(bundle_dir=manifest["bundle_dir"]),
             title=TITLE_EVIDENCE_BUNDLE,
             border_style="green",
         )
@@ -7482,12 +7454,8 @@ OBSERVER_API_ENDPOINTS: tuple[str, ...] = (
 
 @app.command("observer-api")
 def observer_api_command(
-    host: str = typer.Option(
-        "127.0.0.1", help=HELP_OBSERVER_API_HOST
-    ),
-    port: int = typer.Option(
-        8765, min=1, max=65535, help=HELP_OBSERVER_API_PORT
-    ),
+    host: str = typer.Option("127.0.0.1", help=HELP_OBSERVER_API_HOST),
+    port: int = typer.Option(8765, min=1, max=65535, help=HELP_OBSERVER_API_PORT),
     log_limit: int = typer.Option(14, min=1, max=100, help=HELP_RUNTIME_EVENT_LIMIT),
     allow_nonlocal: bool = typer.Option(
         False,
@@ -7746,9 +7714,7 @@ def preferences_command(
     table.add_column(LABEL_SETTING)
     table.add_column(LABEL_VALUE)
     table.add_row(LABEL_REGIONS, UI_LIST_SEPARATOR.join(preferences.regions) or "-")
-    table.add_row(
-        LABEL_EXCHANGES, UI_LIST_SEPARATOR.join(preferences.exchanges) or "-"
-    )
+    table.add_row(LABEL_EXCHANGES, UI_LIST_SEPARATOR.join(preferences.exchanges) or "-")
     table.add_row(
         LABEL_CURRENCIES, UI_LIST_SEPARATOR.join(preferences.currencies) or "-"
     )
@@ -7804,9 +7770,7 @@ def journal(
 
 @app.command("risk-report")
 def risk_report(
-    report_date: str | None = typer.Option(
-        None, help=HELP_RISK_REPORT_DATE
-    ),
+    report_date: str | None = typer.Option(None, help=HELP_RISK_REPORT_DATE),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -8120,15 +8084,9 @@ def backtest(
     symbol: str = typer.Option(..., help=HELP_SYMBOL),
     interval: str = typer.Option("1d", help=HELP_INTERVAL),
     lookback: str = typer.Option("2y", help=HELP_LOOKBACK),
-    warmup_bars: int = typer.Option(
-        120, min=60, help=HELP_BACKTEST_WARMUP_BARS
-    ),
-    compare_baseline: bool = typer.Option(
-        False, help=HELP_BACKTEST_COMPARE_BASELINE
-    ),
-    compare_memory: bool = typer.Option(
-        False, help=HELP_BACKTEST_COMPARE_MEMORY
-    ),
+    warmup_bars: int = typer.Option(120, min=60, help=HELP_BACKTEST_WARMUP_BARS),
+    compare_baseline: bool = typer.Option(False, help=HELP_BACKTEST_COMPARE_BASELINE),
+    compare_memory: bool = typer.Option(False, help=HELP_BACKTEST_COMPARE_MEMORY),
     output: str | None = typer.Option(None, help=HELP_BACKTEST_OUTPUT),
 ) -> None:
     """
@@ -8257,12 +8215,8 @@ def memory_explorer(
     symbol: str | None = typer.Option(None, help=HELP_SYMBOL),
     interval: str | None = typer.Option(None, help=HELP_INTERVAL),
     lookback: str = typer.Option("180d", help=HELP_LOOKBACK),
-    limit: int = typer.Option(
-        5, min=1, max=20, help=HELP_MEMORY_EXPLORER_LIMIT
-    ),
-    use_latest_run: bool = typer.Option(
-        True, help=HELP_MEMORY_EXPLORER_USE_LATEST_RUN
-    ),
+    limit: int = typer.Option(5, min=1, max=20, help=HELP_MEMORY_EXPLORER_LIMIT),
+    use_latest_run: bool = typer.Option(True, help=HELP_MEMORY_EXPLORER_USE_LATEST_RUN),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -8514,12 +8468,8 @@ def memory_policy(
 
 @app.command()
 def chat(
-    persona: ChatPersona = typer.Option(
-        "operator_liaison", help=HELP_CHAT_PERSONA
-    ),
-    message: str | None = typer.Option(
-        None, help=HELP_CHAT_MESSAGE
-    ),
+    persona: ChatPersona = typer.Option("operator_liaison", help=HELP_CHAT_PERSONA),
+    message: str | None = typer.Option(None, help=HELP_CHAT_MESSAGE),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -8578,9 +8528,7 @@ def chat(
 @app.command()
 def instruct(
     message: str = typer.Option(..., help=HELP_INSTRUCT_MESSAGE),
-    apply: bool = typer.Option(
-        False, help=HELP_INSTRUCT_APPLY
-    ),
+    apply: bool = typer.Option(False, help=HELP_INSTRUCT_APPLY),
     json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
 ) -> None:
     """
@@ -8700,9 +8648,7 @@ def ink_tui() -> None:
 
 @app.command("stop-service")
 def stop_service(
-    force: bool = typer.Option(
-        False, help=HELP_STOP_SERVICE_FORCE
-    ),
+    force: bool = typer.Option(False, help=HELP_STOP_SERVICE_FORCE),
 ) -> None:
     """
     Request a graceful stop for the background orchestrator and update persisted runtime state.
