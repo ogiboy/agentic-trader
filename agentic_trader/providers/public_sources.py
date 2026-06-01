@@ -1,13 +1,17 @@
 """Public-source provider adapters for canonical financial context."""
 
 from collections.abc import Mapping
-from typing import Any, Callable, TypeGuard, cast
+from typing import Any, Callable
 
 import httpx
 
 from agentic_trader.config import Settings
 from agentic_trader.json_utils import object_dict_or_none as _object_mapping
 from agentic_trader.providers.base import metadata, source_attribution, utc_now_iso
+from agentic_trader.providers.sec_companyfacts import (
+    FUNDAMENTAL_FIELDS,
+    fundamental_snapshot_from_sec_companyfacts,
+)
 from agentic_trader.schemas import (
     DisclosureEvent,
     FundamentalSnapshot,
@@ -16,31 +20,10 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.security import safe_exception_note
 
-FUNDAMENTAL_FIELDS = (
-    "revenue_growth",
-    "profitability_stability",
-    "cash_flow_alignment",
-    "debt_risk",
-    "reinvestment_potential",
-)
 SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_COMPANY_FACTS_URL_TEMPLATE = (
     "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
 )
-SEC_RESEARCH_FORMS = frozenset({"10-K", "10-K/A", "10-Q", "10-Q/A"})
-SEC_ANNUAL_FORMS = frozenset({"10-K", "10-K/A"})
-SEC_COMPANY_FACT_CONCEPTS: dict[str, tuple[str, ...]] = {
-    "revenue": (
-        "RevenueFromContractWithCustomerExcludingAssessedTax",
-        "Revenues",
-        "SalesRevenueNet",
-    ),
-    "net_income": ("NetIncomeLoss",),
-    "assets": ("Assets",),
-    "liabilities": ("Liabilities",),
-    "operating_cash_flow": ("NetCashProvidedByUsedInOperatingActivities",),
-    "cash": ("CashAndCashEquivalentsAtCarryingValue",),
-}
 JsonFetcher = Callable[[str, Mapping[str, str], float], dict[str, Any]]
 
 
@@ -166,7 +149,7 @@ class SecEdgarFundamentalProvider:
                 ],
                 summary="SEC EDGAR companyfacts fetch failed.",
             )
-        return _fundamental_snapshot_from_sec_companyfacts(
+        return fundamental_snapshot_from_sec_companyfacts(
             symbol,
             cik=match["cik"],
             entity_name=match["entity_name"],
@@ -408,115 +391,6 @@ def _missing_fundamental_snapshot(
     )
 
 
-def _fundamental_snapshot_from_sec_companyfacts(
-    symbol: SymbolIdentity,
-    *,
-    cik: str,
-    entity_name: str,
-    payload: dict[str, Any],
-) -> FundamentalSnapshot:
-    """
-    Convert an SEC companyfacts JSON payload into a V1 FundamentalSnapshot containing derived fundamental metrics, source attribution, completeness, and a human-readable summary.
-
-    The function extracts US-GAAP facts from the provided payload, selects the latest reported facts for each target metric, derives five V1 ratios (revenue_growth, profitability_stability, cash_flow_alignment, debt_risk, reinvestment_potential), and computes an overall completeness score. If the payload lacks usable US-GAAP facts or does not provide enough metrics to produce a positive completeness score, a missing-style FundamentalSnapshot (attributed to "sec_edgar") is returned instead.
-
-    Parameters:
-        symbol (SymbolIdentity): Identity for the requested symbol; used in the returned snapshot.
-        cik (str): Normalized 10-digit SEC CIK for the entity; included in attribution notes.
-        entity_name (str): Fallback entity name used when payload does not include an entityName.
-        payload (dict[str, Any]): Parsed SEC companyfacts JSON for the CIK.
-
-    Returns:
-        FundamentalSnapshot: A snapshot populated with derived metrics, attribution (including completeness and confidence), missing_fields and a formatted summary; or a missing snapshot attributed to "sec_edgar" when US-GAAP facts are unavailable or insufficient.
-    """
-    facts = _object_mapping(payload.get("facts"))
-    us_gaap = _object_mapping(facts.get("us-gaap") if facts is not None else None)
-    if us_gaap is None:
-        return _missing_fundamental_snapshot(
-            symbol,
-            source_name="sec_edgar",
-            notes=["sec_companyfacts_api", f"cik={cik}", "us_gaap_facts_missing"],
-            summary="SEC EDGAR companyfacts payload did not include usable US-GAAP facts.",
-        )
-
-    latest: dict[str, tuple[str, str, dict[str, Any]]] = {}
-    missing_fields: list[str] = []
-    concept_notes: list[str] = []
-    for metric_id, concepts in SEC_COMPANY_FACT_CONCEPTS.items():
-        fact = _latest_company_fact(us_gaap, concepts=concepts)
-        if fact is None:
-            missing_fields.append(f"company_fact:{metric_id}")
-            continue
-        latest[metric_id] = fact
-        concept_notes.append(f"{metric_id}={fact[0]}")
-
-    revenue_growth = _growth_ratio(us_gaap, SEC_COMPANY_FACT_CONCEPTS["revenue"])
-    revenue = _fact_number(latest.get("revenue"))
-    net_income = _fact_number(latest.get("net_income"))
-    assets = _fact_number(latest.get("assets"))
-    liabilities = _fact_number(latest.get("liabilities"))
-    operating_cash_flow = _fact_number(latest.get("operating_cash_flow"))
-    cash = _fact_number(latest.get("cash"))
-
-    profitability_stability = _ratio(net_income, revenue)
-    cash_flow_alignment = _ratio(operating_cash_flow, net_income)
-    debt_risk = _ratio(liabilities, assets)
-    reinvestment_potential = _ratio(cash, assets)
-    derived_values = {
-        "revenue_growth": revenue_growth,
-        "profitability_stability": profitability_stability,
-        "cash_flow_alignment": cash_flow_alignment,
-        "debt_risk": debt_risk,
-        "reinvestment_potential": reinvestment_potential,
-    }
-    missing_fields.extend(
-        field for field, value in derived_values.items() if value is None
-    )
-    completeness = 1.0 - (len(set(missing_fields)) / (len(FUNDAMENTAL_FIELDS) + 6))
-    completeness = _clamp_ratio(completeness)
-    if completeness <= 0:
-        return _missing_fundamental_snapshot(
-            symbol,
-            source_name="sec_edgar",
-            notes=["sec_companyfacts_api", f"cik={cik}", *concept_notes],
-            summary="SEC EDGAR companyfacts did not provide enough metrics for V1 fundamentals.",
-        )
-
-    entity = str(payload.get("entityName") or entity_name or symbol.symbol).strip()
-    return FundamentalSnapshot(
-        symbol_identity=symbol,
-        revenue_growth=revenue_growth,
-        profitability_stability=profitability_stability,
-        cash_flow_alignment=cash_flow_alignment,
-        debt_risk=debt_risk,
-        fx_exposure="unknown",
-        reinvestment_potential=reinvestment_potential,
-        attribution=source_attribution(
-            source_name="sec_edgar",
-            provider_type="fundamental",
-            source_role="primary",
-            fetched_at=utc_now_iso(),
-            freshness="fresh",
-            confidence=0.95,
-            completeness=completeness,
-            notes=[
-                "sec_companyfacts_api",
-                f"cik={cik}",
-                "raw_filing_text_not_downloaded",
-                *concept_notes,
-            ],
-        ),
-        missing_fields=sorted(set(missing_fields)),
-        summary=(
-            f"SEC companyfacts produced structured V1 fundamentals for {entity}: "
-            f"revenue_growth={_format_optional_ratio(revenue_growth)}, "
-            f"profitability={_format_optional_ratio(profitability_stability)}, "
-            f"cash_flow_alignment={_format_optional_ratio(cash_flow_alignment)}, "
-            f"debt_risk={_format_optional_ratio(debt_risk)}."
-        ),
-    )
-
-
 def _fetch_json(
     url: str, headers: Mapping[str, str], timeout_seconds: float
 ) -> dict[str, Any]:
@@ -618,245 +492,3 @@ def _normalize_cik(value: object) -> str | None:
     except ValueError:
         digits = "".join(char for char in text if char.isdigit())
         return f"{int(digits):010d}" if digits else None
-
-
-def _latest_company_fact(
-    us_gaap: dict[str, Any], *, concepts: tuple[str, ...]
-) -> tuple[str, str, dict[str, Any]] | None:
-    """
-    Select the most recent company fact entry from the provided US-GAAP facts for the given concepts.
-
-    Parameters:
-        us_gaap (dict[str, Any]): The `"us-gaap"` section from an SEC companyfacts payload.
-        concepts (tuple[str, ...]): Candidate US-GAAP concept names to consider.
-
-    Returns:
-        tuple[str, str, dict[str, Any]] | None: A `(concept, unit, item)` tuple for the latest matching fact, or `None` if no matching entries are found.
-    """
-    entries = _company_fact_entries(us_gaap, concepts=concepts)
-    if not entries:
-        return None
-    return max(entries, key=lambda item: _fact_sort_key(item[2]))
-
-
-def _company_fact_entries(
-    us_gaap: dict[str, Any], *, concepts: tuple[str, ...]
-) -> list[tuple[str, str, dict[str, Any]]]:
-    """
-    Collect all company fact entries from a US-GAAP payload for the provided candidate concepts.
-
-    Parameters:
-        us_gaap (dict[str, Any]): The `facts["us-gaap"]` section of a companyfacts payload.
-        concepts (tuple[str, ...]): Candidate US-GAAP concept identifiers to collect entries for.
-
-    Returns:
-        entries (list[tuple[str, str, dict[str, Any]]]): A list of tuples `(concept, unit, item)` for every supported fact item found for the given concepts.
-    """
-    entries: list[tuple[str, str, dict[str, Any]]] = []
-    for concept in concepts:
-        entries.extend(_company_fact_entries_for_concept(us_gaap, concept))
-    return entries
-
-
-def _company_fact_entries_for_concept(
-    us_gaap: dict[str, Any], concept: str
-) -> list[tuple[str, str, dict[str, Any]]]:
-    """
-    Collect supported company-fact entries for a specific US-GAAP concept across all reported units.
-
-    Parameters:
-        us_gaap (dict[str, Any]): The "us-gaap" section of an SEC companyfacts payload.
-        concept (str): The US-GAAP concept name to collect entries for.
-
-    Returns:
-        entries (list[tuple[str, str, dict[str, Any]]]): A list of tuples `(concept, unit, item)` for each supported fact item found.
-        Returns an empty list if the concept is missing or its `units` structure is not a dict.
-    """
-    concept_payload = _object_mapping(us_gaap.get(concept))
-    if concept_payload is None:
-        return []
-    units = _object_mapping(concept_payload.get("units"))
-    if units is None:
-        return []
-    entries: list[tuple[str, str, dict[str, Any]]] = []
-    for unit, unit_entries in units.items():
-        entries.extend(_company_fact_entries_for_unit(concept, str(unit), unit_entries))
-    return entries
-
-
-def _company_fact_entries_for_unit(
-    concept: str, unit: str, unit_entries: object
-) -> list[tuple[str, str, dict[str, Any]]]:
-    """
-    Collects supported company fact entries for a specific concept and unit.
-
-    Parameters:
-        concept (str): US-GAAP concept identifier to associate with each entry.
-        unit (str): Unit key (e.g., "USD") to associate with each entry.
-        unit_entries (object): Raw entries for the unit; expected to be a list of item dicts.
-
-    Returns:
-        list[tuple[str, str, dict[str, Any]]]: List of `(concept, unit, item)` tuples for items that are supported company fact entries. Returns an empty list if `unit_entries` is not a list or contains no supported items.
-    """
-    if not isinstance(unit_entries, list):
-        return []
-    entries: list[tuple[str, str, dict[str, Any]]] = []
-    for item in cast(list[object], unit_entries):
-        if _is_supported_company_fact_item(item, concept=concept, unit=unit):
-            entries.append((concept, unit, item))
-    return entries
-
-
-def _is_supported_company_fact_item(
-    item: object, *, concept: str, unit: str
-) -> TypeGuard[dict[str, Any]]:
-    """
-    Determine whether a company fact item is supported for inclusion.
-
-    Parameters:
-        item: Candidate company fact item to test; may be any object.
-        concept: The US-GAAP concept identifier associated with the item (used when extracting the numeric value).
-        unit: The unit identifier associated with the item (used when extracting the numeric value).
-
-    Returns:
-        `True` if `item` is a dict, contains a numeric `val` for the given `concept`/`unit`, and its `form` is empty or is listed in `SEC_RESEARCH_FORMS`; `False` otherwise.
-    """
-    if not isinstance(item, dict):
-        return False
-    item_payload = cast(dict[str, Any], item)
-    if _fact_number((concept, unit, item_payload)) is None:
-        return False
-    form = str(item_payload.get("form") or "").upper()
-    return not form or form in SEC_RESEARCH_FORMS
-
-
-def _growth_ratio(us_gaap: dict[str, Any], concepts: tuple[str, ...]) -> float | None:
-    """
-    Compute year-over-year growth using the two most recent annual US-GAAP fact entries for the provided concepts.
-
-    Selects annual fact entries for the given concepts, picks the two most recent by filing/end dates, and returns (latest - previous) / abs(previous). Returns `None` if fewer than two annual entries exist, if the latest or previous value cannot be parsed as a number, or if the previous value is zero.
-
-    Parameters:
-        us_gaap (dict[str, Any]): The `us-gaap` section from an SEC companyfacts payload.
-        concepts (tuple[str, ...]): Candidate US-GAAP concept names to search for (in priority order).
-
-    Returns:
-        float | None: Growth rate as a signed fraction (e.g., 0.10 for 10% growth) if computable, `None` otherwise.
-    """
-    entries = [
-        item
-        for item in _company_fact_entries(us_gaap, concepts=concepts)
-        if _is_annual_fact(item[2])
-    ]
-    entries.sort(key=lambda item: _fact_sort_key(item[2]), reverse=True)
-    if len(entries) < 2:
-        return None
-    latest = _fact_number(entries[0])
-    previous = _fact_number(entries[1])
-    if latest is None or previous in (None, 0):
-        return None
-    return (latest - previous) / abs(previous)
-
-
-def _is_annual_fact(item: dict[str, Any]) -> bool:
-    """
-    Determine whether a companyfact item represents an annual (yearly) fact.
-
-    Parameters:
-        item (dict[str, Any]): A single companyfact entry as returned in the SEC `companyfacts` payload.
-
-    Returns:
-        bool: `True` if the item is reported on an annual basis (annual filing indicator, fiscal period "FY", or a calendar-year frame that is not quarterly and not an interim), `False` otherwise.
-    """
-    form = str(item.get("form") or "").upper()
-    fiscal_period = str(item.get("fp") or "").upper()
-    frame = str(item.get("frame") or "").upper()
-    return (
-        form in SEC_ANNUAL_FORMS
-        or fiscal_period == "FY"
-        or (frame.startswith("CY") and "Q" not in frame and not frame.endswith("I"))
-    )
-
-
-def _fact_sort_key(item: dict[str, Any]) -> tuple[str, str]:
-    """
-    Produce a deterministic sort key for a company fact item based on its filing and period end timestamps.
-
-    Parameters:
-        item (dict[str, Any]): A company-fact mapping; keys `"filed"` and `"end"` are read and coerced to strings (missing or falsy values become empty strings).
-
-    Returns:
-        tuple[str, str]: A `(filed, end)` tuple of strings suitable for chronological sorting.
-    """
-    filed = str(item.get("filed") or "")
-    end = str(item.get("end") or "")
-    return filed, end
-
-
-def _fact_number(fact: tuple[str, str, dict[str, Any]] | None) -> float | None:
-    """
-    Extract a numeric value from a company fact tuple.
-
-    Reads the third element's `val` field from `fact` and converts it to a float. Accepts integer or float values and numeric strings (commas allowed). Returns `None` when `fact` is `None`, the `val` field is missing, or the value cannot be parsed as a number.
-
-    Parameters:
-        fact (tuple[str, str, dict] | None): A company fact tuple `(concept, unit, item)` where `item` is a dict containing a `val` key, or `None`.
-
-    Returns:
-        float | None: The parsed numeric value from `fact[2]['val']` if parseable, `None` otherwise.
-    """
-    if fact is None:
-        return None
-    value = fact[2].get("val")
-    if isinstance(value, int | float):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value.replace(",", ""))
-        except ValueError:
-            return None
-    return None
-
-
-def _ratio(numerator: float | None, denominator: float | None) -> float | None:
-    """
-    Compute a bounded ratio of numerator to denominator.
-
-    Parameters:
-        numerator (float | None): The numerator value; if `None` the result is `None`.
-        denominator (float | None): The denominator value; if `None` or zero the result is `None`.
-
-    Returns:
-        float: A value between 0.0 and 1.0 equal to numerator / abs(denominator) and clamped to [0.0, 1.0], or `None` if `numerator` is `None` or `denominator` is `None` or zero.
-    """
-    if numerator is None or denominator in (None, 0):
-        return None
-    return _clamp_ratio(numerator / abs(denominator))
-
-
-def _clamp_ratio(value: float) -> float:
-    """
-    Clamp a numeric ratio into the inclusive range [0.0, 1.0].
-
-    Parameters:
-        value (float): The ratio to clamp; may be outside the [0.0, 1.0] range.
-
-    Returns:
-        float: The input constrained to be no less than 0.0 and no greater than 1.0.
-    """
-    return min(max(value, 0.0), 1.0)
-
-
-def _format_optional_ratio(value: float | None) -> str:
-    """
-    Format an optional numeric ratio as a three-decimal string or `"missing"`.
-
-    Parameters:
-        value (float | None): Ratio value (typically between 0.0 and 1.0) or `None` when missing.
-
-    Returns:
-        str: `"missing"` if `value` is `None`, otherwise `value` formatted to three decimal places (e.g., `"0.123"`).
-    """
-    if value is None:
-        return "missing"
-    return f"{value:.3f}"
