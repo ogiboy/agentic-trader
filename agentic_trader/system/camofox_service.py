@@ -18,7 +18,6 @@ from typing import cast
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import BaseModel, Field
 
 from agentic_trader.config import Settings
 from agentic_trader.runtime_status import is_process_alive
@@ -27,12 +26,13 @@ from agentic_trader.security import (
     is_loopback_host,
     open_private_append_binary,
     redact_sensitive_text,
-    write_private_text,
 )
-from agentic_trader.system.tool_roots import (
-    local_tool_status_payload,
-    resolve_configured_tool_path,
+from agentic_trader.system import camofox_service_state as _state_helpers
+from agentic_trader.system.camofox_service_state import (
+    CamofoxServiceState,
+    CamofoxServiceStatus,
 )
+from agentic_trader.system.tool_roots import local_tool_status_payload
 from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
 DEFAULT_CAMOFOX_HOST = "127.0.0.1"
@@ -77,162 +77,36 @@ CAMOFOX_PROXY_KEYS = (
 )
 
 
-class CamofoxServiceState(BaseModel):
-    """Persisted state for an app-owned Camofox process."""
-
-    owner: str | None = None
-    pid: int
-    host: str
-    port: int
-    base_url: str
-    started_at: str
-    stdout_log_path: str
-    stderr_log_path: str
-    command: list[str]
-    tool_dir: str
-    app_owned: bool = True
-
-
-class CamofoxServiceStatus(BaseModel):
-    """Operator-facing Camofox service status."""
-
-    tool_id: str = "camofox-browser"
-    tool_status_id: str = "camofox_browser"
-    tool_consumers: list[str] = Field(default_factory=list)
-    tool_fallback_order: list[str] = Field(default_factory=list)
-    tool_ownership_modes: list[str] = Field(default_factory=list)
-    install_hint: str = ""
-    notes: list[str] = Field(default_factory=list)
-    command_available: bool
-    command_path: str | None = None
-    package_available: bool
-    dependency_available: bool = False
-    dependency_path: str | None = None
-    access_key_configured: bool
-    app_owned: bool = False
-    owner: str | None = None
-    pid: int | None = None
-    host: str | None = None
-    port: int | None = None
-    base_url: str
-    service_reachable: bool
-    health_ok: bool
-    stdout_log_path: str | None = None
-    stderr_log_path: str | None = None
-    stdout_tail: list[str] = Field(default_factory=list)
-    stderr_tail: list[str] = Field(default_factory=list)
-    state_path: str
-    tool_dir: str
-    message: str
-
-    def is_owned_by_host(self, host_id: str) -> bool:
-        """
-        Determine whether this app-owned service status is owned by the specified host.
-
-        Parameters:
-            host_id (str): Host identifier to compare against the recorded owner.
-
-        Returns:
-            bool: `True` if `app_owned` is `True` and `owner` equals `host_id`, `False` otherwise.
-        """
-
-        return self.app_owned and self.owner == host_id
-
-
 def camofox_service_dir(settings: Settings) -> Path:
-    """
-    Get the runtime directory path where Camofox service state and artifacts are stored.
-
-    Parameters:
-        settings (Settings): Application settings containing the `runtime_dir` base path.
-
-    Returns:
-        Path: Path to the Camofox service runtime directory (runtime_dir / "camofox_service").
-    """
-    return settings.runtime_dir / "camofox_service"
+    return _state_helpers.camofox_service_dir(settings)
 
 
 def camofox_service_state_path(settings: Settings) -> Path:
-    return camofox_service_dir(settings) / "camofox_service.json"
+    return _state_helpers.camofox_service_state_path(settings)
 
 
 def camofox_tool_dir(settings: Settings) -> Path:
-    """
-    Resolve the configured Camofox tool directory path.
-
-    Parameters:
-        settings (Settings): Application settings that may contain `research_camofox_tool_dir`.
-
-    Returns:
-        Path: Filesystem path to the configured Camofox tool directory, defaulting to "camofox-browser" when not specified.
-    """
-    return resolve_configured_tool_path(
-        settings.research_camofox_tool_dir,
-        default_tool="camofox-browser",
-    )
+    return _state_helpers.camofox_tool_dir(settings)
 
 
 def _read_state(settings: Settings) -> CamofoxServiceState | None:
-    """
-    Read the persisted CamofoxServiceState from the service state file.
-
-    If the state file does not exist or cannot be read/parsed, returns None.
-
-    Returns:
-        CamofoxServiceState or None: Parsed state when available and valid; `None` if the file is missing or unreadable/invalid.
-    """
-    path = camofox_service_state_path(settings)
-    if not path.exists():
-        return None
-    try:
-        return CamofoxServiceState.model_validate_json(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    return _state_helpers.read_state(settings)
 
 
 def _write_state(settings: Settings, state: CamofoxServiceState) -> None:
-    write_private_text(
-        camofox_service_state_path(settings),
-        state.model_dump_json(indent=2),
-    )
+    _state_helpers.write_state(settings, state)
 
 
 def _remove_state(settings: Settings) -> None:
-    try:
-        camofox_service_state_path(settings).unlink()
-    except FileNotFoundError:
-        return
+    _state_helpers.remove_state(settings)
 
 
 def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
-    if not path:
-        return []
-    log_path = Path(path)
-    if not log_path.exists():
-        return []
-    try:
-        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return []
-    return [redact_sensitive_text(line, max_length=300) for line in lines[-limit:]]
+    return _state_helpers.tail_text(path, limit=limit)
 
 
 def _tail_contains_browser_launch_failure(state: CamofoxServiceState | None) -> bool:
-    if state is None:
-        return False
-    recent_lines = [
-        *_tail_text(state.stdout_log_path, limit=20),
-        *_tail_text(state.stderr_log_path, limit=20),
-    ]
-    failure_markers = (
-        "browser pre-warm failed",
-        "camoufox launch attempt failed",
-        "failed to launch the browser process",
-    )
-    return any(
-        any(marker in line.lower() for marker in failure_markers)
-        for line in recent_lines
-    )
+    return _state_helpers.tail_contains_browser_launch_failure(state)
 
 
 def _node_command_path() -> str | None:
