@@ -649,6 +649,78 @@ def _external_webgui_status(settings: Settings) -> WebGUIServiceStatus | None:
     return None
 
 
+def _spawn_webgui_process(
+    settings: Settings,
+    *,
+    host: str,
+    port: int,
+) -> WebGUIServiceState:
+    url = _webgui_url(host, port)
+    ensure_private_directory(webgui_service_dir(settings))
+    stdout_path = webgui_service_dir(settings) / "webgui.out.log"
+    stderr_path = webgui_service_dir(settings) / "webgui.err.log"
+    command = _webgui_runtime_command(host, port)
+    with (
+        open_private_append_binary(stdout_path) as stdout_handle,
+        open_private_append_binary(stderr_path) as stderr_handle,
+    ):
+        process = subprocess.Popen(
+            command,
+            cwd=webgui_dir(),
+            stdout=stdout_handle,
+            stderr=stderr_handle,
+            env=_webgui_env(),
+            start_new_session=True,
+        )
+    state = WebGUIServiceState(
+        pid=process.pid,
+        launcher_pid=process.pid,
+        host=host,
+        port=port,
+        url=url,
+        started_at=_utc_now_iso(),
+        stdout_log_path=str(stdout_path),
+        stderr_log_path=str(stderr_path),
+        command=command,
+    )
+    _write_state(settings, state)
+    return state
+
+
+def _wait_for_webgui_start(
+    settings: Settings,
+    state: WebGUIServiceState,
+) -> WebGUIServiceStatus:
+    deadline = time.monotonic() + 15
+    last_reachable = False
+    last_message = "Web GUI did not become reachable before the startup timeout."
+    while time.monotonic() < deadline:
+        listener_pid = _listen_port_owner_pid(state.host, state.port)
+        if listener_pid is not None and listener_pid != state.pid:
+            state = state.model_copy(
+                update={
+                    "pid": listener_pid,
+                    "launcher_pid": state.launcher_pid,
+                }
+            )
+            _write_state(settings, state)
+        last_reachable, last_message = _webgui_reachable(state.url)
+        status = build_webgui_service_status(settings)
+        if status.app_owned and status.service_reachable and status.url == state.url:
+            return status
+        time.sleep(0.4)
+    return _build_unverified_start_status(
+        settings,
+        state,
+        service_reachable=last_reachable,
+        message=(
+            "Web GUI is reachable, but process ownership could not be verified."
+            if last_reachable
+            else last_message
+        ),
+    )
+
+
 def start_webgui_service(
     settings: Settings,
     *,
@@ -672,62 +744,10 @@ def start_webgui_service(
         return external_status
 
     chosen_port = choose_webgui_port(host, port)
-    url = _webgui_url(host, chosen_port)
-    ensure_private_directory(webgui_service_dir(settings))
-    stdout_path = webgui_service_dir(settings) / "webgui.out.log"
-    stderr_path = webgui_service_dir(settings) / "webgui.err.log"
-    command = _webgui_runtime_command(host, chosen_port)
-    with (
-        open_private_append_binary(stdout_path) as stdout_handle,
-        open_private_append_binary(stderr_path) as stderr_handle,
-    ):
-        process = subprocess.Popen(
-            command,
-            cwd=webgui_dir(),
-            stdout=stdout_handle,
-            stderr=stderr_handle,
-            env=_webgui_env(),
-            start_new_session=True,
-        )
-    state = WebGUIServiceState(
-        pid=process.pid,
-        launcher_pid=process.pid,
-        host=host,
-        port=chosen_port,
-        url=url,
-        started_at=_utc_now_iso(),
-        stdout_log_path=str(stdout_path),
-        stderr_log_path=str(stderr_path),
-        command=command,
-    )
-    _write_state(settings, state)
-    deadline = time.monotonic() + 15
-    last_reachable = False
-    last_message = "Web GUI did not become reachable before the startup timeout."
-    while time.monotonic() < deadline:
-        listener_pid = _listen_port_owner_pid(host, chosen_port)
-        if listener_pid is not None and listener_pid != state.pid:
-            state = state.model_copy(
-                update={
-                    "pid": listener_pid,
-                    "launcher_pid": process.pid,
-                }
-            )
-            _write_state(settings, state)
-        last_reachable, last_message = _webgui_reachable(url)
-        status = build_webgui_service_status(settings)
-        if status.app_owned and status.service_reachable and status.url == url:
-            return status
-        time.sleep(0.4)
-    return _build_unverified_start_status(
+    state = _spawn_webgui_process(settings, host=host, port=chosen_port)
+    return _wait_for_webgui_start(
         settings,
         state,
-        service_reachable=last_reachable,
-        message=(
-            "Web GUI is reachable, but process ownership could not be verified."
-            if last_reachable
-            else last_message
-        ),
     )
 
 

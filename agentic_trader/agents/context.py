@@ -13,6 +13,7 @@ from agentic_trader.schemas import (
     CanonicalAnalysisSnapshot,
     DecisionFeatureBundle,
     HistoricalMemoryMatch,
+    MarketSessionStatus,
     MarketSnapshot,
     NewsSignal,
     SharedMemoryEntry,
@@ -191,48 +192,24 @@ def build_agent_context(
 ) -> AgentContext:
     """Build the complete context bundle passed to one agent stage."""
     preferences = db.load_preferences()
-    strategy_family = None
-    strategy_context = upstream_context.get("strategy") if upstream_context else None
-    if hasattr(strategy_context, "strategy_family"):
-        strategy_family = str(getattr(strategy_context, "strategy_family"))
+    strategy_family = _strategy_family_from_upstream(upstream_context)
     market_session = infer_market_session(
         symbol=snapshot.symbol,
         preferences=preferences,
     )
-    rendered_tool_outputs = [
-        f"market_session: venue={market_session.venue} state={market_session.session_state} tradable_now={market_session.tradable_now} note={market_session.note}"
-    ]
     news_items = (
         fetch_news_brief(snapshot.symbol, settings)
         if news_items is None
         else news_items
     )
-    if settings.news_mode == "off":
-        rendered_tool_outputs.append("news_tool: disabled")
-    elif news_items:
-        rendered_tool_outputs.extend(
-            [
-                f"news_tool: {item.publisher} | {item.title}"
-                for item in news_items[: settings.news_headline_limit]
-            ]
-        )
-    else:
-        rendered_tool_outputs.append("news_tool: no headlines returned")
-    if decision_features is not None:
-        rendered_tool_outputs.append(
-            "decision_features: "
-            f"technical_trend={decision_features.technical.trend_classification} "
-            f"fundamental_flags={','.join(decision_features.fundamental.quality_flags) or 'none'} "
-            f"macro_news={len(decision_features.macro.news_signals)}"
-        )
-    if canonical_snapshot is not None:
-        rendered_tool_outputs.append(
-            "canonical_analysis: "
-            f"completeness={canonical_snapshot.completeness_score:.2f} "
-            f"missing={','.join(canonical_snapshot.missing_sections) or 'none'} "
-            f"sources={len(canonical_snapshot.source_attributions)}"
-        )
-    rendered_tool_outputs.extend(list(tool_outputs or []))
+    rendered_tool_outputs = _context_tool_outputs(
+        settings=settings,
+        market_session=market_session,
+        news_items=news_items,
+        decision_features=decision_features,
+        canonical_snapshot=canonical_snapshot,
+        tool_outputs=tool_outputs,
+    )
     retrieval_matches = (
         retrieve_similar_memories(
             db,
@@ -270,6 +247,75 @@ def build_agent_context(
     )
 
 
+def _strategy_family_from_upstream(
+    upstream_context: Mapping[str, BaseModel | str] | None,
+) -> str | None:
+    strategy_context = upstream_context.get("strategy") if upstream_context else None
+    if hasattr(strategy_context, "strategy_family"):
+        return str(getattr(strategy_context, "strategy_family"))
+    return None
+
+
+def _context_tool_outputs(
+    *,
+    settings: Settings,
+    market_session: MarketSessionStatus,
+    news_items: list[NewsSignal],
+    decision_features: DecisionFeatureBundle | None,
+    canonical_snapshot: CanonicalAnalysisSnapshot | None,
+    tool_outputs: list[str] | None,
+) -> list[str]:
+    rendered = [_market_session_tool_output(market_session)]
+    rendered.extend(_news_tool_outputs(settings, news_items))
+    if decision_features is not None:
+        rendered.append(_decision_feature_tool_output(decision_features))
+    if canonical_snapshot is not None:
+        rendered.append(_canonical_tool_output(canonical_snapshot))
+    rendered.extend(list(tool_outputs or []))
+    return rendered
+
+
+def _market_session_tool_output(market_session: MarketSessionStatus) -> str:
+    return (
+        "market_session: "
+        f"venue={market_session.venue} "
+        f"state={market_session.session_state} "
+        f"tradable_now={market_session.tradable_now} "
+        f"note={market_session.note}"
+    )
+
+
+def _news_tool_outputs(settings: Settings, news_items: list[NewsSignal]) -> list[str]:
+    if settings.news_mode == "off":
+        return ["news_tool: disabled"]
+    if not news_items:
+        return ["news_tool: no headlines returned"]
+    return [
+        f"news_tool: {item.publisher} | {item.title}"
+        for item in news_items[: settings.news_headline_limit]
+    ]
+
+
+def _decision_feature_tool_output(
+    decision_features: DecisionFeatureBundle,
+) -> str:
+    return (
+        "decision_features: "
+        f"technical_trend={decision_features.technical.trend_classification} "
+        f"fundamental_flags={','.join(decision_features.fundamental.quality_flags) or 'none'} "
+        f"macro_news={len(decision_features.macro.news_signals)}"
+    )
+
+
+def _canonical_tool_output(canonical_snapshot: CanonicalAnalysisSnapshot) -> str:
+    return (
+        "canonical_analysis: "
+        f"completeness={canonical_snapshot.completeness_score:.2f} "
+        f"missing={','.join(canonical_snapshot.missing_sections) or 'none'} "
+        f"sources={len(canonical_snapshot.source_attributions)}"
+    )
+
+
 def render_agent_context(context: AgentContext, *, task: str) -> str:
     """
     Render an AgentContext into a newline-delimited prompt string with labeled sections.
@@ -286,7 +332,15 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
     Returns:
         str: The assembled prompt string containing the labeled sections.
     """
-    sections = [
+    sections = _base_prompt_sections(context, task=task)
+    sections.extend(_market_input_sections(context))
+    sections.extend(_canonical_prompt_sections(context))
+    sections.extend(_optional_prompt_sections(context))
+    return "\n".join(sections).strip()
+
+
+def _base_prompt_sections(context: AgentContext, *, task: str) -> list[str]:
+    return [
         f"Role: {context.role}",
         f"Routed Model: {context.model_name}",
         "Task:",
@@ -299,68 +353,47 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
         context.portfolio.model_dump_json(indent=2),
     ]
 
+
+def _market_input_sections(context: AgentContext) -> list[str]:
     if context.decision_features is not None:
-        sections.extend(
-            [
-                "",
-                "Feature Input:",
-                _render_decision_feature_summary(context),
-            ]
-        )
-    else:
-        sections.extend(
-            [
-                "",
-                "Market Context Pack:",
-                (
-                    context.snapshot.context_pack.model_dump_json(indent=2)
-                    if context.snapshot.context_pack is not None
-                    else "No persisted market context pack is attached."
-                ),
-                "",
-                "Market Snapshot:",
-                context.snapshot.model_dump_json(indent=2, exclude={"context_pack"}),
-            ]
-        )
+        return ["", "Feature Input:", _render_decision_feature_summary(context)]
+    return [
+        "",
+        "Market Context Pack:",
+        (
+            context.snapshot.context_pack.model_dump_json(indent=2)
+            if context.snapshot.context_pack is not None
+            else "No persisted market context pack is attached."
+        ),
+        "",
+        "Market Snapshot:",
+        context.snapshot.model_dump_json(indent=2, exclude={"context_pack"}),
+    ]
 
-    if context.canonical_snapshot is not None:
-        sections.extend(
-            [
-                "",
-                "Canonical Analysis Snapshot Summary:",
-                _render_canonical_snapshot_summary(context),
-            ]
-        )
 
+def _canonical_prompt_sections(context: AgentContext) -> list[str]:
+    if context.canonical_snapshot is None:
+        return []
+    return [
+        "",
+        "Canonical Analysis Snapshot Summary:",
+        _render_canonical_snapshot_summary(context),
+    ]
+
+
+def _optional_prompt_sections(context: AgentContext) -> list[str]:
+    sections: list[str] = []
     if context.market_session is not None:
         sections.extend(
-            [
-                "",
-                "Market Session:",
-                context.market_session.model_dump_json(indent=2),
-            ]
+            ["", "Market Session:", context.market_session.model_dump_json(indent=2)]
         )
-
-    if context.recent_runs:
-        sections.extend(
-            ["", "Recent Runs:", "\n".join(f"- {line}" for line in context.recent_runs)]
-        )
-    if context.memory_notes:
-        sections.extend(
-            [
-                "",
-                "Trade Memory:",
-                "\n".join(f"- {line}" for line in context.memory_notes),
-            ]
-        )
-    if context.retrieved_memories:
-        sections.extend(
-            [
-                "",
-                "Retrieved Similar Memories:",
-                "\n".join(f"- {line}" for line in context.retrieved_memories),
-            ]
-        )
+    _extend_list_section(sections, "Recent Runs", context.recent_runs)
+    _extend_list_section(sections, "Trade Memory", context.memory_notes)
+    _extend_list_section(
+        sections,
+        "Retrieved Similar Memories",
+        context.retrieved_memories,
+    )
     if context.calibration is not None:
         sections.extend(
             [
@@ -380,18 +413,20 @@ def render_agent_context(context: AgentContext, *, task: str) -> str:
                 ),
             ]
         )
-    if context.tool_outputs:
-        sections.extend(
-            [
-                "",
-                "Tool Outputs:",
-                "\n".join(f"- {line}" for line in context.tool_outputs),
-            ]
-        )
-    if context.upstream_context:
-        rendered: list[str] = []
-        for key, value in context.upstream_context.items():
-            rendered.append(f"{key}:\n{value}")
-        sections.extend(["", "Upstream Context:", "\n\n".join(rendered)])
+    _extend_list_section(sections, "Tool Outputs", context.tool_outputs)
+    _extend_upstream_context_section(sections, context)
+    return sections
 
-    return "\n".join(sections).strip()
+
+def _extend_list_section(sections: list[str], title: str, values: list[str]) -> None:
+    if values:
+        sections.extend(["", title + ":", "\n".join(f"- {line}" for line in values)])
+
+
+def _extend_upstream_context_section(
+    sections: list[str], context: AgentContext
+) -> None:
+    if not context.upstream_context:
+        return
+    rendered = [f"{key}:\n{value}" for key, value in context.upstream_context.items()]
+    sections.extend(["", "Upstream Context:", "\n\n".join(rendered)])

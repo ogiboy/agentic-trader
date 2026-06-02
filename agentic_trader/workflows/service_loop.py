@@ -5,6 +5,7 @@ from __future__ import annotations
 from agentic_trader.config import Settings
 from agentic_trader.engine.broker import BrokerAdapter, get_broker_adapter
 from agentic_trader.runtime_feed import clear_stop_request
+from agentic_trader.schemas import RunArtifacts
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service_records import (
@@ -39,6 +40,101 @@ from agentic_trader.workflows.service_types import (
 )
 
 
+def _run_symbol_artifacts(
+    *,
+    db: TradingDatabase,
+    config: ServiceRunConfig,
+    symbol: str,
+    cycle_count: int,
+) -> RunArtifacts:
+    return run_once(
+        settings=config.settings,
+        symbol=symbol,
+        interval=config.interval,
+        lookback=config.lookback,
+        allow_fallback=False,
+        progress_callback=service_progress_callback(
+            db,
+            config,
+            symbol=symbol,
+            cycle_count=cycle_count,
+        ),
+    )
+
+
+def _symbol_error_outcome(
+    *,
+    db: TradingDatabase,
+    config: ServiceRunConfig,
+    symbol: str,
+    cycle_count: int,
+    exc: Exception,
+) -> ServiceSymbolOutcome:
+    if not is_nonfatal_symbol_error(exc):
+        raise exc
+    record_symbol_skipped(
+        db,
+        config,
+        symbol=symbol,
+        cycle_count=cycle_count,
+        exc=exc,
+    )
+    return ServiceSymbolOutcome(skipped=True)
+
+
+def _position_lifecycle_outcome(
+    *,
+    db: TradingDatabase,
+    broker: BrokerAdapter,
+    symbol: str,
+    cycle_count: int,
+    artifacts: RunArtifacts,
+) -> ServiceSymbolOutcome | None:
+    exit_order_id = manage_open_position(
+        db=db,
+        broker=broker,
+        artifacts=artifacts,
+        cycle_count=cycle_count,
+    )
+    if exit_order_id is None:
+        return None
+    record_position_lifecycle(db, symbol=symbol, cycle_count=cycle_count)
+    return ServiceSymbolOutcome(
+        result=ServiceCycleResult(
+            symbol=symbol,
+            artifacts=artifacts,
+            order_id=exit_order_id,
+        )
+    )
+
+
+def _persisted_symbol_outcome(
+    *,
+    db: TradingDatabase,
+    config: ServiceRunConfig,
+    symbol: str,
+    cycle_count: int,
+    artifacts: RunArtifacts,
+) -> ServiceSymbolOutcome:
+    order_id = persist_run(settings=config.settings, artifacts=artifacts)
+    record_symbol_completed(
+        db,
+        symbol=symbol,
+        cycle_count=cycle_count,
+        order_id=order_id,
+    )
+    result = ServiceCycleResult(symbol=symbol, artifacts=artifacts, order_id=order_id)
+    if service_stop_requested(db):
+        record_stop_after_symbol(
+            db,
+            config,
+            symbol=symbol,
+            cycle_count=cycle_count,
+        )
+        return ServiceSymbolOutcome(result=result, stop_requested=True)
+    return ServiceSymbolOutcome(result=result)
+
+
 def process_service_symbol(
     *,
     db: TradingDatabase,
@@ -56,70 +152,37 @@ def process_service_symbol(
         message=f"Processing {symbol} in cycle {cycle_count}.",
     )
     try:
-        artifacts = run_once(
-            settings=config.settings,
+        artifacts = _run_symbol_artifacts(
+            db=db,
+            config=config,
             symbol=symbol,
-            interval=config.interval,
-            lookback=config.lookback,
-            allow_fallback=False,
-            progress_callback=service_progress_callback(
-                db,
-                config,
-                symbol=symbol,
-                cycle_count=cycle_count,
-            ),
+            cycle_count=cycle_count,
         )
     except Exception as exc:
-        if not is_nonfatal_symbol_error(exc):
-            raise
-        record_symbol_skipped(
-            db,
-            config,
+        return _symbol_error_outcome(
+            db=db,
+            config=config,
             symbol=symbol,
             cycle_count=cycle_count,
             exc=exc,
         )
-        return ServiceSymbolOutcome(skipped=True)
 
-    exit_order_id = manage_open_position(
+    lifecycle_outcome = _position_lifecycle_outcome(
         db=db,
         broker=broker,
+        symbol=symbol,
         artifacts=artifacts,
         cycle_count=cycle_count,
     )
-    if exit_order_id is not None:
-        record_position_lifecycle(db, symbol=symbol, cycle_count=cycle_count)
-        return ServiceSymbolOutcome(
-            result=ServiceCycleResult(
-                symbol=symbol,
-                artifacts=artifacts,
-                order_id=exit_order_id,
-            )
-        )
+    if lifecycle_outcome is not None:
+        return lifecycle_outcome
 
-    order_id = persist_run(settings=config.settings, artifacts=artifacts)
-    record_symbol_completed(
-        db,
+    return _persisted_symbol_outcome(
+        db=db,
+        config=config,
         symbol=symbol,
         cycle_count=cycle_count,
-        order_id=order_id,
-    )
-    if service_stop_requested(db):
-        record_stop_after_symbol(
-            db,
-            config,
-            symbol=symbol,
-            cycle_count=cycle_count,
-        )
-        return ServiceSymbolOutcome(
-            result=ServiceCycleResult(
-                symbol=symbol, artifacts=artifacts, order_id=order_id
-            ),
-            stop_requested=True,
-        )
-
-    return ServiceSymbolOutcome(
-        result=ServiceCycleResult(symbol=symbol, artifacts=artifacts, order_id=order_id)
+        artifacts=artifacts,
     )
 
 

@@ -21,6 +21,13 @@ from agentic_trader.schemas import AgentRole, LLMHealthStatus
 logger = logging.getLogger(__name__)
 
 
+class _StructuredRetry(Exception):
+    def __init__(self, *, next_prompt: str, reason: Exception) -> None:
+        super().__init__(str(reason))
+        self.next_prompt = next_prompt
+        self.reason = reason
+
+
 class LocalLLM:
     def __init__(self, settings: Settings, *, model_name: str | None = None):
         """
@@ -97,6 +104,97 @@ class LocalLLM:
     def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
         return self.provider.health_check(include_generation=include_generation)
 
+    def _structured_completion_prompt(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        schema: type[BaseModel],
+    ) -> str:
+        schema_json = json.dumps(schema.model_json_schema(), indent=2)
+        field_instruction = schema_field_instruction(schema)
+        return dedent(f"""
+            {system_prompt}
+
+            You must respond with valid JSON only.
+            Do not wrap the JSON in markdown fences.
+            Keep string fields concise and practical.
+            Return the requested schema object itself, not a status report, not a runtime summary, and not an analysis wrapper.
+            If the correct decision is no-trade or hold, still return the full requested schema object.
+            Never return an error object.
+            {field_instruction}
+
+            The JSON must validate against this schema:
+            {schema_json}
+
+            User request:
+            {user_prompt}
+            """).strip()
+
+    def _complete_structured_attempt[T: BaseModel](
+        self,
+        *,
+        attempt: int,
+        prompt: str,
+        schema: type[T],
+    ) -> T:
+        content = ""
+        try:
+            payload = self._generate_once(
+                prompt,
+                json_mode=True,
+                json_schema=schema.model_json_schema(),
+            )
+            content = self._extract_response_text(payload)
+            logger.debug(
+                "LLM structured response attempt %s: content_length=%s content_preview=%s",
+                attempt + 1,
+                len(content),
+                content[:100] if content else "(empty)",
+            )
+            if not content:
+                raise RuntimeError(
+                    f"LLM returned an empty response body. Payload preview: {self._payload_preview(payload)}"
+                )
+            return validate_structured_content(content, schema)
+        except ValidationError as exc:
+            logger.debug(
+                "LLM structured validation failed on attempt %s: %s",
+                attempt + 1,
+                exc,
+            )
+            raise _StructuredRetry(
+                next_prompt=validation_retry_prompt(prompt, content),
+                reason=exc,
+            ) from exc
+        except (
+            httpx.HTTPError,
+            RuntimeError,
+            ValueError,
+        ) as exc:
+            logger.debug(
+                "LLM structured request issue on attempt %s: %s",
+                attempt + 1,
+                exc,
+            )
+            raise _StructuredRetry(
+                next_prompt=request_issue_retry_prompt(prompt),
+                reason=exc,
+            ) from exc
+
+    def _structured_failure(
+        self,
+        *,
+        schema: type[BaseModel],
+        last_error: Exception | None,
+    ) -> RuntimeError:
+        if isinstance(last_error, ValidationError):
+            return RuntimeError(
+                f"LLM structured output validation failed for {schema.__name__}: "
+                f"{validation_error_summary(last_error)}"
+            )
+        return RuntimeError(f"LLM request failed: {last_error}")
+
     def complete_structured[T: BaseModel](
         self,
         *,
@@ -118,77 +216,27 @@ class LocalLLM:
         Raises:
             RuntimeError: If the LLM repeatedly returns empty, malformed, or non-validating responses and all retry attempts are exhausted; the last underlying exception is chained.
         """
-        schema_json = json.dumps(schema.model_json_schema(), indent=2)
-        field_instruction = schema_field_instruction(schema)
-
-        prompt = dedent(f"""
-            {system_prompt}
-
-            You must respond with valid JSON only.
-            Do not wrap the JSON in markdown fences.
-            Keep string fields concise and practical.
-            Return the requested schema object itself, not a status report, not a runtime summary, and not an analysis wrapper.
-            If the correct decision is no-trade or hold, still return the full requested schema object.
-            Never return an error object.
-            {field_instruction}
-
-            The JSON must validate against this schema:
-            {schema_json}
-
-            User request:
-            {user_prompt}
-            """).strip()
-
+        prompt = self._structured_completion_prompt(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            schema=schema,
+        )
         last_error: Exception | None = None
         for attempt in range(self.settings.max_retries + 1):
-            content = ""
             try:
-                payload = self._generate_once(
-                    prompt,
-                    json_mode=True,
-                    json_schema=schema.model_json_schema(),
+                return self._complete_structured_attempt(
+                    attempt=attempt,
+                    prompt=prompt,
+                    schema=schema,
                 )
-                content = self._extract_response_text(payload)
-                logger.debug(
-                    "LLM structured response attempt %s: content_length=%s content_preview=%s",
-                    attempt + 1,
-                    len(content),
-                    content[:100] if content else "(empty)",
-                )
-                if not content:
-                    raise RuntimeError(
-                        f"LLM returned an empty response body. Payload preview: {self._payload_preview(payload)}"
-                    )
-                return validate_structured_content(content, schema)
-            except ValidationError as exc:
-                last_error = exc
-                logger.debug(
-                    "LLM structured validation failed on attempt %s: %s",
-                    attempt + 1,
-                    exc,
-                )
-                prompt = validation_retry_prompt(prompt, content)
-                continue
-            except (
-                httpx.HTTPError,
-                RuntimeError,
-                ValueError,
-            ) as exc:
-                last_error = exc
-                logger.debug(
-                    "LLM structured request issue on attempt %s: %s",
-                    attempt + 1,
-                    exc,
-                )
-                prompt = request_issue_retry_prompt(prompt)
+            except _StructuredRetry as exc:
+                last_error = exc.reason
+                prompt = exc.next_prompt
                 continue
 
-        if isinstance(last_error, ValidationError):
-            raise RuntimeError(
-                f"LLM structured output validation failed for {schema.__name__}: "
-                f"{validation_error_summary(last_error)}"
-            ) from last_error
-        raise RuntimeError(f"LLM request failed: {last_error}") from last_error
+        raise self._structured_failure(
+            schema=schema, last_error=last_error
+        ) from last_error
 
     def complete_text(
         self,

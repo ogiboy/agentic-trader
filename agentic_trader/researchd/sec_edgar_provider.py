@@ -80,6 +80,27 @@ class _SecTickerMatch:
     entity_name: str
 
 
+@dataclass(frozen=True)
+class _CompanyFactEvidence:
+    evidence: list[str]
+    concept_notes: list[str]
+    missing_fields: list[str]
+    observed_at: str
+    completeness: float
+
+
+@dataclass(frozen=True)
+class _SubmissionRecordFields:
+    accession: str
+    form: str
+    report_date: str
+    primary_description: str
+    observed_at: str
+    filing_label: str
+    missing_fields: list[str]
+    url: str | None
+
+
 class SecEdgarSubmissionsProvider:
     """Opt-in SEC EDGAR submissions provider for normalized filing evidence."""
 
@@ -171,26 +192,13 @@ class SecEdgarSubmissionsProvider:
 
     @staticmethod
     def _watched_symbols(symbols: list[str]) -> list[str]:
-        """
-        Normalize and filter a list of symbol strings into uppercase, trimmed tickers.
-
-        Parameters:
-            symbols (list[str]): Iterable of raw symbol strings (may include whitespace or empty values).
-
-        Returns:
-            list[str]: A list of normalized symbols (uppercase, whitespace-trimmed) with empty results removed, preserving input order.
-        """
+        """Normalize and filter symbol strings into uppercase tickers."""
         return [
             symbol for symbol in (normalize_symbol(item) for item in symbols) if symbol
         ]
 
     def _headers(self) -> dict[str, str]:
-        """
-        Return HTTP headers used for SEC API requests, including the configured `User-Agent`.
-
-        Returns:
-            dict[str, str]: Mapping of header names to values (includes `"Accept": "application/json"` and `"User-Agent": <configured user agent>`).
-        """
+        """Return HTTP headers used for SEC API requests."""
         return {
             "Accept": "application/json",
             "User-Agent": self._user_agent,
@@ -386,6 +394,59 @@ def _record_from_company_facts(
 
     fetched_at = utc_now_iso()
     entity_name = _string_value(payload.get("entityName")) or match.entity_name
+    company_facts = _company_fact_evidence(us_gaap, fetched_at=fetched_at)
+    if company_facts is None:
+        return None
+    url = SEC_COMPANY_FACTS_URL_TEMPLATE.format(cik=match.cik)
+    return RawEvidenceRecord(
+        record_id=f"sec-companyfacts:{symbol}:{match.cik}",
+        source_kind="disclosure",
+        source_name=provider.provider_id,
+        title=f"{symbol} SEC company facts summary",
+        symbol=symbol,
+        entity_name=entity_name,
+        region="US",
+        url=url,
+        observed_at=company_facts.observed_at,
+        last_verified_at=fetched_at,
+        normalized_summary=(
+            f"SEC company facts reports {len(company_facts.evidence)} compact XBRL metric(s) "
+            f"for {entity_name}: {'; '.join(company_facts.evidence)}"
+        ),
+        source_payload_ref=f"sec-companyfacts://CIK{match.cik}",
+        source_attributions=[
+            source_attribution(
+                source_name=provider.provider_id,
+                provider_type=provider.provider_type,
+                source_role=provider.role,
+                fetched_at=fetched_at,
+                freshness="fresh",
+                confidence=0.95,
+                completeness=company_facts.completeness,
+                notes=[
+                    "sec_companyfacts_api",
+                    f"cik={match.cik}",
+                    *company_facts.concept_notes,
+                ],
+            )
+        ],
+        evidence_vs_inference=EvidenceInferenceBreakdown(
+            evidence=company_facts.evidence,
+            inference=[],
+            uncertainty=[
+                "SEC company facts aggregate normalized XBRL facts; filing text was not downloaded or parsed in this pass.",
+                "Company-specific extension taxonomy concepts are not included in this compact V1 summary.",
+            ],
+        ),
+        missing_fields=company_facts.missing_fields,
+    )
+
+
+def _company_fact_evidence(
+    us_gaap: Mapping[str, object],
+    *,
+    fetched_at: str,
+) -> _CompanyFactEvidence | None:
     evidence: list[str] = []
     concept_notes: list[str] = []
     missing_fields: list[str] = []
@@ -419,49 +480,12 @@ def _record_from_company_facts(
         return None
 
     observed_at = max(observed_candidates) if observed_candidates else fetched_at
-    completeness = len(evidence) / len(SEC_COMPANY_FACT_CONCEPTS)
-    url = SEC_COMPANY_FACTS_URL_TEMPLATE.format(cik=match.cik)
-    return RawEvidenceRecord(
-        record_id=f"sec-companyfacts:{symbol}:{match.cik}",
-        source_kind="disclosure",
-        source_name=provider.provider_id,
-        title=f"{symbol} SEC company facts summary",
-        symbol=symbol,
-        entity_name=entity_name,
-        region="US",
-        url=url,
-        observed_at=observed_at,
-        last_verified_at=fetched_at,
-        normalized_summary=(
-            f"SEC company facts reports {len(evidence)} compact XBRL metric(s) "
-            f"for {entity_name}: {'; '.join(evidence)}"
-        ),
-        source_payload_ref=f"sec-companyfacts://CIK{match.cik}",
-        source_attributions=[
-            source_attribution(
-                source_name=provider.provider_id,
-                provider_type=provider.provider_type,
-                source_role=provider.role,
-                fetched_at=fetched_at,
-                freshness="fresh",
-                confidence=0.95,
-                completeness=completeness,
-                notes=[
-                    "sec_companyfacts_api",
-                    f"cik={match.cik}",
-                    *concept_notes,
-                ],
-            )
-        ],
-        evidence_vs_inference=EvidenceInferenceBreakdown(
-            evidence=evidence,
-            inference=[],
-            uncertainty=[
-                "SEC company facts aggregate normalized XBRL facts; filing text was not downloaded or parsed in this pass.",
-                "Company-specific extension taxonomy concepts are not included in this compact V1 summary.",
-            ],
-        ),
+    return _CompanyFactEvidence(
+        evidence=evidence,
+        concept_notes=concept_notes,
         missing_fields=missing_fields,
+        observed_at=observed_at,
+        completeness=len(evidence) / len(SEC_COMPANY_FACT_CONCEPTS),
     )
 
 
@@ -470,6 +494,107 @@ def _recent_filings(payload: Mapping[str, object]) -> JsonObject | None:
     if filings is None:
         return None
     return json_object(filings.get("recent"))
+
+
+def _submission_record_fields(
+    *,
+    match: _SecTickerMatch,
+    accession_value: object,
+    forms: list[object],
+    filing_dates: list[object],
+    report_dates: list[object],
+    primary_documents: list[object],
+    primary_descriptions: list[object],
+    index: int,
+    fetched_at: str,
+) -> _SubmissionRecordFields | None:
+    accession = _string_value(accession_value)
+    form = _string_at(forms, index)
+    if not accession or form not in SEC_RESEARCH_FORMS:
+        return None
+    filing_date = _string_at(filing_dates, index)
+    report_date = _string_at(report_dates, index)
+    primary_document = _string_at(primary_documents, index)
+    primary_description = _string_at(primary_descriptions, index)
+    return _SubmissionRecordFields(
+        accession=accession,
+        form=form,
+        report_date=report_date,
+        primary_description=primary_description,
+        observed_at=filing_date or fetched_at,
+        filing_label=filing_date or "unknown date",
+        missing_fields=_sec_missing_fields(
+            cik=match.cik,
+            accession=accession,
+            report_date=report_date,
+            primary_document=primary_document,
+        ),
+        url=_sec_archive_url(
+            cik=match.cik,
+            accession=accession,
+            primary_document=primary_document,
+        ),
+    )
+
+
+def _submission_record(
+    *,
+    provider: ProviderMetadata,
+    symbol: str,
+    match: _SecTickerMatch,
+    fields: _SubmissionRecordFields,
+    fetched_at: str,
+    entity_name: str,
+) -> RawEvidenceRecord:
+    return RawEvidenceRecord(
+        record_id=f"sec:{symbol}:{fields.accession}",
+        source_kind="disclosure",
+        source_name=provider.provider_id,
+        title=f"{symbol} {fields.form} filed {fields.filing_label}",
+        symbol=symbol,
+        entity_name=entity_name,
+        region="US",
+        url=fields.url,
+        observed_at=fields.observed_at,
+        last_verified_at=fetched_at,
+        normalized_summary=(
+            f"SEC EDGAR submissions API reports {entity_name} filed "
+            f"{fields.form} accession {fields.accession} on {fields.filing_label}"
+            f" for report date {fields.report_date or 'unknown'}."
+        ),
+        source_payload_ref=f"sec-submissions://CIK{match.cik}/{fields.accession}",
+        source_attributions=[
+            source_attribution(
+                source_name=provider.provider_id,
+                provider_type=provider.provider_type,
+                source_role=provider.role,
+                fetched_at=fetched_at,
+                freshness="fresh",
+                confidence=0.95,
+                completeness=0.85 if not fields.missing_fields else 0.7,
+                notes=[
+                    "sec_submissions_api",
+                    f"cik={match.cik}",
+                    f"form={fields.form}",
+                    _primary_document_note(fields.primary_description),
+                ],
+            )
+        ],
+        evidence_vs_inference=EvidenceInferenceBreakdown(
+            evidence=[
+                f"SEC ticker mapping associates {symbol} with CIK {match.cik}.",
+                (
+                    f"SEC submissions metadata lists accession {fields.accession} "
+                    f"as form {fields.form} filed on {fields.filing_label}."
+                ),
+            ],
+            inference=[],
+            uncertainty=[
+                "Filing text and XBRL facts were not downloaded or parsed in this pass."
+            ],
+        ),
+        missing_fields=fields.missing_fields,
+    )
 
 
 def _record_from_submission_row(
@@ -487,77 +612,27 @@ def _record_from_submission_row(
     fetched_at: str,
     entity_name: str,
 ) -> RawEvidenceRecord | None:
-    accession = _string_value(accession_value)
-    form = _string_at(forms, index)
-    if not accession or form not in SEC_RESEARCH_FORMS:
+    fields = _submission_record_fields(
+        match=match,
+        accession_value=accession_value,
+        forms=forms,
+        filing_dates=filing_dates,
+        report_dates=report_dates,
+        primary_documents=primary_documents,
+        primary_descriptions=primary_descriptions,
+        index=index,
+        fetched_at=fetched_at,
+    )
+    if fields is None:
         return None
 
-    filing_date = _string_at(filing_dates, index)
-    report_date = _string_at(report_dates, index)
-    primary_document = _string_at(primary_documents, index)
-    primary_description = _string_at(primary_descriptions, index)
-    observed_at = filing_date or fetched_at
-    missing_fields = _sec_missing_fields(
-        cik=match.cik,
-        accession=accession,
-        report_date=report_date,
-        primary_document=primary_document,
-    )
-    url = _sec_archive_url(
-        cik=match.cik,
-        accession=accession,
-        primary_document=primary_document,
-    )
-    filing_label = filing_date or "unknown date"
-
-    return RawEvidenceRecord(
-        record_id=f"sec:{symbol}:{accession}",
-        source_kind="disclosure",
-        source_name=provider.provider_id,
-        title=f"{symbol} {form} filed {filing_label}",
+    return _submission_record(
+        provider=provider,
         symbol=symbol,
+        match=match,
+        fields=fields,
+        fetched_at=fetched_at,
         entity_name=entity_name,
-        region="US",
-        url=url,
-        observed_at=observed_at,
-        last_verified_at=fetched_at,
-        normalized_summary=(
-            f"SEC EDGAR submissions API reports {entity_name} filed "
-            f"{form} accession {accession} on {filing_label}"
-            f" for report date {report_date or 'unknown'}."
-        ),
-        source_payload_ref=f"sec-submissions://CIK{match.cik}/{accession}",
-        source_attributions=[
-            source_attribution(
-                source_name=provider.provider_id,
-                provider_type=provider.provider_type,
-                source_role=provider.role,
-                fetched_at=fetched_at,
-                freshness="fresh",
-                confidence=0.95,
-                completeness=0.85 if not missing_fields else 0.7,
-                notes=[
-                    "sec_submissions_api",
-                    f"cik={match.cik}",
-                    f"form={form}",
-                    _primary_document_note(primary_description),
-                ],
-            )
-        ],
-        evidence_vs_inference=EvidenceInferenceBreakdown(
-            evidence=[
-                f"SEC ticker mapping associates {symbol} with CIK {match.cik}.",
-                (
-                    f"SEC submissions metadata lists accession {accession} "
-                    f"as form {form} filed on {filing_label}."
-                ),
-            ],
-            inference=[],
-            uncertainty=[
-                "Filing text and XBRL facts were not downloaded or parsed in this pass."
-            ],
-        ),
-        missing_fields=missing_fields,
     )
 
 
@@ -568,18 +643,7 @@ def _sec_missing_fields(
     report_date: str,
     primary_document: str,
 ) -> list[str]:
-    """
-    Identify which SEC submission fields are missing for a given filing.
-
-    Parameters:
-        cik (str): Zero-padded 10-character CIK for the company.
-        accession (str): Accession number for the filing.
-        report_date (str): Filing's report date string; empty if not present.
-        primary_document (str): Primary document filename; empty if not present.
-
-    Returns:
-        missing_fields (list[str]): List of missing field keys among "report_date", "primary_document", and "url" where "url" indicates the archive URL could not be constructed from the provided inputs.
-    """
+    """Identify missing SEC submission fields for a filing."""
     missing_fields: list[str] = []
     if not report_date:
         missing_fields.append("report_date")
@@ -632,18 +696,7 @@ def _company_fact_candidates(
     *,
     concepts: tuple[str, ...],
 ) -> list[tuple[tuple[str, str, str], str, str, JsonObject]]:
-    """
-    Collect candidate company-fact entries for the requested GAAP concepts.
-
-    Parameters:
-        us_gaap (Mapping[str, object]): The `"facts"` → `"us-gaap"` mapping from a company facts payload.
-        concepts (tuple[str, ...]): GAAP concept keys to extract candidates for.
-
-    Returns:
-        list[tuple[tuple[str, str, str], str, str, JsonObject]]: A list of candidates where each item is a tuple
-        `(sort_key, concept, unit, item)`. `sort_key` is a tuple used to order candidates, `concept` is the requested GAAP
-        concept name, `unit` is the reported unit string, and `item` is the raw fact entry dictionary.
-    """
+    """Collect candidate company-fact entries for requested GAAP concepts."""
     candidates: list[tuple[tuple[str, str, str], str, str, JsonObject]] = []
     for concept in concepts:
         for unit, item in _usd_company_fact_items(us_gaap.get(concept)):
@@ -654,15 +707,7 @@ def _company_fact_candidates(
 def _usd_company_fact_items(
     concept_payload: object,
 ) -> list[tuple[str, JsonObject]]:
-    """
-    Extract USD-denominated fact items from a company fact concept payload.
-
-    Parameters:
-        concept_payload (object): Parsed JSON value for a single company fact concept (as returned by SEC company facts); may be any Python object.
-
-    Returns:
-        list[tuple[str, JsonObject]]: A list of tuples where the first element is the unit string `"USD"` and the second element is the item dictionary for each USD-valued fact that contains a non-null `"val"` field.
-    """
+    """Extract USD-denominated fact items from a concept payload."""
     units = _company_fact_units(concept_payload)
     if units is None:
         return []

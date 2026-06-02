@@ -35,6 +35,14 @@ from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import TradingDatabase
 
 
+@dataclass(frozen=True)
+class _RiskExposureProjection:
+    projected_symbol_exposure: float
+    projected_gross_exposure: float
+    max_position_value: float
+    max_gross_value: float
+
+
 @dataclass(slots=True)
 class AlpacaPaperBrokerAdapter:
     """Opt-in Alpaca paper adapter for V1 US-equity readiness."""
@@ -241,6 +249,84 @@ class AlpacaPaperBrokerAdapter:
             message="Short sell intent blocked because shorting is disabled.",
         )
 
+    def _risk_exposure_projection(
+        self,
+        *,
+        intent: ExecutionIntent,
+        positions: list[PositionSnapshot],
+        equity: float,
+    ) -> _RiskExposureProjection:
+        reference_price = intent.reference_price
+        order_quantity = (
+            intent.quantity
+            if intent.quantity is not None
+            else (intent.notional or 0.0) / reference_price
+        )
+        signed_order_quantity = (
+            order_quantity if intent.side == "buy" else -order_quantity
+        )
+        current_position = next(
+            (
+                position
+                for position in positions
+                if position.symbol.upper() == intent.symbol.upper()
+            ),
+            None,
+        )
+        current_quantity = current_position.quantity if current_position else 0.0
+        projected_quantity = current_quantity + signed_order_quantity
+        current_symbol_exposure = (
+            abs(current_position.market_value) if current_position else 0.0
+        )
+        projected_symbol_exposure = abs(projected_quantity * reference_price)
+        current_gross_exposure = sum(
+            abs(position.market_value) for position in positions
+        )
+        return _RiskExposureProjection(
+            projected_symbol_exposure=projected_symbol_exposure,
+            projected_gross_exposure=(
+                current_gross_exposure
+                - current_symbol_exposure
+                + projected_symbol_exposure
+            ),
+            max_position_value=equity * self.settings.max_position_pct,
+            max_gross_value=equity * self.settings.max_gross_exposure_pct,
+        )
+
+    def _position_limit_outcome(
+        self,
+        intent: ExecutionIntent,
+        projection: _RiskExposureProjection,
+    ) -> ExecutionOutcome | None:
+        if projection.projected_symbol_exposure <= projection.max_position_value:
+            return None
+        return self._blocked_outcome(
+            intent,
+            reason="max_position_exceeded",
+            message=(
+                "Alpaca paper order would exceed max position size: "
+                f"projected {projection.projected_symbol_exposure:.2f} > "
+                f"limit {projection.max_position_value:.2f}."
+            ),
+        )
+
+    def _gross_limit_outcome(
+        self,
+        intent: ExecutionIntent,
+        projection: _RiskExposureProjection,
+    ) -> ExecutionOutcome | None:
+        if projection.projected_gross_exposure <= projection.max_gross_value:
+            return None
+        return self._blocked_outcome(
+            intent,
+            reason="max_gross_exposure_exceeded",
+            message=(
+                "Alpaca paper order would exceed max gross exposure: "
+                f"projected {projection.projected_gross_exposure:.2f} > "
+                f"limit {projection.max_gross_value:.2f}."
+            ),
+        )
+
     def _risk_limit_outcome(self, intent: ExecutionIntent) -> ExecutionOutcome | None:
         """
         Assess whether an execution intent violates account risk limits and produce a blocking outcome when a violation or account-check failure is detected.
@@ -274,61 +360,15 @@ class AlpacaPaperBrokerAdapter:
                 message="Alpaca paper risk check requires positive account equity.",
             )
 
-        reference_price = intent.reference_price
-        order_quantity = (
-            intent.quantity
-            if intent.quantity is not None
-            else (intent.notional or 0.0) / reference_price
+        projection = self._risk_exposure_projection(
+            intent=intent,
+            positions=positions,
+            equity=equity,
         )
-        signed_order_quantity = (
-            order_quantity if intent.side == "buy" else -order_quantity
-        )
-
-        current_position = next(
-            (
-                position
-                for position in positions
-                if position.symbol.upper() == intent.symbol.upper()
-            ),
-            None,
-        )
-        current_quantity = current_position.quantity if current_position else 0.0
-        projected_quantity = current_quantity + signed_order_quantity
-        current_symbol_exposure = (
-            abs(current_position.market_value) if current_position else 0.0
-        )
-        projected_symbol_exposure = abs(projected_quantity * reference_price)
-        current_gross_exposure = sum(
-            abs(position.market_value) for position in positions
-        )
-        projected_gross_exposure = (
-            current_gross_exposure - current_symbol_exposure + projected_symbol_exposure
-        )
-
-        max_position_value = equity * self.settings.max_position_pct
-        if projected_symbol_exposure > max_position_value:
-            return self._blocked_outcome(
-                intent,
-                reason="max_position_exceeded",
-                message=(
-                    "Alpaca paper order would exceed max position size: "
-                    f"projected {projected_symbol_exposure:.2f} > "
-                    f"limit {max_position_value:.2f}."
-                ),
-            )
-
-        max_gross_value = equity * self.settings.max_gross_exposure_pct
-        if projected_gross_exposure > max_gross_value:
-            return self._blocked_outcome(
-                intent,
-                reason="max_gross_exposure_exceeded",
-                message=(
-                    "Alpaca paper order would exceed max gross exposure: "
-                    f"projected {projected_gross_exposure:.2f} > "
-                    f"limit {max_gross_value:.2f}."
-                ),
-            )
-        return None
+        return self._position_limit_outcome(
+            intent,
+            projection,
+        ) or self._gross_limit_outcome(intent, projection)
 
     @staticmethod
     def _order_kwargs(intent: ExecutionIntent) -> dict[str, object]:

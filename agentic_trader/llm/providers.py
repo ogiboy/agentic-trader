@@ -376,6 +376,71 @@ class OpenAICompatibleProvider:
         content = _openai_compatible_content(payload)
         return {"response": content, "raw": payload}
 
+    def _endpoint_rejected_health(
+        self,
+        *,
+        status_code: object,
+        response_text: str,
+        include_generation: bool,
+    ) -> LLMHealthStatus:
+        message = f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip()
+        return LLMHealthStatus(
+            provider=self.provider_name,
+            base_url=self.settings.base_url,
+            model_name=self.model_name,
+            service_reachable=True,
+            model_available=False,
+            generation_available=False if include_generation else None,
+            generation_message=message if include_generation else None,
+            message=message,
+        )
+
+    def _reachable_health(
+        self,
+        *,
+        model_available: bool,
+        include_generation: bool,
+    ) -> LLMHealthStatus:
+        generation_available: bool | None = None
+        generation_message: str | None = None
+        if include_generation:
+            generation_available, generation_message = self._probe_generation(
+                model_available=model_available
+            )
+        message = self._health_message(
+            model_available=model_available,
+            generation_available=generation_available,
+            generation_message=generation_message,
+        )
+        return LLMHealthStatus(
+            provider=self.provider_name,
+            base_url=self.settings.base_url,
+            model_name=self.model_name,
+            service_reachable=True,
+            model_available=model_available,
+            generation_available=generation_available,
+            generation_message=generation_message,
+            message=message,
+        )
+
+    def _unreachable_health(
+        self,
+        *,
+        detail: str,
+        include_generation: bool,
+    ) -> LLMHealthStatus:
+        message = f"Unable to reach OpenAI-compatible endpoint: {detail}"
+        return LLMHealthStatus(
+            provider=self.provider_name,
+            base_url=self.settings.base_url,
+            model_name=self.model_name,
+            service_reachable=False,
+            model_available=False,
+            generation_available=False if include_generation else None,
+            generation_message=message if include_generation else None,
+            message=message,
+        )
+
     def health_check(self, *, include_generation: bool = False) -> LLMHealthStatus:
         """
         Check OpenAI-compatible endpoint reachability and model availability.
@@ -403,60 +468,24 @@ class OpenAICompatibleProvider:
                     response_text = _short_redacted_error(response.text)
                 except Exception:
                     response_text = ""
-                return LLMHealthStatus(
-                    provider=self.provider_name,
-                    base_url=self.settings.base_url,
-                    model_name=self.model_name,
-                    service_reachable=True,
-                    model_available=False,
-                    generation_available=False if include_generation else None,
-                    generation_message=(
-                        f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip()
-                        if include_generation
-                        else None
-                    ),
-                    message=f"Endpoint reachable but rejected: HTTP {status_code} {response_text}".strip(),
+                return self._endpoint_rejected_health(
+                    status_code=status_code,
+                    response_text=response_text,
+                    include_generation=include_generation,
                 )
             response.raise_for_status()
             payload = _json_object(response.json())
             models = _openai_compatible_model_ids(payload)
             model_available = self.model_name in models
-            generation_available: bool | None = None
-            generation_message: str | None = None
-            if include_generation:
-                generation_available, generation_message = self._probe_generation(
-                    model_available=model_available
-                )
-            message = self._health_message(
+            return self._reachable_health(
                 model_available=model_available,
-                generation_available=generation_available,
-                generation_message=generation_message,
-            )
-            return LLMHealthStatus(
-                provider=self.provider_name,
-                base_url=self.settings.base_url,
-                model_name=self.model_name,
-                service_reachable=True,
-                model_available=model_available,
-                generation_available=generation_available,
-                generation_message=generation_message,
-                message=message,
+                include_generation=include_generation,
             )
         except Exception as exc:
             detail = _short_redacted_error(str(exc)) or type(exc).__name__
-            return LLMHealthStatus(
-                provider=self.provider_name,
-                base_url=self.settings.base_url,
-                model_name=self.model_name,
-                service_reachable=False,
-                model_available=False,
-                generation_available=False if include_generation else None,
-                generation_message=(
-                    f"Unable to reach OpenAI-compatible endpoint: {detail}"
-                    if include_generation
-                    else None
-                ),
-                message=f"Unable to reach OpenAI-compatible endpoint: {detail}",
+            return self._unreachable_health(
+                detail=detail,
+                include_generation=include_generation,
             )
 
     def _probe_generation(self, *, model_available: bool) -> tuple[bool, str]:

@@ -77,38 +77,33 @@ class CamofoxBrowserResearchProvider:
     def metadata(self) -> ProviderMetadata:
         return self._metadata
 
-    def collect(self, *, symbols: list[str], limit: int) -> ResearchProviderOutput:
-        _ = (symbols, limit)
-        if not self._enabled:
-            return ResearchProviderOutput(
-                metadata=self._metadata,
-                missing_reasons=["provider_disabled"],
-            )
-        if not self._loopback_only:
-            return ResearchProviderOutput(
-                metadata=self._metadata,
-                missing_reasons=["camofox_base_url_must_be_loopback"],
-            )
+    def _missing_output(self, *reasons: str) -> ResearchProviderOutput:
+        return ResearchProviderOutput(
+            metadata=self._metadata,
+            missing_reasons=list(reasons),
+        )
+
+    def _launch_failure_output(self) -> ResearchProviderOutput | None:
         service_status = self._service_status_builder(self._settings)
         if (
             service_status.app_owned
             and service_status.base_url.rstrip("/") == self._base_url
             and not service_status.health_ok
         ):
-            return ResearchProviderOutput(
-                metadata=self._metadata,
-                missing_reasons=["camofox_browser_launch_failed"],
-            )
+            return self._missing_output("camofox_browser_launch_failed")
+        return None
+
+    def _health_payload(self) -> JsonObject | ResearchProviderOutput:
         try:
-            payload = self._fetcher(f"{self._base_url}/health", self._timeout)
+            return self._fetcher(f"{self._base_url}/health", self._timeout)
         except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
-            return ResearchProviderOutput(
-                metadata=self._metadata,
-                missing_reasons=["camofox_health_failed", safe_error_note(exc)],
-            )
-        fetched_at = utc_now_iso()
+            return self._missing_output("camofox_health_failed", safe_error_note(exc))
+
+    def _health_record(
+        self, payload: JsonObject, *, fetched_at: str
+    ) -> RawEvidenceRecord:
         ok = bool(payload.get("ok"))
-        record = RawEvidenceRecord(
+        return RawEvidenceRecord(
             record_id=f"camofox-health:{stable_hash(self._base_url)}",
             source_kind="provider_status",
             source_name=self._metadata.provider_id,
@@ -152,6 +147,22 @@ class CamofoxBrowserResearchProvider:
             ),
             missing_fields=[] if ok else ["healthy_browser"],
         )
+
+    def collect(self, *, symbols: list[str], limit: int) -> ResearchProviderOutput:
+        _ = (symbols, limit)
+        if not self._enabled:
+            return self._missing_output("provider_disabled")
+        if not self._loopback_only:
+            return self._missing_output("camofox_base_url_must_be_loopback")
+        launch_failure = self._launch_failure_output()
+        if launch_failure is not None:
+            return launch_failure
+        payload = self._health_payload()
+        if isinstance(payload, ResearchProviderOutput):
+            return payload
+        fetched_at = utc_now_iso()
+        ok = bool(payload.get("ok"))
+        record = self._health_record(payload, fetched_at=fetched_at)
         missing = [] if ok else ["camofox_unhealthy"]
         return ResearchProviderOutput(
             metadata=self._metadata,

@@ -12,6 +12,7 @@ from pathlib import Path
 from agentic_trader.config import Settings
 from agentic_trader.runtime_feed import clear_stop_request, request_stop
 from agentic_trader.runtime_status import build_runtime_status_view, is_process_alive
+from agentic_trader.schemas import ServiceStateSnapshot
 from agentic_trader.security import open_private_append_binary
 from agentic_trader.storage.db import TradingDatabase
 
@@ -86,6 +87,52 @@ def start_background_service(
     clear_stop_request(settings)
     db = TradingDatabase(settings)
     state = db.get_service_state()
+    launch_count, restart_count = _service_launch_counts(
+        state=state,
+        launch_count_override=launch_count_override,
+        restart_count_override=restart_count_override,
+    )
+    _ensure_service_can_start(db, state)
+
+    stdout_path = settings.runtime_dir / "service.out.log"
+    stderr_path = settings.runtime_dir / "service.err.log"
+    process = _spawn_service_process(
+        command=_service_run_command(
+            symbols=symbols,
+            interval=interval,
+            lookback=lookback,
+            poll_seconds=poll_seconds,
+            continuous=continuous,
+            max_cycles=max_cycles,
+        ),
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        workdir=workdir,
+    )
+    _record_spawned_service(
+        db=db,
+        process=process,
+        symbols=symbols,
+        interval=interval,
+        lookback=lookback,
+        poll_seconds=poll_seconds,
+        continuous=continuous,
+        max_cycles=max_cycles,
+        launch_count=launch_count,
+        restart_count=restart_count,
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+    )
+    db.close()
+    return process.pid
+
+
+def _service_launch_counts(
+    *,
+    state: ServiceStateSnapshot | None,
+    launch_count_override: int | None,
+    restart_count_override: int | None,
+) -> tuple[int, int]:
     launch_count = override_or_next(
         launch_count_override,
         state.launch_count if state is not None else None,
@@ -96,46 +143,69 @@ def start_background_service(
         state.restart_count if state is not None else None,
         increment=False,
     )
-    if (
-        state is not None
-        and state.state in {"starting", "running", "stopping"}
-        and state.pid is not None
-    ):
-        view = build_runtime_status_view(state)
-        if view.runtime_state == "active":
-            raise RuntimeError(f"Service is already active with PID {state.pid}.")
-        if view.live_process:
-            raise RuntimeError(
-                "Service heartbeat is stale but PID "
-                f"{state.pid} is still alive. Use restart-service or "
-                "stop-service --force before launching another background service."
-            )
-        db.upsert_service_state(
-            state="stopped",
-            continuous=state.continuous,
-            poll_seconds=state.poll_seconds,
-            cycle_count=state.cycle_count,
-            symbols=state.symbols,
-            interval=state.interval,
-            lookback=state.lookback,
-            max_cycles=state.max_cycles,
-            current_symbol=None,
-            message=f"Recovered stale runtime state from dead PID {state.pid}.",
-            last_error=state.last_error,
-            pid=None,
-            clear_pid=True,
-            stop_requested=False,
-        )
-        db.insert_service_event(
-            level="warning",
-            event_type="stale_service_recovered",
-            message=f"Recovered stale runtime state from dead PID {state.pid}.",
-            cycle_count=state.cycle_count if state.cycle_count > 0 else None,
-            symbol=state.current_symbol,
-        )
+    return launch_count, restart_count
 
-    stdout_path = settings.runtime_dir / "service.out.log"
-    stderr_path = settings.runtime_dir / "service.err.log"
+
+def _ensure_service_can_start(
+    db: TradingDatabase, state: ServiceStateSnapshot | None
+) -> None:
+    if (
+        state is None
+        or state.state not in {"starting", "running", "stopping"}
+        or state.pid is None
+    ):
+        return
+
+    view = build_runtime_status_view(state)
+    if view.runtime_state == "active":
+        raise RuntimeError(f"Service is already active with PID {state.pid}.")
+    if view.live_process:
+        raise RuntimeError(
+            "Service heartbeat is stale but PID "
+            f"{state.pid} is still alive. Use restart-service or "
+            "stop-service --force before launching another background service."
+        )
+    _record_stale_service_recovery(db, state)
+
+
+def _record_stale_service_recovery(
+    db: TradingDatabase, state: ServiceStateSnapshot
+) -> None:
+    message = f"Recovered stale runtime state from dead PID {state.pid}."
+    db.upsert_service_state(
+        state="stopped",
+        continuous=state.continuous,
+        poll_seconds=state.poll_seconds,
+        cycle_count=state.cycle_count,
+        symbols=state.symbols,
+        interval=state.interval,
+        lookback=state.lookback,
+        max_cycles=state.max_cycles,
+        current_symbol=None,
+        message=message,
+        last_error=state.last_error,
+        pid=None,
+        clear_pid=True,
+        stop_requested=False,
+    )
+    db.insert_service_event(
+        level="warning",
+        event_type="stale_service_recovered",
+        message=message,
+        cycle_count=state.cycle_count if state.cycle_count > 0 else None,
+        symbol=state.current_symbol,
+    )
+
+
+def _service_run_command(
+    *,
+    symbols: list[str],
+    interval: str,
+    lookback: str,
+    poll_seconds: int,
+    continuous: bool,
+    max_cycles: int | None,
+) -> list[str]:
     command = [
         sys.executable,
         "-m",
@@ -153,12 +223,21 @@ def start_background_service(
     command.append("--continuous" if continuous else "--no-continuous")
     if max_cycles is not None:
         command.extend(["--max-cycles", str(max_cycles)])
+    return command
 
+
+def _spawn_service_process(
+    *,
+    command: list[str],
+    stdout_path: Path,
+    stderr_path: Path,
+    workdir: Path | None,
+) -> subprocess.Popen[bytes]:
     with (
         open_private_append_binary(stdout_path) as stdout_handle,
         open_private_append_binary(stderr_path) as stderr_handle,
     ):
-        process = subprocess.Popen(
+        return subprocess.Popen(
             command,
             cwd=str(workdir or Path.cwd()),
             stdout=stdout_handle,
@@ -166,6 +245,22 @@ def start_background_service(
             start_new_session=True,
         )
 
+
+def _record_spawned_service(
+    *,
+    db: TradingDatabase,
+    process: subprocess.Popen[bytes],
+    symbols: list[str],
+    interval: str,
+    lookback: str,
+    poll_seconds: int,
+    continuous: bool,
+    max_cycles: int | None,
+    launch_count: int,
+    restart_count: int,
+    stdout_path: Path,
+    stderr_path: Path,
+) -> None:
     db.upsert_service_state(
         state="starting",
         continuous=continuous,
@@ -190,8 +285,6 @@ def start_background_service(
         event_type="service_spawned",
         message=f"Background service spawned with PID {process.pid}.",
     )
-    db.close()
-    return process.pid
 
 
 def restart_background_service(

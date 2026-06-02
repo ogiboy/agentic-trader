@@ -177,39 +177,31 @@ def _provider_rows(payload: Payload) -> list[Payload]:
     return _payload_list(payload.get("providers", []))
 
 
-def _paper_evidence_payload(
-    settings: Settings,
-    provider_payload: Payload,
-) -> Payload:
-    """
-    Assembles a paper-evidence payload that summarizes provider/source visibility and the gates that block live execution.
-
-    Parameters:
-        settings (Settings): Runtime/settings object used to evaluate live execution and backend gating.
-        provider_payload (Payload): Provider diagnostics payload (expected to include a `providers` list, `market_data.selected_provider`, and optional `warnings`).
-
-    Returns:
-        Payload: A payload containing:
-            - ready: `True` if all blocking checks pass, `False` otherwise.
-            - checks: List of check records produced for provider/source ladder, source attribution, context pack visibility, review evidence path, and live-execution gate.
-            - source_ladder: Dict with `provider_count` (int), `selected_market_provider` (str), and `warnings` (list).
-            - context_pack: Dict describing required Market Context Pack fields and fixed visibility flags.
-            - review_artifacts: List of operator review artifact paths expected on the review path.
-            - no_live_until_approved: Summary of live-execution settings including `live_execution_enabled`, `execution_backend`, and computed `live_blocked`.
-    """
-    provider_rows = _provider_rows(provider_payload)
-    source_attribution_visible = all(
+def _source_attribution_visible(provider_rows: list[Payload]) -> bool:
+    return all(
         row.get("provider_id") and row.get("provider_type") and row.get("role")
         for row in provider_rows
     )
+
+
+def _selected_market_provider(provider_payload: Payload) -> object:
     market_data = provider_payload.get("market_data", {})
     market_data_payload = (
         _payload_from_mapping(cast(Mapping[object, object], market_data))
         if isinstance(market_data, Mapping)
         else {}
     )
-    selected_provider = market_data_payload.get("selected_provider") or "unknown"
-    checks: list[Check] = [
+    return market_data_payload.get("selected_provider") or "unknown"
+
+
+def _paper_evidence_checks(
+    *,
+    settings: Settings,
+    provider_rows: list[Payload],
+    selected_provider: object,
+) -> list[Check]:
+    source_attribution_visible = _source_attribution_visible(provider_rows)
+    return [
         _check(
             "provider_source_ladder_visible",
             bool(provider_rows),
@@ -244,6 +236,52 @@ def _paper_evidence_payload(
             ),
         ),
     ]
+
+
+def _paper_context_pack_payload() -> Payload:
+    return {
+        "required_fields": CONTEXT_PACK_REQUIRED_FIELDS,
+        "fail_closed_in_operation": True,
+        "training_undercoverage_visible": True,
+    }
+
+
+def _paper_live_gate_payload(settings: Settings) -> Payload:
+    return {
+        "live_execution_enabled": settings.live_execution_enabled,
+        "execution_backend": settings.execution_backend,
+        "live_blocked": not settings.live_execution_enabled
+        and settings.execution_backend != "live",
+    }
+
+
+def _paper_evidence_payload(
+    settings: Settings,
+    provider_payload: Payload,
+) -> Payload:
+    """
+    Assembles a paper-evidence payload that summarizes provider/source visibility and the gates that block live execution.
+
+    Parameters:
+        settings (Settings): Runtime/settings object used to evaluate live execution and backend gating.
+        provider_payload (Payload): Provider diagnostics payload (expected to include a `providers` list, `market_data.selected_provider`, and optional `warnings`).
+
+    Returns:
+        Payload: A payload containing:
+            - ready: `True` if all blocking checks pass, `False` otherwise.
+            - checks: List of check records produced for provider/source ladder, source attribution, context pack visibility, review evidence path, and live-execution gate.
+            - source_ladder: Dict with `provider_count` (int), `selected_market_provider` (str), and `warnings` (list).
+            - context_pack: Dict describing required Market Context Pack fields and fixed visibility flags.
+            - review_artifacts: List of operator review artifact paths expected on the review path.
+            - no_live_until_approved: Summary of live-execution settings including `live_execution_enabled`, `execution_backend`, and computed `live_blocked`.
+    """
+    provider_rows = _provider_rows(provider_payload)
+    selected_provider = _selected_market_provider(provider_payload)
+    checks = _paper_evidence_checks(
+        settings=settings,
+        provider_rows=provider_rows,
+        selected_provider=selected_provider,
+    )
     return {
         "ready": _allowed(checks),
         "checks": checks,
@@ -252,18 +290,9 @@ def _paper_evidence_payload(
             "selected_market_provider": selected_provider,
             "warnings": provider_payload.get("warnings", []),
         },
-        "context_pack": {
-            "required_fields": CONTEXT_PACK_REQUIRED_FIELDS,
-            "fail_closed_in_operation": True,
-            "training_undercoverage_visible": True,
-        },
+        "context_pack": _paper_context_pack_payload(),
         "review_artifacts": REVIEW_EVIDENCE_ARTIFACTS,
-        "no_live_until_approved": {
-            "live_execution_enabled": settings.live_execution_enabled,
-            "execution_backend": settings.execution_backend,
-            "live_blocked": not settings.live_execution_enabled
-            and settings.execution_backend != "live",
-        },
+        "no_live_until_approved": _paper_live_gate_payload(settings),
     }
 
 
@@ -294,7 +323,43 @@ def v1_readiness_payload(
     broker_payload = broker_runtime_payload(settings)
     provider_payload = provider_diagnostics_payload(settings)
     paper_evidence = _paper_evidence_payload(settings, provider_payload)
-    paper_checks: list[Check] = [
+    paper_checks = _paper_operation_checks(
+        settings,
+        broker_payload=broker_payload,
+        paper_evidence=paper_evidence,
+    )
+    provider_health, provider_check = _provider_readiness_check(
+        settings,
+        check_provider=check_provider,
+    )
+    paper_checks.append(provider_check)
+    alpaca_checks = _alpaca_paper_checks(settings)
+
+    return {
+        "runtime_mode": settings.runtime_mode,
+        "execution_backend": settings.execution_backend,
+        "paper_operations": {
+            "allowed": _allowed(paper_checks),
+            "checks": paper_checks,
+        },
+        "paper_evidence": paper_evidence,
+        "alpaca_paper": {
+            "ready": _allowed(alpaca_checks),
+            "checks": alpaca_checks,
+        },
+        "broker": broker_payload,
+        "provider_health": provider_health,
+        "summary": _v1_readiness_summary(paper_checks),
+    }
+
+
+def _paper_operation_checks(
+    settings: Settings,
+    *,
+    broker_payload: Payload,
+    paper_evidence: Payload,
+) -> list[Check]:
+    checks = [
         _check(
             "runtime_mode_operation",
             settings.runtime_mode == "operation",
@@ -327,36 +392,44 @@ def v1_readiness_payload(
         ),
     ]
     evidence_checks = paper_evidence.get("checks", [])
-    paper_checks.extend(_payload_list(evidence_checks))
+    checks.extend(_payload_list(evidence_checks))
+    return checks
 
-    provider_health: Payload | None = None
+
+def _provider_readiness_check(
+    settings: Settings, *, check_provider: bool
+) -> tuple[Payload | None, Check]:
     if check_provider:
         health = LocalLLM(settings).health_check(include_generation=True)
-        provider_health = health.model_dump(mode="json")
-        paper_checks.append(
+        return (
+            health.model_dump(mode="json"),
             _check(
                 "llm_provider_ready",
                 health.service_reachable
                 and (health.model_available or not settings.strict_llm)
                 and health.generation_available is not False,
                 health.message,
-            )
+            ),
         )
-    else:
-        paper_checks.append(
-            _check(
-                "llm_provider_ready",
-                False,
-                "Provider/model readiness was not checked; rerun with --provider-check.",
-            )
+    return (
+        None,
+        _check(
+            "llm_provider_ready",
+            False,
+            "Provider/model readiness was not checked; rerun with --provider-check.",
         )
-    alpaca_checks: list[Check] = [
+    )
+
+
+def _alpaca_paper_checks(settings: Settings) -> list[Check]:
+    credentials_ready = alpaca_credentials_ready(settings)
+    return [
         _check(
             "credentials_configured",
-            alpaca_credentials_ready(settings),
+            credentials_ready,
             (
                 "Alpaca paper API key and secret are configured."
-                if alpaca_credentials_ready(settings)
+                if credentials_ready
                 else "Alpaca paper credentials are missing."
             ),
         ),
@@ -388,23 +461,10 @@ def v1_readiness_payload(
         ),
     ]
 
-    return {
-        "runtime_mode": settings.runtime_mode,
-        "execution_backend": settings.execution_backend,
-        "paper_operations": {
-            "allowed": _allowed(paper_checks),
-            "checks": paper_checks,
-        },
-        "paper_evidence": paper_evidence,
-        "alpaca_paper": {
-            "ready": _allowed(alpaca_checks),
-            "checks": alpaca_checks,
-        },
-        "broker": broker_payload,
-        "provider_health": provider_health,
-        "summary": (
-            "V1 paper operation checks passed; live execution remains blocked."
-            if _allowed(paper_checks)
-            else "V1 paper operation checks are not all passing."
-        ),
-    }
+
+def _v1_readiness_summary(paper_checks: list[Check]) -> str:
+    return (
+        "V1 paper operation checks passed; live execution remains blocked."
+        if _allowed(paper_checks)
+        else "V1 paper operation checks are not all passing."
+    )

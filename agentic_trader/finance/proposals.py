@@ -208,6 +208,73 @@ def reconcile_trade_proposal(
     return repaired, record
 
 
+def _refreshable_order(
+    *,
+    db: TradingDatabase,
+    proposal_id: str,
+) -> tuple[TradeProposalRecord, dict[str, object], ExecutionIntent]:
+    proposal = db.get_trade_proposal(proposal_id)
+    if proposal is None:
+        raise ValueError(f"Trade proposal not found: {proposal_id}")
+    if proposal.execution_intent_id is None or proposal.execution_order_id is None:
+        raise ValueError(
+            f"Trade proposal {proposal_id} has no broker order to refresh."
+        )
+    if proposal.execution_outcome_status != "accepted":
+        raise ValueError(
+            f"Trade proposal {proposal_id} is not waiting on an accepted broker order."
+        )
+    record = db.get_execution_record(proposal.execution_intent_id)
+    if record is None:
+        raise ValueError(
+            f"Trade proposal {proposal_id} has no recorded execution intent to refresh."
+        )
+    intent_payload = record.get("intent")
+    if not isinstance(intent_payload, dict):
+        raise ValueError(
+            f"Trade proposal {proposal_id} has no refreshable execution intent payload."
+        )
+    return proposal, record, ExecutionIntent.model_validate(intent_payload)
+
+
+def _refreshed_order_outcome(
+    *,
+    db: TradingDatabase,
+    settings: Settings,
+    proposal: TradeProposalRecord,
+    intent: ExecutionIntent,
+) -> ExecutionOutcome:
+    adapter_settings = settings.model_copy(
+        update={"execution_backend": intent.execution_backend}
+    )
+    adapter = get_broker_order_reader(db=db, settings=adapter_settings)
+    outcome = adapter.get_order_outcome(
+        order_id=proposal.execution_order_id or "",
+        intent=intent,
+    )
+    if outcome.order_id is None:
+        return outcome.model_copy(update={"order_id": proposal.execution_order_id})
+    return outcome
+
+
+def _refreshed_trade_proposal(
+    *,
+    proposal: TradeProposalRecord,
+    outcome: ExecutionOutcome,
+    review_notes: str,
+) -> TradeProposalRecord:
+    return proposal.model_copy(
+        update={
+            "status": _proposal_status_for_outcome(outcome.status),
+            "updated_at": utc_now_iso(),
+            "review_notes": _merge_notes(proposal.review_notes, review_notes),
+            "execution_order_id": outcome.order_id,
+            "execution_outcome_status": outcome.status,
+            "rejection_reason": outcome.rejection_reason,
+        }
+    )
+
+
 def refresh_trade_proposal_order(
     *,
     db: TradingDatabase,
@@ -231,42 +298,14 @@ def refresh_trade_proposal_order(
         RuntimeError: If the broker returned an order id that does not match the proposal's recorded order id.
     """
 
-    proposal = db.get_trade_proposal(proposal_id)
-    if proposal is None:
-        raise ValueError(f"Trade proposal not found: {proposal_id}")
-    if proposal.execution_intent_id is None or proposal.execution_order_id is None:
-        raise ValueError(
-            f"Trade proposal {proposal_id} has no broker order to refresh."
-        )
-    if proposal.execution_outcome_status != "accepted":
-        raise ValueError(
-            f"Trade proposal {proposal_id} is not waiting on an accepted broker order."
-        )
-    record = db.get_execution_record(proposal.execution_intent_id)
-    if record is None:
-        raise ValueError(
-            f"Trade proposal {proposal_id} has no recorded execution intent to refresh."
-        )
-    intent_payload = record.get("intent")
-    if not isinstance(intent_payload, dict):
-        raise ValueError(
-            f"Trade proposal {proposal_id} has no refreshable execution intent payload."
-        )
-    intent = ExecutionIntent.model_validate(intent_payload)
+    proposal, record, intent = _refreshable_order(db=db, proposal_id=proposal_id)
     clean_review_notes = _require_review_note("broker refresh", review_notes)
-    adapter_settings = settings.model_copy(
-        update={"execution_backend": intent.execution_backend}
-    )
-    adapter = get_broker_order_reader(
+    outcome = _refreshed_order_outcome(
         db=db,
-        settings=adapter_settings,
-    )
-    outcome = adapter.get_order_outcome(
-        order_id=proposal.execution_order_id,
+        settings=settings,
+        proposal=proposal,
         intent=intent,
     )
-    if outcome.order_id is None:
-        outcome = outcome.model_copy(update={"order_id": proposal.execution_order_id})
     if outcome.order_id != proposal.execution_order_id:
         raise RuntimeError(
             f"Broker order refresh returned a different order id for {proposal_id}."
@@ -277,16 +316,10 @@ def refresh_trade_proposal_order(
         intent=intent,
         outcome=outcome,
     )
-    final_status = _proposal_status_for_outcome(outcome.status)
-    refreshed = proposal.model_copy(
-        update={
-            "status": final_status,
-            "updated_at": utc_now_iso(),
-            "review_notes": _merge_notes(proposal.review_notes, clean_review_notes),
-            "execution_order_id": outcome.order_id,
-            "execution_outcome_status": outcome.status,
-            "rejection_reason": outcome.rejection_reason,
-        }
+    refreshed = _refreshed_trade_proposal(
+        proposal=proposal,
+        outcome=outcome,
+        review_notes=clean_review_notes,
     )
     if not db.update_trade_proposal(refreshed, expected_status=proposal.status):
         raise ValueError(

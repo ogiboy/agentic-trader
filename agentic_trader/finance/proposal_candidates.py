@@ -9,6 +9,7 @@ from agentic_trader.execution.symbols import is_v1_us_equity_symbol
 from agentic_trader.finance.ideas import (
     IdeaCandidate,
     IdeaPresetName,
+    IdeaScore,
     score_candidate,
 )
 from agentic_trader.finance.proposal_candidate_context import (
@@ -58,21 +59,27 @@ def create_proposal_candidate(
     enrich_provider_context: bool = True,
     fetch_provider_news: bool = False,
 ) -> ProposalCandidateRecord:
-    """
-    Create and persist a validated, scored proposal candidate enriched with optional provider context.
-
-    Parameters:
-        draft (ProposalCandidateDraft): Operator-provided inputs for the candidate (idea, sizing, risk controls, text fields, and optional evidence).
-        settings (Settings | None): Optional provider settings used when enriching canonical provider context; if omitted, provider context will be marked unavailable.
-        enrich_provider_context (bool): If True, attempt to include canonical provider analysis in the candidate's evidence; otherwise mark provider context as disabled.
-        fetch_provider_news (bool): If True (and provider enrichment is enabled), request provider news items when building the canonical analysis snapshot.
-
-    Returns:
-        ProposalCandidateRecord: The inserted proposal candidate record, including computed score/confidence, normalized symbol, redacted text fields, assembled evidence, timestamps, and a generated candidate_id.
-
-    """
+    """Create and persist a validated, scored proposal candidate."""
     score = score_candidate(draft.idea, draft.preset)
     symbol = score.symbol.strip().upper()
+    _validate_candidate_inputs(symbol=symbol, draft=draft)
+    evidence = candidate_evidence(
+        draft=draft,
+        settings=settings,
+        enrich_provider_context=enrich_provider_context,
+        fetch_provider_news=fetch_provider_news,
+    )
+    candidate = _candidate_record(
+        draft=draft,
+        score=score,
+        symbol=symbol,
+        evidence=evidence,
+    )
+    db.insert_proposal_candidate(candidate)
+    return candidate
+
+
+def _validate_candidate_inputs(*, symbol: str, draft: ProposalCandidateDraft) -> None:
     if not is_v1_us_equity_symbol(symbol):
         raise ValueError("Proposal candidates require a simple V1 US equity symbol.")
     if (draft.quantity is None) == (draft.notional is None):
@@ -83,26 +90,31 @@ def create_proposal_candidate(
         raise ValueError("Proposal candidates require quantity greater than zero.")
     if draft.notional is not None and draft.notional <= 0:
         raise ValueError("Proposal candidates require notional greater than zero.")
-    side = cast(TradeSide, score.signal) if score.signal in {"buy", "sell"} else None
-    confidence = min(max(score.score / 100.0, 0.0), 1.0)
-    evidence = candidate_evidence(
-        draft=draft,
-        settings=settings,
-        enrich_provider_context=enrich_provider_context,
-        fetch_provider_news=fetch_provider_news,
-    )
+
+
+def _candidate_side(score: IdeaScore) -> TradeSide | None:
+    return cast(TradeSide, score.signal) if score.signal in {"buy", "sell"} else None
+
+
+def _candidate_record(
+    *,
+    draft: ProposalCandidateDraft,
+    score: IdeaScore,
+    symbol: str,
+    evidence: dict[str, object],
+) -> ProposalCandidateRecord:
     now = utc_now_iso()
-    candidate = ProposalCandidateRecord(
+    return ProposalCandidateRecord(
         candidate_id=f"candidate-{uuid4().hex[:12]}",
         created_at=now,
         updated_at=now,
         symbol=symbol,
         preset=score.preset,
         signal=score.signal,
-        side=side,
+        side=_candidate_side(score),
         score=score.score,
         reference_price=draft.idea.price,
-        confidence=confidence,
+        confidence=min(max(score.score / 100.0, 0.0), 1.0),
         quantity=draft.quantity,
         notional=draft.notional,
         thesis=_safe_note(
@@ -129,8 +141,6 @@ def create_proposal_candidate(
         ),
         evidence=evidence,
     )
-    db.insert_proposal_candidate(candidate)
-    return candidate
 
 
 def promote_proposal_candidate(

@@ -1,5 +1,9 @@
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from typing import Protocol
 from uuid import uuid4
+
+from pydantic import BaseModel
 
 from agentic_trader.agents.consensus import assess_specialist_consensus
 from agentic_trader.agents.context import build_agent_context
@@ -22,14 +26,109 @@ from agentic_trader.market.features import build_snapshot
 from agentic_trader.market.news import fetch_news_brief
 from agentic_trader.providers import build_canonical_analysis_snapshot
 from agentic_trader.schemas import (
+    AgentContext,
+    AgentRole,
     AgentStageTrace,
+    CanonicalAnalysisSnapshot,
+    DecisionFeatureBundle,
+    ExecutionDecision,
+    FundamentalAssessment,
+    InvestmentPreferences,
+    MacroAssessment,
+    ManagerDecision,
     MarketSnapshot,
+    NewsSignal,
+    RegimeAssessment,
+    ResearchCoordinatorBrief,
+    ReviewNote,
+    RiskPlan,
     RunArtifacts,
     SharedMemoryEntry,
+    SpecialistConsensus,
+    StrategyPlan,
 )
 from agentic_trader.storage.db import TradingDatabase
 
 type ProgressCallback = Callable[[str, str, str], None]
+
+
+class JsonModel(Protocol):
+    def model_dump_json(self, *, indent: int | None = None) -> str: ...
+
+
+@dataclass
+class RunPipelineContext:
+    settings: Settings
+    snapshot: MarketSnapshot
+    allow_fallback: bool
+    memory_enabled: bool
+    progress_callback: ProgressCallback | None
+    llm: LocalLLM
+    db: TradingDatabase
+    preferences: InvestmentPreferences
+    news_items: list[NewsSignal]
+    canonical_snapshot: CanonicalAnalysisSnapshot
+    decision_features: DecisionFeatureBundle
+    shared_memory_bus: list[SharedMemoryEntry]
+
+    def emit(self, stage: str, status: str, message: str) -> None:
+        if self.progress_callback is not None:
+            self.progress_callback(stage, status, message)
+
+    def agent_context(
+        self,
+        *,
+        role: AgentRole,
+        upstream_context: Mapping[str, BaseModel | str] | None = None,
+        tool_outputs: list[str] | None = None,
+    ) -> AgentContext:
+        return build_agent_context(
+            role=role,
+            settings=self.settings,
+            db=self.db,
+            snapshot=self.snapshot,
+            canonical_snapshot=self.canonical_snapshot,
+            decision_features=self.decision_features,
+            news_items=self.news_items,
+            memory_enabled=self.memory_enabled,
+            shared_memory_bus=self.shared_memory_bus,
+            upstream_context=upstream_context,
+            tool_outputs=tool_outputs,
+        )
+
+    def remember(self, *, role: str, summary: str, payload: JsonModel) -> None:
+        self.shared_memory_bus.append(
+            SharedMemoryEntry(
+                role=role,
+                summary=summary,
+                payload_json=payload.model_dump_json(indent=2),
+            )
+        )
+
+
+@dataclass(frozen=True)
+class ResearchStageOutputs:
+    coordinator: ResearchCoordinatorBrief
+    coordinator_context: AgentContext
+    fundamental: FundamentalAssessment
+    fundamental_context: AgentContext
+    macro: MacroAssessment
+    macro_context: AgentContext
+    regime: RegimeAssessment
+    regime_context: AgentContext
+
+
+@dataclass(frozen=True)
+class PlanningStageOutputs:
+    strategy: StrategyPlan
+    strategy_context: AgentContext
+    risk: RiskPlan
+    risk_context: AgentContext
+    consensus: SpecialistConsensus
+    manager: ManagerDecision
+    manager_context: AgentContext
+    execution: ExecutionDecision
+    review: ReviewNote
 
 
 def persist_position_plan(*, settings: Settings, artifacts: RunArtifacts) -> None:
@@ -125,12 +224,42 @@ def run_from_snapshot(
     Returns:
         RunArtifacts: Aggregated outputs including the original snapshot, canonical snapshot, decision features, each stage's outputs (coordinator, fundamental, macro, regime, strategy, risk, consensus, manager, execution, review) and agent stage traces.
     """
-    shared_memory_bus: list[SharedMemoryEntry] = []
+    pipeline = _build_run_pipeline_context(
+        settings=settings,
+        snapshot=snapshot,
+        allow_fallback=allow_fallback,
+        memory_enabled=memory_enabled,
+        progress_callback=progress_callback,
+    )
+    research = _run_research_stages(pipeline)
+    planning = _run_planning_stages(pipeline, research)
 
-    def emit(stage: str, status: str, message: str) -> None:
-        if progress_callback is not None:
-            progress_callback(stage, status, message)
+    return RunArtifacts(
+        snapshot=snapshot,
+        canonical_snapshot=pipeline.canonical_snapshot,
+        decision_features=pipeline.decision_features,
+        coordinator=research.coordinator,
+        fundamental=research.fundamental,
+        macro=research.macro,
+        regime=research.regime,
+        strategy=planning.strategy,
+        risk=planning.risk,
+        consensus=planning.consensus,
+        manager=planning.manager,
+        execution=planning.execution,
+        review=planning.review,
+        agent_traces=_build_stage_traces(research, planning),
+    )
 
+
+def _build_run_pipeline_context(
+    *,
+    settings: Settings,
+    snapshot: MarketSnapshot,
+    allow_fallback: bool,
+    memory_enabled: bool,
+    progress_callback: ProgressCallback | None,
+) -> RunPipelineContext:
     llm = LocalLLM(settings)
     db = TradingDatabase(settings)
     preferences = db.load_preferences()
@@ -149,130 +278,162 @@ def run_from_snapshot(
         news_items=news_items,
         canonical_snapshot=canonical_snapshot,
     )
-    emit(
+    return RunPipelineContext(
+        settings=settings,
+        snapshot=snapshot,
+        allow_fallback=allow_fallback,
+        memory_enabled=memory_enabled,
+        progress_callback=progress_callback,
+        llm=llm,
+        db=db,
+        preferences=preferences,
+        news_items=news_items,
+        canonical_snapshot=canonical_snapshot,
+        decision_features=decision_features,
+        shared_memory_bus=[],
+    )
+
+
+def _run_research_stages(pipeline: RunPipelineContext) -> ResearchStageOutputs:
+    coordinator, coordinator_context = _run_coordinator_stage(pipeline)
+    fundamental, fundamental_context = _run_fundamental_stage(
+        pipeline, coordinator=coordinator
+    )
+    macro, macro_context = _run_macro_stage(
+        pipeline,
+        coordinator=coordinator,
+        fundamental=fundamental,
+    )
+    regime, regime_context = _run_regime_stage(
+        pipeline,
+        coordinator=coordinator,
+        fundamental=fundamental,
+        macro=macro,
+    )
+    return ResearchStageOutputs(
+        coordinator=coordinator,
+        coordinator_context=coordinator_context,
+        fundamental=fundamental,
+        fundamental_context=fundamental_context,
+        macro=macro,
+        macro_context=macro_context,
+        regime=regime,
+        regime_context=regime_context,
+    )
+
+
+def _run_coordinator_stage(
+    pipeline: RunPipelineContext,
+) -> tuple[ResearchCoordinatorBrief, AgentContext]:
+    snapshot = pipeline.snapshot
+    pipeline.emit(
         "coordinator",
         "started",
         f"Coordinator is setting research focus for {snapshot.symbol}.",
     )
-    coordinator_context = build_agent_context(
-        role="coordinator",
-        settings=settings,
-        db=db,
-        snapshot=snapshot,
-        canonical_snapshot=canonical_snapshot,
-        decision_features=decision_features,
-        news_items=news_items,
-        memory_enabled=memory_enabled,
-        shared_memory_bus=shared_memory_bus,
-    )
+    context = pipeline.agent_context(role="coordinator")
     coordinator = coordinate_research(
-        llm,
+        pipeline.llm,
         snapshot,
-        allow_fallback=allow_fallback,
-        context=coordinator_context,
+        allow_fallback=pipeline.allow_fallback,
+        context=context,
     )
-    emit(
+    pipeline.emit(
         "coordinator",
         "completed",
         f"Coordinator completed with focus {coordinator.market_focus}.",
     )
-    shared_memory_bus.append(
-        SharedMemoryEntry(
-            role="coordinator",
-            summary=f"Focus {coordinator.market_focus} with summary: {coordinator.summary}",
-            payload_json=coordinator.model_dump_json(indent=2),
-        )
+    pipeline.remember(
+        role="coordinator",
+        summary=f"Focus {coordinator.market_focus} with summary: {coordinator.summary}",
+        payload=coordinator,
     )
-    emit(
+    return coordinator, context
+
+
+def _run_fundamental_stage(
+    pipeline: RunPipelineContext, *, coordinator: ResearchCoordinatorBrief
+) -> tuple[FundamentalAssessment, AgentContext]:
+    snapshot = pipeline.snapshot
+    pipeline.emit(
         "fundamental",
         "started",
         f"Fundamental analyst is reviewing structured evidence for {snapshot.symbol}.",
     )
-    fundamental_context = build_agent_context(
+    context = pipeline.agent_context(
         role="fundamental",
-        settings=settings,
-        db=db,
-        snapshot=snapshot,
-        canonical_snapshot=canonical_snapshot,
-        decision_features=decision_features,
-        news_items=news_items,
-        memory_enabled=memory_enabled,
-        shared_memory_bus=shared_memory_bus,
         upstream_context={"coordinator": coordinator},
     )
     fundamental = assess_fundamentals(
-        llm,
+        pipeline.llm,
         snapshot,
-        allow_fallback=allow_fallback,
-        context=fundamental_context,
+        allow_fallback=pipeline.allow_fallback,
+        context=context,
     )
-    emit(
+    pipeline.emit(
         "fundamental",
         "completed",
         f"Fundamental analyst returned {fundamental.overall_bias}.",
     )
-    shared_memory_bus.append(
-        SharedMemoryEntry(
-            role="fundamental",
-            summary=(
-                f"Fundamental bias {fundamental.overall_bias}: {fundamental.summary}"
-            ),
-            payload_json=fundamental.model_dump_json(indent=2),
-        )
+    pipeline.remember(
+        role="fundamental",
+        summary=f"Fundamental bias {fundamental.overall_bias}: {fundamental.summary}",
+        payload=fundamental,
     )
-    emit(
+    return fundamental, context
+
+
+def _run_macro_stage(
+    pipeline: RunPipelineContext,
+    *,
+    coordinator: ResearchCoordinatorBrief,
+    fundamental: FundamentalAssessment,
+) -> tuple[MacroAssessment, AgentContext]:
+    snapshot = pipeline.snapshot
+    pipeline.emit(
         "macro",
         "started",
         f"Macro/news analyst is reviewing context for {snapshot.symbol}.",
     )
-    macro_context = build_agent_context(
+    context = pipeline.agent_context(
         role="macro",
-        settings=settings,
-        db=db,
-        snapshot=snapshot,
-        canonical_snapshot=canonical_snapshot,
-        decision_features=decision_features,
-        news_items=news_items,
-        memory_enabled=memory_enabled,
-        shared_memory_bus=shared_memory_bus,
         upstream_context={
             "coordinator": coordinator,
             "fundamental": fundamental,
         },
     )
     macro = assess_macro_context(
-        llm,
+        pipeline.llm,
         snapshot,
-        allow_fallback=allow_fallback,
-        context=macro_context,
+        allow_fallback=pipeline.allow_fallback,
+        context=context,
     )
-    emit(
-        "macro",
-        "completed",
-        f"Macro/news analyst returned {macro.macro_signal}.",
+    pipeline.emit(
+        "macro", "completed", f"Macro/news analyst returned {macro.macro_signal}."
     )
-    shared_memory_bus.append(
-        SharedMemoryEntry(
-            role="macro",
-            summary=f"Macro signal {macro.macro_signal}: {macro.summary}",
-            payload_json=macro.model_dump_json(indent=2),
-        )
+    pipeline.remember(
+        role="macro",
+        summary=f"Macro signal {macro.macro_signal}: {macro.summary}",
+        payload=macro,
     )
-    emit(
+    return macro, context
+
+
+def _run_regime_stage(
+    pipeline: RunPipelineContext,
+    *,
+    coordinator: ResearchCoordinatorBrief,
+    fundamental: FundamentalAssessment,
+    macro: MacroAssessment,
+) -> tuple[RegimeAssessment, AgentContext]:
+    snapshot = pipeline.snapshot
+    pipeline.emit(
         "regime",
         "started",
         f"Regime analyst is classifying the market for {snapshot.symbol}.",
     )
-    regime_context = build_agent_context(
+    context = pipeline.agent_context(
         role="regime",
-        settings=settings,
-        db=db,
-        snapshot=snapshot,
-        canonical_snapshot=canonical_snapshot,
-        decision_features=decision_features,
-        news_items=news_items,
-        memory_enabled=memory_enabled,
-        shared_memory_bus=shared_memory_bus,
         upstream_context={
             "coordinator": coordinator,
             "fundamental": fundamental,
@@ -280,269 +441,301 @@ def run_from_snapshot(
         },
     )
     regime = assess_regime(
-        llm,
+        pipeline.llm,
         snapshot,
-        allow_fallback=allow_fallback,
-        context=regime_context,
+        allow_fallback=pipeline.allow_fallback,
+        context=context,
     )
-    emit(
+    pipeline.emit(
         "regime",
         "completed",
         f"Regime analyst classified the market as {regime.regime}.",
     )
-    shared_memory_bus.append(
-        SharedMemoryEntry(
-            role="regime",
-            summary=f"Regime {regime.regime} with bias {regime.direction_bias}",
-            payload_json=regime.model_dump_json(indent=2),
-        )
+    pipeline.remember(
+        role="regime",
+        summary=f"Regime {regime.regime} with bias {regime.direction_bias}",
+        payload=regime,
     )
-    emit(
+    return regime, context
+
+
+def _run_planning_stages(
+    pipeline: RunPipelineContext, research: ResearchStageOutputs
+) -> PlanningStageOutputs:
+    strategy, strategy_context = _run_strategy_stage(pipeline, research)
+    risk, risk_context = _run_risk_stage(pipeline, research, strategy)
+    consensus = _assess_and_record_consensus(pipeline, research, strategy, risk)
+    manager, manager_context = _run_manager_stage(
+        pipeline, research, strategy, risk, consensus
+    )
+    execution = _run_execution_stage(pipeline, strategy, risk, manager)
+    review = _run_review_stage(
+        pipeline, research.regime, strategy, risk, manager, execution
+    )
+    return PlanningStageOutputs(
+        strategy=strategy,
+        strategy_context=strategy_context,
+        risk=risk,
+        risk_context=risk_context,
+        consensus=consensus,
+        manager=manager,
+        manager_context=manager_context,
+        execution=execution,
+        review=review,
+    )
+
+
+def _run_strategy_stage(
+    pipeline: RunPipelineContext, research: ResearchStageOutputs
+) -> tuple[StrategyPlan, AgentContext]:
+    snapshot = pipeline.snapshot
+    pipeline.emit(
         "strategy",
         "started",
         f"Strategy selector is planning the trade for {snapshot.symbol}.",
     )
-    strategy_context = build_agent_context(
+    context = pipeline.agent_context(
         role="strategy",
-        settings=settings,
-        db=db,
-        snapshot=snapshot,
-        canonical_snapshot=canonical_snapshot,
-        decision_features=decision_features,
-        news_items=news_items,
-        memory_enabled=memory_enabled,
-        shared_memory_bus=shared_memory_bus,
-        upstream_context={
-            "coordinator": coordinator,
-            "fundamental": fundamental,
-            "macro": macro,
-            "regime": regime,
-        },
+        upstream_context=_research_upstream_context(research),
     )
     strategy = plan_trade(
-        llm,
+        pipeline.llm,
         snapshot,
-        regime,
-        allow_fallback=allow_fallback,
-        context=strategy_context,
+        research.regime,
+        allow_fallback=pipeline.allow_fallback,
+        context=context,
     )
-    emit(
+    pipeline.emit(
         "strategy",
         "completed",
         f"Strategy selector chose {strategy.strategy_family} with action {strategy.action}.",
     )
-    shared_memory_bus.append(
-        SharedMemoryEntry(
-            role="strategy",
-            summary=(
-                f"Strategy {strategy.strategy_family} chose {strategy.action} at {strategy.confidence:.2f} confidence"
-            ),
-            payload_json=strategy.model_dump_json(indent=2),
-        )
+    pipeline.remember(
+        role="strategy",
+        summary=(
+            f"Strategy {strategy.strategy_family} chose {strategy.action} "
+            f"at {strategy.confidence:.2f} confidence"
+        ),
+        payload=strategy,
     )
-    emit("risk", "started", f"Risk steward is sizing the trade for {snapshot.symbol}.")
-    risk_context = build_agent_context(
+    return strategy, context
+
+
+def _run_risk_stage(
+    pipeline: RunPipelineContext,
+    research: ResearchStageOutputs,
+    strategy: StrategyPlan,
+) -> tuple[RiskPlan, AgentContext]:
+    snapshot = pipeline.snapshot
+    pipeline.emit(
+        "risk", "started", f"Risk steward is sizing the trade for {snapshot.symbol}."
+    )
+    context = pipeline.agent_context(
         role="risk",
-        settings=settings,
-        db=db,
-        snapshot=snapshot,
-        canonical_snapshot=canonical_snapshot,
-        decision_features=decision_features,
-        news_items=news_items,
-        memory_enabled=memory_enabled,
-        shared_memory_bus=shared_memory_bus,
         upstream_context={
-            "coordinator": coordinator,
-            "fundamental": fundamental,
-            "macro": macro,
-            "regime": regime,
+            **_research_upstream_context(research),
             "strategy": strategy,
         },
     )
     risk = build_risk_plan(
-        llm,
+        pipeline.llm,
         snapshot,
-        regime,
+        research.regime,
         strategy,
-        allow_fallback=allow_fallback,
-        context=risk_context,
+        allow_fallback=pipeline.allow_fallback,
+        context=context,
     )
-    emit(
+    pipeline.emit(
         "risk",
         "completed",
         f"Risk steward set size {risk.position_size_pct:.2%} and RR {risk.risk_reward_ratio:.2f}.",
     )
-    shared_memory_bus.append(
-        SharedMemoryEntry(
-            role="risk",
-            summary=(
-                f"Risk size {risk.position_size_pct:.2%}, RR {risk.risk_reward_ratio:.2f}, max hold {risk.max_holding_bars}"
-            ),
-            payload_json=risk.model_dump_json(indent=2),
-        )
+    pipeline.remember(
+        role="risk",
+        summary=(
+            f"Risk size {risk.position_size_pct:.2%}, "
+            f"RR {risk.risk_reward_ratio:.2f}, max hold {risk.max_holding_bars}"
+        ),
+        payload=risk,
     )
+    return risk, context
+
+
+def _assess_and_record_consensus(
+    pipeline: RunPipelineContext,
+    research: ResearchStageOutputs,
+    strategy: StrategyPlan,
+    risk: RiskPlan,
+) -> SpecialistConsensus:
     consensus = assess_specialist_consensus(
-        coordinator,
-        regime,
+        research.coordinator,
+        research.regime,
         strategy,
         risk,
-        fundamental=fundamental,
-        macro=macro,
+        fundamental=research.fundamental,
+        macro=research.macro,
     )
-    emit(
+    pipeline.emit(
         "consensus",
         "completed",
         f"Specialist consensus assessed as {consensus.alignment_level}.",
     )
-    shared_memory_bus.append(
-        SharedMemoryEntry(
-            role="consensus",
-            summary=consensus.summary,
-            payload_json=consensus.model_dump_json(indent=2),
-        )
-    )
-    emit(
+    pipeline.remember(role="consensus", summary=consensus.summary, payload=consensus)
+    return consensus
+
+
+def _run_manager_stage(
+    pipeline: RunPipelineContext,
+    research: ResearchStageOutputs,
+    strategy: StrategyPlan,
+    risk: RiskPlan,
+    consensus: SpecialistConsensus,
+) -> tuple[ManagerDecision, AgentContext]:
+    snapshot = pipeline.snapshot
+    pipeline.emit(
         "manager",
         "started",
         f"Manager agent is combining specialist outputs for {snapshot.symbol}.",
     )
-    manager_context = build_agent_context(
+    context = pipeline.agent_context(
         role="manager",
-        settings=settings,
-        db=db,
-        snapshot=snapshot,
-        canonical_snapshot=canonical_snapshot,
-        decision_features=decision_features,
-        news_items=news_items,
-        memory_enabled=memory_enabled,
-        shared_memory_bus=shared_memory_bus,
-        tool_outputs=[
-            f"specialist_consensus: level={consensus.alignment_level} support={','.join(consensus.supporting_roles) or '-'} dissent={','.join(consensus.dissenting_roles) or '-'} summary={consensus.summary}"
-        ],
+        tool_outputs=[_consensus_tool_output(consensus)],
         upstream_context={
-            "coordinator": coordinator,
-            "fundamental": fundamental,
-            "macro": macro,
-            "regime": regime,
+            **_research_upstream_context(research),
             "strategy": strategy,
             "risk": risk,
         },
     )
     manager = manage_trade_decision(
-        llm,
+        pipeline.llm,
         snapshot,
-        coordinator,
-        regime,
+        research.coordinator,
+        research.regime,
         strategy,
         risk,
-        fundamental=fundamental,
-        macro=macro,
-        allow_fallback=allow_fallback,
-        context=manager_context,
+        fundamental=research.fundamental,
+        macro=research.macro,
+        allow_fallback=pipeline.allow_fallback,
+        context=context,
     )
-    emit(
+    pipeline.emit(
         "manager",
         "completed",
         f"Manager agent returned bias {manager.action_bias} with approval {manager.approved}.",
     )
-    shared_memory_bus.append(
-        SharedMemoryEntry(
-            role="manager",
-            summary=(
-                f"Manager bias {manager.action_bias}, approved={manager.approved}, override={manager.override_applied}"
-            ),
-            payload_json=manager.model_dump_json(indent=2),
-        )
+    pipeline.remember(
+        role="manager",
+        summary=(
+            f"Manager bias {manager.action_bias}, approved={manager.approved}, "
+            f"override={manager.override_applied}"
+        ),
+        payload=manager,
     )
-    emit(
+    return manager, context
+
+
+def _run_execution_stage(
+    pipeline: RunPipelineContext,
+    strategy: StrategyPlan,
+    risk: RiskPlan,
+    manager: ManagerDecision,
+) -> ExecutionDecision:
+    snapshot = pipeline.snapshot
+    pipeline.emit(
         "execution",
         "started",
         f"Execution guard is validating the plan for {snapshot.symbol}.",
     )
-    execution = evaluate_execution(settings, snapshot, strategy, risk, manager)
-    emit(
+    execution = evaluate_execution(pipeline.settings, snapshot, strategy, risk, manager)
+    pipeline.emit(
         "execution",
         "completed",
         f"Execution guard {'approved' if execution.approved else 'rejected'} {execution.side}.",
     )
-    emit(
+    return execution
+
+
+def _run_review_stage(
+    pipeline: RunPipelineContext,
+    regime: RegimeAssessment,
+    strategy: StrategyPlan,
+    risk: RiskPlan,
+    manager: ManagerDecision,
+    execution: ExecutionDecision,
+) -> ReviewNote:
+    pipeline.emit(
         "review",
         "started",
-        f"Review agent is writing the post-trade note for {snapshot.symbol}.",
+        f"Review agent is writing the post-trade note for {pipeline.snapshot.symbol}.",
     )
     review = build_review_note(regime, strategy, risk, manager, execution)
-    emit("review", "completed", "Review note completed.")
-    traces = [
-        AgentStageTrace(
-            role="coordinator",
-            model_name=coordinator_context.model_name,
-            context_json=coordinator_context.model_dump_json(indent=2),
-            output_json=coordinator.model_dump_json(indent=2),
-            used_fallback=coordinator.source == "fallback",
-        ),
-        AgentStageTrace(
-            role="fundamental",
-            model_name=fundamental_context.model_name,
-            context_json=fundamental_context.model_dump_json(indent=2),
-            output_json=fundamental.model_dump_json(indent=2),
-            used_fallback=fundamental.source == "fallback",
-        ),
-        AgentStageTrace(
-            role="macro",
-            model_name=macro_context.model_name,
-            context_json=macro_context.model_dump_json(indent=2),
-            output_json=macro.model_dump_json(indent=2),
-            used_fallback=macro.source == "fallback",
-        ),
-    ]
-    traces.extend(
-        [
-            AgentStageTrace(
-                role="regime",
-                model_name=regime_context.model_name,
-                context_json=regime_context.model_dump_json(indent=2),
-                output_json=regime.model_dump_json(indent=2),
-                used_fallback=regime.source == "fallback",
-            ),
-            AgentStageTrace(
-                role="strategy",
-                model_name=strategy_context.model_name,
-                context_json=strategy_context.model_dump_json(indent=2),
-                output_json=strategy.model_dump_json(indent=2),
-                used_fallback=strategy.source == "fallback",
-            ),
-            AgentStageTrace(
-                role="risk",
-                model_name=risk_context.model_name,
-                context_json=risk_context.model_dump_json(indent=2),
-                output_json=risk.model_dump_json(indent=2),
-                used_fallback=risk.source == "fallback",
-            ),
-            AgentStageTrace(
-                role="manager",
-                model_name=manager_context.model_name,
-                context_json=manager_context.model_dump_json(indent=2),
-                output_json=manager.model_dump_json(indent=2),
-                used_fallback=manager.source == "fallback",
-            ),
-        ]
+    pipeline.emit("review", "completed", "Review note completed.")
+    return review
+
+
+def _research_upstream_context(
+    research: ResearchStageOutputs,
+) -> dict[str, BaseModel | str]:
+    return {
+        "coordinator": research.coordinator,
+        "fundamental": research.fundamental,
+        "macro": research.macro,
+        "regime": research.regime,
+    }
+
+
+def _consensus_tool_output(consensus: SpecialistConsensus) -> str:
+    support = ",".join(consensus.supporting_roles) or "-"
+    dissent = ",".join(consensus.dissenting_roles) or "-"
+    return (
+        f"specialist_consensus: level={consensus.alignment_level} "
+        f"support={support} dissent={dissent} summary={consensus.summary}"
     )
 
-    return RunArtifacts(
-        snapshot=snapshot,
-        canonical_snapshot=canonical_snapshot,
-        decision_features=decision_features,
-        coordinator=coordinator,
-        fundamental=fundamental,
-        macro=macro,
-        regime=regime,
-        strategy=strategy,
-        risk=risk,
-        consensus=consensus,
-        manager=manager,
-        execution=execution,
-        review=review,
-        agent_traces=traces,
+
+def _build_stage_traces(
+    research: ResearchStageOutputs, planning: PlanningStageOutputs
+) -> list[AgentStageTrace]:
+    return [
+        _stage_trace(
+            role="coordinator",
+            context=research.coordinator_context,
+            output=research.coordinator,
+        ),
+        _stage_trace(
+            role="fundamental",
+            context=research.fundamental_context,
+            output=research.fundamental,
+        ),
+        _stage_trace(
+            role="macro", context=research.macro_context, output=research.macro
+        ),
+        _stage_trace(
+            role="regime", context=research.regime_context, output=research.regime
+        ),
+        _stage_trace(
+            role="strategy",
+            context=planning.strategy_context,
+            output=planning.strategy,
+        ),
+        _stage_trace(role="risk", context=planning.risk_context, output=planning.risk),
+        _stage_trace(
+            role="manager",
+            context=planning.manager_context,
+            output=planning.manager,
+        ),
+    ]
+
+
+def _stage_trace(
+    *, role: AgentRole, context: AgentContext, output: JsonModel
+) -> AgentStageTrace:
+    return AgentStageTrace(
+        role=role,
+        model_name=context.model_name,
+        context_json=context.model_dump_json(indent=2),
+        output_json=output.model_dump_json(indent=2),
+        used_fallback=getattr(output, "source", None) == "fallback",
     )
 
 

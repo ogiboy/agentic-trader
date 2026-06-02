@@ -28,6 +28,17 @@ class _TraceContextSummaries:
     shared_memory_summary: dict[str, list[str]]
 
 
+@dataclass(frozen=True)
+class _ExecutionContextPayload:
+    backend: str | None
+    adapter: str | None
+    intent: dict[str, object] | None
+    outcome_status: str | None
+    rejection_reason: str | None
+    outcome: dict[str, object] | None
+    simulated_metadata: dict[str, object]
+
+
 def _empty_trace_context_summaries() -> _TraceContextSummaries:
     return _TraceContextSummaries(
         routed_models={},
@@ -273,18 +284,51 @@ def _proposal_journal_status(outcome: ExecutionOutcome) -> JournalStatus:
     return "rejected"
 
 
-def persist_trade_context(
-    conn: duckdb.DuckDBPyConnection,
+def _execution_context_payload(
+    *,
+    execution_intent: ExecutionIntent | None = None,
+    execution_outcome: ExecutionOutcome | None = None,
+) -> _ExecutionContextPayload:
+    return _ExecutionContextPayload(
+        backend=(
+            execution_intent.execution_backend if execution_intent is not None else None
+        ),
+        adapter=_execution_adapter_name(execution_intent, execution_outcome),
+        intent=(
+            cast(dict[str, object], execution_intent.model_dump(mode="json"))
+            if execution_intent is not None
+            else None
+        ),
+        outcome_status=(
+            execution_outcome.status if execution_outcome is not None else None
+        ),
+        rejection_reason=(
+            execution_outcome.rejection_reason
+            if execution_outcome is not None
+            else None
+        ),
+        outcome=(
+            cast(dict[str, object], execution_outcome.model_dump(mode="json"))
+            if execution_outcome is not None
+            else None
+        ),
+        simulated_metadata=(
+            execution_outcome.simulated_metadata
+            if execution_outcome is not None
+            else {}
+        ),
+    )
+
+
+def _trade_context_record(
     *,
     trade_id: str,
     run_id: str | None,
     artifacts: RunArtifacts,
-    execution_intent: ExecutionIntent | None = None,
-    execution_outcome: ExecutionOutcome | None = None,
-) -> None:
-    trace_summaries = _summarize_trace_contexts(artifacts.agent_traces)
-
-    record = TradeContextRecord(
+    trace_summaries: _TraceContextSummaries,
+    execution_context: _ExecutionContextPayload,
+) -> TradeContextRecord:
+    return TradeContextRecord(
         trade_id=trade_id,
         created_at=datetime.now(timezone.utc).isoformat(),
         run_id=run_id,
@@ -306,38 +350,37 @@ def persist_trade_context(
         manager_conflicts=artifacts.manager.conflicts,
         manager_resolution_notes=artifacts.manager.resolution_notes,
         execution_rationale=artifacts.execution.rationale,
-        execution_backend=(
-            execution_intent.execution_backend if execution_intent is not None else None
-        ),
-        execution_adapter=_execution_adapter_name(
-            execution_intent,
-            execution_outcome,
-        ),
-        execution_intent=(
-            execution_intent.model_dump(mode="json")
-            if execution_intent is not None
-            else None
-        ),
-        execution_outcome_status=(
-            execution_outcome.status if execution_outcome is not None else None
-        ),
-        execution_rejection_reason=(
-            execution_outcome.rejection_reason
-            if execution_outcome is not None
-            else None
-        ),
-        execution_outcome=(
-            execution_outcome.model_dump(mode="json")
-            if execution_outcome is not None
-            else None
-        ),
-        simulated_fill_metadata=(
-            execution_outcome.simulated_metadata
-            if execution_outcome is not None
-            else {}
-        ),
+        execution_backend=execution_context.backend,
+        execution_adapter=execution_context.adapter,
+        execution_intent=execution_context.intent,
+        execution_outcome_status=execution_context.outcome_status,
+        execution_rejection_reason=execution_context.rejection_reason,
+        execution_outcome=execution_context.outcome,
+        simulated_fill_metadata=execution_context.simulated_metadata,
         review_summary=artifacts.review.summary,
         review_warnings=artifacts.review.warnings,
+    )
+
+
+def persist_trade_context(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    trade_id: str,
+    run_id: str | None,
+    artifacts: RunArtifacts,
+    execution_intent: ExecutionIntent | None = None,
+    execution_outcome: ExecutionOutcome | None = None,
+) -> None:
+    trace_summaries = _summarize_trace_contexts(artifacts.agent_traces)
+    record = _trade_context_record(
+        trade_id=trade_id,
+        run_id=run_id,
+        artifacts=artifacts,
+        trace_summaries=trace_summaries,
+        execution_context=_execution_context_payload(
+            execution_intent=execution_intent,
+            execution_outcome=execution_outcome,
+        ),
     )
     conn.execute(
         """

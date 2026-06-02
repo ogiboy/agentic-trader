@@ -563,6 +563,28 @@ def _mtf_alignment(
     return "mixed", 0.35
 
 
+def _clean_enriched_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    enriched = _enrich_frame(frame)
+    clean = enriched.dropna()
+    if clean.empty:
+        raise ValueError("Feature engineering produced no valid rows")
+    return clean
+
+
+def _higher_timeframe_last(
+    frame: pd.DataFrame,
+    *,
+    interval: str,
+    fallback: pd.Series,
+) -> tuple[pd.Series, str]:
+    higher_frame, higher_timeframe = _higher_timeframe_frame(frame, interval=interval)
+    higher_clean = _enrich_frame(higher_frame).dropna()
+    return (
+        higher_clean.iloc[-1] if not higher_clean.empty else fallback,
+        higher_timeframe,
+    )
+
+
 def build_snapshot(
     frame: pd.DataFrame,
     *,
@@ -571,40 +593,19 @@ def build_snapshot(
     lookback: str | None = None,
     enforce_lookback_coverage: bool = True,
 ) -> MarketSnapshot:
-    """
-    Build a MarketSnapshot and associated MarketContextPack from an OHLCV DataFrame.
-
-    Processes the input frame to compute indicators, an optional higher timeframe view, multi-timeframe alignment, and a context pack describing horizon metrics and data-quality flags. Optionally enforces lookback coverage validation that will refuse execution when coverage is insufficient.
-
-    Parameters:
-        frame (pd.DataFrame): Raw OHLCV frame indexed by timestamps (or other index) used to compute indicators and context.
-        symbol (str): Market symbol identifier to include in the snapshot and context pack.
-        interval (str): Base timeframe interval string (e.g., "1m", "1d") used for higher-timeframe estimation and context semantics.
-        lookback (str | None): Optional lookback descriptor (e.g., "6mo") used to estimate expected bars and coverage; pass None when unknown.
-        enforce_lookback_coverage (bool): If True, validate the context pack's coverage against minimum thresholds and raise on insufficient coverage; if False, skip this validation.
-
-    Returns:
-        MarketSnapshot: Snapshot containing last-period indicators, higher-timeframe summary, multi-timeframe alignment/confidence, bars analyzed, and the constructed MarketContextPack.
-
-    Raises:
-        ValueError: If the input frame has fewer than the minimum required bars or if feature engineering yields no valid rows. Also raised when coverage validation is enabled and the context pack indicates insufficient lookback coverage.
-    """
+    """Build a MarketSnapshot and MarketContextPack from an OHLCV frame."""
     if len(frame) < MIN_REQUIRED_BARS:
         raise ValueError(
             f"At least {MIN_REQUIRED_BARS} bars are required to build the market snapshot"
         )
 
-    enriched = _enrich_frame(frame)
-
-    clean = enriched.dropna()
-    if clean.empty:
-        raise ValueError("Feature engineering produced no valid rows")
-
+    clean = _clean_enriched_frame(frame)
     last = clean.iloc[-1]
-    higher_frame, higher_timeframe = _higher_timeframe_frame(frame, interval=interval)
-    higher_enriched = _enrich_frame(higher_frame)
-    higher_clean = higher_enriched.dropna()
-    higher_last = higher_clean.iloc[-1] if not higher_clean.empty else last
+    higher_last, higher_timeframe = _higher_timeframe_last(
+        frame,
+        interval=interval,
+        fallback=last,
+    )
     mtf_alignment, mtf_confidence = _mtf_alignment(last, higher_last)
     context_pack = _build_context_pack(
         frame,
@@ -640,6 +641,6 @@ def build_snapshot(
         htf_return_5=float(higher_last["return_5"]),
         mtf_alignment=mtf_alignment,
         mtf_confidence=mtf_confidence,
-        bars_analyzed=int(len(enriched)),
+        bars_analyzed=int(len(frame)),
         context_pack=context_pack,
     )

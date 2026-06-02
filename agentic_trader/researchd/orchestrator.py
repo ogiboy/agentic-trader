@@ -164,6 +164,16 @@ class ResearchPipelineResult:
     memory_update: dict[str, object] = field(default_factory=_empty_memory_update)
 
 
+@dataclass(frozen=True)
+class _ContractPayloadItems:
+    raw_evidence: list[RawEvidenceRecord]
+    macro_events: list[MacroEvent]
+    social_signals: list[SocialSignal]
+    findings: list[ResearchFinding]
+    dossiers: list[EntityDossier]
+    attributions: list[DataSourceAttribution]
+
+
 class ResearchSidecarBackend(Protocol):
     """Backend interface for optional future engines such as CrewAI."""
 
@@ -290,77 +300,101 @@ class CrewAiResearchBackend:
         flow_dir = self.flow_dir or default_crewai_flow_dir(settings)
         uv_path = self.uv_path or shutil.which("uv")
         now = utc_now_iso()
-        if uv_path is None:
+        preflight_message = self._preflight_failure_message(flow_dir, uv_path)
+        if preflight_message is not None:
             return self._failed_result(
                 settings=settings,
                 symbols=symbols,
                 provider_outputs=provider_outputs,
                 now=now,
-                message="uv is required before the CrewAI Flow sidecar can run.",
-            )
-        if not (flow_dir / "pyproject.toml").exists():
-            return self._failed_result(
-                settings=settings,
-                symbols=symbols,
-                provider_outputs=provider_outputs,
-                now=now,
-                message=f"CrewAI Flow sidecar project is missing at {flow_dir}.",
-            )
-        if not (flow_dir / ".venv").exists():
-            return self._failed_result(
-                settings=settings,
-                symbols=symbols,
-                provider_outputs=provider_outputs,
-                now=now,
-                message=(
-                    "CrewAI Flow sidecar environment is not installed. "
-                    "Run 'pnpm run setup:research-flow' first."
-                ),
+                message=preflight_message,
             )
 
-        request_payload = {
-            "mode": settings.research_mode,
-            "symbols": symbols,
-            "provider_outputs": [
-                self._provider_output_payload(output) for output in provider_outputs
-            ],
-        }
-        env = _sidecar_process_env()
-        command = [
-            uv_path,
-            "run",
-            "--locked",
-            "--no-sync",
-            "research-flow-contract",
-        ]
+        completed_or_result = self._run_contract_or_failure(
+            settings=settings,
+            symbols=symbols,
+            provider_outputs=provider_outputs,
+            flow_dir=flow_dir,
+            uv_path=uv_path or "uv",
+            now=now,
+        )
+        if isinstance(completed_or_result, ResearchPipelineResult):
+            return completed_or_result
+
+        contract_or_result = self._contract_result_or_failure(
+            settings=settings,
+            symbols=symbols,
+            provider_outputs=provider_outputs,
+            completed=completed_or_result,
+            now=now,
+        )
+        if isinstance(contract_or_result, ResearchPipelineResult):
+            return contract_or_result
+
+        return self._result_from_contract_payload(
+            settings=settings,
+            symbols=symbols,
+            provider_outputs=provider_outputs,
+            payload=contract_or_result,
+        )
+
+    @staticmethod
+    def _preflight_failure_message(flow_dir: Path, uv_path: str | None) -> str | None:
+        if uv_path is None:
+            return "uv is required before the CrewAI Flow sidecar can run."
+        if not (flow_dir / "pyproject.toml").exists():
+            return f"CrewAI Flow sidecar project is missing at {flow_dir}."
+        if not (flow_dir / ".venv").exists():
+            return (
+                "CrewAI Flow sidecar environment is not installed. "
+                "Run 'pnpm run setup:research-flow' first."
+            )
+        return None
+
+    def _run_contract_or_failure(
+        self,
+        *,
+        settings: Settings,
+        symbols: list[str],
+        provider_outputs: list[ResearchProviderOutput],
+        flow_dir: Path,
+        uv_path: str,
+        now: str,
+    ) -> subprocess.CompletedProcess[str] | ResearchPipelineResult:
         try:
-            completed = self.command_runner(
-                command,
-                json.dumps(request_payload),
+            return self.command_runner(
+                self._contract_command(uv_path),
+                json.dumps(
+                    self._contract_request_payload(settings, symbols, provider_outputs)
+                ),
                 flow_dir,
-                env,
+                _sidecar_process_env(),
                 self.timeout_seconds,
             )
         except subprocess.TimeoutExpired:
-            return self._failed_result(
-                settings=settings,
-                symbols=symbols,
-                provider_outputs=provider_outputs,
-                now=now,
-                message="CrewAI Flow sidecar contract timed out.",
-            )
+            message = "CrewAI Flow sidecar contract timed out."
         except Exception as exc:
-            return self._failed_result(
-                settings=settings,
-                symbols=symbols,
-                provider_outputs=provider_outputs,
-                now=now,
-                message=(
-                    "CrewAI Flow sidecar contract failed to start: "
-                    f"{redact_sensitive_text(exc, max_length=240)}"
-                ),
+            message = (
+                "CrewAI Flow sidecar contract failed to start: "
+                f"{redact_sensitive_text(exc, max_length=240)}"
             )
+        return self._failed_result(
+            settings=settings,
+            symbols=symbols,
+            provider_outputs=provider_outputs,
+            now=now,
+            message=message,
+        )
 
+    def _contract_result_or_failure(
+        self,
+        *,
+        settings: Settings,
+        symbols: list[str],
+        provider_outputs: list[ResearchProviderOutput],
+        completed: subprocess.CompletedProcess[str],
+        now: str,
+    ) -> dict[str, object] | ResearchPipelineResult:
         contract_payload = self._contract_payload_from_process(completed)
         if contract_payload is None:
             return self._failed_result(
@@ -368,33 +402,57 @@ class CrewAiResearchBackend:
                 symbols=symbols,
                 provider_outputs=provider_outputs,
                 now=now,
-                message=(
-                    "CrewAI Flow sidecar returned non-JSON output. "
-                    f"stdout={redact_sensitive_text(self._trim(completed.stdout), max_length=500)} "
-                    f"stderr={redact_sensitive_text(self._trim(completed.stderr), max_length=500)}"
-                ),
+                message=self._non_json_contract_message(completed),
             )
-        if completed.returncode != 0 or contract_payload.get("status") != "completed":
-            errors = contract_payload.get("errors")
-            error_items = _contract_error_items(errors)
-            return self._failed_result(
-                settings=settings,
-                symbols=symbols,
-                provider_outputs=provider_outputs,
-                now=now,
-                message=(
-                    "; ".join(str(item) for item in error_items)
-                    if error_items
-                    else "CrewAI Flow sidecar contract returned a failed status."
-                ),
-            )
-
-        return self._result_from_contract_payload(
+        if completed.returncode == 0 and contract_payload.get("status") == "completed":
+            return contract_payload
+        return self._failed_result(
             settings=settings,
             symbols=symbols,
             provider_outputs=provider_outputs,
-            payload=contract_payload,
+            now=now,
+            message=self._failed_contract_message(contract_payload),
         )
+
+    @staticmethod
+    def _contract_command(uv_path: str) -> list[str]:
+        return [
+            uv_path,
+            "run",
+            "--locked",
+            "--no-sync",
+            "research-flow-contract",
+        ]
+
+    def _contract_request_payload(
+        self,
+        settings: Settings,
+        symbols: list[str],
+        provider_outputs: list[ResearchProviderOutput],
+    ) -> dict[str, object]:
+        return {
+            "mode": settings.research_mode,
+            "symbols": symbols,
+            "provider_outputs": [
+                self._provider_output_payload(output) for output in provider_outputs
+            ],
+        }
+
+    def _non_json_contract_message(
+        self, completed: subprocess.CompletedProcess[str]
+    ) -> str:
+        return (
+            "CrewAI Flow sidecar returned non-JSON output. "
+            f"stdout={redact_sensitive_text(self._trim(completed.stdout), max_length=500)} "
+            f"stderr={redact_sensitive_text(self._trim(completed.stderr), max_length=500)}"
+        )
+
+    @staticmethod
+    def _failed_contract_message(payload: dict[str, object]) -> str:
+        error_items = _contract_error_items(payload.get("errors"))
+        if error_items:
+            return "; ".join(str(item) for item in error_items)
+        return "CrewAI Flow sidecar contract returned a failed status."
 
     @staticmethod
     def _run_contract_process(
@@ -487,64 +545,31 @@ class CrewAiResearchBackend:
         payload: dict[str, object],
     ) -> ResearchPipelineResult:
         health = [provider_health_from_output(output) for output in provider_outputs]
-        raw_evidence: list[RawEvidenceRecord] = []
-        macro_events: list[MacroEvent] = []
-        social_signals: list[SocialSignal] = []
-        for output in provider_outputs:
-            raw_evidence.extend(output.raw_evidence)
-            macro_events.extend(output.macro_events)
-            social_signals.extend(output.social_signals)
-
-        macro_events.extend(
-            MacroEvent.model_validate(item)
-            for item in _object_mapping_list(payload.get("macro_events"))
-        )
-        social_signals.extend(
-            SocialSignal.model_validate(item)
-            for item in _object_mapping_list(payload.get("social_signals"))
-        )
-        findings = [
-            ResearchFinding.model_validate(item)
-            for item in _object_mapping_list(payload.get("findings"))
-        ]
-        dossiers = [
-            EntityDossier.model_validate(item)
-            for item in _object_mapping_list(payload.get("dossiers"))
-        ]
+        items = _contract_payload_items(provider_outputs, payload)
         generated_at = str(payload.get("generated_at") or utc_now_iso())
         observed_at = str(payload.get("observed_at") or generated_at)
-        attributions: list[DataSourceAttribution] = []
-        for output in provider_outputs:
-            attributions.extend(source_attributions_from_output(output))
         world_state = WorldStateSnapshot(
             snapshot_id=f"world-{uuid4()}",
             mode=settings.research_mode,
             generated_at=generated_at,
             observed_at=observed_at,
-            source_attributions=attributions,
+            source_attributions=items.attributions,
             watched_symbols=symbols,
-            entity_dossiers=dossiers,
-            macro_events=macro_events,
-            social_signals=social_signals,
-            findings=findings,
+            entity_dossiers=items.dossiers,
+            macro_events=items.macro_events,
+            social_signals=items.social_signals,
+            findings=items.findings,
             summary=str(
                 payload.get("summary")
                 or _research_world_state_summary(
-                    raw_evidence_count=len(raw_evidence),
-                    macro_event_count=len(macro_events),
-                    social_signal_count=len(social_signals),
-                    finding_count=len(findings),
+                    raw_evidence_count=len(items.raw_evidence),
+                    macro_event_count=len(items.macro_events),
+                    social_signal_count=len(items.social_signals),
+                    finding_count=len(items.findings),
                 )
             ),
         )
-        payload_memory_update = payload.get("memory_update", {})
-        memory_update = _object_mapping(payload_memory_update) or {}
-        memory_update.setdefault("status", "not_written")
-        memory_update.setdefault("raw_web_text_injected", False)
-        memory_update.setdefault("broker_access", False)
-        memory_update["contract_version"] = str(
-            payload.get("contract_version") or "unknown"
-        )
+        memory_update = _contract_memory_update(payload)
         state = ResearchSidecarState(
             mode=settings.research_mode,
             enabled=settings.research_sidecar_enabled,
@@ -560,13 +585,59 @@ class CrewAiResearchBackend:
         return ResearchPipelineResult(
             state=state,
             world_state=world_state,
-            raw_evidence=raw_evidence,
-            macro_events=macro_events,
-            social_signals=social_signals,
-            findings=findings,
-            dossiers=dossiers,
+            raw_evidence=items.raw_evidence,
+            macro_events=items.macro_events,
+            social_signals=items.social_signals,
+            findings=items.findings,
+            dossiers=items.dossiers,
             memory_update=memory_update,
         )
+
+
+def _contract_payload_items(
+    provider_outputs: list[ResearchProviderOutput],
+    payload: dict[str, object],
+) -> _ContractPayloadItems:
+    raw_evidence: list[RawEvidenceRecord] = []
+    macro_events: list[MacroEvent] = []
+    social_signals: list[SocialSignal] = []
+    attributions: list[DataSourceAttribution] = []
+    for output in provider_outputs:
+        raw_evidence.extend(output.raw_evidence)
+        macro_events.extend(output.macro_events)
+        social_signals.extend(output.social_signals)
+        attributions.extend(source_attributions_from_output(output))
+    macro_events.extend(
+        MacroEvent.model_validate(item)
+        for item in _object_mapping_list(payload.get("macro_events"))
+    )
+    social_signals.extend(
+        SocialSignal.model_validate(item)
+        for item in _object_mapping_list(payload.get("social_signals"))
+    )
+    return _ContractPayloadItems(
+        raw_evidence=raw_evidence,
+        macro_events=macro_events,
+        social_signals=social_signals,
+        findings=[
+            ResearchFinding.model_validate(item)
+            for item in _object_mapping_list(payload.get("findings"))
+        ],
+        dossiers=[
+            EntityDossier.model_validate(item)
+            for item in _object_mapping_list(payload.get("dossiers"))
+        ],
+        attributions=attributions,
+    )
+
+
+def _contract_memory_update(payload: dict[str, object]) -> dict[str, object]:
+    memory_update = _object_mapping(payload.get("memory_update", {})) or {}
+    memory_update.setdefault("status", "not_written")
+    memory_update.setdefault("raw_web_text_injected", False)
+    memory_update.setdefault("broker_access", False)
+    memory_update["contract_version"] = str(payload.get("contract_version") or "unknown")
+    return memory_update
 
 
 def summarize_provider_health(

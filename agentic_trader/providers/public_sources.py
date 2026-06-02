@@ -72,6 +72,101 @@ class SecEdgarFundamentalProvider:
             ],
         )
 
+    def _missing_snapshot(
+        self,
+        symbol: SymbolIdentity,
+        *,
+        notes: list[str],
+        summary: str,
+    ) -> FundamentalSnapshot:
+        return _missing_fundamental_snapshot(
+            symbol,
+            source_name="sec_edgar",
+            notes=notes,
+            summary=summary,
+        )
+
+    def _configuration_missing_snapshot(
+        self,
+        symbol: SymbolIdentity,
+        notes: list[str],
+    ) -> FundamentalSnapshot | None:
+        if symbol.region != "US":
+            return self._missing_snapshot(
+                symbol,
+                notes=[*notes, f"unsupported_region={symbol.region}"],
+                summary="SEC EDGAR companyfacts supports US issuers only in V1.",
+            )
+        if not self._settings.research_sec_edgar_enabled:
+            return self._missing_snapshot(
+                symbol,
+                notes=[*notes, "provider_disabled"],
+                summary="SEC EDGAR companyfacts ingestion is disabled by configuration.",
+            )
+        if not (self._settings.research_sec_edgar_user_agent or "").strip():
+            return self._missing_snapshot(
+                symbol,
+                notes=[*notes, "sec_user_agent_missing"],
+                summary="SEC EDGAR companyfacts requires an identifying User-Agent.",
+            )
+        return None
+
+    def _request_context(self) -> tuple[dict[str, str], float]:
+        user_agent = (self._settings.research_sec_edgar_user_agent or "").strip()
+        return (
+            {"Accept": "application/json", "User-Agent": user_agent},
+            min(max(self._settings.request_timeout_seconds, 1.0), 30.0),
+        )
+
+    def _fetch_ticker_index(
+        self,
+        *,
+        symbol: SymbolIdentity,
+        notes: list[str],
+        headers: dict[str, str],
+        timeout: float,
+    ) -> dict[str, dict[str, str]] | FundamentalSnapshot:
+        try:
+            return _sec_ticker_index(
+                self._fetcher(SEC_COMPANY_TICKERS_URL, headers, timeout)
+            )
+        except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
+            return self._missing_snapshot(
+                symbol,
+                notes=[
+                    *notes,
+                    "sec_ticker_lookup_failed",
+                    safe_exception_note("sec_edgar", exc),
+                ],
+                summary="SEC EDGAR ticker lookup failed.",
+            )
+
+    def _fetch_companyfacts(
+        self,
+        *,
+        symbol: SymbolIdentity,
+        cik: str,
+        notes: list[str],
+        headers: dict[str, str],
+        timeout: float,
+    ) -> dict[str, Any] | FundamentalSnapshot:
+        try:
+            return self._fetcher(
+                SEC_COMPANY_FACTS_URL_TEMPLATE.format(cik=cik),
+                headers,
+                timeout,
+            )
+        except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
+            return self._missing_snapshot(
+                symbol,
+                notes=[
+                    *notes,
+                    f"sec_companyfacts_fetch_failed:{symbol.symbol.upper()}",
+                    safe_exception_note("sec_edgar", exc),
+                ],
+                summary="SEC EDGAR companyfacts fetch failed.",
+            )
+
     def get_fundamental_data(self, symbol: SymbolIdentity) -> FundamentalSnapshot:
         """
         Fetches and returns a V1 FundamentalSnapshot for the given symbol using SEC EDGAR companyfacts.
@@ -85,70 +180,34 @@ class SecEdgarFundamentalProvider:
             FundamentalSnapshot: A snapshot containing derived V1 fundamental metrics and attribution when successful, or a missing snapshot with explanatory notes and summary when not.
         """
         notes = ["sec_10k_10q_8k_source", "sec_companyfacts_api"]
-        if symbol.region != "US":
-            return _missing_fundamental_snapshot(
-                symbol,
-                source_name="sec_edgar",
-                notes=[*notes, f"unsupported_region={symbol.region}"],
-                summary="SEC EDGAR companyfacts supports US issuers only in V1.",
-            )
-        if not self._settings.research_sec_edgar_enabled:
-            return _missing_fundamental_snapshot(
-                symbol,
-                source_name="sec_edgar",
-                notes=[*notes, "provider_disabled"],
-                summary="SEC EDGAR companyfacts ingestion is disabled by configuration.",
-            )
-        user_agent = (self._settings.research_sec_edgar_user_agent or "").strip()
-        if not user_agent:
-            return _missing_fundamental_snapshot(
-                symbol,
-                source_name="sec_edgar",
-                notes=[*notes, "sec_user_agent_missing"],
-                summary="SEC EDGAR companyfacts requires an identifying User-Agent.",
-            )
-        headers = {"Accept": "application/json", "User-Agent": user_agent}
-        timeout = min(max(self._settings.request_timeout_seconds, 1.0), 30.0)
-        try:
-            ticker_index = _sec_ticker_index(
-                self._fetcher(SEC_COMPANY_TICKERS_URL, headers, timeout)
-            )
-        except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
-            return _missing_fundamental_snapshot(
-                symbol,
-                source_name="sec_edgar",
-                notes=[
-                    *notes,
-                    "sec_ticker_lookup_failed",
-                    safe_exception_note("sec_edgar", exc),
-                ],
-                summary="SEC EDGAR ticker lookup failed.",
-            )
+        missing_snapshot = self._configuration_missing_snapshot(symbol, notes)
+        if missing_snapshot is not None:
+            return missing_snapshot
+        headers, timeout = self._request_context()
+        ticker_index = self._fetch_ticker_index(
+            symbol=symbol,
+            notes=notes,
+            headers=headers,
+            timeout=timeout,
+        )
+        if isinstance(ticker_index, FundamentalSnapshot):
+            return ticker_index
         match = ticker_index.get(symbol.symbol.upper())
         if match is None:
-            return _missing_fundamental_snapshot(
+            return self._missing_snapshot(
                 symbol,
-                source_name="sec_edgar",
                 notes=[*notes, f"sec_cik_missing:{symbol.symbol.upper()}"],
                 summary="SEC EDGAR CIK lookup did not find this symbol.",
             )
-        try:
-            facts_payload = self._fetcher(
-                SEC_COMPANY_FACTS_URL_TEMPLATE.format(cik=match["cik"]),
-                headers,
-                timeout,
-            )
-        except (httpx.HTTPError, ValueError, TypeError, TimeoutError) as exc:
-            return _missing_fundamental_snapshot(
-                symbol,
-                source_name="sec_edgar",
-                notes=[
-                    *notes,
-                    f"sec_companyfacts_fetch_failed:{symbol.symbol.upper()}",
-                    safe_exception_note("sec_edgar", exc),
-                ],
-                summary="SEC EDGAR companyfacts fetch failed.",
-            )
+        facts_payload = self._fetch_companyfacts(
+            symbol=symbol,
+            cik=match["cik"],
+            notes=notes,
+            headers=headers,
+            timeout=timeout,
+        )
+        if isinstance(facts_payload, FundamentalSnapshot):
+            return facts_payload
         return fundamental_snapshot_from_sec_companyfacts(
             symbol,
             cik=match["cik"],

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any, TypeGuard, cast
 
 from agentic_trader.json_utils import object_dict_or_none as _object_mapping
@@ -27,6 +28,32 @@ SEC_COMPANY_FACT_CONCEPTS: dict[str, tuple[str, ...]] = {
 }
 
 
+@dataclass(frozen=True)
+class _SecCompanyFactMetrics:
+    latest: dict[str, tuple[str, str, dict[str, Any]]]
+    missing_fields: list[str]
+    concept_notes: list[str]
+
+
+@dataclass(frozen=True)
+class _FundamentalRatios:
+    revenue_growth: float | None
+    profitability_stability: float | None
+    cash_flow_alignment: float | None
+    debt_risk: float | None
+    reinvestment_potential: float | None
+
+    def missing_fields(self) -> list[str]:
+        values = {
+            "revenue_growth": self.revenue_growth,
+            "profitability_stability": self.profitability_stability,
+            "cash_flow_alignment": self.cash_flow_alignment,
+            "debt_risk": self.debt_risk,
+            "reinvestment_potential": self.reinvestment_potential,
+        }
+        return [field for field, value in values.items() if value is None]
+
+
 def fundamental_snapshot_from_sec_companyfacts(
     symbol: SymbolIdentity,
     *,
@@ -43,6 +70,31 @@ def fundamental_snapshot_from_sec_companyfacts(
             summary="SEC EDGAR companyfacts payload did not include usable US-GAAP facts.",
         )
 
+    metrics = _sec_company_fact_metrics(us_gaap)
+    ratios = _sec_companyfact_ratios(us_gaap, metrics.latest)
+    missing_fields = [*metrics.missing_fields, *ratios.missing_fields()]
+    completeness = 1.0 - (len(set(missing_fields)) / (len(FUNDAMENTAL_FIELDS) + 6))
+    completeness = clamp_ratio(completeness)
+    if completeness <= 0:
+        return missing_sec_fundamental_snapshot(
+            symbol,
+            notes=["sec_companyfacts_api", f"cik={cik}", *metrics.concept_notes],
+            summary="SEC EDGAR companyfacts did not provide enough metrics for V1 fundamentals.",
+        )
+
+    entity = str(payload.get("entityName") or entity_name or symbol.symbol).strip()
+    return _sec_companyfacts_snapshot(
+        symbol=symbol,
+        cik=cik,
+        entity=entity,
+        ratios=ratios,
+        concept_notes=metrics.concept_notes,
+        missing_fields=missing_fields,
+        completeness=completeness,
+    )
+
+
+def _sec_company_fact_metrics(us_gaap: dict[str, Any]) -> _SecCompanyFactMetrics:
     latest: dict[str, tuple[str, str, dict[str, Any]]] = {}
     missing_fields: list[str] = []
     concept_notes: list[str] = []
@@ -53,47 +105,50 @@ def fundamental_snapshot_from_sec_companyfacts(
             continue
         latest[metric_id] = fact
         concept_notes.append(f"{metric_id}={fact[0]}")
+    return _SecCompanyFactMetrics(
+        latest=latest,
+        missing_fields=missing_fields,
+        concept_notes=concept_notes,
+    )
 
-    revenue_growth = growth_ratio(us_gaap, SEC_COMPANY_FACT_CONCEPTS["revenue"])
+
+def _sec_companyfact_ratios(
+    us_gaap: dict[str, Any],
+    latest: dict[str, tuple[str, str, dict[str, Any]]],
+) -> _FundamentalRatios:
     revenue = fact_number(latest.get("revenue"))
     net_income = fact_number(latest.get("net_income"))
     assets = fact_number(latest.get("assets"))
     liabilities = fact_number(latest.get("liabilities"))
     operating_cash_flow = fact_number(latest.get("operating_cash_flow"))
     cash = fact_number(latest.get("cash"))
-
-    profitability_stability = ratio(net_income, revenue)
-    cash_flow_alignment = ratio(operating_cash_flow, net_income)
-    debt_risk = ratio(liabilities, assets)
-    reinvestment_potential = ratio(cash, assets)
-    derived_values = {
-        "revenue_growth": revenue_growth,
-        "profitability_stability": profitability_stability,
-        "cash_flow_alignment": cash_flow_alignment,
-        "debt_risk": debt_risk,
-        "reinvestment_potential": reinvestment_potential,
-    }
-    missing_fields.extend(
-        field for field, value in derived_values.items() if value is None
+    return _FundamentalRatios(
+        revenue_growth=growth_ratio(us_gaap, SEC_COMPANY_FACT_CONCEPTS["revenue"]),
+        profitability_stability=ratio(net_income, revenue),
+        cash_flow_alignment=ratio(operating_cash_flow, net_income),
+        debt_risk=ratio(liabilities, assets),
+        reinvestment_potential=ratio(cash, assets),
     )
-    completeness = 1.0 - (len(set(missing_fields)) / (len(FUNDAMENTAL_FIELDS) + 6))
-    completeness = clamp_ratio(completeness)
-    if completeness <= 0:
-        return missing_sec_fundamental_snapshot(
-            symbol,
-            notes=["sec_companyfacts_api", f"cik={cik}", *concept_notes],
-            summary="SEC EDGAR companyfacts did not provide enough metrics for V1 fundamentals.",
-        )
 
-    entity = str(payload.get("entityName") or entity_name or symbol.symbol).strip()
+
+def _sec_companyfacts_snapshot(
+    *,
+    symbol: SymbolIdentity,
+    cik: str,
+    entity: str,
+    ratios: _FundamentalRatios,
+    concept_notes: list[str],
+    missing_fields: list[str],
+    completeness: float,
+) -> FundamentalSnapshot:
     return FundamentalSnapshot(
         symbol_identity=symbol,
-        revenue_growth=revenue_growth,
-        profitability_stability=profitability_stability,
-        cash_flow_alignment=cash_flow_alignment,
-        debt_risk=debt_risk,
+        revenue_growth=ratios.revenue_growth,
+        profitability_stability=ratios.profitability_stability,
+        cash_flow_alignment=ratios.cash_flow_alignment,
+        debt_risk=ratios.debt_risk,
         fx_exposure="unknown",
-        reinvestment_potential=reinvestment_potential,
+        reinvestment_potential=ratios.reinvestment_potential,
         attribution=source_attribution(
             source_name="sec_edgar",
             provider_type="fundamental",
@@ -112,10 +167,10 @@ def fundamental_snapshot_from_sec_companyfacts(
         missing_fields=sorted(set(missing_fields)),
         summary=(
             f"SEC companyfacts produced structured V1 fundamentals for {entity}: "
-            f"revenue_growth={format_optional_ratio(revenue_growth)}, "
-            f"profitability={format_optional_ratio(profitability_stability)}, "
-            f"cash_flow_alignment={format_optional_ratio(cash_flow_alignment)}, "
-            f"debt_risk={format_optional_ratio(debt_risk)}."
+            f"revenue_growth={format_optional_ratio(ratios.revenue_growth)}, "
+            f"profitability={format_optional_ratio(ratios.profitability_stability)}, "
+            f"cash_flow_alignment={format_optional_ratio(ratios.cash_flow_alignment)}, "
+            f"debt_risk={format_optional_ratio(ratios.debt_risk)}."
         ),
     )
 

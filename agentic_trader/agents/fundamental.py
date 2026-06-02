@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Literal, cast
 
 from agentic_trader.agents.constants import LLM_FALLBACK_REASON
@@ -23,6 +24,25 @@ PROVIDER_GAP_FLAGS = {
     "fundamental_fetch_not_implemented",
     "fundamental_provider_not_configured",
 }
+
+
+@dataclass
+class _FallbackFundamentalState:
+    risk_flags: list[str]
+    summary: str
+    strengths: list[str]
+    evidence: list[str]
+    inference: list[str]
+    uncertainty: list[str]
+    growth_quality: AnalysisSignal = "neutral"
+    profitability_quality: AnalysisSignal = "neutral"
+    cash_flow_quality: AnalysisSignal = "neutral"
+    balance_sheet_quality: AnalysisSignal = "neutral"
+    fx_risk: FxRisk = "unknown"
+    business_quality: AnalysisSignal = "neutral"
+    macro_fit: AnalysisSignal = "neutral"
+    forward_outlook: AnalysisSignal = "neutral"
+    reinvestment_quality: AnalysisSignal = "neutral"
 
 
 def _dedupe(items: list[str]) -> list[str]:
@@ -358,95 +378,104 @@ def _fallback_fundamental(
     Returns:
         FundamentalAssessment: A complete fallback assessment populated from available structured features or neutral defaults, including `evidence_vs_inference`, `red_flags`/`risk_flags`, `strengths`, individual quality and risk fields, `overall_bias`/`overall_signal`, `confidence`, `source`, and `fallback_reason`.
     """
-    risk_flags: list[str] = ["fundamental_evidence_neutral"]
-    summary = "No structured fundamental provider data is available yet."
-    strengths: list[str] = []
-    evidence: list[str] = []
-    inference: list[str] = []
-    uncertainty: list[str] = ["Provider-backed fundamental evidence is unavailable."]
-    growth_quality: AnalysisSignal = "neutral"
-    profitability_quality: AnalysisSignal = "neutral"
-    cash_flow_quality: AnalysisSignal = "neutral"
-    balance_sheet_quality: AnalysisSignal = "neutral"
-    fx_risk: FxRisk = "unknown"
-    business_quality: AnalysisSignal = "neutral"
-    macro_fit: AnalysisSignal = "neutral"
-    forward_outlook: AnalysisSignal = "neutral"
-    reinvestment_quality: AnalysisSignal = "neutral"
+    state = _default_fallback_fundamental_state()
     if context is not None and context.decision_features is not None:
-        features = context.decision_features.fundamental
-        macro = context.decision_features.macro
-        summary = features.summary or summary
-        evidence.extend(_metric_evidence(features))
-        if features.quality_flags:
-            uncertainty.extend(features.quality_flags)
-        growth_quality = _growth_quality(features.revenue_growth)
-        profitability_quality = _score_quality(features.profitability_stability)
-        cash_flow_quality = _score_quality(features.cash_flow_alignment)
-        balance_sheet_quality = _score_quality(features.debt_risk, low_is_bad=False)
-        reinvestment_quality = _score_quality(features.reinvestment_potential)
-        fx_risk = _fx_risk(features, macro)
-        macro_fit = _macro_fit(macro)
-        business_quality = _business_quality(
-            profitability_quality,
-            cash_flow_quality,
-            reinvestment_quality,
-        )
-        forward_outlook = _forward_outlook(
-            growth_quality,
-            business_quality,
-            macro_fit,
-        )
-        risk_flags = _fallback_risk_flags(features, balance_sheet_quality, fx_risk)
-        strengths.extend(
-            _fallback_strengths(
-                growth_quality,
-                profitability_quality,
-                cash_flow_quality,
-            )
-        )
-        inference.append(
-            "Fallback assessment used only structured feature metrics and source quality flags."
-        )
-    provider_gap = _has_provider_gap(context, risk_flags)
+        _apply_fundamental_features(state, context)
+    provider_gap = _has_provider_gap(context, state.risk_flags)
     signals: list[AnalysisSignal] = [
-        growth_quality,
-        profitability_quality,
-        cash_flow_quality,
-        balance_sheet_quality,
-        business_quality,
-        macro_fit,
-        forward_outlook,
+        state.growth_quality,
+        state.profitability_quality,
+        state.cash_flow_quality,
+        state.balance_sheet_quality,
+        state.business_quality,
+        state.macro_fit,
+        state.forward_outlook,
     ]
     overall_bias = _overall_bias(signals, has_provider_gap=provider_gap)
-    red_flags = _dedupe(risk_flags)
+    red_flags = _dedupe(state.risk_flags)
     return FundamentalAssessment(
-        growth_quality=growth_quality,
-        profitability_quality=profitability_quality,
-        cash_flow_quality=cash_flow_quality,
-        balance_sheet_quality=balance_sheet_quality,
-        fx_risk=fx_risk,
-        business_quality=business_quality,
-        macro_fit=macro_fit,
-        forward_outlook=forward_outlook,
+        growth_quality=state.growth_quality,
+        profitability_quality=state.profitability_quality,
+        cash_flow_quality=state.cash_flow_quality,
+        balance_sheet_quality=state.balance_sheet_quality,
+        fx_risk=state.fx_risk,
+        business_quality=state.business_quality,
+        macro_fit=state.macro_fit,
+        forward_outlook=state.forward_outlook,
         red_flags=red_flags,
-        strengths=_dedupe(strengths),
+        strengths=_dedupe(state.strengths),
         evidence_vs_inference=EvidenceInferenceBreakdown(
-            evidence=_dedupe(evidence),
-            inference=_dedupe(inference),
-            uncertainty=_dedupe(uncertainty),
+            evidence=_dedupe(state.evidence),
+            inference=_dedupe(state.inference),
+            uncertainty=_dedupe(state.uncertainty),
         ),
         overall_bias=overall_bias,
-        revenue_growth_quality=growth_quality,
-        debt_quality=balance_sheet_quality,
-        fx_exposure_risk=fx_risk,
-        reinvestment_quality=reinvestment_quality,
+        revenue_growth_quality=state.growth_quality,
+        debt_quality=state.balance_sheet_quality,
+        fx_exposure_risk=state.fx_risk,
+        reinvestment_quality=state.reinvestment_quality,
         overall_signal=overall_bias,
         confidence=0.0 if provider_gap else 0.35,
-        summary=summary,
+        summary=state.summary,
         risk_flags=red_flags,
         source="fallback",
         fallback_reason=fallback_reason,
+    )
+
+
+def _default_fallback_fundamental_state() -> _FallbackFundamentalState:
+    return _FallbackFundamentalState(
+        risk_flags=["fundamental_evidence_neutral"],
+        summary="No structured fundamental provider data is available yet.",
+        strengths=[],
+        evidence=[],
+        inference=[],
+        uncertainty=["Provider-backed fundamental evidence is unavailable."],
+    )
+
+
+def _apply_fundamental_features(
+    state: _FallbackFundamentalState, context: AgentContext
+) -> None:
+    if context.decision_features is None:
+        return
+    features = context.decision_features.fundamental
+    macro = context.decision_features.macro
+    state.summary = features.summary or state.summary
+    state.evidence.extend(_metric_evidence(features))
+    if features.quality_flags:
+        state.uncertainty.extend(features.quality_flags)
+    state.growth_quality = _growth_quality(features.revenue_growth)
+    state.profitability_quality = _score_quality(features.profitability_stability)
+    state.cash_flow_quality = _score_quality(features.cash_flow_alignment)
+    state.balance_sheet_quality = _score_quality(features.debt_risk, low_is_bad=False)
+    state.reinvestment_quality = _score_quality(features.reinvestment_potential)
+    state.fx_risk = _fx_risk(features, macro)
+    state.macro_fit = _macro_fit(macro)
+    state.business_quality = _business_quality(
+        state.profitability_quality,
+        state.cash_flow_quality,
+        state.reinvestment_quality,
+    )
+    state.forward_outlook = _forward_outlook(
+        state.growth_quality,
+        state.business_quality,
+        state.macro_fit,
+    )
+    state.risk_flags = _fallback_risk_flags(
+        features,
+        state.balance_sheet_quality,
+        state.fx_risk,
+    )
+    state.strengths.extend(
+        _fallback_strengths(
+            state.growth_quality,
+            state.profitability_quality,
+            state.cash_flow_quality,
+        )
+    )
+    state.inference.append(
+        "Fallback assessment used only structured feature metrics and source quality flags."
     )
 
 

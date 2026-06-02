@@ -456,6 +456,25 @@ class PaperBroker:
                 simulated_metadata=simulated_metadata,
             )
 
+        return self._fill_or_block_outcome(
+            intent=intent,
+            order_id=order_id,
+            decision=decision,
+            quantity=quantity,
+            account_cash=account.cash,
+            simulated_metadata=simulated_metadata,
+        )
+
+    def _fill_or_block_outcome(
+        self,
+        *,
+        intent: ExecutionIntent,
+        order_id: str,
+        decision: ExecutionDecision,
+        quantity: float,
+        account_cash: float,
+        simulated_metadata: dict[str, object] | None,
+    ) -> ExecutionOutcome:
         position = self.db.get_position(decision.symbol)
         current_qty = position.quantity if position else 0.0
         current_avg = position.average_price if position else 0.0
@@ -492,13 +511,32 @@ class PaperBroker:
             decision=decision,
             current_qty=current_qty,
             current_market_value=current_market_value,
-            account_cash_after_fill=account.cash + projection.cash_delta,
+            account_cash_after_fill=account_cash + projection.cash_delta,
             projection=projection,
             simulated_metadata=simulated_metadata,
         )
         if blocked_outcome is not None:
             return blocked_outcome
 
+        return self._apply_projected_fill(
+            intent=intent,
+            order_id=order_id,
+            decision=decision,
+            quantity=quantity,
+            projection=projection,
+            simulated_metadata=simulated_metadata,
+        )
+
+    def _apply_projected_fill(
+        self,
+        *,
+        intent: ExecutionIntent,
+        order_id: str,
+        decision: ExecutionDecision,
+        quantity: float,
+        projection: FillProjection,
+        simulated_metadata: dict[str, object] | None,
+    ) -> ExecutionOutcome:
         self.db.apply_fill(
             fill_id=f"fill-{uuid4().hex[:12]}",
             order_id=order_id,

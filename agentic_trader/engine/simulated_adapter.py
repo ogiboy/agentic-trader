@@ -78,57 +78,49 @@ class SimulatedRealBrokerAdapter:
             1.0,
         )
 
-    def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
-        """
-        Simulates placing an order using deterministic market-friction rules and returns the resulting execution outcome.
-
-        The method either:
-        - triggers a deterministic rejection hook (when the intent is approved and not a "hold") and returns an outcome with status `"rejected"` and `rejection_reason` set to `"simulated_rejection_hook"`, or
-        - computes a deterministic fill ratio and simulated execution price, submits a modified intent to the underlying paper broker, and returns the broker outcome augmented with `simulated_metadata`. If the broker reports `"filled"` but the simulated fill ratio is less than 1.0, the returned outcome is converted to `"partially_filled"`.
-
-        Parameters:
-            intent (ExecutionIntent): The execution intent to simulate; approval state, side, quantity/notional, and reference_price influence rejection gating and simulated fill behavior.
-
-        Returns:
-            ExecutionOutcome: The execution outcome representing the simulated submission, including `simulated_metadata` describing the deterministic simulation parameters and, when applicable, `rejection_reason` or a `"partially_filled"` status.
-        """
-        metadata = self._simulation_metadata()
-        if (
+    def _should_reject_order(self, intent: ExecutionIntent) -> bool:
+        return (
             intent.approved
             and intent.side != "hold"
             and deterministic_unit_interval(intent.intent_id, "order_rejection")
             < self.settings.simulated_order_rejection_probability
-        ):
-            rejected_intent = intent.model_copy(
-                update={
-                    "approved": False,
-                    "adapter_name": self.backend_name,
-                    "execution_backend": "simulated_real",
-                    "thesis": f"Simulated-real rejection hook blocked the order. {intent.thesis}",
-                }
-            )
-            outcome = self._broker.place_order(
-                rejected_intent,
-                order_prefix="simulated",
-                simulated_metadata=metadata,
-            )
-            return outcome.model_copy(
-                update={
-                    "status": "rejected",
-                    "adapter_name": self.backend_name,
-                    "execution_backend": "simulated_real",
-                    "rejection_reason": "simulated_rejection_hook",
-                    "message": "Simulated-real adapter rejected the intent before fill.",
-                    "simulated_metadata": metadata,
-                }
-            )
-
-        fill_ratio = (
-            self._fill_ratio(intent)
-            if intent.approved and intent.side != "hold"
-            else 1.0
         )
-        simulated_intent = intent.model_copy(
+
+    def _rejected_outcome(
+        self,
+        intent: ExecutionIntent,
+        metadata: dict[str, object],
+    ) -> ExecutionOutcome:
+        rejected_intent = intent.model_copy(
+            update={
+                "approved": False,
+                "adapter_name": self.backend_name,
+                "execution_backend": "simulated_real",
+                "thesis": f"Simulated-real rejection hook blocked the order. {intent.thesis}",
+            }
+        )
+        outcome = self._broker.place_order(
+            rejected_intent,
+            order_prefix="simulated",
+            simulated_metadata=metadata,
+        )
+        return outcome.model_copy(
+            update={
+                "status": "rejected",
+                "adapter_name": self.backend_name,
+                "execution_backend": "simulated_real",
+                "rejection_reason": "simulated_rejection_hook",
+                "message": "Simulated-real adapter rejected the intent before fill.",
+                "simulated_metadata": metadata,
+            }
+        )
+
+    def _simulated_intent(
+        self,
+        intent: ExecutionIntent,
+        fill_ratio: float,
+    ) -> ExecutionIntent:
+        return intent.model_copy(
             update={
                 "adapter_name": self.backend_name,
                 "execution_backend": "simulated_real",
@@ -153,12 +145,14 @@ class SimulatedRealBrokerAdapter:
                 },
             }
         )
-        metadata["fill_ratio"] = fill_ratio
-        outcome = self._broker.place_order(
-            simulated_intent,
-            order_prefix="simulated",
-            simulated_metadata=metadata,
-        )
+
+    @staticmethod
+    def _simulated_outcome(
+        outcome: ExecutionOutcome,
+        *,
+        fill_ratio: float,
+        metadata: dict[str, object],
+    ) -> ExecutionOutcome:
         if outcome.status == "filled" and fill_ratio < 1.0:
             return outcome.model_copy(
                 update={
@@ -168,6 +162,41 @@ class SimulatedRealBrokerAdapter:
                 }
             )
         return outcome.model_copy(update={"simulated_metadata": metadata})
+
+    def place_order(self, intent: ExecutionIntent) -> ExecutionOutcome:
+        """
+        Simulates placing an order using deterministic market-friction rules and returns the resulting execution outcome.
+
+        The method either:
+        - triggers a deterministic rejection hook (when the intent is approved and not a "hold") and returns an outcome with status `"rejected"` and `rejection_reason` set to `"simulated_rejection_hook"`, or
+        - computes a deterministic fill ratio and simulated execution price, submits a modified intent to the underlying paper broker, and returns the broker outcome augmented with `simulated_metadata`. If the broker reports `"filled"` but the simulated fill ratio is less than 1.0, the returned outcome is converted to `"partially_filled"`.
+
+        Parameters:
+            intent (ExecutionIntent): The execution intent to simulate; approval state, side, quantity/notional, and reference_price influence rejection gating and simulated fill behavior.
+
+        Returns:
+            ExecutionOutcome: The execution outcome representing the simulated submission, including `simulated_metadata` describing the deterministic simulation parameters and, when applicable, `rejection_reason` or a `"partially_filled"` status.
+        """
+        metadata = self._simulation_metadata()
+        if self._should_reject_order(intent):
+            return self._rejected_outcome(intent, metadata)
+
+        fill_ratio = (
+            self._fill_ratio(intent)
+            if intent.approved and intent.side != "hold"
+            else 1.0
+        )
+        metadata["fill_ratio"] = fill_ratio
+        outcome = self._broker.place_order(
+            self._simulated_intent(intent, fill_ratio),
+            order_prefix="simulated",
+            simulated_metadata=metadata,
+        )
+        return self._simulated_outcome(
+            outcome,
+            fill_ratio=fill_ratio,
+            metadata=metadata,
+        )
 
     def get_order_outcome(
         self, *, order_id: str, intent: ExecutionIntent

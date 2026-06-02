@@ -23,7 +23,11 @@ from agentic_trader.runtime_feed import (
     read_research_digest_replay,
     write_research_digest_replay,
 )
-from agentic_trader.schemas import ResearchDigestReplayRecord, ResearchSnapshotRecord
+from agentic_trader.schemas import (
+    ResearchCycleOperatorControl,
+    ResearchDigestReplayRecord,
+    ResearchSnapshotRecord,
+)
 
 SleepFn = Callable[[float], None]
 
@@ -93,35 +97,7 @@ def run_research_cycle(
     sleep_between_cycles: bool = True,
     sleep_fn: SleepFn = sleep,
 ) -> dict[str, object]:
-    """
-    Run a bounded, evidence-only research loop that collects research snapshots, optionally persists a digest replay, and returns an execution summary.
-
-    Parameters:
-        settings (Settings): Runtime settings used for collection, persistence, and sidecar control.
-        symbols (list[str] | None): Optional list of symbols to run the research cycle against. Mutually exclusive with `request`.
-        request (ResearchCycleRequest | None): Optional request object describing symbols and execution preferences. Mutually exclusive with `symbols`.
-        cycles (int): Requested number of cycles; clamped to a safe range.
-        cadence_seconds (int): Intended seconds between cycles; clamped to at least 1.
-        max_proposals_per_cycle (int): Upper bound for proposal creation per cycle (research mode disables proposal authority).
-        persist (bool): If true, persists snapshots and writes a digest replay artifact.
-        sleep_between_cycles (bool): If true, pauses between cycles according to `cadence_seconds`.
-        sleep_fn (SleepFn): Function used to perform the sleep/delay between cycles.
-
-    Returns:
-        dict[str, object]: A summary payload containing:
-            - "cycle": static identifier string.
-            - "plan": planned run payload (symbols, cadence, proposal limits).
-            - "requested_cycles": original requested cycles.
-            - "executed_cycles": number of cycles actually executed.
-            - "cadence_seconds": effective cadence used.
-            - "persisted": whether persistence was enabled.
-            - "sleep_between_cycles": whether sleeps were performed between cycles.
-            - "execution_policy": policy flags applied during execution.
-            - "operator_control": operator control payload in JSON-serializable form.
-            - "digest_replay": persisted digest replay record (JSON-serializable) when persisted.
-            - "latest_digest": digest payload from the last execution (or {}).
-            - "executions": list of per-cycle execution payloads.
-    """
+    """Run a bounded evidence-only research loop and return an execution summary."""
 
     resolved = _resolve_research_cycle_request(
         request=request,
@@ -150,14 +126,55 @@ def run_research_cycle(
     )
     latest_digest = executions[-1].digest if executions else {}
     execution_policy = _execution_policy_payload()
-    digest_replay = ResearchDigestReplayRecord(
+    digest_replay = _research_digest_replay(
+        settings=settings,
+        resolved=resolved,
+        executions=executions,
+        latest_digest=latest_digest,
+        execution_policy=execution_policy,
+        operator_control=operator_control,
+    )
+    if resolved.persist:
+        write_research_digest_replay(settings, digest_replay)
+    return _research_cycle_run_payload(
+        plan=plan,
+        resolved=resolved,
+        executions=executions,
+        execution_policy=execution_policy,
+        operator_control=operator_control,
+        digest_replay=digest_replay,
+        latest_digest=latest_digest,
+    )
+
+
+def research_cycle_execution_payload(
+    execution: ResearchCycleExecution,
+) -> dict[str, object]:
+    """
+    Convert a ResearchCycleExecution dataclass into a JSON-serializable payload.
+
+    Parameters:
+        execution (ResearchCycleExecution): The execution dataclass instance to convert.
+
+    Returns:
+        payload (dict[str, object]): A dictionary representation of the execution suitable for JSON serialization and inclusion in replay artifacts or API responses.
+    """
+    return dataclass_payload(execution)
+
+
+def _research_digest_replay(
+    *,
+    settings: Settings,
+    resolved: _ResolvedResearchCycleRequest,
+    executions: list[ResearchCycleExecution],
+    latest_digest: dict[str, object],
+    execution_policy: dict[str, bool],
+    operator_control: ResearchCycleOperatorControl,
+) -> ResearchDigestReplayRecord:
+    return ResearchDigestReplayRecord(
         artifact_id=f"research-digest-{uuid4()}",
         generated_at=utc_now_iso(),
-        snapshot_id=(
-            str(latest_digest.get("snapshot_id"))
-            if latest_digest.get("snapshot_id") is not None
-            else None
-        ),
+        snapshot_id=_digest_snapshot_id(latest_digest),
         mode=settings.research_mode,
         backend=(
             executions[-1].backend if executions else settings.research_sidecar_backend
@@ -175,8 +192,23 @@ def run_research_cycle(
             "broker_or_proposal_authority_is_disabled",
         ],
     )
-    if resolved.persist:
-        write_research_digest_replay(settings, digest_replay)
+
+
+def _digest_snapshot_id(latest_digest: dict[str, object]) -> str | None:
+    value = latest_digest.get("snapshot_id")
+    return str(value) if value is not None else None
+
+
+def _research_cycle_run_payload(
+    *,
+    plan: dict[str, object],
+    resolved: _ResolvedResearchCycleRequest,
+    executions: list[ResearchCycleExecution],
+    execution_policy: dict[str, bool],
+    operator_control: ResearchCycleOperatorControl,
+    digest_replay: ResearchDigestReplayRecord,
+    latest_digest: dict[str, object],
+) -> dict[str, object]:
     return {
         "cycle": "research-cycle-run",
         "plan": plan,
@@ -193,21 +225,6 @@ def run_research_cycle(
             research_cycle_execution_payload(execution) for execution in executions
         ],
     }
-
-
-def research_cycle_execution_payload(
-    execution: ResearchCycleExecution,
-) -> dict[str, object]:
-    """
-    Convert a ResearchCycleExecution dataclass into a JSON-serializable payload.
-
-    Parameters:
-        execution (ResearchCycleExecution): The execution dataclass instance to convert.
-
-    Returns:
-        payload (dict[str, object]): A dictionary representation of the execution suitable for JSON serialization and inclusion in replay artifacts or API responses.
-    """
-    return dataclass_payload(execution)
 
 
 def _execute_research_cycles(
