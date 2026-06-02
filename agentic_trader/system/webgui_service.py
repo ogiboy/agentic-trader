@@ -10,9 +10,7 @@ from __future__ import annotations
 import os
 import shutil
 import signal
-import socket
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -26,6 +24,7 @@ from agentic_trader.security import (
     open_private_append_binary,
     redact_sensitive_text,
 )
+from agentic_trader.system import webgui_service_process as _process_helpers
 from agentic_trader.system.webgui_service_state import (
     WebGUIServiceState,
     WebGUIServiceStatus,
@@ -42,21 +41,8 @@ DEFAULT_WEBGUI_HOST = "127.0.0.1"
 DEFAULT_WEBGUI_PORT = 3210
 WEBGUI_PORT_CANDIDATES = (3210, *range(3211, 3221))
 LOCAL_HTTP_SCHEME = "http"
-LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
-MINIMAL_WEBGUI_ENV_KEYS = (
-    "PATH",
-    "HOME",
-    "TMPDIR",
-    "USER",
-    "LOGNAME",
-    "SHELL",
-    "USERPROFILE",
-    "APPDATA",
-    "LOCALAPPDATA",
-    "SYSTEMROOT",
-    "WINDIR",
-    "VIRTUAL_ENV",
-)
+LSOF_LISTEN_FILTER = _process_helpers.LSOF_LISTEN_FILTER
+MINIMAL_WEBGUI_ENV_KEYS = _process_helpers.MINIMAL_WEBGUI_ENV_KEYS
 
 
 def _repo_root() -> Path:
@@ -96,9 +82,7 @@ def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
 
 
 def _is_port_available(host: str, port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.2)
-        return sock.connect_ex((host, port)) != 0
+    return _process_helpers.is_port_available(host, port)
 
 
 def choose_webgui_port(host: str, preferred_port: int = DEFAULT_WEBGUI_PORT) -> int:
@@ -171,32 +155,11 @@ def _webgui_reachable(url: str) -> tuple[bool, str]:
 def _webgui_env() -> dict[str, str]:
     """Return the subprocess env for the local Web GUI dev server."""
 
-    env = {key: os.environ[key] for key in MINIMAL_WEBGUI_ENV_KEYS if key in os.environ}
-    env["AGENTIC_TRADER_PYTHON"] = os.environ.get(
-        "AGENTIC_TRADER_PYTHON", sys.executable
-    )
-    env["AGENTIC_TRADER_WEBGUI_LOOPBACK_ONLY"] = "1"
-    env["WATCHPACK_POLLING"] = os.environ.get("WATCHPACK_POLLING", "true")
-    for key, value in os.environ.items():
-        if key.startswith("AGENTIC_TRADER_"):
-            env.setdefault(key, value)
-    return env
+    return _process_helpers.webgui_env()
 
 
 def _process_command_line(pid: int) -> str | None:
-    try:
-        completed = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "command="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout.strip() or None
+    return _process_helpers.process_command_line(pid)
 
 
 def webgui_process_command_line(pid: int) -> str | None:
@@ -204,36 +167,7 @@ def webgui_process_command_line(pid: int) -> str | None:
 
 
 def _listen_port_owner_pid(host: str, port: int) -> int | None:
-    """Return the PID listening on a local TCP port when lsof is available."""
-
-    query_host = "127.0.0.1" if host == "localhost" else host.strip("[]")
-    try:
-        completed = subprocess.run(
-            [
-                "lsof",
-                "-nP",
-                "-a",
-                f"-iTCP@{query_host}:{port}",
-                LSOF_LISTEN_FILTER,
-                "-Fp",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    pids = {
-        int(line[1:])
-        for line in completed.stdout.splitlines()
-        if line.startswith("p") and line[1:].isdigit()
-    }
-    if len(pids) != 1:
-        return None
-    return next(iter(pids))
+    return _process_helpers.listen_port_owner_pid(host, port)
 
 
 def webgui_listen_port_owner_pid(host: str, port: int) -> int | None:
@@ -241,22 +175,7 @@ def webgui_listen_port_owner_pid(host: str, port: int) -> int | None:
 
 
 def _process_cwd(pid: int) -> Path | None:
-    try:
-        completed = subprocess.run(
-            ["lsof", "-nP", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    for line in completed.stdout.splitlines():
-        if line.startswith("n"):
-            return Path(line[1:]).resolve()
-    return None
+    return _process_helpers.process_cwd(pid)
 
 
 def _command_line_matches_webgui(command_line: str, state: WebGUIServiceState) -> bool:
