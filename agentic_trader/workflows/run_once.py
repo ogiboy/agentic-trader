@@ -19,8 +19,6 @@ from agentic_trader.market.news import fetch_news_brief
 from agentic_trader.providers import build_canonical_analysis_snapshot
 from agentic_trader.schemas import (
     AgentContext,
-    AgentRole,
-    AgentStageTrace,
     ExecutionDecision,
     FundamentalAssessment,
     MacroAssessment,
@@ -35,8 +33,8 @@ from agentic_trader.schemas import (
     StrategyPlan,
 )
 from agentic_trader.storage.db import TradingDatabase
+from agentic_trader.workflows import run_outputs as _run_outputs
 from agentic_trader.workflows.run_context import (
-    JsonModel,
     PlanningStageOutputs,
     ProgressCallback,
     ResearchStageOutputs,
@@ -84,21 +82,12 @@ def run_from_snapshot(
     research = _run_research_stages(pipeline)
     planning = _run_planning_stages(pipeline, research)
 
-    return RunArtifacts(
+    return _run_outputs.build_run_artifacts(
         snapshot=snapshot,
         canonical_snapshot=pipeline.canonical_snapshot,
         decision_features=pipeline.decision_features,
-        coordinator=research.coordinator,
-        fundamental=research.fundamental,
-        macro=research.macro,
-        regime=research.regime,
-        strategy=planning.strategy,
-        risk=planning.risk,
-        consensus=planning.consensus,
-        manager=planning.manager,
-        execution=planning.execution,
-        review=planning.review,
-        agent_traces=_build_stage_traces(research, planning),
+        research=research,
+        planning=planning,
     )
 
 
@@ -449,7 +438,7 @@ def _run_manager_stage(
     )
     context = pipeline.agent_context(
         role="manager",
-        tool_outputs=[_consensus_tool_output(consensus)],
+        tool_outputs=[_run_outputs.consensus_tool_output(consensus)],
         upstream_context={
             **_research_upstream_context(research),
             "strategy": strategy,
@@ -526,67 +515,7 @@ def _run_review_stage(
 def _research_upstream_context(
     research: ResearchStageOutputs,
 ) -> dict[str, BaseModel | str]:
-    return {
-        "coordinator": research.coordinator,
-        "fundamental": research.fundamental,
-        "macro": research.macro,
-        "regime": research.regime,
-    }
-
-
-def _consensus_tool_output(consensus: SpecialistConsensus) -> str:
-    support = ",".join(consensus.supporting_roles) or "-"
-    dissent = ",".join(consensus.dissenting_roles) or "-"
-    return (
-        f"specialist_consensus: level={consensus.alignment_level} "
-        f"support={support} dissent={dissent} summary={consensus.summary}"
-    )
-
-
-def _build_stage_traces(
-    research: ResearchStageOutputs, planning: PlanningStageOutputs
-) -> list[AgentStageTrace]:
-    return [
-        _stage_trace(
-            role="coordinator",
-            context=research.coordinator_context,
-            output=research.coordinator,
-        ),
-        _stage_trace(
-            role="fundamental",
-            context=research.fundamental_context,
-            output=research.fundamental,
-        ),
-        _stage_trace(
-            role="macro", context=research.macro_context, output=research.macro
-        ),
-        _stage_trace(
-            role="regime", context=research.regime_context, output=research.regime
-        ),
-        _stage_trace(
-            role="strategy",
-            context=planning.strategy_context,
-            output=planning.strategy,
-        ),
-        _stage_trace(role="risk", context=planning.risk_context, output=planning.risk),
-        _stage_trace(
-            role="manager",
-            context=planning.manager_context,
-            output=planning.manager,
-        ),
-    ]
-
-
-def _stage_trace(
-    *, role: AgentRole, context: AgentContext, output: JsonModel
-) -> AgentStageTrace:
-    return AgentStageTrace(
-        role=role,
-        model_name=context.model_name,
-        context_json=context.model_dump_json(indent=2),
-        output_json=output.model_dump_json(indent=2),
-        used_fallback=getattr(output, "source", None) == "fallback",
-    )
+    return _run_outputs.research_upstream_context(research)
 
 
 def run_once(
