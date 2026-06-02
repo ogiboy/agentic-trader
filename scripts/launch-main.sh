@@ -22,6 +22,10 @@ BOOTSTRAP_ARGS=
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --)
+      shift
+      continue
+      ;;
     --dry-run)
       DRY_RUN=1
       BOOTSTRAP_ARGS="$BOOTSTRAP_ARGS --dry-run"
