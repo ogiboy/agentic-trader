@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any, Protocol, cast
 
 import httpx
 
 from agentic_trader.config import Settings
-from agentic_trader.json_utils import object_list as _object_list
 from agentic_trader.llm.openai_compat import (
     openai_compatible_content as _openai_compatible_content,
     openai_compatible_error_from_response as _openai_compatible_error_from_response,
@@ -14,52 +12,12 @@ from agentic_trader.llm.openai_compat import (
     openai_compatible_response_format as _openai_compatible_response_format,
     short_redacted_error as _short_redacted_error,
 )
+from agentic_trader.llm.provider_payloads import (
+    json_object as _json_object,
+    json_object_or_none as _json_object_or_none,
+    object_mapping_list as _object_mapping_list,
+)
 from agentic_trader.schemas import LLMHealthStatus
-
-JsonObject = dict[str, object]
-
-
-def _json_object(value: object) -> JsonObject:
-    if not isinstance(value, dict):
-        raise RuntimeError(f"LLM provider returned a non-object payload: {value!r}")
-    return {
-        str(key): item for key, item in cast(Mapping[object, object], value).items()
-    }
-
-
-def _json_object_or_none(value: object) -> JsonObject | None:
-    """
-    Convert a value to a JSON-like object mapping with string keys, or return None if the value is not a mapping.
-
-    Parameters:
-        value (object): The value to convert; if it is a mapping, its keys will be converted to strings.
-
-    Returns:
-        dict[str, object] | None: A dictionary with stringified keys when `value` is a mapping, or `None` otherwise.
-    """
-    if not isinstance(value, dict):
-        return None
-    return {
-        str(key): item for key, item in cast(Mapping[object, object], value).items()
-    }
-
-
-def _object_mapping_list(value: object) -> list[Mapping[str, object]]:
-    """
-    Convert an iterable/JSON array value into a list of object mappings, skipping non-object items.
-
-    Parameters:
-        value (object): The value to iterate over; expected to be a sequence or JSON array-like. Each element is inspected and converted to a mapping if it represents a JSON object.
-
-    Returns:
-        list[Mapping[str, object]]: A list of mappings where each mapping has string keys and corresponds to an object element from the input. Non-object elements are omitted.
-    """
-    rows: list[Mapping[str, object]] = []
-    for item in _object_list(value):
-        row = _json_object_or_none(item)
-        if row is not None:
-            rows.append(row)
-    return rows
 
 
 class LLMProvider(Protocol):
