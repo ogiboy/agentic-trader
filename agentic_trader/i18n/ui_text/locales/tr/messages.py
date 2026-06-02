@@ -100,6 +100,8 @@ TR_MESSAGES_COPY: dict[str, str] = {
     "message_observer_api_nonlocal_blocked": "Observer API varsayilan olarak local-only. Loopback host kullanin veya "
     "AGENTIC_TRADER_OBSERVER_API_TOKEN ayarlayip bilincli nonlocal read-only "
     "bind icin --allow-nonlocal gecin.",
+    "message_observer_mode_temporarily_unavailable": "Runtime writer veritabaninin sahibiyken {feature} gecici olarak "
+    "kullanilamiyor.",
     "message_runtime_gate_open": "Ollama {base_url} adresinde erisilebilir ve {model_name} modeli kullanilabilir.",
     "message_portfolio_temporarily_unavailable": "Runtime writer veritabaninin sahibiyken portfolio view gecici olarak "
     "kullanilamiyor.\n\n{error}",

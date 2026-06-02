@@ -18,7 +18,7 @@ from agentic_trader.tui_modules.common import (
     style_key,
 )
 from agentic_trader.tui_modules.monitor import run_live_monitor
-from agentic_trader.tui_modules.monitor_sections import safe_open_read_db
+from agentic_trader.tui_modules.monitor_runtime import safe_open_read_db
 from agentic_trader.tui_modules.status import (
     render_broker_status,
     render_provider_diagnostics,

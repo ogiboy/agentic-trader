@@ -320,6 +320,7 @@ from agentic_trader.ui_text import (
     TITLE_UI_LOCALE,
     TITLE_UPDATED_PREFERENCES,
     TITLE_WEB_GUI_START_FAILED,
+    UI_LOCALE_ENV,
     UI_LIST_SEPARATOR,
     UILocale,
 )
@@ -337,7 +338,6 @@ app = typer.Typer(
     invoke_without_command=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-UI_LOCALE_ENV = "AGENTIC_TRADER_UI_LOCALE"
 
 
 def object_mapping(value: object) -> Mapping[str, object]:

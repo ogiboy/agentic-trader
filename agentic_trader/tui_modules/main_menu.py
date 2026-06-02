@@ -7,7 +7,7 @@ from rich.table import Table
 
 from agentic_trader.config import Settings, get_settings
 from agentic_trader.tui_modules.common import banner, console, exit_cleanly
-from agentic_trader.tui_modules.monitor_sections import safe_open_read_db
+from agentic_trader.tui_modules.monitor_runtime import safe_open_read_db
 from agentic_trader.tui_modules.operator import operator_menu
 from agentic_trader.tui_modules.portfolio import portfolio_menu
 from agentic_trader.tui_modules.preferences import edit_preferences_action

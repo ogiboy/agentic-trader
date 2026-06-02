@@ -15,7 +15,7 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.schemas import ChatPersona, OperatorInstruction
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.tui_modules.common import banner, console, open_db
-from agentic_trader.tui_modules.monitor_sections import (
+from agentic_trader.tui_modules.monitor_runtime import (
     observer_mode_panel,
     safe_open_read_db,
 )

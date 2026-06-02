@@ -12,6 +12,7 @@ from agentic_trader.i18n.ui_text.catalog import (
     EN_TEXT,
     SUPPORTED_UI_LOCALES,
     TR_TEXT,
+    UI_LOCALE_ENV,
     UI_TEXT,
     UILocale,
     UITextCatalog,
@@ -27,6 +28,7 @@ _PUBLIC_API = (
     UITextCatalog,
     UILocale,
     UI_TEXT,
+    UI_LOCALE_ENV,
     get_ui_text,
     normalize_locale,
 )
@@ -37,6 +39,7 @@ _PUBLIC_API_NAMES = (
     "UITextCatalog",
     "UILocale",
     "UI_TEXT",
+    "UI_LOCALE_ENV",
     "get_ui_text",
     "normalize_locale",
 )

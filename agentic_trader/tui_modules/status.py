@@ -17,13 +17,15 @@ from agentic_trader.llm.client import LocalLLM
 from agentic_trader.runtime_feed import read_service_events, read_service_state
 from agentic_trader.runtime_status import build_runtime_status_view
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.tui_modules.monitor_sections import (
+from agentic_trader.tui_modules.monitor_runtime import (
     current_activity_panel,
     observer_mode_panel,
-    render_preferences,
-    render_recent_runs,
     render_runtime_events,
     render_runtime_state,
+)
+from agentic_trader.tui_modules.monitor_tables import (
+    render_preferences,
+    render_recent_runs,
 )
 from agentic_trader.ui_text import (
     LABEL_ALPACA_CREDENTIALS_CONFIGURED,

@@ -15,18 +15,20 @@ from agentic_trader.schemas import (
     ServiceStateSnapshot,
 )
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.tui_modules.monitor_sections import (
+from agentic_trader.tui_modules.monitor_runtime import (
     agent_activity_table,
     current_activity_panel,
     observer_mode_panel,
-    portfolio_renderable,
-    recent_runs_table,
-    render_preferences,
-    risk_report_table,
     runtime_events_table,
     runtime_state_table,
     safe_open_read_db,
     system_status_table,
+)
+from agentic_trader.tui_modules.monitor_tables import (
+    portfolio_renderable,
+    recent_runs_table,
+    render_preferences,
+    risk_report_table,
     trade_journal_table,
 )
 from agentic_trader.ui_text import (

@@ -8,7 +8,7 @@ from agentic_trader.tui_modules.common import (
     menu_table,
     run_readonly_db_menu_action,
 )
-from agentic_trader.tui_modules.monitor_sections import (
+from agentic_trader.tui_modules.monitor_tables import (
     portfolio_renderable,
     risk_report_table,
     trade_journal_table,

@@ -52,7 +52,7 @@ def menu_table(title: str, items: Sequence[TuiMenuAction | tuple[str, str]]) -> 
 
 
 def run_readonly_db_menu_action(settings: Settings, action: TuiMenuAction) -> None:
-    from agentic_trader.tui_modules.monitor_sections import (
+    from agentic_trader.tui_modules.monitor_runtime import (
         observer_mode_panel,
         safe_open_read_db,
     )

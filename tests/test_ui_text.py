@@ -1,7 +1,10 @@
+from pytest import MonkeyPatch
+
 from agentic_trader import ui_text
 
 
-def test_get_ui_text_defaults_to_english_catalog() -> None:
+def test_get_ui_text_defaults_to_english_catalog(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.delenv(ui_text.UI_LOCALE_ENV, raising=False)
     catalog = ui_text.get_ui_text()
 
     assert ui_text.SUPPORTED_UI_LOCALES == ("en", "tr")
@@ -116,6 +119,12 @@ def test_get_ui_text_defaults_to_english_catalog() -> None:
     assert catalog.db_locked_msg == ui_text.DB_LOCKED_MSG
     assert catalog.title_portfolio == ui_text.TITLE_PORTFOLIO
     assert catalog.title_positions == ui_text.TITLE_POSITIONS
+    assert catalog.status_allowed == "allowed"
+    assert catalog.status_blocked == "blocked"
+    assert catalog.status_inactive == "inactive"
+    assert catalog.message_observer_mode_temporarily_unavailable.startswith(
+        "{feature} is temporarily unavailable"
+    )
     assert catalog.title_service_supervisor == ui_text.TITLE_SERVICE_SUPERVISOR
     assert catalog.label_average_price == ui_text.LABEL_AVERAGE_PRICE
     assert catalog.label_market_price == ui_text.LABEL_MARKET_PRICE
@@ -257,6 +266,12 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.message_no_runs_recorded == "Henuz run kaydi yok."
     assert catalog.message_no_orders_recorded == "Henuz order kaydi yok."
     assert catalog.title_current_cycle == "Gecerli Dongu"
+    assert catalog.status_allowed == "izinli"
+    assert catalog.status_blocked == "bloklu"
+    assert catalog.status_inactive == "pasif"
+    assert catalog.message_observer_mode_temporarily_unavailable.startswith(
+        "Runtime writer"
+    )
     assert catalog.title_system_status == "System Durumu"
     assert catalog.title_system_snapshot == "AGENTIC TRADER // System Snapshot"
     assert catalog.label_llm_ready == "LLM Hazir"
@@ -391,6 +406,16 @@ def test_get_ui_text_supports_turkish_regional_locale() -> None:
     assert catalog.title_export_blocked == "Export Bloklandi"
     assert catalog.prompt_select_action == "Aksiyon sec"
     assert catalog.style_key_column == ui_text.STYLE_KEY_COLUMN
+
+
+def test_get_ui_text_uses_environment_locale(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv(ui_text.UI_LOCALE_ENV, "tr")
+
+    assert ui_text.get_ui_text().title_runtime_status == "Runtime Durumu"
+
+    monkeypatch.setenv(ui_text.UI_LOCALE_ENV, "en")
+
+    assert ui_text.get_ui_text().title_runtime_status == "Runtime Status"
 
 
 def test_normalize_locale_falls_back_to_english() -> None:

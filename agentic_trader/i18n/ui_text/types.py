@@ -522,6 +522,7 @@ class UITextCatalog:
     message_research_snapshot_recorded: str
     message_observer_api_listening: str
     message_observer_api_nonlocal_blocked: str
+    message_observer_mode_temporarily_unavailable: str
     message_runtime_gate_open: str
     message_portfolio_temporarily_unavailable: str
     message_preferences_temporarily_unavailable: str
@@ -598,10 +599,13 @@ class UITextCatalog:
     stage_strategy: str
     style_key_column: str
     status_active: str
+    status_allowed: str
     status_app_owned: str
     status_available: str
+    status_blocked: str
     status_external: str
     status_fail: str
+    status_inactive: str
     status_needs_attention: str
     status_pass: str
     status_ready: str

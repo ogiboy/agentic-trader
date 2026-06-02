@@ -16,10 +16,10 @@ from agentic_trader.tui_modules.common import (
     menu_table,
     run_readonly_db_menu_action,
 )
-from agentic_trader.tui_modules.monitor_sections import (
-    render_recent_runs,
+from agentic_trader.tui_modules.monitor_runtime import (
     render_runtime_events,
 )
+from agentic_trader.tui_modules.monitor_tables import render_recent_runs
 from agentic_trader.ui_text import (
     LABEL_BIAS,
     LABEL_CREATED,

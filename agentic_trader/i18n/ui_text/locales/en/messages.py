@@ -101,6 +101,8 @@ EN_MESSAGES_COPY: dict[str, str] = {
     "message_observer_api_nonlocal_blocked": "Observer API is local-only by default. Use a loopback host or set "
     "AGENTIC_TRADER_OBSERVER_API_TOKEN and pass --allow-nonlocal for an "
     "intentional nonlocal read-only bind.",
+    "message_observer_mode_temporarily_unavailable": "{feature} is temporarily unavailable while the runtime writer owns "
+    "the database.",
     "message_runtime_gate_open": "Ollama reachable at {base_url} and model {model_name} is available.",
     "message_portfolio_temporarily_unavailable": "Portfolio view is temporarily unavailable while the runtime writer owns "
     "the database.\n\n{error}",

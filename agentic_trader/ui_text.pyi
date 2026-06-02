@@ -1,6 +1,7 @@
 from agentic_trader.i18n.ui_text.catalog import EN_TEXT as EN_TEXT
 from agentic_trader.i18n.ui_text.catalog import TR_TEXT as TR_TEXT
 from agentic_trader.i18n.ui_text.catalog import UI_TEXT as UI_TEXT
+from agentic_trader.i18n.ui_text.catalog import UI_LOCALE_ENV as UI_LOCALE_ENV
 from agentic_trader.i18n.ui_text.catalog import get_ui_text as get_ui_text
 from agentic_trader.i18n.ui_text.catalog import normalize_locale as normalize_locale
 from agentic_trader.i18n.ui_text.types import (
@@ -725,6 +726,7 @@ PROMPT_REFRESH_SECONDS: str
 PROMPT_YOU: str
 STYLE_KEY_COLUMN: str
 STATUS_ACTIVE: str
+UI_LOCALE_ENV: str
 STATUS_APP_OWNED: str
 STATUS_AVAILABLE: str
 STATUS_EXTERNAL: str

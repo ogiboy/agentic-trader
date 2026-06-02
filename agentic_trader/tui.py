@@ -30,12 +30,14 @@ from agentic_trader.tui_modules.monitor import (
     build_monitor_renderable as build_monitor_renderable,
     run_live_monitor as run_live_monitor,
 )
-from agentic_trader.tui_modules.monitor_sections import (
+from agentic_trader.tui_modules.monitor_lines import (
     agent_activity_lines as agent_activity_lines,
-    agent_activity_table as agent_activity_table,
     broker_gate_lines as broker_gate_lines,
     last_outcome_lines as last_outcome_lines,
     runtime_cycle_lines as runtime_cycle_lines,
+)
+from agentic_trader.tui_modules.monitor_runtime import (
+    agent_activity_table as agent_activity_table,
     runtime_state_table as runtime_state_table,
     system_status_table as system_status_table,
 )
