@@ -43,6 +43,12 @@ from agentic_trader.cli_modules.dashboard_commands import (
 )
 from agentic_trader.cli_modules.doctor import run_doctor_command
 from agentic_trader.cli_modules.execution_rendering import render_execution_panels
+from agentic_trader.cli_modules.finance_rendering import (
+    render_finance_ops as _render_finance_ops_impl,
+)
+from agentic_trader.cli_modules.finance_rendering import (
+    render_position_plan_repair as _render_position_plan_repair_impl,
+)
 from agentic_trader.cli_modules.finance_status import (
     broker_payload as _finance_broker_payload,
 )
@@ -51,12 +57,6 @@ from agentic_trader.cli_modules.finance_status import (
 )
 from agentic_trader.cli_modules.finance_status import (
     portfolio_payload as _finance_portfolio_payload,
-)
-from agentic_trader.cli_modules.finance_status import (
-    render_finance_ops as _render_finance_ops_impl,
-)
-from agentic_trader.cli_modules.finance_status import (
-    render_position_plan_repair as _render_position_plan_repair_impl,
 )
 from agentic_trader.cli_modules.finance_status import (
     risk_report_payload as _finance_risk_report_payload,
