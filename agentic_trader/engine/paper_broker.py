@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -6,20 +5,23 @@ from agentic_trader.config import Settings
 from agentic_trader.execution.intent import (
     ExecutionIntent,
     ExecutionOutcome,
-    ExecutionOutcomeStatus,
     build_execution_intent,
 )
 from agentic_trader.execution.symbols import is_v1_us_equity_symbol
+from agentic_trader.engine.paper_broker_fill import (
+    FillProjection,
+    apply_buy,
+    apply_sell,
+    project_fill,
+    rejects_same_direction,
+)
+from agentic_trader.engine.paper_broker_intent import (
+    decision_from_intent,
+    paper_outcome,
+    quantity_from_intent,
+)
 from agentic_trader.schemas import ExecutionDecision, PositionExitDecision, StrategyPlan
 from agentic_trader.storage.db import TradingDatabase
-
-
-@dataclass(frozen=True)
-class FillProjection:
-    cash_delta: float
-    realized_pnl_delta: float
-    new_quantity: float
-    new_average_price: float
 
 
 class PaperBroker:
@@ -31,77 +33,6 @@ class PaperBroker:
         """
         self.db = db
         self.settings = settings
-
-    @staticmethod
-    def _weighted_average(
-        current_qty: float, current_avg: float, fill_qty: float, fill_price: float
-    ) -> float:
-        total_qty = current_qty + fill_qty
-        if total_qty == 0:
-            return 0.0
-        return ((current_qty * current_avg) + (fill_qty * fill_price)) / total_qty
-
-    def _apply_buy(
-        self, *, quantity: float, price: float, current_qty: float, current_avg: float
-    ) -> tuple[float, float, float, float]:
-        cash_delta = -(quantity * price)
-        realized_pnl_delta = 0.0
-
-        if current_qty < 0:
-            cover_qty = min(quantity, abs(current_qty))
-            realized_pnl_delta += (current_avg - price) * cover_qty
-            remaining_buy = quantity - cover_qty
-            new_qty = current_qty + quantity
-            if new_qty > 0:
-                new_avg = price if remaining_buy > 0 else 0.0
-            elif new_qty == 0:
-                new_avg = 0.0
-            else:
-                new_avg = current_avg
-            return cash_delta, realized_pnl_delta, new_qty, new_avg
-
-        new_qty = current_qty + quantity
-        new_avg = self._weighted_average(current_qty, current_avg, quantity, price)
-        return cash_delta, realized_pnl_delta, new_qty, new_avg
-
-    def _apply_sell(
-        self, *, quantity: float, price: float, current_qty: float, current_avg: float
-    ) -> tuple[float, float, float, float]:
-        """
-        Compute the cash and realized PnL effects of selling a quantity and the resulting position quantity and average price.
-
-        Parameters:
-            quantity (float): Quantity being sold.
-            price (float): Execution price per unit.
-            current_qty (float): Current position quantity (positive for long, negative for short, zero for flat).
-            current_avg (float): Current average price of the position.
-
-        Returns:
-            tuple[float, float, float, float]: A tuple containing:
-                - cash_delta: change in cash from the sale (positive for proceeds),
-                - realized_pnl_delta: realized profit or loss from any closed portion of the existing position,
-                - new_quantity: resulting position quantity after applying the sale,
-                - new_average_price: resulting average price for the position after the sale (0.0 if no remaining position).
-        """
-        cash_delta = quantity * price
-        realized_pnl_delta = 0.0
-
-        if current_qty > 0:
-            close_qty = min(quantity, current_qty)
-            realized_pnl_delta += (price - current_avg) * close_qty
-            remaining_sell = quantity - close_qty
-            new_qty = current_qty - quantity
-            if new_qty < 0:
-                new_avg = price if remaining_sell > 0 else 0.0
-            elif new_qty == 0:
-                new_avg = 0.0
-            else:
-                new_avg = current_avg
-            return cash_delta, realized_pnl_delta, new_qty, new_avg
-
-        new_qty = current_qty - quantity
-        new_avg = self._weighted_average(abs(current_qty), current_avg, quantity, price)
-        return cash_delta, realized_pnl_delta, new_qty, new_avg
 
     def _record_order(self, order_id: str, decision: ExecutionDecision) -> None:
         """
@@ -129,131 +60,6 @@ class PaperBroker:
                 "confidence": decision.confidence,
                 "rationale": decision.rationale,
             }
-        )
-
-    @staticmethod
-    def _position_size_pct_from_intent(intent: ExecutionIntent) -> float:
-        value = intent.backend_metadata.get("position_size_pct")
-        if isinstance(value, int | float | str):
-            try:
-                return float(value)
-            except ValueError:
-                return 0.0
-        return 0.0
-
-    @classmethod
-    def _decision_from_intent(cls, intent: ExecutionIntent) -> ExecutionDecision:
-        return ExecutionDecision(
-            approved=intent.approved,
-            side=intent.side,
-            symbol=intent.symbol,
-            entry_price=intent.reference_price,
-            stop_loss=intent.stop_loss or intent.reference_price,
-            take_profit=intent.take_profit or intent.reference_price,
-            position_size_pct=cls._position_size_pct_from_intent(intent),
-            confidence=intent.confidence,
-            rationale=intent.thesis,
-        )
-
-    @staticmethod
-    def _quantity_from_intent(
-        intent: ExecutionIntent,
-        *,
-        account_equity: float,
-        position_size_pct: float,
-    ) -> float:
-        if intent.quantity is not None:
-            return round(intent.quantity, 6)
-        notional = intent.notional
-        if notional is None:
-            notional = max(0.0, account_equity * position_size_pct)
-        return round(notional / intent.reference_price, 6)
-
-    @staticmethod
-    def _outcome(
-        intent: ExecutionIntent,
-        *,
-        order_id: str,
-        status: ExecutionOutcomeStatus,
-        message: str,
-        filled_quantity: float = 0.0,
-        average_fill_price: float | None = None,
-        rejection_reason: str | None = None,
-        simulated_metadata: dict[str, object] | None = None,
-    ) -> ExecutionOutcome:
-        return ExecutionOutcome(
-            intent_id=intent.intent_id,
-            order_id=order_id,
-            status=status,
-            adapter_name=intent.adapter_name,
-            execution_backend=intent.execution_backend,
-            filled_quantity=filled_quantity,
-            average_fill_price=average_fill_price,
-            rejection_reason=rejection_reason,
-            message=message,
-            simulated_metadata=simulated_metadata or {},
-        )
-
-    def _project_fill(
-        self,
-        decision: ExecutionDecision,
-        *,
-        quantity: float,
-        current_qty: float,
-        current_avg: float,
-    ) -> FillProjection | None:
-        """
-        Create a FillProjection describing the effect of applying the requested fill, or return None when the fill is not applicable under shorting rules.
-
-        Parameters:
-            decision (ExecutionDecision): Execution decision containing `side` and `entry_price`.
-            quantity (float): Quantity to be filled.
-            current_qty (float): Current position quantity for the symbol.
-            current_avg (float): Current average price for the position.
-
-        Returns:
-            FillProjection | None: A projection with `cash_delta`, `realized_pnl_delta`, `new_quantity`, and `new_average_price` if the fill can be applied; `None` when the decision would initiate a short position but shorting is disallowed and there is no existing long position.
-        """
-        if decision.side == "buy":
-            values = self._apply_buy(
-                quantity=quantity,
-                price=decision.entry_price,
-                current_qty=current_qty,
-                current_avg=current_avg,
-            )
-        elif self.settings.allow_short or (current_qty > 0 and quantity <= current_qty):
-            values = self._apply_sell(
-                quantity=quantity,
-                price=decision.entry_price,
-                current_qty=current_qty,
-                current_avg=current_avg,
-            )
-        else:
-            return None
-        cash_delta, realized_pnl_delta, new_quantity, new_average_price = values
-        return FillProjection(
-            cash_delta=cash_delta,
-            realized_pnl_delta=realized_pnl_delta,
-            new_quantity=new_quantity,
-            new_average_price=new_average_price,
-        )
-
-    @staticmethod
-    def _rejects_same_direction(
-        decision: ExecutionDecision, current_qty: float
-    ) -> bool:
-        """
-        Determine whether an execution decision would increase exposure in the same direction as the current position.
-
-        Parameters:
-            decision (ExecutionDecision): The proposed execution decision; `decision.side` is expected to be "buy" or "sell".
-            current_qty (float): Current position quantity (positive for long, negative for short).
-
-        Returns:
-            bool: `True` if the decision would add to the existing position in the same direction (buy into a long, sell into a short), `False` otherwise.
-        """
-        return (decision.side == "buy" and current_qty > 0) or (
-            decision.side == "sell" and current_qty < 0
         )
 
     def _would_exceed_cash(
@@ -333,7 +139,7 @@ class PaperBroker:
         if decision.approved and decision.side != "hold":
             return None
         status = "rejected" if not decision.approved else "no_fill"
-        return self._outcome(
+        return paper_outcome(
             intent,
             order_id=order_id,
             status=status,
@@ -359,7 +165,7 @@ class PaperBroker:
         simulated_metadata: dict[str, object] | None,
     ) -> ExecutionOutcome | None:
         if self._would_exceed_cash(decision, current_qty, account_cash_after_fill):
-            return self._outcome(
+            return paper_outcome(
                 intent,
                 order_id=order_id,
                 status="blocked",
@@ -368,7 +174,7 @@ class PaperBroker:
                 simulated_metadata=simulated_metadata,
             )
         if self._would_exceed_exposure(decision, projection, current_market_value):
-            return self._outcome(
+            return paper_outcome(
                 intent,
                 order_id=order_id,
                 status="blocked",
@@ -377,7 +183,7 @@ class PaperBroker:
                 simulated_metadata=simulated_metadata,
             )
         if self._would_exceed_open_position_limit(current_qty, projection.new_quantity):
-            return self._outcome(
+            return paper_outcome(
                 intent,
                 order_id=order_id,
                 status="blocked",
@@ -418,9 +224,9 @@ class PaperBroker:
         )
         order_id = f"{prefix}-{uuid4().hex[:12]}"
         if intent.side != "hold" and not is_v1_us_equity_symbol(intent.symbol):
-            decision = self._decision_from_intent(intent)
+            decision = decision_from_intent(intent)
             self._record_order(order_id, decision)
-            return self._outcome(
+            return paper_outcome(
                 intent,
                 order_id=order_id,
                 status="blocked",
@@ -428,7 +234,7 @@ class PaperBroker:
                 rejection_reason="unsupported_symbol_scope",
                 simulated_metadata=simulated_metadata,
             )
-        decision = self._decision_from_intent(intent)
+        decision = decision_from_intent(intent)
         self._record_order(order_id, decision)
 
         self.db.mark_price(decision.symbol, decision.entry_price)
@@ -442,13 +248,13 @@ class PaperBroker:
             return guarded_outcome
 
         account = self.db.get_account_snapshot()
-        quantity = self._quantity_from_intent(
+        quantity = quantity_from_intent(
             intent,
             account_equity=account.equity,
             position_size_pct=decision.position_size_pct,
         )
         if quantity == 0:
-            return self._outcome(
+            return paper_outcome(
                 intent,
                 order_id=order_id,
                 status="no_fill",
@@ -479,8 +285,8 @@ class PaperBroker:
         current_qty = position.quantity if position else 0.0
         current_avg = position.average_price if position else 0.0
         current_market_value = abs(position.market_value) if position else 0.0
-        if self._rejects_same_direction(decision, current_qty):
-            return self._outcome(
+        if rejects_same_direction(decision, current_qty):
+            return paper_outcome(
                 intent,
                 order_id=order_id,
                 status="blocked",
@@ -489,14 +295,15 @@ class PaperBroker:
                 simulated_metadata=simulated_metadata,
             )
 
-        projection = self._project_fill(
+        projection = project_fill(
             decision,
             quantity=quantity,
             current_qty=current_qty,
             current_avg=current_avg,
+            allow_short=self.settings.allow_short,
         )
         if projection is None:
-            return self._outcome(
+            return paper_outcome(
                 intent,
                 order_id=order_id,
                 status="blocked",
@@ -549,7 +356,7 @@ class PaperBroker:
             new_quantity=projection.new_quantity,
             new_average_price=projection.new_average_price,
         )
-        return self._outcome(
+        return paper_outcome(
             intent,
             order_id=order_id,
             status="filled",
@@ -604,14 +411,14 @@ class PaperBroker:
         order_id = f"paper-{uuid4().hex[:12]}"
         quantity = abs(position.quantity)
         if decision.side == "buy":
-            cash_delta, realized_pnl_delta, new_qty, new_avg = self._apply_buy(
+            projection = apply_buy(
                 quantity=quantity,
                 price=decision.exit_price,
                 current_qty=position.quantity,
                 current_avg=position.average_price,
             )
         else:
-            cash_delta, realized_pnl_delta, new_qty, new_avg = self._apply_sell(
+            projection = apply_sell(
                 quantity=quantity,
                 price=decision.exit_price,
                 current_qty=position.quantity,
@@ -640,10 +447,10 @@ class PaperBroker:
             side=decision.side,
             quantity=quantity,
             price=decision.exit_price,
-            cash_delta=cash_delta,
-            realized_pnl_delta=realized_pnl_delta,
-            new_quantity=new_qty,
-            new_average_price=new_avg,
+            cash_delta=projection.cash_delta,
+            realized_pnl_delta=projection.realized_pnl_delta,
+            new_quantity=projection.new_quantity,
+            new_average_price=projection.new_average_price,
         )
         self.db.delete_position_plan(decision.symbol)
         self.db.close_trade_journal(
@@ -651,7 +458,7 @@ class PaperBroker:
             exit_order_id=order_id,
             exit_reason=decision.reason,
             exit_price=decision.exit_price,
-            realized_pnl=realized_pnl_delta,
+            realized_pnl=projection.realized_pnl_delta,
             notes=decision.rationale,
         )
         self.db.record_account_mark(
