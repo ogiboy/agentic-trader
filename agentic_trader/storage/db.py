@@ -1,22 +1,13 @@
-import json
-from datetime import datetime, timezone
-from typing import Any, cast
-from uuid import uuid4
+from typing import Any
 
 import duckdb
 
 from agentic_trader.config import Settings
 from agentic_trader.execution.intent import ExecutionIntent, ExecutionOutcome
-from agentic_trader.memory.embeddings import (
-    build_memory_document,
-    embed_artifacts,
-    embedding_metadata,
-)
-from agentic_trader.memory.policy import MemoryActor, assert_memory_write_allowed
+from agentic_trader.memory.policy import MemoryActor
 from agentic_trader.schemas import (
     AccountMark,
     ChatHistoryEntry,
-    ChatPersona,
     DailyRiskReport,
     InvestmentPreferences,
     PortfolioSnapshot,
@@ -36,6 +27,11 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.storage import portfolio as portfolio_store
 from agentic_trader.storage import proposals as proposal_store
+from agentic_trader.storage import memory_vectors as memory_vector_store
+from agentic_trader.storage import operator_chat as operator_chat_store
+from agentic_trader.storage import order_records as order_store
+from agentic_trader.storage import preferences as preference_store
+from agentic_trader.storage import run_records as run_store
 from agentic_trader.storage import services as service_store
 from agentic_trader.storage import trade_journal as trade_store
 from agentic_trader.storage.schema import (
@@ -50,9 +46,8 @@ from agentic_trader.storage.schema import (
     migrate_trade_proposal_columns,
     table_exists,
 )
+from agentic_trader.storage.order_records import OrderRow
 from agentic_trader.storage.services import ServiceStateUpdate
-
-type OrderRow = tuple[str, str, str, str, bool, float, float, float, float, float]
 
 
 class TradingDatabase:
@@ -98,108 +93,19 @@ class TradingDatabase:
         migrate_trade_journal_constraints(self.conn)
 
     def _ensure_default_preferences(self) -> None:
-        pref_existing = self.conn.execute(
-            "select count(*) from preferences where profile_id = 'default'"
-        ).fetchone()
-        if pref_existing and int(pref_existing[0]) == 0:
-            self.save_preferences(InvestmentPreferences())
+        preference_store.ensure_default_preferences(self.conn)
 
     def close(self) -> None:
         self.conn.close()
 
     def insert_run(self, run_id: str, artifacts: RunArtifacts) -> None:
-        created_at = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            insert into runs (run_id, created_at, symbol, interval, approved, payload_json)
-            values (?, ?, ?, ?, ?, ?)
-            """,
-            [
-                run_id,
-                created_at,
-                artifacts.snapshot.symbol,
-                artifacts.snapshot.interval,
-                artifacts.execution.approved,
-                artifacts.model_dump_json(indent=2),
-            ],
-        )
-        self.upsert_memory_vector(
-            run_id,
-            artifacts,
-            created_at=created_at,
-            actor="system_runtime",
-        )
+        run_store.insert_run(self.conn, run_id, artifacts)
 
     def insert_order(self, order: dict[str, Any]) -> None:
-        """
-        Persist an order record into the `orders` table.
-
-        Parameters:
-            order (dict[str, Any]): Mapping containing order fields to persist. Required keys:
-                - order_id (str): Unique order identifier.
-                - created_at (str): ISO-8601 timestamp when the order was created.
-                - symbol (str): Market symbol for the order.
-                - side (str): Order side, e.g., "buy" or "sell".
-                - approved (bool): Whether the order was approved.
-                - entry_price (float | None): Entry price for the order, if applicable.
-                - stop_loss (float | None): Stop-loss price, if applicable.
-                - take_profit (float | None): Take-profit price, if applicable.
-                - position_size_pct (float | None): Position size as a percentage of portfolio.
-                - confidence (float | None): Model confidence score for the order.
-                - rationale (str | None): Human- or model-readable rationale for the order.
-        """
-        self.conn.execute(
-            """
-            insert into orders (
-                order_id, created_at, symbol, side, approved, entry_price,
-                stop_loss, take_profit, position_size_pct, confidence, rationale
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                order["order_id"],
-                order["created_at"],
-                order["symbol"],
-                order["side"],
-                order["approved"],
-                order["entry_price"],
-                order["stop_loss"],
-                order["take_profit"],
-                order["position_size_pct"],
-                order["confidence"],
-                order["rationale"],
-            ],
-        )
+        order_store.insert_order(self.conn, order)
 
     def latest_order(self) -> OrderRow | None:
-        """
-        Fetch the most recent order row from the orders table.
-
-        Returns:
-            OrderRow | None: `OrderRow` tuple with fields (order_id, created_at, symbol, side, approved, entry_price, stop_loss, take_profit, position_size_pct, confidence), or `None` if no order row exists.
-        """
-        result = self.conn.execute("""
-            select order_id, created_at, symbol, side, approved, entry_price,
-                   stop_loss, take_profit, position_size_pct, confidence
-            from orders
-            order by created_at desc
-            limit 1
-            """).fetchone()
-        if result is None:
-            return None
-
-        return (
-            str(result[0]),
-            str(result[1]),
-            str(result[2]),
-            str(result[3]),
-            bool(result[4]),
-            float(result[5]),
-            float(result[6]),
-            float(result[7]),
-            float(result[8]),
-            float(result[9]),
-        )
+        return order_store.latest_order(self.conn)
 
     def insert_trade_proposal(self, proposal: TradeProposalRecord) -> None:
         proposal_store.insert_trade_proposal(self.conn, proposal)
@@ -263,130 +169,24 @@ class TradingDatabase:
         )
 
     def save_preferences(self, preferences: InvestmentPreferences) -> None:
-        """
-        Upserts the default preferences profile into the database.
-
-        Stores the given InvestmentPreferences as JSON in the `preferences` table under profile_id `"default"`, updating the `updated_at` timestamp on conflict.
-
-        Parameters:
-            preferences (InvestmentPreferences): Preferences to persist; will be serialized to JSON.
-        """
-        now = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            insert into preferences (profile_id, updated_at, payload_json)
-            values ('default', ?, ?)
-            on conflict(profile_id) do update set
-                updated_at = excluded.updated_at,
-                payload_json = excluded.payload_json
-            """,
-            [now, preferences.model_dump_json(indent=2)],
-        )
+        preference_store.save_preferences(self.conn, preferences)
 
     def load_preferences(self) -> InvestmentPreferences:
-        """
-        Load the default investment preferences from the database, creating and persisting a new default if none exists.
-
-        Reads the row where profile_id is 'default' and parses its stored JSON into an InvestmentPreferences instance. If no row is found, creates a new InvestmentPreferences, saves it to the database, and returns it.
-
-        Returns:
-            preferences (InvestmentPreferences): The loaded or newly created default investment preferences.
-        """
-        row = self.conn.execute("""
-            select payload_json
-            from preferences
-            where profile_id = 'default'
-            """).fetchone()
-        if row is None:
-            preferences = InvestmentPreferences()
-            self.save_preferences(preferences)
-            return preferences
-        return InvestmentPreferences.model_validate_json(str(row[0]))
+        return preference_store.load_preferences(self.conn)
 
     def list_recent_runs(
         self, limit: int = 10
     ) -> list[tuple[str, str, str, str, bool]]:
-        rows = self.conn.execute(
-            """
-            select run_id, created_at, symbol, interval, approved
-            from runs
-            order by created_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        recent: list[tuple[str, str, str, str, bool]] = []
-        for row in rows:
-            recent.append(
-                (
-                    str(row[0]),
-                    str(row[1]),
-                    str(row[2]),
-                    str(row[3]),
-                    bool(row[4]),
-                )
-            )
-        return recent
+        return run_store.list_recent_runs(self.conn, limit=limit)
 
     def get_run(self, run_id: str) -> RunRecord | None:
-        """
-        Fetches a persisted run by its ID and returns a parsed RunRecord.
-
-        Returns:
-            A RunRecord built from the stored row (with `artifacts` validated/parsed from `payload_json`), or `None` if no run with the given `run_id` exists.
-        """
-        row = self.conn.execute(
-            """
-            select run_id, created_at, symbol, interval, approved, payload_json
-            from runs
-            where run_id = ?
-            """,
-            [run_id],
-        ).fetchone()
-        if row is None:
-            return None
-        return RunRecord(
-            run_id=str(row[0]),
-            created_at=str(row[1]),
-            symbol=str(row[2]),
-            interval=str(row[3]),
-            approved=bool(row[4]),
-            artifacts=RunArtifacts.model_validate_json(str(row[5])),
-        )
+        return run_store.get_run(self.conn, run_id)
 
     def latest_run(self) -> RunRecord | None:
-        """
-        Fetches the most recent run record.
-
-        Returns:
-            The `RunRecord` for the latest run ordered by creation time, or `None` if no run exists.
-        """
-        row = self.conn.execute("""
-            select run_id
-            from runs
-            order by created_at desc
-            limit 1
-            """).fetchone()
-        if row is None:
-            return None
-        return self.get_run(str(row[0]))
+        return run_store.latest_run(self.conn)
 
     def list_run_records(self, limit: int = 200) -> list[RunRecord]:
-        rows = self.conn.execute(
-            """
-            select run_id
-            from runs
-            order by created_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        records: list[RunRecord] = []
-        for row in rows:
-            record = self.get_run(str(row[0]))
-            if record is not None:
-                records.append(record)
-        return records
+        return run_store.list_run_records(self.conn, limit=limit)
 
     def upsert_memory_vector(
         self,
@@ -396,73 +196,18 @@ class TradingDatabase:
         created_at: str | None = None,
         actor: MemoryActor = "system_runtime",
     ) -> None:
-        """
-        Persist embedding and document data for a run into the memory_vectors table, inserting a new row or updating an existing one by run_id.
-
-        This call enforces memory write authorization, computes embedding metadata and artifact embeddings, and stores provider/model metadata, embedding dimensions, embedding JSON, and a plain-text document for the given run. If created_at is not provided, the current UTC ISO timestamp is used.
-
-        Parameters:
-            run_id (str): Unique identifier for the run whose memory vector is being stored.
-            artifacts (RunArtifacts): Run artifacts used to build the embedding and document payloads.
-            created_at (str | None): ISO-formatted timestamp to record for the vector; defaults to current UTC time when None.
-            actor (MemoryActor): Actor name used for authorization checks (e.g., "system_runtime").
-        """
-        assert_memory_write_allowed("trade_memory", actor)
-        metadata = embedding_metadata()
-        self.conn.execute(
-            """
-            insert into memory_vectors (
-                run_id, created_at, symbol, embedding_provider, embedding_model,
-                embedding_version, embedding_dimensions, embedding_json, document_text
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            on conflict(run_id) do update set
-                created_at = excluded.created_at,
-                symbol = excluded.symbol,
-                embedding_provider = excluded.embedding_provider,
-                embedding_model = excluded.embedding_model,
-                embedding_version = excluded.embedding_version,
-                embedding_dimensions = excluded.embedding_dimensions,
-                embedding_json = excluded.embedding_json,
-                document_text = excluded.document_text
-            """,
-            [
-                run_id,
-                created_at or datetime.now(timezone.utc).isoformat(),
-                artifacts.snapshot.symbol,
-                metadata["provider"],
-                metadata["model_name"],
-                metadata["model_version"],
-                metadata["dimensions"],
-                json.dumps(embed_artifacts(artifacts)),
-                build_memory_document(artifacts),
-            ],
+        run_store.upsert_memory_vector(
+            self.conn,
+            run_id,
+            artifacts,
+            created_at=created_at,
+            actor=actor,
         )
 
     def list_memory_vectors(
         self, limit: int = 200
     ) -> list[tuple[str, str, str, list[float], str]]:
-        rows = self.conn.execute(
-            """
-            select run_id, created_at, symbol, embedding_json, document_text
-            from memory_vectors
-            order by created_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        vectors: list[tuple[str, str, str, list[float], str]] = []
-        for row in rows:
-            vectors.append(
-                (
-                    str(row[0]),
-                    str(row[1]),
-                    str(row[2]),
-                    [float(value) for value in json.loads(str(row[3]))],
-                    str(row[4]),
-                )
-            )
-        return vectors
+        return memory_vector_store.list_memory_vectors(self.conn, limit=limit)
 
     def insert_chat_history(
         self,
@@ -472,54 +217,16 @@ class TradingDatabase:
         response_text: str,
         actor: MemoryActor = "operator_chat",
     ) -> str:
-        assert_memory_write_allowed("chat_memory", actor)
-        entry_id = f"chat-{uuid4().hex[:12]}"
-        self.conn.execute(
-            """
-            insert into operator_chat_history (
-                entry_id, created_at, persona, user_message, response_text
-            )
-            values (?, ?, ?, ?, ?)
-            """,
-            [
-                entry_id,
-                datetime.now(timezone.utc).isoformat(),
-                persona,
-                user_message,
-                response_text,
-            ],
+        return operator_chat_store.insert_chat_history(
+            self.conn,
+            persona=persona,
+            user_message=user_message,
+            response_text=response_text,
+            actor=actor,
         )
-        return entry_id
 
     def list_chat_history(self, limit: int = 20) -> list[ChatHistoryEntry]:
-        """
-        Return the most recent operator chat history entries, ordered newest first.
-
-        Returns:
-            list[ChatHistoryEntry]: A list of chat history entries (most recent first), each containing
-            `entry_id`, `created_at`, `persona`, `user_message`, and `response_text`.
-        """
-        rows = self.conn.execute(
-            """
-            select entry_id, created_at, persona, user_message, response_text
-            from operator_chat_history
-            order by created_at desc
-            limit ?
-            """,
-            [limit],
-        ).fetchall()
-        history: list[ChatHistoryEntry] = []
-        for row in rows:
-            history.append(
-                ChatHistoryEntry(
-                    entry_id=str(row[0]),
-                    created_at=str(row[1]),
-                    persona=cast(ChatPersona, str(row[2])),
-                    user_message=str(row[3]),
-                    response_text=str(row[4]),
-                )
-            )
-        return history
+        return operator_chat_store.list_chat_history(self.conn, limit=limit)
 
     def record_account_mark(
         self,
