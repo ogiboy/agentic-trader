@@ -18,6 +18,15 @@ from agentic_trader.engine.broker_utils import (
     alpaca_credentials_ready,
     alpaca_uses_paper_endpoint,
 )
+from agentic_trader.engine.alpaca_risk import (
+    RiskExposureProjection,
+    basic_preflight_outcome,
+    blocked_alpaca_outcome,
+    gross_limit_outcome,
+    limit_order_preflight_outcome,
+    position_limit_outcome,
+    risk_exposure_projection,
+)
 from agentic_trader.engine.paper_broker import PaperBroker
 from agentic_trader.execution.intent import (
     BrokerHealthcheck,
@@ -35,15 +44,6 @@ from agentic_trader.schemas import (
 )
 from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import TradingDatabase
-
-
-@dataclass(frozen=True)
-class _RiskExposureProjection:
-    projected_symbol_exposure: float
-    projected_gross_exposure: float
-    max_position_value: float
-    max_gross_value: float
-
 
 @dataclass(slots=True)
 class AlpacaPaperBrokerAdapter:
@@ -93,24 +93,10 @@ class AlpacaPaperBrokerAdapter:
     def _blocked_outcome(
         self, intent: ExecutionIntent, *, reason: str, message: str
     ) -> ExecutionOutcome:
-        """
-        Create an ExecutionOutcome representing a blocked Alpaca paper order for the given intent.
-
-        Parameters:
-            intent (ExecutionIntent): The execution intent being blocked; its intent_id will be copied into the outcome.
-            reason (str): A short machine-readable rejection reason.
-            message (str): A human-readable message describing why the intent was blocked.
-
-        Returns:
-            ExecutionOutcome: An outcome with status "blocked", a generated Alpaca-paper order_id, adapter/backend set to Alpaca paper, and the provided rejection reason and message.
-        """
-        return ExecutionOutcome(
-            intent_id=intent.intent_id,
-            order_id=f"alpaca-paper-blocked-{uuid4().hex[:12]}",
-            status="blocked",
-            adapter_name=self.backend_name,
-            execution_backend="alpaca_paper",
-            rejection_reason=reason,
+        return blocked_alpaca_outcome(
+            intent,
+            backend_name=self.backend_name,
+            reason=reason,
             message=message,
         )
 
@@ -144,68 +130,12 @@ class AlpacaPaperBrokerAdapter:
     def _basic_preflight_outcome(
         self, intent: ExecutionIntent
     ) -> ExecutionOutcome | None:
-        """
-        Perform basic preflight checks on an execution intent and return a blocked outcome if any check fails.
-
-        Checks include: intent approval and non-hold side, US V1 equity symbol scope, order type being `market` or `limit`, and presence of either `quantity` or `notional`.
-
-        Returns:
-            `ExecutionOutcome` describing the blocking reason when a check fails, `None` when the intent passes these basic validations.
-        """
-        if not intent.approved or intent.side == "hold":
-            return self._blocked_outcome(
-                intent,
-                reason="intent_not_approved",
-                message="Alpaca paper adapter did not submit an unapproved or hold intent.",
-            )
-        if not is_v1_us_equity_symbol(intent.symbol):
-            return self._blocked_outcome(
-                intent,
-                reason="unsupported_symbol_scope",
-                message="V1 Alpaca paper adapter only accepts simple US equity symbols.",
-            )
-        if intent.order_type not in {"market", "limit"}:
-            return self._blocked_outcome(
-                intent,
-                reason="unsupported_order_type",
-                message="V1 Alpaca paper adapter only accepts market or limit orders.",
-            )
-        if intent.quantity is None and intent.notional is None:
-            return self._blocked_outcome(
-                intent,
-                reason="missing_size",
-                message="Alpaca paper adapter requires quantity or notional.",
-            )
-        return None
+        return basic_preflight_outcome(intent, backend_name=self.backend_name)
 
     def _limit_order_preflight_outcome(
         self, intent: ExecutionIntent
     ) -> ExecutionOutcome | None:
-        """
-        Validate required fields for limit orders and produce a blocked outcome when a requirement is missing.
-
-        Parameters:
-            intent (ExecutionIntent): The execution intent to validate; checks are performed only when `intent.order_type` equals `"limit"`.
-
-        Returns:
-            ExecutionOutcome: An outcome with `status="blocked"` describing the missing requirement when `limit_price` or `quantity` is absent.
-            None: When `intent.order_type` is not `"limit"` or all required fields are present.
-        """
-        if intent.order_type != "limit":
-            return None
-        if intent.limit_price is None:
-            return self._blocked_outcome(
-                intent,
-                reason="missing_limit_price",
-                message="Alpaca paper limit orders require limit_price.",
-            )
-        if intent.quantity is None:
-            return self._blocked_outcome(
-                intent,
-                reason="limit_quantity_required",
-                message="Alpaca paper limit orders require quantity.",
-            )
-        return None
+        return limit_order_preflight_outcome(intent, backend_name=self.backend_name)
 
     def _shorting_disabled_outcome(
         self, intent: ExecutionIntent
@@ -257,76 +187,35 @@ class AlpacaPaperBrokerAdapter:
         intent: ExecutionIntent,
         positions: list[PositionSnapshot],
         equity: float,
-    ) -> _RiskExposureProjection:
-        reference_price = intent.reference_price
-        order_quantity = (
-            intent.quantity
-            if intent.quantity is not None
-            else (intent.notional or 0.0) / reference_price
-        )
-        signed_order_quantity = (
-            order_quantity if intent.side == "buy" else -order_quantity
-        )
-        current_position = next(
-            (
-                position
-                for position in positions
-                if position.symbol.upper() == intent.symbol.upper()
-            ),
-            None,
-        )
-        current_quantity = current_position.quantity if current_position else 0.0
-        projected_quantity = current_quantity + signed_order_quantity
-        current_symbol_exposure = (
-            abs(current_position.market_value) if current_position else 0.0
-        )
-        projected_symbol_exposure = abs(projected_quantity * reference_price)
-        current_gross_exposure = sum(
-            abs(position.market_value) for position in positions
-        )
-        return _RiskExposureProjection(
-            projected_symbol_exposure=projected_symbol_exposure,
-            projected_gross_exposure=(
-                current_gross_exposure
-                - current_symbol_exposure
-                + projected_symbol_exposure
-            ),
-            max_position_value=equity * self.settings.max_position_pct,
-            max_gross_value=equity * self.settings.max_gross_exposure_pct,
+    ) -> RiskExposureProjection:
+        return risk_exposure_projection(
+            intent=intent,
+            positions=positions,
+            equity=equity,
+            max_position_pct=self.settings.max_position_pct,
+            max_gross_exposure_pct=self.settings.max_gross_exposure_pct,
         )
 
     def _position_limit_outcome(
         self,
         intent: ExecutionIntent,
-        projection: _RiskExposureProjection,
+        projection: RiskExposureProjection,
     ) -> ExecutionOutcome | None:
-        if projection.projected_symbol_exposure <= projection.max_position_value:
-            return None
-        return self._blocked_outcome(
+        return position_limit_outcome(
             intent,
-            reason="max_position_exceeded",
-            message=(
-                "Alpaca paper order would exceed max position size: "
-                f"projected {projection.projected_symbol_exposure:.2f} > "
-                f"limit {projection.max_position_value:.2f}."
-            ),
+            projection,
+            backend_name=self.backend_name,
         )
 
     def _gross_limit_outcome(
         self,
         intent: ExecutionIntent,
-        projection: _RiskExposureProjection,
+        projection: RiskExposureProjection,
     ) -> ExecutionOutcome | None:
-        if projection.projected_gross_exposure <= projection.max_gross_value:
-            return None
-        return self._blocked_outcome(
+        return gross_limit_outcome(
             intent,
-            reason="max_gross_exposure_exceeded",
-            message=(
-                "Alpaca paper order would exceed max gross exposure: "
-                f"projected {projection.projected_gross_exposure:.2f} > "
-                f"limit {projection.max_gross_value:.2f}."
-            ),
+            projection,
+            backend_name=self.backend_name,
         )
 
     def _risk_limit_outcome(self, intent: ExecutionIntent) -> ExecutionOutcome | None:
