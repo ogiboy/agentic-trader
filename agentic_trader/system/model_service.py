@@ -10,9 +10,7 @@ from __future__ import annotations
 import os
 import shutil
 import signal
-import socket
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +23,7 @@ from agentic_trader.security import (
     open_private_append_binary,
     redact_sensitive_text,
 )
+from agentic_trader.system import model_service_process as _process_helpers
 from agentic_trader.system.model_service_probe import base_url as _base_url
 from agentic_trader.system.model_service_probe import (
     fetch_ollama_tags,
@@ -60,6 +59,7 @@ _probe_ollama_generation = probe_ollama_generation
 _read_state = read_model_service_state
 _remove_state = remove_model_service_state
 _same_loopback_api_root = same_loopback_api_root
+sys = _process_helpers.sys
 _tail_text = tail_model_service_text
 _write_state = write_model_service_state
 
@@ -79,29 +79,15 @@ __all__ = [
     "same_loopback_api_root",
 ]
 
-DEFAULT_APP_MANAGED_PORT = 11435
-APP_MANAGED_ORPHAN_PORTS = (DEFAULT_APP_MANAGED_PORT, *range(11436, 11466))
-KNOWN_OLLAMA_SERVICE_PORTS = (11434, *APP_MANAGED_ORPHAN_PORTS)
-LSOF_LISTEN_FILTER = "-sTCP:LISTEN"
-MINIMAL_ENV_KEYS = (
-    "PATH",
-    "HOME",
-    "TMPDIR",
-    "USER",
-    "LOGNAME",
-    "SHELL",
-    "USERPROFILE",
-    "APPDATA",
-    "LOCALAPPDATA",
-    "SYSTEMROOT",
-    "WINDIR",
-)
+DEFAULT_APP_MANAGED_PORT = _process_helpers.DEFAULT_APP_MANAGED_PORT
+APP_MANAGED_ORPHAN_PORTS = _process_helpers.APP_MANAGED_ORPHAN_PORTS
+KNOWN_OLLAMA_SERVICE_PORTS = _process_helpers.KNOWN_OLLAMA_SERVICE_PORTS
+LSOF_LISTEN_FILTER = _process_helpers.LSOF_LISTEN_FILTER
+MINIMAL_ENV_KEYS = _process_helpers.MINIMAL_ENV_KEYS
 
 
 def _is_port_available(host: str, port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.2)
-        return sock.connect_ex((host, port)) != 0
+    return _process_helpers.is_port_available(host, port)
 
 
 def model_service_port_available(host: str, port: int) -> bool:
@@ -109,12 +95,7 @@ def model_service_port_available(host: str, port: int) -> bool:
 
 
 def _minimal_process_env(*, ollama_host: str | None = None) -> dict[str, str]:
-    """Return a subprocess env that does not inherit provider/broker secrets."""
-
-    env = {key: os.environ[key] for key in MINIMAL_ENV_KEYS if key in os.environ}
-    if ollama_host:
-        env["OLLAMA_HOST"] = ollama_host
-    return env
+    return _process_helpers.minimal_process_env(ollama_host=ollama_host)
 
 
 def minimal_model_service_process_env(
@@ -124,21 +105,7 @@ def minimal_model_service_process_env(
 
 
 def _process_command_line(pid: int) -> str | None:
-    if sys.platform.startswith("win"):
-        return _windows_process_command_line(pid)
-    try:
-        completed = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "command="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout.strip() or None
+    return _process_helpers.process_command_line(pid)
 
 
 def model_service_process_command_line(pid: int) -> str | None:
@@ -146,131 +113,23 @@ def model_service_process_command_line(pid: int) -> str | None:
 
 
 def _external_ollama_serve_pids(command_path: str | None) -> list[int]:
-    if sys.platform.startswith("win"):
-        return []
-    executable_names = {"ollama"}
-    if command_path:
-        executable_names.add(Path(command_path).name)
-    try:
-        completed = subprocess.run(
-            ["ps", "-ax", "-o", "pid=,command="],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return _ollama_listener_pids_from_lsof()
-    if completed.returncode != 0:
-        return _ollama_listener_pids_from_lsof()
-    pids: list[int] = []
-    for line in completed.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        pid_text, _, command_line = stripped.partition(" ")
-        if not pid_text.isdigit():
-            continue
-        if _is_ollama_serve_command(command_line, executable_names):
-            pids.append(int(pid_text))
-    return sorted(set(pids) | set(_ollama_listener_pids_from_lsof()))
+    return _process_helpers.external_ollama_serve_pids(command_path)
 
 
 def external_ollama_serve_pids(command_path: str | None) -> list[int]:
     return _external_ollama_serve_pids(command_path)
 
 
-def _is_ollama_serve_command(command_line: str, executable_names: set[str]) -> bool:
-    parts = command_line.replace("\\", "/").lower().split()
-    if len(parts) < 2:
-        return False
-    return Path(parts[0]).name in executable_names and parts[1] == "serve"
-
-
 def _ollama_listener_pids_from_lsof() -> list[int]:
-    """Return Ollama listener PIDs without relying on process-list permissions."""
-
-    output = _run_lsof_listener_scan()
-    if output is None:
-        return []
-    return sorted(_parse_ollama_listener_pids(output))
+    return _process_helpers.ollama_listener_pids_from_lsof()
 
 
 def ollama_listener_pids_from_lsof() -> list[int]:
     return _ollama_listener_pids_from_lsof()
 
 
-def _run_lsof_listener_scan() -> str | None:
-    if sys.platform.startswith("win"):
-        return None
-    try:
-        completed = subprocess.run(
-            ["lsof", "-nP", "-iTCP", LSOF_LISTEN_FILTER, "-Fpcn"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout
-
-
-def _parse_ollama_listener_pids(output: str) -> set[int]:
-    current_pid: int | None = None
-    current_command: str | None = None
-    pids: set[int] = set()
-    for line in output.splitlines():
-        if line.startswith("p") and line[1:].isdigit():
-            current_pid = int(line[1:])
-            current_command = None
-            continue
-        if line.startswith("c"):
-            current_command = line[1:].strip().lower()
-            continue
-        if not line.startswith("n") or current_pid is None:
-            continue
-        endpoint = line[1:].strip()
-        host, _, port_text = endpoint.rpartition(":")
-        if _is_known_ollama_listener(current_command, host, port_text):
-            pids.add(current_pid)
-    return pids
-
-
-def _is_known_ollama_listener(command: str | None, host: str, port_text: str) -> bool:
-    port = int(port_text) if port_text.isdigit() else None
-    return (
-        command == "ollama"
-        and port in KNOWN_OLLAMA_SERVICE_PORTS
-        and is_loopback_host(host)
-    )
-
-
 def _listening_loopback_ports_for_pid(pid: int) -> set[int]:
-    try:
-        completed = subprocess.run(
-            ["lsof", "-nP", "-a", "-p", str(pid), "-iTCP", LSOF_LISTEN_FILTER, "-FpPn"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return set()
-    if completed.returncode != 0:
-        return set()
-    ports: set[int] = set()
-    for line in completed.stdout.splitlines():
-        if not line.startswith("n"):
-            continue
-        endpoint = line[1:].strip()
-        host, _, port_text = endpoint.rpartition(":")
-        if not port_text.isdigit() or not is_loopback_host(host):
-            continue
-        ports.add(int(port_text))
-    return ports
+    return _process_helpers.listening_loopback_ports_for_pid(pid)
 
 
 def listening_loopback_ports_for_pid(pid: int) -> set[int]:
@@ -346,55 +205,8 @@ def _stop_pid(pid: int) -> bool:
     return stopped or not is_process_alive(pid)
 
 
-def _windows_process_command_line(pid: int) -> str | None:
-    query = (
-        "Get-CimInstance Win32_Process "
-        f'-Filter "ProcessId = {pid}" | Select-Object -ExpandProperty CommandLine'
-    )
-    try:
-        completed = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", query],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout.strip() or None
-
-
 def _listen_port_owner_pid(host: str, port: int) -> int | None:
-    query_host = "127.0.0.1" if host == "localhost" else host.strip("[]")
-    try:
-        completed = subprocess.run(
-            [
-                "lsof",
-                "-nP",
-                "-a",
-                f"-iTCP@{query_host}:{port}",
-                LSOF_LISTEN_FILTER,
-                "-Fp",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except Exception:
-        return None
-    if completed.returncode != 0:
-        return None
-    pids = {
-        int(line[1:])
-        for line in completed.stdout.splitlines()
-        if line.startswith("p") and line[1:].isdigit()
-    }
-    if len(pids) != 1:
-        return None
-    return next(iter(pids))
+    return _process_helpers.listen_port_owner_pid(host, port)
 
 
 def model_service_listen_port_owner_pid(host: str, port: int) -> int | None:
