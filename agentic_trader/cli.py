@@ -1,17 +1,13 @@
-import json
 import os
 import shutil
 import sys as _sys
 from collections.abc import Mapping
-from datetime import datetime, timezone
 from pathlib import Path
-from uuid import uuid4
 
 import typer
 from dotenv import set_key
 from pandas import DataFrame
 from rich.panel import Panel
-from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
@@ -64,6 +60,11 @@ from agentic_trader.cli_modules.finance_status import (
     risk_report_payload as _finance_risk_report_payload,
 )
 from agentic_trader.cli_modules.launch_commands import register_launch_commands
+from agentic_trader.cli_modules.locale_commands import (
+    parse_ui_locale,
+    register_locale_command,
+    ui_payload,
+)
 from agentic_trader.cli_modules.market_commands import (
     MarketCommandDeps,
     register_market_commands,
@@ -115,6 +116,11 @@ from agentic_trader.cli_modules.operator_readiness import (
 from agentic_trader.cli_modules.operator_readiness import (
     total_memory_bytes as _operator_total_memory_bytes,
 )
+from agentic_trader.cli_modules.operator_chat_commands import (
+    OperatorChatCommandDeps,
+    register_operator_chat_commands,
+)
+from agentic_trader.cli_modules.operator_launcher_command import run_operator_launcher
 from agentic_trader.cli_modules.proposal_desk import (
     proposal_candidates_payload,
     register_proposal_desk_commands,
@@ -204,15 +210,14 @@ from agentic_trader.schemas import (
     BacktestComparisonReport,
     BacktestReport,
     CanonicalAnalysisSnapshot,
-    ChatHistoryEntry,
     ChatPersona,
     InvestmentPreferences,
     OperatorInstruction,
+    PreferenceUpdate,
     RuntimeMode,
     RuntimeModeTransitionPlan,
     TradeProposalRecord,
 )
-from agentic_trader.security import redact_sensitive_text
 from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.system.operator_launcher import (
     build_operator_launcher_status,
@@ -241,14 +246,9 @@ from agentic_trader.system.webgui_service import (
 )
 from agentic_trader.tui import build_monitor_renderable, run_live_monitor, run_main_menu
 from agentic_trader.ui_text import (
-    HELP_CHAT_MESSAGE,
-    HELP_CHAT_PERSONA,
     HELP_CLI_APP,
-    HELP_INSTRUCT_APPLY,
-    HELP_INSTRUCT_MESSAGE,
     HELP_JSON,
     HELP_LOCALE_OVERRIDE,
-    HELP_LOCALE_PERSIST,
     HELP_MONITOR_REFRESH_SECONDS,
     HELP_RESTART_SERVICE_GRACE_SECONDS,
     HELP_RUNTIME_MODE_PROVIDER_CHECK,
@@ -259,43 +259,19 @@ from agentic_trader.ui_text import (
     LABEL_CHECK,
     LABEL_CURRENT,
     LABEL_DETAILS,
-    LABEL_ENVIRONMENT,
-    LABEL_FIELD,
     LABEL_LATEST_ORDER,
-    LABEL_LOCALE,
-    LABEL_MESSAGE,
     LABEL_NO,
     LABEL_PASSED,
-    LABEL_PERSISTED,
-    LABEL_PREFERENCE_UPDATE,
-    LABEL_RATIONALE,
-    LABEL_REQUIRES_CONFIRMATION,
-    LABEL_SUMMARY,
-    LABEL_SUPPORTED,
     LABEL_TARGET,
-    LABEL_UPDATE_PREFERENCES,
-    LABEL_VALUE,
     LABEL_YES,
     MESSAGE_BACKGROUND_SERVICE_RESTARTED,
     MESSAGE_LAUNCH_SYMBOL_REQUIRED,
-    MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ORDERS_RECORDED,
-    PROMPT_SELECT_ACTION,
-    STYLE_KEY_COLUMN,
-    SUPPORTED_UI_LOCALES,
-    TITLE_CHAT,
-    TITLE_EXIT,
-    TITLE_OPERATOR_INSTRUCTION,
     TITLE_RESTART_BLOCKED,
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
     TITLE_SERVICE_RESTARTED,
-    TITLE_UI_LOCALE,
-    TITLE_UPDATED_PREFERENCES,
-    TITLE_WEB_GUI_START_FAILED,
     UI_LOCALE_ENV,
-    UI_LIST_SEPARATOR,
-    UILocale,
 )
 from agentic_trader.workflows.run_once import persist_run, run_once
 from agentic_trader.workflows.service import (
@@ -347,30 +323,13 @@ def object_mapping_list(value: object) -> list[Mapping[str, object]]:
     return _object_mapping_list(value)
 
 
-def parse_ui_locale(locale: str | None) -> UILocale | None:
-    if locale is None:
-        return None
-    normalized = locale.strip().lower()
-    if normalized in SUPPORTED_UI_LOCALES:
-        return normalized
-    allowed = ", ".join(SUPPORTED_UI_LOCALES)
-    raise typer.BadParameter(f"Locale must be one of: {allowed}.")
-
-
-def ui_payload(locale: str) -> dict[str, object]:
-    return {
-        "locale": locale,
-        "supported_locales": list(SUPPORTED_UI_LOCALES),
-        "env": UI_LOCALE_ENV,
-    }
-
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENV_LOCAL_FILE = PROJECT_ROOT / ".env.local"
 
 
 def upsert_env_local_value(key: str, value: str) -> None:
     set_key(ENV_LOCAL_FILE, key, value, quote_mode="never")
+    os.environ[key] = value
 
 
 def _accelerator_payload() -> dict[str, object]:
@@ -394,6 +353,46 @@ def _refresh_trade_proposal_order_provider(
         proposal_id=proposal_id,
         review_notes=review_notes,
     )
+
+
+def _chat_with_persona_provider(
+    *,
+    llm: LocalLLM,
+    db: TradingDatabase,
+    settings: Settings,
+    persona: ChatPersona,
+    user_message: str,
+) -> str:
+    return chat_with_persona(
+        llm=llm,
+        db=db,
+        settings=settings,
+        persona=persona,
+        user_message=user_message,
+    )
+
+
+def _interpret_operator_instruction_provider(
+    *,
+    llm: LocalLLM,
+    db: TradingDatabase,
+    settings: Settings,
+    user_message: str,
+    allow_fallback: bool,
+) -> OperatorInstruction:
+    return interpret_operator_instruction(
+        llm=llm,
+        db=db,
+        settings=settings,
+        user_message=user_message,
+        allow_fallback=allow_fallback,
+    )
+
+
+def _apply_preference_update_provider(
+    db: TradingDatabase, update: PreferenceUpdate
+) -> InvestmentPreferences:
+    return apply_preference_update(db, update)
 
 
 register_cli_system_commands(
@@ -430,26 +429,19 @@ register_launch_commands(
     start_background_service=start_background_service,
     render_execution=render_execution_panels,
 )
+register_locale_command(
+    app,
+    settings_provider=lambda: get_settings(),
+    fresh_settings_provider=lambda: Settings(),
+    persist_locale=lambda key, value: upsert_env_local_value(key, value),
+    env_file_provider=lambda: ENV_LOCAL_FILE,
+    emit_json=_emit_json,
+)
 QA_ARTIFACTS_ROOT = PROJECT_ROOT / ".ai" / "qa" / "artifacts"
 
 
 def resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
     return _resolve_tui_node_commands(tui_dir, which=shutil.which)
-
-
-def _render_instruction(instruction: OperatorInstruction) -> None:
-    table = Table(title=TITLE_OPERATOR_INSTRUCTION)
-    table.add_column(LABEL_FIELD)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_SUMMARY, instruction.summary)
-    table.add_row(LABEL_UPDATE_PREFERENCES, str(instruction.should_update_preferences))
-    table.add_row(LABEL_REQUIRES_CONFIRMATION, str(instruction.requires_confirmation))
-    table.add_row(LABEL_RATIONALE, instruction.rationale)
-    table.add_row(
-        LABEL_PREFERENCE_UPDATE,
-        json.dumps(instruction.preference_update.model_dump(mode="json"), indent=2),
-    )
-    console.print(table)
 
 
 def _portfolio_payload(settings: Settings) -> dict[str, object]:
@@ -932,43 +924,6 @@ def app_entry(
         _operator_launcher()
 
 
-@app.command("locale")
-def locale_command(
-    set_locale: str | None = typer.Option(
-        None,
-        "--set",
-        help=HELP_LOCALE_PERSIST,
-    ),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """Show or persist the terminal UI locale."""
-    settings = get_settings()
-    persisted = False
-    selected_locale = parse_ui_locale(set_locale)
-    if selected_locale is not None:
-        upsert_env_local_value(UI_LOCALE_ENV, selected_locale)
-        os.environ[UI_LOCALE_ENV] = selected_locale
-        settings = Settings()
-        persisted = True
-
-    payload = {
-        **ui_payload(settings.ui_locale),
-        "persisted": persisted,
-        "env_file": ".env.local",
-    }
-    if json_output:
-        _emit_json(payload)
-        return
-    table = Table(title=TITLE_UI_LOCALE)
-    table.add_column(LABEL_FIELD, style=STYLE_KEY_COLUMN)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_LOCALE, str(payload["locale"]))
-    table.add_row(LABEL_SUPPORTED, UI_LIST_SEPARATOR.join(SUPPORTED_UI_LOCALES))
-    table.add_row(LABEL_ENVIRONMENT, UI_LOCALE_ENV)
-    table.add_row(LABEL_PERSISTED, str(persisted))
-    console.print(table)
-
-
 @app.command()
 def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) -> None:
     """Check local environment, LLM, and database readiness."""
@@ -982,43 +937,15 @@ def doctor(json_output: bool = typer.Option(False, "--json", help=HELP_JSON)) ->
 
 
 def _operator_launcher() -> None:
-    """Interactive no-argument product launcher."""
-
-    settings = get_settings()
-    while True:
-        payload = build_operator_launcher_status(settings).model_dump(mode="json")
-        _render_operator_launcher_status(payload)
-        choice = Prompt.ask(
-            PROMPT_SELECT_ACTION,
-            choices=["1", "2", "3", "4", "8", "q"],
-            default="2",
-        )
-        if choice == "1":
-            try:
-                status = start_operator_webgui(settings)
-            except Exception as exc:
-                console.print(
-                    _render_health_panel(
-                        TITLE_WEB_GUI_START_FAILED,
-                        redact_sensitive_text(exc, max_length=240),
-                        border_style="red",
-                    )
-                )
-                raise typer.Exit(code=1) from exc
-            _render_webgui_service_status(status.model_dump(mode="json"))
-            return
-        if choice == "2":
-            run_main_menu()
-            return
-        if choice == "3":
-            continue
-        break
-    console.print(
-        _render_health_panel(
-            TITLE_EXIT,
-            MESSAGE_NO_ACTION_SELECTED,
-            border_style="blue",
-        )
+    run_operator_launcher(
+        settings_provider=lambda: get_settings(),
+        launcher_status_provider=lambda settings: build_operator_launcher_status(
+            settings
+        ),
+        start_webgui=lambda settings: start_operator_webgui(settings),
+        render_launcher_status=_render_operator_launcher_status,
+        render_webgui_status=_render_webgui_service_status,
+        render_health_panel=_render_health_panel,
     )
 
 
@@ -1154,120 +1081,23 @@ register_market_commands(
         run_research_cycle=run_research_cycle,
     ),
 )
-
-
-@app.command()
-def chat(
-    persona: ChatPersona = typer.Option("operator_liaison", help=HELP_CHAT_PERSONA),
-    message: str | None = typer.Option(None, help=HELP_CHAT_MESSAGE),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Send a message to a chosen operator persona and display or emit the persona's reply.
-
-    If `message` is omitted an interactive prompt is shown. The interaction is recorded
-    in persistent chat history. Output is printed as a terminal panel unless
-    `json_output` is true, in which case a JSON payload containing `persona`,
-    `message`, and `response` is emitted.
-
-    Parameters:
-        persona (ChatPersona): Which agent persona should answer.
-        message (str | None): Optional message text; when None an interactive prompt is used.
-        json_output (bool): When true, emit a JSON payload instead of printing a panel.
-    """
-    settings = get_settings()
-    ensure_llm_ready(settings)
-    db = _open_db(settings, read_only=True)
-    prompt = message or typer.prompt(LABEL_MESSAGE)
-    response = chat_with_persona(
-        llm=LocalLLM(settings),
-        db=db,
-        settings=settings,
-        persona=persona,
-        user_message=prompt,
-    )
-    db.close()
-    append_chat_history(
-        settings,
-        ChatHistoryEntry(
-            entry_id=f"chat-{uuid4().hex[:12]}",
-            created_at=datetime.now(timezone.utc).isoformat(),
-            persona=persona,
-            user_message=prompt,
-            response_text=response,
+register_operator_chat_commands(
+    app,
+    OperatorChatCommandDeps(
+        settings_provider=lambda: get_settings(),
+        ensure_ready=lambda settings: ensure_llm_ready(settings),
+        emit_json=_emit_json,
+        open_db=_open_db,
+        llm_factory=lambda settings: LocalLLM(settings),
+        chat_with_persona=_chat_with_persona_provider,
+        append_chat_history=lambda settings, entry: append_chat_history(
+            settings, entry
         ),
-    )
-    if json_output:
-        _emit_json(
-            {
-                "persona": persona,
-                "message": prompt,
-                "response": response,
-            }
-        )
-        return
-    console.print(
-        Panel(
-            response,
-            title=TITLE_CHAT.format(persona=persona),
-            border_style="cyan",
-        )
-    )
-
-
-@app.command()
-def instruct(
-    message: str = typer.Option(..., help=HELP_INSTRUCT_MESSAGE),
-    apply: bool = typer.Option(False, help=HELP_INSTRUCT_APPLY),
-    json_output: bool = typer.Option(False, "--json", help=HELP_JSON),
-) -> None:
-    """
-    Interpret a natural-language operator instruction and optionally persist a resulting preference update.
-
-    Interprets the provided operator instruction into an actionable instruction. If the interpreted instruction proposes a preference update and `apply` is True, the update is persisted. When `json_output` is True, emits a JSON object with keys `instruction` (the interpreted instruction), `applied` (`true` if a preference update was persisted, `false` otherwise), and `updated_preferences` (the new preferences or `null`); otherwise the instruction and any updated preferences are rendered to the console.
-
-    Parameters:
-        message (str): Natural-language operator instruction to interpret.
-        apply (bool): If True, persist the parsed preference update when one is proposed.
-        json_output (bool): If True, emit a JSON payload instead of rendering console output.
-    """
-    settings = get_settings()
-    ensure_llm_ready(settings)
-    db = TradingDatabase(settings)
-    try:
-        llm = LocalLLM(settings)
-        instruction = interpret_operator_instruction(
-            llm=llm,
-            db=db,
-            settings=settings,
-            user_message=message,
-            allow_fallback=True,
-        )
-        updated: InvestmentPreferences | None = None
-        if apply and instruction.should_update_preferences:
-            updated = apply_preference_update(db, instruction.preference_update)
-        if json_output:
-            _emit_json(
-                {
-                    "instruction": instruction.model_dump(mode="json"),
-                    "applied": updated is not None,
-                    "updated_preferences": (
-                        updated.model_dump(mode="json") if updated is not None else None
-                    ),
-                }
-            )
-            return
-        _render_instruction(instruction)
-        if updated is not None:
-            console.print(
-                Panel(
-                    updated.model_dump_json(indent=2),
-                    title=TITLE_UPDATED_PREFERENCES,
-                    border_style="green",
-                )
-            )
-    finally:
-        db.close()
+        database_factory=lambda settings: TradingDatabase(settings),
+        interpret_instruction=_interpret_operator_instruction_provider,
+        apply_preference_update=_apply_preference_update_provider,
+    ),
+)
 
 
 @app.command()
