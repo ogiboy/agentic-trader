@@ -7,16 +7,16 @@ import httpx
 
 from agentic_trader.config import Settings
 from agentic_trader.json_utils import object_list as _object_list
+from agentic_trader.llm.openai_compat import (
+    openai_compatible_content as _openai_compatible_content,
+    openai_compatible_error_from_response as _openai_compatible_error_from_response,
+    openai_compatible_model_ids as _openai_compatible_model_ids,
+    openai_compatible_response_format as _openai_compatible_response_format,
+    short_redacted_error as _short_redacted_error,
+)
 from agentic_trader.schemas import LLMHealthStatus
-from agentic_trader.security import redact_sensitive_text
 
 JsonObject = dict[str, object]
-
-
-class ErrorResponsePayload(Protocol):
-    status_code: int
-
-    def json(self) -> object: ...
 
 
 def _json_object(value: object) -> JsonObject:
@@ -581,125 +581,9 @@ class OpenAICompatibleProvider:
         )
 
 
-def _openai_compatible_model_ids(payload: Mapping[str, object]) -> set[str]:
-    """
-    Extract model IDs from an OpenAI-compatible `/models` response payload.
-
-    Parameters:
-        payload (dict[str, Any]): Parsed JSON response expected to contain a top-level "data" list of model objects.
-
-    Returns:
-        set[str]: A set of model `id` strings found in `payload["data"]`. Returns an empty set if `data` is missing or not a list.
-    """
-    model_ids: set[str] = set()
-    for item in _object_mapping_list(payload.get("data")):
-        model_id = item.get("id")
-        if isinstance(model_id, str):
-            model_ids.add(model_id)
-    return model_ids
-
-
-def _openai_compatible_content(payload: Mapping[str, object]) -> str:
-    """
-    Extracts the textual response from an OpenAI-style chat-completions payload.
-
-    Parameters:
-        payload (dict): The raw JSON-decoded response from an OpenAI-compatible chat/completions API.
-
-    Returns:
-        str: The extracted text content, with surrounding whitespace removed.
-
-    Raises:
-        RuntimeError: If the payload contains no choices, the first choice is malformed, or no text content can be found.
-    """
-    choices = _object_list(payload.get("choices"))
-    if not choices:
-        raise RuntimeError("OpenAI-compatible provider returned no choices.")
-    first = _json_object_or_none(choices[0])
-    if first is None:
-        raise RuntimeError("OpenAI-compatible provider returned malformed choices.")
-    message = first.get("message")
-    content = _openai_compatible_message_content(message)
-    if content:
-        return content
-    text = first.get("text")
-    if isinstance(text, str):
-        return text.strip()
-    raise RuntimeError("OpenAI-compatible provider returned no text content.")
-
-
-def _openai_compatible_response_format(
-    json_schema: dict[str, Any] | None,
-) -> dict[str, Any]:
-    if json_schema is None:
-        return {"type": "json_object"}
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "agentic_trader_response",
-            "schema": json_schema,
-        },
-    }
-
-
-def _openai_compatible_message_content(message: object) -> str:
-    message_mapping = _json_object_or_none(message)
-    if message_mapping is None:
-        return ""
-    content = message_mapping.get("content")
-    if isinstance(content, str):
-        return content.strip()
-    return _openai_compatible_text_parts(_object_list(content))
-
-
-def _openai_compatible_text_parts(content: list[object]) -> str:
-    text_parts: list[str] = []
-    for part in _object_mapping_list(content):
-        text = part.get("text")
-        if isinstance(text, str):
-            text_parts.append(text)
-    return "".join(text_parts).strip()
-
-
-def _openai_compatible_error_from_response(response: ErrorResponsePayload) -> str:
-    """
-    Extract a short, user-facing error message from an OpenAI-compatible HTTP response.
-
-    Parses the response body as JSON and, if present, returns a trimmed error message from the `error` field:
-    - If `error` is a non-empty string, returns that string (truncated to 240 characters).
-    - If `error` is an object with a non-empty `message` string, returns that message (truncated to 240 characters).
-    If the JSON cannot be parsed or no suitable error text is found, returns the fallback string `HTTP <status_code>` (or `HTTP error` if the status code is unavailable).
-
-    Parameters:
-        response (httpx.Response): The HTTP response to inspect.
-
-    Returns:
-        str: A concise error message extracted from the response or a fallback `HTTP <status_code>` string.
-    """
-    try:
-        payload = response.json()
-    except Exception:
-        return f"HTTP {getattr(response, 'status_code', 'error')}"
-    payload_object = _json_object_or_none(payload)
-    if payload_object is not None:
-        error_obj = payload_object.get("error")
-        if isinstance(error_obj, str) and error_obj.strip():
-            return _short_redacted_error(error_obj)
-        error_mapping = _json_object_or_none(error_obj)
-        if error_mapping is not None:
-            message = error_mapping.get("message")
-            if isinstance(message, str) and message.strip():
-                return _short_redacted_error(message)
-    return f"HTTP {getattr(response, 'status_code', 'error')}"
-
-
 openai_compatible_model_ids = _openai_compatible_model_ids
 openai_compatible_content = _openai_compatible_content
 openai_compatible_error_from_response = _openai_compatible_error_from_response
-
-
-def _short_redacted_error(value: str) -> str:
-    return redact_sensitive_text(value).strip()[:240]
 
 
 def build_provider(settings: Settings, *, model_name: str | None = None) -> LLMProvider:
