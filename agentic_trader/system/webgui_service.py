@@ -17,7 +17,6 @@ import time
 from pathlib import Path
 
 import httpx
-from pydantic import BaseModel, Field
 
 from agentic_trader.config import Settings
 from agentic_trader.runtime_status import is_process_alive
@@ -26,7 +25,16 @@ from agentic_trader.security import (
     is_loopback_host,
     open_private_append_binary,
     redact_sensitive_text,
-    write_private_text,
+)
+from agentic_trader.system.webgui_service_state import (
+    WebGUIServiceState,
+    WebGUIServiceStatus,
+    read_webgui_service_state as _state_read_webgui_service_state,
+    remove_webgui_service_state as _state_remove_webgui_service_state,
+    tail_webgui_service_text,
+    webgui_service_dir,
+    webgui_service_state_path,
+    write_webgui_service_state as _state_write_webgui_service_state,
 )
 from agentic_trader.time_utils import utc_now_iso as _utc_now_iso
 
@@ -51,43 +59,6 @@ MINIMAL_WEBGUI_ENV_KEYS = (
 )
 
 
-class WebGUIServiceState(BaseModel):
-    """Persisted state for an app-owned Web GUI process."""
-
-    pid: int
-    launcher_pid: int | None = None
-    host: str
-    port: int
-    url: str
-    started_at: str
-    stdout_log_path: str
-    stderr_log_path: str
-    command: list[str]
-    app_owned: bool = True
-
-
-class WebGUIServiceStatus(BaseModel):
-    """Operator-facing Web GUI service status."""
-
-    command_available: bool
-    command_path: str | None = None
-    package_available: bool
-    dependency_available: bool = False
-    dependency_path: str | None = None
-    app_owned: bool = False
-    pid: int | None = None
-    host: str | None = None
-    port: int | None = None
-    url: str | None = None
-    service_reachable: bool
-    stdout_log_path: str | None = None
-    stderr_log_path: str | None = None
-    stdout_tail: list[str] = Field(default_factory=list)
-    stderr_tail: list[str] = Field(default_factory=list)
-    state_path: str
-    message: str
-
-
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -96,54 +67,16 @@ def webgui_dir() -> Path:
     return _repo_root() / "webgui"
 
 
-def webgui_service_dir(settings: Settings) -> Path:
-    return settings.runtime_dir / "webgui_service"
-
-
-def webgui_service_state_path(settings: Settings) -> Path:
-    """
-    Get the path to the persisted Web GUI service state JSON file for the given runtime settings.
-
-    Parameters:
-        settings (Settings): Runtime settings used to locate the application's runtime directory.
-
-    Returns:
-        Path: Filesystem path to the `webgui_service.json` state file within the service runtime directory.
-    """
-    return webgui_service_dir(settings) / "webgui_service.json"
-
-
 def _read_state(settings: Settings) -> WebGUIServiceState | None:
-    """
-    Read the persisted WebGUIServiceState from the runtime state file if it exists and is valid.
-
-    Parameters:
-        settings (Settings): Application settings used to locate the webgui service state file.
-
-    Returns:
-        WebGUIServiceState | None: Parsed state object when the JSON file exists and validates, or `None` if the file is missing or cannot be parsed.
-    """
-    path = webgui_service_state_path(settings)
-    if not path.exists():
-        return None
-    try:
-        return WebGUIServiceState.model_validate_json(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    return _state_read_webgui_service_state(settings)
 
 
 def _write_state(settings: Settings, state: WebGUIServiceState) -> None:
-    write_private_text(
-        webgui_service_state_path(settings),
-        state.model_dump_json(indent=2),
-    )
+    _state_write_webgui_service_state(settings, state)
 
 
 def _remove_state(settings: Settings) -> None:
-    try:
-        webgui_service_state_path(settings).unlink()
-    except FileNotFoundError:
-        return
+    _state_remove_webgui_service_state(settings)
 
 
 def read_webgui_service_state(settings: Settings) -> WebGUIServiceState | None:
@@ -159,16 +92,7 @@ def remove_webgui_service_state(settings: Settings) -> None:
 
 
 def _tail_text(path: str | None, *, limit: int = 12) -> list[str]:
-    if not path:
-        return []
-    log_path = Path(path)
-    if not log_path.exists():
-        return []
-    try:
-        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return []
-    return [redact_sensitive_text(line, max_length=300) for line in lines[-limit:]]
+    return tail_webgui_service_text(path, limit=limit)
 
 
 def _is_port_available(host: str, port: int) -> bool:
