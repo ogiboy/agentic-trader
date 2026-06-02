@@ -28,7 +28,6 @@ from agentic_trader.cli_modules.common import emit_json as _emit_json
 from agentic_trader.cli_modules.common import open_db as _open_db
 from agentic_trader.cli_modules.dashboard_commands import (
     DashboardCommandDeps,
-    register_dashboard_commands,
 )
 from agentic_trader.cli_modules.dashboard_commands import (
     build_dashboard_snapshot_payload as _build_dashboard_snapshot_payload,
@@ -38,6 +37,9 @@ from agentic_trader.cli_modules.dashboard_commands import (
 )
 from agentic_trader.cli_modules.dashboard_commands import (
     build_observer_api_payload as _build_observer_api_payload,
+)
+from agentic_trader.cli_modules.dashboard_commands import (
+    register_dashboard_commands,
 )
 from agentic_trader.cli_modules.doctor import run_doctor_command
 from agentic_trader.cli_modules.execution_rendering import render_execution_panels
@@ -105,6 +107,11 @@ from agentic_trader.cli_modules.observer_payloads import (
 from agentic_trader.cli_modules.observer_payloads import (
     service_supervisor_payload as _service_supervisor_payload_impl,
 )
+from agentic_trader.cli_modules.operator_chat_commands import (
+    OperatorChatCommandDeps,
+    register_operator_chat_commands,
+)
+from agentic_trader.cli_modules.operator_launcher_command import run_operator_launcher
 from agentic_trader.cli_modules.operator_readiness import (
     accelerator_payload as _operator_accelerator_payload,
 )
@@ -116,11 +123,6 @@ from agentic_trader.cli_modules.operator_readiness import (
 from agentic_trader.cli_modules.operator_readiness import (
     total_memory_bytes as _operator_total_memory_bytes,
 )
-from agentic_trader.cli_modules.operator_chat_commands import (
-    OperatorChatCommandDeps,
-    register_operator_chat_commands,
-)
-from agentic_trader.cli_modules.operator_launcher_command import run_operator_launcher
 from agentic_trader.cli_modules.proposal_desk import (
     proposal_candidates_payload,
     register_proposal_desk_commands,
@@ -129,6 +131,21 @@ from agentic_trader.cli_modules.proposal_desk import (
 from agentic_trader.cli_modules.record_commands import (
     RecordCommandDeps,
     register_record_commands,
+)
+from agentic_trader.cli_modules.record_payloads import (
+    journal_payload as _journal_payload_impl,
+)
+from agentic_trader.cli_modules.record_payloads import (
+    preferences_payload as _preferences_payload_impl,
+)
+from agentic_trader.cli_modules.record_payloads import (
+    recent_runs_payload as _recent_runs_payload_impl,
+)
+from agentic_trader.cli_modules.record_payloads import (
+    run_record_payload as _run_record_payload_impl,
+)
+from agentic_trader.cli_modules.record_payloads import (
+    trade_context_payload as _trade_context_payload_impl,
 )
 from agentic_trader.cli_modules.research_commands import (
     register_research_commands,
@@ -148,15 +165,21 @@ from agentic_trader.cli_modules.runtime_modes import (
 from agentic_trader.cli_modules.service_control import run_stop_service_command
 from agentic_trader.cli_modules.service_rendering import (
     format_latest_order as _format_latest_order,
+)
+from agentic_trader.cli_modules.service_rendering import (
     read_text_tail as _read_text_tail,
+)
+from agentic_trader.cli_modules.service_rendering import (
     render_health_panel as _render_health_panel,
+)
+from agentic_trader.cli_modules.service_rendering import (
     render_service_state as _render_service_state,
 )
-from agentic_trader.cli_modules.system_registration import register_cli_system_commands
 from agentic_trader.cli_modules.status_commands import (
     StatusCommandDeps,
     register_status_commands,
 )
+from agentic_trader.cli_modules.system_registration import register_cli_system_commands
 from agentic_trader.cli_modules.system_rendering import (
     render_operator_launcher_status as _render_operator_launcher_status,
 )
@@ -166,6 +189,8 @@ from agentic_trader.cli_modules.system_rendering import (
 from agentic_trader.cli_modules.tui_node import (
     NodeCommandSet,
     register_tui_command,
+)
+from agentic_trader.cli_modules.tui_node import (
     resolve_tui_node_commands as _resolve_tui_node_commands,
 )
 from agentic_trader.cli_modules.tui_node import (
@@ -219,10 +244,6 @@ from agentic_trader.schemas import (
     TradeProposalRecord,
 )
 from agentic_trader.storage.db import TradingDatabase
-from agentic_trader.system.operator_launcher import (
-    build_operator_launcher_status,
-    start_operator_webgui,
-)
 from agentic_trader.system.camofox_service import (
     build_camofox_service_status,
     start_camofox_service,
@@ -233,6 +254,10 @@ from agentic_trader.system.model_service import (
     pull_model,
     start_model_service,
     stop_model_service,
+)
+from agentic_trader.system.operator_launcher import (
+    build_operator_launcher_status,
+    start_operator_webgui,
 )
 from agentic_trader.system.setup import build_setup_status
 from agentic_trader.system.tool_ownership import (
@@ -453,113 +478,15 @@ def _portfolio_payload(settings: Settings) -> dict[str, object]:
 
 
 def _preferences_payload(settings: Settings) -> dict[str, object]:
-    """
-    Load persisted investment preferences and include availability and error metadata.
-
-    Returns:
-        payload (dict): JSON-serializable representation of the loaded InvestmentPreferences with two additional keys:
-            - `available` (`True` if preferences were successfully loaded, `False` otherwise).
-            - `error` (string error message when loading failed, or `None` when successful).
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            preferences = db.load_preferences()
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        preferences = InvestmentPreferences()
-        available = False
-        error = str(exc)
-    payload = preferences.model_dump(mode="json")
-    payload["available"] = available
-    payload["error"] = error
-    return payload
+    return _preferences_payload_impl(settings, open_db=_open_db)
 
 
 def _journal_payload(settings: Settings, *, limit: int) -> dict[str, object]:
-    """
-    Builds a payload containing the most recent trade journal entries.
-
-    Parameters:
-        limit (int): Maximum number of journal entries to include, ordered newest first.
-
-    Returns:
-        dict: Payload with keys:
-            - `available` (bool): `True` if the database read succeeded, `False` on error.
-            - `error` (str | None): Error message when `available` is `False`, otherwise `None`.
-            - `entries` (list[dict]): Journal entries serialized as JSON-compatible dictionaries.
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            entries = db.list_trade_journal(limit=limit)
-        finally:
-            db.close()
-        available = True
-        error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
-        entries = []
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "entries": [entry.model_dump(mode="json") for entry in entries],
-    }
+    return _journal_payload_impl(settings, open_db=_open_db, limit=limit)
 
 
 def _recent_runs_payload(settings: Settings, *, limit: int) -> dict[str, object]:
-    """
-    Builds a JSON-serializable payload of recent run metadata for CLI/observer consumption.
-
-    Parameters:
-        settings (Settings): Application settings used to open the database.
-        limit (int): Maximum number of recent runs to include.
-
-    Returns:
-        dict: A mapping with keys:
-            - `available` (bool): `True` when runs were loaded successfully, `False` on error.
-            - `error` (str | None): Error message when `available` is `False`, otherwise `None`.
-            - `runs` (list[dict]): List of run summaries. Each entry contains:
-                - `run_id` (str): Persisted run identifier.
-                - `created_at` (str): Run creation timestamp.
-                - `symbol` (str): Traded symbol for the run.
-                - `interval` (str): Market interval used for the run.
-                - `approved` (bool): Whether the run/execution was approved.
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            runs = db.list_recent_runs(limit=limit)
-        finally:
-            db.close()
-        available = True
-        error = None
-    except (
-        Exception
-    ) as exc:  # noqa: BLE001 - observer payload should degrade when DB reads fail
-        runs = []
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "runs": [
-            {
-                "run_id": run_id,
-                "created_at": created_at,
-                "symbol": symbol,
-                "interval": interval,
-                "approved": approved,
-            }
-            for run_id, created_at, symbol, interval, approved in runs
-        ],
-    }
+    return _recent_runs_payload_impl(settings, open_db=_open_db, limit=limit)
 
 
 def _risk_report_payload(
@@ -576,74 +503,13 @@ def _risk_report_payload(
 def _run_record_payload(
     settings: Settings, *, run_id: str | None = None
 ) -> dict[str, object]:
-    """
-    Builds a payload containing a persisted run record (or the latest run) and availability metadata.
-
-    Parameters:
-        run_id (str | None): Optional run identifier; when None the latest persisted run is loaded.
-
-    Returns:
-        dict[str, object]: Payload with keys:
-            - "available": `True` if the database read succeeded, `False` on error.
-            - "error": Error message string when unavailable, otherwise `None`.
-            - "record": JSON-serializable dict of the run record when available, otherwise `None`.
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            record = db.get_run(run_id) if run_id is not None else db.latest_run()
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        record = None
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "record": record.model_dump(mode="json") if record is not None else None,
-    }
+    return _run_record_payload_impl(settings, open_db=_open_db, run_id=run_id)
 
 
 def _trade_context_payload(
     settings: Settings, *, trade_id: str | None = None
 ) -> dict[str, object]:
-    """
-    Builds a payload containing a persisted trade context record for observer output or APIs.
-
-    Parameters:
-        settings (Settings): Application settings used to open the read-only database.
-        trade_id (str | None): Optional trade identifier; when provided, returns the matching trade context, otherwise returns the latest trade context.
-
-    Returns:
-        dict: A JSON-serializable mapping with keys:
-            - "available" (bool): `True` if the record was loaded successfully, `False` on error.
-            - "error" (str | None): Error message when loading failed, otherwise `None`.
-            - "record" (dict | None): The trade context serialized for JSON when available, otherwise `None`.
-    """
-    try:
-        db = _open_db(settings, read_only=True)
-        try:
-            record = (
-                db.get_trade_context(trade_id)
-                if trade_id is not None
-                else db.latest_trade_context()
-            )
-        finally:
-            db.close()
-        available = True
-        error = None
-    except Exception as exc:
-        record = None
-        available = False
-        error = str(exc)
-    return {
-        "available": available,
-        "error": error,
-        "record": record.model_dump(mode="json") if record is not None else None,
-    }
+    return _trade_context_payload_impl(settings, open_db=_open_db, trade_id=trade_id)
 
 
 def _market_context_payload(settings: Settings) -> dict[str, object]:
@@ -1040,8 +906,10 @@ def _dashboard_command_deps() -> DashboardCommandDeps:
         market_context_payload=_market_context_payload,
         canonical_analysis_payload=_canonical_analysis_payload,
         run_replay_payload=_run_replay_payload,
-        memory_explorer_payload=lambda settings, use_latest_run, limit: _memory_explorer_payload(
-            settings, use_latest_run=use_latest_run, limit=limit
+        memory_explorer_payload=lambda settings, use_latest_run, limit: (
+            _memory_explorer_payload(
+                settings, use_latest_run=use_latest_run, limit=limit
+            )
         ),
         retrieval_inspection_payload=_retrieval_inspection_payload,
         chat_history_payload=_chat_history_payload,
