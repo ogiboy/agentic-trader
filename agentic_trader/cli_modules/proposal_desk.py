@@ -11,7 +11,14 @@ from agentic_trader.cli_modules.common import (
     console,
     emit_json,
     emit_json_error,
-    open_db,
+)
+from agentic_trader.cli_modules.proposal_actions import (
+    RefreshProposalOrder,
+    approve_proposal_payload,
+    promote_candidate_payload,
+    reconcile_proposal_payload,
+    refresh_proposal_payload,
+    reject_proposal_payload,
 )
 from agentic_trader.cli_modules.proposal_params import (
     IdeaScoreCommand,
@@ -41,22 +48,13 @@ from agentic_trader.cli_modules.proposal_strategy_commands import (
 )
 from agentic_trader.config import Settings, get_settings
 from agentic_trader.execution.intent import ExecutionOutcome
-from agentic_trader.finance.proposal_candidates import (
-    promote_proposal_candidate,
-)
-from agentic_trader.finance.proposals import (
-    approve_trade_proposal,
-    reconcile_trade_proposal,
-    refresh_trade_proposal_order,
-    reject_trade_proposal,
-)
+from agentic_trader.finance.proposals import refresh_trade_proposal_order
 from agentic_trader.schemas import (
     ProposalCandidateRecord,
     TradeProposalRecord,
 )
 
 SettingsProvider = Callable[[], Settings]
-RefreshProposalOrder = Callable[..., tuple[TradeProposalRecord, ExecutionOutcome]]
 
 _settings_provider: SettingsProvider = get_settings
 _refresh_trade_proposal_order: RefreshProposalOrder = refresh_trade_proposal_order
@@ -240,15 +238,11 @@ def proposal_candidate_promote(
     """
     settings = _settings()
     try:
-        db = open_db(settings)
-        try:
-            candidate, proposal = promote_proposal_candidate(
-                db=db,
-                candidate_id=candidate_id,
-                review_notes=review_notes,
-            )
-        finally:
-            db.close()
+        payload = promote_candidate_payload(
+            settings=settings,
+            candidate_id=candidate_id,
+            review_notes=review_notes,
+        )
     except ValueError as exc:
         if json_output:
             emit_json_error(exc)
@@ -257,14 +251,11 @@ def proposal_candidate_promote(
             Panel(str(exc), title=text.TITLE_PROMOTION_BLOCKED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
-    payload = {
-        "candidate": candidate.model_dump(mode="json"),
-        "proposal": proposal.model_dump(mode="json"),
-        "submitted_to_broker": False,
-    }
     if json_output:
         emit_json(payload)
         return
+    candidate = ProposalCandidateRecord.model_validate(payload["candidate"])
+    proposal = TradeProposalRecord.model_validate(payload["proposal"])
     console.print(
         Panel(
             text.MESSAGE_PROPOSAL_CANDIDATE_PROMOTED.format(
@@ -354,16 +345,11 @@ def proposal_approve(
     """
     settings = _settings()
     try:
-        db = open_db(settings)
-        try:
-            proposal, outcome = approve_trade_proposal(
-                db=db,
-                settings=settings,
-                proposal_id=proposal_id,
-                review_notes=review_notes,
-            )
-        finally:
-            db.close()
+        payload = approve_proposal_payload(
+            settings=settings,
+            proposal_id=proposal_id,
+            review_notes=review_notes,
+        )
     except (RuntimeError, ValueError) as exc:
         if json_output:
             emit_json_error(exc)
@@ -372,13 +358,11 @@ def proposal_approve(
             Panel(str(exc), title=text.TITLE_APPROVAL_BLOCKED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
-    payload = {
-        "proposal": proposal.model_dump(mode="json"),
-        "outcome": outcome.model_dump(mode="json"),
-    }
     if json_output:
         emit_json(payload)
         return
+    proposal = TradeProposalRecord.model_validate(payload["proposal"])
+    outcome = ExecutionOutcome.model_validate(payload["outcome"])
     console.print(
         Panel(
             text.MESSAGE_TRADE_PROPOSAL_APPROVED.format(
@@ -412,15 +396,11 @@ def proposal_reconcile(
     """
     settings = _settings()
     try:
-        db = open_db(settings)
-        try:
-            proposal, execution_record = reconcile_trade_proposal(
-                db=db,
-                proposal_id=proposal_id,
-                review_notes=review_notes,
-            )
-        finally:
-            db.close()
+        payload = reconcile_proposal_payload(
+            settings=settings,
+            proposal_id=proposal_id,
+            review_notes=review_notes,
+        )
     except ValueError as exc:
         if json_output:
             emit_json_error(exc)
@@ -429,14 +409,10 @@ def proposal_reconcile(
             Panel(str(exc), title=text.TITLE_RECONCILIATION_BLOCKED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
-    payload = {
-        "proposal": proposal.model_dump(mode="json"),
-        "execution_record": execution_record,
-        "resubmitted": False,
-    }
     if json_output:
         emit_json(payload)
         return
+    proposal = TradeProposalRecord.model_validate(payload["proposal"])
     console.print(
         Panel(
             text.MESSAGE_TRADE_PROPOSAL_RECONCILED.format(
@@ -470,16 +446,12 @@ def proposal_refresh(
     """
     settings = _settings()
     try:
-        db = open_db(settings)
-        try:
-            proposal, outcome = _refresh_trade_proposal_order(
-                db=db,
-                settings=settings,
-                proposal_id=proposal_id,
-                review_notes=review_notes,
-            )
-        finally:
-            db.close()
+        payload = refresh_proposal_payload(
+            settings=settings,
+            proposal_id=proposal_id,
+            review_notes=review_notes,
+            refresh_trade_proposal_order_provider=_refresh_trade_proposal_order,
+        )
     except (RuntimeError, ValueError) as exc:
         if json_output:
             emit_json_error(exc)
@@ -488,15 +460,11 @@ def proposal_refresh(
             Panel(str(exc), title=text.TITLE_REFRESH_BLOCKED, border_style="red")
         )
         raise typer.Exit(code=2) from exc
-    payload = {
-        "proposal": proposal.model_dump(mode="json"),
-        "outcome": outcome.model_dump(mode="json"),
-        "resubmitted": False,
-        "refreshed": True,
-    }
     if json_output:
         emit_json(payload)
         return
+    proposal = TradeProposalRecord.model_validate(payload["proposal"])
+    outcome = ExecutionOutcome.model_validate(payload["outcome"])
     console.print(
         Panel(
             text.MESSAGE_TRADE_PROPOSAL_REFRESHED.format(
@@ -532,13 +500,11 @@ def proposal_reject(
     """
     settings = _settings()
     try:
-        db = open_db(settings)
-        try:
-            proposal = reject_trade_proposal(
-                db=db, proposal_id=proposal_id, reason=reason
-            )
-        finally:
-            db.close()
+        payload = reject_proposal_payload(
+            settings=settings,
+            proposal_id=proposal_id,
+            reason=reason,
+        )
     except ValueError as exc:
         if json_output:
             emit_json_error(exc)
@@ -548,8 +514,9 @@ def proposal_reject(
         )
         raise typer.Exit(code=2) from exc
     if json_output:
-        emit_json(proposal.model_dump(mode="json"))
+        emit_json(payload)
         return
+    proposal = TradeProposalRecord.model_validate(payload)
     console.print(
         Panel(
             text.MESSAGE_TRADE_PROPOSAL_REJECTED.format(
