@@ -46,7 +46,7 @@
   "scripts": {
     "start": "node server.js",
     "fetch:browser": "camoufox-js fetch",
-    "test": "node --check server.js && node --test lib/tracing.test.mjs",
+    "test": "node --check server.js && node --test lib/auth.test.mjs lib/macros.test.mjs lib/rate-limit.test.mjs lib/tracing.test.mjs",
     "generate-openapi": "node scripts/generate-openapi.js",
     "version": "node scripts/generate-openapi.js"
   },

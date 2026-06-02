@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { firefox } from 'playwright-core';
 import {
+  extractBearerToken,
   isLoopbackAddress as _isLoopbackAddress,
   timingSafeCompare as _timingSafeCompare,
   accessKeyMiddleware,
@@ -27,6 +28,7 @@ import { createFlyHelpers } from './lib/fly.js';
 import { extractPageImages } from './lib/images.js';
 import { expandMacro } from './lib/macros.js';
 import { createPluginEvents, loadPlugins } from './lib/plugins.js';
+import { rateLimit } from './lib/rate-limit.js';
 import {
   buildProxyUrl,
   createProxyPool,
@@ -122,6 +124,15 @@ const pluginEvents = createPluginEvents();
 
 // --- Shared auth middleware ---
 const authMiddleware = () => requireAuth(CONFIG);
+const traceRateLimitOptions = {
+  keyPrefix: 'traces',
+  max: 60,
+  windowMs: 60_000,
+  keyGenerator: (req) => {
+    const remoteAddress = req.ip || req.socket?.remoteAddress || 'unknown';
+    return `${remoteAddress}:${req.params?.userId || 'unknown'}`;
+  },
+};
 
 const {
   requestsTotal,
@@ -361,9 +372,8 @@ app.post(
     try {
       if (CONFIG.apiKey) {
         const apiKey = CONFIG.apiKey;
-        const auth = String(req.headers['authorization'] || '');
-        const match = auth.match(/^Bearer\s+(.+)$/i);
-        if (!match || !timingSafeCompare(match[1], apiKey)) {
+        const token = extractBearerToken(req.headers['authorization']);
+        if (!token || !timingSafeCompare(token, apiKey)) {
           return res.status(403).json({ error: 'Forbidden' });
         }
       } else {
@@ -4902,16 +4912,21 @@ app.delete('/tabs/group/:listItemId', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-app.get('/sessions/:userId/traces', authMiddleware(), async (req, res) => {
-  try {
-    const userId = normalizeUserId(req.params.userId);
-    const traces = await listUserTraces(CONFIG.tracesDir, userId);
-    res.json({ traces });
-  } catch (err) {
-    log('error', 'list traces failed', { error: err.message });
-    res.status(500).json({ error: err.message });
-  }
-});
+app.get(
+  '/sessions/:userId/traces',
+  authMiddleware(),
+  rateLimit(traceRateLimitOptions),
+  async (req, res) => {
+    try {
+      const userId = normalizeUserId(req.params.userId);
+      const traces = await listUserTraces(CONFIG.tracesDir, userId);
+      res.json({ traces });
+    } catch (err) {
+      log('error', 'list traces failed', { error: err.message });
+      res.status(500).json({ error: err.message });
+    }
+  },
+);
 
 // Stream one trace file
 /**
@@ -4972,6 +4987,7 @@ app.get('/sessions/:userId/traces', authMiddleware(), async (req, res) => {
 app.get(
   '/sessions/:userId/traces/:filename',
   authMiddleware(),
+  rateLimit(traceRateLimitOptions),
   async (req, res) => {
     try {
       const userId = normalizeUserId(req.params.userId);
@@ -5059,6 +5075,7 @@ app.get(
 app.delete(
   '/sessions/:userId/traces/:filename',
   authMiddleware(),
+  rateLimit(traceRateLimitOptions),
   async (req, res) => {
     try {
       const userId = normalizeUserId(req.params.userId);
