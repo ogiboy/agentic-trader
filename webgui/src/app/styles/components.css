@@ -1,0 +1,97 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--surface);
+}
+
+.button--solid {
+  background: var(--lime);
+  border-color: var(--lime);
+  color: #0f120e;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.banner {
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: rgba(244, 245, 239, 0.04);
+}
+
+.banner--good {
+  border-color: var(--lime);
+  background: rgba(143, 207, 99, 0.12);
+}
+
+.banner--neutral {
+  border-color: var(--cyan);
+  background: rgba(95, 196, 197, 0.11);
+}
+
+.banner--warn {
+  border-color: var(--amber);
+  background: rgba(217, 164, 65, 0.12);
+}
+
+.banner--bad {
+  border-color: var(--rose);
+  background: rgba(213, 108, 93, 0.13);
+}
+
+.stack {
+  display: grid;
+  gap: 18px;
+}
+
+.grid {
+  display: grid;
+  gap: 18px;
+}
+
+.grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.panel--lime {
+  border-color: rgba(143, 207, 99, 0.42);
+}
+
+.panel--cyan {
+  border-color: rgba(95, 196, 197, 0.4);
+}
+
+.panel--amber {
+  border-color: rgba(217, 164, 65, 0.4);
+}
+
+.panel--rose {
+  border-color: rgba(213, 108, 93, 0.4);
+}
+
+.panel__title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #dfe6d7;
+}
+
+.panel__body {
+  min-width: 0;
+}

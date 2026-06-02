@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- CLI payloads are schema-loose JSON today */
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -6,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import { redactAndCapText } from '../http/redaction';
+import { asRecord, asString } from '../json-record';
 
 const execFileAsync = promisify(execFile);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -173,7 +173,7 @@ function sleep(ms: number): Promise<void> {
 export async function execTrader(
   args: string[],
   { expectJson = false, timeoutMs = 30_000 }: ExecOptions = {},
-): Promise<any> {
+): Promise<unknown> {
   let lastError: unknown;
 
   for (const [command, commandArgs] of buildAttempts(args)) {
@@ -188,10 +188,14 @@ export async function execTrader(
         return JSON.parse(stdout || '{}');
       }
       return { stdout, stderr };
-    } catch (error: any) {
+    } catch (error) {
       lastError = error;
-      if (error && typeof error === 'object' && error.code !== 'ENOENT') {
-        const detail = error.stderr || error.stdout || error.message;
+      const errorRecord = asRecord(error);
+      if (errorRecord.code !== 'ENOENT') {
+        const detail =
+          asString(errorRecord.stderr, '') ||
+          asString(errorRecord.stdout, '') ||
+          asString(errorRecord.message, '');
         throw new Error(
           redactAndCapText(detail).trim() || 'Agentic Trader command failed.',
         );
@@ -209,7 +213,7 @@ export async function execTrader(
 export async function execTraderWithDbLockRetry(
   args: string[],
   options: ExecOptions,
-): Promise<any> {
+): Promise<unknown> {
   let lastError: unknown;
   for (const retryDelayMs of [0, ...DB_LOCK_RETRY_DELAYS_MS]) {
     if (retryDelayMs > 0) {

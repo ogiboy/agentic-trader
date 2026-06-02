@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard action payloads are schema-loose JSON today */
 import { useCallback } from 'react';
 
 import type { ChatPersona } from '@/lib/chat-personas';
@@ -6,15 +5,17 @@ import type { ChatPersona } from '@/lib/chat-personas';
 import type {
   DashboardData,
   InstructionMode,
+  InstructionResult,
   ProposalActionKind,
   ToolActionKind,
 } from '../control-room.helpers';
-import {
-  markAuthRequiredOnUnauthorized,
-  messageFromError,
-  runDashboardMutation,
-  type SetState,
-} from './action-request';
+import
+  {
+    markAuthRequiredOnUnauthorized,
+    messageFromError,
+    runDashboardMutation,
+    type SetState,
+  } from './action-request';
 import { readJson } from './api';
 import type { DashboardLoader } from './dashboard-polling';
 import type { ControlRoomCopy } from './labels';
@@ -34,7 +35,7 @@ type ControlRoomActionsProps = {
   setBusyState: SetState<string | null>;
   setChatDraft: SetState<string>;
   setInstructionDraft: SetState<string>;
-  setInstructionResult: SetState<Record<string, any> | null>;
+  setInstructionResult: SetState<InstructionResult | null>;
   setMessage: SetState<ControlRoomMessage | null>;
   setProposalNote: SetState<string>;
 };
@@ -193,7 +194,7 @@ export function useControlRoomActions({
     abortDashboardRequest();
     try {
       const result = await readJson<{
-        result: Record<string, any>;
+        result: InstructionResult;
         dashboard: DashboardData;
       }>('/api/instruct', {
         method: 'POST',

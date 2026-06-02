@@ -1,4 +1,5 @@
 import { EN_DIAGNOSTICS_COPY } from './diagnostics-en';
+import { EN_SHELL_COPY, EN_TABS_COPY } from './shell-en';
 import type { ControlRoomCopy } from './types';
 
 export const EN_CONTROL_ROOM_COPY = {
@@ -271,38 +272,6 @@ export const EN_CONTROL_ROOM_COPY = {
     placeholder: 'Make the system more conservative and protective.',
     recentRunsEmpty: 'No recent runs recorded yet.',
   },
-  shell: {
-    actions: {
-      oneShot: 'One Shot',
-      refresh: 'Refresh',
-      restart: 'Restart',
-      start: 'Start',
-      stop: 'Stop',
-    },
-    backend: 'Backend',
-    eyebrow: 'Local-first control room',
-    language: 'Language',
-    lastRefresh: 'Last refresh',
-    loading: 'Loading dashboard...',
-    loadingDetail:
-      'Collecting local runtime, broker, model, tool, and research status. Slow provider checks can take a few seconds.',
-    loadingElapsed: (seconds) => `Waiting ${seconds}s`,
-    mode: 'Mode',
-    navAria: 'Sections',
-    runtime: 'Runtime',
-    runtimeUnavailable: 'runtime unavailable',
-    subtitle: 'Paper-first. Strict. Inspectable.',
-    title: 'Agentic Trader',
-    unavailable: 'Dashboard unavailable.',
-  },
-  tabs: {
-    overview: 'Overview',
-    runtime: 'Runtime',
-    portfolio: 'Portfolio',
-    proposals: 'Proposals',
-    review: 'Review',
-    memory: 'Decision Evidence',
-    chat: 'Chat',
-    settings: 'Settings',
-  },
+  shell: EN_SHELL_COPY,
+  tabs: EN_TABS_COPY,
 } satisfies ControlRoomCopy;

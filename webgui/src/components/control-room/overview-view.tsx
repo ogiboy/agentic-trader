@@ -6,14 +6,18 @@ import type {
   KeyValueItems,
   ToolActionKind,
 } from '../control-room.helpers';
-import {
-  formatTimestamp,
-  localToolActionLines,
-  localToolLines,
-  marketLensImage,
-  providerWarningLines,
-  readinessLines,
-} from '../control-room.helpers';
+import
+  {
+    asRecord,
+    asRecordArray,
+    asString,
+    formatTimestamp,
+    localToolActionLines,
+    localToolLines,
+    marketLensImage,
+    providerWarningLines,
+    readinessLines,
+  } from '../control-room.helpers';
 import { getControlRoomCopy, type ControlRoomCopy } from './labels';
 import { KeyValueList, Panel, TextList } from './primitives';
 
@@ -32,15 +36,23 @@ export function OverviewView({
   busy: string | null;
   onToolAction: (kind: ToolActionKind) => void;
 }>) {
-  const recentStageEvents = dashboard.agentActivity?.recent_stage_events?.length
-    ? dashboard.agentActivity.recent_stage_events.map(
-        (event: Record<string, string>) =>
-          `${formatTimestamp(event.created_at)} | ${event.stage} | ${event.status} | ${event.message}`,
+  const agentActivity = asRecord(dashboard.agentActivity);
+  const status = asRecord(dashboard.status);
+  const broker = asRecord(dashboard.broker);
+  const calendar = asRecord(dashboard.calendar);
+  const session = asRecord(calendar.session);
+  const doctor = asRecord(dashboard.doctor);
+  const camofoxService = asRecord(dashboard.camofoxService);
+  const recentStageEvents = asRecordArray(agentActivity.recent_stage_events)
+    .length
+    ? asRecordArray(agentActivity.recent_stage_events).map(
+        (event) =>
+          `${formatTimestamp(event.created_at)} | ${asString(event.stage)} | ${asString(event.status)} | ${asString(event.message)}`,
       )
     : [copy.overview.emptyStageEvents];
   const localToolActions = localToolActionLines(dashboard, copy);
   const canStartCamofoxService =
-    dashboard.camofoxService?.access_key_configured === true;
+    camofoxService.access_key_configured === true;
 
   return (
     <div className='stack'>
@@ -60,14 +72,12 @@ export function OverviewView({
             <p className='market-ribbon__copy'>{copy.hero.copy}</p>
           </div>
           <div className='pill-row'>
+            <span className='pill'>{asString(status.runtime_mode)}</span>
+            <span className='pill'>{asString(broker.backend)}</span>
             <span className='pill'>
-              {dashboard.status?.runtime_mode ?? '-'}
+              {asString(session.venue, copy.hero.sessionUnknown)}
             </span>
-            <span className='pill'>{dashboard.broker?.backend ?? '-'}</span>
-            <span className='pill'>
-              {dashboard.calendar?.session?.venue ?? copy.hero.sessionUnknown}
-            </span>
-            <span className='pill'>{dashboard.doctor?.model ?? '-'}</span>
+            <span className='pill'>{asString(doctor.model)}</span>
           </div>
         </div>
       </section>

@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
-import {
-  WEBGUI_SESSION_COOKIE_NAME,
-  beginRequestGuard,
-  configuredWebguiToken,
-  constantTimeEqual,
-  isAuthorizedWebguiRequest,
-  isSameOriginRequest,
-  parseJsonObjectBody,
-  redactAndCapText,
-} from '../../../lib/http';
+import { API_ERRORS } from '../../../lib/api-errors';
+import
+  {
+    WEBGUI_SESSION_COOKIE_NAME,
+    beginRequestGuard,
+    configuredWebguiToken,
+    constantTimeEqual,
+    isAuthorizedWebguiRequest,
+    isSameOriginRequest,
+    parseJsonObjectBody,
+    redactAndCapText,
+  } from '../../../lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,7 +35,7 @@ function jsonError(error: string, status: number): Response {
 
 function rejectForeignSessionRequest(request: Request): null | Response {
   if (!isSameOriginRequest(request)) {
-    return jsonError('forbidden origin', 403);
+    return jsonError(API_ERRORS.forbiddenOrigin, 403);
   }
   return null;
 }
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
   }
   const contentType = request.headers.get('content-type')?.toLowerCase() || '';
   if (!contentType.includes('application/json')) {
-    return jsonError('expected application/json', 400);
+    return jsonError(API_ERRORS.expectedJson, 400);
   }
 
   const expectedToken = configuredWebguiToken();
@@ -80,14 +82,14 @@ export async function POST(request: Request) {
   try {
     const providedToken = parsed.body.token;
     if (typeof providedToken !== 'string') {
-      return jsonError('invalid token', 400);
+      return jsonError(API_ERRORS.invalidToken, 400);
     }
     const normalizedToken = providedToken.trim();
     if (
       !normalizedToken ||
       !constantTimeEqual(normalizedToken, expectedToken)
     ) {
-      return jsonError('unauthorized', 401);
+      return jsonError(API_ERRORS.unauthorized, 401);
     }
 
     const response = NextResponse.json({

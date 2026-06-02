@@ -1,4 +1,5 @@
 import { TR_DIAGNOSTICS_COPY } from './diagnostics-tr';
+import { TR_SHELL_COPY, TR_TABS_COPY } from './shell-tr';
 import type { ControlRoomCopy } from './types';
 
 export const TR_CONTROL_ROOM_COPY = {
@@ -268,38 +269,6 @@ export const TR_CONTROL_ROOM_COPY = {
     placeholder: 'Sistemi daha konservatif ve korumacı yap.',
     recentRunsEmpty: 'Henüz kayıtlı run yok.',
   },
-  shell: {
-    actions: {
-      oneShot: 'Tek Döngü',
-      refresh: 'Yenile',
-      restart: 'Yeniden Başlat',
-      start: 'Başlat',
-      stop: 'Durdur',
-    },
-    backend: 'Backend',
-    eyebrow: 'Yerel-öncelikli kontrol odası',
-    language: 'Dil',
-    lastRefresh: 'Son yenileme',
-    loading: 'Dashboard yükleniyor...',
-    loadingDetail:
-      'Yerel runtime, broker, model, araç ve research durumu toplanıyor. Yavaş provider kontrolleri birkaç saniye sürebilir.',
-    loadingElapsed: (seconds) => `${seconds} sn bekleniyor`,
-    mode: 'Mod',
-    navAria: 'Bölümler',
-    runtime: 'Çalışma',
-    runtimeUnavailable: 'runtime kullanılamıyor',
-    subtitle: 'Paper-first. Katı. Denetlenebilir.',
-    title: 'Agentic Trader',
-    unavailable: 'Dashboard kullanılamıyor.',
-  },
-  tabs: {
-    overview: 'Özet',
-    runtime: 'Çalışma',
-    portfolio: 'Portföy',
-    proposals: 'Teklifler',
-    review: 'İnceleme',
-    memory: 'Karar Kanıtı',
-    chat: 'Sohbet',
-    settings: 'Ayarlar',
-  },
+  shell: TR_SHELL_COPY,
+  tabs: TR_TABS_COPY,
 } satisfies ControlRoomCopy;

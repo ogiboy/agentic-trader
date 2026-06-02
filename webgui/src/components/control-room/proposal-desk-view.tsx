@@ -5,6 +5,9 @@ import type {
   ProposalActionKind,
 } from '../control-room.helpers';
 import {
+  asRecord,
+  asRecordArray,
+  asString,
   formatNumber,
   proposalApprovalBlockedReason,
   proposalHeadline,
@@ -45,10 +48,10 @@ export function ProposalDeskView({
     proposalId: string,
   ) => Promise<void>;
 }>) {
-  const proposals = Array.isArray(dashboard.tradeProposals?.proposals)
-    ? dashboard.tradeProposals.proposals
-    : [];
-  const proposalUnavailable = dashboard.tradeProposals?.available === false;
+  const tradeProposals = asRecord(dashboard.tradeProposals);
+  const proposals = asRecordArray(tradeProposals.proposals);
+  const broker = asRecord(dashboard.broker);
+  const proposalUnavailable = tradeProposals.available === false;
   const approvalBlockedReason = proposalApprovalBlockedReason(dashboard);
   const hasProposalNote = Boolean(proposalNote.trim());
 
@@ -63,18 +66,18 @@ export function ProposalDeskView({
           <>
             {proposals.length ? (
               <div className='proposal-list'>
-                {proposals.slice(0, 6).map((proposal: DashboardData) => {
-                  const proposalId = String(proposal.proposal_id ?? '');
-                  const isPending = proposal.status === 'pending';
+                {proposals.slice(0, 6).map((proposal) => {
+                  const proposalId = asString(proposal.proposal_id, '');
+                  const status = asString(proposal.status, '');
+                  const isPending = status === 'pending';
                   const canApprove =
                     isPending && !approvalBlockedReason && hasProposalNote;
                   const canReconcile =
-                    proposal.status === 'approved' &&
+                    status === 'approved' &&
                     Boolean(proposal.execution_intent_id) &&
                     hasProposalNote;
                   const canRefresh =
-                    (proposal.status === 'approved' ||
-                      proposal.status === 'executed') &&
+                    (status === 'approved' || status === 'executed') &&
                     proposal.execution_outcome_status === 'accepted' &&
                     Boolean(proposal.execution_order_id) &&
                     hasProposalNote;
@@ -86,10 +89,10 @@ export function ProposalDeskView({
                           {formatNumber(proposal.confidence, 2)}
                         </span>
                       </div>
-                      <p>{proposal.thesis || '-'}</p>
+                      <p>{asString(proposal.thesis)}</p>
                       <div className='proposal-card__meta'>
                         <span>{proposalId}</span>
-                        <span>{proposal.source || '-'}</span>
+                        <span>{asString(proposal.source)}</span>
                         <span>
                           {copy.proposals.stopTake(
                             formatNumber(proposal.stop_loss, 2),
@@ -167,27 +170,27 @@ export function ProposalDeskView({
       <Panel title={copy.proposals.panels.deskSafety} accent='cyan'>
         <KeyValueList
           items={[
-            [copy.proposals.fields.backend, dashboard.broker?.backend ?? '-'],
-            [copy.proposals.fields.state, dashboard.broker?.state ?? '-'],
+            [copy.proposals.fields.backend, asString(broker.backend)],
+            [copy.proposals.fields.state, asString(broker.state)],
             [
               copy.proposals.fields.externalPaper,
-              dashboard.broker?.external_paper
+              broker.external_paper
                 ? copy.common.yes
                 : copy.common.no,
             ],
             [
               copy.proposals.fields.liveRequested,
-              dashboard.broker?.live_requested
+              broker.live_requested
                 ? copy.common.yes
                 : copy.common.no,
             ],
             [
               copy.proposals.fields.killSwitch,
-              dashboard.broker?.kill_switch_active
+              broker.kill_switch_active
                 ? copy.common.on
                 : copy.common.off,
             ],
-            [copy.proposals.fields.message, dashboard.broker?.message ?? '-'],
+            [copy.proposals.fields.message, asString(broker.message)],
           ]}
         />
       </Panel>

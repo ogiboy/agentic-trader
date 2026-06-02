@@ -1,13 +1,16 @@
-import {
-  getDashboardSnapshot,
-  runInstruction,
-} from '../../../lib/agentic-trader';
-import {
-  beginRequestGuard,
-  parseJsonObjectBody,
-  redactAndCapText,
-  rejectUnsafeWebguiRequest,
-} from '../../../lib/http';
+import
+  {
+    getDashboardSnapshot,
+    runInstruction,
+  } from '../../../lib/agentic-trader';
+import { API_ERRORS } from '../../../lib/api-errors';
+import
+  {
+    beginRequestGuard,
+    parseJsonObjectBody,
+    redactAndCapText,
+    rejectUnsafeWebguiRequest,
+  } from '../../../lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,12 +43,12 @@ export async function POST(request: Request) {
       !body.message.trim() ||
       (body.apply !== undefined && typeof body.apply !== 'boolean')
     ) {
-      return Response.json({ error: 'invalid request' }, { status: 400 });
+      return Response.json({ error: API_ERRORS.invalidRequest }, { status: 400 });
     }
     const message = body.message.trim();
     if (message.length > MAX_INSTRUCTION_MESSAGE_LENGTH) {
       return Response.json(
-        { error: 'instruction message too large' },
+        { error: API_ERRORS.instructionMessageTooLarge },
         { status: 413 },
       );
     }

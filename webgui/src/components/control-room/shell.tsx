@@ -5,13 +5,20 @@ import type {
   MessageTone,
   TabId,
 } from '../control-room.helpers';
-import { cx, localizedStatusText } from '../control-room.helpers';
-import {
-  CONTROL_ROOM_LOCALES,
-  normalizeControlRoomLocale,
-  type ControlRoomCopy,
-  type ControlRoomLocale,
-} from './labels';
+import
+  {
+    asRecord,
+    asString,
+    cx,
+    localizedStatusText,
+  } from '../control-room.helpers';
+import
+  {
+    CONTROL_ROOM_LOCALES,
+    normalizeControlRoomLocale,
+    type ControlRoomCopy,
+    type ControlRoomLocale,
+  } from './labels';
 import { WebguiTokenPrompt } from './primitives';
 
 export type RuntimeActionKind =
@@ -95,6 +102,14 @@ export function ControlRoomShell({
   onSelectLocale,
   onSelectTab,
 }: Readonly<ControlRoomShellProps>) {
+  const status = asRecord(dashboard?.status);
+  const doctor = asRecord(dashboard?.doctor);
+  const broker = asRecord(dashboard?.broker);
+  const runtimeMode = asString(
+    status.runtime_mode,
+    asString(doctor.runtime_mode),
+  );
+
   return (
     <div className='shell'>
       <aside className='sidebar'>
@@ -137,16 +152,13 @@ export function ControlRoomShell({
             </select>
           </label>
           <div>
-            {copy.shell.runtime}: {dashboard?.status?.runtime_state ?? '-'}
+            {copy.shell.runtime}: {asString(status.runtime_state)}
           </div>
           <div>
-            {copy.shell.mode}:{' '}
-            {dashboard?.status?.runtime_mode ??
-              dashboard?.doctor?.runtime_mode ??
-              '-'}
+            {copy.shell.mode}: {runtimeMode}
           </div>
           <div>
-            {copy.shell.backend}: {dashboard?.broker?.backend ?? '-'}
+            {copy.shell.backend}: {asString(broker.backend)}
           </div>
           <div>
             {copy.shell.lastRefresh}: {lastLoadedAt}
@@ -158,17 +170,11 @@ export function ControlRoomShell({
         <header className='topbar'>
           <div className='topbar__status'>
             <span className='topbar__headline'>{activeTabLabel}</span>
-            <span className='chip'>
-              {dashboard?.status?.runtime_mode ??
-                dashboard?.doctor?.runtime_mode ??
-                '-'}
-            </span>
-            <span className='chip'>
-              {dashboard?.broker?.execution_mode ?? '-'}
-            </span>
+            <span className='chip'>{runtimeMode}</span>
+            <span className='chip'>{asString(broker.execution_mode)}</span>
             <span className='chip chip--message'>
               {localizedStatusText(
-                dashboard?.broker?.message ?? copy.shell.runtimeUnavailable,
+                asString(broker.message, copy.shell.runtimeUnavailable),
                 copy,
               )}
             </span>

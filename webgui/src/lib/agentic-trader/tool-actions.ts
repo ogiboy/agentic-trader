@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Dashboard payloads are schema-loose JSON today */
+import { asRecord, asString, type JsonRecord } from '../json-record';
 import { execTrader } from './cli-exec';
 import { getDashboardSnapshot } from './dashboard';
 
@@ -8,19 +8,23 @@ export type ToolActionKind =
   | 'start-model-service'
   | 'start-camofox-service';
 
-function modelNameFromDashboard(data: Record<string, any>): string {
+function modelNameFromDashboard(data: JsonRecord): string {
+  const modelService = asRecord(data.modelService);
+  const doctor = asRecord(data.doctor);
   return (
-    data?.modelService?.configured_model || data?.doctor?.model || 'qwen3:8b'
+    asString(modelService.configured_model, '') ||
+    asString(doctor.model, '') ||
+    'qwen3:8b'
   );
 }
 
 export async function runToolAction(kind: ToolActionKind): Promise<{
   message: string;
-  dashboard: any;
-  result?: any;
+  dashboard: JsonRecord;
+  result?: JsonRecord;
 }> {
   if (kind === 'enable-local-tools') {
-    const result = await execTrader(
+    const result = (await execTrader(
       [
         'tool-ownership',
         'set',
@@ -33,7 +37,7 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
         '--json',
       ],
       { expectJson: true, timeoutMs: 30_000 },
-    );
+    )) as JsonRecord;
     return {
       dashboard: await getDashboardSnapshot(),
       message: 'Local tool ownership set to app-owned.',
@@ -42,7 +46,7 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
   }
 
   if (kind === 'enable-host-fallbacks') {
-    const result = await execTrader(
+    const result = (await execTrader(
       [
         'tool-ownership',
         'set',
@@ -55,7 +59,7 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
         '--json',
       ],
       { expectJson: true, timeoutMs: 30_000 },
-    );
+    )) as JsonRecord;
     return {
       dashboard: await getDashboardSnapshot(),
       message: 'Host-managed fallback ownership enabled.',
@@ -69,10 +73,10 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
       ['tool-ownership', 'set', '--ollama-owner', 'app-owned', '--json'],
       { expectJson: true, timeoutMs: 30_000 },
     );
-    const result = await execTrader(
+    const result = (await execTrader(
       ['model-service', 'start', '--host', '127.0.0.1', '--json'],
       { expectJson: true, timeoutMs: 45_000 },
-    );
+    )) as JsonRecord;
     const model = modelNameFromDashboard(data);
     const modelState = result?.model_available
       ? `${model} is listed`
@@ -89,10 +93,10 @@ export async function runToolAction(kind: ToolActionKind): Promise<{
       ['tool-ownership', 'set', '--camofox-owner', 'app-owned', '--json'],
       { expectJson: true, timeoutMs: 30_000 },
     );
-    const result = await execTrader(
+    const result = (await execTrader(
       ['camofox-service', 'start', '--host', '127.0.0.1', '--json'],
       { expectJson: true, timeoutMs: 45_000 },
-    );
+    )) as JsonRecord;
     return {
       dashboard: await getDashboardSnapshot(),
       message: 'App-owned Camofox helper started.',

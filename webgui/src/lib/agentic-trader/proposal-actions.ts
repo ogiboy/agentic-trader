@@ -1,25 +1,34 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Proposal payloads are schema-loose JSON today */
+import { asRecord, asString, type JsonRecord } from '../json-record';
 import { execTraderWithDbLockRetry } from './cli-exec';
 import { getDashboardSnapshot } from './dashboard';
 
 export type ProposalActionKind = 'approve' | 'reject' | 'reconcile' | 'refresh';
 
-function proposalActionMessage(kind: ProposalActionKind, result: any): string {
-  const proposal = result?.proposal || result;
-  const symbol = proposal?.symbol || 'Proposal';
-  const status = proposal?.status || kind;
+function proposalActionMessage(
+  kind: ProposalActionKind,
+  result: JsonRecord,
+): string {
+  const proposal = asRecord(result.proposal);
+  const messageSource = Object.keys(proposal).length ? proposal : result;
+  const outcome = asRecord(result.outcome);
+  const symbol = asString(messageSource.symbol, 'Proposal');
+  const status = asString(messageSource.status, kind);
   if (kind === 'approve') {
-    const outcome =
-      result?.outcome?.status || proposal?.execution_outcome_status || '-';
-    return `${symbol} proposal approved; proposal=${status}, broker=${outcome}.`;
+    const brokerStatus = asString(
+      outcome.status,
+      asString(messageSource.execution_outcome_status),
+    );
+    return `${symbol} proposal approved; proposal=${status}, broker=${brokerStatus}.`;
   }
   if (kind === 'reject') {
     return `${symbol} proposal rejected.`;
   }
   if (kind === 'refresh') {
-    const outcome =
-      result?.outcome?.status || proposal?.execution_outcome_status || '-';
-    return `${symbol} proposal refreshed; proposal=${status}, broker=${outcome}.`;
+    const brokerStatus = asString(
+      outcome.status,
+      asString(messageSource.execution_outcome_status),
+    );
+    return `${symbol} proposal refreshed; proposal=${status}, broker=${brokerStatus}.`;
   }
   return `${symbol} proposal reconciled; status=${status}.`;
 }
@@ -30,8 +39,8 @@ export async function runProposalAction(
   reviewNotes = '',
 ): Promise<{
   message: string;
-  dashboard: any;
-  result: any;
+  dashboard: JsonRecord;
+  result: JsonRecord;
 }> {
   const cleanProposalId = proposalId.trim();
   const cleanNotes = reviewNotes.trim();
@@ -42,9 +51,9 @@ export async function runProposalAction(
     throw new Error(`Review note is required for ${kind}.`);
   }
 
-  let result: any;
+  let result: JsonRecord;
   if (kind === 'approve') {
-    result = await execTraderWithDbLockRetry(
+    result = (await execTraderWithDbLockRetry(
       [
         'proposal-approve',
         cleanProposalId,
@@ -53,14 +62,14 @@ export async function runProposalAction(
         '--json',
       ],
       { expectJson: true, timeoutMs: 90_000 },
-    );
+    )) as JsonRecord;
   } else if (kind === 'reject') {
-    result = await execTraderWithDbLockRetry(
+    result = (await execTraderWithDbLockRetry(
       ['proposal-reject', cleanProposalId, '--reason', cleanNotes, '--json'],
       { expectJson: true, timeoutMs: 45_000 },
-    );
+    )) as JsonRecord;
   } else if (kind === 'reconcile') {
-    result = await execTraderWithDbLockRetry(
+    result = (await execTraderWithDbLockRetry(
       [
         'proposal-reconcile',
         cleanProposalId,
@@ -69,9 +78,9 @@ export async function runProposalAction(
         '--json',
       ],
       { expectJson: true, timeoutMs: 45_000 },
-    );
+    )) as JsonRecord;
   } else if (kind === 'refresh') {
-    result = await execTraderWithDbLockRetry(
+    result = (await execTraderWithDbLockRetry(
       [
         'proposal-refresh',
         cleanProposalId,
@@ -80,7 +89,7 @@ export async function runProposalAction(
         '--json',
       ],
       { expectJson: true, timeoutMs: 45_000 },
-    );
+    )) as JsonRecord;
   } else {
     throw new Error(`Unsupported proposal action: ${kind}`);
   }

@@ -1,17 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Dashboard payloads are schema-loose JSON today */
+import { asRecord, asString, asStringArray, type JsonRecord } from '../json-record';
 import { execTraderWithDbLockRetry } from './cli-exec';
 import { getDashboardSnapshot } from './dashboard';
 
 function defaultSymbolsFromPreferences(preferences: {
-  exchanges?: string[];
-  regions?: string[];
+  exchanges?: unknown;
+  regions?: unknown;
 }): string {
   const v1DefaultSymbols = 'AAPL,MSFT';
   if (process.env.AGENTIC_TRADER_WEBGUI_GLOBAL_SYMBOL_DEFAULTS !== '1') {
     return v1DefaultSymbols;
   }
-  const exchanges = preferences.exchanges || [];
-  const regions = preferences.regions || [];
+  const exchanges = asStringArray(preferences.exchanges);
+  const regions = asStringArray(preferences.regions);
   if (exchanges.includes('BIST') || regions.includes('TR')) {
     return 'THYAO.IS,GARAN.IS';
   }
@@ -25,52 +25,68 @@ function defaultSymbolsFromPreferences(preferences: {
   return v1DefaultSymbols;
 }
 
-function defaultSingleSymbol(data: Record<string, any>): string {
+function defaultSingleSymbol(data: JsonRecord): string {
+  const status = asRecord(data.status);
+  const state = asRecord(status.state);
+  const tradeContext = asRecord(data.tradeContext);
+  const tradeRecord = asRecord(tradeContext.record);
+  const review = asRecord(data.review);
+  const reviewRecord = asRecord(review.record);
   return (
-    data?.status?.state?.current_symbol ||
-    data?.tradeContext?.record?.symbol ||
-    data?.review?.record?.symbol ||
-    defaultSymbolsFromPreferences(data?.preferences || {}).split(',')[0]
+    asString(state.current_symbol, '') ||
+    asString(tradeRecord.symbol, '') ||
+    asString(reviewRecord.symbol, '') ||
+    defaultSymbolsFromPreferences(asRecord(data.preferences)).split(',')[0]
   );
 }
 
-function defaultRuntimeInterval(data: Record<string, any>): string {
+function defaultRuntimeInterval(data: JsonRecord): string {
+  const status = asRecord(data.status);
+  const state = asRecord(status.state);
+  const marketContext = asRecord(data.marketContext);
+  const contextPack = asRecord(marketContext.contextPack);
   return (
-    data?.status?.state?.interval ||
-    data?.marketContext?.contextPack?.interval ||
+    asString(state.interval, '') ||
+    asString(contextPack.interval, '') ||
     '1d'
   );
 }
 
-function defaultRuntimeLookback(data: Record<string, any>): string {
+function defaultRuntimeLookback(data: JsonRecord): string {
+  const status = asRecord(data.status);
+  const state = asRecord(status.state);
+  const marketContext = asRecord(data.marketContext);
+  const contextPack = asRecord(marketContext.contextPack);
   return (
-    data?.status?.state?.lookback ||
-    data?.marketContext?.contextPack?.lookback ||
+    asString(state.lookback, '') ||
+    asString(contextPack.lookback, '') ||
     '180d'
   );
 }
 
-function isTraderRunning(data: Record<string, any>): boolean {
+function isTraderRunning(data: JsonRecord): boolean {
+  const status = asRecord(data.status);
   return (
-    data?.status?.live_process === true &&
-    data?.status?.runtime_state === 'active'
+    status.live_process === true && status.runtime_state === 'active'
   );
 }
 
 export async function runRuntimeAction(kind: string): Promise<{
   message: string;
-  dashboard: any;
+  dashboard: JsonRecord;
 }> {
   const data = await getDashboardSnapshot();
+  const status = asRecord(data.status);
+  const state = asRecord(status.state);
 
   if (kind === 'start') {
     if (isTraderRunning(data)) {
       return {
-        message: `Runtime already active with PID ${data?.status?.state?.pid ?? '-'}.`,
+        message: `Runtime already active with PID ${asString(state.pid)}.`,
         dashboard: data,
       };
     }
-    const symbols = defaultSymbolsFromPreferences(data?.preferences || {});
+    const symbols = defaultSymbolsFromPreferences(asRecord(data.preferences));
     const interval = defaultRuntimeInterval(data);
     const lookback = defaultRuntimeLookback(data);
     await execTraderWithDbLockRetry(
@@ -104,13 +120,13 @@ export async function runRuntimeAction(kind: string): Promise<{
     }
     await execTraderWithDbLockRetry(['stop-service'], { timeoutMs: 30_000 });
     return {
-      message: `Stop requested for PID ${data.status.state.pid}.`,
+      message: `Stop requested for PID ${asString(state.pid)}.`,
       dashboard: await getDashboardSnapshot(),
     };
   }
 
   if (kind === 'restart') {
-    if ((data?.status?.state?.symbols || []).length) {
+    if (Array.isArray(state.symbols) && state.symbols.length) {
       await execTraderWithDbLockRetry(['restart-service'], {
         timeoutMs: 30_000,
       });
@@ -128,7 +144,7 @@ export async function runRuntimeAction(kind: string): Promise<{
   if (kind === 'one-shot') {
     if (isTraderRunning(data)) {
       return {
-        message: `Runtime already active with PID ${data?.status?.state?.pid ?? '-'}. Stop it before running a one-shot cycle.`,
+        message: `Runtime already active with PID ${asString(state.pid)}. Stop it before running a one-shot cycle.`,
         dashboard: data,
       };
     }

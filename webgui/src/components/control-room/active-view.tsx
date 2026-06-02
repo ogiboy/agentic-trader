@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- dashboard payloads are schema-loose JSON today */
 import type { ChatPersona } from '@/lib/chat-personas';
 
 import type {
   DashboardData,
   InstructionMode,
+  InstructionResult,
   KeyValueItems,
   ProposalActionKind,
   TabId,
@@ -30,7 +30,7 @@ type ActiveViewProps = Readonly<{
   chatDraft: string;
   instructionDraft: string;
   instructionMode: InstructionMode;
-  instructionResult: Record<string, any> | null;
+  instructionResult: InstructionResult | null;
   proposalNote: string;
   busy: string | null;
   onChatPersonaChange: (value: ChatPersona) => void;
