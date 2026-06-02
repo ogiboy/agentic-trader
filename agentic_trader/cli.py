@@ -140,6 +140,12 @@ from agentic_trader.cli_modules.runtime_modes import (
     runtime_mode_transition_plan as _runtime_mode_transition_plan_impl,
 )
 from agentic_trader.cli_modules.service_control import run_stop_service_command
+from agentic_trader.cli_modules.service_rendering import (
+    format_latest_order as _format_latest_order,
+    read_text_tail as _read_text_tail,
+    render_health_panel as _render_health_panel,
+    render_service_state as _render_service_state,
+)
 from agentic_trader.cli_modules.system_registration import register_cli_system_commands
 from agentic_trader.cli_modules.status_commands import (
     StatusCommandDeps,
@@ -204,11 +210,10 @@ from agentic_trader.schemas import (
     OperatorInstruction,
     RuntimeMode,
     RuntimeModeTransitionPlan,
-    ServiceStateSnapshot,
     TradeProposalRecord,
 )
 from agentic_trader.security import redact_sensitive_text
-from agentic_trader.storage.db import OrderRow, TradingDatabase
+from agentic_trader.storage.db import TradingDatabase
 from agentic_trader.system.operator_launcher import (
     build_operator_launcher_status,
     start_operator_webgui,
@@ -252,53 +257,29 @@ from agentic_trader.ui_text import (
     LABEL_ALLOWED,
     LABEL_BLOCKING,
     LABEL_CHECK,
-    LABEL_CONTINUOUS,
     LABEL_CURRENT,
-    LABEL_CURRENT_SYMBOL,
-    LABEL_CYCLE_COUNT,
     LABEL_DETAILS,
     LABEL_ENVIRONMENT,
     LABEL_FIELD,
-    LABEL_HEARTBEAT,
-    LABEL_HEARTBEAT_AGE,
-    LABEL_INTERVAL,
-    LABEL_KEY,
-    LABEL_LAST_RECORDED_ERROR,
-    LABEL_LAST_RECORDED_MESSAGE,
-    LABEL_LAST_RECORDED_STATE,
     LABEL_LATEST_ORDER,
-    LABEL_LIVE_PROCESS,
     LABEL_LOCALE,
-    LABEL_LOOKBACK,
-    LABEL_MAX_CYCLES,
     LABEL_MESSAGE,
-    LABEL_MODE,
     LABEL_NO,
     LABEL_PASSED,
     LABEL_PERSISTED,
-    LABEL_PID,
-    LABEL_POLL_SECONDS,
     LABEL_PREFERENCE_UPDATE,
     LABEL_RATIONALE,
     LABEL_REQUIRES_CONFIRMATION,
-    LABEL_RUNTIME,
-    LABEL_SERVICE,
-    LABEL_STARTED,
-    LABEL_STATUS_NOTE,
-    LABEL_STOP_REQUESTED,
     LABEL_SUMMARY,
     LABEL_SUPPORTED,
-    LABEL_SYMBOLS,
     LABEL_TARGET,
     LABEL_UPDATE_PREFERENCES,
-    LABEL_UPDATED,
     LABEL_VALUE,
     LABEL_YES,
     MESSAGE_BACKGROUND_SERVICE_RESTARTED,
     MESSAGE_LAUNCH_SYMBOL_REQUIRED,
     MESSAGE_NO_ACTION_SELECTED,
     MESSAGE_NO_ORDERS_RECORDED,
-    MESSAGE_NO_RUNTIME_STATE,
     PROMPT_SELECT_ACTION,
     STYLE_KEY_COLUMN,
     SUPPORTED_UI_LOCALES,
@@ -309,7 +290,6 @@ from agentic_trader.ui_text import (
     TITLE_RUNTIME_MODE,
     TITLE_RUNTIME_MODE_TRANSITION_CHECKLIST,
     TITLE_SERVICE_RESTARTED,
-    TITLE_SERVICE_STATUS,
     TITLE_UI_LOCALE,
     TITLE_UPDATED_PREFERENCES,
     TITLE_WEB_GUI_START_FAILED,
@@ -457,70 +437,6 @@ def resolve_tui_node_commands(tui_dir: Path) -> NodeCommandSet | None:
     return _resolve_tui_node_commands(tui_dir, which=shutil.which)
 
 
-def _read_text_tail(path: Path | None, *, limit: int = 12) -> list[str]:
-    """
-    Return the last up to `limit` lines from a UTF-8 text file with sensitive content redacted.
-
-    If `path` is None or the file does not exist, an empty list is returned. Lines are decoded using UTF-8 with replacement for invalid bytes and each returned line is redacted for sensitive content.
-
-    Parameters:
-        path (Path | None): Path to the text file to read, or None to indicate absence.
-        limit (int): Maximum number of trailing lines to return.
-
-    Returns:
-        list[str]: Up to `limit` trailing lines from the file with sensitive content redacted, or an empty list if the file is unavailable.
-    """
-    if path is None or not path.exists():
-        return []
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    return [redact_sensitive_text(line, max_length=1_000) for line in lines[-limit:]]
-
-
-def _format_latest_order(order: OrderRow | None) -> str:
-    """
-    Formats an OrderRow into a compact single-line human-readable summary.
-
-    Returns:
-        str: Single-line summary in the form
-        "order_id | SYMBOL SIDE | approved=<bool> | entry=<price> | size=<pct> | confidence=<score>",
-        or the literal string "None" when `order` is None.
-    """
-    if order is None:
-        return "None"
-    (
-        order_id,
-        _created_at,
-        symbol,
-        side,
-        approved,
-        entry_price,
-        _stop_loss,
-        _take_profit,
-        position_size_pct,
-        confidence,
-    ) = order
-    return (
-        f"{order_id} | {symbol} {side} | approved={approved} | "
-        f"entry={entry_price:.4f} | size={position_size_pct:.2%} | "
-        f"confidence={confidence:.2f}"
-    )
-
-
-def _render_health_panel(status: str, body: str, *, border_style: str) -> Panel:
-    """
-    Create a rich Panel with the given title text and border style.
-
-    Parameters:
-        status (str): Text to use as the panel title.
-        body (str): Text content to display inside the panel.
-        border_style (str): Rich style string applied to the panel border.
-
-    Returns:
-        panel (Panel): A `rich.panel.Panel` containing `body`, titled with `status`, and using `border_style`.
-    """
-    return Panel(body, title=status, border_style=border_style)
-
-
 def _render_instruction(instruction: OperatorInstruction) -> None:
     table = Table(title=TITLE_OPERATOR_INSTRUCTION)
     table.add_column(LABEL_FIELD)
@@ -533,64 +449,6 @@ def _render_instruction(instruction: OperatorInstruction) -> None:
         LABEL_PREFERENCE_UPDATE,
         json.dumps(instruction.preference_update.model_dump(mode="json"), indent=2),
     )
-    console.print(table)
-
-
-def _render_service_state(state: ServiceStateSnapshot | None) -> None:
-    """
-    Render the supervisor/service runtime status to the console.
-
-    If `state` is None or contains no recorded runtime state, prints a yellow panel indicating no runtime state is recorded. Otherwise prints a table summarizing service fields such as service name, runtime mode/state, process liveness, heartbeat and its age, start/updated times, polling and cycle settings, configured symbols/interval/lookback, PID and stop-requested flag, and the last recorded message/error.
-
-    Parameters:
-        state: Snapshot of the supervisor/service runtime state; pass `None` to indicate no recorded runtime state.
-    """
-    view = build_runtime_status_view(state)
-    if view.state is None:
-        console.print(
-            Panel(
-                MESSAGE_NO_RUNTIME_STATE,
-                title=TITLE_SERVICE_STATUS,
-                border_style="yellow",
-            )
-        )
-        return
-    snapshot = view.state
-
-    table = Table(title=TITLE_SERVICE_STATUS)
-    table.add_column(LABEL_KEY)
-    table.add_column(LABEL_VALUE)
-    table.add_row(LABEL_SERVICE, snapshot.service_name)
-    table.add_row(LABEL_MODE, snapshot.runtime_mode)
-    table.add_row(LABEL_RUNTIME, view.runtime_state)
-    table.add_row(LABEL_LIVE_PROCESS, LABEL_YES if view.live_process else LABEL_NO)
-    table.add_row(LABEL_LAST_RECORDED_STATE, view.last_recorded_state or "-")
-    table.add_row(LABEL_UPDATED, snapshot.updated_at)
-    table.add_row(LABEL_STARTED, snapshot.started_at or "-")
-    table.add_row(LABEL_HEARTBEAT, snapshot.last_heartbeat_at or "-")
-    table.add_row(
-        LABEL_HEARTBEAT_AGE,
-        f"{view.age_seconds}s" if view.age_seconds is not None else "-",
-    )
-    table.add_row(LABEL_CONTINUOUS, str(snapshot.continuous))
-    table.add_row(
-        LABEL_POLL_SECONDS,
-        str(snapshot.poll_seconds) if snapshot.poll_seconds is not None else "-",
-    )
-    table.add_row(LABEL_CYCLE_COUNT, str(snapshot.cycle_count))
-    table.add_row(LABEL_SYMBOLS, UI_LIST_SEPARATOR.join(snapshot.symbols) or "-")
-    table.add_row(LABEL_INTERVAL, snapshot.interval or "-")
-    table.add_row(LABEL_LOOKBACK, snapshot.lookback or "-")
-    table.add_row(
-        LABEL_MAX_CYCLES,
-        str(snapshot.max_cycles) if snapshot.max_cycles is not None else "-",
-    )
-    table.add_row(LABEL_CURRENT_SYMBOL, snapshot.current_symbol or "-")
-    table.add_row(LABEL_PID, str(snapshot.pid) if snapshot.pid is not None else "-")
-    table.add_row(LABEL_STOP_REQUESTED, str(snapshot.stop_requested))
-    table.add_row(LABEL_STATUS_NOTE, view.status_message)
-    table.add_row(LABEL_LAST_RECORDED_MESSAGE, snapshot.message or "-")
-    table.add_row(LABEL_LAST_RECORDED_ERROR, snapshot.last_error or "-")
     console.print(table)
 
 
