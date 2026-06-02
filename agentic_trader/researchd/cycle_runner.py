@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from time import sleep
-from typing import Callable
-from uuid import uuid4
 
 from agentic_trader.config import Settings
-from agentic_trader.payloads import dataclass_payload
 from agentic_trader.researchd.control import get_research_cycle_control
 from agentic_trader.researchd.cycle_plan import research_cycle_plan_payload
+from agentic_trader.researchd.cycle_runner_payloads import (
+    execution_policy_payload,
+    research_cycle_execution_payload,
+    research_cycle_run_payload,
+    research_digest_replay,
+)
+from agentic_trader.researchd.cycle_runner_types import (
+    ResearchCycleExecution,
+    ResearchCycleRequest,
+    ResolvedResearchCycleRequest,
+    SleepFn,
+)
 from agentic_trader.researchd.orchestrator import (
     ResearchPipelineResult,
     ResearchSidecar,
@@ -23,66 +31,14 @@ from agentic_trader.runtime_feed import (
     read_research_digest_replay,
     write_research_digest_replay,
 )
-from agentic_trader.schemas import (
-    ResearchCycleOperatorControl,
-    ResearchDigestReplayRecord,
-    ResearchSnapshotRecord,
-)
+from agentic_trader.schemas import ResearchSnapshotRecord
 
-SleepFn = Callable[[float], None]
-
-
-def _empty_payload() -> dict[str, object]:
-    return {}
-
-
-def _empty_notes() -> list[str]:
-    return []
-
-
-@dataclass(frozen=True)
-class ResearchCycleRequest:
-    symbols: list[str]
-    cycles: int = 1
-    cadence_seconds: int = 60
-    max_proposals_per_cycle: int = 1
-    persist: bool = True
-    sleep_between_cycles: bool = True
-
-
-@dataclass(frozen=True)
-class _ResolvedResearchCycleRequest:
-    symbols: list[str]
-    requested_cycles: int
-    safe_cycles: int
-    safe_cadence: int
-    max_proposals_per_cycle: int
-    persist: bool
-    sleep_between_cycles: bool
-
-
-@dataclass(frozen=True)
-class ResearchCycleExecution:
-    """One safe research-loop iteration."""
-
-    cycle_index: int
-    started_at: str
-    completed_at: str
-    state_status: str
-    backend: str
-    watched_symbols: list[str]
-    raw_evidence_count: int
-    macro_event_count: int
-    social_signal_count: int
-    prior_snapshot_id: str | None = None
-    prior_digest_available: bool = False
-    persisted_snapshot_id: str | None = None
-    next_run_at: str | None = None
-    preflight: dict[str, object] = field(default_factory=_empty_payload)
-    source_health_delta: dict[str, object] = field(default_factory=_empty_payload)
-    cadence: dict[str, object] = field(default_factory=_empty_payload)
-    digest: dict[str, object] = field(default_factory=_empty_payload)
-    notes: list[str] = field(default_factory=_empty_notes)
+__all__ = [
+    "ResearchCycleExecution",
+    "ResearchCycleRequest",
+    "research_cycle_execution_payload",
+    "run_research_cycle",
+]
 
 
 def run_research_cycle(
@@ -125,8 +81,8 @@ def run_research_cycle(
         sleep_fn=sleep_fn,
     )
     latest_digest = executions[-1].digest if executions else {}
-    execution_policy = _execution_policy_payload()
-    digest_replay = _research_digest_replay(
+    execution_policy = execution_policy_payload()
+    digest_replay = research_digest_replay(
         settings=settings,
         resolved=resolved,
         executions=executions,
@@ -136,7 +92,7 @@ def run_research_cycle(
     )
     if resolved.persist:
         write_research_digest_replay(settings, digest_replay)
-    return _research_cycle_run_payload(
+    return research_cycle_run_payload(
         plan=plan,
         resolved=resolved,
         executions=executions,
@@ -147,90 +103,10 @@ def run_research_cycle(
     )
 
 
-def research_cycle_execution_payload(
-    execution: ResearchCycleExecution,
-) -> dict[str, object]:
-    """
-    Convert a ResearchCycleExecution dataclass into a JSON-serializable payload.
-
-    Parameters:
-        execution (ResearchCycleExecution): The execution dataclass instance to convert.
-
-    Returns:
-        payload (dict[str, object]): A dictionary representation of the execution suitable for JSON serialization and inclusion in replay artifacts or API responses.
-    """
-    return dataclass_payload(execution)
-
-
-def _research_digest_replay(
-    *,
-    settings: Settings,
-    resolved: _ResolvedResearchCycleRequest,
-    executions: list[ResearchCycleExecution],
-    latest_digest: dict[str, object],
-    execution_policy: dict[str, bool],
-    operator_control: ResearchCycleOperatorControl,
-) -> ResearchDigestReplayRecord:
-    return ResearchDigestReplayRecord(
-        artifact_id=f"research-digest-{uuid4()}",
-        generated_at=utc_now_iso(),
-        snapshot_id=_digest_snapshot_id(latest_digest),
-        mode=settings.research_mode,
-        backend=(
-            executions[-1].backend if executions else settings.research_sidecar_backend
-        ),
-        watched_symbols=list(resolved.symbols),
-        digest=dict(latest_digest),
-        executions=[
-            research_cycle_execution_payload(execution) for execution in executions
-        ],
-        execution_policy=execution_policy,
-        operator_control=operator_control,
-        replay_notes=[
-            "artifact_replays_operator_digest_only",
-            "raw_web_text_is_not_included",
-            "broker_or_proposal_authority_is_disabled",
-        ],
-    )
-
-
-def _digest_snapshot_id(latest_digest: dict[str, object]) -> str | None:
-    value = latest_digest.get("snapshot_id")
-    return str(value) if value is not None else None
-
-
-def _research_cycle_run_payload(
-    *,
-    plan: dict[str, object],
-    resolved: _ResolvedResearchCycleRequest,
-    executions: list[ResearchCycleExecution],
-    execution_policy: dict[str, bool],
-    operator_control: ResearchCycleOperatorControl,
-    digest_replay: ResearchDigestReplayRecord,
-    latest_digest: dict[str, object],
-) -> dict[str, object]:
-    return {
-        "cycle": "research-cycle-run",
-        "plan": plan,
-        "requested_cycles": resolved.requested_cycles,
-        "executed_cycles": len(executions),
-        "cadence_seconds": resolved.safe_cadence,
-        "persisted": resolved.persist,
-        "sleep_between_cycles": resolved.sleep_between_cycles,
-        "execution_policy": execution_policy,
-        "operator_control": operator_control.model_dump(mode="json"),
-        "digest_replay": digest_replay.model_dump(mode="json"),
-        "latest_digest": latest_digest,
-        "executions": [
-            research_cycle_execution_payload(execution) for execution in executions
-        ],
-    }
-
-
 def _execute_research_cycles(
     *,
     settings: Settings,
-    resolved: _ResolvedResearchCycleRequest,
+    resolved: ResolvedResearchCycleRequest,
     prior_snapshot: ResearchSnapshotRecord | None,
     prior_digest_available: bool,
     sleep_fn: SleepFn,
@@ -277,7 +153,7 @@ def _execute_research_cycles(
 def _run_one_research_cycle(
     *,
     settings: Settings,
-    resolved: _ResolvedResearchCycleRequest,
+    resolved: ResolvedResearchCycleRequest,
     cycle_index: int,
     previous_source_health: dict[str, int],
     previous_snapshot_id: str | None,
@@ -363,7 +239,7 @@ def _resolve_research_cycle_request(
     max_proposals_per_cycle: int,
     persist: bool,
     sleep_between_cycles: bool,
-) -> _ResolvedResearchCycleRequest:
+) -> ResolvedResearchCycleRequest:
     """
     Resolve and normalize a research cycle request into a safe, validated internal request.
 
@@ -379,7 +255,7 @@ def _resolve_research_cycle_request(
         sleep_between_cycles (bool): Whether to sleep between cycles (used when `request` is not provided).
 
     Returns:
-        _ResolvedResearchCycleRequest: Normalized request with cleaned symbols, the original requested cycles, `safe_cycles` clamped to 1–24, `safe_cadence` clamped to at least 1, and other fields forwarded.
+        ResolvedResearchCycleRequest: Normalized request with cleaned symbols, the original requested cycles, `safe_cycles` clamped to 1–24, `safe_cadence` clamped to at least 1, and other fields forwarded.
 
     Raises:
         ValueError: If both `request` and `symbols` are provided, or if no valid symbols remain after cleaning.
@@ -397,7 +273,7 @@ def _resolve_research_cycle_request(
     clean_symbols = _clean_research_symbols(resolved_request.symbols)
     if not clean_symbols:
         raise ValueError("symbols must contain at least one non-empty symbol")
-    return _ResolvedResearchCycleRequest(
+    return ResolvedResearchCycleRequest(
         symbols=clean_symbols,
         requested_cycles=resolved_request.cycles,
         safe_cycles=max(1, min(resolved_request.cycles, 24)),
@@ -539,16 +415,6 @@ def _research_cycle_notes(
     if not settings.research_sidecar_enabled or settings.research_mode == "off":
         notes.append("research_sidecar_disabled")
     return notes
-
-
-def _execution_policy_payload() -> dict[str, bool]:
-    return {
-        "broker_access": False,
-        "proposal_approval": False,
-        "proposal_creation": False,
-        "raw_web_text_in_core_prompt": False,
-        "manual_review_required": True,
-    }
 
 
 def _iso_after(iso_value: str, seconds: int) -> str:
